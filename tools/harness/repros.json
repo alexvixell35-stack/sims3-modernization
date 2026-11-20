@@ -98632,6 +98632,79 @@
     ]
   },
   {
+    "id": "fire-greet-lockout",
+    "bug": "Firefighter emergency: the burning lot locks the firefighter out. EA greets only via Respond to Emergency, large-fire setup (the selected Sim) and small-fire placement, and drops a household's greeting as soon as no family Sim is inside the lot, so stepping out once (e.g. carrying a child out of the front door) or arriving another way leaves the doors locked (docs/681)",
+    "fix": "ts3fixes FireGreet.cs: firegreet (default off), docs/681",
+    "save": "any world (pure check)",
+    "note": "FireGreetCheck 'run' puts the reported case through the greet decision with controls (read-only) and prints the live emergency if one is on. End to end: firefighter household, emergency set up, step the firefighter off the lot with no family Sim inside, step back: 'result' shows 1494 rising and the doors open.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firegreet": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firegreet": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firegreet": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "fire-trap-count",
     "bug": "Firefighter large fire / earthquake: a trapped Sim who leaves the lot (or is deleted) unfreed keeps its 'free N Sims' task, and on apartment lots trap spots include hidden neighbour units nobody can enter; the count cannot be met and the job times out (docs/570 §5)",
     "fix": "ts3fixes FireTrapCount.cs: firetrapcount (default off), docs/570 §5",
@@ -112980,6 +113053,395 @@
       }
     ],
     "expect": "no 'FAIL door memo x'; 'door memo x misses:' line with '(live, not kept)' > 0 (held asks happened) and hits > 0 elsewhere; household door answers live (exempt count > 0); no script errors"
+  },
+  {
+    "id": "untr-oldsave-saves",
+    "bug": "docs/215 G1/G2: ~270 MB untracked private (16 MB blocks, some first seen at saves), an 86.8 MB pagefile view at a save, 42-125 MB reservations with no game frame",
+    "fix": "none (measurement): AllocSites untr rows at marks + a WPR VirtualAlloc/MapFile trace with stacks (tools/etw/untr.wprp, docs/215 §5.1); run once with AllocSites on and once off",
+    "save": "1111 kit5",
+    "note": "Contributor run (Dalexlol): his old save with his CC; the scratch save is Untr-Scratch. 3 saves, 2 Build mode cycles, a mark before and after each.",
+    "expect": "8+ allocsites mark rows with usum/untr; match each new untr base to a VirtualAlloc/MapFile event in the ETL",
+    "steps": [
+      {
+        "cmd": "time",
+        "waitS": 45,
+        "note": "lead-in after the load"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "untr-start"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "natural play, block 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pre-save1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Untr-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 1"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "post-save1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 20,
+        "note": "build mode on"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-in1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 20,
+        "note": "build mode off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-out1"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "natural play, block 2"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pre-save2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Untr-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 2"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "post-save2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 20,
+        "note": "build mode on"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-in2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 20,
+        "note": "build mode off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "build-out2"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "time",
+        "waitS": 240,
+        "note": "natural play, block 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pre-save3"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "Untr-Scratch"
+        },
+        "waitS": 60,
+        "note": "save 3"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "post-save3"
+        },
+        "waitS": 3
+      }
+    ]
+  },
+  {
+    "id": "ip-neighbourmemo-crowd",
+    "bug": "docs/663 §2: the in-room cell A* is 18.8% of PlanHierarchical time on 2026-11-19 (216,685 ms over 287,458 cell searches, 11 runs) and 44.4% near hitches; every search re-expands the same cells, and QuadCell_Neighbours 0x66B9C0 rebuilds the same neighbour list each time (climb, mirror, table find per side)",
+    "fix": "ts3native [RouteSpeed] NeighbourMemo (default 0): per-thread memo (cell, Q) -> neighbour list until Q's table clear 0x61C020 or a quadtree / lot-structure write ([RouteSnap] writer rows); served answer = the same cells, order and references (docs/663 §4)",
+    "save": "Baseline-IP-Spring",
+    "note": "Run in game 2026-11-20 only inside the route storm bundle (docs/668): shadow s143 (105,102 checks, 0 mismatches), serve s144 / s146; this repro itself not run yet. Job ini must have [RouteSpeed] NeighbourMemo=2 (shadow: hooks installed, the game's function always runs); [RouteSnap] counting is turned on by the NeighbourMemo key. Arms flip the runtime mode by export (native_set neighbourmemo: off = 0, on = 1 serve). Read per arm: the 'route speed: neighbour memo' line (hits, stores, saved ~ms) and, in a shadow-only pass first, mismatch 0. Crowd: unseen townies across the island (boats, gangways, lot legs).",
+    "expect": "shadow pass: nmChecks > 0 and nmMismatch 0, no NEIGHBOUR MEMO MISMATCH line. on arms: nmHits > 0, route results (ufplansplit codes, stuck Sims) unchanged; no crash",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "neighbourmemo": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 serve"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 180,
+          "note": "unseen townies route across the island; 3 minutes = 3 counter lines per arm"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "neighbourmemo": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
+    "id": "doorshare-check",
+    "bug": "docs/674: the route worker asks the sim thread whether a Sim may pass a portal once per Sim and door (s159: 17,580 host calls in a 2-min Isla Paradiso storm, 15,942 of DoorMemoX's 18,081 misses had no row because its key holds the Sim); most answers do not depend on the Sim, and nothing told ts3native which",
+    "fix": "ts3fixes DoorShare.cs + DoorShareCore.cs: doorshare (tuning kDoorShare, default off; needs doorgen), UserDiag ops 40 / 41 for ts3native [RouteSnap] DoorShare (docs/674)",
+    "save": "pure part needs no save",
+    "note": "DoorShareCheck run checks the ordinary-class rule, the portal kind rule and the hash / class-bit encoding shared with ts3native (same vectors as native/ts3native/doorshare-test.h) with controls; result shows what was sent this session (class ops, notes by kind, lots or event 59 with other handlers) and the hooks' live state. The switch is read at every plan. In-game effect: repro ip-doorshare-storm",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: nothing is marked"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the rules and the encoding"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-doorshare-storm",
+    "bug": "docs/674: in the s159 storm (Isla Paradiso, 2 min) the route worker made 17,580 host calls (door asks, World event 59) under its +0x918 hold, 13,465 of them outside PlanHierarchical (the goal step's lot search), and waited 6.1-9.5 s for the sim thread to answer them; DoorMemoX answered 10,672 asks and missed 18,081 (15,942 with no row: its key holds the asking Sim and a row lives 250 ms)",
+    "fix": "ts3native [RouteSnap] DoorShare=1 (default 0; DoorShareMs, DoorShareCheck, DoorShareHousehold) with ts3fixes doorshare (default off) and doorgen (on): a door answer that does not depend on the Sim is shared by every ordinary-class Sim until the door generation moves (docs/674)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of doorshare.cpp, ts3fixes built with Roslyn, C# core selftest). v1 (one generation) ran 2026-11-20: s163 shadow 3260 checks, s164 answer 692 checks, 0 mismatches, hostCalls 18510 -> 14789; v2 (stamps per portal owner / lot, no-actor class; docs/674 §9) is UNVERIFIED and needs the ts3fixes package of the same build. Arms on the s159 on-arm ini plus [RouteJobPhases] HoldProbe=1 HostSplit=1, [RouteSnap] DoorShareMs=60000 DoorShareCheck=32: (A) DoorShare=2 with ts3fixes doorshare on = shadow, every row compared, nothing answered: the baseline and the exactness check; (B) DoorShare=1; (C) B plus DoorShareHousehold=1. the first step turns ts3fixes doorshare on (read at every plan); doorgen must be on at world load (its default)",
+    "expect": "'OK   door share: DoorShare=1' and 'door memo x: ts3fixes doorgen armed'. After the storm: a 'door share:' line with ts3fixes class ops and notes > 0, door asks about answered + live asks, 'answered' a large share of the asks of an ordinary-class job, 'checks' > 0 and 'mismatch 0'; no 'FAIL door share' line; 'door share misses: ... a stamp moved' in the hundreds (v1: 11434), 'door share changes:' with 'everything' near 0 after the load, a 'door share changes by portal IC:' line and a 'door share no class:' line. Arm A: answered 0, checks > 0, mismatch 0. 'route plans: ... hostCalls' and 'route task serve ... served' well below arm A; 'worker hold parts' host ms before the plan lower; the sim's +0x918 waits in 'hitch totals' not higher. No crash, no stuck Sim, the same plans and fails as arm A within storm noise. Arm C: 'household / unknown scope' 0, and 'player command' > 0 only after a Go Here click",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": true
+        },
+        "note": "ts3fixes sends classes and notes from the next plan on (doorgen must have been on at world load)",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-holdoutside-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "what ts3fixes sent"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        }
+      }
+    ]
   },
   {
     "id": "sweep-ep1",

@@ -107,7 +107,7 @@ export const IGNORE_FILE: Record<string, string[]> = { GC: ["memexp.cpp"] };
 const RG = ["RouteGate", "RouteAsync"];
 export const DEPENDS: Record<string, string[]> = {
     RouteGate: ["RouteAsync"], RouteAsync: ["RouteGate"], Discourage: RG, RouteSnap: RG, Watchpoint: ["RouteSnap"],
-    SteerRO: RG, FpRebuildLock: RG, LotFrontDoorRO: RG, ObstructedRO: RG, AvoidRO: RG, RouteToObjRO: [...RG, "SlotEnabledRO"], PlacementRO: RG,
+    SteerRO: RG, FpRebuildLock: RG, LotFrontDoorRO: RG, ObstructedRO: RG, AvoidRO: RG, RouteToObjRO: [...RG, "SlotEnabledRO"], PlacementRO: RG, PlaceTestRO: RG, EditPathRO: RG, ConnRoomsRO: RG,
     GoalValidRO: RG, IdleCheckRO: RG, SlotEnabledRO: RG, Gate0RO: RG, ProbeP1b: RG, LocoWindow: RG, ProbeP10: RG,
     UnseenProbe: ["RouteAsync"], UnseenThrottle: ["RouteAsync"], UnseenFallback: ["RouteAsync"], HitchAttr: ["RouteAsync"],
     CellMemoProbe: ["RouteJobPhases"], SaveFlush: ["SaveWrite"], Compaction: ["UserDiag", "SaveWrite"], MemDiag: ["UserDiag"], AutShadow: ["MonoThread", "RouteSnap"],

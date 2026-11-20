@@ -13275,6 +13275,7 @@ static void TestP5() {
 #include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
 #include "modtime-test.h"  // TestModTime ([Diag] ModTime, docs/298)
 #include "pccheck-test.h"  // TestPcCheck ([PcCheck], docs/299)
+#include "hitchsum-test.h"    // TestStallWatchDeep, TestHitchSum (docs/666 §5)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
 #include "unseencost-test.h"  // TestUnseenCost ([UnseenCost] probe, docs/227)
@@ -13344,11 +13345,19 @@ static void TestP5() {
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
 #include "taskseam-test.h"  // TestTaskSeam ([Diag] TaskSeam, docs/308)
+#include "routespeed-test.h"  // TestRouteSpeed ([RouteSpeed] NeighbourMemo, docs/663)
+#include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
+#include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
+#include "fglprof-stub-test.h"   // TestFglProfStubs: the trampolines against cdecl and ret-4 fakes
+#include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
+#include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
+#include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
 #include "fgro-test.h"   // TestPlacementRO ([PlacementRO], docs/174)
 #include "gvro-test.h"   // TestGoalValidRO ([GoalValidRO], docs/178 §7 T6)
+#include "gvhits-test.h" // TestGoalHitsRO ([GoalValidRO] Hits, docs/670 §11; uses gvro-test.h fakes)
 #include "fsro-test.h"
 #include "idlero-test.h"  // TestIdleCheckRO ([IdleCheckRO], docs/178 §8)
 #include "icc-test.h"     // TestIdleCheckC ([IdleCheckRO] SiteC, docs/195 §4 C1; uses gvro-test.h fakes)
@@ -14840,6 +14849,8 @@ int main() {
     TestStallWatch();
     TestModTime();
     TestPcCheck();
+    TestStallWatchDeep();
+    TestHitchSum();
     TestUnseenRootMotion();
     TestUnseenRootMotion2();
     TestUnseenTable();
@@ -14925,11 +14936,21 @@ int main() {
     TestPlanDeadline();
     TestTaskServe();  // docs/637
     TestTaskSeam();   // docs/308
+    TestRouteSpeed();  // docs/663
+    TestPlaceCore();   // docs/670
+    TestPlaceTestRO();
+    TestFglProfCore();   // docs/671
+    TestFglProfStubs();
+    TestFglFacing();   // docs/671 §10
+    TestEditPathRO();  // docs/670 §8
+    TestConnRoomsRO();  // docs/670 §15
+    TestDoorShare();   // docs/674
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();
     TestPlacementRO();
     TestGoalValidRO();
+    TestGoalHitsRO();  // docs/670 §11
     TestGvAttr();
     TestGvAttrNoLater();  // docs/250 §13.3, §12.3 (v189)
     TestGvUnseen();       // docs/250 §7.3 B2 (v189)

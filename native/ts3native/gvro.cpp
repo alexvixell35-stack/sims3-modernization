@@ -20,6 +20,9 @@
 // flush, pin moved, unknown slot, buffer limit, tripwire, job end, mode != 0, vec not empty, footprints found) calls the
 // game's 0x82EDB0. Shadow (no job): the game's call, then the clone, compared (al and footprint count).
 // Counters v118 (+0x47DC): gvMode (+0x47E0, --ab goalvalidro), gvShadow (+0x47E4, --ab goalvalidroshadow).
+// Hits / HitsShadow (docs/670 §11, gvhits.cpp): with Hits=1 the footprints-found calls run the validator's own hit loop on
+// the clone inside the QL hold (GvhVisit) instead of going back to the game; the call site then goes through GvThunk, which
+// hands the validator's ebp to GvStub in edx.
 
 static const DWORD GV_SITE = TS3A(0x0075A647), GV_TARGET = TS3A(0x0082EDB0);
 typedef DWORD(__fastcall* GvFn)(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt);  // ret 0x14
@@ -94,13 +97,19 @@ static int GvFbIdx(int why) {  // also [IdleCheckRO] SiteC (idlero.cpp)
 static void GvFallback(int why) { InterlockedIncrement(&ts3native_counters.gvFb[GvFbIdx(why)]); }
 
 static volatile LONG g_gvNoted;
-static DWORD GvShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
+// ebp / retSlot (HitsShadow, gvhits.cpp): the validator's frame, or ebp NULL; the loop's prediction on the clone's list is
+// left for the observer stubs, which see what the game's own loop did with its vector
+static DWORD GvShadow(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt, const u8* ebp = NULL,
+                      const void* retSlot = NULL) {
     Ts3nCounters& k = ts3native_counters;
     const DWORD a = g_gvOrig(world, edx, pt, r, vec, mode, opt);
     const int size = (int)((vec[1] - vec[0]) / 4);  // the game's copy: sorted, unique footprint refs
     bool lot = false;
-    int n = 0;
-    const int why = mode ? SR_FB_STATE : GvRun(world, pt, r, opt, false, &lot, &n);
+    int n = 0, ans = 0;
+    static GvhCall g;  // owner thread only
+    const bool hits = ebp && !mode && (u8)a && size && GvhArm(retSlot, ebp, pt, vec, opt, &g);
+    const int why = mode ? SR_FB_STATE : GvRun(world, pt, r, opt, false, &lot, &n, hits ? GvhVisit : NULL, &g, &ans);
+    if (!why && hits && n == size) GvhPredict(g, ans);
     InterlockedIncrement(&k.gvShadowRuns);
     if (why) { GvFallback(why); return a; }
     if (!(u8)a || !size) InterlockedIncrement(&k.gvShadowEmpty);  // what Mode 1 would answer without the game
@@ -184,20 +193,26 @@ static DWORD GvaOrig(u8* world, void* edx, const float* pt, float r, DWORD* vec,
     return a;
 }
 
+static const void* g_gvhTestSlot;  // selftest: the return slot of a fake validator frame (GvStub's own is not the game's)
 static DWORD __fastcall GvStub(u8* world, void* edx, const float* pt, float r, DWORD* vec, DWORD mode, DWORD opt) {
     Ts3nCounters& k = ts3native_counters;
+    GoalHitsRoCounters& h = ts3native_goalhitsro;
     const StubKey sk(GV_SITE + 5);  // probe P0: the game's calls below keep the site's key
     const DWORD tid = GetCurrentThreadId();
+    void* const retSlot = g_gvhTestSlot ? (void*)g_gvhTestSlot : _AddressOfReturnAddress();
+    const u8* const ebp = h.gvhReady ? (const u8*)edx : NULL;  // GvThunk: the validator's frame pointer
+    const bool hShadow = h.gvhReady == 2 && h.gvhShadow;
     if (k.gvaMode == 1 && tid == g_async.owner) {
         if (g_asInStart) InterlockedIncrement(&k.gvaAtStart);
         if (g_async.state == A_RUNNING) InterlockedIncrement(&k.gvaSrcN[g_gvaSrc]);
     }
-    if ((!k.gvMode && !k.gvShadow) || tid != g_async.owner) return GvaOrig(world, edx, pt, r, vec, mode, opt);
+    if ((!k.gvMode && !k.gvShadow && !hShadow) || tid != g_async.owner) return GvaOrig(world, edx, pt, r, vec, mode, opt);
     InterlockedIncrement(&k.gvCalls);
     if (g_async.state != A_RUNNING) {
-        if (!k.gvShadow) return GvaOrig(world, edx, pt, r, vec, mode, opt);
+        if (!k.gvShadow && !hShadow) return GvaOrig(world, edx, pt, r, vec, mode, opt);
         InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
-        const DWORD a = g_async.state == A_RUNNING ? g_gvOrig(world, edx, pt, r, vec, mode, opt) : GvShadow(world, edx, pt, r, vec, mode, opt);
+        const DWORD a = g_async.state == A_RUNNING ? g_gvOrig(world, edx, pt, r, vec, mode, opt)
+                                                   : GvShadow(world, edx, pt, r, vec, mode, opt, hShadow ? ebp : NULL, retSlot);
         RgOffSimDrop();
         return a;
     }
@@ -209,8 +224,10 @@ static DWORD __fastcall GvStub(u8* world, void* edx, const float* pt, float r, D
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
         bool lot;
-        int n;
-        why = GvRun(world, pt, r, opt, true, &lot, &n);
+        int n, ans = 0;
+        static GvhCall g;  // owner thread only
+        const bool hits = h.gvhReady && h.gvhMode && GvhArm(retSlot, ebp, pt, vec, opt, &g);
+        why = GvRun(world, pt, r, opt, true, &lot, &n, hits ? GvhVisit : NULL, &g, &ans);
         if (!why && !n) {
             const LONG us = UsSince(t0);
             InterlockedIncrement(&k.gvTaken);
@@ -219,6 +236,13 @@ static DWORD __fastcall GvStub(u8* world, void* edx, const float* pt, float r, D
             InterlockedExchangeAdd(&k.gvUs, us);
             Max(&k.gvMaxUs, us);
             return lot ? 1 : 0;
+        }
+        if (!why && hits && GvhFinish(g, ans, t0)) {  // Hits: the validator's loop already ran on the clone, its writes are in
+            MwSkip(MW_GV);
+            // the loop's end: al 1 and the vector still empty, the game goes on at 0x75A939 as after an empty answer;
+            // LEAVE: the exit's second step instead of 0x75A64C (GvhFrame checked that slot)
+            if (ans == GVH_LEAVE) *(DWORD*)retSlot = GVH_LEAVE_AT;
+            return 1;
         }
         if (!why) {  // footprints near the point: the hit loop needs the game's refs
             InterlockedIncrement(&k.gvFb[GV_FB_HITS]);
@@ -229,7 +253,23 @@ static DWORD __fastcall GvStub(u8* world, void* edx, const float* pt, float r, D
     return GvaOrig(world, edx, pt, r, vec, mode, opt);
 }
 
+// [GoalValidRO] Hits: the call site's target when the hit loop clone is installed. ecx and the stack are GvStub's own
+// (thiscall world, five arguments); edx is free at a thiscall site and carries the validator's ebp.
+static __declspec(naked) void GvThunk() {
+    __asm {
+        mov edx, ebp
+        jmp GvStub
+    }
+}
 static const CallSite kGvSite = {GV_SITE, GV_TARGET, (void*)GvStub};
+static const CallSite kGvThunkSite = {GV_SITE, GV_TARGET, (void*)GvThunk};
+static bool GvhMayInstall() {
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP goal hits RO: no EA 1.69 address, docs/670 §11"); return false; }
+#endif
+    if (!GvhCodeOk()) { Log("SKIP goal hits RO: GoalPoint_Validate's hit loop is not the code read (docs/670 §11)"); return false; }
+    return true;
+}
 
 // [GoalValidRO] Enabled=1: needs [RouteGate] Enforce=1 with the async path and the S2 writer set (QL, W1-W6, tripwires)
 static void InstallGoalValidRO(const wchar_t* ini) {
@@ -241,7 +281,19 @@ static void InstallGoalValidRO(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"GoalValidRO", L"Enabled", 0, ini)) { Log("goal validation RO off (Enabled=0)"); return; }
     if (!k.rgEnforce || !k.asyncReady) { Log("SKIP goal validation RO: needs [RouteGate] Enforce=1 with the async path"); return; }
     if (!InstallSrWriters()) { Log("SKIP goal validation RO: the S2 writer set (W1-W6, W4, tripwires) is not all in place"); return; }
-    if (!PatchCalls("goal validation RO (0x759B20 -> ObstacleQuery)", &kGvSite, 1)) return;
+    GoalHitsRoCounters& h = ts3native_goalhitsro;
+    const LONG hits = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"Hits", 0, ini), 0, 1);
+    const LONG hitsShadow = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"HitsShadow", 0, ini), 0, 1);
+    const bool thunk = (hits || hitsShadow) && GvhMayInstall();  // before any write: the code hash covers the observer sites
+    if (!PatchCalls("goal validation RO (0x759B20 -> ObstacleQuery)", thunk ? &kGvThunkSite : &kGvSite, 1)) return;
+    if (thunk) {
+        if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+        const bool obs = hitsShadow && PatchCalls("goal hits RO observers (the loop's end, LEAVE)", kGvhObservers, 2);
+        h.gvhMode = hits;
+        h.gvhShadow = obs ? 1 : 0;
+        h.gvhReady = obs ? 2 : 1;
+        Log("OK   goal hits RO: the validator's hit loop on the clone (Hits=%ld HitsShadow=%ld)", h.gvhMode, h.gvhShadow);
+    }
     k.gvMode = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"Mode", 1, ini), 0, 1);
     k.gvShadow = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"Shadow", 0, ini), 0, 1);
     k.gvaMode = Clamp(GetPrivateProfileIntW(L"GoalValidRO", L"Attr", 0, ini), 0, 1);

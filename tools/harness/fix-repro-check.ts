@@ -125,7 +125,6 @@ export const EXEMPT: Record<string, string> = {
   // 2026-11-17: these were missing from the agent's names list (so no repro could set them); exempt until a repro lands
   asyncroute: 'async route plans, on since docs/18 (ts3native [RouteAsync]): judged by every timing/correctness job, which runs it on by default; no forced repro',
   autt2local: 'docs/276 rank 5 piece 2: HouseholdToo local exact path (AutShadowLocalCore.cs), nothing reads it before piece 3; needs [Experimental] HouseholdToo=1',
-  doorgen: 'Dalexlol PR #430 (docs/585): bumps ts3native door generation for DoorMemoX=3; judged by his harness evidence and the DoorMemo selftest, no forced repro',
   eventcost: DIAG + ' (docs/545 §5, EventTracker.ProcessEvent timing; ts3agent event_cost turns it on)',
   gm6trace: DIAG + ' (AutShadow.cs IL trace of bad methods)',
   safespotdedupe: 'Dalexlol #511: ON 2026-11-20 on his 17-job soak counters (5,854 repeats stopped), a search shortcut for unseen townies, no forced repro',

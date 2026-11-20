@@ -36,10 +36,10 @@ Sizes: travel job first -> last sample, then the CC / BB end values. "Survives r
 | 3a | ... from **resource reads**: `PackedStream/Raw` `0x72D385` 48-64, `PackedStream/DecompressedRecordData` `0x72D62B` 64-96, `EAStreamMemory/data` `0x4DEC17` 0-48 | 112-192 | all PackedStream cores exist at the first sample (world load) and never grow; `EAStreamMemory` cores +16-32 in play; heap churn at `0x4DEC17` 10.5 GB alloc / 10.5 GB free in 530 s travel (~20 MB/s), 20.1 GB in the CC job; live 1-20 MB [measured] | no: load-time peak (concurrent async reads at world load) | `OpenRecord 0x4A94C0` -> read + decompress `0x4A8380` -> `0x4A7360`, by resource key; the factory parses the stream, the buffers are freed [verified docs/08 §0, docs/39]; some streams stay with their resource (the 1-20 MB live) | **movable via API** (transient buffers); the kept streams stay |
 | 3b | ... from **animation clips** `Animation/ClipResource` `0x57A593` | 48-112 | +16-48 per run; clip heap churn 135 MB alloc / 132 freed (travel) | yes: more Sims animating = more | animation players hold clip pointers while playing [inferred docs/22]; `AnimationCache` capped at 15 MB already [verified docs/08] | **not movable** (cap exists) |
 | 3c | ... from **unnamed sites**: `0x5C32E2` (caller in the lot imposter block) 48-80, EASTL allocator `0x626C9A` 32 | 80-112 | grows with lots shown / Buy cycles [measured BB] | unknown | unknown | **unknown** (gap G3) |
-| 4 | **Untracked private** (no allocation record at the base, `usum`/`untr` rows) | 271-283 in 73-84 allocations | 16 MB blocks cut the largest free block at saves (`save-start traveling` #2, #17) and Build cycles | yes: saves and Build mode | unknown owner; not seen by the 32-bit ntdll stubs [measured docs/201 §14] | **unknown** (gap G1); save buffers would be movable [inferred] |
+| 4 | **Untracked private** (no allocation record at the base, `usum`/`untr` rows) | 271-283 in 73-84 allocations | 16 MB blocks cut the largest free block at saves (`save-start traveling` #2, #17) and Build cycles | yes: saves and Build mode | not seen by the 32-bit ntdll stubs [measured docs/201 §14]: the kernel graphics driver (`dxgkrnl`) creates them for the Vulkan drivers' `dxcore` calls [measured §5.1] | **renderer** (joins row 2); on hybrid laptops the second GPU's driver part is avoidable (§5.1) |
 | 5 | **Mono native heap**: `Scripting/Simulator` sub-heap cores (`0xD71558`, direct blocks 73 -> 98) with the Mono runtime `g_malloc` (`0xD70A22`, 77 -> 97 inside them) | ~100 (BB ~106) | +12-25 per run, +13 on the first world switch [measured] | no | metadata, classes, vtables, transformed method code, all pointer-linked; interpreter frames point into them [verified docs/58, 119, 130] | **not movable** |
 | 6 | **Thread stacks** | ~99-100 reserved (`stkRes`), ~10 committed | flat | no | OS | **not movable** (cap: docs/66 §6.3) |
-| 7 | **Reservations with no game frame** (`virtual - < -`) | 42-125 | flat after load | unknown | unknown (non-game threads: DXVK/driver workers likely [inferred]) | **unknown** (gap G2) |
+| 7 | **Reservations with no game frame** (`virtual - < -`) | 42-125 | flat after load | unknown | the NVIDIA Vulkan driver and Apex's `d3d9` heap segments have their own rows (§5.1); the true `at=- from=-` row is 48 MB [measured §5.1] | **renderer** for the named part, rest unknown (gap G2) |
 | 8 | **S3SS mimalloc arena** (`Sims3SettingsSetter.asi+0xDE986`) | 64 | flat | no | every MSVCR80 `malloc` user; raw pointers | **not movable** (reserve size: docs/66 #3) |
 | 9 | **Pagefile-backed view at save** | 86.8 (travel save) | appears at `save-start`, first seen #2 | yes: saves only | unknown section owner (Apex not loaded) | **unknown** (gap G1) |
 | 10 | **String tables (STBL)** | ~20 with S3PP's bucket fix (~90 stock, up to ~290 big setups [community]) | flat after load | grows with installed packs | `LocStrSvc_GetString_A 0x59C5B0`: linear walk, then a tagged heap copy and a new `MonoString`: **copies out** [verified docs/54] | **movable via API** |
@@ -91,10 +91,70 @@ Go when: peak concurrent read-buffer bytes at load >= ~80 MB and play-time calls
 
 | # | Gap | Why it matters | Closing step |
 |---|---|---|---|
-| G1 | 271-283 MB untracked private (16 MB blocks at saves and Build cycles) and the 86.8 MB pagefile view at a save have no owner | could be the save writer (movable) or kernel/WoW64-side allocations (not) | docs/201 §14.5: the `untr` rows of a save with the Ex hooks; a stack at `NtCreateSection` for the save view |
-| G2 | 42-125 MB of reservations with no game frame | likely DXVK/driver workers; would join row 2 | `AsAnyFrames` already records the first frame; add the thread start address per record |
+| G1 | 271-283 MB untracked private (16 MB blocks at saves and Build cycles) and the 86.8 MB pagefile view at a save have no owner | could be the save writer (movable) or kernel/WoW64-side allocations (not) | **mostly closed (§5.1, 2026-11-20):** the private blocks are kernel-made Vulkan driver memory (renderer), not the save writer; still open: the 86.8 MB view at a travel save (not reproduced) |
+| G2 | 42-125 MB of reservations with no game frame | likely DXVK/driver workers; would join row 2 | **mostly closed (§5.1):** NVIDIA driver and Apex `d3d9` reserves are named; the remaining `at=- from=-` row is 48 MB, with candidates only [inferred] |
 | G3 | EA cores from `0x5C32E2` (48-80 MB) and EASTL callers (`0x626C9A`, `0x663802`) | the lot imposter block (`0xAE00C5`) might be a rebuildable cache | one `from=` depth of 2 in AllocSites, or a static read of `0x5C32E2`'s callers |
 | G4 | crossing rates are inferred for every row except routing | the ms/s columns are ranges, not measurements | §4.1 item 3; DXVK HUD; a hit counter on `0x59C5B0` |
 | G5 | owner sums use the top ~40 live rows per sample | every row is a lower bound | AllocSites sum by `at`/`from` over the whole site table at a mark |
 | G6 | stress runs only | clip cores, CAS geometry, the second driver reserve may be smaller in normal play | the same sums from one natural 30-min BP soak with AllocSites |
 | G7 | whether the D3D9 wrapper ever keeps a `Lock` pointer past `Unlock` (persistent dynamic buffers) | breaks the renderer proxy's API rule | static read of the VB/IB lock users in `0x616B00-0x617600` / `0x61A010-0x61A400` (docs/37) |
+
+### 5.1 G1 / G2 owners from kernel stacks (2026-11-20)
+
+**Setup.** One machine: a hybrid laptop, RTX 4070 Laptop GPU plus an AMD Radeon 610M iGPU, with the display on the iGPU. The game-folder `d3d9.dll` (Apex Radiance) renders in process through `vulkan-1.dll` on the NVIDIA GPU in these runs [measured: `d3d9 > vulkan-1 > nvoglv32` stacks]. Also loaded: S3SS, ts3native 0.36.x, a big CC set and an old save. Each job runs 30 min with 3 saves and 2 Build cycles (harness repro: 45 s lead-in, then 3 × [240 s play, `save_game`, `mem_mark` before/after], Build mode on/off after saves 1 and 2).
+
+**Method.**
+- A WPR kernel trace records `VirtualAlloc` / `VirtualFree` and map / unmap view events with stacks, plus image loads (`tools/etw/untr.wprp`).
+- `tools/etw/etlread` (TraceEvent) decodes it into one line per event with module+offset frames.
+- `untr_match.py` matches the AllocSites `untr` rows to their events by base and size. Bases are reused, so size must match too.
+- Two runs:
+  - **untr1** has AllocSites on, which provides the `untr` rows.
+  - **untr2** has AllocSites off. It is needed because the ntdll hook stub has no frame pointer, so with AllocSites on the kernel's 32-bit walk stops at `ts3native+0x2D154`.
+- The process exit frees everything, so "live" means live 10 s before exit.
+- Both runs passed. Stacks below are innermost first, with the OS layers left out.
+
+**G1: untracked private.** At untr1's last sample (`usum private=78/330 MB`), 224 MB of the live untracked blocks were made by `dxgkrnl` for `dxcore` callers [measured]. AllocSites cannot see these: the kernel creates them for the user-mode graphics driver.
+
+| Owner | MB | Stack (untr2) | Notes |
+|---|---|---|---|
+| NVIDIA Vulkan driver (the render GPU) | 96 live in 16 MB chunks; 29 commits = 452 MB and 9 reserves = 144 MB made after load (30 min) | `d3d9+0x1AD620` (also `+0x214BA2`) > `nvoglv32+0x8C48F7` > `dxcore+0x2513C` | These are the "16 MB blocks at saves and Build cycles": one chunk arrives at save 2 [measured]. Vulkan memory the renderer asks for, so it moves with row 2 [inferred]. |
+| AMD Vulkan driver (the iGPU; the game never renders on it) | 96 (3 × 32 MB at ~7.8 s) + 2 × 4; plus the 85.1 MB `amdvlk32.dll` image all session | `amdvlk32+0x3CD0C4` > `dxcore+0x2513C` | The loader loads every Vulkan driver at `vkCreateInstance` (`sims3settingssetter+0x30EFC > d3d9+0x199027 > vulkan-1`). The AMD one is also an implicit layer (`VK_LAYER_AMD_switchable_graphics` in `amdvlk32.dll`). |
+| EA's startup DxDiag probe | 32 live (write-combined), left after the AMD D3D12 / D3D9 user-mode driver unloads | untr1: `ddraw < amdxn32`; untr2: `d3d12core+0x858E6 < amdxc32+0x2466B9` | `TS3W 0x0061270A` calls `dxdiagn` from 8.0 to 12.0 s after start. It creates devices on every adapter: `amdxc32.dll` (69.8 MB) is loaded 9 times, plus `nvwgf2um`, `amdxx32` and the system `d3d9` twice [measured]. About 4 s of startup [measured span]. Whether the game needs this data at every launch: unknown. |
+| ts3native (ours) | 13.5 + 13.4 committed at startup | `ts3native+0x1450B` = `castrim.cpp` `CtAlloc` (0xD80000); `ts3native+0x6798D` = `monojit.cpp` `JitAlloc` (`data + g_jitCodeBytes`, 0xD63000 here) | [verified: frame offset -> disassembly of that build -> source]. Both are on in the release ini (`[CasTrim] Mode=3`, `[MonoJit] Enabled=1`). They count as untracked because they are made before AllocSites' tables exist [inferred]. |
+| user32 / win32k section views | 15.63 at save 1 (`gdi32full+0x8070C < gdi32+0x433C`); 20 at load (`gdi32full+0x46C38 < user32+0x322AC`) | | 15.63 MB = 2560 × 1600 × 4, a screen-size bitmap [inferred from the size]. |
+| NVIDIA shader compiler image | 88.8 (`nvgpucomp32.dll`, mapped by `nvoglv32` at 7.7 s) | `nvoglv32+0xD5176D` | Counts as image, not private; listed because it shows up as a map event. |
+
+**G2: reservations.** In untr1's `save-end` live rows, most of the reservations without a game frame have a named first frame. The owners come from untr2 [measured].
+
+| AllocSites row (`k=virtual`) | live MB (n) | Owner |
+|---|---|---|
+| `at=nvoglv32.dll+0x8DFD8E` | 256.1 (3) | NVIDIA driver reserve. In untr2: 128 MB at device creation (`vulkan-1+0x6C365 < d3d9+0x199027`) and 128 MB at 129 s (`d3d9+0x1786B0`). |
+| `at=ucrtbase.dll+0x2DF5F from=d3d9.dll+0x58B80C` | 79.1 (5), 3600 MB allocated / 3521 MB freed | Heap segments of Apex's `d3d9`, 15.8 MB each, on 6 threads. |
+| `at=d3d9.dll+0x237EF3` | 47.4 (3) | Apex `d3d9` |
+| `at=- from=-` (the actual "no game frame" row) | 48.2 (11), 776 MB allocated / 728 MB freed | Not matched block by block. Live user-mode blocks in untr2 with no game frame add up to about this: `coremessaging < xinput1_4` 8 MB, `d3d9` 13 × 1 MB, `frida-agent` 13 MB (harness only), `amdvlk32+0x265322B` 2 × 4 MB, about 6 MB with no user frame [inferred]. |
+
+**Hybrid-GPU A/B (address space, MB).** A 32-bit test program (`tools/etw/vkva.c`) makes the same Vulkan calls as Apex's `d3d9`: instance, enumerate, one device on the NVIDIA GPU. It prints the used address space after each step. It ran at Medium integrity [measured]:
+
+| Environment | after `vkCreateInstance` | after the NVIDIA device |
+|---|---|---|
+| none | 536.2 | 544.0 |
+| `VK_LOADER_DRIVERS_DISABLE=*amd*` (or `VK_LOADER_DRIVERS_SELECT=*nv*`, or `VK_DRIVER_FILES=<nv-vk32.json>`) | 460.4 | 500.2: `amdvlk32.dll` still loads, as the implicit layer |
+| `DISABLE_LAYER_AMD_SWITCHABLE_GRAPHICS_1=1` only | 536.2 | 544.0 |
+| both | 372.0 | **411.8**: `amdvlk32.dll` not loaded, **132 MB less** |
+
+Caveats:
+- **Elevated processes ignore these loader variables.** From an elevated shell they had no effect; at Medium integrity they worked [measured]. The harness runs the game elevated, so an in-game A/B with the variable set (untr3) still loaded `amdvlk32`. In-game confirmation needs a non-elevated launch.
+- **`*amd*` is only right when another GPU renders.** On an AMD-only machine it removes the only GPU. A fix has to disable only the drivers of adapters that will not render, for example the integrated one when a discrete one exists [inferred].
+- **A probe instance is not free.** After `vkDestroyInstance`, the test still holds 207-241 MB of private reserves. Picking the GPU through a probe instance would cost that much, so it should come from the DXGI adapter list instead [measured].
+- **Where it could go:** the Apex launcher's environment for TS3W, or ts3native at asi load. ts3native would call `SetEnvironmentVariable` before `d3d9` creates the instance: the asi loads at ~5.8 s and `vulkan-1` at ~5.9 s [measured times; not built].
+
+**Not reproduced:** the 86.8 MB pagefile view at a travel save. These runs had no travel.
+
+**Tools** (`tools/etw/`; needs an elevated shell for WPR):
+1. Record: `wpr -start tools\etw\untr.wprp!Untr -filemode`, run the job, then `wpr -stop out.etl` (~0.6 GB for 30 min).
+2. Decode: `dotnet run --project tools/etw/etlread -- out.etl TS3W 1048576 > ev.txt`. Add ` mods` at the end for the image list.
+3. Analyse:
+   - `python tools/etw/untr_match.py ev.txt ts3native.log [cut ms]` matches the `untr` rows and sums live blocks by owner.
+   - `untr_g2.py ev.txt <cut ms> [MB]` lists live blocks with no TS3W frame.
+   - `untr_groups.py ev.txt <after ms> [MB]` groups big blocks by caller.
+4. Hybrid A/B: build `vkva.c` with `cl /O1 vkva.c /link /LARGEADDRESSAWARE` from an x86 VS prompt, and run it non-elevated.

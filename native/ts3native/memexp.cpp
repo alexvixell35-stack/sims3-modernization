@@ -486,7 +486,9 @@ static int __cdecl MxStep(void* stop) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const int r = g_mxStepOrig(stop);
-    InterlockedExchangeAdd64(&g_shGcUs, UsSince(t0));
+    const LONG us = UsSince(t0);
+    InterlockedExchangeAdd64(&g_shGcUs, us);
+    if (g_hsOn) HsGc(us);  // docs/666: the frame's GC time
     return r;
 }
 
@@ -503,7 +505,9 @@ static int __cdecl MxCoe(DWORD needed, int ignoreOffPage) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const int r = g_mxCoeOrig(needed, ignoreOffPage);
-    InterlockedExchangeAdd64(&g_shGcUs, UsSince(t0));
+    const LONG us = UsSince(t0);
+    InterlockedExchangeAdd64(&g_shGcUs, us);
+    if (g_hsOn) HsGc(us);  // docs/666
     k.sqForced++, g_shForcedSince++;
     return r;
 }

@@ -116,10 +116,29 @@ namespace Ts3Fixes
             try { DiagSend(kDoorGenOp, (uint)lot.LotId, held ? (ushort)1 : (ushort)2); } catch (Exception) { }
         }
 
-        static void DoorGenBump()
+        // src = DoorShareCore.kSrc* (which input changed), id = the door's object id or the lot id it changed on (0 = neither).
+        // ts3native bumps DoorMemoX's generation on every one and DoorShare's per door, per lot or not at all by the source
+        // (docs/674 §9; native/ts3native/doorshare-core.h DsSrcScope). No PatchCounters slot: ts3native counts them by source.
+        static void DoorGenBump(int src, ulong id)
         {
             if (!sDoorGenOn) return;
-            DoorGenSend(0);  // no PatchCounters slot: ts3native counts the bumps (dmx script generation in its log line)
+            try { DiagSend(kDoorGenOp, id != 0 ? DoorShareCore.IdHash(id) : 0u, (ushort)(DoorShareCore.kSrcOpBase + src)); } catch (Exception) { }  // hi 1 / 2 are DoorGenHold's
+        }
+
+        static void DoorGenBumpDoor(int src, object door)
+        {
+            if (!sDoorGenOn) return;
+            ulong id = 0;
+            try { id = ((CommonDoor)door).ObjectId.Value; } catch (Exception) { }
+            DoorGenBump(id != 0 ? src : DoorShareCore.kSrcUnknown, id);  // no id: every row goes
+        }
+
+        static void DoorGenBumpLot(int src, object lot)
+        {
+            if (!sDoorGenOn) return;
+            ulong id = 0;
+            try { id = ((Lot)lot).LotId; } catch (Exception) { }
+            DoorGenBump(id != 0 ? src : DoorShareCore.kSrcUnknown, id);
         }
 
         static void DoorGenSend(uint lo)
@@ -129,51 +148,51 @@ namespace Ts3Fixes
 
         public class DoorGenDoorHook
         {
-            public void Lock2Hook(CommonDoor.tLock t, SimDescription o) { Lock2Orig(t, o); DoorGenBump(); }
+            public void Lock2Hook(CommonDoor.tLock t, SimDescription o) { Lock2Orig(t, o); DoorGenBumpDoor(DoorShareCore.kSrcLock, this); }
             public void Lock2Orig(CommonDoor.tLock t, SimDescription o) { }
-            public void Lock3Hook(CommonDoor.tLock t, SimDescription o, int room) { Lock3Orig(t, o, room); DoorGenBump(); }
+            public void Lock3Hook(CommonDoor.tLock t, SimDescription o, int room) { Lock3Orig(t, o, room); DoorGenBumpDoor(DoorShareCore.kSrcLock, this); }
             public void Lock3Orig(CommonDoor.tLock t, SimDescription o, int room) { }
-            public void ListHook(List<SimDescription> l) { ListOrig(l); DoorGenBump(); }
+            public void ListHook(List<SimDescription> l) { ListOrig(l); DoorGenBumpDoor(DoorShareCore.kSrcOwnerList, this); }
             public void ListOrig(List<SimDescription> l) { }
-            public void AddHook(Sim s) { AddOrig(s); DoorGenBump(); }
+            public void AddHook(Sim s) { AddOrig(s); DoorGenBumpDoor(DoorShareCore.kSrcOwnerList, this); }
             public void AddOrig(Sim s) { }
-            public void RemoveHook(Sim s) { RemoveOrig(s); DoorGenBump(); }
+            public void RemoveHook(Sim s) { RemoveOrig(s); DoorGenBumpDoor(DoorShareCore.kSrcOwnerList, this); }
             public void RemoveOrig(Sim s) { }
         }
 
         public class DoorGenHouseholdHook
         {
-            public void GreetHook(Lot lot, ObjectGuid sim) { GreetOrig(lot, sim); DoorGenBump(); }
+            public void GreetHook(Lot lot, ObjectGuid sim) { GreetOrig(lot, sim); DoorGenBump(DoorShareCore.kSrcGreet, 0); }
             public void GreetOrig(Lot lot, ObjectGuid sim) { }
-            public void UngreetHook(Lot lot, ObjectGuid sim) { UngreetOrig(lot, sim); DoorGenBump(); }
+            public void UngreetHook(Lot lot, ObjectGuid sim) { UngreetOrig(lot, sim); DoorGenBump(DoorShareCore.kSrcGreet, 0); }
             public void UngreetOrig(Lot lot, ObjectGuid sim) { }
-            public void AddHook(SimDescription d) { AddOrig(d); DoorGenBump(); }
+            public void AddHook(SimDescription d) { AddOrig(d); DoorGenBump(DoorShareCore.kSrcHousehold, 0); }
             public void AddOrig(SimDescription d) { }
-            public void RemoveHook(SimDescription d) { RemoveOrig(d); DoorGenBump(); }
+            public void RemoveHook(SimDescription d) { RemoveOrig(d); DoorGenBump(DoorShareCore.kSrcHousehold, 0); }
             public void RemoveOrig(SimDescription d) { }
         }
 
         public class DoorGenFireHook
         {
-            public void RegHook(Fire f, LotLocation l) { RegOrig(f, l); DoorGenBump(); }
+            public void RegHook(Fire f, LotLocation l) { RegOrig(f, l); DoorGenBump(DoorShareCore.kSrcFire, 0); }
             public void RegOrig(Fire f, LotLocation l) { }
-            public void UnregHook(Fire f) { UnregOrig(f); DoorGenBump(); }
+            public void UnregHook(Fire f) { UnregOrig(f); DoorGenBump(DoorShareCore.kSrcFire, 0); }
             public void UnregOrig(Fire f) { }
         }
 
         public class DoorGenBuffHook
         {
-            public void AddHook(BuffManager bm, BuffInstance bi, bool travel) { AddOrig(bm, bi, travel); DoorGenBump(); }
+            public void AddHook(BuffManager bm, BuffInstance bi, bool travel) { AddOrig(bm, bi, travel); DoorGenBump(DoorShareCore.kSrcFireBuff, 0); }
             public void AddOrig(BuffManager bm, BuffInstance bi, bool travel) { }
-            public void RemHook(BuffManager bm, BuffInstance bi) { RemOrig(bm, bi); DoorGenBump(); }
+            public void RemHook(BuffManager bm, BuffInstance bi) { RemOrig(bm, bi); DoorGenBump(DoorShareCore.kSrcFireBuff, 0); }
             public void RemOrig(BuffManager bm, BuffInstance bi) { }
         }
 
         public class DoorGenBuffHook2
         {
-            public void AddHook(BuffManager bm, BuffInstance bi, bool travel) { AddOrig(bm, bi, travel); DoorGenBump(); }
+            public void AddHook(BuffManager bm, BuffInstance bi, bool travel) { AddOrig(bm, bi, travel); DoorGenBump(DoorShareCore.kSrcFireBuff, 0); }
             public void AddOrig(BuffManager bm, BuffInstance bi, bool travel) { }
-            public void RemHook(BuffManager bm, BuffInstance bi) { RemOrig(bm, bi); DoorGenBump(); }
+            public void RemHook(BuffManager bm, BuffInstance bi) { RemOrig(bm, bi); DoorGenBump(DoorShareCore.kSrcFireBuff, 0); }
             public void RemOrig(BuffManager bm, BuffInstance bi) { }
         }
 
@@ -186,85 +205,85 @@ namespace Ts3Fixes
                 bool watch = sDoorGenOn && (f & Sim.SimFlags.IgnoreDoorLocks) != 0;
                 bool before = watch && s.FlagIsSet(Sim.SimFlags.IgnoreDoorLocks);
                 FlagOrig(f, v);
-                if (watch && s.FlagIsSet(Sim.SimFlags.IgnoreDoorLocks) != before) DoorGenBump();
+                if (watch && s.FlagIsSet(Sim.SimFlags.IgnoreDoorLocks) != before) DoorGenBump(DoorShareCore.kSrcIgnoreLocks, 0);
             }
             public void FlagOrig(Sim.SimFlags f, bool v) { }
         }
 
         public class DoorGenOccultHook
         {
-            public bool AddHook(OccultTypes t, bool outfit, bool reward, bool restore, OccultBaseClass o) { bool r = AddOrig(t, outfit, reward, restore, o); DoorGenBump(); return r; }
+            public bool AddHook(OccultTypes t, bool outfit, bool reward, bool restore, OccultBaseClass o) { bool r = AddOrig(t, outfit, reward, restore, o); DoorGenBump(DoorShareCore.kSrcOccult, 0); return r; }
             public bool AddOrig(OccultTypes t, bool outfit, bool reward, bool restore, OccultBaseClass o) { return false; }
-            public bool RemHook(OccultTypes t) { bool r = RemOrig(t); DoorGenBump(); return r; }
+            public bool RemHook(OccultTypes t) { bool r = RemOrig(t); DoorGenBump(DoorShareCore.kSrcOccult, 0); return r; }
             public bool RemOrig(OccultTypes t) { return false; }
         }
 
         public class DoorGenRoleHook
         {
-            public static Role CreateHook(RoleData d, SimDescription s, IRoleGiver g) { Role r = CreateOrig(d, s, g); DoorGenBump(); return r; }
+            public static Role CreateHook(RoleData d, SimDescription s, IRoleGiver g) { Role r = CreateOrig(d, s, g); DoorGenBump(DoorShareCore.kSrcRole, 0); return r; }
             public static Role CreateOrig(RoleData d, SimDescription s, IRoleGiver g) { return null; }
-            public void RemoveHook() { RemoveOrig(); DoorGenBump(); }
+            public void RemoveHook() { RemoveOrig(); DoorGenBump(DoorShareCore.kSrcRole, 0); }
             public void RemoveOrig() { }
         }
 
         public class DoorGenRoleTaskHook
         {
-            public Role FillHook(Role.RoleType t, IRoleGiver g, List<SimDescription> res, List<SimDescription> town) { Role r = FillOrig(t, g, res, town); DoorGenBump(); return r; }
+            public Role FillHook(Role.RoleType t, IRoleGiver g, List<SimDescription> res, List<SimDescription> town) { Role r = FillOrig(t, g, res, town); DoorGenBump(DoorShareCore.kSrcRole, 0); return r; }
             public Role FillOrig(Role.RoleType t, IRoleGiver g, List<SimDescription> res, List<SimDescription> town) { return null; }
         }
 
         public class DoorGenResortHook
         {
-            public void ClosedHook(bool v) { ClosedOrig(v); DoorGenBump(); }
+            public void ClosedHook(bool v) { ClosedOrig(v); DoorGenBump(DoorShareCore.kSrcResort, 0); }
             public void ClosedOrig(bool v) { }
             public void UpdateHook()
             {
                 ResortManager m = (ResortManager)(object)this;
                 bool before = m.Closed;
                 UpdateOrig();
-                if (m.Closed != before) DoorGenBump();
+                if (m.Closed != before) DoorGenBump(DoorShareCore.kSrcResort, 0);
             }
             public void UpdateOrig() { }
-            public ulong GroupHook(ulong id, ObjectGuid door) { ulong r = GroupOrig(id, door); DoorGenBump(); return r; }
+            public ulong GroupHook(ulong id, ObjectGuid door) { ulong r = GroupOrig(id, door); DoorGenBump(DoorShareCore.kSrcResort, 0); return r; }
             public ulong GroupOrig(ulong id, ObjectGuid door) { return 0; }
-            public void RemDoorHook(ObjectGuid door) { RemDoorOrig(door); DoorGenBump(); }
+            public void RemDoorHook(ObjectGuid door) { RemDoorOrig(door); DoorGenBump(DoorShareCore.kSrcResort, 0); }
             public void RemDoorOrig(ObjectGuid door) { }
             public ResortManager.VIPRoomData FindHook(ulong group, bool create)
             {
                 ResortManager m = (ResortManager)(object)this;
                 int n = m.VIPRooms != null ? m.VIPRooms.Count : 0;
                 ResortManager.VIPRoomData r = FindOrig(group, create);
-                if (create && (m.VIPRooms != null ? m.VIPRooms.Count : 0) != n) DoorGenBump();
+                if (create && (m.VIPRooms != null ? m.VIPRooms.Count : 0) != n) DoorGenBump(DoorShareCore.kSrcResort, 0);
                 return r;
             }
             public ResortManager.VIPRoomData FindOrig(ulong group, bool create) { return null; }
-            public void RefreshHook() { RefreshOrig(); DoorGenBump(); }
+            public void RefreshHook() { RefreshOrig(); DoorGenBump(DoorShareCore.kSrcResort, 0); }
             public void RefreshOrig() { }
         }
 
         public class DoorGenVipHook
         {
-            public void AddHook(ulong id) { AddOrig(id); DoorGenBump(); }
+            public void AddHook(ulong id) { AddOrig(id); DoorGenBump(DoorShareCore.kSrcResort, 0); }
             public void AddOrig(ulong id) { }
-            public void RemHook(ulong id) { RemOrig(id); DoorGenBump(); }
+            public void RemHook(ulong id) { RemOrig(id); DoorGenBump(DoorShareCore.kSrcResort, 0); }
             public void RemOrig(ulong id) { }
         }
 
         public class DoorGenDescHook
         {
-            public void GenderHook(CASAgeGenderFlags g) { GenderOrig(g); DoorGenBump(); }
+            public void GenderHook(CASAgeGenderFlags g) { GenderOrig(g); DoorGenBump(DoorShareCore.kSrcDesc, 0); }
             public void GenderOrig(CASAgeGenderFlags g) { }
-            public void AgeHook(CASAgeGenderFlags a) { AgeOrig(a); DoorGenBump(); }
+            public void AgeHook(CASAgeGenderFlags a) { AgeOrig(a); DoorGenBump(DoorShareCore.kSrcDesc, 0); }
             public void AgeOrig(CASAgeGenderFlags a) { }
-            public void PregHook(bool v) { PregOrig(v); DoorGenBump(); }
+            public void PregHook(bool v) { PregOrig(v); DoorGenBump(DoorShareCore.kSrcDesc, 0); }
             public void PregOrig(bool v) { }
         }
 
         public class DoorGenLotHook
         {
-            public void AddHook(PortalPathPlanHandler h) { AddOrig(h); DoorGenHold((Lot)(object)this); DoorGenBump(); }
+            public void AddHook(PortalPathPlanHandler h) { AddOrig(h); DoorGenHold((Lot)(object)this); DoorGenBumpLot(DoorShareCore.kSrcLotHandler, this); }
             public void AddOrig(PortalPathPlanHandler h) { }
-            public void RemoveHook(PortalPathPlanHandler h) { RemoveOrig(h); DoorGenHold((Lot)(object)this); DoorGenBump(); }
+            public void RemoveHook(PortalPathPlanHandler h) { RemoveOrig(h); DoorGenHold((Lot)(object)this); DoorGenBumpLot(DoorShareCore.kSrcLotHandler, this); }
             public void RemoveOrig(PortalPathPlanHandler h) { }
         }
     }
