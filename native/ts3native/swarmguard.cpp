@@ -90,7 +90,7 @@ static void SwgDump(const char* how, const unsigned long* e, unsigned long word,
             g_swgk.repair ? "word put back" : "update skipped", g_swgCleanTick ? GetTickCount() - g_swgCleanTick : 0ul);
     }
     const unsigned long* w = (const unsigned long*)(uintptr_t)(word - 4);
-    if (word >= 0x10000 && Readable(w, 0x48))
+    if (word >= 0x10000 && Readable(w, 0x4C))
         Log("swarm guard:   at %08lX-4: %08lX | %08lX %08lX %08lX %08lX %08lX %08lX %08lX %08lX ... +0x44 %08lX%s", word, w[0], w[1], w[2], w[3],
             w[4], w[5], w[6], w[7], w[8], w[18], w[2] == (unsigned long)(uintptr_t)(e + 1) ? " (its 2nd word points back at effect+4)" : "");
     else
