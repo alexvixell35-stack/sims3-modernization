@@ -32,7 +32,10 @@ static inline WjCtx WsCtx0(const u8* g1, const u8* g2, DWORD w, DWORD h) {
 // rebuild the table. *changed = cells updated in place.
 static int WsRefresh(WsSlot* s, DWORD maxInc, DWORD* changed) {
     const DWORD cells = s->w * s->h;
-    const WjCtx c0 = WsCtx0(s->g1, s->g2, s->w, s->h);
+    // The table is computed from our copies, never from the live grids: another thread may write a live cell between the
+    // copy and the table's read of it. A table built from a byte the copy does not hold is repaired only while that byte
+    // still differs at a later compare; a cell written and written back in between stays wrong for good.
+    const WjCtx c0 = WsCtx0(s->c1, s->c2, s->w, s->h);
     *changed = 0;
     if (maxInc > WS_INCMAX) maxInc = WS_INCMAX;
     DWORD list[WS_INCMAX] = {};

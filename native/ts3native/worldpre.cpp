@@ -297,7 +297,7 @@ static DWORD __cdecl WxSearchHook(const u8* const* g1, const u8* const* g2, DWOR
     WorldPreCounters& k = ts3native_worldpre;
     const LONG mode = k.wxScanMode, probe = k.wxProbe;
     if (mode != 1 && mode != 2 && probe != 1) {
-        t_wx.tab = NULL;
+        WxTableEnd();  // also gives back the lock an unwind out of an earlier search left with this thread
         return g_wxSearchOrig(g1, g2, w, h, scale, start, goal, out, cb);
     }
     const bool tabOn = (mode == 1 || mode == 2) && g1 && g2 && WxTableBegin(*g1, *g2, w, h, mode);
@@ -405,9 +405,13 @@ static DWORD __cdecl WxPostEnter(DWORD site, const DWORD* sp) {
     t.n++;
     return 1;
 }
-// the pass returned: the address it was called from
-static DWORD __cdecl WxPostLeave() {
+// the pass returned: the address it was called from. sp = the stack pointer the exit stub was entered with (just above the
+// returning call's return slot and whatever its `ret n` popped). Entries that lie deeper than the returning one were left by
+// an unwind inside it that no later entry dropped (an exception caught within the pass): they are dropped here, else the
+// exit would pop one of them and return to its dead address.
+static DWORD __cdecl WxPostLeave(const DWORD* sp) {
     WxPostTh& t = t_wxPost;
+    while (t.n > 1 && t.sp[t.n - 2] < sp) t.n--;
     if (t.n <= 0) return 0;  // cannot happen: an exit runs only for an entry of this thread that is still on the stack
     t.n--;
     WorldPreCounters& k = ts3native_worldpre;
@@ -428,7 +432,10 @@ static __declspec(naked) void WxPostExit() {
         push 0                      // room for the return address
         pushfd
         pushad
+        lea eax, [esp + 40]         // the stack pointer this exit was entered with
+        push eax
         call WxPostLeave
+        add esp, 4
         mov dword ptr [esp + 36], eax
         popad
         popfd

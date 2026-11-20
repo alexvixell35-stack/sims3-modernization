@@ -208,10 +208,12 @@ itself verified against the game's code (43.9 M jumps offline, 5.4 M in the game
 
 **Invalidation: a compare, no writer hook.** The search's one call site (`0x671AFD`) is retargeted. At the start of every
 search both live grids are compared with the table's own copies (256-byte blocks, then bytes). No difference: the table is
-used as is. Up to 64 changed cells: each updates the entries whose next cell is in its 3 x 3 block, then the entries behind
+used as is. Up to 128 changed cells (`WS_INCMAX`): each updates the entries whose next cell is in its 3 x 3 block, then the entries behind
 on the same ray while they change (north and south: the three columns). More: the table is built again. So every writer is
 covered, including ones we have not found, and a world reload or a grid rebuilt at the same address is just "many changed
-cells". The grids cannot change during a search any more than they can for the game's own code.
+cells". The grids cannot change during a search any more than they can for the game's own code. The table is computed from
+the copies, not from the live grids (fix/review-b): a byte written between the copy and the table's read of it would
+otherwise leave entries the next compare cannot see.
 
 **Where a jump may use it.** Only inside a search that went through the retargeted call, on the same thread, for the same
 two grid pointers and size. One SRW lock guards the tables and is held for the search; a second thread's search that finds
@@ -554,7 +556,8 @@ inside pass 3, plus the count of tests with `+0x72` set and the tests per call. 
   writes only if every site is a call and two sites have the same target exactly when the table says they are the same
   callee. Else `SKIP world precompute pass 3 split`. `ts3addr_count` unchanged.
 - **Same stubs as the 19 passes** (every register and the flags kept, the return address swapped for the exit stub, so
-  callee-cleans conventions with any `ret n` work). A site inside `0x644080` or `0x641A10` is also reached from other
+  callee-cleans conventions with any `ret n` work; the exit passes its stack pointer, so an entry an unwind left inside
+  the returning call is dropped instead of returned through). A site inside `0x644080` or `0x641A10` is also reached from other
   passes (pass 6 through `0x6443A0`): an entry is timed only while a pass 3 entry of the thread is open.
 - **Smoother `+0x72`:** at the lot walk's site `ECX` is the smoother (thiscall); the stub's saved `ECX` is read and the byte
   counted. The game reads `[ecx + 0x71]` in the same call.
