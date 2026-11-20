@@ -116,8 +116,40 @@ static LONGLONG g_dmxTicks;          // DoorMemoXMs in QPC ticks
 static const DWORD* g_dmxDelegate;   // the event 59 delegate slot (0x11D72C4; NULL in tests)
 static volatile LONG g_dmxMismatchLog, g_dmxSelf;  // g_dmxSelf: mode-1 hits, every 8th asked anyway (self-check)
 // mode 3 (DoorGen.cs, op 36): the script-side generation and the armed flag; own export, counters layout unchanged
-static u8 DmxScriptOp(DWORD lo) {  // sim thread (UserDiag)
-    if (lo == 1) { InterlockedExchange(&ts3native_doorgen.armed, 1); Log("door memo x: ts3fixes doorgen armed (DoorMemoX=3 inputs tracked)"); return 1; }
+// Lots with an extra PortalPathPlan handler (EA: PrivacySituation, plus mods): its answer reads the asking Sim's current or
+// transition interaction (autonomous / priority), which no generation tracks (hhsearch-sv-1116: a household dog's ask flipped
+// 2 -> 1 within 79 ms, no bump). DoorGen.cs sends op 36 sub 1 (held) / 2 (free) with the lot id's low dword after each handler
+// add / remove and for every lot at arm; asks on a held lot skip the memo (no answer from it, nothing kept, no compare).
+// shortcut: 32 slots, overflow or a lot low dword 0 holds every lot until the next arm (safe side: fewer hits only)
+static volatile DWORD g_dmxHold[32];
+static volatile LONG g_dmxHoldAll;
+static bool DmxHeld(DWORD lot) {
+    if (g_dmxHoldAll) return true;
+    for (int i = 0; lot && i < 32; i++)
+        if (g_dmxHold[i] == lot) return true;
+    return false;
+}
+static void DmxHoldSet(DWORD lot, bool on) {  // sim thread
+    InterlockedIncrement(&ts3native_doorgen.gen);  // rows kept before the change are another generation
+    int free = -1;
+    for (int i = 0; lot && i < 32; i++) {
+        if (g_dmxHold[i] == lot) { if (!on) g_dmxHold[i] = 0; return; }
+        if (!g_dmxHold[i] && free < 0) free = i;
+    }
+    if (!on) return;
+    if (lot && free >= 0) g_dmxHold[free] = lot;
+    else InterlockedExchange(&g_dmxHoldAll, 1);
+}
+static u8 DmxScriptOp(DWORD lo, DWORD sub) {  // sim thread (UserDiag); sub = DiagSend's hi
+    if (sub == 1 || sub == 2) { DmxHoldSet(lo, sub == 1); return 1; }
+    if (lo == 1) {
+        for (int i = 0; i < 32; i++) g_dmxHold[i] = 0;  // a new world: DoorGen.cs sends every held lot right after
+        InterlockedExchange(&g_dmxHoldAll, 0);
+        InterlockedIncrement(&ts3native_doorgen.gen);
+        InterlockedExchange(&ts3native_doorgen.armed, 1);
+        Log("door memo x: ts3fixes doorgen armed (DoorMemoX=3 inputs tracked)");
+        return 1;
+    }
     InterlockedIncrement(&ts3native_doorgen.gen);
     InterlockedIncrement(&ts3native_doorgen.bumps);
     return 1;
@@ -190,7 +222,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
     const LONG mode = k.dmMode, split = g_hcOn, xm0 = k.dmxMode;
     // mode 3 before ts3fixes armed it: no cross-job memo at all (asks go out as with DoorMemoX=0)
-    const LONG xm = xm0 == 3 && !ts3native_doorgen.armed ? (InterlockedIncrement(&ts3native_doorgen.unarmedAsks), 0) : xm0;
+    LONG xm = xm0 == 3 && !ts3native_doorgen.armed ? (InterlockedIncrement(&ts3native_doorgen.unarmedAsks), 0) : xm0;
     if (!mode && !split && !xm) return 0;
     if (t_snapRun) { if (mode) InterlockedIncrement(&k.dmFb[3]); return 0; }
     if (!t_hcJob || GetCurrentThreadId() != g_workerTid) { if (mode) InterlockedIncrement(&k.dmFb[0]); return 0; }
@@ -202,6 +234,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         g_dmxLast = xm;
         InterlockedIncrement(&k.dmxClear);
     }
+    if (xm == 3 && DmxHeld(key[0])) InterlockedIncrement(&ts3native_doorgen.held), xm = 0;  // live, as DoorMemoX=0
     const LONG xGen = xm ? DmxGen() : 0;
     const DWORD xDel = xm ? DmxDeleg() : 0;
     const DmxRow* xRow = NULL;

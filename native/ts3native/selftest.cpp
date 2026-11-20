@@ -13274,6 +13274,7 @@ static void TestP5() {
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
 #include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
 #include "modtime-test.h"  // TestModTime ([Diag] ModTime, docs/298)
+#include "pccheck-test.h"  // TestPcCheck ([PcCheck], docs/299)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
 #include "unseencost-test.h"  // TestUnseenCost ([UnseenCost] probe, docs/227)
@@ -13325,6 +13326,7 @@ static void TestP5() {
 #include "pkglock-test.h"  // TestPkgLock ([PkgLock], docs/539 §13.9)
 #include "pkgprobe-test.h"  // TestPkgProbe ([PkgProbe], docs/549 §4)
 #include "audiodup-test.h"  // TestAudioStateDup ([AudioStateDup], docs/549 §5)
+#include "keepopts-test.h"  // TestKeepOptions ([EaCrashFixes] KeepOptionsOnGpuChange, docs/37 §12)
 #include "eafix-test.h"   // TestEaCrashFixes ([EaCrashFixes] ConformActor + ThumbPose, docs/67 §26.4 / §27.5)
 #include "imgguard-test.h"  // TestImageGuard ([ImageGuard], docs/232 Run 8d, EA port)
 #include "wastar-test.h"  // TestWorldAStarRefs ([EaCrashFixes] WorldAStarRefs, docs/67 §30)
@@ -14832,6 +14834,7 @@ int main() {
     TestAnimPhase();
     TestStallWatch();
     TestModTime();
+    TestPcCheck();
     TestUnseenRootMotion();
     TestUnseenRootMotion2();
     TestUnseenTable();
@@ -14897,6 +14900,7 @@ int main() {
     TestPkgLock();
     TestPkgProbe();  // docs/549 §4
     TestAudioStateDup();  // docs/549 §5
+    TestKeepOptions();  // docs/37 §12
     TestWorldAStarRefs();
     TestIlPatch();
     TestMonoJit();

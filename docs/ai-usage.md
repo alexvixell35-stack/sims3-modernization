@@ -2627,3 +2627,7 @@ Budget per usage window (PLAN.md "Action plan"): lanes G + M 30%, lane H 50%, of
 | 2026-11-20 | 15:25 | 5h -, 7d 17% | G | bp-night-off-1120 | |
 | 2026-11-20 | 15:38 | 5h -, 7d 18% | G | bp-night-on-1120 | |
 | 2026-11-20 | 15:44 | 5h -, 7d 18% | G | bp-overwatch-ab-1120 | |
+| 2026-11-20 | 10:47 | 5h -, 7d 7% | G | bp-stbl-off-a | |
+| 2026-11-20 | 10:47 | 5h -, 7d 7% | G | bp-stbl-on-b | |
+| 2026-11-20 | 11:13 | 5h -, 7d 8% | G | bp-stbl-on-b2 | |
+| 2026-11-20 | 11:23 | 5h -, 7d 8% | G | bp-stbl-off-a2 | |

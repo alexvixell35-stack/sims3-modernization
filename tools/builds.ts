@@ -3,6 +3,8 @@
 //   node tools/builds.ts add <file> --name <n> [--commit c] [--note ...]        record a parked build (asi or ts3fixes package)
 //   node tools/builds.ts add - --kind ts3fixes --sha256 <hex> --commit <c> --name <n> [--note ...]
 //        a package that is not on disk (e.g. a published asset): the hash as published, tuning from build-fixes.ts at <c>
+//   node tools/builds.ts add <file> --kind apex --name apex.<tag>|ts3wrap.<tag> [--version v] [--commit c] [--note ...]
+//        an Apex Radiance fork build (ApexRadiance.asi or ts3wrap.exe): sha only; version from --version or the binary's "Apex Radiance X.Y.Z"
 //   node tools/builds.ts check <file> --expect <name>                            exit 1 when the file is not that build
 //   node tools/builds.ts --self-check
 // DB: docs/data/builds.json, one entry per line. asi entries are byte-identical builds (sha256 + the `ts3native X.Y.Z`
@@ -31,9 +33,15 @@ export type FixesBuild = { name: string; kind: 'ts3fixes'; sha256: string; tunin
 export type IniBuild = { name: string; kind: 'ini'; sha256: string; created: string; note?: string };
 // AgentBuild: a ts3agent.package test build (sha only; chains install it to build/ and check it by sha)
 export type AgentBuild = { name: string; kind: 'ts3agent'; sha256: string; commit?: string; created: string; note?: string };
-export type Build = AsiBuild | FixesBuild | IniBuild | AgentBuild;
+// ApexBuild: an Apex Radiance fork build, ApexRadiance.asi (apex.<tag>) or ts3wrap.exe (ts3wrap.<tag>); sha only, checked by sha
+export type ApexBuild = { name: string; kind: 'apex'; sha256: string; version?: string; commit?: string; created: string; note?: string };
+export type Build = AsiBuild | FixesBuild | IniBuild | AgentBuild | ApexBuild;
+// "Apex Radiance 4.0.11" in the asi's strings (the [Main] log line's source); ts3wrap.exe has none
+export const apexVersion = (b: Buffer) => b.toString('latin1').match(/Apex Radiance (\d+\.\d+\.\d+(?:-[\w.]+)?)\0/)?.[1];
 
 export const sha256 = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
+const what = (b: Build) => b.kind === 'asi' ? `ts3native ${b.version}` : b.kind === 'ts3fixes' ? `tuning ${b.tuningDigest.slice(0, 12)}` : b.kind === 'apex' ? `Apex ${b.version ?? '-'}` : '-';
+export const listLine = (b: Build) => `${b.name.padEnd(36)} ${b.kind.padEnd(8)} ${b.sha256.slice(0, 12)} ${what(b)} ${'commit' in b && b.commit || '-'} ${b.created.slice(0, 10)} ${b.note ?? ''}`;
 export function loadDb(path = DB_PATH): Build[] { return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')).builds : []; }
 export function saveDb(db: Build[], path = DB_PATH) { writeFileSync(path, `{ "builds": [\n${db.map(b => `  ${JSON.stringify(b)}`).join(',\n')}\n] }\n`); }
 
@@ -152,13 +160,18 @@ if (process.argv[1]?.endsWith('builds.ts')) {
       assert.match(b.sha256, /^[0-9a-f]{64}$/, `${b.name}: sha256`);
       if (b.kind === 'asi') assert.match(b.version, /^\d+\.\d+\.\d+/, `${b.name}: version`);
       else if (b.kind === 'ts3fixes') { assert.match(b.tuningDigest, /^[0-9a-f]{64}$/, `${b.name}: tuningDigest`); assert.ok(Object.keys(b.tuning).length > 10, `${b.name}: tuning`); }
+      else if (b.kind === 'apex') assert.match(b.name, /^(apex|ts3wrap)\.[\w.+-]+$/, `${b.name}: apex.<tag> or ts3wrap.<tag>`);
     }
+    assert.equal(apexVersion(Buffer.from('x\0Apex Radiance 4.0.11\0Apex Radiance 4.0.11 stays idle\0', 'latin1')), '4.0.11');
+    assert.equal(apexVersion(Buffer.from('Apex Radiance 4.0.12-dev.3\0', 'latin1')), '4.0.12-dev.3');
+    assert.equal(apexVersion(Buffer.from('Apex Radiance 4.0.11 stays idle\0ts3native 0.36.37\0', 'latin1')), undefined);
+    assert.equal(listLine({ name: 'apex.t', kind: 'apex', sha256: 'a'.repeat(64), version: '4.0.11', created: '2026-11-20' }), `${'apex.t'.padEnd(36)} apex     aaaaaaaaaaaa Apex 4.0.11 - 2026-11-20 `);
     console.log(`builds self-check ok (${db.length} DB entries)`);
     process.exit(0);
   }
   const [cmd, file] = args;
   if (cmd === 'list') {
-    for (const b of db) console.log(`${b.name.padEnd(36)} ${b.kind.padEnd(8)} ${b.sha256.slice(0, 12)} ${b.kind === 'asi' ? `ts3native ${b.version}` : `tuning ${b.tuningDigest.slice(0, 12)}`} ${b.commit ?? '-'} ${b.created.slice(0, 10)} ${b.note ?? ''}`);
+    for (const b of db) console.log(listLine(b));
     process.exit(0);
   }
   if (cmd === 'add' && file) {
@@ -174,7 +187,12 @@ if (process.argv[1]?.endsWith('builds.ts')) {
         note: note ?? `file not local; tuning from build-fixes.ts at ${commit}`, tuning: tuningMap(xml) };
     } else {
       const buf = readFileSync(file), created = statSync(file).mtime.toISOString().slice(0, 19);
-      if (buf.toString('latin1', 0, 4) === 'DBPF') {
+      if (opt('kind') === 'apex') {
+        if (!/^(apex|ts3wrap)\./.test(name)) { console.error('add --kind apex: --name apex.<tag> (ApexRadiance.asi) or ts3wrap.<tag> (ts3wrap.exe)'); process.exit(2); }
+        const version = opt('version') ?? apexVersion(buf);
+        entry = { name, kind: 'apex', sha256: sha256(buf), ...(version && { version }), ...(commit && { commit }), created, ...(note && { note }) };
+      } else if (opt('kind') !== undefined) { console.error(`add: --kind ${opt('kind')}: only apex for a file (ts3fixes for add -)`); process.exit(2); }
+      else if (buf.toString('latin1', 0, 4) === 'DBPF') {
         const t = packageTuning(buf), c = commit ?? git('rev-parse', '--short=8', 'HEAD').trim();
         entry = { name, kind: 'ts3fixes', sha256: sha256(buf), tuningDigest: t.digest, srcDigest: srcDigestAt(c), commit: c, created, ...(note && { note }), tuning: t.tuning };
       } else {
@@ -186,19 +204,19 @@ if (process.argv[1]?.endsWith('builds.ts')) {
     const same = db.filter(b => b.sha256 === entry.sha256).map(b => b.name);
     if (same.length) console.log(`note: same file as ${same.join(', ')}`);
     db.push(entry); saveDb(db);
-    console.log(`added ${name}: ${entry.kind} ${entry.sha256.slice(0, 12)} ${entry.kind === 'asi' ? entry.version : `tuning ${entry.tuningDigest.slice(0, 12)}`}`);
+    console.log(`added ${name}: ${entry.kind} ${entry.sha256.slice(0, 12)} ${what(entry)}`);
     process.exit(0);
   }
   if (cmd === 'check' && file && opt('expect')) {
     const want = db.find(b => b.name === opt('expect'));
     if (!want) { console.error(`check: no ${opt('expect')} in the DB`); process.exit(2); }
     const buf = readFileSync(file);
-    const why = want.kind !== 'ts3fixes'  // asi, ini, ts3agent: the bytes
+    const why = want.kind !== 'ts3fixes'  // asi, ini, ts3agent, apex: the bytes
       ? (sha256(buf) !== want.sha256 ? `sha256 ${sha256(buf).slice(0, 12)} is not ${want.name} (${want.sha256.slice(0, 12)})` : '')
       : fixesCheck(db, buf, { name: want.name }).fails.join('; ');
     console.log(why ? `MISMATCH: ${file}: ${why}` : `OK: ${file} is ${want.name}`);
     process.exit(why ? 1 : 0);
   }
-  console.error('usage: node tools/builds.ts list | add <file|-> --name n [--commit c] [--note t] [--kind ts3fixes --sha256 h] | check <file> --expect <name> | --self-check');
+  console.error('usage: node tools/builds.ts list | add <file|-> --name n [--commit c] [--note t] [--kind ts3fixes --sha256 h | --kind apex [--version v]] | check <file> --expect <name> | --self-check');
   process.exit(2);
 }

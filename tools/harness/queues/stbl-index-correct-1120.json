@@ -1,0 +1,339 @@
+{
+ "note": "stbl-index-correct-1120 (docs/301): Apex StringTableIndex ON vs OFF on the same game start, ABBA (OFF, ON, ON, OFF). Bin state apex (turbo-compat) with Bin/ApexRadiance.asi replaced by the fork build apex.stbl-index-1120 (builds.json); ts3native rc-1119b pair, releaseDefaults; ts3agent with label_check bench (build/ts3agent.package of feature/stbl-index-1120 in Mods/Packages); user CC plus cc-2k-v2 (about 2,000 extra STBLs). S3PP StblBucketLayoutTuning and LocalizedStringCache off in all four jobs: the first re-lays the string tables (the index stands down on a changed layout), the second detours GetString's entry (the index stands down on a changed entry) and caches answers. Repro stbl-index-check: label_check {bench: 5}, CAS + Buy browse, label_check {bench: 5}. Correctness: label_check hash, total, empty, placeholder, mismatch, hash_empty equal in all four jobs and between the two calls of each; no ScriptError; no crash. Switch read-back (apexLogRequire / apexLogForbid over each job's kept -ApexRadiance_LOG.txt): Apex 4.0.11 version line in all jobs; '[StringTableIndex] On at' + 'Index built' required in ON jobs, forbidden in OFF jobs; 'Index off for this session' and an Off line with 'differed' above 0 forbidden everywhere (the Off and Index off cases are built from the fork's format strings in string_table_index.cpp: no run has written them, the game is closed before Apex's shutdown line). Timing (light tools, noisy machine allowed for this read): bench_us and bench_miss_us per arm. Measurement only; no Sim is changed (household check n/a). ~4 x 8 min.",
+ "rewind": "off",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-stbl-off-a",
+   "note": "OFF (A)",
+   "asi": "game-copy/ts3native.asi.rc-1119b",
+   "ini": {},
+   "save": "Baseline-BP",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+   "pinReason": "release pair rc-1119b on purpose: the A/B is an Apex switch, ours stays fixed",
+   "ccSet": "game-copy/cc-synth/cc-2k-v2",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "s3ppIni": {
+    "Patches.StblBucketLayoutTuning": 0,
+    "Patches.LocalizedStringCache": 0
+   },
+   "apexToml": {
+    "patches.StringTableIndex.enabled": false
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "repro": "stbl-index-check"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "apexLogRequire": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": 1
+   },
+   "apexLogForbid": {
+    "\\[StringTableIndex\\] On at 0x": 0,
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": 0,
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": 0,
+    "\\[StringTableIndex\\] Index off for this session": 0
+   },
+   "regexCases": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": {
+     "match": [
+      "11:02:17.307 [INFO] [Main] Apex Radiance 4.0.11 (unified build) in TS3W.exe"
+     ],
+     "noMatch": [
+      "07:33:12.493 [INFO] [Main] Apex Radiance 4.0.6 (unified build) in TS3W.exe"
+     ]
+    },
+    "\\[StringTableIndex\\] On at 0x": {
+     "match": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ],
+     "noMatch": [
+      "11:02:37.821 [INFO] [BoneIndexGuard] On at 0x005c6e00 (with the count getter): a bone index past a Sim part's bone list takes its first bone"
+     ]
+    },
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": {
+     "match": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ],
+     "noMatch": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ]
+    },
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": {
+     "match": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 2), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 0), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms",
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    },
+    "\\[StringTableIndex\\] Index off for this session": {
+     "match": [
+      "11:30:00.000 [WARN] [StringTableIndex] Index off for this session (an answer differed from the game's walk): hits 10, missing 0, game walks 0, checked 10 (differed 1), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-stbl-on-b",
+   "note": "ON (B)",
+   "asi": "game-copy/ts3native.asi.rc-1119b",
+   "ini": {},
+   "save": "Baseline-BP",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+   "pinReason": "release pair rc-1119b on purpose: the A/B is an Apex switch, ours stays fixed",
+   "ccSet": "game-copy/cc-synth/cc-2k-v2",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "s3ppIni": {
+    "Patches.StblBucketLayoutTuning": 0,
+    "Patches.LocalizedStringCache": 0
+   },
+   "apexToml": {
+    "patches.StringTableIndex.enabled": true
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "repro": "stbl-index-check"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "apexLogRequire": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": 1,
+    "\\[StringTableIndex\\] On at 0x": 1,
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": 1
+   },
+   "apexLogForbid": {
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": 0,
+    "\\[StringTableIndex\\] Index off for this session": 0
+   },
+   "regexCases": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": {
+     "match": [
+      "11:02:17.307 [INFO] [Main] Apex Radiance 4.0.11 (unified build) in TS3W.exe"
+     ],
+     "noMatch": [
+      "07:33:12.493 [INFO] [Main] Apex Radiance 4.0.6 (unified build) in TS3W.exe"
+     ]
+    },
+    "\\[StringTableIndex\\] On at 0x": {
+     "match": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ],
+     "noMatch": [
+      "11:02:37.821 [INFO] [BoneIndexGuard] On at 0x005c6e00 (with the count getter): a bone index past a Sim part's bone list takes its first bone"
+     ]
+    },
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": {
+     "match": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ],
+     "noMatch": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ]
+    },
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": {
+     "match": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 2), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 0), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms",
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    },
+    "\\[StringTableIndex\\] Index off for this session": {
+     "match": [
+      "11:30:00.000 [WARN] [StringTableIndex] Index off for this session (an answer differed from the game's walk): hits 10, missing 0, game walks 0, checked 10 (differed 1), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-stbl-on-b2",
+   "note": "ON (B, second)",
+   "asi": "game-copy/ts3native.asi.rc-1119b",
+   "ini": {},
+   "save": "Baseline-BP",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+   "pinReason": "release pair rc-1119b on purpose: the A/B is an Apex switch, ours stays fixed",
+   "ccSet": "game-copy/cc-synth/cc-2k-v2",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "s3ppIni": {
+    "Patches.StblBucketLayoutTuning": 0,
+    "Patches.LocalizedStringCache": 0
+   },
+   "apexToml": {
+    "patches.StringTableIndex.enabled": true
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "repro": "stbl-index-check"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "apexLogRequire": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": 1,
+    "\\[StringTableIndex\\] On at 0x": 1,
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": 1
+   },
+   "apexLogForbid": {
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": 0,
+    "\\[StringTableIndex\\] Index off for this session": 0
+   },
+   "regexCases": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": {
+     "match": [
+      "11:02:17.307 [INFO] [Main] Apex Radiance 4.0.11 (unified build) in TS3W.exe"
+     ],
+     "noMatch": [
+      "07:33:12.493 [INFO] [Main] Apex Radiance 4.0.6 (unified build) in TS3W.exe"
+     ]
+    },
+    "\\[StringTableIndex\\] On at 0x": {
+     "match": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ],
+     "noMatch": [
+      "11:02:37.821 [INFO] [BoneIndexGuard] On at 0x005c6e00 (with the count getter): a bone index past a Sim part's bone list takes its first bone"
+     ]
+    },
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": {
+     "match": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ],
+     "noMatch": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ]
+    },
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": {
+     "match": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 2), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 0), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms",
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    },
+    "\\[StringTableIndex\\] Index off for this session": {
+     "match": [
+      "11:30:00.000 [WARN] [StringTableIndex] Index off for this session (an answer differed from the game's walk): hits 10, missing 0, game walks 0, checked 10 (differed 1), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-stbl-off-a2",
+   "note": "OFF (A, second)",
+   "asi": "game-copy/ts3native.asi.rc-1119b",
+   "ini": {},
+   "save": "Baseline-BP",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+   "pinReason": "release pair rc-1119b on purpose: the A/B is an Apex switch, ours stays fixed",
+   "ccSet": "game-copy/cc-synth/cc-2k-v2",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "s3ppIni": {
+    "Patches.StblBucketLayoutTuning": 0,
+    "Patches.LocalizedStringCache": 0
+   },
+   "apexToml": {
+    "patches.StringTableIndex.enabled": false
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "repro": "stbl-index-check"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "apexLogRequire": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": 1
+   },
+   "apexLogForbid": {
+    "\\[StringTableIndex\\] On at 0x": 0,
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": 0,
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": 0,
+    "\\[StringTableIndex\\] Index off for this session": 0
+   },
+   "regexCases": {
+    "\\[Main\\] Apex Radiance 4\\.0\\.11 \\(unified build\\) in TS3W\\.exe": {
+     "match": [
+      "11:02:17.307 [INFO] [Main] Apex Radiance 4.0.11 (unified build) in TS3W.exe"
+     ],
+     "noMatch": [
+      "07:33:12.493 [INFO] [Main] Apex Radiance 4.0.6 (unified build) in TS3W.exe"
+     ]
+    },
+    "\\[StringTableIndex\\] On at 0x": {
+     "match": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ],
+     "noMatch": [
+      "11:02:37.821 [INFO] [BoneIndexGuard] On at 0x005c6e00 (with the count getter): a bone index past a Sim part's bone list takes its first bone"
+     ]
+    },
+    "\\[StringTableIndex\\] Index built \\(#\\d+\\): \\d+ strings": {
+     "match": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ],
+     "noMatch": [
+      "11:02:37.509 [INFO] [StringTableIndex] On at 0x0059c5c2 (list changes at 0x0059af00, 0x0059b190, 0x0059bde0): the index is built from the loaded tables at the first text lookups"
+     ]
+    },
+    "\\[StringTableIndex\\] Off: .*\\(differed [1-9]": {
+     "match": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 2), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:30:00.000 [INFO] [StringTableIndex] Off: hits 7170, missing 7170, game walks 0, checked 300 (differed 0), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms",
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    },
+    "\\[StringTableIndex\\] Index off for this session": {
+     "match": [
+      "11:30:00.000 [WARN] [StringTableIndex] Index off for this session (an answer differed from the game's walk): hits 10, missing 0, game walks 0, checked 10 (differed 1), builds 1, list changes 0, over cap 0, last build 115026 strings / 4257 tables / 3072 KB / 33 ms"
+     ],
+     "noMatch": [
+      "11:02:58.577 [INFO] [StringTableIndex] Index built (#1): 115026 strings from 4257 tables, 3072 KB, 33 ms in 14 steps"
+     ]
+    }
+   }
+  }
+ ]
+}

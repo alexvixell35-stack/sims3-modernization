@@ -1366,6 +1366,66 @@
     "expect": "Within one load: both label_check results have the same hash and counts. Across loads (same save, content and language): s3pp on and s3pp off give the same hash, empty, placeholder, mismatch and hash_empty. Different -> run label_check {dump:true} in both and diff values by key; hash_empty or mismatch only with s3pp on = stale cache, set LocalizedStringCache=0"
   },
   {
+    "id": "stbl-index-check",
+    "bug": "GetString (0x0059C5B0) walks every loaded string table per lookup; with thousands of CC packages each lookup pays thousands of probes (docs/301 §2, §8)",
+    "fix": "Apex StringTableIndex (default off): the walk starts at the table an index names. A/B by [patches.StringTableIndex] enabled: label_check hash and counts equal ON vs OFF; bench gives us per lookup (found and missing keys)",
+    "save": "Baseline-BP",
+    "steps": [
+      {
+        "cmd": "label_check",
+        "args": {
+          "bench": 5
+        },
+        "timeoutS": 600,
+        "waitS": 5
+      },
+      {
+        "cmd": "cas_open",
+        "waitS": 30
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "hair"
+        },
+        "waitS": 10
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 15
+      },
+      {
+        "cmd": "buy_category",
+        "args": {
+          "category": "Decor"
+        },
+        "waitS": 10
+      },
+      {
+        "cmd": "buy_close",
+        "waitS": 20
+      },
+      {
+        "cmd": "label_check",
+        "args": {
+          "bench": 5
+        },
+        "timeoutS": 600,
+        "waitS": 5
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "ON and OFF loads (same save, CC set, language): both label_check results have equal hash, total, empty, placeholder, mismatch, hash_empty; bench_us / bench_miss_us lower ON. Apex log ON: [StringTableIndex] On at, Index built, never differed > 0"
+  },
+  {
     "id": "ip-portal-leak",
     "bug": "Isla Paradiso saves leak routing objects (ScriptCore.Route, PortalAnimateThroughAction, Sim script/steering/path adaptors; ~23 per sim day, 0 -> 326 by day 14): PortalAnimateThroughAction.DoPortal creates the route adaptors (ScriptAdaptor.Init subscribes Sim.OnExitReasonsAdded) but skips PerformRoute for Ocean / Houseboat portals, so the only unsubscribe (FollowRouteAction.Kill) never runs (docs/09 section 5)",
     "fix": "ts3fixes PortalAdaptorHook (switch portaladaptorleak, tuning kPortalAdaptorLeak): unsubscribe the adaptor DoPortal created once it returns; existing saves: opt-in SaveCleanup (d) RunRouteAdaptorCleanupOnce",
@@ -112789,6 +112849,137 @@
       }
     ],
     "expect": "ON arm: 'OK   host map iter fix' with 'TestRehash', no crash, 'host map iter:' lines up to 20, each 're-found by id % buckets' (or by scan) and 'fixed'; 'in no chain' 0 expected. OFF arm (Repair=0): the same lines with 'passed to EA (Repair=0)', then most likely the 0xD71E7D AV (erase chain walk) or a later heap fault from the write into the freed bucket array"
+  },
+  {
+    "id": "doormemox-privacy",
+    "bug": "DoorMemoX=3 (docs/585 §6): PrivacySituation's Lot.PortalPathPlan handler answers from the asking Sim's current interaction, which no generation tracks; sv-hhsearch 2026-11-16 logged FAIL door memo x (household dog, room 1 -> 4)",
+    "fix": "bugfix/doormemox-privacy-1117: DoorGen.cs sends op 36 hi 1/2 per lot handler add / remove and at arm; native asks on held lots skip the memo (ts3native_doorgen.held)",
+    "save": "Baseline-SV-Spring",
+    "note": "Repro rules (docs/TESTING.md): forced, no waiting for natural events. rerun1 (2026-11-17) was hollow: spawn_sims puts townies on their own home lots, the shower step found no menu, and no plan crossed the home lot's doors during the short toilet windows (held 0). Now: 4 picked townies teleported into the bathroom (setup_sims near the toilet), the active Sim forced onto that toilet at normal speed (ToiletSituation = a PrivacySituation handler on the home lot): ClearRoom shoos the townies out through the bathroom door, then two are sent back to the toilet (Go Here, routes in through the door) while the handler exists; twice. Read: 'door memo x misses:' line, '(live, not kept) N' > 0 = held asks happened; no 'FAIL door memo x'.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 6
+        },
+        "waitS": 5,
+        "note": "background NPC asks (scope 2 / 3) for memo hits"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "age": "youngadult,adult",
+          "count": 4,
+          "townies": true,
+          "noPets": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "a long toilet window in real time"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@type:Toilet"
+        },
+        "waitS": 8,
+        "note": "townies into the home's bathroom"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:Toilet",
+          "interaction": "def:Toilet+UseToilet"
+        },
+        "waitS": 8,
+        "note": "household: one normal player action; ToiletSituation handler on the home lot, ClearRoom shoos the townies out through the door"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:Toilet"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "routes back in through the bathroom door while the handler exists"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:Toilet"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@type:Toilet"
+        },
+        "waitS": 8,
+        "note": "second window"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:Toilet",
+          "interaction": "def:Toilet+UseToilet"
+        },
+        "waitS": 8
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:Toilet"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:Toilet"
+        },
+        "waitS": 20,
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 60,
+        "note": "memo hits elsewhere"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      }
+    ],
+    "expect": "no 'FAIL door memo x'; 'door memo x misses:' line with '(live, not kept)' > 0 (held asks happened) and hits > 0 elsewhere; household door answers live (exempt count > 0); no script errors"
   },
   {
     "id": "sweep-ep1",
