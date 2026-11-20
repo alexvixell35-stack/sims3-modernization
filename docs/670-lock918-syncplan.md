@@ -1220,3 +1220,85 @@ RouteLockCallers=1
 First pass as written (compare only; `shadow runs` > 0, `mismatch` 0). Second pass `Mode=1`: `answered in a job` against
 `class flag with footprints` and `no lot`; lines with key `0062EF7A` and first caller `00655ABE` against s189's 13 / 508 ms;
 no new key `00655AFB`. Also read `arWdPass` / `pkAfSkip` for §23.3.
+
+## 24. The `NoStart` PlanFromPoint plans are foreign STARTs: `[RouteAsync] ForeignKindsUnseen` (ts3native `a10.cpp`, default off, NOT RUN)
+
+2026-11-20, branch `fix/nostart-plans`. Answers §23.3. No game run; s170 and s189 logs and the code.
+
+### 24.1 Cause
+
+**The kind-2 hook does arm; the START is refused one step earlier, at the foreign gate, and the pass-through hides the
+reason.**
+
+- [verified: s189 log] The own kind gate refuses nothing: with `KindsUnseen=7` every `KindsUnseen:` line ends `not unseen 0 0
+  0` (own kind-2 passes 72 by the last line), and no `KindsUnseen=N leaves ...` line exists. So "kind not in the mask" and
+  "scope not unseen" are both out for these plans.
+- [verified: code] ts3fixes `AsyncKindStart` sends the **foreign** START (bit 61) when the caller's task is not the route's
+  Sim (`AsyncEligible` false, `ForeignEligible` true): a boat or other vehicle planned in its rider's task, a route planned
+  by another Sim's or a one-shot task. `A10StartBody` starts a foreign kind only with its `ForeignKinds` bit; the release ini
+  has `ForeignKinds=4` (ReplanFromPosition only), so a foreign PlanFromPoint is refused `Foreign`.
+- [verified: code] Kind 2 is hooked only for `WatchdogKind2` / `KindsUnseen` (in neither `Kinds` nor `ForeignKinds`), so
+  `ArPass` sends every call without a job to the game's IC directly: no `SyncIc`, so no `route async: sync plan ... reason`
+  line; `routephases.cpp` logs it as `entry Route_PlanLocked (no IC)`, route 0. The reason the START recorded (`g_rfbWhy`)
+  is never printed. That is why §19.3 / §23.3 could only call the class `NoStart`. `arWdPass` counts these calls but is in no
+  log line (the counter block is not dumped in a phase log).
+- [verified: logs] The sync kind-2 plans slow enough for a `ufplansplit` line (>= 150 ms) are all boats: s189 `kind 2 173 ms,
+  sync 46 ms (START refused), why -1, src BoatWaterScooter`; s170 `BoatSailBoat` 181 ms and `BoatSpeedFishingBoat` 183 ms. 3
+  of 3; no Sim-follower kind-2 line says `START refused` in either log. The two stall-watch stacks beside a `0x760BFF` /
+  `0x764400` wait (s189) are `Route_PlanFromPoint < PlanFromPointOrig < PlanFromPointAsyncBody < ... <
+  Route.PlanToPointFromPoint`: the refused-START branch of ts3fixes under EA's `PlanToPointFromPoint` (the houseboat
+  gangway leg of `SimRoutingComponent.EnterHouseboatThroughGangway`, run from the PostPlan callback of the boat's own plan,
+  is the Isla Paradiso caller with a boat follower; docs/642 §7).
+- [inferred] So the `(no IC)` PlanFromPoint lines (s189: the 16 of §23.3; s170: 23 `route phases` lines) are foreign kind-2
+  STARTs refused `Foreign`. The
+  shorter lines (41-93 ms) carry no follower name, so a share with another reason (a task that may not yield: no START
+  message at all; `Active`; `NoYield`) cannot be excluded from these logs. The new tally line (§24.3) settles it on the
+  next arm.
+
+`ForeignKinds=6` would start them with no code, but for every scope (household boats too); docs/584 named it as an A/B
+that was never run.
+
+### 24.2 `[RouteAsync] ForeignKindsUnseen` (bits as `Kinds`; default 0)
+
+`AfUnseenPass` (`a10.cpp`), asked by `A10StartBody`'s foreign branch for a kind without its `ForeignKinds` bit: the START
+passes only when ts3fixes' scope answer for **this route** is unseen (`KdScopeUnseen`: op 11 right before the START; for a
+vehicle the scope is its driver's, a driverless one by `UfDriverlessWhy`'s household rule). No answer, household, selected
+(the player's Go Here), seen NPC, unknown scope and another route's answer stay refused `Foreign` and plan synchronously
+exactly as today. `HhExempt` is the gate, so `[Experimental] HouseholdToo=1` lifts it (worker-computed answer, docs/271).
+`ForeignKindsMode` (`afMode`, `--ab a10foreign`) switches it with `ForeignKinds`. A kind in it is hooked, and `ArPass`
+treats it like `KindsUnseen`: every call without a job goes to the game's IC unhooked. After the gate the job is an
+ordinary A10 foreign job (flag `af`: `KdA10ForeignMs` 1000 ms deadline, `Active` / `NoYield` / `Los` / M1 / queue refusals
+and parking as for a `ForeignKinds` job, no fb cap; the worker runs the whole original IC). No new counter: `afSeen[]` /
+`afStarted[]` / `afCollected[]` count them; log `route async: ForeignKindsUnseen: foreign kind K START of unseen route ...
+passes the foreign gate (passes a b c, not unseen d e f)` at the 1st, 2nd, 4th ... pass per kind (24 lines at most).
+
+**Known differences from the sync plan [inferred].** (1) The caller's task sleeps a tick at a time during the job, as for
+every foreign kind-3 job since `ForeignKinds=4`. The gate is the **route's** scope: when a household Sim's task plans an
+unseen NPC's route (a social's check, for one), that task sleeps for the job instead of blocking the frame; the result is
+the game's own. Native code does not know the calling task's Sim; if that must stay synchronous too, ts3fixes has to hold
+the foreign START back for a household caller. (2) A job past `KdA10ForeignMs` is cut (unseen routes only). (3) The moved
+wait: the job holds `+0x918` on the worker.
+
+### 24.3 The pass-through tally (log only, always on with a pass-through hook)
+
+`ArPassNote` in the three A10 hooks: a call that `ArPass` sends to the game takes the refusal its START recorded for this
+route and logs, at the 1st, 2nd, 4th ... such call per kind (30 lines at most): `route async: kind K call of route H runs
+the game's IC with no job (reason); such calls of this kind by reason: Foreign n NoStart n NoStartMsg n ...`. `NoStart` =
+refused at the own kind gate (or no point); `NoStartMsg` = no START was recorded for the route (ts3fixes sent none, or
+another route's START came between). It takes the note as `SyncIc` does, so a later plan of the route does not inherit it.
+
+### 24.4 Checks (2026-11-20, no game)
+
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0 errors, no warning in the new lines.
+- Selftest `TestA10` case 13c (switch off = refused `Foreign`, tallied; no START = `NoStartMsg`; no answer / household /
+  seen NPC / other route refused; unseen starts as an `af` job and is collected; kind outside the mask and the own START
+  refused; `afMode` 0; `Active`; HouseholdToo lift; `ArPass` both ways; every mark it reads set or cleared at its start):
+  written, **not run** (needs the MSVC CI build).
+- `node tools/selftest-all.ts --ci`: 200 PASS, 0 FAIL.
+
+### 24.5 Next storm, on arm
+
+`[RouteAsync] ForeignKindsUnseen=2` on top of §23.4 (repro `ip-foreignkindsunseen-storm`, two loads: 0 vs 2). Off arm: read
+the `runs the game's IC with no job` lines; `Foreign` should carry most kind-2 calls. On arm: `ForeignKindsUnseen: foreign
+kind 2 START` lines, fewer `entry Route_PlanLocked (no IC)` PlanFromPoint lines and fewer `0x760BFF` waits with caller
+`0x764400`; `not unseen` counts the household / seen boats that stay sync; no new stuck boat rider.
