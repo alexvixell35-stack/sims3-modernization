@@ -2,13 +2,14 @@
 // against the game's own code are steerro-test section EP; here: pass-through rules, the job answer, every fallback, shadow.
 // Included by selftest.cpp.
 namespace ept {
-static LONG origCalls, origPush;
+static LONG origCalls, origPush, origOpen, lookups, armAt, idleAt;  // origOpen: g_rgOffSimOpen seen by the game's call
 static u8 g_world[0xA00], g_wm[0x200], g_wmw[0x200], g_planner[4], g_lot[0x50];
 static bool g_lotOn;  // the routing world's manager finds a lot (key 0: Contains says no entry, the gather is empty)
 struct IdVec { DWORD* b; DWORD* e; DWORD* c; };
 static DWORD g_idBuf[64];
 static void __cdecl Orig(u8*, u8*, u8*, u8* ids, const float*, const float*, DWORD, const void*, const void*, DWORD, const void*, DWORD) {
     origCalls++;
+    origOpen = g_rgOffSimOpen;
     IdVec* v = (IdVec*)ids;
     for (LONG i = 0; i < origPush; i++) { *v->e++ = 0x7000 + (DWORD)i; *v->e++ = 0; }
 }
@@ -18,7 +19,11 @@ static void __cdecl Conv(const void* src, void* out) {
     o->v[0] = s[0], o->v[1] = s[1], o->v[2] = s[2], o->v[3] = 1.0f;
     o->level = (LONG)s[3];
 }
-static u8* __fastcall Lookup(void* m, void*, float, float) { return g_lotOn && m == g_wmw ? g_lot : NULL; }
+static u8* __fastcall Lookup(void* m, void*, float, float) {
+    if (++lookups == armAt) g_twArmed = 1;                           // a new job armed while a rerun is on its way
+    if (lookups == idleAt) InterlockedExchange(&g_async.state, A_IDLE);  // the job ends inside a pass
+    return g_lotOn && m == g_wmw ? g_lot : NULL;
+}
 static void __fastcall Push(void* vec, void*, const DWORD* id) {
     IdVec* v = (IdVec*)vec;
     *v->e++ = id[0];
@@ -32,7 +37,8 @@ static void TestEditPathRO() {
     EditPathRoCounters& k = ts3native_editpathro;
     static_assert(offsetof(EditPathRoCounters, epMode) == 0 && offsetof(EditPathRoCounters, epShadow) == 4 &&
                       offsetof(EditPathRoCounters, epFb) == 0x28 && offsetof(EditPathRoCounters, epShadowMismatch) == 0x4C &&
-                      offsetof(EditPathRoCounters, epOtherForm) == 0x58 && sizeof(EditPathRoCounters) == 0x5C,
+                      offsetof(EditPathRoCounters, epOtherForm) == 0x58 && offsetof(EditPathRoCounters, epGuard) == 0x5C &&
+                      offsetof(EditPathRoCounters, epRetryOk) == 0x70 && sizeof(EditPathRoCounters) == 0x74,
                   "ts3native_editpathro layout (docs/registry.md)");
     assert(kEpSite.site == 0x0085FFC2 && kEpSite.target == 0x0085F5A0);
     memset(&k, 0, sizeof(k));
@@ -126,6 +132,44 @@ static void TestEditPathRO() {
         assert(count() == 0 && t_qlShared == 0 && !t_inRo && g_srInClone == 0);
     }
 
+    // docs/670 §14 StartGuard: with no job the game's call runs inside a g_rgOffSimOpen frame (no job can start under it)
+    {
+        k.epMode = 1, g_async.state = A_IDLE, g_twArmed = 0, g_lotOn = true;
+        LONG o0 = origCalls;
+        origOpen = -1;
+        call();
+        assert(origCalls == o0 + 1 && origOpen == 0 && k.epGuardCalls == 0);  // switch off: no frame
+        k.epGuard = 1;
+        call();
+        assert(origCalls == o0 + 2 && origOpen == 1 && k.epGuardCalls == 1 && g_rgOffSimOpen == 0 && k.epGuardRace == 0);
+        // Retry: a job-end drop is run again; the tripwires stay disarmed: kEpTries passes, then the game's call
+        k.epRetry = 1, g_async.state = A_RUNNING;
+        LONG fb0 = k.epFb[EP_FB_JOBEND];
+        lookups = 0, armAt = idleAt = 0;
+        o0 = origCalls;
+        call();
+        assert(origCalls == o0 + 1 && k.epRetryN == 3 && k.epRetryOk == 0 && k.epFb[EP_FB_JOBEND] == fb0 + 1 && origOpen == 0);
+        // the next job is armed during the first pass: the second pass answers, no game call
+        lookups = 0, armAt = 4;  // three lookups a pass
+        LONG t0 = k.epTaken;
+        call();
+        assert(origCalls == o0 + 1 && k.epRetryN == 4 && k.epRetryOk == 1 && k.epTaken == t0 + 1 && k.epFb[EP_FB_JOBEND] == fb0 + 1);
+        // the job ends during the first pass and none follows: the rerun is the game's call inside the guard frame, no wait booked
+        g_twArmed = 0, lookups = 0, armAt = 0, idleAt = 1;
+        const LONG g0 = k.epGameUs;
+        call();
+        assert(origCalls == o0 + 2 && origOpen == 1 && k.epRetryN == 5 && k.epRetryOk == 2 && k.epGuardCalls == 2 && k.epGameUs == g0 &&
+               k.epFb[EP_FB_JOBEND] == fb0 + 1 && g_rgOffSimOpen == 0);
+        // QL busy with Retry: reruns, then the game's call, counted once
+        g_async.state = A_RUNNING, g_twArmed = 1, idleAt = 0;
+        fb0 = k.epFb[EP_FB_TRY];
+        AcquireSRWLockExclusive(&g_ql);
+        call();
+        ReleaseSRWLockExclusive(&g_ql);
+        assert(origCalls == o0 + 3 && k.epFb[EP_FB_TRY] == fb0 + 1 && k.epRetryN >= 5 && k.epRetryN <= 8 && t_qlShared == 0 && !t_inRo);
+        k.epGuard = k.epRetry = 0, g_lotOn = true, lookups = armAt = idleAt = 0;
+    }
+
     // shadow with no job: the game's ids are kept, the clone compared; a skew is one mismatch
     k.epShadow = 1, g_async.state = A_IDLE, g_twArmed = 0;
     const LONG o0 = origCalls;
@@ -136,7 +180,7 @@ static void TestEditPathRO() {
     assert(origCalls == o0 + 2 && k.epShadowRuns == 2 && k.epShadowMismatch == 1 && count() == 2 && g_rgOffSimOpen == 0);
     printf("EditPathRO ([EditPathRO] Enabled=1): export layout; switch off / other thread / exclude vector / no job pass; job: no-lot "
            "and empty-gather answers without the game's call; fallbacks (+0x918 owner, job end, QL busy, tripwire, no planner, dirty "
-           "lot index, switch off) call the game; shadow compare + skew\n");
+           "lot index, switch off) call the game; StartGuard frame; Retry (job end, next job armed, job gone, QL busy); shadow compare + skew\n");
 
     memset(&k, 0, sizeof(k));
     g_epOrig = savedOrig, g_srConv = savedConv, g_srLotLookup = savedLookup, g_srIdPush = savedPush, g_srOne = savedOne;

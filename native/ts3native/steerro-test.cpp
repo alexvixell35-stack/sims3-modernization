@@ -39,6 +39,8 @@
 //      exclude vector) vs EpRun on random segments (SectionEP; `set SRT_ONLY=EP` runs it alone).
 //   GVH. [GoalValidRO] Hits (gvhits.cpp, docs/670 §11): GoalPoint_Validate's own code from its query on (record, 0x82EDB0, the
 //      hit loop, both ways out) vs the same code with the call site on GvThunk / GvStub (SectionGVH; `set SRT_ONLY=GVH`).
+//  CN. [ConnRoomsRO] (docs/670 §15): the game's IC 0x7929F0 from its entry with a fake script host, the game's 0x63DCB0 vs the
+//      parked clone answer handed out by CnStub (SectionCN; `set SRT_ONLY=CN`).
 // Built by build.cmd, not run there (needs the exe):  out\steerro-test.exe ["<path>\TS3W.exe"] [cases, default 400] [seed]
 #define TS3NATIVE_NO_DLLMAIN
 #include "ts3native.cpp"
@@ -2790,6 +2792,203 @@ static void SectionGVH(int cases) {
     *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
 }
 
+// --- CN: [ConnRoomsRO] (connro.cpp, docs/670 §15) against the game's own IC_World_GetConnectedRoomsImpl 0x7929F0 ---
+// The IC runs from its entry twice per case on the same world, with a fake script host that records the array it is asked
+// to build: once with the call at 0x792A55 on CnStub and no job (the game's 0x63DCB0; CnShadow compares the clone on the way),
+// once with a "job" running and CnGate called on the IC's return slot the way RgEnter calls it (the parked answer, CnFill).
+static LONG g_cnN, g_cnCmp, g_cnEmpty, g_cnRoomsN, g_cnMaxN, g_cnNeg, g_cnBack[3];
+struct CnHostRec { LONG made, copied, n; LONG v[kCnCap + 8]; DWORD handle; };
+static CnHostRec g_cnRec;
+// host slot +0x8C (thiscall: out handle*, count; ret 8) and +0xA4 (thiscall: handle*, src, 0, count; ret 0x10) as the IC calls them
+static void __fastcall CnHostNew(void*, void*, DWORD* out, LONG n) {
+    g_cnRec.made++;
+    g_cnRec.n = n;
+    *out = 0x5000 + (DWORD)n;
+}
+static void __fastcall CnHostCopy(void*, void*, const DWORD* handle, const LONG* src, DWORD zero, LONG n) {
+    assert(*handle == 0x5000 + (DWORD)n && zero == 0 && n == g_cnRec.n && n <= kCnCap);
+    g_cnRec.copied++;
+    g_cnRec.handle = *handle;
+    memcpy(g_cnRec.v, src, (size_t)n * 4);
+}
+static bool g_cnGateSaid;
+static bool __cdecl CnTestGate(const DWORD* slot) { return g_cnGateSaid = CnGate(slot, GetCurrentThreadId()); }
+// the IC called as the icall trampoline calls it; gate != 0: CnGate first, on the slot the call's return address will take
+static __declspec(naked) DWORD __cdecl CnCallIc(DWORD /*lo*/, DWORD /*hi*/, DWORD /*room*/, DWORD /*level*/, DWORD /*gate*/) {
+    __asm {
+        push dword ptr [esp + 0x10]
+        push dword ptr [esp + 0x10]
+        push dword ptr [esp + 0x10]
+        push dword ptr [esp + 0x10]
+        cmp dword ptr [esp + 0x24], 0
+        je nogate
+        lea eax, [esp - 4]
+        push eax
+        call CnTestGate
+        add esp, 4
+    nogate:
+        mov eax, 0x007929F0
+        call eax
+        add esp, 0x10
+        ret
+    }
+}
+static void SectionCN(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    g_seed = 9200417;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kCnSite.site, kCnSite.target) && callsTo(0x007929FB, 0x007692B0) && callsTo(0x00792A02, 0x008292D0) &&
+           callsTo(0x00792A11, 0x00829BC0) && callsTo(0x0063DCCB, 0x00628A90) && callsTo(0x0063DCDC, 0x0062EAB0) &&
+           callsTo(0x0063DD7F, 0x0063D2F0) && callsTo(0x0063DDFB, 0x006286F0) && callsTo(0x0063DE44, 0x006286F0) &&
+           callsTo(0x0063DE8C, 0x004E3F90) && callsTo(0x00792A9E, 0x004E3F70));
+    assert(Matches((const void*)(uintptr_t)(kRgSites[11].addr + 6), kCnFrame, sizeof(kCnFrame)) &&
+           Matches((const void*)(uintptr_t)(CN_SITE - sizeof(kCnArgs) - 8), kCnArgs, sizeof(kCnArgs)));
+    static const u8 kSetLess[] = {0x66, 0x3B, 0x79, 0x10, 0x8B, 0xC1, 0x0F, 0x9C, 0xC2};  // 0x628710: cmp di,[ecx+0x10]; mov eax,ecx; setl dl
+    static const u8 kOutSx[] = {0x0F, 0xBF, 0x4F, 0x10};                                   // 0x63DEE0: movsx ecx, word [edi+0x10]
+    static const u8 kFirstUse[] = {0x80, 0xBB, 0x8C, 0x00, 0x00, 0x00, 0x00};              // 0x63D300: cmp byte [ebx+0x8C], 0
+    static const u8 kFilled[] = {0x80, 0x3C, 0x8A, 0x00};                                  // 0x63D359: cmp byte [edx+ecx*4], 0
+    assert(Matches((const void*)(uintptr_t)0x00628710, kSetLess, sizeof(kSetLess)) && Matches((const void*)(uintptr_t)0x0063DEE0, kOutSx, sizeof(kOutSx)) &&
+           Matches((const void*)(uintptr_t)0x0063D300, kFirstUse, sizeof(kFirstUse)) && Matches((const void*)(uintptr_t)0x0063D359, kFilled, sizeof(kFilled)));
+    u8 saved[5];
+    memcpy(saved, (void*)(uintptr_t)kCnSite.site, 5);
+    *(LONG*)((u8*)(uintptr_t)kCnSite.site + 1) = (LONG)((const u8*)CnStub - ((const u8*)(uintptr_t)kCnSite.site + 5));
+    static DWORD hostVt[0x30];
+    static DWORD* host[1] = {hostVt};
+    hostVt[0x8C / 4] = (DWORD)(uintptr_t)CnHostNew, hostVt[0xA4 / 4] = (DWORD)(uintptr_t)CnHostCopy;
+    const DWORD host0 = *(DWORD*)(uintptr_t)0x011D4BBC;
+    *(DWORD*)(uintptr_t)0x011D4BBC = (DWORD)(uintptr_t)host;
+    ConnRoomsRoCounters& k = ts3native_connroomsro;
+    Ts3nCounters& kc = ts3native_counters;
+    memset(&k, 0, sizeof(k));
+    const LONG owner0 = (LONG)g_async.owner, rgOwner0 = kc.rgOwnerTid;
+    g_async.owner = GetCurrentThreadId();
+    kc.rgOwnerTid = 0;
+    k.cnMode = 1, k.cnShadow = 1;
+    int nRooms[2] = {0, 0};
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            for (int l = 0; l < 2; l++) {  // rooms and portals on both table lots
+                u8* e = W.entries[l];
+                const int nr = nRooms[l] = (int)Rnd(8) == 0 ? 0 : 1 + (int)Rnd(70);
+                u8* rooms = (u8*)A((size_t)nr * 0x44 + 16);
+                *(u8**)(e + 0x90) = rooms;
+                *(u8**)(e + 0x94) = rooms + nr * 0x44;
+                e[0x8C] = 1;
+                for (int r = 0; r < nr; r++) {
+                    u8* rec = rooms + r * 0x44;
+                    rec[0] = 1;
+                    const int np = (int)Rnd(4) == 0 ? 0 : (int)Rnd(14);
+                    u8** pv = (u8**)A((size_t)np * 4 + 16);
+                    for (int j = 0; j < np; j++) {
+                        u8* pt = (u8*)A(0x80);
+                        for (int w = 0; w < 2; w++) {
+                            const DWORD kind = Rnd(10);
+                            const DWORD v = kind == 0 ? 0xFFFF : kind == 1 ? (DWORD)r : kind == 2 ? Rnd(0x11) : kind == 3 ? 0x8000 + Rnd(0x7FF0) : Rnd((DWORD)nr + 6);
+                            *(WORD*)(pt + 0x48 + w * 2) = (WORD)v;
+                        }
+                        pt[0x58] = (u8)Rnd(256);
+                        if (Rnd(3)) pt[0x58] = (u8)(pt[0x58] & 0xFD);
+                        pv[j] = pt;
+                    }
+                    *(u8***)(rec + 4) = pv;
+                    *(u8***)(rec + 8) = pv + np;
+                }
+            }
+        }
+        const DWORD lk = Rnd(12);
+        const int lot = lk < 9 ? (int)(lk & 1) : -1;
+        const DWORD lo = lot >= 0 ? 0x10 + (DWORD)lot : lk == 9 ? 0x12 : lk == 10 ? 0 : 0xFFFFFFFF, hi = lk == 11 ? 0xFFFFFFFF : 0;
+        const int nr = lot >= 0 ? nRooms[lot] : 0;
+        const DWORD rk = Rnd(12);  // room 0 = by level (index level + 4); room > 0 = index room + 0x10
+        DWORD room = rk < 4 ? 0 : rk == 4 ? 0xFFFF : rk == 5 ? 0x8000 + Rnd(0x7FFF) : rk == 6 ? Rnd(0x8000) : (DWORD)nr > 0x11 ? 1 + Rnd((DWORD)nr - 0x10) : 1 + Rnd(4);
+        if (Rnd(4) == 0) room |= Rnd(0x10000) << 16;  // the IC passes the icall's whole slot; only the low word counts
+        DWORD level = Rnd((DWORD)nr + 2) - 4;
+        if (Rnd(10) == 0) level = Rnd(0x10000);
+        g_cnN++;
+        // doubts: the game's side would build the lot or fill the room on fakes, so only the clone is asked
+        const DWORD idx = CnRoomIndex(room, level);
+        const DWORD doubt = lot >= 0 && idx < (DWORD)nr ? Rnd(25) : 99;
+        if (doubt < 3) {
+            u8* e = W.entries[lot];
+            u8* rec = *(u8**)(e + 0x90) + idx * 0x44;
+            u8** pv = *(u8***)(rec + 4);
+            const bool hasPortal = pv != *(u8***)(rec + 8);
+            u8* const pv0 = hasPortal ? pv[0] : NULL;
+            if (doubt == 0) e[0x8C] = 0;
+            else if (doubt == 1) rec[0] = 0;
+            else if (hasPortal) pv[0] = NULL;
+            Job(true);
+            const LONG fb0 = k.cnFb[CN_FB_UNBUILT] + k.cnFb[CN_FB_UNFILLED] + k.cnFb[CN_FB_SHAPE];
+            DWORD slot[5] = {0, lo, hi, room, level};
+            const bool said = CnGate(slot, GetCurrentThreadId());
+            Job(false);
+            const bool active = *(DWORD*)(W.act + 0x48) == lo;  // Contains says no before any of it is read
+            if (doubt == 2 && !hasPortal) assert(said);  // nothing was changed
+            else assert(active ? said : (!said && k.cnFb[CN_FB_UNBUILT] + k.cnFb[CN_FB_UNFILLED] + k.cnFb[CN_FB_SHAPE] == fb0 + 1));
+            g_cnA.set = false;
+            if (!said) g_cnBack[doubt]++;
+            else k.cnTaken--, k.cnEmpty -= g_cnA.a.n == 0, k.cnRooms -= g_cnA.a.n;  // not an IC call: out of the totals
+            e[0x8C] = 1, rec[0] = 1;
+            if (hasPortal) pv[0] = pv0;
+            continue;
+        }
+        // 1. the game's body (no job: the stub runs 0x63DCB0 and the shadow compare)
+        memset(&g_cnRec, 0, sizeof(g_cnRec));
+        const LONG sh0 = k.cnShadowRuns;
+        const DWORD ret1 = CnCallIc(lo, hi, room, level, 0);
+        const CnHostRec game = g_cnRec;
+        assert(k.cnShadowRuns == sh0 + 1 && k.cnShadowMismatch == 0 && g_rgOffSimOpen == 0);
+        assert(game.made == game.copied && game.made <= 1 && (ret1 != 0) == (game.made == 1));
+        // 2. a job runs: the gate parks the clone's answer, the stub hands it out
+        memset(&g_cnRec, 0, sizeof(g_cnRec));
+        Job(true);
+        const LONG used0 = k.cnUsed, taken0 = k.cnTaken;
+        const DWORD ret2 = CnCallIc(lo, hi, room, level, 1);
+        Job(false);
+        assert(g_cnGateSaid && k.cnTaken == taken0 + 1 && k.cnUsed == used0 + 1 && k.cnStale == 0 && !g_cnA.set);
+        if (ret1 != ret2 || g_cnRec.made != game.made || g_cnRec.copied != game.copied || g_cnRec.n != game.n ||
+            memcmp(g_cnRec.v, game.v, (size_t)game.n * 4) != 0) {
+            printf("CN MISMATCH case %d: lot %08lX:%08lX room %08lX level %08lX: game ret %08lX n %ld (first %ld), clone ret %08lX n %ld (first %ld)\n", i,
+                   hi, lo, room, level, ret1, game.n, game.n ? game.v[0] : 0, ret2, g_cnRec.n, g_cnRec.n ? g_cnRec.v[0] : 0);
+            assert(false);
+        }
+        g_cnCmp++;
+        if (!game.made) g_cnEmpty++;
+        g_cnRoomsN += game.n;
+        if (game.n > g_cnMaxN) g_cnMaxN = game.n;
+        for (LONG j = 0; j < game.n; j++) g_cnNeg += game.v[j] < 0;
+        for (LONG j = 1; j < game.n; j++) assert(game.v[j - 1] < game.v[j]);
+    }
+    // a parked answer is used by the call it was read for only
+    {
+        Job(true);
+        DWORD slot[5] = {0, 0x10, 0, 0xFFFF, 0};
+        assert(CnGate(slot, GetCurrentThreadId()) && g_cnA.set);
+        Job(false);
+        memset(&g_cnRec, 0, sizeof(g_cnRec));
+        const LONG stale0 = k.cnStale;
+        CnCallIc(0x10, 0, 0xFFFF, 0, 0);  // another IC frame: the game's call
+        assert(k.cnStale == stale0 + 1 && !g_cnA.set);
+    }
+    printf("CN: %ld IC_World_GetConnectedRoomsImpl calls on the game's 0x7929F0, %ld compared equal with the parked clone answer (the "
+           "array asked of the host and the IC's result; %ld no rooms, %ld room numbers, up to %ld a call, %ld negative), shadow checks %ld "
+           "mismatch %ld; given back and not run on the game: lot not built %ld, room not filled %ld, null portal %ld; 11 call edges, the "
+           "IC's frame, the set's signed compare, the sign-extended copy and 0x63D2F0's two tests match the image\n",
+           g_cnN, g_cnCmp, g_cnEmpty, g_cnRoomsN, g_cnMaxN, g_cnNeg, k.cnShadowRuns, k.cnShadowMismatch, g_cnBack[0], g_cnBack[1], g_cnBack[2]);
+    assert(g_cnCmp > g_cnN * 3 / 4 && g_cnRoomsN > g_cnN && g_cnEmpty > g_cnN / 20 && g_cnCmp - g_cnEmpty > g_cnN / 8 && g_cnNeg > 0 && g_cnBack[0] > 0 && g_cnBack[1] > 0 &&
+           g_cnBack[2] > 0 && k.cnShadowMismatch == 0);
+    memcpy((void*)(uintptr_t)kCnSite.site, saved, 5);
+    *(DWORD*)(uintptr_t)0x011D4BBC = host0;
+    memset(&k, 0, sizeof(k));
+    g_async.owner = (DWORD)owner0, kc.rgOwnerTid = rgOwner0;
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    *(u8**)(uintptr_t)0x011D9128 = W.world;
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
 int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     AddVectoredExceptionHandler(1, [](EXCEPTION_POINTERS* e) -> LONG {
@@ -2976,6 +3175,7 @@ int main(int argc, char** argv) {
     if (!strcmp(only, "PT")) { SectionPT(cases * 10); return 0; }
     if (!strcmp(only, "EP")) { SectionEP(cases * 10); return 0; }
     if (!strcmp(only, "GVH")) { SectionGVH(cases * 10); return 0; }
+    if (!strcmp(only, "CN")) { SectionCN(cases * 10); return 0; }
 
     // D. lot transforms, bit for bit (lot table hit: no insert)
     for (int i = 0; i < 2000; i++) {
@@ -2994,6 +3194,7 @@ int main(int argc, char** argv) {
     SectionPT(cases * 10);  // PT. [PlaceTestRO] (docs/670)
     SectionEP(cases * 10);  // EP. [EditPathRO] (docs/670 §8)
     SectionGVH(cases * 10);  // GVH. [GoalValidRO] Hits (docs/670 §11)
+    SectionCN(cases * 10);  // CN. [ConnRoomsRO] (docs/670 §15)
 
     // A. the game's call vs the clone
     for (int i = 0; i < cases; i++) OneCase();

@@ -245,6 +245,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0063D2F0, 0x0063E8E0},
     {0x0063D7B0, 0x0063EDA0},
     {0x0063D860, 0x0063EE50},
+    {0x0063DCB0, 0x00000000},
     {0x0063E340, 0x0063F930},
     {0x0063E708, 0x0063FCF8},
     {0x0063EC40, 0x00640230},
@@ -560,6 +561,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00791C00, 0x00792D90},
     {0x007920A0, 0x00793230},
     {0x007929F0, 0x00793B80},
+    {0x00792A55, 0x00000000},
     {0x00792CA0, 0x00793E30},
     {0x007935B0, 0x00000000},
     {0x00799780, 0x0079A770},
@@ -1695,4 +1697,6 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x0075AF4C no-ea-1.69-address native/ts3native/gvhits.cpp
 // unresolved: 0x00AB88A0 no-ea-1.69-address native/ts3native/gvhits.cpp
 // unresolved: 0x01010960 no-ea-1.69-address native/ts3native/gvhits.cpp
-constexpr int ts3addr_count = 1496;
+// unresolved: 0x00792A55 no-ea-1.69-address native/ts3native/connro.cpp
+// unresolved: 0x0063DCB0 no-ea-1.69-address native/ts3native/connro.cpp
+constexpr int ts3addr_count = 1498;

@@ -3232,6 +3232,8 @@ static void CiLogCounters();   // cellindex.cpp (docs/669)
 static void PtLogCounters();   // placero.cpp (docs/670)
 static void FglLogCounters();   // fglprof.cpp (docs/671)
 static void EpLogCounters();   // epro.cpp (docs/670 §8)
+static void CnLogCounters();   // connro.cpp (docs/670 §15)
+static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
 static void SrLogCounters();   // steerro.cpp (docs/670 §7)
 
@@ -3316,6 +3318,8 @@ static void MaybeLogCounters(ULONGLONG now) {
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
     FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
     EpLogCounters();   // docs/670 §8 (nothing until [EditPathRO] is installed)
+    CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
+    PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
     if (ts3native_readydrain.mode)
@@ -6322,6 +6326,7 @@ static_assert(offsetof(Ts3nCounters, dsN) == 0x6178 && offsetof(Ts3nCounters, lr
 #include "epro.cpp"  // docs/670 §8: [EditPathRO] (S2's QL, SrWalk2, SrConsume, AvMayRun, PatchCalls)
 #include "fsro.cpp"  // issue #156: [FootstepRO] footstep surface cache
 #include "idlero.cpp"  // docs/178 §8: [IdleCheckRO] (after fgro.cpp: S2's QL and SrEntry, AvMayRun, PatchCalls)
+#include "connro.cpp"  // docs/670 §15: [ConnRoomsRO] (after idlero.cpp: IkEnter / IkMoved; S2's SrEntry, AvMayRun, PatchCalls)
 #include "loadprof.cpp"
 #include "planrepeat.cpp"
 #include "replandedupe.cpp"
@@ -6601,6 +6606,7 @@ static void Run(HMODULE self) {
         InstallPlaceTestRO(ini);   // docs/670: S2's writer set, like [PlacementRO]
         InstallFglProf(ini);       // docs/671: measurement only; its sites differ from [PlaceTestRO]'s 0xB462B7
         InstallEditPathRO(ini);    // docs/670 §8: S2's writer set, like [PlaceTestRO]
+        InstallConnRoomsRO(ini);   // docs/670 §15: gate 11 + the call at 0x792A55
         InstallFootstepRO(ini);    // issue #156: footstep surface cache
         InstallIdleCheckRO(ini);    // docs/178 §8: S2's writer set, like [PlacementRO]
         InstallMovedWaits(ini);     // docs/178 §9: observe only

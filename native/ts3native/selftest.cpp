@@ -5213,6 +5213,20 @@ static u8 __fastcall FakePfAdd(void*, void*, void* obj, void* pts, DWORD flag) {
     g_xLog[g_xLogN++ & 63] = (char)('U' + XIdx(obj));
     return 1;
 }
+// docs/670 §16: 0x831BA0 as the records call it: the vector over the record's copy, the flag; 'U'/'V'/'W' in the log
+static float g_paPts[8][4];
+static DWORD g_paN, g_paFlag;
+static unsigned __int64 g_paLot[3];
+static u8 __fastcall FakePfAdd2(void*, void*, void* obj, void* vec, DWORD flag) {
+    const u8* const* v = (const u8* const*)vec;
+    g_paN = (DWORD)(v[1] - v[0]) / 16;
+    assert(g_paN <= 8 && v[2] == v[1]);
+    memcpy(g_paPts, v[0], g_paN * 16);
+    g_paFlag = flag;
+    g_xLog[g_xLogN++ & 63] = (char)('U' + XIdx(obj));
+    return 1;
+}
+static unsigned __int64 __cdecl FakePaLot(const void* obj) { return g_paLot[XIdx((void*)obj)]; }
 static DWORD WINAPI F2JobEnd(void*) {  // the running job ends a little later (a forced flush waits for it)
     Sleep(30);
     g_async.state = A_IDLE;
@@ -6017,6 +6031,187 @@ static u8 __fastcall PdFakePlan(void* world, void*, int*, int*, int*, DWORD, DWO
         ts3native_counters.rgOwnerTid = 0;
     }
     return g_pdRet;
+}
+
+// docs/670 §16 ([Discourage] DeferPrivateFpAdd): the IC's add as a record in D's FIFO. Own world setup (TestPrivateFpDefer's),
+// so the case also runs alone.
+static void TestPrivateFpAdd() {
+    Ts3nCounters& k = ts3native_counters;
+    memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
+    memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
+    memset(&k.usfReady, 0, offsetof(Ts3nCounters, usfApplyInJob) + 4 - offsetof(Ts3nCounters, usfReady));
+    memset(&k.fp2Mode, 0, offsetof(Ts3nCounters, fp2ApplyInJob) + 4 - offsetof(Ts3nCounters, fp2Mode));
+    memset(&k.pfReady, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, pfReady));
+    const DWORD me = GetCurrentThreadId();
+    const LockAcquireFn savedLock = g_lockOrig;
+    g_lockOrig = RgTryAcquire;
+    g_rgRelOrig = RgFakeRelease;
+    InitializeCriticalSection(&g_rgFakeCs);
+    const HANDLE savedDone = g_asyncDone, savedInv = g_invReady;
+    g_asyncDone = CreateEventW(NULL, FALSE, FALSE, NULL);
+    g_invReady = CreateEventW(NULL, FALSE, FALSE, NULL);
+    g_discAddOrig = XAdd;
+    g_discRemoveOrig = XRemove;
+    g_usfOrig = FakeUsf;
+    g_usfShould = FakeUsfShould;
+    g_ftOrig = FakeFt;
+    g_uolOrig = FakeUol;
+    g_pfRemove = FakePfRemove;
+    g_pfKey = FakePfKey;
+    g_objSvc = FakeSvc;
+    g_findRef = XFindRef;
+    g_objRelease = FakeObjRelease;
+    g_lotRemove = XLotRemove;
+    g_keyFind = XKeyFind;
+    static u8 world[0xA00];
+    static u8 planner[0x200];
+    static DWORD buckets[2] = {0, 0x5E5E5E5E};
+    memset(world, 0, sizeof(world));
+    g_f2World = world;
+    world[0x974] = 1;
+    *(u8**)(world + 0x95C) = planner;
+    *(DWORD**)(world + 0x8BC) = buckets;
+    *(DWORD*)(world + 0x8C0) = 1;
+    g_xKeyHit = false;
+    g_uShould = true;
+    g_rgLock = world + 0x918;
+    for (int i = 0; i < 3; i++) { *(DWORD*)(g_xObj[i] + 8) = 0xA + i; *(DWORD*)(g_xObj[i] + 0xC) = 0; g_xLive[i] = g_xObj[i]; }
+    u8* const A = g_xObj[0], * const B = g_xObj[1], * const C = g_xObj[2];
+    k.discMode = 1;
+    k.discDestroyMode = 1;
+    k.discSweepMode = 1;
+    k.usfMode = 1;
+    k.pfReady = 1;
+    k.pfMode = 1;
+    g_async.owner = me;
+    g_discHead = g_discCount = 0;
+    g_xLogN = 0;
+    auto log = [](const char* s) { return g_xLogN == (int)strlen(s) && memcmp(g_xLog, s, g_xLogN) == 0; };
+    auto settled = [&]() { return g_discCount == 0 && k.pfDeferred == k.pfApplied + k.pfSwept + k.pfDropped; };
+
+    PfAddCounters& a = ts3native_pfadd;
+    static_assert(offsetof(PfAddCounters, paMode) == 0 && offsetof(PfAddCounters, paDeferred) == 0x10 &&
+                      offsetof(PfAddCounters, paProbe) == 0x38 && sizeof(PfAddCounters) == 0x48,
+                  "ts3native_pfadd layout (docs/registry.md)");
+    memset(&a, 0, sizeof(a));
+    const PfAddFn savedAdd = g_pfAdd;
+    const ObjLotFn savedLot = g_objLot;
+    const DWORD* const savedWm = g_pfaWm;
+    static DWORD wm = 1;
+    g_pfAdd = FakePfAdd2, g_objLot = FakePaLot, g_pfaWm = &wm;
+    g_paLot[0] = 0x100, g_paLot[1] = 0x200, g_paLot[2] = 0x300;
+    __declspec(align(16)) static float src[4][4] = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
+    DWORD pv[3] = {(DWORD)(uintptr_t)src, (DWORD)(uintptr_t)(src + 4), (DWORD)(uintptr_t)(src + 4)};
+    const LONG flush0 = k.pfAddFlush, fp0 = k.fp2Forced;
+    auto paSettled = [&]() { return g_discCount == 0 && a.paDeferred == a.paApplied + a.paDropped; };
+    a.paReady = 1;
+    // mode 0 with the stub in: today's call
+    g_async.state = A_RUNNING, g_xLogN = 0;
+    assert(PfAddSite(world, NULL, A, pv, 1) == 1 && log("U") && a.paCalls == 1 && a.paInJob == 1 && a.paDeferred == 0);
+    a.paMode = 1;
+    // no job, nothing queued: today's call
+    g_async.state = A_IDLE, g_xLogN = 0;
+    assert(PfAddSite(world, NULL, A, pv, 1) == 1 && log("U") && a.paDeferred == 0 && g_paN == 4 && g_paFlag == 1);
+    // a job runs: a record with its own copy of the points, answered 1, nothing called
+    g_async.state = A_RUNNING, g_xLogN = 0;
+    assert(PfAddSite(world, NULL, A, pv, 1) == 1 && g_xLogN == 0 && a.paDeferred == 1 && g_discCount == 1);
+    src[0][0] = 99;  // the caller's vector is freed after the IC: the record must not read it again
+    g_paN = 0;
+    // the script's remove of the same object queues behind it (order rule), then both apply in order at the drain
+    assert(PfRemoveSite(world, NULL, A, 1) == 1 && g_xLogN == 0 && g_discCount == 2);
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(log("UX") && paSettled() && settled() && a.paApplied == 1 && a.paSkew == 0 && g_paN == 4 && g_paFlag == 1 && g_paPts[0][0] == 1 &&
+           g_paPts[3][3] == 16 && k.pfAddFlush == flush0 && k.fp2Forced == fp0);
+    src[0][0] = 1;
+    // remove, then add, in a job: both queued, applied in the call order; a remove right behind the add is no duplicate of the first
+    g_async.state = A_RUNNING, g_xLogN = 0;
+    PfRemoveSite(world, NULL, B, 1);
+    assert(PfAddSite(world, NULL, B, pv, 1) == 1 && g_discCount == 2);
+    PfRemoveSite(world, NULL, B, 1);
+    assert(g_discCount == 3 && g_xLogN == 0);
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(log("YVY") && paSettled() && settled());
+    // order rule with no job: the object has a queued record, so the add queues too
+    g_async.state = A_RUNNING, g_xLogN = 0;
+    PfRemoveSite(world, NULL, C, 1);
+    g_async.state = A_IDLE;
+    assert(PfAddSite(world, NULL, C, pv, 1) == 1 && g_xLogN == 0 && a.paOrderDefer == 1 && g_discCount == 2);
+    DiscPoll();
+    assert(log("ZW") && paSettled());
+    // not deferred, today's flush and call: flag 0 (the result depends on the lot), under 3 points, no world manager, +0x918 held
+    g_async.state = A_RUNNING, g_xLogN = 0;
+    const LONG d0 = a.paDeferred;
+    assert(PfAddSite(world, NULL, A, pv, 0) == 1 && log("U") && a.paFlag0 == 1 && g_paFlag == 0);
+    DWORD two[3] = {pv[0], pv[0] + 32, pv[0] + 32};
+    assert(PfAddSite(world, NULL, A, two, 1) == 1 && log("UU") && a.paShape == 1);
+    wm = 0;
+    assert(PfAddSite(world, NULL, A, pv, 1) == 1 && log("UUU") && a.paShape == 2);
+    wm = 1;
+    k.rgOwnerTid = (LONG)me;
+    assert(PfAddSite(world, NULL, A, pv, 1) == 1 && log("UUUU") && a.paPass == 1 && a.paDeferred == d0 && g_discCount == 0);
+    k.rgOwnerTid = 0;
+    // gone at the apply: no footprint; a reused id: none either; a moved lot: applied, counted
+    g_xLogN = 0;
+    PfAddSite(world, NULL, A, pv, 1);
+    PfAddSite(world, NULL, B, pv, 1);
+    PfAddSite(world, NULL, C, pv, 1);
+    g_xLive[0] = NULL, g_xLive[1] = A;
+    g_paLot[2] = 0x301;
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(log("W") && a.paDropped == 2 && a.paSkew == 1 && paSettled());
+    for (int i = 0; i < 3; i++) g_xLive[i] = g_xObj[i];
+    g_paLot[2] = 0x300;
+    // destroy while queued (D-X): the add is applied before the destroy takes the object (vanilla's order)
+    g_async.state = A_RUNNING, g_xLogN = 0;
+    PfAddSite(world, NULL, A, pv, 1);
+    g_async.state = A_IDLE;
+    DiscOnDestroy(0xA, 0, true);
+    assert(log("U") && paSettled());
+    // a queued add is not a queued removal (RemovalFirst parks a START only behind removals)
+    g_async.state = A_RUNNING, g_xLogN = 0;
+    PfAddSite(world, NULL, A, pv, 1);
+    assert(!DiscRemovalQueued());
+    PfRemoveSite(world, NULL, A, 1);
+    assert(DiscRemovalQueued());
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(log("UX") && paSettled());
+    // mode 2 (probe): today's call; at the next drain point the object's lot is read again
+    a.paMode = 2;
+    g_async.state = A_IDLE, g_xLogN = 0;
+    assert(PfAddSite(world, NULL, A, pv, 1) == 1 && PfAddSite(world, NULL, B, pv, 1) == 1 && log("UV") && g_pfaProbeN == 2 && g_discCount == 0);
+    g_paLot[1] = 0x201;
+    DiscPoll();
+    assert(g_pfaProbeN == 0 && a.paProbe == 2 && a.paProbeMoved == 1 && a.paDeferred == a.paApplied + a.paDropped);
+    g_paLot[1] = 0x200;
+    memset(&a, 0, sizeof(a));
+    g_pfAdd = savedAdd, g_objLot = savedLot, g_pfaWm = savedWm;
+    assert(k.pfApplyInJob == 0 && k.usfApplyInJob == 0 && k.fp2ApplyInJob == 0 && k.rgOwnerTid == 0);
+    printf("PrivateFpAdd ([Discourage] DeferPrivateFpAdd): export layout; mode 0 and no job = today's call; a job: a record with its own "
+           "copy of the points, answered 1; remove / add / remove of one object applied in call order; order rule with no job; flag 0, "
+           "under 3 points, no world manager and a +0x918 hold are not deferred; object gone, id reused, lot moved at the apply; destroy "
+           "applies the add first; an add is no queued removal; probe mode\n");
+    g_async.owner = 0;
+    g_async.state = A_IDLE;
+    g_rgLock = NULL;
+    k.discMode = 0;
+    k.usfMode = 0;
+    k.fp2Mode = 0;
+    k.pfReady = 0;
+    k.pfMode = 0;
+    k.rgOwnerTid = 0;
+    k.rgAcquires = 0;
+    g_lockOrig = savedLock;  // the rest as TestPrivateFpDefer leaves it
+    g_pfRemove = (PfRemoveFn)(uintptr_t)PFR_FN;
+    g_pfKey = (PfKeyFn)(uintptr_t)0x007CFA30;
+    CloseHandle(g_asyncDone);
+    CloseHandle(g_invReady);
+    g_asyncDone = savedDone;
+    g_invReady = savedInv;
+    DeleteCriticalSection(&g_rgFakeCs);
 }
 
 static void TestPlanDrain() {
@@ -13198,6 +13393,7 @@ static void TestNoPathMemoStub() {
 #include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
 #include "fglprof-stub-test.h"   // TestFglProfStubs: the trampolines against cdecl and ret-4 fakes
 #include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
+#include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
 #include "discyield-test.h"  // TestDiscYield ([RouteAsync] DiscYieldForeign, docs/640)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
@@ -14635,6 +14831,7 @@ int main() {
     TestFootprintDefer2();
     TestFp2LostRemoval();
     TestPrivateFpDefer();
+    TestPrivateFpAdd();  // docs/670 §16
     TestPlanDrain();
     TestDestroyPark();
     TestXformGuard();
@@ -14779,6 +14976,7 @@ int main() {
     TestFglProfStubs();
     TestFglFacing();   // docs/671 §10
     TestEditPathRO();  // docs/670 §8
+    TestConnRoomsRO();  // docs/670 §15
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

@@ -111659,6 +111659,228 @@
     ]
   },
   {
+    "id": "ip-connroomsro-storm",
+    "bug": "docs/670 §15: in the s160-s166 Isla Paradiso route storms (2026-11-20, every RO clone of docs/670 §13 on) the sim thread waits 55 times / 3.7 s (max 202 ms) on +0x918 with key 0xD882D7: our coarse gate on IC_World_GetConnectedRoomsImpl 0x7929F0, which holds the lock for the whole IC because RoomGraph_ConnectedRooms 0x63DCB0 can build a lot or fill a room record on first use. After that first use the call only reads the room's portal list.",
+    "fix": "ts3native [ConnRoomsRO] Enabled=1 (default 0, connro.cpp): the gate first reads the answer on the sim thread under QL shared (try only, S2's protocol), parks it for this IC call and takes no lock; a stub on the IC's call at 0x792A55 hands the parked answer out through the game's allocator. A lot that is not built, a room that is not filled or any other doubt gives the call back to the gate (today's wait). Exact for every Sim. Shadow=1 compares with the game's call when no job runs. Runtime switch native_set connroomsro.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest case TestConnRoomsRO and steerro-test section CN under Wine: the game's own IC 0x7929F0 run from its entry, 60000 calls, 57242 compared equal with the parked clone answer, 0 differ, 57242 shadow checks 0 mismatch, 2336 doubts given back). Needs the MSVC asi with [ConnRoomsRO] Enabled=1 Shadow=1 and [RouteGate] Enforce=1, [RouteAsync] on in both arms. Cautious first pass: Mode=0 Shadow=1 (compare only).",
+    "expect": "shadow: 'connected rooms RO:' line with shadow checks > 0, mismatch 0, 'not used' 0, no 'SHADOW MISMATCH' line. on arms: answered > 0, handed out = answered; 'route lock wait' lines with key 00D882D7 and their ms well below the off arms (what is left is 'lot not built' / 'room not filled' and the protocol's give-backs); read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "connroomsro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 answer while a job runs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back while scripts ask for connected rooms"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
+    "id": "ip-editpath-startguard-storm",
+    "bug": "docs/670 §14: with [EditPathRO] on, the s160-s166 storms still log 55 'route lock wait' lines / 3.2 s with key 0x85F6CB, while the stub's own with-a-job path books only 0-65 ms per run in the game's call. The waiting calls saw no job at the stub's entry: the worker takes +0x918 between the stub's look and the game's Lock_Acquire, and the call waits for the whole job (inferred from the counters).",
+    "fix": "ts3native [EditPathRO] StartGuard=1 (default 0): a call that finds no job makes the game's call inside a g_rgOffSimOpen frame (the worker starts no job while it is open); a job that had started in the gap goes to the clone. Retry=1 (default 0): a clone answer dropped for QL busy, a tripwire or the job's end is run again (at most 4 passes in ~1 ms). The answer is the game's own in every case. Both are ini keys; the A/B here switches the whole stub (native_set editpathro), so run the on arm's ini with StartGuard=1 Retry=1 and compare against an earlier arm without them.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest case TestEditPathRO under Wine: guard frame open during the game's call, reruns after job end / QL busy, the next job answered by the second pass). The cause is inferred, not observed: if key 0085F6CB does not fall with StartGuard=1, the waiting call is another one. Needs the MSVC asi with [EditPathRO] Enabled=1 StartGuard=1 Retry=1, [SteerRO] Retry=1.",
+    "expect": "'edit path RO:' line: 'start guard 1: the game's call in a frame N' large, 'a job had started R' > 0 (about the old 0085F6CB line count), 'retry 1: reruns ... answered after one' > 0; 'route lock wait' lines with key 0085F6CB near the line's own 'the game's call N ms'. Job starts must not suffer: compare jobs per storm and 'asyncBackoffs' with an arm without the guard.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "editpathro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off (the game's EditPath, no guard), 1 the stub with the ini's StartGuard / Retry"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): plans queued and SetAGS / plan tails editing paths right after"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
+    "id": "ip-pfadd-storm",
+    "bug": "docs/670 §16: the largest sim-thread wait left in the s160-s166 storms is 'route jobs: sim waited ... for a job at disc (... drain point fp2 reader)': 235 waits / 15.7 s in seven 4 min runs. RouteManager_AddPrivateFootprint / RemovePrivateFootprint (DynamicSimFootprint of boats and large animals) flush the object's queued footprint records first, which waits for the running route job.",
+    "fix": "ts3native [Discourage] DeferPrivateFp=1 (the remove, docs/89 §14) with DeferPrivateFpAdd=1 (default 0, docs/670 §16): the add becomes a record in the same FIFO with a copy of its points, answered 1, applied in call order at the drain points; only with a non-zero allow-placement flag (boats), where the game's result is 1 as well. NOT identical to the game: the footprint arrives at the next drain point, and the object's lot is read then. DeferPrivateFpAdd=2 is a probe (today's call, the lot read again at the next drain point). Runtime switch native_set pfadd.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest case TestPrivateFpAdd under Wine: record with its own points, order with the remove, order rule, flag 0 / shape / lock hold not deferred, gone / reused / moved at the apply, destroy, probe). 0x831BA0 audited by decompile and direct-call closure (no path to World_FireEvent; its 227 computed calls not followed). Run the probe first: ini DeferPrivateFp=1 DeferPrivateFpAdd=2 and read 'probe N moved M'; only then the A/B below with DeferPrivateFpAdd=1 in the ini.",
+    "expect": "probe pass: 'private footprint add:' line with probe > 0 and moved 0 or rare. on arms: deferred > 0, applied + object gone = deferred, 'lot moved' rare; the 'drain point fp2 reader' job-wait lines and the 'job-wait' hitch frames well below the off arms; tripwire pfApplyInJob 0. Watch boats: a turn-helper footprint must not stay missing after the boat stops (other Sims routing through a moored boat's turn area would show it).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "pfadd": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off (flush and call, today), 1 defer while a job runs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): boats start and stop beside running route jobs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

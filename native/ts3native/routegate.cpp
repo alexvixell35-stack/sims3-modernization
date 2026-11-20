@@ -95,6 +95,8 @@ static volatile LONG g_g0On;                                                    
 static LONG G0Gate(const DWORD* slot, DWORD tid, bool job, const u8** pred);  // gate0ro.cpp
 static void G0Undo();                                                           // gate0ro.cpp
 static void G0Check(const void* pred, DWORD eax);                               // gate0ro.cpp
+static volatile LONG g_cnOn;                      // connro.cpp ([ConnRoomsRO], docs/670 §15)
+static bool CnGate(const DWORD* slot, DWORD tid);  // connro.cpp
 
 static void RgUndo(const RgFrame& f) {
     if (f.rel & RG_REL_NR) InterlockedDecrement(&g_snNrIn);
@@ -324,6 +326,9 @@ static void __cdecl RgEnter(int site, DWORD* slot) {
                 if (!RgPush(t, slot, 0, RG_REL_OFFSIM)) RgOffSimDrop();
                 return;
             }
+            // [ConnRoomsRO] (connro.cpp): the IC's answer was read under QL shared and is parked for its call at 0x792A55,
+            // which then does not run the game's 0x63DCB0: no frame, no wait, nothing of the body left to guard
+            if (site == 11 && g_cnOn && CnGate(slot, tid)) return;
             // every non-worker frame is published before the job state is read; the worker sets RUNNING before it reads
             // them (ServeAsync), so a leaf entry that saw no job and a job start never overlap
             InterlockedIncrement(&g_rgOffSimOpen);

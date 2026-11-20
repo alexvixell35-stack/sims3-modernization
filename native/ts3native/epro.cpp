@@ -43,6 +43,13 @@ struct EditPathRoCounters {
     volatile LONG epGameUs;          // +0x50 time in the game's call while a job ran (the wait), us
     LONG epGameMaxUs;                // +0x54
     volatile LONG epOtherForm;       // +0x58 sim-thread calls with an exclude vector (not the route form): the game's call
+    // docs/670 §14 (the 0x85F6CB residue): StartGuard and Retry
+    volatile LONG epGuard;           // +0x5C ini StartGuard: no job starts inside the game's call of a call that found no job
+    volatile LONG epRetry;           // +0x60 ini Retry: a dropped clone answer (QL busy, tripwire, job end) is run again
+    volatile LONG epGuardCalls;      // +0x64 the game's calls made inside a start-guard frame
+    volatile LONG epGuardRace;       // +0x68 a job had started between the stub's first look and the frame: the clone path instead
+    volatile LONG epRetryN;          // +0x6C reruns (clone or guard) after a dropped answer
+    volatile LONG epRetryOk;         // +0x70 calls answered by a rerun, by the clone or by the game's call with no job live
 };
 extern "C" __declspec(dllexport) EditPathRoCounters ts3native_editpathro = {};
 
@@ -173,18 +180,45 @@ static void __cdecl EpStub(u8* wm, u8* world, u8* planner, u8* ids, const float*
     static SrOut out;  // owner thread only
     static SrCtx ctx;
     InterlockedIncrement(&k.epCalls);
-    if (g_async.state != A_RUNNING) {
-        if (!k.epShadow) { g_epOrig(wm, world, planner, ids, start, goal, opt, excl, ign1, n1, ign2, n2); return; }
-        InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
-        if (g_async.state == A_RUNNING) g_epOrig(wm, world, planner, ids, start, goal, opt, excl, ign1, n1, ign2, n2);
-        else EpShadow(wm, world, planner, ids, start, goal, opt, ign1, n1, ign2, n2, &out, &ctx);
-        RgOffSimDrop();
-        return;
-    }
-    InterlockedIncrement(&k.epJob);
-    LARGE_INTEGER t0;
-    QueryPerformanceCounter(&t0);
-    if (k.epMode) {
+    // docs/670 §14: at most kEpTries passes. A pass is the game's call with no job live, the clone's answer, or (Retry) a
+    // rerun after a dropped answer; the last pass ends in the game's call whatever the state (today's wait)
+    enum { kEpTries = 4 };
+    bool counted = false;
+    LARGE_INTEGER t0 = {};
+    for (int pass = 0;; pass++) {
+        if (g_async.state != A_RUNNING) {
+            if (k.epShadow && !pass) {
+                InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
+                if (g_async.state == A_RUNNING) g_epOrig(wm, world, planner, ids, start, goal, opt, excl, ign1, n1, ign2, n2);
+                else EpShadow(wm, world, planner, ids, start, goal, opt, ign1, n1, ign2, n2, &out, &ctx);
+                RgOffSimDrop();
+                return;
+            }
+            if (!k.epGuard || !k.epMode) {  // as before this switch: the game's call, no frame
+                g_epOrig(wm, world, planner, ids, start, goal, opt, excl, ign1, n1, ign2, n2);
+                if (pass) InterlockedIncrement(&k.epRetryOk);
+                return;
+            }
+            // StartGuard: the stub saw no job, but the worker may take +0x918 before the game's call below does, and that
+            // call would then wait for the whole job. The frame holds the start off for this one call (ServeAsync backs
+            // off while g_rgOffSimOpen > 0; Dekker order, as the shadow path above)
+            InterlockedIncrement(&g_rgOffSimOpen);
+            if (g_async.state != A_RUNNING) {
+                g_epOrig(wm, world, planner, ids, start, goal, opt, excl, ign1, n1, ign2, n2);
+                RgOffSimDrop();
+                InterlockedIncrement(&k.epGuardCalls);
+                if (pass) InterlockedIncrement(&k.epRetryOk);
+                return;
+            }
+            RgOffSimDrop();  // a job started in the gap: the clone path
+            InterlockedIncrement(&k.epGuardRace);
+        }
+        if (!counted) {
+            counted = true;
+            InterlockedIncrement(&k.epJob);
+            QueryPerformanceCounter(&t0);
+        }
+        if (!k.epMode) break;
         if (!AvMayRun(tid)) {  // the +0x918 owner (lent or recursive hold), a job callback or an open gate frame: no wait to save
             InterlockedIncrement(&k.epFb[EP_FB_MAYNOT]);
             g_epOrig(wm, world, planner, ids, start, goal, opt, excl, ign1, n1, ign2, n2);
@@ -200,13 +234,20 @@ static void __cdecl EpStub(u8* wm, u8* world, u8* planner, u8* ids, const float*
             if (noLot) InterlockedIncrement(&k.epNoLot);
             InterlockedExchangeAdd(&k.epUs, us);
             Max(&k.epMaxUs, us);
+            if (pass) InterlockedIncrement(&k.epRetryOk);
             return;
         }
-        EpFallback(why);
-        QueryPerformanceCounter(&t0);
+        // Retry: a rerun starts S2's protocol again (sequence, epoch, generation read by EpRun), so its answer is as exact
+        // as a first one. QL busy and a tripwire are a writer's short hold: yield first. Job end: the loop's top decides
+        const bool again = k.epRetry && pass + 1 < kEpTries && (why == SR_FB_TRY || why == SR_FB_TRIP || why == EP_WHY_JOBEND) && UsSince(t0) < 1000;
+        if (!again) { EpFallback(why); break; }
+        InterlockedIncrement(&k.epRetryN);
+        if (why != EP_WHY_JOBEND) SwitchToThread();
     }
+    LARGE_INTEGER t1 = {};
+    QueryPerformanceCounter(&t1);
     g_epOrig(wm, world, planner, ids, start, goal, opt, excl, ign1, n1, ign2, n2);  // the +0x918 wait this switch is about
-    const LONG us = UsSince(t0);
+    const LONG us = UsSince(t1);
     InterlockedExchangeAdd(&k.epGameUs, us);
     Max(&k.epGameMaxUs, us);
 }
@@ -226,8 +267,11 @@ static void InstallEditPathRO(const wchar_t* ini) {
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     k.epMode = Clamp(GetPrivateProfileIntW(L"EditPathRO", L"Mode", 1, ini), 0, 1);
     k.epShadow = Clamp(GetPrivateProfileIntW(L"EditPathRO", L"Shadow", 0, ini), 0, 1);
+    k.epGuard = Clamp(GetPrivateProfileIntW(L"EditPathRO", L"StartGuard", 0, ini), 0, 1);
+    k.epRetry = Clamp(GetPrivateProfileIntW(L"EditPathRO", L"Retry", 0, ini), 0, 1);
     k.epReady = 1;
-    Log("OK   edit path RO: 0x%08lX + the S2 writer set (Mode=%ld Shadow=%ld)", EP_SITE, k.epMode, k.epShadow);
+    Log("OK   edit path RO: 0x%08lX + the S2 writer set (Mode=%ld Shadow=%ld StartGuard=%ld Retry=%ld)", EP_SITE, k.epMode, k.epShadow, k.epGuard,
+        k.epRetry);
 }
 
 // the 60 s counter line (ts3native.cpp MaybeLogCounters)
@@ -236,8 +280,10 @@ static void EpLogCounters() {
     if (!k.epReady) return;
     Log("edit path RO: mode %ld shadow %ld calls %ld, with a job %ld: answered %ld (ids %ld, no lot %ld; %ld ms, max %ld us), the game's "
         "call %ld ms (max %ld us); given back: state %ld, QL busy %ld, lot %ld, shape %ld, polygon cache %ld, tripwire %ld, job end %ld, "
-        "may not %ld; other form %ld; shadow checks %ld mismatch %ld",
+        "may not %ld; other form %ld; shadow checks %ld mismatch %ld; start guard %ld: the game's call in a frame %ld, a job had started %ld; "
+        "retry %ld: reruns %ld, answered after one %ld",
         k.epMode, k.epShadow, k.epCalls, k.epJob, k.epTaken, k.epIds, k.epNoLot, k.epUs / 1000, k.epMaxUs, k.epGameUs / 1000, k.epGameMaxUs,
         k.epFb[EP_FB_STATE], k.epFb[EP_FB_TRY], k.epFb[EP_FB_LOT], k.epFb[EP_FB_SHAPE], k.epFb[EP_FB_CACHE], k.epFb[EP_FB_TRIP],
-        k.epFb[EP_FB_JOBEND], k.epFb[EP_FB_MAYNOT], k.epOtherForm, k.epShadowRuns, k.epShadowMismatch);
+        k.epFb[EP_FB_JOBEND], k.epFb[EP_FB_MAYNOT], k.epOtherForm, k.epShadowRuns, k.epShadowMismatch, k.epGuard, k.epGuardCalls, k.epGuardRace,
+        k.epRetry, k.epRetryN, k.epRetryOk);
 }

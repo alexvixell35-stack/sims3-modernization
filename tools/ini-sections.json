@@ -56,6 +56,7 @@
  "FglFacing": ["fglprof.cpp"],
  "FglMemo": ["fglprof.cpp"],
  "EditPathRO": ["epro.cpp"],
+ "ConnRoomsRO": ["connro.cpp"],
  "FootstepRO": ["fsro.cpp"],
  "GoalValidRO": ["gvhits.cpp", "gvro.cpp"],
  "IdleCheckRO": ["idlero.cpp"],

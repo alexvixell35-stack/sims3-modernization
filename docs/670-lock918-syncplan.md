@@ -641,3 +641,298 @@ Read: the `goal hits RO:` line (shadow checks > 0, mismatch 0, unseen 0; answere
 wait:` lines with key `0075A64C` (23 in s151-on) and the `hitch totals` wait sum (§7.1). A `SKIP goal hits RO` line means the
 code hash failed (another hook in the validator): report it. `[ProbeP1b] Enabled=1` in a separate observe-only run gives the
 second frames for `0x62EF7A` and `0x62FB74` (§12.2) before either of those is built.
+
+## 14. s160-s166 read; the `0x85F6CB` / `0x85FE10` residue (`[EditPathRO] StartGuard`, `Retry`; ts3native, default off, NOT RUN)
+
+2026-11-20, branch `feat/lock918-readers4`. Input: the seven on arms s160-s166 (4 min Isla Paradiso route storms, every switch of
+§13 on with `[SteerRO] Retry=0`, `[Discourage] DeferPrivateFp=0`), `ts3native-full.log` each; Ghidra headless (`DecompileTo`,
+`ICSafety`, `CallPaths`), objdump on the Steam 1.67 code.
+
+### 14.1 What the sim thread still waits for [measured, seven arms summed]
+
+`route lock wait:` lines (>= 20 ms), and the `route jobs: sim waited ... for a job at ...` lines (>= 20 ms):
+
+| what | ms | n | max | per arm (s160..s166) | class | answer |
+|---|---|---|---|---|---|---|
+| job wait `disc`, drain point `fp2 reader` | 15,655 | 235 | 192 | - | **writer**: the private-footprint ICs flush the object's queued records first (§16) | `DeferPrivateFp=1` + **`DeferPrivateFpAdd` (§16)** |
+| key `0x760BFF` gate 10, a sync plan's goal step | 8,760 | 131 | 241 | 1373 1315 1503 1160 1295 1307 807 | writer / search | none (the plan itself) |
+| job wait `rtwait` (`RtWaitJob`: destroy, drains, the lost-removal flush) | 5,788 | 104 | 211 | - | writers | not split by site in the log (§17) |
+| key `0x62FB74` gate 12 `LotTable_GetIfPresent` | 4,934 | 75 | 285 | 410 762 450 846 826 1322 318 | mixed | callers not known (§17) |
+| key `0xD882D7` coarse gate, `IC_World_GetConnectedRoomsImpl` | 3,677 | 55 | 202 | 401 190 476 784 375 885 566 | reader after a room's first use | **`[ConnRoomsRO]` (§15)** |
+| key `0x85F6CB` EditPath gather | 3,249 | 55 | 248 | 707 358 470 534 450 481 249 | reader | **`StartGuard`, `Retry` (§14.2)** |
+| key `0x62EF7A` gate 0 | 2,131 | 41 | 124 | 583 238 222 348 183 250 307 | mixed | private-footprint ICs named (§16); the rest unknown (§17) |
+| key `0x85FE10` steering query | 2,035 | 30 | 205 | 238 327 87 398 412 307 266 | reader | S2's give-backs: `[SteerRO] Retry=1` (§14.3) |
+| key `0x62F782` gate 12 `PortalsForObject` | 1,581 | 26 | 166 | 94 33 268 244 339 194 409 | writer (`SetPortalCost`) / reader | `[SlotEnabledRO]` for the reader |
+| job wait `runplan` | 1,206 | 13 | 180 | - | the sim's own plan | none |
+| job wait `disc` at READY / START | 1,125 | 17 | 112 | - | writer (deferred records older than 250 ms) | none |
+| key `0x833697` object footprint update | 914 | 16 | 125 | - | writer | none |
+| keys `0x75AA16`, `0x631814`, `0x83156D`, `0x75A64C`, `0x831BF4`, `0x631F40`, `0x62FB8B`, `0x85B50C`, `0x846D21` | 2,984 | 45 | 205 | - | readers' give-backs, two writers | - |
+
+`hitch totals` per arm: `+0x918` waits >= 1 ms 3,701-5,082 ms (n 103-140), all behind the route worker; `lock918` hitch
+frames 5-10, `job-wait` frames 1-11. **The largest single cost is not a lock key: it is the `fp2 reader` flush**, 2.2 s per
+arm, which the wait-key tables of §7 and §11 do not show because it is booked as a job wait.
+
+The 394 ms `World_ArePointsConnectedByLand` frame of s161 is **not** a lock frame: `cause sim-cpu ... lock918 0`, the samples
+sit in `ClosestWaypoints_Find` (gather, sort) and `Query_CountObjectsOnLot`. No `+0x918` clone applies to it.
+
+### 14.2 `0x85F6CB`: which call still waits [counters measured; the cause inferred]
+
+`RouteFollow_EditPath 0x85F5A0` has two callers (`0x85FED7` in `Locomotion_ObstacleCheck`, `0x85FFC2` in the route form)
+[verified: call scan of the image], so every `0x85F6CB` wait is behind `LocoHook` or `EpStub`. Per arm, `edit path RO:`
+books **0, 2, 4, 10, 27, 35, 65 ms** in the game's call while a job ran (the given-back calls: QL busy 0-3, tripwire 0-2,
+job end 2-14), and `steer RO:` books 0 ms at the EditPath gather in six arms (143 ms in s161). The lines sum to 249-707 ms
+per arm. So most of the wait is in **calls that saw no job at the stub's entry** [inferred: the only path left in the
+source]: `EpStub` reads `g_async.state`, sees `A_IDLE` and calls the game; `ServeAsync` takes `+0x918` before it publishes
+`A_RUNNING`, so a job that starts between the stub's look and the game's `Lock_Acquire` makes that call wait for the whole
+job. The start is correlated with the caller (the sim thread has just queued the job from the same script frame:
+`Route_SetAGS` is the script stack of 4 of the 5 named lines), which would explain a microsecond window being hit about
+8 times an arm. The same hole follows a job-end give-back: the game's call then races the next queued job (`job end 12`,
+longest game call 31.8 ms in s166).
+
+Built (`epro.cpp`):
+
+- **`StartGuard=1`**: with no job at the entry the stub opens a `g_rgOffSimOpen` frame, reads the state again, and makes the
+  game's call inside the frame; `ServeAsync` backs off while the count is > 0 (the Dekker pair every gate leaf and the shadow
+  path already use). A job that had started in the gap sends the call to the clone path. The answer is the game's own call;
+  the job's start moves by one EditPath call. No lock is skipped.
+- **`Retry=1`**: a clone answer dropped for QL busy, a tripwire or the job's end is run again from the protocol's start (S2's
+  `SrRetry` rule, docs/250 §8: sequence, epoch and generation are read again, so a rerun is as exact as a first run), at most
+  4 passes within ~1 ms; QL busy and tripwire yield first; after a job end the loop's top decides (no job: the game's call,
+  inside the guard frame when `StartGuard` is on; a new job: the clone).
+- Counter line gains `start guard G: the game's call in a frame N, a job had started R; retry T: reruns N, answered after one
+  K`. Export `ts3native_editpathro` `+0x5C..+0x70` (guard, retry, guard calls, guard race, reruns, answered after a rerun).
+
+The next storm decides: with `StartGuard=1`, key `0x85F6CB` should fall to the with-a-job figure (`the game's call N ms`).
+If it does not, the inference above is wrong and the waiting call must be found with a per-call entry-state counter.
+
+### 14.3 `0x85FE10`: which call still waits [measured counters]
+
+Nearly all of it is S2's given-back calls: `steer RO: ... job waits in given-back calls` is 261 / 212 / 97 / 283 / 336 / 256
+/ 273 ms per arm against 238 / 327 / 87 / 398 / 412 / 307 / 266 ms of lines. The reasons per arm: `state` 2-6 (the job
+ended before or during the clone, `s2JobEndDrop`; the stub's other state refusals hold the lock or serve a callback and do
+not wait), `QL busy` 2-6 (a W1-W6 writer's exclusive hold), `tripwire` 2-5; no lot, cache or shape give-back at all.
+`[SteerRO] Retry=1` (docs/250 §8, built, off in these arms) reruns the QL-busy and tripwire calls; the job-end ones call
+the game with no job live, and `[LocoWindow] Mode=1` keeps a new job from starting during the locomotion pass. Nothing was
+built for this key: **arm `[SteerRO] Retry=1`**. In four arms the lines exceed the given-back figure by 51-115 ms; that
+rest is not attributed (a call outside the locomotion pass meeting §14.2's start race would look like this; S2 has no guard
+for it).
+
+### 14.4 Checks run (2026-11-20, no game)
+
+- Selftest `TestEditPathRO` (clang-cl, alone under Wine): the guard frame is open during the game's call and closed after;
+  switch off = no frame; a job-end drop rerun 3 times then given back once; the next job armed during the first pass = the
+  second pass answers; the job gone = the game's call in the frame, no wait booked; QL busy with Retry counted once. Pass.
+  The "job had started in the gap" branch needs a second thread and is not exercised.
+- `steerro-test` section EP unchanged (`EpRun` is not touched): 3,839 of 4,000 equal, 0 differ, in the whole run.
+
+## 15. `[ConnRoomsRO]`: `IC_World_GetConnectedRoomsImpl` on a clone (ts3native, default off, NOT RUN)
+
+Key `0xD882D7` (§12.1): 55 lines / 3,677 ms in the seven arms, the largest reader key left. `World_GetConnectedRoomsImpl` is
+the script stack of 5 of its 10 named lines.
+
+### 15.1 The call [verified disassembly `0x7929F0..0x792AAF`, `0x63DCB0..0x63DF57`, `0x6286F0`, `0x63D2F0..0x63D364`]
+
+- The IC (cdecl: lot id lo, hi, room, level) reads the script host `[0x11D4BBC]`, the routing world and the lot planner,
+  calls `RoomGraph_ConnectedRooms 0x63DCB0` at `0x792A55` (thiscall P: lo, hi, room, level, vector*; `ret 0x14`) into an
+  empty local vector tagged "Scripting/WorldHost", and on al != 0 asks the host for an array (slot `+0x8C`) and copies the
+  vector into it (slot `+0xA4`). The frame up to the call is `sub esp, 0x14; push ebx; push edi` and five pushes: the call's
+  return slot is the IC's return slot - 0x34.
+- `0x63DCB0`: `LotTable_Contains` (gate 12), `GetOrInsert` (gate 0, a hit). Room index as 16-bit words: room > 0 (signed
+  word) `room + 0x10`; room == 0 `level + 4`; room < 0 `0xFFFF`. Index >= the entry's room count (`+0x90` / `+0x94`, 0x44
+  bytes each, unsigned compare): al 0. `RoomGraph_FirstUse 0x63D2F0` (gate 2): builds the lot when `entry+0x8C` is 0,
+  fills the room record when its first byte is 0, **else returns at once** (`0x63D300`, `0x63D359`). Then each portal
+  pointer of the room (`+4 .. +8`): skipped with bit 1 of `portal+0x58`; the words `+0x48` and `+0x4A` that are neither
+  `0xFFFF` nor the index go, as `w <= 0x10 ? 0 : w - 0x10`, into a set ordered by **signed** 16-bit compare (`setl` at
+  `0x628716`). The set is appended to the vector sign-extended (`movsx` at `0x63DEE0`); a vector that is too small gets one
+  block of `4 * count` bytes from `0x4E3F90` with the vector's tag. al = the vector is not empty. A null portal pointer is
+  read at `+0x48` (the null test at `0x63DDA8` only skips the bit test).
+
+### 15.2 The clone (`connro.cpp`)
+
+At the entry gate (`RgEnter`, site 11), for an outermost entry of the sim (owner) thread while a job runs and `AvMayRun`
+holds, **before the gate publishes a frame or waits**: `CnGate` reads the answer under QL shared (try only) with S2's protocol
+through `[IdleCheckRO]`'s `IkEnter` / `IkMoved` / `IkLeave` (sequence, tripwire epoch, generation before and after): the lot
+entry by the Contains rules (`SrEntry`, no insert), the room index, `entry+0x8C`, the room's first byte, the portal pointers
+and the three portal fields. This is `[IdleCheckRO]`'s read set (the room vectors and portal `+0x48` / `+0x58` its leaf
+`0x625140` reads under the same hold, I-178-8-2) plus the neighbouring word `+0x4A`.
+
+An answer is parked for this one IC call, keyed by the IC's return slot, the planner and the four arguments. The gate then
+returns with **no frame and no lock**: the only part of the IC that touches routing state is the call at `0x792A55`, and the
+stub there (`CnStub`) hands the parked answer out instead of calling `0x63DCB0`: one block from the game's allocator with
+the vector's tag, the values in the set's order, al as the game's. The IC's own tail (the managed array) runs as after the
+game's call. A parked answer that the stub cannot match (another slot, planner or argument, a vector that is not empty) is
+dropped and the game's `0x63DCB0` runs, each nested gate on its own as for any unlocked entry (`not used` in the line).
+
+Given back to the gate (today's wait, the game's whole body under `+0x918`), nothing parked: QL busy, a tripwire, the job's
+end, a lot that is not built or a room that is not filled (`0x63D2F0`'s two writes: a lot build and a room-to-room search),
+a null portal pointer, more than 128 rooms, no planner, a job callback.
+
+Exact for every Sim: the same vectors, fields, set order and output as the game's code on the same data. What differs in
+time is what differs for every clone here (it reads between the job's writers under QL; the game's call reads after the job).
+
+Shadow (`Shadow=1`, no job; the gate's own frame holds job starts off): the game's `0x63DCB0`, then the clone, the vector and
+al compared; `SHADOW MISMATCH` lines (16). The game's call has built and filled what it needed, so the shadow checks the
+read, not the two doubts.
+
+### 15.3 Switches, counters, files
+
+- `ts3native.ini` `[ConnRoomsRO] Enabled=0` (install), `Mode=1` (start of the runtime switch: export `ts3native_connroomsro`
+  `+0x00`, `native_set connroomsro`), `Shadow=0`. Needs `[RouteGate] Enforce=1` (gate stub 11), `[RouteAsync]`, the S2
+  writer set. Install checks the IC's frame bytes (`0x7929F6..`, `0x792A26..0x792A4C`) and the call.
+- One line a minute: `connected rooms RO: mode M shadow S, IC entries with a job J: answered A (no rooms E, rooms R; T ms,
+  max U us), handed out H, not used X; given back: state, QL busy, tripwire, job end, lot not built, room not filled,
+  shape, may not; shadow checks C mismatch X`.
+- Files: `native/ts3native/connro.cpp`, `connro-test.h`; `routegate.cpp` (one line in `RgEnter`); section CN in
+  `steerro-test.cpp`; `ts3addr-ea169.h` (`0x792A55`, `0x63DCB0` unresolved: the EA 1.69 build logs SKIP);
+  `tools/ini-sections.json`, `tools/ea-ini.ts`, `tools/harness/native-switches.ts`; repro `ip-connroomsro-storm`.
+
+### 15.4 Checks run (2026-11-20, no game)
+
+- `steerro-test` section CN (clang-cl build under Wine, `SRT_ONLY=CN`, harness as §8.5): **the game's IC `0x7929F0` run
+  from its entry** with a fake script host that records the array it is asked for, twice per case on the same world: with
+  no job (the stub passes to the game's `0x63DCB0`; the shadow compare runs on the way), and with a job "running" and
+  `CnGate` called on the IC's return slot as `RgEnter` calls it. Random lots (in the table, the active lot, not in the
+  table, key 0, all-ones), rooms (0 by level, positive, negative, past the vector, garbage in the high word), up to 70
+  rooms with up to 13 portals, portal words on both sides of the signed boundary. **60,000 calls: 57,242 compared equal**
+  (array asked of the host, its contents, the IC's result; 12,437 with rooms, 71,697 room numbers, up to 19 a call, 14,778
+  negative; 44,805 "no rooms"), 57,242 shadow checks 0 mismatch, **0 differ**; 2,336 doubts given back and not run on the
+  game (lot not built 877, room not filled 894, null portal 565: the game's side would build, search or fault on fakes;
+  the other 422 doubt cases changed a field the call does not read and were answered); a parked answer is refused by
+  another IC frame. 11 call edges, the IC's frame, the set's signed compare, the sign-extended copy and `0x63D2F0`'s two
+  tests match the image. Two deliberate errors in the clone (`+0x4A` dropped; the set ordered unsigned) each stop the
+  section in its first cases. The whole `steerro-test` ends `steerro-test ok`.
+- Selftest `TestConnRoomsRO` (clang-cl, alone under Wine): room index, set order and cap, the read's six outcomes, eight gate
+  refusals, the parked answer through the allocator, the empty answer, three stale keys, shadow compare. Pass.
+
+Unverified: everything in the game; in particular how many of the calls meet a lot or room on its first use (the two
+give-backs that keep the wait), and the gate's pass with no frame against a live `RgEnter` (offline `CnGate` is called
+directly; the one-line hook in `RgEnter` is read, not run).
+
+## 16. `[Discourage] DeferPrivateFpAdd`: the private-footprint add as a record (ts3native, default off, NOT RUN)
+
+### 16.1 The wait and the audit of `0x831BA0`
+
+`route jobs: sim waited N ms for a job at disc (..., drain point fp2 reader)`: 235 waits / 15,655 ms in the seven arms.
+It is `Fp2FlushFor` (§12.3) at the two private-footprint call sites: with design U phase 2 on, an object's `FromTool` /
+`UpdateObjectLot` calls made during a job are queued; the script's next `RemovePrivateFootprint` or `AddPrivateFootprint`
+for that object must run after them, so it drains the queue, which waits for the running job. The script caller is
+`DynamicSimFootprint.Enabled` (large animals, boats with a turn-helper footprint: `Route.AddPrivateFootprint(id, vertices,
+boat != null)`), and its result is discarded [verified in the decompiled script]. The same ICs are named on keys
+`0x62EF7A`, `0x62FB74` and `0x62FB8B` (5 of the 40 named lock lines of the seven arms).
+
+`DeferPrivateFp=1` (docs/89 §14, built, off) queues the remove. The add was "not audited". The audit [Ghidra decompile +
+`ICSafety` closure (400 functions, depth 6) + `CallPaths`]:
+
+- `RouteManager_AddPrivateFootprint 0x831BA0`, thiscall world (obj, points vector*, flag byte), `ret 0xC`, al. **Before its
+  lock** it returns 0 for a closed world (`+0x974`), no object, fewer than 3 points (16 bytes each).
+- `Lock_Acquire(+0x918)` at `0x831BF4`. Under it: no world manager -> 0. The object's lot (`0xB03750`); no lot or the
+  active lot, **and flag 0** -> 0; the lot's record (`0xC62D40`); none **and flag 0** -> 0. Every other path ends in
+  `return 1`. So with flag != 0 the result is 1 whatever the lot state.
+- Then: a polygon from **the caller's points** (x, z copied as they are); when `0x749680(obj)` is not 0, a second polygon
+  from the same points through the object's inverse transform (`0x958EE0`, `0x82A610`); the private key `0x7CFA30(2, 0x19,
+  id)`; `0x635700` removes an older private footprint of the id; a new footprint object ("Routing/PrivateFootprint", vtable
+  `0xFEBBC0`), its fields from the object's id, the lot key and two per-type flags; `0x80F6A0` (W6f); then the pending map
+  (`+0x8BC` / `+0x8C4`) or the lot insert `0x6376D0`; `+0x994` = 0; release.
+- Reads of caller state: the points vector (freed by the IC right after), nothing else. Reads of object state at the call:
+  lot, transform, `0x749680`, type flags.
+- No direct call path to `World_FireEvent 0x78F2B0` within 10 calls (none from `RemoveFootprintLocked 0x82A0C0` either,
+  which docs/84 §7.1 treats as managed-free). The closure has 227 computed calls (10 in the body: the new footprint's own
+  vtable slots); they were not followed. [inferred: managed-free, as the remove and the kind-1 insert records]
+
+### 16.2 The record (`discourage.cpp`)
+
+`PfAddSite` (the IC's call at `0x75DE1A`) with `DeferPrivateFpAdd=1`, on the sim thread, while a job runs or when the object
+already has a queued record (order rule): the add becomes a record in D's FIFO (`pf` + `pfa`), with **its own copy of the
+points** and the flag, answered 1. Pass-through as `PfRemoveDefer` (a `+0x918` hold, a job callback, a drain, another
+world, closing). Not deferred, today's flush and call: **flag 0** (the result depends on the lot), fewer than 3 or more
+than 64 points, no world manager, a full queue. The record is applied by the game's `0x831BA0` on a vector over the copy,
+in FIFO order with every other record, at D's drain points (no job running, or the oldest record 250 ms old at a script IC
+point) and before a destroy of the object (D-X). Gone or a reused id at the apply: nothing (vanilla's footprint would have
+left with the object, `0x82B551`). A queued add does not count as a queued removal (`RemovalFirst`).
+
+**Not identical to the game.** What differs, all of it:
+
+1. The footprint reaches the routing world at the drain point instead of at the call. Until then sim-thread readers, and a
+   route job that starts in that window, plan without it. The script's `AddDiscourageFootprint` of the same
+   `DynamicSimFootprint` call is deferred the same way today (`[Discourage] Mode=1`).
+2. `0x831BA0` reads the object's lot and transform at the apply. If the object moved in between, the lot key (and the second
+   polygon, when the object has one) are the later ones. The counter `lot moved` counts it; the script's own follow-up
+   (remove on `Enabled = false`, a new add) queues behind and is applied in the same drain under one lock hold, so no reader
+   sees the intermediate footprint.
+3. With today's wait the sim thread is blocked until the job ends, so nothing of the above can happen; that wait is the 2.2 s
+   per arm this switch is meant to remove.
+
+The result (1) is exact (flag != 0), the points are the call's, the order of routing-world operations per object is the
+script's. Because of 1 and 2 it sits behind its own switch, default off; `DeferPrivateFpAdd=2` is a probe: today's flush
+and call, then the object's lot is read again at the next drain point (`probe N moved M`), which measures 2 before the
+switch is trusted.
+
+- `ts3native.ini` `[Discourage] DeferPrivateFpAdd=0` (1 defer, 2 probe); needs `DeferPrivateFp=1` (which needs
+  `DeferFootprint2=1` or `2`). Export `ts3native_pfadd` `+0x00` mode (`native_set pfadd`).
+- One line a minute: `private footprint add: mode M calls N (in a job J): deferred D (no job, order rule O), applied A,
+  object gone G, lot moved S, oldest T ms; not deferred: pass, flag 0, shape, queue full; flush wait before an add W ms;
+  probe P moved Q (longest R ms)`.
+- Files: `discourage.cpp` (`PfAddDefer`, `PfaProbe*`, the `pfa` branch of `DiscApplyOne`, `DiscRemovalQueued`),
+  `selftest.cpp` (`TestPrivateFpAdd`), `tools/harness/native-switches.ts`; repro `ip-pfadd-storm`.
+
+### 16.3 Checks run (2026-11-20, no game)
+
+- Selftest `TestPrivateFpAdd` (clang-cl, alone under Wine, D's fakes): mode 0 and no job = today's call; a job = a record
+  that keeps its own points after the caller's change, answered 1; remove / add / remove of one object applied in call order;
+  the order rule with no job; flag 0, 2 points, no world manager and a `+0x918` hold not deferred; object gone, id reused
+  and lot moved at the apply; destroy applies the add first; an add is no queued removal; probe mode. Pass. The case found
+  one error in the build (a `pfa` record counted as D's own remove in `DiscRemovalQueued`), fixed.
+- `TestPrivateFpDefer` and `TestDiscourage` stop with an access violation when run alone in this clang-cl build (exit 5,
+  before and after this change's code paths are reached [not traced; clang-cl's `__try` does not catch faults, §8.5's
+  limit, is the likely reason]); they need the MSVC CI run, as the full selftest does.
+- No offline run of `0x831BA0` itself: its closure needs the object service, the world manager and the lot records.
+
+Unverified: everything in the game; the indirect calls of `0x831BA0` (above); horses (flag 0) keep the flush; how much of
+the 15.7 s is the add's flush and how much the remove's (with `DeferPrivateFp=0` both flush; the split needs one arm with
+`DeferPrivateFp=1`: `pfAddFlush` and `flush wait before an add`).
+
+## 17. Read, not built
+
+- **`0x62EF7A` under `RoutingBlockerCheck2d` (§12.2).** Does not rank: no line of the s151, s156 and s160-s166 logs names
+  `RouteManager_RoutingBlockerCheck2d` (0 hits in nine logs). The three named `0x62EF7A` lines of s160-s166 are
+  `RemovePrivateFootprint`, `AddPrivateFootprint` (§16) and `Slots_AttachToSlotImpl`. Not built.
+- **`0x62FB74` under `World_ArePointsConnectedByLand` (§12.2).** One named line in s158 (81 ms), none in s160-s166, where the
+  8 named lines are `RemovePrivateFootprint` 2 (§16), `PlanFromPoint` 1 (a sync plan), `IsOkToIdleAtCurrentLocation` 1
+  (285 ms; an `[IdleCheckRO]` give-back [inferred]), `CountObjectsOnLot` 2 and `GetOption` 1 (names of a later sample, not of the
+  taker), `GetConnectedRooms` 1. The IC's own slow frames are CPU (§14.1). Not built. The purity check asked for in §12.2
+  was run for the record: `ICSafety` on `0x654790` (92 functions): no global write; callees `0x650030`, `0x654240`,
+  `0xD38B00`, `0x62FB60`, `0xB793F0`; locks reached: the allocator's and `World_LotLookup`'s own lock `0x10786C8` through
+  `Lock_Acquire 0x4E16F0` (`0x650030 > 0xC68990 > 0xC688A0 > 0xC68680`), which an SH hold must be able to stay open across
+  (`QlSharedTrip(SLD_LOCK)` in `LockAcquireHook`: check which locks trip it). **4.9 s of `0x62FB74` has no known caller:
+  run `[ProbeP1b] Enabled=1` (observe only) once**; §10 and §13 asked for it and no arm has had it.
+- **Job wait `rtwait`** (104 waits / 5.8 s): `RtWaitJob`'s callers (destroy, the lost-removal flush `UolFlushFor`, saves) are
+  not named in the line. `lrsN` / `lrsUs` (counters v192) split the lost-removal part; read them in the next arm.
+- **`0x85FE10` outside the pass** (§14.3): 51-115 ms per arm in four arms, not attributed.
+
+## 18. Next storm, on arm
+
+On top of §13's arm:
+
+```
+[EditPathRO]
+StartGuard=1
+Retry=1
+[SteerRO]
+Retry=1
+[ConnRoomsRO]
+Enabled=1
+Mode=1
+Shadow=1
+[Discourage]
+DeferPrivateFp=1
+DeferPrivateFpAdd=2
+```
+
+First pass as written: `[ConnRoomsRO]` answers and shadow-checks (mismatch must be 0; `not used` 0), the private-footprint
+remove is deferred and the add only probed. A more cautious first pass for `[ConnRoomsRO]`: `Mode=0 Shadow=1` (compare
+only). Read: `connected rooms RO:` (answered against `lot not built` / `room not filled`), key `0x00D882D7`; `edit path RO:`
+(`a job had started`, key `0x0085F6CB`); `steer RO:` and key `0x0085FE10`; `private footprint add:` (`flush wait before an
+add`, `probe N moved M`), the `drain point fp2 reader` lines and `pfAddFlush`. If `moved` is 0 or rare: second pass with
+`DeferPrivateFpAdd=1` (`applied`, `lot moved`, `object gone`; the `fp2 reader` waits should go; watch boats for a
+turn-helper footprint that shows late). Separate observe-only arm: `[ProbeP1b] Enabled=1` for the callers of `0x62FB74`
+and `0x62EF7A`. Read the hitch totals' wait sums, not one key (§7.1).
