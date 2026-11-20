@@ -468,8 +468,18 @@ typedef DWORD(__fastcall* Pcc2Fn)(void*, void*, DWORD, DWORD);
 typedef DWORD(__fastcall* Pcc5Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD);
 typedef DWORD(__fastcall* Pcc7Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
 typedef DWORD(__fastcall* Pcc9Fn)(void*, void*, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+// docs/676 [WorldPrecompute] Probe (worldpre.cpp), counting only: an outermost world A* search and its key (a1 the waypoint
+// graph R, a3 start ref, a4 goal ref, a5 cost mode, a6 the search context)
+static void WxWorldEnter(const void* mark, const u8* graph, const DWORD* start, const DWORD* goal, DWORD mode, const DWORD* opts);
+static void WxWorldLeave(const void* mark, DWORD r);
 static DWORD __fastcall PccWorldHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6, DWORD a7) {
-    PCC_TIMED(PCC_WORLD, ((Pcc7Fn)g_pccNext[PCC_WORLD])(self, edx, a1, a2, a3, a4, a5, a6, a7));
+    const void* const mark = _AddressOfReturnAddress();
+    WxWorldEnter(mark, (const u8*)(uintptr_t)a1, (const DWORD*)(uintptr_t)a3, (const DWORD*)(uintptr_t)a4, a5, (const DWORD*)(uintptr_t)a6);
+    const bool on = PccEnter(PCC_WORLD, mark);
+    const DWORD r = ((Pcc7Fn)g_pccNext[PCC_WORLD])(self, edx, a1, a2, a3, a4, a5, a6, a7);
+    if (on) PccLeave(mark, r);
+    WxWorldLeave(mark, r);
+    return r;
 }
 static DWORD __fastcall PccWaterHook(void* self, void* edx, DWORD a1, DWORD a2, DWORD a3, DWORD a4, DWORD a5, DWORD a6, DWORD a7, DWORD a8,
                                      DWORD a9) {

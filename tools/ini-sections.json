@@ -18,6 +18,7 @@
  "Decompress": ["decompress.cpp"],
  "Alloc": ["alloc.cpp"],
  "WaterJps": ["waterjps.cpp"],
+ "WorldPrecompute": ["worldpre.cpp"],
  "SaveFlush": ["savewrite.cpp"],
  "SaveSlim": ["saveslim.cpp"],
  "UserDiag": ["userdiag.cpp"],
