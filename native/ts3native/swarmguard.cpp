@@ -15,19 +15,60 @@
 // next update: the log line then brackets the time of the write. Every hit is counted; the first sight of an (effect,
 // word) pair logs the effect's head, its name and the memory the bad word points at (the word before it names the
 // writer's class if it is an object).
+//
+// Trace=1 (docs/678 §8, forensic, no behaviour change): a second call-site retarget, 0x91A8CC, the allocation of the
+// 0x280-byte block in 0x91A870 (`call 0x4E3F90`, cdecl, six stack arguments, caller cleans). The stub calls the game's
+// allocator with the same arguments and registers, then records the block in the birth ring (swarmguard-core.h) before
+// the constructor runs. A hit then also logs: the effect's birth record, the nearest vtable word below the bad pointer
+// (the class that holds it), words +0x24..+0x44 behind it, and the same for the node its first word points at (the
+// next node of that list, or the list's head in its owner).
 #include "swarmguard-core.h"
 
 static const DWORD SWG_SITE = TS3A(0x0091BC0A), SWG_UPDATE = TS3A(0x0092E0C0);
 static const DWORD SWG_VT0 = TS3A(0x01042570), SWG_VT4 = TS3A(0x01042528), SWG_VT8 = TS3A(0x01042520);
+static const DWORD SWG_ALLOC_SITE = TS3A(0x0091A8CC), SWG_ALLOC = TS3A(0x004E3F90);
 static const LONG kSwgLines = 64;   // dump lines per session
 
-static struct { LONG on, repair, scan; } g_swgk;
+static struct { LONG on, repair, scan, trace; } g_swgk;
 static SwgVt g_swgVt;
 static DWORD g_swgTarget;
 static SwgStats g_swgSt;
 static SwgSeen g_swgSeen[SWG_SEEN];
 static unsigned g_swgSeenNext;
 static DWORD g_swgScanTick, g_swgCleanTick;
+static DWORD g_swgAllocTarget;
+static SwgBirth g_swgBirth[SWG_BIRTHS];   // written by the allocating thread only (the main thread in every sample)
+static unsigned g_swgBirthNext;
+
+// one more line for the object around `at` (the bad pointer, or the node it links to): nine words at it and the nearest
+// vtable word below it
+static void SwgDumpNode(const char* what, unsigned long at) {
+    const unsigned long* p = (const unsigned long*)(uintptr_t)at;
+    if (at < 0x10000 || (at & 3) || !Readable(p, 0x24)) { Log("swarm guard:   %s %08lX: not readable", what, at); return; }
+    const unsigned back = Readable(p - 64, 0x100) ? 64u : Readable(p - 1, 4) ? 1u : 0u;
+    unsigned long vt = 0;
+    const unsigned d = back ? SwgVtBefore(p, back, g_swgVt.vt4 - 0xAD000, g_swgVt.vt4 + 0x103000, &vt) : 0u;
+    Log("swarm guard:   %s %08lX: %08lX %08lX %08lX %08lX %08lX %08lX %08lX %08lX %08lX; nearest vtable word below: %08lX at -0x%X%s", what, at,
+        p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], vt, d, d ? "" : " (none found)");
+}
+
+// Trace: the lines that name the earlier owner of the effect's address and the list the bad word belongs to
+static void SwgDumpTrace(const unsigned long* e, unsigned long word) {
+    const SwgBirth* b = SwgBirthFind(g_swgBirth, g_swgBirthNext, (unsigned long)(uintptr_t)e);
+    if (b)
+        Log("swarm guard:   effect %p born %lu ms ago (allocation %lu of %u, thread %lu); its block before the constructor: %08lX %08lX %08lX "
+            "%08lX %08lX %08lX %08lX %08lX", e, GetTickCount() - b->tick, b->seq, g_swgBirthNext, b->tid, b->w[0], b->w[1], b->w[2], b->w[3],
+            b->w[4], b->w[5], b->w[6], b->w[7]);
+    else
+        Log("swarm guard:   effect %p: no birth record (%u allocations seen; made before the hook or more than %d allocations ago)", e,
+            g_swgBirthNext, (int)SWG_BIRTHS);
+    const unsigned long* w = (const unsigned long*)(uintptr_t)word;
+    if (word < 0x10000 || (word & 3) || !Readable(w, 0x48)) return;
+    SwgDumpNode("bad word", word);
+    Log("swarm guard:   bad word +0x24..+0x44: %08lX %08lX %08lX %08lX %08lX %08lX %08lX %08lX %08lX", w[9], w[10], w[11], w[12], w[13], w[14],
+        w[15], w[16], w[17]);
+    SwgDumpNode("its first word (next node or list head)", w[0]);
+}
 
 static void SwgDump(const char* how, const unsigned long* e, unsigned long word, const unsigned long* group) {
     if (!SwgFirstSight(g_swgSeen, &g_swgSeenNext, (unsigned long)(uintptr_t)e, word) || g_swgSt.lines >= kSwgLines) return;
@@ -52,6 +93,41 @@ static void SwgDump(const char* how, const unsigned long* e, unsigned long word,
             w[4], w[5], w[6], w[7], w[8], w[18], w[2] == (unsigned long)(uintptr_t)(e + 1) ? " (its 2nd word points back at effect+4)" : "");
     else
         Log("swarm guard:   %08lX is not readable memory", word);
+    if (g_swgk.trace) SwgDumpTrace(e, word);
+}
+
+// Trace: the allocator's fresh block, on the allocating thread, before the constructor
+static void __cdecl SwgBorn(unsigned long* p) {
+    if (!p || !Readable(p, SWG_BIRTH_WORDS * 4)) return;
+    g_swgSt.births++;
+    SwgBirthPut(g_swgBirth, &g_swgBirthNext, (unsigned long)(uintptr_t)p, GetTickCount(), GetCurrentThreadId(), p);
+}
+
+// 0x91A8CC's new target. Entered as 0x4E3F90 would be (cdecl, six stack arguments). The six are pushed again and the
+// game's allocator is called with ecx / edx untouched; its eax (the block) and every other register and the flags are
+// then kept across the note. The caller removes its own six arguments as before.
+static __declspec(naked) void SwgAllocStub() {
+    __asm {
+        push ebp
+        mov ebp, esp
+        push dword ptr [ebp + 0x1C]
+        push dword ptr [ebp + 0x18]
+        push dword ptr [ebp + 0x14]
+        push dword ptr [ebp + 0x10]
+        push dword ptr [ebp + 0x0C]
+        push dword ptr [ebp + 0x08]
+        call dword ptr [g_swgAllocTarget]
+        add esp, 0x18
+        pushad
+        pushfd
+        push eax
+        call SwgBorn
+        add esp, 4
+        popfd
+        popad
+        pop ebp
+        ret
+    }
 }
 
 // the stub's C part, on the main thread: 1 = skip the game's update of this effect
@@ -118,12 +194,23 @@ static void InstallSwarmGuard(const wchar_t* ini) {
     const CallSite site = {SWG_SITE, SWG_UPDATE, (void*)SwgStub};
     if (!PatchCalls("swarm guard (effect update call in SwarmManager_UpdateEffectGroup)", &site, 1)) return;
     g_swgk.on = 1;
+    if (GetPrivateProfileIntW(L"SwarmGuard", L"Trace", 0, ini)) {
+        g_swgAllocTarget = SWG_ALLOC;
+        const CallSite born = {SWG_ALLOC_SITE, SWG_ALLOC, (void*)SwgAllocStub};
+        if (PatchCalls("swarm guard trace (the cVisualEffect allocation in 0x91A870)", &born, 1)) {
+            g_swgk.trace = 1;
+            Log("OK   swarm guard trace: every cVisualEffect allocation (0x91A8CC) is recorded with its block's first %d words before the "
+                "constructor (ring of %d); a hit logs the birth record and the objects around the bad word (docs/678 §8)",
+                (int)SWG_BIRTH_WORDS, (int)SWG_BIRTHS);
+        }
+    }
     Log("OK   swarm guard: Repair=%ld Scan=%ld (a cVisualEffect whose +4 is not 0x%08lX: %s; docs/678)", g_swgk.repair, g_swgk.scan, SWG_VT4,
         g_swgk.repair ? "word put back, update runs" : "its update is skipped for the frame");
 }
 
 static void SwgLogCounters() {
     if (!g_swgk.on) return;
-    Log("swarm guard: updates %ld, bad +4 %ld (skipped %ld, put back %ld), other classes %ld, scans %ld (bad found %ld), dumps %ld",
-        g_swgSt.calls, g_swgSt.bad, g_swgSt.skipped, g_swgSt.repaired, g_swgSt.foreign, g_swgSt.scans, g_swgSt.scanBad, g_swgSt.lines);
+    Log("swarm guard: updates %ld, bad +4 %ld (skipped %ld, put back %ld), other classes %ld, scans %ld (bad found %ld), dumps %ld, births %ld",
+        g_swgSt.calls, g_swgSt.bad, g_swgSt.skipped, g_swgSt.repaired, g_swgSt.foreign, g_swgSt.scans, g_swgSt.scanBad, g_swgSt.lines,
+        g_swgSt.births);
 }

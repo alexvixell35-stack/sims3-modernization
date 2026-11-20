@@ -44,6 +44,32 @@ static void TestSwarmGuardCore() {
     assert(SwgFirstSight(ring, &next, 0x100, 7) && !SwgFirstSight(ring, &next, 0x100, 7) && SwgFirstSight(ring, &next, 0x100, 8));
     for (unsigned long i = 0; i < SWG_SEEN; i++) assert(SwgFirstSight(ring, &next, 0x200 + i, 1));
     assert(SwgFirstSight(ring, &next, 0x100, 7));
+
+    // the birth ring: the newest entry for an address wins; the block's words are copied; old entries fall out
+    static SwgBirth births[SWG_BIRTHS];
+    unsigned bn = 0;
+    const unsigned long raw1[SWG_BIRTH_WORDS] = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18};
+    const unsigned long raw2[SWG_BIRTH_WORDS] = {0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28};
+    assert(SwgBirthFind(births, bn, 0x5000) == nullptr);
+    SwgBirthPut(births, &bn, 0x5000, 100, 7, raw1);
+    SwgBirthPut(births, &bn, 0x6000, 110, 7, raw2);
+    const SwgBirth* fb1 = SwgBirthFind(births, bn, 0x5000);
+    assert(fb1 && fb1->tick == 100 && fb1->tid == 7 && fb1->seq == 1 && fb1->w[0] == 0x11 && fb1->w[7] == 0x18);
+    SwgBirthPut(births, &bn, 0x5000, 120, 9, raw2);   // the address is allocated again: the newer record is found
+    fb1 = SwgBirthFind(births, bn, 0x5000);
+    assert(fb1 && fb1->tick == 120 && fb1->tid == 9 && fb1->seq == 3 && fb1->w[1] == 0x22);
+    assert(SwgBirthFind(births, bn, 0x7000) == nullptr);
+    for (unsigned long i = 0; i < SWG_BIRTHS; i++) SwgBirthPut(births, &bn, 0x100000 + i * 0x280, 200, 7, nullptr);
+    assert(SwgBirthFind(births, bn, 0x5000) == nullptr && SwgBirthFind(births, bn, 0x6000) == nullptr);
+    fb1 = SwgBirthFind(births, bn, 0x100000);
+    assert(fb1 && fb1->w[0] == 0 && fb1->seq == 4);
+    // the nearest vtable word below a pointer: 4-aligned, inside [lo, hi); heap words and odd values are passed over
+    const unsigned long mem[8] = {0x01040000, 0x3C000004, 0x01041001, 0x01042000, 0x3BADF7E4, 0x00FF0000, 0x77000000, 0x5};
+    unsigned long vt = 0;
+    assert(SwgVtBefore(mem + 5, 5, 0x01000000, 0x01100000, &vt) == 8 && vt == 0x01042000);   // the word before is heap
+    assert(SwgVtBefore(mem + 3, 3, 0x01000000, 0x01100000, &vt) == 12 && vt == 0x01040000);  // 0x01041001 is not aligned
+    assert(SwgVtBefore(mem + 7, 2, 0x01000000, 0x01100000, &vt) == 0 && vt == 0);            // none within two words
+    assert(SwgVtBefore(mem + 7, 0, 0x01000000, 0x01100000, &vt) == 0);
     printf("ok SwarmGuard core\n");
 }
 
@@ -71,6 +97,13 @@ static void SwgtCall() {
         popad
     }
 }
+// the fake allocator: cdecl, six stack arguments (as 0x4E3F90)
+static unsigned long g_swgtBlock[SWG_BIRTH_WORDS];
+static DWORD g_swgtAllocSum, g_swgtAllocNull;
+static void* __cdecl SwgtFakeAlloc(DWORD a, DWORD b, DWORD c, DWORD d, DWORD e, DWORD f) {
+    g_swgtAllocSum = a + 2 * b + 3 * c + 4 * d + 5 * e + 6 * f;
+    return g_swgtAllocNull ? nullptr : (void*)g_swgtBlock;
+}
 static void TestSwarmGuardStub() {
     const SwgVt keepVt = g_swgVt;
     const DWORD keepTarget = g_swgTarget;
@@ -97,6 +130,25 @@ static void TestSwarmGuardStub() {
     g_swgk.repair = 1;
     SwgtCall();
     assert(g_swgtRan == 2 && g_swgtEcx == (DWORD)(uintptr_t)bad && bad[1] == 0x2000 && g_swgSt.repaired == 1 && g_swgtEsp1 == g_swgtEsp0);
+    // the allocation stub: the six arguments reach the allocator in order, its block comes back, the block is recorded
+    // with the words it held; a failed allocation (null) is passed on and not recorded
+    const DWORD keepAlloc = g_swgAllocTarget;
+    const unsigned keepNext = g_swgBirthNext;
+    typedef void* (__cdecl * SwgtAllocFn)(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+    g_swgAllocTarget = (DWORD)(uintptr_t)SwgtFakeAlloc;
+    g_swgtBlock[0] = 0xAAAA0001; g_swgtBlock[1] = 0xAAAA0002; g_swgtBlock[7] = 0xAAAA0008;
+    g_swgtAllocSum = 0; g_swgtAllocNull = 0;
+    void* blk = ((SwgtAllocFn)(void*)SwgAllocStub)(0x280, 0x10, 0x200, 0x3000, 0x40000, 0x500000);
+    assert(blk == g_swgtBlock && g_swgtAllocSum == 0x280 + 2 * 0x10 + 3 * 0x200 + 4 * 0x3000 + 5 * 0x40000 + 6 * 0x500000);
+    const SwgBirth* nb = SwgBirthFind(g_swgBirth, g_swgBirthNext, (unsigned long)(uintptr_t)g_swgtBlock);
+    assert(nb && nb->w[0] == 0xAAAA0001 && nb->w[1] == 0xAAAA0002 && nb->w[7] == 0xAAAA0008 && nb->tid == GetCurrentThreadId());
+    assert(g_swgSt.births == 1 && g_swgBirthNext == keepNext + 1);
+    g_swgtAllocNull = 1;
+    blk = ((SwgtAllocFn)(void*)SwgAllocStub)(0x280, 0, 0, 0, 0, 0);
+    assert(blk == nullptr && g_swgSt.births == 1 && g_swgBirthNext == keepNext + 1);
+    g_swgBirth[keepNext % SWG_BIRTHS] = SwgBirth();
+    g_swgBirthNext = keepNext;
+    g_swgAllocTarget = keepAlloc;
     g_swgVt = keepVt; g_swgTarget = keepTarget; g_swgk.repair = keepRepair; g_swgk.scan = keepScan; g_swgSt = keepSt;
     g_swgSeenNext = 0;
     for (int i = 0; i < SWG_SEEN; i++) g_swgSeen[i] = SwgSeen();

@@ -138,3 +138,67 @@ Cost: three compares per updated effect.
 1. Runs with `[SwarmGuard] Enabled=1 Scan=1` (and `Repair=1` in one arm) on the storm jobs; any hit names the class.
 2. With the class: find its list, the unlink it misses, and fix that (the true fix). Then the guard can go.
 3. Keep EA's `xcpt` report with each crash.
+
+## 8. Second pass (2026-11-20, `feat/swarm-writer`): the writer is still not proven; `Trace=1`
+
+Static only again (the three reports and logs, objdump). Nothing here ran in the game.
+
+### 8.1 What the samples add
+
+- **The 2026-11-17 sample (docs/67 §9, `phase-20261117-0832`) is the same corruption** [verified, EA report
+  `xcpt ... 26-11-17 08.34.31`]: `esi = 0x746DC090` is a `cVisualEffect` with `+0 = 0x1042570`, `+4 = 0x370F8B54`,
+  `+8 = 0x1042520`, references 1, empty name. Its stack is different only because the bad word was used somewhere
+  else: `0x91AD01` in `0x91AC60` is `call [[effect+4]+0]` (interface slot 0) right after `0x91A870` returned the effect.
+  So three of the four family samples are one bug: 2026-11-11, 2026-11-17, 2026-11-20.
+- In that sample the effect came out of `0x91A870`. A new allocation runs the constructor, which writes `+4`, so the
+  effect was taken from the group's free list (`+0x60`): **the word can be overwritten while the effect sits idle in
+  the pool** [inferred, strong]. The update guard alone does not see that path; `Scan=1` does (it walks the whole
+  vector), and `0x91AD01` is one more place the game can crash with `Repair=0`.
+- The three bad words: `0x68675704`, `0x370F8B54`, `0x3C55FD54`. All are 4 past a 16-byte boundary, two end in `0x54`.
+- 2026-11-20, memory at the bad word `Y` [verified]: `[Y] = 0x3BF98864` (again "16-aligned + 4"), `[Y+4] = effect+4`,
+  then six heap pointers. Reading [inferred]: `Y` was put in a list in front of the node `N = 0x3BF98864`
+  (`Y.next = N; Y.prev = N.prev; N.prev.next = Y; N.prev = Y`), and `N.prev` was the stale value `effect+4`. An insert
+  after `effect+4` is excluded: it would also write `[0x1042528+4]`, read-only data. `N` is the next node or the list's
+  head in its owner; the report does not show it.
+- 2026-11-17, memory at `Y+0xD..Y+0x2C` [verified]: `+0x10 = 0`, `+0x14 = 0x770195C8`, `+0x18 = 0x064AA20C`,
+  `+0x1C = 4`, `+0x20 = 0`, `+0x24 = 0x00FF39F8`, `+0x28 = 0`. `0xFF39F8` is a vtable written by 149 sites all over the
+  exe (a common small base class or allocator object), so it does not name `Y`'s class. The fault there is the game
+  running heap bytes at `Y+0x1E` (no NX).
+- No report shows `[Y-4]`: EA's register dump starts at the register's address. `Y`'s class is still unknown in all
+  three samples. The 2026-11-11 run has no EA report.
+- docs/67 §2 (2026-10-14) was not re-analysed beyond its text: there the object behind an entry's `+0x38` was freed and
+  reused by an XML buffer, with `[Alloc]` on. It may be a different bug.
+
+### 8.2 What is not known
+
+Which list, which class, which missing unlink. No true fix is built: a fix for an unproven writer would be a guess in
+the game's memory. Candidates that remain: (a) a list of objects with a node at `+4` whose earlier member lived at the
+effect's address and was freed while linked; the class can be anything allocated from the same heap, not only Swarm;
+(b) code that holds the interface pointer `effect+4` and links it as if it were a node.
+
+### 8.3 `[SwarmGuard] Trace=1` (default 0)
+
+Forensic only; the game's behaviour does not change.
+
+- A second call-site retarget, `0x91A8CC` (`call 0x4E3F90` in `0x91A870`: cdecl, six stack arguments, the only
+  allocation of an effect). The naked stub pushes the six arguments again, calls the game's allocator with `ecx` / `edx`
+  untouched, keeps `eax` and all registers and flags across the note. The note stores address, tick, thread and the
+  block's first 8 words **before the constructor** in a ring of 1024.
+- A hit (update or scan) then logs four more lines:
+  1. `effect ... born N ms ago (allocation k of n, thread t); its block before the constructor: 8 words`: what the last
+     owner of that address left. For (a), word 2 (`+8`) is that owner's other link and word 0 may still be its vtable
+     (the heap may have overwritten words 0 and 1 with its own free-list links). Or `no birth record`.
+  2. `bad word Y: 9 words; nearest vtable word below: V at -0xD`: the first 4-aligned word in the image's read-only data
+     within 0x100 bytes below `Y`. `V` names the class that holds `Y` and `D` the offset of the node in it.
+  3. `bad word +0x24..+0x44`.
+  4. `its first word (next node or list head) N: ...` with the same vtable search: the neighbour, or the list's owner.
+- Counter line: `births N`.
+- With `V` (and the owner's vtable from line 4) the list is named: find the vtable's constructor and destructor, the
+  insert and the remove, and the free that skips the remove.
+
+Checks [verified offline]: clang-cl `/Zs /W4` of `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp`: no error,
+warning counts as before (170 / 172 / 217, none in the swarmguard files). Selftest additions: the ring (newest record
+wins, wrap), the vtable search, and (MSVC only, not executed here) the allocation stub against a fake six-argument
+allocator, including a null return. EA 1.69: one more 0 row (`0x91A8CC`); the section logs SKIP there.
+
+Run with `[SwarmGuard] Enabled=1 Scan=1 Trace=1` on the storm jobs.
