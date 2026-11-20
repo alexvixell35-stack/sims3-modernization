@@ -132,6 +132,7 @@ struct SmCall {
     SmKey k;
     SmVal v;       // the record's value when hit
     LONGLONG q0;
+    SmCall() : t(NULL), hit(false), q0(0) {}  // k and v are written before they are read (SmPre)
 };
 
 static void SmMismatchLog(const SmCall& c, const SmVal& now) {
@@ -148,7 +149,6 @@ static void SmMismatchLog(const SmCall& c, const SmVal& now) {
 // Before the game's function. true = the cursor and the context now hold what the function would have left: do not call it.
 // here = a local of the calling hook (the stack position of this evaluation).
 static bool SmPre(SmCall& c, u8* cur, u8* ctx, const void* here) {
-    c.t = NULL, c.hit = false;
     SmTh& t = t_sm;
     if (!t.open) return false;
     if (here >= t.sp) { t.open = false; return false; }  // an unwind left the pass open: this call is not below its frame

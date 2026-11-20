@@ -3244,6 +3244,7 @@ static void RsLogCounters();   // routespeed.cpp (docs/663)
 static void FmLogCounters();   // floodmemo.cpp (docs/667)
 static void WhLogCounters();   // workerhold.cpp (docs/673)
 static void WxLogCounters();   // worldpre.cpp (docs/676)
+static void SmLogCounters();   // smoothmemo.cpp (docs/676 §14)
 static void WpsLogCounters();  // wpsnap.cpp (docs/679)
 static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PelLogCounters();  // tailunlock.cpp (docs/673 §9: [RouteAsync] PlanEndLend / LendWake)
@@ -3338,6 +3339,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     FmLogCounters();   // docs/667 (nothing until FloodMemo is installed)
     WhLogCounters();   // docs/673 (nothing until HoldProbe is installed)
     WxLogCounters();   // docs/676 (nothing until [WorldPrecompute] is installed)
+    SmLogCounters();   // docs/676 §14 (nothing until SmoothMemo is installed)
     WpsLogCounters();  // docs/679 (nothing until [WaypointSnap] is installed and the IC was called)
     DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     PelLogCounters();  // docs/673 §9 (nothing until PlanEndLend / LendWake is installed)
@@ -6508,6 +6510,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "cellmemo.cpp"
 #include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plancand.cpp: PccScopeNow)
 #include "floodmemo.cpp"   // docs/667: [RouteSpeed] FloodMemo (after routespeed.cpp: the Q clear stub; nopathmemo.cpp: NpmCmdHandle)
+#include "smoothmemo.cpp"  // docs/676 §14: [WorldPrecompute] SmoothMemo (after worldpre.cpp: WX_POST, the probe's targets; nopathmemo.cpp)
 #include "cellindex.cpp"   // docs/669: [RouteSpeed] CellIndex (after routespeed.cpp: the Q clear stub; plancand.cpp: PccScopeNow)
 #include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "hostcalls.cpp"
@@ -6780,6 +6783,7 @@ static void Run(HMODULE self) {
         InstallFloodMemo(ini);   // docs/667: after InstallPlanCand (cell A* entry hook, loop stub) and InstallRouteSpeed
         InstallWorkerHold(ini);  // docs/673: after InstallPlanCand (g_pccSplit) and [RouteAsync] (g_lockOrig)
         InstallWorldPre(ini);    // docs/676: after ApplyWaterJps (the jump hook), InstallPlanCand and InstallTailUnlock (it chains its sites)
+        InstallSmoothMemo(ini);  // docs/676 §14: after InstallWorldPre (its probe's stubs sit on the same pass 3 call; this hook chains into them)
         InstallWpSnap(ini);      // docs/679: after [RouteSnap] (the write sequence); two call sites of its own
         InstallCellIndex(ini);   // docs/669: after InstallRouteSpeed (the Q table clear stub; installs it when NeighbourMemo is off)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
