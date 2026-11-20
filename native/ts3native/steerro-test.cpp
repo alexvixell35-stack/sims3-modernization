@@ -33,6 +33,8 @@
 //   K8 (docs/94 §13.3): the planner above the world search (PathPlan_WithRetries 0x661B50 -> 0x65E0D0: lot exits, closest
 //      waypoints, lot legs, water legs, node passes) on live W vs PcAcquire's W' over K6's world with the REPLAY world's lots,
 //      the live data on no-access pages; the world manager, terrain, physics and partition queries faked (g_k8Sites).
+//   PT. [PlaceTestRO] (placero.cpp, docs/670): the game's placement footprint check 0xB41120 vs PtRun on random polygons
+//      (SectionPT; `set SRT_ONLY=PT` runs it alone).
 // Built by build.cmd, not run there (needs the exe):  out\steerro-test.exe ["<path>\TS3W.exe"] [cases, default 400] [seed]
 #define TS3NATIVE_NO_DLLMAIN
 #include "ts3native.cpp"
@@ -2369,6 +2371,81 @@ static long RkCoverRemove() {
     return n;
 }
 
+// PT. [PlaceTestRO] (placero.cpp, docs/670): the game's placement footprint check 0xB41120 (through 0x82F470, 0x632060,
+// QueryPolygon 0x667560, the polygon walk 0x6641B0 with the cell clip 0x66AB70 on the global scratch 0x1158580 and the
+// collector 0x669CD0) vs PtRun (our walk on the game's iterator helpers, the clip 0x67C070 on our scratch, SrVisit, the type
+// rule) on the random worlds: random polygons of 3-6 points over and around the lot, both lots in the table and the one
+// that is not, levels with and without a quadtree, the placed object's id drawn from the footprints' ids, both flag bytes;
+// a third of the footprints get a type from the whole range first (the worlds' own list has no 0x12 / 0x15). The same
+// answer (al) for every case the clone does not give up on, references balanced after the game's call.
+// It draws from its own generator and puts the world back, so the sections after it see g_seed's worlds as before.
+static long g_ptN, g_ptCmp, g_ptOk[2], g_ptObjs, g_ptGaveUp;
+static void SectionPT(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 6700417;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kPtSite.site, kPtSite.target) && callsTo(0x00B41190, 0x0082F470) && callsTo(0x0082F5D6, 0x00632060) &&
+           callsTo(0x006320AC, 0x00667560) && callsTo(0x00667596, 0x006641B0) && callsTo(0x0066422D, 0x0066AB70) &&
+           callsTo(0x006642AA, 0x0066AB70) && callsTo(0x0066AC48, 0x0067C6A0) && callsTo(0x0067C6B1, 0x0067C070));
+    static const u8 kScratch[] = {0xB9, 0x80, 0x85, 0x15, 0x01};  // 0x66AC37: mov ecx, 0x1158580 (the game's one clip scratch)
+    assert(Matches((const void*)(uintptr_t)0x0066AC37, kScratch, sizeof(kScratch)));
+    static const u8 kTypeIdx[0x17] = {0, 3, 0, 3, 3, 3, 3, 0, 3, 3, 0, 0, 3, 3, 3, 0, 1, 2, 3, 0, 3, 0, 2};
+    static const DWORD kTypeGo[4] = {0x00B41201, 0x00B4121C, 0x00B411F8, 0x00B41223};
+    assert(!memcmp((const void*)(uintptr_t)0x00B41290, kTypeIdx, sizeof(kTypeIdx)) && !memcmp(kTypeIdx, kPtTypeIdx, sizeof(kTypeIdx)) &&
+           !memcmp((const void*)(uintptr_t)0x00B41280, kTypeGo, sizeof(kTypeGo)));
+    typedef DWORD(__cdecl* GameFn)(const u8* rec, void* x);
+    alignas(16) static u8 rec[0x100], obj[0x20];
+    static float pts[12];
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) {
+            BuildWorld();
+            for (int k = 0; k < W.nfp; k++)
+                if (Rnd(3) == 0) W.fps[k][0x35] = (u8)Rnd(0x20);
+        }
+        memset(rec, 0, sizeof(rec));
+        const int np = 3 + (int)Rnd(4);
+        const bool small = Rnd(2) == 0;  // half of them a few cells wide, half across the lot
+        const float cx = Rf(-6, 70), cy = Rf(-6, 70), ext = small ? Rf(0.2f, 6) : Rf(6, 50);
+        for (int k = 0; k < np; k++) pts[k * 2] = cx + Rf(-ext, ext), pts[k * 2 + 1] = cy + Rf(-ext, ext);
+        *(float**)(rec + 0xA0) = pts, *(float**)(rec + 0xA4) = pts + np * 2, *(float**)(rec + 0xA8) = pts + 12;
+        *(u8**)rec = obj;
+        *(DWORD*)(obj + 8) = 0x1000 + Rnd(40), *(DWORD*)(obj + 0xC) = Rnd(3) ? 0 : 7;
+        *(u8**)(rec + 4) = W.lots[Rnd(8) == 0 ? 2 : Rnd(2)];
+        *(LONG*)(rec + 0x24) = (LONG)Rnd(3);
+        rec[0x30] = 1;
+        rec[0x84] = (u8)Rnd(2);
+        W.world[0x30] = (u8)Rnd(2);
+        g_ptN++;
+        // the clone first (it must not change anything the game's call reads)
+        DWORD b = 1;
+        int n = 0;
+        const int why = PtRun(rec, false, &b, &n);
+        const DWORD a = ((GameFn)(uintptr_t)0x00B41120)(rec, NULL);
+        RefsOk();
+        if (why) { g_ptGaveUp++; continue; }
+        g_ptCmp++, g_ptObjs += n, g_ptOk[(u8)a != 0]++;
+        if (((u8)a != 0) != (b != 0)) {
+            printf("PT case %d: game %u, clone %lu (%d footprints), lot %08lX level %ld, %d points, flags %u %u\n", i, (unsigned)(u8)a, b, n,
+                   *(DWORD*)(*(u8**)(rec + 4) + 0x48), *(LONG*)(rec + 0x24), np, (unsigned)rec[0x84], (unsigned)W.world[0x30]);
+            assert(false);
+        }
+    }
+    printf("PT: %ld placement checks, %ld compared equal (blocked %ld, free %ld; %ld footprints gathered), clone gave up %ld; call "
+           "edges 0xB462B7 .. 0x67C070, the global scratch load and the type tables match\n", g_ptN, g_ptCmp, g_ptOk[0], g_ptOk[1],
+           g_ptObjs, g_ptGaveUp);
+    assert(g_ptCmp > g_ptN / 2 && g_ptOk[0] > g_ptN / 50 && g_ptOk[1] > g_ptN / 50 && g_ptObjs > g_ptN);
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
 int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     AddVectoredExceptionHandler(1, [](EXCEPTION_POINTERS* e) -> LONG {
@@ -2550,6 +2627,9 @@ int main(int argc, char** argv) {
         g_subVt[v[2] == 0x00620E50] = s;
     }
     assert(g_subVt[0] && g_subVt[1]);
+    char only[8] = "";
+    GetEnvironmentVariableA("SRT_ONLY", only, sizeof(only));  // SRT_ONLY=PT: that section alone (cases x 10 checks)
+    if (!strcmp(only, "PT")) { SectionPT(cases * 10); return 0; }
 
     // D. lot transforms, bit for bit (lot table hit: no insert)
     for (int i = 0; i < 2000; i++) {
@@ -2564,6 +2644,8 @@ int main(int argc, char** argv) {
         assert(memcmp(&u, &o3[0], 4) == 0 && memcmp(&v, &o3[1], 4) == 0 && memcmp(&u, &ox, 4) == 0 && memcmp(&v, &oy, 4) == 0);
     }
     printf("transforms: 2000 x 2 bit-exact\n");
+
+    SectionPT(cases * 10);  // PT. [PlaceTestRO] (docs/670)
 
     // A. the game's call vs the clone
     for (int i = 0; i < cases; i++) OneCase();

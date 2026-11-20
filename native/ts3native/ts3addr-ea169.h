@@ -321,6 +321,10 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00667990, 0x00668E20},
     {0x006679D8, 0x00668E68},
     {0x00668962, 0x00669DC2},
+    {0x00669BE0, 0x00000000},
+    {0x00669C30, 0x00000000},
+    {0x00669CB0, 0x00000000},
+    {0x0066A040, 0x00000000},
     {0x0066AC37, 0x0066C097},
     {0x0066B9C0, 0x00000000},
     {0x0066BB50, 0x0066CFB0},
@@ -352,6 +356,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00676627, 0x006779F7},
     {0x0067662E, 0x006779FE},
     {0x0067673F, 0x00677B0F},
+    {0x0067C070, 0x00000000},
     {0x00681820, 0x00682C70},
     {0x006819B0, 0x00682E00},
     {0x00681E00, 0x00683250},
@@ -798,6 +803,8 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00ADD2C0, 0x00ADC9D0},
     {0x00ADD860, 0x00ADCF70},
     {0x00B02360, 0x00B009C0},
+    {0x00B41120, 0x00000000},
+    {0x00B462B7, 0x00000000},
     {0x00B57F20, 0x00B56760},
     {0x00B69840, 0x00B680D0},
     {0x00B745A0, 0x00000000},
@@ -1213,6 +1220,8 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00FECE14, 0x0103835C},
     {0x00FED048, 0x01038590},
     {0x00FEDE48, 0x01039390},
+    {0x00FEE118, 0x00000000},
+    {0x00FEE3C0, 0x00000000},
     {0x00FFC260, 0x01047768},
     {0x00FFC290, 0x01047798},
     {0x00FFC850, 0x01047D60},
@@ -1603,4 +1612,13 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x0061BCE0 no-ea-1.69-address native/ts3native/routespeed.cpp
 // unresolved: 0x0066B9C0 no-ea-1.69-address native/ts3native/routespeed.cpp
 // unresolved: 0x00664370 no-ea-1.69-address native/ts3native/cellindex.cpp
-constexpr int ts3addr_count = 1450;
+// unresolved: 0x00B462B7 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x00B41120 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x0067C070 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x00669BE0 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x00669C30 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x00669CB0 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x0066A040 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x00FEE118 no-ea-1.69-address native/ts3native/placero.cpp
+// unresolved: 0x00FEE3C0 no-ea-1.69-address native/ts3native/placero.cpp
+constexpr int ts3addr_count = 1459;

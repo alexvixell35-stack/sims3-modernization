@@ -51,6 +51,7 @@
  "AvoidRO": ["avoidro.cpp"],
  "RouteToObjRO": ["rtoro.cpp"],
  "PlacementRO": ["fgro.cpp"],
+ "PlaceTestRO": ["placero.cpp"],
  "FootstepRO": ["fsro.cpp"],
  "GoalValidRO": ["gvro.cpp"],
  "IdleCheckRO": ["idlero.cpp"],
