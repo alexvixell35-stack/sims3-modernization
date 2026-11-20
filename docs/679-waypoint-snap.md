@@ -106,15 +106,80 @@ words, `ret 0x10`; stub is `__fastcall` with a dummy EDX) and, for the probe, `0
 ECX only, AL). No entry detour, so `[RouteJobPhases] CandidateSplit`'s entry hooks on `0x65DF90` / `0x65BB90` keep
 working under ours. EA 1.69: two unresolved rows (`0x787240`, `0x6595B0`), the section logs SKIP there.
 
-## 5. Not built: a cheaper gather
+## 5. `[WaypointSnap] Gather` (default 0): a cheaper gather
 
-The exact fix for the first loop is a memo of gather results per (chunk, side class, try, flag bits), larger than the
-game's short list and dropped by the write sequence, fed back into the game's own scoring. Not built in this pass
-because a candidate row carries a pointer into the chunk's waypoint record (read again by the scoring loop when the point
-is in water), so a stale row is a wild read unless every chunk reallocation is known to bump the sequence. The probe's
-numbers decide whether it is worth that proof: gathers per burst, candidates per gather, share of try 1 / 2.
-An approximate variant (snap to the lot's hub waypoint, or one colour per lot) would be much cheaper but is not the
-game's answer and other mods read this call; not proposed.
+Built 2026-11-20 (`wpgather.cpp`, `wpgather-core.h`), default off, NOT RUN in the game.
+
+### 5.1 How the game treats its own list [verified, disassembly]
+
+- The list is in the world planner W at `W+0xE0` ("FindClosest": `+0x00` list anchor, `+0x0C` P, `+0x10` W, `+0x14` the
+  world manager, `+0x18` R). `0x652C50` (from `PathPlannerWorld_Init`, call at `0x654101`) appends **ten** areas of 0x44
+  bytes, each flagged `0x400` ("gather"); the count is the immediate at `0x652CB6`.
+- A lookup `0x652D80` walks the list for an area with the same low three flag bits, start chunk, side classes and try and
+  at least the wanted extents. Hit: moved to the front, its flags replaced by the call's (without `0x400`), candidates
+  reused as they are. Miss: the last area is recycled and flagged `0x400`.
+- **There is no invalidation.** The only stores of `0x400` into an area are the init (`0x652D18`) and the miss path
+  (through the flags argument); the only other code that touches the list is the teardown `0x654110` (frees every area and
+  its vector; called at `0x657FEA`; the W destructor `0x657A80` takes the same list at `0x657AFD`). No routing write, blocked-bit change or lot change reaches it.
+  A hit therefore reuses candidates gathered at any earlier time, including record pointers; that is safe in the game only
+  as long as R's record area is not replaced while W lives **[inferred: not checked whether `BuildRoutingData` re-inits W]**.
+- So "the game's validity rule" cannot be reused: there is none. Enlarging the list (more than ten areas) would also change
+  answers, because an area that vanilla recycles and gathers fresh would then be served from an older gather.
+
+### 5.2 What was built
+
+The misses are made cheap and nothing else changes: which areas the game gathers, its list of ten, the scoring, the sort
+and the choice stay the game's code on the game's vector.
+
+- The gather walks the area's chunks column by column (x outside, z inside) and appends, per chunk, that chunk's
+  waypoints in record order. What one chunk contributes depends on the chunk index, the filter bits of the area's flags
+  (`0x4000` and the low three; `0x800` adds the water point test) and the routing data; not on the point, the other
+  chunks or the try **[verified, decompile of `0x654790`]**. So the memo is per (chunk, filter bits), not per area: a
+  loop over lots reuses the chunks neighbouring lots share, tries 1 and 2 reuse the chunks of try 0, and the next loop
+  reuses everything while no relevant write happened.
+- `0x659787` (the gather's only call site) -> `WpgGatherHook`. It derives the area's chunk list from the same inputs as
+  the game (point, side class, extent, try, world origin and size), takes each chunk's rows from a per-thread table and
+  appends them to the area's vector with the game's append `0x654240`, clears `0x400` and returns 1, as the gather does.
+  A chunk that is not in the table is gathered **by the game** on a one-chunk area of ours (class 1, extent 1, try 0 at
+  the area's own sum for that column and row) and stored.
+- Rows are stored by value: position, waypoint index, chunk, type and the record as an **offset** into R's record area.
+  The pointer is rebuilt from the live base, and a table is only used with the exact record area (base, size, offset
+  table), R, W, P, world manager and world geometry it was filled under; any difference empties it. A stale row can
+  therefore not point outside the live record area.
+- Write sequence `g_snGatherSeq` (routesnap.cpp, on the existing stubs): `LotRouting_QuadTreeBuild`, `LotGraph_Build`,
+  `LotTable_Insert`, `RemoveLot`, `ApplyLotUpdate` and `RestoreLotBlockedBits` (the two writers of the blocked bit,
+  docs/112 §3.2), the G builds (they rewrite waypoint types, docs/112 §3.1), the terrain reload, and every routing IC
+  except the plan starts and the twelve footprint-only ones. Object footprint, quadtree, polygon cache and water grid
+  rows do not count: the gather reads R, the world manager, the lot lookup by position, P's lot table and the lot graph's
+  waypoint hash and node positions, none of which those rows write **[inferred for the lot graph fields `+0x90`,
+  `+0x120`, `+0x16C`: their writers were not enumerated; shadow mode is the check]**. If one of the counted rows or IC
+  slots is not hooked, nothing is stored (`ready` lacks bit 4). `Gather` turns the `[RouteSnap]` counters on by itself.
+- Tripwire: each stored chunk keeps the chunk's offset word and waypoint count; both are compared with the live ones at
+  every use. A difference under an unchanged sequence counts as `stale` (a missed writer), empties the table, and the
+  game's gather runs.
+- Not served (the game's gather runs, counted): areas with the water point test (`0x800`; its inputs are terrain and
+  ponds, no sequence for them), areas with any sum within 0.01 of a chunk border or a world bound or left of the origin
+  (the game computes them in x87 single / extended precision, the hook in doubles: outside that margin both must agree),
+  a write during the call, more than 16,384 rows, no memory.
+- Shadow (`Gather=2`): the game's gather runs and its vector is used; the list built from the table is compared with it
+  row for row (position bits, waypoint, chunk, record pointer, type, order and count). This is stronger than comparing the
+  chosen waypoints or the final answer: the scoring and the choice are the game's code on that vector, so equal vectors
+  give equal waypoints and an equal answer.
+- Scope: only snaps under `World_ArePointsConnectedByLand` (the IC's call site `0x787282`, a second retarget over
+  wpsnap.cpp's, marks them per thread); `GatherAll=1` extends it to the planner's snaps (the result is the same list, so
+  household plans are not changed; default off until shadow is clean). Per thread: table 2.8 MB, scratch 0.35 MB,
+  allocated at the thread's first served gather.
+- Line `waypoint gather:` once a minute: gathers asked, avoided and the ms they took, partly served, game gathers and
+  their ms, hook ms, chunks from the table / gathered, not-served reasons, table resets by cause, shadow checks and
+  mismatches.
+
+### 5.3 Not done
+
+- Water areas (`0x800`): a point on open water still gathers up to 36 chunks with a point test per waypoint. Needs a
+  sequence for terrain water and ponds.
+- The game's own hits stay as stale as vanilla's (§5.1); making them fresh would change answers.
+- An approximate variant (snap to the lot's hub waypoint, or one colour per lot) would be cheaper still but is not the
+  game's answer and other mods read this call; not proposed.
 
 ## 6. Checks
 
@@ -124,9 +189,26 @@ game's answer and other mods read this call; not proposed.
   burst bookkeeping. Pass. The same test at 4,000 rounds is `TestWpSnap` in `selftest.cpp` (no timer).
 - clang-cl `/Zs /W4` of `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp`: no error, no warning in the new
   files. Not built with MSVC here, not run in the game.
+- `Gather` (§5): host test `wpgather-host-test.cpp` (Linux, freestanding), 2,000,000 rounds: a model of the game's
+  gather (chunk grid, waypoint types, blocked bits, links into other chunks, lot waypoints, the filter, single-precision
+  sums and bound tests) is the brute-force reference for whole areas; the tested path (plan in doubles, per-chunk table,
+  one-chunk fills from the same model) must give the same list row for row whenever it serves, under random writes
+  (blocked bits, types, lot positions, rebuilt chunks), a moved record area, writes during a fill, an age cap and a
+  wrapping clock. Plus plan order and refusals (chunk border, world bound, below the origin, bad class / extent / try,
+  NaN), table rules (context, sequence, header tripwire, aged entry, full slots and pool, generation wrap), row compare.
+  Pass. Two mutations were tried and caught (no sequence check: rows differ in the random run; no border margin: the
+  directed case). The same test at 3,000 rounds is `TestWpGather` in `selftest.cpp` (no timer). clang-cl `/Zs /W4` as
+  above: no error, no warning in the new files. **Not covered anywhere:** the two stubs, the append call, the one-chunk
+  area against the real gather, the write sequence's completeness. Not built with MSVC, not run in the game.
 
 ## 7. Next run
 
 `[WaypointSnap] Memo=2 Probe=1 LogMs=20`, `[RouteSnap] Enabled=1`; repro `ip-wpsnap-storm`. Read: `waypoint snap burst:`
 lines next to the `hitch:` frames (calls and gathers per burst), the minute line's mismatch count (must be 0 for
 `Memo=1`), hits against calls (what the memo can save at all).
+
+`Gather`: `[WaypointSnap] Gather=2 Probe=1 LogMs=20` (an MSVC build), repro `ip-wpgather-storm`. Read from the
+`waypoint gather:` line: shadow checks > 0 with mismatch 0 and stale 0 (the condition for `Gather=1`), chunks from the
+table against chunks gathered (the reuse a real lot loop gives), the water and edge counts (what stays with the game).
+Then `Gather=1`: avoided gathers and their ms against the game gathers' ms. `Memo=1` and `Gather=1` are independent (a
+memo answer skips the whole call).
