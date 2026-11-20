@@ -282,6 +282,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00652C50, 0x006542A0},
     {0x00654110, 0x006553F0},
     {0x00654CC0, 0x00000000},
+    {0x00655880, 0x00000000},
     {0x00655AFB, 0x00656D9B},
     {0x00657650, 0x00658860},
     {0x006583E0, 0x006594A0},
@@ -1645,6 +1646,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00650D80 no-ea-1.69-address native/ts3native/plancand.cpp
 // unresolved: 0x0065BC20 no-ea-1.69-address native/ts3native/plancand.cpp
 // unresolved: 0x00654CC0 no-ea-1.69-address native/ts3native/plancand.cpp
+// unresolved: 0x00655880 no-ea-1.69-address native/ts3native/gvro.cpp
 // unresolved: 0x006443A0 no-ea-1.69-address native/ts3native/plancand.cpp
 // unresolved: 0x0065F736 no-ea-1.69-address native/ts3native/plancand.cpp
 // unresolved: 0x0065FA13 no-ea-1.69-address native/ts3native/plancand.cpp
@@ -1709,4 +1711,4 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x01042520 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
 // unresolved: 0x01042528 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
 // unresolved: 0x01042570 no-ea-1.69-address native/ts3native/swarmguard.cpp:22
-constexpr int ts3addr_count = 1503;
+constexpr int ts3addr_count = 1504;

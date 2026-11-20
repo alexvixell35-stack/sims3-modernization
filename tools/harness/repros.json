@@ -112483,6 +112483,80 @@
     ]
   },
   {
+    "id": "ip-obstructat-storm",
+    "bug": "docs/670 §21: in the s189 route storm (2026-11-20, every lock fix on, [HitchAttr] RouteLockCallers=1) the largest named gate wait is key 0x62EF7A with caller 0x655ABE: 13 'route lock wait' lines >= 20 ms / 508 ms in 3 min. It is the lot transform of RouteObstructionAtPoint 0x655880 (the obstruction-at-point IC and one planner call), which then also takes +0x918 itself in its obstacle query 0x82EDB0.",
+    "fix": "ts3native [ObstructAtRO] Enabled=1 (default 0, gvro.cpp): while a job runs the function is answered by [ObstructedRO]'s read-only clone with this function's own loop (first footprint of type 0x14 / 1, not the caller's own id, not in its ignore list); no lot, the class-flag form with footprints, the job's own route and any S2 doubt call the game. Shadow=1 compares with the game when no job runs. Runtime switch native_set obstructat.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game and offline (2026-11-20: clang-cl syntax check only, Steam and TS3A_TABLE; no selftest case and no steerro-test section yet). Needs the MSVC asi with [ObstructAtRO] Enabled=1 Shadow=1 and [RouteGate] Enforce=1, [RouteAsync] on in both arms. First pass: Mode=0 Shadow=1 (compare only).",
+    "expect": "shadow pass: 'obstruction at point RO:' line with shadow runs > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: answered in a job > 0; 'route lock wait' lines with key 0062EF7A and first caller word 00655ABE (needs [HitchAttr] RouteLockMs=20 RouteLockCallers=1) and their ms well below the off arms; read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "obstructat": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 park a skipped job and retry it on READY"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back while lots update"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
