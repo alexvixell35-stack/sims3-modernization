@@ -6,7 +6,8 @@
 # A dir's log (ts3native-full.log, else ts3native.log) is split into phases at the harness's `mark ev=p-<tag>` lines (snap
 # base, then one per phase end); each phase gets: game hitches >= min ms (ts3fixes `hitchwatch: N ms ... agent -`) count / ms,
 # slow plans (`ufplan:` lines; >= 300 ms), plans and fails per minute from the cumulative `route plans: ... on N (fails F)`
-# lines over the `at T ms` clock, route_storm waves / pushes, `hitch: frame ... cause C` classes, and the last fix-counter
+# lines over the `at T ms` clock, route_storm waves / pushes / skips, the proof lines of the opt-in kinds (nl/fgl/fgln/s:
+# nearestlot, fgl prof search, fglnonescan, stray helper), `hitch: frame ... cause C` classes, and the last fix-counter
 # lines in the phase (nopath memo, route speed, height cache, KindsUnseen). `host` = the ms of the `host N/M` column of the
 # `route candidate split` lines (the managed door asks under the planner, docs/667); `mism` = NeighbourMemo / FloodMemo
 # shadow mismatches: the largest `mismatch N` of the phase's `route speed: neighbour memo` / `flood memo` minute lines plus
@@ -31,6 +32,10 @@ UF = re.compile(r'ts3fixes: ufplan: kind (\d+) (\d+) ms')
 HF = re.compile(r'hitch: frame (\d+) ms .*?cause (\S+?):')
 MK = re.compile(r'diag: mem #\d+ mark ev=p-(\S+)')
 WV = re.compile(r'route_storm: wave \d+ pushed (\d+)')
+SK = re.compile(r'route_storm: wave \d+ pushed .*?, skipped (\d+)')
+# lines that prove an opt-in storm kind reached its fix (docs/668 §1.1): taxi, jam / laptop / putdown, stray
+PROOF = [('nl', re.compile(r'ts3fixes: nearestlot:')), ('fgl', re.compile(r'fgl prof: search ')),
+         ('fgln', re.compile(r'ts3fixes: fglnonescan:')), ('stray', re.compile(r'route_storm: stray helper called'))]
 HS = re.compile(r'route candidate split: .*?, host (\d+)/(\d+)')
 MM = re.compile(r'^route speed: (neighbour|flood) memo.*?\bmismatch(?:es)?[ =:]+(\d+)')
 ML = re.compile(r'(NEIGHBOUR|FLOOD) MEMO MISMATCH')
@@ -51,7 +56,8 @@ def phase_names(d):
 
 def new_seg(tag):
     return {'tag': tag, 'hn': 0, 'hms': 0, 'h500': 0, 'uf': 0, 'uf300': 0, 'p0': None, 'p1': None, 't0': None,
-            't1': None, 'waves': 0, 'pushed': 0, 'cause': Counter(), 'ctr': {}, 'host': 0, 'hostn': 0,
+            't1': None, 'waves': 0, 'pushed': 0, 'skipped': 0,
+            'proof': Counter(), 'cause': Counter(), 'ctr': {}, 'host': 0, 'hostn': 0,
             'mm': {'neighbour': 0, 'flood': 0}, 'mml': 0, 'mmseen': False}
 
 
@@ -112,6 +118,12 @@ def scan(d):
             if m:
                 cur['waves'] += 1
                 cur['pushed'] += int(m.group(1))
+            m = SK.search(line)
+            if m:
+                cur['skipped'] += int(m.group(1))
+            for k, rx in PROOF:
+                if rx.search(line):
+                    cur['proof'][k] += 1
             for k, rx in COUNTERS:
                 if rx.search(line):
                     cur['ctr'][k] = line.strip()[:220]
@@ -138,8 +150,9 @@ def row(label, s):
     hit = f"{s['hn']} / {s['hms']}"
     host = f"{s['host']}" if s['hostn'] else '-'
     mism = f"{s['mm']['neighbour']}/{s['mm']['flood']}/{s['mml']}" if s['mmseen'] else '-'
+    proof = '/'.join(str(s['proof'][k]) for k, _ in PROOF)
     return (f"{label[:22]:22} {s['phase'][:10]:10} {mins:5.1f} {hit:>15} {s['h500']:5} {s['uf']:6} {s['uf300']:5} "
-            f"{ppm:>9} {fpm:>9} {s['waves']:5} {s['pushed']:6} {host:>7} {mism:>8}  {causes}")
+            f"{ppm:>9} {fpm:>9} {s['waves']:5} {s['pushed']:6} {s['skipped']:5} {proof:>13} {host:>7} {mism:>8}  {causes}")
 
 
 def report_rows(path):
@@ -159,7 +172,7 @@ def main(args, report=None):
     rows = report_rows(report) if report else []
     causes = []
     print(f"{'arm':22} {'phase':10} {'min':>5} {'hitch n / ms':>15} {'>=500':>5} {'slowpl':>6} {'>=300':>5} "
-          f"{'plans/min':>9} {'fails/min':>9} {'waves':>5} {'pushed':>6} {'host ms':>7} {'mism n/f/l':>8}  frame causes")
+          f"{'plans/min':>9} {'fails/min':>9} {'waves':>5} {'pushed':>6} {'skip':>5} {'nl/fgl/fgln/s':>13} {'host ms':>7} {'mism n/f/l':>8}  frame causes")
     details = []
     for a in args:
         if '=' in a and not os.path.isdir(a):
