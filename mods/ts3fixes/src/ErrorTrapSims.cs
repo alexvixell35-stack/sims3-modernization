@@ -199,7 +199,10 @@ namespace Ts3Fixes
                         // a delegate, not MethodInfo.Invoke: swapinvoke flags any Invoke on a method named Clear (RefTable.cs swaps
                         // EA's); bound to the controller's own Clear so no interface dispatch is needed (EaFixes.cs PrefRemoveFn)
                         MethodInfo own = o.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-                        ((EtCtlClearFn)Delegate.CreateDelegate(typeof(EtCtlClearFn), o, own ?? sEtCtlClear))();
+                        // no class method named Clear (an explicit interface implementation): the interface MethodInfo has no
+                        // body, a delegate on it would crash the interpreter (DelegateTarget.cs), so Clear is skipped
+                        MethodInfo clear = own ?? DelegateTarget(o, sEtCtlClear);
+                        if (clear != null && !clear.IsAbstract) ((EtCtlClearFn)Delegate.CreateDelegate(typeof(EtCtlClearFn), o, clear))();
                         l.Clear();  // the base Clear() is only mList.Clear(); DereferenceSimDescription skips it
                     }
                 }
