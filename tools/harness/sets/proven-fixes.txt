@@ -27,6 +27,7 @@
 #   casuihandlers deadrefguards firepitchair preferredservice
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   firegreet
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep

@@ -98632,6 +98632,79 @@
     ]
   },
   {
+    "id": "fire-greet-lockout",
+    "bug": "Firefighter emergency: the burning lot locks the firefighter out. EA greets only via Respond to Emergency, large-fire setup (the selected Sim) and small-fire placement, and drops a household's greeting as soon as no family Sim is inside the lot, so stepping out once (e.g. carrying a child out of the front door) or arriving another way leaves the doors locked (docs/681)",
+    "fix": "ts3fixes FireGreet.cs: firegreet (default off), docs/681",
+    "save": "any world (pure check)",
+    "note": "FireGreetCheck 'run' puts the reported case through the greet decision with controls (read-only) and prints the live emergency if one is on. End to end: firefighter household, emergency set up, step the firefighter off the lot with no family Sim inside, step back: 'result' shows 4248 rising and the doors open.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firegreet": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firegreet": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireGreetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firegreet": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "fire-trap-count",
     "bug": "Firefighter large fire / earthquake: a trapped Sim who leaves the lot (or is deleted) unfreed keeps its 'free N Sims' task, and on apartment lots trap spots include hidden neighbour units nobody can enter; the count cannot be met and the job times out (docs/570 §5)",
     "fix": "ts3fixes FireTrapCount.cs: firetrapcount (default off), docs/570 §5",

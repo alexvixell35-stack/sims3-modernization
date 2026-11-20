@@ -1577,7 +1577,8 @@ namespace Ts3Fixes
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4200;
+        // [4248-4249] firegreet (FireGreet.cs, docs/681): firefighter greeted on the emergency lot / errors.
+        const int kCounterSlots = 4250;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2039,6 +2040,7 @@ namespace Ts3Fixes
                 case "spawnfix": return Instantiator.kSpawnFix;
                 case "spawnoffworld": return Instantiator.kSpawnOffWorld;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
+                case "firegreet": return Instantiator.kFireGreet;
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;
