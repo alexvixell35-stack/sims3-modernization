@@ -75,13 +75,13 @@ next.
 
 ## 3. `[FglProf]`: the missing numbers (ts3native, default off, measurement only)
 
-14 call-site retargets (`fglprof.cpp`; each site checked to be an `E8` to its target, all cdecl with stack arguments
-[verified disassembly]); every stub calls the game's function with the game's arguments and returns its answer:
+14 call-site retargets (`fglprof.cpp`; each site checked to be an `E8` to its target). The stubs assume no calling
+convention (§3.1): the game's function runs with the game's registers and stack and returns to the game's caller itself.
 
 | site -> target | what |
 |---|---|
 | `0xB0E3C6` -> `0xB470C0` | the search: timer, key, result, the two log lines |
-| `0xB4756D` -> `0x807B30`, `0xB47579` -> `0x869360` | tiles visited / inside the lot |
+| `0xB4756D` -> `0x807B30`, `0xB47579` -> `0x869360` | tiles visited / inside the lot (both `ret 4`) |
 | `0xB47DDF` -> `0xB47040`, `0xB4821B` -> `0xB47070` | placement tests (per facing / own facing), pass or fail, time |
 | `0xB468DD`, `0xB46B0D` -> `0xB463F0` | footprint part / Sim octagon |
 | `0xB4677F` -> `0xB46160` | the seven checks as a whole |
@@ -104,11 +104,31 @@ fgl prof: that search's failed tests by first failing check: ... ; managed calle
 and one line a minute with the totals (`searches`, `failed`, ms, max, slow count, tiles, tests, the facing census, repeats
 within 10 s with their ms, failed tests by check). `repeat` = same object id, lot, start, constraints, direction, facing
 mask, room and radius within 10 s (ring of 32). Keys: `[FglProf] Enabled=0`, `LogMs=50`, `LinesPerMin=30`, `Frames=8`
-(script frames of the caller, 0 = none). No counter export, no managed slot. Cost while a search runs: nine timer pairs per
+(script frames of the caller, 0 = none), `Sites=0x3FFF` (bit mask of the sites in the table's order: bit 0 the search,
+1-2 tiles, 3-4 tests, 5-6 part, 7 `0xB46160`, 8-13 its checks). No counter export, no managed slot. Cost while a search runs: nine timer pairs per
 placement test.
 
+### 3.1 The s150 crash and the v2 stubs
+
+v1 (commit 8b888fbf) used cdecl C functions as stubs. Run s150 (`[FglProf] Enabled=1`) crashed in the first search:
+`C0000005`, eip = edx = a stack address, ebx = `0xB4757E`. Cause [verified disassembly]: **`0x807B30` and `0x869360` end
+in `ret 4`** (the sites `0xB4756D` / `0xB47579` push one pointer and have no `add esp` after the call); the cdecl stub
+called them, the callee popped the argument, the stub's own epilogue then ran 4 bytes off and returned into the argument
+(the pointer to the caller's tile buffer). The other 12 targets: `0xB470C0`, `0xB47070`, `0xB463F0`, `0xB46160` and the six
+checks end in plain `ret` and their sites clean the stack (`add esp, 8 / 0xC / 0x10 / 0x20`); `0xB47040` has no `ret` (it
+tail-jumps into `0xB46FB0`, plain `ret`). No target reads a register before writing it in its first block; every site
+tests `al` right after the call.
+
+v2 does not depend on any of that. Per site a naked trampoline: `pushad`, `pushfd`, `fxsave`, call `FglEnter(site, slot)`,
+restore all three, `jmp` to the game's function. For a call it times, `FglEnter` keeps the return address on a shadow
+stack (48 frames, owner thread only) and writes `FglAfter` into the stack slot; the callee returns there with its own
+`ret` / `ret N`; `FglAfter` saves everything again, calls `FglLeave(eax, &slot)` and returns to the real address. The
+game's caller gets eax / ecx / edx, the flags, the FPU / SSE state and esp exactly as the callee left them. A frame whose
+call never returned (an exception unwound it) is dropped when the next call arrives at or above its stack position; a
+search whose own frame was unwound is replaced by the next search.
+
 Files: `native/ts3native/fglprof.cpp`, `fglprof-core.h` (tallies, repeat ring, flag bytes), `fglprof-test.h`
-(`TestFglProfCore`, in selftest.cpp), `fglprof-host-test.cpp`; `ts3addr-ea169.h` (27 rows, unresolved: the EA 1.69 build
+(`TestFglProfCore`, in selftest.cpp), `fglprof-stub-test.h` (`TestFglProfStubs`), `fglprof-host-test.cpp`; `ts3addr-ea169.h` (27 rows, unresolved: the EA 1.69 build
 logs SKIP), `ts3native.ini`, `tools/ini-sections.json`; repro `ip-fglprof-storm`.
 
 ## 4. Waste: what is proven, what the profile must decide
@@ -191,15 +211,19 @@ Neither needs a memo of its own: both are waits on the routing lock and go with 
   eviction) and the flag-byte map. Pass.
 - clang-cl `/Zs /W4` with the xwin headers: `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp`: 0 errors, no
   diagnostic in the new files.
-- The 14 sites and 13 targets against the 1.67 code (capstone): each site is `E8` to its target, arguments pushed, the
-  callees read `[esp+4..]`.
+- The 14 sites and 13 targets against the 1.67 code (capstone): each site is `E8` to its target; `ret` form of every target,
+  the code after every site, first-block register reads (§3.1).
+- `TestFglProfStubs` (clang-cl `/O2` and `/Od`, run alone under Wine): every stub against a `ret 4` fake and a cdecl fake
+  that record the registers they get and hand back eax, ecx, edx and carry; the call site sees all of them, its own ebx /
+  esi / edi and the right esp, on the pass-through path, the timed path, with a stale frame, on the search site and while
+  another thread owns the profile; the tallies match. Pass. Not possible offline: the real search through the mapped 1.67
+  code (it needs a loaded world: lot, object, room and physics data).
 - `node tools/selftest-all.ts --ci`: 199 PASS, 0 FAIL, 99 SKIP (local-only cases).
 
 ## 8. Not proven, not done
 
-- **In game:** everything. The stubs sit on call sites the compiler may have built with link-time knowledge of the callee
-  (registers it keeps); the sites look like plain cdecl and `[PlaceTestRO]` uses the same pattern on `0xB462B7`, but that
-  switch has not run either. First run = profile run, watch for a crash in the first search.
+- **In game:** v1 crashed (§3.1); v2 has not run. If it crashes again, halve `Sites` (`0x0001`, `0x001F`, `0x00FF`).
+  `[PlaceTestRO]`'s C stub on `0xB462B7` is cdecl on a cdecl target (`0xB41120` ends in `ret`, the site has `add esp, 8`).
 - **MSVC:** the CI build (`/W4 /WX`) and the full selftest have not run on this branch.
 - The record's third start word is printed raw (level or y; not decided from the decompile).
 - No fix: §4.
@@ -211,7 +235,8 @@ Neither needs a memo of its own: both are waits on the routing lock and go with 
 Enabled=1
 LogMs=50
 Frames=8
+Sites=0x3FFF
 ```
 
 with `[StallWatch] Managed=8` (the script stack line then names the caller for every sampled hitch as well). Read:
-`OK   fgl prof: 14 call sites`, the `fgl prof: search` line pairs, the minute line.
+`OK   fgl prof: 14 call sites, Sites=0x3FFF`, the `fgl prof: search` line pairs, the minute line (`unwound frames` should stay 0).
