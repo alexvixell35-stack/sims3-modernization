@@ -5702,6 +5702,10 @@ static volatile LONG g_arUnseenPass[3], g_arUnseenNot[3], g_arUnseenLines;  // g
 // KindsUnseen=1: every kind 2 / 3 hitch of its on arm was one of these). Counted while the mask is not 0; log only.
 static volatile LONG g_arUnseenMaskOff[3], g_arUnseenMaskLines;
 static bool KdScopeUnseen(DWORD handle);  // plandeadline.cpp: ts3fixes sent scope 2 (unseen) for this route's coming START
+// docs/670 §24 [RouteAsync] ForeignKindsUnseen (default 0; bits as Kinds): a foreign START (bit 61) of these kinds passes the
+// foreign gate without its ForeignKinds bit, only for a route scoped unseen right before it (a10.cpp AfUnseenPass). Sim thread only.
+static int g_afUnseenKinds;
+static bool AfUnseenPass(DWORD handle, int idx);
 static bool HhExempt(bool hh);
 static bool ArUnseenPass(DWORD handle, int idx) {
     if (idx < 1 || idx > 3) return false;
@@ -5725,7 +5729,7 @@ static bool ArUnseenPass(DWORD handle, int idx) {
 // a kind hooked only for WatchdogKind2 (kind 2) or KindsUnseen and in neither Kinds nor ForeignKinds: a call that READY did not
 // arm and that meets no job of its route runs the game's IC directly (a10.cpp), exactly as unhooked (no SyncIc). Sim thread only.
 static bool ArPass(int kind, DWORD handle) {
-    const int bit = 1 << (kind - 1), extra = g_arUnseenKinds | (g_arWdKind2 ? 2 : 0);
+    const int bit = 1 << (kind - 1), extra = g_arUnseenKinds | g_afUnseenKinds | (g_arWdKind2 ? 2 : 0);
     return (extra & bit) && !((g_arOwnKinds | ts3native_counters.afKinds) & bit) && g_collect != handle &&
            !(GetCurrentThreadId() == g_async.owner && JobFor(handle));
 }
@@ -5831,7 +5835,8 @@ static u8 A10StartBody(DWORD handle, DWORD optHi, int idx) {
     const bool wdTagged = g_scTagH == handle && (g_scTag & 0x400);
     if (fgn) {
         InterlockedIncrement(&ts3native_counters.afSeen[idx - 1]);
-        if (ts3native_counters.afMode != 1 || !(ts3native_counters.afKinds >> (idx - 1) & 1)) {
+        // docs/670 §24: a kind outside ForeignKinds starts only for an unseen route (ForeignKindsUnseen); afMode gates both
+        if (ts3native_counters.afMode != 1 || (!(ts3native_counters.afKinds >> (idx - 1) & 1) && !AfUnseenPass(handle, idx))) {
             g_collect = 0;
             if (wdTagged) g_scTagH = 0;
             return ArRf3(idx, fgn, handle, RfbRefuse(handle, RFB_FOREIGN));
