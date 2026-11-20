@@ -1,4 +1,13 @@
 {
   "_comment": "Keys ON in the previous release but deliberately not ON in master defaults (tools/release-defaults-check.ts). Each needs a reason. ini keys are Section.Key, tuning keys kName.",
-  "exceptions": []
+  "exceptions": [
+    {
+      "key": "MonoJit.DirectLeaf",
+      "reason": "v0.3.0: v0.2.12 shipped DirectLeaf=1 with [MonoJit] Enabled=0 (no effect). With the compiler on, 0 is the tested default: lazy bodies (BoundCall, ClauseLazy, CallExit) need DirectLeaf=0 for a callee with calls (ini comments, release plan N1, jit-bundle-verify-1113)."
+    },
+    {
+      "key": "AutShadow.Races",
+      "reason": "v0.3.0: 4 -> 7 adds bits 0+1 (cache warm-up after a world load + unchanged check) to the shipped bit 2; bit 2 stays on (Rodney 2026-11-13, release plan N11). Not a value drop."
+    }
+  ]
 }

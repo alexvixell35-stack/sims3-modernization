@@ -61,7 +61,7 @@ namespace Ts3Fixes
         // throws EA's NullReferenceException. On: both return the same Sim. Either way the townie ages up once and stays
         // instantiated (test saves only).
         public static string sAdResult = "not run";
-        static readonly FieldInfo sAdB35 = typeof(SimDescription).GetField("sB35PreInstantiating", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        static readonly FieldInfo sAdB35 = typeof(SimDescription).GetField("sB35PreInstantiating", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);  // refs: optional (only a Sims3Mods b35 core has it)
 
         public static object AgeUpDupResult()
         {
