@@ -111196,6 +111196,48 @@
     ]
   },
   {
+    "id": "ip-fglprof-storm",
+    "bug": "docs/671 §1: in the Isla Paradiso route storms s142-s149 of 2026-11-19/20, 25 sim-cpu frames of 164-949 ms (9.8 s) sit in the script IC World_FindGoodLocation with no +0x918 wait (cpu = frame ms); 94 stall-watch samples put 35% under the routing footprint check 0xB41120, 11% under the object test 0xB45B90, 10% under the box test 0xB3F0A0, 10% under the tile cover 0xAD27B0. The logs name neither the managed caller, nor the tiles and placement tests of a slow search, nor the check that rejects them",
+    "fix": "none yet: ts3native [FglProf] Enabled=1 (default 0) is measurement only, 14 call-site retargets that call the game's functions and return their answers; two lines per search >= LogMs and one line a minute (docs/671 §3)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the tallies). Job ini: [FglProf] Enabled=1 LogMs=50 Frames=8, with [StallWatch] and [HitchAttr] HitchMs as in s143. Profile run, one arm: the storm of ip-placetestro-storm. Read docs/671 §5 for the numbers that pick the fix",
+    "expect": "'OK   fgl prof: 14 call sites' at start; 'fgl prof: search N ms' line pairs for the slow searches (tiles, tests, facing census, ms by check, repeat, managed caller) and the minute line; FindGoodLocation results unchanged (no new routefail lines); no crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 240,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; one profile arm, 4 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

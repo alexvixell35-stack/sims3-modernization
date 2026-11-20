@@ -13193,6 +13193,7 @@ static void TestNoPathMemoStub() {
 #include "floodmemo-test.h"   // TestFloodMemo ([RouteSpeed] FloodMemo, docs/667)
 #include "cellindex-test.h"   // TestCellIndex ([RouteSpeed] CellIndex, docs/669)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
+#include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
 #include "discyield-test.h"  // TestDiscYield ([RouteAsync] DiscYieldForeign, docs/640)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
@@ -14767,6 +14768,7 @@ int main() {
     TestCellIndex();   // docs/669
     TestPlaceCore();   // docs/670
     TestPlaceTestRO();
+    TestFglProfCore();   // docs/671
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

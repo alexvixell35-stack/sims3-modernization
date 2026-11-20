@@ -583,6 +583,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0080750D, 0x008067BD},
     {0x00807557, 0x00806807},
     {0x008077A0, 0x00806A50},
+    {0x00807B30, 0x00000000},
     {0x00807B70, 0x00806E20},
     {0x0080C300, 0x0080B5B0},
     {0x0080CB40, 0x0080BDF0},
@@ -705,6 +706,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0085FFE0, 0x0085EC90},
     {0x00863DC0, 0x00862990},
     {0x00866E90, 0x00865BA0},
+    {0x00869360, 0x00000000},
     {0x00869713, 0x00868463},
     {0x008A65EB, 0x008B331B},
     {0x008A79B0, 0x00000000},
@@ -803,8 +805,33 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00ADD2C0, 0x00ADC9D0},
     {0x00ADD860, 0x00ADCF70},
     {0x00B02360, 0x00B009C0},
+    {0x00B0E3C6, 0x00000000},
+    {0x00B3DCF0, 0x00000000},
+    {0x00B3DDC0, 0x00000000},
+    {0x00B3DE50, 0x00000000},
+    {0x00B3ECE0, 0x00000000},
+    {0x00B3F0A0, 0x00000000},
     {0x00B41120, 0x00000000},
+    {0x00B45B90, 0x00000000},
+    {0x00B46160, 0x00000000},
+    {0x00B4617F, 0x00000000},
+    {0x00B461BE, 0x00000000},
+    {0x00B4620A, 0x00000000},
+    {0x00B46249, 0x00000000},
     {0x00B462B7, 0x00000000},
+    {0x00B462F6, 0x00000000},
+    {0x00B46322, 0x00000000},
+    {0x00B463F0, 0x00000000},
+    {0x00B4677F, 0x00000000},
+    {0x00B468DD, 0x00000000},
+    {0x00B46B0D, 0x00000000},
+    {0x00B47040, 0x00000000},
+    {0x00B47070, 0x00000000},
+    {0x00B470C0, 0x00000000},
+    {0x00B4756D, 0x00000000},
+    {0x00B47579, 0x00000000},
+    {0x00B47DDF, 0x00000000},
+    {0x00B4821B, 0x00000000},
     {0x00B57F20, 0x00B56760},
     {0x00B69840, 0x00B680D0},
     {0x00B745A0, 0x00000000},
@@ -1621,4 +1648,31 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x0066A040 no-ea-1.69-address native/ts3native/placero.cpp
 // unresolved: 0x00FEE118 no-ea-1.69-address native/ts3native/placero.cpp
 // unresolved: 0x00FEE3C0 no-ea-1.69-address native/ts3native/placero.cpp
-constexpr int ts3addr_count = 1459;
+// unresolved: 0x00B470C0 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00807B30 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00869360 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B47040 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B47070 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B463F0 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B46160 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B3ECE0 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B45B90 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B3DE50 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B3F0A0 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B3DCF0 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B3DDC0 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B0E3C6 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B4756D no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B47579 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B47DDF no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B4821B no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B468DD no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B46B0D no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B4677F no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B4617F no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B461BE no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B4620A no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B46249 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B462F6 no-ea-1.69-address native/ts3native/fglprof.cpp
+// unresolved: 0x00B46322 no-ea-1.69-address native/ts3native/fglprof.cpp
+constexpr int ts3addr_count = 1486;
