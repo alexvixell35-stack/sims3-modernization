@@ -365,3 +365,67 @@ pass by pass). Then `native_set waterscantable 1` (or `WaterScanTable=1`) and re
 world frame calls the probe), `ts3native.cpp` (include, install, counter lines), `selftest.cpp`; `ts3native.ini`,
 `tools/ini-sections.json`, `tools/ea-ini.ts`, `tools/harness/native-switches.ts`, `tools/harness/repros.json`,
 `docs/registry.md`, `docs/68-hook-conflict-map.md`, `docs/index.md`, `PLAN.md`.
+
+## 10. s172 / s173: the probe ran. Table upkeep, and what the numbers say about the world A\* (branch `feat/worker-time2`)
+
+2026-11-20. Inputs: `ts3native-full.log` of s172 (3-minute Isla Paradiso storm, `WaterScanTable=2`, `Probe=1`) and s173
+(`WaterScanTable=1`). **Nothing in this section has run in the game.**
+
+### 10.1 What the runs showed [measured]
+
+- **The table is exact in the game:** s172, 8,906,043 jumps computed both ways, mismatch 0. s173 served 412 of 412 searches.
+- **Post pass by pass (s172, ms / calls):** pass 3 `0x64DD40` 6,901 / 2,420 (2.85 ms a call); pass 6 `0x645310` 1,358; pass 16
+  heights 689; pass 1 418; pass 10 236; the other 14 together 330. Pass 3 is 70% of the post pass. §11.
+- **World A\*:** 911 searches, 9,387 ms. With water links allowed: 761 searches, 8,999 ms (11.8 ms each); the other 150
+  cost 388 ms (2.6 ms each). Start and goal waypoint in different land components: 212 searches, 3,230 ms (15.2 ms each).
+  So the water-link searches inside one land component are 549 searches and about 5,770 ms (10.5 ms each): **two thirds
+  of the world A\* time is not island crossing.** §2.1's "pops the whole start island" explains the 212, not the 549. §12.
+- **Repeats:** world key A seen before with no routing write since: 1 of 911. Water: 8 of 460. A result memo of either is
+  useless in a storm (§6.2 and §6.3 are closed).
+- **Table upkeep is too dear:** s173: 412 searches, grids unchanged at 115, updated in place at 147 (1,775 cells, 12 a
+  refresh), **built 150 times**; compare + update + build 1,025 ms (2.5 ms a search, against a compare of 0.04 ms).
+
+### 10.2 Why 150 builds [inferred from the counters; the new counters decide it]
+
+A build happens for two reasons only (`WsRefresh`, `WxSlotFor`): the slot holds no table for the pair of grids, or more
+than `WS_INCMAX` cells differ.
+
+- In-place refreshes average 12 cells, which is one boat's outline on the 4 m grid. For 150 of 412 searches to see more
+  than 64 changed cells, five or more boats would have to move between two searches of the same pair, a third of the time.
+- A table is kept per (passability map, high-cost map) pair, and s173 kept two (`at most 2 tables`, 5,120 KB). The water
+  plan picks the passability map from the route option word (swimmers 0, boats 1, houseboats 2-4) and the high-cost map
+  per agent class (§2.2). Three pairs in use in turn through two slots replace the least recently used one at every
+  change of pair: every such search is a build. 150 of 412 is what a third pair used a third of the time gives.
+- So the likely cause is slot thrash, not footprint size. The log could not say which: the line had one `built` count.
+
+### 10.3 Built
+
+- **`WaterScanSlots` default 2 -> 4** (the maximum). A slot allocates at its pair's first search, so a world that uses two
+  pairs still holds two tables (2.6 MB each in Isla Paradiso).
+- **In-place limit 64 -> 128 cells, and a batch update** (`WsUpdateCells`, waterjps-core.h). A changed cell's north and
+  south entries are its three columns, whole. Cell by cell that was `3 x 2 x h` entries per cell even when the cells of one
+  outline share columns. The batch does the rows per cell as before and every touched column once. A whole-column pass
+  reads only the grid and that column's entries in ray order, so one pass after all bytes are in place gives exactly what
+  the last of several passes gave. Worst case 128 scattered cells: 384 columns, 393,000 entries, under 40% of a build
+  (1,050,000 in Isla Paradiso); a boat outline of 12 cells touches about 6 columns instead of 36 column passes.
+- **Builds split by cause** in the line: `built N (pair replaced E, too many changes O)`; first builds are `N - E - O`.
+  `(most M)` is the largest in-place refresh. Exported after the block's old end (docs/registry.md).
+- Exact as before: the invalidation is still the byte compare of both grids at every search; only what is done with a
+  difference changed.
+- **Not built: hooking the footprint add / remove.** The compare of two 262,656-byte grids with nothing changed is 0.04 ms
+  [measured offline, §5.1], 16 ms over 412 searches. A writer hook would save that and lose "every writer is covered".
+
+### 10.4 Expected [inferred]
+
+If the builds were slot thrash: 150 builds x about 6 ms = 0.9 s of the 1.0 s goes; upkeep drops to about 0.1 s a storm.
+If `too many changes` stays high instead, the next step is a per-pair change journal from the footprint insert / remove
+(docs/100 §5 has the two writers), not a larger limit.
+
+### 10.5 Checks (no game)
+
+- `worldpre-host-test.cpp` (38 s): odd random grids now update through the batch, with up to 128 changed cells in one
+  round, against a fresh build; the slot test asserts the two causes (`wxFullOver`, `wxFullEvict`) and the largest refresh.
+  Pass. Deliberate fault (the batch marks one column too few): fails at the fresh-build compare.
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `waterjps-test.cpp`: 0 errors, no warning
+  in `worldpre*` / `waterjps-core.h`. `node tools/selftest-all.ts --ci`: 199 PASS, 0 FAIL.
+- Not run: MSVC build, Windows selftest, the game.

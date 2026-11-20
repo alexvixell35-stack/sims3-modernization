@@ -15,8 +15,12 @@ struct WsSlot {
     unsigned short* tab;
     bool built;
 };
-enum { WS_CLEAN, WS_INC, WS_FULL };  // WsRefresh: nothing changed / changed cells updated / built from scratch
-enum { WS_INCMAX = 64 };
+// WsRefresh: nothing changed / changed cells updated / built: the slot had no table for these grids / built: more than
+// maxInc cells changed
+enum { WS_CLEAN, WS_INC, WS_FULL, WS_FULLOVER };
+// Up to this many changed cells are updated in place. A cell costs its three rows' ends and a share of three columns
+// (2 * h entries each, shared between neighbours); a build is 4 * w * h entries. 128 scattered cells cost under half a build.
+enum { WS_INCMAX = 128, WS_COLWORDS = 0x8000 / 32 };
 
 static inline WjCtx WsCtx0(const u8* g1, const u8* g2, DWORD w, DWORD h) {
     WjCtx c = {g1, g2, w, h, 0, false, 0, {-(int)w, 1 - (int)w, 1, (int)w + 1, (int)w, (int)w - 1, -1, -(int)w - 1}, {0}, 0, 0, 0, 0, 0};
@@ -43,16 +47,18 @@ static int WsRefresh(WsSlot* s, DWORD maxInc, DWORD* changed) {
             list[n++] = i;
         }
     }
-    if (full) {
+    if (full || s->w > WS_COLWORDS * 32) {
+        const int why = s->built ? WS_FULLOVER : WS_FULL;
         memcpy(s->c1, s->g1, cells);
         memcpy(s->c2, s->g2, cells);
         WsBuild(c0, s->tab);
         s->built = true;
-        return WS_FULL;
+        return why;
     }
     if (!n) return WS_CLEAN;
     for (DWORD i = 0; i < n; i++) s->c1[list[i]] = s->g1[list[i]], s->c2[list[i]] = s->g2[list[i]];
-    for (DWORD i = 0; i < n; i++) WsUpdateCell(c0, s->tab, list[i]);  // after every byte is in place
+    DWORD cols[WS_COLWORDS] = {};
+    WsUpdateCells(c0, s->tab, list, n, cols);  // after every byte is in place
     *changed = n;
     return WS_INC;
 }

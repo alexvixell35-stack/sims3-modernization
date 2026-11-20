@@ -75,6 +75,11 @@ struct WorldPreCounters {
     volatile LONG wxWorldCrossN;     // start and goal waypoint in different land components (the game's colours)
     volatile LONGLONG wxWorldWaterUs;
     volatile LONGLONG wxWorldCrossUs;
+    // scan table builds by cause (appended; wxFull is their sum plus the first build of a slot)
+    volatile LONG wxFullEvict;       // the pair's table had been replaced by another pair's (more pairs in use than WaterScanSlots)
+    volatile LONG wxFullOver;        // more than WS_INCMAX cells changed since the pair's last search
+    volatile LONG wxIncMax;          // most cells updated in place in one refresh
+    volatile LONG wxPad;
 };
 extern "C" __declspec(dllexport) WorldPreCounters ts3native_worldpre = {};
 
@@ -146,6 +151,7 @@ static WxSlot* WxSlotFor(const u8* g1, const u8* g2, DWORD w, DWORD h) {
         k.wxMemKb = kb;
         if (!pick->mem) return NULL;
     }
+    if (pick->s.built) InterlockedIncrement(&k.wxFullEvict);  // it held another pair's table
     pick->s.g1 = g1, pick->s.g2 = g2, pick->s.w = w, pick->s.h = h;
     pick->s.c1 = pick->mem, pick->s.c2 = pick->mem + cells, pick->s.tab = (unsigned short*)(pick->mem + 2 * (size_t)cells);
     pick->s.built = false;
@@ -196,8 +202,13 @@ static bool WxTableBegin(const u8* g1, const u8* g2, DWORD w, DWORD h, LONG mode
     if (what == WS_CLEAN) InterlockedIncrement(&k.wxClean);
     else {
         InterlockedIncrement(&g_wxGridGen);
-        if (what == WS_FULL) InterlockedIncrement(&k.wxFull);
-        else InterlockedIncrement(&k.wxInc), InterlockedExchangeAdd(&k.wxIncCells, (LONG)changed);
+        if (what == WS_FULL || what == WS_FULLOVER) {
+            InterlockedIncrement(&k.wxFull);
+            if (what == WS_FULLOVER) InterlockedIncrement(&k.wxFullOver);
+        } else {
+            InterlockedIncrement(&k.wxInc), InterlockedExchangeAdd(&k.wxIncCells, (LONG)changed);
+            if ((LONG)changed > k.wxIncMax) k.wxIncMax = (LONG)changed;  // under g_wxLock
+        }
     }
     t.tab = p->s.tab, t.g1 = g1, t.g2 = g2, t.w = w, t.h = h, t.mode = mode;
     InterlockedIncrement(&k.wxTabSearches);
@@ -427,7 +438,7 @@ static void InstallWorldPre(const wchar_t* ini) {
     // EA 1.69: both function addresses have table rows; the call sites inside them are offsets and are accepted only by
     // the checks below (an E8 whose target holds the jump call; 19 E8 calls), so another layout logs SKIP
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
-    c.wxSlots = Clamp(GetPrivateProfileIntW(L"WorldPrecompute", L"WaterScanSlots", 2, ini), 1, WX_SLOTS);
+    c.wxSlots = Clamp(GetPrivateProfileIntW(L"WorldPrecompute", L"WaterScanSlots", 4, ini), 1, WX_SLOTS);
     g_wxAll = GetPrivateProfileIntW(L"WorldPrecompute", L"WaterScanAll", 0, ini) != 0 || g_hhToo == 1;
     // the search's call site: an E8 whose target is the function that holds [WaterJps]'s jump call (0x6207FB in 0x620560)
     DWORD target = 0;
@@ -470,9 +481,9 @@ static void WxLogCounters() {
     if (!c.wxReady) return;
     if (c.wxScanMode || c.wxSearches)
         Log("world precompute: water scan table mode %ld ready 0x%lX: searches %ld (with a table %ld; not: busy %ld, no table %ld, scope %ld); "
-            "grids at a search: unchanged %ld, cells updated %ld in %ld refreshes, built %ld; compare + update %ld ms; jumps with the table %ld "
+            "grids at a search: unchanged %ld, cells updated %ld in %ld refreshes (most %ld), built %ld (pair replaced %ld, too many changes %ld); compare + update %ld ms; jumps with the table %ld "
             "(walked instead %ld), straight rays from it %ld, walked (run too long) %ld; shadow checks %ld mismatch %ld; %ld KB",
-            c.wxScanMode, c.wxReady, c.wxSearches, c.wxTabSearches, c.wxBusy, c.wxNoSlot, c.wxScope, c.wxClean, c.wxIncCells, c.wxInc, c.wxFull,
+            c.wxScanMode, c.wxReady, c.wxSearches, c.wxTabSearches, c.wxBusy, c.wxNoSlot, c.wxScope, c.wxClean, c.wxIncCells, c.wxInc, c.wxIncMax, c.wxFull, c.wxFullEvict, c.wxFullOver,
             (LONG)(c.wxRefreshUs / 1000), (LONG)c.wxTabJumps, c.wxJumpNoTab, (LONG)c.wxTabScans, (LONG)c.wxTabSlow, c.wxShadow, c.wxMismatch,
             c.wxMemKb);
     if (!c.wxProbe && !c.wxWaterN && !c.wxWorldN) return;
