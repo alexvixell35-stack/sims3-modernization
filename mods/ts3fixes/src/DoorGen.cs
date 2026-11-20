@@ -122,7 +122,7 @@ namespace Ts3Fixes
         static void DoorGenBump(int src, ulong id)
         {
             if (!sDoorGenOn) return;
-            try { DiagSend(kDoorGenOp, id != 0 ? DoorShareCore.IdHash(id) : 0u, (ushort)(DoorShareCore.kSrcOpBase + src)); }  // hi 1 / 2 are DoorGenHold's catch (Exception) { }
+            try { DiagSend(kDoorGenOp, id != 0 ? DoorShareCore.IdHash(id) : 0u, (ushort)(DoorShareCore.kSrcOpBase + src)); } catch (Exception) { }  // hi 1 / 2 are DoorGenHold's
         }
 
         static void DoorGenBumpDoor(int src, object door)

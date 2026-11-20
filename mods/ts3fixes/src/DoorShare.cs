@@ -90,6 +90,12 @@ namespace Ts3Fixes
         // UfPlanBody, before the route's START or sync plan: the follower's class. A Sim: ordinary or the reason it is not.
         // No Sim (a boat or car routes, with or without a driver): the no-actor class, the handler never looks at such a router.
         // Our own route checks too: the class is the follower's, whatever the plan is for.
+        // the selected Sim's own command (the rule of the combo's NoPathMemo switches): such a route always asks live
+        static bool DshIsPlayerCommand(bool selected, bool autonomous, bool userDirected, bool followerInteraction)
+        {
+            return selected && !autonomous && userDirected && !followerInteraction;
+        }
+
         static void DshRouteSend(IScriptProxy proxy, Sim sim, Sim who, uint handle, bool ownCheck)
         {
             try
@@ -99,7 +105,7 @@ namespace Ts3Fixes
                 if (!on || handle == 0 || proxy == null) return;
                 Sim cmdSim = sim != null ? sim : who;  // a vehicle's command is its driver's
                 InteractionInstance ia = ownCheck || cmdSim == null ? null : cmdSim.CurrentInteraction;
-                bool command = ia != null && NpmIsPlayerCommand(cmdSim == PlumbBob.SelectedActor || cmdSim.IsSelectable, ia.Autonomous,
+                bool command = ia != null && DshIsPlayerCommand(cmdSim == PlumbBob.SelectedActor || cmdSim.IsSelectable, ia.Autonomous,
                     ia.GetPriority().Level == InteractionPriorityLevel.UserDirected, ia is FollowerMeetUpAtPoint);
                 int bits;
                 if (sim == null && proxy.Target == null) { bits = DoorShareCore.WhyBits(DoorShareCore.kWhyNoDesc); sDshWhy[DoorShareCore.kWhyNoDesc]++; }  // no object behind the follower: no class
