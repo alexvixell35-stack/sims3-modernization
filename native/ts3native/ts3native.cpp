@@ -3423,6 +3423,7 @@ static void SfLogCounters();   // saveframes.cpp (docs/293)
 static void AtLogCounters();   // arenatail.cpp: [ArenaGuard] TailPad, [GcRootCheck] TailWatch (docs/67 §22.7)
 static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
 static void DsLogCounters();   // doorshare.cpp (docs/674)
+static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 static void MaybeLogCounters(ULONGLONG now) {
@@ -3481,6 +3482,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     AtLogCounters();  // docs/67 §22.7 (logs only with TailPad or TailWatch on)
     if (c.ufcReady) UfcLogCounters();  // docs/202 §3.4
     DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
+    PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
         Log("route jobs sim waits: runplan %ld/%ld/%ld rtwait %ld/%ld/%ld disc %ld/%ld/%ld collect %ld/%ld/%ld drop %ld/%ld/%ld "
             "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
