@@ -130,9 +130,10 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
+                CityHall.GiveAward ga = (CityHall.GiveAward)(object)this;
+                EvrRepairSavedSpot(ga.RabbitHoleToRouteTo);
                 bool r = RunOrig();
                 if (r || !ShortcutOn("eventrouteretry")) return r;
-                CityHall.GiveAward ga = (CityHall.GiveAward)(object)this;
                 DateAndTime start = SimClock.CurrentTime();
                 int rung = 0;
                 while (rung < kEvrRungs)
@@ -160,6 +161,25 @@ namespace Ts3Fixes
             if (proxy == null) return false;
             moved = RhSlotOrEntrance(proxy, Slot.RoutingSlot_0, fix, out c, out fwd);
             return true;
+        }
+
+        // A ceremony booked before ceremonyspot was on (an older save, or the switch turned on later) keeps the jig EA put at
+        // the world origin: CreateCelebration does not run again for it, so the move below never happened [reported in play
+        // 2026-11-20: an old save with the firefighter's ceremony about to start]. The award pair repairs it before EA's Run
+        // routes to the jig. Only a jig still within kEvrOriginNear metres of the origin (x, z) is moved.
+        const float kEvrOriginNear = 2f;
+        static void EvrRepairSavedSpot(CityHall hall)
+        {
+            try
+            {
+                if (hall == null || !ShortcutOn("ceremonyspot")) return;
+                SocialJigTwoPerson jig = hall.AwardJig;
+                if (jig == null || !jig.InWorld) return;
+                Vector3 p = jig.Position;
+                if (p.x * p.x + p.z * p.z > kEvrOriginNear * kEvrOriginNear) return;
+                EvrMoveSpot(hall);
+            }
+            catch (Exception e) { EvrError("repair saved spot", e); }
         }
 
         // After CreateCelebration: a jig EA put at the world origin goes next to the real entrance (same search as EA's).
