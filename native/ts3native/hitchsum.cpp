@@ -160,6 +160,52 @@ static void HsLockText(char* b, size_t n, bool mainWaiter, LONG us, DWORD key, b
                 us / 1000, key, pump ? "job pump" : "plain", hold, job, now);
 }
 
+// [HitchAttr] RouteLockCallers=1 (docs/670 §19, log only): the frames above a waiting +0x918 acquire, for the line.
+// A gate wait (slot = the gate's return slot, key = the leaf's caller): out[0] is the caller's caller read at the leaf's known
+// frame layout (lotfd.cpp kP1b: exact), the rest is a scan upwards for words that follow a call (may hold stale words: the
+// line marks them "~"). A plain acquire (site < 0, slot = Lock_Acquire's return slot): scan only. Returns the count;
+// *exact = out[0] is a real frame.
+static bool (*g_hsIsRet)(DWORD) = CrAfterCall;  // tests put a fake here
+static int HsChain(int site, DWORD key, const DWORD* slot, DWORD* out, int max, bool* exact) {
+    int n = 0;
+    *exact = false;
+    if (!slot || max < 1) return 0;
+    const DWORD* from = slot + 1;
+    if (site >= 0) {
+        int i = 0;
+        while (i < kP1bRows && !(kP1b[i].key == key && kP1b[i].site == site)) i++;
+        const DWORD* p = NULL;
+        if (i < kP1bRows && kP1b[i].off) {
+            p = slot + kP1b[i].off;
+        } else if (i < kP1bRows) {  // an ebp frame under the stub's pushad (as P1bNote)
+            const DWORD s = (DWORD)(uintptr_t)slot, ebp = slot[-6];
+            if (ebp > s && ebp - s < 0x10000 && !(ebp & 3)) p = (const DWORD*)(uintptr_t)ebp + 1;
+        }
+        if (p && Readable(p, 4)) out[n++] = VfRealRet(p), *exact = true, from = p + 1;
+    }
+    DWORD last = n ? out[0] : key;
+    for (int w = 0; w < 192 && n < max; w++) {
+        if (!w || ((DWORD)(uintptr_t)(from + w) & 0xFFF) == 0) {  // once per page
+            if (!Readable(from + w, 4)) break;
+        }
+        const DWORD v = from[w];
+        if (v == last || !g_hsIsRet(v)) continue;
+        out[n++] = v, last = v;
+    }
+    return n;
+}
+// "; callers 00654BE5 ~00659787 ~0065BC10" appended to b ("~" = a scanned word, not a proven frame)
+static void HsChainText(char* b, size_t cap, const DWORD* f, int n, bool exact) {
+    size_t at = strlen(b);
+    if (n <= 0 || at + 21 >= cap) return;
+    strcpy_s(b + at, cap - at, "; callers");
+    at += 9;
+    for (int i = 0; i < n && at + 11 < cap; i++) {
+        _snprintf_s(b + at, cap - at, _TRUNCATE, " %s%08lX", i || !exact ? "~" : "", f[i]);
+        at += strlen(b + at);
+    }
+}
+
 // one finished +0x918 acquire of the sim or main thread that started at QPC t0 and took `us`; holder = the lock's owner
 // thread read before it (0 = free then)
 static void HsLock(DWORD key, LONG us, LONGLONG t0, DWORD holder, bool pump) {
@@ -198,6 +244,13 @@ static void HsLock(DWORD key, LONG us, LONGLONG t0, DWORD holder, bool pump) {
     char run[160], b[640];
     RunJobText(run, sizeof(run));
     HsLockText(b, sizeof(b), mainWaiter, us, key, pump, holder, role, ended, je, run, now);
+    if (g_hsLockCallers) {  // still inside the acquire: the gate's slot and Lock_Acquire's return slot are live
+        DWORD fr[4] = {0, 0, 0, 0};
+        bool exact = false;
+        const bool gate = t_p5bSite && t_p5bSlot && t_waitKey == key;
+        const int n = HsChain(gate ? (int)t_p5bSite - 1 : -1, key, gate ? t_p5bSlot : t_hsRetSlot, fr, 4, &exact);
+        HsChainText(b, sizeof(b), fr, n, exact);
+    }
     Log("%s", b);
     InterlockedIncrement(&z.lkLines);
 }
@@ -352,6 +405,11 @@ static bool ApplyHitchSum(const wchar_t* ini) {
     const int hitchMs = Clamp(GetPrivateProfileIntW(L"HitchAttr", L"HitchMs", 0, ini), 0, 60000);
     g_hsLinesPerMin = Clamp(GetPrivateProfileIntW(L"HitchAttr", L"HitchLinesPerMin", 60, ini), 1, 600);
     z.lockLogUs = lockMs * 1000;
+    if (lockMs && GetPrivateProfileIntW(L"HitchAttr", L"RouteLockCallers", 0, ini)) {
+        InterlockedExchange(&g_hsLockCallers, 1);
+        Log("OK   HitchAttr RouteLockCallers=1: \"route lock wait:\" lines end with \"; callers\" (a gate wait's caller's caller, then "
+            "scanned words marked ~)");
+    }
     if (lockMs) {
         InterlockedExchange(&g_hsLockLogUs, lockMs * 1000);
         Log("OK   HitchAttr RouteLockMs=%d: \"route lock wait:\" lines for sim / main waits on +0x918 with the holder and its job (needs the "
