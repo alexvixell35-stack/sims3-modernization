@@ -819,8 +819,8 @@ namespace Ts3Fixes
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
         // [2570-2572] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
-        // [4250-4259] fglinbound (FglInBound.cs, docs/682): indoors stages by our path / answered by the probe / answered by the cluster searches / left to EA (no gain) /
-        // household or unknown Sim / shadow compares / shadow different (must stay 0) / errors or start not indoors / our ms / EA's stage ms in shadow.
+        // [4250-4259] fglinbound (FglInBound.cs, docs/682): indoors stages by our path / ts3native [FglInside] not answering / found / no indoor spot /
+        // household or unknown Sim / shadow compares / shadow different (must stay 0) / errors / our ms / EA's stage ms in shadow.
         // [4270-4279] actdelay (ActDelay.cs, docs/684; 4260-4269 left for a parallel branch): instances that acted / of them over kActDelayLogMs / ended without acting /
         // left the queue before Run / dropped (table full or stale) / errors / lines written / plans inside records / summed queued -> act ms / longest queued -> act ms.
         // [4248-4249] firegreet (FireGreet.cs, docs/681): firefighter greeted on the emergency lot / errors.
@@ -1589,7 +1589,7 @@ namespace Ts3Fixes
                 case "fglnonescan": return Instantiator.kFglnOneScan;  // RouteRelax.cs (docs/675): one scan for FindGoodLocationNearby's lot-wide stages, off
                 case "fglnnearspot": return Instantiator.kFglnNearSpot;  // RouteRelax.cs (docs/675): nearest valid spot instead of any indoor spot first (NPC Sims), off
                 case "followerlasttry": return Instantiator.kFollowerLastTry;  // RouteRelax.cs (docs/675): full ring on an NPC follower's last meet-up try, off
-                case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682): FindGoodLocationNearby's indoors stage as one short search per cluster of indoor tiles (found iff EA finds, EA's ring), off
+                case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off

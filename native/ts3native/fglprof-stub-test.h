@@ -374,6 +374,49 @@ static void TestFglFacing() {
     g_ffTestAns = 1;
     assert((u8)facing(rec, 0) == 1 && g_fglm.shadowTests == 1 && g_fglm.shadowMismatch == 1 && g_ffTests == t0 + 7);
 
+    // [FglInside]: an armed search's facing tests on tiles without a room are answered 0 through the facing stub
+    {
+        static u8 savedI[sizeof(g_fgli)];
+        memcpy(savedI, &g_fgli, sizeof(g_fgli));
+        memset(&g_fgli, 0, sizeof(g_fgli));
+        g_fgli.ready = 1; g_fgli.mode = 1; g_fgli.lines = 216;   // no log line
+        g_fglm.ready = 0; g_fglm.live = false;
+        g_fglRoomTest = [](void*, int tx, int tz, int level) -> int { return tx == 30 && tz == 3 && level == 1 ? 7 : tx > 100 ? 0xFFFF : 0; };
+        srec[0x2D] = 0;
+        *(DWORD*)(srec + 0x28) = 1;                // the record has a managed check
+        assert(FglInsideOp(1) == 1 && (DWORD)g_fgli.armTid == GetCurrentThreadId());
+        g_fgl.depth = 1;
+        FglSearchBegin(srec);
+        assert(g_fgl.ins.on && g_fgli.armTid == 0 && g_fgli.searches == 1);
+        const int t1 = g_ffTests;
+        g_ffTestAns = 1;
+        place(31.5f, 3.5f, 0);                     // no room on levels -1, 0, 1: answered, the fake test does not run
+        assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffTests == t1 && g_fgl.ins.answered == 2 && g_fgl.ins.tilesOut == 1);
+        place(30.5f, 3.5f, 0);                     // a room one level up: runs
+        assert((u8)facing(rec, 0) == 1 && g_ffTests == t1 + 1 && g_fgl.ins.tilesIn == 1 && g_fgl.ins.passIn == 1);
+        FglSearchEnd(true, 0);
+        assert(g_fgli.found == 1 && g_fgli.mismatch == 0 && g_fgli.answered == 2 && !g_fgl.ins.on);
+        FglSearchBegin(srec);                      // not armed: nothing answered
+        place(31.5f, 3.5f, 0);
+        assert(!g_fgl.ins.on && (u8)facing(rec, 0) == 1 && g_ffTests == t1 + 2);
+        g_fgli.shadow = 1;                         // Shadow: the test runs; found on such a tile = mismatch
+        FglInsideOp(1);
+        FglSearchBegin(srec);
+        assert((u8)facing(rec, 0) == 1 && g_ffTests == t1 + 3 && g_fgl.ins.ranOut == 1 && g_fgl.ins.passOut == 1);
+        FglSearchEnd(true, 0);
+        assert(g_fgli.mismatch == 1);
+        FglInsideOp(1);                            // armed, but the record has no managed check: not the stage
+        *(DWORD*)(srec + 0x28) = 0;
+        FglSearchBegin(srec);
+        assert(!g_fgl.ins.on && g_fgli.notStage == 1 && g_fgli.armTid == 0);
+        FglInsideOp(1);
+        assert(FglInsideOp(0) == 1 && g_fgli.armTid == 0);
+        g_fgli.ready = 0;
+        assert(FglInsideOp(1) == 0 && g_fgli.armTid == 0);
+        g_fglRoomTest = NULL;
+        memcpy(&g_fgli, savedI, sizeof(g_fgli));
+    }
+
     g_fglm.ready = savedM;
     g_fglMemoHhTest = false;
     g_fglm.live = false;
@@ -390,5 +433,5 @@ static void TestFglFacing() {
     memcpy(g_fglTarget, savedTarget, sizeof(savedTarget));
     g_fglk = savedK;
     g_fglf = savedF;
-    printf("ok FglFacing, FglMemo\n");
+    printf("ok FglFacing, FglMemo, FglInside\n");
 }

@@ -854,6 +854,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00B47579, 0x00000000},
     {0x00B47DDF, 0x00000000},
     {0x00B4821B, 0x00000000},
+    {0x00B499D0, 0x00000000},
     {0x00B57F20, 0x00B56760},
     {0x00B69840, 0x00B680D0},
     {0x00B745A0, 0x00000000},
@@ -1733,4 +1734,5 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x0061B880 no-ea-1.69-address native/ts3native/cellspeed.cpp
 // unresolved: 0x0066B090 no-ea-1.69-address native/ts3native/cellspeed.cpp
 // unresolved: 0x00FEA080 no-ea-1.69-address native/ts3native/cellspeed.cpp
-constexpr int ts3addr_count = 1515;
+// unresolved: 0x00B499D0 no-ea-1.69-address native/ts3native/fglprof.cpp
+constexpr int ts3addr_count = 1516;

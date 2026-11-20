@@ -3,8 +3,8 @@
 2026-11-20 (UTC), `feat/fgl-root-1120`. Inputs: the storm logs s189-type (phase-20261120-1607 / 1613 / 1622 / 1630, `[FglProf]`
 with `Frames=16`), s202 / s203 (phase-20261120-1717 / 1722, no profile), the 12 profiled phases of the day; ilspycmd output
 of `GlobalFunctions`, `BandInstrument`, `World`; objdump of the Steam 1.67 code. Built: ts3fixes `fglinbound`,
-`fglinboundhh` (default off), shadow tuning `kFglInBoundShadow`. Design 1 (§3, one radius around the start) ran in s207 / s208: **no gain** (§8.1).
-**Design 2 (§8, cluster searches) is what the code does now; NOT RUN in the game.** §3, §4 and §6 describe design 1 and are kept as the record.
+`fglinboundhh` (default off), shadow tuning `kFglInBoundShadow`. Design 1 (§3, one radius around the start; s207 / s208) and design 2 (§8, one search per cluster of indoor tiles; s222) gave **no gain** on lots whose rooms spread over the lot; their code is removed.
+**Design 3 (§9: ts3native `[FglInside]` + ts3fixes `fglinbound`, the tile's room is read before the placement test) is what the code does now; NOT RUN in the game.** §3-§8 are kept as the record.
 
 ## 1. Who issues the slow searches [measured: `fgl prof:` line pairs]
 
@@ -266,3 +266,145 @@ count; if the walks dominate, lower `kFglInBoundMaxSearches`.
   (docs/671 §4.3). With the stage at tens of ms a memo has little left to save.
 - Skipping the stage when no marked tile could take the jig (idea c): that is the placement test itself; the cluster
   searches are the cheapest exact way to ask it.
+
+## 9. Design 3: the room test before the placement test (ts3native `[FglInside]` + ts3fixes `fglinbound`)
+
+### 9.1 s222 [measured] and why there is no indoor spot
+
+`FglInBoundCheck live:big` in s222: `lot 64 x 64, 1123 indoor tiles; tile 42,7: EA 187 ms no indoor spot, ours 8 ms [no gain,
+1177 tiles may be indoors in 8 clusters, 4460 tiles to test] -> left to EA` (the same from tiles 35,24 and 56,56, 185 ms
+each). A lot with large buildings: the clusters' discs cover it.
+
+Why EA finds no indoor spot for the guitar jig among 1,123 indoor tiles:
+
+- `IsInside` is exactly a room test [verified, ilspycmd]: `World.GetLotLocation(position)` then
+  `World.GetRoomId(lot, location, LightBlocking) > 0`; the angle is not read. It is not the cause: it is never asked
+  for a spot that failed the placement test.
+- The search hands it the world position of the **tile's centre on the tile's level** [verified, disassembly
+  `0xB47E0B`-`0xB47F3A`: `0xADD630(lot, {x + 0.5, z + 0.5, level})` then `0xAB8740` (lot to world), four values x, y,
+  z, angle to the script delegate]. The three start tiles of the check were themselves read as indoors on their level,
+  so the level is not off for the lot as a whole.
+- So **every indoor tile fails the native placement test in all facings**; the 196 spots that pass are outdoors
+  [measured: `pass 196`, each refused, s189 / s208]. Which check rejects the indoor tiles is **not in the logs**: the
+  census of the failed search is over all tiles (s208: 9,843 of 11,780 failed tests at the part pre-checks of
+  `0xB463F0`, i.e. lot bounds, covered tile quadrants, `0xB40DA0`, surface kind; footprints 809, objects 609, `0xB3ECE0`
+  392, box 127). [inferred] the jig's footprint (player, case and listeners' area) does not fit the rooms of these lots
+  between walls and furniture. With design 3 serving, the search tests only tiles with a room, so the same `fgl prof:`
+  census and the `fgl inside:` line (tests run / passed on such tiles) answer it in the next run.
+
+For the design: nothing can be skipped for a tile with a room (EA has to test it); everything can be skipped for a
+tile without one.
+
+### 9.2 The waste is the order [verified]
+
+Per tile the search runs up to 8 facing tests (`0xB47DDF` -> `0xB47040`); only when one passes does it call the managed
+check (`0xB47DFC`: `rec+0x28` not 0), and a refusal goes on to the next facing or tile. The check's answer depends on
+the tile alone. The own-facing test `0xB4821B` is on the other path (no facing wanted); it is not touched.
+
+### 9.3 What `[FglInside]` does (`fglprof.cpp`, `fglprof-core.h`; default off)
+
+- ts3fixes op 48 (`userdiag.cpp`), value 1: "the next FindGoodLocation search of this thread is the indoors stage and
+  its check is IsInside"; value 0: "over". The answer is 1 when `[FglInside]` is installed.
+- At the search's start (`FglSearchBegin`, the existing hook on `0xB0E3C6`): armed for this thread, the record has a
+  managed check (`+0x28`) and the lot (`+4`) has a room grid (`+0x298`, the pointer the search itself loads at
+  `0xB470EB`) -> the search is marked; the arm is used up (one search per arm).
+- At each facing test of a marked search (the existing stub on `0xB47DDF`): the test record's `+8 / +0xC / +0x10` are
+  the tile's centre in lot tile space and its level. Once per tile: the room id for `(floor x, floor z)` on the level,
+  the one below and the one above, each by `0xB499D0(grid, {(float)tx, (float)tz, level}, 0, 1)`, which is the call
+  the script IC `World_GetRoomIdImpl 0x785210` makes for `World.GetRoomId(lot, LotLocation, LightBlocking)` (same
+  function, same integer-coordinate sample, bounds-checked, -1 off the grid). All three not above 0: the facing test
+  is answered 0 without the call (the same `FglRet0` path `[FglFacing]` uses). Else the game's test runs as always
+  and the game asks the check itself.
+- A nested search, a search another thread owns, a record without a check: nothing is answered.
+
+### 9.4 Exactness
+
+A spot ends the search only when (a) a facing passes the placement test and (b) the check accepts it. For an answered
+tile (b) is false for every facing: the check maps the tile centre's world position back to a tile and a level and
+reads the room id there with the lookup above. The tile it maps to is the same one (the centre is half a tile from every
+edge, inside the lot). The level is derived from the height; that it equals the search's level is **not** assumed: a
+tile is answered only when the search's level and both neighbours have no room there. So no tile is skipped that the
+check could accept, the tiles are walked in the same order, the tests that do run are the game's own, and the random
+first facing is drawn as before. Same accepted tile, EA's answer, for every Sim (`fglinboundhh` is still its own
+switch, as asked).
+
+Not answered although they could be: tiles with a room only on the level above or below (ground under an upper floor,
+ground over a basement).
+
+Shadows:
+
+- `[FglInside] Shadow=1`: nothing is answered. The search returns right after the accepting spot's test, so a found
+  search whose last facing test ran on a "no room" tile and passed means the check accepted a tile we would have
+  skipped: `fgl inside: SHADOW MISMATCH` (counted; must stay 0).
+- ts3fixes `kFglInBoundShadow`: after our armed search EA's stage runs unarmed, EA's answer is returned, found and
+  position are compared (`fglinbound: shadow same|DIFFERENT`, slot 4256).
+
+### 9.5 ts3fixes `fglinbound` (managed half), switches, counters
+
+In `RrNearbyHook`, when the stage would run (Indoors asked for, start on a lot in a light-blocking room) and the task's
+Sim is not household scope (or `fglinboundhh`): EA's body runs the early stages; `FibArmed` sends op 48 / 1, makes
+EA's stage call word for word (`FindGoodLocationParams(position, bools)`, StayInRoom cleared, room -1, check
+`GlobalFunctions.IsInside`), sends op 48 / 0 in a `finally`; found = the call's answer, else EA's body runs the later
+stages. Op 48 not answered (no ts3native, `[FglInside]` or `[UserDiag]` off): EA's body runs the stage (slot 4251).
+
+- `fglinbound` (`kFglInBound`), `fglinboundhh` (`kFglInBoundHousehold`), `kFglInBoundShadow`; the tunings
+  `kFglInBoundProbeRadius` and `kFglInBoundMaxSearches` are gone, `FglInBoundCore.cs` and `tools/selftest/fglinbound` too.
+- ts3native ini: `[FglInside] Enabled=0`, `Mode=1`, `Shadow=0`.
+- ts3fixes slots: 4250 stages by our path, 4251 ts3native not answering, 4252 found, 4253 no indoor spot, 4254
+  household or unknown Sim, 4255 shadow compares, 4256 shadow different (**0**), 4257 errors, 4258 our ms, 4259 EA's
+  stage ms in shadow.
+- ts3native lines: `OK   fgl inside: Mode=.. Shadow=..`; per armed search (200 at most) `fgl inside: search found a
+  spot|found nothing, start x z: tiles that reached a facing test: N with no room ... (A facing tests answered 0, R run
+  of which P passed), K that may be indoors (T facing tests run, Q passed and went to the managed check)`; one a
+  minute `fgl inside: mode .. arms .. stage searches .. shadow mismatch M`. No exported counter block.
+- With `[FglProf]` on, `tested` in the `fgl prof: search` line still counts the answered tiles (they reach the facing
+  stub); `tests` counts only the tests that ran.
+
+### 9.6 Expected gain [argued]
+
+The storm's guitar lot (s208): 283 of about 2,850-3,340 tested tiles have a room -> about a tenth of the tests. The big
+lot of s222: 1,123-1,177 of about 3,300 -> about a third (185 ms -> roughly 60-70 ms if a tile with a room costs what
+the average tile costs; not known, §9.1). The ring walk is unchanged (one search, as EA).
+
+### 9.7 Checks run (no game)
+
+- Linux host test `fglprof-host-test.cpp` (now with `TestFglInsideCore`): 12,000 model searches on random three-level
+  lots, the check reading the search's level or one either side: the same accepted tile with and without the answers,
+  fewer tests, the shadow rule silent; a check two levels off is caught by the shadow rule in over 1,000 lots (the
+  cases reach it); one lookup of three levels per tile, not per facing. Pass.
+- clang-cl `/Zs /W4` with the xwin headers: `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp`: no error,
+  no diagnostic in the changed files.
+- `TestFglFacing` (selftest.cpp, runs in the Windows CI) has a new block: an armed search through the real facing
+  stub against a fake room lookup (answered without the test, a room one level up runs, unarmed runs, Shadow counts a
+  mismatch, a record without a check is not the stage, arm / end). **Not run here** (no Wine on this machine).
+- Disassembly read for the call: `0xB499D0` (`ret 0xC`, `ecx` = grid, map by definition at `+0x44`), `0xAF9770`
+  (floats to tile bytes, quadrant code from the fraction), `0xC05430` (bounds), `0x785210` (the IC's arguments),
+  `0xB470EB` (grid from the lot), the facing loop and the check's call (§9.1, §9.2).
+- ts3fixes build; `node tools/selftest-all.ts --ci`.
+- `ts3addr-ea169.h`: row `0x00B499D0` (unresolved in the EA 1.69 table, as the other FindGoodLocation sites),
+  `ts3addr_count` 1516.
+
+### 9.8 Run plan
+
+Needs a CI build of ts3native from this branch. ini for both arms: s202's, plus `[FglInside] Enabled=1`; keep
+`[FglFacing]` / `[FglMemo]` as in s222; `[FglProf] Enabled=1 LogMs=50 Frames=16` is fine in both arms now (one search,
+as EA) and gives the census of §9.1. ts3fixes: `fglinbound=on`.
+
+1. **Arm A, shadow**: `[FglInside] Shadow=1`, `kFglInBoundShadow=True`. Steps: `FglInBoundCheck run` (expect `arm True,
+   end True`), `FglInBoundCheck live:big`, `FglInBoundCheck live` with a Sim selected in a house, then the storm.
+   Pass: `live verdict: ok`, every tile `-> same`; no `fgl inside: SHADOW MISMATCH`, minute line `shadow mismatch 0`;
+   slot 4256 = 0, 4251 = 0. Read from the `fgl inside: search` lines: tiles with no room against tiles that may be
+   indoors (the gain to expect), and `passed` on indoor tiles (0 = §9.1's reading).
+2. **Arm B, serve**: `[FglInside] Shadow=0`, `kFglInBoundShadow=False`, same steps. Pass: in `live:big` ours ms well
+   below EA's 185 ms with `-> same`; in the storm no frame of 300 ms or more with stall leaf `World_FindGoodLocation`;
+   `fgl inside:` lines with `facing tests answered 0` in the thousands; the Sims still play.
+3. After two clean runs of A: `fglinboundhh=on` (shadow first).
+
+### 9.9 Risks
+
+- The native half has not been compiled by MSVC or run; the stub selftest block runs first in CI.
+- One new call into the game from our stub: `0xB499D0` (read-only lookup, bounds-checked, no lock seen in it or in
+  `0xC05430` / `0xAA2160`; the script IC calls it on the same thread). Three calls per tile of the armed search only.
+- If the facing-test record's `+8 / +0xC / +0x10` were not the tile centre and level (they are what `[FglMemo]` keys on
+  and what the search copies from its tile at `0xB47DA0`), Shadow would show mismatches or `live` a DIFFERENT.
+- On lots that are mostly rooms the gain is small (§9.6).
