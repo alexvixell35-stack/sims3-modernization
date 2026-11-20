@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using Sims3.Gameplay;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
+using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
+using Sims3.Gameplay.Objects.Vehicles;
 using Sims3.Gameplay.Socializing;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
+using Sims3.SimIFace.CAS;
 
 namespace Ts3Fixes
 {
@@ -33,6 +36,12 @@ namespace Ts3Fixes
     //                                            the route actions are pushed                              -> the Sim moves
     //   StateMachineClient.SetActor              every animation state machine names its actors first      -> animation set-up
     //   GlobalFunctions.FindGoodLocationNearby   stacked on RrNearbyHook                                   -> placement searches
+    //   Sim.SwitchOutfitHelper.Wait              the one wait for the native outfit build (LoopIdle, then one-tick sleeps until
+    //                                            the swap calls back); stacked on OutfitWaitHook            -> outfit waits
+    //   InteractionInstance.StartSync (5 arguments, the funnel of its overloads), and from SocialReceiveFail.cs's hooks (the
+    //   only swaps of those methods, first statements) Sim.WaitForSynchronizationLevelWithSim (7 arguments, the funnel) and
+    //   SocialInteraction.ReceiveSocialInteraction (the receiver waits for the starter's first route)   -> sync waits
+    //   Wait and StartSync always hold a sleeping frame (that is what they measure); each has a stub like every swap (docs/242).
     // Push / Pop / FindGoodLocationNearby have no path to a yield; the other four have one only in the conservative call graph
     // (docs/data/swap-stack-audit.csv) and, like every swap, a stub for the saved-stack remap (docs/242). The plan hooks
     // were there before. A Sim that rides a vehicle routes through the vehicle's component: no "moves" stamp for it.
@@ -40,10 +49,15 @@ namespace Ts3Fixes
     // Counters (docs/registry.md): [4270] instances that acted, [4271] of them over kActDelayLogMs, [4272] ended without
     // acting, [4273] left the queue before Run, [4274] dropped (table full or stale), [4275] errors, [4276] lines written,
     // [4277] plans inside records, [4278] summed queued -> act ms, [4279] longest queued -> act ms.
+    // docs/684 §8: [4280] outfit waits that slept, [4281] their summed ms, [4282] the longest ms, [4283] of them household or
+    // selected Sims, [4284] instances with a sync wait, [4285] their summed sync ms, [4286] instances whose Run began in a
+    // vehicle, [4287] inside a rabbit hole, [4288] outfit waits over kActDelayOutfitLogMs whose Sim was on screen at the end,
+    // [4289] outfit waits over kActDelayOutfitLogMs.
     public static partial class Fixes
     {
         const int kAdActed = 4270, kAdOver = 4271, kAdNoAct = 4272, kAdCancelled = 4273, kAdDropped = 4274, kAdErrors = 4275, kAdLines = 4276,
-            kAdPlans = 4277, kAdSumMs = 4278, kAdMaxMs = 4279;
+            kAdPlans = 4277, kAdSumMs = 4278, kAdMaxMs = 4279, kAdOutfitN = 4280, kAdOutfitMs = 4281, kAdOutfitMax = 4282, kAdOutfitPlayer = 4283,
+            kAdSyncN = 4284, kAdSyncMs = 4285, kAdRide = 4286, kAdHidden = 4287, kAdOutfitSeen = 4288, kAdOutfitOver = 4289;
 
         static bool sActOn;
         // entries per hook since the start, counted with the switch off too (ActDelayCore.HookNames order): a dead hook shows at once
@@ -64,6 +78,8 @@ namespace Ts3Fixes
             Patch(typeof(SimRoutingComponent), "OnAboutToStartFollowingRoute", new Type[] { typeof(Route) }, typeof(AdRouteHook), "FollowHook", "FollowOrig");
             Patch(typeof(StateMachineClient), "SetActor", new Type[] { typeof(string), typeof(IHasScriptProxy) }, typeof(AdSmcHook), "SetActorHook", "SetActorOrig");
             Patch(typeof(GlobalFunctions), "FindGoodLocationNearby", sRrNearbyArgs, typeof(AdFglHook), "FglHook", "FglOrig");
+            Patch(typeof(Sim.SwitchOutfitHelper), "Wait", new Type[] { typeof(bool) }, typeof(AdOutfitHook), "WaitHook", "WaitOrig");
+            Patch(typeof(InteractionInstance), "StartSync", new Type[] { typeof(bool), typeof(bool), typeof(SyncLoopCallbackFunction), typeof(float), typeof(bool) }, typeof(AdStartSyncHook), "StartSyncHook", "StartSyncOrig");
         }
 
         // world load: instances and Sim ids belong to the world just left; the totals stay
@@ -167,7 +183,19 @@ namespace Ts3Fixes
                 Sim sim = ii.InstanceActor;
                 if (sim == null) return;
                 bool transition = q.TransitionInteraction == ii;
-                if (push) sAct.Push(ii, q.GetHeadInteraction(), sim.ObjectId.Value, transition, ActNow(), SimClock.CurrentTicks);
+                if (push)
+                {
+                    InteractionInstance head = q.GetHeadInteraction();
+                    int away = ActDelayCore.kAwayNone;
+                    if (head == ii)
+                    {
+                        // riding (the carpool of GoToSchool / GoHome, docs/684 §8) or inside a rabbit hole: not a Sim standing idle
+                        Posture p = sim.Posture;
+                        if (p is SittingInVehicle) away = ActDelayCore.kAwayRide;
+                        else if (p is InRabbitHolePosture) away = ActDelayCore.kAwayHidden;
+                    }
+                    ActDone(sAct.Push(ii, head, sim.ObjectId.Value, transition, ActNow(), SimClock.CurrentTicks, ii.GetType(), away));
+                }
                 else ActDone(sAct.Pop(ii, sim.ObjectId.Value, transition, ActNow(), SimClock.CurrentTicks));
                 ActTick();
             }
@@ -220,6 +248,59 @@ namespace Ts3Fixes
             catch (Exception) { ActError(); }
         }
 
+        // The Sim of helper left SwitchOutfitHelper.Wait, entered at t0 (ActNow). Runs in a finally: nothing here may throw.
+        static void ActOutfitWaited(object helper, long t0)
+        {
+            try
+            {
+                long us = ActNow() - t0;
+                Sim sim = sSohSim != null ? sSohSim.GetValue(helper) as Sim : null;
+                if (sim == null || us < 1000) return;   // under a millisecond: the outfit was ready, the task did not sleep
+                int kind = ActKind(sim);
+                sAct.OutfitWait(sim.ObjectId.Value, kind, us);
+                int ms = (int)Math.Min(int.MaxValue, us / 1000);
+                int[] c = PatchCounters();
+                c[kAdOutfitN]++;
+                c[kAdOutfitMs] = unchecked(c[kAdOutfitMs] + ms);
+                if (ms > c[kAdOutfitMax]) c[kAdOutfitMax] = ms;
+                if (kind != ActDelayCore.kNpc) c[kAdOutfitPlayer]++;
+                if (ms < Instantiator.kActDelayOutfitLogMs) return;
+                c[kAdOutfitOver]++;
+                string view = sim.HasBeenDestroyed ? "Sim gone" : ViewText(sim, kAdOutfitSeen);
+                if (sActInMinute >= Instantiator.kActDelayLinesPerMin) { sActLinesCut++; return; }
+                sActInMinute++;
+                InteractionInstance cur = sim.HasBeenDestroyed ? null : sim.CurrentInteraction;
+                string line = "actdelay outfit: " + ms + " ms in SwitchOutfitHelper.Wait, " + ActDelayCore.KindNames[kind] + ", to "
+                    + (sSohCategory != null ? sSohCategory.GetValue(helper) : "?") + ", " + view + ", in "
+                    + (cur != null ? ActTypeName(ActTypeKey(cur)) : "no interaction") + ", " + HcSimTime() + ", Sim " + (sim.HasBeenDestroyed ? "?" : sim.FullName);
+                sActLines++; c[kAdLines]++;
+                DiagLine(line);
+            }
+            catch (Exception) { ActError(); }
+        }
+
+        // Entry of a sync wait hook (SocialReceiveFail.cs's two, which run first of their methods' swaps): counts the entry and,
+        // with the probe on, opens the wait; true = the caller closes it with ActSync(sim, false) in a finally.
+        internal static bool ActSyncIn(Sim sim, int hook)
+        {
+            sActIn[hook]++;
+            if (!sActOn) return false;
+            ActSync(sim, true);
+            return true;
+        }
+
+        // A sync wait of the Sim begins / ends. The end runs in a finally: nothing here may throw.
+        static void ActSync(Sim sim, bool begin)
+        {
+            try
+            {
+                if (sim == null || sAct == null) return;
+                if (begin) sAct.SyncBegin(sim.ObjectId.Value, ActNow());
+                else sAct.SyncEnd(sim.ObjectId.Value, ActNow());
+            }
+            catch (Exception) { ActError(); }
+        }
+
         // A finished instance: counters, and its line when over the threshold (at most kActDelayLinesPerMin a minute).
         static void ActDone(ActDelayCore.Result r)
         {
@@ -237,6 +318,10 @@ namespace Ts3Fixes
             c[kAdPlans] = sAct.PlansSeen;
             c[kAdCancelled] = sAct.Cancelled;
             c[kAdDropped] = sAct.Dropped + sAct.Stale;
+            c[kAdSyncN] = sAct.SyncWaits;
+            c[kAdSyncMs] = (int)Math.Min(int.MaxValue, sAct.SyncSumMs);
+            c[kAdRide] = sAct.Rides;
+            c[kAdHidden] = sAct.Hidden;
             if (!r.Over) return;
             if (sActInMinute >= Instantiator.kActDelayLinesPerMin) { sActLinesCut++; return; }
             sActInMinute++;
@@ -245,7 +330,7 @@ namespace Ts3Fixes
             try { if (ii != null && ii.InstanceActor != null) name = ii.InstanceActor.FullName; }
             catch (ResetException) { throw; }
             catch (Exception) { }
-            string line = ActDelayCore.Line(r, ActTypeName(r.Type), name, HcSimTime());
+            string line = ActDelayCore.Line(r, ActTypeName(r.Type), name, HcSimTime(), sActNamer);
             sAct.RingAdd(line);
             sActLines++; c[kAdLines]++;
             DiagLine(line);
@@ -345,10 +430,62 @@ namespace Ts3Fixes
                 GlobalFunctions.FindGoodLocationStrategies searches, FindGoodLocationBooleans fglBools) { return false; }
         }
 
+        // The trigger: EA's Sim.SwitchToOutfit interaction (its Run is one SwitchToOutfitWithSpin), queued as the player would.
+        static string ActOutfitPush()
+        {
+            Household h = Household.ActiveHousehold;
+            if (h == null) return "actdelay outfit: no active household";
+            int n = 0;
+            string names = "";
+            foreach (Sim s in new List<Sim>(h.Sims))
+            {
+                if (s == null || s.HasBeenDestroyed || s.InteractionQueue == null || !s.IsHuman || !s.SimDescription.ChildOrAbove) continue;
+                Sim.SwitchToOutfit ii = Sim.SwitchToOutfit.Singleton.CreateInstance(s, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as Sim.SwitchToOutfit;
+                if (ii == null) continue;
+                ii.Reason = Sim.ClothesChangeReason.Force;
+                ii.Outfit = s.CurrentOutfitCategory == OutfitCategories.Everyday ? OutfitCategories.Formalwear : OutfitCategories.Everyday;
+                if (!s.InteractionQueue.Add(ii)) continue;
+                n++;
+                names += (names.Length > 0 ? ", " : "") + s.FullName + " -> " + ii.Outfit;
+            }
+            return "actdelay outfit: Switch To Outfit queued for " + n + " household Sims (" + names + "); then read the 'actdelay outfit:' lines, "
+                + "ActDelayCheck result and ts3native's 'outfitfirst:' lines";
+        }
+
+        // The two hooks below keep a frame on the task's stack while it sleeps: the time inside the original is what they measure.
+        public class AdOutfitHook
+        {
+            public void WaitHook(bool idleIfNecessary)   // `this` is really a Sim.SwitchOutfitHelper
+            {
+                sActIn[ActDelayCore.kInOutfit]++;
+                if (!sActOn) { WaitOrig(idleIfNecessary); return; }
+                long t0 = ActNow();
+                try { WaitOrig(idleIfNecessary); }
+                finally { ActOutfitWaited(this, t0); }
+            }
+            public void WaitOrig(bool idleIfNecessary) { }   // receives OutfitWaitHook.WaitHook (EaFixes.cs), which runs EA's Wait
+        }
+
+        public abstract class AdStartSyncHook : InteractionInstance
+        {
+            public bool StartSyncHook(bool shouldBeMaster, bool ignoreExitReasons, SyncLoopCallbackFunction loopCallback, float notifySimMinutes, bool performSocializeWithTest)
+            {
+                sActIn[ActDelayCore.kInStartSync]++;
+                if (!sActOn) return StartSyncOrig(shouldBeMaster, ignoreExitReasons, loopCallback, notifySimMinutes, performSocializeWithTest);
+                Sim me = InstanceActor;
+                ActSync(me, true);
+                try { return StartSyncOrig(shouldBeMaster, ignoreExitReasons, loopCallback, notifySimMinutes, performSocializeWithTest); }
+                finally { ActSync(me, false); }
+            }
+            public bool StartSyncOrig(bool shouldBeMaster, bool ignoreExitReasons, SyncLoopCallbackFunction loopCallback, float notifySimMinutes, bool performSocializeWithTest) { return false; }
+        }
+
         // ActDelayCheck("result"): the aggregate since the switch went on (or the last "reset"): p50 / p90 / max ms per
         //   bucket and Sim kind, the top 15 interaction types by summed queued -> act ms, the last lines over the threshold.
         // ActDelayCheck("run"): the bucket logic on a fixed scenario, in the game's own Mono (no Sim needed).
         // ActDelayCheck("live"): the hooks' swaps.  ActDelayCheck("reset"): totals back to zero.
+        // ActDelayCheck("outfit"): every Sim of the active household gets EA's own "Switch To Outfit" (Everyday <-> Formalwear):
+        //   several live outfit swaps at once, the trigger for the outfit stamp and ts3native [OutfitFirst] (docs/684 §9).
         public static object ActDelayCheck(string what)
         {
             try
@@ -365,7 +502,8 @@ namespace Ts3Fixes
                         + "; verdict: " + (d.Length == 0 ? "ok" : d);
                 }
                 if (what == "reset") { if (sAct != null) sAct.Reset(); return "actdelay: totals cleared"; }
-                if (what != "result") return "actdelay <result|run|live|reset>";
+                if (what == "outfit") return ActOutfitPush();
+                if (what != "result") return "actdelay <result|run|live|reset|outfit>";
                 string head = "actdelay switch " + (ShortcutOn("actdelay") ? "on" : "off") + ", threshold " + Instantiator.kActDelayLogMs + " ms, lines " + sActLines
                     + ", errors " + kAdErrors + "=" + sActErrors + ", " + GlMembers(CkLive("actdelay")) + "\n"
                     + ActDelayCore.HookLine(sActIn) + "\n";
