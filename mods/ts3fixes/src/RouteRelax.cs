@@ -159,7 +159,25 @@ namespace Ts3Fixes
                     else margin = Math.Max(0f, Instantiator.kFglnNearSpotMargin);
                 }
                 if ((!one && margin < 0f) || obj == null)
-                    return NearbyOrig(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
+                {
+                    // fglinbound (FglInBound.cs, docs/682): the indoors stage with a radius, same answer
+                    if (obj != null && ShortcutOn("fglinbound"))
+                    {
+                        Vector3 bp = position, bf = forward;
+                        int r = -1;
+                        try { r = FibNearby(obj, objIdsToIgnore, ref position, ref forward, offset, (int)searches, fglBools); }
+                        catch (ResetException) { throw; }
+                        catch (Exception) { PatchCounters()[kFibErrors]++; }
+                        if (r >= 0) return r == 1;
+                        position = bp; forward = bf;
+                        return NearbyOrig(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
+                    }
+                    uint ft0 = SrcNowUs();
+                    bool eaFound = NearbyOrig(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
+                    uint fus = unchecked(SrcNowUs() - ft0);
+                    if (fus >= 100000) FibEaSlow(obj, fus, eaFound);
+                    return eaFound;
+                }
                 Vector3 p0 = position, f0 = forward;
                 try
                 {

@@ -435,3 +435,5 @@ worldpondskatetest
 #   fglnonescan fglnnearspot followerlasttry
 # built 2026-11-20 (feat/simcpu-three, docs/677), default off, not run in the game (exact: same lot as EA's loop):
 #   nearestlotlazy
+# built 2026-11-20 (feat/fgl-root-1120, docs/682), default off, not run in the game (same answer as EA's stage):
+#   fglinbound fglinboundhh
