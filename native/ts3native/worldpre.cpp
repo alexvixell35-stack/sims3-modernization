@@ -24,7 +24,7 @@
 #include "worldpre-core.h"
 
 // exported block, not in the ts3fixes slot range (docs/registry.md "native exports")
-enum { WX_POSTN = 19, WX_SLOTS = 4, WX_MAXCELLS = 1 << 20 };
+enum { WX_POSTN = 19, WX_SLOTS = 4, WX_MAXCELLS = 1 << 20, WX_P3SITES = 12, WX_P3CATS = 8 };
 struct WorldPreCounters {
     volatile LONG wxScanMode;        // +0x00 runtime switch: 0 off, 1 the jump's straight rays come from the table, 2 shadow
     volatile LONG wxProbe;           // +0x04 runtime switch: 1 = count
@@ -80,6 +80,12 @@ struct WorldPreCounters {
     volatile LONG wxFullOver;        // more than WS_INCMAX cells changed since the pair's last search
     volatile LONG wxIncMax;          // most cells updated in place in one refresh
     volatile LONG wxPad;
+    // probe: inside pass 3 (0x64DD40), by callee (appended; docs/676 §13). Times include the callees below each one.
+    volatile LONG wxP3N[WX_P3CATS];      // 0 nudge 642420, 1 corners 644630, 2 segment test 644560, 3 its lot walk 644080,
+                                         // 4 next lot C69790, 5 world test 658A00, 6 lot test 643E60, 7 sample predicate B87D30
+    volatile LONG wxP3Flag72;            // lot walks (cat 3) whose smoother has byte +0x72 set
+    volatile LONG wxP3Pad;
+    volatile LONGLONG wxP3Us[WX_P3CATS];
 };
 extern "C" __declspec(dllexport) WorldPreCounters ts3native_worldpre = {};
 
@@ -357,7 +363,15 @@ static const unsigned short kWxPostOff[WX_POSTN] = {0x26, 0x3C, 0x48, 0x54, 0x73
 static const char* const kWxPostName[WX_POSTN] = {"1 644FD0", "2 641BF0", "3 64DD40 smooth", "4 6426B0", "5 64C170", "6 645310", "7 642880",
                                                   "8 643210", "9 647EB0", "10 64B430", "11 64BBD0", "12 648BE0", "13 6495E0", "14 649890",
                                                   "15 64A950", "16 64C7C0 heights", "17 64D5B0", "18 64A690", "19 641DF0"};
-static void* g_wxPostTarget[WX_POSTN];
+// call sites inside pass 3 and its callees, timed only while a pass 3 call of this thread is open. base: 0 pass 3 itself,
+// 1 the segment test (target of the call at pass 3 + 0x426), 2 its lot walk (target of the call at the segment test +
+// 0xB8), 3 the cursor advance (target of the call at pass 3 + 0x3AE). Offsets: Steam 1.67.
+struct WxP3Site { unsigned char base; unsigned short off; unsigned char cat; };
+static const WxP3Site kWxP3Site[WX_P3SITES] = {{0, 0x29E, 0}, {0, 0x2D8, 1}, {0, 0x426, 2}, {0, 0x53F, 2}, {1, 0xB8, 3},  {2, 0x72, 4},
+                                               {2, 0xE8, 5},  {2, 0x308, 5}, {2, 0x189, 6}, {2, 0x26C, 6}, {2, 0x2A7, 6}, {3, 0x83, 7}};
+static const char* const kWxP3Name[WX_P3CATS] = {"nudge 642420", "corners 644630", "segment test 644560", "lot walk 644080",
+                                                 "next lot C69790", "world test 658A00", "lot test 643E60", "sample predicate B87D30"};
+static void* g_wxPostTarget[WX_POSTN + WX_P3SITES];
 static void* g_wxPostExitPtr;
 struct WxPostTh {
     const DWORD* sp[4];  // where the pass's return address lies on the stack
@@ -372,10 +386,21 @@ static __declspec(thread) WxPostTh t_wxPost;
 // through WxPostExit. Entries whose slot is at or below sp belong to frames an unwind left behind (the stack grows down, so
 // a pass that is still running lies above): dropped. Passes may nest (a pass that plans again); past four deep: untimed.
 static DWORD __cdecl WxPostEnter(DWORD site, const DWORD* sp) {
-    if (ts3native_worldpre.wxProbe != 1 || site >= (DWORD)WX_POSTN) return 0;
+    if (ts3native_worldpre.wxProbe != 1 || site >= (DWORD)(WX_POSTN + WX_P3SITES)) return 0;
     WxPostTh& t = t_wxPost;
     while (t.n > 0 && t.sp[t.n - 1] <= sp) t.n--;
     if (t.n < 0 || t.n >= 4) return 0;
+    if (site >= (DWORD)WX_POSTN) {  // a site inside pass 3's callees: other passes reach the same code, count pass 3 only
+        bool in3 = false;
+        for (int i = 0; i < t.n && !in3; i++) in3 = t.site[i] == 2;
+        if (!in3) return 0;
+        if (kWxP3Site[site - WX_POSTN].cat == 3) {
+            // thiscall: ECX = the smoother, three slots below the return address in the stub's pushad frame. The game
+            // reads [ecx + 0x71] itself in this call.
+            const u8* const smoother = (const u8*)(uintptr_t)sp[-3];
+            if (smoother && smoother[0x72]) InterlockedIncrement(&ts3native_worldpre.wxP3Flag72);
+        }
+    }
     t.sp[t.n] = sp, t.ret[t.n] = *sp, t.site[t.n] = (int)site, t.q0[t.n] = WxNowQ();
     t.n++;
     return 1;
@@ -386,8 +411,15 @@ static DWORD __cdecl WxPostLeave() {
     if (t.n <= 0) return 0;  // cannot happen: an exit runs only for an entry of this thread that is still on the stack
     t.n--;
     WorldPreCounters& k = ts3native_worldpre;
-    InterlockedIncrement(&k.wxPostN[t.site[t.n]]);
-    InterlockedExchangeAdd64(&k.wxPostUs[t.site[t.n]], WxUs(WxNowQ() - t.q0[t.n]));
+    const LONGLONG us = WxUs(WxNowQ() - t.q0[t.n]);
+    if (t.site[t.n] < WX_POSTN) {
+        InterlockedIncrement(&k.wxPostN[t.site[t.n]]);
+        InterlockedExchangeAdd64(&k.wxPostUs[t.site[t.n]], us);
+    } else {
+        const int cat = kWxP3Site[t.site[t.n] - WX_POSTN].cat;
+        InterlockedIncrement(&k.wxP3N[cat]);
+        InterlockedExchangeAdd64(&k.wxP3Us[cat], us);
+    }
     return t.ret[t.n];
 }
 #ifndef WORLDPRE_HOST_TEST
@@ -411,6 +443,10 @@ static __declspec(naked) void WxPostExit() {
 WX_POST_STUB(0) WX_POST_STUB(1) WX_POST_STUB(2) WX_POST_STUB(3) WX_POST_STUB(4) WX_POST_STUB(5) WX_POST_STUB(6) WX_POST_STUB(7)
 WX_POST_STUB(8) WX_POST_STUB(9) WX_POST_STUB(10) WX_POST_STUB(11) WX_POST_STUB(12) WX_POST_STUB(13) WX_POST_STUB(14) WX_POST_STUB(15)
 WX_POST_STUB(16) WX_POST_STUB(17) WX_POST_STUB(18)
+WX_POST_STUB(19) WX_POST_STUB(20) WX_POST_STUB(21) WX_POST_STUB(22) WX_POST_STUB(23) WX_POST_STUB(24)
+WX_POST_STUB(25) WX_POST_STUB(26) WX_POST_STUB(27) WX_POST_STUB(28) WX_POST_STUB(29) WX_POST_STUB(30)
+static void (*const kWxP3Stubs[WX_P3SITES])() = {WxPostStub19, WxPostStub20, WxPostStub21, WxPostStub22, WxPostStub23, WxPostStub24,
+                                                 WxPostStub25, WxPostStub26, WxPostStub27, WxPostStub28, WxPostStub29, WxPostStub30};
 static void (*const kWxPostStubs[WX_POSTN])() = {WxPostStub0,  WxPostStub1,  WxPostStub2,  WxPostStub3,  WxPostStub4,  WxPostStub5,  WxPostStub6,
                                                  WxPostStub7,  WxPostStub8,  WxPostStub9,  WxPostStub10, WxPostStub11, WxPostStub12, WxPostStub13,
                                                  WxPostStub14, WxPostStub15, WxPostStub16, WxPostStub17, WxPostStub18};
@@ -427,6 +463,27 @@ static bool WxCallAt(DWORD site, DWORD* target) {
 static bool WxRetarget(DWORD site, void* hook) {
     const LONG rel = (LONG)((uintptr_t)hook - (site + 5));
     return Write((u8*)(uintptr_t)site + 1, &rel, 4);
+}
+
+// The callees of pass 3 (docs/676 §13). p3 = pass 3's address as read from its call. Every site must be an E8, and two
+// sites agree on their target exactly when they are the same callee; else nothing is written. No address row: all sites
+// are offsets from p3 and from targets read here.
+static void InstallWxPass3(DWORD p3) {
+    DWORD base[4] = {p3, 0, 0, 0};
+    DWORD t[WX_P3SITES] = {};
+    bool ok = WxCallAt(p3 + 0x426, &base[1]) && WxCallAt(base[1] + 0xB8, &base[2]) && WxCallAt(p3 + 0x3AE, &base[3]);
+    for (int i = 0; i < WX_P3SITES && ok; i++) ok = WxCallAt(base[kWxP3Site[i].base] + kWxP3Site[i].off, &t[i]);
+    for (int i = 1; i < WX_P3SITES && ok; i++)
+        for (int j = 0; j < i && ok; j++) ok = (kWxP3Site[i].cat == kWxP3Site[j].cat) == (t[i] == t[j]);
+    if (!ok) {
+        Log("SKIP world precompute pass 3 split: the calls under 0x%08lX are not those of Steam 1.67, nothing written", p3);
+        return;
+    }
+    for (int i = 0; i < WX_P3SITES; i++) g_wxPostTarget[WX_POSTN + i] = (void*)(uintptr_t)t[i];
+    int done = 0;
+    for (int i = 0; i < WX_P3SITES; i++) done += WxRetarget(base[kWxP3Site[i].base] + kWxP3Site[i].off, (void*)kWxP3Stubs[i]) ? 1 : 0;
+    if (done == WX_P3SITES) ts3native_worldpre.wxReady |= 16;
+    else Log("FAIL world precompute pass 3 split: %d of %d call sites written (each stub only times and calls its target)", done, (int)WX_P3SITES);
 }
 
 // [WorldPrecompute] (after ApplyWaterJps, InstallPlanCand and InstallTailUnlock)
@@ -463,6 +520,7 @@ static void InstallWorldPre(const wchar_t* ini) {
             for (int i = 0; i < WX_POSTN; i++) done += WxRetarget(WX_POST + kWxPostOff[i], (void*)kWxPostStubs[i]) ? 1 : 0;
             if (done == WX_POSTN) c.wxReady |= 8;
             else Log("FAIL world precompute post pass split: %d of %d call sites written (each stub only times and calls its pass)", done, (int)WX_POSTN);
+            if (done == WX_POSTN) InstallWxPass3(t[2]);
         }
     }
     const bool scanOk = scan && (c.wxReady & 3) == 3;
@@ -472,7 +530,7 @@ static void InstallWorldPre(const wchar_t* ini) {
     Log("OK   world precompute: ready 0x%lX; WaterScanTable=%ld (%s, %s, at most %ld tables), Probe=%d (water searches%s%s; unchanged = %s)",
         c.wxReady, c.wxScanMode, c.wxScanMode == 2 ? "shadow: the walk's result is used" : c.wxScanMode ? "straight rays from the table" : "off",
         g_wxAll ? "every router" : "NPC routers only", c.wxSlots, probe, (c.wxReady & 4) ? ", world A* searches" : "; world A* needs CandidateSplit=1",
-        (c.wxReady & 8) ? ", post pass by node pass" : "", g_snOn ? "[RouteSnap] write sequence, our grid compare for water with the table on" : "[RouteSnap] counting is off: only water with the table on");
+        (c.wxReady & 16) ? ", post pass by node pass and pass 3 by callee" : (c.wxReady & 8) ? ", post pass by node pass" : "", g_snOn ? "[RouteSnap] write sequence, our grid compare for water with the table on" : "[RouteSnap] counting is off: only water with the table on");
 }
 
 // the 60 s counter lines (ts3native.cpp MaybeLogCounters)
@@ -505,5 +563,12 @@ static void WxLogCounters() {
     for (int i = 0; i < WX_POSTN && at < (int)sizeof(b); i++)
         at += sprintf_s(b + at, sizeof(b) - at, "%s%s %ld/%ld", i ? ", " : "", kWxPostName[i], (LONG)(c.wxPostUs[i] / 1000), c.wxPostN[i]);
     Log("world precompute probe post passes (ms/calls, pass and its Steam address): %s", b);
+    if (!(c.wxReady & 16)) return;
+    at = 0;
+    for (int i = 0; i < WX_P3CATS && at < (int)sizeof(b); i++)
+        at += sprintf_s(b + at, sizeof(b) - at, "%s%s %ld/%ld", i ? ", " : "", kWxP3Name[i], (LONG)(c.wxP3Us[i] / 1000), c.wxP3N[i]);
+    Log("world precompute probe pass 3 callees (ms/calls, each includes the ones it calls; the probe's own stubs add time): %s; lot walks "
+        "with smoother +0x72 set %ld",
+        b, c.wxP3Flag72);
 }
 #endif
