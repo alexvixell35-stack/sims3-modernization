@@ -70,6 +70,7 @@ namespace Ts3Agent
             bool hh = a.Bool("household", false);
             List<string> kinds = StormKinds(a);
             int gen = ++sStormGen;
+            sStormCleanGen++;  // a stop's cleanup task ends: it would destroy this storm's new objects before their pushes run
             sStormWaves = sStormSeen = sStormUnseen = sStormCancelled = 0;
             sStormPushed.Clear(); sStormFailed.Clear(); sStormFailures.Clear(); sStormSkipped.Clear(); sStormSkips.Clear(); sStormError = null;
             sStormMade = sStormCleaned = 0;

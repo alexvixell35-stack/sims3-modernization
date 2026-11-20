@@ -230,12 +230,13 @@ namespace Ts3Agent
         {
             Simulator.AddObject(new OneShotFunctionTask(delegate
             {
-                for (int i = 0; i < 120 && sStormGen == gen; i++)
+                // after a stop no more waiting, but a toddler already carried is still put down (else the NPC keeps it)
+                for (int i = 0; i < 120; i++)
                 {
                     Simulator.Sleep(30);
                     if (s.HasBeenDestroyed || t.HasBeenDestroyed || s.InteractionQueue == null) return;
                     CarryingChildPosture cp = s.CarryingChildPosture;
-                    if (cp == null || cp.Child != t) continue;
+                    if (cp == null || cp.Child != t) { if (sStormGen != gen) return; continue; }
                     InteractionInstance ii = PutDownChild.Singleton.CreateInstance(t, s, new InteractionPriority(InteractionPriorityLevel.NonCriticalNPCBehavior), false, true);
                     if (s.InteractionQueue.Add(ii)) sStormInst.Add(new KeyValuePair<Sim, InteractionInstance>(s, ii));
                     return;
