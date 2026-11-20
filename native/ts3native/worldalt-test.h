@@ -485,6 +485,15 @@ static void WatBuildAll(int mode) {
     memset(g_watOpts, 0, sizeof(g_watOpts));
     ts3native_worldalt.waMode = 1;
     for (int i = 0; i < 2 * WA_MAXK + 4 && !(g_waW.tab[mi].k && (g_waW.done[mi] || g_waW.tab[mi].k == g_waW.tab[mi].kmax)); i++) WatRun(0, g_watN - 1);
+#ifndef WORLDALT_HOST_TEST
+    if (!g_waW.tab[mi].k || g_waW.bad) {
+        const WorldAltCounters& c = ts3native_worldalt;
+        printf("WorldAlt build mode %d: k %lu kmax %lu bad %d done %d graph %d n %d loops %ld trees %ld skips", mode, (unsigned long)g_waW.tab[mi].k,
+               (unsigned long)g_waW.tab[mi].kmax, (int)g_waW.bad, (int)g_waW.done[mi], (int)g_waW.haveGraph, g_watN, (long)c.waLoops, (long)c.waTrees);
+        for (int r = 0; r < 8; r++) printf(" %ld", (long)c.waSkip[r]);
+        printf("\n");
+    }
+#endif
     assert(g_waW.tab[mi].k && !g_waW.bad);
     g_watS = keep;
     memset(g_watOpts, 0, sizeof(g_watOpts));
@@ -564,6 +573,21 @@ static void WatPair(int* a, int* b) {
         if (ok) return;
     }
 }
+// a pair as above that the current search settings also connect: probed plain (WorldAlt off), so no table step and no
+// bound loop is counted; after 200 failed picks the walls go, which every picked pair then connects
+static void WatPairFound(int* a, int* b) {
+    WorldAltCounters& c = ts3native_worldalt;
+    const LONG keepMode = c.waMode;
+    c.waMode = 0;
+    for (int tries = 0;; tries++) {
+        assert(tries < 400);
+        if (tries == 200) g_watS.wallPct = 0, g_watS.startMask = g_watS.goalMask = 0;
+        WatPair(a, b);
+        if (WatRun(*a, *b) >= 0) break;
+    }
+    WaFlush(t_wa);
+    c.waMode = keepMode;
+}
 static void TestWaManager() {
     WorldAltCounters& c = ts3native_worldalt;
     do WatWorld(true); while (g_watN < 40);
@@ -577,7 +601,7 @@ static void TestWaManager() {
     WatRun(0, g_watN - 1);
     assert(c.waTrees == 1 && g_waW.tab[0].k == 1 && c.waBound + c.waSkip[WAS_NOTAB - 1] == 2);
     int pa = 0, pb = 0;
-    WatPair(&pa, &pb);
+    WatPairFound(&pa, &pb);
     const LONG bound0 = c.waBound;
     for (int i = 2; i <= 6; i++) {
         WatRun(pa, pb);
@@ -794,17 +818,21 @@ static void TestWaShadow() {
         WaBegin(WatCost1, g_watCtr, g_watR, g_watG, s, g, 0, 0, g_watOpts, NULL);
         assert(c.waShadow == pairs + 2);
     }
-    // a bound that is too high (every table entry times 40) shows as a dearer path sooner or later
-    WatReset(8);
-    WatBuildAll(1);
-    for (DWORD u = 0; u < g_waW.nodes; u++)
-        for (DWORD k = 0; k < g_waW.tab[0].k; k++)
-            if (g_waW.tab[0].d[u * g_waW.tab[0].kmax + k] < WA_FAR / 64) g_waW.tab[0].d[u * g_waW.tab[0].kmax + k] *= 40;
-    c.waMode = 2;
-    for (int q = 0; q < 400 && !c.waShDearer; q++) {
-        WatPickSearch(true);
-        g_watS.mode = 1, g_watS.wallPct = 0;
-        WatRun((int)WatRnd((DWORD)g_watN), (int)WatRnd((DWORD)g_watN));
+    // a bound that is too high (every table entry times 40) shows as a dearer path sooner or later; a small world may
+    // not mislead the search at all, so up to 20 worlds are tried (the counters below are those of the last one)
+    for (int world = 0; world < 20 && !c.waShDearer; world++) {
+        if (world) do WatWorld(true); while (g_watN < 40);
+        WatReset(8);
+        WatBuildAll(1);
+        for (DWORD u = 0; u < g_waW.nodes; u++)
+            for (DWORD k = 0; k < g_waW.tab[0].k; k++)
+                if (g_waW.tab[0].d[u * g_waW.tab[0].kmax + k] < WA_FAR / 64) g_waW.tab[0].d[u * g_waW.tab[0].kmax + k] *= 40;
+        c.waMode = 2;
+        for (int q = 0; q < 400 && !c.waShDearer; q++) {
+            WatPickSearch(true);
+            g_watS.mode = 1, g_watS.wallPct = 0;
+            WatRun((int)WatRnd((DWORD)g_watN), (int)WatRnd((DWORD)g_watN));
+        }
     }
     assert(c.waShDearer > 0 && c.waLines > 0 && !c.waShCheaper && !c.waShGameOver);
 }
