@@ -113050,6 +113050,89 @@
     ]
   },
   {
+    "id": "ip-landcheckro-storm",
+    "bug": "docs/670 §23.1 / §24: in the s189 route storm (2026-11-20, every lock fix on, [HitchAttr] RouteLockCallers=1) the second largest named gate wait is key 0x62FB74 with first caller 0x654BE5: 8 'route lock wait' lines >= 20 ms / 476 ms in 3 min. It is the lot lookup of each lot waypoint (LotTable_GetIfPresent 0x62FB60: gate 12, then gate 0) in the closest-waypoint gather 0x654790 under World.ArePointsConnectedByLand, waiting for the running route job's +0x918.",
+    "fix": "ts3native [LandCheckRO] Enabled=1 (default 0, landro.cpp): while a job runs the game's own gather runs under design SH's QL shared hold (slotro.cpp), in which exactly the two gate entries of 0x62FB60 pass without +0x918; a dirty lot index, QL busy, the route worker on the same candidate area and every other gate, lock, host or managed call give the call back to today's wait. Shadow=1 compares the gather under a dry hold with the game's when no job runs. Runtime switch native_set landcheckro.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Steam and TS3A_TABLE; selftest case TestLandCheckRO built with clang-cl and run under Wine; no steerro-test section against the game's own 0x654790). Needs the MSVC asi with [LandCheckRO] Enabled=1 Shadow=1 and [RouteGate] Enforce=1, [RouteAsync] on in both arms, [HitchAttr] RouteLockMs=20 RouteLockCallers=1. First pass: Mode=0 Shadow=1 (compare only; every arm then runs the game's gather). The default storm kinds do not force the IC: taxi (CarNpcManager -> HasValidStreetParking) and stray (the stray pet lot check) reach it; an arm with 'gathers 0' is N/A, not a pass.",
+    "expect": "shadow pass: 'land check RO:' line with shadow runs > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: 'held to the end' > 0 with gate 12 passed > 0, 'gave up 0'; 'route lock wait' lines with key 0062FB74 and first caller word 00654BE5 and their ms well below the off arms; read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1). No crash.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "landcheckro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 the game's wait at the gate, 1 the gather under the QL shared hold"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148,
+            "kinds": [
+              "lot",
+              "home",
+              "boat",
+              "meet",
+              "nopath",
+              "taxi",
+              "stray"
+            ]
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path) plus the two kinds whose managed code asks ArePointsConnectedByLand: route jobs back to back while the IC gathers"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "landcheckro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

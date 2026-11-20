@@ -13590,6 +13590,7 @@ static void TestNoPathMemoStub() {
 #include "fglprof-stub-test.h"   // TestFglProfStubs: the trampolines against cdecl and ret-4 fakes
 #include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
 #include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
+#include "landro-test.h"    // TestLandCheckRO ([LandCheckRO], docs/670 §24)
 #include "discyield-test.h"  // TestDiscYield ([RouteAsync] DiscYieldForeign, docs/640)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
@@ -15038,6 +15039,7 @@ int main() {
     TestObstructedRO();
     TestAvoidRO();
     TestSlotRo();
+    TestLandCheckRO();  // docs/670 §24: the same hold, kind SLK_LAND
     TestP10();
     TestProbeSnap();
     TestCallSites();

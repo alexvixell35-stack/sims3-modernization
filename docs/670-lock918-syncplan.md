@@ -1193,7 +1193,8 @@ QL shared hold around `0x654790` at call `0x659787`, gate 12 passing inside) is 
 built: `0x654790` reaches `World_LotLookup`'s own lock `0x10786C8` (§17), so `LockAcquireHook`'s `QlSharedTrip(SLD_LOCK)`
 must be shown to let that one lock pass without dropping the hold, or the hold drops on every call and nothing is gained;
 and an offline section that runs the game's `0x654790` under the hold against the plain call. About 1-1.5 h. Not started
-in this pass (the 45 minutes went to §22).
+in this pass (the 45 minutes went to §22). **Built since: §24** (the lock question is settled in §24.1; the offline
+section is still open).
 
 ### 23.2 `0x62EF7A` from `0x82E696` (413 ms)
 
@@ -1421,6 +1422,126 @@ counts its tails in its own block. `[RouteToObjRO]`'s behaviour and counters are
 
 ```
 [Blocker2dRO]
+## 24. `[LandCheckRO]`: the closest-waypoint gather under design SH (ts3native, default off, NOT RUN)
+
+2026-11-20, branch `fix/land-check-ro`. Tools: capstone on the Steam 1.67 code (function bodies, a direct-call closure of
+`0x654790` with every indirect call, absolute write and import listed, a rel32 scan for callers, a field-offset scan of
+`0x61C000..0x690000`), `functions.csv`. No Ghidra run, no game run.
+
+### 24.1 The open question of §23.1: `World_LotLookup`'s lock [verified disassembly + source]
+
+- The path is `0x654790 -> 0x650030 -> 0xC68990 -> 0xC688A0`. `0xC688A0` starts with `cmp byte [wm+0x1CC], 0; je` and calls
+  the lot index rebuild `0xC68680` only when that byte is set (`0xC688A6..0xC688AF`). The rebuild is the only function of
+  the gather's closure that calls `Lock_Acquire` (`0xC6869C`). The lock is the object `wm+0x228` (`lea ecx, [ebx+0x228]`);
+  **`0x10786C8` is the timeout word pushed for the call, not the lock** (the reading docs/62 gives for `0xFBA5CC`).
+- So with a clean index the gather never meets that lock. With a dirty index: `LockAcquirePlain` sends every acquire of a
+  thread with `t_slHold` set to `LockAcquireFull`, whose first statement is `QlSharedTrip(SLD_LOCK)` -> `SlDrop`: QL is
+  released **before** the game's lock call. The hold is never open across the lock; what follows runs as today (the
+  rebuild on the sim thread, then the gate's wait). Nothing of ours is held while it waits.
+- §23.1's worry ("the hold drops on every call and nothing is gained") does not hold: the drop happens only for a dirty
+  index. The build excludes that case up front anyway (`dirty lot index`: no hold is started, the game's call), and the
+  drop stays as the answer when the byte is set by another thread after the check.
+- The rest of the closure (108 functions by direct call): the imports reached are the allocator's `EnterCriticalSection` /
+  `LeaveCriticalSection` (not `Lock_Acquire`, so no drop: the candidate vector may grow inside the hold), `VirtualAlloc` /
+  `VirtualFree` / `VirtualQuery`, `GetSystemInfo`, `memmove`, `ceil`. No wait import, no write to an absolute address. The
+  water point test `0xB793F0` (flag `0x800`) reaches no gate site and no `Lock_Acquire` by direct call; it has virtual
+  calls (`0xB74D05`, `0x746119`, `0x958643..0x95895F`, `0x8A65EB`, `0x9EC452`) **[not followed]**: a lock or managed call
+  behind one of them drops the hold like any other.
+
+### 24.2 What the gather is, and a finding about its area [verified disassembly]
+
+`0x654790` is thiscall(area), no stack argument, AL; one caller, `0x659787` in `ClosestWaypoints_Try 0x6595B0`, only for an
+area whose flag `0x400` is set. It resets the area's candidate vector (`+0x34 = +0x30`), walks the chunks of the area,
+appends one 32-byte record per accepted waypoint (`0x654240`, may reallocate) and clears `0x400`. For a waypoint of type 2
+or `0x15`: `0x650030` (the lot under the waypoint), `LotTable_GetIfPresent 0x62FB60` = `LotTable_Contains` (gate 12, return
+`0x62FB74`) then `GetOrInsert` (gate 0, return `0x62FB8B`), then the entry's waypoint map `+0x120` (`0xD38B00`, a pure
+find), `+0x10`, `+0x16C`, the level table `+0x90` and the hub's position `+0x50 / +0x54`. The two gate frames are the only
+places the function waits.
+
+- **The follow-up reads of the entry** (§12.2's condition for SH): the writers of `+0x120` / `+0x16C` found in
+  `0x61C000..0x690000` are the entry's constructor and copy in the insert path (`0x62AA60`, `0x62DE40`: W5),
+  `0x6236D0 <- 0x63C8E0 <- RoutingWorld_LoadLotData 0x82CA10 <- 0xAB4920` (lot load, not a plan step) and `0x630CF0`
+  (`+0x16C`; callers `0x829D50 <- 0xAB1EB0`, the coarse rebuild gate `0x835110`, `0x83575D`: lot-side calls, their
+  threads not traced); the level table is
+  W4's. Under the hold W4 / W5 are excluded; today these reads run after the gate returned with no lock at all.
+- **The gate is not a guard the caller relies on**: it is reached only when an area must be gathered and has a lot
+  waypoint. A call that finds its area in the cache, or gathers an area with no lot waypoint, runs the whole IC beside
+  the job today.
+- **Finding: the area is shared with the route worker and has no lock.** The area is one of the 10 blocks of the
+  planner's FindClosest object `W+0xE0` (`W = [world+0x960]`: the IC takes it through `0x829C00`, and so does
+  `RoutingJob_Execute`, p4clone.cpp / docs/94 §21.13). `0x652D80` relinks that list (move to front) and recycles the
+  oldest block, and both threads append to block vectors: the worker inside plans under `+0x918`, the IC with no lock (it
+  only meets `+0x918` at the two gates above). With plans on the sim thread (the game as shipped) the two cannot
+  overlap; with `[RouteAsync]` they can, today, whenever the IC runs during a job **[inferred from the code paths; no
+  crash is attributed to it, nothing measured]**. Not fixed here (a lock around `0x6595B0` would deadlock with the gate
+  wait); listed in §24.5.
+
+### 24.3 The build (`landro.cpp`, the hold in `slotro.cpp`)
+
+- `slotro.cpp`: the hold has a kind (`t_slKind`: `SLK_SLOT`, `SLK_LAND`); `SlBegin(dry, kind)`, `SlGate`, `SlDrop` and `SlEnd`
+  send the land kind to `LcGateWhy` / `LcOnDrop` / `LcRelease`. `[SlotEnabledRO]`'s own behaviour and counters are
+  unchanged. One hold per thread: a gather inside a slot hold (or the reverse) runs the game's code.
+- An entry detour on `0x654790` (6 bytes `55 8B EC 83 E4 F8`; no branch in `.text` lands in them). On the sim (owner)
+  thread while a job runs, and only when the thread holds no `+0x918`, serves no job callback and has no gate frame
+  open: QL shared (try only), then the game's own gather. Inside, `RgEnter` passes **exactly** the gate-12 entry that
+  returns to `0x62FB74` and a gate-0 **hit** that returns to `0x62FB8B`. Everything else drops the hold (QL released,
+  the game goes on and waits at its next gate as today), each with its own count: another gate site, another caller of
+  either gate, a gate-0 miss (an insert), an odd lot table, a `Lock_Acquire`, a host or managed call.
+- Given back before a hold starts (the game's call, today's wait): state (lock owner, job callback, open gate frame),
+  nested hold, a broken clone path, QL busy, a dirty lot index, the worker on the same area.
+- **The area hand-over** (so the hold never puts both threads into one block's vector where today's gate wait kept them
+  apart): the hook runs on every thread. The sim publishes the area of its hold, any other thread the area it gathers
+  (each publishes, then reads the other's). The sim starts no hold on an area the worker is gathering, and drops its
+  hold at the next gate when the worker arrives (`worker`: it then waits at that gate, which is today's order of
+  events). The worker waits at the gather's entry while the sim's hold is on that area; the hold contains no wait
+  (§24.1), so this ends with the sim's own work. A cap (4000 pause loops, then 250 sleeps of 1 ms; `gave up`, must stay
+  0) sets Mode to 0 and lets the worker go on. After a drop for another reason the sim runs on to its next gate with
+  the area free, as today.
+- `Shadow=1`: with no job running and none allowed to start (`g_rgOffSimOpen`), the game's gather, then the gather again
+  under a dry hold; AL, the area's flags, the candidate count and an FNV hash of the candidate records compared
+  (`land check RO: SHADOW MISMATCH ...`, 16 lines at most). It checks that the gates passed without `+0x918` change
+  nothing; it costs a second gather per call.
+- The answer is the game's own code for every Sim: no scope gate, nothing cached, nothing skipped.
+
+Keys: `[LandCheckRO] Enabled=0`, `Mode=1`, `Shadow=0`. Needs `[RouteGate] Enforce=1` (gate stubs 0 and 12), `[RouteAsync]`,
+the QL writer stubs W4 / W5 / W6g. Export `ts3native_landcheckro` (size 0x88; `+0x00` mode = `native_set landcheckro`,
+`+0x04` shadow; docs/registry.md). Line, once a minute when installed: `land check RO: mode M shadow S gathers N, in a
+job J: held to the end T (gate 12 passed, gate 0 hits, candidates; ms, max us); dropped: gate, miss, lock, managed, table,
+caller, worker; not held: state, nested, broken, QL busy, dirty lot index, worker on the area; worker gathers G waited W
+(max us) gave up X; shadow runs R mismatch M dropped D`. Address row `0x00654790` (EA 1.69: unresolved, SKIP line there).
+Repro `ip-landcheckro-storm`.
+
+### 24.4 Checks run (2026-11-20, no game)
+
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `steerro-test.cpp`: 0 errors, no
+  diagnostic in `landro.cpp`, `landro-test.h` or `slotro.cpp`.
+- Selftest case `TestLandCheckRO` (clang-cl build, run under Wine three times in one process between `TestSlotRo`,
+  `TestEditPathRO`, `TestConnRoomsRO`, `TestPlaceTestRO`): the gate rule (pass, other caller, miss, active lot, table
+  shape, other site, lock, managed call, worker on the area), `LcBegin`'s refusals, the hook (off, shape, hold, drop
+  inside, state fallbacks, QL busy, unwind), shadow (equal, skewed, dry drop), another thread's gather (free, waiting
+  for the hold's end, handed over at the sim's gate, the cap). No step reads a timer; every sub-case asserts the state it
+  starts from. Pass. `TestSlotRo` passes unchanged. The MSVC `/W4 /WX` build and the full selftest need CI.
+- `node tools/selftest-all.ts --ci`: pass.
+
+### 24.5 Not verified, not done
+
+- **No offline section** runs the game's `0x654790` under the hold against the plain call (a waypoint chunk table, lot
+  waypoints, lot entries with their map: about 1 h). Until then the in-game shadow pass is the equality check. Read from
+  the disassembly only: the area layout (`+0x24` try, `+0x2C` flags, `+0x30 / +0x34` vector, `+0x40` FindClosest object),
+  the FindClosest fields (`+0xC` P, `+0x10` W, `+0x14` world manager, `+0x18` graph) and `W+0xC` = the world manager.
+  **Run `Mode=0 Shadow=1` first.**
+- The entry fields' writer list (§24.2) is a scan of `0x61C000..0x690000` for two offsets, not a proof for `+0x10` and
+  the hub records; they are read with no lock today too.
+- The shared area cache (§24.2) outside the two cases the hand-over covers: both threads in `0x652D80`'s list at once,
+  the sim recycling the block a plan is still scoring. Unchanged by this build; a candidate for its own fix (a private
+  FindClosest object for the IC's calls would remove the sharing).
+- How much of the 476 ms goes: unknown. The gather's time itself stays (docs/679); only its gate waits go, and §7.1's
+  rule applies (the next taker in the frame inherits the wait).
+
+### 24.6 Next storm, on arm
+
+```
+[LandCheckRO]
 Enabled=1
 Mode=0
 Shadow=1
@@ -1432,3 +1553,7 @@ RouteLockCallers=1
 First pass as written (compare only): `shadow runs` > 0, `mismatch` 0. Second pass `Mode=1` (repro
 `ip-blocker2dro-storm`): `answered` against the give-back counts; lines with key `0062EF7A` and first caller `0082E696` /
 `0082E6C7` against s189's 5 / 413 ms; `the game's call` ms is what is left of this site's wait.
+First pass as written (`shadow runs` > 0, `mismatch` 0). Second pass `Mode=1 Shadow=0`: `held to the end` against `in a
+job`, the drop and not-held counts, `gave up 0`; lines with key `0062FB74` and first caller `00654BE5` against s189's
+8 / 476 ms. The default storm kinds do not force the IC: use `kinds` with `taxi` and `stray` (repro
+`ip-landcheckro-storm`).

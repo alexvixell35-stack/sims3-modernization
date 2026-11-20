@@ -69,6 +69,7 @@
  "IdleCheckRO": ["idlero.cpp"],
  "MovedWaits": ["movedwait.cpp"],
  "SlotEnabledRO": ["slotro.cpp"],
+ "LandCheckRO": ["landro.cpp"],
  "Gate0RO": ["gate0ro.cpp"],
  "ProbeP1b": ["lotfd.cpp"],
  "LocoWindow": ["locowin.cpp"],

@@ -3260,6 +3260,7 @@ static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
 static void B2LogCounters();    // rtoro.cpp (docs/670 §24)
 static void OaLogCounters();    // gvro.cpp (docs/670 §21)
+static void LcLogCounters();    // landro.cpp (docs/670 §24)
 static void SrLogCounters();   // steerro.cpp (docs/670 §7)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
@@ -3358,6 +3359,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     OaLogCounters();    // docs/670 §21 (nothing until [ObstructAtRO] is installed)
     B2LogCounters();    // docs/670 §24 (nothing until [Blocker2dRO] is installed)
+    LcLogCounters();    // docs/670 §24 (nothing until [LandCheckRO] is installed)
     SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
@@ -6320,6 +6322,7 @@ static void SlimWait();
 #include "obstructro.cpp"
 #include "avoidro.cpp"
 #include "slotro.cpp"
+#include "landro.cpp"  // docs/670 §24: [LandCheckRO], design SH over the closest-waypoint gather 0x654790 (slotro.cpp's hold)
 #include "gate0ro.cpp"
 #include "locowin.cpp"
 #include "taskserve.cpp"  // docs/637: [RouteAsync] TaskServe (after savewrite.cpp: PatchCalls; after hostcalls.cpp: HcNow)
@@ -6691,6 +6694,7 @@ static void Run(HMODULE self) {
         InstallObstructedRO(ini);
         InstallAvoidRO(ini);
         InstallSlotRo(ini);
+        InstallLandCheckRO(ini);  // docs/670 §24: entry detour on 0x654790, QL writer subset like [SlotEnabledRO]
         InstallGate0Ro(ini);  // docs/152 §G1: after SteerRO and AvoidRO (reads their ready state for the log)
         InstallLocoWindow(ini);
         InstallTaskServe(ini);  // docs/637: after InstallAsync (g_async.owner, the invoke events)
