@@ -1677,7 +1677,6 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00B46249 no-ea-1.69-address native/ts3native/fglprof.cpp
 // unresolved: 0x00B462F6 no-ea-1.69-address native/ts3native/fglprof.cpp
 // unresolved: 0x00B46322 no-ea-1.69-address native/ts3native/fglprof.cpp
-constexpr int ts3addr_count = 1486;
 // unresolved: 0x0085FFC2 no-ea-1.69-address native/ts3native/epro.cpp
 // unresolved: 0x0085F5A0 no-ea-1.69-address native/ts3native/epro.cpp
-constexpr int ts3addr_count = 1461;
+constexpr int ts3addr_count = 1488;
