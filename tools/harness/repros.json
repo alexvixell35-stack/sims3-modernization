@@ -112286,113 +112286,6 @@
     ]
   },
   {
-    "id": "ip-smoothmemo-storm",
-    "bug": "docs/676 §11, §14: the path smoothing pass 0x64DD40 is about 6.9 s of route worker time per 3-minute storm (2,420 calls, 2.85 ms each), all under the routing lock. On a lot each of its 2-3 segment tests per sample asks the quadtree cell evaluator 0x66B090 for every cell the segment crosses, on fresh stack cursors, so no answer is reused between the neighbouring tests of one pass",
-    "fix": "ts3native [WorldPrecompute] SmoothMemo (1 serve, 2 shadow; default 0): one pass's cell evaluations are kept under what the evaluator reads and replayed; identical results (docs/676 §14)",
-    "save": "Baseline-IP-Spring",
-    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the table and the three hooks). Job ini: [WorldPrecompute] SmoothMemo=2 (the hooks install only with a non-zero ini value), [RouteSnap] Enabled=1, the s189 on-arm switches otherwise; SmoothMemoAll=0. Arm 1 is off (pass 3 time without the memo), arm 2 shadow (every evaluation runs and is compared: the mismatch count and 'would have replaced N ms' are the result), arm 3 serves. The share of pass 3 that the memo can touch is not measured yet: lot tests with the smoother's byte +0x72 clear only; a storm of off-lot routes shows few evaluations",
-    "expect": "'OK   world precompute smooth memo: SmoothMemo=2' with ready 0x7 or 0xF. After arm 2: 'world precompute: smooth memo mode 2' with cell evaluations asked > 0, shadow checks > 0 and mismatch 0, and no 'SMOOTH MEMO MISMATCH' line. After arm 3 (mode 1): 'from a record' > 0, and pass 3 ms per call 'with the memo' below arm 1's 'without'. No crash, plans / failed in 'route plans:' as in the off arm",
-    "steps": [
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "normal"
-        },
-        "waitS": 2
-      },
-      {
-        "cmd": "native_set",
-        "args": {
-          "smoothmemo": 0
-        },
-        "waitS": 1,
-        "note": "arm 1: off (the pass is timed, nothing is looked at)"
-      },
-      {
-        "cmd": "route_storm",
-        "args": {
-          "count": 40,
-          "repeatS": 30,
-          "seed": 143
-        },
-        "waitS": 120,
-        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-worldpre-storm; 2 min"
-      },
-      {
-        "cmd": "route_storm",
-        "args": {
-          "stop": true
-        },
-        "waitS": 5
-      },
-      {
-        "cmd": "native_set",
-        "args": {
-          "smoothmemo": 2
-        },
-        "waitS": 1,
-        "note": "arm 2: shadow"
-      },
-      {
-        "cmd": "route_storm",
-        "args": {
-          "count": 40,
-          "repeatS": 30,
-          "seed": 143
-        },
-        "waitS": 120,
-        "note": "the same storm, every record compared with the game's evaluation; 2 min"
-      },
-      {
-        "cmd": "route_storm",
-        "args": {
-          "stop": true
-        },
-        "waitS": 5
-      },
-      {
-        "cmd": "native_set",
-        "args": {
-          "smoothmemo": 1
-        },
-        "waitS": 1,
-        "note": "arm 3: records answer (NPC routers; others stay shadow)"
-      },
-      {
-        "cmd": "route_storm",
-        "args": {
-          "count": 40,
-          "repeatS": 30,
-          "seed": 143
-        },
-        "waitS": 120,
-        "note": "the same storm with the memo serving; 2 min"
-      },
-      {
-        "cmd": "route_storm",
-        "args": {
-          "stop": true
-        },
-        "waitS": 5
-      }
-    ],
-    "cleanup": [
-      {
-        "cmd": "route_storm",
-        "args": {
-          "stop": true
-        }
-      },
-      {
-        "cmd": "native_set",
-        "args": {
-          "smoothmemo": 2
-        },
-        "note": "back to shadow (the ini value)"
-      }
-    ]
-  },
-  {
     "id": "nearestlotlazy-check",
     "bug": "docs/677: LotManager.GetNearestLot runs one native object count per lot (uncharted island marker) and up to ten World.ArePointsConnectedByLand calls per lot (street parking) before it compares distances; CarNpcManager.InitCarForLotRoute calls it for NPC cars to lots without valid street parking: 330-560 ms sim-thread frames in Isla Paradiso (s149, s154, s161, s164, s169, s170)",
     "fix": "ts3fixes nearestlotlazy (NearestLot.cs + NearestLotCore.cs, tuning kNearestLotLazy, default off): distances first, the same tests nearest lot first until one passes; same lot as EA's loop. kNearestLotLazyShadow also runs EA's loop and logs a difference",
@@ -112746,6 +112639,113 @@
     ]
   },
   {
+    "id": "ip-smoothmemo-storm",
+    "bug": "docs/676 §11, §14: the path smoothing pass 0x64DD40 is about 6.9 s of route worker time per 3-minute storm (2,420 calls, 2.85 ms each), all under the routing lock. On a lot each of its 2-3 segment tests per sample asks the quadtree cell evaluator 0x66B090 for every cell the segment crosses, on fresh stack cursors, so no answer is reused between the neighbouring tests of one pass",
+    "fix": "ts3native [WorldPrecompute] SmoothMemo (1 serve, 2 shadow; default 0): one pass's cell evaluations are kept under what the evaluator reads and replayed; identical results (docs/676 §14)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the table and the three hooks). Job ini: [WorldPrecompute] SmoothMemo=2 (the hooks install only with a non-zero ini value), [RouteSnap] Enabled=1, the s189 on-arm switches otherwise; SmoothMemoAll=0. Arm 1 is off (pass 3 time without the memo), arm 2 shadow (every evaluation runs and is compared: the mismatch count and 'would have replaced N ms' are the result), arm 3 serves. The share of pass 3 that the memo can touch is not measured yet: lot tests with the smoother's byte +0x72 clear only; a storm of off-lot routes shows few evaluations",
+    "expect": "'OK   world precompute smooth memo: SmoothMemo=2' with ready 0x7 or 0xF. After arm 2: 'world precompute: smooth memo mode 2' with cell evaluations asked > 0, shadow checks > 0 and mismatch 0, and no 'SMOOTH MEMO MISMATCH' line. After arm 3 (mode 1): 'from a record' > 0, and pass 3 ms per call 'with the memo' below arm 1's 'without'. No crash, plans / failed in 'route plans:' as in the off arm",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 0
+        },
+        "waitS": 1,
+        "note": "arm 1: off (the pass is timed, nothing is looked at)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-worldpre-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 2
+        },
+        "waitS": 1,
+        "note": "arm 2: shadow"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm, every record compared with the game's evaluation; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 1
+        },
+        "waitS": 1,
+        "note": "arm 3: records answer (NPC routers; others stay shadow)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with the memo serving; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "ip-foreignkindsunseen-storm",
     "bug": "PlanFromPoint plans of unseen NPC boats / vehicles planned in their rider's task (foreign STARTs, ts3fixes bit 61) run synchronously on the sim thread: the release ini's [RouteAsync] ForeignKinds=4 has no PlanFromPoint bit, the START is refused Foreign, and the kind-2 pass-through (ArPass) logs the plan only as 'entry Route_PlanLocked (no IC)' (s189: 16 of 18 sync plans >= 40 ms, 41-93 ms each, plus their waits on key 0x760BFF caller 0x764400; docs/670 §23.3, §24.1)",
     "fix": "ts3native [RouteAsync] ForeignKindsUnseen (bits as Kinds, default 0): a foreign START of those kinds starts as an A10 foreign job only for a route ts3fixes scoped unseen right before it; household / selected / seen / unknown scope stay refused Foreign and sync (docs/670 §24.2). Log only, always on: 'route async: kind K call of route ... runs the game's IC with no job (reason)' tallies the pass-through calls by START refusal reason (§24.3)",
@@ -112961,6 +112961,91 @@
           "waypointgather": 2
         },
         "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
+    "id": "ip-cellspeed-storm",
+    "bug": "docs/669 §8-§9: the in-room cell A* 0x61E500 costs about 2.8 s of route-worker time per 2-minute Isla Paradiso storm (s159: 3,018 found searches, 1.26 M node pops), all under the routing lock. In the s140 hitch windows its class tests are 20% of it (QuadLeaf_ClassFromMaskedEntries 0x667DB0 alone 8.3% of the routing samples: a class 1 cell is recomputed on every use) and its open list 18% (AStarBucket_InsertSorted 0x61B880 6.9%: a walk from the bucket head per insert)",
+    "fix": "ts3native [RouteSpeed] ClassMemo (per-thread results of QuadCell_Recompute 0x66B090 under tree, node, shape, X+0x50, X+0x4C and the agent, until a table clear, routing write or managed call) and OpenHint (the sorted insert 0x61B880 starts at a kept node of the same bucket after a local proof); both default 0, 1 serve, 2 shadow (docs/669 §8-§10)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test with a reference sorted insert and a fake recompute, 12 mutants caught). Job ini: [RouteSpeed] ClassMemo=2 OpenHint=2 FloodMemo=2, [RouteSnap] Enabled=1, [RouteAsync] Enabled=1, [RouteJobPhases] Enabled=1 CandidateSplit=1, the s159 on-arm switches otherwise. Arm 1 is shadow for both (the game's functions run; the mismatch counts and the measured walk lengths are the result). Arm 2 serves both to NPC routers. Read per arm: 'route candidate split totals' (cell ms / calls), 'route speed: flood exits' (found ms and pops), 'route speed: class memo' (calls, hits, uncached by the game, the game's recompute us) and 'route speed: open hint' (the game's walk nodes, share of 8 or more, hits and nodes a hinted walk). If the shadow walk is under 3 nodes or 'uncached by the game' is a small share of calls, that feature has nothing to give: leave it off.",
+    "expect": "'OK   route speed class memo' and 'OK   route speed open hint'. After arm 1: a 'route speed: class memo mode 2' line with checks > 0 and mismatch 0, a 'route speed: open hint mode 2' line with shadow checks > 0 and mismatch 0, no 'CLASS MEMO MISMATCH' or 'OPEN HINT MISMATCH' line. After arm 2 (mode 1): class memo hits > 0, open hint 'from a hint' > 0, cell ms per call and found ms per pop below arm 1, route results (ufplansplit codes, stuck Sims) unchanged. No crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "classmemo": 2,
+          "openhint": 2
+        },
+        "waitS": 1,
+        "note": "arm 1: shadow (the ini values)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-workerhold-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "classmemo": 1,
+          "openhint": 1
+        },
+        "waitS": 1,
+        "note": "arm 2: both serve (NPC routers)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with both on; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "classmemo": 2,
+          "openhint": 2
+        },
+        "note": "back to shadow (the ini values)"
       }
     ]
   },

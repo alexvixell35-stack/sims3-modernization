@@ -239,3 +239,156 @@ With NeighbourMemo on, repeat expansions skip Find altogether; the index then on
   `ts3addr-ea169.h` (one unresolved row), `tools/ini-sections.json`, `tools/harness/native-switches.ts`,
   `tools/harness/repros.json`, `docs/68`, `docs/registry.md`, `docs/index.md`.
 - Not touched: `routespeed.cpp`, `floodmemo.cpp`, `nopathmemo.cpp`, `hitchsum.cpp`.
+
+## 8. `[RouteSpeed] ClassMemo` (2026-11-20, branch `speed/cell-astar2`, built, default off, NOT RUN)
+
+Input: s159's storm line `route speed: flood exits: found 3018 (2818 ms, 1261162 pops)`: 418 pops and 0.93 ms a found
+search, 2.2 us a pop; split totals `cell 3123 ms / 3011 calls` (s159), `4005 / 4670` (s172) [measured, logs].
+
+### 8.1 The function [verified decompile + disassembly]
+
+`QuadCell_Recompute 0x66B090`: thiscall on a cell position, one argument X, `ret 4`. Callers: only the two cached getters
+`QuadCell_Class 0x66B600` and `QuadCell_Multiplier 0x66B670` (4 call sites), which call it when the cell's key
+(`cell+0x1C >> 8`) is not `X+0x50`. It runs one of the three leaf scans (`0x667DB0` sub-cell, `0x6681E0` whole leaf,
+`0x668C40` internal node), then the context adjustment of docs/98 §5.3. Its own stores are `cell+0x20` (class),
+`cell+0x10` (multiplier), `cell+0x1C &= 0xFF` (key clear: class 1, or the agent's own object in the clearance test) and
+`X+0x4C`; nothing else.
+
+So §3.3's three cases are one thing: the getter's key misses. Per plan every cell is computed once (cells die at the
+Q reset); a class 1 cell is computed on **every** getter call, and the edge cost `0x66C0C0` / `0x66BCE0` calls the getters
+for both cells of every edge.
+
+### 8.2 Purity audit [verified, capstone walk of every call target]
+
+Every function reachable from the three leaf scans and from `0x669530` (the blocking-type count of a penalised cell) was
+walked for stores to non-stack memory and for indirect calls:
+
+- The scans store only through their two out pointers.
+- Footprint virtuals they call, in all 11 footprint vtables (`0xFEBBC0`, `0xFEBA98`, `0xFEB848`, `0xFEB970`, `0xFEBE38`,
+  `0xFEBD10`, `0xFEB5F8`, `0xFEB720`, `0xFEAE08`, bases `0x10205B8`, `0x1020AE8`): `+0x00` count, `+0x04` multiplier,
+  `+0x08` class, `+0x0C` type, `+0x28` ignore, `+0x60` applies, `+0x7C` / `+0x84` object id: **0 stores** in each target
+  and its callees (`0x8292D0`, `0x8294E0`, `0x81C880`, `0x81C970`, `0x81CEF0`, `0x946E70`, `0x946E90`). `+0x90` / `+0x94`
+  (`0x915880` / `0x915890`) add and release a reference around `0x669530`'s temporary vector: net zero.
+- The one impure slot is `+0x34` (rectangle overlap, `0x80F0D0`: 81 stores, the lazy polygon cache and the allocator). The
+  recompute calls it only in the small-cell clearance test (flag `0x200000`, a sub-cell with a parent). **Those calls are
+  never looked at by the memo.**
+- What they read of the agent: the options object `O = X+0x40` (`+0x00` kind word, `+0x08 / +0x0C` own id) and, when
+  the global `0x11D9128` is set, `D = [O+0x28]`: `+0x08 / +0x0C / +0x18` the sorted held-id vector, `+0x20 / +0x24`,
+  the option words `+0x28..+0x34`, the ignore list `+0x38 / +0x3C`.
+
+### 8.3 The memo
+
+Per planning thread, a 2-way set cache (4,096 entries). Key: tree (`cell+0x04`), node (`cell+0x0C`), shape, `X+0x50`,
+`X+0x4C` on entry, and the agent's record number. An agent record is O's first 0x38 bytes, D's first 0x40 bytes and
+both id lists element by element (up to 16 ids each, 8 agents; anything larger runs the game's function). The record is
+compared against memory on every call, so a changed word or id is another agent: no hash stands in for content.
+Value: class byte, multiplier bits, `X+0x4C` after the call, whether the key was cleared. A served call writes those four.
+
+Life: dropped as a whole when the Q table clear sequence, `[RouteSnap]`'s write sequence or the thread's managed-call
+sequence moves (as FloodMemo, docs/667). A result is kept only if none moved while the function ran.
+The write sequence stood at 427,061 at the end of s172's session and docs/676's probe found "no routing write since" for
+1 of 183 repeat world searches, so **nothing lives across plans**: a cross-plan class memo was not built. What is left is
+the repeat inside one stretch of one plan: class 1 cells and flag changes (the point check's `0x10000`, the retry's
+`0x80000`).
+
+Not looked at: no node (tree default, two loads), no context, key 0, the clearance case.
+
+### 8.4 What is inferred
+
+- That every writer of a footprint field these slots read is a `[RouteSnap]` writer row or IC [inferred; FloodMemo rests
+  on the same]. The shadow mode tests it: every kept result is compared with the game's (`kmChecks`, `kmMismatch`).
+- The gain. Class tests are 20% of cell A* self time in the s140 hitch windows (§2); the share of them that are repeats
+  is **not measured**. The line's `uncached by the game` over `calls` gives it; `the game's recompute N us` times `hits`
+  is the saving. If repeats are a small share, leave it off.
+
+Keys: `ClassMemo` 0 / 1 serve / 2 shadow, `ClassMemoAll` (0 = NPC routers only). Runtime: `native_set classmemo`.
+Needs `[RouteSnap]` counting and `[RouteAsync] Enabled=1`. Line: `route speed: class memo ...`. 170 KB a thread.
+
+## 9. `[RouteSpeed] OpenHint` (built, default off, NOT RUN)
+
+### 9.1 Why not a binary heap
+
+- The pop is inline: in `0x61E500` (`0x61E689..0x61E6C3`: head of bucket `min`, unlink, `0x61BAF0` when the bucket
+  empties) and `0x61BAF0` has four more callers (`0x61E8A0`, `0x626A50`, `0x63E340`, `0x63EC40`). Another structure
+  means patching every one of them mid-function.
+- The order could be kept: the game's order on ties is a total order, key `(f, s)` with `s` falling for every insert
+  (`0x61B880`: before equals) and rising for every in-bucket move (`0x61B910`: behind equals) [derived from docs/98 §8.3,
+  not built].
+- The cost is the walk, not the structure: an insert walks from the bucket head to its place. Buckets are 1.0 wide and
+  the open set of a room search spans a few units of f, so a bucket can hold many nodes. `0x61B880` is 6.9% of the
+  routing samples in the hitch windows, about 10% of the cell A* [measured, §2]. The walk length itself is **not
+  measured**.
+
+### 9.2 What it does
+
+Entry detour on `0x61B880` (9 bytes `8B 44 24 04 F3 0F 10 40 24`; thiscall bucket, one argument, `ret 4`; callers
+`0x61DF99` insert and `0x61E01A` update into another bucket, both after writing `node+0x34`).
+
+Per thread, 256 slots by bucket index, each with 32 sub-ranges of the bucket's f interval; a sub-range remembers the
+lowest-f node inserted into it. For a new node the hook tries the remembered nodes of its sub-range and below (at most
+3) and takes the first that passes the proof:
+
+1. the node carries this search's stamp, is open and has this bucket's index: it is a member of this list (a node leaves
+   a list by the pop, which closes it, or by a bucket change, which rewrites `+0x34`);
+2. its links agree with the list (it is the head, or its predecessor's `next` is it);
+3. it is the head, or its predecessor's f is **below** the new f.
+
+The list is sorted, so with 3 every node before the start is below the new f; the game's walk from the head would pass
+them all and arrive at the start. From there the hook runs the game's walk and links with the game's three cases. The
+result is the same list. Ties: the walk stops at the first node with f >= new f, as the game's; a start whose predecessor
+ties with the new f is refused.
+
+The game's function runs for: buckets with fewer than 8 inserts in this search, no remembered node, no proof, an end mark
+that is not 0, a household router (`OpenHintAll=0`).
+
+Kept pointers: only cells' own graph nodes (vtable `0xFEA080`), which live until the Q table clear; a slot is emptied
+when the bucket address, the generation word `0x11580C4` (written only by `0x61E360`, which both searches that reach
+`0x61E030` call) or the clear sequence differs, before any kept pointer is read. The bucket vector can be reallocated
+when it grows (`0x62BD60` -> `0x62A950`): the address differs then and the slot starts empty.
+
+### 9.3 Shadow and counters
+
+`OpenHint=2`: the game links every node; the hook compares the node's successor with the one it would have chosen
+(`ohChecks`, `ohMismatch`, `OPEN HINT MISMATCH`) and counts **every insert's walk from the head** (`the game's walk N
+nodes (n, max, 8 or more)`) against the hinted walk. That line is the measurement §9.1 lacks: under about 3 nodes a walk
+the hint cannot pay (its proof touches two nodes) and should stay off.
+
+Keys: `OpenHint` 0 / 1 / 2, `OpenHintAll`. Runtime: `native_set openhint`. Needs no other section. 70 KB a thread.
+
+## 10. The heuristic and tie-breaking (candidate b): nothing exact to gain [verified docs/98 §7.4, §8, §9.1]
+
+- h = straight-line distance to one target point T, weight 1. The wrapper sets T to the point of the best-scored walkable
+  goal and the threshold to that score, and the search stops when a goal of that score is popped. So h aims at the goal
+  that ends the search and is the tightest bound that needs no precompute. Unlike the world A*'s it is not weak by
+  construction.
+- It is far below the cost wherever multipliers are above 1: a class 1 cell costs 100,000 a metre, a penalised cell up
+  to 400. A goal behind or on such cells is reached only after every cheaper cell of the room is closed. Those floods are
+  the game's result (the cheapest path), not waste.
+- A stronger h or other tie-breaking is not exact here: closed nodes are never reopened, an open node's f is updated with
+  h at its old entry point, and entry points depend on the parent (docs/98 §7.1, §8.2). Any change of pop order can
+  change entry points, costs and the chosen path. Not built.
+- **Not measured:** pops against the straight-line bound. The logs hold only the mean (418 pops a found search); no line
+  has a search's start-to-target distance or final cost. It needs two counters at the search's exit (h of the start
+  node, g of the best goal), which belong in `floodmemo.cpp`'s `FmFoundNote`, not touched here.
+
+## 11. Checks (2026-11-20, no game)
+
+- Linux host test `cellspeed-host-test.cpp` (clang `-m32`, freestanding): the selftest header as it is plus the scope
+  rule and 240 more open-list searches. **Exit 0.** The open-list model inserts 1,500 nodes a search with ties (f in
+  steps of 1/64), pops, in-bucket moves (`0x61B910` rewritten from its disassembly) and bucket changes, and checks every
+  insert against a reference walk from the head and the whole lists every 32 nodes; the class memo runs against a fake
+  recompute with the four writes.
+- 12 broken copies each fail it: proof without the tie / open / link test, link step short, key without flags or
+  `X+0x4C`, no write sequence, agent without the ignore ids, serve without key clear or `X+0x4C`, either scope rule gone.
+- clang-cl `/Zs /W4`: `ts3native.cpp` 170 warnings (as before the change), `/DTS3A_TABLE` 172, `selftest.cpp` 217; none
+  in the new files, 0 errors. Not built with MSVC here.
+- `tools/hook-sites.ts --check`, `node tools/selftest-all.ts --ci`: pass.
+- Repro `ip-cellspeed-storm` (UNVERIFIED): shadow arm, then serve arm.
+
+## 12. Files (§8-§11)
+
+- New: `native/ts3native/cellspeed-core.h`, `cellspeed.cpp`, `cellspeed-test.h`, `cellspeed-host-test.cpp`.
+- `ts3native.cpp` (include, install after CellIndex, the 60 s lines), `selftest.cpp`, `ts3native.ini`,
+  `ts3addr-ea169.h` (3 unresolved rows: `0x61B880`, `0x66B090`, `0xFEA080`), `tools/ini-sections.json`,
+  `tools/harness/native-switches.ts`, `tools/harness/repros.json`, `docs/68`, `docs/registry.md`, `docs/index.md`, `PLAN.md`.
+- Not touched: `routespeed.cpp`, `floodmemo.cpp`, `plancand.cpp`, `cellindex.cpp`.

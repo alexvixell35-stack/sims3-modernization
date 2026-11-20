@@ -3250,6 +3250,7 @@ static void WpgLogCounters();  // wpgather.cpp (docs/679 §5)
 static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PelLogCounters();  // tailunlock.cpp (docs/673 §9: [RouteAsync] PlanEndLend / LendWake)
 static void CiLogCounters();   // cellindex.cpp (docs/669)
+static void CsLogCounters();   // cellspeed.cpp (docs/669 §8-§10)
 static void PtLogCounters();   // placero.cpp (docs/670)
 static void FglLogCounters();   // fglprof.cpp (docs/671)
 static void SwgLogCounters();   // swarmguard.cpp (docs/678)
@@ -3347,6 +3348,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     PelLogCounters();  // docs/673 §9 (nothing until PlanEndLend / LendWake is installed)
     CiLogCounters();   // docs/669 (nothing until CellIndex is installed)
+    CsLogCounters();   // docs/669 §8-§10 (nothing until ClassMemo / OpenHint is installed)
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
     FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
     SwgLogCounters();   // docs/678 (nothing until [SwarmGuard] is installed)
@@ -6529,6 +6531,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "floodmemo.cpp"   // docs/667: [RouteSpeed] FloodMemo (after routespeed.cpp: the Q clear stub; nopathmemo.cpp: NpmCmdHandle)
 #include "smoothmemo.cpp"  // docs/676 §14: [WorldPrecompute] SmoothMemo (after worldpre.cpp: WX_POST, the probe's targets; nopathmemo.cpp)
 #include "cellindex.cpp"   // docs/669: [RouteSpeed] CellIndex (after routespeed.cpp: the Q clear stub; plancand.cpp: PccScopeNow)
+#include "cellspeed.cpp"   // docs/669 §8-§10: [RouteSpeed] ClassMemo / OpenHint (after routespeed.cpp: the Q clear stub; routesnap.cpp: g_snWriteSeq)
 #include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
@@ -6806,6 +6809,7 @@ static void Run(HMODULE self) {
         InstallWpGather(ini);    // docs/679 §5: after InstallWpSnap (chains over its two call sites)
         InstallWpGather(ini);    // docs/679 §5: after InstallWpSnap (chains over its two call sites)
         InstallCellIndex(ini);   // docs/669: after InstallRouteSpeed (the Q table clear stub; installs it when NeighbourMemo is off)
+        InstallCellSpeed(ini);   // docs/669 §8-§10: after InstallRouteSpeed (the Q table clear stub) and [RouteSnap] (the write sequence)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install
