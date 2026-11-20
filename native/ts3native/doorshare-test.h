@@ -281,6 +281,17 @@ static void TestDoorShare() {
     c.checkN = 1;
     const LONG checks = c.checks;
     assert(DsTestAsk(ka, 6200, 2, DS_KIND_INERT, &asked) == 2 && asked && c.checks == checks + 1 && !c.mismatch && c.mode == 1);
+    // a change event of the row's door while the sampled re-ask is out (the sim thread locked it, then served the ask): no
+    // mismatch, the session stays on; the "locked" answer drops the row and the next noted answer writes it again
+    {
+        DsAsk b = {};
+        assert(!DsBefore(ka, 0x100, 6250, &b) && b.on && b.row);
+        DsLive(&b);
+        DsSrcBump(DS_SRC_LOCK, DsIdHash(0x33, 0x44));
+        DsAfter(&b, ka, 1, 10);
+        assert(c.checks == checks + 1 && !c.mismatch && c.mode == 1);
+        assert(DsTestAsk(ka, 6260, 2, DS_KIND_INERT, &asked) == 2 && asked && c.checks == checks + 1 && !c.mismatch);
+    }
     assert(DsTestAsk(ka, 6300, 1, 0, &asked) == 1 && asked && c.mismatch == 1 && c.mode == 0);
     // shadow: never answers, compares every valid row
     c.mode = 2, c.checkN = 1000;
