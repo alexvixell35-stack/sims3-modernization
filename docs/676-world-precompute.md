@@ -365,3 +365,168 @@ pass by pass). Then `native_set waterscantable 1` (or `WaterScanTable=1`) and re
 world frame calls the probe), `ts3native.cpp` (include, install, counter lines), `selftest.cpp`; `ts3native.ini`,
 `tools/ini-sections.json`, `tools/ea-ini.ts`, `tools/harness/native-switches.ts`, `tools/harness/repros.json`,
 `docs/registry.md`, `docs/68-hook-conflict-map.md`, `docs/index.md`, `PLAN.md`.
+
+## 10. s172 / s173: the probe ran. Table upkeep, and what the numbers say about the world A\* (branch `feat/worker-time2`)
+
+2026-11-20. Inputs: `ts3native-full.log` of s172 (3-minute Isla Paradiso storm, `WaterScanTable=2`, `Probe=1`) and s173
+(`WaterScanTable=1`). **Nothing in this section has run in the game.**
+
+### 10.1 What the runs showed [measured]
+
+- **The table is exact in the game:** s172, 8,906,043 jumps computed both ways, mismatch 0. s173 served 412 of 412 searches.
+- **Post pass by pass (s172, ms / calls):** pass 3 `0x64DD40` 6,901 / 2,420 (2.85 ms a call); pass 6 `0x645310` 1,358; pass 16
+  heights 689; pass 1 418; pass 10 236; the other 14 together 330. Pass 3 is 70% of the post pass. §11.
+- **World A\*:** 911 searches, 9,387 ms. With water links allowed: 761 searches, 8,999 ms (11.8 ms each); the other 150
+  cost 388 ms (2.6 ms each). Start and goal waypoint in different land components: 212 searches, 3,230 ms (15.2 ms each).
+  So the water-link searches inside one land component are 549 searches and about 5,770 ms (10.5 ms each): **two thirds
+  of the world A\* time is not island crossing.** §2.1's "pops the whole start island" explains the 212, not the 549. §12.
+- **Repeats:** world key A seen before with no routing write since: 1 of 911. Water: 8 of 460. A result memo of either is
+  useless in a storm (§6.2 and §6.3 are closed).
+- **Table upkeep is too dear:** s173: 412 searches, grids unchanged at 115, updated in place at 147 (1,775 cells, 12 a
+  refresh), **built 150 times**; compare + update + build 1,025 ms (2.5 ms a search, against a compare of 0.04 ms).
+
+### 10.2 Why 150 builds [inferred from the counters; the new counters decide it]
+
+A build happens for two reasons only (`WsRefresh`, `WxSlotFor`): the slot holds no table for the pair of grids, or more
+than `WS_INCMAX` cells differ.
+
+- In-place refreshes average 12 cells, which is one boat's outline on the 4 m grid. For 150 of 412 searches to see more
+  than 64 changed cells, five or more boats would have to move between two searches of the same pair, a third of the time.
+- A table is kept per (passability map, high-cost map) pair, and s173 kept two (`at most 2 tables`, 5,120 KB). The water
+  plan picks the passability map from the route option word (swimmers 0, boats 1, houseboats 2-4) and the high-cost map
+  per agent class (§2.2). Three pairs in use in turn through two slots replace the least recently used one at every
+  change of pair: every such search is a build. 150 of 412 is what a third pair used a third of the time gives.
+- So the likely cause is slot thrash, not footprint size. The log could not say which: the line had one `built` count.
+
+### 10.3 Built
+
+- **`WaterScanSlots` default 2 -> 4** (the maximum). A slot allocates at its pair's first search, so a world that uses two
+  pairs still holds two tables (2.6 MB each in Isla Paradiso).
+- **In-place limit 64 -> 128 cells, and a batch update** (`WsUpdateCells`, waterjps-core.h). A changed cell's north and
+  south entries are its three columns, whole. Cell by cell that was `3 x 2 x h` entries per cell even when the cells of one
+  outline share columns. The batch does the rows per cell as before and every touched column once. A whole-column pass
+  reads only the grid and that column's entries in ray order, so one pass after all bytes are in place gives exactly what
+  the last of several passes gave. Worst case 128 scattered cells: 384 columns, 393,000 entries, under 40% of a build
+  (1,050,000 in Isla Paradiso); a boat outline of 12 cells touches about 6 columns instead of 36 column passes.
+- **Builds split by cause** in the line: `built N (pair replaced E, too many changes O)`; first builds are `N - E - O`.
+  `(most M)` is the largest in-place refresh. Exported after the block's old end (docs/registry.md).
+- Exact as before: the invalidation is still the byte compare of both grids at every search; only what is done with a
+  difference changed.
+- **Not built: hooking the footprint add / remove.** The compare of two 262,656-byte grids with nothing changed is 0.04 ms
+  [measured offline, §5.1], 16 ms over 412 searches. A writer hook would save that and lose "every writer is covered".
+
+### 10.4 Expected [inferred]
+
+If the builds were slot thrash: 150 builds x about 6 ms = 0.9 s of the 1.0 s goes; upkeep drops to about 0.1 s a storm.
+If `too many changes` stays high instead, the next step is a per-pair change journal from the footprint insert / remove
+(docs/100 §5 has the two writers), not a larger limit.
+
+### 10.5 Checks (no game)
+
+- `worldpre-host-test.cpp` (38 s): odd random grids now update through the batch, with up to 128 changed cells in one
+  round, against a fresh build; the slot test asserts the two causes (`wxFullOver`, `wxFullEvict`) and the largest refresh.
+  Pass. Deliberate fault (the batch marks one column too few): fails at the fresh-build compare.
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `waterjps-test.cpp`: 0 errors, no warning
+  in `worldpre*` / `waterjps-core.h`. `node tools/selftest-all.ts --ci`: 199 PASS, 0 FAIL.
+- Not run: MSVC build, Windows selftest, the game.
+
+## 11. Pass 3 `0x64DD40`: what the smoothing does and where 2.85 ms a call can go (read, not built)
+
+Ghidra headless on a private copy of the project (`0x64DD40`, `0x644560`, `0x644080`, `0x643E60`, `0x6418B0`, `0x641A10`,
+`0x6443E0`, `0x663B20`, `0x658870`, `0xAB8540`) and the disassembly of the main loop `0x64E0F3..0x64E359`. The stall watch
+has no sample under it (it samples the sim thread; the pass runs on the route worker), so the time split below the pass is
+not measured.
+
+### 11.1 The loop [verified: disassembly]
+
+- **Before the loop** (O(n), few obstacle tests): retypes interior nodes (types 0 / 8 / 9 to 10 by leg class and
+  neighbours, isolated 10s back to 0); trims tail nodes within 0.3125 of the last node; `0x642420` nudges type-10 pairs
+  (world segment tests `0x658A00` per try); `0x641FC0` retypes corners; `0x644630` cuts sharp corners (up to two segment
+  tests each).
+- **Cursors, not nodes.** `0x6418B0` splits every segment longer than 5 units into `ceil(0.2 x length)` steps. An anchor
+  cursor A and a probe cursor P move over these samples.
+- **Greedy with one lookahead.** From A the probe advances while the node-type gate `0x641B40` passes and the segment A-P
+  is clear (`0x644560`). At the first blocked sample it tries the next one once. Then the shortcut A to the last good
+  sample is committed (`0x6443E0`: moves or inserts the end nodes, erases the nodes between), and **the anchor advances by
+  one sample**, not to the shortcut's end. The probe restarts behind the anchor.
+- **Tests per path:** with S the number of samples (nodes plus length / 5), at most about 3 S; a stretch that cannot be
+  shortened costs two failing tests per anchor sample [inferred from the verified loop]. It is **linear, not quadratic,
+  and no segment is tested twice**. The funnel algorithm of Recast / Detour (docs/672) does not apply as is: it needs the
+  corridor of portals the path came from, and this pass has only the node list and the live obstacle trees.
+
+### 11.2 One segment test [verified unless tagged]
+
+`0x644560` (thiscall, `ECX` = anchor cursor, three stack arguments, `ret 0xC`): a dot-product reject, then `0x644080`
+(thiscall, `ECX` = smoother, x0, z0, level0, x1, z1, level1, `ret 0x18`), which walks the lots the segment crosses:
+
+- `0xC69790` every iteration: the lot at the start point through the world cell's lot list (`0xC68990`, a hash lookup; a
+  dirty lot index rebuilds under the world manager's lock), although the cursor already holds its lot;
+- `0xAB8540` world to lot coordinates: `fsin` and `fcos` of the lot's angle on every call, three or more per test;
+- off lot: `0x658A00`, which ends in `0x658870`: recursive bisection of the segment with a point test per midpoint;
+- on lot: `0x643E60`: false at once when the two levels differ; lot table lookup `0x62FB10` for the same (lot, level) every
+  test; then by the smoother's byte `+0x72`:
+  - 0: `0x6675E0` = two point queries (start, end) and one segment query on the lot's obstacle quadtree;
+  - not 0: a "Routing/TemporaryFootprintSet" is built and freed **per test** (heap), `0x667400` (flushes deferred edits
+    when the tree is not pinned), then three virtual calls per hit and stairs checks with an object lookup.
+- The quadtree walk `0x663B20` starts at the root for every query and constructs and destroys 13 stack frames (26 calls)
+  per query.
+- Each probe step (`0x641A10`) also runs `0xB87D30` (a point test over up to four lists) and a lot lookup on a lot change.
+
+### 11.3 Where the waste is
+
+| waste | status |
+|---|---|
+| same segment tested twice | none [verified loop] |
+| the start point's lot, lot graph and lot-local coordinates recomputed for every test of one anchor | [verified]: constant per anchor stop, at least two tests each |
+| the start point's quadtree point query repeated per test (mode `+0x72` = 0) | [inferred: assumes `0x663900` is a pure point query]; with the end points that recur between neighbouring anchors, about two of three descents are repeats |
+| a temporary footprint set allocated per test (mode `+0x72` != 0) | [verified] |
+| full root descent and 26 constructor calls per query | [verified] |
+| the anchor advancing one sample after a committed shortcut | by design; changing it changes the path |
+
+### 11.4 Why nothing is built
+
+An exact replacement is not provable from this reading:
+
+1. There is no time split below the pass: the 2.85 ms may sit in the loop's tests, in `0x642420` / `0x644630`, or in
+   `0xB87D30` per sample.
+2. The value of `+0x72` in the storm is unknown, and the two modes cost very differently.
+3. A per-path obstacle set needs `0x667350`, `0x663900` and `0x66B670` reproduced or memoised, and a proof that the tree
+   cannot change inside one pass (`0x667400` may flush deferred edits at the first query; `0x62FB10` may insert into the lot
+   table). Not read.
+
+### 11.5 Next step (about 45 minutes to build, one storm)
+
+Extend `Probe` with calls and time for `0x644560`, `0x644080`, `0x643E60`, `0x658A00`, `0xB87D30`, `0x642420` and `0x644630`
+inside pass 3, plus the count of tests with `+0x72` set and the tests per call. Then, by what carries the time:
+
+- **start-side memo per anchor** (lot, lot graph, lot-local start, start point query): retarget `0x644618` (`call 0x644080`
+  inside `0x644560`); when both cursors hold the same non-zero lot call `0x643E60` directly. Needs the proof that the
+  cursor's lot equals `0xC68990` of its point. Shadow: run both, compare the byte result.
+- **a per-pass obstacle set** only if the quadtree descents dominate, after item 3 above is read.
+- Hook facts for either: `0x64E166` and `0x64E27F` are the two `call 0x644560` sites; the result is in `AL` only.
+
+## 12. World A\* with water links: what s172 changes in §6.1 (design, not built)
+
+- **Measured (s172):** 761 of 911 searches allow water links and carry 8,999 of 9,387 ms. 212 of them cross land
+  components (3,230 ms, 15.2 ms each). The other 549 start and end in one component and cost about 5,770 ms (10.5 ms
+  each), four times a search without the flag (2.6 ms).
+- **So "the start island is flooded before the sea" is a third of the cost.** For the 549 the heuristic is the same weak
+  one (1 per metre against 6-10), and with the flag every shoreline waypoint popped pushes its water body's node, and a
+  small body (cost `10 x cells`, at least 10) is cheap enough to be popped, which pushes all of its shoreline waypoints
+  [inferred from §2.1's costs; the probe has no pop counts]. The storm's routes are also long (forced across the map).
+- **Design that covers both, same path cost: ALT (§6.1) with the water links in the lower-bound graph.**
+  - Lower-bound graph per cost mode: R's edges at their smallest factor, plus per water body a node with links
+    `min(10 x cells, small water-lot factor)` each way. Using the water-lot factor as the lower bound removes §6.1's
+    "switch off for water lots" rule at the cost of a weaker bound there.
+  - Landmarks farthest-first per land component (16), plus the largest bodies' nodes. The bound to a goal on another
+    island then holds the fee of the cheapest sea link, so interior waypoints of the start island get
+    `f >= cost through the best shoreline exit` and are pruned once the exit is found: the multi-source bound, obtained
+    from the same tables.
+  - The start or goal waypoint's own link costs 10 x its distance to the point (it can be below the fee): skip the bound
+    for searches whose start or goal waypoint is a shoreline waypoint. Simple and exact.
+  - Exactness: unchanged from §6.1 (admissible and consistent on a lower-bound graph, so the cheapest path cost; an equal
+    cost path may differ). Shadow compares the path cost of both searches.
+- **Before building:** pops per search by kind in the probe, to confirm that the 549 searches pop thousands of waypoints
+  and how many of the pops are water-body fan-out. Model gain inside one component was 1.9-2.5 times fewer pops (§6.1);
+  for the 212 crossing searches the model has no number.
+- Effort unchanged: about 2 hours with host tests, one shadow storm, one serve storm.

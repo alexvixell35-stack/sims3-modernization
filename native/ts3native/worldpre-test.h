@@ -128,14 +128,18 @@ static void TestWsCore(int grids, int samples, bool bigSea) {
         WxtCheckGrid(g1, g2, g_wxtTab, w, h, tiny ? samples / 4 : samples);
         // change bytes, update cell by cell after all bytes are in place, compare with a fresh build, check jumps again
         for (int round = 0; round < 3; round++) {
-            DWORD changed[24] = {};
-            const DWORD n = 1 + WxtRnd(24);
+            DWORD changed[WS_INCMAX] = {};
+            const DWORD n = 1 + WxtRnd(round == 1 && (gi & 1) ? WS_INCMAX : 24);
             for (DWORD i = 0; i < n; i++) {
                 const DWORD at = round == 2 && i ? (changed[0] + WxtRnd(3) * w + WxtRnd(3)) % (w * h) : WxtRnd(w * h);  // round 2: a cluster
                 changed[i] = at;
                 if (WxtRnd(2)) g1[at] = !g1[at]; else g2[at] = !g2[at];
             }
-            for (DWORD i = 0; i < n; i++) WsUpdateCell(c0, g_wxtTab, changed[i]), g_wxtUpdates++;
+            if (gi & 1) {  // odd grids: the batch (every touched column once), as WsRefresh does it
+                DWORD cols[WS_COLWORDS] = {};
+                WsUpdateCells(c0, g_wxtTab, changed, n, cols), g_wxtUpdates += (long)n;
+            } else
+                for (DWORD i = 0; i < n; i++) WsUpdateCell(c0, g_wxtTab, changed[i]), g_wxtUpdates++;
             WsBuild(c0, g_wxtFresh);
             assert(WxtSameTab(w * h));
         }
@@ -258,7 +262,7 @@ static void TestWxManager() {
     WxTableEnd();
     // many bytes changed: built again
     for (DWORD i = 0; i < 200; i++) a2[(i * 7) % cells] = !a2[(i * 7) % cells];
-    assert(WxTableBegin(a1, a2, w, h, 1) && k.wxFull == 2 && k.wxInc == 1);
+    assert(WxTableBegin(a1, a2, w, h, 1) && k.wxFull == 2 && k.wxInc == 1 && k.wxFullOver == 1 && k.wxFullEvict == 0 && k.wxIncMax == 3);
     WxtJumpsThroughGate(a1, a2, w, h, 1);
     WxTableEnd();
     // a second pair takes the second slot; a third replaces the least recently used (the first pair)
@@ -272,7 +276,7 @@ static void TestWxManager() {
     WxTableEnd();
     assert(WxTableBegin(a1, g_wxtH2, w, h, 1) && k.wxClean == 3);   // still there
     WxTableEnd();
-    assert(WxTableBegin(a1, a2, w, h, 1) && k.wxFull == 5);         // was replaced: built again, and right
+    assert(WxTableBegin(a1, a2, w, h, 1) && k.wxFull == 5 && k.wxFullEvict == 2 && k.wxFullOver == 1);  // was replaced: built again, and right
     WxtJumpsThroughGate(a1, a2, w, h, 1);
     WxTableEnd();
     assert(k.wxMemKb == 2 * (LONG)(cells / 1024 * 10));

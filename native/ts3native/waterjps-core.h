@@ -145,13 +145,12 @@ static void WsBuild(const WjCtx& c0, unsigned short* tab) {
 // A cell's stop tests read its eight neighbours, so the entries whose next cell is in the 3 x 3 block around `at` are
 // recomputed, then the entries behind them on the same ray for as long as they change. Several changed cells: call once
 // per cell, in any order, after all bytes are in place.
-static void WsUpdateCell(const WjCtx& c0, unsigned short* tab, DWORD at) {
-    const DWORD w = c0.w, h = c0.h, cells = w * h, cx = at % w, cy = at / w;
-    const DWORD y0 = cy ? cy - 1 : 0, y1 = cy + 1 < h ? cy + 1 : h - 1, x0 = cx ? cx - 1 : 0, x1 = cx + 1 < w ? cx + 1 : w - 1;
+// Rows of one changed cell: the east and west entries of its three rows, then along the ray while they change.
+static inline void WsUpdateCellRows(const WjCtx& c0, unsigned short* tab, DWORD at) {
+    const DWORD w = c0.w, h = c0.h, cells = w * h, cy = at / w;
+    const DWORD y0 = cy ? cy - 1 : 0, y1 = cy + 1 < h ? cy + 1 : h - 1;
     const DWORD lo = y0 * w, hi = y1 * w + w - 1;  // the three rows, as an index range
-    unsigned short* const tn = tab;
     unsigned short* const te = tab + cells;
-    unsigned short* const ts = tab + 2 * cells;
     unsigned short* const tw = tab + 3 * cells;
     // east: next cell n + 1. Entries hi .. lo - 1 always, then down while an entry changes
     for (DWORD n = hi + 1; n-- > 0;) {
@@ -165,11 +164,36 @@ static void WsUpdateCell(const WjCtx& c0, unsigned short* tab, DWORD at) {
         if (n > hi + 1 && e == tw[n]) break;
         tw[n] = e;
     }
-    // north and south never leave their column: the three columns, whole
-    for (DWORD x = x0; x <= x1; x++) {
-        for (DWORD y = 0; y < h; y++) tn[y * w + x] = WsEntry(c0, tn, y * w + x, 0);
-        for (DWORD y = h; y-- > 0;) ts[y * w + x] = WsEntry(c0, ts, y * w + x, 4);
+}
+// North and south never leave their column: one column, whole.
+static inline void WsUpdateColumn(const WjCtx& c0, unsigned short* tab, DWORD x) {
+    const DWORD w = c0.w, h = c0.h, cells = w * h;
+    unsigned short* const tn = tab;
+    unsigned short* const ts = tab + 2 * cells;
+    for (DWORD y = 0; y < h; y++) tn[y * w + x] = WsEntry(c0, tn, y * w + x, 0);
+    for (DWORD y = h; y-- > 0;) ts[y * w + x] = WsEntry(c0, ts, y * w + x, 4);
+}
+static inline void WsUpdateCell(const WjCtx& c0, unsigned short* tab, DWORD at) {  // tests; WsRefresh uses the batch
+    const DWORD w = c0.w, cx = at % w;
+    const DWORD x0 = cx ? cx - 1 : 0, x1 = cx + 1 < w ? cx + 1 : w - 1;
+    WsUpdateCellRows(c0, tab, at);
+    for (DWORD x = x0; x <= x1; x++) WsUpdateColumn(c0, tab, x);
+}
+// n changed cells at once (all bytes in place): the rows per cell, every touched column once. A whole-column pass reads
+// only the grid and the column's own entries in ray order, so one pass gives what WsUpdateCell's last pass over that
+// column gives. A boat's outline is a cluster of cells that share columns; this is what keeps a refresh cheap.
+// colBits: caller's scratch of (w + 31) / 32 DWORDs.
+static inline void WsUpdateCells(const WjCtx& c0, unsigned short* tab, const DWORD* list, DWORD n, DWORD* colBits) {
+    const DWORD w = c0.w;
+    for (DWORD i = 0; i < (w + 31) / 32; i++) colBits[i] = 0;
+    for (DWORD i = 0; i < n; i++) {
+        const DWORD cx = list[i] % w;
+        const DWORD x0 = cx ? cx - 1 : 0, x1 = cx + 1 < w ? cx + 1 : w - 1;
+        WsUpdateCellRows(c0, tab, list[i]);
+        for (DWORD x = x0; x <= x1; x++) colBits[x >> 5] |= 1u << (x & 31);
     }
+    for (DWORD x = 0; x < w; x++)
+        if (colBits[x >> 5] & (1u << (x & 31))) WsUpdateColumn(c0, tab, x);
 }
 
 // The table path reproduces the inlined callback 0x66DC50 only for box centres where its 32-bit compare cannot wrap.
