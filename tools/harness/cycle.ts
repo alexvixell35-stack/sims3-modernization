@@ -23,9 +23,20 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const stamp = () => new Date().toISOString().slice(11, 19);
 const log = (m: string) => console.log(`${stamp()} ${m}`);
 
+// connect-level failures (ETIMEDOUT / ECONNREFUSED) mean the request never reached ts3probe, so a retry cannot send it twice;
+// timing-v030-1120 smoke rerun 2026-11-20: the probe did not accept for ~21 s at the menu right after "agent answering", job FAILed
+export const connectFailed = (e: any) => ['ETIMEDOUT', 'ECONNREFUSED'].includes(e?.cause?.code);
 async function get(path: string, timeoutMs = 30000): Promise<any> {
-  const r = await fetch(`${base}/${path}`, { signal: AbortSignal.timeout(timeoutMs) });
-  return r.json();
+  for (let i = 0; ; i++) {
+    try {
+      const r = await fetch(`${base}/${path}`, { signal: AbortSignal.timeout(timeoutMs) });
+      return r.json();
+    } catch (e: any) {
+      if (i >= 2 || !connectFailed(e)) throw e;
+      log(`probe connect ${e.cause.code} on /${path.split('?')[0]}: retry ${i + 1} of 2 in 5 s`);
+      await sleep(5000);
+    }
+  }
 }
 async function agent(cmd: string, args?: object): Promise<any> {
   const q = new URLSearchParams({ cmd, timeout: '5000' });

@@ -16,9 +16,13 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch (e: any) { return e.code === 'EPERM'; } };
 
 // queue.ts: before each job and the smoke job. One line on entry, one every 5 min, a warning after 60 min; waits on.
+// A hold whose text has "allow=<name>" lets through only the queue.ts started with TS3_HOLD_ALLOW=<name> (the chain that owns the
+// hold runs its own jobs; every other queue and the chains that gate on the hold file keep waiting).
+export const holdAllows = (text: string | null, me = process.env.TS3_HOLD_ALLOW) => !!me && !!text && new RegExp(`(^|\\s)allow=${me.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(text);
 export async function waitHold(log: (m: string) => void, dir = QUEUE_DIR, tickMs = 10000) {
   const f = join(dir, 'hold');
   if (!existsSync(f)) return;
+  if (holdAllows(read(f))) { log(`hold file present (${read(f) ?? '?'}), allowed for ${process.env.TS3_HOLD_ALLOW}: going on`); return; }
   log(`hold file present (${read(f) ?? '?'}), waiting`);
   for (let t = 1; existsSync(f); t++) {
     await sleep(tickMs);
@@ -49,6 +53,10 @@ if (import.meta.main) {
       assert.ok(lines.some(l => /held 5 min/.test(l)), 'heartbeat every 30 ticks');
       assert.ok(lines.some(l => /^WARN: .*60 min/.test(l)), 'warning after 360 ticks');
       assert.match(lines.at(-1)!, /removed/);
+      assert.ok(holdAllows('timing run allow=chain-x @ 2026-11-20T12:00:00Z', 'chain-x'), 'owner allowed');
+      assert.ok(!holdAllows('timing run allow=chain-x2 @ t', 'chain-x'), 'prefix of another name: not allowed');
+      assert.ok(!holdAllows('timing run allow=chain-x @ t', undefined), 'no env: not allowed');
+      assert.ok(!holdAllows('crash triage x', 'chain-x'), 'plain hold: not allowed');
       assert.equal(runningJob(d), '');
       markJob('j1', d); assert.match(runningJob(d), /^j1 \d+$/);
       writeFileSync(join(d, 'job-running'), 'j1 999999999'); assert.equal(runningJob(d), '', 'dead pid = ended');
