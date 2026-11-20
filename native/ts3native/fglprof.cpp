@@ -21,7 +21,8 @@
 // The inner sites are shared with World_TestObjectPlacement* and the slot test: outside a profiled search FglEnter returns
 // at once. One search is profiled at a time (the thread that entered first owns the tallies and the shadow stack; the IC
 // runs on the sim thread); a nested search (the managed ValidatePlacementDelegate calling FindGoodLocation again) is not
-// split from its parent: its tests count for the parent.
+// split from its parent: its tests count for the parent, and [FglFacing] / [FglMemo] neither answer nor learn nor store
+// for the rest of the parent (g_fgl.spoiled).
 #include "fglprof-core.h"
 
 enum { FGL_S_SEARCH, FGL_S_TILE_A, FGL_S_TILE_B, FGL_S_FACING, FGL_S_OWN, FGL_S_PART_LOOP, FGL_S_PART_OCT, FGL_S_CORE, FGL_S_CHECK0, FGL_SITES = 14 };
@@ -63,6 +64,11 @@ static struct {
     FglProof proof;
     FglLearn learn;        // this search: the disc about the position inside each part's polygon, per facing
     unsigned ignoreHash;
+    // a search of this thread began inside this one (a placement delegate that searches, or a search deeper on the stack
+    // than one an unwind left open): its tests are of another record and object but run through the same per-test state,
+    // the learn table and the memo, which hold no object. Until this search ends nothing is answered, learned, proven or
+    // stored; the tallies go on (they count for this search).
+    bool spoiled;
 } g_fgl;
 
 // [FglFacing]: mode 0 off / 1 skip, shadow 0 / 1 (run every facing and compare)
@@ -134,6 +140,7 @@ static void FglSearchBegin(const u8* rec) {
     g_fgl.shadowTest = false;
     g_fgl.memoTest = false;
     g_fgl.inFacing = false;
+    g_fgl.spoiled = false;
     FglLearnReset(&g_fgl.learn);
     FglKey key = {};
     const u8* obj = *(const u8* const*)rec;   // the game's object, 0 = none (0xB470C0 then tests no placement)
@@ -287,7 +294,12 @@ static void __cdecl FglEnter(int site, DWORD* slot, DWORD* go) {
     if (site == FGL_S_SEARCH) {
         if ((DWORD)g_fgl.owner == tid) {
             // our own thread is inside a search: nested (deeper on the stack), or the outer search was unwound by an exception
-            if (g_fgl.depth && g_fgl.frames[0].slot > slot) return;
+            if (g_fgl.depth && g_fgl.frames[0].slot > slot) {
+                g_fgl.spoiled = true;
+                g_fgl.proof.on = false;
+                g_fgl.inFacing = g_fgl.shadowTest = g_fgl.memoTest = false;
+                return;
+            }
             g_fgl.depth = 0;
             g_fglk.stale++;
         } else if (InterlockedCompareExchange(&g_fgl.owner, (LONG)tid, 0) != 0) return;
@@ -317,7 +329,7 @@ static void __cdecl FglEnter(int site, DWORD* slot, DWORD* go) {
             g_fgl.inFacing = site == FGL_S_FACING && rec != NULL;
             g_fgl.testPart = 0;
             if (rec && !FglProofSame(g_fgl.proof, rec, *(const DWORD*)rec, key)) g_fgl.proof.on = false;
-            if (g_fgl.inFacing && (g_fglf.ready || g_fglm.ready)) {
+            if (g_fgl.inFacing && !g_fgl.spoiled && (g_fglf.ready || g_fglm.ready)) {
                 float ang = 0;
                 memcpy(&ang, rec + 0x14, sizeof(ang));
                 g_fgl.testIdx = g_fglf.ready ? FglFacingIdx(ang, FglStep()) : -1;
@@ -355,7 +367,12 @@ static void __cdecl FglEnter(int site, DWORD* slot, DWORD* go) {
 
 // Called by FglAfter (the swapped return address) with everything saved: result = the callee's eax; *out = where to return.
 // Only the thread that owns the profile reaches this (FglEnter swaps return addresses for no other).
+// out + 1 = FglAfter's stack pointer at entry, just above the returning call's slot and the arguments its `ret N` popped. A
+// frame deeper than the returning one was left by an unwind inside that call that no later FglEnter dropped (an exception
+// caught within the search): it is dropped here, else its dead return address would be taken for this call's.
 static void __cdecl FglLeave(DWORD result, DWORD* out) {
+    const DWORD* const sp = out + 1;
+    while (g_fgl.depth > 1 && g_fgl.frames[g_fgl.depth - 2].slot < sp) { g_fgl.depth--; g_fglk.stale++; }
     const FglFrame f = g_fgl.frames[--g_fgl.depth];
     *out = f.ret;
     const LONG us = g_fglk.prof ? UsSince(f.t0) : 0;
@@ -377,6 +394,7 @@ static void __cdecl FglLeave(DWORD result, DWORD* out) {
         if (facing) g_fgl.facingOnTile++;
         if (!facing || !g_fgl.testRec) break;
         g_fgl.inFacing = false;
+        if (g_fgl.spoiled) break;
         if (g_fglm.ready) {
             if (g_fgl.memoTest) {
                 g_fglm.shadowTests++;
@@ -414,7 +432,7 @@ static void __cdecl FglLeave(DWORD result, DWORD* out) {
     case FGL_S_PART_LOOP: case FGL_S_PART_OCT:
         g_fgl.partUs += us;
         if (f.site == FGL_S_PART_OCT) g_fgl.t.octTests++; else g_fgl.t.fpTests++;
-        if (g_fgl.inFacing && g_fgl.testRec && g_fglf.ready) {
+        if (g_fgl.inFacing && !g_fgl.spoiled && g_fgl.testRec && g_fglf.ready) {
             // the record still holds this part's polygon (the next part, or the next test, rebuilds it)
             if (g_fgl.testIdx >= 0) FglLearnPut(&g_fgl.learn, g_fgl.testIdx, g_fgl.testPart, FglPartDisc(g_fgl.testRec));
             g_fgl.testPart++;
