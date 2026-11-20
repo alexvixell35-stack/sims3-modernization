@@ -858,7 +858,7 @@ namespace Ts3Fixes
         // [2681-2682] flowersinuse (ObjectUseLogic.cs, docs/575 §3): bouquets freed / errors.
         // [2683-2684] uselistprune (ObjectUseLogic.cs, docs/575 §4): use/reference entries dropped / errors.
         // [2685-2686] chestuselist (ObjectUseLogic.cs, docs/575 §5): Sims taken off / errors.
-        // [2714-2716] busyflagreset (BusyFlagReset.cs, docs/575 §8): litter boxes freed / stage lights freed / errors.
+        // [2714-2717] busyflagreset (BusyFlagReset.cs, docs/575 §8): litter boxes freed / stage lights freed / errors / fountains freed.
         // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
         // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.
         // [2693-2695] autonomyinuseblock (AutonomyInUseBlock.cs, docs/577 §1): taken objects blocked / seen with switch off / errors.
@@ -1106,7 +1106,7 @@ namespace Ts3Fixes
         // [2681-2682] flowersinuse (ObjectUseLogic.cs, docs/575 §3): bouquets freed / errors.
         // [2683-2684] uselistprune (ObjectUseLogic.cs, docs/575 §4): use/reference entries dropped / errors.
         // [2685-2686] chestuselist (ObjectUseLogic.cs, docs/575 §5): Sims taken off / errors.
-        // [2714-2716] busyflagreset (BusyFlagReset.cs, docs/575 §8): litter boxes freed / stage lights freed / errors.
+        // [2714-2717] busyflagreset (BusyFlagReset.cs, docs/575 §8): litter boxes freed / stage lights freed / errors / fountains freed.
         // [2687-2688] swapdelegates (SwapDelegates.cs, docs/576 §1, ON): hook classes mapped / left alone (gauges, not counts).
         // [2689-2690] resetinusefree (InUseLogic.cs, docs/576 §2): items freed / errors.
         // [2691-2692] putdowninuse (InUseLogic.cs, docs/576 §3): put-downs repaired / errors.

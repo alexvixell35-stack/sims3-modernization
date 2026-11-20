@@ -381,7 +381,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kFlowersInUse = true;    // flowersinuse (docs/575 §3): a rejected Give Flowers leaves the bouquet in use for good
         [Tunable] public static bool kUseListPrune = true;    // uselistprune (docs/575 §4): objects stay in use by Sims who are gone (EA validator never called)
         [Tunable] public static bool kChestUseList = true;    // chestuselist (docs/575 §5): a cut treasure-chest open keeps the Sim on the chest use list
-        [Tunable] public static bool kBusyFlagReset = false;  // busyflagreset (docs/575 §8): a reset or save mid-animation leaves a self-cleaning litter box / stage light busy for good
+        [Tunable] public static bool kBusyFlagReset = false;  // busyflagreset (docs/575 §8): a reset or save mid-animation leaves a self-cleaning litter box / stage light / chocolate fountain busy for good
         [Tunable] public static bool kResetInUseFree = true;    // resetinusefree (docs/576 §2): an item stays in use in a Sim inventory after the Sim is reset mid-interaction
         [Tunable] public static bool kPutDownInUse = true;    // putdowninuse (docs/576 §3): a put-down on a surface cut after the in-use mark leaves the item in use and the surface held
         [Tunable] public static bool kAutonomyInUseBlock = true;    // autonomyinuseblock (docs/577 §1): an autonomous action that finds its object taken and returns false leaves no failure block, so autonomy re-picks it

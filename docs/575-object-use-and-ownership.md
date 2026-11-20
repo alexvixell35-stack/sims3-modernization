@@ -89,9 +89,9 @@ The mechanism is in §1, row `phoneloadreset`.
 - **574 `WorkInRabbitHole` never-true test:** managed only.
 - **The rest of the 15 + 14 rows:** no native component found. They stay parked for the reasons in their docs.
 
-## §8 busyflagreset: a self-cleaning litter box or a stage light stays busy for good (added 2026-11-20)
+## §8 busyflagreset: a self-cleaning litter box, a stage light or a chocolate fountain stays busy for good (added 2026-11-20)
 
-Found by a scan of the scripts for a saved `bool` field that is set to true, then yields (animation, route, `Simulator.Sleep`), then is set back to false, with no `finally` and no reset in the class's `DoReset`, `Cleanup` or load code. The scan had 51 hits. Most were cleared elsewhere, saved on purpose (the invention workbench's Frankensim progress), or harmless. Two block an object for good:
+Found by a scan of the scripts for a saved `bool` field that is set to true, then yields (animation, route, `Simulator.Sleep`), then is set back to false, with no `finally` and no reset in the class's `DoReset`, `Cleanup` or load code. The scan had 51 hits. Most were cleared elsewhere, saved on purpose (the invention workbench's Frankensim progress), or harmless. Three block an object for good:
 
 - **`LitterBoxUber` (Pets, self-cleaning box)** [verified in the scripts]: after a cat's use, `UseLitterBox.UpdateMotivesAndDirtyLevel` starts `RunSelfCleanOneShotTask` as a one-shot with `OneShotFunctionDisposeFlag.OnReset`.
   - The task sets `mIsCleaning` and `mSelfCleanStateMachine`, plays the `SelfClean` state (`RequestState` yields), then clears both.
@@ -103,17 +103,21 @@ Found by a scan of the scripts for a saved `bool` field that is set to true, the
   - A reset or a save in that window leaves it set; `StageLightObject.DoReset` does not clear it.
   - Then every light interaction greys out ("LightIsTransitioning"), and the next `StartSequence` (turn on, colour, auto lights) loops in `while (mTransitioning) Simulator.Sleep(1)` for good: that Sim's interaction never ends.
 
-Read and left alone: `MoodLamp.mFairyUsingLamp` (a fairy reset mid-look leaves it set, but the lamp's own reset clears it; fairies only), `ChocolateFountain.mBeingCleaned` (store object; a Sim reset mid-clean leaves the fountain unusable until the fountain resets), `MinorPet.mBehaviorCallbackInProgress` (cleared at load and in `StopBehaviorSMC`), `WildHorsePool` (cleared in the catch).
+- **`ChocolateFountain` (store object)** [verified in the scripts]: `CleanOut.Run` sets `mBeingCleaned`, calls `StandardEntry`, animates "Clean", and clears the flag at the end.
+  - A reset of the cleaning Sim also resets the fountain: a Sim reset adds its current target when the Sim is on its use list. But `ChocolateFountain.DoReset` only clears the table slots.
+  - `CleanOut`'s Test then refuses for good, so the fountain can never be cleaned out again. The clean had already removed its spoilage alarm.
 
-**Fix (`busyflagreset`, `BusyFlagReset.cs`, default off):** after the object's `DoReset` (its own task is gone by then) and at world load (no task from before the save runs), the flag is cleared. For the litter box, the state machine is also disposed (after a reset; a saved one is only dropped) and the material set back to "Default". Objects only: no Sim is touched, and nothing changes while the task still runs. Counters [2714] litter boxes freed, [2715] stage lights freed, [2716] errors.
+Read and left alone: `MoodLamp.mFairyUsingLamp` (a fairy reset mid-look also resets the lamp through the same use-list rule, and `InitializeLamp` clears it), `MinorPet.mBehaviorCallbackInProgress` (cleared at load and in `StopBehaviorSMC`), `WildHorsePool` (cleared in the catch).
 
-**Repro `busyflag-live`:** places a `LitterBoxUber` and a `StageLightObject` on the far lot. `BusyFlagResetCheck start` runs EA's own `RunSelfCleanOneShotTask` and `StartSequence(true)` as one-shots on them, as a cat's use and Set Motion do. `reset` resets both objects while the animation plays, and `state` reads the flags back. The off arm runs first, then the on arm. `result` also counts the busy boxes and lights in the world, so a load of an old save shows whether the state occurs naturally.
+**Fix (`busyflagreset`, `BusyFlagReset.cs`, default off):** after the object's `DoReset` (its own task is gone by then) and at world load (no task from before the save runs), the flag is cleared. For the litter box, the state machine is also disposed (after a reset; a saved one is only dropped) and the material set back to "Default". Objects only: no Sim is touched, and nothing changes while the task still runs. Counters [2714] litter boxes freed, [2715] stage lights freed, [2716] errors, [2717] fountains freed.
+
+**Repro `busyflag-live`:** places a `LitterBoxUber` and a `StageLightObject` on the far lot. `BusyFlagResetCheck start` runs EA's own `RunSelfCleanOneShotTask` and `StartSequence(true)` as one-shots on them, as a cat's use and Set Motion do. `reset` resets both objects while the animation plays, and `state` reads the flags back. The off arm runs first, then the on arm. The fountain has no live step (it is a store object, and the trigger needs a Sim reset mid-clean); `result` counts fountains with the flag set. `result` also counts the busy boxes and lights in the world, so a load of an old save shows whether the state occurs naturally.
 
 ## Loop-logic pass (standing rule)
 
 - `UlPrune` walks backwards with `RemoveAt`: no skipped entries and no copy.
 - The world-load passes are O(objects) or O(Sims × inventory), once per load.
-- `busyflagreset` runs once per litter box or stage light reset, and once per load over those two object types.
+- `busyflagreset` runs once per litter box, stage light or chocolate fountain reset, and once per load over those three object types.
 - No per-tick work, and no reflection in hot paths: `SetHandsetState` runs through `MethodInfo.Invoke` only on a cut call or at load.
 - EA code read: `Inventory.MoveObjectsTo` re-reads `item.List[0]` until empty, and each pass removes one item, so it terminates. `InteractionQueue.OnReset` caps its cleanup at 3 passes. No new findings.
 

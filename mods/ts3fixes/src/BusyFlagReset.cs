@@ -21,16 +21,23 @@ namespace Ts3Fixes
     //     yields in RequestState, then clears it. A reset or save in that window leaves it set: every light interaction
     //     greys out ("LightIsTransitioning"), and the next StartSequence spins in `while (mTransitioning) Sleep(1)` for
     //     good. StageLightObject.DoReset does not clear it.
-    //   Fix: after the object's DoReset (its own task is already gone), and at world load (no task from before the save
-    //   runs), the flag is cleared; the litter box's state machine is disposed and its material set back to "Default"
-    //   (the self-clean animation sets "InUse" at event 117 and "Default" at 118). Objects only; no Sim is touched.
-    //   Counters [2714] litter boxes freed, [2715] stage lights freed, [2716] errors. Checks: BusyFlagResetChecks.cs.
+    //   - ChocolateFountain (store): CleanOut.Run sets mBeingCleaned, StandardEntry, animates "Clean", and clears it at
+    //     the end. A reset of the cleaning Sim also resets the fountain (Sim reset adds its current target when the Sim is
+    //     on its use list), but ChocolateFountain.DoReset only clears the table slots, so CleanOut's Test refuses for good:
+    //     the fountain can never be cleaned out again (its spoilage alarm was already removed at the start of the clean).
+    //   Fix: after the object's DoReset (its own task is already gone; the fountain's reset also resets every Sim on its
+    //   use list), and at world load (no task from before the save runs), the flag is cleared; the litter box's state
+    //   machine is disposed and its material set back to "Default" (the self-clean animation sets "InUse" at event 117
+    //   and "Default" at 118). Objects only; no Sim is touched.
+    //   Counters [2714] litter boxes freed, [2715] stage lights freed, [2716] errors, [2717] fountains freed.
+    //   Checks: BusyFlagResetChecks.cs.
     public static partial class Fixes
     {
         const BindingFlags kBfAll = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
         static readonly FieldInfo sBfLbCleaning = typeof(LitterBox).GetField("mIsCleaning", kBfAll);
         static readonly FieldInfo sBfLbSmc = typeof(LitterBox).GetField("mSelfCleanStateMachine", kBfAll);
         static readonly FieldInfo sBfSlTrans = typeof(StageLightObject).GetField("mTransitioning", kBfAll);
+        static readonly FieldInfo sBfCfClean = typeof(Sims3.Store.Objects.ChocolateFountain).GetField("mBeingCleaned", kBfAll);
         static readonly Type sBfResetInfo = typeof(GameObject).GetNestedType("ResetInformation", BindingFlags.NonPublic | BindingFlags.Public);
 
         // Pure: is the busy flag stale? Only when its task is gone: after the object's DoReset or at world load.
@@ -44,6 +51,7 @@ namespace Ts3Fixes
             if (sBfResetInfo == null) { AppliedLog().Add("busyflagreset: not found: GameObject+ResetInformation"); return; }
             Patch(typeof(LitterBox), "DoReset", new Type[] { sBfResetInfo }, typeof(BfLitterHook), "ResetHook", "ResetOrig");
             Patch(typeof(StageLightObject), "DoReset", new Type[] { sBfResetInfo }, typeof(BfLightHook), "ResetHook", "ResetOrig");
+            Patch(typeof(Sims3.Store.Objects.ChocolateFountain), "DoReset", new Type[] { sBfResetInfo }, typeof(BfFountainHook), "ResetHook", "ResetOrig");
         }
 
         // One litter box: clears mIsCleaning and the self-clean state machine. True when something was stale.
@@ -65,6 +73,14 @@ namespace Ts3Fixes
             if (!BfClear(ShortcutOn("busyflagreset"), (bool)sBfSlTrans.GetValue(sl), true)) return false;
             sBfSlTrans.SetValue(sl, false);
             PatchCounters()[2715]++;
+            return true;
+        }
+
+        static bool BfFreeFountain(Sims3.Store.Objects.ChocolateFountain cf)
+        {
+            if (!BfClear(ShortcutOn("busyflagreset"), (bool)sBfCfClean.GetValue(cf), true)) return false;
+            sBfCfClean.SetValue(cf, false);
+            PatchCounters()[2717]++;
             return true;
         }
 
@@ -92,6 +108,18 @@ namespace Ts3Fixes
             public void ResetOrig(object resetInformation) { } // StageLightObject.DoReset
         }
 
+        public class BfFountainHook
+        {
+            public void ResetHook(object resetInformation)
+            {
+                ResetOrig(resetInformation);
+                try { if (sBfCfClean != null) BfFreeFountain((Sims3.Store.Objects.ChocolateFountain)(object)this); }
+                catch (ResetException) { throw; }
+                catch (Exception) { PatchCounters()[2716]++; }
+            }
+            public void ResetOrig(object resetInformation) { } // ChocolateFountain.DoReset
+        }
+
         // World load finished (Instantiator): flags saved while the task ran. A saved state machine is not disposed (its
         // native side did not survive the load).
         public static void BusyFlagWorldLoad()
@@ -109,6 +137,12 @@ namespace Ts3Fixes
                     foreach (StageLightObject sl in Sims3.Gameplay.Queries.GetObjects<StageLightObject>())
                     {
                         try { if (sl != null) BfFreeLight(sl); }
+                        catch (Exception) { PatchCounters()[2716]++; }
+                    }
+                if (sBfCfClean != null)
+                    foreach (Sims3.Store.Objects.ChocolateFountain cf in Sims3.Gameplay.Queries.GetObjects<Sims3.Store.Objects.ChocolateFountain>())
+                    {
+                        try { if (cf != null) BfFreeFountain(cf); }
                         catch (Exception) { PatchCounters()[2716]++; }
                     }
             }

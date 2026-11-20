@@ -19,8 +19,8 @@ namespace Ts3Fixes
         public static object BusyFlagResetCheck(string what)
         {
             string miss = EpMiss("LitterBox.mIsCleaning", sBfLbCleaning, "LitterBox.mSelfCleanStateMachine", sBfLbSmc,
-                "StageLightObject.mTransitioning", sBfSlTrans, "GameObject+ResetInformation", sBfResetInfo, "LitterBox.RunSelfCleanOneShotTask", sBfLbRun);
-            string counters = B582Counters("busyflagreset", 2714, new[] { "litter boxes freed", "stage lights freed", "errors" }, miss);
+                "StageLightObject.mTransitioning", sBfSlTrans, "ChocolateFountain.mBeingCleaned", sBfCfClean, "GameObject+ResetInformation", sBfResetInfo, "LitterBox.RunSelfCleanOneShotTask", sBfLbRun);
+            string counters = B582Counters("busyflagreset", 2714, new[] { "litter boxes freed", "stage lights freed", "errors", "fountains freed" }, miss);
             if (what == "result") return counters + "; " + BfState();
             if (what == "start") return BfStart();
             if (what == "reset") return BfReset();
@@ -86,12 +86,13 @@ namespace Ts3Fixes
             if (sBfLbCleaning == null || sBfLbSmc == null || sBfSlTrans == null) return "members missing";
             LitterBox lb = BfNewestBox();
             StageLightObject sl = BfNewestLight();
-            int boxes = 0, boxesSet = 0, lights = 0, lightsSet = 0;
+            int boxes = 0, boxesSet = 0, lights = 0, lightsSet = 0, founts = 0, fountsSet = 0;
+            if (sBfCfClean != null) foreach (Sims3.Store.Objects.ChocolateFountain f in Sims3.Gameplay.Queries.GetObjects<Sims3.Store.Objects.ChocolateFountain>()) { founts++; if ((bool)sBfCfClean.GetValue(f)) fountsSet++; }
             foreach (LitterBox b in Sims3.Gameplay.Queries.GetObjects<LitterBox>()) { boxes++; if ((bool)sBfLbCleaning.GetValue(b) || sBfLbSmc.GetValue(b) != null) boxesSet++; }
             foreach (StageLightObject l in Sims3.Gameplay.Queries.GetObjects<StageLightObject>()) { lights++; if ((bool)sBfSlTrans.GetValue(l)) lightsSet++; }
             return "box " + (lb == null ? "-" : "cleaning=" + sBfLbCleaning.GetValue(lb) + " smc=" + (sBfLbSmc.GetValue(lb) != null))
                 + ", light " + (sl == null ? "-" : "transitioning=" + sBfSlTrans.GetValue(sl))
-                + "; world: litter boxes busy " + boxesSet + "/" + boxes + ", stage lights busy " + lightsSet + "/" + lights;
+                + "; world: litter boxes busy " + boxesSet + "/" + boxes + ", stage lights busy " + lightsSet + "/" + lights + ", chocolate fountains being cleaned " + fountsSet + "/" + founts;
         }
     }
 }
