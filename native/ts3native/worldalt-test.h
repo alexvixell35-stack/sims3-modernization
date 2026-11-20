@@ -276,9 +276,12 @@ static float __cdecl WatCost(const u8*, const u8*, const WORD* from, const WORD*
     return (float)WA_SQRT((double)(dz * dz + dx * dx));
 }
 // one function per cost mode, as the A*'s table has (WaModeOf tells them apart by address)
-static float __cdecl WatCost1(const u8* R, const u8* G, const WORD* a, const WORD* b, DWORD e, DWORD eb, DWORD* o, void* p) { return WatCost(R, G, a, b, e, eb, o, p); }
-static float __cdecl WatCost3(const u8* R, const u8* G, const WORD* a, const WORD* b, DWORD e, DWORD eb, DWORD* o, void* p) { return WatCost(R, G, a, b, e, eb, o, p); }
-static float __cdecl WatCost4(const u8* R, const u8* G, const WORD* a, const WORD* b, DWORD e, DWORD eb, DWORD* o, void* p) { return WatCost(R, G, a, b, e, eb, o, p); }
+// three bodies that differ (the store), so MSVC's identical-code folding (/OPT:ICF) cannot merge them into one address:
+// WaModeOf tells the cost modes apart by address, as it tells the game's two cost functions apart
+static volatile DWORD g_watCostLast;
+static float __cdecl WatCost1(const u8* R, const u8* G, const WORD* a, const WORD* b, DWORD e, DWORD eb, DWORD* o, void* p) { g_watCostLast = 1; return WatCost(R, G, a, b, e, eb, o, p); }
+static float __cdecl WatCost3(const u8* R, const u8* G, const WORD* a, const WORD* b, DWORD e, DWORD eb, DWORD* o, void* p) { g_watCostLast = 3; return WatCost(R, G, a, b, e, eb, o, p); }
+static float __cdecl WatCost4(const u8* R, const u8* G, const WORD* a, const WORD* b, DWORD e, DWORD eb, DWORD* o, void* p) { g_watCostLast = 4; return WatCost(R, G, a, b, e, eb, o, p); }
 
 // every true edge of the running search: f(from node, to node, cost); bodies are nodes g_watN + id. g_watTrueStart < 0:
 // a hub's from position from its cheapest parent (a floor for any path); else the search from that start exactly (only
@@ -447,6 +450,7 @@ static void WatReset(LONG landmarks) {
     memset(&ts3native_worldalt, 0, sizeof(ts3native_worldalt));
     memset(&t_wa, 0, sizeof(t_wa));
     ts3native_worldalt.waLandmarks = landmarks, ts3native_worldalt.waReady = 3;
+    assert((const void*)WatCost1 != (const void*)WatCost3 && (const void*)WatCost3 != (const void*)WatCost4 && (const void*)WatCost1 != (const void*)WatCost4);
     g_waCost[0] = (const void*)WatCost1, g_waCost[1] = (const void*)WatCost3;
     g_waPushOrig = WatPushOrig, g_waPathOrig = WatPathOrig, g_waPathFree = WatPathFree, g_waSearch = WatSearch;
     g_waAll = true, g_waLotAt = WatLotAt, g_waWm = &g_watWmSlot, g_watWm[0] = 0;
