@@ -3226,6 +3226,7 @@ static void PccLogCounters();  // plancand.cpp (docs/644)
 static void RsLogCounters();   // routespeed.cpp (docs/663)
 static void FmLogCounters();   // floodmemo.cpp (docs/667)
 static void WhLogCounters();   // workerhold.cpp (docs/673)
+static void PelLogCounters();  // tailunlock.cpp (docs/673 §9: [RouteAsync] PlanEndLend / LendWake)
 static void CiLogCounters();   // cellindex.cpp (docs/669)
 static void PtLogCounters();   // placero.cpp (docs/670)
 static void FglLogCounters();   // fglprof.cpp (docs/671)
@@ -3308,6 +3309,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     RsLogCounters();   // docs/663 (nothing until NeighbourMemo is installed)
     FmLogCounters();   // docs/667 (nothing until FloodMemo is installed)
     WhLogCounters();   // docs/673 (nothing until HoldProbe is installed)
+    PelLogCounters();  // docs/673 §9 (nothing until PlanEndLend / LendWake is installed)
     CiLogCounters();   // docs/669 (nothing until CellIndex is installed)
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
     FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
@@ -3728,7 +3730,11 @@ static volatile LONG g_rgOffSimOpen;
 // (LockAcquireAsync's pump loop); the job hooks of ServeAsync
 static volatile LONG g_whSimWait;
 static void WhJobBegin();
-static void WhJobEnd(DWORD handle, int kind, LONG us);
+static void WhJobEnd(DWORD handle, int kind, LONG us, LONG gameUs);
+static void WhHost(LONGLONG fromQ);  // Proxy: a host-call wait of the job
+static void WhIcDone();              // the job's IC returned
+static void WhRelease();             // right before the job's +0x918 release
+static void PelJobEnd();             // tailunlock.cpp ([RouteAsync] PlanEndLend): the same point
 // [LocoWindow] (locowin.cpp, design H2): g_g0wIn = 1 while the sim thread is inside Locomotion_Update (both modes);
 // g_g0Win = 1 meanwhile in Mode 1 only: the worker starts no queued job (ServeAsync, same Dekker order as g_rgOffSimOpen).
 // Written by the sim thread only; every sim wait that needs a not yet started job clears g_g0Win first (G0wDrop).
@@ -4054,6 +4060,7 @@ static void* Proxy(InvokeJob& v) {
     }
     if (t_ufJob) UfHostLate(ufAt);
     if (t_jobT0) t_jobHostUs += UsSince(t0);  // docs/134 §11: the job waits for the sim thread to run its managed call
+    if (t_jobT0) WhHost(t0.QuadPart);         // docs/673 §9 HoldProbe: by the part of the job it was posted in
     if (t_jobT0 && t_jobCapAt && t0.QuadPart >= t_jobCapAt) t_pcHostUs += UsSince(t0);  // docs/264 §4.3: a host call after the cut
     if (p6) t_p6.doorN++, t_p6.doorUs += UsSince(p6t);
     if (v.tPost) HcWake(v);
@@ -4454,6 +4461,7 @@ static void ServeAsync() {
         t_p6wArm = P6wArmNow();                            // [P6Waits]: the arm at the job's start
         UafTagScope uafTag(UT_ROUTE_JOB, (const void*)&ServeAsync);  // [UafCheck] frees during the worker job and its end
         CallIc(j->kind, j->result, j->handle, j->pt);
+        WhIcDone();  // docs/673 §9 HoldProbe: the tail ends here, our own job end begins
         t_hcJob = 0, t_hcScope = 0;
         LendBackstop();  // CE-4 (docs/154): a lend window an unwind left open is closed before the release below
         P5EarlyEnd();    // P6EarlyCopy (docs/94 §24.14): an early clone the IC never planned with (no Route_PlanLocked)
@@ -4471,7 +4479,7 @@ static void ServeAsync() {
         if (j->fb) FbjdJobEnd(us, t0.QuadPart + (LONGLONG)us * g_qpf.QuadPart / 1000000, dl);
         KdJobEnd(j, capped, us, t0.QuadPart + (LONGLONG)us * g_qpf.QuadPart / 1000000, dl);  // docs/197
         RjpJobEnd(us);  // reads t_fbjdCut for the per-phase long-job line (docs/178 T1)
-        WhJobEnd(j->handle, j->kind, us);  // docs/673 HoldProbe
+        WhJobEnd(j->handle, j->kind, us, t_jobPlanUs);  // docs/673 HoldProbe
         JobSplit split = {-1, -1, t_jobPlanUs, t_jobHostUs};
         if (t_jobCapAt) {
             split.capAtUs = (LONG)((t_jobCapAt - t0.QuadPart) * 1000000 / g_qpf.QuadPart);
@@ -4483,6 +4491,8 @@ static void ServeAsync() {
         SetX87(cw);
         _mm_setcsr(csr);
         if (g_hsOn | g_hsLockLogUs) HsJobEnd(j->handle, j->seq, us, j->kind, j->fb ? 1 : j->af ? 2 : 0);  // docs/666: before the release
+        WhRelease();  // docs/673 §9 HoldProbe: our own job end under the lock, counted
+        PelJobEnd();  // docs/673 §9 PlanEndLend: what was left of the job after its window
         LockReleaseHook(j->lock, NULL);
         MwJobEnd(j->seq);
         P6wJobEnd(j->seq, us);
@@ -4824,6 +4834,9 @@ static void PrEnd(bool on, const PrTok& t, const int* outList, u8 r);
 // the memo answered it (read once by the PlanCommon result stub, NpmPcFix)
 static __declspec(thread) DWORD t_npmRet;
 static __declspec(thread) bool t_npmServed;
+static void WhPlEnter();              // workerhold.cpp (docs/673 §9): the detour's outermost call on the worker in a job
+static void WhPlLeave();
+static void PelPlanEnd(DWORD ret);    // tailunlock.cpp ([RouteAsync] PlanEndLend, docs/673 §9)
 // noinline: P10 reads this frame's own return slot (selftest calls it directly)
 static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx, int* outList, int* starts, int* goals,
                                                          DWORD agent, DWORD doPlan, u8* opts, int* out1, int* out2,
@@ -4831,12 +4844,20 @@ static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx,
     t_npmRet = (DWORD)(uintptr_t)_ReturnAddress(), t_npmServed = false;  // docs/643 NoPathMemo: which caller, a fresh answer
     if (t_p6.act) t_p6.plans++;  // P6 split: planner calls per job (count only)
     if (t_kdCam == 1) KdCamPlanArgs(starts, goals);
-    if (t_p4Cap) return P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    if (!t_p10) return PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    LARGE_INTEGER t0;  // P10: a sim-thread plan inside one of the four route ICs
-    const DWORD tag = P10PlanBegin((const DWORD*)_AddressOfReturnAddress(), &t0);
-    const u8 r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    P10PlanEnd(tag, t0);
+    WhPlEnter();  // docs/673 §9 HoldProbe (nothing outside a probed worker job)
+    u8 r = 0;
+    if (t_p4Cap) {
+        r = P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    } else if (!t_p10) {
+        r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    } else {
+        LARGE_INTEGER t0;  // P10: a sim-thread plan inside one of the four route ICs
+        const DWORD tag = P10PlanBegin((const DWORD*)_AddressOfReturnAddress(), &t0);
+        r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+        P10PlanEnd(tag, t0);
+    }
+    WhPlLeave();
+    PelPlanEnd((DWORD)(uintptr_t)_ReturnAddress());  // docs/673 §9: the job's +0x918 lent to a waiting sim taker at the plan's end
     return r;
 }
 
@@ -6552,6 +6573,7 @@ static void Run(HMODULE self) {
         InstallGoalGen(ini);  // docs/177 §3: D1, the duplicate ring of a radius route
         InstallRefcountGuard(ini);  // docs/177 §7: after the steering frames (InstallRtSites) and AvoidRO's A-site
         InstallTailUnlock(ini);  // docs/150 §11: after the steering frames (InstallRtSites)
+        InstallPlanEndLend(ini);  // docs/673 §9: TailUnlock's window at the plan's end, LendWake
         InstallRouteToObjRO(ini);  // docs/140 §12: after [SteerRO] (QL, W1-W6) and [SlotEnabledRO] (SH)
         InstallPlacementRO(ini);   // docs/174: S2's writer set, like [RouteToObjRO]
         InstallGoalValidRO(ini);   // docs/178 §7 T6: S2's writer set, like [PlacementRO]

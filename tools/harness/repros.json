@@ -111470,6 +111470,48 @@
     ]
   },
   {
+    "id": "ip-holdoutside-storm",
+    "bug": "docs/673 §9: in the s159 storm (Isla Paradiso, 2 min) 12.4 s of the route worker's 33.7 s of job time (+0x918 hold) is outside PlanHierarchical, and no log says what it is: the goal step and its door asks before the plan, our Route_PlanLocked wrappers, the EditPath tail, our job end. The sim thread's wait pump tries +0x918 once a millisecond, so a TailUnlock window shorter than that is missed, and the job's tail after its plan is held although the search is over",
+    "fix": "ts3native [RouteJobPhases] HoldProbe=1 (the 'worker hold parts' line, observe only), [RouteAsync] PlanEndLend=1 (the job's +0x918 lent to a waiting sim taker when the plan has returned, worker parked) and LendWake=1 (a TailUnlock window wakes the sim's wait pump); all default 0 (docs/673 §9)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the probe; the selftest of the lend is single-threaded and was not run). Off arm: the s159 on-arm ini with [RouteJobPhases] HoldProbe=1 CandidateSplit=1 HostSplit=1 and [RouteAsync] PlanEndLend=2 (count only). On arm: PlanEndLend=1 LendWake=1 on top. Compare 'hitch totals' +0x918 waits and the 'route lock wait' lines",
+    "expect": "'OK   plan end lend: PlanEndLend=1' and 'OK   worker hold probe:'. After the storm: a 'worker hold parts' line whose parts sum to the job time of 'route async:', a 'plan end lend:' line with plan ends about the job count, windows > 0, 'closed while parked 0', and no 'TailUnlock: worker waited' line. Off arm: windows 0, the same plan ends. No crash, no stuck Sim, the same plans and fails as the off arm within storm noise",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

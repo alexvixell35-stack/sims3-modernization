@@ -14,6 +14,32 @@ static void TestWhCore() {
     assert(!WhBoundary(&j, -1, true, 10) && !WhBoundary(&j, WH_KINDS, true, 10) && j.firstKind == -1);
     assert(WhBoundary(&j, WH_WATER, true, 20) == 1 && j.firstKind == WH_WATER && j.firstQ == 20 && j.waiting[WH_WATER] == 1);
     assert(!WhBoundary(&j, WH_POST, true, 30) && j.firstKind == WH_WATER && j.firstQ == 20 && j.waiting[WH_POST] == 1 && j.seen[WH_POST] == 1);
+    // docs/673 §9: the job's parts. Start 100; a host wait before the plan; a plan 150-400 with a nested one and a host wait
+    // inside; a host wait after it that turns out to be between two plans; a second plan 450-500 that ends with the sim
+    // waiting; a host wait in the tail; the IC returns at 530
+    WhSplit sp;
+    WhSplitReset(&sp, 100);
+    assert(WhSplitPart(&sp) == WH_PRE && !WhSplitLeave(&sp, 110, true) && sp.plans == 0 && sp.depth == 0);  // a leave with no entry
+    WhSplitHost(&sp, 20);
+    WhSplitEnter(&sp, 150);
+    assert(sp.partQ[WH_PRE] == 50 && WhSplitPart(&sp) == WH_IN);
+    WhSplitEnter(&sp, 200);
+    WhSplitHost(&sp, 30);
+    assert(!WhSplitLeave(&sp, 300, true) && sp.plans == 0 && !sp.endWait);
+    assert(WhSplitLeave(&sp, 400, false) == 1 && sp.plans == 1 && sp.partQ[WH_IN] == 250 && WhSplitPart(&sp) == WH_TAIL);
+    WhSplitHost(&sp, 7);
+    assert(sp.hostQ[WH_TAIL] == 7 && sp.hostN[WH_TAIL] == 1);
+    WhSplitEnter(&sp, 450);
+    assert(sp.partQ[WH_PRE] == 100 && sp.hostQ[WH_PRE] == 27 && sp.hostN[WH_PRE] == 2 && sp.hostQ[WH_TAIL] == 0 && sp.hostN[WH_TAIL] == 0);
+    assert(WhSplitLeave(&sp, 500, true) == 1 && sp.plans == 2 && sp.endWait && sp.partQ[WH_IN] == 300);
+    WhSplitHost(&sp, 5);
+    WhSplitIcDone(&sp, 530);
+    assert(sp.partQ[WH_TAIL] == 30 && sp.hostQ[WH_TAIL] == 5 && sp.hostQ[WH_IN] == 30 && sp.hostN[WH_IN] == 1);
+    assert(sp.partQ[WH_PRE] + sp.partQ[WH_IN] + sp.partQ[WH_TAIL] == 530 - 100);  // the parts are the whole IC
+    WhSplitReset(&sp, 1000);  // a job that never plans: everything is "before"
+    WhSplitHost(&sp, 40);
+    WhSplitIcDone(&sp, 1100);
+    assert(sp.plans == 0 && sp.partQ[WH_PRE] == 100 && sp.partQ[WH_TAIL] == 0 && sp.hostQ[WH_PRE] == 40);
     static WhDupRing r;
     memset(&r, 0, sizeof(r));
     long prev = 0;
@@ -44,7 +70,7 @@ static void TestWorkerHold() {
     WhJobBegin();
     WhEnter(PCC_PH);
     WhPlanEnd(1, 100, 1000, 1000, 0);
-    WhJobEnd(0x25000001, 0, 30000);
+    WhJobEnd(0x25000001, 0, 30000, 0);
     assert(!t_whJob.open && c.whJobN[0][2] == 0 && c.whPlanN[1][0][0] == 0 && c.whSeen[WH_PLAN] == 0);
     // a job: plan, candidate, lot leg, world; the sim starts to wait; water is the first boundary in the wait, post the second
     c.whMode = 1, c.whDupMs = 2000;
@@ -58,7 +84,7 @@ static void TestWorkerHold() {
     assert(t_whJob.firstKind == WH_WATER && t_whJob.waiting[WH_POST] == 1);
     WhPlanEnd(1, 2000, 25000, g_qpf.QuadPart * 25 / 1000, 0);
     g_whSimWait = 0;
-    WhJobEnd(0x25000001, 0, 30000);
+    WhJobEnd(0x25000001, 0, 30000, 0);
     assert(c.whJobN[0][2] == 1 && c.whJobUs[0][2] == 30000 && c.whJobN[1][2] == 0 && c.whOutUs == 5000);
     assert(c.whPlanN[0][0][0] == 1 && c.whPlanUs[0][0][0] == 25000 && c.whPlanCellUs[0][0] == 2000);
     assert(c.whSeen[WH_PLAN] == 1 && c.whSeen[WH_CAND] == 1 && c.whSeen[WH_LOTLEG] == 1 && c.whSeen[WH_WORLD] == 1 && c.whSeen[WH_WATER] == 1);
@@ -70,7 +96,7 @@ static void TestWorkerHold() {
     for (int i = 0; i < 52; i++) WhEnter(PCC_CHOOSE);
     WhPlanEnd(52, 212000, 229000, g_qpf.QuadPart * 229 / 1000, 5);
     g_whSimWait = 1;
-    WhJobEnd(0x25000001, 0, 231000);
+    WhJobEnd(0x25000001, 0, 231000, 0);
     g_whSimWait = 0;
     assert(c.whJobN[1][4] == 1 && c.whJobUs[1][4] == 231000 && c.whPlanN[0][1][3] == 1 && c.whPlanCellUs[0][1] == 212000);
     assert(c.whSeen[WH_CAND] == 53 && c.whEndWait == 1 && c.whDupN == 1 && c.whDupUs == 231000 && c.whOutUs == 7000);
@@ -80,10 +106,36 @@ static void TestWorkerHold() {
     assert(c.whPlanN[1][0][1] == 1 && c.whPlanUs[1][0][1] == 120000 && c.whSeen[WH_PLAN] == 2);
     // another IC kind of the route: no repeat
     WhJobBegin();
-    WhJobEnd(0x25000001, 2, 1000);
+    WhJobEnd(0x25000001, 2, 1000, 0);
     assert(c.whDupN == 1 && c.whJobN[0][0] == 1);
+    // docs/673 §9, the hooks: the three jobs above never entered Route_PlanLocked; none has an IC end, so nothing at the release
+    assert(c.whNoPlanN == 3 && c.whNoPlanUs == 30000 + 231000 + 1000 && c.whTailN == 0 && c.whHostN[WH_PRE] == 0);
+    WhRelease();
+    assert(c.whEndUs == 0 && c.whTailWaitN == 0);
+    // a job with a host wait before its plan, one inside, a plan that ends with the sim waiting, then the IC's end and the release
+    WhJobBegin();
+    LARGE_INTEGER q0;
+    QueryPerformanceCounter(&q0);
+    WhHost(q0.QuadPart);
+    WhPlEnter();
+    QueryPerformanceCounter(&q0);
+    WhHost(q0.QuadPart);
+    g_whSimWait = 1;
+    WhPlLeave();
+    g_whSimWait = 0;
+    assert(t_whJob.sp.plans == 1 && t_whJob.sp.endWait && t_whJob.sp.hostN[WH_PRE] == 1 && t_whJob.sp.hostN[WH_IN] == 1);
+    WhIcDone();
+    assert(t_whIcQ != 0 && t_whJob.sp.partQ[WH_TAIL] > 0);
+    WhJobEnd(0x25000002, 0, 40000, 12000);
+    assert(c.whTailN == 1 && c.whNoPlanN == 3 && c.whGameUs == 12000 && c.whHostN[WH_PRE] == 1 && c.whHostN[WH_IN] == 1 && c.whHostN[WH_TAIL] == 0);
+    assert(c.whPartUs[WH_IN] > 0 && c.whPartUs[WH_TAIL] > 0 && c.whHostUs[WH_IN] > 0 && t_whWaitQ > 0 && c.whTailWaitN == 0);
+    WhRelease();
+    assert(c.whTailWaitN == 1 && c.whTailWaitUs >= c.whPartUs[WH_TAIL] + c.whEndUs && c.whEndUs > 0 && c.whEndMaxUs > 0 && !t_whIcQ && t_whWaitQ == -1);
+    // outside a job the hooks do nothing
+    WhPlEnter(), WhPlLeave(), WhHost(0), WhIcDone(), WhRelease();
+    assert(c.whTailN == 1 && c.whTailWaitN == 1 && c.whHostN[WH_PRE] == 1);
     memcpy((void*)&c, (const void*)&saved, sizeof(c));
     memcpy(&g_whDups, &savedRing, sizeof(savedRing));
     g_whSimWait = savedWait;
-    printf("worker hold probe: OK (buckets, first boundary in a sim wait, plans by candidates and result, repeats, mode 0)\n");
+    printf("worker hold probe: OK (buckets, first boundary in a sim wait, plans by candidates and result, repeats, mode 0, job parts)\n");
 }

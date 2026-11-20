@@ -125,6 +125,61 @@ static void TestTailUnlock() {
     TuTrip(1);  // outside a window: nothing
     assert(k.tuTrip[1] + k.tuTrip[2] == trip1);
 
+    // docs/673 §9 PlanEndLend, on this thread as the worker of a running job (one +0x918 level, as ServeAsync holds it at the
+    // plan's end): switch off, another caller, no sim wait, count only, a window nobody takes (the hold back after
+    // PlanEndLendWaitUs), no job
+    if (kPelPlanRet) {
+        PlanEndLendCounters& pc = ts3native_planendlend;
+        static PlanEndLendCounters pelSaved;
+        memcpy((void*)&pelSaved, (const void*)&pc, sizeof(pc));
+        memset((void*)&pc, 0, sizeof(pc));
+        pc.pelWaitUs = 200;
+        const LONGLONG savedT0 = t_jobT0;
+        const LONG savedWait = g_whSimWait, wins1 = k.tuWins, held1 = k.p5bHeldOut;
+        InvokeJob* const savedInv2 = g_invJob;
+        static const DWORD kInfP = 0xFFFFFFFF;
+        const CRITICAL_SECTION* pcs = (const CRITICAL_SECTION*)lock;
+        if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+        g_invJob = NULL;
+        g_workerTid = simTid;
+        t_jobT0 = 1;
+        g_whSimWait = 0;
+        assert(P5bAcq(lock, NULL, &kInfP) == 1);
+        g_async.lock = lock;
+        g_async.state = A_RUNNING;
+        PelPlanEnd(kPelPlanRet);  // mode 0
+        assert(pc.pelEnds == 0);
+        pc.pelMode = 2;
+        PelPlanEnd(kPelPlanRet + 1);  // not Route_PlanCommon's call
+        PelPlanEnd(0);
+        assert(pc.pelEnds == 0);
+        PelPlanEnd(kPelPlanRet);
+        assert(pc.pelEnds == 1 && pc.pelSimWait == 0);
+        g_whSimWait = 1;
+        PelPlanEnd(kPelPlanRet);  // count only
+        assert(pc.pelEnds == 2 && pc.pelSimWait == 1 && pc.pelWins == 0 && P5bMine());
+        pc.pelMode = 1;
+        PelPlanEnd(kPelPlanRet);  // a window; the "waiter" never tries
+        assert(pc.pelEnds == 3 && pc.pelSimWait == 2 && pc.pelWins == 1 && pc.pelTimeout == 1 && pc.pelTaken == 0 && pc.pelHeldOut == 0);
+        assert(pc.pelTrip == 0 && pc.pelParkUs >= 200 && !t_tuOpen && !g_p5bWin && P5bMine() && pcs->RecursionCount == 1 && !t_pelQ);
+        assert(*(const LONG*)((const u8*)lock + 0x20) == 1 && k.tuWins == wins1 && k.p5bHeldOut == held1);
+        t_jobT0 = 0;
+        PelPlanEnd(kPelPlanRet);  // not inside a job
+        t_jobT0 = 1;
+        g_async.state = A_IDLE;
+        PelPlanEnd(kPelPlanRet);  // the slot is not running: refused, the hold kept
+        assert(pc.pelEnds == 4 && pc.pelRefused[1] == 1 && pc.pelWins == 1 && P5bMine() && !g_p5bWin);
+        PelJobEnd();  // no used window: nothing
+        assert(pc.pelTailUs == 0);
+        P5bRel(lock, NULL);
+        g_async.lock = NULL;
+        t_jobT0 = savedT0;
+        g_whSimWait = savedWait;
+        g_invJob = savedInv2;
+        g_workerTid = simTid + 7;
+        memcpy((void*)&pc, (const void*)&pelSaved, sizeof(pc));
+    }
+
     // threaded: 40 jobs kept (switch off), 260 lent; every 13th lent job fails at a pass, every 20th takes +0x918 in pass 17
     g_tuGo = CreateEventW(NULL, FALSE, FALSE, NULL);
     g_tuDone = CreateEventW(NULL, FALSE, FALSE, NULL);

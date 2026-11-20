@@ -5,7 +5,8 @@
 1.67 code (`QuadTreeCellAStar 0x61E500`, the goal-lot loop of `PathPlanner_PlanHierarchical 0x65E0D0`), our source. Background:
 docs/670 §7 (the lock and its hand-over points), docs/667 (FloodMemo), docs/669, docs/672 (shortlist items 1, 4, 6).
 Built: `[RouteJobPhases] HoldProbe` and the `route speed: flood exits:` counters, both observe only, default off.
-**Nothing here has run in the game.** Branch `feat/worker-hold`.
+**Nothing here has run in the game.** Branch `feat/worker-hold`. §9 (branch `feat/hold-outside`) reads the first storm with
+the probe on (s159) and adds the job-part line, `[RouteAsync] PlanEndLend` and `LendWake`.
 
 Short version: the two changes the shortlist asked for (a reachability memo for failed floods, a lock yield between candidate
 goals) cannot shorten the hold in these storms, and the logs show why. Failed floods are 0.3-1.1% of the cell searches, and
@@ -237,3 +238,175 @@ Repro `ip-workerhold-storm`.
 `floodmemo-test.h`; `plancand.cpp` (two calls), `ts3native.cpp` (include, install, counter line, job bracket, wait count),
 `selftest.cpp`; `ts3native.ini`, `tools/ini-sections.json`, `tools/harness/native-switches.ts`, `tools/harness/repros.json`,
 `docs/registry.md`, `docs/68-hook-conflict-map.md`.
+
+## 9. s159: the probe ran. What the 12.4 s outside `PlanHierarchical` is, and a lend at the plan's end (branch `feat/hold-outside`)
+
+2026-11-20. Inputs: `ts3native-full.log` of s159-on (2-min storm, HoldProbe, CandidateSplit, FloodMemo=2, CellIndex=2), Ghidra
+headless `DecompileTo` of `Route_PlanCommon 0x7606E0` on a private copy of the project, objdump of `0x65E0D0`, our source.
+Built here: HoldProbe's fourth line, `[RouteAsync] PlanEndLend` and `LendWake` (default off). **Nothing here has run in the game.**
+
+### 9.1 A reading to correct first [verified source]
+
+The `plan` column of `worker hold boundaries` is the **start** of a `PlanHierarchical` call (`WhEnter(PCC_PH)`, §4.4: "at the
+start of every plan ..."), not its end. `plan 1513/101/99 2333 ms` therefore says: in 99 jobs the sim thread was already
+waiting on `+0x918` when the plan began, and 2,333 ms of job time followed, the plan itself included. The wait began in the
+part of the job before the plan. It is not a measure of what a hand-over after the plan could give; no s159 number is. The
+new line (§9.5) measures that.
+
+### 9.2 The 12.4 s by component
+
+A worker job is one route IC [verified docs/87 §2-3, decompile]: start points, `Route_GenerateDestinationCandidates 0x751FF0`,
+the goal step `0x75C2D0`, then `Route_PlanLocked 0x82C6E0` once (`0x760DE1`; pending updates, `RoutingJob_Execute`, in it
+`PlanHierarchical`), then `Route_MapStatusToResult 0x752620`, `RouteFollow_EditPathForRoute 0x85FF30` per path, a few setters
+on the last path, and our job end in `ServeAsync`. s159: 1,535 jobs, 33,712 ms; `PlanHierarchical` on the worker 21,323 ms.
+
+| component of the 12,387 ms | ms | how known |
+|---|---|---|
+| the worker waiting for the sim thread to run a managed call (door asks, event 59), outside `PlanHierarchical` | **6,100 - 9,500** | measured lower bound: `route task serve` picked up 13,070 calls after 8,109 ms of queue (0.62 ms each, max 44 ms); `route plans:` counts 17,580 host calls; the split's host frames inside `PlanHierarchical` are 4,115 calls / 1,961 ms. Upper bound: all 17,580 at the same mean, plus service |
+| ... of it in the goal step (before the plan) | most | 103 `routefail job` lines with `plan 0` (the IC never reached `Route_PlanLocked`): 765 ms of job, **580 ms host**, 154 ms other. 5.6 ms of host wait a job before any plan; x 1,535 jobs = 8.6 s if every job is like them |
+| goal generation and the goal step's own code | about 2,300 | the same 103 jobs: 1.5 ms a job that is neither plan nor host; docs/177 §1.1 measured 1.85-2.45 ms "rest" a job on Isla Paradiso |
+| `Route_PlanLocked` outside `PlanHierarchical`: pending updates, `RoutingJob_Execute`, and **our wrappers** (`DiscDrainForPlan` applying deferred footprints, `PlanCached`, NoPathMemo, plan-repeat keys) | not separable | no counter in s159; in the 11 `routefail job` lines with a plan, job minus plan minus host sums to -66 ms (host waits nest in the plan) |
+| the tail: result mapping, `EditPathForRoute`, path setters | small, not measured | docs/178 §1.1: `EditPathForRoute` max 3.1 ms a call in 4,736 jobs; sync IC plans in s159 show `other` 0-8 ms for the whole IC outside the phases (19 lines, 43 ms) |
+| our job end between the IC's return and the release (`KdJobEnd`, `RjpJobEnd`, `WhJobEnd`, `HsJobEnd`, their log lines) | small, not measured | thread-local sums and at most one `Log` (an unbuffered `WriteFile`) a job; about 190 such lines in the storm |
+
+So more than half of the time outside the planner is the worker **waiting**, not working: the goal step asks the script whether
+a door is passable, one round trip to the sim thread per ask, about 0.6 ms each when the sim is not itself waiting on the lock
+(a sim that waits on `+0x918` answers at once from its wait pump). `DoorMemoX` answered 10,672 asks and missed 18,081 (15,942
+with no row: 1,387 generation bumps a storm clear the table about 11 times a second). The sim is not blocked during such a
+wait, but the job is longer by it, and a longer job meets more sim frames (docs/670 §7.1).
+
+### 9.3 Is our own code part of it?
+
+| ours, under the job's hold | size in s159 | verdict |
+|---|---|---|
+| the host-call proxy (the managed call must run on the sim thread) | 6.1-9.5 s outside the planner, 2.0 s inside | the largest item, and ours as a mechanism. Not movable: the lock must stay held (docs/159). Fewer asks is the lever: the goal step's asks are where `DoorMemoX` misses |
+| `[RouteSpeed] CellIndex=2` (shadow) | 12.8 M calls, 6.2 M compares, 0 hits, "saved ~0 ms" | pure cost inside the cell A\* (3.1 s self time in the storm). Estimate 0.4-0.8 s at 30-60 ns a call [inferred]. A timing arm should run it at 0 or 1 |
+| `[RouteSpeed] NeighbourMemo=1` | 2.87 M calls, 17,374 hits (0.6%), 1.17 M stores, "saved ~8 ms" | the stores are paid on every miss; at 50-100 ns each they cost more than the 8 ms saved [inferred]. Worth an off arm |
+| candidate split frames (13 sites, two clock reads each) | about 155,000 frames | < 30 ms |
+| log lines written on the worker inside a job (split lines, `routefail job`, `long job`) | about 190 | < 10 ms |
+| our `Route_PlanLocked` wrappers, our job end | unknown | the new line prints both (§9.5) |
+| P5 / P6 leftovers | none on the worker: the 583 `P5c park` lines are written by the sim thread | - |
+
+Nothing of ours was found that both runs under the hold and can simply move out. The two shadow / memo costs are settings of
+the storm arm, not code to fix.
+
+### 9.4 The tail after the plan: what needs the lock [verified decompile of `0x7606E0`, `0x760DE6..0x7615C9`]
+
+After `Route_PlanLocked` returns, `Route_PlanCommon` uses: the route object (`param_1+0xE0` path list, `+0xEC`, `+0x100..+0x141`
+orientation, `+0x3C`, `+0x158`), its own goal vectors by the two indexes the planner returned, the status block it copies out,
+atomic reference counts on the route's path objects, and per path `0x545170` + `EditPathForRoute`. No lot row, quadtree node,
+footprint or A\* table of the planner is read again. `EditPathForRoute` is the exception, and it is most of the tail: per path
+node it runs `RouteFollow_EditPath 0x85F5A0`, whose gather `0x82F0B0` takes `+0x918` itself, and whose consumer loop then runs
+**outside that acquire** on lot rows (`0x62EF30`, find-or-insert), polygon caches (`0x80E5B0` rebuild) and plain footprint
+reference counts (docs/670 §8.2, docs/177 §4). On the sim thread that is safe because it is the sim thread; on the worker only
+the job's hold makes it safe (`RefcountGuard` orders the sim's count writes against a worker that holds the lock).
+
+So the tail cannot run without the hold, and there is no split that leaves a useful unlocked part: what is not `EditPath` is
+arithmetic on the route. Releasing before the tail and letting `EditPath` take the lock for its gather would run the consumer
+loop unlocked: a data race. **Not built.**
+
+What is provable is a **lend with the worker parked** at the point where the call returns: the search is over, the planner's
+frames are gone, the game itself holds no `+0x918` level there, and everything the tail needs it reads again under the hold
+(`EditPathForRoute` is also what the game calls later on any planned path, `IC_Route_SetAGS`, after any number of world
+changes). This is TailUnlock's window (docs/150 §11) at a later point of the same job with less live state, and with a worker
+that runs nothing while it is open.
+
+### 9.5 Built
+
+**HoldProbe, fourth line** (`workerhold.cpp`, `workerhold-core.h`; observe only): `worker hold parts: before or between
+Route_PlanLocked N (host H / n), jobs that never reached it n / ms; inside our Route_PlanLocked detour N (host, the game's
+Route_PlanLocked G with PlanHierarchical P of it, our wrappers at most W); after the last one N (host); our job end before the
+release N (max us); the last plan ended with the sim waiting on +0x918 in n of m jobs, T ms from there to the release`.
+Hooks: `PlanLockedHook` (the detour's whole body), `Proxy` (a host wait goes to the part it was posted in), `ServeAsync`
+(the IC's return, the release). The three parts sum to the IC's time. T is the ceiling of any hand-over at the plan's end.
+
+**`[RouteAsync] PlanEndLend`** (`tailunlock.cpp`, default 0; 1 = lend, 2 = count only; `PlanEndLendWaitUs=300`). At the end of
+our `Route_PlanLocked` detour, on the worker inside a job, when the caller is `Route_PlanCommon` (return `0x760DE6`), no host
+call is open and the sim thread is waiting on `+0x918`: open TailUnlock's window (`TuOpenWhy`: same refusals, same `P5bLock`
+admission, state stays `A_RUNNING`), set `g_asyncDone` so the sim's wait pump tries now, and **wait** until the sim's taker has
+the lock or its wait ended, or `P5bLock` held the waiter out (not an admitted class), or the time is up; then `TuClose` takes
+every level back (it waits for the taker's release; an admitted taker waits for no job). The tail then runs under the hold as
+today. Patches no byte. EA 1.69: the address row is unresolved, so it installs as off.
+
+- Line `plan end lend:` plan ends, with the sim waiting, windows (taken / waiter held out / nobody came / refused by reason),
+  worker parked ms, **job time after a taken window** (the most the sim's waits ended earlier), `closed while parked` (the
+  assertion), TailUnlock windows that woke the sim.
+- The assertion asked for ("no `+0x918`-protected access in the unlocked tail") is met by construction: no part of the job
+  runs while the window is open. `closed while parked` counts a window that something closed under the parked worker (it
+  must stay 0), and TailUnlock's own tripwires (`TuTrip`: a worker acquire, gate or routing site inside an open window) stay
+  armed.
+- Admission is TailUnlock's: the sim's steering calls and, with `[RouteSnap] ReleaseGates`, its read-only gate leaves
+  (`g_p5cJob` is 0 here: P5c's wider admission ends with the clone run, before the plan returns). Writers, gates, destroys
+  and sync plans keep waiting for the job's end. Admitting them would need two more proofs: that no such taker waits for the
+  job while it holds the lent lock, and that no site reads `A_RUNNING` as "no sim writer runs". Not attempted.
+
+**`[RouteAsync] LendWake`** (default 0). The sim's `+0x918` wait pump (`LockAcquireAsync`) sleeps up to 1 ms between tries
+unless `g_invReady` or `g_asyncDone` is set. A TailUnlock window does not set either, so a window shorter than the rest of
+that millisecond passes unseen. With `LendWake=1`, `TuOpen` sets `g_asyncDone` when the sim is waiting. Every waiter on that
+event re-reads its condition in a loop, so the extra set costs one lock try.
+
+Expectation, stated plainly: the plan-end lend can give at most the tail of the jobs whose plan ends with a waiting, admitted
+taker. The old numbers put the tail well under a millisecond for most jobs. It is built because it was asked for and is
+cheap; the storm's `worker hold parts` T decides whether it stays. `LendWake` may matter more: it makes the existing
+TailUnlock windows usable.
+
+### 9.6 Why plans with two candidates cost more [verified call sites, measured s159]
+
+"Candidates" in the probe are calls of `LotEdgePortals_Choose 0x65BC20`. It has two call sites in `PlanHierarchical`:
+
+| site | where | what it chooses | what follows |
+|---|---|---|---|
+| `0x65EF72` | before the goal-lot loop | the exit of the **start** lot (the Sim starts on a lot) | row lookup `0x65EFBE`, the start lot leg `LotPlan` at `0x65F11C` |
+| `0x65F41B` | in the goal-lot loop `0x65F2E0..0x65F84B`, once a turn | the entry of the **goal** lot | row lookup `0x65F463`, the goal lot leg at `0x65F582`, the world A\* at `0x65F809` |
+
+So a plan with two calls is not two alternatives searched twice. It is a lot-to-lot route: leave the start lot, cross the
+world, enter the goal lot. One call is a route with one end on a lot; none is a route inside one lot (`0x65E3C2`) or between
+two points off any lot. The 6x is mostly the mix: 1,726 plans made 549 `Choose` calls, so about 1,350 of the 1,558 plans in
+the "0-1" bucket made none, and those are the short in-lot plans. Among plans >= 100 ms (`route candidate split` lines) the
+two classes cost the same: 27 worker plans with one call, mean 140 ms; 21 with two, mean 124 ms.
+
+| per plan >= 100 ms | one `Choose` (27) | two (21) |
+|---|---|---|
+| world A\* ms / calls | 60 / 1.2 | 18 / 1.9 |
+| water ms | 36 | 44 |
+| post ms | 20 | 24 |
+| cell A\* ms / calls | 9 / 2.3 | 14 / 5.2 |
+| lot search ms / calls | 1 / 1 | 5 / 2 |
+| host ms / calls | 7 / 6.5 | 11 / 12.6 |
+
+Shared work: none between the two lot legs (two different lots, each its own cell searches and door asks). The second world
+search of the two-call class (1.9 a plan with one loop turn) comes from one of the other two world A\* call sites of the
+function (`0x65FB99`, `0x65FDA5`); which, and whether it repeats the first search's start, was not read. The flood counters
+say repeats are rare: 13 of 3,018 found searches start from a cell an earlier one started from. Nothing to keep was found.
+
+### 9.7 Checks run (no game)
+
+- `workerhold-host-test.cpp` with the part cases (nested plan, a host wait between two plans, a job with no plan, the hooks
+  on counters, the release): pass.
+- clang-cl `/Zs /W4` with the xwin headers: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0 errors, no warning
+  in the new lines of the main unit.
+- `node tools/selftest-all.ts --ci`: 199 PASS, 0 FAIL. No new address (`0x760DE6` is an existing row), `ts3addr_count` unchanged.
+- Not run: MSVC, the Windows selftest (`TestWorkerHold`; `TestTailUnlock` gained a single-thread PlanEndLend case: switch
+  off, another caller, no sim wait, count only, a window nobody takes, no job), anything in the game. The "taken" path of the
+  lend has no test: it needs the second thread.
+
+### 9.8 Next storm
+
+Off arm = the s159 on-arm ini plus:
+
+```
+[RouteJobPhases]
+HoldProbe=1
+CandidateSplit=1
+HostSplit=1
+[RouteAsync]
+PlanEndLend=2
+[RouteSpeed]
+CellIndex=0
+```
+
+On arm adds `[RouteAsync] PlanEndLend=1` and `LendWake=1`. Read: `worker hold parts` (is the time before the plan host
+waits; what our wrappers and job end cost; T), `route host calls` (which serve site carries the queue), `plan end lend:`
+(windows taken, job time after them, `closed while parked 0`), and the sim's `+0x918` waits in `hitch totals`. Repro
+`ip-holdoutside-storm`. If the goal step's door asks are confirmed as the bulk, the next build is there (a `DoorMemoX` that
+survives a generation bump for doors the bump did not touch, or one ask per lot for all its doors), not at the tail.

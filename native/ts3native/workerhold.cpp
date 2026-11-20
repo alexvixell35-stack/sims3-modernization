@@ -9,6 +9,8 @@
 //     plan and post pass of a worker job, is the sim thread waiting on +0x918 right now? The first such boundary of a job is
 //     where a yield would have let the sim in: the time from there to the job's end is the wait it would have cut, at most
 //     (the sim's taker also needs its own time, and the worker would wait for it);
+//   - what the job time outside the planner is (docs/673 §9): before / inside / after Route_PlanLocked, the host-call waits
+//     in each, our own wrappers and job end, and how much of a job is left when its last plan ends with the sim waiting;
 //   - how many jobs repeat: the same route handle and IC kind starting within HoldProbeDupMs of that pair's last end.
 // Needs [RouteAsync]; the plan and boundary parts need [RouteJobPhases] CandidateSplit=1 (plancand.cpp's frames).
 // Runtime switch: export ts3native_workerhold +0x00 (native_set workerhold), 1 = count.
@@ -33,11 +35,26 @@ struct WorkerHoldCounters {
     volatile LONG whWaiting[WH_KINDS];      // of those: the sim thread was waiting on +0x918
     volatile LONG whFirstN[WH_KINDS];       // jobs whose first boundary with the sim waiting was of this kind
     volatile LONGLONG whFirstRemUs[WH_KINDS];  // from that boundary to the job's end, us
+    // docs/673 §9, appended: the job's time by part (WH_PRE, WH_IN, WH_TAIL)
+    volatile LONGLONG whPartUs[WH_PARTS];  // before / between Route_PlanLocked calls, inside (our detour's outermost call), after the last
+    volatile LONGLONG whHostUs[WH_PARTS];  // of it: the worker's waits for a managed call on the sim thread (Proxy)
+    volatile LONG whHostN[WH_PARTS];
+    volatile LONG whNoPlanN;               // jobs whose IC never reached Route_PlanLocked
+    volatile LONGLONG whNoPlanUs;
+    volatile LONGLONG whGameUs;            // the game's Route_PlanLocked inside our detour (t_jobPlanUs), us
+    volatile LONGLONG whEndUs;             // our own job end between the IC's return and the +0x918 release
+    volatile LONG whEndMaxUs;
+    volatile LONG whTailN;                 // jobs with a plan
+    volatile LONG whTailWaitN;             // of them: the sim waited on +0x918 when the last Route_PlanLocked returned
+    volatile LONG whPad2;
+    volatile LONGLONG whTailWaitUs;        // their time from there to the release (tail + our job end)
 };
 extern "C" __declspec(dllexport) WorkerHoldCounters ts3native_workerhold = {};
 
 static __declspec(thread) WhJob t_whJob;
 static __declspec(thread) DWORD t_whStartTick;
+static __declspec(thread) LONGLONG t_whIcQ;    // the IC's return (0 = no open probe job)
+static __declspec(thread) LONGLONG t_whWaitQ;  // -1, or the tail ticks of a job whose last plan ended with the sim waiting
 static WhDupRing g_whDups;  // the route worker only (one job at a time)
 
 static LONGLONG WhNowQ() {
@@ -50,7 +67,41 @@ static LONGLONG WhNowQ() {
 static void WhJobBegin() {
     if (ts3native_workerhold.whMode != 1) { t_whJob.open = false; return; }
     WhJobReset(&t_whJob, true);
+    WhSplitReset(&t_whJob.sp, WhNowQ());
     t_whStartTick = GetTickCount();
+    t_whIcQ = 0, t_whWaitQ = -1;
+}
+
+// PlanLockedHook (ts3native.cpp), around the whole detour body: our wrappers and the game's Route_PlanLocked
+static void WhPlEnter() {
+    if (t_whJob.open) WhSplitEnter(&t_whJob.sp, WhNowQ());
+}
+static void WhPlLeave() {
+    if (t_whJob.open) WhSplitLeave(&t_whJob.sp, WhNowQ(), g_whSimWait > 0);
+}
+// Proxy (ts3native.cpp): the worker waited from fromQ to now for a managed call on the sim thread
+static void WhHost(LONGLONG fromQ) {
+    if (t_whJob.open) WhSplitHost(&t_whJob.sp, WhNowQ() - fromQ);
+}
+// ServeAsync, right after the job's IC returned
+static void WhIcDone() {
+    if (!t_whJob.open) return;
+    t_whIcQ = WhNowQ();
+    WhSplitIcDone(&t_whJob.sp, t_whIcQ);
+}
+// ServeAsync, right before the job's +0x918 release (after WhJobEnd): what our own job end cost under the lock
+static void WhRelease() {
+    if (!t_whIcQ) return;
+    WorkerHoldCounters& c = ts3native_workerhold;
+    const LONGLONG endQ = WhNowQ() - t_whIcQ;
+    const LONG endUs = (LONG)(endQ * 1000000 / g_qpf.QuadPart);
+    InterlockedExchangeAdd64(&c.whEndUs, endUs);
+    if (endUs > c.whEndMaxUs) c.whEndMaxUs = endUs;
+    if (t_whWaitQ >= 0) {
+        InterlockedIncrement(&c.whTailWaitN);
+        InterlockedExchangeAdd64(&c.whTailWaitUs, (t_whWaitQ + endQ) * 1000000 / g_qpf.QuadPart);
+    }
+    t_whIcQ = 0, t_whWaitQ = -1;
 }
 
 // plancand.cpp PccEnter, a frame just opened on this thread; site = PCC_*
@@ -76,8 +127,8 @@ static void WhPlanEnd(LONG cands, LONG cellUs, LONG us, LONGLONG inclQ, DWORD co
     InterlockedExchangeAdd64(&c.whPlanCellUs[sync][fail], cellUs);
 }
 
-// ServeAsync, after the job's IC and before the lock goes back; us = the job's time
-static void WhJobEnd(DWORD handle, int kind, LONG us) {
+// ServeAsync, after the job's IC and before the lock goes back; us = the job's time, gameUs = the game's Route_PlanLocked
+static void WhJobEnd(DWORD handle, int kind, LONG us, LONG gameUs) {
     WorkerHoldCounters& c = ts3native_workerhold;
     WhJob& j = t_whJob;
     if (!j.open) return;
@@ -87,6 +138,19 @@ static void WhJobEnd(DWORD handle, int kind, LONG us) {
     InterlockedExchangeAdd64(&c.whJobUs[fail][b], us);
     const LONGLONG phUs = j.phQ * 1000000 / g_qpf.QuadPart;
     if (us > phUs) InterlockedExchangeAdd64(&c.whOutUs, us - phUs);
+    for (int i = 0; i < WH_PARTS; i++) {
+        InterlockedExchangeAdd64(&c.whPartUs[i], j.sp.partQ[i] * 1000000 / g_qpf.QuadPart);
+        InterlockedExchangeAdd64(&c.whHostUs[i], j.sp.hostQ[i] * 1000000 / g_qpf.QuadPart);
+        if (j.sp.hostN[i]) InterlockedExchangeAdd(&c.whHostN[i], j.sp.hostN[i]);
+    }
+    InterlockedExchangeAdd64(&c.whGameUs, gameUs);
+    if (j.sp.plans) {
+        InterlockedIncrement(&c.whTailN);
+        if (j.sp.endWait) t_whWaitQ = j.sp.partQ[WH_TAIL];
+    } else {
+        InterlockedIncrement(&c.whNoPlanN);
+        InterlockedExchangeAdd64(&c.whNoPlanUs, us);
+    }
     for (int i = 0; i < WH_KINDS; i++) {
         if (j.seen[i]) InterlockedExchangeAdd(&c.whSeen[i], j.seen[i]);
         if (j.waiting[i]) InterlockedExchangeAdd(&c.whWaiting[i], j.waiting[i]);
@@ -153,5 +217,18 @@ static void WhLogCounters() {
                         (LONG)(c.whFirstRemUs[i] / 1000));
     Log("worker hold boundaries (reached / with the sim waiting on +0x918 / first such of its job, ms from it to the job's end): %s; "
         "jobs that ended with the sim waiting and no boundary in the wait %ld", k, c.whEndWait);
+    LONGLONG phUs = 0;  // the worker's PlanHierarchical calls
+    for (int f = 0; f < 2; f++)
+        for (int i = 0; i < WH_CANDB; i++) phUs += c.whPlanUs[0][f][i];
+    const LONGLONG inUs = c.whPartUs[WH_IN], ourUs = inUs - c.whGameUs - c.whHostUs[WH_IN];
+    Log("worker hold parts (ms; host = the worker's waits for a managed call on the sim thread, ms / calls): before or between "
+        "Route_PlanLocked %ld (host %ld / %ld), jobs that never reached it %ld / %ld ms; inside our Route_PlanLocked detour %ld "
+        "(host %ld / %ld, the game's Route_PlanLocked %ld with PlanHierarchical %ld of it, our wrappers at most %ld); after the last "
+        "one %ld (host %ld / %ld); our job end before the release %ld (max %ld us); the last plan ended with the sim waiting on "
+        "+0x918 in %ld of %ld jobs, %ld ms from there to the release",
+        (LONG)(c.whPartUs[WH_PRE] / 1000), (LONG)(c.whHostUs[WH_PRE] / 1000), c.whHostN[WH_PRE], c.whNoPlanN, (LONG)(c.whNoPlanUs / 1000),
+        (LONG)(inUs / 1000), (LONG)(c.whHostUs[WH_IN] / 1000), c.whHostN[WH_IN], (LONG)(c.whGameUs / 1000), (LONG)(phUs / 1000),
+        (LONG)((ourUs > 0 ? ourUs : 0) / 1000), (LONG)(c.whPartUs[WH_TAIL] / 1000), (LONG)(c.whHostUs[WH_TAIL] / 1000), c.whHostN[WH_TAIL],
+        (LONG)(c.whEndUs / 1000), c.whEndMaxUs, c.whTailWaitN, c.whTailN, (LONG)(c.whTailWaitUs / 1000));
 }
 #endif

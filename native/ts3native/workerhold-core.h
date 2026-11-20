@@ -18,8 +18,48 @@ static inline int WhJobBucket(long us) {  // < 5, < 20, < 50, < 100, < 250, >= 2
 }
 static inline int WhCandBucket(long cands) { return cands <= 1 ? 0 : cands == 2 ? 1 : cands < 10 ? 2 : 3; }  // 0-1, 2, 3-9, >= 10
 
+// docs/673 §9: a job's time by part. The job is one route IC: start points, goal generation and the goal step, then
+// Route_PlanLocked (our detour's outermost call: a plan nested in a managed call is inside it), then the result mapping
+// and the EditPath tail. A host-call wait belongs to the part it was posted in.
+enum { WH_PRE, WH_IN, WH_TAIL, WH_PARTS };  // before the first or between Route_PlanLocked calls, inside one, after the last
+struct WhSplit {
+    int depth;                  // open Route_PlanLocked calls
+    long plans;                 // outermost calls that returned
+    long long markQ;            // the job's start, or the last outermost entry / return
+    long long partQ[WH_PARTS];  // clock ticks by part (WH_TAIL is set at the IC's end)
+    long long hostQ[WH_PARTS];  // host-call waits by part
+    long hostN[WH_PARTS];
+    bool endWait;               // the sim thread waited on +0x918 at the last outermost return
+};
+static inline void WhSplitReset(WhSplit* s, long long nowQ) {
+    s->depth = 0, s->plans = 0, s->markQ = nowQ, s->endWait = false;
+    for (int i = 0; i < WH_PARTS; i++) s->partQ[i] = s->hostQ[i] = 0, s->hostN[i] = 0;
+}
+static inline int WhSplitPart(const WhSplit* s) { return s->depth > 0 ? WH_IN : s->plans ? WH_TAIL : WH_PRE; }
+static inline void WhSplitEnter(WhSplit* s, long long nowQ) {
+    if (s->depth++) return;
+    s->partQ[WH_PRE] += nowQ - s->markQ, s->markQ = nowQ;
+    // what looked like the tail was a gap between two plans
+    s->hostQ[WH_PRE] += s->hostQ[WH_TAIL], s->hostN[WH_PRE] += s->hostN[WH_TAIL], s->hostQ[WH_TAIL] = 0, s->hostN[WH_TAIL] = 0;
+}
+// 1 = an outermost call returned
+static inline int WhSplitLeave(WhSplit* s, long long nowQ, bool simWaits) {
+    if (s->depth <= 0 || --s->depth) return 0;
+    s->partQ[WH_IN] += nowQ - s->markQ, s->markQ = nowQ, s->plans++, s->endWait = simWaits;
+    return 1;
+}
+static inline void WhSplitHost(WhSplit* s, long long q) {
+    const int part = WhSplitPart(s);
+    s->hostQ[part] += q, s->hostN[part]++;
+}
+// the IC returned: the time since the last plan is the tail (with no plan the whole job is WH_PRE)
+static inline void WhSplitIcDone(WhSplit* s, long long nowQ) {
+    s->partQ[s->plans ? WH_TAIL : WH_PRE] += nowQ - s->markQ, s->markQ = nowQ;
+}
+
 struct WhJob {
     bool open;
+    WhSplit sp;
     int firstKind;       // the first boundary this job reached while the sim thread waited on +0x918 (-1 = none)
     long long firstQ;    // its clock
     long plans, fails;   // PlanHierarchical calls that ended in this job, and those with a code other than 0
@@ -30,6 +70,7 @@ struct WhJob {
 static inline void WhJobReset(WhJob* j, bool open) {
     j->open = open, j->firstKind = -1, j->firstQ = 0, j->plans = j->fails = 0, j->phQ = 0;
     for (int i = 0; i < WH_KINDS; i++) j->seen[i] = j->waiting[i] = 0;
+    WhSplitReset(&j->sp, 0);
 }
 // 1 = this is the job's first boundary with the sim waiting
 static inline int WhBoundary(WhJob* j, int kind, bool simWaits, long long nowQ) {
