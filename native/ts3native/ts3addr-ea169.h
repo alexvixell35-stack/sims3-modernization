@@ -173,6 +173,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0061AD13, 0x0061BED3},
     {0x0061AE80, 0x0061C040},
     {0x0061B533, 0x0061C6F3},
+    {0x0061BCE0, 0x00000000},
     {0x0061BF60, 0x0061D080},
     {0x0061C020, 0x0061D140},
     {0x0061CC73, 0x0061DD93},
@@ -317,6 +318,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006679D8, 0x00668E68},
     {0x00668962, 0x00669DC2},
     {0x0066AC37, 0x0066C097},
+    {0x0066B9C0, 0x00000000},
     {0x0066BB50, 0x0066CFB0},
     {0x0066BFAE, 0x0066D40E},
     {0x0066D110, 0x0066E570},
@@ -1687,7 +1689,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1516;
+constexpr int ts3addr_count = 1518;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)
@@ -1741,3 +1743,5 @@ constexpr int ts3addr_count = 1516;
 // unresolved: 0x00E52B90 no-ea-1.69-address native/ts3native/saveframes.cpp (2026-11-19, docs/293 §6: not ported yet)
 // unresolved: 0x00E535E0 no-ea-1.69-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)
 // unresolved: 0x00E5404D no-ea-1.69-address native/ts3native/yielddiag.cpp (2026-11-19, docs/293 §6: not ported yet)
+// unresolved: 0x0061BCE0 no-ea-1.69-address native/ts3native/routespeed.cpp (docs/663)
+// unresolved: 0x0066B9C0 no-ea-1.69-address native/ts3native/routespeed.cpp (docs/663)

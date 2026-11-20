@@ -12,6 +12,7 @@
  "RouteJobPhases": ["hostcalls.cpp", "routephases.cpp", "syncphases.cpp"],
  "GoalGen": ["goalgen.cpp"],
  "CellMemoProbe": ["cellmemo.cpp"],
+ "RouteSpeed": ["routesnap.cpp", "routespeed.cpp"],
  "RouteEarlyOut": ["earlyout.cpp"],
  "SaveWrite": ["savewrite.cpp"],
  "Startup": ["dxdiagcache.cpp"],
@@ -94,7 +95,7 @@
  "ImageGuard": ["imgguard.cpp"],
  "IlPatch": ["ilpatch.cpp"],
  "GcGrowLog": ["gcgrow.cpp"],
- "LauncherFix": ["launcherfix.cpp"],
+ "LauncherFix": ["launcherfix.cpp"],
  "Binder": ["bindertd.cpp"],
  "Crash2Diag": ["c2diag.cpp"],
  "EqualsFast": ["equalsfast.cpp"],
