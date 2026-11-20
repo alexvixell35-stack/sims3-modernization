@@ -1367,6 +1367,93 @@ static void TestFallback() {
     assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
     Cancel(kH1);
     assert(k.fbPendApplied == 2);  // never applied twice
+    // 2c. SkipRetry (docs/670 §20): a job the worker skipped is parked at its READY and queued again; scope, PlayerFirst and
+    // the two caps leave it to today's synchronous plan. The skip itself is faked: a collected job's slot set to J_SKIPPED
+    {
+        SkipRetryCounters& sr = ts3native_skipretry;
+        memset(&sr, 0, sizeof(sr));
+        const LONG busy0 = k.fbPendBusy, applied0 = k.fbPendApplied, retry0 = k.fbRetryMode;
+        const LONG rfbMax0 = k.rfbMax, logMs0 = k.rfbLogMs, rp0 = k.fbRetryParked, rq0 = k.fbRetryQueued, rg0 = k.fbRetryGaveUp;
+        LONG rfbN0[3] = {0, 0, 0}, rfbMs0[3] = {0, 0, 0};
+        memcpy(rfbN0, k.rfbN, sizeof(rfbN0));
+        memcpy(rfbMs0, k.rfbMs, sizeof(rfbMs0));
+        k.rfbLogMs = 0x7FFFFFFF;  // this block's sync plans write no line and leave the fallback sums as they were (restored below)
+        k.fbRetryMode = 0;  // not needed by SkipRetry
+        // switch off: as before (READY says done, the plan runs here)
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1) && !JobFor(kH1) && g_rfbWhy == RFB_SKIPPED && sr.parked == 0 && sr.notScope == 0);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // on, a route known unseen, world quiet: parked and queued in the same READY, the worker's answer collected
+        sr.mode = 1;
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        const LONG started1 = k.asyncStarted;
+        assert(!Ready(kH1) && sr.parked == 1 && sr.queued == 1 && sr.ticksMax == 1 && k.asyncStarted == started1 + 1);
+        assert(JobFor(kH1) && JobFor(kH1)->sk == 1 && JobFor(kH1)->state != J_SKIPPED && JobFor(kH1)->state != J_PEND);
+        WaitReady(kH1);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
+        Cancel(kH1);
+        // scope not known unseen (household, selected, unknown): today's path
+        assert(Start(kH1));
+        WaitReady(kH1);
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1) && !JobFor(kH1) && g_rfbWhy == RFB_SKIPPED && sr.notScope == 1 && sr.parked == 1);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // a PlayerFirst-marked route, even when unseen: today's path
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        JobFor(kH1)->pf = 1;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1) && !JobFor(kH1) && sr.notScope == 2 && sr.parked == 1);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // kSkMax parks used: today's path
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        JobFor(kH1)->sk = kSkMax;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1) && !JobFor(kH1) && sr.capped == 1 && sr.parked == 1 && g_rfbWhy == RFB_SKIPPED);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // pending lot updates and +0x918 busy on every tick: parked, kFbRetryTicks READY polls, then the synchronous plan
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        p[0x10E] = 1;
+        g_fbAcq = FbBusyAcquire;
+        const LONG started2 = k.asyncStarted;
+        for (LONG i = 1; i < kFbRetryTicks; i++) assert(!Ready(kH1) && JobFor(kH1)->state == J_PEND && JobFor(kH1)->pend == i);
+        assert(sr.parked == 2 && sr.gaveUp == 0 && sr.queued == 1 && k.asyncStarted == started2);
+        assert(Ready(kH1) && !JobFor(kH1) && sr.gaveUp == 1 && sr.ticksMax == kFbRetryTicks && g_rfbWhy == RFB_M1 + 3);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        p[0x10E] = 0;
+        g_fbAcq = FakeLockAcquire;
+        // parked, then the switch goes off: given up on the next tick with the skip's reason
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        p[0x10E] = 1;
+        g_fbAcq = FbBusyAcquire;
+        assert(!Ready(kH1) && sr.parked == 3);
+        sr.mode = 0;
+        assert(Ready(kH1) && !JobFor(kH1) && sr.gaveUp == 2 && g_rfbWhy == RFB_SKIPPED);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        p[0x10E] = 0;
+        g_fbAcq = FakeLockAcquire;
+        assert(k.fbRetryParked == rp0 && k.fbRetryQueued == rq0 && k.fbRetryGaveUp == rg0);  // M1Retry's own counters untouched
+        k.fbPendBusy = busy0, k.fbPendApplied = applied0, k.fbRetryMode = retry0;
+        k.rfbMax = rfbMax0, k.rfbLogMs = logMs0;
+        memcpy(k.rfbN, rfbN0, sizeof(rfbN0));
+        memcpy(k.rfbMs, rfbMs0, sizeof(rfbMs0));
+        memset(&sr, 0, sizeof(sr));
+    }
     // RemovalFirst (docs/89 §18), M1Retry off as shipped: a queued removal parks a route not known unseen, the tick waits while it
     // is queued, then the job queues; other records and the switch keep today's START; the tick cap goes on
     {

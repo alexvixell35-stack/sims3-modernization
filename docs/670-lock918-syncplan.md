@@ -989,8 +989,7 @@ under `RoutingBlockerCheck2d`: `0x82E696` / `0x82E6C7`.
 
 `Skipped` is the same world condition that `M1Pending` / `M1DirtyIndex` refuse at START, met a little later (at dequeue). It
 need not be synchronous: the job can go back to `J_PEND` and be retried on the task's READY polls exactly as `M1Retry` does
-for a refused START (bounded by its retry cap, then today's sync plan). **Not built** in this pass (time); it is the next
-build for this key: about 30-45 min with a selftest case beside the M1Retry ones. `Los` must stay synchronous until the
+for a refused START (bounded by its retry cap, then today's sync plan): built as `[RouteAsync] SkipRetry` (§20). `Los` must stay synchronous until the
 physics raycast has a worker-safe form (not a lock question). The selected Sim's Go Here is `QueueFull` once (60 ms): a
 queue-depth matter, not a reason class.
 
@@ -1001,8 +1000,7 @@ queue-depth matter, not a reason class.
 does not carry its site key. Named by a stall-watch sample beside it: `Objects_SetPosition` 3 / 362 ms and
 `Slots_AttachToSlotImpl` 4 / 326 ms (both the object-move flush of a queued record before the object changes: `RT_*` site
 through `RtWaitJob`); 81 lines sit beside a `ufplan` line of the same tick (a plan's collect in ts3fixes); 88 lines have
-nothing beside them. `RouteLockCallers` does not cover these (not a lock wait); the cheap next step is the site key
-(`0x02000000 | RT_*`, already passed to `RtWaitJob`) in the line.
+nothing beside them. `RouteLockCallers` does not cover these (not a lock wait); the line now names its site (§20.2).
 
 ### 19.5 Checks run (2026-11-20, no game)
 
@@ -1016,3 +1014,62 @@ nothing beside them. `RouteLockCallers` does not cover these (not a lock wait); 
 On top of §18: `[HitchAttr] RouteLockMs=20`, `RouteLockCallers=1`. Read the `; callers` word of the `0062FB74` and `0062EF7A`
 lines (sum ms by the first word) and resolve the addresses with Ghidra; build the SH hold around `0x654790` (§12.2, §17)
 only if `ArePointsConnectedByLand` carries most of `0x62FB74`.
+
+## 20. `[RouteAsync] SkipRetry`: a skipped job is parked and retried (ts3native, default off, NOT RUN); the `rtwait` site
+
+### 20.1 What it does [built: `ts3native.cpp` `SkPark`, `FbRetry`, `GetOptionHook` READY, `IcCollect`]
+
+§19.3's largest class: the worker takes a queued job, finds the world not quiet (`k.rtBusy`, pending lot updates, a dirty lot
+index) and marks it `J_SKIPPED`; the task's next READY poll then frees the slot and the whole plan runs on the sim thread
+(`reason Skipped`), usually behind the job that runs by then. With `SkipRetry=1` that READY parks the START again instead
+(`J_PEND`, the state M1Retry uses for a START refused for the same reason) and `FbRetry` runs in the same poll and on each
+later one: it applies the pending lot updates under one `+0x918` try (`FbApplyPending`, as M1Retry) and queues the job; a
+busy lock or queued discourage records wait a tick. Nothing else changes: the same IC on the worker, the same result, later
+by READY polls of the Sim's own task (the Sim waits on its own timeline; the sim thread does not block).
+
+Falls back to today's synchronous plan when:
+
+- the route is not known unseen at START (`uf` mark or scope 2), i.e. household, selected or unknown scope, unless
+  `[Experimental] HouseholdToo=1` lifts it (`HhExempt`); a PlayerFirst-marked route (the player's command) never parks,
+  with the flag on too (`not parked: scope`);
+- the START was parked `kSkMax` = 3 times already, or its 30 READY ticks (`kFbRetryTicks`, one count for all parks of the
+  START) are used (`not parked: cap`, or `gave up` at the tick);
+- `FbRetry` meets a refusal that waiting does not cure (closing, dirty lot index, `rtBusy`, `Los`, an active route): the
+  plan runs at once with that reason, so a dirty index is still cleaned by the sync plan as today;
+- the switch or `FallbackAsync` goes off while parked, or the plan is collected without a READY (`IcCollect`: `gave up`).
+
+A parked slot is sim-thread only (the worker never sees `J_PEND`); the worker is finished with a `J_SKIPPED` slot before
+READY reads it, so no new shared state. CANCEL and the stale-slot reclaim treat it as any parked START.
+
+Counters: exported block `ts3native_skipretry` (no layout change): `+0x00` mode (`native_set skipretry`), parked, queued,
+gave up, max ticks, not parked: scope, not parked: cap. Line: `route skip retry: mode M parked P queued Q gave up G max
+ticks T, not parked: scope S cap C (skipped N)`.
+
+Limit [inferred]: the seen-NPC share of the `Skipped` plans is not covered (scope unknown to the native side counts as
+household). `not parked: scope` in the first arm says how large that share is.
+
+### 20.2 The `rtwait` line names its site [built: `rtsites.cpp` `RtSiteName`, `SwNote`]
+
+`route jobs: sim waited N ms for a job at rtwait (route H, own job, task could yield yes, site destroy)`: the kind of the
+gate site that waited (`quadtree read / write / leaf`, `destroy`, `lot grid`, `pending updates`, `index rebuild`, `save`,
+`build routing data`, `lot save`, `teardown`, `closing`, `steer`, `lost-removal flush`). Appended inside the bracket; the
+report tools match the line's head only.
+
+### 20.3 Checks run (2026-11-20, no game)
+
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0 errors, the same warning counts as before
+  the change (170 / 172 / 217, none in the new lines).
+- Selftest case 2c in `TestFallback` (switch off; parked and queued in one READY with the worker's answer collected; scope;
+  PlayerFirst; `kSkMax`; 30 busy ticks then the sync plan; switch off while parked; M1Retry's counters untouched; no timing
+  assert): written, compiles, **not run**: the clang-cl build under Wine stops at the first worker START of `TestRouteAsync`
+  (`selftest.cpp` line 1954, before the block; clang's SEH limit also needs `0x11D40C4` mapped for `AsyncLosRoute`). Needs
+  the MSVC CI build.
+- §19.2's `HsChain` block in `TestHitchSum`: run under Wine in the same build, passed (the run then stopped at a later,
+  untouched assert of that test that expects earlier cases' state).
+- `node tools/selftest-all.ts --ci`: pass.
+
+### 20.4 Next storm, on arm
+
+On top of §19.6: `[RouteAsync] SkipRetry=1` (with `FallbackAsync=1 M1Retry=1 LogFallbackMs=40`), repro `ip-skipretry-storm`
+(`native_set skipretry`). Read `route skip retry:` (queued near parked, gave up small, max ticks far under 30, `scope`
+against parked), the `sync plan ... reason Skipped` lines against the off arm, and the `site` word of the `rtwait` lines.
