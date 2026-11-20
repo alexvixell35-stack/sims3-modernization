@@ -372,6 +372,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kBurglarIdle = true;    // burglaridle (docs/568 §1): burglar stands in the house after a fire reaction that did not leave, or when the household is gone
         [Tunable] public static bool kGigWaitLeave = true;    // gigwaitleave (docs/568 §2): Stylist/Singer gig customer still pushed to wait after the gig timed out
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
+        [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kBirthdayAgers = false;    // birthdayagers (docs/571 §1): birthday party records only the first Sim who ages up

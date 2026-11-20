@@ -150,6 +150,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBoatTaxiMemoHours value="4" />
     <kNpmFuzzy value="False" />
     <kNpmHousehold value="False" />
+    <kDoorShare value="False" />
     <kTrashOutsideFallback value="False" />
     <kTrashOutsideFallbackHours value="4" />
     <kWildLotSkip value="False" />

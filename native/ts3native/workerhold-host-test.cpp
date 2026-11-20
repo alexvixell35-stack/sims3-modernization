@@ -55,6 +55,7 @@ static void QueryPerformanceFrequency(LARGE_INTEGER* q) { q->QuadPart = 1000000;
 static LARGE_INTEGER g_qpf;
 static DWORD g_fakeTick = 5000;
 static DWORD GetTickCount() { return g_fakeTick += 10; }
+static void Sleep(DWORD) {}  // workerhold-test.h gives timed parts a real length on Windows; the fake clock steps on every read
 
 // what workerhold.cpp takes from the rest of ts3native.cpp (plancand.cpp's site ids, the sim's +0x918 wait count)
 enum { PCC_PH, PCC_CLOSEST, PCC_SAMELAND, PCC_SAMEWATER, PCC_CHOOSE, PCC_GATHER, PCC_SHORE, PCC_LOTSEARCH, PCC_CELL, PCC_LOTPLAN,

@@ -3226,6 +3226,7 @@ static void PccLogCounters();  // plancand.cpp (docs/644)
 static void RsLogCounters();   // routespeed.cpp (docs/663)
 static void FmLogCounters();   // floodmemo.cpp (docs/667)
 static void WhLogCounters();   // workerhold.cpp (docs/673)
+static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PelLogCounters();  // tailunlock.cpp (docs/673 §9: [RouteAsync] PlanEndLend / LendWake)
 static void CiLogCounters();   // cellindex.cpp (docs/669)
 static void PtLogCounters();   // placero.cpp (docs/670)
@@ -3309,6 +3310,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     RsLogCounters();   // docs/663 (nothing until NeighbourMemo is installed)
     FmLogCounters();   // docs/667 (nothing until FloodMemo is installed)
     WhLogCounters();   // docs/673 (nothing until HoldProbe is installed)
+    DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     PelLogCounters();  // docs/673 §9 (nothing until PlanEndLend / LendWake is installed)
     CiLogCounters();   // docs/669 (nothing until CellIndex is installed)
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
@@ -3695,6 +3697,7 @@ struct AsyncJob {
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
     LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
     LONG pf;          // docs/631 [RouteAsync] PlayerFirst: 1 = a route the player ordered (ts3fixes playerfirst, UserDiag op 37)
+    LONG dsBits;      // docs/674 [RouteSnap] DoorShare: the route's Sim class from ts3fixes doorshare (UserDiag op 40), 0 = none
 };
 // docs/134: 32 slots; with [RouteAsync] FallbackAsync off only the first kJobsBase are handed out (QueueFull as before)
 static const int kJobs = 32, kJobsBase = 8;
@@ -3983,6 +3986,17 @@ static __declspec(thread) LONG t_hcJob;
 // DoorMemoX: the running job's scope (kdScope from ts3fixes UfWhy, 2 when marked uf): 0 unknown, 1 household or unknown, 2 unseen, 3 seen NPC
 static __declspec(thread) LONG t_hcScope;
 static LONG g_hcJobSeq;  // worker only
+// docs/674 [RouteSnap] DoorShare (doorshare.cpp): the running job's Sim class (op 40 of its route, 0 = none) and where the job
+// is: open Route_PlanLocked calls and finished outermost ones (door asks by part of the job, counting only)
+static __declspec(thread) LONG t_dsBits, t_dsPlDepth, t_dsPlans;
+static DWORD g_dsH;   // sim thread: route of the last op 40, good for its next START only
+static LONG g_dsBits;
+static void DsClassSet(DWORD handle, LONG bits) { g_dsH = handle, g_dsBits = bits; }
+static LONG DsClassTake(DWORD handle) {
+    const LONG r = handle && g_dsH == handle ? g_dsBits : 0;
+    g_dsH = 0;
+    return r;
+}
 static LONGLONG HcNow();
 static void HcPost(InvokeJob& v);
 static void HcPick(InvokeJob& v, int site);
@@ -4457,12 +4471,13 @@ static void ServeAsync() {
         WhJobBegin();                               // docs/673 HoldProbe (workerhold.cpp), counting only
         t_hcJob = ++g_hcJobSeq;                     // hostcalls.cpp: door keys and the memo are per job
         t_hcScope = j->uf ? 2 : j->kdScope;         // hostcalls.cpp: DoorMemoX answers only unseen / seen-NPC jobs
+        t_dsBits = j->dsBits, t_dsPlDepth = 0, t_dsPlans = 0;  // docs/674 DoorShare
         t_p6wOut = j->p4 >= 2 ? P6O_REFUSED : P6O_PLAIN;  // [P6Waits]: armed until P5Plan says taken / stale
         t_p6wArm = P6wArmNow();                            // [P6Waits]: the arm at the job's start
         UafTagScope uafTag(UT_ROUTE_JOB, (const void*)&ServeAsync);  // [UafCheck] frees during the worker job and its end
         CallIc(j->kind, j->result, j->handle, j->pt);
         WhIcDone();  // docs/673 §9 HoldProbe: the tail ends here, our own job end begins
-        t_hcJob = 0, t_hcScope = 0;
+        t_hcJob = 0, t_hcScope = 0, t_dsBits = 0;
         LendBackstop();  // CE-4 (docs/154): a lend window an unwind left open is closed before the release below
         P5EarlyEnd();    // P6EarlyCopy (docs/94 §24.14): an early clone the IC never planned with (no Route_PlanLocked)
         InterlockedExchange((volatile LONG*)&g_pdWkTid, 0);
@@ -4845,6 +4860,7 @@ static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx,
     if (t_p6.act) t_p6.plans++;  // P6 split: planner calls per job (count only)
     if (t_kdCam == 1) KdCamPlanArgs(starts, goals);
     WhPlEnter();  // docs/673 §9 HoldProbe (nothing outside a probed worker job)
+    t_dsPlDepth++;  // docs/674: door asks by part of the job (counting only)
     u8 r = 0;
     if (t_p4Cap) {
         r = P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
@@ -4857,6 +4873,7 @@ static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx,
         P10PlanEnd(tag, t0);
     }
     WhPlLeave();
+    if (!--t_dsPlDepth) t_dsPlans++;
     PelPlanEnd((DWORD)(uintptr_t)_ReturnAddress());  // docs/673 §9: the job's +0x918 lent to a waiting sim taker at the plan's end
     return r;
 }
@@ -5497,6 +5514,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
     j->pf = PfTake(handle);  // docs/631: before J_QUEUED, the worker reads it to pick
+    j->dsBits = DsClassTake(handle);  // docs/674: the class is good for this START only
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
     j->ufCut = j->ufCutView = 0;
     // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it
@@ -6408,6 +6426,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plancand.cpp: PccScopeNow)
 #include "floodmemo.cpp"   // docs/667: [RouteSpeed] FloodMemo (after routespeed.cpp: the Q clear stub; nopathmemo.cpp: NpmCmdHandle)
 #include "cellindex.cpp"   // docs/669: [RouteSpeed] CellIndex (after routespeed.cpp: the Q clear stub; plancand.cpp: PccScopeNow)
+#include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
 #include "thumbstall.cpp"  // [ThumbStall]: timeout for state 0x11 of the Sim thumbnail queue (EXPERIMENT, off)

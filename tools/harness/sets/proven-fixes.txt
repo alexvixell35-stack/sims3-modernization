@@ -427,3 +427,5 @@ worldpondskatetest
 #   perfjobmissedlistener petstartleskip petlonghome petarrivepoint strayleave barcloseorphan venueintensity
 #   caspropagateoutfits caspropagateextra casdefaultskin casoccultlog castintreset elevatorlightrig
 #   optionsnoopapply petlongvisit npmfuzzy npmhousehold
+# built 2026-11-20 (feat/doorask-misses, docs/674), default off, not run in the game:
+#   doorshare

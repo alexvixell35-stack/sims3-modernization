@@ -125,6 +125,7 @@ namespace Ts3Fixes
                 case "doorgen": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(DoorGenBuffHook), 2), EpLive(typeof(DoorGenBuffHook2), 2)), EpLive(typeof(DoorGenDescHook), 3)), EpLive(typeof(DoorGenDoorHook), 5)), EpLive(typeof(DoorGenFireHook), 2)), EpLive(typeof(DoorGenHouseholdHook), 4)), EpLive(typeof(DoorGenLotHook), 2)), EpLive(typeof(DoorGenOccultHook), 1)), EpLive(typeof(DoorGenResortHook), 6)), EpLive(typeof(DoorGenRoleHook), 2)), EpLive(typeof(DoorGenRoleTaskHook), 1)), EpLive(typeof(DoorGenSimHook), 1)), EpLive(typeof(DoorGenVipHook), 2));
                 case "doorlockowner": return EpLive(typeof(BDlHook), 2);
                 case "doorprivacynull": return EpLive(typeof(B12DpHook), 1, "sDpNeed", sDpNeed, typeof(bool), "sDpHandler", sDpHandler, null, "sDpNeed", sDpNeed, null);
+                case "doorshare": return EpJoin(EpLive(typeof(DoorShareCbHook), 0), EpLive(typeof(DoorShareLotHook), 2));
                 case "dragoncurserun": return EpLive(typeof(WsCurseHook), 1);
                 case "dreamcleanup": return EpLive(typeof(DcHook), 1, "sDcRemoval", sDcRemoval, null);
                 case "dreamrootorphan": return EpLive(typeof(WlNode), 0, "sWlListener", sWlListener, null);

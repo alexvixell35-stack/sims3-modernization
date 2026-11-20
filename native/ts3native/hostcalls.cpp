@@ -117,19 +117,26 @@ static const DWORD* g_dmxDelegate;   // the event 59 delegate slot (0x11D72C4; N
 static volatile LONG g_dmxMismatchLog, g_dmxSelf;  // g_dmxSelf: mode-1 hits, every 8th asked anyway (self-check)
 // mode 3 (DoorGen.cs, op 36): the script-side generation and the armed flag; own export, counters layout unchanged
 static u8 DmxScriptOp(DWORD lo) {  // sim thread (UserDiag)
-    if (lo == 1) { InterlockedExchange(&ts3native_doorgen.armed, 1); Log("door memo x: ts3fixes doorgen armed (DoorMemoX=3 inputs tracked)"); return 1; }
+    if (lo == 1) {
+        InterlockedIncrement(&ts3native_doorgen.gen);  // docs/674: a world load starts a new generation (no row of the last world answers)
+        InterlockedExchange(&ts3native_doorgen.armed, 1);
+        Log("door memo x: ts3fixes doorgen armed (DoorMemoX=3 inputs tracked)");
+        return 1;
+    }
     InterlockedIncrement(&ts3native_doorgen.gen);
     InterlockedIncrement(&ts3native_doorgen.bumps);
     return 1;
 }
-static LONG DmxGen() {
+static LONG DmxGenNative() {
     const Ts3nCounters& k = ts3native_counters;
     static const int kEv[] = {5, 7, 9, 0x0A, 0x0D, 0x0E, 0x0F, 0x10};
     LONG g = 0;
     for (int i = 4; i <= 14; i++) g += k.snIc[i];
     for (int e : kEv) g += k.snWev[e];
-    if (k.dmxMode == 3) g += ts3native_doorgen.gen;  // mode 3: the managed inputs (DoorGen.cs) too
     return g;
+}
+static LONG DmxGen() {
+    return DmxGenNative() + (ts3native_counters.dmxMode == 3 ? ts3native_doorgen.gen : 0);  // mode 3: the managed inputs (DoorGen.cs) too
 }
 static DWORD DmxDeleg() { return g_dmxDelegate ? *(volatile const DWORD*)g_dmxDelegate : 0; }
 // the newest row for the key, NULL = none; *stale = a row existed but its generation, delegate or age no longer holds
@@ -188,15 +195,22 @@ static void HcCross(const DWORD* key, DWORD ans, LONGLONG now) {
 // slot = the call's return slot: slot[1..9] = the arguments. 0 = pass through to the next, 1 = return g_hcDoorAns
 static int __cdecl HcDoorEnter(DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
-    const LONG mode = k.dmMode, split = g_hcOn, xm0 = k.dmxMode;
+    const LONG mode = k.dmMode, split = g_hcOn, xm0 = k.dmxMode, share = ts3native_doorshare.mode;
     // mode 3 before ts3fixes armed it: no cross-job memo at all (asks go out as with DoorMemoX=0)
     const LONG xm = xm0 == 3 && !ts3native_doorgen.armed ? (InterlockedIncrement(&ts3native_doorgen.unarmedAsks), 0) : xm0;
-    if (!mode && !split && !xm) return 0;
+    if (!mode && !split && !xm && !share) return 0;
     if (t_snapRun) { if (mode) InterlockedIncrement(&k.dmFb[3]); return 0; }
     if (!t_hcJob || GetCurrentThreadId() != g_workerTid) { if (mode) InterlockedIncrement(&k.dmFb[0]); return 0; }
     if (g_invJob) { if (mode) InterlockedIncrement(&k.dmFb[1]); return 0; }  // a plan the sim sent back inside a managed call
     DWORD key[9];
     P4DoorKey(slot + 1, key);
+    // docs/674 [RouteSnap] DoorShare: a row shared by every ordinary-class Sim answers first (the generation always has the
+    // managed inputs; nothing is answered or kept until ts3fixes doorgen armed it)
+    DsAsk ds = {};
+    if (share && DsBefore(key, DmxGenNative() + ts3native_doorgen.gen, DmxDeleg(), HcNow(), &ds)) {
+        g_hcDoorAns = 2;
+        return 1;
+    }
     if (xm != g_dmxLast) {  // a flip (either way): nothing filled under the other mode is used
         memset(g_dmx, 0, sizeof(g_dmx));
         g_dmxLast = xm;
@@ -236,12 +250,14 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         g_hcDoorAns = hit->ans;
         return 1;
     }
+    DsLive(&ds);
     const LONGLONG t0 = HcNow();
     t_hcDoor = 1;
     const DWORD r = ((P4DoorFn)g_hcDoorJmp)(slot[1], slot[2], slot[3], slot[4], slot[5], slot[6], slot[7], slot[8], slot[9]);
     t_hcDoor = 0;
     const LONGLONG now = HcNow();
     const LONG us = HcUs(now - t0);
+    DsAfter(&ds, key, r, us);
     if (split) InterlockedExchangeAdd(&k.hcDoorWaitUs, us);
     if (hit) {
         if (split) {
@@ -328,7 +344,8 @@ static bool ApplyHostCalls(const wchar_t* ini) {
     if (memo < 0 || memo > 2) { Log("SKIP door memo: DoorMemo=%ld is not 0, 1 or 2", memo); memo = 0; }
     LONG memoX = (LONG)GetPrivateProfileIntW(L"RouteSnap", L"DoorMemoX", -1, ini);  // present (even 0) = stub in, runtime switch
     if (memoX > 3) { Log("SKIP door memo x: DoorMemoX=%ld is not 0, 1, 2 or 3", memoX); memoX = -1; }
-    if (!split && !memo && memoX < 0) { Log("host-call split and door memo off"); return false; }
+    const bool shareAsked = GetPrivateProfileIntW(L"RouteSnap", L"DoorShare", 0, ini) != 0;  // docs/674 (doorshare.cpp)
+    if (!split && !memo && memoX < 0 && !shareAsked) { Log("host-call split and door memo off"); return false; }
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     static const char* kHow[4] = {"", "behind P4's stub", "in [ProbeValues]' slot", "on the call's rel32"};
     const LONG how = HcInstallDoor(P4_DOOR_AT, P4_DOOR_TARGET);
@@ -336,13 +353,14 @@ static bool ApplyHostCalls(const wchar_t* ini) {
     else Log("SKIP door stub: 0x%08lX is not `call 0x%08lX` and no known owner; door counters and the memo stay off", P4_DOOR_AT, P4_DOOR_TARGET);
     // 0.36.63 (integration review): the generation (DmxGen) moves only through routesnap's World_FireEvent hook (snReady bit 1)
     // and IC slots (bit 2); without both a row would never be invalidated by a portal or lot change
+    if (Readable((const void*)(uintptr_t)TS3A(0x011D72C4), 4)) g_dmxDelegate = (const DWORD*)(uintptr_t)TS3A(0x011D72C4);  // docs/104 P1
+    ApplyDoorShare(ini, how != 0, (ts3native_counters.snReady & 6) == 6);
     if (memoX >= 0 && how && (ts3native_counters.snReady & 6) != 6)
         Log("SKIP door memo x: DoorMemoX=%ld needs the route snapshot's World_FireEvent hook and IC slots (snReady 0x%lX)", memoX,
             ts3native_counters.snReady), memoX = -1;
     if (memoX >= 0 && how) {
         const LONG ms = Clamp((LONG)GetPrivateProfileIntW(L"RouteSnap", L"DoorMemoXMs", 250, ini), 1, 5000);
         g_dmxTicks = g_qpf.QuadPart * ms / 1000;
-        if (Readable((const void*)(uintptr_t)TS3A(0x011D72C4), 4)) g_dmxDelegate = (const DWORD*)(uintptr_t)TS3A(0x011D72C4);  // docs/104 P1
         k.dmxMode = memoX;
         g_dmxLast = memoX;
         Log("OK   door memo x: DoorMemoX=%ld (%s), max age %ld ms, unlocked answers only (switch dmxMode +0x5014, --ab doormemox)",
