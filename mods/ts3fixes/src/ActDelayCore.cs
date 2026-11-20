@@ -42,6 +42,43 @@ namespace Ts3Fixes
 
         public delegate string Namer(object typeKey);
 
+        // Entry counts of the probe's hooks (counted whether the switch is on or not).
+        public const int kInQueued = 0, kInRemoved = 1, kInPush = 2, kInPop = 3, kInPlanBegin = 4, kInPlanEnd = 5, kInJobWait = 6, kInMove = 7, kInSetActor = 8,
+            kInFgl = 9, kHooks = 10;
+        public static readonly string[] HookNames = { "OnAddedToQueue", "OnRemovedFromQueue", "PushRunningInteraction", "PopRunningInteraction", "plan begin",
+            "plan end", "AsyncWait", "OnAboutToStartFollowingRoute", "SetActor", "FindGoodLocationNearby" };
+        public const int kHealthMin = 50;
+
+        public static string HookLine(int[] n)
+        {
+            StringBuilder b = new StringBuilder(260);
+            b.Append("hooks entered:");
+            for (int i = 0; i < kHooks; i++) b.Append(i == 0 ? " " : ", ").Append(HookNames[i]).Append(' ').Append(n[i]);
+            return b.ToString();
+        }
+
+        // "" while every hook that must run with the others has run. Each pair is entered by the same game code path, so one
+        // side at zero with the other past kHealthMin is a hook that is not reached (its swap missing, or a hook stacked over
+        // it that answers without calling its original); with OnAddedToQueue dead no record is ever made and nothing is counted.
+        public static string HookHealth(int[] n)
+        {
+            string bad = "";
+            bad = Dead(bad, n, kInQueued, kInPush);        // every run interaction was queued (or pushed straight in: far fewer)
+            bad = Dead(bad, n, kInRemoved, kInPop);        // every head that ran is removed
+            bad = Dead(bad, n, kInPush, kInQueued);
+            bad = Dead(bad, n, kInPop, kInPush);
+            bad = Dead(bad, n, kInPlanEnd, kInPlanBegin);
+            bad = Dead(bad, n, kInPlanBegin, kInMove);     // a followed route was planned
+            bad = Dead(bad, n, kInMove, kInPlanEnd);
+            bad = Dead(bad, n, kInSetActor, kInPush);
+            return bad.Length == 0 ? "" : "DEAD HOOK " + bad + " (not reached: swap missing, or a hook stacked over it does not call its original)";
+        }
+        static string Dead(string bad, int[] n, int hook, int witness)
+        {
+            if (n[hook] != 0 || n[witness] < kHealthMin || bad.Contains(HookNames[hook])) return bad;
+            return bad + (bad.Length == 0 ? "" : ", ") + HookNames[hook] + " 0 with " + HookNames[witness] + " " + n[witness];
+        }
+
         public sealed class Rec
         {
             public object Key, Type;

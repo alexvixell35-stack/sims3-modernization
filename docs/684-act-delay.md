@@ -163,3 +163,26 @@ the phase): `node tools/harness/ag.mjs reflect_call '{"path":"Ts3Fixes.Fixes.Act
 Read: `grep -c '^actdelay: ' ts3native-full.log`, the `actdelay minute:` lines, the result's table and top 15. First
 check that the measurement works: `actdelay switch on`, `members found=True`, errors 4275=0, npc acted > 0, and in (b)
 household acted > 0. Then rank §5 by the bucket sums of the over-threshold lines, storm against calm.
+
+## 7. s218 / s219: nothing recorded, and why [verified: source + the runs' switch list; fix NOT RUN]
+
+Both runs (storm, calm; package from combo `44e04f12`, switch on at runtime) answered `0 acted`, every bucket n=0, no
+`actdelay` line, `members found=True`, errors 0.
+
+- **Cause:** `Fixes.Patch` stacks swaps of one method: the hook patched later runs first and reaches the earlier one only
+  through its own stub. `initstacktrace` (`IstHook.AddedHook`, SeasonsHunt594.cs) also swaps
+  `InteractionInstance.OnAddedToQueue`, was patched after the probe (`ApplyInitStackTrace` came later in `Fixes.Apply`),
+  and with its switch on (it was, in both runs' `earlyfix.txt`) re-does EA's body without calling its stub. So the
+  probe's `AddedHook` was never entered, no record was ever opened, and every other stamp found no record to write to.
+- **Why the check did not show it:** `members found=True` only says the swaps went in (`EpLive` counts swaps per hook
+  class). It cannot see a hook that is in place but not reached.
+- **Fix:** `ApplyActDelay()` is the last call of `Fixes.Apply`, so the probe's hooks are the outermost of every stack
+  made there. No tuning-gated patch (`ApplyTuned`) touches the probe's seven methods.
+- **So it cannot hide again:** each hook counts its entries, switch on or off. `ActDelayCheck("result")` and `("live")`
+  print `hooks entered: OnAddedToQueue N, ...` and `DEAD HOOK <name> 0 with <other> N` when one side of a pair that the
+  same game path enters stays at zero past 50 entries of the other; the same line goes to the log once a minute.
+  `tools/probe-swap-order.ts` (in `selftest-all --ci`) fails when another file's swap of a probe method is applied
+  after the probe's; on the old order it names `IstHook`. The core self-test covers the health rule and the
+  "no Queued, no record" shape.
+- **Read-back for the next run:** after a minute in live mode, `ActDelayCheck("live")` must say `verdict: ok` with
+  `OnAddedToQueue` and `PushRunningInteraction` both above zero.

@@ -17,6 +17,27 @@ static class ActDelayTest
     {
         Check(ActDelayCore.Model() == "", "model: " + ActDelayCore.Model());
 
+        // hook health: the s218 / s219 shape (OnAddedToQueue never entered while interactions ran) must be named
+        int[] n = new int[ActDelayCore.kHooks];
+        Check(ActDelayCore.HookHealth(n) == "", "health: nothing ran yet");
+        for (int i = 0; i < ActDelayCore.kHooks; i++) n[i] = 1000;
+        n[ActDelayCore.kInJobWait] = 0; n[ActDelayCore.kInFgl] = 0;
+        Check(ActDelayCore.HookHealth(n) == "", "health: all live (no job wait, no placement search is fine)");
+        n[ActDelayCore.kInQueued] = 0;
+        string dead = ActDelayCore.HookHealth(n);
+        Check(dead.StartsWith("DEAD HOOK OnAddedToQueue 0 with PushRunningInteraction 1000") && !dead.Contains("OnRemovedFromQueue"), "health: dead queued hook: " + dead);
+        n[ActDelayCore.kInQueued] = 1000; n[ActDelayCore.kInMove] = 0; n[ActDelayCore.kInSetActor] = 0;
+        dead = ActDelayCore.HookHealth(n);
+        Check(dead.Contains("OnAboutToStartFollowingRoute 0") && dead.Contains("SetActor 0"), "health: two dead: " + dead);
+        n[ActDelayCore.kInMove] = 0; n[ActDelayCore.kInPlanEnd] = ActDelayCore.kHealthMin - 1; n[ActDelayCore.kInSetActor] = 5;
+        Check(ActDelayCore.HookHealth(n) == "", "health: too few witnesses to judge");
+        Check(ActDelayCore.HookLine(n).StartsWith("hooks entered: OnAddedToQueue 1000, OnRemovedFromQueue 1000, ") && ActDelayCore.HookLine(n).Length < 300, "health: line " + ActDelayCore.HookLine(n));
+        // and a tracker that never sees Queued records nothing, whatever else arrives (why the runs read all zero)
+        ActDelayCore nq = new ActDelayCore();
+        object nk = new object();
+        nq.Push(nk, nk, S, false, 10 * ms, 1); nq.PlanBegin(S, 20 * ms, 1); nq.PlanEnd(S, true, 30 * ms);
+        Check(nq.Move(S, 40 * ms, 2) == null && nq.Pop(nk, S, false, 50 * ms, 3) == null && nq.Acted == 0 && nq.OpenCount == 0, "no Queued, no record");
+
         // histogram: a bin's value lies in the bin, bins rise, percentiles within 12.5 %
         int last = -1;
         for (int v = 0; v < 4000000; v += v < 5000 ? 1 : 997)

@@ -84,7 +84,6 @@ namespace Ts3Fixes
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
             ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyRouteRelax();    // RouteRelax.cs (docs/675): fglnonescan, fglnnearspot, followerlasttry (all off)
-            ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off); after RouteRelax (stacked FindGoodLocationNearby hook)
             ApplyNearestLot();    // NearestLot.cs (docs/677): nearestlotlazy (off)
             ApplyDoorShare();     // DoorShare.cs (docs/674): Sim class and shareable door answers for ts3native DoorShare (switch doorshare, off)
             ApplyOverwatchStuck(false);
@@ -526,6 +525,9 @@ namespace Ts3Fixes
             ApplyCasOccultLog();       // docs/658 §6.4 (CasOccultLog.cs), off by default
             ApplyCasTintReset();       // docs/658 §6.6 (CasTintReset.cs), off by default, unconfirmed
             ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
+            // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
+            // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
+            ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off)
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these

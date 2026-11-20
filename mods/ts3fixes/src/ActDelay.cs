@@ -46,6 +46,8 @@ namespace Ts3Fixes
             kAdPlans = 4277, kAdSumMs = 4278, kAdMaxMs = 4279;
 
         static bool sActOn;
+        // entries per hook since the start, counted with the switch off too (ActDelayCore.HookNames order): a dead hook shows at once
+        static readonly int[] sActIn = new int[ActDelayCore.kHooks];
         static int sActPoll, sActErrors, sActLines, sActLinesCut, sActInMinute;
         static uint sActLastUs;
         static long sActNow = 1, sActMinuteAt;
@@ -176,6 +178,7 @@ namespace Ts3Fixes
         // RouteBackoff.cs, the four plan hooks: a plan begins / ended in the running task
         internal static void ActPlanBegin()
         {
+            sActIn[ActDelayCore.kInPlanBegin]++;
             if (!sActOn) return;
             try { sAct.PlanBegin(Simulator.CurrentTask.Value, ActNow(), SimClock.CurrentTicks); }
             catch (ResetException) { throw; }
@@ -183,6 +186,7 @@ namespace Ts3Fixes
         }
         internal static void ActPlanEnd(bool ok)
         {
+            sActIn[ActDelayCore.kInPlanEnd]++;
             if (!sActOn) return;
             try { sAct.PlanEnd(Simulator.CurrentTask.Value, ok, ActNow()); }
             catch (ResetException) { throw; }
@@ -191,6 +195,7 @@ namespace Ts3Fixes
         // RouteBackoffHook.AsyncWait: the running task slept from t0 (SrcNowUs) until its route job was ready
         internal static void ActJobWaited(uint t0)
         {
+            sActIn[ActDelayCore.kInJobWait]++;
             if (!sActOn) return;
             try { sAct.JobWaited(Simulator.CurrentTask.Value, unchecked(SrcNowUs() - t0)); }
             catch (ResetException) { throw; }
@@ -255,6 +260,8 @@ namespace Ts3Fixes
             ActDelayCore.Result r;
             while ((r = sAct.SweepNext(now)) != null) ActDone(r);
             sActInMinute = 0;
+            string dead = ActDelayCore.HookHealth(sActIn);
+            if (dead.Length > 0) { PatchCounters()[kAdLines]++; DiagLine("actdelay: " + dead + "; " + ActDelayCore.HookLine(sActIn)); }
             string line = sAct.MinuteLine(sActNamer);
             if (line == null) return;
             if (sActLinesCut > 0) { line += ", " + sActLinesCut + " lines over the cap not written"; sActLinesCut = 0; }
@@ -267,11 +274,13 @@ namespace Ts3Fixes
             public void AddedHook()
             {
                 AddedOrig();
+                sActIn[ActDelayCore.kInQueued]++;
                 if (ActOn()) ActQueued(this);
             }
             public void AddedOrig() { }   // receives InteractionInstance.OnAddedToQueue's body (or the hook stacked before ours)
             public void RemovedHook(bool isHeadInteraction)
             {
+                sActIn[ActDelayCore.kInRemoved]++;
                 if (ActOn()) ActRemoved(this, isHeadInteraction);
                 RemovedOrig(isHeadInteraction);
             }
@@ -283,11 +292,13 @@ namespace Ts3Fixes
             public void PushHook(InteractionInstance ii)
             {
                 PushOrig(ii);
+                sActIn[ActDelayCore.kInPush]++;
                 if (ActOn()) ActRun(this, ii, true);
             }
             public void PushOrig(InteractionInstance ii) { }
             public void PopHook(InteractionInstance ii)
             {
+                sActIn[ActDelayCore.kInPop]++;
                 if (ActOn()) ActRun(this, ii, false);
                 PopOrig(ii);
             }
@@ -298,6 +309,7 @@ namespace Ts3Fixes
         {
             public void FollowHook(Route r)
             {
+                sActIn[ActDelayCore.kInMove]++;
                 if (sActOn) ActMove(OwnerSim);
                 FollowOrig(r);
             }
@@ -308,6 +320,7 @@ namespace Ts3Fixes
         {
             public void SetActorHook(string actorName, IHasScriptProxy actor)
             {
+                sActIn[ActDelayCore.kInSetActor]++;
                 if (sActOn && actor != null) ActAnim(actor);
                 SetActorOrig(actorName, actor);
             }
@@ -319,6 +332,7 @@ namespace Ts3Fixes
             public static bool FglHook(IGameObject obj, ObjectGuid[] objIdsToIgnore, ref Vector3 position, ref Vector3 forward, float offset,
                 GlobalFunctions.FindGoodLocationStrategies searches, FindGoodLocationBooleans fglBools)
             {
+                sActIn[ActDelayCore.kInFgl]++;
                 if (!sActOn) return FglOrig(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
                 uint t0 = SrcNowUs();
                 bool found = FglOrig(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
@@ -344,11 +358,19 @@ namespace Ts3Fixes
                     string bad = ActDelayCore.Model();
                     return "actdelay model: " + (bad.Length == 0 ? "verdict: ok (8 buckets add up to queued -> act)" : "verdict: BROKEN (" + bad + ")");
                 }
-                if (what == "live") return "actdelay live: switch " + (ShortcutOn("actdelay") ? "on" : "off") + ", " + GlMembers(CkLive("actdelay"));
+                if (what == "live")
+                {
+                    string d = ActDelayCore.HookHealth(sActIn);
+                    return "actdelay live: switch " + (ShortcutOn("actdelay") ? "on" : "off") + ", " + GlMembers(CkLive("actdelay")) + "; " + ActDelayCore.HookLine(sActIn)
+                        + "; verdict: " + (d.Length == 0 ? "ok" : d);
+                }
                 if (what == "reset") { if (sAct != null) sAct.Reset(); return "actdelay: totals cleared"; }
                 if (what != "result") return "actdelay <result|run|live|reset>";
                 string head = "actdelay switch " + (ShortcutOn("actdelay") ? "on" : "off") + ", threshold " + Instantiator.kActDelayLogMs + " ms, lines " + sActLines
-                    + ", errors " + kAdErrors + "=" + sActErrors + ", " + GlMembers(CkLive("actdelay")) + "\n";
+                    + ", errors " + kAdErrors + "=" + sActErrors + ", " + GlMembers(CkLive("actdelay")) + "\n"
+                    + ActDelayCore.HookLine(sActIn) + "\n";
+                string dead = ActDelayCore.HookHealth(sActIn);
+                if (dead.Length > 0) head += "actdelay: " + dead + "\n";
                 if (sAct == null) return head + "actdelay: no data (the switch was never on)";
                 ActDelayCore.Result r;
                 long now = ActNow();
