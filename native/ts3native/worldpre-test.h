@@ -419,6 +419,25 @@ static void TestWxManager() {
     assert(WxPostEnter(0, &stack[7]) == 1 && WxPostEnter(1, &stack[6]) == 1 && WxPostEnter(2, &stack[5]) == 1 && WxPostEnter(3, &stack[4]) == 1);
     assert(WxPostEnter(4, &stack[3]) == 0);                 // a fifth level: untimed
     assert(WxPostLeave() == 0x1004 && WxPostLeave() == 0x1005 && WxPostLeave() == 0x1006 && WxPostLeave() == 0x1007 && WxPostLeave() == 0);
+    // pass 3's callees: timed only under an open pass 3; the lot walk reads the smoother's +0x72 from the saved ECX
+    {
+        static u8 smoother[0x80];
+        DWORD fr[16] = {};
+        for (DWORD i = 0; i < 16; i++) fr[i] = 0x3000 + i;
+        smoother[0x72] = 1;
+        fr[7] = (DWORD)(uintptr_t)smoother;                      // ECX: three slots below the return address at fr[10]
+        assert(WxPostEnter((DWORD)WX_POSTN + 2, &fr[3]) == 0);  // no pass 3 open
+        assert(WxPostEnter(5, &fr[14]) == 1 && WxPostEnter((DWORD)WX_POSTN + 2, &fr[3]) == 0);  // another pass: not counted
+        assert(WxPostLeave() == 0x300E);
+        const LONG n2 = k.wxPostN[2];
+        assert(WxPostEnter(2, &fr[14]) == 1 && WxPostEnter((DWORD)WX_POSTN + 3, &fr[13]) == 1 && WxPostEnter((DWORD)WX_POSTN + 4, &fr[10]) == 1);
+        assert(k.wxP3Flag72 == 1);
+        assert(WxPostEnter((DWORD)WX_POSTN + 9, &fr[5]) == 1 && WxPostEnter((DWORD)WX_POSTN + 5, &fr[4]) == 0);  // four deep at most
+        assert(WxPostLeave() == 0x3005 && WxPostLeave() == 0x300A && WxPostLeave() == 0x300D && WxPostLeave() == 0x300E && WxPostLeave() == 0);
+        assert(k.wxP3N[2] == 1 && k.wxP3N[3] == 1 && k.wxP3N[6] == 1 && k.wxP3N[4] == 0 && k.wxPostN[2] == n2 + 1);
+        assert(WxPostEnter((DWORD)(WX_POSTN + WX_P3SITES), &fr[5]) == 0);
+        smoother[0x72] = 0;
+    }
 
     memset((void*)&k, 0, sizeof(k));
     memset(g_wxSlot, 0, sizeof(g_wxSlot));

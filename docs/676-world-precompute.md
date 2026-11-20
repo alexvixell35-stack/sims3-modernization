@@ -530,3 +530,82 @@ inside pass 3, plus the count of tests with `+0x72` set and the tests per call. 
   and how many of the pops are water-body fan-out. Model gain inside one component was 1.9-2.5 times fewer pops (§6.1);
   for the 212 crossing searches the model has no number.
 - Effort unchanged: about 2 hours with host tests, one shadow storm, one serve storm.
+
+## 13. Built: pass 3 by callee in the probe; the `0x644618` shortcut is not provable as named
+
+### 13.1 `Probe`: pass 3 callees (worldpre.cpp, observe only, default off, NOT RUN)
+
+- **Sites** (12 `E8` calls, Steam 1.67 offsets; objdump of the repack copy, whose post pass sites are the ones `Probe`
+  accepted and timed in the game in s172):
+
+| callee | what | sites |
+|---|---|---|
+| `0x642420` | nudge of type-10 pairs | `0x64DFDE` |
+| `0x644630` | corner cutting | `0x64E018` |
+| `0x644560` | segment test of the main loop | `0x64E166`, `0x64E27F` |
+| `0x644080` | its walk over the lots on the segment | `0x644618` |
+| `0xC69790` | next lot on the segment | `0x6440F2` |
+| `0x658A00` | world (off-lot) segment test | `0x644168`, `0x644388` |
+| `0x643E60` | lot segment test (quadtree) | `0x644209`, `0x6442EC`, `0x644327` |
+| `0xB87D30` | point predicate per cursor step | `0x641A93` (in `0x641A10`) |
+
+- **No address rows.** Pass 3's address is the target read from the post pass's third call; the segment test, the lot walk
+  and the cursor advance are targets read from calls at fixed offsets under it; the sites are offsets from those. Install
+  writes only if every site is a call and two sites have the same target exactly when the table says they are the same
+  callee. Else `SKIP world precompute pass 3 split`. `ts3addr_count` unchanged.
+- **Same stubs as the 19 passes** (every register and the flags kept, the return address swapped for the exit stub, so
+  callee-cleans conventions with any `ret n` work). A site inside `0x644080` or `0x641A10` is also reached from other
+  passes (pass 6 through `0x6443A0`): an entry is timed only while a pass 3 entry of the thread is open.
+- **Smoother `+0x72`:** at the lot walk's site `ECX` is the smoother (thiscall); the stub's saved `ECX` is read and the byte
+  counted. The game reads `[ecx + 0x71]` in the same call.
+- Line: `world precompute probe pass 3 callees (ms/calls, each includes the ones it calls; ...): nudge 642420 a/b, corners
+  644630 ..., segment test 644560 ..., lot walk 644080 ..., next lot C69790 ..., world test 658A00 ..., lot test 643E60 ...,
+  sample predicate B87D30 ...; lot walks with smoother +0x72 set N`. Ready bit 16.
+- **Reading it.** Times are inclusive: segment test > lot walk > (next lot + world test + lot test). Lot walk minus its
+  three callees is the walk's own code. The stubs cost two timer reads per call, so pass 3's own total rises in a probe
+  run; compare shares. Nesting is four deep at most (pass 3, segment test, lot walk, lot or world test); deeper is untimed.
+- Host test: entries outside pass 3 or under another pass are not timed; the four-deep chain returns each entry's own
+  address; the `+0x72` read from the saved `ECX`; the fifth level untimed.
+
+### 13.2 The shortcut at `0x644618` [verified decompile `0x644080`, `0xC69790`]
+
+Asked: call `0x643E60` directly when both cursors hold the same lot. Read again for the proof, it does not hold as named:
+
+- **The cursors are not at that site.** `0x644080` gets (x0, z0, level0, x1, z1, level1) and the smoother. The cursors'
+  lots live in `0x644560`'s caller. A hook that uses them has to sit at `0x64E166` / `0x64E27F` and reproduce `0x644560`'s
+  dot-product reject too.
+- **What the game does in the one-lot case.** `0xC69790`: lot L = `0xC68990(start)`; if L, transform the end point
+  (`0xAB8540`) and test it against L's size (`L+0x174`, `L+0x178`); inside: both flags stay 0 and L is returned. `0x644080`
+  then calls `0xAB1F00` (result unused on this path) and returns `0x643E60(x0, z0, level0, x1, z1, level1, L, 0)`.
+- **So the exact condition is** "`0xC68990(start)` is L and the end point is inside L's rectangle", not "both cursors
+  hold the same lot". The cursor's lot is set by `0x6418B0` from `0xC68990` at its node, and `0x641A10` refreshes it by its
+  own rule on a step (`0x641AF8`); that it equals `0xC68990` of every sample point is not shown. Lots that overlap or a
+  sample on a lot edge would break it.
+- **Side effects of the skipped calls:** `0xC68990` can rebuild the world's lot index when it is dirty (a lock, a write).
+  Skipping it moves that rebuild to the next reader; the pass itself reads the index again at the next cursor step. Not
+  harmful, but it is a write the game does here. `0xAB8540` and `0xAB1F00` write only their out parameters [`0xAB8540`
+  verified; `0xAB1F00` from the agent's read, not re-checked].
+- **What it would save:** one hash lookup, one transform and four compares per test, against two transforms, a lot table
+  lookup and three quadtree descents inside `0x643E60`. Probably under a tenth of a test [inferred]. The probe's `next
+  lot` against `lot test` time is the measure.
+- **Decision:** not built. An exact variant exists (memo of `0xC68990(start)` per anchor stop at the `0x6440F2` site, valid
+  while the lot index is clean), but it is worth building only if `next lot C69790` carries a real share. If `lot test
+  643E60` carries the time, the work is inside it (the per-test temporary set when `+0x72` is set, or the start point's
+  repeated quadtree query), which §11.4 item 3 has to read first.
+
+### 13.3 Not done
+
+Pop counts per world A\* search kind (§12): the search's closed set and heap are not read in our source; it needs the
+pop site inside `0x676260`. Open.
+
+### 13.4 Checks (no game)
+
+`worldpre-host-test.cpp` pass; clang-cl `/Zs /W4` on `ts3native.cpp` (Steam, `/DTS3A_TABLE`) and `selftest.cpp`: 0 errors, no
+warning in `worldpre*`; `node tools/selftest-all.ts --ci` pass. Not run: MSVC, the Windows selftest, the game. The stubs'
+assembly is the s172-proven macro with new indices; the 12 sites' bytes were read from the repack copy only (no stock
+exe on this machine), and the install check is what guards another layout.
+
+### 13.5 Next storm
+
+`[WorldPrecompute] Probe=1` (with `WaterScanTable=1`, `WaterScanAll=1`, `[RouteJobPhases] CandidateSplit=1`). Read `pass 3
+callees` and `+0x72 set`, and the scan table's `built N (pair replaced E, too many changes O)`.
