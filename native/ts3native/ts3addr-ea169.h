@@ -893,6 +893,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00D71C00, 0x00D71C40},
     {0x00D71E40, 0x00D71E80},
     {0x00D72170, 0x00000000},  // unresolved
+    {0x00D748C2, 0x00000000},
     {0x00D75FA0, 0x00D76200},
     {0x00D75FD8, 0x00D76238},
     {0x00D79CA0, 0x00000000},
@@ -906,6 +907,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00D7FB53, 0x00000000},
     {0x00D7FE01, 0x00000000},
     {0x00D800FC, 0x00000000},
+    {0x00D80D14, 0x00000000},
     {0x00D814B6, 0x00D81876},
     {0x00D81840, 0x00D81C00},
     {0x00D818C0, 0x00D81C80},
@@ -1156,6 +1158,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E6AD10, 0x00E6AD60},
     {0x00E6B690, 0x00E6B6E0},
     {0x00E6F5A0, 0x00E6F600},
+    {0x00E6F720, 0x00000000},
     {0x00E70180, 0x00000000},
     {0x00E70D50, 0x00E70DB0},
     {0x00E72010, 0x00E72070},
@@ -1198,6 +1201,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00E99A50, 0x00E99AB0},
     {0x00E99B10, 0x00E99B70},
     {0x00E9C3A0, 0x00E9C400},
+    {0x00EA1090, 0x00000000},
     {0x00EA1E30, 0x00EA1EA0},
     {0x00EA2AD0, 0x00EA2B40},
     {0x00EA3140, 0x00EA31B0},
@@ -1698,11 +1702,15 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00E4A05F no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
 // unresolved: 0x00E4A0A6 no-ea-1.69-address native/ts3native/gcgate.cpp ([GC] SubTimers, gc-offload-1118)
 // unresolved: 0x00D7F000 no-ea-1.69-address native/ts3native/taskserve.cpp
+// unresolved: 0x00D748C2 no-ea-1.69-address native/ts3native/taskseam.cpp
+// unresolved: 0x00D80D14 no-ea-1.69-address native/ts3native/taskseam.cpp
+// unresolved: 0x00E6F720 no-ea-1.69-address native/ts3native/taskseam.cpp
+// unresolved: 0x00EA1090 no-ea-1.69-address native/ts3native/taskseam.cpp
 // unresolved: 0x00D7FA74 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1531;
+constexpr int ts3addr_count = 1535;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)

@@ -8722,6 +8722,580 @@
       "what": "swaps refused: would move saved task frames (docs/293)",
       "at": "2026-11-18T17:53:39.212Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\save-ip-portable-1119"
+    },
+    {
+      "id": "ledger-539",
+      "kind": "ledger",
+      "from": 539,
+      "to": 539,
+      "by": "gohere-gotopoint-1119",
+      "what": "gohere GoToPointState boat list: Sim deleted after the state left",
+      "at": "2026-11-18T22:28:11.298Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\gohere-gotopoint-1119"
+    },
+    {
+      "id": "native-v219",
+      "kind": "native",
+      "version": 219,
+      "from": 27144,
+      "to": 27159,
+      "by": "keep-options-gpu-1119",
+      "what": "[EaCrashFixes] KeepOptionsOnGpuChange ko*",
+      "at": "2026-11-18T23:17:39.056Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\keep-options-gpu-1119"
+    },
+    {
+      "id": "ledger-540",
+      "kind": "ledger",
+      "from": 540,
+      "to": 540,
+      "by": "keep-options-gpu-1119",
+      "what": "KeepOptionsOnGpuChange Options.ini device reset",
+      "at": "2026-11-18T23:17:39.384Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\keep-options-gpu-1119"
+    },
+    {
+      "id": "doc-294",
+      "kind": "doc",
+      "from": 294,
+      "to": 294,
+      "by": "feature/abhourly-diag-1119",
+      "what": "abhourly-diag",
+      "at": "2026-11-18T23:30:39.605Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-541",
+      "kind": "ledger",
+      "from": 541,
+      "to": 541,
+      "by": "feature/abhourly-diag-1119",
+      "what": "abhourly-diag",
+      "at": "2026-11-18T23:30:46.423Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-295",
+      "kind": "doc",
+      "from": 295,
+      "to": 295,
+      "by": "mod-conflict-scan-1119",
+      "what": "mod-vs-mod conflict scan",
+      "at": "2026-11-18T23:49:15.071Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mod-conflict-scan-1119"
+    },
+    {
+      "id": "ledger-542",
+      "kind": "ledger",
+      "from": 542,
+      "to": 542,
+      "by": "mod-conflict-scan-1119",
+      "what": "Sims 3 package load order / duplicate key winner",
+      "at": "2026-11-18T23:49:15.307Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mod-conflict-scan-1119"
+    },
+    {
+      "id": "doc-296",
+      "kind": "doc",
+      "from": 296,
+      "to": 296,
+      "by": "apex-sync-1119",
+      "what": "apex-sync: test install on our Apex fork integration branch",
+      "at": "2026-11-19T04:19:11.364Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\apex-sync-1119"
+    },
+    {
+      "id": "ledger-543",
+      "kind": "ledger",
+      "from": 543,
+      "to": 543,
+      "by": "compat-smellymods-stringmerge-1119",
+      "what": "EA STBL load and lookup (CC String Merge, docs/297)",
+      "at": "2026-11-19T12:51:29.582Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-3982",
+      "kind": "fixes",
+      "from": 3982,
+      "to": 3997,
+      "by": "import-564",
+      "what": "outfitmissing, overwatchrelretry, ageupdupinst, boatroutenull, overwatchresetgone, motivesnohousehold (PR #564)",
+      "at": "2026-11-19T13:28:58.554Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-564-1119"
+    },
+    {
+      "id": "fixes-1264",
+      "kind": "fixes",
+      "from": 1264,
+      "to": 1269,
+      "by": "import-581",
+      "what": "boattaximemo (PR #581)",
+      "at": "2026-11-19T13:30:14.310Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-581-1119"
+    },
+    {
+      "id": "fixes-1270",
+      "kind": "fixes",
+      "from": 1270,
+      "to": 1291,
+      "by": "import-473",
+      "what": "jobyieldroad family (PR #473)",
+      "at": "2026-11-19T13:31:20.156Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-473-1119"
+    },
+    {
+      "id": "doc-298",
+      "kind": "doc",
+      "from": 298,
+      "to": 298,
+      "by": "modtime-diag-1120",
+      "what": "modtime-diag",
+      "at": "2026-11-19T21:47:16.313Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-299",
+      "kind": "doc",
+      "from": 299,
+      "to": 299,
+      "by": "modtime-diag-1120",
+      "what": "pccheck",
+      "at": "2026-11-19T21:47:17.707Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-544",
+      "kind": "ledger",
+      "from": 544,
+      "to": 544,
+      "by": "modtime-diag-1120",
+      "what": "modtime-diag",
+      "at": "2026-11-19T21:47:19.486Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-300",
+      "kind": "doc",
+      "from": 300,
+      "to": 300,
+      "by": "test/ea169-eli-diag-1120",
+      "what": "FrameDiag EA 1.69 tester diag (Eli kit)",
+      "at": "2026-11-19T23:25:55.237Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-545",
+      "kind": "ledger",
+      "from": 545,
+      "to": 545,
+      "by": "test/ea169-eli-diag-1120",
+      "what": "FrameDiag present/bridge wait inference",
+      "at": "2026-11-19T23:25:55.551Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-546",
+      "kind": "ledger",
+      "from": 546,
+      "to": 546,
+      "by": "hostmap-iter-fix-1120",
+      "what": "hostmap iter fix: ProcessTaskState stale host-map iterator (Eli 1120)",
+      "at": "2026-11-19T23:33:09.521Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\hostmap-iter-fix-1120"
+    },
+    {
+      "id": "doc-301",
+      "kind": "doc",
+      "from": 301,
+      "to": 301,
+      "by": "stbl-index-1120",
+      "what": "Apex in-game string table index (StringTableIndex) PR",
+      "at": "2026-11-20T01:55:48.452Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-547",
+      "kind": "ledger",
+      "from": 547,
+      "to": 547,
+      "by": "stbl-index-1120",
+      "what": "EA string table walk: hook site, list mutators, entry layout (StringTableIndex)",
+      "at": "2026-11-20T01:55:48.818Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-302",
+      "kind": "doc",
+      "from": 302,
+      "to": 302,
+      "by": "many-mods-perf-1120",
+      "what": "many-mods performance plan",
+      "at": "2026-11-20T03:07:53.800Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-303",
+      "kind": "doc",
+      "from": 303,
+      "to": 303,
+      "by": "diagkit-1120",
+      "what": "player diag kit: intake + profiles + Apex diag",
+      "at": "2026-11-20T04:17:50.532Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-548",
+      "kind": "ledger",
+      "from": 548,
+      "to": 548,
+      "by": "diagkit-1120",
+      "what": "Apex 4.0.x diagnostic surfaces + player diag kit",
+      "at": "2026-11-20T04:17:50.753Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1292",
+      "kind": "fixes",
+      "from": 1292,
+      "to": 1300,
+      "by": "import-503",
+      "what": "visitarrive, visitonlot, gohomeshell trip arrivals (PR #503)",
+      "at": "2026-11-20T05:05:31.495Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-503-1120"
+    },
+    {
+      "id": "fixes-1301",
+      "kind": "fixes",
+      "from": 1301,
+      "to": 1327,
+      "by": "import-499",
+      "what": "unseentraffic, npccarexit (PR #499)",
+      "at": "2026-11-20T05:05:36.312Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-503-1120"
+    },
+    {
+      "id": "fixes-1328",
+      "kind": "fixes",
+      "from": 1328,
+      "to": 1344,
+      "by": "import-490",
+      "what": "spawnfix, spawnoffworld (PR #490)",
+      "at": "2026-11-20T05:05:36.656Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-503-1120"
+    },
+    {
+      "id": "fixes-1345",
+      "kind": "fixes",
+      "from": 1345,
+      "to": 1369,
+      "by": "import-575-1120",
+      "what": "PR #575 fightorphanwait/poolnolane/venuepicktime/venuepickfast/autonomyfailcooldown (his 3992-4016, offset)",
+      "at": "2026-11-20T05:05:36.888Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-575-1120"
+    },
+    {
+      "id": "fixes-1370",
+      "kind": "fixes",
+      "from": 1370,
+      "to": 1373,
+      "by": "import-501",
+      "what": "festivalhidden (PR #501)",
+      "at": "2026-11-20T05:05:36.972Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-503-1120"
+    },
+    {
+      "id": "fixes-1374",
+      "kind": "fixes",
+      "from": 1374,
+      "to": 1375,
+      "by": "import-588-1120",
+      "what": "PR #588 autonomyfailcooldown follow-up (his 4050-4051)",
+      "at": "2026-11-20T05:05:37.206Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-575-1120"
+    },
+    {
+      "id": "fixes-1376",
+      "kind": "fixes",
+      "from": 1376,
+      "to": 1377,
+      "by": "import-478",
+      "what": "bouncermemo (PR #478)",
+      "at": "2026-11-20T05:05:37.303Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-503-1120"
+    },
+    {
+      "id": "fixes-1378",
+      "kind": "fixes",
+      "from": 1378,
+      "to": 1381,
+      "by": "import-585-1120",
+      "what": "PR #585 houseboatlegmemo (his 3982-3985)",
+      "at": "2026-11-20T05:05:37.556Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-575-1120"
+    },
+    {
+      "id": "fixes-1382",
+      "kind": "fixes",
+      "from": 1382,
+      "to": 1391,
+      "by": "import-585-1120",
+      "what": "PR #585 houseboatgangwayrescue (his 4040-4049)",
+      "at": "2026-11-20T05:05:37.888Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-575-1120"
+    },
+    {
+      "id": "fixes-1392",
+      "kind": "fixes",
+      "from": 1392,
+      "to": 1399,
+      "by": "import-585-1120",
+      "what": "PR #585 boatroamcap (his 4062-4069)",
+      "at": "2026-11-20T05:05:38.202Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-575-1120"
+    },
+    {
+      "id": "fixes-1400",
+      "kind": "fixes",
+      "from": 1400,
+      "to": 1440,
+      "by": "import-505-1120",
+      "what": "PR #505 stagedarrival,icecreamdirect,nearvenue (his counters clashed with master)",
+      "at": "2026-11-20T05:06:28.422Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-505-1120"
+    },
+    {
+      "id": "fixes-1441",
+      "kind": "fixes",
+      "from": 1441,
+      "to": 1455,
+      "by": "import-507-1120",
+      "what": "PR #507 rabbitholedirect,rhoutside (his counters clashed with master)",
+      "at": "2026-11-20T05:06:28.909Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-505-1120"
+    },
+    {
+      "id": "fixes-1456",
+      "kind": "fixes",
+      "from": 1456,
+      "to": 1475,
+      "by": "import-509-1120",
+      "what": "PR #509 unseenlanesnap,unseenlegsnap (his counters clashed with master)",
+      "at": "2026-11-20T05:06:29.371Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-505-1120"
+    },
+    {
+      "id": "fixes-1476",
+      "kind": "fixes",
+      "from": 1476,
+      "to": 1481,
+      "by": "import-511-1120",
+      "what": "PR #511 safespotdedupe (his counters clashed with master)",
+      "at": "2026-11-20T05:06:29.835Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-505-1120"
+    },
+    {
+      "id": "fixes-1482",
+      "kind": "fixes",
+      "from": 1482,
+      "to": 1491,
+      "by": "import-513-1120",
+      "what": "PR #513 unseenoutfitnospin (his counters clashed with master)",
+      "at": "2026-11-20T05:06:30.250Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import\\dalexlol-505-1120"
+    },
+    {
+      "id": "doc-853",
+      "kind": "doc",
+      "from": 853,
+      "to": 853,
+      "by": "import-585-1120",
+      "what": "houseboat gangway rescue + leg memo + boat roam cap (PR #585, his docs/857)",
+      "at": "2026-11-20T05:19:32.532Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-585-1120"
+    },
+    {
+      "id": "doc-857",
+      "kind": "doc",
+      "from": 857,
+      "to": 857,
+      "by": "merge-dalexlol-imports-1120",
+      "what": "spawn refresh (PR #490, was docs/853, clash with #585)",
+      "at": "2026-11-20T06:11:00.918Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\merge-dalexlol-imports-1120"
+    },
+    {
+      "id": "doc-304",
+      "kind": "doc",
+      "from": 304,
+      "to": 304,
+      "by": "feature/compat-smellymods-stringmerge-1119",
+      "what": "smellymods-cc-string-merge-compat",
+      "at": "2026-11-20T06:13:45.114Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\wt-compat-stringmerge-1119"
+    },
+    {
+      "id": "doc-305",
+      "kind": "doc",
+      "from": 305,
+      "to": 305,
+      "by": "resread-1120",
+      "what": "resource read buffers out of process (restart host helper)",
+      "at": "2026-11-20T06:17:43.219Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-549",
+      "kind": "ledger",
+      "from": 549,
+      "to": 549,
+      "by": "resread-1120",
+      "what": "resource read buffer lifetimes, package index, audio cache",
+      "at": "2026-11-20T06:17:44.730Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-550",
+      "kind": "ledger",
+      "from": 550,
+      "to": 550,
+      "by": "doormemox-privacy-1117",
+      "what": "DoorMemoX privacy hold: lot key and PortalPathPlan subscribers (docs/585 §6)",
+      "at": "2026-11-20T06:22:17.539Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\doormemox-privacy-1117"
+    },
+    {
+      "id": "native-v220",
+      "kind": "native",
+      "version": 220,
+      "from": 27160,
+      "to": 27191,
+      "by": "modtime-master-1120",
+      "what": "[Diag] ModTime (modtime.cpp, docs/298): mdtOn, mdtHz, mdtSamples, mdtLoadSamples, mdtOverheadUs, mdtAsm, mdtHitches, mdtBusyPct",
+      "at": "2026-11-20T06:33:26.289Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\modtime-master-1120"
+    },
+    {
+      "id": "native-v221",
+      "kind": "native",
+      "version": 221,
+      "from": 27192,
+      "to": 27383,
+      "by": "offload-other-1120",
+      "what": "[OtherSplit] untimed sim-thread bucket timers (docs/28 §0.3): pass, services per slot, pre-loco, publish wrapper, pump, idle/pacing",
+      "at": "2026-11-20T06:35:18.962Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-306",
+      "kind": "doc",
+      "from": 306,
+      "to": 306,
+      "by": "stbl-oop-1120",
+      "what": "string tables out of process (stbl-oop-1120)",
+      "at": "2026-11-20T06:35:46.672Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-551",
+      "kind": "ledger",
+      "from": 551,
+      "to": 551,
+      "by": "stbl-oop-1120",
+      "what": "string tables out of process (stbl-oop-1120)",
+      "at": "2026-11-20T06:35:47.032Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-307",
+      "kind": "doc",
+      "from": 307,
+      "to": 307,
+      "by": "many-mods-fixes-1120",
+      "what": "many-mods fixes: GetCachedPart pick, script tuning cache, thumbnail dispose",
+      "at": "2026-11-20T06:51:25.261Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\many-mods-fixes-1120"
+    },
+    {
+      "id": "ledger-552",
+      "kind": "ledger",
+      "from": 552,
+      "to": 552,
+      "by": "many-mods-fixes-1120",
+      "what": "many-mods fixes 1120 (docs/302 #7 #9 #12)",
+      "at": "2026-11-20T06:51:25.962Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\many-mods-fixes-1120"
+    },
+    {
+      "id": "fixes-1492",
+      "kind": "fixes",
+      "from": 1492,
+      "to": 1493,
+      "by": "many-mods-fixes-1120",
+      "what": "thumbdispose: thumbnails disposed / errors",
+      "at": "2026-11-20T06:51:27.670Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\many-mods-fixes-1120"
+    },
+    {
+      "id": "ledger-553",
+      "kind": "ledger",
+      "from": 553,
+      "to": 553,
+      "by": "offload-other-1120",
+      "what": "offload other split + thumbnail texture branch (offload-other-1120)",
+      "at": "2026-11-20T07:02:53.086Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-554",
+      "kind": "ledger",
+      "from": 554,
+      "to": 554,
+      "by": "apex-many-mods-1120",
+      "what": "302",
+      "at": "2026-11-20T07:11:36.590Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\apex-many-mods-1120"
+    },
+    {
+      "id": "ledger-555",
+      "kind": "ledger",
+      "from": 555,
+      "to": 555,
+      "by": "A4",
+      "what": "many-mods-harness-1120",
+      "at": "2026-11-20T07:11:43.709Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\many-mods-harness-1120"
+    },
+    {
+      "id": "native-v222",
+      "kind": "native",
+      "version": 222,
+      "from": 27384,
+      "to": 27463,
+      "by": "mod-seam-budget-1120",
+      "what": "[Diag] TaskSeam per-task-run attribution + [ModBudget] per-mod fair share counters (docs/302 §3 #3/#4)",
+      "at": "2026-11-20T07:42:34.700Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mod-seam-budget-1120"
+    },
+    {
+      "id": "doc-308",
+      "kind": "doc",
+      "from": 308,
+      "to": 308,
+      "by": "mod-seam-budget-1120",
+      "what": "task seam attribution + ModBudget",
+      "at": "2026-11-20T07:42:35.304Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mod-seam-budget-1120"
+    },
+    {
+      "id": "ledger-556",
+      "kind": "ledger",
+      "from": 556,
+      "to": 556,
+      "by": "mod-seam-budget-1120",
+      "what": "task seam + ModBudget inferences",
+      "at": "2026-11-20T07:42:36.071Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mod-seam-budget-1120"
     }
   ]
 }
