@@ -13483,6 +13483,8 @@ static void TestNoPathMemoStub() {
 #include "workerhold-test.h"  // TestWorkerHold ([RouteJobPhases] HoldProbe, docs/673)
 #include "worldpre-test.h"    // TestWorldPre ([WorldPrecompute], docs/676)
 #include "wpsnap-test.h"      // TestWpSnap ([WaypointSnap], docs/679)
+#include "wpgather-core.h"
+#include "wpgather-test.h"    // TestWpGather ([WaypointSnap] Gather, docs/679 §5)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "cellindex-test.h"   // TestCellIndex ([RouteSpeed] CellIndex, docs/669)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
@@ -15067,6 +15069,7 @@ int main() {
     TestWorkerHold();  // docs/673
     TestWorldPre();    // docs/676
     TestWpSnap();      // docs/679
+    TestWpGather();    // docs/679 §5
     TestDoorShare();   // docs/674
     TestCellIndex();   // docs/669
     TestPlaceCore();   // docs/670

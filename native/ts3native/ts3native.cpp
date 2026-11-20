@@ -6785,6 +6785,7 @@ static void Run(HMODULE self) {
         InstallWorldPre(ini);    // docs/676: after ApplyWaterJps (the jump hook), InstallPlanCand and InstallTailUnlock (it chains its sites)
         InstallWpSnap(ini);      // docs/679: after [RouteSnap] (the write sequence); two call sites of its own
         InstallWpGather(ini);    // docs/679 §5: after InstallWpSnap (chains over its two call sites)
+        InstallWpGather(ini);    // docs/679 §5: after InstallWpSnap (chains over its two call sites)
         InstallCellIndex(ini);   // docs/669: after InstallRouteSpeed (the Q table clear stub; installs it when NeighbourMemo is off)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
