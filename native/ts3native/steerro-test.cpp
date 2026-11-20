@@ -41,6 +41,8 @@
 //      hit loop, both ways out) vs the same code with the call site on GvThunk / GvStub (SectionGVH; `set SRT_ONLY=GVH`).
 //  CN. [ConnRoomsRO] (docs/670 §15): the game's IC 0x7929F0 from its entry with a fake script host, the game's 0x63DCB0 vs the
 //      parked clone answer handed out by CnStub (SectionCN; `set SRT_ONLY=CN`).
+//  OA. [ObstructAtRO] (docs/670 §21-§22): the game's RouteObstructionAtPoint 0x655880 vs OaRun (both class flags, with and
+//      without a context / ignore list), then its detour: job, shadow, the job's own route, QL busy (SectionOA; `set SRT_ONLY=OA`).
 // Built by build.cmd, not run there (needs the exe):  out\steerro-test.exe ["<path>\TS3W.exe"] [cases, default 400] [seed]
 #define TS3NATIVE_NO_DLLMAIN
 #include "ts3native.cpp"
@@ -2792,6 +2794,249 @@ static void SectionGVH(int cases) {
     *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
 }
 
+// --- OA. [ObstructAtRO] (gvro.cpp, docs/670 §21-§22): the game's own RouteObstructionAtPoint 0x655880 (its lot lookup, level,
+// height, lot transform 0x62EF30, obstacle query 0x82EDB0, ignore list 0x8294E0 / 0x81C970 and loop) against OaRun on random
+// worlds, points, contexts (none; own id; ignore list or none) and both class flags; then the detour on the mapped
+// 0x655880: job -> clone, no job -> the game's code, shadow, an ignore list inside the job's route, QL busy. Fakes: the
+// level 0xADD860, 0xB015B0 and the height 0x74A8F0 (they read lot objects and terrain), which also record what they were
+// handed. The no-lot path (0x62D0D0) is not run: the clone gives those calls back before any routing read.
+struct OAF {
+    struct Seen { const u8* lot; DWORD pt[4]; int levels, heights; float hx, hz; LONG hLevel; DWORD hOne, hFlag; };
+    static Seen seen;
+    static void __cdecl Level(const u8* lot, const float* pt, float* io) {
+        seen.lot = lot;
+        memcpy(seen.pt, pt, 16);
+        seen.levels++;
+        I::Level(lot, pt, io);
+    }
+    static u8 __cdecl Inside(const u8*, const float* io) { return (u8)(*(const LONG*)&io[2] & 1); }
+    // a height far from the caller's y: the query must not read the point's y
+    static float __cdecl Height(float x, float z, LONG level, DWORD one, DWORD flag) {
+        seen.heights++, seen.hx = x, seen.hz = z, seen.hLevel = level, seen.hOne = one, seen.hFlag = flag & 0xFF;
+        return 1000.0f + x - z;
+    }
+};
+OAF::Seen OAF::seen;
+static void SectionOA(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 6558801;
+    ObstructAtCounters& k = ts3native_obstructat;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(Matches((const void*)(uintptr_t)OA_FN, kOrPro, sizeof(kOrPro)));
+    // the function's call edges the clone mirrors, and its two callers
+    assert(callsTo(0x0065591C, 0x008292D0) && callsTo(0x0065592F, 0x008294E0) && callsTo(0x0065598B, 0x00C68990) &&
+           callsTo(0x006559C0, 0x00ADD860) && callsTo(0x006559FF, 0x00B015B0) && callsTo(0x00655A4D, 0x0074A8F0) &&
+           callsTo(0x00655AB9, 0x0062EF30) && callsTo(0x00655AF6, 0x0082EDB0) && callsTo(0x00655BE5, 0x0081C970) &&
+           callsTo(0x00655CF2, 0x0062D0D0) && callsTo(0x007519D9, OA_FN) && callsTo(0x006437AF, OA_FN));
+    static const u8 kIgnOf[] = {0x8B, 0x44, 0x24, 0x04, 0x85, 0xC0, 0x74, 0x06, 0x8B, 0x40, 0x28, 0xC2, 0x04, 0x00};  // 0x8294E0: ctx ? ctx+0x28 : 0
+    static const u8 kIgnHas[] = {0x8B, 0x51, 0x3C, 0x8B, 0x41, 0x38, 0x3B, 0xC2};  // 0x81C970: ids in [list+0x38, list+0x3C)
+    static const u8 kOwn[] = {0x8B, 0x4E, 0x0C, 0x8B, 0x16, 0x89, 0x44, 0x24, 0x4C, 0x8B, 0x46, 0x08};  // 0x655934: ctx +0xC, +0, (list), +8
+    static const u8 kFlag[] = {0x80, 0x7D, 0x18, 0x00};  // 0x655B2E: cmp byte [ebp+0x18], 0 (the class flag is a byte)
+    static const u8 kRet[] = {0xC2, 0x14, 0x00};         // ret 0x14
+    assert(Matches((const void*)(uintptr_t)0x008294E0, kIgnOf, sizeof(kIgnOf)) && Matches((const void*)(uintptr_t)0x0081C970, kIgnHas, sizeof(kIgnHas)) &&
+           Matches((const void*)(uintptr_t)0x00655934, kOwn, sizeof(kOwn)) && Matches((const void*)(uintptr_t)0x00655B2E, kFlag, sizeof(kFlag)) &&
+           Matches((const void*)(uintptr_t)0x00655E93, kRet, sizeof(kRet)));
+    static const DWORD kFakeAt[4] = {0x00ADD860, 0x00B015B0, 0x0074A8F0, 0x0074B2C0};
+    u8 savedFn[4][5], savedPro[sizeof(kOrPro)];
+    for (int i = 0; i < 4; i++) memcpy(savedFn[i], (const void*)(uintptr_t)kFakeAt[i], 5);
+    memcpy(savedPro, (const void*)(uintptr_t)OA_FN, sizeof(savedPro));
+    Jmp(0x00ADD860, (void*)OAF::Level);
+    Jmp(0x00B015B0, (void*)OAF::Inside);
+    Jmp(0x0074A8F0, (void*)OAF::Height);
+    Jmp(0x0074B2C0, (void*)I::Route);
+    static u8 rmObj[0x10];
+    u8* const rm0 = *(u8**)(uintptr_t)0x011D40C4;
+    u8* const route0 = I::route;
+    *(u8**)(uintptr_t)0x011D40C4 = rmObj;
+    I::route = (u8*)A(0x200);  // the job's route: an ignore list inside it is the job's own
+    float* const radius = (float*)(uintptr_t)0x0106E8A8;  // the query's radius, 0.25: two worlds in three get a wider one
+    const float radius0 = *radius;
+    assert(radius0 > 0.24f && radius0 < 0.26f && g_orRadius == radius);
+    const DWORD owner0 = g_async.owner, handle0 = g_async.handle;
+    const LONG rgOwner0 = ts3native_counters.rgOwnerTid;
+    const ObstructAtCounters k0 = k;
+    g_async.owner = GetCurrentThreadId();
+    g_async.handle = 0x25000001;
+    ts3native_counters.rgOwnerTid = 0;
+    static u8 self[0x10], ctxBuf[0x30], ignObj[0x40];
+    static DWORD ign[8];
+    struct Call { const u8* ctx; float x, y, z; DWORD flag; };
+    auto newCase = [&](int i, Call* c) {
+        if (i % 8 == 0) {
+            BuildWorld();
+            *radius = Rnd(3) == 0 ? radius0 : Rf(0.5f, 6);
+            for (int f = 0; f < W.nfp; f++)  // Sims and type 1 among the classes with the +0x35 type
+                if (Rnd(2)) W.fps[f][0x35] = (u8)(Rnd(3) ? 0x14 : 1);
+            for (int l = 0; l < 3; l++)  // the height's flag reads the lot's +0x408 / +0x40C
+                if (Rnd(3) == 0) *(DWORD*)(W.lots[l] + 0x408) = 1, *(DWORD*)(W.lots[l] + 0x40C) = Rnd(2) ? 0x50 : 0x51;
+            *(u8**)(self + 8) = W.p;
+            *(u8**)(self + 0xC) = W.wm;
+        }
+        const int lot = (int)Rnd(2);
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(lot, Rf(-4, 68), Rf(-4, 68), &x, &z);
+        if (lot == 0 && x >= 0) x = -0.5f;  // keep it in the lot's rectangle (the lot lookup fake)
+        if (lot == 1 && x < 0) x = 0.5f;
+        const DWORD where = Rnd(16);
+        if (where < 2) x += lot == 0 ? 50 : 150;  // another lot's frame, or lot 2 (not in the table: the game inserts it)
+        if (where == 2) x = Rf(210, 260);         // off every lot
+        c->x = x, c->y = Rf(0, 2), c->z = z;
+        c->flag = Rnd(4) == 0 ? 0xABCDEF01 : 0x13579B00;  // the low byte only
+        c->ctx = Rnd(6) ? ctxBuf : NULL;
+        memset(ctxBuf, 0, sizeof(ctxBuf));
+        *(DWORD*)ctxBuf = Rnd(0x10000);
+        const u8* own = W.fps[Rnd(W.nfp)];  // the caller's own Sim: one of the ids in play, sometimes
+        *(DWORD*)(ctxBuf + 8) = Rnd(3) ? *(const DWORD*)(own + 0x14) : 0x7777;
+        *(DWORD*)(ctxBuf + 0xC) = Rnd(3) ? *(const DWORD*)(own + 0x18) : 0;
+        ctxBuf[0x24] = 1;
+        const int ni = (int)Rnd(4);
+        for (int j = 0; j < ni; j++) { ign[j * 2] = 0x1000 + Rnd(40); ign[j * 2 + 1] = Rnd(3) ? 0 : 7; }
+        u8* list = Rnd(5) == 0 ? NULL : Rnd(4) == 0 ? I::route + 0x158 : ignObj;
+        if (list) *(DWORD**)(list + 0x38) = ign, *(DWORD**)(list + 0x3C) = ign + ni * 2;
+        *(u8**)(ctxBuf + 0x28) = list;
+    };
+    auto game = [&](const Call& c) { return ((OaFn)(uintptr_t)OA_FN)(self, NULL, c.ctx, c.x, c.y, c.z, c.flag); };
+    auto jobs = [&](const Call& c) { return c.ctx && *(u8* const*)(c.ctx + 0x28) == I::route + 0x158; };
+    long n = 0, cmp = 0, ids = 0, flagEq = 0, noLot = 0, flagHits = 0, inserts = 0, fb[16] = {};
+    for (int i = 0; i < cases; i++) {
+        Call c;
+        newCase(i, &c);
+        n++;
+        u64 mine = 0x5555;
+        const int l0 = OAF::seen.levels, h0 = OAF::seen.heights;
+        const int why = OaRun(self, c.ctx, c.x, c.y, c.z, (u8)c.flag != 0, false, &mine);  // the clone first: it must not change what the game reads
+        RefsOk();
+        if (why == OA_WHY_NOLOT) {  // before any routing read; the game's other path is not run here
+            assert(!FkLotLookup(NULL, NULL, c.x, c.z) && OAF::seen.levels == l0 && mine == 0);
+            noLot++;
+            continue;
+        }
+        const OAF::Seen cl = OAF::seen;
+        assert(cl.levels == l0 + 1 && cl.heights == h0);
+        if (why == OA_WHY_HITS) {  // class flag with footprints: the game's loop reads slot +8 with ctx, not cloned
+            const u64 g = game(c);
+            RefsOk();
+            assert((u8)c.flag && mine == 0 && (g == 0 || g == 1));
+            flagHits++;
+            continue;
+        }
+        const u8* const lotAt = FkLotLookup(NULL, NULL, c.x, c.z);
+        const u64 g = game(c);
+        RefsOk();  // the game's references are balanced
+        // the game handed its callees what the clone handed them: the lot, the point {x, y, z, x}; one height call with (x, z, level, 1, flag)
+        assert(OAF::seen.levels == l0 + 2 && OAF::seen.heights == h0 + 1 && OAF::seen.lot == cl.lot && cl.lot == lotAt &&
+               !memcmp(OAF::seen.pt, cl.pt, 16) && !memcmp(&OAF::seen.hx, &c.x, 4) && !memcmp(&OAF::seen.hz, &c.z, 4) && OAF::seen.hOne == 1);
+        assert(!memcmp(&cl.pt[0], &c.x, 4) && !memcmp(&cl.pt[1], &c.y, 4) && !memcmp(&cl.pt[2], &c.z, 4) && cl.pt[3] == cl.pt[0]);
+        if (why) {
+            fb[why < 16 ? why : 0]++;
+            inserts += why == SR_FB_LOTMISS;
+            assert(mine == 0);
+            continue;
+        }
+        if (g != mine) {
+            printf("OA MISMATCH case %d at (%.3f, %.3f) flag %lu ctx %d: game %08lX:%08lX, clone %08lX:%08lX\n", i, c.x, c.z, c.flag & 0xFF,
+                   (int)(c.ctx != NULL), (DWORD)(g >> 32), (DWORD)g, (DWORD)(mine >> 32), (DWORD)mine);
+            assert(false);
+        }
+        cmp++, ids += g != 0, flagEq += (u8)c.flag != 0;
+    }
+    const long back = n - cmp;
+    long other = back - noLot - flagHits;
+    for (int w : {(int)SR_FB_LOTMISS, (int)SR_FB_DEFERRED, (int)SR_FB_CACHE, (int)SR_FB_SHAPE}) other -= fb[w];
+    printf("OA: %ld calls of the game's 0x655880 vs OaRun: %ld compared equal (%ld name an object, %ld with the class flag and no "
+           "footprint), 0 differ, %ld given back: no lot %ld, class flag with footprints %ld, lot not in the table %ld, deferred %ld, "
+           "polygon cache %ld, shape %ld, other %ld; references balanced; the point and the callees' arguments match\n", n, cmp, ids,
+           flagEq, back, noLot, flagHits, fb[SR_FB_LOTMISS], fb[SR_FB_DEFERRED], fb[SR_FB_CACHE], fb[SR_FB_SHAPE], other);
+    assert(cmp > n / 2 && ids > n / 20 && flagEq > 0 && noLot > 0 && flagHits > 0 && inserts > 0 && other == 0);
+    // the detour on the mapped 0x655880: job -> clone, no job -> the game's code (the trampoline)
+    const int hn = cases < 4000 ? cases : 4000;
+    memset(&k, 0, sizeof(k));
+    g_oaOrig = (OaFn)InstallDetour("RouteObstructionAtPoint", OA_FN, kOrPro, sizeof(kOrPro), (void*)OaHook, &g_oaOrig);
+    assert(g_oaOrig);
+    k.oaMode = 1;
+    long taken = 0, jobRoute = 0;
+    for (int i = 0; i < hn; i++) {
+        Call c;
+        newCase(i, &c);
+        if (!FkLotLookup(NULL, NULL, c.x, c.z)) continue;  // the game's other path
+        const LONG t0 = k.oaTaken, r0 = k.oaFb[OA_FB_ROUTE], calls0 = k.oaCalls;
+        Job(true);
+        const u64 a = game(c);
+        Job(false);
+        assert(k.oaCalls == calls0 + 1 && (!jobs(c) || (k.oaTaken == t0 && k.oaFb[OA_FB_ROUTE] == r0 + 1)));
+        taken += k.oaTaken - t0, jobRoute += k.oaFb[OA_FB_ROUTE] - r0;
+        const u64 b = game(c);  // no job: the trampoline (a lot the first call inserted is in the table for both)
+        assert(a == b && k.oaTaken - t0 <= 1);
+        RefsOk();
+    }
+    assert(taken > hn / 3 && jobRoute > 0 && k.oaHits > 0 && k.oaHits < k.oaTaken && k.oaShadowRuns == 0);
+    k.oaMode = 0, k.oaShadow = 1;
+    for (int i = 0; i < hn; i++) {
+        Call c;
+        newCase(i, &c);
+        if (!FkLotLookup(NULL, NULL, c.x, c.z)) continue;
+        game(c);
+    }
+    assert(k.oaShadowRuns > hn / 2 && k.oaShadowMismatch == 0 && g_rgOffSimOpen == 0);
+    k.oaShadow = 0, k.oaMode = 1;
+    // a worker writer holds QL: the hook gives the call back to the game's code, same answer
+    struct Hold { HANDLE in, go; };
+    static Hold hold;
+    hold.in = CreateEventW(NULL, FALSE, FALSE, NULL);
+    hold.go = CreateEventW(NULL, FALSE, FALSE, NULL);
+    HANDLE qh = CreateThread(NULL, 0, [](void*) -> DWORD {
+        AcquireSRWLockExclusive(&g_ql);
+        SetEvent(hold.in);
+        WaitForSingleObject(hold.go, 30000);
+        ReleaseSRWLockExclusive(&g_ql);
+        return 0;
+    }, NULL, 0, NULL);
+    WaitForSingleObject(hold.in, INFINITE);
+    long busy = 0, busyN = 0;
+    for (int i = 0; i < 80; i++) {
+        Call c;
+        newCase(i, &c);
+        if (!FkLotLookup(NULL, NULL, c.x, c.z) || jobs(c)) continue;
+        const LONG f0 = k.oaFb[OA_FB_TRY], t0 = k.oaTaken;
+        Job(true);
+        const u64 a = game(c);
+        Job(false);
+        busyN++, busy += k.oaFb[OA_FB_TRY] - f0;
+        assert(k.oaTaken == t0);
+        k.oaMode = 0;
+        assert(a == game(c));  // switch off: the trampoline
+        k.oaMode = 1;
+    }
+    SetEvent(hold.go);
+    WaitForSingleObject(qh, INFINITE);
+    CloseHandle(qh);
+    CloseHandle(hold.in);
+    CloseHandle(hold.go);
+    assert(busy == busyN && busyN > 40);
+    printf("OA: hook on the mapped 0x655880: %ld read-only answers in a job equal to the game's (%ld name an object), %ld given back for "
+           "the job's own route; shadow %ld runs, 0 mismatches; QL busy %ld x -> the game's call\n", taken, k.oaHits, jobRoute,
+           k.oaShadowRuns, busy);
+    memcpy((void*)(uintptr_t)OA_FN, savedPro, sizeof(savedPro));
+    for (int i = 0; i < 4; i++) memcpy((void*)(uintptr_t)kFakeAt[i], savedFn[i], 5);
+    *(u8**)(uintptr_t)0x011D40C4 = rm0;
+    I::route = route0;
+    *radius = radius0;
+    g_oaOrig = NULL;
+    k = k0;
+    g_async.owner = owner0, g_async.handle = handle0;
+    ts3native_counters.rgOwnerTid = rgOwner0;
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
 // --- CN: [ConnRoomsRO] (connro.cpp, docs/670 §15) against the game's own IC_World_GetConnectedRoomsImpl 0x7929F0 ---
 // The IC runs from its entry twice per case on the same world, with a fake script host that records the array it is asked
 // to build: once with the call at 0x792A55 on CnStub and no job (the game's 0x63DCB0; CnShadow compares the clone on the way),
@@ -3176,6 +3421,7 @@ int main(int argc, char** argv) {
     if (!strcmp(only, "EP")) { SectionEP(cases * 10); return 0; }
     if (!strcmp(only, "GVH")) { SectionGVH(cases * 10); return 0; }
     if (!strcmp(only, "CN")) { SectionCN(cases * 10); return 0; }
+    if (!strcmp(only, "OA")) { SectionOA(cases * 10); return 0; }
 
     // D. lot transforms, bit for bit (lot table hit: no insert)
     for (int i = 0; i < 2000; i++) {
@@ -3195,6 +3441,7 @@ int main(int argc, char** argv) {
     SectionEP(cases * 10);  // EP. [EditPathRO] (docs/670 §8)
     SectionGVH(cases * 10);  // GVH. [GoalValidRO] Hits (docs/670 §11)
     SectionCN(cases * 10);  // CN. [ConnRoomsRO] (docs/670 §15)
+    SectionOA(cases * 10);  // OA. [ObstructAtRO] (docs/670 §21-§22)
 
     // A. the game's call vs the clone
     for (int i = 0; i < cases; i++) OneCase();
