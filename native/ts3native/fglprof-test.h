@@ -66,5 +66,37 @@ static void TestFglProfCore() {
     assert(FglBools(rec) == 0x14);
     rec[0x39] = 1; rec[0x3E] = 1; rec[0x33] = 1; rec[0x35] = 1;   // +0x35 is the game's own byte, no flag
     assert(FglBools(rec) == (0x14u | 0x40000u | 0x2000000u | 0x8000u));
+
+    // [FglFacing]: the regular octagon about its centre, drawn in by 1 mm; anything else is refused
+    const float kC = 0.70710678f * 0.25f;
+    const float centre[2] = {7.5f, 3.5f};
+    float oct[16] = {0.25f, 0, kC, kC, 0, 0.25f, -kC, kC, -0.25f, 0, -kC, -kC, 0, -0.25f, kC, -kC};
+    for (int i = 0; i < 8; i++) { oct[2 * i] += centre[0]; oct[2 * i + 1] += centre[1]; }
+    float in[16];
+    assert(FglOctagonShrink(oct, centre, FGL_SHRINK, in));
+    for (int i = 0; i < 8; i++) {
+        const float ox = oct[2 * i] - centre[0], oz = oct[2 * i + 1] - centre[1], ix = in[2 * i] - centre[0], iz = in[2 * i + 1] - centre[1];
+        const float ro2 = ox * ox + oz * oz, ri2 = ix * ix + iz * iz;   // 0.25^2 = 0.0625, 0.249^2 = 0.062001
+        assert(ri2 < ro2 && ri2 > 0.0619f && ri2 < 0.0621f && ix * oz - iz * ox < 1e-6f && iz * ox - ix * oz < 1e-6f);
+    }
+    // the same octagon turned by 45 degrees (points shifted by one) is the same point set; the drawn-in one is not
+    float turned[16];
+    for (int i = 0; i < 8; i++) { turned[2 * i] = oct[2 * ((i + 1) & 7)]; turned[2 * i + 1] = oct[2 * ((i + 1) & 7) + 1]; }
+    assert(FglSamePoints(turned, oct, 0.0005f) && !FglSamePoints(in, oct, 0.0005f));
+    float bad[16];
+    const float off[2] = {7.52f, 3.5f};
+    assert(!FglOctagonShrink(oct, off, FGL_SHRINK, bad));          // not about the candidate position (a pivot offset)
+    for (int i = 0; i < 16; i++) bad[i] = oct[i];
+    bad[2] += 0.01f;
+    assert(!FglOctagonShrink(bad, centre, FGL_SHRINK, in));         // one point off
+    for (int i = 0; i < 8; i++) { bad[2 * i] = centre[0] + (i & 1 ? 0.25f : -0.25f); bad[2 * i + 1] = centre[1] + (i & 2 ? 0.25f : -0.25f); }
+    assert(!FglOctagonShrink(bad, centre, FGL_SHRINK, in));         // equal radii, not 45 degrees apart
+    for (int i = 0; i < 16; i++) bad[i] = centre[i & 1];
+    assert(!FglOctagonShrink(bad, centre, FGL_SHRINK, in));         // no size
+    FglProof pr = FglProof();
+    const unsigned pk[3] = {1, 2, 3}, pk2[3] = {1, 2, 4};
+    assert(!FglProofSame(pr, oct, 5, pk));
+    FglProofSet(&pr, oct, 5, pk);
+    assert(FglProofSame(pr, oct, 5, pk) && !FglProofSame(pr, oct, 5, pk2) && !FglProofSame(pr, oct, 6, pk) && !FglProofSame(pr, in, 5, pk));
     printf("ok FglProf core\n");
 }

@@ -147,3 +147,123 @@ static void TestFglProfStubs() {
     g_fglk = savedK;
     printf("ok FglProf stubs\n");
 }
+
+// [FglFacing] (docs/671 §10): the proof and the answered facings, on fakes
+static int g_ffTests, g_ffFoot;
+static DWORD g_ffTestAns, g_ffFootAns;
+static float g_ffFootR2;
+// the game's facing test: here it only leaves what the inner stubs would (the octagon part ran, 0xB46160 failed unnamed)
+static DWORD __cdecl FfTest(u8*, DWORD) {
+    g_ffTests++;
+    g_fgl.t.octTests++;
+    if (!g_ffTestAns) g_fgl.failCheck = FGC_B41120;
+    return g_ffTestAns;
+}
+static DWORD __cdecl FfFoot(u8* rec, DWORD) {
+    g_ffFoot++;
+    const float* b = *(const float* const*)(rec + 0xA0);
+    float pos[2];
+    memcpy(pos, rec + 8, sizeof(pos));
+    g_ffFootR2 = (b[0] - pos[0]) * (b[0] - pos[0]) + (b[1] - pos[1]) * (b[1] - pos[1]);
+    return g_ffFootAns;
+}
+static void TestFglFacing() {
+    void* savedTarget[FGL_SITES];
+    memcpy(savedTarget, g_fglTarget, sizeof(savedTarget));
+    const auto savedK = g_fglk;
+    const auto savedF = g_fglf;
+    typedef DWORD(__cdecl* TestFn)(u8*, DWORD);
+    const TestFn facing = (TestFn)(void*)kFglStubs[FGL_S_FACING];
+    const float kC = 0.70710678f * 0.25f;
+    const float base[16] = {0.25f, 0, kC, kC, 0, 0.25f, -kC, kC, -0.25f, 0, -kC, -kC, 0, -0.25f, kC, -kC};
+    static u8 rec[0x100];
+    static float poly[16];
+    float pos[2] = {7.5f, 3.5f};
+    auto place = [&](float x, float z) {
+        pos[0] = x; pos[1] = z;
+        memcpy(rec + 8, pos, sizeof(pos));
+        for (int i = 0; i < 8; i++) { poly[2 * i] = base[2 * i] + x; poly[2 * i + 1] = base[2 * i + 1] + z; }
+    };
+    memset(rec, 0, sizeof(rec));
+    *(float**)(rec + 0xA0) = poly;
+    *(float**)(rec + 0xA4) = poly + 16;
+    *(DWORD*)rec = 0x1234;
+    DWORD top = 0;
+    g_fglk.prof = 0;
+    g_fglk.logMs = 0x7FFFFFFF;
+    g_fgl.owner = (LONG)GetCurrentThreadId();
+    g_fgl.frames[0].slot = &top + 0x10000;
+    g_fgl.frames[0].site = FGL_S_SEARCH;
+    g_fgl.depth = 1;
+    g_fgl.proof.on = false;
+    FglTallyReset(&g_fgl.t);
+    memset(&g_fglf, 0, sizeof(g_fglf));
+    g_fglf.ready = 1; g_fglf.mode = 1; g_fglf.noted = 16;   // no log line
+    g_fglTarget[FGL_S_FACING] = (void*)FfTest;
+    g_fglFootTest = FfFoot;
+    g_ffTests = g_ffFoot = 0;
+
+    // tile 1: the first facing fails at the footprint check, blocked again with the polygon drawn in -> the next 7 are answered
+    place(7.5f, 3.5f);
+    float before[16];
+    memcpy(before, poly, sizeof(before));
+    g_ffTestAns = 0; g_ffFootAns = 0;
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == 1 && g_ffFoot == 1 && g_fglf.proven == 1);
+    assert(g_ffFootR2 > 0.0619f && g_ffFootR2 < 0.0621f && !memcmp(before, poly, sizeof(before)));   // 0.249^2, polygon put back
+    for (int i = 0; i < 7; i++) assert((u8)facing(rec, 0) == 0);
+    assert(g_ffTests == 1 && g_ffFoot == 1 && g_fglf.skipped == 7 && g_fgl.depth == 1);
+    // the answered call is as clean as a real one: registers, flags aside, and the caller's stack (cdecl: nothing popped)
+    g_ftCall = (void*)kFglStubs[FGL_S_FACING];
+    g_ftArg0 = (DWORD)(uintptr_t)rec; g_ftArg1 = 0;
+    FtCall();
+    assert(g_ftOut[0] == 0 && g_ftOut[3] == 0xB1B1B1B1 && g_ftOut[4] == 0x51515151 && g_ftOut[5] == 0xE1E1E1E1 && g_ftEsp1 == g_ftEsp0 - 8 &&
+           g_ffTests == 1 && g_fglf.skipped == 8);
+    // tile 2: only the rim is blocked -> nothing proven, every facing runs
+    place(8.5f, 3.5f);
+    g_ffFootAns = 1;
+    assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffTests == 3 && g_ffFoot == 2 && g_fglf.rimOnly == 1 && g_fglf.proven == 1);
+    // tile 3: the first facing passes -> no proof asked
+    place(9.5f, 3.5f);
+    g_ffTestAns = 1; g_ffFootAns = 0;
+    assert((u8)facing(rec, 0) == 1 && g_ffFoot == 2);
+    // tile 4: not the octagon about the position (a pivot offset) -> refused
+    place(10.5f, 3.5f);
+    poly[0] += 0.02f;
+    g_ffTestAns = 0;
+    assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffFoot == 2 && g_fglf.notOctagon == 1 && g_ffTests == 6);
+    // tile 5 proven, then another object on the same record and position: the proof is not its
+    place(11.5f, 3.5f);
+    assert((u8)facing(rec, 0) == 0 && g_fglf.proven == 2 && g_ffTests == 7);
+    *(DWORD*)rec = 0x5678;
+    g_ffFootAns = 1;
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == 8);
+    *(DWORD*)rec = 0x1234;
+    // Shadow: proven tiles still run every facing; one that passes, or shows another polygon, is counted
+    g_fglf.shadow = 1;
+    place(12.5f, 3.5f);
+    g_ffFootAns = 0;
+    const LONG skipped = g_fglf.skipped;
+    assert((u8)facing(rec, 0) == 0 && g_fglf.proven == 3);
+    assert((u8)facing(rec, 0) == 0 && g_fglf.shadowTests == 1 && g_fglf.shadowMismatch == 0 && g_fglf.shadowShape == 0);
+    g_ffTestAns = 1;
+    assert((u8)facing(rec, 0) == 1 && g_fglf.shadowTests == 2 && g_fglf.shadowMismatch == 1 && g_fglf.skipped == skipped);
+    g_ffTestAns = 0;
+    poly[0] += 0.01f;
+    assert((u8)facing(rec, 0) == 0 && g_fglf.shadowTests == 3 && g_fglf.shadowShape == 1);
+    // Mode=0 without Shadow: nothing proven, nothing answered
+    g_fglf.shadow = 0; g_fglf.mode = 0;
+    place(13.5f, 3.5f);
+    const int tests = g_ffTests;
+    assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffTests == tests + 2 && g_fglf.proven == 3);
+
+    g_fglFootTest = NULL;
+    g_fgl.owner = 0;
+    g_fgl.depth = 0;
+    g_fgl.proof.on = false;
+    g_fgl.testRec = NULL;
+    FglTallyReset(&g_fgl.t);
+    memcpy(g_fglTarget, savedTarget, sizeof(savedTarget));
+    g_fglk = savedK;
+    g_fglf = savedF;
+    printf("ok FglFacing\n");
+}

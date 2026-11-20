@@ -14772,6 +14772,7 @@ int main() {
     TestPlaceTestRO();
     TestFglProfCore();   // docs/671
     TestFglProfStubs();
+    TestFglFacing();   // docs/671 §10
     TestEditPathRO();  // docs/670 §8
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();

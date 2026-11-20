@@ -114,3 +114,57 @@ inline unsigned FglBools(const unsigned char* rec) {
         if (rec[kMap[i].off]) v |= 1u << kMap[i].bit;
     return v;
 }
+
+// ---- [FglFacing] (docs/671 §10) ----
+// poly = 8 points (x, z); centre = the candidate position. True when poly is a regular octagon about centre (every radius
+// within 1e-3 of the first, neighbours 45 degrees apart within 1e-2 rad by their chord, radius 0.05-5); out = the same points
+// drawn towards the centre by `shrink` (absolute length). No libm: the checks use squared lengths.
+const float FGL_SHRINK = 0.001f;
+inline bool FglOctagonShrink(const float poly[16], const float centre[2], float shrink, float out[16]) {
+    const float dx0 = poly[0] - centre[0], dz0 = poly[1] - centre[1];
+    const float r2 = dx0 * dx0 + dz0 * dz0;
+    if (!(r2 > 0.05f * 0.05f && r2 < 5.0f * 5.0f)) return false;
+    // |r - r0| < 1e-3 <=> |r^2 - r0^2| < ~2 r0 1e-3; chord of 45 degrees: c^2 = (2 - sqrt 2) r^2
+    float r = r2;   // Newton square root, enough steps for float
+    for (int i = 0; i < 24; i++) r = 0.5f * (r + r2 / r);
+    const float tolR2 = 2.0f * r * 1e-3f, chord2 = 0.585786438f * r2, tolC2 = 2.0f * 0.765366865f * r * (1e-2f * r);
+    for (int i = 0; i < 8; i++) {
+        const float dx = poly[2 * i] - centre[0], dz = poly[2 * i + 1] - centre[1];
+        const float d2 = dx * dx + dz * dz;
+        if (!(d2 - r2 < tolR2 && r2 - d2 < tolR2)) return false;
+        const int j = (i + 1) & 7;
+        const float ex = poly[2 * j] - poly[2 * i], ez = poly[2 * j + 1] - poly[2 * i + 1];
+        const float c2 = ex * ex + ez * ez;
+        if (!(c2 - chord2 < tolC2 && chord2 - c2 < tolC2)) return false;
+    }
+    if (!(shrink > 0 && shrink < 0.5f * r)) return false;
+    const float k = 1.0f - shrink / r;
+    for (int i = 0; i < 8; i++) {
+        out[2 * i] = centre[0] + (poly[2 * i] - centre[0]) * k;
+        out[2 * i + 1] = centre[1] + (poly[2 * i + 1] - centre[1]) * k;
+    }
+    return true;
+}
+
+// the tile whose facing tests are answered: one record (one search), one object, one position
+struct FglProof { bool on; const void* rec; unsigned obj; unsigned key[3]; };
+inline void FglProofSet(FglProof* p, const void* rec, unsigned obj, const unsigned key[3]) {
+    p->on = true; p->rec = rec; p->obj = obj;
+    p->key[0] = key[0]; p->key[1] = key[1]; p->key[2] = key[2];
+}
+inline bool FglProofSame(const FglProof& p, const void* rec, unsigned obj, const unsigned key[3]) {
+    return p.on && p.rec == rec && p.obj == obj && p.key[0] == key[0] && p.key[1] == key[1] && p.key[2] == key[2];
+}
+
+// every point of a (8 points) lies within tol of some point of b
+inline bool FglSamePoints(const float a[16], const float b[16], float tol) {
+    for (int i = 0; i < 8; i++) {
+        bool hit = false;
+        for (int j = 0; j < 8 && !hit; j++) {
+            const float dx = a[2 * i] - b[2 * j], dz = a[2 * i + 1] - b[2 * j + 1];
+            hit = dx * dx + dz * dz < tol * tol;
+        }
+        if (!hit) return false;
+    }
+    return true;
+}

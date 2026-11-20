@@ -111312,6 +111312,48 @@
     ]
   },
   {
+    "id": "ip-fglfacing-storm",
+    "bug": "docs/671 §10: s152 profile (Isla Paradiso storm, 3 min): 863 FindGoodLocation searches, 411,657 placement tests, 359,458 of them further facings on a tile whose first facing failed (1,302 of 2,302 ms); a later facing passed on 48 of 51,388 such tiles. Every search over 50 ms is a failed whole-lot search (8 tests per tile, pass 0); for Sims (octagon) the first failing check is the routing footprint check 0xB41120 on 6128 of 15072 tests and 64 of 92 test ms",
+    "fix": "ts3native [FglFacing] Enabled=1 (default 0): when a Sim's first facing on a tile fails at the footprint check and fails again with its octagon drawn in by 1 mm, the tile's other facing tests are answered without the call (docs/671 §10)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest cases under Wine on fakes, host test of the octagon geometry). Job ini pass 1: [FglFacing] Enabled=1 Mode=1 Shadow=1 with [FglProf] Enabled=1 (nothing answered, every facing run and compared); pass 2: Shadow=0",
+    "expect": "'OK   fgl facing: Mode=1 Shadow=S'. Shadow pass: 'fgl facing:' line with tiles proven > 0, shadow facing tests > 0, passed 0, another polygon 0, no 'SHADOW MISMATCH' line. On pass: facing tests answered > 0 and the 'fgl prof: search' lines of failed whole-lot Sim searches with fewer tests and ms than s152 (15072 tests, 115 ms); same search results (ok / FAILED counts, no new routefail lines); no crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 240,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; one profile arm, 4 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

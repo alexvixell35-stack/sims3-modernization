@@ -240,3 +240,93 @@ Sites=0x3FFF
 
 with `[StallWatch] Managed=8` (the script stack line then names the caller for every sampled hitch as well). Read:
 `OK   fgl prof: 14 call sites, Sites=0x3FFF`, the `fgl prof: search` line pairs, the minute line (`unwound frames` should stay 0).
+
+## 10. s152 profile read and `[FglFacing]` (built, NOT RUN)
+
+### 10.1 s152 [measured: `[FglProf]`, 3 min storm, no crash, `unwound frames 0`]
+
+863 searches, 2,302 ms, 66 failed, 15 lines over 50 ms (max 145). 568,652 tiles visited, 411,657 placement tests.
+**359,458 tests (87%) are further facings on a tile whose first facing failed, 1,302 ms; a later facing passed on 48 of
+51,388 such tiles (0.09%).** Failed tests by first failing check: part pre-checks 334,842 (81%), footprints `0xB41120`
+71,809, box `0xB3F0A0` 2,046, objects `0xB45B90` 1,555, `0xB3ECE0` 546. Repeats within 10 s: 133, all with the same
+result, 966 ms.
+
+Every search over 50 ms is a **failed whole-lot search**:
+
+| caller | searches | ms | shape of one |
+|---|---|---|---|
+| `Ts3Fixes.Fixes.SafeSpotBody` < `SafeSpot` < `ShortcutToLot` (ours; fixed in ts3fixes 9f20444a) | 12 | 1,469 | Sim octagon; tiles visited 4195, in lot 3000, tested 1884, tests 15072 (8 a tile, pass 0); first failing check footprints 6128, pre-checks 8832, box 112; ms: tests 92 = footprints ~64 + objects 7 + part rest 8 + test rest 11, search rest 21; three in a row 115-125 ms apart |
+| `Sims3.Gameplay.GlobalFunctions.FindGoodLocationNearby` (EA; the stack is 4 x that name, `Frames=8` ends there) | 3 | 249 | one object with footprint parts (octagon 0), same start; bools `0x14`, `0x14`, then `0x16` (StayInRoom): tiles visited 9204, in lot 1250, tested 748 / 748 / 694, tests 5984 / 5984 / 5552, pass 0; 61-65 of 80-85 ms in further facings |
+
+So an EA caller retries too (same object, three whole-lot searches). Its caller needs `[FglProf] Frames=16`.
+
+### 10.2 The questions
+
+1. **Is a Sim's polygon the same for all 8 facings?** [verified decompile] `0xB469C0` uses one static table: 8 points
+   `0.25 x (cos, sin)(k x [0xFC16DC])`, `[0xFC16DC]` = 0.7853982 (45 degrees). `0xB0B810` -> `0xB0B470(object, data, angle,
+   x, z)` builds rotation by the angle plus translation (x, z); `0xB0FD20` applies it. The facing angle is index x
+   `[0x11835D4]` = 0.7853981. So each facing's polygon is the regular octagon of radius 0.25 about (x, z), mathematically
+   the same point set, **not bit-identical** (different products and sums, another start point). Two limits: `0xB0B470`
+   adds a pivot offset that depends on the facing when its `data` argument is not 0, and `0xB0B810` passes 0 only while
+   `[0x11ED034]` is 0.
+2. **Which checks do not depend on the facing?** None of the costly ones by construction: `0xB45B90` and `0xB3F0A0` read the
+   angle (the object's box), and everything in `0xB463F0` after the polygon is built reads the polygon or the tile
+   quadrants it covers (`0xAD27B0` -> `0xB40DA0`'s tile tests). Truly independent: the level bounds and the surface-kind
+   tests (`0xAB9580` of the position). The pre-check failures (81% of failed tests) are therefore not provable without a
+   covered-quadrant argument (same quadrant set for the polygon drawn in and pushed out by 1 mm => same set for every
+   facing => `0xB40DA0` equal, if its four sub-checks read nothing else: not read yet). They are cheap (they stop before
+   `0xB46160`): in the SafeSpot search 8832 of 15072 tests but about 8 of 92 ms.
+3. **What can be proven:** a failure at the footprint check. `0xB41120` = "a blocking footprint of the lot level overlaps
+   the polygon" (docs/670 §2); it reads the record's object, lot, level and two flags besides the polygon, none of which
+   changes with the facing. If it also answers 0 for the first facing's polygon **drawn in by 1 mm**, a blocker overlaps a
+   region that lies inside every facing's polygon (float error is 1e-6, the margin 1e-3), so it answers 0 for all 8, and a
+   test whose footprint check answers 0 fails whatever its other checks say. This is the costly class: ~64 of 92 test ms.
+4. **The spiral outside the lot** (visited 4195 for 3000 in the lot, 9204 for 1250): the loop only ends after 8 x the lot
+   side steps in a row outside. An exact early end needs a write to the search's own counter (a local of `0xB470C0`); the
+   steps cost little (`search rest` 21 of 115 ms covers them, the tile checks and the rest). Not built.
+5. **A non-identical switch** (first facing only, the others deferred): every slow search of s152 is a failed search, and a
+   failed search with deferred facings must run them before it may answer "no spot" (or it loses the 0.09% tiles). It then
+   costs what it costs today. Not built; the retry loops (10.1) are the lever for those.
+
+### 10.3 `[FglFacing]` (ts3native, default off)
+
+In `fglprof.cpp`, on `[FglProf]`'s call sites (installed by `[FglFacing]` alone when the profile is off: no timers, no
+lines). After a facing test (`0xB47DDF`) that was the tile's first, failed, ran the octagon part only (`0xB46B0D`, no
+`0xB468DD`) and failed at `0xB46160` with none of its six hooked checks failing (= `0xB41120`):
+
+- the record's polygon must be 8 points, a regular octagon about the candidate position `rec+8 / rec+0xC` (every radius
+  within 1 mm, neighbours 45 degrees apart; this also rules out a pivot offset on this facing), `[0x11835D4]` must be 45
+  degrees and `[0x11ED034]` 0 (no pivot offset on any facing);
+- the 8 points are drawn in by 1 mm in place, the function `0xB462B7` calls at that moment (the game's `0xB41120` or
+  `[PlaceTestRO]`'s stub) is called once, the points are put back;
+- answer 0: the tile is proven (this record, this object, this position). Its next facing tests jump to `return 0` in the
+  `0xB47DDF` trampoline instead of `0xB47040`. Answer 1 (only the rim is blocked): nothing proven.
+
+The own-facing test `0xB47070` still runs on a proven tile (its angle is not a multiple of 45 degrees). A proven tile costs
+1 test + 1 footprint check + 1 own-facing test instead of 9 tests. The random start facing is drawn before the tests and
+is not touched. No household gate: the answer is the game's for every Sim.
+
+`Shadow=1`: nothing is answered. On a proven tile every later facing runs; one that passes is a mismatch (`fgl facing:
+SHADOW MISMATCH ...`, 16 lines), and its polygon is compared with the proven one as a point set (0.5 mm): `another polygon`.
+One line a minute: `fgl facing: mode M shadow S, searches N (failed F); tiles proven P, facing tests answered without the
+call K; not proven: only the rim blocked, not the centred octagon, step / flag / site; shadow: facing tests run on proven
+tiles T, passed X, another polygon Y`.
+
+What rests on inference, and what checks it: (a) `0xB41120` is monotone in the polygon (a blocker that overlaps the
+drawn-in octagon overlaps the full one, in the game's walk and in `[PlaceTestRO]`'s) and (b) a skipped `0xB47040` leaves
+nothing later code reads (each test rebuilds the record's polygon, tiles and object list; the own-facing test follows).
+Shadow checks (a) and the octagon premise on every proven tile; (b) is checked by the search results staying the same
+(ok / FAILED counts of `fgl prof`).
+
+Keys: `[FglFacing] Enabled=0`, `Mode=1`, `Shadow=0`. Address rows: `0x011835D4`, `0x011ED034`. Checks run (no game):
+`TestFglFacing` (selftest, clang-cl under Wine: proof, 7 answered facings, the answered call's registers and stack, rim
+only, not the octagon, another object, Shadow mismatch and shape, Mode 0), the octagon geometry in the host test, clang-cl
+`/Zs /W4` (0 errors, nothing in the new files), `selftest-all --ci`.
+
+### 10.4 Next storm
+
+Pass 1 (compare only): `[FglFacing] Enabled=1 Mode=1 Shadow=1` with `[FglProf] Enabled=1 LogMs=50 Frames=16`. Read the
+`fgl facing:` line: `tiles proven` > 0, `passed 0`, `another polygon 0`; a large `not the centred octagon` or `step / flag`
+count means the premise does not hold in this build and the switch does nothing. Pass 2: `Shadow=0`: `facing tests answered`
+> 0, failed whole-lot Sim searches with about a third fewer tests and about half the ms, same ok / FAILED counts.
+
