@@ -72,29 +72,42 @@ Not covered: the other users of `AllLotsWithoutCommonExceptions` (`GetFarthestLo
 four-argument `GetNearestLot`, map tags) still pay one object count per lot. If the `EA's loop` lines or later stacks
 show them, the same order of tests applies there; a cache of the marker lots would need a proof that markers do not move.
 
-## 3. `World_FindGoodLocation` ~340 ms with FglFacing and FglMemo on [inferred, stack scans only]
+## 3. `World_FindGoodLocation` ~340 ms with FglFacing and FglMemo on: the native search, caller not known
 
 `[FglProf]` was off in s170-s173, so there is no search line for these frames, and the stall-watch script stack shows
-only the leaf frame. What the three native stack scans per freeze show (s170 #33 346 ms, s171 #32 340 ms, s173 #26
-395 ms):
+only the leaf frame. The three native stack scans per freeze (s170 #33 346 ms, s171 #32 340 ms, s173 #26 395 ms):
 
-- under `IC_World_FindGoodLocation` the scan holds `interp_mono_invoke` return addresses (`ts3native+0x7123A` x9-10,
-  `TS3W+0x79650C`) and under those route-plan and portal-check frames (`RoutingWorld_PortalCheckLocked`,
-  `LotQuadTree_CollectMasked`, `LotRouting_FootprintsNearPoint`, `0x7465CB`-`0x7468E2`);
-- that is the shape of the search's **managed placement check** running a route plan per offered spot
-  (`Sim.IsPointSafelyRoutable.Test` from `Fixes.SafeSpot` / `FindRoutablePointInsideNearFrontDoor`: 25 and 1 of the 67
-  full FindGoodLocation script stacks), not of the native tile scan.
+- the innermost frames are `TS3W+0x7465CB`, `+0x7465D8`, `+0x7466FA`, `+0x7468E2`, `+0x746C7B`, `+0x747021`,
+  `+0x74705C`: image addresses `0xB465CB`-`0xB4705C`, inside the placement test `0xB463F0` and the search
+  `0xB47040` / `0xB47070` that `fglprof.cpp` hooks [verified against the address table rows]. Under them:
+  `RoutingWorld_PortalCheckLocked`, `LotQuadTree_CollectMasked`, `QuadTreeCell_ClipScratch`,
+  `LotRouting_FootprintsNearPoint` (the test's footprint and routable checks).
+- **So the time is in the native tile scan and its placement tests, not in a managed check.** A first reading of
+  these scans took the `ts3native+0x7123A` entries (our interpreter-invoke hook) for a managed placement callback that
+  plans per spot; that was wrong: the scan lists them outside the search frames (the task's own invoke), and
+  `Fixes.SafeSpot` passes no `PlacementCheckFunc` at all (`new World.FindGoodLocationParams(start)`; its route check
+  `SpotVerdict` runs after the search returned).
+- Callers with a full script stack over all runs: `GlobalFunctions.FindGoodLocationNearby` 36, `Fixes.SafeSpotBody` 25,
+  `Sim.AttemptToFindSafeLocation` 2, others 4. Which of them ran the three frames above is not in the logs.
 
-If so, the time is in plans made inside the callback, which FglFacing (fewer facings per tile) and FglMemo (repeat of an
-identical failed native search) do not touch: FglFacing saves tests, the callback only runs for tiles that passed them,
-and FglMemo's key does not see a search whose result depends on a managed check. The profiled runs agree on the native
-side: the slowest single search is 54 ms in s169 and 219 ms in s158 (the guitar jig's indoors scan, docs/675
-`fglnonescan`); no profiled native search reaches 340 ms.
+Why FglFacing and FglMemo did not cut these searches is **not known**: without the search line there is no object,
+tile count, test count or first-failing check. Profiled runs for scale: the slowest search is 54 ms in s169 and 219 ms
+in s158 (a guitar jig's indoors scan, 15,099 part tests; docs/675 `fglnonescan` merges its repeats). Candidates, none
+confirmed: a whole-lot failed scan of a jig from `FindGoodLocationNearby` (three stages, `fglnonescan` off in those
+runs), or a SafeSpot fresh search on a large lot (one failed search per 30 sim minutes since 9f20444a).
 
-**Not proven**: stack scans keep stale return addresses, and no run has FglProf on together with these frames. Nothing
-built here. Next storm: `[FglProf] Enabled=1 LogMs=50 Frames=16` on the s170 arm; the search line of the 340 ms frame
-gives object, tiles, tests, `search rest` (callback time shows there) and the managed caller. If the callback is
-confirmed, the fix belongs with `safespotcap` and SafeSpot's own memo (ts3fixes), not in `fglprof.cpp`.
+Nothing built: a cap or memo here would be a guess. Next storm: `[FglProf] Enabled=1 LogMs=50 Frames=16` on the s170
+arm; the `fgl prof: search` line of the frame names object, lot, tiles, tests by check, repeat state and the managed
+caller, and decides between `fglnonescan`, the SafeSpot memo and a native change in `fglprof.cpp`.
+
+### 3.1 Not built in this pass
+
+- A memo for `AllLotsWithoutCommonExceptions` (`GetFarthestLot`, `SelectRandomLotForNPCMoveIn`, the four-argument
+  `GetNearestLot`, map tags): its answer changes with the lot table, a lot's type, houseboat flag, the marker objects
+  on each lot and `sDiscoveredLots`. An exact memo needs an invalidation hook on each of those writers (marker create,
+  destroy and move among them); they were not read, so no memo was built. The lazy order does not apply to callers
+  that need the whole list.
+- `EnterHouseboatThroughGangway`'s land check: one call per route, no frame of 300 ms attributed to it.
 
 ## 4. Next 2-minute storm
 
