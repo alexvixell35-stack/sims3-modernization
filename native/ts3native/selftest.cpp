@@ -5823,47 +5823,6 @@ static void TestFp2LostRemoval() {
     DiscPoll();
     assert(g_discCount == 0 && k.fp2ApplyInJob == 0 && k.rgOwnerTid == 0);
 
-    // UofDefer (docs/852): a lot move during a job queues remove, remove, insert with no wait; the drain after the job
-    // leaves vanilla's map. Then a lone insert during a job, applied at the drain; and gone at apply: dropped.
-    g_udMode = 1;
-    g_udQueued = g_udApplied = g_udDropped = g_udFull = 0;
-    const LONG flush0 = k.fp2lrFlush, flushUs0 = k.fp2lrFlushUs;
-    place(1);
-    g_async.state = A_RUNNING;
-    lotMove(2);
-    assert(g_discCount == 3 && g_udQueued == 1 && k.fp2lrFlush == flush0 && k.fp2lrFlushUs == flushUs0 && g_lrMap[0] == 1u << 1);
-    assert(g_disc[(g_discHead + 2) % kDiscCap].fp2 == 3);
-    DiscPoll();  // records younger than kDiscMaxAgeMs and a job runs: nothing applied
-    assert(g_discCount == 3);
-    g_async.state = A_IDLE;
-    DiscPoll();
-    assert(g_lrMap[0] == vanillaMove && g_discCount == 0 && g_udApplied == 1 && settled());
-    place(1);
-    g_async.state = A_RUNNING;
-    UofSite(world, NULL, A);
-    assert(g_discCount == 1 && g_lrMap[0] == 1u << 1);
-    g_lrLot[0] = 3;  // the lot it holds at apply: 0x833680 reads it then, as vanilla's call would now
-    g_async.state = A_IDLE;
-    DiscPoll();
-    assert(g_lrMap[0] == ((1u << 1) | (1u << 3)) && g_udApplied == 2 && g_discCount == 0);
-    place(1);
-    g_async.state = A_RUNNING;
-    UofSite(world, NULL, A);
-    g_xLive[0] = NULL;
-    g_async.state = A_IDLE;
-    DiscPoll();
-    assert(g_lrMap[0] == 1u << 1 && g_udDropped == 1 && g_discCount == 0);
-    g_xLive[0] = A;
-    // no job: today's path (no record, no wait), and the flush of a queued insert keeps the order
-    UofSite(world, NULL, A);
-    assert(g_discCount == 0 && g_udQueued == 3);
-    g_async.state = A_RUNNING;
-    UofSite(world, NULL, A);
-    g_async.state = A_IDLE;
-    place(1);
-    UofSite(world, NULL, A);  // flushes the queued insert first (no job: no wait), then inserts now
-    assert(g_discCount == 0 && g_udApplied == 3 && g_udQueued == 4);
-
     // GhostSweep, a fake footprint map holding every kind of entry
     const DWORD G = 0x1D3272D0, GH = 0x38B400F5, L = 0x1D327130, P = 0x1D328EB0;
     assert(k.fp2lrLost == 2);  // with the fix on nothing is lost

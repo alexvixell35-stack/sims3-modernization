@@ -569,7 +569,7 @@
     },
     {
       "id": "bp-lptrim-memtravel-x3-rc1119",
-      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of lptrim-fix-1110 bp-lptrim-on-memtravel-x3 on pair rc1111] [est 30 min] Trim=1 arm (SettleSec 15, KeepCores 16), docs/541, Dalexlol PR #313. Baseline-BP, 3 trips to France and back with mem marks (7 world loads). Fix of bp-lptrim-memtravel-x3 (FAIL 11-09: the dwell in a world was 45-54 s on loads #3, #4, #6, shorter than SettleSec 60, and a world quit cancels the pending trim by design (lptrim.cpp:174), so only loads #1, #2, #5 trimmed, 3 < 4). SettleSec 15 fits every dwell (min 45 s; the last world lives about 25 s). Pass: travel PASS, a trim after at least 6 of the 7 world loads, no skip, no FAIL / crash, no new script errors. Gain evidence: big= (largest free block) and free= on each 'diag: mem ... load' line and the gc-after marks; compare with bp-lptrim-off-memtravel-x3 (same trips, Trim=0): node tools/mem-report.ts report --log <job ts3native.log>. Run with --no-smoke. [fix 2026-11-20: on Apex (Bin state apex, every game test since 11-15) with [Compat] ApexStandDown=1 (rc ini) lptrim stands down by design (lptrim.cpp:92, skipped lines capped at 5 per session): the old want \">= 6 trims, no skip\" was from the DXVK era (last real trim PASS: bp-lptrim-memtravel-x3-1113g); now: >= 5 stand-down lines, no trim line, travel PASS]",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of lptrim-fix-1110 bp-lptrim-on-memtravel-x3 on pair rc1111] [est 30 min] Trim=1 arm (SettleSec 15, KeepCores 16), docs/541, Dalexlol PR #313. Baseline-BP, 3 trips to France and back with mem marks (7 world loads). Fix of bp-lptrim-memtravel-x3 (FAIL 11-09: the dwell in a world was 45-54 s on loads #3, #4, #6, shorter than SettleSec 60, and a world quit cancels the pending trim by design (lptrim.cpp:174), so only loads #1, #2, #5 trimmed, 3 < 4). SettleSec 15 fits every dwell (min 45 s; the last world lives about 25 s). Pass: travel PASS, a trim after at least 6 of the 7 world loads, no skip, no FAIL / crash, no new script errors. Gain evidence: big= (largest free block) and free= on each 'diag: mem ... load' line and the gc-after marks; compare with bp-lptrim-off-memtravel-x3 (same trips, Trim=0): node tools/mem-report.ts report --log <job ts3native.log>. Run with --no-smoke.",
       "asi": "game-copy/ts3native.asi.rc-1119",
       "save": "Baseline-BP",
       "noiseCheck": false,
@@ -588,14 +588,14 @@
         "^diag: memsus #\\d+ mark ev=gc-after ": 4,
         "^diag: memsus #\\d+ mark ev=away ": 3,
         "^lptrim: on \\(docs/541\\)": 1,
-        "^ts3native RC1119VER ": 1,
-        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": 5
+        "^lptrim: #\\d+ world load #\\d+ ": 6,
+        "^ts3native RC1119VER ": 1
       },
       "logForbid": {
         "^FAIL\\b": 0,
         "^diag: mem(sus)? .*=[-\\d.]+! ": 0,
         "[\\\\/]Users[\\\\/][^<]": 0,
-        "^lptrim: #\\d+ world load #\\d+ ": 0
+        "^lptrim: skipped": 0
       },
       "run": {
         "script": [
@@ -697,10 +697,12 @@
         },
         "^lptrim: #\\d+ world load #\\d+ ": {
           "match": [
-            "lptrim: #2 world load #2 world=France.world cores 109 -> 52, slots 14061 free 13916 (99.0%), completely free 73: freed 57 (1.92 MiB), kept 16; locked 2.04 ms"
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms",
+            "lptrim: #3 world load #5 world=Bridgeport.world cores 367 -> 60, slots 47343 free 46974 (99.2%), completely free 323: freed 307 (10.36 MiB), kept 16; locked 10.90 ms"
           ],
           "noMatch": [
-            "lptrim: skipped (world load #1), pool not read world=Bridgeport.world: stood down: Apex Radiance loaded; nothing changed"
+            "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores",
+            "diag: mem #9 load ev=travel,world-switch priv=1672 wPriv=1626 wCom=2136 free=1702 big=1606? img=397? map=145 stkRes=99.5 stkCom=10.7?"
           ]
         },
         "^FAIL\\b": {
@@ -731,6 +733,14 @@
             "lptrim: on (docs/541): lot message pool 0x011EB590, 60 s after each world load, keeps 16 completely free cores"
           ]
         },
+        "^lptrim: skipped": {
+          "match": [
+            "lptrim: skipped (world load #2), pool not read world=-: core list unreadable; nothing changed"
+          ],
+          "noMatch": [
+            "lptrim: #1 world load #1 world=Bridgeport.world cores 265 -> 22, slots 34185 free 34103 (99.8%), completely free 259: freed 243 (8.20 MiB), kept 16; locked 4.85 ms"
+          ]
+        },
         "^ts3native RC1119VER ": {
           "match": [
             "ts3native RC1119VER 2026-11-12 19:30:00"
@@ -738,14 +748,6 @@
           "noMatch": [
             "ts3native 0.36.241 2026-11-12 18:30:00",
             "ts3native RC1119VER0 2026-11-12 19:30:00"
-          ]
-        },
-        "^lptrim: skipped \\(world load #\\d+\\), pool not read world=\\S+: stood down: Apex Radiance loaded; nothing changed": {
-          "match": [
-            "lptrim: skipped (world load #3), pool not read world=France.world: stood down: Apex Radiance loaded; nothing changed"
-          ],
-          "noMatch": [
-            "lptrim: skipped (world load #2), pool read world=France.world: pool header not as expected; nothing changed"
           ]
         }
       },

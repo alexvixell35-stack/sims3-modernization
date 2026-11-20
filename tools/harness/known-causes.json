@@ -30,15 +30,14 @@
   {
    "id": "apex-401-present-lock-cycle",
    "kind": "hang",
-   "owner": "Apex Radiance (4.0.1, and still on fork main a69a1bbc = 4.0.6 + the #90 fix 0a209879), ABBA on two of its own mutexes with the main thread in Device_Present",
+   "owner": "Apex Radiance 4.0.1, ABBA on two of its own mutexes with the main thread in Device_Present",
    "cycleModules": "ApexRadiance.asi",
    "upstream": "https://github.com/loinyx/Sims3-ApexRadiance/issues/90",
-   "testInstall": "#90 fix 0a209879 is in the fork asi of ours/test-integration-1119 a69a1bbc (tools/turbo-compat.ts FORK), but the same cycle hit it on 2026-11-19 (apex-compat-rc-1119b bp-apex403-s3ss-travel-mem-x3-rc1119: main 19340 in Device_Present 0x611680+0xaa and Apex thread 51796, both at Apex +0x596323, std::mutex Apex +0xCFE700 / +0xCF1420): the fix is incomplete",
+   "testInstall": "fixed in Apex main 0a209879, not in release 4.0.6; tests since 2026-11-19 use the fork asi of ours/test-integration-1119 a69a1bbc (tools/turbo-compat.ts FORK)",
    "doc": "docs/67 §38",
    "cases": {
     "match": [
-     "00:51:26 queue: bp-jitsmall-b6: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi",
-     "15:08:56 kill dump (world load: nothing moved (agent heartbeat, world flag, committed MB, ts3native.log)): kill dump powershell 1320 MB in 5 s: <repo>probe-outdumps\ts3w-21696-20261119T150856.dmp; lock waits: 2 of 126 threads; deadlock cycle 19340>51796>19340; cycle modules: ApexRadiance.asi"
+     "00:51:26 queue: bp-jitsmall-b6: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi"
     ],
     "noMatch": [
      "00:51:26 queue: bp-x: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi, ts3native.asi",

@@ -71,24 +71,3 @@ answer, 0) always get the live host call, so their door answers are exactly vani
 case per scope]. Their live answer is still kept for others and compared with a valid row, so a stale row seen on a household
 ask turns the memo off for the session. Counter `ts3native_doorgen.exempt` (0x20) counts those asks. The scope (`t_hcScope`) is set at each worker job start from `j->kdScope`. PR #430's 0 mismatches covered all scopes, NPCs
 included, so the restricted memo ships ON: `DoorMemoX=3` in the ini, `doorgen` on in ts3fixes.
-
-## 7. Second hit: same lot, same rooms (2026-11-20, chain-gcgate-rr3-1119, job sv-gcgate-ab)
-
-Master build set (asi gchold2-1117, ts3fixes dalexlol-1117b; the §6 fix is not on master), SV-Spring, `DoorMemoX=3`, `doorgen` on,
-0 mismatches in the first 5 counter lines (hits 15,550, miss 20,191, 328 bumps), then `FAIL door memo x` at game time 233,219,750 ms:
-`door memo x shadow: answer 1, other job's 2 (121 ms before), key 8B52BB30 6C11001B 844E9B20 38B400F5 5F050F00 6C110020 0001 0004 00`.
-Lot 0x6C11001B8B52BB30 and rooms 1 -> 4 are the same as §6; the actor differs (38B400F5844E9B20, scope household-or-seen, so it got the
-live answer; its route 250862E5 then logged `routefail ... result 16` 204 ms, the "Razta Dog LookOutWindow" fail). Same lot, same
-room pair in two sessions 4 days of game save apart: the stable thing is the home lot's bathroom door, which fits the §6 cause
-(PrivacySituation handler answers from the asker's current interaction, no generation bump), not a lock-state change of a pet door
-[inferred; a pet door lock change is bumped by `SetLockTypeAndOwner`]. Counters of the run show no `held` column (master build).
-The harness guard killed the game 60 s after the self-check FAIL (the job stops on `ts3native hook failed`); EA wrote an xcpt
-(`? at ?`, no stack) 1 s later and queue.ts filed it CRASH; it now reads KILLED (`bugfix/guard-kill-label-1120`; the 10-18 f4b and
-travel rows had the same pattern, not reclassified).
-
-Repro and correctness queue are the §6 ones, no second repro: `repros.json` `doormemox-privacy` (4 townies teleported into the home
-bathroom, toilet forced twice, Go Here back in through the door) and `hhsearch-sv-1116-rerun2-1117` on the fix build, both on
-`bugfix/doormemox-privacy-1117` (pending merge). Fix build: expect no `FAIL door memo x` and `(live, not kept)` > 0. Reproduced
-on current code = the same FAIL on the master build with that repro; run it as the pre-fix arm only after the branch merges (the
-repro entry is not on master). Until then SV timing queues that do not test DoorMemoX set `RouteSnap.DoorMemoX` 0
-(`gc-idle-gate-time-1117-rerun4-1120`).

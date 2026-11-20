@@ -732,11 +732,6 @@ namespace Ts3Fixes
         // [2797-2799] loopidlebridge (LoopIdleBridge.cs): stale bridges (host reset, no C++ driver) dropped in Sim.LoopIdle / seen with the switch off (EA throws) / guard errors.
         // [2719-2721] fightstaycap (FightStayCap.cs): Sims released from a snow/water fight after 120 sim min / hook errors / fight members not found.
         // [2780-2782] fireworkswatchlate (FireworksWatchLate.cs): late watchers sent through LoopWatch before Exit / members not found (EA's Run used) / EA's Run threw SacsErrorException (switch off).
-        // [3982-3984] boatroutenull (BoatRouteNull.cs): Boat.RouteBoatToLandOnWayToPosition false for a boat with no RoutingComponent / seen with the switch off (EA throws) / errors.
-        // [3985-3987] outfitmissing (OutfitMissing.cs): SwitchOutfitHelper.Init for a missing outfit (pregnant Sims' special outfits) made no-change / seen with the switch off (EA throws) / guard errors.
-        // [3988-3990] ageupdupinst (AgeUpDupInst.cs, #553): second instantiations during a deferred age-up answered with the first call's Sim / seen with the switch off (EA throws) / no Sim made (rethrown).
-        // [3991-3993] overwatchrelretry (OwRelRetry.cs): Overwatch CleanupRelationships re-runs after "out of sync" / seen with the switch off / still failing after 50 runs.
-        // [3994-3997] OneOffGuards.cs: overwatchresetgone destroyed Sims skipped in a reset / seen off; motivesnohousehold CreateMotives with the NpcHousehold stand-in / seen off.
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
         // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [2067-2068] errortrapsims (ErrorTrapSims.cs): dead Sim objects dropped from NRaas ErrorTrap's CheckSim.mInited, keys left after the last pass. [2069-2071] unused.
@@ -1303,7 +1298,6 @@ namespace Ts3Fixes
         // [3944-3946] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
         // [3947-3949] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
         // [3950-3952] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
-        // [1264-1269] boattaximemo (BoatTaxiMemo.cs, docs/851): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [3247-3249] dogswimslots (EpBatch4Logic.cs, docs/587 EP4 §9.1): loops skipped, no free slot / would throw with switch off / errors.
         // [3250-3252] fragmentreconstruct (EpBatch4Logic.cs, docs/587 EP4 §9.2): Target picked first / extra fragment used with switch off / errors.
         // [3253-3255] labobjectpush (EpBatch4Logic.cs, docs/587 EP4 §9.3): lot objects pushed / idle students with switch off / errors.
@@ -1512,7 +1506,6 @@ namespace Ts3Fixes
         // [1182-1184] autt2local piece 4 (AutShadowLocal.cs LocalRows): local target object rows added, requests capped at 256, most rows in one request
         // [1185-1199] autt2local piece 5 (AutShadowLocal.cs LocalCompare): A0..A5 by walk index, walk-order misses, game report (pairs, bit-equal,
         // Test agree, top 1 valid / agree), game C2 order misses, game-only pairs, game records capped
-        // [1270-1291] jobyieldroad / jobyieldroadow / jobyieldspawn / jobyieldready / jobyieldfp (JobYieldRoad.cs, RouteBackoff.cs AsyncWait, docs/800): step-aside asks, sleeps, ms slept and cars / objects gone per site
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // [1230-1240] envlistmemoapply / envlistmemoverify (EnvBcProbes.cs EnvListApply, docs/274 §9): scans tried, memo reuse, live listed,
@@ -1807,7 +1800,7 @@ namespace Ts3Fixes
                 case "spotbusydefer": return true;  // docs/635: a spotasync check whose tagged START was refused answers no verdict (no sync plan behind the worker's lock)
                 case "unseenservicewait": return true;  // docs/635 (UnseenService88.cs): an unseen bar order waits for a server between orders instead of the linked hand-off
                 case "spotasync": return true;  // docs/616: SafeSpot's full routability check of an unseen NPC as a watchdog-tagged async job (needs [RouteAsync] WatchdogKind2=1 or Kinds bit 2; uncut)
-                case "routableasync": return Instantiator.kRoutableAsync;  // ON 2026-11-19 (Rodney), with [RouteAsync] Kinds=2: async PlanFromPoint only for unseen NPCs' IsPointInLotSafelyRoutable (RouteBackoff.cs, docs/584 §3)  // check for ts3native ilp_buffbuf: UpdateBuffs' delayed-buff list empty and consistent (MotiveBuf.cs, docs/584 §5)  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
+                case "routableasync": return false;  // A/B with [RouteAsync] Kinds=2: async PlanFromPoint only for unseen NPCs' IsPointInLotSafelyRoutable (RouteBackoff.cs, docs/584 §3)  // check for ts3native ilp_buffbuf: UpdateBuffs' delayed-buff list empty and consistent (MotiveBuf.cs, docs/584 §5)  // pure check for motivebuf: each snapshot compared with the game's copy (MotiveBuf.cs)
                 case "tpdoorrights": return true;  // F1's unseen-teleport lot test by the Sim's own door rights, EA's one-way sentinel (UnseenTeleportGoal.cs, docs/584 §7)
                 case "tpaptgoal": return true;  // F1: an unseen NPC's own home apartment / shell lot judged by the goal room only (hidden rooms still refused; UnseenTeleportGoal.cs, docs/584 §8)
                 case "visitcar": return false;  // unseen NPC visits keep driving at EA's coin flip (UnseenVisitTrip.cs, docs/584 §1)
@@ -1823,11 +1816,6 @@ namespace Ts3Fixes
                 case "stuckchecknear": return Instantiator.kStuckCheckNear;
                 case "failrepeat": return Instantiator.kFailRepeat;
                 case "jobyield": return Instantiator.kJobYield;
-                case "jobyieldroad": return Instantiator.kJobYieldRoad;
-                case "jobyieldroadow": return Instantiator.kJobYieldRoadOw;
-                case "jobyieldspawn": return Instantiator.kJobYieldSpawn;
-                case "jobyieldready": return Instantiator.kJobYieldReady;
-                case "jobyieldfp": return Instantiator.kJobYieldFp;
                 case "drivertaskasync": return Instantiator.kDriverTaskAsync;
                 case "stuckcheckown": return Instantiator.kStuckCheckOwn;
                 case "overwatchstuckslice": return Instantiator.kOverwatchStuckSlice;
@@ -1854,7 +1842,6 @@ namespace Ts3Fixes
                 case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
                 case "unseenboat": return Instantiator.kUnseenBoat;
                 case "unseenboatstart": return Instantiator.kUnseenBoatStart;
-                case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
                 case "seasonimpostercold": return Instantiator.kSeasonImposterCold;
@@ -2385,12 +2372,6 @@ namespace Ts3Fixes
                 case "invnotyet": return Instantiator.kInvNotYet;
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
-                case "boatroutenull": return Instantiator.kBoatRouteNull;
-                case "outfitmissing": return Instantiator.kOutfitMissing;
-                case "ageupdupinst": return Instantiator.kAgeUpDupInst;
-                case "overwatchresetgone": return Instantiator.kOverwatchResetGone;
-                case "motivesnohousehold": return Instantiator.kMotivesNoHousehold;
-                case "overwatchrelretry": return Instantiator.kOverwatchRelRetry;
                 case "fireworkswatchlate": return Instantiator.kFireworksWatchLate;
                 case "rolenullpurge": return Instantiator.kRoleNullPurge;
                 case "errortraploop": return Instantiator.kErrorTrapLoop;

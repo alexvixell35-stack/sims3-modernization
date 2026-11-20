@@ -68612,55 +68612,6 @@
     ]
   },
   {
-    "id": "ip-boat-nopath-memo",
-    "bug": "docs/851: an NPC Sim or pet seated as Driver of a BoatTaxi whose boat route has no path stays aboard and replans the same failing plan over and over (Twinbrook: horses and a dog, ~2 s plans, hitches)",
-    "fix": "ts3fixes boattaximemo (BoatTaxiMemo.cs): the first no-path boat plan of an NPC rider is recorded (1264), the repeats from the same spot are answered at once (1267, ms saved 1268); household / selected / unknown scope untouched (skip line 'exempt rider')",
-    "save": "Baseline-IP",
-    "note": "Forced. boat_nopath_repro picks NPCs (known non-active household) plus one NPC horse or dog, teleports each to the nearest shore of the active Sim (setup_sims rules), seats it as Driver of a BoatTaxi (Vehicle.CreateTaxiBoat + PutInDriver, GetInBoatRouteAction's path) and plans its boat route to the farthest lot with pedestrian planning off (boatOnly), then Replan / ReplanFromPoint for `tries`. Needs an active household: with none every Sim is unknown scope and the memo skips all (result active_household null).",
-    "steps": [
-      {
-        "cmd": "patches",
-        "args": {
-          "boattaximemo": "$on"
-        },
-        "waitS": 1
-      },
-      {
-        "cmd": "boat_nopath_repro",
-        "args": {
-          "start": true,
-          "sims": 2,
-          "pet": true,
-          "tries": 4
-        },
-        "waitS": 60,
-        "note": "teleport, seat, 4 plans per rider"
-      },
-      {
-        "cmd": "boat_nopath_repro",
-        "args": {
-          "result": true
-        },
-        "note": "per rider: plan results + ms; counters 1264-1269"
-      }
-    ],
-    "expect": "OFF: every try FailedBecauseNoPathToDestination with full plan ms, counters 0; ON: recorded_1264 = riders, answered_1267 = riders x (tries - 1), later tries ~0 ms, 'boattaximemo: recorded|answered BoatTaxi' lines; no crash",
-    "cleanup": [
-      {
-        "cmd": "boat_nopath_repro",
-        "args": {
-          "stop": true
-        }
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "enabled": true
-        }
-      }
-    ]
-  },
-  {
     "id": "ip-bridge-height-load",
     "bug": "docs/67 §36/§37 (#384, Dalexlol PR #394): an Isla Paradiso bridge answers NaN, +-inf or 2.26e34 from 0xB745A0; the height queries keep it, post pass 16 halves an infinite segment forever and the game freezes (world load or play; footstep lot search on a NaN point)",
     "fix": "[EaCrashFixes] HeightsInfLoop + BridgeHeightNaN (ini only, no runtime switch: one job per arm). Contributor repro (his harness, docs/data/results/2026-11-13-bridge-height-nan.md): IP seed 777, off = world-load freeze, on = nh2 / sm1 / in1 pass with 8 BridgeHeightNaN hits each",
@@ -111127,8 +111078,6 @@
       }
     ]
   },
-  {"id": "outfitmissing-check", "bug": "Sim.SwitchOutfitHelper.Init(Sim, OutfitCategories, int) dereferences a missing outfit (GetOutfit null): pregnant Sims' special outfits go to the maternity list but are read from the normal one (6/6 pregnant snorkelers, Bella Vista Beach, 2026-11-17/18)", "fix": "ts3fixes OutfitMissing.cs: outfitmissing (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, active Sim, a Special index past its outfit count. Off: EA's NullReferenceException (3986). On: no throw, no change (3985).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 1 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 1 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 2 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 2 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 3 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 3 on: no change, no throw"}]},
-  {"id": "ageupdupinst-check", "bug": "Two SimDescription.Instantiate calls during one deferred age-up (#553): the second reads the age-up's SimBuilderTask after the first nulled it; NullReferenceException out of AgingState.PreInstantiateSim", "fix": "ts3fixes AgeUpDupInst.cs: ageupdupinst (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, a new townie each time (it ages up once and stays instantiated). Off: one call throws (3989). On: both get the same Sim (3988).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 1 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 1 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 2 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 2 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 3 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 3 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}]},
   {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",

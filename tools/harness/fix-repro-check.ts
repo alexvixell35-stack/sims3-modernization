@@ -143,21 +143,11 @@ export const EXEMPT: Record<string, string> = {
   buffbufcheck: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
   motivebufcheck: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
   stcsocialscheck: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
-  routableasync: 'Dalexlol #469: ON 2026-11-19 with [RouteAsync] Kinds=2 (soak only); judged by the in-load --ab asyncreplan queue routableasync-ab-1119, no forced repro',
+  routableasync: 'Dalexlol #540: default off, not proven in game yet (routableasync held, #469); no forced repro',
   stcsocials: 'Dalexlol #540: default off, not proven in game yet (routableasync held, #469); no forced repro',
   motivebuf: 'Dalexlol #540: default off, not proven in game yet (routableasync held, #469); no forced repro',
   visitcar: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
   visitwalkfinish: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
-  // 2026-11-20 merge of Dalexlol #564: switches without a forced repro (his in-game results or never fired yet)
-  boatroutenull: 'Dalexlol #564: default off, never fired yet (Boat.RouteBoatToLandOnWayToPosition false); no forced repro',
-  overwatchresetgone: 'Dalexlol #564: default off, never fired yet (destroyed Sim with no proxy in SetObjectToReset); no forced repro',
-  motivesnohousehold: 'Dalexlol #564: default off, not testable on his PC (Sim with no household); no forced repro',
-  overwatchrelretry: 'Dalexlol #564: ON, one natural hit in his play, retry passed; load-time race, no forced repro',
-  jobyieldroad: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
-  jobyieldroadow: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
-  jobyieldspawn: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
-  jobyieldfp: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
-  jobyieldready: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
 };
 
 // Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,

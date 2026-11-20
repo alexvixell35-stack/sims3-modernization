@@ -144,11 +144,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStuckCheckNear value="False" />
     <kFailRepeat value="False" />
     <kJobYield value="True" />
-    <kJobYieldRoad value="True" />
-    <kJobYieldRoadOw value="True" />
-    <kJobYieldSpawn value="True" />
-    <kJobYieldReady value="True" />
-    <kJobYieldFp value="True" />
     <kDriverTaskAsync value="False" />
     <kWatchdogAsync value="True" />
     <kStuckCheckOwn value="False" />
@@ -178,8 +173,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenRouteRelaxed value="False" />
     <kUnseenBoat value="True" />
     <kUnseenBoatStart value="True" />
-    <kBoatTaxiMemo value="True" />
-    <kBoatTaxiMemoHours value="4" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
     <kSeasonImposter value="False" />
@@ -213,12 +206,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kInvNotYet value="True" />
     <kMetricSkillMissing value="True" />
     <kFireworksFizzle value="True" />
-    <kBoatRouteNull value="False" />
-    <kOutfitMissing value="True" />
-    <kAgeUpDupInst value="False" />
-    <kOverwatchResetGone value="False" />
-    <kMotivesNoHousehold value="False" />
-    <kOverwatchRelRetry value="True" />
     <kFireworksWatchLate value="True" />
     <kRoleNullPurge value="True" />
     <kErrorTrapLoop value="True" />
@@ -622,7 +609,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPetPutDownWait value="True" />
     <kPuddleReach value="True" />
     <kPushWaitSkip value="True" />
-    <kRoutableAsync value="True" />
     <kRouteCauseLog value="False" />
     <kScarePriority value="True" />
     <kGroupChatPriority value="True" />

@@ -34,7 +34,6 @@ namespace Ts3Fixes
 
         internal static void ApplyOverwatchNotice(bool lastTry)
         {
-            ApplyOwRelRetry(lastTry);  // OwRelRetry.cs
             if (sOwNoticeTried) return;
             Assembly ow = null;
             foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())

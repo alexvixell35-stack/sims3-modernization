@@ -26,7 +26,6 @@
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
-#   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
 #   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
 # combo pieces: first in-game check only, not marked proven (docs/551):
