@@ -1557,3 +1557,91 @@ First pass as written (`shadow runs` > 0, `mismatch` 0). Second pass `Mode=1 Sha
 job`, the drop and not-held counts, `gave up 0`; lines with key `0062FB74` and first caller `00654BE5` against s189's
 8 / 476 ms. The default storm kinds do not force the IC: use `kinds` with `taxi` and `stray` (repro
 `ip-landcheckro-storm`).
+
+## 25. s216-s225 read: which waits are left and why; `[SteerRO] RetryWait` (ts3native, default off, NOT RUN)
+
+2026-11-20, branch `feat/lock918-rest-1120`. Input: the nine on arms s216, s217, s218, s219 (calm), s221 (calm), s222, s223,
+s224 (calm 6 min), s225 (the others: 2-min Isla Paradiso storms, seed 152), ts3native 0.36.267; `route lock wait:` lines
+(>= 20 ms) and `hitch:` frames with cause `lock918`. No game run in this pass. s226 was still running.
+
+### 25.1 What the arms did not have on [verified: the `job yield mode` and ini lines of each log]
+
+- **`[RouteAsync] JobYield=0` in all nine** (`route jobs sim waits: ... job yield mode 0 asks 0 busy 0`). The repo ini has
+  `JobYield=1` since 0.36.253 (docs/183 §6: on by default, household included, measured); the test rig's `Bin\ts3native.ini`
+  still carries `JobYield=0` and no run script sets it. ts3fixes `kJobYield` is on, so `StepAside` asks and the native side
+  answers "not busy" every time.
+- `[ObstructAtRO]`, `[Blocker2dRO]`, `[LandCheckRO]` are not in any of the nine arms (only in s204-s213).
+- `[RouteAsync] SkipRetry` and `ForeignKindsUnseen` are off in all nine. s205 / s213 set `ForeignKindsUnseen=1`, which is
+  the Replan bit; the `Foreign` class of §24 is kind 2 (PlanFromPoint) and needs `ForeignKindsUnseen=2`.
+- `[HitchAttr] RouteLockCallers` is off in all nine, so the gate keys (`0x62FB74`, `0x62EF7A`, `0x62F782`) have no caller
+  word; their split below is s189's (§21) [inferred for these arms].
+
+### 25.2 The table (nine arms summed: 385 lines, 21,229 ms; 41 `lock918` frames)
+
+| key | lines / ms / max | `lock918` frames (frame's largest key) / lock ms | who | why not answered in these arms |
+|---|---|---|---|---|
+| `0x62FB74` gate 12 | 99 / 4,860 / 202 | 8 / 1,205 | s189: `ArePointsConnectedByLand` gather `0x654BE5`, the writer path `0x834201` | `[LandCheckRO]` off (s213 with it serving: 338 ms against 540 a run here); `0x834201` is a writer path and keeps the lock (§21.2) |
+| `0x760BFF` gate 10, a sync plan | 90 / 4,795 / 261 | 9 / 1,407 | sync plans behind a running job. By the `route phases` line beside the wait: `Plan / Los` 17 / 1,187 (`ViewObjects.RouteToObject`), kind-2 pass-through `(no IC)` 12 / 650 (§24's `Foreign`; tally lines of four arms: `Foreign` 29-113, `NoStartMsg` 3-58 a run), `Plan / NoStart` 6 / 435, `ReplanFromPosition / NoStart` 1 / 156, `Skipped` 3 / 132, no line (plan under 40 ms) 51 / 2,235 | **`JobYield=0`** (§25.1): every refused START and the poll cap run `StepAside` before the sync plan [verified `RouteBackoff.cs`]. Not reached by it: `Skipped` (READY then the plan, no `StepAside`: `SkipRetry`, off) and a task that may not yield |
+| `0x62EF7A` gate 0 | 59 / 3,148 / 161 | 5 / 734 | s189: `RouteObstructionAtPoint` `0x655ABE`, `BlockerCheck2d` `0x82E696` | `[ObstructAtRO]`, `[Blocker2dRO]` off (s213 with both serving: 81 ms against 350 a run here) |
+| `0x85FE10` steering query | 41 / 2,739 / 267 | 7 / 1,193 | S2's given-back calls: the `steer RO` line books 110-619 ms a run in them, 2,485 ms of the 2,739 | **nothing answers it**: `[SteerRO] Retry=1` is on and still gives back `QL busy` 2-11, `tripwire` 1-5, `state` 1-7 a run. Built: §25.3 |
+| `0x62F782` gate 12 `PortalsForObject` | 27 / 1,538 / 172 | 4 / 700 | `SetPortalCost` (writer), `Slots_GetPositionOfSlotImpl` | writer keeps the lock; `[SlotEnabledRO]` on |
+| `0xD882D7` coarse gate, `GetConnectedRooms` | 21 / 1,361 / 232 | 3 / 440 | `[ConnRoomsRO]` give-backs | `lot not built` (6 of 36 in s225): a room list not built yet is a write |
+| `0x631814`, `0x631F40` | 13 / 991 / 224 | 3 / 509 | `[LotFrontDoorRO]` give-back, FGL footprints | - |
+| `0x833697`, `0x83156D` | 14 / 859 / 208 | 1 / 208 | object footprint update | writers |
+| `0x846D21`, `0x85F6CB`, `0x75AA16`, `0x63D89B`, `0x82F4AB`, `0x62FB8B`, `0x75A64C`, `0x62EB55`, `0xD866E3` | 21 / 938 / 77 | 1 / 142 | readers' give-backs | - |
+
+The holder is the route worker in every line. Jobs that ended in the wait: own kind 0 the most (2,875 ms at `0x62FB74`,
+2,691 at `0x760BFF`), A10 foreign kind 3 next (1,377 at `0x62EF7A`); most `0x85FE10` lines end without a job end (the sim
+got the lock in a TailUnlock window).
+
+So with the switches that exist turned on (`JobYield=1`, the three clones of §22 / §24, `SkipRetry=1`,
+`ForeignKindsUnseen=2`) the largest key left without an answer is `0x85FE10`, then the writer paths.
+
+### 25.3 `[SteerRO] RetryWait` (`steerro.cpp` `SrWait`, `steerwait-core.h` `SwLoop`)
+
+`Retry=1` reruns a dropped clone at most 4 times within ~1 ms. A W1-W6 writer's exclusive QL hold or a tripwire writer
+that lasts longer is given back, and the game's `Locomotion_ObstacleCheck` then waits at `+0x918` for the rest of the job
+(or its TailUnlock window): 2-11 + 1-5 such calls a run carry 110-619 ms.
+
+With `RetryWait=1` such a call waits for the writer instead of the job: `LocoHook` opens a `g_rgOffSimOpen` frame (no job
+starts until the call is over, as the `+0x918` wait pump does), then loops: one pump step (up to 1 ms on the job's
+managed-call event or its end, the call served with `HC_PUMP918`), the clone again from its protocol start (sequence,
+epoch, generation read again, as `SrRetry`). The loop ends when the clone answers, the job ends (the game's call then runs
+with no job, inside the frame), a rerun meets a reason waiting does not cure, or `RetryWaitMs` (1-250, default 50) is used
+(the game's call waits as before). The answer is S2's clone answer or the game's call: no check is skipped, household
+included as S2 itself. `RetryWait=2` only counts the calls that would wait.
+
+Worst case [inferred]: a call waits `RetryWaitMs` longer than today when the writer's hold lasts to the job's end and a
+TailUnlock window would have let the game's call in earlier; `budget used` and `the game's call after a wait` measure it.
+
+Not covered: `state` give-backs (the job ended in the clone: the game's call runs with no job while `[LocoWindow] Mode=1`
+holds starts), the 0x85F6CB gather (`[EditPathRO]` has its own loop).
+
+Counters: exported block `ts3native_steerwait` (docs/registry.md; runtime switch `native_set steerwait`). Lines: minute
+`steer RO wait: mode M budget B ms, waits N (QL busy a, tripwire b): answered .., job ended .., other reason .., budget used
+..; T ms in the waits (max ..; .. of it answered), R reruns, S managed calls served; the game's call after a wait G ms;
+count only: would wait W`; one `steer RO wait: N ms for a writer's hold (...)` line per wait >= 20 ms (64 a session). With
+`[HitchAttr]` on a wait is booked as a `+0x918` wait behind the worker under key `0x85FD10`, so it stays in `lock918` and
+splits from `0x85FE10`.
+
+No compare mode: the clone is S2's, compared by `[SteerRO] Shadow=1` (no job running); a rerun has nothing to compare
+with while the job runs.
+
+### 25.4 Checks run (2026-11-20, no game)
+
+- `steerwait-host-test.cpp` (clang++ -m32, freestanding): answered after three steps, tripwire / QL busy mixed, job end in
+  a step, no job, a reason not curable (in the loop and at the entry), budget, budget 0: pass.
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`) 0 errors, 170 warnings as before; `selftest.cpp` 0 errors,
+  217 as before.
+- Selftest block in `TestSteerRO` (`SrWait`: answered on the third rerun, a state reason, budget, no job, no frame leaked;
+  the block's layout): written, **not run** (MSVC CI).
+- `node tools/native-install-once.ts`, `node tools/selftest-all.ts --ci`: pass.
+
+### 25.5 Next storm, on arm
+
+First the config: `RouteAsync.JobYield=1` in every arm (the release value). Then, on top of s223's keys:
+
+- count arm: `SteerRO.RetryWait=2` (read `would wait` against `QL busy` + `tripwire` of the `steer RO` line);
+- serve arm: `SteerRO.RetryWait=1 SteerRO.RetryWaitMs=50`. Read `answered` against `waits`, `budget used` small, `the
+  game's call after a wait` against s216-s225's `job waits in given-back calls` (110-619 ms), keys `0085FE10` + `0085FD10`
+  together against 304 ms a run, no new stuck Sim, `steer RO: ... shadow` unchanged.

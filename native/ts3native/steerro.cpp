@@ -26,6 +26,8 @@
 // the worker has a job armed (TwArm, ServeAsync) and at the trampoline otherwise; per-call timers (rdtsc) for the S2 entry,
 // the stubs, shadow compares and the QL try-lock.
 
+#include "steerwait-core.h"  // docs/670 §25: SwLoop
+
 static const DWORD STEER_LOCO = TS3A(0x0085FD10);
 static const u8 kLocoPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16 (no relative operand)
 typedef void(__fastcall* LocoFn)(u8* agent, void* edx, u8* ids, const void* ign1, DWORD n1, const void* ign2, DWORD n2);
@@ -827,6 +829,67 @@ template <class F> static int SrRetry(int why, F run) {
     InterlockedIncrement(why ? &k.srrFb[site] : &k.srrOk[site]);
     return why;
 }
+// docs/670 §25 [SteerRO] RetryWait (default 0; RetryWaitMs = the budget, default 50): what is left of key 0x85FE10 with Retry=1
+// is the calls SrRetry gives back after its ~1 ms: a W1-W6 writer's exclusive hold or a tripwire writer that lasts longer.
+// The game's call then waits at +0x918 for the rest of the job. With 1 the stub waits for the writer instead (SwLoop,
+// steerwait-core.h): one pump step at a time, as LockAcquireAsync waits (job starts held off, the job's managed call
+// served), and the clone again from its protocol start. 2 = count only (the calls that would wait; nothing changes).
+// The answer is S2's own clone answer or the game's call; no check is skipped. Own exported block: Ts3nCounters is unchanged.
+struct SteerWaitCounters {
+    volatile LONG mode;      // +0x00 runtime switch (native_set steerwait): 0 off, 1 wait for the writer, 2 count only
+    volatile LONG budgetUs;  // +0x04 [SteerRO] RetryWaitMs * 1000 (clamped 1-250 ms)
+    LONG entered[2];         // +0x08 calls that reached the wait: given back for QL busy / for a tripwire
+    LONG end[SWL_ENDS];       // +0x10 how the wait ended: answered, job ended (the game's call with no job), other reason, budget used
+    LONG reruns;             // +0x20 clone runs made in the waits
+    LONG served;             // +0x24 managed calls of the job served in the waits
+    LONG us;                 // +0x28 time in the waits
+    LONG maxUs;              // +0x2C longest one
+    LONG answeredUs;         // +0x30 time in the waits that ended answered
+    LONG gameUs;             // +0x34 the game's call after a wait that did not answer (what is still waited at +0x918)
+    LONG wouldWait;          // +0x38 mode 2: calls that would have entered
+    LONG lines;              // +0x3C "steer RO wait:" lines written
+};
+extern "C" __declspec(dllexport) SteerWaitCounters ts3native_steerwait = {};
+static const LONG kSwLineUs = 20000, kSwLines = 64;  // one line per wait this long, this many a session
+
+// LocoHook's environment for SwLoop. Pump = one step of the +0x918 wait pump: up to 1 ms for the job's managed call or its end
+template <class F> struct SwEnv {
+    F* run;
+    LARGE_INTEGER t0;
+    LONG served;
+    bool JobRuns() const { return g_async.state == A_RUNNING; }
+    long Us() const { return UsSince(t0); }
+    bool Curable(int why) const { return why == SR_FB_TRY || why == SR_FB_TRIP; }
+    void Pump() {
+        HANDLE h[2] = {g_invReady, g_asyncDone};
+        if (WaitForMultipleObjects(2, h, FALSE, 1) == WAIT_OBJECT_0) ServeInvoke(HC_PUMP918), served++;
+    }
+    int Run() { return (*run)(); }
+};
+// The wait of one given-back call (owner thread, a job running, the caller's g_rgOffSimOpen frame open). Returns the clone's
+// last result (0 = answered); booked as a sim wait behind the worker under key 0x85FD10 (the stub's site), so the hitch
+// tables keep the time under lock918 and split it from the +0x918 wait at 0x85FE10
+template <class F> static int SrWait(int why, F& run) {
+    SteerWaitCounters& w = ts3native_steerwait;
+    SwEnv<F> e = {&run, {}, 0};
+    QueryPerformanceCounter(&e.t0);
+    InterlockedIncrement(&w.entered[why == SR_FB_TRIP ? 1 : 0]);
+    const SwOutcome o = SwLoop(e, why, w.budgetUs);
+    InterlockedIncrement(&w.end[o.end]);
+    InterlockedExchangeAdd(&w.reruns, o.reruns);
+    InterlockedExchangeAdd(&w.served, e.served);
+    InterlockedExchangeAdd(&w.us, o.us);
+    Max(&w.maxUs, o.us);
+    if (o.end == SWL_ANSWERED) InterlockedExchangeAdd(&w.answeredUs, o.us);
+    if (g_hsOn | g_hsLockLogUs) HsLock(STEER_LOCO, o.us, e.t0.QuadPart, g_workerTid, false);  // as the pump books its wait
+    if (o.us >= kSwLineUs && InterlockedIncrement(&w.lines) <= kSwLines) {
+        static const char* const kEnd[SWL_ENDS] = {"answered", "the job ended", "another reason", "budget used"};
+        Log("steer RO wait: %ld ms for a writer's hold (%s at the entry, %ld reruns, %ld managed calls served): %s%s%s", o.us / 1000,
+            kSrFbName[why], o.reruns, e.served, kEnd[o.end], o.end == SWL_OTHER ? ", " : "", o.end == SWL_OTHER ? kSrFbName[o.why] : "");
+    }
+    return o.why;
+}
+
 static int SrWaitSite(DWORD key) { return key == TS3A(0x0085FE10) ? 0 : key == TS3A(0x0085F6CB) ? 1 : -1; }
 
 static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1, DWORD n1, const void* ign2, DWORD n2) {
@@ -851,6 +914,8 @@ static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1,
     // a job runs: read-only answer, unless this thread holds +0x918, serves the job's callback, has a gate frame open, or
     // the worker lost a QL frame
     int why = SR_FB_STATE;
+    bool waited = false;  // docs/670 §25: SrWait ran, its g_rgOffSimOpen frame is open
+    SteerWaitCounters& sw = ts3native_steerwait;
     const RgThread& t = t_rg;
     const unsigned __int64 tEntry = __rdtsc();
     if (k.steerMode && !g_inInvoke && k.rgOwnerTid != (LONG)tid && t.n == t.readers && !g_steerBroken) {
@@ -862,6 +927,14 @@ static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1,
         };
         why = run();
         if (why && k.srrMode == 1 && (why == SR_FB_TRY || why == SR_FB_TRIP)) why = SrRetry(why, run);
+        // docs/670 §25: still a writer's hold after the short retry. The frame holds job starts off from here to the end of
+        // this call (as the +0x918 wait pump does), so a wait that ends with the job is followed by a game call with no job
+        if ((why == SR_FB_TRY || why == SR_FB_TRIP) && sw.mode == 2) InterlockedIncrement(&sw.wouldWait);
+        if ((why == SR_FB_TRY || why == SR_FB_TRIP) && sw.mode == 1 && sw.budgetUs > 0) {
+            InterlockedIncrement(&g_rgOffSimOpen);
+            waited = true;
+            why = SrWait(why, run);
+        }
         if (!why) {
             for (int i = 0; i < out.nIds; i++) g_srIdPush(ids, NULL, out.ids[i]);
             const LONG us = UsSince(t0);
@@ -870,13 +943,20 @@ static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1,
             InterlockedExchangeAdd(&k.steerUs, us);
             Max(&k.steerMaxUs, us);
             S2Time(S2T_ENTRY, tEntry);
+            if (waited) RgOffSimDrop();
             return;
         }
     }
     SrFallback(why);
     S2Time(S2T_ENTRY, tEntry);  // ours only: the game's call below is today's cost
     const LONG w0 = g_w918Us;
+    LARGE_INTEGER tGame = {};
+    if (waited) QueryPerformanceCounter(&tGame);
     g_locoOrig(agent, edx, ids, ign1, n1, ign2, n2);
+    if (waited) {
+        InterlockedExchangeAdd(&sw.gameUs, UsSince(tGame));
+        RgOffSimDrop();
+    }
     // docs/250 §8: the fallback's job wait by site, both steerretry arms. shortcut: a call that waits at both keys books the
     // sum on the last one; split per key if the gather share ever matters on its own
     const int site = g_w918Us != w0 ? SrWaitSite(g_w918Key) : -1;
@@ -892,6 +972,14 @@ static void SrLogCounters() {
         "query (0x85FE10), %ld ms at the EditPath gather (0x85F6CB); shadow runs %ld mismatch %ld",
         k.steerMode, k.steerShadow, k.steerCalls, k.steerTaken, k.steerFb[0], k.steerFb[1], k.steerFb[2], k.steerFb[3], k.steerFb[4],
         k.steerFb[5], k.steerFb[6], k.steerFb[7], k.srrFbWaitUs[0] / 1000, k.srrFbWaitUs[1] / 1000, k.steerShadowRuns, k.steerShadowMismatch);
+    const SteerWaitCounters& w = ts3native_steerwait;
+    if (w.mode || w.entered[0] || w.entered[1])  // docs/670 §25
+        Log("steer RO wait: mode %ld budget %ld ms, waits %ld (QL busy %ld, tripwire %ld): answered %ld, job ended %ld, other reason %ld, "
+            "budget used %ld; %ld ms in the waits (max %ld ms; %ld ms of it answered), %ld reruns, %ld managed calls served; the game's "
+            "call after a wait %ld ms; count only: would wait %ld",
+            w.mode, w.budgetUs / 1000, w.entered[0] + w.entered[1], w.entered[0], w.entered[1], w.end[SWL_ANSWERED], w.end[SWL_JOBEND],
+            w.end[SWL_OTHER], w.end[SWL_BUDGET], w.us / 1000, w.maxUs / 1000, w.answeredUs / 1000, w.reruns, w.served, w.gameUs / 1000,
+            w.wouldWait);
 }
 
 // [FpRebuildLock] Enabled=1 alone: only the W6a stub (C-A); with [SteerRO] it rides on the full set
@@ -960,7 +1048,10 @@ static void InstallSteerRO(const wchar_t* ini) {
     k.steerMode = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Mode", 1, ini), 0, 1);
     k.steerShadow = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Shadow", 0, ini), 0, 1);
     k.srrMode = Clamp(GetPrivateProfileIntW(L"SteerRO", L"Retry", 0, ini), 0, 1);
+    ts3native_steerwait.budgetUs = Clamp(GetPrivateProfileIntW(L"SteerRO", L"RetryWaitMs", 50, ini), 1, 250) * 1000;
+    ts3native_steerwait.mode = Clamp(GetPrivateProfileIntW(L"SteerRO", L"RetryWait", 0, ini), 0, 2);
     k.steerReady = 1;
-    Log("OK   steer RO: 0x85FD10 + %d worker writer detours + LotGraph_Build gate + %d tripwire stubs (Mode=%ld Shadow=%ld Retry=%ld)", n, tws,
-        k.steerMode, k.steerShadow, k.srrMode);
+    Log("OK   steer RO: 0x85FD10 + %d worker writer detours + LotGraph_Build gate + %d tripwire stubs (Mode=%ld Shadow=%ld Retry=%ld "
+        "RetryWait=%ld RetryWaitMs=%ld)", n, tws, k.steerMode, k.steerShadow, k.srrMode, ts3native_steerwait.mode,
+        ts3native_steerwait.budgetUs / 1000);
 }

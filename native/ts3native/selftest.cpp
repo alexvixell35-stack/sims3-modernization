@@ -7354,6 +7354,35 @@ static void TestSteerRO() {
         g_srLocoCalls--;
         k.srrMode = 0;
     }
+    // docs/670 §25 [SteerRO] RetryWait: SrWait on LocoHook's environment (the loop's cases: steerwait-host-test.cpp). The
+    // "job" here is the state word only, so no managed call is posted and each step is the pump's 1 ms wait
+    {
+        SteerWaitCounters& w = ts3native_steerwait;
+        static_assert(offsetof(SteerWaitCounters, budgetUs) == 0x04 && offsetof(SteerWaitCounters, end) == 0x10 &&
+                          offsetof(SteerWaitCounters, reruns) == 0x20 && offsetof(SteerWaitCounters, gameUs) == 0x34 &&
+                          sizeof(SteerWaitCounters) == 0x40,
+                      "ts3native_steerwait layout (docs/registry.md)");
+        u8 saved[sizeof(SteerWaitCounters)];
+        memcpy(saved, (const void*)&w, sizeof(saved));
+        memset((void*)&w, 0, sizeof(w));
+        w.budgetUs = 50000;
+        const LONG open0 = g_rgOffSimOpen;
+        int runs = 0;
+        auto third = [&]() { return ++runs < 3 ? SR_FB_TRY : SR_OK; };
+        assert(SrWait(SR_FB_TRY, third) == SR_OK && runs == 3 && w.entered[0] == 1 && w.end[SWL_ANSWERED] == 1 && w.reruns == 3 &&
+               w.answeredUs == w.us && w.served == 0);
+        runs = 0;  // a reason waiting does not cure ends the wait at once
+        auto state = [&]() { runs++; return SR_FB_STATE; };
+        assert(SrWait(SR_FB_TRIP, state) == SR_FB_STATE && runs == 1 && w.entered[1] == 1 && w.end[SWL_OTHER] == 1);
+        runs = 0, w.budgetUs = 2000;  // a hold longer than the budget: given back within a step of it
+        auto busy = [&]() { runs++; return SR_FB_TRY; };
+        assert(SrWait(SR_FB_TRY, busy) == SR_FB_TRY && runs >= 1 && w.end[SWL_BUDGET] == 1 && w.maxUs >= 2000);
+        runs = 0, g_async.state = A_IDLE;  // no job: nothing is run
+        assert(SrWait(SR_FB_TRY, busy) == SR_FB_TRY && runs == 0 && w.end[SWL_JOBEND] == 1 && w.entered[0] == 3);
+        g_async.state = A_RUNNING;
+        assert(g_rgOffSimOpen == open0);  // SrWait itself opens no frame (LocoHook's does)
+        memcpy((void*)&w, saved, sizeof(saved));
+    }
     // QL free, no lot anywhere: the read-only answer is "nothing to add" without the game's call
     const LONG taken0 = k.steerTaken;
     LocoHook(agent, NULL, (u8*)idsv, NULL, 0, NULL, 0);
