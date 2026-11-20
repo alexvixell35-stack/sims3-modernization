@@ -113490,6 +113490,17 @@
         "args": {
           "path": "Ts3Fixes.Fixes.FglInBoundCheck",
           "args": [
+            "live:big"
+          ]
+        },
+        "waitS": 2,
+        "note": "the same on the largest lot with indoor tiles (the logged 64 x 64 shape), no Sim needed there"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
             "result"
           ]
         }

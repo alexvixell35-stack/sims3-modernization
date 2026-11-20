@@ -311,19 +311,44 @@ namespace Ts3Fixes
         // three indoor tiles of the selected Sim's lot (the Sim's own tile first when it is indoors), EA's indoors stage
         // and ours run from there, the answers are compared (slots 4255 / 4256 as in shadow), the jig is destroyed.
         // Nothing is placed or moved: both paths only answer with a position.
-        static string FibLive()
+        // live: from the selected Sim's tile. live:big: from the centre of the largest lot with indoor tiles (the logged
+        // 64 x 64 shape), so the slow case is checked without a Sim there; one tile pass per lot, read-only.
+        static string FibLive(bool big)
         {
             if (!sRrNearbyReady) return "live: FindGoodLocationNearby swap missing";
-            Sim a = Sim.ActiveActor;
-            if (a == null) return "live: no selected Sim";
+            Vector3 at0;
+            if (!big)
+            {
+                Sim a = Sim.ActiveActor;
+                if (a == null) return "live: no selected Sim";
+                at0 = a.Position;
+            }
+            else
+            {
+                at0 = Vector3.Invalid;
+                int best = 0;
+                foreach (Sims3.Gameplay.Core.Lot l in Sims3.Gameplay.Core.LotManager.AllLots)
+                {
+                    if (l == null || l.IsWorldLot) continue;
+                    Vector3 cp = l.GetCenterPosition();
+                    LotLocation ll = LotLocation.Invalid;
+                    ulong id = World.GetLotLocation(cp, ref ll);
+                    byte[] lc; int lw, lh, la;
+                    if (id == 0 || !FibClass(id, ll, out lc, out lw, out lh, out la)) continue;
+                    int any = 0;
+                    for (int i = 0; i < lc.Length && any == 0; i++) if (lc[i] == 1) any = 1;
+                    if (any == 1 && lw * lh > best) { best = lw * lh; at0 = cp; }
+                }
+                if (best == 0) return "live:big: no lot with indoor tiles";
+            }
             int[] c = PatchCounters();
             LotLocation loc = LotLocation.Invalid;
-            ulong lot = World.GetLotLocation(a.Position, ref loc);
+            ulong lot = World.GetLotLocation(at0, ref loc);
             byte[] cls;
             int w, h, asked;
-            if (lot == 0 || !FibClass(lot, loc, out cls, out w, out h, out asked)) return "live: no lot grid at the selected Sim";
+            if (lot == 0 || !FibClass(lot, loc, out cls, out w, out h, out asked)) return "live: no lot grid at the start";
             System.Collections.Generic.List<Vector3> starts = new System.Collections.Generic.List<Vector3>();
-            if (World.GetRoomId(lot, loc, eRoomDefinition.LightBlocking) > 0) starts.Add(a.Position);
+            if (World.GetRoomId(lot, loc, eRoomDefinition.LightBlocking) > 0) starts.Add(at0);
             int marked = 0;
             for (int i = 0; i < cls.Length; i++) if (cls[i] == 1) marked++;
             int[] want = new int[] { 0, marked / 2, marked - 1 };
@@ -333,14 +358,14 @@ namespace Ts3Fixes
                 for (int i = 0; i < cls.Length; i++)
                 {
                     if (cls[i] != 1 || seen++ != want[k]) continue;
-                    Vector3 p = a.Position;
+                    Vector3 p = at0;
                     World.GetWorldPosition(lot, new LotLocation(i % w, i / w, loc.mLevel, 0), ref p);
                     LotLocation at = LotLocation.Invalid;
                     if (World.GetLotLocation(p, ref at) == lot && World.GetRoomId(lot, at, eRoomDefinition.LightBlocking) > 0) starts.Add(p);
                     break;
                 }
             }
-            if (starts.Count == 0) return "live: lot " + w + " x " + h + " has no indoor tile on the selected Sim's level";
+            if (starts.Count == 0) return "live: lot " + w + " x " + h + " has no indoor tile on the start's level";
             FindGoodLocationBooleans bools = FindGoodLocationBooleans.PreferEmptyTiles | FindGoodLocationBooleans.Routable;
             System.Text.StringBuilder b = new System.Text.StringBuilder("live: lot " + w + " x " + h + ", " + marked + " indoor tiles");
             int worst = 0;
@@ -382,13 +407,13 @@ namespace Ts3Fixes
         public static object FglInBoundCheck(string what)
         {
             if (what == "result") return FibCounters();
-            if (what == "live")
+            if (what == "live" || what == "live:big")
             {
-                try { return "fglinbound " + FibLive(); }
+                try { return "fglinbound " + FibLive(what == "live:big"); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { return "fglinbound live: threw " + e.GetType().Name + " " + e.Message; }
             }
-            if (what != "run") return "fglinbound <run|live|result>";
+            if (what != "run") return "fglinbound <run|live|live:big|result>";
             bool on = ShortcutOn("fglinbound");
             const int w = 64, h = 64, x0 = 31, z0 = 54;
             byte[] cls = new byte[w * h];
