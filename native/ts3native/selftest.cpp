@@ -13495,6 +13495,7 @@ static void TestNoPathMemoStub() {
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
+#include "blocker2dro-test.h"  // TestBlocker2dRO ([Blocker2dRO], docs/670 §24; after rtoro-test.h and rtotail-test.h: their fakes)
 #include "fgro-test.h"   // TestPlacementRO ([PlacementRO], docs/174)
 #include "gvro-test.h"   // TestGoalValidRO ([GoalValidRO], docs/178 §7 T6)
 #include "gvhits-test.h" // TestGoalHitsRO ([GoalValidRO] Hits, docs/670 §11; uses gvro-test.h fakes)
@@ -15081,6 +15082,7 @@ int main() {
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();
+    TestBlocker2dRO();  // docs/670 §24
     TestPlacementRO();
     TestGoalValidRO();
     TestGoalHitsRO();  // docs/670 §11
