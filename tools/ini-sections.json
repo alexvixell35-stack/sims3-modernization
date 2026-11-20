@@ -71,7 +71,7 @@
  "ProbeSnap": ["vcall.cpp"],
  "ProbeValues": ["values.cpp"],
  "LoadProf": ["loadprof.cpp"],
- "RouteSnap": ["hostcalls.cpp", "lotuse.cpp", "p4.cpp", "p5.cpp", "p5b.cpp", "p5c.cpp", "replay.cpp", "routesnap.cpp", "snap.cpp", "stalelot.cpp"],
+ "RouteSnap": ["doorshare.cpp", "hostcalls.cpp", "lotuse.cpp", "p4.cpp", "p5.cpp", "p5b.cpp", "p5c.cpp", "replay.cpp", "routesnap.cpp", "snap.cpp", "stalelot.cpp"],
  "OptsInit": ["optsinit.cpp", "p5.cpp"],
  "HitchAttr": ["hitchattr.cpp"],
  "UnseenProbe": ["unseen.cpp"],

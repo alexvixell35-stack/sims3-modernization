@@ -363,6 +363,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
         [Tunable] public static bool kFestivalHidden = true;    // ON (PR #501, fired in two Starlight Shores runs: 44 and 40 skips, 0 errors): out-of-season festival objects are not re-advertised to autonomy after a room change (FestivalHidden.cs, docs/856)
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
+        [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kInitStackTrace = true;    // initstacktrace (docs/594 §1): InteractionInstance.Init / OnAddedToQueue without the dead O(depth^2) StackTrace walks (fields only read by compiled-out debug code; exact)
         [Tunable] public static bool kWeatherManagerThrow = true;    // weathermanagerthrow (docs/594 §3): RainEvent.PutOutFires skips the null firefighter dictionary (worlds without the service) instead of throwing, which stopped SeasonsManager for the session

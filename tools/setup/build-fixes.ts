@@ -765,6 +765,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCasFilterGrid value="True" />
     <kUnseenLoopSkipStep value="False" />
     <kDoorGen value="True" />
+    <kDoorShare value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />

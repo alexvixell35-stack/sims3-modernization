@@ -62,3 +62,5 @@
 #   unseenhouseboatview
 # Dalexlol PRs #503 / #490 (import 2026-11-20), default off by choice (gohomeshell: apartment arrivals, test with LotLevelPastEnd; spawnoffworld: Rodney call):
 #   gohomeshell spawnoffworld
+# docs/674 (route worker carve-out 2026-11-20), default off, ran in game on the combo branch only (s163-s166 compare runs):
+#   doorshare

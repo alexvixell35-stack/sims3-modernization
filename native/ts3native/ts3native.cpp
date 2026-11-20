@@ -3422,6 +3422,7 @@ static void GrLogCounters();   // gcroots.cpp: [GcRootCheck] (docs/67 §22.4)
 static void SfLogCounters();   // saveframes.cpp (docs/293)
 static void AtLogCounters();   // arenatail.cpp: [ArenaGuard] TailPad, [GcRootCheck] TailWatch (docs/67 §22.7)
 static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
+static void DsLogCounters();   // doorshare.cpp (docs/674)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 static void MaybeLogCounters(ULONGLONG now) {
@@ -3479,6 +3480,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     SfLogCounters();  // docs/293 (saveframes.cpp)
     AtLogCounters();  // docs/67 §22.7 (logs only with TailPad or TailWatch on)
     if (c.ufcReady) UfcLogCounters();  // docs/202 §3.4
+    DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
         Log("route jobs sim waits: runplan %ld/%ld/%ld rtwait %ld/%ld/%ld disc %ld/%ld/%ld collect %ld/%ld/%ld drop %ld/%ld/%ld "
             "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
@@ -3913,6 +3915,7 @@ struct AsyncJob {
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
     LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
     LONG pf;          // docs/631 [RouteAsync] PlayerFirst: 1 = a route the player ordered (ts3fixes playerfirst, UserDiag op 37)
+    LONG dsBits;      // docs/674 [RouteSnap] DoorShare: the route's Sim class from ts3fixes doorshare (UserDiag op 40), 0 = none
 };
 // docs/134: 32 slots; with [RouteAsync] FallbackAsync off only the first kJobsBase are handed out (QueueFull as before)
 static const int kJobs = 32, kJobsBase = 8;
@@ -4186,6 +4189,19 @@ static __declspec(thread) LONG t_hcJob;
 // DoorMemoX: the running job's scope (kdScope from ts3fixes UfWhy, 2 when marked uf): 0 unknown, 1 household or unknown, 2 unseen, 3 seen NPC
 static __declspec(thread) LONG t_hcScope;
 static LONG g_hcJobSeq;  // worker only
+// docs/674 [RouteSnap] DoorShare (doorshare.cpp): the running job's Sim class (op 40 of its route, 0 = none) and where the job
+// is: open Route_PlanLocked calls and finished outermost ones (door asks by part of the job, counting only)
+static __declspec(thread) LONG t_dsBits, t_dsPlDepth, t_dsPlans;
+static void DsIcBump(int ic, const DWORD* slot);  // routesnap.cpp's IC slots and World_FireEvent detour -> doorshare.cpp
+static void DsWevBump(DWORD id);
+static DWORD g_dsH;   // sim thread: route of the last op 40, good for its next START only
+static LONG g_dsBits;
+static void DsClassSet(DWORD handle, LONG bits) { g_dsH = handle, g_dsBits = bits; }
+static LONG DsClassTake(DWORD handle) {
+    const LONG r = handle && g_dsH == handle ? g_dsBits : 0;
+    g_dsH = 0;
+    return r;
+}
 static LONGLONG HcNow();
 static void HcPost(InvokeJob& v);
 static void HcPick(InvokeJob& v, int site);
@@ -4648,11 +4664,12 @@ static void ServeAsync() {
         RjpJobBegin(j->fb ? 2 : j->kind ? 1 : 0);  // [RouteJobPhases] (routephases.cpp): own START, own A10, foreign
         t_hcJob = ++g_hcJobSeq;                     // hostcalls.cpp: door keys and the memo are per job
         t_hcScope = j->uf ? 2 : j->kdScope;         // hostcalls.cpp: DoorMemoX answers only unseen / seen-NPC jobs
+        t_dsBits = j->dsBits, t_dsPlDepth = 0, t_dsPlans = 0;  // docs/674 DoorShare
         t_p6wOut = j->p4 >= 2 ? P6O_REFUSED : P6O_PLAIN;  // [P6Waits]: armed until P5Plan says taken / stale
         t_p6wArm = P6wArmNow();                            // [P6Waits]: the arm at the job's start
         UafTagScope uafTag(UT_ROUTE_JOB, (const void*)&ServeAsync);  // [UafCheck] frees during the worker job and its end
         CallIc(j->kind, j->result, j->handle, j->pt);
-        t_hcJob = 0, t_hcScope = 0;
+        t_hcJob = 0, t_hcScope = 0, t_dsBits = 0;
         LendBackstop();  // CE-4 (docs/154): a lend window an unwind left open is closed before the release below
         P5EarlyEnd();    // P6EarlyCopy (docs/94 §24.14): an early clone the IC never planned with (no Route_PlanLocked)
         InterlockedExchange((volatile LONG*)&g_pdWkTid, 0);
@@ -5023,12 +5040,19 @@ static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx,
                                                          DWORD guidLo, DWORD guidHi) {
     if (t_p6.act) t_p6.plans++;  // P6 split: planner calls per job (count only)
     if (t_kdCam == 1) KdCamPlanArgs(starts, goals);
-    if (t_p4Cap) return P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    if (!t_p10) return PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    LARGE_INTEGER t0;  // P10: a sim-thread plan inside one of the four route ICs
-    const DWORD tag = P10PlanBegin((const DWORD*)_AddressOfReturnAddress(), &t0);
-    const u8 r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    P10PlanEnd(tag, t0);
+    t_dsPlDepth++;  // docs/674: door asks by part of the job (counting only)
+    u8 r = 0;
+    if (t_p4Cap) {
+        r = P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    } else if (!t_p10) {
+        r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    } else {
+        LARGE_INTEGER t0;  // P10: a sim-thread plan inside one of the four route ICs
+        const DWORD tag = P10PlanBegin((const DWORD*)_AddressOfReturnAddress(), &t0);
+        r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+        P10PlanEnd(tag, t0);
+    }
+    if (!--t_dsPlDepth) t_dsPlans++;
     return r;
 }
 
@@ -5645,6 +5669,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
     j->pf = PfTake(handle);  // docs/631: before J_QUEUED, the worker reads it to pick
+    j->dsBits = DsClassTake(handle);  // docs/674: the class is good for this START only
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
     j->ufCut = j->ufCutView = 0;
     // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it
@@ -6543,6 +6568,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "routephases.cpp"
 #include "syncphases.cpp"  // docs/164: [RouteJobPhases] SyncPlans (needs routephases.cpp)
 #include "cellmemo.cpp"
+#include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
 #include "thumbstall.cpp"  // [ThumbStall]: timeout for state 0x11 of the Sim thumbnail queue (EXPERIMENT, off)

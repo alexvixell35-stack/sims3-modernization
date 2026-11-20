@@ -112982,6 +112982,153 @@
     "expect": "no 'FAIL door memo x'; 'door memo x misses:' line with '(live, not kept)' > 0 (held asks happened) and hits > 0 elsewhere; household door answers live (exempt count > 0); no script errors"
   },
   {
+    "id": "doorshare-check",
+    "bug": "docs/674: the route worker asks the sim thread whether a Sim may pass a portal once per Sim and door (s159: 17,580 host calls in a 2-min Isla Paradiso storm, 15,942 of DoorMemoX's 18,081 misses had no row because its key holds the Sim); most answers do not depend on the Sim, and nothing told ts3native which",
+    "fix": "ts3fixes DoorShare.cs + DoorShareCore.cs: doorshare (tuning kDoorShare, default off; needs doorgen), UserDiag ops 40 / 41 for ts3native [RouteSnap] DoorShare (docs/674)",
+    "save": "pure part needs no save",
+    "note": "DoorShareCheck run checks the ordinary-class rule, the portal kind rule and the hash / class-bit encoding shared with ts3native (same vectors as native/ts3native/doorshare-test.h) with controls; result shows what was sent this session (class ops, notes by kind, lots or event 59 with other handlers) and the hooks' live state. The switch is read at every plan. In-game effect: repro ip-doorshare-storm",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: nothing is marked"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the rules and the encoding"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-doorshare-storm",
+    "bug": "docs/674: in the s159 storm (Isla Paradiso, 2 min) the route worker made 17,580 host calls (door asks, World event 59) under its +0x918 hold, 13,465 of them outside PlanHierarchical (the goal step's lot search), and waited 6.1-9.5 s for the sim thread to answer them; DoorMemoX answered 10,672 asks and missed 18,081 (15,942 with no row: its key holds the asking Sim and a row lives 250 ms)",
+    "fix": "ts3native [RouteSnap] DoorShare=1 (default 0; DoorShareMs, DoorShareCheck, DoorShareHousehold) with ts3fixes doorshare (default off) and doorgen (on): a door answer that does not depend on the Sim is shared by every ordinary-class Sim until the door generation moves (docs/674)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of doorshare.cpp, ts3fixes built with Roslyn, C# core selftest). v1 (one generation) ran 2026-11-20: s163 shadow 3260 checks, s164 answer 692 checks, 0 mismatches, hostCalls 18510 -> 14789; v2 (stamps per portal owner / lot, no-actor class; docs/674 §9) is UNVERIFIED and needs the ts3fixes package of the same build. Arms on the s159 on-arm ini plus [RouteJobPhases] HoldProbe=1 HostSplit=1, [RouteSnap] DoorShareMs=60000 DoorShareCheck=32: (A) DoorShare=2 with ts3fixes doorshare on = shadow, every row compared, nothing answered: the baseline and the exactness check; (B) DoorShare=1; (C) B plus DoorShareHousehold=1. the first step turns ts3fixes doorshare on (read at every plan); doorgen must be on at world load (its default)",
+    "expect": "'OK   door share: DoorShare=1' and 'door memo x: ts3fixes doorgen armed'. After the storm: a 'door share:' line with ts3fixes class ops and notes > 0, door asks about answered + live asks, 'answered' a large share of the asks of an ordinary-class job, 'checks' > 0 and 'mismatch 0'; no 'FAIL door share' line; 'door share misses: ... a stamp moved' in the hundreds (v1: 11434), 'door share changes:' with 'everything' near 0 after the load, a 'door share changes by portal IC:' line and a 'door share no class:' line. Arm A: answered 0, checks > 0, mismatch 0. 'route plans: ... hostCalls' and 'route task serve ... served' well below arm A; 'worker hold parts' host ms before the plan lower; the sim's +0x918 waits in 'hitch totals' not higher. No crash, no stuck Sim, the same plans and fails as arm A within storm noise. Arm C: 'household / unknown scope' 0, and 'player command' > 0 only after a Go Here click",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": true
+        },
+        "note": "ts3fixes sends classes and notes from the next plan on (doorgen must have been on at world load)",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-holdoutside-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "what ts3fixes sent"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorshare": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

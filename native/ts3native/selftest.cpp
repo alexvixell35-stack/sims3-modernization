@@ -13344,6 +13344,7 @@ static void TestP5() {
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
 #include "taskseam-test.h"  // TestTaskSeam ([Diag] TaskSeam, docs/308)
+#include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
@@ -14925,6 +14926,7 @@ int main() {
     TestPlanDeadline();
     TestTaskServe();  // docs/637
     TestTaskSeam();   // docs/308
+    TestDoorShare();   // docs/674
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

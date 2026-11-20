@@ -587,6 +587,7 @@ static void __cdecl SnEnter(int i, DWORD* slot) {
     if (i == SN_WEV) {  // World_FireEvent(arg 1, id): id read at 0x78F2B3 from [esp+0x4C] after sub esp,0x44
         const DWORD id = slot[2];
         InterlockedIncrement(&k.snWev[id < 95 ? id : 95]);
+        DsWevBump(id);  // docs/674 DoorShare: load and lot events clear its rows
         if (cls != 0) { InterlockedIncrement(&k.snWevOffSim); return; }
         AsWorldEvent(id);
         C2WorldEvent(id);
@@ -641,6 +642,7 @@ static void __cdecl SnIcEnter(int i, DWORD* slot) {
     if (t_snapRun) return;  // P4 clone run: pass through
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.snIc[i]);
+    DsIcBump(i, slot);  // docs/674 DoorShare: a portal IC clears the rows of the object or lot it names
     if (i == 5 && SnLive()) P4VarTrip(slot[3]);  // AddPortalLocationVariation, arg 3 = portal handle: H20 tripwire, count only
     const DWORD tid = GetCurrentThreadId();
     const bool sim = RgIsSim(tid);
