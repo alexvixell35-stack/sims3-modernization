@@ -67,36 +67,71 @@ static void TestFglProfCore() {
     rec[0x39] = 1; rec[0x3E] = 1; rec[0x33] = 1; rec[0x35] = 1;   // +0x35 is the game's own byte, no flag
     assert(FglBools(rec) == (0x14u | 0x40000u | 0x2000000u | 0x8000u));
 
-    // [FglFacing]: the regular octagon about its centre, drawn in by 1 mm; anything else is refused
-    const float kC = 0.70710678f * 0.25f;
+    // [FglFacing]: the disc about a point inside a convex polygon, either winding; 0 when the point is not strictly inside
+    const float sq[8] = {-1, -0.5f, 1, -0.5f, 1, 0.5f, -1, 0.5f}, sqr[8] = {-1, 0.5f, 1, 0.5f, 1, -0.5f, -1, -0.5f};
+    const float c0[2] = {0, 0}, c1[2] = {0.75f, 0.25f}, c2[2] = {1.5f, 0}, c3[2] = {1, 0};
+    float d = FglInradius(sq, 4, c0);
+    assert(d > 0.4999f && d < 0.5001f && FglInradius(sqr, 4, c0) == d);
+    d = FglInradius(sq, 4, c1);
+    assert(d > 0.2499f && d < 0.2501f && FglInradius(sq, 4, c2) == 0 && FglInradius(sq, 4, c3) == 0 && FglInradius(sq, 2, c0) == 0);
+    const float dart[8] = {-1, -1, 1, -1, 0.2f, 0, 1, 1};   // not convex about c0's side
+    assert(FglInradius(dart, 4, c3) == 0);
+    // the proof octagon lies inside its disc, and inside any polygon whose disc is larger
+    float oct[16];
     const float centre[2] = {7.5f, 3.5f};
-    float oct[16] = {0.25f, 0, kC, kC, 0, 0.25f, -kC, kC, -0.25f, 0, -kC, -kC, 0, -0.25f, kC, -kC};
-    for (int i = 0; i < 8; i++) { oct[2 * i] += centre[0]; oct[2 * i + 1] += centre[1]; }
-    float in[16];
-    assert(FglOctagonShrink(oct, centre, FGL_SHRINK, in));
+    FglDiscOctagon(centre, 0.3f, oct);
     for (int i = 0; i < 8; i++) {
-        const float ox = oct[2 * i] - centre[0], oz = oct[2 * i + 1] - centre[1], ix = in[2 * i] - centre[0], iz = in[2 * i + 1] - centre[1];
-        const float ro2 = ox * ox + oz * oz, ri2 = ix * ix + iz * iz;   // 0.25^2 = 0.0625, 0.249^2 = 0.062001
-        assert(ri2 < ro2 && ri2 > 0.0619f && ri2 < 0.0621f && ix * oz - iz * ox < 1e-6f && iz * ox - ix * oz < 1e-6f);
+        const float ox = oct[2 * i] - centre[0], oz = oct[2 * i + 1] - centre[1];
+        assert(ox * ox + oz * oz < 0.3f * 0.3f + 1e-6f && ox * ox + oz * oz > 0.3f * 0.3f - 1e-4f);
     }
-    // the same octagon turned by 45 degrees (points shifted by one) is the same point set; the drawn-in one is not
-    float turned[16];
-    for (int i = 0; i < 8; i++) { turned[2 * i] = oct[2 * ((i + 1) & 7)]; turned[2 * i + 1] = oct[2 * ((i + 1) & 7) + 1]; }
-    assert(FglSamePoints(turned, oct, 0.0005f) && !FglSamePoints(in, oct, 0.0005f));
-    float bad[16];
-    const float off[2] = {7.52f, 3.5f};
-    assert(!FglOctagonShrink(oct, off, FGL_SHRINK, bad));          // not about the candidate position (a pivot offset)
-    for (int i = 0; i < 16; i++) bad[i] = oct[i];
-    bad[2] += 0.01f;
-    assert(!FglOctagonShrink(bad, centre, FGL_SHRINK, in));         // one point off
-    for (int i = 0; i < 8; i++) { bad[2 * i] = centre[0] + (i & 1 ? 0.25f : -0.25f); bad[2 * i + 1] = centre[1] + (i & 2 ? 0.25f : -0.25f); }
-    assert(!FglOctagonShrink(bad, centre, FGL_SHRINK, in));         // equal radii, not 45 degrees apart
-    for (int i = 0; i < 16; i++) bad[i] = centre[i & 1];
-    assert(!FglOctagonShrink(bad, centre, FGL_SHRINK, in));         // no size
+    d = FglInradius(oct, 8, centre);
+    assert(d > 0.2771f && d < 0.2773f);   // 0.3 cos 22.5
+    assert(FglSqrt(0.0625f) > 0.24999f && FglSqrt(0.0625f) < 0.25001f && FglSqrt(4.0f) > 1.9999f && FglSqrt(4.0f) < 2.0001f && FglSqrt(0) == 0);
+    // facing index: whole multiples of the step only
+    const float step = 0.78539813f;
+    assert(FglFacingIdx(0, step) == 0 && FglFacingIdx(step * 3, step) == 3 && FglFacingIdx(step * 9, step) == 1 && FglFacingIdx(-step, step) == 7);
+    assert(FglFacingIdx(step * 2.5f, step) == -1 && FglFacingIdx(1.0f, step) == -1 && FglFacingIdx(1.0f, 0) == -1);
+    // learning: smallest disc over the learned facings; a facing covers a proof only with its own disc; two discs = dead
+    static FglLearn ln;
+    FglLearnReset(&ln);
+    assert(FglLearnMin(ln, 0) == 0 && !FglLearnCovers(ln, 0, 0, 0.1f));
+    FglLearnPut(&ln, 0, 0, 0.5f);
+    FglLearnPut(&ln, 2, 0, 0.4f);
+    FglLearnPut(&ln, 2, 1, 0.3f);
+    assert(FglLearnMin(ln, 0) == 0.4f && FglLearnMin(ln, 1) == 0.3f && FglLearnMin(ln, 2) == 0 && FglLearnMin(ln, FGL_PARTS) == 0);
+    assert(FglLearnCovers(ln, 0, 0, 0.399f) && FglLearnCovers(ln, 2, 0, 0.399f) && !FglLearnCovers(ln, 2, 0, 0.4f) && !FglLearnCovers(ln, 1, 0, 0.1f));
+    FglLearnPut(&ln, 0, 0, 0.5002f);   // the same disc again
+    assert(FglLearnCovers(ln, 0, 0, 0.399f));
+    FglLearnPut(&ln, 0, 0, 0.45f);     // another disc for the same facing and part: never trusted again
+    FglLearnPut(&ln, 0, 0, 0.5f);
+    assert(!FglLearnCovers(ln, 0, 0, 0.1f) && FglLearnMin(ln, 0) == 0);
+    FglLearnPut(&ln, 3, 0, 0);         // position not inside this facing's part: no proof for the part
+    FglLearnPut(&ln, 9, 0, 1); FglLearnPut(&ln, 1, FGL_PARTS, 1); FglLearnPut(&ln, -1, 0, 1);
+    assert(FglLearnMin(ln, 0) == 0 && !FglLearnCovers(ln, 3, 0, 0.01f));
     FglProof pr = FglProof();
     const unsigned pk[3] = {1, 2, 3}, pk2[3] = {1, 2, 4};
     assert(!FglProofSame(pr, oct, 5, pk));
     FglProofSet(&pr, oct, 5, pk);
-    assert(FglProofSame(pr, oct, 5, pk) && !FglProofSame(pr, oct, 5, pk2) && !FglProofSame(pr, oct, 6, pk) && !FglProofSame(pr, in, 5, pk));
+    assert(FglProofSame(pr, oct, 5, pk) && !FglProofSame(pr, oct, 5, pk2) && !FglProofSame(pr, oct, 6, pk) && !FglProofSame(pr, sq, 5, pk));
+
+    // [FglMemo]: failed tests by position and angle; a reset forgets all
+    static FglMemo mm;
+    FglMemoReset(&mm);
+    assert(!FglMemoHas(mm, pk, 7) && FglMemoPut(&mm, pk, 7) && !FglMemoPut(&mm, pk, 7) && FglMemoHas(mm, pk, 7));
+    assert(!FglMemoHas(mm, pk, 8) && !FglMemoHas(mm, pk2, 7));
+    int put = 0;
+    for (unsigned i = 0; i < 30000; i++) { const unsigned kk[3] = {i, i * 7u, 1}; if (FglMemoPut(&mm, kk, i & 7)) put++; }
+    int has = 0;
+    for (unsigned i = 0; i < 30000; i++) { const unsigned kk[3] = {i, i * 7u, 1}; if (FglMemoHas(mm, kk, i & 7)) has++; }
+    assert(put == has && put > 29000 && FglMemoHas(mm, pk, 7));
+    for (unsigned i = 0; i < 30000; i++) { const unsigned kk[3] = {i, i * 7u, 2}; assert(!FglMemoHas(mm, kk, i & 7)); }
+    FglMemoReset(&mm);
+    assert(!FglMemoHas(mm, pk, 7));
+    FglMemoCtx ca = FglMemoCtx(), cb = FglMemoCtx();
+    ca.idLo = cb.idLo = 5; ca.bools = cb.bools = 0x14;
+    assert(FglMemoCtxEq(ca, cb));
+    cb.room = 3;
+    assert(!FglMemoCtxEq(ca, cb));
+    assert(FglBits(1.0f) == 0x3F800000u);
     printf("ok FglProf core\n");
 }

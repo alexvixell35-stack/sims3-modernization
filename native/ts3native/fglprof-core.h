@@ -115,39 +115,86 @@ inline unsigned FglBools(const unsigned char* rec) {
     return v;
 }
 
-// ---- [FglFacing] (docs/671 §10) ----
-// poly = 8 points (x, z); centre = the candidate position. True when poly is a regular octagon about centre (every radius
-// within 1e-3 of the first, neighbours 45 degrees apart within 1e-2 rad by their chord, radius 0.05-5); out = the same points
-// drawn towards the centre by `shrink` (absolute length). No libm: the checks use squared lengths.
-const float FGL_SHRINK = 0.001f;
-inline bool FglOctagonShrink(const float poly[16], const float centre[2], float shrink, float out[16]) {
-    const float dx0 = poly[0] - centre[0], dz0 = poly[1] - centre[1];
-    const float r2 = dx0 * dx0 + dz0 * dz0;
-    if (!(r2 > 0.05f * 0.05f && r2 < 5.0f * 5.0f)) return false;
-    // |r - r0| < 1e-3 <=> |r^2 - r0^2| < ~2 r0 1e-3; chord of 45 degrees: c^2 = (2 - sqrt 2) r^2
-    float r = r2;   // Newton square root, enough steps for float
-    for (int i = 0; i < 24; i++) r = 0.5f * (r + r2 / r);
-    const float tolR2 = 2.0f * r * 1e-3f, chord2 = 0.585786438f * r2, tolC2 = 2.0f * 0.765366865f * r * (1e-2f * r);
-    for (int i = 0; i < 8; i++) {
-        const float dx = poly[2 * i] - centre[0], dz = poly[2 * i + 1] - centre[1];
-        const float d2 = dx * dx + dz * dz;
-        if (!(d2 - r2 < tolR2 && r2 - d2 < tolR2)) return false;
-        const int j = (i + 1) & 7;
-        const float ex = poly[2 * j] - poly[2 * i], ez = poly[2 * j + 1] - poly[2 * i + 1];
-        const float c2 = ex * ex + ez * ez;
-        if (!(c2 - chord2 < tolC2 && chord2 - c2 < tolC2)) return false;
+// ---- [FglFacing] (docs/671 §10-§11) ----
+const float FGL_MARGIN = 0.001f;     // the proof octagon stays this far inside the smallest learned disc
+const float FGL_MIN_DISC = 0.02f;    // no proof on a smaller disc
+enum { FGL_PARTS = 4 };
+
+inline float FglSqrt(float v) {
+    if (!(v > 0)) return 0;
+    float r = v > 1 ? v : 1;
+    for (int i = 0; i < 40; i++) r = 0.5f * (r + v / r);
+    return r;
+}
+
+// pts = n points (x, z) of a convex polygon, either winding. The distance from c to its nearest edge when c is strictly
+// inside; 0 otherwise (outside, on an edge, not convex about c, a degenerate edge).
+inline float FglInradius(const float* pts, int n, const float c[2]) {
+    if (n < 3) return 0;
+    float best = 0;
+    int sign = 0;
+    for (int i = 0; i < n; i++) {
+        const int j = i + 1 < n ? i + 1 : 0;
+        const float ex = pts[2 * j] - pts[2 * i], ez = pts[2 * j + 1] - pts[2 * i + 1];
+        const float cr = ex * (c[1] - pts[2 * i + 1]) - ez * (c[0] - pts[2 * i]);
+        const float len = FglSqrt(ex * ex + ez * ez);
+        if (!(len > 1e-6f)) return 0;
+        const int sg = cr > 0 ? 1 : cr < 0 ? -1 : 0;
+        if (!sg || (sign && sg != sign)) return 0;
+        sign = sg;
+        const float d = (cr > 0 ? cr : -cr) / len;
+        if (i == 0 || d < best) best = d;
     }
-    if (!(shrink > 0 && shrink < 0.5f * r)) return false;
-    const float k = 1.0f - shrink / r;
+    return best;
+}
+
+// a regular octagon of circumradius r about c: inside the disc of radius r
+inline void FglDiscOctagon(const float c[2], float r, float out[16]) {
+    const float k = 0.70710678f * r;
+    const float d[16] = {r, 0, k, k, 0, r, -k, k, -r, 0, -k, -k, 0, -r, k, -k};
+    for (int i = 0; i < 8; i++) { out[2 * i] = c[0] + d[2 * i]; out[2 * i + 1] = c[1] + d[2 * i + 1]; }
+}
+
+// facing index of an angle: a whole multiple of step (within 1e-3 rad), -1 otherwise
+inline int FglFacingIdx(float angle, float step) {
+    if (!(step > 0.1f && step < 7.0f)) return -1;
+    const float q = angle / step;
+    const int k = (int)(q < 0 ? q - 0.5f : q + 0.5f);
+    const float d = angle - (float)k * step;
+    if (!(d < 1e-3f && d > -1e-3f)) return -1;
+    return k & 7;
+}
+
+// per facing index and part ordinal: the disc learned in this search; a part seen with two different discs is dead
+struct FglLearn { float r[8][FGL_PARTS]; bool seen[8][FGL_PARTS], dead[8][FGL_PARTS]; };
+inline void FglLearnReset(FglLearn* l) { *l = FglLearn(); }
+inline void FglLearnPut(FglLearn* l, int idx, int part, float r) {
+    if (idx < 0 || idx > 7 || part < 0 || part >= FGL_PARTS) return;
+    if (l->dead[idx][part]) return;
+    if (!l->seen[idx][part]) { l->seen[idx][part] = true; l->r[idx][part] = r; return; }
+    const float d = l->r[idx][part] - r;
+    if (d > 0.0005f || d < -0.0005f) { l->dead[idx][part] = true; l->r[idx][part] = 0; }
+}
+// the smallest disc of the part over the facings learned so far (0: none learned, or one of them has no disc)
+inline float FglLearnMin(const FglLearn& l, int part) {
+    if (part < 0 || part >= FGL_PARTS) return 0;
+    float m = 0;
+    bool any = false;
     for (int i = 0; i < 8; i++) {
-        out[2 * i] = centre[0] + (poly[2 * i] - centre[0]) * k;
-        out[2 * i + 1] = centre[1] + (poly[2 * i + 1] - centre[1]) * k;
+        if (!l.seen[i][part]) continue;
+        if (!any || l.r[i][part] < m) m = l.r[i][part];
+        any = true;
     }
-    return true;
+    return any ? m : 0;
+}
+// facing idx's part holds the proof octagon of radius r (with half the margin to spare)
+inline bool FglLearnCovers(const FglLearn& l, int idx, int part, float r) {
+    return idx >= 0 && idx < 8 && part >= 0 && part < FGL_PARTS && l.seen[idx][part] && !l.dead[idx][part] &&
+           l.r[idx][part] >= r + 0.5f * FGL_MARGIN;
 }
 
 // the tile whose facing tests are answered: one record (one search), one object, one position
-struct FglProof { bool on; const void* rec; unsigned obj; unsigned key[3]; };
+struct FglProof { bool on; const void* rec; unsigned obj; unsigned key[3]; int part; float radius; };
 inline void FglProofSet(FglProof* p, const void* rec, unsigned obj, const unsigned key[3]) {
     p->on = true; p->rec = rec; p->obj = obj;
     p->key[0] = key[0]; p->key[1] = key[1]; p->key[2] = key[2];
@@ -156,15 +203,42 @@ inline bool FglProofSame(const FglProof& p, const void* rec, unsigned obj, const
     return p.on && p.rec == rec && p.obj == obj && p.key[0] == key[0] && p.key[1] == key[1] && p.key[2] == key[2];
 }
 
-// every point of a (8 points) lies within tol of some point of b
-inline bool FglSamePoints(const float a[16], const float b[16], float tol) {
-    for (int i = 0; i < 8; i++) {
-        bool hit = false;
-        for (int j = 0; j < 8 && !hit; j++) {
-            const float dx = a[2 * i] - b[2 * j], dz = a[2 * i + 1] - b[2 * j + 1];
-            hit = dx * dx + dz * dz < tol * tol;
-        }
-        if (!hit) return false;
+// ---- [FglMemo] (docs/671 §11): failed facing tests by candidate position words and angle bits ----
+inline unsigned FglBits(float f) { unsigned u = 0; const unsigned char* p = (const unsigned char*)&f; for (int i = 3; i >= 0; i--) u = u << 8 | p[i]; return u; }
+struct FglMemoCtx { unsigned idLo, idHi, lot, bools, room, ignore; };
+inline bool FglMemoCtxEq(const FglMemoCtx& a, const FglMemoCtx& b) {
+    return a.idLo == b.idLo && a.idHi == b.idHi && a.lot == b.lot && a.bools == b.bools && a.room == b.room && a.ignore == b.ignore;
+}
+enum { FGL_MEMO_N = 1 << 16 };   // slots; a full neighbourhood drops the new entry (the test then runs)
+struct FglMemoE { unsigned k[4]; unsigned gen; };
+struct FglMemo { FglMemoE e[FGL_MEMO_N]; unsigned gen; };
+inline void FglMemoReset(FglMemo* m) {
+    if (++m->gen == 0) { for (int i = 0; i < FGL_MEMO_N; i++) m->e[i].gen = 0; m->gen = 1; }
+}
+inline unsigned FglMemoHash(const unsigned key[3], unsigned ang) {
+    unsigned h = 2166136261u;
+    h = (h ^ key[0]) * 16777619u; h = (h ^ key[1]) * 16777619u; h = (h ^ key[2]) * 16777619u; h = (h ^ ang) * 16777619u;
+    return h ^ h >> 15;
+}
+inline bool FglMemoHas(const FglMemo& m, const unsigned key[3], unsigned ang) {
+    const unsigned h = FglMemoHash(key, ang);
+    for (unsigned i = 0; i < 8; i++) {
+        const FglMemoE& e = m.e[(h + i) & (FGL_MEMO_N - 1)];
+        if (e.gen != m.gen) return false;
+        if (e.k[0] == key[0] && e.k[1] == key[1] && e.k[2] == key[2] && e.k[3] == ang) return true;
     }
-    return true;
+    return false;
+}
+inline bool FglMemoPut(FglMemo* m, const unsigned key[3], unsigned ang) {
+    const unsigned h = FglMemoHash(key, ang);
+    for (unsigned i = 0; i < 8; i++) {
+        FglMemoE& e = m->e[(h + i) & (FGL_MEMO_N - 1)];
+        if (e.gen == m->gen) {
+            if (e.k[0] == key[0] && e.k[1] == key[1] && e.k[2] == key[2] && e.k[3] == ang) return false;
+            continue;
+        }
+        e.k[0] = key[0]; e.k[1] = key[1]; e.k[2] = key[2]; e.k[3] = ang; e.gen = m->gen;
+        return true;
+    }
+    return false;
 }

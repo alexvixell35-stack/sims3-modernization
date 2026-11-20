@@ -148,23 +148,27 @@ static void TestFglProfStubs() {
     printf("ok FglProf stubs\n");
 }
 
-// [FglFacing] (docs/671 §10): the proof and the answered facings, on fakes
+// [FglFacing] / [FglMemo] (docs/671 §10-§11): the proof, the answered facings and the memo, on fakes
 static int g_ffTests, g_ffFoot;
 static DWORD g_ffTestAns, g_ffFootAns;
 static float g_ffFootR2;
-// the game's facing test: here it only leaves what the inner stubs would (the octagon part ran, 0xB46160 failed unnamed)
-static DWORD __cdecl FfTest(u8*, DWORD) {
+static int g_ffParts;   // parts the fake test "tests" (each through the real part stub)
+static DWORD __cdecl FfPart(u8*, void*, DWORD) { return 1; }
+// the game's facing test: it runs its parts through the part stub and leaves what the check stubs would
+static DWORD __cdecl FfTest(u8* rec, DWORD) {
     g_ffTests++;
-    g_fgl.t.octTests++;
+    typedef DWORD(__cdecl* PartFn)(u8*, void*, DWORD);
+    for (int i = 0; i < g_ffParts; i++) ((PartFn)(void*)kFglStubs[FGL_S_PART_LOOP])(rec, NULL, 0);
     if (!g_ffTestAns) g_fgl.failCheck = FGC_B41120;
     return g_ffTestAns;
 }
 static DWORD __cdecl FfFoot(u8* rec, DWORD) {
     g_ffFoot++;
     const float* b = *(const float* const*)(rec + 0xA0);
+    const float* e = *(const float* const*)(rec + 0xA4);
     float pos[2];
     memcpy(pos, rec + 8, sizeof(pos));
-    g_ffFootR2 = (b[0] - pos[0]) * (b[0] - pos[0]) + (b[1] - pos[1]) * (b[1] - pos[1]);
+    g_ffFootR2 = e - b == 16 ? (b[0] - pos[0]) * (b[0] - pos[0]) + (b[1] - pos[1]) * (b[1] - pos[1]) : -1;
     return g_ffFootAns;
 }
 static void TestFglFacing() {
@@ -174,19 +178,23 @@ static void TestFglFacing() {
     const auto savedF = g_fglf;
     typedef DWORD(__cdecl* TestFn)(u8*, DWORD);
     const TestFn facing = (TestFn)(void*)kFglStubs[FGL_S_FACING];
-    const float kC = 0.70710678f * 0.25f;
-    const float base[16] = {0.25f, 0, kC, kC, 0, 0.25f, -kC, kC, -0.25f, 0, -kC, -kC, 0, -0.25f, kC, -kC};
+    const float step = 0.78539813f;
     static u8 rec[0x100];
-    static float poly[16];
+    static float poly[8];
     float pos[2] = {7.5f, 3.5f};
-    auto place = [&](float x, float z) {
+    // a 2 x 1 rectangle about the position, or turned by 90 degrees for odd quarter turns: the disc is 0.5 either way
+    auto place = [&](float x, float z, int idx) {
         pos[0] = x; pos[1] = z;
         memcpy(rec + 8, pos, sizeof(pos));
-        for (int i = 0; i < 8; i++) { poly[2 * i] = base[2 * i] + x; poly[2 * i + 1] = base[2 * i + 1] + z; }
+        const float ang = step * (float)idx;
+        memcpy(rec + 0x14, &ang, sizeof(ang));
+        const float hx = idx & 2 ? 0.5f : 1.0f, hz = idx & 2 ? 1.0f : 0.5f;
+        const float q[8] = {x - hx, z - hz, x + hx, z - hz, x + hx, z + hz, x - hx, z + hz};
+        memcpy(poly, q, sizeof(q));
     };
     memset(rec, 0, sizeof(rec));
     *(float**)(rec + 0xA0) = poly;
-    *(float**)(rec + 0xA4) = poly + 16;
+    *(float**)(rec + 0xA4) = poly + 8;
     *(DWORD*)rec = 0x1234;
     DWORD top = 0;
     g_fglk.prof = 0;
@@ -196,74 +204,135 @@ static void TestFglFacing() {
     g_fgl.frames[0].site = FGL_S_SEARCH;
     g_fgl.depth = 1;
     g_fgl.proof.on = false;
+    FglLearnReset(&g_fgl.learn);
     FglTallyReset(&g_fgl.t);
     memset(&g_fglf, 0, sizeof(g_fglf));
     g_fglf.ready = 1; g_fglf.mode = 1; g_fglf.noted = 16;   // no log line
+    g_fglm.ready = 0;
     g_fglTarget[FGL_S_FACING] = (void*)FfTest;
+    g_fglTarget[FGL_S_PART_LOOP] = (void*)FfPart;
     g_fglFootTest = FfFoot;
+    g_fglStepTest = step;
     g_ffTests = g_ffFoot = 0;
-
-    // tile 1: the first facing fails at the footprint check, blocked again with the polygon drawn in -> the next 7 are answered
-    place(7.5f, 3.5f);
-    float before[16];
-    memcpy(before, poly, sizeof(before));
+    g_ffParts = 1;
     g_ffTestAns = 0; g_ffFootAns = 0;
+
+    // tile 1: facing 0 fails at the footprint check; the inner octagon (0.5 - 1 mm) is blocked too -> proven for the facings
+    // learned so far (0 only). Facings 2, 4, 6 are new: each runs once (and is learned); no second proof on a proven tile
+    place(7.5f, 3.5f, 0);
     assert((u8)facing(rec, 0) == 0 && g_ffTests == 1 && g_ffFoot == 1 && g_fglf.proven == 1);
-    assert(g_ffFootR2 > 0.0619f && g_ffFootR2 < 0.0621f && !memcmp(before, poly, sizeof(before)));   // 0.249^2, polygon put back
-    for (int i = 0; i < 7; i++) assert((u8)facing(rec, 0) == 0);
-    assert(g_ffTests == 1 && g_ffFoot == 1 && g_fglf.skipped == 7 && g_fgl.depth == 1);
-    // the answered call is as clean as a real one: registers, flags aside, and the caller's stack (cdecl: nothing popped)
+    assert(g_ffFootR2 > 0.2489f && g_ffFootR2 < 0.2491f && *(float**)(rec + 0xA0) == poly && *(float**)(rec + 0xA4) == poly + 8);   // 0.499^2
+    place(7.5f, 3.5f, 0);
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == 1 && g_fglf.skipped == 1);   // the same facing again: answered
+    for (int k = 2; k < 8; k += 2) { place(7.5f, 3.5f, k); assert((u8)facing(rec, 0) == 0); }
+    assert(g_ffTests == 4 && g_fglf.unlearned == 3 && g_ffFoot == 1 && g_fglf.proven == 1);
+    // tile 2: the first facing proves, the three other learned facings are answered
+    place(8.5f, 3.5f, 4);
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == 5 && g_ffFoot == 2 && g_fglf.proven == 2);
+    for (int k = 0; k < 8; k += 2) { place(8.5f, 3.5f, k); assert((u8)facing(rec, 0) == 0); }
+    assert(g_ffTests == 5 && g_fglf.skipped == 5 && g_fgl.depth == 1);
+    // the answered call is as clean as a real one (cdecl: nothing popped)
     g_ftCall = (void*)kFglStubs[FGL_S_FACING];
     g_ftArg0 = (DWORD)(uintptr_t)rec; g_ftArg1 = 0;
     FtCall();
     assert(g_ftOut[0] == 0 && g_ftOut[3] == 0xB1B1B1B1 && g_ftOut[4] == 0x51515151 && g_ftOut[5] == 0xE1E1E1E1 && g_ftEsp1 == g_ftEsp0 - 8 &&
-           g_ffTests == 1 && g_fglf.skipped == 8);
-    // tile 2: only the rim is blocked -> nothing proven, every facing runs
-    place(8.5f, 3.5f);
+           g_ffTests == 5 && g_fglf.skipped == 6);
+    // an angle that is no facing (the own-facing kind) is never answered
+    place(8.5f, 3.5f, 0);
+    { const float ang = 0.3f; memcpy(rec + 0x14, &ang, sizeof(ang)); }
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == 6);
+    // tile 3: the blocker does not reach the inner disc -> nothing proven, every facing runs
+    place(9.5f, 3.5f, 0);
     g_ffFootAns = 1;
-    assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffTests == 3 && g_ffFoot == 2 && g_fglf.rimOnly == 1 && g_fglf.proven == 1);
-    // tile 3: the first facing passes -> no proof asked
-    place(9.5f, 3.5f);
+    assert((u8)facing(rec, 0) == 0 && g_fglf.rimOnly == 1);
+    place(9.5f, 3.5f, 2);
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == 8 && g_fglf.proven == 2);
+    // tile 4: the first facing passes -> no proof asked
+    place(10.5f, 3.5f, 0);
     g_ffTestAns = 1; g_ffFootAns = 0;
-    assert((u8)facing(rec, 0) == 1 && g_ffFoot == 2);
-    // tile 4: not the octagon about the position (a pivot offset) -> refused
-    place(10.5f, 3.5f);
-    poly[0] += 0.02f;
-    g_ffTestAns = 0;
-    assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffFoot == 2 && g_fglf.notOctagon == 1 && g_ffTests == 6);
+    const int foot = g_ffFoot;
+    assert((u8)facing(rec, 0) == 1 && g_ffFoot == foot);
     // tile 5 proven, then another object on the same record and position: the proof is not its
-    place(11.5f, 3.5f);
-    assert((u8)facing(rec, 0) == 0 && g_fglf.proven == 2 && g_ffTests == 7);
+    place(11.5f, 3.5f, 0);
+    g_ffTestAns = 0;
+    assert((u8)facing(rec, 0) == 0 && g_fglf.proven == 3);
     *(DWORD*)rec = 0x5678;
     g_ffFootAns = 1;
-    assert((u8)facing(rec, 0) == 0 && g_ffTests == 8);
+    const int tests5 = g_ffTests;
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == tests5 + 1);
     *(DWORD*)rec = 0x1234;
-    // Shadow: proven tiles still run every facing; one that passes, or shows another polygon, is counted
+    // Shadow: proven tiles still run every learned facing; one that passes is counted
     g_fglf.shadow = 1;
-    place(12.5f, 3.5f);
     g_ffFootAns = 0;
+    place(12.5f, 3.5f, 0);
     const LONG skipped = g_fglf.skipped;
-    assert((u8)facing(rec, 0) == 0 && g_fglf.proven == 3);
+    assert((u8)facing(rec, 0) == 0 && g_fglf.proven == 4);
+    place(12.5f, 3.5f, 2);
     assert((u8)facing(rec, 0) == 0 && g_fglf.shadowTests == 1 && g_fglf.shadowMismatch == 0 && g_fglf.shadowShape == 0);
     g_ffTestAns = 1;
+    place(12.5f, 3.5f, 4);
     assert((u8)facing(rec, 0) == 1 && g_fglf.shadowTests == 2 && g_fglf.shadowMismatch == 1 && g_fglf.skipped == skipped);
     g_ffTestAns = 0;
-    poly[0] += 0.01f;
-    assert((u8)facing(rec, 0) == 0 && g_fglf.shadowTests == 3 && g_fglf.shadowShape == 1);
-    // Mode=0 without Shadow: nothing proven, nothing answered
-    g_fglf.shadow = 0; g_fglf.mode = 0;
-    place(13.5f, 3.5f);
-    const int tests = g_ffTests;
-    assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffTests == tests + 2 && g_fglf.proven == 3);
+    g_fglf.shadow = 0;
+    // a part the position is outside of: no disc, no proof
+    FglLearnReset(&g_fgl.learn);
+    place(13.5f, 3.5f, 0);
+    for (int i = 0; i < 4; i++) poly[2 * i] += 5.0f;
+    assert((u8)facing(rec, 0) == 0 && g_fglf.noDisc == 1 && g_fglf.proven == 4);
 
+    // [FglMemo]: the failed tests of one search answer the same tests of the next search of the same run
+    FglLearnReset(&g_fgl.learn);
+    const auto savedM = g_fglm.ready;
+    g_fglf.ready = 0;
+    g_fglm.ready = 1; g_fglm.mode = 1; g_fglm.shadow = 0; g_fglm.gapMs = 1000; g_fglm.maxMs = 60000; g_fglm.noted = 16;
+    g_fglm.live = false;
+    g_fglMemoHhTest = true;
+    g_fglm.hits = g_fglm.stored = g_fglm.carried = g_fglm.dropKey = g_fglm.shadowTests = g_fglm.shadowMismatch = 0;
+    static u8 srec[0x60];
+    memset(srec, 0, sizeof(srec));
+    srec[0x2E] = 1; srec[0x30] = 1;
+    g_fgl.owner = (LONG)GetCurrentThreadId();
+    g_fgl.depth = 1;
+    FglSearchBegin(srec);                      // search 1: a new memo
+    const int t0 = g_ffTests;
+    place(20.5f, 3.5f, 0);
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == t0 + 1 && g_fglm.stored == 1 && g_fglm.hits == 0);
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == t0 + 1 && g_fglm.hits == 1);    // even inside the same search
+    g_ffTestAns = 1;
+    place(21.5f, 3.5f, 0);
+    assert((u8)facing(rec, 0) == 1 && (u8)facing(rec, 0) == 1 && g_ffTests == t0 + 3 && g_fglm.stored == 1);   // passes are not kept
+    g_fglm.lastEnd = GetTickCount();
+    FglSearchBegin(srec);                      // search 2, same key, right after: carried
+    place(20.5f, 3.5f, 0);
+    assert(g_fglm.carried == 1 && (u8)facing(rec, 0) == 0 && g_ffTests == t0 + 3 && g_fglm.hits == 2);
+    place(20.5f, 3.5f, 2);
+    g_ffTestAns = 0;
+    assert((u8)facing(rec, 0) == 0 && g_ffTests == t0 + 4);                       // another facing of the tile: runs
+    srec[0x2D] = 1;                            // search 3 with StayInRoom: another key, the memo starts empty
+    FglSearchBegin(srec);
+    place(20.5f, 3.5f, 0);
+    assert(g_fglm.dropKey == 1 && (u8)facing(rec, 0) == 0 && g_ffTests == t0 + 5);
+    g_fglm.lastEnd = GetTickCount() - 5000;    // search 4 long after: dropped
+    FglSearchBegin(srec);
+    assert(g_fglm.dropGap == 1 && (u8)facing(rec, 0) == 0 && g_ffTests == t0 + 6);
+    g_fglm.shadow = 1;                         // Shadow: held tests run; a pass is a mismatch
+    g_ffTestAns = 1;
+    assert((u8)facing(rec, 0) == 1 && g_fglm.shadowTests == 1 && g_fglm.shadowMismatch == 1 && g_ffTests == t0 + 7);
+
+    g_fglm.ready = savedM;
+    g_fglMemoHhTest = false;
+    g_fglm.live = false;
+    g_fglm.shadow = 0;
     g_fglFootTest = NULL;
+    g_fglStepTest = 0;
     g_fgl.owner = 0;
     g_fgl.depth = 0;
     g_fgl.proof.on = false;
     g_fgl.testRec = NULL;
+    g_fgl.inFacing = false;
     FglTallyReset(&g_fgl.t);
     memcpy(g_fglTarget, savedTarget, sizeof(savedTarget));
     g_fglk = savedK;
     g_fglf = savedF;
-    printf("ok FglFacing\n");
+    printf("ok FglFacing, FglMemo\n");
 }
