@@ -1398,11 +1398,17 @@ static void TestFallback() {
         WaitReady(kH1);
         assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
         Cancel(kH1);
+        // the collect put the job's scope back as the route's mark (IcCollect, docs/197 §7: for a plan given back); the managed
+        // plan end clears it (ts3fixes op 12). Without this the next START of the route would take scope 2 again
+        KdScopeClear(kH1);
         // scope not known unseen (household, selected, unknown): today's path
         assert(Start(kH1));
         WaitReady(kH1);
+        assert(JobFor(kH1) && JobFor(kH1)->kdScope == 0 && JobFor(kH1)->uf == 0 && JobFor(kH1)->pf == 0 && JobFor(kH1)->sk == 0);
         InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
-        assert(Ready(kH1) && !JobFor(kH1) && g_rfbWhy == RFB_SKIPPED && sr.notScope == 1 && sr.parked == 1);
+        assert(Ready(kH1));
+        assert(!JobFor(kH1) && g_rfbWhy == RFB_SKIPPED);
+        assert(sr.notScope == 1 && sr.parked == 1);
         assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
         // a PlayerFirst-marked route, even when unseen: today's path
         assert(Start(kH1));
@@ -1453,6 +1459,7 @@ static void TestFallback() {
         memcpy(k.rfbN, rfbN0, sizeof(rfbN0));
         memcpy(k.rfbMs, rfbMs0, sizeof(rfbMs0));
         memset(&sr, 0, sizeof(sr));
+        KdScopeClear(kH1);  // no scope mark of this block reaches the cases below
     }
     // RemovalFirst (docs/89 §18), M1Retry off as shipped: a queued removal parks a route not known unseen, the tick waits while it
     // is queued, then the job queues; other records and the switch keep today's START; the tick cap goes on
