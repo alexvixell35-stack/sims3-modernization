@@ -95,6 +95,7 @@ struct SmTh {
 };
 static __declspec(thread) SmTh t_sm;
 static volatile LONG g_smThreads;
+static volatile LONGLONG g_smCheckTicks;  // timer ticks of the game's evaluations counted in smChecks
 
 static LONGLONG SmNowQ() {
     LARGE_INTEGER q;
@@ -186,7 +187,10 @@ static void SmPost(SmCall& c, const u8* cur, const u8* ctx) {
     SmVal v;
     SmValOf(&v, cur, ctx);
     if (c.hit) {
-        InterlockedExchangeAdd64(&k.smCheckUs, SmUs(SmNowQ() - c.q0));
+        const LONGLONG dq = SmNowQ() - c.q0;
+        // ticks are summed and converted as a total: one evaluation is well under a microsecond, so the sum of whole
+        // microseconds per evaluation read as next to nothing (s212: 4.3 M evaluations, "10 ms")
+        k.smCheckUs = SmUs(InterlockedExchangeAdd64(&g_smCheckTicks, dq) + dq);
         k.smChecks++;
         if (!SmValEq(c.v, v)) {
             InterlockedIncrement(&k.smMismatch);

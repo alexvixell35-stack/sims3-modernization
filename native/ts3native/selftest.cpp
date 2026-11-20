@@ -13578,6 +13578,7 @@ static void TestNoPathMemoStub() {
 #include "workerhold-test.h"  // TestWorkerHold ([RouteJobPhases] HoldProbe, docs/673)
 #include "worldpre-test.h"    // TestWorldPre ([WorldPrecompute], docs/676)
 #include "smoothmemo-test.h"  // TestSmoothMemo ([WorldPrecompute] SmoothMemo, docs/676 §14)
+#include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
 #include "worldalt-test.h"    // TestWorldAlt ([WorldPrecompute] WorldAlt, docs/676 §14)
 #include "wpsnap-test.h"      // TestWpSnap ([WaypointSnap], docs/679)
 #include "wpgather-core.h"
@@ -15170,6 +15171,7 @@ int main() {
     TestWorkerHold();  // docs/673
     TestWorldPre();    // docs/676
     TestSmoothMemo();  // docs/676 §14
+    TestSmoothCut();   // docs/676 §15
     TestWorldAlt();    // docs/676 §14
     TestWpSnap();      // docs/679
     TestWpGather();    // docs/679 §5
