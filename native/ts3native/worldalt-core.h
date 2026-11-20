@@ -159,6 +159,8 @@ struct WaGraph {
     DWORD* heap;              // Dijkstra: nodes
     DWORD* pos;               // nodes
     DWORD* dist;              // nodes (scratch tree)
+    DWORD* minD[WA_MODES];    // n: distance to the nearest landmark of the waypoint's own component (WA_INF none)
+    DWORD minK[WA_MODES];     // landmarks of the mode's table that minD covers
 };
 struct WaSizes { DWORD n, chunks, edges, links; };
 // counts for the allocation; false = R or G cannot be read
@@ -180,7 +182,7 @@ static bool WaMeasure(const WaR& r, const u8* G, WaSizes* s) {
 // edge that has none
 static DWORD WaGraphWords(const WaSizes& s) {
     const DWORD nodes = s.n + WA_BODIES, slots = 2 * (s.edges + s.links);
-    return (s.chunks + 1) + (nodes + 1) + slots * (1 + WA_MODES) + 3 * s.n + 3 * nodes;
+    return (s.chunks + 1) + (nodes + 1) + slots * (1 + WA_MODES) + (3 + WA_MODES) * s.n + 3 * nodes;
 }
 
 struct WaFactors { double hub, tres, side, street[2], keep, wlot; bool ok; };
@@ -287,7 +289,8 @@ static bool WaBuildGraph(const WaR& r, const u8* G, const WaTune& tune, const Wa
     g->compCnt = mem, mem += sz.n;
     g->heap = mem, mem += nodes;
     g->pos = mem, mem += nodes;
-    g->dist = mem;
+    g->dist = mem, mem += nodes;
+    for (int m = 0; m < WA_MODES; m++) g->minD[m] = mem, mem += sz.n, g->minK[m] = 0;
     DWORD at = 0;
     for (DWORD c = 0; c < r.chunks; c++) g->base[c] = at, at += WaChunkCount(r, c);
     g->base[r.chunks] = at;
@@ -338,7 +341,7 @@ static bool WaBuildGraph(const WaR& r, const u8* G, const WaTune& tune, const Wa
     }
     g->off[nodes] = w, g->slots = w;
     // land components: waypoints joined by real edges (the links are left out; bodies have none)
-    for (DWORD i = 0; i < sz.n; i++) g->comp[i] = WA_INF;
+    for (DWORD i = 0; i < sz.n; i++) g->comp[i] = g->minD[0][i] = g->minD[1][i] = WA_INF;
     DWORD* stack = g->heap;
     for (DWORD i = 0; i < sz.n; i++) {
         if (g->comp[i] != WA_INF) continue;
@@ -358,44 +361,44 @@ static bool WaBuildGraph(const WaR& r, const u8* G, const WaTune& tune, const Wa
     return true;
 }
 
-// Shortest distances from `src` over cost mode `mode` into out[node * stride] (WA_INF = not reached). Binary heap with
-// positions; a sum at or above WA_FAR is not relaxed.
-static void WaDijkstra(const WaGraph& g, int mode, DWORD src, DWORD* out, DWORD stride) {
+// Shortest distances from `src` over cost mode `mode` into out[node] (WA_INF = not reached). Binary heap with positions;
+// a sum at or above WA_FAR is not relaxed.
+static void WaDijkstra(const WaGraph& g, int mode, DWORD src, DWORD* out) {
     DWORD* heap = g.heap;
     DWORD* pos = g.pos;
     const DWORD* cost = g.cost[mode];
-    for (DWORD i = 0; i < g.nodes; i++) out[i * stride] = WA_INF, pos[i] = WA_INF;
+    for (DWORD i = 0; i < g.nodes; i++) out[i] = WA_INF, pos[i] = WA_INF;
     DWORD hn = 0;
     const auto up = [&](DWORD i) {
-        const DWORD v = heap[i], d = out[v * stride];
+        const DWORD v = heap[i], d = out[v];
         while (i) {
             const DWORD p = (i - 1) / 2;
-            if (out[heap[p] * stride] <= d) break;
+            if (out[heap[p]] <= d) break;
             heap[i] = heap[p], pos[heap[i]] = i, i = p;
         }
         heap[i] = v, pos[v] = i;
     };
-    out[src * stride] = 0, heap[hn++] = src, pos[src] = 0;
+    out[src] = 0, heap[hn++] = src, pos[src] = 0;
     while (hn) {
-        const DWORD u = heap[0], du = out[u * stride];
+        const DWORD u = heap[0], du = out[u];
         pos[u] = WA_INF - 1;  // settled
         const DWORD last = heap[--hn];
         if (hn) {
             DWORD i = 0;
-            const DWORD dl = out[last * stride];
+            const DWORD dl = out[last];
             for (;;) {
                 DWORD c = 2 * i + 1;
                 if (c >= hn) break;
-                if (c + 1 < hn && out[heap[c + 1] * stride] < out[heap[c] * stride]) c++;
-                if (out[heap[c] * stride] >= dl) break;
+                if (c + 1 < hn && out[heap[c + 1]] < out[heap[c]]) c++;
+                if (out[heap[c]] >= dl) break;
                 heap[i] = heap[c], pos[heap[i]] = i, i = c;
             }
             heap[i] = last, pos[last] = i;
         }
         for (DWORD s = g.off[u]; s < g.off[u + 1]; s++) {
             const DWORD v = g.to[s], nd = du + cost[s];
-            if (nd >= WA_FAR || nd < du || pos[v] == WA_INF - 1 || nd >= out[v * stride]) continue;
-            out[v * stride] = nd;
+            if (nd >= WA_FAR || nd < du || pos[v] == WA_INF - 1 || nd >= out[v]) continue;
+            out[v] = nd;
             if (pos[v] == WA_INF) pos[v] = hn, heap[hn++] = v;
             up(pos[v]);
         }
@@ -409,11 +412,21 @@ struct WaTab {
     DWORD lm[WA_MAXK];  // their nodes
 };
 // Adds one landmark (one or two shortest-path trees). Which waypoint: the land component with the largest
-// size / (landmarks + 1) gets the next one; inside it the waypoint farthest from the component's landmarks (its first:
-// farthest from the first landmark overall, or from the component's first waypoint). Any choice gives a valid bound; this
+// size / (landmarks + 1) gets the next one; inside it the waypoint farthest from the component's landmarks (minD; its
+// first: farthest from the first landmark overall, or from the component's first waypoint). Any choice gives a valid bound; this
 // one spreads them. False = nothing left to add.
-static bool WaAddLandmark(const WaGraph& g, int mode, WaTab* t) {
+static bool WaAddLandmark(WaGraph& g, int mode, WaTab* t) {
     if (t->k >= t->kmax || !g.comps) return false;
+    DWORD* minD = g.minD[mode];
+    if (g.minK[mode] != t->k) {  // a graph built after this table was started: fold its landmarks in again
+        for (DWORD v = 0; v < g.n; v++) {
+            DWORD m = WA_INF;
+            for (DWORD j = 0; j < t->k; j++)
+                if (g.comp[t->lm[j]] == g.comp[v] && t->d[v * t->kmax + j] < m) m = t->d[v * t->kmax + j];
+            minD[v] = m;
+        }
+        g.minK[mode] = t->k;
+    }
     memset(g.compCnt, 0, g.comps * sizeof(DWORD));
     for (DWORD j = 0; j < t->k; j++) g.compCnt[g.comp[t->lm[j]]]++;
     DWORD best = WA_INF;
@@ -424,13 +437,8 @@ static bool WaAddLandmark(const WaGraph& g, int mode, WaTab* t) {
     if (best == WA_INF) return false;
     DWORD pick = WA_INF, pickD = 0;
     if (g.compCnt[best]) {
-        for (DWORD v = 0; v < g.n; v++) {
-            if (g.comp[v] != best) continue;
-            DWORD m = WA_INF;
-            for (DWORD j = 0; j < t->k; j++)
-                if (g.comp[t->lm[j]] == best && t->d[v * t->kmax + j] < m) m = t->d[v * t->kmax + j];
-            if (m != WA_INF && (pick == WA_INF || m > pickD)) pick = v, pickD = m;
-        }
+        for (DWORD v = 0; v < g.n; v++)
+            if (g.comp[v] == best && minD[v] != WA_INF && (pick == WA_INF || minD[v] > pickD)) pick = v, pickD = minD[v];
     } else {
         const DWORD* from = NULL;
         DWORD stride = 1;
@@ -439,7 +447,7 @@ static bool WaAddLandmark(const WaGraph& g, int mode, WaTab* t) {
             if (!from) {
                 DWORD first = 0;
                 while (g.comp[first] != best) first++;
-                WaDijkstra(g, mode, first, g.dist, 1);
+                WaDijkstra(g, mode, first, g.dist);
                 from = g.dist, stride = 1;
             }
             for (DWORD v = 0; v < g.n; v++)
@@ -448,8 +456,14 @@ static bool WaAddLandmark(const WaGraph& g, int mode, WaTab* t) {
         }
     }
     if (pick == WA_INF) return false;
-    WaDijkstra(g, mode, pick, t->d + t->k, t->kmax);
+    // the tree goes into the compact scratch row first (the table's rows are a cache line apart per node)
+    WaDijkstra(g, mode, pick, g.dist);
+    DWORD* col = t->d + t->k;
+    for (DWORD v = 0; v < g.nodes; v++) col[v * t->kmax] = g.dist[v];
+    for (DWORD v = 0; v < g.n; v++)
+        if (g.comp[v] == best && g.dist[v] < minD[v]) minD[v] = g.dist[v];
     t->lm[t->k++] = pick;
+    g.minK[mode] = t->k;
     return true;
 }
 
