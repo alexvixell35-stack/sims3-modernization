@@ -81,6 +81,13 @@ speed that holder saved.
 - `OnExitBuildBuy` can yield (`PropertyData+Venue.OnExitBuildBuy`), but the arm is set after it returns. Nothing between
   that point and the unlock can yield: only field sets and `UnlockActiveLot`.
 
+**Fix 2026-11-20 (mode switch) [verified in the scripts; live A/B `speedlock-modeswitch` queued]:** v0.3.0 shipped a regression here.
+- A switch between Buy and Build (or Blueprint) enters build/buy again without an exit. `InWorldState` sets `BuyModeState.TransitionToBuildMode` (or `BuildModeState.TransitionToBuyMode`), and that state's `Shutdown` then skips `ExitBuildBuyMode`. The next mode calls `LotManager.EnterBuildBuyMode` again.
+- That second enter finds the lock held, by build/buy's own first enter. EA correctly skips locking again, but the hook recorded "not ours".
+- So the exit to live mode skipped the unlock. The game stayed paused, and every time control was dead (`SetGameSpeed` returns early while `mGameSpeedLocked` is set) until a restart. A player reported it.
+- Fix: `BbOwns(lockedBefore, lockedAfter, modeSwitch, ownedBefore)`. An enter while `sIsBuildBuyModeOn` is already true keeps the ownership the first enter took.
+- Player workaround on v0.3.0: save (saving does not touch the lock), then restart the game. The lock is not stored in the save.
+
 ## 6. alarmzeroperiod [verified, ilspycmd AlarmManager, SimClock]
 
 ### 6.1 Bug

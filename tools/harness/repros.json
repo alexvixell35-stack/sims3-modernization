@@ -1,5 +1,114 @@
 [
   {
+    "id": "speedlock-modeswitch",
+    "bug": "v0.3.0 speedlockowner (default on): Buy -> Build (or Build -> Buy) then back to live leaves the game speed locked on Pause; every time control is dead until a restart (docs/609 §5)",
+    "fix": "ts3fixes GameSpeed78.cs BbOwns: a mode switch (build/buy already on) keeps the ownership its first enter took",
+    "save": "any world with an active household on a home lot",
+    "note": "Buy mode, then Build mode (InWorldState sets BuyModeState.TransitionToBuildMode, so BuyModeState.Shutdown skips ExitBuildBuyMode and BuildModeState enters again), then live. Reads Gameflow.mGameSpeedLocked in each mode.",
+    "expect": "fixed package: locked True in Buy and Build, False back in live, counter 3414 stays 0. v0.3.0 package: False only before Buy, True back in live (BROKEN).",
+    "steps": [
+      {
+        "cmd": "cas_state",
+        "waitS": 1,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Sims3.Gameplay.Gameflow.mGameSpeedLocked"
+        },
+        "note": "before Buy: expect False"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 15,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Sims3.Gameplay.Gameflow.mGameSpeedLocked"
+        },
+        "note": "in Buy: expect True (build/buy's own lock)"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 15,
+        "note": "Buy -> Build switch: second EnterBuildBuyMode, no exit"
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Sims3.Gameplay.Gameflow.mGameSpeedLocked"
+        },
+        "note": "in Build: expect True"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 15,
+        "note": "back to live: ExitBuildBuyMode",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Sims3.Gameplay.Gameflow.mGameSpeedLocked"
+        },
+        "note": "back in live: expect False (True = BROKEN: time controls dead)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedLockOwnerCheck",
+          "args": [
+            "run"
+          ]
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpeedLockOwnerCheck",
+          "args": [
+            "result"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "bp-hogans-gohome",
     "bug": "Townies placed by the building shortcut at Hogan's Deep-Fried Diner later stand stuck in Go Home (bp-mod run, 2026-10-12)",
     "fix": "ts3fixes trip shortcuts + route-fail fixes; bisect in progress (docs/04 F10, PLAN item 1)",

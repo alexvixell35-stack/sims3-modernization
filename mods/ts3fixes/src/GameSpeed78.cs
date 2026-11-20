@@ -262,10 +262,14 @@ namespace Ts3Fixes
             return !fixedOn || ownsLock;
         }
 
-        // Pure: did build/buy's enter take the lock?
-        internal static bool BbOwns(bool lockedBefore, bool lockedAfter)
+        // Pure: does build/buy hold the lock after an enter? It took it now (free before, held after), or this enter is a
+        // Buy <-> Build/Blueprint switch (build/buy already on: BuyModeState/BuildModeState.Shutdown skip ExitBuildBuyMode while
+        // transitioning, and the next mode calls EnterBuildBuyMode again) and it still holds the lock its first enter took.
+        // Without the switch case, the second enter saw its own lock as someone else's, and the exit to live mode never
+        // unlocked: the game stayed paused with every time control dead (reported on v0.3.0).
+        internal static bool BbOwns(bool lockedBefore, bool lockedAfter, bool modeSwitch, bool ownedBefore)
         {
-            return !lockedBefore && lockedAfter;
+            return lockedAfter && (!lockedBefore || (modeSwitch && ownedBefore));
         }
 
         public static class BbLockHook
@@ -273,9 +277,12 @@ namespace Ts3Fixes
             public static void EnterHook(Lot lot, bool disableFunds)
             {
                 bool before = Gameflow.GameSpeedLocked;
+                bool modeSwitch = false;
+                try { modeSwitch = sBbOn != null && (bool)sBbOn.GetValue(null); }
+                catch (Exception) { PatchCounters()[3416]++; }
                 sBbExitArmed = false;
                 EnterOrig(lot, disableFunds);
-                try { sBbOwns = BbOwns(before, Gameflow.GameSpeedLocked); }
+                try { sBbOwns = BbOwns(before, Gameflow.GameSpeedLocked, modeSwitch, sBbOwns); }
                 catch (Exception) { PatchCounters()[3416]++; }
             }
             public static void EnterOrig(Lot lot, bool disableFunds) { } // receives LotManager.EnterBuildBuyMode
@@ -322,11 +329,13 @@ namespace Ts3Fixes
             if (what != "run") return "speedlockowner <run|result>";
             bool on = ShortcutOn("speedlockowner");
             // a thumbnail held the lock at enter: build/buy did not take it
-            bool owns = BbOwns(true, true);
+            bool owns = BbOwns(true, true, false, false);
             bool eaBug = !owns && BbUnlock(owns, false);
             bool fixedPure = on && !BbUnlock(owns, on);
-            // controls: build/buy took the lock itself -> unlocked at exit either way; nobody locked and enter failed to -> not owned
-            bool controls = eaBug && BbOwns(false, true) && BbUnlock(BbOwns(false, true), true) && BbUnlock(true, false) && !BbOwns(false, false);
+            // controls: build/buy took the lock itself -> unlocked at exit either way; nobody locked and enter failed to -> not owned;
+            // a Buy -> Build switch (second enter, own lock held) keeps ownership, so the exit to live mode still unlocks
+            bool controls = eaBug && BbOwns(false, true, false, false) && BbUnlock(BbOwns(false, true, false, false), true) && BbUnlock(true, false)
+                && !BbOwns(false, false, false, false) && BbUnlock(BbOwns(true, true, true, true), true) && !BbOwns(true, true, true, false);
             return B582Line("speedlockowner", on, "build/buy exit leaves another holder's lock", fixedPure && missing.Length == 0,
                 "EA releases it (" + eaBug + "), build/buy's own lock still released", controls, missing, counters);
         }
