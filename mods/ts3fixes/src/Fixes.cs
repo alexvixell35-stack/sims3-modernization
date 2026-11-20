@@ -816,6 +816,7 @@ namespace Ts3Fixes
         // [2566-2567] trainboost (TrainBoost.cs, docs/569 §1): Train Sim boosts undone after an unwound session / errors.
         // [2568-2569] eatoutsidecount (EatOutsideCount.cs, docs/569 §2): Bistro eat-outside double decrements undone / errors.
         // [2570-2572] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
+        // [4248-4249] firegreet (FireGreet.cs, docs/681): firefighter greeted on the emergency lot / errors.
         // [2573-2576] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
         // [2577-2579] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
         // [2580-2583] sneakoutlistener (GenerationsLogic.cs, docs/571 §2): stale sneak-outs skipped / duplicate return-home listeners removed / left-over sneak listeners removed / errors.
@@ -1757,6 +1758,7 @@ namespace Ts3Fixes
                 case "tagunseen": return Instantiator.kTagUnseen;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
+                case "firegreet": return Instantiator.kFireGreet;
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;
