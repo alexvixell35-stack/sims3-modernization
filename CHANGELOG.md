@@ -14,7 +14,7 @@ The biggest release so far. On Steam the game's busiest script methods now run a
 
 - `ts3native-v0.3.0.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both. The log shows `ts3native 0.36.295-rc1119b` (the release candidate we tested is the release; ini sha256 starts `d399d7c9`).
 - `ts3fixes.package`: new in this release; replace the old one. Use it together with this `ts3native` (sha256 starts `3f894ade`).
-- `ts3native-ea169-v0.3.0.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`, same `ts3fixes.package` as Steam. It is being tested on our EA app laptop and is added to this release from there once that test passes; until it is listed, keep v0.2.12 on the EA app.
+- `ts3native-ea169-v0.3.0.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`, same `ts3fixes.package` as Steam. Tested on our EA app laptop (play, save, CAS and Buy, restart and load: all passed, no crash; asi sha256 starts `b37557e6`, ini `3c5133ca`).
 - **Recommended setup:** [Apex Radiance](https://github.com/loinyx/Sims3-ApexRadiance) with its RTX Remix bridge, plus this release. Plain DXVK still works but is best effort: no DXVK test run for this release.
 - Old saves load, and saves made with v0.3.0 load in v0.2.12 and in the unmodded game (tested, see below). Nothing of ours is written into your save.
 
@@ -72,7 +72,7 @@ The biggest release so far. On Steam the game's busiest script methods now run a
 - **Faster door answers for townies' background routes are off (`[RouteSnap] DoorMemoX=-1`; by Dalexlol, PR #430).** Our test found a wrong door answer on lots with privacy doors; the fix is built and goes on in a later release once it is verified in game.
 - **Apex Radiance: a rare freeze between two of Apex's own locks and the game's drawing (Apex issue #90).** Seen once in our Apex test runs (the rerun passed); Apex has a partial fix. If your game freezes with Apex, please send your `ts3native.log` and report it to Apex too.
 - **Plain DXVK without Apex:** best effort. Not tested for this release; a DXVK-only problem is a known issue until someone reports it.
-- **EA app:** the EA app zip follows after its laptop test (see Download). If you use the RTX Remix bridge there, set `client.targetProcess = TS3.exe` in both `bridge.conf` files.
+- **EA app:** townies you can't see are animated every frame again on the EA app (`[UnseenAnim]` off there, unlike v0.2.12 on the EA app); the next release brings it back to match Steam. If you use the RTX Remix bridge there, set `client.targetProcess = TS3.exe` in both `bridge.conf` files.
 
 ### Tested
 
