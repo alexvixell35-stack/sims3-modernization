@@ -51,6 +51,7 @@
  "LotFrontDoorRO": ["lotfd.cpp"],
  "ObstructedRO": ["obstructro.cpp"],
  "ObstructAtRO": ["gvro.cpp"],
+ "Blocker2dRO": ["rtoro.cpp"],
  "AvoidRO": ["avoidro.cpp"],
  "RouteToObjRO": ["rtoro.cpp"],
  "PlacementRO": ["fgro.cpp"],
