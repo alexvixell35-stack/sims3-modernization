@@ -128,6 +128,7 @@ struct WaTh {
     bool found;           // the last search on this thread reached its goal (WaPathOut)
     int nested;           // 0 the game's own search, 1 shadow run without the bound, 2 with it
     uintptr_t nestSp;     // a stack address inside the WaShadow call that set `nested` (its runs are deeper)
+    const DWORD* nestOpts;  // and the planner context it runs them on
     int kind;             // tally of the running loop: 0 without the bound, 1 with it
     float delta;          // excess of the bound over the game's heuristic for the node about to be pushed
     float cost, h0;
@@ -316,13 +317,14 @@ static void WaMismatchLine(const char* what, const WORD* s, const WORD* g, int m
         r[1].len, r[1].gen);
 }
 // Shadow: the whole search twice on the same inputs, without and with the bound; nothing of it reaches the game's search.
-static void WaShadow(WaTh& t, u8* ctr, const u8* R, const u8* G, const WORD* s, const WORD* g, int mi, DWORD* opts) {
+// Not inlined: its frame lies below the begin hook's that calls it and above every loop of its two runs.
+static __declspec(noinline) void WaShadow(WaTh& t, u8* ctr, const u8* R, const u8* G, const WORD* s, const WORD* g, int mi, DWORD* opts) {
     WorldAltCounters& c = ts3native_worldalt;
     DWORD save[WA_OPTS] = {};
     memcpy(save, opts, sizeof(save));
     const Budget budget = t_budget;
     WaRes r[2] = {};
-    t.nestSp = (uintptr_t)save;
+    t.nestSp = (uintptr_t)save, t.nestOpts = opts;
     for (int pass = 0; pass < 2; pass++) {
         memcpy(opts, save, sizeof(save));
         opts[0x28] = 0;  // circle radius^2 0.0: the run decides its own circle pass, as the game's outermost call does
@@ -370,9 +372,9 @@ static float __cdecl WaBegin(WaCostFn fn, u8* ctr, const u8* R, const u8* G, con
     WaTh& t = t_wa;
     t.active = false, t.delta = 0;
     const LONG mode = c.waMode;
-    if (t.nested) {  // a shadow run that an unwind left open: this loop is not below it
+    if (t.nested) {  // a shadow run that an unwind left open: this loop is not below that call, or not on its context
         const char here = 0;
-        if ((uintptr_t)&here >= t.nestSp) t.nested = 0;
+        if ((uintptr_t)&here >= t.nestSp || opts != t.nestOpts) t.nested = 0;
     }
     if (t.nested) {  // a shadow run's loop
         if (t.h0 == 0) t.h0 = h0;

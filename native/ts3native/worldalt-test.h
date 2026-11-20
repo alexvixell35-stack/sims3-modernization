@@ -669,8 +669,12 @@ static void TestWaManager() {
         assert(WaPrepare(t, 0, g_watCtr, g_watR, g_watG, s, g, g_watOpts) == WAS_FLAGS);
     }
     g_watOpts[0] = 0x80;
-    g_waAll = false;  // no plan session on this thread: scope unknown
-    assert(WaPrepare(t, 0, g_watCtr, g_watR, g_watG, s, g, g_watOpts) == WAS_SCOPE);
+    g_waAll = false;  // no plan session on this thread: scope unknown (whatever an earlier test left: the rule is what is checked)
+    {
+        bool worker = false;
+        const LONG scope = PccScopeNow(&worker);
+        assert(WaPrepare(t, 0, g_watCtr, g_watR, g_watG, s, g, g_watOpts) == (scope == 2 || scope == 3 ? WAS_OK : WAS_SCOPE));
+    }
     g_waAll = true;
     // mode 3 with water links: a water lot at the start or goal point; no world manager = cannot tell
     assert(WaPrepare(t, 1, g_watCtr, g_watR, g_watG, s, g, g_watOpts) == WAS_OK);
@@ -760,10 +764,13 @@ static void TestWaShadow() {
     {
         const WORD s[2] = {(WORD)g_watWp[pa].c, (WORD)g_watWp[pa].i}, g[2] = {(WORD)g_watWp[pb].c, (WORD)g_watWp[pb].i};
         const LONG loops = c.waLoops, sh = c.waShadow;
-        t_wa.nested = 2, t_wa.nestSp = 0;
+        t_wa.nested = 2, t_wa.nestSp = 0, t_wa.nestOpts = g_watOpts;
         g_watPoolN = g_watHeapN = 0;
         WaBegin(WatCost1, g_watCtr, g_watR, g_watG, s, g, 0, 0, g_watOpts, NULL);
         assert(!t_wa.nested && !t_wa.active && c.waLoops == loops + 1 && c.waShadow == sh + 1);
+        t_wa.nested = 2, t_wa.nestSp = ~(uintptr_t)0, t_wa.nestOpts = g_watOpts + 1;  // deeper, but another context
+        WaBegin(WatCost1, g_watCtr, g_watR, g_watG, s, g, 0, 0, g_watOpts, NULL);
+        assert(!t_wa.nested && c.waLoops == loops + 2 && c.waShadow == sh + 2);
         pairs = c.waShadow;
     }
     // a budget cut inside the pair: not compared, the budget as before
