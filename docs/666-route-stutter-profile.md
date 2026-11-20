@@ -7,6 +7,10 @@ Branch `feat/route-profile`. Measurement only: no fix and no native change here.
 native gaps of §4: deep stall watch stacks, the job-wait threshold, +0x918 wait lines, the managed caller on the sync plan
 line and a per-hitch `hitch:` line with a cause class.**
 
+**Upstream carve-out (2026-11-20):** §5 and the report tools come over. `[RouteJobPhases] CandidateSplit` (docs/644,
+plancand.cpp) and `[RouteAsync] NoPathMemo` named in §1-§3 are combo-only, not in this tree; route-stutter-report.ts reads
+their lines when a log has them and skips them otherwise. §5 ran in game from s142 on (every docs/668 storm arm used its keys).
+
 ## 1. Profiling facilities that already exist
 
 | facility | what it records | how to turn it on |
@@ -108,7 +112,7 @@ water / post / insert sites (they stay inside "rest"; `LOST:` in `s140-check.txt
 - ts3fixes, not native: a `kHitchCauseHooks` package for alarmtime / lotpass. At combo e1d6f52a `build-fixes.ts` stops on
   CS0305 (non-generic `Action`) in `OwElevIdle.cs:126` and `UnseenService88.cs:268`.
 
-## 5. The native gaps closed (branch `feat/prof-gaps`, built, NOT RUN in game)
+## 5. The native gaps closed (branch `feat/prof-gaps`, built; run in game from s142, docs/668)
 
 2026-11-19, on combo 87921903. Measurement only: every key defaults to the old behaviour, no counters layout change (new
 export `ts3native_hitchsum`), no hook on a route result. With the keys off each of the six call sites tests one global after

@@ -1128,3 +1128,13 @@ Separate struct of `LONG`, not versioned (`[RouteSpeed] NeighbourMemo`, docs/663
 |---|---|
 | 0x00-0x1F | `nmMode` (0 off, 1 serve, 2 shadow; runtime switch), `nmReady` (bit 0 neighbour hook, bit 1 table-clear hook, bit 2 tree-write sequence), `nmCalls`, `nmHits`, `nmServed` (cells written by served answers), `nmStores`, `nmResets`, `nmCapMiss` (out vector had no room) |
 | 0x20-0x3F | `nmScopeMiss` (household / selected / unknown router), `nmNoStore`, `nmChecks` (shadow compares), `nmMismatch` (must stay 0), `nmNoMemo` (thread past 4), `nmMissUs` / `nmMissN` (sampled uncached call time), `nmLines` |
+
+## ts3native `ts3native_hitchsum` export (`HsTotals` in `native/ts3native/hitchsum.cpp`)
+
+Separate struct of `LONG`, `version` 1 (`[HitchAttr] HitchMs` / `RouteLockMs`, docs/666 §5; log only). No ts3fixes counter slot. Layout asserted in hitchsum.cpp.
+
+| Offsets | Fields |
+|---|---|
+| 0x00-0x17 | `version`, `hitchUs` (HitchMs), `lockLogUs` (RouteLockMs), `frames`, `hitches`, `hitchMs` |
+| 0x18-0x67 | `causeN[10]`, `causeMs[10]` (by cause class: sync-plan / job-wait / lock918 / other-lock / gc / limiter / sim-cpu / off-cpu / mixed / unknown) |
+| 0x68-0xAF | `+0x918` waits of the sim / main thread: `lkWaits`, `lkUs`, `lkMaxUs`, `lkLines`, `lkDropped`, `lkWorkerN/Us`, `lkJobEndN/Us`, `lkJob250N/Us`, `lkOtherN/Us`, `lkMainN/Us`; `hitchLock250`; `lines`, `dropped` ("hitch:" lines) |
