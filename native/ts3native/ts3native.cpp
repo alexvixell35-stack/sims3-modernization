@@ -3244,6 +3244,7 @@ static void RsLogCounters();   // routespeed.cpp (docs/663)
 static void FmLogCounters();   // floodmemo.cpp (docs/667)
 static void WhLogCounters();   // workerhold.cpp (docs/673)
 static void WxLogCounters();   // worldpre.cpp (docs/676)
+static void WpsLogCounters();  // wpsnap.cpp (docs/679)
 static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PelLogCounters();  // tailunlock.cpp (docs/673 §9: [RouteAsync] PlanEndLend / LendWake)
 static void CiLogCounters();   // cellindex.cpp (docs/669)
@@ -3336,6 +3337,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     FmLogCounters();   // docs/667 (nothing until FloodMemo is installed)
     WhLogCounters();   // docs/673 (nothing until HoldProbe is installed)
     WxLogCounters();   // docs/676 (nothing until [WorldPrecompute] is installed)
+    WpsLogCounters();  // docs/679 (nothing until [WaypointSnap] is installed and the IC was called)
     DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     PelLogCounters();  // docs/673 §9 (nothing until PlanEndLend / LendWake is installed)
     CiLogCounters();   // docs/669 (nothing until CellIndex is installed)
@@ -6484,6 +6486,7 @@ static void RewindOfflineInit(const wchar_t* ini) {
 #include "plancand.cpp"      // docs/644: [RouteAsync] CandidateCut / WaterGoalCheck, [RouteJobPhases] CandidateSplit (after plandeadline.cpp)
 #include "workerhold.cpp"    // docs/673: [RouteJobPhases] HoldProbe (after plancand.cpp: PCC_*, g_pccSplit)
 #include "worldpre.cpp"      // docs/676: [WorldPrecompute] (after waterjps.cpp: WjCtx, WJ_CALL; plancand.cpp: PccScopeNow, g_pccSplit)
+#include "wpsnap.cpp"        // docs/679: [WaypointSnap] (after routesnap.cpp: g_snWriteSeq, g_snOn)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
 #include "ghost.cpp"         // docs/202 §3.9.5: [UnseenGhost] (after unseenfbc.cpp: agent site, 0x833560 layers)
@@ -6774,6 +6777,7 @@ static void Run(HMODULE self) {
         InstallFloodMemo(ini);   // docs/667: after InstallPlanCand (cell A* entry hook, loop stub) and InstallRouteSpeed
         InstallWorkerHold(ini);  // docs/673: after InstallPlanCand (g_pccSplit) and [RouteAsync] (g_lockOrig)
         InstallWorldPre(ini);    // docs/676: after ApplyWaterJps (the jump hook), InstallPlanCand and InstallTailUnlock (it chains its sites)
+        InstallWpSnap(ini);      // docs/679: after [RouteSnap] (the write sequence); two call sites of its own
         InstallCellIndex(ini);   // docs/669: after InstallRouteSpeed (the Q table clear stub; installs it when NeighbourMemo is off)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
