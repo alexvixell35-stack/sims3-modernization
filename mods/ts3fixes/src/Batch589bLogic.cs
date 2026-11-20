@@ -568,7 +568,7 @@ namespace Ts3Fixes
                 try
                 {
                     ((SuVoidFn)Delegate.CreateDelegate(typeof(SuVoidFn), s, sSuReset))();
-                    if (SuRebuild(on, had)) ((SuVoidFn)Delegate.CreateDelegate(typeof(SuVoidFn), s, sSuSet))();
+                    if (SuRebuild(on, had)) ((SuVoidFn)Delegate.CreateDelegate(typeof(SuVoidFn), s, DelegateTarget(s, sSuSet)))();  // StereoCheapBeachTowel overrides SetBroadcaster
                     PatchCounters()[1396]++;
                 }
                 catch (Exception) { UpgradeOrig(oldUpgrade, newUpgrade); }
