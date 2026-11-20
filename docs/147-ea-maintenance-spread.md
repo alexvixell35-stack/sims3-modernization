@@ -121,3 +121,17 @@ The `clean-night-0.2.0` spreads pair ran all four switches together; the analysi
 ## 8. Ledger
 
 docs/51 §209: I-147-1 .. I-147-8.
+
+## 9. 2026-11-20: recheck on v0.3.0 + Apex + bridge (all three ON since v0.2.0)
+
+Queue `spread-recheck-1120` (rc-1119b = rel030, Baseline-BP-Spring, Bin state apex-rewind), forced ABBA repros `hitch-easpread-{lots,pets,decay}-check` (8 firings each) and the natural night pair (`night-maintenance-clock`, five spreads off vs release defaults, 8 min each). All PASS, 0 script errors; counters read back each arm (`easpread_lots_passes` 5, `_stopped` 0; `easpread_pets_moved` >= 4; `easpread_decay_passes` >= 4, `_threw` 0; night-on lots and decay passes >= 1).
+
+| Job | Off: frames >= 100 / >= 300, longest | On: frames >= 100 / >= 300, longest |
+|---|---|---|
+| lots (venue cleanup) | 10 / 0, 253 ms | 2 / 0, 244 ms |
+| pets (stray build) | 15 / 1, 333 ms | 8 / 0, 171 ms |
+| decay (midnight) | 19 / 0, 259 ms | 1 / 0, 159 ms |
+
+[measured] On this build the EA alarms are 170-330 ms one-tick costs on BP (the lot ones in `ScriptProxy>WorldLot`), smaller than Overwatch's, and the spreads take each arm under 250 ms. Off windows are longer (the off firing waits to its 23-32 s cap, on firings end on the counter in ~6 s), so off arms also catch more natural frames. Natural night: on arm 8 frames >= 300 ms, two of them `SimBuilderTask` (374 / 303 ms) and one `PetTask` (244 ms of a 329 ms frame): the stray pet build in its own task still costs one long frame per build [measured; a slice of `easpreadpets` work, not a regression against off]. In the night-off job `easpread_pets_moved` rose 0 -> 1 with the switch off [inferred: a pool alarm that fired before `--fixes-off` took effect after the load].
+
+Household: the three passes run EA's own steps in EA's order over more ticks (§2-§4), so household lots, pets and relationships get the vanilla result; the queue's gate is the counters plus 0 script errors.

@@ -1868,6 +1868,61 @@ pilot-b FAIL at 02:14:38 UTC, "sim clock stuck at day 15 11:53 for ~60 s".
   sgr fallback), so the graphics presets stay the same; it also saves the ~60 s DxDiag init per launch. Needs a Steam/EA address
   gate and one game run.
 
+## 40. A/B arms: 0 of 2 rewinds in chain-night-1118 step 4 (2026-11-19, branch `bugfix/rewind-ab-1119`)
+
+z1-m1-timing-1116-master-1117b (asi 0.36.269-mb1117): "0 of 2 planned jobs started from a rewind, 2 refused ... ~0 min saved
+vs fresh starts (141 s each)" [measured, probe-out/queue/chain-night-1118-4-z1-m1-timing-1116-master-1117b.out].
+
+1. **Snapshot cost 283 s / 292 s.** Components (log times): settle busy 60 s + settle ping loop 213 s / 210 s + probe agent
+   out ~1 s + snapshot ~9 s / ~20 s. The ping loop is TS3W's own DxDiag VRAM query (§39). Since 0.36.270 `[Rewind] Park=1`
+   forces `DxDiagCache=2` (no DxDiag): chain-1117h bp-ddc-park1 logged "settle busy 0 s", "snapshot taken (6461 ms)", and
+   park2 "start: rewind (9247 ms)" [measured]. The z1-m1 queue was pinned to 0.36.269, before that. queue-rewind.ts now caps
+   the ping-loop wait to what the later jobs of the group pay back (`pingBudgetS`: later x (fresh - rewind) - BUSY_S, at
+   most PING_S; 1 later job = 52 s, 0 = skipped with a log line).
+2. **Thread 59696 (start msvcr80.dll+29e1) exited after the snapshot.** `+29e1` is the CRT's `_threadstartex`, so the
+   start names no owner: every EA thread made by `_beginthreadex`/`EAThread_Begin` starts there (docs/36 §4). The refusal
+   stays (a thread cannot be made again; its TEB pages are gone; the game would hold a dead thread's handle, id and CRT
+   `_tiddata`). Changes: (a) the refusal now scans the snapshot copy of that thread's stack for return addresses into a
+   non-system module that follow a call ("..., called from TS3W.exe+X, ..."; toy selftest: "called from rewind-toy.exe+");
+   (b) snapshot precondition `steady <s> [window]`: with the game paused, the route worker parked and the probe agent out,
+   no thread may start or end for STEADY_WINDOW_S (10 s) in a row, at most STEADY_S (60 s); else the snapshot is refused
+   (code 2) naming the threads that came or went with their start site, and the group starts fresh. A transient worker
+   is waited out; a long-lived thread that the job itself ends (world or streaming change) still reaches the backstop
+   refusal, now with its TS3W callers, so that job kind can be marked not rewindable. Toy fixtures: steady toy ->
+   steady at once; a thread made every 300 ms -> "not steady ... started;" and no snapshot; steady, snapshot, then a
+   steady thread ends -> "exited after the snapshot".
+3. **"rewind (0 groups)" in most queues.** `REWIND_DEFAULT` is `off` (queue-rewind.ts) and only queues with
+   `"rewind": "auto"` group; that is the whole cause for ABBA queues whose arms differ by `profile.fixesOn/fixesOff`
+   (mono-park-timing-1117 with `TS3_REWIND=auto`: 9 of 12 jobs from a rewind, 3 groups). Arms that differ by an ini value
+   (m2-motive-time: `MonoJit.YRows` 0/1) are different start keys and never group: they need the switch set at runtime
+   (`native_set` step or `profile.ab`). Default `auto` waits for tools/harness/queues/rewind-ab-smoke-1119.json to pass.
+4. **Which EA threads end on their own (static, Ghidra headless on Steam 1.67 TS3W.exe, 2026-11-19).** All three
+   `_beginthreadex` sites (`0x4DB355`, `0x4E2FCE`, `0x4E323E`) start at msvcr80+29e1 [verified]. SIGS thread-pool workers
+   (`0x4E1DF0`) wait now + `[pool+0x14]` = 500 ms (`0x4E1EDF`, set at `0x893660`) and any non-zero wait result sets the exit
+   flag (`0x4E1EFD`): every idle worker ends after 500 ms, no minimum [verified]; Submit `0x4E1F90` grows the pool
+   (`0x4E1FAB`, up to 16). Its jobs are store/online code (`0x873210`, 104 callers: DownloadPngJob, StartLoadThumbnail,
+   IgsPurchaseJob, ...) [verified names; in-world trigger inferred]: the prime suspect for thread 59696 [inferred, the
+   next refusal's "called from" frames tell: pool worker idle frames TS3W+E27A9/E27DF, +E14EE, +E1EF9, +E2ED7/E2EDE].
+   Other exits: file watcher `0x4DB220` on Stop, notification failure or one-shot flag `+0x210` bit 1; movie decode
+   `0xF1C800` only on player teardown; RenderWare worker `0x401BE0` never in-world (infinite wait) [verified].
+   Handle uses: pool keeps it in record `+0`, Restart `0x4E1F30` -> GetStatus `0x4E2A70` (GetExitCodeThread `0x4E2A87`,
+   CloseHandle `0x4E2AAA`), never WaitForEnd `0x4E29A0`; watcher Stop `0x4DAA70` waits INFINITE on it (`0x4DAA9A`); movie
+   `0xF1B4F0` waits on it [verified]. **Option 4 (test-only ts3native `[Rewind]` patch, never in player builds):** (b) for
+   the pool only: at `0x4E1EEE` `8D 44 24 14 50` -> `68 60 89 FB 00` (push the constant -1 at `0xFB8960`): idle workers
+   wait forever, exit only on Init's null-job shrink; no caller waits on a worker handle, GetStatus just sees it alive
+   [verified bytes]. Sim thread unchanged (online jobs only; Submit spawns less) [inferred neutral]. New workers may still
+   start after the snapshot (up to 16), which the made-after rule handles. (b) is rejected for watchers and movie
+   (their handles are waited on: a deadlock). (a) waiting for no pool worker is racy between job bursts. Not built yet:
+   next step after the smoke's refusal names the thread.
+5. **Built: `[Rewind] PoolPark=1`** (ts3native 0.36.296-rwab1119, default 0, test-only). `RewindPoolParkInit` checks
+   `8D 44 24 14 50` at `TS3A(0x4E1DF0)+0xFE` and writes `68 <&kPoolParkNoDeadline>` (push of our own -1 DWORD, so no data
+   address per edition): Steam and retail 1.67 have the same bytes there [verified, file bytes]; the EA 1.69 build logs
+   SKIP (no EA exe checked). Log `[Rewind] PoolPark on: ...`; export `ts3native_poolpark` (0 off, 1 patched, 2 skipped;
+   own block, counters layout unchanged). queue-rewind REWIND_INI adds it to every rewind group (older asis ignore the
+   key); release-defaults-check refuses Rewind.Park/Offline/PoolPark on in a shipped or master ini. The 10 s steady
+   thread set stays the general rule. Job key `rewindRequire: "snapshot" | "rewind"` makes a refused snapshot or a
+   refused rewind start a FAIL; rewind-ab-smoke-1119 uses it on every job.
+
 ## Spike on the toy process, first version (2026-11-15, history)
 
 The first version (commit 87baa5e7) suspended the threads, copied writable memory and the region map, and on rewind restored

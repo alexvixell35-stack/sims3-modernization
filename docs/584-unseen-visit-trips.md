@@ -91,6 +91,8 @@ so the verdict is the planner's own, one or more frames later. A cut (non-zero d
 for an unseen NPC only, and SpotVerdict would cache that cell for a sim-day, so the A/B keeps it at 0.
 Counters 2736 let through, 2737 refused here, 2738 let through but not started.
 
+**Decision 2026-11-19 (Rodney): ON in master** for next week's set (not rc-1119b), with `Kinds=2`, `H2Ic=1` (own STARTs need it) and `KdOwnPlanFromPointMs=0` in ts3native.ini. Evidence: Dalexlol's 13 soak jobs on the arm (12 PASS, 0 stuck, 1 FAIL not his) and his 17-job soak 2026-11-19 (8,770 STARTs let through, 18,059 refused here, 5,540 not started, no problem traced to it). No A/B yet: `tools/harness/queues/routableasync-ab-1119.json`; a regression puts all three ini values back.
+
 A/B lines (in-load ABBA, `--ab asyncreplan` toggles arMode: shadow = sync, 1 = async):
 ```
 [RouteAsync]

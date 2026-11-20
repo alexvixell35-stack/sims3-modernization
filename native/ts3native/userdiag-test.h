@@ -18,6 +18,14 @@ static void TestUserDiag() {
     assert(UdInstallClass(L"C:\\Program Files (x86)\\Electronic Arts\\The Sims 3\\Game\\Bin\\TS3W.exe") == UD_RETAIL);
     assert(UdInstallClass(L"E:\\Games\\TS3\\Game\\Bin\\TS3W.exe") == UD_OTHER);
 
+    // CC String Merge output names (docs/304): matches and non-matches
+    assert(UdCcsmKind(L"CCStringMerge_Strings.package") == 1 && UdCcsmKind(L"ccstringmerge_strings.PACKAGE") == 1);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_001.package") == 2 && UdCcsmKind(L"ccstringmerge_merged_999.Package") == 2);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_1.package") == 0 && UdCcsmKind(L"CCStringMerge_Merged_0001.package") == 0);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_00a.package") == 0 && UdCcsmKind(L"CCStringMerge_Merged_001.package.part") == 0);
+    assert(UdCcsmKind(L"CCStringMerge_Strings_old.package") == 0 && UdCcsmKind(L"MyCCStringMerge_Strings.package") == 0);
+    assert(UdCcsmKind(L"objects.package") == 0 && UdCcsmKind(L"") == 0);
+
     // DBPF index: per-entry types, constant type, bad header, short index
     static u8 hdr[96], idx[4 + 32 * 3];
     memcpy(hdr, "DBPF", 4);
@@ -86,7 +94,7 @@ static void TestUserDiag() {
     g_asLiveUnseen = 0;
     UdtLog(buf, sizeof(buf), h);
     assert(strstr(buf, "ts3fixes: switches on: a?b\r\n"));
-    // hitch-cause lines survive the shared cap (docs/247 §11.1), other lines stop there
+    // hitch-cause lines survive the other-lines caps (docs/247 §11.1), other lines stop at their prefix cap or the total guard
     {
         const auto send = [](const char* s) {
             UdTextMsg(0, kUdTextHi | 0 << 16);
@@ -99,10 +107,18 @@ static void TestUserDiag() {
         };
         assert(UdHitchLine("boatreplan: 9 ms") && UdHitchLine("gangway: 4 ms, Exit") && !UdHitchLine("gangways: x") && UdHitchLine("owreset: x") && UdHitchLine("alarmtime: x") && UdHitchLine("lotpass: x") && !UdHitchLine("ufplan: x") && !UdHitchLine("play: x"));
         const LONG lines = g_udTxtLines;
-        g_udTxtLines = 400;
+        // per-prefix cap: one prefix at its cap logs one capped line, another prefix still logs (key = text up to ':')
+        const LONG perKey = g_udPerKey;
+        g_udPerKey = 2;
+        send("chatty: 1"), send("chatty: 2"), send("chatty: 3"), send("chatty: 4"), send("quiet: kept");
+        g_udPerKey = perKey;
+        UdtLog(buf, sizeof(buf), h);
+        assert(strstr(buf, "ts3fixes: chatty: 2\r\n") && !strstr(buf, "chatty: 3") && !strstr(buf, "chatty: 4"));
+        assert(strstr(buf, "ts3fixes: chatty lines capped at 2\r\n") && strstr(buf, "ts3fixes: quiet: kept\r\n"));
+        g_udTxtLines = kUdTxtTotal;  // total disk guard
         send("play: past the cap");
         ts3native_ab_arm = 2;
-        send("ufplan: kind 1 300 ms why 0");  // own cap, not the shared 400: arm and wall stamp appended
+        send("ufplan: kind 1 300 ms why 0");  // own cap, not the other-lines guard: arm and wall stamp appended
         ts3native_ab_arm = 0;
         send("boatreplan: 91 ms");
         send("owreset: Perform");

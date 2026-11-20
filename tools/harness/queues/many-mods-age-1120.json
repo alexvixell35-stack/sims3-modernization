@@ -1,0 +1,134 @@
+{
+  "note": "docs/302 §7 task 4 / §9.3 (PREPARED, dry-run only, 2026-11-20): Baseline-IP and Baseline-SV aged 3 sim days with the script set many-mods-s in, so StoryProgression has ramped; each saved under its own ManyMods-<W>-aged name (saves never in git). WAITS FOR: Rodney's NRaas downloads in game-copy/mod-sets/downloads + node tools/mod-set.ts build docs/data/many-mods-s.json (logRequire NRaasStoryProgression). Bin state apex (tools/turbo-compat.ts state apex), Apex latest + bridge. Correctness-type job (scriptErrorsMax 0: a mod's script error is a finding to triage). Release set rc-1119b; no switch changed. ~2 x 30 min.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.rc-1119b",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "pinReason": "v0.3.0 release set (rc-1119b = rel030, ts3native 0.36.295-rc1119b): vanilla+ours is the shipped build",
+      "releaseDefaults": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "id": "ip-age3-mms",
+      "note": "[est 30 min] Baseline-IP + modSet many-mods-s, 3 sim days at speed 3, saved as ManyMods-IP-aged (+ the day-3 checkpoint; Baseline-IP is only read). The set must hold NRaas StoryProgression (logRequire): without it the aging is pointless and the job FAILs at the read-back.",
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/many-mods-s",
+      "noiseCheck": false,
+      "timeoutMin": 60,
+      "run": {
+        "age": {
+          "days": 3,
+          "checkpoint": 3,
+          "keepAlive": -50,
+          "save": "ManyMods-IP-aged"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-rc1119b ": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasStoryProgression": 1,
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": 1
+      },
+      "logForbid": {},
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-rc1119b ": {
+          "match": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 08:17:48"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-mdt1 2026-11-20 12:00:00"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": {
+          "match": [
+            "ts3fixes: script assemblies (54): NRaasErrorTrap  40c77ec4, TwoBTech.Mods.Commons  1a2b3c4d, TwoBTech.Mods.MoarInteractions  5e6f7a8b"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (15): StoreObjectsZoe  46796e9c, NRaasErrorTrap  40c77ec4, NRaasOverwatch  11223344"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasStoryProgression": {
+          "match": [
+            "ts3fixes: script assemblies (70): NRaasErrorTrap  40c77ec4, NRaasStoryProgression  0badf00d"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (15): StoreObjectsZoe  46796e9c, NRaasErrorTrap  40c77ec4, NRaasOverwatch  11223344"
+          ]
+        },
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": {
+          "match": [
+            "diag: Mods\\Packages 163 .package files, 5184 MB, 10 with scripts (S3SA), 153 other (CC, tuning), 0 folders deeper than 5 not read; scan 341 ms"
+          ],
+          "noMatch": [
+            "diag: Mods\\Packages 20285 .package files, 31000 MB, 49 with scripts (S3SA), 20236 other (CC, tuning), 0 folders deeper than 5 not read; scan 9000 ms",
+            "diag: Mods\\Packages 2163 .package files, 5186 MB, 10 with scripts (S3SA), 2153 other (CC, tuning), 0 folders deeper than 5 not read; scan 900 ms"
+          ]
+        }
+      }
+    },
+    {
+      "asi": "game-copy/ts3native.asi.rc-1119b",
+      "iniBase": "game-copy/ts3native.ini.rc-1119b",
+      "pinReason": "v0.3.0 release set (rc-1119b = rel030, ts3native 0.36.295-rc1119b): vanilla+ours is the shipped build",
+      "releaseDefaults": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "id": "sv-age3-mms",
+      "note": "[est 30 min] Baseline-SV + modSet many-mods-s, 3 sim days at speed 3, saved as ManyMods-SV-aged (+ the day-3 checkpoint; Baseline-SV is only read). The set must hold NRaas StoryProgression (logRequire): without it the aging is pointless and the job FAILs at the read-back.",
+      "save": "Baseline-SV",
+      "modSet": "game-copy/mod-sets/many-mods-s",
+      "noiseCheck": false,
+      "timeoutMin": 60,
+      "run": {
+        "age": {
+          "days": 3,
+          "checkpoint": 3,
+          "keepAlive": -50,
+          "save": "ManyMods-SV-aged"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-rc1119b ": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasStoryProgression": 1,
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": 1
+      },
+      "logForbid": {},
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-rc1119b ": {
+          "match": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 08:17:48"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-mdt1 2026-11-20 12:00:00"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": {
+          "match": [
+            "ts3fixes: script assemblies (54): NRaasErrorTrap  40c77ec4, TwoBTech.Mods.Commons  1a2b3c4d, TwoBTech.Mods.MoarInteractions  5e6f7a8b"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (15): StoreObjectsZoe  46796e9c, NRaasErrorTrap  40c77ec4, NRaasOverwatch  11223344"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasStoryProgression": {
+          "match": [
+            "ts3fixes: script assemblies (70): NRaasErrorTrap  40c77ec4, NRaasStoryProgression  0badf00d"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (15): StoreObjectsZoe  46796e9c, NRaasErrorTrap  40c77ec4, NRaasOverwatch  11223344"
+          ]
+        },
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": {
+          "match": [
+            "diag: Mods\\Packages 163 .package files, 5184 MB, 10 with scripts (S3SA), 153 other (CC, tuning), 0 folders deeper than 5 not read; scan 341 ms"
+          ],
+          "noMatch": [
+            "diag: Mods\\Packages 20285 .package files, 31000 MB, 49 with scripts (S3SA), 20236 other (CC, tuning), 0 folders deeper than 5 not read; scan 9000 ms",
+            "diag: Mods\\Packages 2163 .package files, 5186 MB, 10 with scripts (S3SA), 2153 other (CC, tuning), 0 folders deeper than 5 not read; scan 900 ms"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -69,6 +69,20 @@ save with that leftover; ON, quit to menu, load it (loads, sarcophagus works). T
 before it ran stays in NpcHousehold (`off_in_npc_no_sim` after that load, logged only) `[inferred: from the code, the run
 shows it]`. Job gates: 0 script errors, release defaults, `saved frame guard` ran at 3 loads, no `ea fix: SavedFrameGuard:`.
 
+First run 2026-11-19 (rc-1119b, chain-egypt-1119): hollow. Trip to Egypt, switch read-back ON and `hh_same` fine, but the
+nearest sarcophagus's `TombMummyCreate` left `mTombMummy` null (no `on_tracked`, 3391-3393 all 0): `TombMummyPushExitSarcophagus`
+returned false, so EA's own `TombMummyDestroy` undid the spawn `[verified, decompiled: the only path that ends with a null
+mTombMummy and no exception]`; why the push failed is not known yet. `tomb_mummy spawn` now tries up to 8 sarcophagi nearest-first,
+keeps the one that spawned (by ObjectId, across the reload), and errors at once with each tried one's `exit_test` (EA's
+`MummyExitSarcophagus` test, selected Sim as actor) when none spawns. Rerun: `sarcmummy-egypt-save-1119-rerun1-1119`.
+
+Rerun1 (18:24 PHT): also hollow, now explained. The nearest sarcophagi fail `Common_InFoggedRoom` (unexplored tomb rooms); a
+farther one spawned (`on_tracked` 1), but within 3 s the mummy was gone and its description had left NpcHousehold (`on_in_npc` 0,
+3391-3393 0): EA's own clean path (`MummyWander` route fail -> `MummyReturnToSarcophagus` -> `TombMummyDestroy`)
+`[inferred: from the decompiled flow; the only removal that also clears NpcHousehold]`, before the separate reset step. Fix:
+`tomb_mummy {action: spawn, reset: true}` runs Reset Object in the same call while the mummy is still out, so `DoReset ->
+CommonCleanup` (the bug path) is what removes it; the repro's spawn/reset step pairs are merged into one step each.
+
 ## 4. Leads checked and dropped
 
 - `TombObjectData.DeactivateTrigger` returns only the last link's result (`result =`, not `|=`); only `LogicGate`'s

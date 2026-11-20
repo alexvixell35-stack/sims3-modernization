@@ -745,6 +745,9 @@ namespace Ts3Agent
             Sim me = Util.ActiveSim();
             Vector3 pos = WalkGoal(a, me);
             if (pos == Vector3.Invalid) throw new McpException("give target, to or x,z");
+            // a lot centre can be sea or a building, as go_here: 2026-11-18 etl14e, every Go Here to "island" (Port Pyre's centre, 2 m
+            // under sea level on Isla Paradiso) failed FailedBecauseNoDestinationSpecified, so no Sim ever boarded a boat
+            if (a.Has("to") && !IsSealed(a)) pos = WalkableClick(me, pos);
             List<Sim> crowd = SpawnedInWorld();
             if (a.Bool("household", false) && Household.ActiveHousehold != null)
                 foreach (Sim s in Household.ActiveHousehold.AllActors) if (!crowd.Contains(s)) crowd.Add(s);
