@@ -35,6 +35,8 @@
 //      the live data on no-access pages; the world manager, terrain, physics and partition queries faked (g_k8Sites).
 //   PT. [PlaceTestRO] (placero.cpp, docs/670): the game's placement footprint check 0xB41120 vs PtRun on random polygons
 //      (SectionPT; `set SRT_ONLY=PT` runs it alone).
+//   EP. [EditPathRO] (epro.cpp, docs/670 §8): the game's RouteFollow_EditPath 0x85F5A0 in the route form (start != goal, no
+//      exclude vector) vs EpRun on random segments (SectionEP; `set SRT_ONLY=EP` runs it alone).
 // Built by build.cmd, not run there (needs the exe):  out\steerro-test.exe ["<path>\TS3W.exe"] [cases, default 400] [seed]
 #define TS3NATIVE_NO_DLLMAIN
 #include "ts3native.cpp"
@@ -2446,6 +2448,116 @@ static void SectionPT(int cases) {
     *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
 }
 
+// EP. [EditPathRO] (epro.cpp, docs/670 §8): the game's RouteFollow_EditPath 0x85F5A0 in the form RouteFollow_EditPathForRoute
+// 0x85FF30 calls it (start = a path node, goal = its far end, no exclude vector, empty ignore lists; through 0x82F0B0,
+// 0x631E20, the segment walk 0x667400 / 0x663B20, the collector, 0x62EF30 and the footprints' level-0 segment test) vs EpRun
+// on the random worlds: segments inside one lot, across two lots, into the lot that is not in the table and off every lot
+// (so the goal-lot, start-lot-with-swap and no-lot branches all run), start == goal, levels that differ between the two
+// points, ids already in the caller's vector. The same appended ids in the same order for every case the clone does not
+// give up on, references balanced after the game's call. Own generator; the world is put back as in PT.
+static long g_epN, g_epCmp, g_epWithIds, g_epIds, g_epObjs, g_epNoLot, g_epSwap, g_epGaveUp[9];
+static void SectionEP(int cases) {
+    const DWORD seed0 = g_seed, kid0 = g_kidSeed;
+    const World w0 = W;
+    const int nRects0 = g_nRects;
+    LotRect rects0[4];
+    memcpy(rects0, g_rects, sizeof(rects0));
+    g_seed = 8600311;
+    auto callsTo = [](DWORD at, DWORD to) { const u8* p = (const u8*)(uintptr_t)at; return p[0] == 0xE8 && at + 5 + *(const DWORD*)(p + 1) == to; };
+    assert(callsTo(kEpSite.site, kEpSite.target) && callsTo(0x0085FFA8, 0x0081D7A0) && callsTo(0x0085F6C6, 0x0082F0B0) &&
+           callsTo(0x0082F30A, 0x00631E20) && callsTo(0x00631E4B, 0x00628A90) && callsTo(0x00631E65, 0x0062FB10) &&
+           callsTo(0x00631E7A, 0x0062ED40) && callsTo(0x00631E8D, 0x0062ED40) && callsTo(0x00631EDA, 0x00667400) &&
+           callsTo(0x0066745D, 0x00663B20) && callsTo(0x0085F768, 0x0062EF30) && callsTo(0x0085F7A4, 0x0062EF30));
+    static const u8 kVisit1[] = {0xB8, 0xD0, 0x2D, 0x66, 0x00};  // 0x667418: mov eax, 0x662DD0 (the mode 1 visitor)
+    assert(Matches((const void*)(uintptr_t)0x00667418, kVisit1, sizeof(kVisit1)));
+    static const u8 kFarEnd[] = {0xF3, 0x0F, 0x10, 0x41, 0x20, 0x0F, 0x28, 0x49, 0x10};  // 0x81D7A6: movss xmm0,[ecx+0x20]; movaps xmm1,[ecx+0x10]
+    assert(Matches((const void*)(uintptr_t)0x0081D7A6, kFarEnd, sizeof(kFarEnd)));
+    alignas(16) static float start[4], goal[4];
+    static SrOut out;
+    static SrCtx ctx;
+    static DWORD before[512];
+    for (int i = 0; i < cases; i++) {
+        if (i % 20 == 0) BuildWorld();
+        const int lot = (int)Rnd(2);
+        float x = 0.0f, z = 0.0f;
+        WorldPoint(lot, Rf(-4, 68), Rf(-4, 68), &x, &z);
+        if (lot == 0 && x >= 0) x = -0.5f;  // keep it in lot 0's rectangle
+        if (lot == 1 && x < 0) x = 0.5f;
+        const DWORD where = Rnd(8);
+        if (where == 0) x += lot == 0 ? 50 : 150;  // lot 1 seen from lot 0's frame, or lot 2 (not in the table)
+        if (where == 1) x = Rf(210, 260);          // off every lot
+        start[0] = x, start[1] = Rf(0, 2), start[2] = z, start[3] = (float)(Rnd(5) == 0 ? 1 : 0);
+        const DWORD kind = Rnd(10);
+        const float len = kind == 0 ? 0.0f : kind < 6 ? Rf(0.1f, 4) : Rf(4, 60);
+        const float ang = Rf(-3.14159f, 3.14159f);
+        goal[0] = x + len * cosf(ang), goal[1] = start[1], goal[2] = z + len * sinf(ang);
+        goal[3] = Rnd(6) == 0 ? 1.0f - start[3] : start[3];  // the game gives the goal the start's level
+        if (kind == 9) goal[0] = Rf(210, 260);  // the goal off every lot: the start's lot with the two points swapped
+        const DWORD opt = Rnd(0x10000);
+        IdVec ids;
+        NewIds(&ids, (int)Rnd(4));
+        const int n0 = (int)(ids.e - ids.b) / 2;
+        memcpy(before, ids.b, (size_t)n0 * 8);
+        g_epN++;
+        // the clone first (it must not change anything the game's call reads)
+        bool noLot = false;
+        const int why = EpRun(W.wm, W.world, W.p, before, n0, start, goal, NULL, 0, NULL, 0, &out, &ctx, false, &noLot);
+        const bool swap = !FkLotLookup(NULL, NULL, goal[0], goal[2]) && FkLotLookup(NULL, NULL, start[0], start[2]);
+        ((EpFn)(uintptr_t)0x0085F5A0)(W.wm, W.world, W.p, (u8*)&ids, start, goal, opt, NULL, NULL, 0, NULL, 0);
+        RefsOk();
+        const int added = (int)(ids.e - ids.b) / 2 - n0;
+        if (why) {
+            g_epGaveUp[why < 9 ? why : 0]++;
+            _aligned_free(ids.b);
+            continue;
+        }
+        if (added != out.nIds || (added && memcmp(ids.b + n0 * 2, out.ids, (size_t)added * 8) != 0)) {
+            Dump("EP MISMATCH appended ids", ids.b + n0 * 2, added, &out.ids[0][0], out.nIds);
+            printf("EP case %d: start (%.3f, %.3f) level %g, goal (%.3f, %.3f) level %g, n0 %d, gathered %d, no lot %d, swap %d\n", i, start[0],
+                   start[2], start[3], goal[0], goal[2], goal[3], n0, ctx.n, (int)noLot, (int)swap);
+            assert(false);
+        }
+        g_epCmp++, g_epWithIds += added > 0, g_epIds += added, g_epObjs += ctx.n, g_epNoLot += noLot, g_epSwap += swap;
+        _aligned_free(ids.b);
+    }
+    // the stub: another thread or an exclude vector -> the game's call, nothing counted but the other form
+    {
+        EditPathRoCounters& k = ts3native_editpathro;
+        const LONG calls0 = k.epCalls, other0 = k.epOtherForm, mode0 = k.epMode;
+        const DWORD owner0 = g_async.owner;
+        IdVec a, b;
+        NewIds(&a, 0);
+        NewIds(&b, 0);
+        k.epMode = 1;
+        g_async.owner = GetCurrentThreadId() + 1;  // not the owner thread
+        EpStub(W.wm, W.world, W.p, (u8*)&a, start, goal, 0, NULL, NULL, 0, NULL, 0);
+        ((EpFn)(uintptr_t)0x0085F5A0)(W.wm, W.world, W.p, (u8*)&b, start, goal, 0, NULL, NULL, 0, NULL, 0);
+        assert(a.e - a.b == b.e - b.b && !memcmp(a.b, b.b, (size_t)(a.e - a.b) * 4) && k.epCalls == calls0);
+        g_async.owner = GetCurrentThreadId();
+        DWORD vec[4] = {0, 0, 0, kSrVecTag};
+        a.e = a.b;
+        EpStub(W.wm, W.world, W.p, (u8*)&a, start, goal, 0, vec, NULL, 0, NULL, 0);  // an exclude vector: not the route form
+        assert(k.epOtherForm == other0 + 1 && k.epCalls == calls0 && a.e - a.b == b.e - b.b);
+        g_async.owner = owner0;
+        k.epMode = mode0, k.epOtherForm = other0;
+        RefsOk();
+        _aligned_free(a.b);
+        _aligned_free(b.b);
+    }
+    printf("EP: %ld EditPath route-form calls, %ld compared equal (%ld appended ids, %ld ids; %ld footprints gathered; no lot %ld, start-lot "
+           "swap %ld), clone gave up: lot not in table %ld, deferred %ld, polygon cache %ld, shape %ld, other %ld; call edges 0x85FFC2 .. "
+           "0x663B20, the mode 1 visitor and the far-end helper match\n", g_epN, g_epCmp, g_epWithIds, g_epIds, g_epObjs, g_epNoLot, g_epSwap,
+           g_epGaveUp[SR_FB_LOTMISS], g_epGaveUp[SR_FB_DEFERRED], g_epGaveUp[SR_FB_CACHE], g_epGaveUp[SR_FB_SHAPE],
+           g_epGaveUp[0] + g_epGaveUp[SR_FB_STATE] + g_epGaveUp[SR_FB_TRY] + g_epGaveUp[SR_FB_DIRTY] + g_epGaveUp[SR_FB_TRIP]);
+    assert(g_epCmp > g_epN / 2 && g_epWithIds > g_epN / 20 && g_epObjs > g_epN / 4 && g_epNoLot > 0 && g_epSwap > 0);
+    g_seed = seed0, g_kidSeed = kid0;
+    W = w0;
+    g_nRects = nRects0;
+    memcpy(g_rects, rects0, sizeof(rects0));
+    *(u8**)(uintptr_t)0x011D9128 = W.world;  // as BuildWorld leaves them (NULL before the first world)
+    *(u8**)(uintptr_t)0x011ECBC4 = W.wm;
+}
+
 int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     AddVectoredExceptionHandler(1, [](EXCEPTION_POINTERS* e) -> LONG {
@@ -2630,6 +2742,7 @@ int main(int argc, char** argv) {
     char only[8] = "";
     GetEnvironmentVariableA("SRT_ONLY", only, sizeof(only));  // SRT_ONLY=PT: that section alone (cases x 10 checks)
     if (!strcmp(only, "PT")) { SectionPT(cases * 10); return 0; }
+    if (!strcmp(only, "EP")) { SectionEP(cases * 10); return 0; }
 
     // D. lot transforms, bit for bit (lot table hit: no insert)
     for (int i = 0; i < 2000; i++) {
@@ -2646,6 +2759,7 @@ int main(int argc, char** argv) {
     printf("transforms: 2000 x 2 bit-exact\n");
 
     SectionPT(cases * 10);  // PT. [PlaceTestRO] (docs/670)
+    SectionEP(cases * 10);  // EP. [EditPathRO] (docs/670 §8)
 
     // A. the game's call vs the clone
     for (int i = 0; i < cases; i++) OneCase();
