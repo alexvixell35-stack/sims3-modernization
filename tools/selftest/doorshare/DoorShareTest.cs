@@ -26,13 +26,21 @@ static class DoorShareTest
         Check(DoorShareCore.ClassBits(true, true, ulong.MaxValue) <= 0xFFFF, "class bits fit op 40's 16 bits");
         Check(DoorShareCore.ClassBits(false, true, simA) == 0, "outside the class: nothing");
 
-        Check(DoorShareCore.Ordinary(true, false, false, false, false, false), "ordinary: a plain human");
-        Check(!DoorShareCore.Ordinary(false, false, false, false, false, false), "a pet or horse is not ordinary");
-        Check(!DoorShareCore.Ordinary(true, true, false, false, false, false), "a tomb mummy is not ordinary");
-        Check(!DoorShareCore.Ordinary(true, false, true, false, false, false), "a proprietor is not ordinary");
-        Check(!DoorShareCore.Ordinary(true, false, false, true, false, false), "a service Sim is not ordinary");
-        Check(!DoorShareCore.Ordinary(true, false, false, false, true, false), "a stray is not ordinary");
-        Check(!DoorShareCore.Ordinary(true, false, false, false, false, true), "IgnoreDoorLocks is not ordinary");
+        Check(DoorShareCore.NoActorBits(false, simA) == (4 | 0x1010 << 3) && DoorShareCore.NoActorBits(true, simA) == (6 | 0x1010 << 3), "class bits: no actor");
+        Check(DoorShareCore.WhyBits(DoorShareCore.kWhyIgnoreLocks) == 7 << 3 && (DoorShareCore.WhyBits(7) & 5) == 0, "outside the class: the reason, no class bit");
+        Check(DoorShareCore.IdHash(portal) == 0x1BEF90ADu && DoorShareCore.IdHash(0x9ABCDEF012345678UL) == 0xFB6BD181u, "id hash (ts3native DsIdHash)");
+        Check(DoorShareCore.IdHash(0) >= 2, "id hash is never 0 or 1 (op 36 lo 1 = arm)");
+        Check(DoorShareCore.kSrcLock == 1 && DoorShareCore.kSrcOwnerList == 2 && DoorShareCore.kSrcLotHandler == 3 && DoorShareCore.kSrcHiddenRooms == 4
+            && DoorShareCore.kSrcGreet == 5 && DoorShareCore.kSrcDesc == 13 && DoorShareCore.kSrcUnknown == 0, "doorgen sources as ts3native's DS_SRC_*");
+
+        Check(DoorShareCore.WhyNotOrdinary(false, false, false, false, false, false) == 0, "ordinary: a human, a cat, a dog");
+        Check(DoorShareCore.WhyNotOrdinary(true, false, false, false, false, false) == DoorShareCore.kWhyHorse, "a horse is not ordinary");
+        Check(DoorShareCore.WhyNotOrdinary(false, true, false, false, false, false) == DoorShareCore.kWhyMummy, "a tomb mummy is not ordinary");
+        Check(DoorShareCore.WhyNotOrdinary(false, false, true, false, false, false) == DoorShareCore.kWhyProprietor, "a proprietor is not ordinary");
+        Check(DoorShareCore.WhyNotOrdinary(false, false, false, true, false, false) == DoorShareCore.kWhyService, "a service Sim is not ordinary");
+        Check(DoorShareCore.WhyNotOrdinary(false, false, false, false, true, false) == DoorShareCore.kWhyStray, "a stray is not ordinary");
+        Check(DoorShareCore.WhyNotOrdinary(false, false, false, false, false, true) == DoorShareCore.kWhyIgnoreLocks, "IgnoreDoorLocks is not ordinary");
+        Check(DoorShareCore.KindNoActor(true, true) == DoorShareCore.kNoActorOnly && DoorShareCore.KindNoActor(false, true) == 0 && DoorShareCore.KindNoActor(true, false) == 0, "no actor: any portal on a lot with the game's handlers alone");
 
         Check(DoorShareCore.Kind(true, true, false, true, true, true) == DoorShareCore.kDoor, "plain door, lock Anybody");
         Check(DoorShareCore.Kind(true, true, false, false, false, false) == DoorShareCore.kInert, "a portal no rule names");

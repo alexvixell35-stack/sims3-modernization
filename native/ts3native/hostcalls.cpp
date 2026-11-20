@@ -116,15 +116,19 @@ static LONGLONG g_dmxTicks;          // DoorMemoXMs in QPC ticks
 static const DWORD* g_dmxDelegate;   // the event 59 delegate slot (0x11D72C4; NULL in tests)
 static volatile LONG g_dmxMismatchLog, g_dmxSelf;  // g_dmxSelf: mode-1 hits, every 8th asked anyway (self-check)
 // mode 3 (DoorGen.cs, op 36): the script-side generation and the armed flag; own export, counters layout unchanged
-static u8 DmxScriptOp(DWORD lo) {  // sim thread (UserDiag)
-    if (lo == 1) {
+// hi = the source (docs/674 §9, DS_SRC_*; 0 = an older package: lo 1 arms, lo 0 is a plain bump), lo = DsIdHash of the door or
+// lot it names. DoorMemoX's generation moves on every one; DoorShare's stamps by the source's scope (doorshare.cpp).
+static u8 DmxScriptOp(DWORD lo, DWORD hi) {  // sim thread (UserDiag)
+    if (!hi && lo == 1) {
         InterlockedIncrement(&ts3native_doorgen.gen);  // docs/674: a world load starts a new generation (no row of the last world answers)
         InterlockedExchange(&ts3native_doorgen.armed, 1);
+        DsSrcBump(DS_SRC_ARM, 0);
         Log("door memo x: ts3fixes doorgen armed (DoorMemoX=3 inputs tracked)");
         return 1;
     }
     InterlockedIncrement(&ts3native_doorgen.gen);
     InterlockedIncrement(&ts3native_doorgen.bumps);
+    DsSrcBump((int)hi, hi ? lo : 0);
     return 1;
 }
 static LONG DmxGenNative() {
@@ -204,10 +208,10 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     if (g_invJob) { if (mode) InterlockedIncrement(&k.dmFb[1]); return 0; }  // a plan the sim sent back inside a managed call
     DWORD key[9];
     P4DoorKey(slot + 1, key);
-    // docs/674 [RouteSnap] DoorShare: a row shared by every ordinary-class Sim answers first (the generation always has the
-    // managed inputs; nothing is answered or kept until ts3fixes doorgen armed it)
+    // docs/674 [RouteSnap] DoorShare: a row shared by a class of routers answers first (its own stamps per portal owner and lot;
+    // nothing is answered or kept until ts3fixes doorgen armed it)
     DsAsk ds = {};
-    if (share && DsBefore(key, DmxGenNative() + ts3native_doorgen.gen, DmxDeleg(), HcNow(), &ds)) {
+    if (share && DsBefore(key, DmxDeleg(), HcNow(), &ds)) {
         g_hcDoorAns = 2;
         return 1;
     }

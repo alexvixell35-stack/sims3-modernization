@@ -723,7 +723,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
         case 38: return NpmOptMsg(lo);  // docs/643 §7: ts3fixes npmfuzzy (bit 0) / npmhousehold (bit 1); 1 = the memo took them
         case 39: return NpmCmdMsg();    // docs/643 §7: route lo is the selected Sim's own command (noted above); 1 = NoPathMemoHousehold on
-        case 36: return DmxScriptOp(lo);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
+        case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 40: return DsClassOp(lo, hi);  // docs/674 doorshare.cpp: route lo's Sim class (hi 0-15), before its START; 1 = DoorShare on
         case 41: return DsNoteOp(lo, hi);   // docs/674: the door answer just given is shareable (lo = hash of the ask, hi 0-15 = kind)
         case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it

@@ -3989,6 +3989,8 @@ static LONG g_hcJobSeq;  // worker only
 // docs/674 [RouteSnap] DoorShare (doorshare.cpp): the running job's Sim class (op 40 of its route, 0 = none) and where the job
 // is: open Route_PlanLocked calls and finished outermost ones (door asks by part of the job, counting only)
 static __declspec(thread) LONG t_dsBits, t_dsPlDepth, t_dsPlans;
+static void DsIcBump(int ic, const DWORD* slot);  // routesnap.cpp's IC slots and World_FireEvent detour -> doorshare.cpp
+static void DsWevBump(DWORD id);
 static DWORD g_dsH;   // sim thread: route of the last op 40, good for its next START only
 static LONG g_dsBits;
 static void DsClassSet(DWORD handle, LONG bits) { g_dsH = handle, g_dsBits = bits; }

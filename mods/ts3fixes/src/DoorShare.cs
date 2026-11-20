@@ -20,19 +20,22 @@ namespace Ts3Fixes
     // (native/ts3native/doorshare.cpp). The route worker asks the sim thread "may this Sim pass this portal?" (World event
     // 59 -> LotManager.PortalLockedCallback -> Lot.OnPortalPathPlan -> Sim.OnPortalPathPlan) once per Sim and door; most of
     // those answers do not depend on the Sim. This file tells ts3native which ones:
-    //  - per plan (UfPlanBody, next to the scope op): UserDiag op 40 with the route's Sim class. A Sim is in the ordinary
-    //    class when every Sim fact the handler and CommonDoor.IsAllowedThrough read leaves the answer to the door and the
-    //    lot (DoorShareCore.Ordinary: human, no tomb mummy, no proprietor role, no service, no stray, no IgnoreDoorLocks).
-    //    Read fresh at every plan, so none of these needs a hook. Bit 1 marks the selected Sim's own command (never
-    //    answered from a shared row); the Sim's id is folded in so the class is used for asks about that Sim only.
+    //  - per plan (UfPlanBody, next to the scope op): UserDiag op 40 with the class of the route's follower, read fresh at
+    //    every plan so none of these facts needs a hook. Ordinary: a Sim for which every fact the handler and
+    //    CommonDoor.IsAllowedThrough read leaves the answer to the door and the lot (DoorShareCore.WhyNotOrdinary: no horse,
+    //    stray, tomb mummy, proprietor role, service or IgnoreDoorLocks; cats and dogs are ordinary). No actor: the follower
+    //    is no Sim (a boat, a car), for which Sim.OnPortalPathPlan does nothing. Otherwise the reason, for ts3native's count.
+    //    Bit 1 marks the selected Sim's own command (never answered from a shared row); the follower's id is folded in so
+    //    the class is used for asks about that router only.
     //  - per answered ask (a hook after LotManager.PortalLockedCallback, the game's event 59 callback; not Sim.OnPortalPathPlan
     //    or Lot.OnPortalPathPlan: the first is a delegate target every lot holds, the second is invcache's swap): UserDiag op
     //    41 when the answer is "unlocked" and shareable:
     //    the lot's handler list is the game's handler alone, event 59 has the game's callback alone, the Sim is ordinary
     //    now, and the portal object is a plain door open to anybody (DoorShareCore.kDoor) or an object no rule of the handler
     //    names (kInert). ts3native keeps such an answer for every Sim of that class until its door generation moves.
-    // The generation is doorgen's (DoorGen.cs, op 36): this file adds the two writers of the lot's hidden rooms
-    // (Lot.WorldBuilderSetHiddenRoom, Lot.UpdateRoomMarkers) to its bumps. doorshare acts only with doorgen on.
+    // Changes are reported by doorgen (DoorGen.cs, op 36, with the source and the door or lot it names): this file adds the
+    // two writers of the lot's hidden rooms (Lot.WorldBuilderSetHiddenRoom, Lot.UpdateRoomMarkers). doorshare acts only with
+    // doorgen on.
     // Observe-and-send only: every hooked body runs unchanged, no answer is changed here.
     public static partial class Fixes
     {
@@ -47,7 +50,8 @@ namespace Ts3Fixes
         static readonly Dictionary<ulong, object> sDshLotOk = new Dictionary<ulong, object>();  // lot id -> its verified handler list object
         static readonly Dictionary<Type, bool> sDshCommonRule = new Dictionary<Type, bool>();
         static readonly Type[] sDshCbArgs = { typeof(ulong), typeof(ulong), typeof(ulong), typeof(short), typeof(short), typeof(bool) };
-        static int sDshClassSent, sDshOrdinarySent, sDshCommandSent, sDshNotes, sDshNoteDoor, sDshNoteInert, sDshNotPure, sDshErrors;
+        static int sDshClassSent, sDshOrdinarySent, sDshNoActorSent, sDshCommandSent, sDshNotes, sDshNoteDoor, sDshNoteInert, sDshNoteNoActor, sDshNotPure, sDshErrors;
+        static readonly int[] sDshWhy = new int[8];  // followers outside the class, by DoorShareCore.kWhy*
 
         static void ApplyDoorShare()
         {
@@ -83,24 +87,30 @@ namespace Ts3Fixes
             sDshLotOk.Clear();
         }
 
-        // UfPlanBody, before the route's START or sync plan: the follower's class (0 = not a Sim of the ordinary class)
-        static void DshRouteSend(Sim sim, uint handle, bool ownCheck)
+        // UfPlanBody, before the route's START or sync plan: the follower's class. A Sim: ordinary or the reason it is not.
+        // No Sim (a boat or car routes, with or without a driver): the no-actor class, the handler never looks at such a router.
+        // Our own route checks too: the class is the follower's, whatever the plan is for.
+        static void DshRouteSend(IScriptProxy proxy, Sim sim, Sim who, uint handle, bool ownCheck)
         {
             try
             {
                 bool on = sDoorShareReady && sDoorGenOn && ShortcutOn("doorshare");
                 if (on != sDoorShareOn) { sDoorShareOn = on; sDoorShareNative = false; }  // off: no note goes out from here on
-                if (!on || handle == 0) return;
-                int bits = 0;
-                if (sim != null && DshOrdinary(sim))  // our own route checks too: the class is the follower's, whatever the plan is for
+                if (!on || handle == 0 || proxy == null) return;
+                Sim cmdSim = sim != null ? sim : who;  // a vehicle's command is its driver's
+                InteractionInstance ia = ownCheck || cmdSim == null ? null : cmdSim.CurrentInteraction;
+                bool command = ia != null && NpmIsPlayerCommand(cmdSim == PlumbBob.SelectedActor || cmdSim.IsSelectable, ia.Autonomous,
+                    ia.GetPriority().Level == InteractionPriorityLevel.UserDirected, ia is FollowerMeetUpAtPoint);
+                int bits;
+                if (sim == null && proxy.Target == null) { bits = DoorShareCore.WhyBits(DoorShareCore.kWhyNoDesc); sDshWhy[DoorShareCore.kWhyNoDesc]++; }  // no object behind the follower: no class
+                else if (sim == null) { bits = DoorShareCore.NoActorBits(command, proxy.ObjectId.Value); sDshNoActorSent++; }
+                else
                 {
-                    InteractionInstance ia = ownCheck ? null : sim.CurrentInteraction;
-                    bool command = ia != null && NpmIsPlayerCommand(sim == PlumbBob.SelectedActor || sim.IsSelectable, ia.Autonomous,
-                        ia.GetPriority().Level == InteractionPriorityLevel.UserDirected, ia is FollowerMeetUpAtPoint);
-                    bits = DoorShareCore.ClassBits(true, command, sim.ObjectId.Value);
-                    sDshOrdinarySent++;
-                    if (command) sDshCommandSent++;
+                    int why = DshWhy(sim);
+                    if (why == 0) { bits = DoorShareCore.ClassBits(true, command, sim.ObjectId.Value); sDshOrdinarySent++; }
+                    else { bits = DoorShareCore.WhyBits(why); sDshWhy[why]++; }
                 }
+                if (command) sDshCommandSent++;
                 sDshClassSent++;
                 sDoorShareNative = DiagSend(kDoorShareClassOp, handle, (ushort)bits);
             }
@@ -108,11 +118,12 @@ namespace Ts3Fixes
             catch (Exception) { sDshErrors++; }
         }
 
-        static bool DshOrdinary(Sim sim)
+        // 0 = a Sim of the ordinary class, else DoorShareCore.kWhy*
+        static int DshWhy(Sim sim)
         {
             SimDescription d = sim.SimDescription;
-            if (d == null) return false;
-            return DoorShareCore.Ordinary(d.IsHuman, d.IsTombMummy, d.AssignedRole is Proprietor, d.Service != null, d.IsStray,
+            if (d == null) return DoorShareCore.kWhyNoDesc;
+            return DoorShareCore.WhyNotOrdinary(d.IsHorse, d.IsTombMummy, d.AssignedRole is Proprietor, d.Service != null, d.IsStray,
                 sim.FlagIsSet(Sim.SimFlags.IgnoreDoorLocks));
         }
 
@@ -170,8 +181,17 @@ namespace Ts3Fixes
                 Lot lot = LotManager.GetLot(lotId);
                 Sim actor = new ObjectGuid(simId).ObjectFromId<Sim>();
                 GameObject p = new ObjectGuid(portalId).ObjectFromId<GameObject>();
-                if (actor == null || p == null || lot == null) return;
-                if (!DshOrdinary(actor)) return;
+                if (lot == null) return;
+                if (actor == null)  // the router is no Sim: Sim.OnPortalPathPlan did nothing, whatever the portal is
+                {
+                    bool lp = DshLotPure(lot), wp = lp && DshWorldPure();
+                    if (DoorShareCore.KindNoActor(lp, wp) == DoorShareCore.kNone) { sDshNotPure++; return; }
+                    sDshNotes++;
+                    sDshNoteNoActor++;
+                    DiagSend(kDoorShareNoteOp, DoorShareCore.NoteHash(portalId, simId, from, to), (ushort)DoorShareCore.kNoActorOnly);
+                    return;
+                }
+                if (p == null || DshWhy(actor) != 0) return;
                 bool special = p is FirefighterPole || p is IBoxStall || p is IHorseJump || p is ElevatorDoors || p is DivingBoard || p is Ladder;
                 Door door = p as Door;
                 bool lotPure = DshLotPure(lot), worldPure = lotPure && DshWorldPure();
@@ -200,9 +220,9 @@ namespace Ts3Fixes
 
         public class DoorShareLotHook
         {
-            public void HiddenHook(HiddenRoomMarker marker) { HiddenOrig(marker); DoorGenBump(); }
+            public void HiddenHook(HiddenRoomMarker marker) { HiddenOrig(marker); DoorGenBumpLot(DoorShareCore.kSrcHiddenRooms, this); }
             public void HiddenOrig(HiddenRoomMarker marker) { }
-            public void MarkersHook() { MarkersOrig(); DoorGenBump(); }
+            public void MarkersHook() { MarkersOrig(); DoorGenBumpLot(DoorShareCore.kSrcHiddenRooms, this); }
             public void MarkersOrig() { }
         }
 
@@ -211,27 +231,33 @@ namespace Ts3Fixes
         public static object DoorShareCheck(string what)
         {
             string counters = "doorshare: on " + sDoorShareOn + " (hook " + sDoorShareReady + ", doorgen " + sDoorGenOn + ", ts3native DoorShare " + sDoorShareNative
-                + "), class ops " + sDshClassSent + " (ordinary " + sDshOrdinarySent + ", player commands " + sDshCommandSent + "), notes " + sDshNotes + " (door "
-                + sDshNoteDoor + ", inert " + sDshNoteInert + "), lot or event 59 handlers not the game's alone " + sDshNotPure + ", errors " + sDshErrors + "; "
+                + "), class ops " + sDshClassSent + " (ordinary " + sDshOrdinarySent + ", no Sim " + sDshNoActorSent + ", no description " + sDshWhy[1] + ", horse " + sDshWhy[2]
+                + ", stray " + sDshWhy[3] + ", tomb mummy " + sDshWhy[4] + ", proprietor " + sDshWhy[5] + ", service " + sDshWhy[6] + ", IgnoreDoorLocks " + sDshWhy[7]
+                + "; player commands " + sDshCommandSent + "), notes " + sDshNotes + " (door " + sDshNoteDoor + ", inert " + sDshNoteInert + ", no actor " + sDshNoteNoActor + "), lot or event 59 handlers not the game's alone " + sDshNotPure + ", errors " + sDshErrors + "; "
                 + GlMembers(EpJoin(sDshMissing, CkLive("doorshare")));
             if (what == "result") return counters;
             if (what != "run") return "doorshare <run|result>";
             bool on = ShortcutOn("doorshare");
-            bool shared = DoorShareCore.Ordinary(true, false, false, false, false, false)
+            bool shared = DoorShareCore.WhyNotOrdinary(false, false, false, false, false, false) == 0
                 && DoorShareCore.Kind(true, true, false, true, true, true) == DoorShareCore.kDoor
                 && DoorShareCore.Kind(true, true, false, false, false, false) == DoorShareCore.kInert
+                && DoorShareCore.KindNoActor(true, true) == DoorShareCore.kNoActorOnly
                 && DoorShareCore.NoteHash(0x0000004400000033UL, 0x0000B0B00000A0A0UL, 5, 6) == 0x7845B309u
-                && DoorShareCore.ClassBits(true, false, 0x0000B0B00000A0A0UL) == (DoorShareCore.kOrdinary | 0x1010 << DoorShareCore.kSimShift);
-            bool controls = !DoorShareCore.Ordinary(false, false, false, false, false, false)   // a pet or a horse
-                && !DoorShareCore.Ordinary(true, true, false, false, false, false)               // tomb mummy
-                && !DoorShareCore.Ordinary(true, false, true, false, false, false)               // proprietor
-                && !DoorShareCore.Ordinary(true, false, false, true, false, false)               // service Sim
-                && !DoorShareCore.Ordinary(true, false, false, false, false, true)               // IgnoreDoorLocks
+                && DoorShareCore.ClassBits(true, false, 0x0000B0B00000A0A0UL) == (DoorShareCore.kOrdinary | 0x1010 << DoorShareCore.kSimShift)
+                && DoorShareCore.NoActorBits(false, 0x0000B0B00000A0A0UL) == (DoorShareCore.kNoActor | 0x1010 << DoorShareCore.kSimShift);
+            bool controls = DoorShareCore.WhyNotOrdinary(true, false, false, false, false, false) == DoorShareCore.kWhyHorse
+                && DoorShareCore.WhyNotOrdinary(false, true, false, false, false, false) == DoorShareCore.kWhyMummy
+                && DoorShareCore.WhyNotOrdinary(false, false, true, false, false, false) == DoorShareCore.kWhyProprietor
+                && DoorShareCore.WhyNotOrdinary(false, false, false, true, false, false) == DoorShareCore.kWhyService
+                && DoorShareCore.WhyNotOrdinary(false, false, false, false, true, false) == DoorShareCore.kWhyStray
+                && DoorShareCore.WhyNotOrdinary(false, false, false, false, false, true) == DoorShareCore.kWhyIgnoreLocks
                 && DoorShareCore.Kind(true, true, false, true, true, false) == DoorShareCore.kNone    // a lock type that reads the Sim
                 && DoorShareCore.Kind(true, true, false, true, false, true) == DoorShareCore.kNone    // a door with its own rule
                 && DoorShareCore.Kind(true, true, true, false, false, false) == DoorShareCore.kNone   // elevator, ladder, ...
                 && DoorShareCore.Kind(false, true, false, true, true, true) == DoorShareCore.kNone    // a privacy or mod handler on the lot
                 && DoorShareCore.Kind(true, false, false, true, true, true) == DoorShareCore.kNone    // a mod on event 59
+                && DoorShareCore.KindNoActor(false, true) == DoorShareCore.kNone
+                && (DoorShareCore.WhyBits(DoorShareCore.kWhyHorse) & (DoorShareCore.kOrdinary | DoorShareCore.kNoActor)) == 0
                 && DoorShareCore.ClassBits(false, true, 1) == 0;
             return B582Line("doorshare", on, "door answers that do not depend on the Sim are marked for ts3native to share", on && shared,
                 "Sims and portals whose answer reads the Sim are never marked", controls, sDshMissing, counters);

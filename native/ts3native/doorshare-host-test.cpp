@@ -78,6 +78,8 @@ static LONG DsClassTake(DWORD handle) {
     return r;
 }
 static bool HhExempt(bool hh) { return hh; }  // [Experimental] HouseholdToo off
+static void DsIcBump(int ic, const DWORD* slot);
+static void DsWevBump(DWORD id);
 
 #include "doorshare.cpp"
 #include "doorshare-test.h"

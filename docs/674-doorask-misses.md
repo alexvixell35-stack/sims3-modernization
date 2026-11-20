@@ -3,7 +3,9 @@
 2026-11-20, branch `feat/doorask-misses` (base `work/combo-1117` 32967a77). Inputs: `ts3native-full.log` of s156 (off and on),
 s158 and s159 (2-min forced-routing storms, Isla Paradiso), `hostcalls.cpp`, the decompiled C# of the door handler chain
 (`game-copy/decompiled`), docs/105 §2-§3 (the answer's inputs), docs/159 (the proxy), docs/585 (DoorMemoX=3), docs/673 §9.
-Built: `[RouteSnap] DoorShare` (native) + ts3fixes `doorshare`, both default off. **Nothing here has run in the game.**
+Built: `[RouteSnap] DoorShare` (native) + ts3fixes `doorshare`, both default off. §1-§8 are the first build (v1), which ran in
+s163 (shadow) and s164 (answer): exact, small gain. §9 reads those runs and describes v2 (stamps per portal owner and per lot,
+a class for routers that are no Sim, pets in the ordinary class), which has **not run**. Where §3-§4 and §9 differ, §9 holds.
 
 Tags: [measured] = read from the named log, [verified] = read in the source or the decompiled C#, [inferred] = argued, not seen.
 
@@ -128,7 +130,7 @@ plan). Observe-and-send only; no answer is changed in script.
 | key | default | meaning |
 |---|---|---|
 | `[RouteSnap] DoorShare` | 0 | 0 off (not installed), 1 answer, 2 shadow; runtime `native_set doorshare` (+0x00 of `ts3native_doorshare`) once installed |
-| `DoorShareMs` | 5000 | a row answers only while a live ask confirmed it this recently (1-60000) |
+| `DoorShareMs` | 60000 (v1: 5000) | a row answers only while a live ask confirmed it this recently (1-3600000) |
 | `DoorShareCheck` | 8 | 1 in N valid answers is asked anyway |
 | `DoorShareHousehold` | 0 | 1 = household, selected and unknown-scope jobs take shared answers too; a player command never does |
 | ts3fixes `doorshare` (`kDoorShare`) | off | sends ops 40 / 41 |
@@ -249,3 +251,136 @@ stub calls it; `DmxGenNative`; the arm op bumps the generation), `ts3native.cpp`
 `userdiag.cpp` (ops 40 / 41), `ts3native.ini`; `mods/ts3fixes/src/DoorShare.cs`, `DoorShareCore.cs`, `UnseenFallback.cs` (one
 call), `UserDiag.cs`, `Fixes.cs`, `Instantiator.cs`; `tools/selftest/doorshare`, `tools/harness/repros.json`
 (`doorshare-check`, `ip-doorshare-storm`), `docs/registry.md`, `docs/68-hook-conflict-map.md`.
+
+## 9. s163 / s164: exact, but one generation for all rows; v2 = stamps per owner and per lot
+
+2026-11-20, same branch. Inputs: `ts3native-full.log` of s163 (`DoorShare=2`) and s164 (`DoorShare=1`), the source, the
+decompiled C#. **v2 has not run in the game or under MSVC.**
+
+### 9.1 What the runs say [measured]
+
+| | s163 shadow | s164 answer |
+|---|---|---|
+| door asks (before the plan / in `Route_PlanLocked`) | 34,123 (19,725 / 14,398) | 33,669 (20,486 / 13,183) |
+| different keys with / without the Sim (lower bounds) | 5,140 / 1,033 | 5,148 / 1,008 |
+| answered | 0 | 14,592 |
+| checks / mismatch | 3,260 / 0 | 692 / 0 |
+| misses: no row / other generation / too old | 5,276 / 11,853 / 0 | 4,848 / 11,434 / 171 |
+| asks of a job in no class | 1,937 | 2,717 |
+| live: without a note / Sim outside the class / not unlocked | 683 / 1,029 / 1,110 | 550 / 1,335 / 924 |
+| host calls | 18,510 | 14,789 |
+
+Exactness held (3,952 checks, 0 differences). The table is a thousand keys, yet 11,434 asks found their row in an older
+generation: v1's one generation is moved by every portal IC, every lot world event and every doorgen bump anywhere in the
+world, and each move ends all rows. With 1,008 keys a steady state needs about a thousand live asks, not fifteen thousand.
+
+Which source moved it cannot be read from these logs (the IC and event counts are not in a log line). Two indirect readings:
+doorgen's managed bumps were 1,413 for the whole session and come in a burst at the storm's start (s159: 1,219 in the first
+minute, 36 in the second) while DoorMemoX's own generation misses stay level between the minutes (621 / 414), so the steady
+source is native: the portal ICs. The storm's boats, gangways and ladders add and remove their own portals as they move
+(`AddPortal` / `RemovePortals`), and doors set their portal cost [inferred; the new `door share changes by portal IC:` line
+counts each IC, `door share changes:` each world event and doorgen source, and `door share misses:` splits "a stamp moved" by
+owner / lot / global / delegate].
+
+### 9.2 Which events can change a row's answer [verified, decompiled C# + the IC signatures]
+
+A row answers "unlocked" for key (lot, portal owner P, room from, room to, initialLocked). §3: for kind 1 the answer is a
+function of P's lock type and one-way room and of the lot's hidden rooms; for kind 2 of nothing; both need the lot's handler
+list and event 59 to hold the game's handlers alone. The planner's own lock test (cost >= 1e6, the AGS mask, the forbidden
+list) is not in the answer: its result is the key's initialLocked.
+
+| event | names | can it change a row's answer? | v2 clears |
+|---|---|---|---|
+| `AddPortal`, `AddPortalLocationVariation`, `Add{DivingBoard,WaterSlide,Pool,Platform,Stair}Portals`, `RemovePortals` (IC slots 4-11) | the object (arg 1 = `objId`) | not for another object. For this one only if the id now stands for another object | that owner's rows |
+| `SetPortalCost`, `SetPortalAgeGenderFlags` (12, 13) | the object | no: they feed the planner's lock test, i.e. initialLocked, which is in the key | nothing |
+| `SetPortalLockStatus` (14) | the lot (arg 1 = `lotId`) | turns the lot's asks on / off with its first / last handler | that lot's rows |
+| `OnExitBuildBuy` (22; not in v1's generation) | - | rooms may have new numbers | all |
+| World events 5, 7, 9, 0x0A (load) | - | a new world | all |
+| 0x0D, 0x0E (lot added / removed) | - | kept conservative; a new lot also adds its handler (below) | all |
+| 0x0F, 0x10 (lot bounds, lot type) | - | no: no shared rule reads either (`CommercialLotSubType` is read by the VIPRoom lock type only) | nothing |
+| doorgen: `SetLockTypeAndOwner` (both), owner list set / add / remove | the door (`this`) | lock type, one-way room | that owner's rows |
+| doorgen: `Lot.add_PortalPathPlan` / `remove_PortalPathPlan`; `WorldBuilderSetHiddenRoom`, `UpdateRoomMarkers` | the lot (`this`) | handler list; hidden rooms | that lot's rows |
+| doorgen: greeting, household add / remove, fire and fire buffs, `IgnoreDoorLocks`, occults, roles, resort VIP data and closing, gender / age / pregnancy | - | no. Greeting is read for strays only; household for the SelectedHousehold lock and the tomb-mummy test; fire only makes a pet or a barn door skip the lock type, and Anybody allows either way; resort data for the VIPRoom lock; role, occult, flag are class facts read at every plan; age / gender for single-gender doors, diving boards, ladders, elevators (not shared) | nothing (DoorMemoX's generation still moves) |
+| the arm at world load; a doorgen bump from an older package; a source this build does not know; a door or lot hook that could not read its id | - | unknown | all |
+| event 59 delegate slot | - | another callback | per row, as before |
+
+Stamps: 2,048 per-owner and 256 per-lot counters indexed by a hash of the id, plus one global. Two ids that share a counter
+clear each other's rows: more asks, never a wrong answer. A row stores the three values it was written under and answers
+only while all three are unchanged. doorgen's op 36 now carries the source (16 bits) and the id's hash; an older package's
+plain bump clears everything, a newer package on an older ts3native is a plain bump (the hash is never 1, the arm value).
+
+### 9.3 Routers outside the class
+
+The storm had no pets (`pet_candidates 0`), and the logs do not say who the 2,717 asks of jobs in no class were. Two
+additions, both from the same C# reading:
+
+- **No actor** (new class, op 40 bit 2). `PortalLockedCallback` resolves the routing object with `ObjectFromId<Sim>`; for a
+  boat or a car that is null, and `Sim.OnPortalPathPlan` starts with `if (args.Actor != null)`. So for such a router every
+  portal on a lot with the game's handler alone answers initialLocked. ts3fixes sends the class when the route's follower is
+  no Sim, and notes such answers as kind 3. A kind 3 row serves only no-actor routers; a kind 1 / 2 row serves both classes
+  (its answer is "unlocked" for initialLocked 0 either way). The storm's boat routes are the likely bulk of "no class"
+  [inferred; the new `door share no class:` line counts asks by ts3fixes' reason: no op 40, no description, horse, stray,
+  tomb mummy, proprietor, service, IgnoreDoorLocks].
+- **Cats, dogs and wild animals are ordinary** (v1 required a human). `CommonDoor.IsAllowedThrough` treats a non-stray pet
+  like a human except for `(barn door or pet) and fire on the lot`, which skips the lock-type switch and allows; with lock
+  type Anybody the switch allows as well. The Pets lock type is not shared. **Horses stay out**: their rule reads the door
+  kind (barn door, double gate, electronic gate, `CanLargeAnimalUse`); a horse class with those door facts in the kind is
+  provable but there were no horses to measure. Strays stay out (greeting per Sim and lot), as do service Sims (some
+  services ignore locks: provable as a class per "ignores locks" bit, again unmeasured), proprietors and mummies.
+
+### 9.4 The floor of live asks, and DoorMemoX
+
+After v2 a storm like s164 should still make [inferred from s164's counts]:
+
+| what | about | lever |
+|---|---|---|
+| first ask of a key, and again after its door's or lot's own change | 1,000 + the owner / lot bumps that hit used rows | none (exact) |
+| one confirmation per key per `DoorShareMs` | at 60 s: up to 2 x the keys in use; the sampled checks cover part of it | `DoorShareMs` |
+| the sampled check | hits / `DoorShareCheck`: about 3,500 at 1 in 8, 900 at 1 in 32 | `DoorShareCheck` (3,952 checks so far, 0 differences) |
+| answers that are not "unlocked" | 900-1,100 (a locked door must be asked per plan: `LockedDoorsDuringPlan`) | none |
+| "unlocked" answers that read the Sim (owner / household locks, elevators, ladders, privacy lots) | 550-700 | DoorMemoX (per Sim, 250 ms) |
+| routers in no class | up to 2,700 before the no-actor class; what stays is the `no class` line | a horse or service class if it shows |
+| household / unknown-scope jobs | 0 in s163 / s164 (16% of asks in s159) | `DoorShareHousehold` |
+
+So about 5,000-6,000 host calls at `DoorShareCheck=32` against 14,789 (s164) and 18,510 (s163): the floor is the checks, the
+locked answers and the Sim-dependent ones.
+
+**Merge with DoorMemoX: no.** They answer different questions. DoorShare's rows are exact by argument and can live long;
+DoorMemoX's rows are per Sim, cover answers whose inputs are not all hooked (posture, running interaction, privacy,
+elevators, venue hours), and stay bounded by 250 ms and its coarse generation for that reason. With DoorShare in front,
+DoorMemoX sees only what DoorShare cannot share (s164: 3,149 hits). Giving DoorMemoX the per-owner / per-lot stamps would
+not help it: its misses are "no row", not "other generation" (13,924 vs 1,397).
+
+### 9.5 Checks run (no game)
+
+- `doorshare-host-test.cpp`: the stamps (each event that names the row's door or lot, and each global one, ends the row
+  once; other objects', other lots' and the proven-irrelevant events do not), the miss split by stamp, the no-actor class
+  (kind 3 rows, upgrade by an ordinary Sim's note, no downgrade, no cross-class check or drop), the reasons: pass.
+- `tools/selftest/doorshare`: `IdHash`, class and reason bits, source numbers against the native values: ok.
+- clang-cl `/Zs /W4` (`ts3native.cpp` Steam and `/DTS3A_TABLE`, `selftest.cpp`): 0 errors, warning counts as the base.
+- ts3fixes builds (0 unresolved); `selftest-all --ci`: 0 FAIL.
+
+Unverified: MSVC, the Windows selftest, the game. In particular that `slot[1]`, `slot[2]` of the portal ICs are the object /
+lot id as the managed signatures say (`ulong objId` first; `AddPortalLocationVariation`'s `slot[3]` handle is already used
+that way by P4), and that a route's follower id is the routing object id of the ask (if not, the class is never used for
+that router: `another Sim` counts it).
+
+### 9.6 Next run
+
+ts3fixes package from this branch (`doorshare` on; `doorgen` on at world load). Arm A shadow first if a second exactness
+pass is wanted for the new class and the stamps; then B:
+
+```
+[RouteSnap]
+DoorShare=1            ; arm A: 2
+DoorShareMs=60000
+DoorShareCheck=32
+;DoorShareHousehold=1   ; arm C
+[RouteJobPhases]
+HoldProbe=1
+HostSplit=1
+```
+
+Read `door share misses:` (`a stamp moved` should fall from 11,434 to hundreds, split by owner / lot / global),
+`door share changes:` and `... by portal IC:` (what would have ended every row in v1; if `everything` is not near zero, the
+named source is the next thing to scope), `door share no class:`, `route plans: ... hostCalls`, `worker hold parts`.
