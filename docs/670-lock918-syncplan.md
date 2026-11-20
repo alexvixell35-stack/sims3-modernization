@@ -1182,7 +1182,7 @@ in this pass (the 45 minutes went to §22).
 `RoutingBlockerCheck2d` does rank now (§17 said it did not: the stall-watch names missed it; the caller word does not).
 `rtoro.cpp` clones this check as a step of `RouteToObjectCheck`; the IC-level stub on the call to `0x82E340` (§12.2: the
 segment gather `0x631E20` with its pin and references rules SH out) is the next build after §23.1, about 1-2 h with its
-offline section.
+offline section. **Built since: §24.**
 
 ### 23.3 `0x760BFF`: which sync plans [verified: disassembly of the call sites + s189 log]
 
@@ -1220,3 +1220,116 @@ RouteLockCallers=1
 First pass as written (compare only; `shadow runs` > 0, `mismatch` 0). Second pass `Mode=1`: `answered in a job` against
 `class flag with footprints` and `no lot`; lines with key `0062EF7A` and first caller `00655ABE` against s189's 13 / 508 ms;
 no new key `00655AFB`. Also read `arWdPass` / `pkAfSkip` for §23.3.
+
+## 24. `[Blocker2dRO]`: the IC's `RoutingWorld_BlockerCheck2d` call on the clone (ts3native, default off, NOT RUN)
+
+2026-11-20, branch `fix/blocker2d-ro` (from `work/combo-1117` a7ecd7ba). The build §23.2 asked for.
+
+### 24.1 The call [verified disassembly `0x74E110..0x74E288`, `0x82E340..0x82ED9E`, `0x62EF30`, `0x814C30`, `0x81CB60`, `0x81C880`, `0x81C970`]
+
+`IC_RouteManager_RoutingBlockerCheck2d 0x74E110` (cdecl: x0, z0, level, x1, z1, a goal word, four option words, the target object's id,
+an ignore id, an option word): `World_LotLookup` on wm `[0x11ECBC4]` for the start (no lot, no world or no object manager:
+returns 8), the height `0xC6A250`, the options object on its stack (`0x81CB60`: the four words at `+0x28..+0x34`, five empty
+vectors), the target object by id (`0x939560`; may be none), then **one call, `0x74E261`**:
+`0x82E340` (thiscall world; out, lot, start {x, y, z, x} with the level at `+0x24`, goal {x, z}, opts, target, &ignore id,
+five zero bytes, the option word; `ret 0x34`). The IC returns `out[0]`.
+
+`0x82E340` takes no lock of its own. Its two routing touches each wait behind a route job: the lot transform `0x62EF30`
+x2 (`0x82E691`, `0x82E6C2`: gate 0, key `0x62EF7A`, caller words `0x82E696` / `0x82E6C7`) and the segment gather `0x631E20`
+(`0x82E6EB`: Contains, the cell graph, pin, flush, references). So, as §21.1 found for its neighbour, answering only the
+gate would move the wait to the gather: both are answered together. Everything else in the function is sim-owned or
+physics: the option tests, the option copy `0x81D3C0` the gather's record points at, the ignore ids (`*ign` when not 0, the
+target's, with option `0x80000` the target's parent, with `0x100000` its slot children), the per-footprint rules (id not
+ignored, not in the options' list `0x81C970`, not in the lot's Sim list when T(0, 4), slot `+0xC0`, the level-0 segment
+test `+0xD8` with radius `+0x44`, then the type rules and the merge `0x829250`), and, when no footprint answered and option
+4 holds and `b34` is 0, five physics range samples along the segment (`0x686A90`, `0x682590`, `0x82A780`). The debug
+segment draw `0x814C30` does nothing unless byte `[0x11D90B0]` is set.
+
+`rtoro.cpp`'s `RtoBlock` already is this function from the two transforms to the merge (it is step 7 of
+`RouteToObjectCheck`, `[RouteToObjRO]`, on by default since 2026-11-04), and `RtoTail` is its physics samples.
+
+### 24.2 The stub (`rtoro.cpp` `B2Stub`, `B2Run`, `B2Phase1`)
+
+One call-site retarget, `0x74E261` -> `B2Stub`. On the sim (owner) thread while a job runs, when the thread is not the
+`+0x918` owner, serves no job callback and has no gate frame open (`AvMayRun`):
+
+- phase 1, no lock: the option tests (`b24 |= T(2)`, `b28 |= T(1)`, `o4 = b2c || T(4)`, `T(0, 4)`, `T(0, 0x800)`), the
+  ignore ids in the game's order, the option copy with bit 4 forced when `o4`.
+- phase R, QL shared (try only), `RtoLocked` (tripwire state, QL sequence, epoch and job generation before and after):
+  the lot table hit for gate 0 (`SrEntry`, GetOrInsert rules), then `RtoBlock`.
+- phase P, QL released: `RtoTail` when the footprint pass left code 0 and the tail applies (`Tail=1`).
+
+An answer writes `out[0]`, `out[2]`, `out[3]` and returns `out`, as the function does (`out[1]` is never written by it).
+Given back to the game's call (today's wait), each counted: may not (the `AvMayRun` cases), state (not the routing world,
+no planner), QL busy, lot (table miss: the game inserts; deferred flush; pin moved), shape (unknown footprint class or
+slot), polygon cache, tripwire, job end, tail (`Tail=0` only), option (the debug-draw byte; `0x100000` with a slot
+component on the target: the children iterator `0x952E40` is not cloned). `Shadow=1`: with no job running and none
+allowed to start (`g_rgOffSimOpen`), the game's call, then the clone, the three words compared; `SHADOW MISMATCH` lines
+(16 at most).
+
+The answer is the game's own for every Sim (no scope gate, nothing relaxed). In time it differs only as §8.3 says: the
+clone reads between the job's writers under QL, the game's call reads after the job.
+
+Changed in the shared clone, for both users: `RtoBlock`'s tail gate reads `g_rtoTailOn` (set by `RtoRun` from
+`rtoTailMode`, by `B2Run` from this block's `b2Tail`), and `RtoTail` takes optional counter pointers so `[Blocker2dRO]`
+counts its tails in its own block. `[RouteToObjRO]`'s behaviour and counters are unchanged.
+
+### 24.3 Switches, counters, files
+
+- `ts3native.ini` `[Blocker2dRO] Enabled=0` (install), `Mode=1` (start of the runtime switch: export
+  `ts3native_blocker2dro` `+0x00`, `native_set blocker2dro`), `Shadow=0`, `Tail=1`. Needs `[RouteGate] Enforce=1`,
+  `[RouteAsync]`, the S2 writer set. Independent of `[RouteToObjRO]` (shared code, own site).
+- One line a minute when installed: `blocker check 2d RO: mode M shadow S tail T calls C, with a job J: answered A (code 0
+  .., 1 .., 3 .., 4 .., 6 .., 7 ..; physics tails N, hit H; T ms, max U us), the game's call G ms (max V us); given back:
+  state, QL busy, lot, shape, polygon cache, tripwire, job end, may not, tail, option; shadow runs R mismatch X not
+  compared Y`.
+- Files: `native/ts3native/rtoro.cpp` (the section at its end), `blocker2dro-test.h` (selftest case `TestBlocker2dRO`),
+  `steerro-test.cpp` section B2, `ts3native.cpp` (three lines), `ts3addr-ea169.h` (rows `0x0074E261`, `0x0082E340`,
+  `0x011D90B0`, all unresolved: the EA 1.69 build logs SKIP), `ts3native.ini`, `tools/ini-sections.json`, `tools/ea-ini.ts`,
+  `tools/harness/native-switches.ts`, `docs/registry.md`, `docs/68-hook-conflict-map.md`, repro `ip-blocker2dro-storm`.
+
+### 24.4 Checks run (2026-11-20, no game), and what is not checked
+
+- **`steerro-test` section B2** (clang-cl build under Wine with §8.5's recipe, `SRT_ONLY=B2`, the Steam 1.67 code mapped
+  at its addresses): the game's `0x82E340` in the IC's form (its whole path: option tests and copy by the game's own
+  `0x81CB60` object, both transforms, `0x631E20`, `0x667400`, the collector, the footprints' own slots, the merge) against
+  `B2Run` on random worlds, segments, levels -1..2, option bits, option id lists, targets, ignore ids and, in a quarter of
+  the calls, non-zero byte arguments: **60,000 calls, 56,324 compared equal** (code 0: 46,858, 1: 133, 3: 535, 4: 541, 6:
+  422, 7: 7,835; 30,502 footprints gathered; 37,564 with a target; 14,675 reached the tail), 3,676 given back (lot not in
+  the table: the game's insert is not run on the fake table), **0 differ**; `out[1]` untouched, references balanced; 15
+  call edges, `ret 0x34` and the IC's result load match the image; the stub passes through off the owner thread and
+  with no job; one shadow run on the game's code, 0 mismatch. This is also the first offline comparison of `RtoBlock`
+  itself with the game's function (until now `steerro-test` checked `[RouteToObjRO]`'s three call edges only). The whole
+  `steerro-test` (400 cases) ends `steerro-test ok`.
+- Selftest case `TestBlocker2dRO` (the stub on fakes, no thread, no timer, its own preconditions): 42 hand-derived cases
+  x (Mode 1 with a job, shadow), incl. each byte argument against its option bit, the ignore ids with and without a
+  target, option `0x80000`'s parent, the merge, the physics tail with `Tail` 1 and 0, and the give-backs; then switches
+  off, another thread, no job, may not, QL busy, tripwire, job end, shadow skew. Built with clang-cl and run alone under
+  Wine together with `TestRouteToObjTail`: pass. `TestRouteToObjRO` does not run alone in that build (it stops silently,
+  the same on the base commit), so **the unchanged behaviour of `[RouteToObjRO]` after the two small changes of §24.2 is
+  read, not run: the MSVC CI selftest is the check.**
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `steerro-test.cpp`: 0 errors, no warning
+  in the new or changed lines. `node tools/selftest-all.ts --ci`: 200 PASS, 0 FAIL. No MSVC build here.
+- Not covered offline: the physics samples (no physics world in the test process: both sides return before the first
+  sample; `RtoTail` has its own selftest and runs in the game under `[RouteToObjRO] Tail=1`), the lot's Sim list
+  (`lot+0x2C0`, T(0, 4)), option `0x80000` against the game's component lookup (selftest fakes only), a deferred flush
+  and an invalid polygon cache (the test worlds have neither), the IC body above the call (read from the disassembly:
+  argument order and the start point's layout; a wrong reading would show as a shadow mismatch).
+- Not known: how many of the IC's job-time calls are given back (lot misses, `0x100000`), i.e. how much of the 413 ms
+  goes; and §7.1 applies: the frame's next real taker may inherit the wait.
+
+### 24.5 Next storm, on arm
+
+```
+[Blocker2dRO]
+Enabled=1
+Mode=0
+Shadow=1
+[HitchAttr]
+RouteLockMs=20
+RouteLockCallers=1
+```
+
+First pass as written (compare only): `shadow runs` > 0, `mismatch` 0. Second pass `Mode=1` (repro
+`ip-blocker2dro-storm`): `answered` against the give-back counts; lines with key `0062EF7A` and first caller `0082E696` /
+`0082E6C7` against s189's 5 / 413 ms; `the game's call` ms is what is left of this site's wait.

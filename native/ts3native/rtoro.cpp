@@ -805,7 +805,7 @@ static void InstallRouteToObjRO(const wchar_t* ini) {
 }
 
 // --- [Blocker2dRO] (docs/670 §24): IC_RouteManager_RoutingBlockerCheck2d's check answered read-only while a route job runs ---
-// The IC body 0x74E110 (cdecl: x0, z0, level, x1, z1, goal word, four option words, the Sim's id, an ignore id by address,
+// The IC body 0x74E110 (cdecl: x0, z0, level, x1, z1, goal word, four option words, the target's id, an ignore id by address,
 // an option word) looks the start's lot up (World_LotLookup on wm [0x11ECBC4]), takes the height, builds the options object
 // on its stack (0x81CB60) and calls RoutingWorld_BlockerCheck2d 0x82E340 at 0x74E261; it returns out[0], the code.
 // 0x82E340 (thiscall world; out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, option word; ret 0x34;
