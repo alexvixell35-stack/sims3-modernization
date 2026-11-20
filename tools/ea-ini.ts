@@ -49,6 +49,8 @@ export const KEY_ADDRS: Record<string, number[]> = {
     // docs/670 §11 (gvhits.cpp): the validator's hit loop has no EA 1.69 rows; the two keys stay 0 there, [GoalValidRO] itself is kept
     // docs/670 §21 (gvro.cpp): RouteObstructionAtPoint has no EA 1.69 row
     "ObstructAtRO.Enabled": [0x00655880],
+    // docs/670 §24 (landro.cpp): the closest-waypoint gather has no EA 1.69 row
+    "LandCheckRO.Enabled": [0x00654790],
     "GoalValidRO.Hits": [0x00759B26, 0x0075A950, 0x0075AAA1, 0x0075AAC4, 0x0075AF4C, 0x00AB88A0, 0x01010960],
     "GoalValidRO.HitsShadow": [0x00759B26, 0x0075A950, 0x0075AAA1, 0x0075AAC4, 0x0075AF4C, 0x00AB88A0, 0x01010960],
     "EaCrashFixes.BridgeHeightNaN": [0x00B745A0, 0x00C6133B, 0x00C61342, 0x00C6137B, 0x00C6A46B, 0x00C6A472, 0x00C6A4B3, 0x00C6A709, 0x00C6A710, 0x00C6A772],
@@ -111,7 +113,7 @@ const RG = ["RouteGate", "RouteAsync"];
 export const DEPENDS: Record<string, string[]> = {
     RouteGate: ["RouteAsync"], RouteAsync: ["RouteGate"], Discourage: RG, RouteSnap: RG, Watchpoint: ["RouteSnap"],
     SteerRO: RG, FpRebuildLock: RG, LotFrontDoorRO: RG, ObstructedRO: RG, ObstructAtRO: RG, AvoidRO: RG, RouteToObjRO: [...RG, "SlotEnabledRO"], PlacementRO: RG, PlaceTestRO: RG, EditPathRO: RG, ConnRoomsRO: RG,
-    GoalValidRO: RG, IdleCheckRO: RG, SlotEnabledRO: RG, Gate0RO: RG, ProbeP1b: RG, LocoWindow: RG, ProbeP10: RG,
+    GoalValidRO: RG, IdleCheckRO: RG, SlotEnabledRO: RG, LandCheckRO: RG, Gate0RO: RG, ProbeP1b: RG, LocoWindow: RG, ProbeP10: RG,
     UnseenProbe: ["RouteAsync"], UnseenThrottle: ["RouteAsync"], UnseenFallback: ["RouteAsync"], HitchAttr: ["RouteAsync"],
     CellMemoProbe: ["RouteJobPhases"], SaveFlush: ["SaveWrite"], Compaction: ["UserDiag", "SaveWrite"], MemDiag: ["UserDiag"], AutShadow: ["MonoThread", "RouteSnap"],
     WorldPrecompute: ["WaterJps"], WaypointSnap: ["RouteSnap"],

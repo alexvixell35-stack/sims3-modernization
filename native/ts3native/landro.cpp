@@ -83,11 +83,16 @@ static void* volatile g_lcWk;   // the area another thread gathers, else NULL
 static __declspec(thread) u8* t_lcArea;
 static LONG g_lcWaitSpins = 4000, g_lcWaitSleeps = 250;  // the worker's wait: pause loops, then 1 ms sleeps, then the cap
 static volatile LONG g_lcNoted, g_lcCapNoted;
+// the two published areas are pointer-sized words of a 32-bit process: exchanged as LONG, like the code pointers elsewhere
+static void* LcXchg(void* volatile* slot, void* v) {
+    return (void*)(uintptr_t)(DWORD)InterlockedExchange((volatile LONG*)slot, (LONG)(uintptr_t)v);
+}
+static void LcClearIf(void* volatile* slot, void* was) { InterlockedCompareExchange((volatile LONG*)slot, 0, (LONG)(uintptr_t)was); }
 
 // slotro.cpp SlEnd / LcOnDrop: the hold on the area is over, a waiting worker may gather it
 static void LcRelease() {
     if (!t_lcArea) return;
-    InterlockedCompareExchangePointer(&g_lcSim, NULL, t_lcArea);
+    LcClearIf(&g_lcSim, t_lcArea);
     t_lcArea = NULL;
 }
 // slotro.cpp SlDrop (QL already released)
@@ -142,10 +147,10 @@ static bool LcIndexDirty(const u8* area) {
 static int LcBegin(u8* area, bool dry) {
     if (LcIndexDirty(area)) return LC_FB_DIRTY;
     // Dekker with LcOther: each side publishes its area, then reads the other's
-    InterlockedExchangePointer(&g_lcSim, area);
+    LcXchg(&g_lcSim, area);
     int why = g_lcWk == (void*)area ? LC_FB_AREA : SlBegin(dry, SLK_LAND);
     if (why) {
-        InterlockedCompareExchangePointer(&g_lcSim, NULL, area);
+        LcClearIf(&g_lcSim, area);
         return why;
     }
     t_lcArea = area;
@@ -219,13 +224,13 @@ static void LcWkWait(const u8* area) {
 }
 static DWORD LcOther(u8* area, void* edx) {
     InterlockedIncrement(&ts3native_landcheckro.lcWkGathers);
-    void* const prev = InterlockedExchangePointer(&g_lcWk, area);
+    void* const prev = LcXchg(&g_lcWk, area);
     if (g_lcSim == (void*)area) LcWkWait(area);
     DWORD r = 0;
     __try {
         r = g_lcOrig(area, edx);
     } __finally {
-        InterlockedExchangePointer(&g_lcWk, prev);
+        LcXchg(&g_lcWk, prev);
     }
     return r;
 }
