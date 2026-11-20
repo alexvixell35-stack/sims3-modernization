@@ -73,6 +73,8 @@ struct WorldAltCounters {
     volatile LONG waPad;
     volatile LONGLONG waShGen[2];     // +0xB8 nodes generated in compared pairs: [0] plain, [1] with the bound
     volatile LONGLONG waShClosed[2];  // +0xC8 waypoints expanded in pairs where both found a path
+    volatile LONGLONG waShGenMode[2][2];  // +0xD8 waShGen by cost mode: [0] mode 1, [1] mode 3; each plain, bound
+    volatile LONG waByMode[2];    // +0xF8 search loops of cost mode 1, mode 3 (the rest of waLoops: modes 2, 4, other)
 };
 extern "C" __declspec(dllexport) WorldAltCounters ts3native_worldalt = {};
 
@@ -125,6 +127,7 @@ struct WaTh {
     bool bound;           // shadow: a loop of the running nested search took it
     bool found;           // the last search on this thread reached its goal (WaPathOut)
     int nested;           // 0 the game's own search, 1 shadow run without the bound, 2 with it
+    uintptr_t nestSp;     // a stack address inside the WaShadow call that set `nested` (its runs are deeper)
     int kind;             // tally of the running loop: 0 without the bound, 1 with it
     float delta;          // excess of the bound over the game's heuristic for the node about to be pushed
     float cost, h0;
@@ -319,6 +322,7 @@ static void WaShadow(WaTh& t, u8* ctr, const u8* R, const u8* G, const WORD* s, 
     memcpy(save, opts, sizeof(save));
     const Budget budget = t_budget;
     WaRes r[2] = {};
+    t.nestSp = (uintptr_t)save;
     for (int pass = 0; pass < 2; pass++) {
         memcpy(opts, save, sizeof(save));
         opts[0x28] = 0;  // circle radius^2 0.0: the run decides its own circle pass, as the game's outermost call does
@@ -339,6 +343,7 @@ static void WaShadow(WaTh& t, u8* ctr, const u8* R, const u8* G, const WORD* s, 
     if (!r[1].bound) { InterlockedIncrement(&c.waShNoBound); return; }
     InterlockedIncrement(&c.waShadow);
     InterlockedExchangeAdd64(&c.waShGen[0], r[0].gen), InterlockedExchangeAdd64(&c.waShGen[1], r[1].gen);
+    InterlockedExchangeAdd64(&c.waShGenMode[mi][0], r[0].gen), InterlockedExchangeAdd64(&c.waShGenMode[mi][1], r[1].gen);
     if (r[0].found != r[1].found) {
         InterlockedIncrement(&c.waShFound);
         WaMismatchLine("found", s, g, mi, save, r);
@@ -365,6 +370,10 @@ static float __cdecl WaBegin(WaCostFn fn, u8* ctr, const u8* R, const u8* G, con
     WaTh& t = t_wa;
     t.active = false, t.delta = 0;
     const LONG mode = c.waMode;
+    if (t.nested) {  // a shadow run that an unwind left open: this loop is not below it
+        const char here = 0;
+        if ((uintptr_t)&here >= t.nestSp) t.nested = 0;
+    }
     if (t.nested) {  // a shadow run's loop
         if (t.h0 == 0) t.h0 = h0;
         if (t.nested == 2 && WaPrepare(t, WaModeOf((const void*)fn), ctr, R, G, s, g, opts) == WAS_OK) t.active = t.bound = true;
@@ -373,8 +382,9 @@ static float __cdecl WaBegin(WaCostFn fn, u8* ctr, const u8* R, const u8* G, con
     WaFlush(t);
     t.kind = 0, t.found = false;
     InterlockedIncrement(&c.waLoops);
-    if (mode != 1 && mode != 2) return h0;
     const int mi = WaModeOf((const void*)fn);
+    if (mi >= 0) InterlockedIncrement(&c.waByMode[mi]);
+    if (mode != 1 && mode != 2) return h0;
     const int why = WaPrepare(t, mi, ctr, R, G, s, g, opts);
     if (why != WAS_OK) {
         InterlockedIncrement(&c.waSkip[why - 1]);
@@ -566,16 +576,18 @@ static void InstallWorldAlt(const wchar_t* ini) {
 static void WaLogCounters() {
     const WorldAltCounters& c = ts3native_worldalt;
     if (!c.waReady) return;
-    Log("world alt: mode %ld ready 0x%lX: search loops %ld, with the bound %ld (not: cost mode %ld, water start or goal %ld, flags %ld, water lot %ld, "
+    Log("world alt: mode %ld ready 0x%lX: search loops %ld (cost mode 1 %ld, mode 3 %ld), with the bound %ld (not: cost mode %ld, water start or goal %ld, flags %ld, water lot %ld, "
         "scope %ld, world %ld, busy %ld, no table yet %ld); found a path %ld plain / %ld bound; nodes generated %lld plain / %lld bound (bound above the "
         "game's heuristic %lld); waypoints expanded %lld plain / %lld bound; graphs %ld, landmarks %ld, dropped %ld, build %ld ms, checks %ld ms, %ld KB",
-        c.waMode, c.waReady, c.waLoops, c.waBound, c.waSkip[0], c.waSkip[1], c.waSkip[2], c.waSkip[3], c.waSkip[4], c.waSkip[5], c.waSkip[6], c.waSkip[7],
+        c.waMode, c.waReady, c.waLoops, c.waByMode[0], c.waByMode[1], c.waBound, c.waSkip[0], c.waSkip[1], c.waSkip[2], c.waSkip[3], c.waSkip[4], c.waSkip[5], c.waSkip[6], c.waSkip[7],
         c.waFound[0], c.waFound[1], (long long)c.waGen[0], (long long)c.waGen[1], (long long)c.waRaised, (long long)c.waClosed[0], (long long)c.waClosed[1],
         c.waGraphs, c.waTrees, c.waDrops, (LONG)(c.waBuildUs / 1000), (LONG)(c.waCheckUs / 1000), c.waMemKb);
     if (!c.waShadow && !c.waShCapped && !c.waShNoBound) return;
     Log("world alt shadow: searches compared %ld: same cost and nodes %ld, same cost other nodes %ld, cost within 1e-5 %ld, bound dearer %ld, bound "
         "cheaper %ld (of both: plain cost below the game's own first heuristic %ld), neither found %ld, one found %ld; not compared: budget cut %ld, no "
-        "bound %ld; nodes generated %lld plain / %lld bound; waypoints expanded (both found) %lld plain / %lld bound",
+        "bound %ld; nodes generated %lld plain / %lld bound (cost mode 1: %lld / %lld, mode 3: %lld / %lld); waypoints expanded (both found) %lld plain / "
+        "%lld bound",
         c.waShadow, c.waShSame, c.waShTie, c.waShRound, c.waShDearer, c.waShCheaper, c.waShGameOver, c.waShNone, c.waShFound, c.waShCapped, c.waShNoBound,
-        (long long)c.waShGen[0], (long long)c.waShGen[1], (long long)c.waShClosed[0], (long long)c.waShClosed[1]);
+        (long long)c.waShGen[0], (long long)c.waShGen[1], (long long)c.waShGenMode[0][0], (long long)c.waShGenMode[0][1], (long long)c.waShGenMode[1][0],
+        (long long)c.waShGenMode[1][1], (long long)c.waShClosed[0], (long long)c.waShClosed[1]);
 }

@@ -756,6 +756,16 @@ static void TestWaShadow() {
     g_watS.mode = 1, g_watS.flags = 0x80, g_watS.startHub = g_watS.goalHub = -1;
     memset(g_watOpts, 0, sizeof(g_watOpts));
     g_watOpts[0] = 0x80;
+    // a shadow run left open by an unwind (nested set, but this loop is not below that call): the next loop is the game's own
+    {
+        const WORD s[2] = {(WORD)g_watWp[pa].c, (WORD)g_watWp[pa].i}, g[2] = {(WORD)g_watWp[pb].c, (WORD)g_watWp[pb].i};
+        const LONG loops = c.waLoops, sh = c.waShadow;
+        t_wa.nested = 2, t_wa.nestSp = 0;
+        g_watPoolN = g_watHeapN = 0;
+        WaBegin(WatCost1, g_watCtr, g_watR, g_watG, s, g, 0, 0, g_watOpts, NULL);
+        assert(!t_wa.nested && !t_wa.active && c.waLoops == loops + 1 && c.waShadow == sh + 1);
+        pairs = c.waShadow;
+    }
     // a budget cut inside the pair: not compared, the budget as before
     g_watS.capNested = true;
     WatRun(pa, pb);
