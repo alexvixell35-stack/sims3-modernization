@@ -54,6 +54,7 @@
  "PlaceTestRO": ["placero.cpp"],
  "FglProf": ["fglprof.cpp"],
  "FglFacing": ["fglprof.cpp"],
+ "FglMemo": ["fglprof.cpp"],
  "EditPathRO": ["epro.cpp"],
  "FootstepRO": ["fsro.cpp"],
  "GoalValidRO": ["gvro.cpp"],

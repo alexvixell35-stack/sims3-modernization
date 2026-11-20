@@ -330,3 +330,98 @@ Pass 1 (compare only): `[FglFacing] Enabled=1 Mode=1 Shadow=1` with `[FglProf] E
 count means the premise does not hold in this build and the switch does nothing. Pass 2: `Shadow=0`: `facing tests answered`
 > 0, failed whole-lot Sim searches with about a third fewer tests and about half the ms, same ok / FAILED counts.
 
+## 11. s154 / s155: why v1 never fired, the jig searches, `[FglFacing]` v2 and `[FglMemo]` (built, NOT RUN)
+
+### 11.1 v1's guard
+
+s154 (Shadow) and s155: `tiles proven 0 ... not the centred octagon 0, step / flag / site 5692`. The octagon test passed on
+all 5692 candidate tiles (so the first facing's polygon is the regular octagon about the position) and one of the three
+later guards refused each time. The step is a constant of the image (0.7853981) and the site is an `E8`, so it is the
+flag: **`[0x11ED034]` is not 0 in the running game** [inferred from the counter; v2 logs both values at install and when
+they change]. With the flag set `0xB0B810` passes the object's data to `0xB0B470`, which may add a pivot offset
+`0xB070B0(object, data)` for facings other than the object's own. v2 no longer needs to know.
+
+### 11.2 `[FglFacing]` v2
+
+Per search, every facing test teaches `learn[facing index][part ordinal]` = the distance from the candidate position to
+the nearest edge of that part's polygon (0 when the position is not strictly inside a convex polygon), read from the
+record after each `0xB463F0`. Polygon minus position depends on object, data and facing only (`0xB0B470`: rotation, (x, z),
+offset), not on the tile, so a value learned on one tile holds on the next; a facing / part seen with two different values
+is never trusted again in that search. When a facing fails at `0xB41120` on part j: `r` = the smallest learned value for
+part j minus 1 mm (at least 2 cm), the record's polygon pointers are set to a regular octagon of circumradius `r` about
+the position, the function `0xB462B7` calls now is called once, the pointers are put back. Blocked = a blocker overlaps
+a region inside part j's polygon of every learned facing; each of them fails at part j at the latest. On that tile a
+facing whose learned value covers `r` is answered 0; one not learned yet runs. So the first failing tile of a search
+runs all its facings (learning), later tiles cost 1 test + 1 small check + the own-facing test. It covers Sims
+(octagon: disc 0.231) and footprint-part objects (the jig) alike, with no symmetry argument: a rectangle's 180-degree
+symmetry alone would save nothing, since the proof call costs what the saved footprint check costs. What it does not
+catch: a blocker that only reaches the part outside the inner disc (`blocker outside the inner disc`), parts the position
+is outside of (`no disc`), failures at another check.
+
+Still inferred: `0xB41120` monotone in the polygon; a skipped `0xB47040` leaves nothing later code reads. Shadow=1 checks
+the first on every proven tile (`passed`, `part without the disc`).
+
+### 11.3 The jig searches [s154 log + ilspycmd]
+
+`JamWithInstrument.RunFromInventory` -> `PlayBandInstrument.FindPlaceToPlay` -> `Guitar.RouteBeforePlaying` ->
+`BandInstrument.MoveJigToGoodSpot(sim, jig, ...)`: unless the instrument plays where it stands, on a real lot it calls
+`GlobalFunctions.FindGoodLocationNearby(jig, ref pos, ref forward)` (on the world lot one `FindGoodLocation` with
+StayInRoom from the Sim's position). On failure it tries one `FindGoodLocation` from the lot's mailbox, then returns false
+and `RouteBeforePlaying` returns false: the interaction ends, there is no retry loop in it (autonomy may pick it again).
+
+`FindGoodLocationNearby` (strategies All, bools `PreferEmptyTiles | Routable` = 0x14, radius unbounded): up to 17
+`World.TestObjectPlacement` probes at the position (8 turns each way, plus snapped ones), then native searches in this
+order, each from the same start unless noted: (1) same room (`StayInRoom`), (2) one per adjoining room (start = each
+door, `RequiredRoomID`), (3) **indoors** (`PlacementCheckFunc = IsInside`), (4) **outdoors** (`IsOutside`), (5) same lot (no
+check). A search that finds nothing walks the whole lot. The managed check runs only on a spot whose native test passed,
+and its "no" sends the search on: that is `tests 25380 (pass 196)` with `FAILED`: the Sim stood outdoors, the indoors
+search (3) tested 3344 tiles, 196 facing tests passed, `IsInside` rejected each (654 ms); search (4) then found a spot
+after re-testing 514 of the same tiles (271 ms, `repeat of a search 272 ms ago`). Same again for the second jig (675 +
+273 ms). Searches (3), (4), (5) have the same object, lot, constraints and room: their native tests are the same tests.
+
+A smaller jig would not have helped the 654 ms search: its spots were found (196 passes) and refused by the indoors rule,
+not by space. It may shorten search (4) (514 tiles before the first pass). OhRudi's packs here hold no guitar / bass jig.
+
+### 11.4 `[FglMemo]` (default off; not exact)
+
+A failed facing test is kept by (position words, angle bits). The memo carries into the next search only if it has the
+same object id, lot, FindGoodLocationBooleans, RequiredRoomID and ignore list, starts within `GapMs` (20) of the previous
+search's end and `MaxMs` (3000) of the first one's start, and `g_snWriteSeq` (routing tree writes, `[RouteSnap]`) did not
+move; else it starts empty. A held facing test is answered 0 without the call; passes are never kept, so the managed check
+still sees every passing spot. For the jig: search (4) skips the failed tests of (3) and only re-tests what passed.
+
+Why it is not exact: the tests also read objects on tiles, the physics world and the object's own state, and nothing
+proves the managed caller changed none of them in the gap (in `FindGoodLocationNearby` it does not: door queries only).
+So it answers only with `[Experimental] HouseholdToo=1` (the Sim behind a search is of unknown scope); without it, and
+with `Shadow=1`, it only compares: a held test that passes is `fgl memo: SHADOW MISMATCH`. What can differ when it is
+wrong: a spot the game would accept in the later search is skipped, and the search takes a later tile or fails.
+A strictly exact memo is not provable with the data we track.
+
+### 11.5 Checks (no game) and next storm
+
+`TestFglProfCore` (host + selftest: inradius, octagon, facing index, learning, memo table), `TestFglFacing` (clang-cl,
+under Wine, on fakes: learn / prove / answer per facing, non-facing angle, blocker outside the disc, pass, other object,
+Shadow, no disc; memo store / hit / carry / other key / gap / Shadow), clang-cl `/Zs /W4` 0 errors, `selftest-all --ci`.
+
+Pass 1 (compare only):
+
+```
+[FglProf]
+Enabled=1
+LogMs=50
+Frames=16
+[FglFacing]
+Enabled=1
+Mode=1
+Shadow=1
+[FglMemo]
+Enabled=1
+Mode=1
+Shadow=1
+```
+
+Read `OK   fgl facing: ... [0x11ED034] = ...`; `fgl facing:` with `tiles proven` > 0, `passed 0`, `part without the disc 0`;
+`fgl memo:` with `tests run that the memo held` > 0, `passed 0`. Pass 2: `[FglFacing] Shadow=0` (and `[FglMemo] Shadow=0`
+with `[Experimental] HouseholdToo=1` if the memo is to answer): fewer tests and ms on the failed whole-lot searches, the
+jig's second search near 0 ms, same ok / FAILED counts.
+

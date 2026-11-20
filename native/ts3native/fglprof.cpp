@@ -57,15 +57,31 @@ static struct {
     const u8* testRec;     // record of the placement test in progress
     long testOct, testFp;  // part counts when it began
     bool shadowTest;       // Shadow: this facing test runs on a proven tile
+    bool memoTest;         // [FglMemo] Shadow: the memo holds this facing test as failed
+    bool inFacing;         // a facing test (0xB47040) is in progress
+    int testIdx, testPart; // its facing index (angle / 45 degrees) and the parts tested so far
     FglProof proof;
-    float proofPoly[16];   // the first facing's polygon of the proven tile
+    FglLearn learn;        // this search: the disc about the position inside each part's polygon, per facing
+    unsigned ignoreHash;
 } g_fgl;
 
 // [FglFacing]: mode 0 off / 1 skip, shadow 0 / 1 (run every facing and compare)
 static struct {
     LONG mode, shadow, ready;
-    LONG proven, skipped, rimOnly, notOctagon, badStep, shadowTests, shadowMismatch, shadowShape, noted;
+    LONG proven, skipped, rimOnly, noDisc, badStep, badSite, unlearned, shadowTests, shadowMismatch, shadowShape, noted;
+    DWORD stepBits, flag;   // [0x11835D4], [0x11ED034] as last logged
 } g_fglf;
+
+// [FglMemo] (docs/671 §11): failed placement tests of the last search, for the next search of the same caller run
+static struct {
+    LONG mode, shadow, ready, gapMs, maxMs;
+    LONG stored, hits, carried, dropSeq, dropGap, dropKey, shadowTests, shadowMismatch, noted;
+    FglMemo m;
+    FglMemoCtx ctx;
+    bool live;
+    DWORD first, lastEnd;
+    LONG seq;
+} g_fglm;
 
 static struct {
     LONG logMs, linesPerMin, frames, ready, sites, prof;
@@ -116,6 +132,9 @@ static void FglSearchBegin(const u8* rec) {
     g_fgl.proof.on = false;
     g_fgl.testRec = NULL;
     g_fgl.shadowTest = false;
+    g_fgl.memoTest = false;
+    g_fgl.inFacing = false;
+    FglLearnReset(&g_fgl.learn);
     FglKey key = {};
     const u8* obj = *(const u8* const*)rec;   // the game's object, 0 = none (0xB470C0 then tests no placement)
     if (obj) { key.idLo = *(const DWORD*)(obj + 8); key.idHi = *(const DWORD*)(obj + 0xC); }  // docs/670 §2: the id words
@@ -126,10 +145,35 @@ static void FglSearchBegin(const u8* rec) {
     key.room = *(const DWORD*)(rec + 0x20);
     key.radius = *(const DWORD*)(rec + 0x54);
     g_fgl.key = key;
+    if (!g_fglm.ready) return;
+    // the memo carries over only into a search of the same object, lot, constraints, room and ignore list that starts within
+    // GapMs of the last search's end (the same managed caller going on to its next try), with no routing write in between
+    // and no more than MaxMs after the memo's first search began
+    FglMemoCtx c = {};
+    c.idLo = key.idLo; c.idHi = key.idHi; c.lot = key.lot; c.bools = key.bools; c.room = key.room;
+    const DWORD* ids = *(const DWORD* const*)(rec + 0x4C);
+    const LONG nIds = *(const LONG*)(rec + 0x50);
+    c.ignore = (unsigned)nIds;
+    if (ids && nIds > 0 && nIds < 4096) for (LONG i = 0; i < nIds * 2; i++) c.ignore = c.ignore * 16777619u ^ ids[i];
+    const DWORD now = GetTickCount();
+    const LONG seq = g_snWriteSeq;
+    bool keep = g_fglm.live;
+    if (keep && !FglMemoCtxEq(g_fglm.ctx, c)) { keep = false; g_fglm.dropKey++; }
+    if (keep && seq != g_fglm.seq) { keep = false; g_fglm.dropSeq++; }
+    if (keep && (now - g_fglm.lastEnd > (DWORD)g_fglm.gapMs || now - g_fglm.first > (DWORD)g_fglm.maxMs)) { keep = false; g_fglm.dropGap++; }
+    if (keep) g_fglm.carried++;
+    else {
+        FglMemoReset(&g_fglm.m);
+        g_fglm.ctx = c;
+        g_fglm.seq = seq;
+        g_fglm.first = now;
+        g_fglm.live = true;
+    }
 }
 
 static void FglSearchEnd(bool ok, LONG us) {
     const FglTally& t = g_fgl.t;
+    g_fglm.lastEnd = GetTickCount();
     g_fglk.searches++;
     if (!ok) g_fglk.failed++;
     g_fglk.us += us;
@@ -154,47 +198,72 @@ static void FglSearchEnd(bool ok, LONG us) {
     g_fglk.dropped = 0;
 }
 
-// ---- [FglFacing] (docs/671 §10) -------------------------------------------------------------------------------------
-// A Sim without a footprint of its own is tested with a fixed regular 8-point polygon of radius 0.25 (0xB469C0), turned by
-// the candidate facing (index x [0x11835D4] = 45 degrees) about the candidate position. Every facing's polygon is the same
-// octagon up to float rounding. When the first facing of a tile fails at the routing footprint check 0xB41120, the check
-// runs once more on that polygon drawn in by FGL_SHRINK (1 mm). Blocked again = a blocking footprint overlaps a region
-// that lies inside every facing's polygon, so 0xB41120 answers 0 for each of them and each of those tests fails (a test is
-// the AND of its checks). The tile's other facing tests are then answered 0 without the call. Not skipped: the own-facing
-// test 0xB47070 (any angle), footprint-part objects, tiles that fail at another check first.
-// The polygon is 0xB0FD20(octagon, 0xB0B470(object, data, angle, x, z)): rotation by the angle plus (x, z), and a pivot
-// offset that depends on the facing only when data != 0. 0xB0B810 passes data = 0 while [0x11ED034] is 0; with the flag set
-// nothing is proven. The proof also wants the first facing's polygon to be the regular octagon about (x, z) itself.
+// ---- [FglFacing] (docs/671 §10, v2 §11) --------------------------------------------------------------------------------
+// One placement test = the AND of its checks over the object's footprint parts; 0xB41120 (the routing footprint check)
+// answers 0 when a blocking footprint of the lot level overlaps the part's polygon. Every facing test teaches, per facing
+// index and part ordinal, the radius of the largest disc about the candidate position that lies inside that part's polygon
+// (polygon minus position does not depend on the tile: 0xB0B470 is rotation by the angle + (x, z) + an offset of object,
+// data and facing only). When a facing fails at 0xB41120 on part j, the check runs once more on a small regular octagon
+// about the position, inside the smallest disc learned for part j. Blocked again = a blocker overlaps a region that lies
+// inside part j's polygon for every learned facing, so each of those facings fails too (at part j at the latest), and its
+// test is answered 0 without the call. A facing not learned yet in this search runs (and is learned). Not answered: the
+// own-facing test 0xB47070, tiles that fail at another check first, parts the position is not inside of.
 typedef DWORD(__cdecl* FglCheckFn)(u8* rec, DWORD verbose);
 static const DWORD FGL_FOOT_SITE = TS3A(0x00B462B7), FGL_FACING_STEP = TS3A(0x011835D4), FGL_PIVOT_FLAG = TS3A(0x011ED034);
 static FglCheckFn g_fglFootTest;   // selftest: the fake footprint check; NULL = whatever 0xB462B7 calls now
+static float g_fglStepTest;        // selftest: the facing step; 0 = [0x11835D4]
+static bool g_fglMemoHhTest;       // selftest: [FglMemo] answers without [Experimental] HouseholdToo
 
-// rec's polygon (rec+0xA0 begin, +0xA4 end, 8 bytes a point) and the candidate position (rec+8 x, rec+0xC z)
-static bool FglProve(u8* rec) {
-    float* b = *(float**)(rec + 0xA0);
-    float* e = *(float**)(rec + 0xA4);
-    if (!b || (u8*)e - (u8*)b != 8 * 8) { g_fglf.notOctagon++; return false; }
+static float FglStep() {
+    if (g_fglStepTest > 0) return g_fglStepTest;
+    float step = 0;
+    memcpy(&step, (const void*)(uintptr_t)FGL_FACING_STEP, sizeof(step));
+    return step;
+}
+
+// the part polygon of rec (rec+0xA0 begin, +0xA4 end, 8 bytes a point): its disc about the position rec+8 / rec+0xC
+static float FglPartDisc(const u8* rec) {
+    const float* b = *(const float* const*)(rec + 0xA0);
+    const float* e = *(const float* const*)(rec + 0xA4);
+    const int n = b && e > b ? (int)(((const u8*)e - (const u8*)b) / 8) : 0;
+    if (n < 3 || n > 64) return 0;
     float pos[2] = {0, 0};
     memcpy(pos, rec + 8, sizeof(pos));
-    float in[16], keep[16];
-    memcpy(keep, b, sizeof(keep));
-    if (!FglOctagonShrink(keep, pos, FGL_SHRINK, in)) { g_fglf.notOctagon++; return false; }
+    return FglInradius(b, n, pos);
+}
+
+static bool FglProve(u8* rec, int part, float* radius) {
+    const float r = FglLearnMin(g_fgl.learn, part) - FGL_MARGIN;
+    if (!(r >= FGL_MIN_DISC)) { g_fglf.noDisc++; return false; }
     FglCheckFn fn = g_fglFootTest;
     if (!fn) {
-        float step = 0;
-        memcpy(&step, (const void*)(uintptr_t)FGL_FACING_STEP, sizeof(step));
-        if (!(step > 0.785397f && step < 0.785399f)) { g_fglf.badStep++; return false; }   // facings are not 45 degrees apart
-        if (*(const DWORD*)(uintptr_t)FGL_PIVOT_FLAG) { g_fglf.badStep++; return false; }   // a facing may get a pivot offset
         const u8* site = (const u8*)(uintptr_t)FGL_FOOT_SITE;   // the game's 0xB41120 or [PlaceTestRO]'s stub
-        if (site[0] != 0xE8) { g_fglf.badStep++; return false; }
+        if (site[0] != 0xE8) { g_fglf.badSite++; return false; }
         fn = (FglCheckFn)(uintptr_t)(FGL_FOOT_SITE + 5 + *(const LONG*)(site + 1));
     }
-    memcpy(b, in, sizeof(in));
-    const DWORD r = fn(rec, 0);
-    memcpy(b, keep, sizeof(keep));
-    if ((u8)r) { g_fglf.rimOnly++; return false; }   // only the outer 1 mm is blocked: not proven for the other facings
-    memcpy(g_fgl.proofPoly, keep, sizeof(keep));
+    static float oct[16];   // owner thread only
+    float pos[2] = {0, 0};
+    memcpy(pos, rec + 8, sizeof(pos));
+    FglDiscOctagon(pos, r, oct);
+    float* const keepB = *(float**)(rec + 0xA0);
+    float* const keepE = *(float**)(rec + 0xA4);
+    *(float**)(rec + 0xA0) = oct;
+    *(float**)(rec + 0xA4) = oct + 16;
+    const DWORD a = fn(rec, 0);
+    *(float**)(rec + 0xA0) = keepB;
+    *(float**)(rec + 0xA4) = keepE;
+    if ((u8)a) { g_fglf.rimOnly++; return false; }   // the blocker does not reach the inner disc: not proven
+    *radius = r;
     return true;
+}
+
+static void FglMemoNote(const u8* rec) {
+    if (InterlockedIncrement(&g_fglm.noted) > 16) return;
+    float pos[2] = {0, 0}, ang = 0;
+    memcpy(pos, rec + 8, sizeof(pos));
+    memcpy(&ang, rec + 0x14, sizeof(ang));
+    Log("fgl memo: SHADOW MISMATCH at %.2f %.2f level word %08lX angle %.4f: failed in the search before, passes now", pos[0], pos[1],
+        *(const DWORD*)(rec + 0x10), ang);
 }
 
 static void FglFacingNote(const u8* rec, int check) {
@@ -203,7 +272,7 @@ static void FglFacingNote(const u8* rec, int check) {
     memcpy(pos, rec + 8, sizeof(pos));
     memcpy(&ang, rec + 0x14, sizeof(ang));
     Log("fgl facing: SHADOW MISMATCH at %.2f %.2f level word %08lX angle %.4f: the first facing failed at the footprint check with the "
-        "polygon drawn in, this facing passed (first failing check of the tile's other tests: %d)", pos[0], pos[1], *(const DWORD*)(rec + 0x10),
+        "small octagon inside every learned facing's part, this facing passed (its first failing check: %d)", pos[0], pos[1], *(const DWORD*)(rec + 0x10),
         ang, check);
 }
 
@@ -244,15 +313,31 @@ static void __cdecl FglEnter(int site, DWORD* slot, DWORD* go) {
             g_fgl.testOct = g_fgl.t.octTests;
             g_fgl.testFp = g_fgl.t.fpTests;
             g_fgl.shadowTest = false;
+            g_fgl.memoTest = false;
+            g_fgl.inFacing = site == FGL_S_FACING && rec != NULL;
+            g_fgl.testPart = 0;
             if (rec && !FglProofSame(g_fgl.proof, rec, *(const DWORD*)rec, key)) g_fgl.proof.on = false;
-            if (site == FGL_S_FACING && g_fgl.proof.on) {
-                if (g_fglf.mode && !g_fglf.shadow) {
-                    // the proven tile's next facing: answered 0, the game's test does not run (no frame, no return swap)
-                    g_fglf.skipped++;
+            if (g_fgl.inFacing && (g_fglf.ready || g_fglm.ready)) {
+                float ang = 0;
+                memcpy(&ang, rec + 0x14, sizeof(ang));
+                g_fgl.testIdx = g_fglf.ready ? FglFacingIdx(ang, FglStep()) : -1;
+                bool answer = false;
+                if (g_fgl.proof.on && g_fgl.testIdx >= 0) {
+                    if (!FglLearnCovers(g_fgl.learn, g_fgl.testIdx, g_fgl.proof.part, g_fgl.proof.radius)) g_fglf.unlearned++;
+                    else if (g_fglf.mode && !g_fglf.shadow) { answer = true; g_fglf.skipped++; }
+                    else g_fgl.shadowTest = true;
+                }
+                if (!answer && g_fglm.ready && g_fglm.live && FglMemoHas(g_fglm.m, key, FglBits(ang))) {
+                    // not provably the game's answer (§11.3): the search's Sim is of unknown scope, so it counts as household
+                    if (g_fglm.mode && !g_fglm.shadow && (g_fglMemoHhTest || !HhExempt(true))) { answer = true; g_fglm.hits++; }
+                    else g_fgl.memoTest = true;
+                }
+                if (answer) {
+                    // answered 0: the game's test does not run (no frame, no return swap)
+                    g_fgl.inFacing = false;
                     if (go) *go = (DWORD)(uintptr_t)FglRet0;
                     return;
                 }
-                g_fgl.shadowTest = true;
             }
         }
     }
@@ -290,22 +375,37 @@ static void __cdecl FglLeave(DWORD result, DWORD* out) {
         g_fgl.testUs += us;
         FglTestEnd(&g_fgl.t, facing, g_fgl.firstFacing, yes, yes ? -1 : g_fgl.failCheck < 0 ? FGC_OTHER : g_fgl.failCheck, us);
         if (facing) g_fgl.facingOnTile++;
-        if (!facing || !g_fglf.ready || !g_fgl.testRec) break;
+        if (!facing || !g_fgl.testRec) break;
+        g_fgl.inFacing = false;
+        if (g_fglm.ready) {
+            if (g_fgl.memoTest) {
+                g_fglm.shadowTests++;
+                if (yes) { g_fglm.shadowMismatch++; FglMemoNote(g_fgl.testRec); }
+            } else if (!yes && g_fglm.live) {
+                unsigned key[3] = {0, 0, 0};
+                DWORD ang = 0;
+                memcpy(key, g_fgl.testRec + 8, sizeof(key));
+                memcpy(&ang, g_fgl.testRec + 0x14, sizeof(ang));
+                if (FglMemoPut(&g_fglm.m, key, ang)) g_fglm.stored++;
+            }
+        }
+        if (!g_fglf.ready) break;
         if (g_fgl.shadowTest) {
             g_fglf.shadowTests++;
             if (yes) { g_fglf.shadowMismatch++; FglFacingNote(g_fgl.testRec, g_fgl.failCheck); }
-            // the premise: this facing's polygon is the proven tile's octagon again (same points, another start)
-            const float* b = *(const float* const*)(g_fgl.testRec + 0xA0);
-            const float* e = *(const float* const*)(g_fgl.testRec + 0xA4);
-            if (!b || (const u8*)e - (const u8*)b != 8 * 8 || !FglSamePoints(b, g_fgl.proofPoly, 0.0005f)) g_fglf.shadowShape++;
-        } else if (g_fgl.firstFacing && !yes && g_fgl.failCheck == FGC_B41120 && g_fgl.t.octTests == g_fgl.testOct + 1 &&
-                   g_fgl.t.fpTests == g_fgl.testFp && (g_fglf.mode || g_fglf.shadow)) {
-            // the Sim octagon alone was tested and the footprint check rejected it
+            // the premise: this facing's part holds the disc the proof used (learned again just now)
+            if (!FglLearnCovers(g_fgl.learn, g_fgl.testIdx, g_fgl.proof.part, g_fgl.proof.radius)) g_fglf.shadowShape++;
+        } else if (!yes && g_fgl.failCheck == FGC_B41120 && g_fgl.testPart > 0 && g_fgl.testIdx >= 0 && !g_fgl.proof.on &&
+                   (g_fglf.mode || g_fglf.shadow)) {
+            // the footprint check rejected the last part tested
             u8* rec = (u8*)(uintptr_t)g_fgl.testRec;
-            if (FglProve(rec)) {
+            float radius = 0;
+            if (FglProve(rec, g_fgl.testPart - 1, &radius)) {
                 unsigned key[3] = {0, 0, 0};
                 memcpy(key, rec + 8, sizeof(key));
                 FglProofSet(&g_fgl.proof, rec, *(const DWORD*)rec, key);
+                g_fgl.proof.part = g_fgl.testPart - 1;
+                g_fgl.proof.radius = radius;
                 g_fglf.proven++;
             }
         }
@@ -314,6 +414,11 @@ static void __cdecl FglLeave(DWORD result, DWORD* out) {
     case FGL_S_PART_LOOP: case FGL_S_PART_OCT:
         g_fgl.partUs += us;
         if (f.site == FGL_S_PART_OCT) g_fgl.t.octTests++; else g_fgl.t.fpTests++;
+        if (g_fgl.inFacing && g_fgl.testRec && g_fglf.ready) {
+            // the record still holds this part's polygon (the next part, or the next test, rebuilds it)
+            if (g_fgl.testIdx >= 0) FglLearnPut(&g_fgl.learn, g_fgl.testIdx, g_fgl.testPart, FglPartDisc(g_fgl.testRec));
+            g_fgl.testPart++;
+        }
         if (!yes && g_fgl.failCheck < 0) g_fgl.failCheck = FGC_PRE;
         break;
     case FGL_S_CORE:
@@ -354,7 +459,8 @@ static void (*const kFglStubs[FGL_SITES])() = {FglStub0, FglStub1, FglStub2, Fgl
 static void InstallFglProf(const wchar_t* ini) {
     const bool prof = GetPrivateProfileIntW(L"FglProf", L"Enabled", 0, ini) != 0;
     const bool facing = GetPrivateProfileIntW(L"FglFacing", L"Enabled", 0, ini) != 0;
-    if (!prof && !facing) { Log("fgl prof off, fgl facing off (Enabled=0)"); return; }
+    const bool memo = GetPrivateProfileIntW(L"FglMemo", L"Enabled", 0, ini) != 0;
+    if (!prof && !facing && !memo) { Log("fgl prof off, fgl facing off, fgl memo off (Enabled=0)"); return; }
 #ifdef TS3A_TABLE
     if (ts3a_noaddr) { Log("SKIP fgl prof: no EA 1.69 address, docs/671"); return; }
 #endif
@@ -383,23 +489,54 @@ static void InstallFglProf(const wchar_t* ini) {
         Log("OK   fgl prof: %d call sites, Sites=0x%04lX (LogMs=%ld LinesPerMin=%ld Frames=%ld)", n, g_fglk.sites, g_fglk.logMs,
             g_fglk.linesPerMin, g_fglk.frames);
     } else g_fglk.logMs = 0x7FFFFFFF;   // no per-search line, no timers
-    if (!facing) { Log("fgl facing off (Enabled=0)"); return; }
-    if ((g_fglk.sites & kNeed) != kNeed) { Log("SKIP fgl facing: [FglProf] Sites=0x%04lX leaves out a site it reads (needs 0x%04lX)", g_fglk.sites, kNeed); return; }
-    g_fglf.mode = Clamp(GetPrivateProfileIntW(L"FglFacing", L"Mode", 1, ini), 0, 1);
-    g_fglf.shadow = Clamp(GetPrivateProfileIntW(L"FglFacing", L"Shadow", 0, ini), 0, 1);
-    g_fglf.ready = 1;
-    Log("OK   fgl facing: Mode=%ld Shadow=%ld (%d call sites%s)", g_fglf.mode, g_fglf.shadow, n, prof ? ", with the profile" : "");
+    const bool sitesOk = (g_fglk.sites & kNeed) == kNeed;
+    if ((facing || memo) && !sitesOk) Log("SKIP fgl facing / memo: [FglProf] Sites=0x%04lX leaves out a site they read (needs 0x%04lX)", g_fglk.sites, kNeed);
+    if (facing && sitesOk) {
+        g_fglf.mode = Clamp(GetPrivateProfileIntW(L"FglFacing", L"Mode", 1, ini), 0, 1);
+        g_fglf.shadow = Clamp(GetPrivateProfileIntW(L"FglFacing", L"Shadow", 0, ini), 0, 1);
+        g_fglf.ready = 1;
+        float step = 0;
+        memcpy(&step, (const void*)(uintptr_t)FGL_FACING_STEP, sizeof(step));
+        memcpy(&g_fglf.stepBits, &step, sizeof(step));
+        g_fglf.flag = *(const DWORD*)(uintptr_t)FGL_PIVOT_FLAG;
+        Log("OK   fgl facing: Mode=%ld Shadow=%ld (%d call sites%s); facing step [0x11835D4] = %.7f (%08lX), [0x11ED034] = %08lX", g_fglf.mode,
+            g_fglf.shadow, n, prof ? ", with the profile" : "", step, g_fglf.stepBits, g_fglf.flag);
+    } else if (!facing) Log("fgl facing off (Enabled=0)");
+    if (memo && sitesOk) {
+        g_fglm.mode = Clamp(GetPrivateProfileIntW(L"FglMemo", L"Mode", 1, ini), 0, 1);
+        g_fglm.shadow = Clamp(GetPrivateProfileIntW(L"FglMemo", L"Shadow", 0, ini), 0, 1);
+        g_fglm.gapMs = Clamp(GetPrivateProfileIntW(L"FglMemo", L"GapMs", 20, ini), 0, 1000);
+        g_fglm.maxMs = Clamp(GetPrivateProfileIntW(L"FglMemo", L"MaxMs", 3000, ini), 0, 60000);
+        g_fglm.ready = 1;
+        Log("OK   fgl memo: Mode=%ld Shadow=%ld GapMs=%ld MaxMs=%ld (answers only with [Experimental] HouseholdToo=1; else it compares, as Shadow)",
+            g_fglm.mode, g_fglm.shadow, g_fglm.gapMs, g_fglm.maxMs);
+    } else if (!memo) Log("fgl memo off (Enabled=0)");
 }
 
 // the 60 s counter line (ts3native.cpp MaybeLogCounters); totals since the start
 static void FglLogCounters() {
-    if (g_fglf.ready)
-        Log("fgl facing: mode %ld shadow %ld, searches %ld (failed %ld); tiles proven %ld (first facing rejected by the footprint check, "
-            "again with the polygon drawn in), facing tests answered without the call %ld; not proven: only the rim blocked %ld, not the "
-            "centred octagon %ld, step / flag / site %ld; shadow: facing tests run on proven tiles %ld, passed %ld (mismatch, must stay 0), "
-            "another polygon %ld (must stay 0)",
-            g_fglf.mode, g_fglf.shadow, g_fglk.searches, g_fglk.failed, g_fglf.proven, g_fglf.skipped, g_fglf.rimOnly, g_fglf.notOctagon,
-            g_fglf.badStep, g_fglf.shadowTests, g_fglf.shadowMismatch, g_fglf.shadowShape);
+    if (g_fglf.ready) {
+        DWORD bits = 0;
+        memcpy(&bits, (const void*)(uintptr_t)FGL_FACING_STEP, sizeof(bits));
+        const DWORD flag = *(const DWORD*)(uintptr_t)FGL_PIVOT_FLAG;
+        if (bits != g_fglf.stepBits || flag != g_fglf.flag) {
+            Log("fgl facing: [0x11835D4] %08lX -> %08lX, [0x11ED034] %08lX -> %08lX", g_fglf.stepBits, bits, g_fglf.flag, flag);
+            g_fglf.stepBits = bits;
+            g_fglf.flag = flag;
+        }
+        Log("fgl facing: mode %ld shadow %ld, searches %ld (failed %ld); tiles proven %ld (a facing rejected by the footprint check, again "
+            "on the inner octagon), facing tests answered without the call %ld; not proven: blocker outside the inner disc %ld, no disc "
+            "(position not inside the part) %ld, site %ld; facings not learned yet on a proven tile %ld; shadow: facing tests run on "
+            "proven tiles %ld, passed %ld (mismatch, must stay 0), part without the disc %ld (must stay 0)",
+            g_fglf.mode, g_fglf.shadow, g_fglk.searches, g_fglk.failed, g_fglf.proven, g_fglf.skipped, g_fglf.rimOnly, g_fglf.noDisc,
+            g_fglf.badSite, g_fglf.unlearned, g_fglf.shadowTests, g_fglf.shadowMismatch, g_fglf.shadowShape);
+    }
+    if (g_fglm.ready)
+        Log("fgl memo: mode %ld shadow %ld, failed tests stored %ld, facing tests answered from the memo %ld, searches that carried the "
+            "memo on %ld; memo dropped: other search key %ld, routing write %ld, gap or age %ld; shadow: tests run that the memo held %ld, "
+            "passed %ld (mismatch)",
+            g_fglm.mode, g_fglm.shadow, g_fglm.stored, g_fglm.hits, g_fglm.carried, g_fglm.dropKey, g_fglm.dropSeq, g_fglm.dropGap,
+            g_fglm.shadowTests, g_fglm.shadowMismatch);
     if (!g_fglk.ready) return;
     Log("fgl prof: searches %ld (failed %ld) %ld ms, max %ld ms, >= %ld ms: %ld; tiles %ld tests %ld; first facing failed on %ld tiles: "
         "%ld more tests there %ld ms, a later facing passed on %ld; repeats within 10 s %ld (same result %ld) %ld ms; failed tests by "
