@@ -17,7 +17,7 @@ export const counterSwitches: Record<string, number> = { gcmarkhelpers: 0x68A8, 
 // p6warm (v131, docs/189 §16): [P6Waits] arm from the in-load loop (0 = the P6 switch, 1 = off, 2 = on); ladder loops set "$on:2:1"
 export const nativeValues: Record<string, number> = { gvunseenms: 0x601C, unseenfbcms: 0x5394, unseenfbus: 0x5364, synccapus: 0x3164, fbjobcapus: 0x3550, plandeadlineus: 0x4248, plandeadlineownus: 0x424C, kdceilus: 0x5D28, jobnameus: 0x5E40, kdnpcceilus: 0x5D48, kduncutceilus: 0x62F8, kdownplanus: 0x5224, p6warm: 0x51BC };
 // Switches that are their own ts3native export, not a Ts3nCounters field: native_set name -> export (gcgrow.cpp, docs/67 §35)
-export const nativeExports: Record<string, string> = { gcstreakat: 'ts3native_gc_streak_at' };
+export const nativeExports: Record<string, string> = { gcstreakat: 'ts3native_gc_streak_at', placetestro: 'ts3native_placetestro', editpathro: 'ts3native_editpathro', connroomsro: 'ts3native_connroomsro', goalhitsro: 'ts3native_goalhitsro' };
 
 // --ab names and --fixes-on / --fixes-off names (C# patches switches) that name one switch twice: one name in both fixes lists,
 // or an --ab name that --ab flips as a patches switch (not native, not a counter switch). A native or counter --ab switch and the

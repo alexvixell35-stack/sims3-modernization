@@ -600,8 +600,10 @@ static bool SrHasId(const DWORD* b, int n, DWORD lo, DWORD hi) {
 
 // RouteFollow_EditPath 0x85F5A0 after its gather, for start == goal (docs/83 §5): ids of the gathered footprints that pass
 // its type, ignore-list, ids and exclude tests, and its level-0 segment test 0x80E690 (cache valid, unchanged)
+// rawB ([EditPathRO], docs/670 §8): the goal point when it is not the start (RouteFollow_EditPathForRoute 0x85FF30 passes a
+// path node and its far end): b = the goal through the same lot entry (0x62EF30 at 0x85F768 for the start, 0x85F7A4 for the goal), nothing else changes
 static int SrConsume(SrCtx* c, const u8* p, const SrNode& nd, const DWORD* ids0, int n0, SrOut* out, const DWORD* excl, int nExcl,
-                     const void* ign1, DWORD n1, const void* ign2, DWORD n2) {
+                     const void* ign1, DWORD n1, const void* ign2, DWORD n2, const float* rawB = NULL) {
     __declspec(align(16)) float a[4], b[4];
     const u8* entryE = NULL;
     if (nd.eLot) {
@@ -612,6 +614,11 @@ static int SrConsume(SrCtx* c, const u8* p, const SrNode& nd, const DWORD* ids0,
         a[0] = a[2] = a[3] = u;  // {u, v, u, u} for start and goal (the same point here)
         a[1] = v;
         memcpy(b, a, sizeof(b));
+        if (rawB) {
+            SrXform(entryE, rawB[0], rawB[2], &u, &v);
+            b[0] = b[2] = b[3] = u;
+            b[1] = v;
+        }
     }
     int over = 0;  // ids past kSrIds (counted on for s2MaxIds; not deduplicated among themselves)
     for (int i = 0; i < c->n; i++) {
@@ -874,6 +881,17 @@ static void __fastcall LocoHook(u8* agent, void* edx, u8* ids, const void* ign1,
     // sum on the last one; split per key if the gather share ever matters on its own
     const int site = g_w918Us != w0 ? SrWaitSite(g_w918Key) : -1;
     if (site >= 0) InterlockedExchangeAdd(&k.srrFbWaitUs[site], g_w918Us - w0);
+}
+
+// the 60 s counter line (ts3native.cpp MaybeLogCounters; docs/670 §7: the storm logs did not say why S2 gives a call back)
+static void SrLogCounters() {
+    const Ts3nCounters& k = ts3native_counters;
+    if (!k.steerReady) return;
+    Log("steer RO: mode %ld shadow %ld calls %ld, answered in a job %ld; given back: state %ld, QL busy %ld, dirty lot index %ld, lot not "
+        "in table %ld, deferred flush %ld, polygon cache %ld, shape %ld, tripwire %ld; job waits in given-back calls %ld ms at the steering "
+        "query (0x85FE10), %ld ms at the EditPath gather (0x85F6CB); shadow runs %ld mismatch %ld",
+        k.steerMode, k.steerShadow, k.steerCalls, k.steerTaken, k.steerFb[0], k.steerFb[1], k.steerFb[2], k.steerFb[3], k.steerFb[4],
+        k.steerFb[5], k.steerFb[6], k.steerFb[7], k.srrFbWaitUs[0] / 1000, k.srrFbWaitUs[1] / 1000, k.steerShadowRuns, k.steerShadowMismatch);
 }
 
 // [FpRebuildLock] Enabled=1 alone: only the W6a stub (C-A); with [SteerRO] it rides on the full set
