@@ -391,6 +391,12 @@ static void AsCrashLine();  // autshadow-run.cpp: the last [AutShadow] search an
 static void AaDrainFaultDump(const CONTEXT* c);  // unseenanim.cpp: wild call from the render-message destroy 0x59386B (docs/144 §3.5)
 // a call into data: illegal or privileged instruction (2026-11-02 crash: C0000096 at a heap eip, missed by the forensics dump)
 static bool XcptWild(DWORD code) { return code == EXCEPTION_ILLEGAL_INSTRUCTION || code == EXCEPTION_PRIV_INSTRUCTION; }
+// EA's pure-call handler 0x58D990 (`push ecx; mov byte [esp+3], 0A5h; int3`, registered at 0x58DC2A by _set_purecall_handler):
+// a virtual call on an object whose destructor already ran. As fatal as an AV, but before 2026-11-17 it got no forensics dump
+// (bg2 IP crash, docs/143 §8.11 site; the AV that follows is in EA's reporter at eip 0, outside TS3W.exe)
+static bool XcptPure(const EXCEPTION_RECORD* r) {
+    return r->ExceptionCode == EXCEPTION_BREAKPOINT && (DWORD)(uintptr_t)r->ExceptionAddress == TS3A(0x0058D996);
+}
 static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     const EXCEPTION_RECORD* r = e->ExceptionRecord;
     const DWORD code = r->ExceptionCode;
@@ -401,7 +407,8 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     if (code == 0xE06D7363 && InterlockedIncrement(&g_xcptCpp) > 2) return EXCEPTION_CONTINUE_SEARCH;
     // [CrashForensics] dump before the 16-line cap; not for our own probes' guarded reads (caught in ts3native)
     // docs/67 §17: an illegal instruction too (a wild call into the heap, Crash M / O)
-    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e);
+    const bool pure = XcptPure(r);
+    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code) || pure) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e);
     const CONTEXT* c = e->ContextRecord;
     if (code == EXCEPTION_ACCESS_VIOLATION)  // docs/172 §7: another module's address already logged
         for (LONG i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8; i < n; i++)
@@ -420,7 +427,7 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     // docs/67 §15: every register (the 2026-10-25 crash pair logged only eip / esp), for the crash's own exceptions too
     Log("  registers eax %08lX ebx %08lX ecx %08lX edx %08lX esi %08lX edi %08lX ebp %08lX esp %08lX eip %08lX efl %08lX", c->Eax,
         c->Ebx, c->Ecx, c->Edx, c->Esi, c->Edi, c->Ebp, c->Esp, c->Eip, c->EFlags);
-    if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) P5cRelMatch(c);
+    if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code) || pure) P5cRelMatch(c);
     if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) AsCrashLine();
     if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && (c->Eip < TS3A(0x00401000) || c->Eip >= TS3A(0x00F95000))) AaDrainFaultDump(c);
     char mono[1500];
@@ -3283,6 +3290,9 @@ extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2
 // not the owner, inside a served call, no running job), queueUs / maxQueueUs (post -> pick-up of the calls served here).
 struct TaskServeCounters { volatile LONG mode, ready, checks, served, skipped, queueUs; LONG maxQueueUs; };
 extern "C" __declspec(dllexport) TaskServeCounters ts3native_taskserve = {0, 0, 0, 0, 0, 0, 0};
+// [RouteAsync] ClosestWpsCut (plandeadline.cpp CowFindSkip): mode 1 = cut, 0 = count only (set at install); cuts; would (count only)
+struct ClosestWpsCounters { volatile LONG mode, cuts, would; };
+extern "C" __declspec(dllexport) ClosestWpsCounters ts3native_closestwps = {0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -3454,6 +3464,9 @@ static void MaybeLogCounters(ULONGLONG now) {
             ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
             ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
             ts3native_readydrain.maxUs);
+    if (ts3native_closestwps.cuts || ts3native_closestwps.would)  // [RouteAsync] ClosestWpsCut
+        Log("closest waypoint cut: mode %ld, ClosestWaypoints_Find calls answered none %ld, would have been (count only) %ld",
+            ts3native_closestwps.mode, ts3native_closestwps.cuts, ts3native_closestwps.would);
     if (ts3native_taskserve.ready)  // docs/637
         Log("route task serve: mode %ld, task runs with a call posted %ld, served %ld (queue %ld ms, max %ld us), not servable there %ld",
             ts3native_taskserve.mode, ts3native_taskserve.checks, ts3native_taskserve.served, ts3native_taskserve.queueUs / 1000,
@@ -5728,6 +5741,7 @@ static u8 ScProbeMark(DWORD handle, DWORD lo = 0) {
     return 1;
 }
 static u8 UdTextMsg(DWORD lo, DWORD hi);   // userdiag.cpp: ts3fixes text channel (optHi top byte 0x87 = bits 63 + 58 + 57 + 56, docs/188)
+static u8 BpMsg(DWORD lo, DWORD hi);   // boatprobe.cpp: ts3fixes boatplace / boattrip water-grid question (optHi top byte 0x89)
 // docs/247 §9 (ts3fixes boatreplanlog): would a foreign ReplanFromPoint START pass this check now? Same tests as the foreign
 // branch of GetOptionHook and AsyncStart, no side effect. GetOption2 with optHi 0x88000000 (no RouteOption2 name, so the game
 // and older ts3native answer false), optLo = question.
@@ -5812,6 +5826,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     if ((u8)options2 && (optHi & 0xFF000000) == 0x84000000) return SpDoorMsg(optLo, optHi);
     if ((u8)options2 && (optHi & 0xFF000000) == 0x82000000) return UtViewerMsg(optLo, optHi);
     if ((u8)options2 && (optHi & 0xFF000000) == 0x87000000) return UdTextMsg(optLo, optHi);  // docs/188
+    if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x89000000) return BpMsg(optLo, optHi);  // boatprobe.cpp (read only)
     if ((u8)options2 && (optHi & ~(kArKindHi | kArPtHi | kArFgnHi)) == (kAsyncOptHi | kArHi) &&
         !((optHi & kArFgnHi) && ((optHi & kArPtHi) || !(optHi & kArKindHi)))) {  // foreign bit: kind 1-3 STARTs only
         const int idx = (int)(optHi >> 24) & 3;
@@ -6226,6 +6241,7 @@ static void SlimWait();
 #include "savecompress.cpp"
 #include "footprint.cpp"
 #include "heightcache.cpp"
+#include "boatprobe.cpp"  // [BoatProbe]: water-grid answers and probe lines for ts3fixes boatplace / boattrip (read only)
 #include "gcthreads.cpp"
 #include "memexp.cpp"  // docs/199: [MemDiag] TypeGrowth, [GC] SqrtHeapLimit (off)
 #include "gcgrow.cpp"  // docs/232 Run 8l/8n: [GcGrowLog] + [GC] BlackListCapKB (after memexp.cpp: g_mx; savewrite.cpp: PatchCalls)

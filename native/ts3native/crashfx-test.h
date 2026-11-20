@@ -191,6 +191,22 @@ static void TestCrashForensics() {
     AaDrainFaultDump(&cx);
     cx.Esp = (DWORD)(uintptr_t)stk;
 
+    // 2026-11-17 (bg2 IP crash): EA's pure-call int3 dumps too; an ObstacleAvoidance_B frame (ebp, return 0x847503)
+    // gives the part's first linked agent; an AV record is not a pure call
+    static DWORD pAgent[4] = {0x00FB0000, 1, 2, 3};
+    DWORD pVec[1] = {(DWORD)(uintptr_t)pAgent};
+    DWORD pPart[8] = {0, 0, 0, 1, (DWORD)(uintptr_t)pVec, (DWORD)(uintptr_t)(pVec + 1), 0, 0};
+    DWORD pFrame[5] = {0, 0x00847503, (DWORD)(uintptr_t)pPart, 0x1000, 0};
+    EXCEPTION_RECORD pr = {};
+    pr.ExceptionCode = EXCEPTION_BREAKPOINT, pr.ExceptionAddress = (PVOID)(uintptr_t)0x0058D996;
+    CONTEXT pcx = {};
+    pcx.Eip = 0x0058D996, pcx.Ebp = (DWORD)(uintptr_t)pFrame, pcx.Esp = (DWORD)(uintptr_t)stk;
+    EXCEPTION_POINTERS pxp = {&pr, &pcx};
+    assert(XcptPure(&pr) && !XcptPure(&r));
+    g_cfPureAgent0 = 0;
+    CfOnFault(&pxp);
+    assert(k.cfDumps == dm0 + 4 && g_cfPureAgent0 == (DWORD)(uintptr_t)pAgent);
+
     // docs/67 §17: scene node check (0xC5FA60) on dummies: .rdata vtable passes, garbage / unreadable counted, NULL skipped
     static DWORD good[2];
     good[0] = (DWORD)(uintptr_t)vtab;

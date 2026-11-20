@@ -65,7 +65,19 @@ namespace Ts3Fixes
             ApplyAutShadowLocHooks();  // next: any localized string before ApplyAutShadow compiles them (inert while autshadow is off)
             Patch(typeof(GoHome), "Run", typeof(GoHomeHook), "RunHook", "RunOrig");
             Patch(typeof(RabbitHole), "RouteNearEntranceAndEnterRabbitHole", typeof(RabbitHoleHook), "EnterHook", "EnterOrig");
+            // rhoutside (RabbitHoleDirect.cs, docs/806): the 7-argument overload every RouteOutside call ends in
+            Patch(typeof(RabbitHole), "RouteOutside", new Type[] { typeof(Sims3.Gameplay.Actors.Sim), typeof(List<Sims3.Gameplay.Actors.Sim>), typeof(Slot), typeof(bool), typeof(bool), typeof(bool), typeof(bool) }, typeof(RabbitHoleHook), "OutsideHook", "OutsideOrig");
             Patch(typeof(VisitCommunityLot), "Run", typeof(VisitCommunityLotHook), "RunHook", "RunOrig");
+            // spawnfix / spawnoffworld (SpawnFix.cs, docs/857), spawnfix default ON, spawnoffworld default off: a spawn or removal refreshes one spawner, not every spawner in the world
+            Patch(typeof(Sims3.Gameplay.Objects.Rewards.CollectionHelperSingleton), "FireEvent", typeof(SpawnFixHook), "FireHook", "FireOrig");
+            Patch(typeof(ObjectSpawner), "AddObjectToSpawner", typeof(SpawnFixHook), "AddHook", "AddOrig");
+            Patch(typeof(ObjectSpawner), "RemoveObjectFromSpawner", typeof(SpawnFixHook), "RemoveHook", "RemoveOrig");
+            Patch(typeof(ObjectSpawner), "ImportContent", new Type[] { typeof(Sims3.SimIFace.CustomContent.ResKeyTable), typeof(Sims3.SimIFace.CustomContent.ObjectIdTable), typeof(Sims3.SimIFace.IPropertyStreamReader) }, typeof(SpawnFixHook), "ImportHook", "ImportOrig");
+            Patch(typeof(ObjectSpawner), "TrySpawnObject", typeof(SpawnFixHook), "TrySpawnHook", "TrySpawnOrig");
+            Patch(typeof(SpawnerBase), "OnStartup", typeof(SpawnFixHook), "StartHook", "StartOrig");
+            Patch(typeof(SpawnerBase), "Dispose", typeof(SpawnFixHook), "DisposeHook", "DisposeOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Fishing.FishingSpotData), "ActivateSpot", typeof(SpawnFixHook), "ActivateHook", "ActivateOrig");
+            Patch(typeof(Sims3.Gameplay.Objects.Fishing.FishingSpotData), "DeactivateSpot", typeof(SpawnFixHook), "DeactivateHook", "DeactivateOrig");
             Patch(typeof(VisitLot), "Run", typeof(VisitLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToLot), "Run", typeof(GoToLotHook), "RunHook", "RunOrig");
             Patch(typeof(GoToCommunityLot), "Run", typeof(GoToCommunityLotHook), "RunHook", "RunOrig");
@@ -93,6 +105,9 @@ namespace Ts3Fixes
             ApplySpatialCache();
             ApplyFewerPlans();
             ApplyCandidateLoops();
+            ApplyUnseenTraffic();  // docs/855: npccarexit's hook; unseentraffic lives in ParkingSpotHook / TrafficReleaseHook
+            // festivalhidden (FestivalHidden.cs, docs/856), default ON: out-of-season festival objects stay out of autonomy's map
+            Patch(typeof(GameObject), "UpdateCommodityInteractionMap", Type.EmptyTypes, typeof(FestivalHiddenHook), "CimHook", "CimOrig");
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
@@ -139,6 +154,7 @@ namespace Ts3Fixes
             ApplyPhotoBoothFunds();   // docs/561 §2 (PhotoBoothFunds.cs)
             ApplyShellLighting();     // docs/561 §5 (ShellLighting.cs)
             ApplyBonfireSpice();      // docs/561 §6 (BonfireSpice.cs)
+            ApplyBoatRoamCap();       // docs/853 §4, ON by default (BoatRoamCap.cs)
             ApplyDjBoothCleanup();    // docs/561 §7 (DjBoothCleanup.cs)
             ApplyVampireHuntGlow();   // docs/561 §7 (VampireHuntGlow.cs)
             ApplyHotTubWoohooFx();    // docs/561 §7 (HotTubWoohooFx.cs)
@@ -480,6 +496,9 @@ namespace Ts3Fixes
             ApplyExactMemos();  // lane L4 1115: permamemo, buffremovenoop, catnamecache (ExactMemos.cs), off by default
             ApplyWriterMemos();  // docs/275 Z1 zdemptyout + M1 decaymemo (WriterMemos.cs), off by default
             ApplyDoorMirror();
+            ApplyLaneSnap();  // docs/807: unseenlanesnap (ON 2026-11-20, unseen townies): portal other-lane replans
+            ApplyNearVenue();  // docs/805: nearvenue (ON 2026-11-20, townies only); before ApplyAutShadow, which reads Lot's callees
+            ApplyIceCreamDirect();  // docs/805: icecreamdirect (ON 2026-11-20): an unseen ice cream truck skips its plan and drive
             ApplyAutShadow();
             ApplyAutRoomMemo();  // docs/97 AM-1 H1-H3/H5 (AutRoomMemo.cs), off by default; after AutShadow (rides on its IsAllowedInRoom swap)
             ApplyAutOffload();
@@ -501,8 +520,9 @@ namespace Ts3Fixes
             ApplyEaVacation();
             ApplyCompaction();  // docs/204: hooks only with ts3native [Compaction] Enabled=1 or 2
             ApplyCasTrimKeep();  // docs/539: hooks only with [CasTrim] save hooks in native
-            ApplyUnseenOutfitDefer();  // issue #451, off by default (UnseenOutfitDefer.cs)
+            ApplyUnseenOutfitDefer();  // issue #451, ON by default (UnseenOutfitDefer.cs)
             ApplyTagUnseen();          // docs/60 §3 (TagUnseen.cs), off by default
+            ApplyUnseenOutfitNoSpin();  // docs/809, ON 2026-11-20, needs unseenoutfitdefer (UnseenOutfitNoSpin.cs)
         }
 
         // Patches that go in only when a tuning is on (docs/124 §17.8): Apply cannot read tunings (C# defaults there), so these
@@ -723,6 +743,13 @@ namespace Ts3Fixes
         // [2058] invnotyet (InvNotYet.cs, issue #166 build 13, docs/531): objects TryAddObjectToInventory destroyed and refused for a Sim with no inventory yet.
         // [2059-2060] metricskillmissing (MetricSkillMissing.cs, issue #166 build 94, docs/532): skill metric titles / descriptions given an empty skill name, values answered Map0 (neutral), for a skill with no static skill.
         // [2061] fireworksfizzle (FireworksFizzle.cs, issue #166 build 23, docs/533): fireworks watchers finished on a fizzle without EA's LaunchFailure state request.
+        // [1345-1347] fightorphanwait (FightOrphan.cs): snow/water fight Waits the fight no longer holds (or whose fight / controller alarm is gone) ended after two hourly passes / left per pass (switch off) / errors.
+        // [1348-1350] poolnolane (PoolNoLane.cs): autonomous GetInPool / DoggyGetInPool offers refused for a pool with no enabled Inside lane / would have been refused (switch off) / errors.
+        // [1351-1352] spare (his 3998-3999 under the PR's numbering).
+        // [1353-1356] venuepicktime (VenuePickTime.cs, logging only): venue arrival picks timed / picks whose searches took >= 200 ms / ms in those searches / errors.
+        // [1357-1359] venuepickfast (VenuePickTime.cs, timing only, NPCs only): yields before a venue arrival motive search / searches not yielded (not the Sim's own task, no yield context, a player Sim) / errors.
+        // [1360-1369] autonomyfailcooldown (AutonomyFailCooldown.cs): autonomous offers refused in a cooldown / would have been refused (switch off) / route failures recorded / cooldowns started / route failures of household, selected or unknown-scope Sims not recorded / errors / continuation route failures recorded on their pusher / all-targets cooldowns started / route failures not counted after a locked door / route failures of a Hidden (script-pushed) head not recorded.
+        // [1374-1375] autonomyfailcooldown (AutonomyFailCooldown.cs, follow-up): route failures of a head with search type None not recorded / NPC pianist breaks after a failed PianistPerform route.
         // [2778-2779] errortraploop (ErrorTrapLoop.cs): ErrorTrap re-run loops ended (same error 3 times on one non-Sim task) / errors.
         // [2784] errortraploop (ErrorTrapLoop.cs, diagnostic): OnScriptError hook calls with a re-run answer and the switch on.
         // [2783] tagunseen (TagUnseen.cs): Tag players sent out at the no-route cap (120 sim min of laps with no route).
@@ -732,11 +759,17 @@ namespace Ts3Fixes
         // [2797-2799] loopidlebridge (LoopIdleBridge.cs): stale bridges (host reset, no C++ driver) dropped in Sim.LoopIdle / seen with the switch off (EA throws) / guard errors.
         // [2719-2721] fightstaycap (FightStayCap.cs): Sims released from a snow/water fight after 120 sim min / hook errors / fight members not found.
         // [2780-2782] fireworkswatchlate (FireworksWatchLate.cs): late watchers sent through LoopWatch before Exit / members not found (EA's Run used) / EA's Run threw SacsErrorException (switch off).
+        // [4078-4079] unseenrelax (RouteBackoff.cs UrxBegin, contributor range): unseen townie plans run without ReplanToFindObstacleWhenPathPlanFails / BlockedByPeople / BlockedByDynamicFootprints / of them still failed.
+        // [4080-4082] iafailmemo (RouteBackoff.cs IaAnswer, contributor range): townie failures remembered (Sim + interaction + start lot + goal lot + options) / repeat plans answered from the memo / ms of the remembered plans the answers stood for.
         // [3982-3984] boatroutenull (BoatRouteNull.cs): Boat.RouteBoatToLandOnWayToPosition false for a boat with no RoutingComponent / seen with the switch off (EA throws) / errors.
+        // [4070-4074] boattrip (BoatTrip.cs): boats placed or moved to an open-water cell / trip starts that took a boat start, a walk or another shore / boat plans a step 1-4 answered / trips where every step failed / leftover boats released, parked or footprint off.
+        // [4075] boatplace (BoatPlace.cs): boats placed on an open-water cell outside the lot. [4076] retryscope (RetryScope.cs): scope answers sent again before boattrip's sync plans. [4077] boatlandstuck (BoatLandStuck.cs): Sims put ashore by Boat.GetOut after a failed GetOutOfBoat.Run.
         // [3985-3987] outfitmissing (OutfitMissing.cs): SwitchOutfitHelper.Init for a missing outfit (pregnant Sims' special outfits) made no-change / seen with the switch off (EA throws) / guard errors.
         // [3988-3990] ageupdupinst (AgeUpDupInst.cs, #553): second instantiations during a deferred age-up answered with the first call's Sim / seen with the switch off (EA throws) / no Sim made (rethrown).
         // [3991-3993] overwatchrelretry (OwRelRetry.cs): Overwatch CleanupRelationships re-runs after "out of sync" / seen with the switch off / still failing after 50 runs.
         // [3994-3997] OneOffGuards.cs: overwatchresetgone destroyed Sims skipped in a reset / seen off; motivesnohousehold CreateMotives with the NpcHousehold stand-in / seen off.
+        // [4052] frontstageowner (EaNullGuards.cs): unowned FrontStageKits answered null in GetOwner. [4053-4054] careerskillnull (EaNullGuards.cs): skills EA could not add skipped in GiveCareerLevelSkills / household or unknown owners left to EA.
+        // [4055] stuckhbskip (FewerPlans.cs): townie stuck checks on a non-household houseboat ended as after a success. [4056-4057] turnjigskip (JobYieldRoad.cs FpYieldHook): top-level turn-in-place checks by unseen townie boats or animals / of them skipped.
         // [2062-2064] petpoolorphan (PetPoolOrphan.cs, issue #166 build 52, docs/534): pets dropped from a pool with no household and no family links disposed / left (a Sim in the world) / Dispose threw.
         // [2065] reltablesapart (RelTablesApart.cs, issue #166 build 14, docs/535): relationship pairs whose two tables had come apart, rejoined with the other side's relationship.
         // [2067-2068] errortrapsims (ErrorTrapSims.cs): dead Sim objects dropped from NRaas ErrorTrap's CheckSim.mInited, keys left after the last pass. [2069-2071] unused.
@@ -1087,6 +1120,9 @@ namespace Ts3Fixes
         // [3972-3973] socialreplanlog (SocialReplanLog.cs, docs/577 §2): partner-blocked receiver replans / lines dropped by the 300 cap.
         // [3974-3975] barorderlog (BarOrderLog.cs, docs/578 §1): conversations timed / lines dropped by the 300 cap.
         // [3976-3978] petputdownwait (PetPutDownWait.cs, docs/578 §2): pet waits ended / seen with switch off / errors.
+        // [1378-1381] houseboatlegmemo (HouseboatLegMemo.cs, docs/853 §2): NPC houseboat boat-leg no-path plans recorded / repeats answered / ms of the recorded plans those answers stand for / exempt (household, selected, unknown scope, no Sim or boat router) or errors.
+        // [1382-1391] houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/853 §3): NPC Sims marked by a no-path gangway leg to their Docked houseboat / placed by EA's PlaceSimAtEntrance after GoHome failed / refused / errors; refusals: exempt / no, another or undocked houseboat / once-per-hour rule / busy / on the lot, far or stale / no spot.
+        // [1392-1399] boatroamcap (BoatRoamCap.cs, docs/853 §4): NPC BoatAround runs capped (no roam) / ReturnToShore pushed / returns failed (precheck, push, run or never ran; EA roams) / exempt runs / errors / returns that reached the shore / service, role or AlarmOneShot-task boating logged / caps by night or low motive.
         // [3979-3981] puddlereach (PuddleReach.cs, docs/578 §3): splash tests withheld after a failed run / seen with switch off / errors.
         // [2709-2710] routecauselog (RouteCauseLog.cs, docs/580): lines / dropped by the caps.
         // [3541-3543] scarepriority (ScarePriority.cs, docs/580 §14): receivers raised / seen with switch off / errors.
@@ -1303,6 +1339,10 @@ namespace Ts3Fixes
         // [3944-3946] bodysculptorweight (EpBatch3Logic.cs, docs/587 EP3 §8.12): weights corrected / mirrored with switch off / errors.
         // [3947-3949] nectarconsignvalue (EpBatch3Logic.cs, docs/587 EP3 §8.13): values re-rolled / minimum with switch off / errors.
         // [3950-3952] straygnometns (EpBatch3Logic.cs, docs/587 EP3 §8.14): runs with right notice / stale notices with switch off / errors.
+        // [4058-4061, 4084-4089] UnseenFallback.cs docs/202 §3.10 (townies only; unseenfbghost and unseenfbnosync default ON since the 2026-11-20 import, the rest per kUnseenFallback*): unseenfbghost holds with a ghost line (4058) / last legs planned after a ghost or
+        //   G3 hold (4059) / of those, failed or cut (4060) / G3 recoveries refused, no async start or colour not proven (4061); unseenhouseboatview sightings asked at the shown
+        //   spot (4084) / answered otherwise than the hidden-spot rule (4085); unseenfbnosync asked / recovered (4086-4087, refused = asked - recovered);
+        //   safespotplanyield (Fixes.cs SafeSpot) yields after a verdict plan / given up after the yield, Sim gone or seen (4088-4089).
         // [1264-1269] boattaximemo (BoatTaxiMemo.cs, docs/851): boat (any Boat subclass) no-path failures recorded / rider routes planned with the boat off / of those, succeeded / stranded boat plans answered / ms of the recorded plans those answers stand for / refused (household, selected, unknown) or errors.
         // [3247-3249] dogswimslots (EpBatch4Logic.cs, docs/587 EP4 §9.1): loops skipped, no free slot / would throw with switch off / errors.
         // [3250-3252] fragmentreconstruct (EpBatch4Logic.cs, docs/587 EP4 §9.2): Target picked first / extra fragment used with switch off / errors.
@@ -1517,9 +1557,27 @@ namespace Ts3Fixes
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
         // [1230-1240] envlistmemoapply / envlistmemoverify (EnvBcProbes.cs EnvListApply, docs/274 §9): scans tried, memo reuse, live listed,
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
+        // [1376-1377] bouncermemo (RouteSources.cs, docs/801): townie bouncer WatchDoor loops skipped / routed
+        // [1370-1373] festivalhidden (FestivalHidden.cs, docs/856): see the list there.
+        // [1328-1344] spawnfix / spawnoffworld (SpawnFix.cs, docs/857): see the list there.
+        // [1301-1327] unseentraffic (1301-1315) + npccarexit (1316-1327) (UnseenTraffic.cs, docs/855): see the list there.
+        // [1292-1300] trip arrivals (Fixes.cs, docs/804): visitarrive [1292] visits that arrived after the shortcut without a route;
+        // visitonlot [1293] townie visits that started on the lot and arrived without the door route; gohomeshell [1294] apartment
+        // homes asked, [1295] placed inside, [1296] walked (EA's trip), split [1297] near or no room point, [1298] no safe spot,
+        // [1299] spot on another floor or lot, [1300] spot in view
+        // [1482-1491] unseenoutfitnospin (UnseenOutfitNoSpin.cs, docs/809): 1482 spin changes taken, 1483-1489 refused by reason (helper started or
+        // active, no change, posture / age / animation, form / ghost / age test / no stored outfit, category not safe, pending / open / fresh,
+        // seen or near), 1490 taken whose set then ran at once, 1491 checks that threw
+        // [1400-1420] stagedarrival (TripStage.cs, docs/805): see the list there; [1421-1430] icecreamdirect (IceCreamDirect.cs);
+        // [1431-1440] nearvenue (NearVenue.cs): see the lists there
+        // [1456-1470] unseenlanesnap (LaneSnap.cs, docs/807): see the list there; [1471-1475] unseenlegsnap (RouteSources.cs LegSnap)
+        // [1441-1455] rabbitholedirect [1441-1452] and rhoutside [1453-1455] (RabbitHoleDirect.cs, docs/806): see the lists there
+        // [1476-1481] SafeSpot repeat-search counters and safespotdedupe (Fixes.cs SafeSpot, docs/808)
+        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, then
+        // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4000;
+        const int kCounterSlots = 4200;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1688,9 +1746,19 @@ namespace Ts3Fixes
             switch (name)
             {
                 case "gohome": return Instantiator.kGoHomeShortcut;
+                case "visitarrive": return Instantiator.kVisitArrive;
+                case "visitonlot": return Instantiator.kVisitOnLot;
+                case "gohomeshell": return Instantiator.kGoHomeShell;
                 case "rabbithole": return Instantiator.kBuildingTripShortcut;
                 case "visit": case "visitlot": case "gotolot": case "gotocommunity": return Instantiator.kLotTripShortcut;
+                case "rabbitholedirect": return Instantiator.kRabbitHoleDirect;
+                case "rhoutside": return Instantiator.kRhOutside;
+                case "unseenlanesnap": return Instantiator.kUnseenLaneSnap;
+                case "unseenlegsnap": return Instantiator.kUnseenLegSnap;
                 case "broadcast": return Instantiator.kBroadcasterThrottle;
+                case "stagedarrival": return Instantiator.kStagedArrival;
+                case "icecreamdirect": return Instantiator.kIceCreamDirect;
+                case "nearvenue": return Instantiator.kNearVenue;
                 case "virtualhome": return Instantiator.kVirtualHomeShortcut;
                 case "failreplan": return Instantiator.kNoRouteFailWalkOffscreen;
                 case "watchdog": return Instantiator.kStuckWatchdog;
@@ -1817,6 +1885,7 @@ namespace Ts3Fixes
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
+                case "bouncermemo": return Instantiator.kBouncerMemo;
                 case "bouncerskip": return Instantiator.kBouncerSlotSkip;
                 case "bouncerplace": return Instantiator.kBouncerPlace;  // docs/633 (RouteSources.cs), unseen bouncer placed on its slot, off
                 case "idlememo": return Instantiator.kIdlePlanMemo;
@@ -1833,6 +1902,7 @@ namespace Ts3Fixes
                 case "overwatchstuckslice": return Instantiator.kOverwatchStuckSlice;
                 case "seasonmarkercache": return Instantiator.kSeasonMarkerCache;
                 case "safespotyield": return Instantiator.kSafeSpotYield;
+                case "safespotplanyield": return Instantiator.kSafeSpotPlanYield;
                 case "disposespread": return Instantiator.kDisposeSpread;
                 case "overwatchstucknotice": return Instantiator.kOverwatchStuckNoticeSummary;
                 case "preplancb": return Instantiator.kPrePlanCallback;
@@ -1841,6 +1911,9 @@ namespace Ts3Fixes
                 case "unseenfbstuck": return Instantiator.kUnseenFallbackStuck;
                 case "unseenfbplan": return Instantiator.kUnseenFallbackPlan;
                 case "unseenfbteleport": return Instantiator.kUnseenFallbackTeleport;
+                case "unseenfbghost": return Instantiator.kUnseenFallbackGhost;
+                case "unseenfbnosync": return Instantiator.kUnseenFallbackNoSync;
+                case "unseenhouseboatview": return Instantiator.kUnseenHouseboatView;
                 case "unseenfbsites": return Instantiator.kUnseenFallbackSites;
                 case "unseenfbpre": return Instantiator.kUnseenFallbackPre;
                 case "unseenfbarrive": return Instantiator.kUnseenFallbackArrive;
@@ -1884,6 +1957,8 @@ namespace Ts3Fixes
                 case "vehfrankentaxi": return Instantiator.kVehFrankenTaxi;
                 case "vehprotestcar": return Instantiator.kVehProtestCar;
                 case "buyiconleak": return Instantiator.kBuyIconLeak;
+                case "unseentraffic": return Instantiator.kUnseenTraffic;
+                case "npccarexit": return Instantiator.kNpcCarExit;
                 case "casrowleak": return Instantiator.kCasRowLeak;
                 case "compositorleak": return Instantiator.kCompositorLeak;
                 case "genealogycycle": return Instantiator.kGenealogyCycle;
@@ -1957,9 +2032,12 @@ namespace Ts3Fixes
                 case "burglaridle": return Instantiator.kBurglarIdle;
                 case "gigwaitleave": return Instantiator.kGigWaitLeave;
                 case "sculptpose": return Instantiator.kSculptPose;
+                case "festivalhidden": return Instantiator.kFestivalHidden;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "tagunseen": return Instantiator.kTagUnseen;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
+                case "spawnfix": return Instantiator.kSpawnFix;
+                case "spawnoffworld": return Instantiator.kSpawnOffWorld;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
@@ -2345,6 +2423,10 @@ namespace Ts3Fixes
                 case "coopeggquality": return Instantiator.kCoopEggQuality;
                 case "safespotpool": return Instantiator.kSafeSpotPool;
                 case "spotcheck": return Instantiator.kSpotCheck;
+                case "houseboatlegmemo": return Instantiator.kHouseboatLegMemo;              // off (HouseboatLegMemo.cs, docs/853 §2)
+                case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;  // off (HouseboatGangwayRescue.cs, docs/853 §3)
+                case "boatroamcap": return Instantiator.kBoatRoamCap;                        // off (BoatRoamCap.cs, docs/853 §4)
+                case "safespotdedupe": return Instantiator.kSafeSpotDedupe;
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -2386,11 +2468,26 @@ namespace Ts3Fixes
                 case "metricskillmissing": return Instantiator.kMetricSkillMissing;
                 case "fireworksfizzle": return Instantiator.kFireworksFizzle;
                 case "boatroutenull": return Instantiator.kBoatRouteNull;
+                case "unseenrelax": return Instantiator.kUnseenRelax;
+                case "iafailmemo": return Instantiator.kIaFailMemo;
+                case "boattrip": return Instantiator.kBoatTrip;
+                case "boatplace": return Instantiator.kBoatPlace;
+                case "retryscope": return Instantiator.kRetryScope;
+                case "boatlandstuck": return Instantiator.kBoatLandStuck;
                 case "outfitmissing": return Instantiator.kOutfitMissing;
                 case "ageupdupinst": return Instantiator.kAgeUpDupInst;
                 case "overwatchresetgone": return Instantiator.kOverwatchResetGone;
                 case "motivesnohousehold": return Instantiator.kMotivesNoHousehold;
+                case "frontstageowner": return Instantiator.kFrontStageOwner;
+                case "careerskillnull": return Instantiator.kCareerSkillNull;
+                case "stuckhbskip": return Instantiator.kStuckHbSkip;
+                case "turnjigskip": return Instantiator.kTurnJigSkip;
                 case "overwatchrelretry": return Instantiator.kOverwatchRelRetry;
+                case "fightorphanwait": return Instantiator.kFightOrphanWait;
+                case "poolnolane": return Instantiator.kPoolNoLane;
+                case "autonomyfailcooldown": return Instantiator.kAutonomyFailCooldown;
+                case "venuepicktime": return Instantiator.kVenuePickTime;
+                case "venuepickfast": return Instantiator.kVenuePickFast;
                 case "fireworkswatchlate": return Instantiator.kFireworksWatchLate;
                 case "rolenullpurge": return Instantiator.kRoleNullPurge;
                 case "errortraploop": return Instantiator.kErrorTrapLoop;
@@ -2439,6 +2536,7 @@ namespace Ts3Fixes
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
                 case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
+                case "unseenoutfitnospin": return Instantiator.kUnseenOutfitNoSpin;
                 case "unseenoutfitdefer": return Instantiator.kUnseenOutfitDefer;  // issue #451, off (UnseenOutfitDefer.cs, docs/586)
                 case "boatparkgone": return Instantiator.kBoatParkGone;  // EA bug fix, on by default (BoatParkGone.cs, docs/257)
                 case "deadrefcooking": return Instantiator.kDeadRefCooking;  // EA bug fix, off (DeadRefs.cs phase 14, docs/205 §4)
@@ -2593,7 +2691,12 @@ namespace Ts3Fixes
                 {
                     if (sCounters == null) sCounters = PatchCounters();
                     sCounters[0]++;
-                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target)) return RunOrig();
+                    sGhDestSeen = false;
+                    if (!ShortcutOn("gohome") || !Unseen(Actor, Target))
+                    {
+                        if (sGhDestSeen) Stage();
+                        return HgrRun(RunOrig());
+                    }
                     // a Sim shortcut twice within 10 sim-minutes is in some loop the game drives: let it walk
                     ulong id = Actor.SimDescription.SimDescriptionId;
                     long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
@@ -2601,22 +2704,21 @@ namespace Ts3Fixes
                     if (sLastShortcut.TryGetValue(id, out last) && now - last < kLoopTicks)
                     {
                         sCounters[3]++;
-                        return RunOrig();
+                        return HgrRun(RunOrig());
                     }
                     Sims3.SimIFace.Vector3 pos, fwd;
+                    if (sGhShell) return ShellArrive(id, now);
                     if (!SafeSpot(Actor, Target, Target.GetRandomPosition(false, true), out pos, out fwd, "gohome", true))
                     {
                         sCounters[2]++;
-                        return RunOrig();
+                        return HgrRun(RunOrig());
                     }
-                    // spotcheck (default off): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
-                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks
-                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2702]++; return RunOrig(); }
-                    // spotcheck (default off): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
-                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks
-                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2713]++; return RunOrig(); }
+                    // spotcheck (default ON): Unseen(Actor, Target) judged the home lot, but the spot is a random outdoor point
+                    // anywhere on it (up to ~45 m from the centre on a 64 m lot): one in view = the Sim walks.
+                    // (A merged copy of this check counted into 2713, which docs/registry.md never gave spotcheck; 2702 is its slot.)
+                    if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { sCounters[2702]++; return HgrRun(RunOrig()); }
                     // docs/202 §3.6.4 unseenfbtriphold: D's walk-time hold first; given up = the game's own trip
-                    if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return RunOrig();
+                    if (UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")) == 2 && !UfTripHold(Actor, Target, pos)) return HgrRun(RunOrig());
                     sLastShortcut[id] = now;
                     ShortcutLog(Actor.FullName + " -> " + Target.Name + " from " + (Actor.LotCurrent != null ? Actor.LotCurrent.Name : "street"));
                     // same lead-in as GoHome.Run
@@ -2633,6 +2735,63 @@ namespace Ts3Fixes
                 finally { if (ghBefore >= 0) GhWalkRelease(Actor, WalkStyle, ghBefore); }
             }
             public bool RunOrig() { return false; } // receives GoHome.Run's original header
+            // houseboatgangwayrescue (HouseboatGangwayRescue.cs): EA's GoHome.Run gave up; a Sim marked by a no-path gangway leg
+            // is placed on its houseboat here, in its own task after Run, never inside the routing callback
+            bool HgrRun(bool ok)
+            {
+                if (!ok && sHgr.Count > 0 && ShortcutOn("houseboatgangwayrescue")) HgrAfterGoHome(Actor, Target, this);
+                return ok;
+            }
+
+            // stagedarrival: home in view or near the household (Unseen's last test): the Sim leaves its lot as GoHome.Run's lead-in
+            // does, is placed at the nearest unseen street point, then GoHome.Run walks it in. Apartment shells keep EA's walk.
+            static bool sGhDestSeen;  // read right after Unseen returns (no yield in between)
+            void Stage()
+            {
+                if (!ShortcutOn("stagedarrival")) return;
+                Sims3.Gameplay.Actors.Sim a = Actor;
+                StageNear(a, Target.EntryPoint(), Target, kStageGoHome, UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")), delegate
+                {
+                    Sims3.Gameplay.Situations.VisitSituation.OnSimLeavingLot(a);
+                    Sims3.Gameplay.Situations.GroupingSituation.RemoveSimFromGroupSituation(a);
+                });
+            }
+
+            // gohomeshell (default off, townies only): an apartment home (a lot with a building shell) is always left to the walk: a
+            // random spot on the lot can be inside the closed building. The shortcut ends the trip the way the house shortcut does, with
+            // a safe spot inside the apartment's own rooms (Lot.GetRandomPosition(insideValid: true, outsideValid: false), found on that
+            // point's floor and on this lot), out of view; then GoHome succeeds without a route: no door, no elevator. A home near the
+            // camera or the household (UnseenBody refuses it), no room point, no such spot or a spot in view = EA's walk. (A first
+            // version placed the Sim in front of the shell's door and let EA's Run walk it in: about 420 townies a game then went
+            // through the shell door and up the tower, and Bridgeport apartment games crashed in EA's slot attach on freed physics;
+            // that is what the native LotLevelPastEnd fix of PR #449 clamps, so this switch should be tested with it.)
+            // Counters: [1294] shell homes asked, [1295] placed inside, [1296] walked, split [1297-1300].
+            static bool sGhShell;
+            bool ShellArrive(ulong id, long now)
+            {
+                Sims3.SimIFace.Vector3 pos = Sims3.SimIFace.Vector3.Invalid, fwd = Sims3.SimIFace.Vector3.Invalid;
+                Sims3.SimIFace.Vector3 room = Target.GetRandomPosition(true, false);
+                int walk = room == Sims3.SimIFace.Vector3.Invalid ? 1297 : !SafeSpot(Actor, Target, room, out pos, out fwd, "homeshell", false) ? 1298
+                    : Math.Abs(pos.y - room.y) > 1f || LotManager.GetLotAtPoint(pos) != Target ? 1299 : !UfGoalUnseen(pos) ? 1300 : 0;
+                if (walk != 0)
+                {
+                    sCounters[1296]++;
+                    sCounters[walk]++;
+                    return RunOrig();
+                }
+                sLastShortcut[id] = now;
+                ShortcutLog(Actor.FullName + " -> inside " + Target.Name + " from " + (Actor.LotCurrent != null ? Actor.LotCurrent.Name : "street"));
+                // same lead-in as GoHome.Run
+                if (!Sims3.Gameplay.Objects.Vehicles.CarpoolManager.WaitForCarpool(Actor)) return false;
+                Sims3.Gameplay.Situations.VisitSituation.OnSimLeavingLot(Actor);
+                Sims3.Gameplay.Situations.GroupingSituation.RemoveSimFromGroupSituation(Actor);
+                PlaceSim(Actor, pos, fwd, "homeshell " + Target.Name);
+                sCounters[1295]++;
+                NumSuccess++;
+                BeginCommodityUpdates();
+                EndCommodityUpdates(true);
+                return true;
+            }
             static readonly Dictionary<ulong, long> sLastShortcut = new Dictionary<ulong, long>();
             static readonly long kLoopTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(10f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
 
@@ -2647,12 +2806,21 @@ namespace Ts3Fixes
             }
             bool UnseenBody(Sims3.Gameplay.Actors.Sim sim, Lot home)
             {
+                sGhShell = false;
                 if (home == null || !TownieUnseen(sim, SimFollowers)) return false;
                 // GoHome.Run may add the household horse as a follower after this point; keep pet households on foot
                 if (sim.Household != null && sim.Household.Pets.Count > 0) return false;
                 if (sim.LotHome != home || sim.LotCurrent == home || home == Household.ActiveHouseholdLot) return false;
-                if (!HouseboatOk(home) || home.BuildableShells.Length > 0) return false;
-                return FarFromViewers(home.Position);
+                if (!HouseboatOk(home)) return false;
+                if (home.BuildableShells.Length > 0)
+                {
+                    if (!ShortcutOn("gohomeshell")) return false;
+                    sCounters[1294]++;
+                    sGhShell = true;  // ShellArrive, read right after Unseen returns (no yield in between)
+                }
+                if (FarFromViewers(home.Position)) return true;
+                sGhDestSeen = !sGhShell;  // stagedarrival: apartment shells keep EA's walk
+                return false;
             }
         }
 
@@ -2756,12 +2924,22 @@ namespace Ts3Fixes
             bool spread = ShortcutOn("spotspread");
             bool reuse = ShortcutOn("safespotreuse");
             int[] c = PatchCounters();
-            // safespotpool (default off): spots in a pool or under the ground outdoors are refused, so the caller runs EA's trip
+            // safespotpool (default ON): spots in a pool or under the ground outdoors are refused, so the caller runs EA's trip
             bool noPool = ShortcutOn("safespotpool");
+            // safespotdedupe (ON 2026-11-20; docs/808): the three fresh tries all search from the same `near`, and with one verified
+            // spot (or spotspread off) both verified tries start from the same spot, so a deterministic search repeats an answer this
+            // call already turned down. Counted (always, counting only): fresh retry found [1476] the same spot as the try before,
+            // [1477] another spot, [1478] none; [1479] a spot after none. With the switch on, such a repeat stops the fresh tries
+            // [1480], and the second verified try is skipped when it would start from the same spot [1481].
+            bool dedupe = ShortcutOn("safespotdedupe");
+            Sims3.SimIFace.Vector3 lastFresh = Sims3.SimIFace.Vector3.Invalid;
+            int freshTries = 0;
+            bool lastFound = false;
             for (int i = 0; i < 2 + 3; i++)
             {
                 bool fresh = i >= 2;
                 if (!fresh && v.Good.Count == 0) continue;
+                if (dedupe && i == 1 && (v.Good.Count == 1 || !spread)) { c[1481]++; continue; }
                 Sims3.SimIFace.Vector3 start = fresh ? near : v.Good[spread ? v.Next++ % v.Good.Count : v.Good.Count - 1];
                 if (noPool && !fresh && BelowGroundOutdoors(start)) { c[2701]++; continue; }
                 // A verified spot is itself an earlier FindGoodLocation result (a native placement search, hundreds of ms
@@ -2784,12 +2962,26 @@ namespace Ts3Fixes
                 }
                 c[91]++;
                 bool found = GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(start), out pos, out fwd);
+                if (fresh)
+                {
+                    bool same = found && lastFound && (pos - lastFresh).Length() < 0.001f;
+                    if (freshTries > 0) c[!found ? 1478 : !lastFound ? 1479 : same ? 1476 : 1477]++;
+                    freshTries++;
+                    lastFound = found;
+                    if (found) lastFresh = pos;
+                    if (same && dedupe) { c[1480]++; break; }
+                }
                 if (ShortcutOn("safespotyield") && !SafeSpotYield(sim, near)) break;
                 if (!found) continue;
                 if (noPool && BelowGroundOutdoors(pos)) { c[2700]++; continue; }
                 if (verify && (pos - start).Length() > 0.5f) c[92]++;
+                int plans0 = c[39];
                 long tk = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
-                if (LotManager.GetLotAtPoint(pos) != lot || SpotVerdict(sim, lot, v, prof, pos, fresh, false, true) != true) continue;
+                bool good = LotManager.GetLotAtPoint(pos) == lot && SpotVerdict(sim, lot, v, prof, pos, fresh, false, true) == true;
+                // safespotplanyield: the verdict's IsPointInLotSafelyRoutable plan and the next FindGoodLocation (or the caller's
+                // placement) no longer share one sim slice; after the yield the Sim must still be there and unseen
+                if (c[39] != plans0 && ShortcutOn("safespotplanyield") && !SafeSpotYield(sim, near, 4088, 4089, -1)) break;
+                if (!good) continue;
                 // spotasync (docs/616): the check may have slept on its job; place only if the caller's unseen gate still holds
                 bool yielded = Sims3.Gameplay.Utilities.SimClock.CurrentTicks != tk && ShortcutOn("spotasync");  // other yields keep today's rule
                 if (!H4Core.SpotPlaceAfter(yielded, !sim.HasBeenDestroyed && sim.InWorld, yielded && TownieUnseen(sim, null), yielded && FarFromViewers(near)))
@@ -2817,13 +3009,15 @@ namespace Ts3Fixes
         // only in the Sim's own task (both hook callers, RabbitHoleHook.EnterHook and GoHomeHook.Run, and the lot trips run
         // in its interaction) and where a Sleep is safe (MayYield, RouteBackoff.cs). The Sim has not moved yet, so the yield
         // changes no outcome; after it the Sim must still be there and unseen, else false = the caller runs the game's trip.
-        static bool SafeSpotYield(Sims3.Gameplay.Actors.Sim sim, Sims3.SimIFace.Vector3 near)
+        // counters: yields / given up after the yield / not yielded (-1 = not counted): 276-278 safespotyield, 4088-4089 safespotplanyield
+        static bool SafeSpotYield(Sims3.Gameplay.Actors.Sim sim, Sims3.SimIFace.Vector3 near) { return SafeSpotYield(sim, near, 276, 277, 278); }
+        static bool SafeSpotYield(Sims3.Gameplay.Actors.Sim sim, Sims3.SimIFace.Vector3 near, int yields, int givenUp, int notYielded)
         {
             int[] c = PatchCounters();
-            if (Simulator.CurrentTask != sim.ObjectId || !MayYield()) { c[278]++; return true; }
-            c[276]++;
+            if (Simulator.CurrentTask != sim.ObjectId || !MayYield()) { if (notYielded >= 0) c[notYielded]++; return true; }
+            c[yields]++;
             Simulator.Sleep(0);
-            if (sim.HasBeenDestroyed || !TownieUnseen(sim, null) || !FarFromViewers(near)) { c[277]++; return false; }
+            if (sim.HasBeenDestroyed || !TownieUnseen(sim, null) || !FarFromViewers(near)) { c[givenUp]++; return false; }
             return true;
         }
 
@@ -2917,7 +3111,7 @@ namespace Ts3Fixes
             return key;
         }
 
-        // ---- docs/616 spotasync (default off) and the spot caller tag ----------------------------------------------------------
+        // ---- docs/616 spotasync (default ON) and the spot caller tag ----------------------------------------------------------
         // The only game hitch of three Bridgeport sessions (314-370 ms, Sun 12:46 PM, tick ~28760) was one SpotVerdict full check:
         // Sim.IsPointInLotSafelyRoutable's PlanFromPoint, ~280 ms sync on the sim thread ("START refused": [RouteAsync] Kinds=0).
         // With the switch on, a SafeSpot full check of an unseen NPC in its own task that may yield, when ts3native would start it
@@ -2970,7 +3164,7 @@ namespace Ts3Fixes
             DiagLine("spotasync shadow mismatch: " + sim.FullName + " async " + ok + " sync " + sync + " @" + Math.Round(pos.x, 2) + "," + Math.Round(pos.z, 2) + " on " + lot.Name);
         }
 
-        // ---- docs/635 spotbusydefer (default off) ------------------------------------------------------------------------------
+        // ---- docs/635 spotbusydefer (default ON) ------------------------------------------------------------------------------
         // The recurring Sun 12:47 PM hitch (s84 phase-20261117-1604, 305 ms; s86 0857 / 0127 / 0923 the same tick ~28760) with
         // spotasync on: Armstrong's spot:visit check started a tagged kind-2 job (route async: long job 286 ms, own START, watchdog
         // check, uncut); ~10 ms later Bianca's spot:rabbithole check sent its own tagged START, ts3native refused it (the worker
@@ -2997,7 +3191,7 @@ namespace Ts3Fixes
         {
             return sSpotDeferred.Count > 0 && sSpotDeferred.Remove(task);
         }
-        // ---- docs/635 spotcut (default off) -------------------------------------------------------------------------------------
+        // ---- docs/635 spotcut (default ON) -------------------------------------------------------------------------------------
         // s82 (phase-20261117-1648, r93, spotbusydefer + spotasync on): the Sun 12:47 PM hitch stayed (326 ms, tick 28768) in a
         // new shape: no refused START, but Bart Hammer's spot:visit check of Bridgeport Eternal Rest Cemetery ran as a tagged job
         // of 275 ms ("watchdog check, uncut: watchdog (KdUncutCeilMs), scope unseen"); the hitch frame spans that job and every
@@ -3183,6 +3377,7 @@ namespace Ts3Fixes
             if (sim.Posture != sim.Standing || sim.IsInRidingPosture || sim.IsInBeingRiddenPosture) return false;
             // docs/267 F2: Late Night hidden rooms too (allowHidden), same EA lookup as the tomb-only one
             if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(sim, !hiddenOk)) return false;
+            if (ShortcutOn("unseenhouseboatview")) { int hv = UfHbvTownie(sim); if (hv >= 0) return hv == 1; }  // docs/202 §3.10: a Sim on a foreign houseboat is judged where its boat shows
             int b = UtbBits(sim);  // docs/227 §6 central table
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(sim) && FarFromViewers(sim.Position)) : UtbUnseen(b);
             if (UcOnScreen(sim)) return false;
@@ -3215,7 +3410,7 @@ namespace Ts3Fixes
         // hole far away is placed at a safe spot by the entrance, then the game's own method runs: it plans only the last
         // few metres and does everything after the walk unchanged (entering animation, success count, followers).
         // Counters: [4] calls, [5] shortcuts, [6] no safe spot.
-        public class RabbitHoleHook : Sims3.Gameplay.Abstracts.RabbitHole
+        public partial class RabbitHoleHook : Sims3.Gameplay.Abstracts.RabbitHole
         {
             static int[] sCounters;
             public override RabbitHoleTuningClass RabbitHoleTuning { get { return null; } } // never instantiated; required by the base class
@@ -3223,13 +3418,19 @@ namespace Ts3Fixes
             {
                 if (sCounters == null) sCounters = PatchCounters();
                 sCounters[4]++;
+                if (ShortcutOn("rabbitholedirect")) { int d = RhDirect(a, inst, beforeEntering, routeMetaType); if (d != kRhdPass) return d == kRhdEntered; }
                 Sims3.Gameplay.Abstracts.RabbitHole proxy = RabbitHoleProxy;
                 if (ShortcutOn("rabbithole") && proxy != null && proxy.EnterSlots.Count > 0 && TownieUnseen(a, inst != null ? inst.SimFollowers : null))
                 {
                     Lot lot = proxy.LotCurrent;
                     Sims3.SimIFace.Vector3 door = proxy.GetPositionOfSlot(proxy.EnterSlots[0]);
-                    if (lot != null && !lot.IsWorldLot && a.LotCurrent != lot && (a.Position - door).Length() > kShortcutMinDistance
-                        && !UcOnScreen(proxy) && FarFromViewers(door))
+                    bool doorSeen = UcOnScreen(proxy) || !FarFromViewers(door);
+                    if (lot != null && !lot.IsWorldLot && a.LotCurrent != lot && (a.Position - door).Length() > kShortcutMinDistance && doorSeen)
+                    {
+                        // stagedarrival: only the door is in view
+                        if (ShortcutOn("stagedarrival")) StageNear(a, door, lot, kStageRabbit, UfPreCore.TripMode(false, false, ShortcutOn("unseenfbtriphold")), null);
+                    }
+                    else if (lot != null && !lot.IsWorldLot && a.LotCurrent != lot && (a.Position - door).Length() > kShortcutMinDistance)
                     {
                         Sims3.SimIFace.Vector3 pos, fwd;
                         if (SafeSpot(a, lot, door, out pos, out fwd, "rabbithole", true)
@@ -3266,10 +3467,13 @@ namespace Ts3Fixes
             if (!HouseboatOk(lot) || lot.BuildableShells.Length > 0 || lot == Household.ActiveHouseholdLot) return false;
             if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving) return false;
             if (sim.Household != null && sim.Household.Pets.Count > 0) return false;
-            if (!TownieUnseen(sim, null) || (sim.Position - lot.Position).Length() <= kShortcutMinDistance || !FarFromViewers(lot.Position)) return false;
+            if (!TownieUnseen(sim, null) || (sim.Position - lot.Position).Length() <= kShortcutMinDistance) return false;
+            // stagedarrival: only the destination is in view: walk on from the nearest unseen street point (true = staged, so the
+            // visit hooks preset no followers, as for a shortcut)
+            if (!FarFromViewers(lot.Position)) return ShortcutOn("stagedarrival") && StageNear(sim, lot.EntryPoint(), lot, kStageLot, mode, null);
             Sims3.SimIFace.Vector3 pos, fwd;
             if (!SafeSpot(sim, lot, lot.EntryPoint(), out pos, out fwd, name, true)) { c[idx + 2]++; return false; }
-            // spotcheck (default off): the gate judged the lot's position; the spot itself must be out of view too
+            // spotcheck (default ON): the gate judged the lot's position; the spot itself must be out of view too
             if (ShortcutOn("spotcheck") && !UfGoalUnseen(pos)) { c[2703]++; return false; }
             if (mode == 2 && !UfTripHold(sim, lot, pos)) return false;  // the game's own trip runs (the Sim lost only the hold)
             string from = sim.LotCurrent != null ? sim.LotCurrent.Name : "street";
@@ -3389,8 +3593,21 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
+                // visitonlot (default ON, townies only; nothing is moved): a townie already standing on the lot it visits arrives
+                // without EA's route to the front door. EA's Run routes there anyway (RouteToFrontDoor, then PlanToLotEx); on a lot whose
+                // front door cannot be reached from inside every such visit fails, idles and is picked again. Arrive() is the game's own
+                // arrival. Household, selected Sims, followers, apartment shells, resorts and diving lots keep EA's Run.
+                if (ShortcutOn("visitonlot") && (mFollowers == null || mFollowers.Count == 0) && Actor.LotCurrent == Target && VisitOnLotOk(Actor, Target))
+                {
+                    PatchCounters()[1293]++;
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
+                    return Arrive();
+                }
+                if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
+                {
+                    mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
+                    if (ShortcutOn("visitarrive")) return Arrive();
+                }
                 Sims3.Gameplay.Actors.Sim actor = Actor;
                 VwfTrip trip = VisitTripBegin(actor, Target, Autonomous);  // visitcar / visitwalkfinish (UnseenVisitTrip.cs); null when both are off
                 try
@@ -3406,7 +3623,46 @@ namespace Ts3Fixes
                 }
                 finally { VisitTripEnd(actor, trip); }
             }
+            static bool VisitOnLotOk(Sims3.Gameplay.Actors.Sim sim, Lot lot)
+            {
+                if (IsPlayerSim(sim) || sim.Household == null || lot == null || lot.IsWorldLot || lot.BuildableShells.Length > 0 || lot == Household.ActiveHouseholdLot) return false;
+                return lot.CommercialLotSubType != CommercialLotSubType.kEP10_Resort && lot.CommercialLotSubType != CommercialLotSubType.kEP10_Diving;
+            }
+
             public bool RunOrig() { return false; } // receives VisitCommunityLot.Run's original header
+
+            // visitarrive (default ON; only after the shortcut above placed an unseen townie on the lot): the game's Run then still
+            // routed to the front door (RouteToFrontDoor) or planned to the lot (PlanToLotEx), one 110-150 ms plan for a Sim already
+            // standing at the lot's entry point. Here the game's Run is followed line by line minus the route: carpool wait, outfits
+            // (cocktail venue, own workplace), then its success tail (NumSuccess, "do something after arriving" when autonomous,
+            // grouping situation). A Sim carrying a child (EA re-queues it standing first) keeps the game's Run. Resorts and diving
+            // lots never get here (ShortcutToLot). Counter [1292] arrivals without a route.
+            bool Arrive()
+            {
+                if (Actor.CarryingChildPosture != null) return RunOrig();
+                if (!Sims3.Gameplay.Objects.Vehicles.CarpoolManager.WaitForCarpool(Actor)) return false;
+                Sims3.Gameplay.Actors.Sim.SwitchToFormalOutfitIfCocktail(Actor, Target);  // its answer only dresses followers: none here
+                Sims3.Gameplay.Careers.Occupation occ = Actor.Occupation;
+                if (occ != null && occ.ActiveCareerLotID == Target.LotId && occ.IsAllowedToWork())
+                {
+                    occ.EnsureSimHasOccupationOutfit();
+                    if (Actor.Posture == Actor.Standing) Actor.SwitchToOutfitWithSpin(Sims3.Gameplay.Actors.Sim.ClothesChangeReason.GoingToWork);
+                    else
+                    {
+                        Sims3.SimIFace.CAS.OutfitCategories cat;
+                        Actor.GetOutfitForClothingChange(Sims3.Gameplay.Actors.Sim.ClothesChangeReason.GoingToWork, out cat);
+                        Actor.OutfitCategoryToUseForRoutingOffLot = cat;
+                    }
+                }
+                PatchCounters()[1292]++;
+                NumSuccess++;
+                VisitCommunityLot.Definition def = InteractionDefinition as VisitCommunityLot.Definition;
+                if (Autonomous && (def == null || def.mLookForAutonomousActionsUponArrival))
+                    Target.MakeSimDoSomethingAfterArrivingAtVenue(Target.GetMetaAutonomyVenueType(), Actor);
+                if (!Sims3.Gameplay.Situations.GroupingSituation.DoesGroupingSituationExistForFamily(Actor))
+                    Sims3.Gameplay.Situations.GroupingSituation.StartGroupingSitatuationWithFollowers(Actor, mFollowers);
+                return true;
+            }
         }
 
         // docs/202 §3.6.4 (unseenfbtrip): a mod that installs its own VisitCommunityLot subclass as the game's visit singletons and

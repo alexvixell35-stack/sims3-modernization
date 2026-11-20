@@ -9,6 +9,7 @@
 # Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
 # +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
 # +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
+# +3 2026-11-19, moved to default ON at the 2026-11-20 import (so no longer listed: houseboatlegmemo houseboatgangwayrescue boatroamcap): s128 Isla Paradiso, one load off then on (repro-off/on, roam-off/on), off BROKEN / on FIXED, 0 errors (docs/853 §1).
 
 # ---- excluded (default off, not in the set), by reason
 # perf experiments / sim-thread offload and caching (not EA gameplay fixes):
@@ -17,6 +18,7 @@
 #   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
 #   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
 #   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+#   iafailmemo
 # measurement / diagnostics / test aids:
 #   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
@@ -26,7 +28,7 @@
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
-#   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone
+#   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
 #   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
 # combo pieces: first in-game check only, not marked proven (docs/551):
@@ -54,3 +56,9 @@
 #   unseenloopskip_offscreen
 # maintainer switches added on master, not reviewed for this set (merge 2026-11-18):
 #   zdemptyout decaymemo burnttilefloor
+# autonomy quality PR #575 (import 2026-11-20): fightorphanwait poolnolane autonomyfailcooldown venuepicktime default ON; still off, no verdict (timing only):
+#   venuepickfast
+# Dalexlol PR 2026-11-20 (docs/202 §3.10), default off: unseenhouseboatview, a scope-rule change never run in game (unseenfbghost, unseenfbnosync, safespotplanyield are ON by default, natural play only, no off/on verdict):
+#   unseenhouseboatview
+# Dalexlol PRs #503 / #490 (import 2026-11-20), default off by choice (gohomeshell: apartment arrivals, test with LotLevelPastEnd; spawnoffworld: Rodney call):
+#   gohomeshell spawnoffworld

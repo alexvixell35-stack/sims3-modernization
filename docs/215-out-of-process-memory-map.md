@@ -66,6 +66,8 @@ RAM-only flags: none of the movable rows is RAM-only; each removes reservations 
 
 ## 4. Recommended first target: resource read buffers
 
+**Update 2026-11-20 (docs/305):** built in Apex's restart host. Static pass corrected row 3a: the three sites are not on `0x4A8380`; `PackedStream/Raw` (local to `0x72D360`) is the only movable one, `DecompressedRecordData` and `EAStreamMemory/data` are read through raw pointers and stay. Movable gain ~16-36 MB, not 112-192.
+
 Why this one: largest movable owner whose call surface is mapped and narrow (by key, copy-out, then freed), a 64-bit helper with no game code, IPC well inside 70-100 ms/s even at the event model, and failure is local (fall back to the game's own read). The renderer proxy saves more but has two unknowns that can each kill it.
 
 Honest limit: the address-space gain comes from **not growing EA cores for transient buffers**, and an in-process fixed window for the three tags would give most of the same gain without a helper. The helper adds off-thread file I/O and RefPack (no main-thread decompression, no package handles in the game) and keeps a second copy of hot data out of the game. Build the in-process window as the first step of the same design (it is the game-side half anyway), measure, then move the reader out.

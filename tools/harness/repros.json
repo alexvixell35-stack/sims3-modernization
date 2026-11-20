@@ -47289,6 +47289,104 @@
     }
   },
   {
+    "id": "unseenfbghost-walk-across",
+    "bug": "docs/202 §3.10: unseen townies near the camera that skip routing (unseenroute hold + place) jump when the hold ends; far ones plan routes nobody sees. Does the three-tier ghost (unseenfbghost: far = hold + place at a hand-off point, medium = ghost walk in coarse steps) keep them walking near the view and cut the routing of far ones?",
+    "fix": "ts3fixes unseenfbghost (UnseenFallback.cs UfCutRecover / UfGhostCut, docs/202 §3.10), ON since import 2026-11-20.",
+    "save": "Baseline-IP-Spring",
+    "note": "The unseenroute-walk-across repro with the loop arm on unseenfbghost instead of unseenroute (the local runs kept unseenroute on in both arms through the queue's fixesOn). 30 spawned townies only; household untouched.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 90,
+        "note": "away from the household and the camera"
+      }
+    ],
+    "expect": "no crash, 0 watchdog lines, no stuck Sim, no Sim placed on another island it could not reach; on arms: unseenfbghost_holds and _shortcuts move, unseenfbghost_lastfail stays small; off arms: normal plans",
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "unseenfbghost": "$on"
+          },
+          "waitS": 1,
+          "note": "arm (three-tier ghost)"
+        },
+        {
+          "cmd": "crowd_do",
+          "setup": false,
+          "args": {
+            "lot": "farobj",
+            "object": "Sculpture|Statue|Fountain|Painting|Art",
+            "interaction": "View|Admire|Swing"
+          },
+          "waitS": 30,
+          "note": "fire: unseen own-task View plans (ViewObjects / ViewPlant RouteToPointRadialRange) far -> far2",
+          "waitUntil": {
+            "quiet": 4000
+          },
+          "minS": 6,
+          "maxS": 30,
+          "count": {
+            "result": "sent"
+          }
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": true,
+          "args": {
+            "to": "far",
+            "cancel": true
+          },
+          "waitS": 60,
+          "note": "back to far (ends the sit or the hold)"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 30
+      },
+      "maxMinutes": 14
+    }
+  },
+  {
     "id": "unseenroute-snapback",
     "bug": "docs/202 §3.9 / docs/161 / docs/163: unseen Sims own 68-97% of route-plan time in >= 300 ms routing hitches; D (unseenfbpre) never acted because gate 332 refused every child-or-older route (EnablePlanningAsBoat is set on all of them with Island Paradise installed, kit run issue #135) and the exactness proofs (verdict fill, known colour, lot kind) refused the rest",
     "fix": "ts3fixes unseenroute (UnseenFallback.cs UfPre relaxed + UfSnap, docs/202 §3.9): an unseen townie's own followed plan to an unseen outdoor goal plans nothing: hold for the travel time (walk, or the fast-leg estimate when the route may drive / take the subway / hover train / a boat), place at the goal, short exact plan from there; snap-back mid-trip when the goal turns seen. Safety rules unchanged",
@@ -111129,6 +111227,579 @@
   },
   {"id": "outfitmissing-check", "bug": "Sim.SwitchOutfitHelper.Init(Sim, OutfitCategories, int) dereferences a missing outfit (GetOutfit null): pregnant Sims' special outfits go to the maternity list but are read from the normal one (6/6 pregnant snorkelers, Bella Vista Beach, 2026-11-17/18)", "fix": "ts3fixes OutfitMissing.cs: outfitmissing (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, active Sim, a Special index past its outfit count. Off: EA's NullReferenceException (3986). On: no throw, no change (3985).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 1 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 1 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 2 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 2 on: no change, no throw"}, {"cmd": "patches", "args": {"outfitmissing": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect broken"]}, "waitS": 1, "note": "round 3 off: EA throws"}, {"cmd": "patches", "args": {"outfitmissing": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.OutfitMissingCheck", "args": ["expect fixed"]}, "waitS": 1, "note": "round 3 on: no change, no throw"}]},
   {"id": "ageupdupinst-check", "bug": "Two SimDescription.Instantiate calls during one deferred age-up (#553): the second reads the age-up's SimBuilderTask after the first nulled it; NullReferenceException out of AgingState.PreInstantiateSim", "fix": "ts3fixes AgeUpDupInst.cs: ageupdupinst (default off)", "save": "Baseline-BP", "note": "3 rounds off/on in one load, a new townie each time (it ages up once and stays instantiated). Off: one call throws (3989). On: both get the same Sim (3988).", "expect": "every result step passes", "steps": [{"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 1 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 1 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 2 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 2 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": false}, "waitS": 1, "note": "switch off"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect broken"]}, "waitS": 90, "note": "round 3 off: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect broken: throws unless the check ended as expected"}, {"cmd": "patches", "args": {"ageupdupinst": true}, "waitS": 1, "note": "switch on"}, {"cmd": "reflect_call_async", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupCheck", "args": ["expect fixed"]}, "waitS": 90, "note": "round 3 on: two off-screen instantiations of a townie with a deferred age-up"}, {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.AgeUpDupResult"}, "waitS": 1, "note": "expect fixed: throws unless the check ended as expected"}]},
+  {
+    "id": "ip-boat-raw-dispose2",
+    "bug": "EA pure-call BREAKPOINT 0x58D996: a destroyed slave (driver / passenger) left on its vehicle master slave list (docs/143 s8.11)",
+    "fix": "ts3native [EaCrashFixes] SlaveUnlink=1; tripwire DeadSlaveTrip=1",
+    "save": "Baseline-IP",
+    "note": "2026-11-18, second try of ip-boat-raw-dispose. That one never had a rider: every crowd_go Go Here to 'island' (Port Pyre's centre 948.4,508.1, 2 m under sea level) failed FailedBecauseNoDestinationSpecified (etl14e: 50 of 50 plans per arm), in_vehicle 0 at all 10 checks, its riding lists held only walkers. Now crowd_go moves a lot-centre goal to a walkable spot on the lot (agent 2026-11-18, as go_here), the boat shortcuts are off for this repro (unseenboat would wait and place an unseen NPC at the goal; D's pre / arrive / relaxed / leave / plan / teleport paths could skip the ride too), and each of 4 rounds polls every 1 s with remove_sims ridingOnly (raw dispose in place of spawned Sims whose Parent is a Vehicle, never the active household) until riding.length >= 1 (an agent older than 2026-11-18 has no riding key without raw, so it times out instead of passing on walkers), then 15 s for the master's avoidance to touch the dangling slave, then a safe remove_sims for the rest. A round with no rider in 180 s FAILs the job: not triggered (the crossing went by land), not a fix result.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenboat": false,
+          "unseenboatstart": false,
+          "unseenfbpre": false,
+          "unseenfbarrive": false,
+          "unseenroute": false,
+          "unseenfbleave": false,
+          "unseenfbplan": false,
+          "unseenfbteleport": false
+        },
+        "waitS": 1,
+        "note": "boat ride shortcuts off: every crossing is a real ride"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 1: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 1: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 1: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 1: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 2: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 2: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 2: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 2: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 3: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 3: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 3: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 3: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "island"
+        },
+        "waitS": 5,
+        "note": "round 4: Go Here to a walkable spot on the island lot (boat, water taxi or swim)"
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "note": "round 4: crowd before the poll; the until disposes the first riders in place",
+        "until": {
+          "cmd": "remove_sims",
+          "args": {
+            "ridingOnly": true
+          },
+          "all": [
+            {
+              "path": "riding.length",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "unseen_water_check",
+        "args": {},
+        "optional": true,
+        "waitS": 15,
+        "note": "round 4: 15 s with the dangling slave link (no-fix arm: the pure call comes here)"
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10,
+        "note": "round 4: the rest, safe path (riders reset first)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      }
+    ],
+    "expect": "every round: 'until met' line with removed ['riding Boat... <id>'] (a spawned Sim disposed in its boat). No-fix arm: BREAKPOINT 0x58D996 within ~15 s of a riding dispose (repro found). Fix arm: no crash, ts3native.log 'ea fix: SlaveUnlink #n' >= 1 (one per disposed rider or more), DeadSlaveTrip 0. A 180 s until timeout = not triggered (N/A), not a fix verdict",
+    "area": "boats",
+    "switches": []
+  },
+  {
+    "id": "ip-fight-orphan",
+    "bug": "SnowWaterFightWait idles in DoLoop until the fight's 1-minute ControllerCallback gives it an exit reason; a Sim in Wait that the fight no longer holds in PlayerSlots gets none: with NumPlayers 0 and the Sim still on the use list the callback returns every minute for good (townies Matthew Mango etl13 af18-ip-31363, Doug Rodel etl7 abip2-oo, Isla Paradiso beaches, 'Wait for opponents' to the end of the run)",
+    "fix": "ts3fixes FightOrphan.cs fightorphanwait (default off): hourly pass (ErrorTrapSims' alarm) notes a non-household Wait that is orphaned (fight gone, controller alarm gone, or Sim not in its slots) and ends the same Wait at the next pass with ExitReason.CanceledByScript (EA's own leave path: Exit, QuitFight, RouteAway). Counters [1345] ended, [1346] left (switch off), [1347] errors",
+    "save": "Baseline-IP",
+    "switches": [
+      "fightorphanwait"
+    ],
+    "fixesRequire": "slot1345>=1",
+    "note": "Causes the orphan on purpose. Two townie NPCs (pick_sims townies, re-checked by the agent: never the active household, a selectable Sim or unknown scope) are set up as setup_sims does (teleport, motives, autonomy off) on the community lot with the most IBeachObjects (EA's beach rule) and start a water balloon fight by EA's PlayWith.Run path (CreateAndPlaceFightArea + a JoinSingleton Wait each). Once both idle in Wait between throws, fight_orphan op orphan does what the inferred real cause does (IdleLoop's Move writing over a joiner's slot): picked:1's PlayerSlots entry is cleared, picked:2 is cancelled (QuitFight frees its slot and use-list entry). Vanilla then never ends picked:1's Wait (status orphaned true). 130 sim-minutes at ultra cover two hourly passes: noted at the first, ended at the second. agent command fight_orphan (FightOrphanHandlers.cs, agent build 11-18). Job window >= 15 min.",
+    "expect": "start: lot with beach_objects > 0, both Waits queued; orphan done true ('cleared from slot N, 1 other(s) cancelled'); status orphaned true, others_out true, num_players 0; after the ultra wait status freed true (picked:1 out of SnowWaterFightWait); slot1345 >= 1, slot1347 absent (0); 0 script errors",
+    "area": "fights",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fightorphanwait": true
+        },
+        "waitS": 1,
+        "note": "the fix on, read back"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 2,
+          "age": "youngadult,adult",
+          "townies": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "start",
+          "lot": "Sparkling Sands Beach"
+        },
+        "waitS": 5,
+        "note": "beach lot (named: no IP community lot counts an IBeachObject, 11-18 run), teleport, water balloon fight, both Waits queued"
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "orphan"
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "fight_orphan",
+          "args": {
+            "op": "orphan"
+          },
+          "all": [
+            {
+              "path": "done",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 240
+        },
+        "note": "acts once both idle in this fight's Wait (between throws); done false = not settled, polled"
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "status"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "fight_orphan",
+          "args": {
+            "op": "status"
+          },
+          "all": [
+            {
+              "path": "orphaned",
+              "equals": true
+            },
+            {
+              "path": "others_out",
+              "equals": true
+            }
+          ],
+          "everyS": 3,
+          "maxS": 60
+        },
+        "note": "the vanilla stuck state: picked:1 in a Wait the fight does not hold, picked:2 gone"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitUntil": {
+          "simMinutes": 130
+        },
+        "maxS": 420,
+        "note": "two hourly FightOrphanPass runs (ErrorTrapSims' alarm): noted at the first, ended at the second"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "fight_orphan",
+        "args": {
+          "op": "status"
+        },
+        "waitS": 1,
+        "until": {
+          "cmd": "fight_orphan",
+          "args": {
+            "op": "status"
+          },
+          "all": [
+            {
+              "path": "freed",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "the fix ended picked:1's Wait (EA's Exit / QuitFight / RouteAway)"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:1",
+          "enabled": true
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:2",
+          "enabled": true
+        },
+        "waitS": 1,
+        "optional": true
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:1",
+          "enabled": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "picked:2",
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-houseboat-leg-memo",
+    "bug": "docs/853 §2: an NPC stranded ~17 m off its houseboat (houseboat not Docked) gets EA's EnterHouseboatThroughBoat boat leg (PostPlanRouteCallback -> CheckAndUpdateForHouseboats, PlanFromPoint EndAsBoat + DestinationMustBeInDeepWater (+ DisablePlanningOnLand)) planned again after every plan home, ~600 ms each, always no path (IP phase-20261119-0746: Britta Colombo 18x)",
+    "fix": "ts3fixes houseboatlegmemo (HouseboatLegMemo.cs): the leg's first no-path plan is recorded (1378), repeats from the same start to the same goal are answered at once (1379, ms 1380); household / selected / unknown scope exempt (1381)",
+    "save": "Baseline-IP",
+    "note": "Forced. houseboat_leg_repro picks NPCs (known non-active household, houseboat residents first), a houseboat away from its dock; with all Docked (Baseline-IP, phase-20261119-1005) undock (default on) moves one whose residents are all NPCs (never the active household's) off its port with EA's Houseboat.LeavePort (driver null, ends StationaryAtSea; status before/after in result.undock), error only if none qualifies (a Docked one takes the gangway, not the boat leg), places each 17-30 m off the houseboat's RoutingSlot_0 on the world lot (sea spots first, then land), probes each spot with EA's own leg (switch forced off for the probe) and keeps the first that finds no path, then plans the Sim's own route to the houseboat `tries` times (Plan / ReplanFromPoint). Needs an active household. Proven in game 2026-11-19 (s128, docs/853 §1) through the docked mode of ip-houseboat-gangway-rescue (both switches on): the gangway leg recorded once (1378 +1) and its repeats answered (1379 +2, standing for 2278 ms of plans; the answered plans took 1-3 ms instead of ~1.1 s), 0 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houseboatlegmemo": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "start": true,
+          "sims": 2,
+          "tries": 4,
+          "mode": "undock",
+          "undock": true
+        },
+        "waitS": 150,
+        "note": "probe spots, then 4 plans home per Sim"
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: probes, per try kind/result/ms, legs seen, counter deltas 1378-1381"
+      }
+    ],
+    "expect": "OFF: every try sees a leg (EndAsBoat DeepWater) FailedBecauseNoPathToDestination with full ms, counters 0; ON: try 1 leg recorded (1378 +1 per Sim), later tries no leg callback and 1379 +1 each (answered, ~0 ms), 'houseboatlegmemo: recorded|answered' lines; probe_failed true for each Sim; no crash",
+    "cleanup": [
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-houseboat-gangway-rescue",
+    "bug": "docs/853 §3: an NPC dropped on shore ~15-22 m from its DOCKED houseboat's gangway at a spot with no walkable path: after every plan home EA's CheckAndUpdateForHouseboats -> EnterHouseboatThroughGangway plans PlanToPointFromPoint to the gangway's RoutingSlot_0 with water and boat planning off, no path (~650 ms); GoHome.Run fails, autonomy picks GoHome again, no give-up",
+    "fix": "ts3fixes houseboatgangwayrescue (HouseboatGangwayRescue.cs): the no-path gangway leg marks the NPC (1382); after GoHome fails, EA's Houseboat.PlaceSimAtEntrance places it on the houseboat (1383), at most once per sim-hour; refused 1384 (reasons 1386-1391), errors 1385; household / selected / unknown scope exempt",
+    "save": "Baseline-IP",
+    "note": "Forced. houseboat_leg_repro mode docked (default) picks NPCs living on a Docked houseboat with a port gangway, sends each by EA's Teleport Me Here to the nearest world-lot coastal spot 80-480 m off that is not connected by land, then EA's MakeSimGoHome (own boat if usable, else EA's boat planning); watches waitS 150 s: boat, get-out spot and its gangway distance, first gangway leg, rescue fired. A get-out with no failed gangway leg (first_gangway_leg Succeeded or none) = not triggered on this save: N/A, not FAIL. 2026-11-19 phase-1523: the old fixed-shore placement never failed (all spots walked); phase-1608: unseen NPCs were put home by the unseen shortcuts (no boat), so the run is SEEN: camera follows the first Sim, shortcutsOff forces gohome / unseenboat* / unseenfb* / unseenroute off for the run and restores them. start_needs_boat true = the start is not land-connected (wanted). Needs an active household. Proven in game 2026-11-19 (s128, Isla Paradiso, one load off then on, docs/853 §1): OFF Rubisel Ichtaca dropped 16.5 m from the gangway, gangway leg FailedBecauseNoPathToDestination 1118 ms and repeats (~1.1 s each), reached_home false after 150 s, counters +0; ON the same Sim marked (1382 +1), placed by EA's PlaceSimAtEntrance (1383 +1), reached_home true at 5.4 s, 0 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "houseboatlegmemo": "$on",
+          "houseboatgangwayrescue": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "start": true,
+          "mode": "docked",
+          "sims": 2,
+          "waitS": 150,
+          "shortcutsOff": true
+        },
+        "waitS": 170,
+        "note": "teleport to a far coast, MakeSimGoHome, watch the boat trip home 150 s"
+      },
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: boat, get_out + get_out_gangway_m, first_gangway_leg (result, ms, Sim position), rescued, reached_home, plans seen; counter deltas 1378-1381 and 1382-1391"
+      }
+    ],
+    "expect": "OFF: boat set, get_out ~15-22 m from the gangway, first_gangway_leg FailedBecauseNoPathToDestination ~650 ms, repeats, reached_home false, 1382-1391 +0; ON: 1382 +1 per Sim, 1383 +1 per Sim after its first failed GoHome, 'houseboatgangwayrescue: <name> placed at <lot>, after N ms of failed legs' lines, reached_home true; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "houseboat_leg_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-boat-roam-cap",
+    "bug": "docs/853 §4: an NPC driving a boat on a world lot stays in EA's Boat.BoatAround loop for many sim hours, overnight too (IP phase-20261119-1139/1243/1345: one Sim every ~2 sim-hours from 10 PM to the next afternoon, another 50 roam plans in a session); each run a CreateRoamingBoatPath plan ~150-275 ms plus a plan back; BoatAround's Test has no exit and ReturnToShore is apparently never picked",
+    "fix": "ts3fixes boatroamcap (BoatRoamCap.cs): a non-exempt NPC driver's BoatAround after kBoatRoamCapRoams (3) roams or kBoatRoamCapHours (2) of streak, at night (23-6) or with low energy / bladder does not roam (1392) and EA's ReturnToShore is pushed as its continuation (1393); a return that cannot run or fails lets EA roam with a 1 sim-hour back-off (1394); exempt 1395, errors 1396, shore reached 1397, service / role / AlarmOneShot boating logged 1398, night or motive caps 1399",
+    "save": "Baseline-IP",
+    "note": "Forced. boat_roam_repro picks NPCs (known non-active household, teen or older human, home lot), gives each its own speed boat off the nearest shore owned by its home lot (BoatOwnable, so ReturnToShore can run), sets it on the shore with autonomy off, EA's Board Boat as driver, then pushes BoatAround at autonomous priority whenever it is idle at the helm (EA's GoBoating needs a map-view click). Watches `seconds` (300). A Sim that never boards = not triggered: N/A, not FAIL. Needs an active household. Proven in game 2026-11-19 (s128, Isla Paradiso, docs/853 §1): OFF 28 BoatAround roams in under 3 min, 0 returns, still in the boat; ON 2 roams, then EA's ReturnToShore (1392 +1, 1393 +1), ashore (1397 +1), 0 errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "boatroamcap": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "start": true,
+          "sims": 1,
+          "seconds": 300
+        },
+        "waitS": 320,
+        "note": "board, then BoatAround while idle at the helm for 300 s"
+      },
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "result": true
+        },
+        "note": "per Sim: BoatAround runs (roams), ReturnToShore runs, ashore; counter deltas 1392-1399"
+      }
+    ],
+    "expect": "OFF: roams grow for the whole window, returns 0, ashore false, 1392-1399 +0; ON: roams stop at 3 (or 0-1 at night), returns 1, ashore true, 1392 +1 and 1393 +1 and 1397 +1 per Sim, 'boatroamcap: <name> back to shore after N roams / H sim-h' line; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "boat_roam_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
   {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",

@@ -27,7 +27,6 @@ const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 export const EXEMPT: Record<string, string> = {
   unseenoutfitdefer: 'speed change with no bug to trigger (issue #451, docs/586): counters 2570-2588 per game, natural-play compositor and frame times on 4 worlds; the next test is the in-load --ab unseenoutfitdefer on BP',
   cutonwait: 'no forced repro yet: the waits need many townies routing behind each other (DiscDrain, event-9 flush, +0x918); judged by the native selftest (11b, jobyield step 5) and the Isla Paradiso in-load --ab cutonwait pairs, both orders (docs/850 §4)',
-  unseenoutfitdefer: 'speed change with no bug to trigger (issue #451, docs/586): counters 1981-1999 per game, natural-play compositor and frame times on 4 worlds; the next test is the in-load --ab unseenoutfitdefer on BP',
   boundcall: 'exact speedup, no hitch to repro (docs/537 §22): the same EA String bodies run, judged by the native selftest, the monohost corpus + c3g replays (MONOHOST_JITBIND=1 MONOHOST_JITBOUNDCALL=3, 0 differ) and boundcall.json (BP/IP correctness, --ab boundcall timing)',
   equalsfast: 'exact speedup, no hitch to repro (docs/258 option C): judged by the native selftest and the monohost exactness corpus (MONOHOST_EQFAST=1, 0 mismatches) and the BP/IP --ab equalsfast timing pair (queues/equalsfast-1112.json)',
   buyiconleak: '2026-11-11 leak fixes (docs/545 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
@@ -129,6 +128,15 @@ export const EXEMPT: Record<string, string> = {
   doorgen: 'Dalexlol PR #430 (docs/585): bumps ts3native door generation for DoorMemoX=3; judged by his harness evidence and the DoorMemo selftest, no forced repro',
   eventcost: DIAG + ' (docs/545 §5, EventTracker.ProcessEvent timing; ts3agent event_cost turns it on)',
   gm6trace: DIAG + ' (AutShadow.cs IL trace of bad methods)',
+  safespotdedupe: 'Dalexlol #511: ON 2026-11-20 on his 17-job soak counters (5,854 repeats stopped), a search shortcut for unseen townies, no forced repro',
+  rabbitholedirect: 'Dalexlol #507: ON 2026-11-20 on his 17-job soak counters (entered 7,667), unseen townies only, no forced repro',
+  rhoutside: 'Dalexlol #507: ON 2026-11-20 on his 17-job soak counters (placed 2,700), unseen townies only, no forced repro',
+  unseenlanesnap: 'Dalexlol #509: ON 2026-11-20 on his 17-job soak counters (snapped 3,974), unseen townies only, no forced repro',
+  unseenlegsnap: 'Dalexlol #509: ON 2026-11-20 on his 17-job soak counters (snapped 1,439), unseen townies only, no forced repro',
+  stagedarrival: 'Dalexlol #505: stays OFF, his 17-job soak asked 1,137 but placed 0 (every candidate refused), unproven: no forced repro',
+  icecreamdirect: 'Dalexlol #505: ON 2026-11-20 on his 17-job soak counters (skipped 1,074), unseen trucks only, no forced repro',
+  nearvenue: 'Dalexlol #505: ON 2026-11-20 on his 17-job soak counters (lowered 14,417, raised 7,202), townies only, no forced repro',
+  unseenoutfitnospin: 'Dalexlol #513: ON 2026-11-20 on his 17-job soak counters (taken 7,251, set ran at once 0), unseen townies only, no forced repro',
   safespotpool: 'SafeSpot never answers a pool or below-ground outdoor cell (docs/74 §13), on by default: no forced repro yet',
   savedstacks: 'on by default (docs/242): a swapped method keeps its saved Sims at load; judged by save/load correctness jobs, no forced repro',
   spotcheck: 'GoHome / lot-trip teleport with an in-view landing spot walks instead (docs/560 §7), on by default: no forced repro yet',
@@ -150,14 +158,48 @@ export const EXEMPT: Record<string, string> = {
   visitwalkfinish: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
   // 2026-11-20 merge of Dalexlol #564: switches without a forced repro (his in-game results or never fired yet)
   boatroutenull: 'Dalexlol #564: default off, never fired yet (Boat.RouteBoatToLandOnWayToPosition false); no forced repro',
+  unseenfbnosync: 'Dalexlol (docs/202 §3.10): ON (import 2026-11-20); acts only when ts3native refuses the async START of a marked unseen plan (queue state), which no repro can force; natural-play counters only (unseenfbnosync_asked / _recovered)',
+  unseenhouseboatview: 'Dalexlol (docs/202 §3.10): default off; a scope-rule change for townies on foreign houseboats (Isla Paradiso), no bug to force; natural-play counters on 31 IP games (unseenhouseboatview_asked / _changed)',
+  safespotplanyield: 'Dalexlol (docs/202 §3.10): ON (import 2026-11-20); a one-tick yield after a SafeSpot verdict plan (sim-thread slice split, not an EA bug); natural-play counters only (safespotplanyield_yields / _given_up)',
   overwatchresetgone: 'Dalexlol #564: default off, never fired yet (destroyed Sim with no proxy in SetObjectToReset); no forced repro',
   motivesnohousehold: 'Dalexlol #564: default off, not testable on his PC (Sim with no household); no forced repro',
   overwatchrelretry: 'Dalexlol #564: ON, one natural hit in his play, retry passed; load-time race, no forced repro',
+  // boat trips PR (2026-11-19): townie boat routing, judged by his natural-play counters; no forced repro
+  boattrip: 'Dalexlol boat trips PR: ON (import 2026-11-20), townie boat trips (BoatTrip.cs), natural Isla Paradiso play only; no forced repro',
+  boatplace: 'Dalexlol boat trips PR: ON (import 2026-11-20), townie boat placement off lot water (BoatPlace.cs), natural play only; no forced repro',
+  retryscope: 'Dalexlol boat trips PR: ON (import 2026-11-20), scope answer re-sent for boattrip sync plans (RetryScope.cs), natural play only; no forced repro',
+  boatlandstuck: 'Dalexlol boat trips PR: ON (import 2026-11-20), EA GetOutOfBoat.Run stuck-seated fix (BoatLandStuck.cs), natural play only; no forced repro',
   jobyieldroad: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldroadow: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldspawn: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldfp: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
   jobyieldready: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  // alexvixell35-stack autonomy quality PR (2026-11-18): soak counters, no forced trigger yet
+  poolnolane: 'EA bug fix (PoolNoLane.cs): needs a pool whose Inside lane slots are all disabled; no forced trigger yet, judged by soak counters 1348-1350',
+  autonomyfailcooldown: 'route-failure cooldown for NPC autonomy (AutonomyFailCooldown.cs): needs an NPC whose route to one object keeps failing; judged by soak counters 1360-1369 and its routefail lines, no forced repro',
+  venuepicktime: DIAG + ' (VenuePickTime.cs: venue arrival pick timing, logging only)',
+  venuepickfast: 'timing only (VenuePickTime.cs): one yield before each venue arrival motive search of an NPC; judged by venuepicktime in soaks, no forced repro',
+  // 2026-11-20 import of Dalexlol #503: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  visitarrive: 'Dalexlol PR #503: his 11-19 17-job soak, 14,274 arrivals without a route, 0 problems',
+  visitonlot: 'Dalexlol PR #503: soak: fired 3x, 0 problems',
+  gohomeshell: 'Dalexlol PR #503: soak: 6,286 asks, 2,157 placed; off until LotLevelPastEnd (PR #449) is on',
+  // 2026-11-20 import of Dalexlol #499: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  unseentraffic: 'Dalexlol PR #499: his 11-19 17-job soak, 43,118 teleport legs, 0 problems',
+  npccarexit: 'Dalexlol PR #499: soak: 1,691 exit asks, 0 problems',
+  // 2026-11-20 import of Dalexlol #490: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  spawnfix: 'Dalexlol PR #490: his 11-19 17-job soak, 8,357 fan-outs skipped, 0 problems',
+  spawnoffworld: 'Dalexlol PR #490: soak: 208 off-world spawns skipped; off (gameplay change)',
+  // 2026-11-20 import of Dalexlol #501: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  festivalhidden: 'Dalexlol PR #501: two Starlight Shores runs, 44 and 40 skips, 0 errors',
+  // 2026-11-20 import of Dalexlol #478: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  bouncermemo: 'Dalexlol PR #478: 7 Bridgeport games 11-18, 71-430 loops skipped, all PASS',
+  // contributor PR post/ea-guards-skips-1120: natural-play evidence only, no forced repro
+  frontstageowner: 'contributor: ON (import 2026-11-20), fired in natural play (3 games, unowned stage kits); no forced repro',
+  careerskillnull: 'contributor: ON (import 2026-11-20), fired in natural play (11 games, skills the game could not add); no forced repro',
+  stuckhbskip: 'contributor: ON (import 2026-11-20), fired in natural play (Isla Paradiso houseboats, 28 games); no forced repro',
+  turnjigskip: 'Dalexlol: ON, performance skip for unseen townies, fired in natural play (91 games); no forced repro',
+  unseenrelax: 'Dalexlol unseen route cost PR: ON (import 2026-11-20), route-cost switch for unseen townies, judged by natural games (no off arm); no forced repro',
+  iafailmemo: 'Dalexlol unseen route cost PR: default off (his own advice: until a watchdog A/B), route-cost memo for townies, judged by natural games (no off arm); no forced repro',
 };
 
 // Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,
