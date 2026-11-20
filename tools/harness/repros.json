@@ -112286,6 +112286,113 @@
     ]
   },
   {
+    "id": "ip-smoothmemo-storm",
+    "bug": "docs/676 §11, §14: the path smoothing pass 0x64DD40 is about 6.9 s of route worker time per 3-minute storm (2,420 calls, 2.85 ms each), all under the routing lock. On a lot each of its 2-3 segment tests per sample asks the quadtree cell evaluator 0x66B090 for every cell the segment crosses, on fresh stack cursors, so no answer is reused between the neighbouring tests of one pass",
+    "fix": "ts3native [WorldPrecompute] SmoothMemo (1 serve, 2 shadow; default 0): one pass's cell evaluations are kept under what the evaluator reads and replayed; identical results (docs/676 §14)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the table and the three hooks). Job ini: [WorldPrecompute] SmoothMemo=2 (the hooks install only with a non-zero ini value), [RouteSnap] Enabled=1, the s189 on-arm switches otherwise; SmoothMemoAll=0. Arm 1 is off (pass 3 time without the memo), arm 2 shadow (every evaluation runs and is compared: the mismatch count and 'would have replaced N ms' are the result), arm 3 serves. The share of pass 3 that the memo can touch is not measured yet: lot tests with the smoother's byte +0x72 clear only; a storm of off-lot routes shows few evaluations",
+    "expect": "'OK   world precompute smooth memo: SmoothMemo=2' with ready 0x7 or 0xF. After arm 2: 'world precompute: smooth memo mode 2' with cell evaluations asked > 0, shadow checks > 0 and mismatch 0, and no 'SMOOTH MEMO MISMATCH' line. After arm 3 (mode 1): 'from a record' > 0, and pass 3 ms per call 'with the memo' below arm 1's 'without'. No crash, plans / failed in 'route plans:' as in the off arm",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 0
+        },
+        "waitS": 1,
+        "note": "arm 1: off (the pass is timed, nothing is looked at)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-worldpre-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 2
+        },
+        "waitS": 1,
+        "note": "arm 2: shadow"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm, every record compared with the game's evaluation; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 1
+        },
+        "waitS": 1,
+        "note": "arm 3: records answer (NPC routers; others stay shadow)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with the memo serving; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothmemo": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "nearestlotlazy-check",
     "bug": "docs/677: LotManager.GetNearestLot runs one native object count per lot (uncharted island marker) and up to ten World.ArePointsConnectedByLand calls per lot (street parking) before it compares distances; CarNpcManager.InitCarForLotRoute calls it for NPC cars to lots without valid street parking: 330-560 ms sim-thread frames in Isla Paradiso (s149, s154, s161, s164, s169, s170)",
     "fix": "ts3fixes nearestlotlazy (NearestLot.cs + NearestLotCore.cs, tuning kNearestLotLazy, default off): distances first, the same tests nearest lot first until one passes; same lot as EA's loop. kNearestLotLazyShadow also runs EA's loop and logs a difference",

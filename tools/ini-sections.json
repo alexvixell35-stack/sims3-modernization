@@ -20,6 +20,8 @@
  "WaterJps": ["waterjps.cpp"],
  "WorldPrecompute": ["worldpre.cpp"],
  "WaypointSnap": ["wpsnap.cpp", "wpgather.cpp"],
+ "WorldPrecompute": ["smoothmemo.cpp", "worldpre.cpp"],
+ "WaypointSnap": ["wpsnap.cpp"],
  "SaveFlush": ["savewrite.cpp"],
  "SaveSlim": ["saveslim.cpp"],
  "UserDiag": ["userdiag.cpp"],
