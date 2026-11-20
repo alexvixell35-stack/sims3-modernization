@@ -3255,6 +3255,7 @@ static void EpLogCounters();   // epro.cpp (docs/670 §8)
 static void CnLogCounters();   // connro.cpp (docs/670 §15)
 static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
+static void B2LogCounters();    // rtoro.cpp (docs/670 §24)
 static void OaLogCounters();    // gvro.cpp (docs/670 §21)
 static void SrLogCounters();   // steerro.cpp (docs/670 §7)
 
@@ -3350,6 +3351,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     OaLogCounters();    // docs/670 §21 (nothing until [ObstructAtRO] is installed)
+    B2LogCounters();    // docs/670 §24 (nothing until [Blocker2dRO] is installed)
     SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
@@ -6677,6 +6679,7 @@ static void Run(HMODULE self) {
         InstallTailUnlock(ini);  // docs/150 §11: after the steering frames (InstallRtSites)
         InstallPlanEndLend(ini);  // docs/673 §9: TailUnlock's window at the plan's end, LendWake
         InstallRouteToObjRO(ini);  // docs/140 §12: after [SteerRO] (QL, W1-W6) and [SlotEnabledRO] (SH)
+        InstallBlocker2dRO(ini);   // docs/670 §24: the IC call of RoutingWorld_BlockerCheck2d 0x82E340 (S2's writer set)
         InstallPlacementRO(ini);   // docs/174: S2's writer set, like [RouteToObjRO]
         InstallGoalValidRO(ini);   // docs/178 §7 T6: S2's writer set, like [PlacementRO]
         InstallObstructAtRO(ini);  // docs/670 §21: RouteObstructionAtPoint 0x655880 (S2's writer set)
