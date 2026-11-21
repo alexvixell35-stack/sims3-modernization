@@ -424,7 +424,8 @@ static void DiscDrain(bool force, int site) {
         else if (r.lock == lock && DiscWorldOk(world)) DiscApplyOne(r, world);  // a record from another world is dropped
         else {
             InterlockedIncrement(&k.discDropped);
-            if (r.fp2) InterlockedIncrement(&k.fp2Dropped[r.fp2 - 1]);
+            if (r.fp2 == 3) InterlockedIncrement(&ts3native_objins.oiDropped);  // docs/670 §27 (no slot in the kind 1 / 2 arrays)
+            else if (r.fp2) InterlockedIncrement(&k.fp2Dropped[r.fp2 - 1]);
             if (r.pf) InterlockedIncrement(&k.pfDropped);
             _aligned_free(r.pts);
         }
@@ -910,8 +911,9 @@ static void UofCall(u8* world, u8* obj, int site) {
             QueryPerformanceCounter(&t0);
         }
     }
-    // the insert runs now: the object's queued inserts are replaced by it (also with the switch off since they were made)
-    if (owner && g_discCount && !g_discDraining) UoiVoidFor(*(const DWORD*)(obj + 8), *(const DWORD*)(obj + 0xC));
+    // the insert runs now: the object's queued inserts are replaced by it (also with the switch off since they were made, and
+    // from inside a drain: its loops read a record's mark only when they reach it)
+    if (owner && g_discCount) UoiVoidFor(*(const DWORD*)(obj + 8), *(const DWORD*)(obj + 0xC));
     if (ts3native_counters.fp2lrMode == 1) UolFlushFor(world, obj, site);
     g_uof(world, NULL, obj);
     if (timed) InterlockedExchangeAdd(&o.oiWaitUs, UsSince(t0)), InterlockedIncrement(&o.oiWaitN);
