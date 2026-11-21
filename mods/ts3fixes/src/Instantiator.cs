@@ -394,6 +394,16 @@ namespace Ts3Fixes
         [Tunable] public static bool kLadderFootShooHousehold = false;  // ladderfootshoohh: ladderfootshoo for household and selected Sims too, as the planning Sim and as the Sim asked to step away
         [Tunable] public static float kLadderFootWaitMinutes = 5f;  // sim-minutes the planning Sim waits for the asked Sims before it gives up (never above the game's own wait for pushed Sims; 0 = ask, do not wait)
         [Tunable] public static float kLadderFootCooldownMinutes = 2f;  // sim-minutes between two looks at the level links for the same Sim
+        [Tunable] public static bool kShareLanes = false;  // sharelanes (docs/686 §8): a lane of stairs, a door, a gate or a ladder that another Sim holds from the other end is given to the arriving Sim as well (the game shares a lane only in one direction and sends the Sim to a waiting spot for up to 20 sim-minutes); a stand-and-wait whose plan calls a portal locked plans without people at once
+        [Tunable] public static bool kShareLanesHousehold = false;  // sharelaneshh: sharelanes for household and selected Sims too, as the arriving Sim and as a Sim that holds the lane
+        [Tunable] public static bool kLadderShare = false;  // laddershare (docs/686 §8): a ladder climb does not wait for its turn in the ladder's one-climber line; Sims climb at the same time and through each other
+        [Tunable] public static bool kLadderShareHousehold = false;  // laddersharehh: laddershare for household and selected Sims too
+        [Tunable] public static bool kSimPass = false;  // simpass (docs/686 §8): a walking Sim that meets only Sims (none of them at the route's end) starts the game's ignore-obstacles timer and walks through them instead of running the obstacle stand-and-wait
+        [Tunable] public static bool kSimPassHousehold = false;  // simpasshh: simpass for household and selected Sims too, as the walker and as a Sim walked through
+        [Tunable] public static float kSimPassMinutes = 3f;  // simpass: sim-minutes the ignore-obstacles timer runs per start (the game's own value after a portal is 5)
+        [Tunable] public static bool kAngleEntry = false;  // angleentry (docs/686 §8): the approach to stairs, and to a ladder climbed from below, is a plan to the lane's start point without facing; the stair walk and the climb set the Sim's facing themselves
+        [Tunable] public static bool kAngleEntryHousehold = false;  // angleentryhh: angleentry for household and selected Sims too
+        [Tunable] public static bool kLaneWaitLog = false;  // lanewaitlog (docs/686 §8): one "lanewait:" line per wait for a portal lane (who, which portal, how long, who held it); test runs
         [Tunable] public static bool kActDelay = false;  // actdelay (docs/684): read-only probe, per interaction instance the time from queued to the Sim acting, split into buckets; one log line per instance over kActDelayLogMs and a summary a minute; test runs only
         [Tunable] public static int kActDelayLogMs = 500;  // actdelay: an instance whose queued -> act time reaches this gets its own log line
         [Tunable] public static int kActDelayLinesPerMin = 30;  // actdelay: most instance lines a minute of real time

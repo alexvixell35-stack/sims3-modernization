@@ -443,6 +443,8 @@ worldpondskatetest
 #   standwaitlocked standwaitlockedhh
 # built 2026-11-21 (fix/ladderfoot-1121, docs/183 §9), default off, not run in the game (Sims standing on the lane ends of a ladder or stair a failed plan needs are asked to step away, the plan is made once more; household behind ladderfootshoohh):
 #   ladderfootshoo ladderfootshoohh
+# built 2026-11-21 (feat/sharelanes-1121, docs/686 §8), default off, not run in the game (Sims share stair / door / gate / ladder lanes in both directions, skip the ladder line, walk through Sims in the way, approach stairs and ladders without the facing turn; household behind the hh switches):
+#   sharelanes sharelaneshh laddershare laddersharehh simpass simpasshh angleentry angleentryhh lanewaitlog
 # built 2026-11-21 (fix/boatwp-1121, docs/642 §10), default off, not run in the game (an unseen NPC boat's failed plan skips EA's route-fail path):
 #   failreplanboat
 # built 2026-11-20 (feat/act-delay-1120, docs/684), default off, not run in the game (read-only probe, test runs only):

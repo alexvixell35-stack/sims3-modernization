@@ -275,3 +275,146 @@ this section's `lock privacy (... begun in room N)` tail. A strand is a plan tha
   goes on to another target; no new stuck Sims, strands, `route false` or routefail kinds beyond the off arms; no Sim
   repeating the same wait every few minutes (same Sim, same goal, 3 or more `gave up` lines in a run would be a retry
   loop to look at).
+
+## 8. Sims share stairs, doors and ladders and walk through each other (`sharelanes`, `laddershare`, `simpass`, `angleentry`; 2026-11-21, `feat/sharelanes-1121`, built, default off, NOT RUN)
+
+A player's wish: Sims may use the same stairs and doors at the same time in both directions and enter stairs and
+ladders at an angle; clipping through each other is fine, waiting is not. No teleport, nothing unstable. `ShareLanes.cs`,
+rules in `ShareLanesCore.cs`, counters 4364-4389, check `ShareLanesCheck run | result | lot`, selftest
+`tools/selftest/sharelanes`, repro `sharelanes-check`. Each behaviour has a household switch; all off.
+
+### 8.1 How the game serialises a portal [verified, decompiled `Sims3.Gameplay` unless marked]
+
+- **The lane table.** `PortalComponent.mLockedLaneIndices` maps a Sim to the lane it holds (index, start slot, end
+  slot). `PortalAction.PerformAction` calls `LockRoutingLane` when the Sim begins the sub-path that *ends* at the
+  portal, so a lane is held for the whole approach, not only the crossing. `GetFreeRoutingLane` walks the start slots
+  nearest first and refuses a lane when the first holder of that lane entered at another slot (or it is an elevator
+  lane): **same direction shares, opposite direction waits.** Then come the portal's `DoAdditionalLaneChecks` and
+  `IsLaneUnobstructed`; a lane that fails only those is still handed out as a fallback when no lane passes.
+- **The wait.** With no lane, `PortalAction` inserts `WaitForLaneAndPlantToItRouteInterruptCallback`: the Sim walks to
+  a spot 0.75-3 m from the portal (45 degree cone, same room) and `AcquireLaneRouteAction` asks again every 0.25
+  sim-minutes for 20 sim-minutes, footprint on. Portals with `NoLanesAvailableFailsRoute` fail the route instead.
+- **Lanes.** Stairs: routing slots / 2 lanes (2 on the stairs logged), lane test ignores Sims. Doors: one lane per
+  door leaf (a single door has **one**), `DoAdditionalLaneChecks` pushes standing Sims off the lane ends and waits for
+  them. `NonAnimatedDoor` (gates, arches): as doors, open state instead of a leaf. Ladder: 2 lanes, lane test ignores
+  Sims.
+- **What several Sims on one lane touch.** The table is keyed by Sim. `Door.Open` / `Close` count users per leaf
+  (`mUseCount`, close alarm at 0), so two directions keep the door open until the last Sim is through; only the swing
+  side is the first opener's. The use list is per Sim. `OnSimRouteActionsFinished` and `FreeRoutingLane` are per Sim.
+  The stair walk is native and per Sim: `RouteManager_BeginPortalRouting 0x74D720` -> `0x955FB0` drops the Sim's
+  locomotion body, makes a new `Locomotion/AnimatedSimStairsBody` (0x160 bytes) and initialises it in `0x8555E0` from
+  the spec (stair object, lane, the two slot positions, direction); `0x844BE0` tests the geometry only. No lane
+  occupancy is read there **[verified in the decompile of those three functions; callees below depth 2 not read]**.
+  The script side keeps one sleeping task per Sim (`mSleepingTasks`). So nothing but looks depends on one Sim per
+  lane; the direction test is a presentation rule.
+- **The ladder has a second gate.** `Ladder.LadderPortalComponent.OnPortalStart` runs the interaction
+  `PortalClimb`, whose `Run` first waits for its turn in `Ladder.Line` (`SimQueue`, wait where you stand, at most 3
+  Sims, 30 sim-minutes; a fourth Sim gets `ObjectInUse` and a route failure). One climber at a time, the others
+  stand on the lane ends: the standing Sims of docs/183 §9. The climb enters the state machine `ladder` with the
+  ladder as an actor **[inferred: two Sims in that machine at once are not known to be safe; not run]**.
+- **Standing Sims close a portal for planning** only in a plan with "blocked by people" (the obstacle stand-and-wait
+  sets it): `PortalEdgeCost 0x634500` -> `0x6338A0` (docs/183 §9). All 8 `ladderfoot:` lines of the storms are
+  `Replan`.
+- **Sims in the way.** `SimSteeringAdaptor.HandleEventEncounteredObstacles` skips every obstacle while the Sim's
+  `ShouldIgnoreAllObstacles` timer runs and then inserts no wait (unless the event forces a replan). The game starts
+  that timer itself after a portal with a Sim within 0.15 m (`EndOfPortalInvicibilityDuration`, 5 sim-minutes) and
+  after a wait in a crowd. The crossing itself (`PortalTraversalAction`) already runs with avoidance off.
+- **The approach.** Stairs (`PortalAnimateThroughAction.DoPortal`): the route's first sub-path is the native plan to
+  the lane's start; when the Sim did not get the planned lane, or the lane says `ForcePortalPlan`, the game replaces
+  it by `GetPathToLane`, a plan to the slot's point with no facing. The walk to the lane start uses the stop
+  animation; then `OnPortalStart` -> `StartStairTraversal`. In `0x8555E0` the body **sets the Sim's transform itself**:
+  position = the spec's begin position, facing from the two lane ends (`0x860460`, vtable `+0x30`); when the body
+  cannot be made the Sim is set to the end position (result 2, "skip"). So the stair walk does not need the Sim to
+  arrive facing the stairs, but it does need it at the lane's start point: starting elsewhere would be a jump.
+  Ladder: `GetPathToLane` plans to the *slot* (`PlanToSlotNotPosition`), which carries the slot's facing; the climb
+  up then sets the Sim's position and facing in script (`RoutingSlot_3`), the climb down plays from where the Sim
+  stands and only places it at the bottom.
+
+### 8.2 Measured (storm logs, read-only)
+
+316 logs of 2026-11-20/21 (`phase-2026112[01]*`), 100 `standwait:` lines in 49 of them (the line exists only with
+`standwaitlog`):
+
+| Who | Waits | Sim-min standing | Of them plan `DestinationPortalLocked` |
+|---|---|---|---|
+| household / selected | 39 | 565.7 | 26 waits, 422.1 sim-min = **75%** |
+| other Sims | 61 | 1102.9 | 52 waits, 1015.6 sim-min = **92%** |
+
+Runs s420-s431 alone (12 logs, 5 lines): household 3 of 4 waits, 35.7 of 40.8 sim-min (88%). Most household lines
+are at 927.5,58,1203-1205, the foot of Colonial Casa's ladder, and say `would pass` / `pass`: a plan without people
+succeeds, so standing Sims were the lock. Failed-plan lines in the 316 logs: `DestinationPortalLocked` 752 of 4,037.
+
+**Not measured by any log so far:** the lane wait of §8.1 itself (no line, no counter). Counters 4370-4374 and
+`lanewaitlog` do that from now on, switch off or on.
+
+### 8.3 What is built
+
+| Switch (+ household) | What it does | The game's own step it uses |
+|---|---|---|
+| `sharelanes` (`sharelaneshh`) | A lock the game refused on stairs, a door, a gate or a ladder only by the direction test is searched once more: nearest start slot first, lanes held from the other end count as free, the portal's extra checks and obstruction test run as in the game, its fallback lane is kept. Exact types only (`StairsPortalComponent`, `DoorPortalComponent`, `NonAnimatedDoorPortalComponent`, `LadderPortalComponent`); elevators, spiral stairs, turnstiles, tomb doors, ropes, pools keep the table. | `GetFreeRoutingLane`'s own order and checks; `LockRoutingLane` then enters the Sim as always (door count, use list). |
+| same | A blocked stand-and-wait cycle whose plan says `DestinationPortalLocked` plans without "blocked by people" on the first such cycle (then every 3rd); success = only people closed it, the Sim walks on with the ignore-obstacles timer. Failure = a real lock, the wait goes on (counter 4377). Not with a Sim other than the partner at the route's end. | the pass step of `standwaitfix` (§3 rule 2), without waiting for cycle 2 and without that switch |
+| `laddershare` (`laddersharehh`) | `SimQueue.WaitForTurn` answers "your turn" for a `PortalClimb` on its ladder's own line; the Sim is not entered in the line. | none: this drops a wait the game has. Own switch because of the state machine question above. |
+| `simpass` (`simpasshh`) | At the obstacle event: only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. A wait that still starts (forced replan) returns `ContinueAndFollowPath` at once under the same test. | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
+| `angleentry` (`angleentryhh`) | Stairs: when the Sim got its planned lane, the first sub-path is replaced by `GetPathToLane` (kept when that plan fails). Ladder climbed from below: `GetPathToLane` gets the lane without `PlanToSlotNotPosition`, so the game takes its point plan. Climb down: unchanged. | the game's own replacement approach for a lane that was not the planned one |
+| `lanewaitlog` | `lanewait: <Sim> <scope>, <interaction>: <Type> 0x<id> (<kind>), X sim-min from the refusal, got a lane / gave up, held then by: ..., at x,y,z` | log only |
+
+**Scope.** Without the household switch a household or selected Sim (`Fixes.HouseholdExempt`) is exempt as the
+arriving Sim, and a lane it holds from the other end stays closed for everybody; `simpass` needs the walker and every
+Sim in the way in scope; `laddershare` the climber and everybody in the line. The storms' waits are household Sims,
+so test arms need both switches of a pair.
+
+**Off = compare mode.** The hooks are always in: refused locks by cause, lane waits and their length, what each
+switch would have done.
+
+**For seamless doors both `sharelanes` and `simpass` are needed:** the lane is shared, but a Sim walking up to the
+door still meets the one coming out of it as an obstacle.
+
+### 8.4 Not built, and why
+
+- **Entering stairs from the side (cutting the corner past the lane's start point).** The stair body places the Sim
+  at the spec's begin position when it starts (§8.1). A begin position other than where the Sim stands is a jump; a
+  begin position off the slot is untested geometry for `0x844BE0`. Needs a native change (blend from the current
+  transform) and live runs; not safe from script.
+- **The stop animation at the lane's start.** `DoPortal` adds `UseStopAnim` unless the portal object is an
+  `IPortalIgnoreStartStopAnim`. Dropping it means rewriting `DoPortal` or changing the flag in `PerformRoute`
+  for these actions; whether the stair body takes over a Sim that has not stopped is not known. Left as is.
+- **The ladder climb down from an angle.** It plays from the Sim's own transform; a wrong facing would walk the
+  animation off the ladder until the event that places the Sim. Keeps the slot plan.
+- **The endpoint test in the native search** (`0x6338A0` ignoring Sim footprints for these portals): needs a native
+  build (MSVC, not on this machine). The script side covers the logged cases: every one is a replan with "blocked
+  by people" inside the stand-and-wait, which `sharelanes` now retries without people at once and `simpass` mostly
+  never reaches.
+
+### 8.5 Limits [inferred unless marked]
+
+- `angleentry` on stairs changes the look only if the native approach sub-path carries an end facing that the point
+  plan lacks. Not checked in the native code. It costs one more short plan per stair use. Compare by eye.
+- A shared fallback lane (a Sim on a lane end) comes back with "not the preferred lane", as in the game: the door
+  action then replans the three sub-paths around the door and replans after it.
+- `would share` (4368) counts refused calls, and a waiting Sim asks every 0.25 sim-minutes: read waits from 4370.
+- `simpass` makes the walker unpushable while its timer runs (the game's rule for an ignoring Sim).
+- Two Sims ending a stair walk on the same slot is what the game already has for same-direction sharing; its own
+  0.15 m rule then starts the ignore timer.
+
+### 8.6 Checks (2026-11-21, no game) and run plan
+
+- `node tools/selftest/sharelanes/run.ts`: lane classes against the game's first-holder test (4,000 random tables),
+  decision by switch and scope, the lane choice with fallback, a crossing model (6 Sims, 300 runs: the game's table
+  6,329 refused steps at a one-lane door, 57 on two-lane stairs, shared 0 and every table empty at the end), portal
+  pass schedule, walk-through rule, ladder rules, wait counter.
+- `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved.
+- Live, one pair at a time, off / on interleaved, `lanewaitlog standwaitlog routefaillog` on in both:
+  1. `sharelanes-check` once (off `BROKEN`, on `FIXED`, `members found=True`; the `fix_applied` lines
+     `PortalComponent.GetFreeRoutingLane: ok`, `...WaitForLaneAndPlantToItRouteInterruptCallback: ok`,
+     `AcquireLaneRouteAction.PerformAction: ok`, `PortalComponent.GetPathToLane: ok`, `SimQueue.WaitForTurn: ok`,
+     `SimSteeringAdaptor.HandleEventEncounteredObstacles: ok`).
+  2. Storms as s420 (Colonial Casa, 2-minute route storms): off arm gives the first numbers for lane waits
+     (4370-4374, `lanewait:` lines). On arm `sharelanes sharelaneshh`: 4366 > 0, lane waits and their sim-minutes
+     down, `standwait:` lines with `DestinationPortalLocked` end `pass` in 1 blocked cycle or carry 4377.
+  3. Then `simpass simpasshh` added: `standwait:` lines with a Sim blocker gone, 4381 > 0; then `laddershare
+     laddersharehh` (watch the ladder with two climbers: animation, both arrive); then `angleentry angleentryhh`
+     (by eye at the stairs and the ladder foot; 4386 / 4387 > 0, 4389 low).
+  4. Repros `upstairs-landing-jam`, `standwait-landing-crowd`, `ladderfoot-force` with the pairs on.
+- Pass: errors 4367 = 0, no new script errors, no Sim stuck in a portal (`StairWaitEndCheck result` waits asleep 0
+  after the storm), door left open with nobody near = fail (use count), no new routefail kinds or `route false`
+  beyond the off arms, `gohere end` lines stay `route ok`.

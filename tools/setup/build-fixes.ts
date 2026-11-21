@@ -172,6 +172,16 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLadderFootShooHousehold value="False" />
     <kLadderFootWaitMinutes value="5" />
     <kLadderFootCooldownMinutes value="2" />
+    <kShareLanes value="False" />
+    <kShareLanesHousehold value="False" />
+    <kLadderShare value="False" />
+    <kLadderShareHousehold value="False" />
+    <kSimPass value="False" />
+    <kSimPassHousehold value="False" />
+    <kSimPassMinutes value="3" />
+    <kAngleEntry value="False" />
+    <kAngleEntryHousehold value="False" />
+    <kLaneWaitLog value="False" />
     <kActDelay value="False" />
     <kActDelayLogMs value="500" />
     <kActDelayLinesPerMin value="30" />

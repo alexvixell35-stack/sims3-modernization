@@ -526,6 +526,7 @@ namespace Ts3Fixes
             ApplyCasTintReset();       // docs/658 §6.6 (CasTintReset.cs), off by default, unconfirmed
             ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, and §7 standwaitlocked / standwaitlockedhh (StandWaitLocked.cs), off by default (counts either way)
+            ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
             // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
             ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off)
@@ -1319,7 +1320,12 @@ namespace Ts3Fixes
         // standing Sims / would ask them, off / exempt (household planner without ladderfootshoohh) / Sims asked to step away / Sims not asked (the game's push rules,
         // or household without its switch) / waits of the planner / second plan succeeded / gave up (timeout, cancel, nobody askable, second plan failed) / asked but
         // not waited for (not the Sim's own task) / a later plan of such a Sim succeeded within 60 sim-minutes / errors.
-        const int kCounterSlots = 4364;
+        // [4364-4389] sharelanes / laddershare / simpass / angleentry (ShareLanes.cs, docs/686 §8): lane locks the game refused on stairs, doors, gates and ladders / of them
+        // by the direction test only / shared / errors (all four) / would share, off / exempt (household without its switch) / lane waits begun / of them household /
+        // tenths of sim-minutes waited / of them household / waits given up / stand-and-wait at a portal closed by standing Sims: passed / would / locked without
+        // people too / ladder line skipped / would / exempt / simpass at the obstacle event / at the wait / would / exempt / kept (an object, or a Sim at the route's
+        // end) / angleentry stairs / ladder / would / kept (exempt, or the approach plan failed).
+        const int kCounterSlots = 4390;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1616,6 +1622,15 @@ namespace Ts3Fixes
                 case "standwaitlockedhh": return Instantiator.kStandWaitLockedHousehold;  // StandWaitLocked.cs (docs/686 §7): standwaitlocked for household and selected Sims too, off
                 case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
                 case "ladderfootshoohh": return Instantiator.kLadderFootShooHousehold;  // LadderFoot.cs (docs/183 §9): ladderfootshoo for household and selected Sims too (as planner and as the Sim asked), off
+                case "sharelanes": return Instantiator.kShareLanes;  // ShareLanes.cs (docs/686 §8): a stair, door, gate or ladder lane held from the other end is shared; a portal closed by standing Sims is tried without people at once, off
+                case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off
+                case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
+                case "laddersharehh": return Instantiator.kLadderShareHousehold;  // ShareLanes.cs: laddershare for household and selected Sims too, off
+                case "simpass": return Instantiator.kSimPass;  // ShareLanes.cs (docs/686 §8): a walking Sim with only Sims in its way walks through them (the game's ignore-obstacles timer) instead of the stand-and-wait, off
+                case "simpasshh": return Instantiator.kSimPassHousehold;  // ShareLanes.cs: simpass for household and selected Sims too (as walker and as the Sim walked through), off
+                case "angleentry": return Instantiator.kAngleEntry;  // ShareLanes.cs (docs/686 §8): stairs and ladders climbed from below are approached by a point plan without facing, off
+                case "angleentryhh": return Instantiator.kAngleEntryHousehold;  // ShareLanes.cs: angleentry for household and selected Sims too, off
+                case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off

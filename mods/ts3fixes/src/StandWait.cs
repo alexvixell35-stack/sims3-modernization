@@ -109,6 +109,8 @@ namespace Ts3Fixes
 
             public RouteAction.ActionResult PerformHook()
             {
+                // simpass (ShareLanes.cs, docs/686 §8), off by default: only Sims in the way = walk on, no wait
+                if (SpsAction(mRoutingSim, mInterruptedPath)) return RouteAction.ActionResult.ContinueAndFollowPath;
                 SwfBegin(this, mRoutingSim);
                 try { return PerformOrig(); }
                 finally { SwfEnd(this, mRoutingSim, mInterruptedPath); }
@@ -265,9 +267,11 @@ namespace Ts3Fixes
                     return false;
                 }
 
-                if (d.PassAllowed && StandWaitCore.PassDue(st.Blocked, ref st.NextPass, ref st.Delays, st.PushAcceptedLast))
+                // sharelanes (ShareLanes.cs, docs/686 §8), off by default: a portal the plan calls locked is tried without people at once
+                bool shl = d.PassAllowed && ShlPortalPass(sim, res, st.Blocked);
+                if (d.PassAllowed && (shl || StandWaitCore.PassDue(st.Blocked, ref st.NextPass, ref st.Delays, st.PushAcceptedLast)))
                 {
-                    if (!on)
+                    if (!on && !shl)
                     {
                         if (st.WouldPass == 0) { st.WouldPass = st.Blocked; c[kSwfWouldPass]++; }
                         StandWaitCore.PassFailed(st.Blocked, ref st.NextPass, Instantiator.kStandWaitPassEvery);
@@ -286,10 +290,11 @@ namespace Ts3Fixes
                             sSwfReturn.SetValue(action, RouteAction.ActionResult.ContinueAndFollowPath);
                             sSwfElected.SetValue(action, true);
                             st.Passed = true; st.PassCycle = st.Blocked;
-                            c[kSwfPasses]++;
+                            c[shl && !on ? kShlPortalPass : kSwfPasses]++;
                             return false;
                         }
-                        StandWaitCore.PassFailed(st.Blocked, ref st.NextPass, Instantiator.kStandWaitPassEvery);
+                        if (shl) c[kShlPortalStillLocked]++;  // locked without people too: a real lock, the wait goes on
+                        if (on) StandWaitCore.PassFailed(st.Blocked, ref st.NextPass, Instantiator.kStandWaitPassEvery);
                     }
                 }
 
