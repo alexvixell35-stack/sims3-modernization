@@ -103,7 +103,14 @@ try {
   Check ($o -match 'Nothing to do' -and @(Get-ChildItem -LiteralPath (Join-Path $user 'TS3Kit-Backup') -Directory).Count -eq 1) 'second install: nothing to do, no new backup'
 
   Write-Host 'Uninstall'
+  # benchmark leftovers (docs/315 §5): the uninstall hook runs TS3Bench.ps1 -Cleanup
+  $bl = @((Join-Path $user 'Saves\TS3Kit-Bench.sims3'), (Join-Path $user 'Saves\TS3Kit-Bench.sims3.backup'), (Join-Path $user 'TS3Kit-Bench'))
+  foreach ($d in $bl) { [void](New-Item -ItemType Directory -Force -Path $d) }
+  Set-Content -LiteralPath (Join-Path $bl[0] 'x.nhd') -Value 'copy'; Set-Content -LiteralPath (Join-Path $bl[2] 'bench-state.json') -Value '{}'
+  Set-Content -LiteralPath (Join-Path $user 'Mods\Packages\TS3KitBench-ts3agent.package') -Value 'agent'
   $o = Run @('-Mode', 'Uninstall', '-NoSystem', '-Yes', '-GameDir', $game, '-UserDir', $user)
+  Check (-not (Test-Path -LiteralPath $bl[0]) -and -not (Test-Path -LiteralPath $bl[1]) -and -not (Test-Path -LiteralPath (Join-Path $bl[2] 'bench-state.json')) -and -not (Test-Path -LiteralPath (Join-Path $user 'Mods\Packages\TS3KitBench-ts3agent.package'))) 'uninstall: benchmark leftovers removed (TS3Bench.ps1 -Cleanup)'
+  if (Test-Path -LiteralPath $bl[2]) { Remove-Item -LiteralPath $bl[2] -Recurse -Force }   # the state folder itself is not ours to compare
   Check ($code -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $bin 'ts3native.asi'))) 'asi removed'
   Check ((Get-Content -LiteralPath (Join-Path $bin 'ts3native.ini') -Raw) -match 'Mine=1' -and [System.IO.File]::ReadAllText((Join-Path $user 'S3SS\S3SS.toml')) -eq $toml0) 'old ini and S3SS.toml back'
   Check ((Get-Content -LiteralPath (Join-Path $user 'Mods\Packages\ts3fixes.package') -Raw) -match 'old fixes' -and -not (Test-Path -LiteralPath (Join-Path $user 'Mods\Resource.cfg'))) 'old ts3fixes.package back, the kit''s Resource.cfg removed'
@@ -113,14 +120,33 @@ try {
 
   Write-Host 'Install the diagnostic build (payload\diag, answers typed in)'
   $dg = Join-Path $kc 'payload\diag'; [void](New-Item -ItemType Directory -Force -Path $dg)
+  $hasAd = Test-Path -LiteralPath (Join-Path $kc 'payload\adaptdiag')   # kit 1121.a1+: the adaptive diag kit rides on the diagnostic build
+  # the benchmark lane's flag (docs/317) as it would leave it; report and uninstall reset it
+  function SetBench([string]$b) { $p = Join-Path $b 'ts3native.adaptdiag-state.ini'; [System.IO.File]::WriteAllText($p, ([System.IO.File]::ReadAllText($p) -replace 'Benchmark = 0', 'Benchmark = 1')) }
   Set-Content -LiteralPath (Join-Path $dg 'ts3fixes.package') -Value 'diag package'; Set-Content -LiteralPath (Join-Path $dg 'ts3native.ini') -Value "[UserDiag]`r`nVerbose=1"
   Set-Content -LiteralPath (Join-Path $dg $kAsi) -Value 'ts3native 0.36.999-diagtest'   # the diagnostic's own asi
   [System.IO.File]::WriteAllText((Join-Path $user 'Mods\Resource.cfg'), 'Priority 500 mine')
   $o = Run @('-Mode', 'Install', '-NoSystem', '-Answers', 'D,y', '-GameDir', $game, '-UserDir', $user)
   Check ($code -eq 0 -and $o -match 'normal test build \(N\) or the diagnostic build' -and $o -match 'Installed \(diagnostic build\)') 'asked normal or diagnostic, installed the diagnostic build'; if ($code) { Write-Host $o }
-  Check ((FileSha (Join-Path $user 'Mods\Packages\ts3fixes.package')) -eq (FileSha (Join-Path $dg 'ts3fixes.package')) -and (FileSha (Join-Path $bin 'ts3native.ini')) -eq (FileSha (Join-Path $dg 'ts3native.ini')) -and (FileSha (Join-Path $bin 'ts3native.asi')) -eq (FileSha (Join-Path $dg $kAsi)) -and $o -match 'OK +ts3native\.asi version 0\.36\.999-diagtest \(kit 0\.36\.999-diagtest\)') 'diagnostic package, ini and its own asi in place, version read back'
+  Check ((FileSha (Join-Path $user 'Mods\Packages\ts3fixes.package')) -eq (FileSha (Join-Path $dg 'ts3fixes.package')) -and $(if ($hasAd) { $bi = Get-Content -LiteralPath (Join-Path $bin 'ts3native.ini') -Raw; $bi -match '(?m)^Verbose=1' -and $bi -match '(?m)^\[AdaptDiag\]\r?\nEnabled = 1' -and $bi -match '(?m)^HitchMs = 1000' } else { (FileSha (Join-Path $bin 'ts3native.ini')) -eq (FileSha (Join-Path $dg 'ts3native.ini')) }) -and (FileSha (Join-Path $bin 'ts3native.asi')) -eq (FileSha (Join-Path $dg $kAsi)) -and $o -match 'OK +ts3native\.asi version 0\.36\.999-diagtest \(kit 0\.36\.999-diagtest\)') 'diagnostic package, ini and its own asi in place, version read back'
   Check ([System.IO.File]::ReadAllText((Join-Path $user 'Mods\Resource.cfg')) -eq 'Priority 500 mine') 'existing Resource.cfg left alone'
+  if ($hasAd) {
+    Check ((Test-Path -LiteralPath (Join-Path $bin 'ts3native.adaptdiag-known.tsv')) -and (Test-Path -LiteralPath (Join-Path $bin 'ts3native.adaptdiag-expect.txt')) -and (Get-Content -LiteralPath (Join-Path $bin 'ts3native.adaptdiag-state.ini') -Raw) -match 'Benchmark = 0') 'adaptive diag kit: known-issue library, expected list and state file (Benchmark = 0) in Bin'
+    Write-Host 'Make report (-Mode Report): size first, then the zip with the adaptdiag files, masked'
+    Set-Content -LiteralPath (Join-Path $bin 'adaptdiag-report.txt') -Value "## session`r`nuser folder $env:USERPROFILE\Documents"
+    Set-Content -LiteralPath (Join-Path $bin 'adaptdiag.csv') -Value 'minute,activity,noise'
+    [void](New-Item -ItemType Directory -Force -Path (Join-Path $bin 'adaptdiag-bench')); Set-Content -LiteralPath (Join-Path $bin 'adaptdiag-bench\run1.txt') -Value 'bench'
+    SetBench $bin
+    $ro = Join-Path $sb 'report-out'; [void](New-Item -ItemType Directory -Force -Path $ro)
+    $o = Run @('-Mode', 'Report', '-NoSystem', '-Yes', '-GameDir', $game, '-UserDir', $user, '-OutDir', $ro)
+    $rz = @(Get-ChildItem -LiteralPath $ro -Filter 'TS3Diag-*.zip')
+    Check ($code -eq 0 -and $o -match 'Make report: \d+ log / diag files' -and $o -match 'adaptive diag report: found' -and $o -match 'Zip size: \d+ KB' -and $rz.Count -eq 1) 'report: size line first, then one zip'; if ($code) { Write-Host $o }
+    if ($rz.Count) { $rx = Unzip $rz[0].FullName; $rt = Join-Path $rx 'files\game1-bin\adaptdiag-report.txt'
+      Check ((Test-Path -LiteralPath $rt) -and (Test-Path -LiteralPath (Join-Path $rx 'files\game1-bin\adaptdiag.csv')) -and (Test-Path -LiteralPath (Join-Path $rx 'files\game1-bin\adaptdiag-bench\run1.txt')) -and (Get-Content -LiteralPath $rt -Raw) -notmatch [regex]::Escape($env:USERNAME)) 'report zip: adaptdiag report, csv and bench folder, user name masked' }
+    Check ((Get-Content -LiteralPath (Join-Path $bin 'ts3native.adaptdiag-state.ini') -Raw) -match 'Benchmark = 0') 'report resets the benchmark flag'
+  }
   $o = Run @('-Mode', 'Uninstall', '-NoSystem', '-Yes', '-GameDir', $game, '-UserDir', $user)
+  if ($hasAd) { Check (-not (Test-Path -LiteralPath (Join-Path $bin 'ts3native.adaptdiag-known.tsv')) -and -not (Test-Path -LiteralPath (Join-Path $bin 'ts3native.adaptdiag-expect.txt'))) 'diagnostic uninstall: adaptive diag kit files removed' }
   Check ($code -eq 0 -and (Get-Content -LiteralPath (Join-Path $user 'Mods\Packages\ts3fixes.package') -Raw) -match 'old fixes' -and (Get-Content -LiteralPath (Join-Path $bin 'ts3native.ini') -Raw) -match 'Mine=1' -and (Test-Path -LiteralPath (Join-Path $user 'Mods\Resource.cfg'))) 'diagnostic uninstall: old package and ini back, user Resource.cfg kept'
   Remove-Item -LiteralPath $dg -Recurse -Force; Remove-Item -LiteralPath (Join-Path $user 'Mods\Resource.cfg') -Force
 
@@ -214,6 +240,96 @@ public static class Stub { public static void Main() {
     $leak = @(Get-ChildItem -LiteralPath $x -Recurse -File | Where-Object { Select-String -LiteralPath $_.FullName -Pattern ([regex]::Escape($env:USERNAME)), ([regex]::Escape($env:COMPUTERNAME)), ([regex]::Escape($env:USERPROFILE)) -Quiet })
     Check ($leak.Count -eq 0) "no user name / home path / computer name in the capture zip ($($leak.Name -join ', '))"
   } else { Write-Host $o }
+
+  # A/B mode (docs/314): only when the kit has payload\ab\arms.json. The arms get stand-in packages (text); the stub game
+  # writes the ts3fixes kit lines for the arm whose package it finds, and no ts3native.log when ts3native.asi is absent.
+  $abCfgFile = Join-Path $kc 'payload\ab\arms.json'
+  if (Test-Path -LiteralPath $abCfgFile) {
+    Write-Host 'A/B mode: install, sessions A / B / forced B, uninstall'
+    $real = Get-Content -LiteralPath $abCfgFile -Raw | ConvertFrom-Json
+    Check ($real.arms.A.package -and (FileSha (Join-Path $kc "payload\$($real.arms.A.package)")) -eq "$($real.arms.A.packageSha)".ToUpper() -and ($real.arms.B.off -or (FileSha (Join-Path $kc "payload\$($real.arms.B.package)")) -eq "$($real.arms.B.packageSha)".ToUpper())) 'the kit''s arms.json names its own packages with their sha256'
+    Check ((FileSha (Join-Path $kc "payload\$($real.arms.A.package)")) -eq (FileSha (Join-Path $kc 'payload\ts3fixes.package'))) 'arm A package = the package the install writes (a session started outside the kit runs arm A)'
+    $o = Run @('-Mode', 'Play', '-NoSystem', '-Launch', 'Direct', '-GameDir', $game, '-UserDir', $user, '-OutDir', $out)
+    Check ($code -ne 0 -and $o -match 'not installed in this game folder') 'Play before the install: refused'
+    $o = Run @('-Mode', 'Install', '-NoSystem', '-Yes', '-Build', 'Normal', '-GameDir', $game, '-UserDir', $user)
+    Check ($code -eq 0 -and $o -match 'Install check: OK') 'install for the A/B sessions'; if ($code) { Write-Host $o }
+    $abd = Join-Path $kc 'payload\ab'
+    Set-Content -LiteralPath (Join-Path $abd 'A-test.package') -Value 'stand-in arm A package'
+    $arms = [ordered]@{ A = [ordered]@{ label = "$($real.arms.A.label)"; package = 'ab\A-test.package'; packageSha = (FileSha (Join-Path $abd 'A-test.package')).ToLower() } }
+    if ($real.arms.B.off) { $arms['B'] = [ordered]@{ label = "$($real.arms.B.label)"; off = $true } }
+    else { Set-Content -LiteralPath (Join-Path $abd 'B-test.package') -Value 'stand-in arm B package'; $arms['B'] = [ordered]@{ label = "$($real.arms.B.label)"; package = 'ab\B-test.package'; packageSha = (FileSha (Join-Path $abd 'B-test.package')).ToLower() } }
+    [System.IO.File]::WriteAllText($abCfgFile, ([ordered]@{ kit = $real.kit; arms = $arms } | ConvertTo-Json -Depth 4))
+    $abStub = Join-Path $bin 'ab\TS3KitStub.exe'; [void](New-Item -ItemType Directory -Force -Path (Split-Path -Parent $abStub))
+    $src2 = Join-Path $sb 'stub-ab.cs'
+    [System.IO.File]::WriteAllText($src2, @'
+using System; using System.IO; using System.Threading; using System.Text.RegularExpressions;
+public static class Stub { public static void Main() {
+  string u = Environment.GetEnvironmentVariable("TS3KIT_STUB_USER");
+  string pkg = Path.Combine(u, "Mods\\Packages\\ts3fixes.package");
+  if (File.Exists("ts3native.asi") && File.Exists(pkg)) {
+    Match m = Regex.Match(File.ReadAllText(pkg), "arm ([AB])");
+    string a = m.Success ? m.Groups[1].Value : "?";
+    File.WriteAllText("ts3native.log", "ts3native 0.36.298-stub\r\nts3fixes: kit: arm " + a + ": TS3 test kit: arm " + a + " - stub label | read-back commodmapfast=" + (a == "A" ? "on" : "off") + "\r\n"
+      + "ts3fixes: kit: stats arm " + a + " (minute): in world 1.0 min, worlds 1, sim updates/s median 30 min 2 (60 s), hitches >= 250 ms 4, >= 1 s 1, longest 1200 ms, save pauses 0 (longest 0 ms), read-back commodmapfast=" + (a == "A" ? "on" : "off") + "\r\n"
+      + "ts3fixes: kit: stats arm " + a + " (world quit): in world 2.5 min, worlds 1, sim updates/s median 31 min 1 (150 s), hitches >= 250 ms 5, >= 1 s 2, longest 2400 ms, save pauses 1 (longest 8000 ms), read-back commodmapfast=" + (a == "A" ? "on" : "off") + "\r\n");
+  }
+  File.WriteAllText(Path.Combine(u, "ScriptError_stub_" + DateTime.Now.Ticks + ".xml"), "<x/>");
+  Thread.Sleep(4000);
+} }
+'@)
+    & powershell.exe -NoProfile -Command "Add-Type -OutputAssembly '$abStub' -OutputType ConsoleApplication -TypeDefinition ([System.IO.File]::ReadAllText('$src2'))"
+    $pkgU = Join-Path $user 'Mods\Packages\ts3fixes.package'; $asiB = Join-Path $bin 'ts3native.asi'; $asiSha = FileSha $asiB
+    $state = Join-Path $kc 'ab\state.json'
+    $play = @('-Mode', 'Play', '-NoSystem', '-Launch', 'Direct', '-DirectExe', 'ab\TS3KitStub.exe', '-InfoAfterSec', '1', '-CaptureMaxSec', '60', '-GameDir', $game, '-UserDir', $user, '-OutDir', $out)
+    Get-ChildItem -LiteralPath $out -Filter 'TS3Diag-*.zip' | Remove-Item -Force
+    Remove-Item -LiteralPath (Join-Path $bin 'ts3native.log') -Force -ErrorAction SilentlyContinue
+    $o = Run $play
+    $res = @(Get-ChildItem -LiteralPath (Join-Path $kc 'ab\results') -Filter '*-armA.txt' -ErrorAction SilentlyContinue)
+    Check ($code -eq 0 -and $o -match [regex]::Escape("TS3 test kit: arm A - $($real.arms.A.label)") -and (Get-Content -LiteralPath $pkgU -Raw) -match 'arm A') 'session 1 = arm A: notice on the console, arm A package in Mods'; if ($code) { Write-Host $o }
+    $rt = $(if ($res.Count) { Get-Content -LiteralPath $res[0].FullName -Raw } else { '' })
+    Check ($res.Count -eq 1 -and $rt -match 'in-game notice \(ts3native\.log\): TS3 test kit: arm A - stub label' -and $rt -match 'hitches \(one sim update took\): >= 250 ms 5, >= 1 s 2; longest pause 2400 ms; save pauses \(counted apart\) 1, longest 8000 ms' -and $rt -match 'sim updates per second: median 31, lowest 1' -and $rt -match 'switch read-back at the last stats line: commodmapfast=on' -and $rt -match 'script error files written during this session: 1') 'arm A summary: the last stats line, read-back, script errors'
+    Check ((Get-Content -LiteralPath $state -Raw | ConvertFrom-Json).next -eq 'B' -and (Get-Content -LiteralPath (Join-Path $kc 'ab\kit.log') -Raw) -match 'session start: TS3 test kit: arm A') 'state: next arm B; kit.log session line'
+    $zip = @(Get-ChildItem -LiteralPath $out -Filter 'TS3Diag-*.zip')
+    if ($zip.Count -eq 1) { $x = Unzip $zip[0].FullName; Check ((Test-Path -LiteralPath (Join-Path $x "ab\results\$($res[0].Name)")) -and (Get-Content -LiteralPath (Join-Path $x 'report.txt') -Raw) -match '== A/B session') 'session zip: the summary file and the report section'; Remove-Item -LiteralPath $x -Recurse -Force } else { Check $false 'session zip written' }
+    Get-ChildItem -LiteralPath $out -Filter 'TS3Diag-*.zip' | Remove-Item -Force
+    $o = Run $play
+    $resB = @(Get-ChildItem -LiteralPath (Join-Path $kc 'ab\results') -Filter '*-armB.txt' -ErrorAction SilentlyContinue)
+    $rb = $(if ($resB.Count) { Get-Content -LiteralPath $resB[0].FullName -Raw } else { '' })
+    if ($real.arms.B.off) {
+      Check ($code -eq 0 -and -not (Test-Path -LiteralPath $asiB) -and -not (Test-Path -LiteralPath $pkgU) -and (FileSha (Join-Path $kc 'ab\off\ts3native.asi')) -eq $asiSha -and $o -match 'no kit message shows in the game') 'session 2 = arm B (off): asi and package moved into ab\off, console notice'; if ($code) { Write-Host $o }
+      Check ($rb -match 'not loaded in this arm' -and $rb -match 'ts3native\.log not written during this session \(our mod was not loaded\): OK' -and $rb -match 'script error files written during this session: 1') 'arm B summary: mod not loaded, checked by the log'
+    } else {
+      Check ($code -eq 0 -and (Get-Content -LiteralPath $pkgU -Raw) -match 'arm B' -and (FileSha $asiB) -eq $asiSha) 'session 2 = arm B: arm B package, same asi'; if ($code) { Write-Host $o }
+      Check ($rb -match 'in-game notice \(ts3native\.log\): TS3 test kit: arm B' -and $rb -match 'commodmapfast=off') 'arm B summary: notice and read-back off'
+    }
+    Check ((Get-Content -LiteralPath $state -Raw | ConvertFrom-Json).next -eq 'A') 'state: next arm A'
+    $o = Run ($play + @('-Arm', 'B'))
+    Check ($code -eq 0 -and @(Get-ChildItem -LiteralPath (Join-Path $kc 'ab\results') -Filter '*-armB.txt').Count -eq 2 -and (Get-Content -LiteralPath $state -Raw | ConvertFrom-Json).next -eq 'A') '-Arm B forces arm B; next stays A'; if ($code) { Write-Host $o }
+    $o = Run $play
+    Check ($code -eq 0 -and (FileSha $asiB) -eq $asiSha -and (Get-Content -LiteralPath $pkgU -Raw) -match 'arm A' -and -not (Test-Path -LiteralPath (Join-Path $kc 'ab\off\ts3native.asi'))) 'back to arm A: asi back byte for byte, arm A package'; if ($code) { Write-Host $o }
+    $st = Get-Content -LiteralPath $state -Raw | ConvertFrom-Json
+    Check (@($st.sessions).Count -eq 4 -and (@($st.sessions | ForEach-Object { $_.arm }) -join '') -eq 'ABBA' -and $st.route -eq 'Direct') 'state: 4 sessions A B B A, the launch route kept'
+    # benchmark arms (docs/315): TS3Bench sets each arm through -Mode ArmApply, no game start, no session counted
+    $o = Run @('-Mode', 'ArmApply', '-NoSystem', '-Yes', '-Arm', 'B', '-GameDir', $game, '-UserDir', $user); $c1 = $code
+    $bOk = if ($real.arms.B.off) { -not (Test-Path -LiteralPath $asiB) } else { (Get-Content -LiteralPath $pkgU -Raw) -match 'arm B' }
+    $o = Run @('-Mode', 'ArmApply', '-NoSystem', '-Yes', '-Arm', 'A', '-GameDir', $game, '-UserDir', $user)
+    Check ($c1 -eq 0 -and $code -eq 0 -and $bOk -and (FileSha $asiB) -eq $asiSha -and (Get-Content -LiteralPath $pkgU -Raw) -match 'arm A' -and @((Get-Content -LiteralPath $state -Raw | ConvertFrom-Json).sessions).Count -eq 4) '-Mode ArmApply: arm B then A set the files, no session counted'; if ($code) { Write-Host $o }
+    $o = Run @('-Mode', 'Diag', '-NoSystem', '-GameDir', $game, '-UserDir', $user, '-OutDir', $out)
+    $zip = @(Get-ChildItem -LiteralPath $out -Filter 'TS3Diag-*.zip' | Sort-Object LastWriteTime -Descending)
+    if ($zip.Count) { $x = Unzip $zip[0].FullName; $rt = Get-Content -LiteralPath (Join-Path $x 'report.txt') -Raw; Check (@(Get-ChildItem -LiteralPath (Join-Path $x 'ab\results') -Filter '*.txt').Count -eq 4 -and (Test-Path -LiteralPath (Join-Path $x 'ab\state.json')) -and $rt -match 'A/B mode: 4 session summaries .*arm A: 2, arm B: 2.*next arm B') 'diagnose zip: all 4 summaries, state and the A/B line'
+      # the installed payload ini is the kit's own text (its comments name the maintainer), not the player's
+      $leak = @(Get-ChildItem -LiteralPath $x -Recurse -File | Where-Object { (FileSha $_.FullName) -ne (FileSha (Join-Path $kc 'payload\ts3native.ini')) } | Where-Object { Select-String -LiteralPath $_.FullName -Pattern ([regex]::Escape($env:USERNAME)), ([regex]::Escape($env:COMPUTERNAME)), ([regex]::Escape($env:USERPROFILE)) -Quiet })
+      Check ($leak.Count -eq 0) "no user name / home path / computer name in the A/B zip ($($leak.Name -join ', '))"; Remove-Item -LiteralPath $x -Recurse -Force } else { Check $false 'diagnose zip written' }
+    if ($real.arms.B.off) { $o = Run ($play + @('-Arm', 'B')); Check ($code -eq 0 -and -not (Test-Path -LiteralPath $asiB)) 'arm B again before the uninstall (asi in ab\off)' }
+    $o = Run @('-Mode', 'Uninstall', '-NoSystem', '-Yes', '-GameDir', $game, '-UserDir', $user)
+    $why = @(); if ($code) { $why += "exit $code" }; if (Test-Path -LiteralPath $asiB) { $why += 'asi still there' }
+    if ((Get-Content -LiteralPath $pkgU -Raw) -notmatch 'old fixes') { $why += 'package: ' + (Get-Content -LiteralPath $pkgU -Raw) }
+    if ((Get-Content -LiteralPath (Join-Path $bin 'ts3native.ini') -Raw) -notmatch 'Mine=1') { $why += 'ini not the old one' }
+    if (Test-Path -LiteralPath (Join-Path $kc 'ab\off')) { $why += 'ab\off: ' + (@(Get-ChildItem -LiteralPath (Join-Path $kc 'ab\off') -Force).Name -join ',') }
+    if ((Get-Content -LiteralPath $state -Raw | ConvertFrom-Json).next -ne 'A') { $why += 'next ' + (Get-Content -LiteralPath $state -Raw | ConvertFrom-Json).next }
+    if ($why.Count) { Write-Host ('  uninstall: ' + ($why -join '; ')); Write-Host $o }
+    Check ($code -eq 0 -and -not (Test-Path -LiteralPath $asiB) -and (Get-Content -LiteralPath $pkgU -Raw) -match 'old fixes' -and (Get-Content -LiteralPath (Join-Path $bin 'ts3native.ini') -Raw) -match 'Mine=1' -and -not (Test-Path -LiteralPath (Join-Path $kc 'ab\off')) -and (Get-Content -LiteralPath $state -Raw | ConvertFrom-Json).next -eq 'A') 'uninstall after A/B sessions: old package and ini back, kit asi gone, ab\off cleared, next arm A'; if ($code) { Write-Host $o }
+  }
 } finally {
   if (-not $Keep -and $sb -like '*ts3kit-sandbox-*' -and (Test-Path -LiteralPath $sb)) { Remove-Item -LiteralPath $sb -Recurse -Force }
 }

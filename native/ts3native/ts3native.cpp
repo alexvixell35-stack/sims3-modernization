@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.298-m1121"  // m1121: master set m1121 (merge/agents-1121): d1121 + VbFreeDelayMs ON / VbGuard (docs/67 §44) + core-mod kits k1-k3 ([MonoJit] CoreModMatch, JIT foreign-fault fix, JIT table ceiling 16384 methods / 24 MB; docs/537) (2026-11-21); was vbg1121c: d1121 + [EaCrashFixes] VbFreeDelayMs (off) + [CrashForensics] VbGuard (docs/67 §44, off; 2026-11-21); was d1121: master set d1121: m1120u + Dalexlol 1121 imports (#605 NeighbourMemo + route profiler, #613 route lock RO switches, #617 DoorShare + DeferPrivateFpAdd; all off) (2026-11-21); was m1120u: master set m1120u: m1120t + .ooa host gate (EA kit asi 0.36.297-eaooa1) + [HostMapIterFix] ON in the release ini (2026-11-20); m1120t: 0.36.295-tsk1 (master with [Diag] TaskSeam) + doormemox-privacy, pccheck, keep-options-gpu, stbl-index (next-week merges 2026-11-20)
+#define TS3NATIVE_VERSION "0.36.298-m1121b"  // m1121b: master set m1121b (merge/kit3-1121): adk1 + tester kit A/B (KitArm, docs/314) + kit benchmark agent (docs/315) (2026-11-21); was adk1: m1121 + [AdaptDiag] adaptive diag kit (docs/316, off) + ModTime pass-through hook label (docs/298 §5.1) (2026-11-21); was m1121: master set m1121 (merge/agents-1121): d1121 + VbFreeDelayMs ON / VbGuard (docs/67 §44) + core-mod kits k1-k3 ([MonoJit] CoreModMatch, JIT foreign-fault fix, JIT table ceiling 16384 methods / 24 MB; docs/537) (2026-11-21); was vbg1121c: d1121 + [EaCrashFixes] VbFreeDelayMs (off) + [CrashForensics] VbGuard (docs/67 §44, off; 2026-11-21); was d1121: master set d1121: m1120u + Dalexlol 1121 imports (#605 NeighbourMemo + route profiler, #613 route lock RO switches, #617 DoorShare + DeferPrivateFpAdd; all off) (2026-11-21); was m1120u: master set m1120u: m1120t + .ooa host gate (EA kit asi 0.36.297-eaooa1) + [HostMapIterFix] ON in the release ini (2026-11-20); m1120t: 0.36.295-tsk1 (master with [Diag] TaskSeam) + doormemox-privacy, pccheck, keep-options-gpu, stbl-index (next-week merges 2026-11-20)
 // was "0.36.297-m1120n" (the same merges on 0.36.295-mdt1, before TaskSeam)
 // was "0.36.295-tsk1"  // feature/mod-seam-budget-1120: [Diag] TaskSeam (docs/308, off) on 0.36.295-mdt1; feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
 // was "0.36.295-mdt1"  // feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
@@ -33,6 +33,7 @@
 typedef unsigned char u8;
 
 static HANDLE g_log = INVALID_HANDLE_VALUE;
+static void (*volatile g_logTap)(const char*);  // adaptdiag.cpp AdTap ([AdaptDiag], docs/316): each line, before it is written
 
 static void Log(const char* fmt, ...) {
     char buf[1536];  // docs/67 §22.4: was 512, which cut the "mono fault:" script stack after 6 of 16 frames
@@ -41,6 +42,7 @@ static void Log(const char* fmt, ...) {
     int n = _vsnprintf_s(buf, sizeof(buf) - 2, _TRUNCATE, fmt, ap);
     va_end(ap);
     if (n < 0) n = (int)strlen(buf);
+    if (g_logTap) g_logTap(buf);
     buf[n++] = '\r';
     buf[n++] = '\n';
     DWORD w;
@@ -6656,6 +6658,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "pccheck.cpp"     // docs/299: [PcCheck] read-only CPU / power / PC check (on; log, pccheck-summary.txt, UserDiag op 62)
 #include "taskseam.cpp"  // docs/308: [Diag] TaskSeam (off; after modtime.cpp, taskserve.cpp, unseen.cpp)
 #include "hitchsum.cpp"    // docs/666 §5: [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (needs stallwatch.cpp, hitchattr.cpp, syncphases.cpp, memexp.cpp)
+#include "adaptdiag.cpp"   // docs/316: [AdaptDiag] adaptive diag kit (off; needs hitchsum.cpp, modtime.cpp, pccheck.cpp, stallwatch.cpp, userdiag.cpp, apex.cpp)
 #include "c2diag.cpp"      // docs/259 §9: [Crash2Diag] route destination list lifetime detector, CRASH-TRIAGE (after autshadow.cpp: g_arGate; values.cpp: PvSwClass)
 #include "monosig.cpp"     // docs/539 §20: [MonoSigGuard] EA bug, delegate signature param_count before params[0] at 0xD70F90 (release ini on)
 #include "hostmapiter.cpp"  // docs/67 §43: [HostMapIterFix] EA bug, ProcessTaskState host id map iterator stale after a rehash in 0xD80460 (off)
@@ -6716,6 +6719,7 @@ static void Run(HMODULE self) {
     const bool wrongBuild = !g_otherHost && !HostBuildOk(base);
 #endif
     swprintf_s(ini, L"%s.ini", path);
+    if (!g_otherHost && !wrongBuild) AdOverlay(ini);  // docs/316: [AdaptDiag] next-session turn-ons (a copy of the ini); before anything reads it
     swprintf_s(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);  // a launcher start must not truncate the game's log
     if (!g_otherHost) CrPreLog(ini, log);  // [CrashReport]: the previous session's last lines, before the log is truncated
     char priorLog[64] = "";  // the version that wrote the old log: the only trace of the last installed build
@@ -6902,6 +6906,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyRouteJobPhases(ini) || keepLog;  // docs/150 §7: after every owner of a phase site (observe only)
         keepLog = ApplyCellMemoProbe(ini) || keepLog;   // docs/150 §12: after [RouteJobPhases] (its job window and cell A* frame)
         keepLog = ApplyHitchSum(ini) || keepLog;        // docs/666 §5: after [RouteJobPhases] (SyncPlans) and [HitchAttr] Holders (log only, off)
+        keepLog = ApplyAdaptDiag(ini) || keepLog;       // docs/316: after hitch summary / stall watch / ModTime / PcCheck (turns their thresholds; off)
         InstallRouteSpeed(ini);  // docs/663: after [RouteSnap] (tree-write sequence) and [RouteGate] (the Q table clear stub)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
@@ -6935,6 +6940,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
         MpExit();   // [MonoFast] PairCount: the last pair report
         LuExit();  // [RouteSnap] LotUseReadout: the exit summary (last walk's bytes, final job counts)
         UdExit();
+        AdExit();  // docs/316: final report, Clean=1
         CrCleanExit();
         FgRevert();  // [Harness] ForegroundRender: original bytes back
         TsRevert();  // [ThumbStall]: original bytes back

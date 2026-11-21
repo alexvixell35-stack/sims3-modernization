@@ -1146,6 +1146,7 @@ ts3fixes `DiagSend(op, lo)` (`UserDiag.cs`): `Route.GetOption2` with optHi = `0x
 | 41 | `doorshare.cpp` | doorshare (docs/674): the door answer just given by `LotManager.PortalLockedCallback` is "unlocked" and does not depend on the router; lo = hash of the ask (portal id, router id, rooms), hi 0-15 = kind (1 plain door open to anybody, 2 portal no rule names, 3 any portal for a router that is no Sim) |
 | 61 | `ModTime.cs` / `modtime.cpp` | [Diag] ModTime (docs/298): hi 0 on?, hi 1 sim hour `lo` starts (the previous one is written), hi 2 world quit, hi 3 notice text ready?, hi 4 bit `lo` of the notice text (61 keeps the number the 2026-11-20 diag kit used) |
 | 62 | `PcCheck.cs` / `pccheck.cpp` | [PcCheck] (docs/299): hi 0 with lo 0 on?, with lo = one PC_* bit: problem set and Notify=1?; hi 1 sim hour `lo` ended; hi 2 world quit. 62 = the same op as on the docs/298 diag branch (61 = its [Diag] ModTime) |
+| 63 | `AdaptDiag.cs` / `adaptdiag.cpp` | [AdaptDiag] (docs/316, kit diag ini only): hi&0xFF 0 activity `lo` (0xFF = probe: on?); 1 bit (hi>>8) of the install-check missing count; 2 world quit (report); 3 swapinvokediag asked this session?; 4 bit (hi>>8) of the kit-test InduceScriptErrors count |
 | **38+** | next free | add a row with the `case` |
 
 ## ts3native `ts3native_readydrain` export (`ReadyDrainCounters` in `native/ts3native/ts3native.cpp`)

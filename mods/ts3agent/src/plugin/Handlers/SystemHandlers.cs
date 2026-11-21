@@ -9,6 +9,7 @@ namespace Ts3Agent
         {
             Dispatcher.Register("ping", Ping);
             Dispatcher.Register("commands", ListCommands);
+            Dispatcher.Register("notify", Notify); // kit benchmark start / end notice (docs/315)
             RegisterReflect();
             RegisterSims();
             RegisterControl();
@@ -44,6 +45,17 @@ namespace Ts3Agent
             r["mod_version"] = Instantiator.ModVersion;
             r["plugin"] = typeof(PluginEntry).Assembly.GetName().Name; // changes with every hot reload
             r["echo"] = a.Raw("echo");
+            return r;
+        }
+
+        // notify {text}: one system notification in the top-right corner (what the kit benchmark tells the player). Text capped at 300.
+        static object Notify(Args a)
+        {
+            string t = a.Str("text");
+            if (t.Length > 300) t = t.Substring(0, 300);
+            Sims3.UI.StyledNotification.Show(new Sims3.UI.StyledNotification.Format(t, Sims3.UI.StyledNotification.NotificationStyle.kSystemMessage));
+            Dictionary<string, object> r = new Dictionary<string, object>();
+            r["shown"] = t;
             return r;
         }
 

@@ -11,6 +11,12 @@ What it is
   - task timing: which game task or script is running during a long pause
   - CAS errors: when a mod calls one of our changed CAS methods in a way that fails (the "Unable to invoke
     an invalid target" errors in Create-a-Style), which mod and which method
+  - adaptive diagnostics (kit 1121.a1): a cheap summary every minute (what you were doing: live, CAS,
+    Buy/Build, loading, travel, saving, paused; long pauses; free memory; script errors; how busy the PC
+    was). When something repeats, the build turns on a closer look by itself for a few minutes, or for
+    your next game start, and writes what it found to adaptdiag-report.txt. Known problems are named
+    (for example "known: ..., fixed in ..."). If a part of the install is missing, the game shows one
+    notice asking you to make a report.
   Everything is written to ts3native.log and small text files in Game\Bin.
 
 Install with the kit (close the game first)
@@ -30,8 +36,10 @@ Play
   Then quit the game.
 
 Send it back
-  1. Double-click TS3Kit.bat again and choose 1 (Diagnose). It takes a minute or two (it also saves the
-     Windows "dxdiag" report) and writes one zip to your Desktop, named TS3Diag-<date>-<code>.zip.
+  1. Double-click TS3Kit.bat again and choose 8 (Make report). It first shows how big the report will be
+     and asks; then it takes a minute or two (it also saves the Windows "dxdiag" report) and writes one zip
+     to your Desktop, named TS3Diag-<date>-<code>.zip. (Option 1, Diagnose, makes the same zip without
+     asking first.)
   2. Send us that zip. Your Windows user name, computer name and home folder are masked inside it;
      nothing is uploaded by the kit. You can open the zip and look first.
 

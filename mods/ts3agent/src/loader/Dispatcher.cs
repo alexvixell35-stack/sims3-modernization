@@ -23,6 +23,23 @@ namespace Ts3Agent
 
         public static ICollection<string> Commands { get { return sHandlers.Keys; } }
 
+        // Session lock (kit benchmark mode, docs/315): session_lock {token} claims the channel for one runner; from then on
+        // every request must carry the same top-level "token" or it is refused. session_lock {token, release: true} frees it.
+        // Never locked = harness behaviour unchanged. Tokens shorter than 16 characters are refused.
+        static string sToken;
+
+        static object SessionLock(Dictionary<string, object> a)
+        {
+            string tok = a != null && a.ContainsKey("token") ? a["token"] as string : null;
+            if (tok == null || tok.Length < 16) throw new McpException("session_lock needs a token of at least 16 characters");
+            bool release = a.ContainsKey("release") && a["release"] is bool && (bool)a["release"];
+            if (sToken != null && sToken != tok) throw new McpException("channel locked by another session");
+            sToken = release ? null : tok;
+            Dictionary<string, object> r = new Dictionary<string, object>();
+            r["locked"] = sToken != null;
+            return r;
+        }
+
         public static string Handle(string requestJson)
         {
             Dictionary<string, object> req = Json.Parse(requestJson) as Dictionary<string, object>;
@@ -31,11 +48,18 @@ namespace Ts3Agent
             try
             {
                 string cmd = req.ContainsKey("cmd") ? req["cmd"] as string : null;
-                Handler h;
-                if (cmd == null || !sHandlers.TryGetValue(cmd, out h))
-                    throw new McpException("unknown command '" + cmd + "'");
                 Dictionary<string, object> a = req.ContainsKey("args") ? req["args"] as Dictionary<string, object> : null;
-                object result = h(new Args(a ?? new Dictionary<string, object>()));
+                object result;
+                if (cmd == "session_lock") result = SessionLock(a);
+                else
+                {
+                    string tok = req.ContainsKey("token") ? req["token"] as string : null;
+                    if (sToken != null && tok != sToken) throw new McpException("channel locked by another session");
+                    Handler h;
+                    if (cmd == null || !sHandlers.TryGetValue(cmd, out h))
+                        throw new McpException("unknown command '" + cmd + "'");
+                    result = h(new Args(a ?? new Dictionary<string, object>()));
+                }
                 Dictionary<string, object> ok = new Dictionary<string, object>();
                 ok["id"] = id;
                 ok["ok"] = true;

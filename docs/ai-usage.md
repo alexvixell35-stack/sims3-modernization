@@ -2647,3 +2647,8 @@ Budget per usage window (PLAN.md "Action plan"): lanes G + M 30%, lane H 50%, of
 | 2026-11-20 | 23:41 | 5h -, 7d 28% | G | ip-vslot-verify | |
 | 2026-11-20 | 23:52 | 5h -, 7d 28% | G | ip-coremod-verify | |
 | 2026-11-21 | 00:11 | 5h -, 7d 28% | G | bp-kit-k1-smoke | |
+| 2026-11-21 | 11:06 | 5h -, 7d 31% | G | bp-commodmap-check | |
+| 2026-11-21 | 11:30 | 5h -, 7d 32% | G | k4-armA | |
+| 2026-11-21 | 11:32 | 5h -, 7d 32% | G | k4-armB | |
+| 2026-11-21 | 11:42 | 5h -, 7d 32% | G | e7b-armA-steam | |
+| 2026-11-21 | 11:45 | 5h -, 7d 32% | G | e7b-armB-off | |

@@ -110,7 +110,7 @@ Measured on the diag branch at 50 Hz: 73 us per sample, 0.33% of one core [measu
 - The load block has no hitch stacks (one long load iteration would dominate them); its top 5 is the answer for L8.
 - EA 1.69: the rows are the generated table's (not read again for ModTime); the EA laptop smoke confirms names and samples.
 
-### 5.1 Pass-through hooks label EA time as ours (2026-11-21, proposal, not built)
+### 5.1 Pass-through hooks label EA time as ours (2026-11-21; built in 0.36.298-adk1, docs/316 §1, not run)
 
 A sample with no mod frame whose innermost ts3fixes frame is a swapped EA method that only calls through
 (`FestivalHiddenHook` on `GameObject.UpdateCommodityInteractionMap`, `EcHook` on `EventTracker.ProcessEvent`,

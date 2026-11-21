@@ -103,6 +103,17 @@ static int MdtPick(const int* kinds, int n) {
         for (int i = 0; i < n; i++) if (kinds[i] == want) return i;
     return n > 0 ? 0 : -1;
 }
+// docs/298 §5.1: the inclusive pick is a ts3fixes frame but frame 0 (own) is game: a pass-through hook (FestivalHiddenHook,
+// EcHook, TrafficCreateHook, SpatialCacheHook) running EA's body, so the time is the game's, not ours
+static bool MdtViaHook(const int* kinds, int n, int pick) { return pick > 0 && pick < n && kinds[pick] == MDT_OURS && kinds[0] == MDT_GAME; }
+// "game via ts3fixes hook (<class>)" from the hook frame's "Ns.Class.Method" name
+static void MdtHookLabel(const char* meth, char* out, size_t cap) {
+    char c[96];
+    strncpy_s(c, meth ? meth : "?", _TRUNCATE);
+    if (char* dot = strrchr(c, '.')) *dot = 0;  // drop the method
+    const char* cls = strrchr(c, '.');
+    _snprintf_s(out, cap, _TRUNCATE, "game via ts3fixes hook (%s)", cls ? cls + 1 : c);
+}
 // docs/302 §4.4 notice rule (info only): sim hours in a row at >= 25% of sim CPU
 static int MdtHotStep(int run, double share) { return share >= 0.25 ? run + 1 : 0; }
 // the package's file name without folders, "core mod: " and ".package" (into d)
@@ -222,6 +233,20 @@ static int MdtModOf(DWORD image) {
     m.kind = MdtKindOf(m.name);
     g_mdtMod[g_mdtModN] = m;
     return g_mdtModN++;
+}
+// the "game via ts3fixes hook (<class>)" row of hook method row mi (image 0, kind game: no notice-rule weight; 1 = table full)
+static int MdtViaHookOf(int mi) {
+    char lab[64];
+    MdtHookLabel(g_mdtMeth[mi].name, lab, sizeof(lab));
+    EnterCriticalSection(&g_mdtCs);
+    int r = 2;
+    while (r < g_mdtModN && (g_mdtMod[r].image || strcmp(g_mdtMod[r].name, lab))) r++;
+    if (r == g_mdtModN) {
+        if (g_mdtModN == 512) r = 1;
+        else { MdtMod m = {}; strcpy_s(m.name, lab); m.kind = MDT_GAME; g_mdtMod[g_mdtModN] = m; g_mdtModN++; }
+    }
+    LeaveCriticalSection(&g_mdtCs);
+    return r;
 }
 
 // hash probe: the entry index, or -1 with *slot = the free slot (-1 when the hash is full)
@@ -401,9 +426,8 @@ static DWORD WINAPI MdtSampler(LPVOID) {
     LONGLONG lastCpu = GetThreadTimes(h, &tc, &te, &tk, &tu) ? MdtFt(tk) + MdtFt(tu) : 0, lastWall = MdtUs();
     DWORD lastWrite = GetTickCount();
     bool wasLive = false;
-    const DWORD sleepMs = 1000 / g_mdtHz;
     for (;;) {
-        Sleep(sleepMs);
+        Sleep(1000 / g_mdtHz);  // read per sample: [AdaptDiag] (docs/316) raises the rate for a hitch drill-down at run time
         const LONG req = InterlockedExchange(&g_mdtReq, 0);
         if (req & 1) MdtWriteSummary(true, g_mdtReqHour), lastWrite = GetTickCount();
         else if (req & 2 || GetTickCount() - lastWrite >= 600000) MdtWriteSummary(false, -1), lastWrite = GetTickCount();
@@ -442,7 +466,7 @@ static DWORD WINAPI MdtSampler(LPVOID) {
             meths[kk] = mi, kinds[kk++] = g_mdtMod[g_mdtMeth[mi].mod].kind;
         }
         const int pick = MdtPick(kinds, kk);
-        const int mi = pick >= 0 ? meths[pick] : -1, mod = mi >= 0 ? g_mdtMeth[mi].mod : MDT_ENGINE;
+        const int mi = pick >= 0 ? meths[pick] : -1, mod = mi < 0 ? MDT_ENGINE : MdtViaHook(kinds, kk, pick) ? MdtViaHookOf(mi) : g_mdtMeth[mi].mod;
         const int si = kk > 0 ? meths[0] : -1, selfMod = si >= 0 ? g_mdtMeth[si].mod : MDT_ENGINE;
         const bool gc = eip >= MDT_GC_LO && eip < MDT_GC_HI;
         EnterCriticalSection(&g_mdtCs);

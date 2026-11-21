@@ -113917,7 +113917,7 @@
         },
         "waitS": 2,
         "note": "shadow: hooked RemoveObject compares plan and EA",
-        "mustMatch": "hook path (shadow, [1-9][0-9]* calls): same; verdict: EXACT"
+        "mustMatch": "hook path \\(shadow, [1-9][0-9]* calls\\): same; verdict: EXACT"
       },
       {
         "cmd": "reflect_call",
@@ -113956,7 +113956,7 @@
         },
         "waitS": 2,
         "note": "fast: hooked RemoveObject applies the plan",
-        "mustMatch": "hook path (fast, [1-9][0-9]* calls): same; verdict: EXACT"
+        "mustMatch": "hook path \\(fast, [1-9][0-9]* calls\\): same; verdict: EXACT"
       },
       {
         "cmd": "reflect_call",
@@ -113995,6 +113995,13 @@
           "commodmapshadow": false
         },
         "note": "back to the default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "unpause for the profile's minutes (paused at the end, the fail-fast clock guard stopped the job, rerun1 2026-11-21)"
       }
     ],
     "cleanup": [
@@ -114003,6 +114010,65 @@
         "args": {
           "commodmapfast": false,
           "commodmapshadow": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "kit-ab-session-check",
+    "bug": "tester kit A/B mode (docs/314): the kit stats task must keep waking while the game is paused (a pause is no hitch) and a save pause must be counted apart, not as a hitch",
+    "fix": "ts3fixes KitArm.cs / KitArmCore.cs: kKitArm tunings set only in kit packages (default empty = off)",
+    "save": "Baseline-BP",
+    "switches": [],
+    "note": "Paused 20 s, unpaused, one save under a throwaway name, unpaused. Read the next \"kit: stats\" line: longest pause well under 20 s (the task woke while paused) and save pauses >= 1 with the save time there, not under hitches. The household is not touched (pause, save only).",
+    "expect": "kit: stats lines every minute; longest < 10000 ms; save pauses >= 1; 0 script errors",
+    "steps": [
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "kit-ab-notice"
+        },
+        "waitS": 1,
+        "optional": true,
+        "note": "the kit arm notification (shown at world load) on screen"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 20,
+        "note": "paused 20 s: the stats task keeps waking (no 20 s hitch)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5,
+        "note": "unpause"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "KitAB-Smoke-1121"
+        },
+        "waitS": 30,
+        "note": "one save: its pause is counted apart"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "play on for the profile minutes"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
         }
       }
     ]

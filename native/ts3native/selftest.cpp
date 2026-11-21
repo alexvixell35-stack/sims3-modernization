@@ -13275,6 +13275,7 @@ static void TestP5() {
 #include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
 #include "modtime-test.h"  // TestModTime ([Diag] ModTime, docs/298)
 #include "pccheck-test.h"  // TestPcCheck ([PcCheck], docs/299)
+#include "adaptdiag-test.h"  // TestAdaptDiag ([AdaptDiag], docs/316)
 #include "hitchsum-test.h"    // TestStallWatchDeep, TestHitchSum (docs/666 §5)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
@@ -14851,6 +14852,7 @@ int main(int argc, char** argv) {
     TestStallWatch();
     TestModTime();
     TestPcCheck();
+    TestAdaptDiag();
     TestStallWatchDeep();
     TestHitchSum();
     TestUnseenRootMotion();

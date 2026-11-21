@@ -38,7 +38,7 @@ namespace Ts3Fixes
 
         static void ApplySwapInvokeDiag()
         {
-            if (!Instantiator.kSwapInvokeDiag) return;
+            if (!Instantiator.kSwapInvokeDiag && !AdaptWantsSwapInvokeDiag()) return;  // docs/316: the diag kit asks for it after repeated script errors
             Type mm = typeof(object).Assembly.GetType("System.Reflection.MonoMethod");
             if (mm == null) { AppliedLog().Add("swapinvokediag: System.Reflection.MonoMethod not found, not patched"); return; }
             Patch(mm, "Invoke", kSidArgs, typeof(SidHook), "InvokeHook", "InvokeOrig");

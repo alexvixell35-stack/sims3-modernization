@@ -403,6 +403,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFestivalHidden value="True" />
     <kCommodMapFast value="False" />
     <kCommodMapShadow value="False" />
+    <kKitArm value="" />
+    <kKitArmNotice value="" />
+    <kKitArmSwitches value="" />
     <kTrainBoost value="True" />
     <kEatOutsideCount value="True" />
     <kQueueProximity value="True" />
@@ -876,7 +879,8 @@ if (onArg > 0) {
     { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },
     { type: TYPE_XML, group: 0, instance: fnv64(`${ASSEMBLY}.Instantiator`), data: Buffer.from(xml, 'utf8') },
   ]);
-  const vOut = join(outDir, `ts3fixes-on-${names.join('-')}.package`);
+  // a value may hold ':' (an NTFS stream name on Windows) or spaces: only the tuning names go in the file name
+  const vOut = join(outDir, `ts3fixes-on-${names.map(n => n.split('=')[0]).join('-')}.package`);
   writeFileSync(vOut, variant);
   console.log(`built ${vOut} (${variant.length} bytes, ${names.join(', ')})`);
 }

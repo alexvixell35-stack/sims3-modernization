@@ -121,7 +121,8 @@ if (values.save) {
   // and a launch stuck before the agent loads (flat committed MB, docs/236 round 4) fails in ~60-90 s: probe detached, the game and the
   // EA per-launch helpers killed (never the EA app), the reason named
   const startGuard = stallGuard('game start', { port: Number(values.port), liveOnly: true }), hang = launchGuard(Number(values.port));
-  await until('agent answering', 300, async () => (await agent('ping')).ok === true, 1000, async () => {
+  // TS3_AGENT_WAIT_S: many-mods saves with a cleared script cache can need more than 300 s at the menu (kit-ab-1121 rerun3)
+  await until('agent answering', Number(process.env.TS3_AGENT_WAIT_S ?? 300), async () => (await agent('ping')).ok === true, 1000, async () => {
     const why = await startGuard();
     if (why) return why;
     const h = await hang();

@@ -17,21 +17,25 @@
 #   -NoSystem      look only at -GameDir / -UserDir (no registry, no system, no event log); used by the tests
 #   -DocsDir <dir> tests only: a fake Documents folder whose Electronic Arts\* folders are searched like the real one
 #   -Mode SelfTest checks of the merge / mask / exe-header code on temp data, then exit
+#   TS3Kit.bat -Mode Play -GameDir "..."        A/B mode (payload\ab\arms.json, docs/314): set the next arm's files (A, B, A, ...;
+#                                                -Arm A|B picks it), start and capture one session as -Mode Capture, write the
+#                                                arm's summary to ab\results and into the zip
 # The diagnostic never writes outside its zip (and a temp staging folder it removes). The installer writes only
 # Game\Bin\ts3native.asi, Game\Bin\ts3native.ini, Mods\Packages\ts3fixes.package (and Mods\Resource.cfg when there is
 # none) and (if asked) S3SS\S3SS.toml, after a backup; it moves stray ts3native asis / ts3fixes packages and TS3 Turbo
 # Engine (Turbo.asi + its config) into the backup, never deletes them. TS3W.exe and Options.ini are never changed.
 param(
-  [ValidateSet('Menu', 'Diag', 'Capture', 'Install', 'Uninstall', 'SelfTest')][string]$Mode = 'Menu',
+  [ValidateSet('Menu', 'Diag', 'Capture', 'Install', 'Uninstall', 'Play', 'Report', 'ArmApply', 'SelfTest')][string]$Mode = 'Menu',
   [ValidateSet('', 'Direct', 'Steam', 'Launcher', 'Self')][string]$Launch = '', [int]$CaptureMaxSec = 0, [int]$InfoAfterSec = 20,
   [string[]]$ProcNames = @('TS3W', 'TS3'), [string]$DirectExe = '',   # tests only: a stub under another name, so no fake TS3W process shows up
   [string]$LinkDir = '', [string]$Answers = '',   # tests only: a folder of .lnk files instead of Desktop / Start Menu; comma-separated answers to the questions
   [ValidateSet('', 'Normal', 'Diag')][string]$Build = '',
   [string]$GameDir = '', [string]$UserDir = '', [string]$OutDir = '', [switch]$Yes, [switch]$S3SS, [switch]$NoSystem,
-  [string]$DocsDir = ''   # tests only: stands in for the Documents known folder (with -NoSystem)
+  [string]$DocsDir = '',   # tests only: stands in for the Documents known folder (with -NoSystem)
+  [ValidateSet('', 'A', 'B')][string]$Arm = ''   # -Mode Play: this arm instead of the next one
 )
 $ErrorActionPreference = 'Stop'
-$KitVersion = '1121.e7'  # e7: ts3fixes with swapinvokediag (diag package on, docs/312) + PR #616, the install moves TS3 Turbo Engine (Turbo.asi + its config) into the backup; e6: exe section table, ts3native.launcher.log SKIP line when there is no ts3native.log; e5: EA 1.69 matched on the link timestamp (other image sizes), unknown builds install with a note; e4: payload\diag asi 0.36.247-elidiag4 (ModTime checked name reads, relaxed frame walk, docs/300 §8; e3 §7, e2 §6)
+$KitVersion = '1121.a1'  # a1: adaptive diag kit (docs/316): the diagnostic build installs payload\adaptdiag (known-issue library, expected install list, [AdaptDiag] merged into the diag ini), -Mode Report / option 6 (size first, masked zip with the adaptdiag files), benchmark flag in ts3native.adaptdiag-state.ini (docs/317); e7: ts3fixes with swapinvokediag (diag package on, docs/312) + PR #616, the install moves TS3 Turbo Engine (Turbo.asi + its config) into the backup; e6: exe section table, ts3native.launcher.log SKIP line when there is no ts3native.log; e5: EA 1.69 matched on the link timestamp (other image sizes), unknown builds install with a note; e4: payload\diag asi 0.36.247-elidiag4 (ModTime checked name reads, relaxed frame walk, docs/300 §8; e3 §7, e2 §6)
 # Kit target: the EA app 1.69 exe (Game\Bin\TS3.exe). Kit 1119.2 (retail) used 'retail 1.67' / TS3W.exe / ts3native-retail167.asi.
 $KitEdition = 'EA app 1.69'; $KitExe = 'TS3.exe'; $KitAsi = 'ts3native-ea169.asi'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -83,7 +87,8 @@ $Rx = [ordered]@{
   VsExt = '^\.(ini|log|txt|toml|conf|cfg)$'
   BinExt = '^\.(ini|toml|conf|cfg|log|jsonl)$'
   ApexTxt = '^(Turbo|Apex Radiance.*|fps-summary|pccheck-summary|modtime-summary)\.txt$'
-  DiagCsv = '^(framediag|pccheck|modtime)\.csv$'
+  DiagCsv = '^(framediag|pccheck|modtime|adaptdiag|adaptdiag-sessions)\.csv$'
+  AdaptTxt = '^adaptdiag-(report|bench)\.txt$'
   RemixExt = '^\.(log|conf|txt)$'
   OptKeyValue = '^\s*([A-Za-z0-9_]+)\s*=\s*(.*)$'
   DcNumber = '(?m)^Number:\s*(\d+)'
@@ -118,11 +123,18 @@ $Rx = [ordered]@{
   FixesPkg = '(?i)ts3fixes'
   PkgVersion = '\b0\.\d{1,3}\.\d{1,4}(-[A-Za-z0-9]+)*'
   GameBinDir = '(?i)\\Game\\Bin$'
+  ReportFile = '(?i)^(ts3native.*\.(log|ini|txt)|adaptdiag.*\.(csv|txt)|.*-summary\.txt)$'
   S3ppOff = '(?m)(^\[patches\.(?:AdaptiveWait|OversizedThreadStackFix)\]\r?\nenabled = )true'
   Eol = "`r?`n"
   SnapBinFile = '\.(ini|toml|conf|cfg|log|jsonl|txt|xml|dmp)$'
   SnapRemixFile = '\.(log|conf|txt)$'
   Any = '.'
+  ArmLetter = '^[AB]$'
+  KitArmLine = '^ts3fixes: kit: arm ([AB]): (.*) \| read-back (.*)$'
+  KitStatsLine = '^ts3fixes: kit: stats arm ([AB]) \(([^)]*)\): (.*)$'
+  KitStatsNums = '^in world ([\d.]+) min, worlds (\d+), sim updates/s median (-?\d+) min (-?\d+) \((\d+) s\), hitches >= 250 ms (\d+), >= 1 s (\d+), longest (\d+) ms, save pauses (\d+) \(longest (\d+) ms\), read-back (.*)$'
+  ApexFps = '\[Screen\].*?\b(\d+(?:\.\d+)?) ?fps\b'
+  ScriptErrorFile = '^ScriptError.*\.xml$'
 }
 
 # ---------- masking ----------
@@ -542,7 +554,8 @@ function DiagGame($g, [int]$n) {
       }
     }
     # settings and logs in Bin (text only; EA's own files are hashed above, not copied)
-    Get-ChildItem -LiteralPath $bin -File -Force | Where-Object { $_.Extension -match $Rx.BinExt -or $_.Name -match $Rx.ApexTxt -or $_.Name -match $Rx.DiagCsv } | ForEach-Object { CopyText $_.FullName "files\game$n-bin\$($_.Name)" }
+    Get-ChildItem -LiteralPath $bin -File -Force | Where-Object { $_.Extension -match $Rx.BinExt -or $_.Name -match $Rx.ApexTxt -or $_.Name -match $Rx.DiagCsv -or $_.Name -match $Rx.AdaptTxt } | ForEach-Object { CopyText $_.FullName "files\game$n-bin\$($_.Name)" }
+    $ab = Join-Path $bin 'adaptdiag-bench'; if (Test-Path -LiteralPath $ab) { Get-ChildItem -LiteralPath $ab -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match $Rx.SessionFile -or $_.Extension -eq '.csv' } | Sort-Object LastWriteTime -Descending | Select-Object -First 30 | ForEach-Object { CopyText $_.FullName "files\game$n-bin\adaptdiag-bench\$($_.Name)" } }   # docs/317: the benchmark lane's folder
     foreach ($sub in 'rtx-remix\logs', '.trex', '.trex\logs','rtx-remix') { $p = Join-Path $bin $sub; if (Test-Path -LiteralPath $p) { Get-ChildItem -LiteralPath $p -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match $Rx.RemixExt } | Sort-Object LastWriteTime -Descending | Select-Object -First 8 | ForEach-Object { CopyText $_.FullName "files\game$n-bin\$sub\$($_.Name)" } } }
     foreach ($sgr in 'GraphicsCards.sgr', 'GraphicsRules.sgr') { $p = Join-Path $bin $sgr; if (Test-Path -LiteralPath $p) { $rules = FileRow $p; $o[$sgr] = $rules; Line "  $sgr  $($rules.size)  $($rules.sha12)  $($rules.modified)" } }
   }
@@ -628,6 +641,7 @@ function DiagUser($u, [int]$n, $games) {
     CopyNewest $p 'ApexRadiance*.txt' 6 "files\user$n\apex"
     CopyNewest $p 'ScriptError_*.xml' 10 "files\user$n\crash"
     CopyNewest $p 'xcpt*.txt' 10 "files\user$n\crash"
+    CopyNewest (Join-Path $p 'ts3native-crashes') 'crash-*.txt' 10 "files\user$n\crash"
     $o['scriptErrors'] = @(Get-ChildItem -LiteralPath $p -File -Filter 'ScriptError_*.xml' -ErrorAction SilentlyContinue).Count
     $o['crashFiles'] = @(Get-ChildItem -LiteralPath $p -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $Rx.CrashFile } | Sort-Object LastWriteTime -Descending | Select-Object -First 30 | ForEach-Object { [ordered]@{ name = $_.Name; size = $_.Length; modified = (Stamp $_.LastWriteTime) } })
     Line "  ScriptError files: $($o.scriptErrors); crash files: $($o.crashFiles.Count)"
@@ -679,6 +693,7 @@ function RunDiag([string[]]$extraGames, [scriptblock]$session = $null) {
   if (-not $NoSystem) { DiagSystem }
   $games = @(FindGames); foreach ($x in $extraGames) { if ($x -and -not ($games | Where-Object { $_.path -eq $x.Trim('"').TrimEnd('\') })) { $games += [ordered]@{ path = $x.Trim('"').TrimEnd('\'); sources = @('typed in'); exists = (HasExe $x.Trim('"')) } } }
   $users = @(FindUserDirs)
+  AbDiagFiles
   $go = @(); $i = 0; foreach ($g in $games) { $i++; $go += (DiagGame $g $i) }
   if ($games.Count -eq 0) { Line ''; Line 'No game install found.'; Finding 9 'no-game' 'No Sims 3 install was found through the registry, Steam or the usual folders. If you test on a copied game folder, start the kit again and type that folder in.' }
   $uo = @(); $i = 0; foreach ($u in $users) { $i++; $uo += (DiagUser $u $i $go) }
@@ -885,6 +900,7 @@ function RunCapture([string]$game, [string]$how) {
       if ("$key" -match $Rx.CollectKey) { $collectNow = $true; break }
     }
     $ses['ended'] = (Stamp (Get-Date)); $ses['collectedWhileRunning'] = $collectNow
+    if ($script:AbRun) { $now = Get-Date; $script:AbRun.seen = [bool]$proc; $script:AbRun.started = (Stamp $start); $script:AbRun.minutes = [math]::Round(($now - $start).TotalMinutes, 1); AbSessionEnd $start $now }
     if ($collectNow -and $proc -and -not $proc.HasExited) {
       $info = Try1 { ProcInfo $proc.Id $cwd } $info
       $a = 'N'; if (-not $Yes -and $CaptureMaxSec -eq 0) { $a = Read-Host 'Write a memory dump of the game for us? It can be up to 4 GB and holds whatever the game had in memory. (Y/N)' }
@@ -1005,6 +1021,44 @@ function TurboFiles([string]$bin) {
   foreach ($n in 'Turbo.txt', 'Turbo.ini') { $c = Join-Path $bin $n; if (Test-Path -LiteralPath $c) { $out += [ordered]@{ target = $c; turbo = $true; known = $true } } }
   return $out
 }
+# ---------- adaptive diag kit (docs/316, interface docs/317) ----------
+$AdState = 'ts3native.adaptdiag-state.ini'
+$AdExpect = @{ 'Steam 1.67' = 'expect-steam167.txt'; 'retail 1.67' = 'expect-retail167.txt'; 'EA app 1.69' = 'expect-ea169.txt' }
+# payload\adaptdiag files: the ini fragment (merged, no target), the known-issue library and this kit edition's expected install list
+function AdaptFiles {
+  $d = Join-Path $payload 'adaptdiag'; if (-not (Test-Path -LiteralPath $d)) { return @() }
+  $o = @([ordered]@{ src = (Join-Path $d 'ts3native-adaptdiag.ini'); target = ''; what = 'ini fragment' },
+    [ordered]@{ src = (Join-Path $d 'ts3native.adaptdiag-known.tsv'); target = 'ts3native.adaptdiag-known.tsv'; what = 'adaptive diag kit: known-issue library' },
+    [ordered]@{ src = (Join-Path $d $AdExpect[$KitEdition]); target = 'ts3native.adaptdiag-expect.txt'; what = "adaptive diag kit: expected install parts ($KitEdition)" })
+  foreach ($x in $o) { if (-not (Test-Path -LiteralPath $x.src)) { throw "Kit file missing: $($x.src). Extract the whole zip first." } }
+  return $o
+}
+# the diagnostic ini with the kit's [AdaptDiag] fragment merged in (the fragment's keys win; the release ini is never touched)
+function AdaptIni([string]$srcIni, $ad) {
+  $b = [System.IO.File]::ReadAllBytes($srcIni); if (-not @($ad).Count) { return $b }
+  $frag = [System.IO.File]::ReadAllText(@($ad)[0].src)
+  return (New-Object System.Text.UTF8Encoding($false)).GetBytes((MergeToml ([System.IO.File]::ReadAllText($srcIni)) $frag))
+}
+# docs/317 hook for the benchmark lane: one [Session] key in Game\Bin\ts3native.adaptdiag-state.ini (ts3native only reads [Session])
+function SetAdSession([string]$binDir, [string]$key, [string]$value) {
+  $p = Join-Path $binDir $AdState; $old = ''; if (Test-Path -LiteralPath $p) { $old = [System.IO.File]::ReadAllText($p) }
+  [System.IO.File]::WriteAllText($p, (MergeToml $old "[Session]`n$key = $value`n"), (New-Object System.Text.UTF8Encoding($false)))
+}
+# option 8: what the report will hold and its size, then the masked diag zip (RunDiag copies the adaptdiag files)
+function MakeReport([string[]]$extraGames) {
+  $bins = @(@(@(FindGames | Where-Object { $_.exists } | ForEach-Object { Join-Path $_.path 'Game\Bin' }) + @($extraGames | Where-Object { $_ } | ForEach-Object { Join-Path $_.Trim('"').TrimEnd('\') 'Game\Bin' })) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -Unique)
+  $files = @(foreach ($b in $bins) { Get-ChildItem -LiteralPath $b -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $Rx.ReportFile }; $ab = Join-Path $b 'adaptdiag-bench'; if (Test-Path -LiteralPath $ab) { Get-ChildItem -LiteralPath $ab -File -Force -ErrorAction SilentlyContinue } })
+  $bytes = 0; foreach ($f in $files) { $bytes += [math]::Min($f.Length, $CapBytes) }
+  $rep = @($files | Where-Object { $_.Name -eq 'adaptdiag-report.txt' })
+  Say "Make report: $($files.Count) log / diag files in Game\Bin, about $([math]::Round($bytes / 1MB, 1)) MB before masking and zipping (files over $([int]($CapBytes / 1MB)) MB are listed, not copied), plus the usual diagnosis."
+  Say "  adaptive diag report: $(if ($rep.Count) { "found, written $(Stamp $rep[0].LastWriteTime)" } else { 'none (the adaptive diag kit was not installed, or the game has not run since)' })"
+  Say '  User name, home path and computer name are masked. Nothing is uploaded.'
+  if (-not $Yes -and (Ask 'Build the report zip? (Y/N)') -notmatch $Rx.Yes) { Say 'Cancelled. Nothing was written.'; return $null }
+  $zip = RunDiag $extraGames
+  foreach ($b in $bins) { if (Test-Path -LiteralPath (Join-Path $b $AdState)) { SetAdSession $b 'Benchmark' '0' } }
+  if ($zip -and (Test-Path -LiteralPath $zip)) { Say "Zip size: $([math]::Round((Get-Item -LiteralPath $zip).Length / 1KB)) KB" 'Green' }
+  return $zip
+}
 function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   CheckGameForInstall $game
   $bin = Join-Path $game 'Game\Bin'
@@ -1020,14 +1074,16 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   if ($diagAsi) { $srcAsi = Join-Path $diag $KitAsi }
   $srcIni = Join-Path $src 'ts3native.ini'; $srcPkg = Join-Path $src 'ts3fixes.package'; $srcToml = Join-Path $payload 'S3SS-tunings.toml'
   foreach ($f in $srcAsi, $srcIni, $srcPkg, $srcToml) { if (-not (Test-Path -LiteralPath $f)) { throw "Kit file missing: $f. Extract the whole zip first." } }
+  $ad = @(); if ($useDiag) { $ad = @(AdaptFiles) }   # docs/316: the adaptive diag kit rides on the diagnostic build only
   if ((-not $diagAsi -and (Sha $srcAsi) -ne $RcAsiSha) -or (-not $useDiag -and ((Sha $srcIni) -ne $RcIniSha -or (Sha $srcPkg) -ne $RcPkgSha)) -or (TextSha $srcToml) -ne $RcTomlSha) { throw 'The kit''s payload files do not match their expected sha256 (damaged download?). Nothing was changed.' }
   if (-not $user) { throw 'No Sims 3 user folder (Documents\Electronic Arts\The Sims 3) found for ts3fixes.package. Start the game once, or pass -UserDir. Nothing was changed.' }
   $utf8 = New-Object System.Text.UTF8Encoding($false)
   $kind = $(if ($useDiag) { 'diagnostic build' } else { 'test build' })
   $plan = @(
     [ordered]@{ target = (Join-Path $bin 'ts3native.asi'); bytes = [System.IO.File]::ReadAllBytes($srcAsi); what = "$KitEdition $kind" },
-    [ordered]@{ target = (Join-Path $bin 'ts3native.ini'); bytes = [System.IO.File]::ReadAllBytes($srcIni); what = "$kind default settings" },
+    [ordered]@{ target = (Join-Path $bin 'ts3native.ini'); bytes = (AdaptIni $srcIni $ad); what = "$kind default settings$(if ($ad.Count) { ' + [AdaptDiag] (adaptive diag kit)' })" },
     [ordered]@{ target = (Join-Path $user 'Mods\Packages\ts3fixes.package'); bytes = [System.IO.File]::ReadAllBytes($srcPkg); what = "ts3fixes script mod ($kind)" })
+  foreach ($x in $ad) { if ($x.target) { $plan += [ordered]@{ target = (Join-Path $bin $x.target); bytes = [System.IO.File]::ReadAllBytes($x.src); what = $x.what } } }
   $cfg = Join-Path $user 'Mods\Resource.cfg'
   if (-not (Test-Path -LiteralPath $cfg)) { $plan += [ordered]@{ target = $cfg; bytes = $utf8.GetBytes($StdResourceCfg); what = 'the standard Resource.cfg (there was none, so the game would load no mods; uninstall removes it again)' } }
   if ($withS3ss) {
@@ -1101,6 +1157,7 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
     return $false
   }
   if (-not @(Get-ChildItem -LiteralPath $bin -File | Where-Object { $_.Name -match $Rx.LoaderDllInstall }).Count) { Say 'Warning: no ASI loader dll seen in Game\Bin. ts3native.asi needs one (as any .asi mod does), or it will not load.' 'Yellow' }
+  if ($ad.Count) { SetAdSession $bin 'Benchmark' '0'; Say '  adaptive diag kit on: after playing, run TS3Kit.bat option 8 (Make report).' }
   Say "Installed ($kind). Backup: $bdir" 'Green'
   Say 'After a game start the log is Game\Bin\ts3native.log; it should say "host build: EA app 1.69.47".'
   return (VerifyInstall $bin $user $srcAsi $plan[2].sha)
@@ -1143,7 +1200,8 @@ function RestoreBackup([string]$bdir) {
       }
       elseif (Test-Path -LiteralPath $e.target) {
         # only remove a file this kit put there and nobody changed since
-        if ((Sha $e.target) -eq $e.installedSha) { Remove-Item -LiteralPath $e.target -Force; Say "  removed: $($e.target)" } else { Say "  kept (changed since the install): $($e.target)" 'Yellow' }
+        # (an A/B arm's own ts3fixes.package counts as the install's: docs/314)
+        if ((Sha $e.target) -eq $e.installedSha -or (AbKnownShas) -contains (Sha $e.target)) { Remove-Item -LiteralPath $e.target -Force; Say "  removed: $($e.target)" } else { Say "  kept (changed since the install): $($e.target)" 'Yellow' }
       }
     } catch { $ok = $false; Say "  could not restore $($e.target): $($_.Exception.Message)" 'Red' }
   }
@@ -1158,7 +1216,10 @@ function DoUninstall([string]$game, [string]$user) {
   $b = ($cands | Sort-Object Name -Descending)[0]
   Say "This puts back the files saved in $($b.FullName) (the newest install of $($cands.Count) not yet undone)."
   if (-not $Yes) { $a = Ask 'Go ahead? (Y/N)'; if ($a -notmatch $Rx.Yes) { Say 'Cancelled. Nothing was changed.'; return $false } }
+  AbUnwind (Join-Path $game 'Game\Bin')
   $ok = RestoreBackup $b.FullName
+  $bin = Join-Path $game 'Game\Bin'; if (Test-Path -LiteralPath (Join-Path $bin $AdState)) { SetAdSession $bin 'Benchmark' '0' }
+  $bp = Join-Path $here 'TS3Bench.ps1'; if ($user -and (Test-Path -LiteralPath $bp)) { & $bp -Cleanup -Game $game -User $user | Out-Null }
   if ($ok) { Say 'Restored. The backup folder is kept.' 'Green' } else { Say 'Some files could not be restored (see above). Run TS3Kit.bat as administrator if the game is under Program Files.' 'Yellow' }
   return $ok
 }
@@ -1173,6 +1234,151 @@ function AskGame {
   return $p
 }
 
+# ---------- A/B mode (kits 1121.k4 / 1121.e7b, docs/314) ----------
+# payload\ab\arms.json names two arms. One session = one game start through menu option 6 (-Mode Play): the kit sets the
+# arm's files BEFORE the game starts (never while it runs), starts the game the player's way (as option 2), waits until
+# it closes, writes the arm's summary (kit folder ab\results\<time>-arm<X>.txt, also in the session's zip) and flips the
+# next arm. The first session is A; -Arm A|B (menu option 7) picks the next one. An arm is either a ts3fixes.package
+# (the two differ only in the arm's switches and the kit notice tunings) or "off": ts3native.asi and ts3fixes.package
+# moved into ab\off (sha256 checked) so the game loads neither; the next "on" arm puts the asi back byte for byte.
+# Uninstall first puts a moved asi back, then restores the install backup as before (Turbo.asi included).
+$AbDir = Join-Path (Split-Path -Parent $here) 'ab'
+function AbConfig { $f = Join-Path $payload 'ab\arms.json'; if (-not (Test-Path -LiteralPath $f)) { return $null }; return (Get-Content -LiteralPath $f -Raw | ConvertFrom-Json) }
+function AbState {
+  $f = Join-Path $AbDir 'state.json'
+  $s = $null; if (Test-Path -LiteralPath $f) { $s = Try1 { Get-Content -LiteralPath $f -Raw | ConvertFrom-Json } $null }
+  if (-not $s -or "$($s.next)" -notmatch $Rx.ArmLetter) { $s = [pscustomobject]@{ next = 'A'; route = ''; sessions = @() } }
+  return $s
+}
+function AbSaveState($s) { [void](New-Item -ItemType Directory -Force -Path $AbDir); [System.IO.File]::WriteAllText((Join-Path $AbDir 'state.json'), ($s | ConvertTo-Json -Depth 5), (New-Object System.Text.UTF8Encoding($false))) }
+function AbLog([string]$s) { [void](New-Item -ItemType Directory -Force -Path $AbDir); [System.IO.File]::AppendAllText((Join-Path $AbDir 'kit.log'), "$(Get-Date -Format 's') $(Mask $s)`r`n", (New-Object System.Text.UTF8Encoding($false))) }
+function AbNotice($cfg, [string]$arm) { return "TS3 test kit: arm $arm - $($cfg.arms.$arm.label)" }
+function AbOther([string]$arm) { if ($arm -eq 'A') { 'B' } else { 'A' } }
+# sha256 of every ts3fixes.package an arm installs: uninstall removes those like the install's own
+function AbKnownShas { $c = AbConfig; if (-not $c) { return @() }; return @(foreach ($n in 'A', 'B') { if ($c.arms.$n.package) { Sha (Join-Path $payload $c.arms.$n.package) } }) }
+function AbApply($cfg, [string]$arm, [string]$bin, [string]$user) {
+  $a = $cfg.arms.$arm; if (-not $a) { throw "No arm $arm in payload\ab\arms.json. Nothing was changed." }
+  $asi = Join-Path $bin 'ts3native.asi'; $pkg = Join-Path $user 'Mods\Packages\ts3fixes.package'
+  $off = Join-Path $AbDir 'off'; $offAsi = Join-Path $off 'ts3native.asi'; $offPkg = Join-Path $off 'ts3fixes.package'
+  if ($a.off) {
+    [void](New-Item -ItemType Directory -Force -Path $off)
+    foreach ($p in @(@($asi, $offAsi), @($pkg, $offPkg))) {
+      if (-not (Test-Path -LiteralPath $p[0])) { continue }
+      $h = Sha $p[0]; Copy-Item -LiteralPath $p[0] -Destination $p[1] -Force
+      if ((Sha $p[1]) -ne $h) { throw "Could not copy $($p[0]) into $off (sha differs). Nothing was moved." }
+      Remove-Item -LiteralPath $p[0] -Force
+    }
+  } else {
+    if (-not (Test-Path -LiteralPath $asi) -and (Test-Path -LiteralPath $offAsi)) {
+      $h = Sha $offAsi; Copy-Item -LiteralPath $offAsi -Destination $asi
+      if ((Sha $asi) -ne $h) { throw "Could not put ts3native.asi back from $off (sha differs)." }
+      Remove-Item -LiteralPath $offAsi -Force
+    }
+    if (Test-Path -LiteralPath $offPkg) { Remove-Item -LiteralPath $offPkg -Force }   # the arm's own package replaces it
+    $src = Join-Path $payload $a.package
+    if (-not (Test-Path -LiteralPath $src)) { throw "Kit file missing: $src. Extract the whole zip first." }
+    if ((Sha $src) -ne "$($a.packageSha)") { throw "The kit's arm $arm package does not match its expected sha256 (damaged download?). Nothing was changed." }
+    if ((Sha $pkg) -ne $a.packageSha) { [void](New-Item -ItemType Directory -Force -Path (Split-Path -Parent $pkg)); Copy-Item -LiteralPath $src -Destination $pkg -Force }
+  }
+  # read back what the game will load
+  $hasAsi = Test-Path -LiteralPath $asi; $hasPkg = Test-Path -LiteralPath $pkg
+  if ($a.off) { $ok = -not $hasAsi -and -not $hasPkg } else { $ok = $hasAsi -and (Sha $pkg) -eq $a.packageSha }
+  $text = "ts3native.asi $(if ($hasAsi) { "present (sha $(Sha12 $asi))" } else { 'not loaded (moved to the kit''s ab\off folder)' }), ts3fixes.package $(if ($hasPkg) { "sha $(Sha12 $pkg)" } else { 'not loaded' })"
+  return [ordered]@{ ok = $ok; text = $text }
+}
+# Uninstall: a moved asi goes back first so the install backup restores the usual way; the moved copies are dropped
+function AbUnwind([string]$bin) {
+  $off = Join-Path $AbDir 'off'
+  if (Test-Path -LiteralPath $off) {
+    $offAsi = Join-Path $off 'ts3native.asi'; $asi = Join-Path $bin 'ts3native.asi'
+    if ((Test-Path -LiteralPath $offAsi) -and -not (Test-Path -LiteralPath $asi)) { Copy-Item -LiteralPath $offAsi -Destination $asi; Say "  A/B: put ts3native.asi back from $off" }
+    Remove-Item -LiteralPath $off -Recurse -Force
+  }
+  # a kit without an off arm (k4) has no ab\off, but a reinstall still starts at arm A
+  if (Test-Path -LiteralPath (Join-Path $AbDir 'state.json')) { $s = AbState; $s.next = 'A'; AbSaveState $s }
+}
+# The arm's summary after the game closed: lines for the report and ab\results\<time>-arm<X>.txt
+function AbSessionEnd([datetime]$start, [datetime]$end) {
+  $run = $script:AbRun; $cfg = $run.cfg; $arm = $run.arm; $bin = $run.bin; $user = $run.user
+  $L = @("TS3 test kit $KitVersion A/B session summary", (AbNotice $cfg $arm), "files before the start: $($run.rb.text)")
+  $L += "session: $(Stamp $start) to $(Stamp $end), $([math]::Round(($end - $start).TotalMinutes, 1)) min from the kit's start to the game's close$(if (-not $run.seen) { ' (NO game process seen: this session does not count)' })"
+  $log = Join-Path $bin 'ts3native.log'
+  $fresh = (Test-Path -LiteralPath $log) -and (Get-Item -LiteralPath $log).LastWriteTime -ge $start
+  if ($cfg.arms.$arm.off) {
+    $L += 'ts3native and ts3fixes: not loaded in this arm (by design), so the hitch counts and sim updates/s are not measured in this arm.'
+    $L += $(if ($fresh) { 'WARNING: Game\Bin\ts3native.log was written during this session: our mod was loaded after all.' } else { 'check: Game\Bin\ts3native.log not written during this session (our mod was not loaded): OK' })
+  } elseif (-not $fresh) {
+    $L += 'WARNING: Game\Bin\ts3native.log was not written during this session (the game did not load our mod?).'
+  } else {
+    $lines = @(Try1 { [System.IO.File]::ReadAllLines($log) } @())
+    $al = @($lines | Where-Object { $_ -match $Rx.KitArmLine }) | Select-Object -Last 1
+    $sl = @($lines | Where-Object { $_ -match $Rx.KitStatsLine }) | Select-Object -Last 1
+    if ($al -and $al -match $Rx.KitArmLine) {
+      $L += "in-game notice (ts3native.log): $($Matches[2])"
+      $L += "switch read-back at world load: $($Matches[3])$(if ($Matches[1] -ne $arm) { "   WARNING: the game ran arm $($Matches[1]), not $arm" })"
+    } else { $L += 'WARNING: no "kit: arm" line in ts3native.log (no world was loaded, or the kit tunings are missing).' }
+    if ($sl -and $sl -match $Rx.KitStatsLine -and $Matches[3] -match $Rx.KitStatsNums) {
+      $L += "in world $($Matches[1]) min (worlds loaded: $($Matches[2])); sim updates per second: median $($Matches[3]), lowest $($Matches[4]) (over $($Matches[5]) s)"
+      $L += "hitches (one sim update took): >= 250 ms $($Matches[6]), >= 1 s $($Matches[7]); longest pause $($Matches[8]) ms; save pauses (counted apart) $($Matches[9]), longest $($Matches[10]) ms"
+      $L += "switch read-back at the last stats line: $($Matches[11])"
+    } else { $L += 'no "kit: stats" line in ts3native.log (the game closed within a minute of the world load, or before one loaded).' }
+  }
+  $apex = Join-Path $user 'Apex Radiance\ApexRadiance_LOG.txt'
+  if (Test-Path -LiteralPath $apex) {
+    $fps = @(Try1 { [System.IO.File]::ReadAllLines($apex) } @() | Where-Object { $_ -match $Rx.ApexFps } | ForEach-Object { if ($_ -match $Rx.ApexFps) { [double]$Matches[1] } } | Sort-Object)
+    if ($fps.Count) { $L += "Apex fps ([Screen] lines): median $($fps[[int][math]::Floor(($fps.Count - 1) / 2)]), lowest $($fps[0]) ($($fps.Count) lines)" }
+    else { $L += 'Apex fps: the Apex log has no [Screen] fps lines (this Apex logs none); the sim updates per second above are our own timer.' }
+  }
+  $se = @(Try1 { Get-ChildItem -LiteralPath $user -File -ErrorAction Stop | Where-Object { $_.Name -match $Rx.ScriptErrorFile -and $_.LastWriteTime -ge $start } } @())
+  $L += "script error files written during this session: $($se.Count)$(if ($se.Count) { " ($((@($se | Select-Object -First 5 | ForEach-Object { $_.Name })) -join ', '))" })"
+  $res = Join-Path $AbDir 'results'; [void](New-Item -ItemType Directory -Force -Path $res)
+  $f = Join-Path $res "$($start.ToString('yyyyMMdd-HHmmss'))-arm$arm.txt"
+  [System.IO.File]::WriteAllText($f, ((@($L | ForEach-Object { Mask $_ }) -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($false)))
+  Line ''; Line '== A/B session'; foreach ($l in $L) { Line "  $l" }
+  AbLog "session end: arm $arm, summary $(Split-Path -Leaf $f)"
+}
+# every zip carries the kit's A/B results, state and log
+function AbDiagFiles {
+  if (-not (Test-Path -LiteralPath $AbDir)) { return }
+  $res = Join-Path $AbDir 'results'
+  $n = 0; if (Test-Path -LiteralPath $res) { foreach ($f in @(Get-ChildItem -LiteralPath $res -File -Filter '*.txt' | Sort-Object Name)) { CopyText $f.FullName "ab\results\$($f.Name)"; $n++ } }
+  foreach ($x in 'state.json', 'kit.log') { $p = Join-Path $AbDir $x; if (Test-Path -LiteralPath $p) { CopyText $p "ab\$x" } }
+  $s = AbState; $by = @($s.sessions | Group-Object arm | ForEach-Object { "arm $($_.Name): $($_.Count)" })
+  Line ''; Line "== A/B mode: $n session summaries in ab\results; sessions $(if ($by.Count) { $by -join ', ' } else { 'none yet' }); next arm $($s.next)"
+}
+function DoPlay([string]$game, [string]$user, [string]$how) {
+  $cfg = AbConfig; if (-not $cfg) { throw 'This kit has no A/B mode (no payload\ab\arms.json).' }
+  if (@(Get-Process -Name $RunNames -ErrorAction SilentlyContinue).Count) { throw 'The game or its launcher is running. Close it first, then start the A/B session.' }
+  if (-not $user) { throw 'No Sims 3 user folder (Documents\Electronic Arts\The Sims 3) found. Pass -UserDir.' }
+  CheckGameForInstall $game
+  $bin = Join-Path $game 'Game\Bin'
+  if (-not (Test-Path -LiteralPath (Join-Path $bin 'ts3native.asi')) -and -not (Test-Path -LiteralPath (Join-Path $AbDir 'off\ts3native.asi'))) { throw 'The kit is not installed in this game folder: run option 3 (Install) first.' }
+  $st = AbState
+  $arm = $(if ($Arm) { $Arm.ToUpper() } else { "$($st.next)" })
+  $rb = AbApply $cfg $arm $bin $user
+  $n = AbNotice $cfg $arm
+  Say ''; Say "  $n" 'Cyan'; Say "  $($rb.text)"
+  if (-not $rb.ok) { AbLog "session refused: $n; files: $($rb.text)"; throw "Arm $arm files did not read back as expected (see the line above). Nothing was started." }
+  if ($cfg.arms.$arm.off) { Say '  Our mod is off in this arm, so no kit message shows in the game: this window is the arm notice.' 'Cyan' } else { Say '  At world load a game notification repeats this line.' 'Cyan' }
+  AbLog "session start: $n; files: $($rb.text)"
+  if (-not $how -and $st.route) { $how = "$($st.route)" }
+  $script:AbRun = @{ cfg = $cfg; arm = $arm; bin = $bin; user = $user; rb = $rb; seen = $false }
+  try { $zip = RunCapture $game $how } finally { $run = $script:AbRun; $script:AbRun = $null }
+  $st = AbState
+  if ($run.seen) {
+    $st.sessions = @(@($st.sessions) + @([ordered]@{ arm = $arm; started = $run.started; minutes = $run.minutes }))
+    $st.next = AbOther $arm
+    if ($R['session'] -and $R['session'].launch -and $R['session'].launch -ne 'Self') { $st.route = "$($R['session'].launch)" }
+    AbSaveState $st
+    Say "Next session: arm $($st.next). Send the zip after at least one session of each arm." 'Green'
+  } else { Say "No game process was seen: arm $arm stays the next one." 'Yellow' }
+  return $zip
+}
+function AbSetNext([string]$arm) {
+  if ($arm -notmatch $Rx.ArmLetter) { throw 'The arm is A or B.' }
+  $s = AbState; $s.next = $arm.ToUpper(); AbSaveState $s; AbLog "next arm set to $($s.next) by hand"; Say "Next session: arm $($s.next)." 'Green'
+}
+
 function SelfTest {
   $fail = 0
   function Check([bool]$c, [string]$what) { if ($c) { Write-Host "  ok   $what" } else { Write-Host "  FAIL $what" -ForegroundColor Red; $script:stFail++ } }
@@ -1184,6 +1390,12 @@ function SelfTest {
     @('SnapBinFile', 'ts3native.log', 'TS3W.exe'),
     @('SnapRemixFile', 'remix-dxvk.log', 'd3d9.dll'),
     @('Any', 'S3SS.toml', ''),
+    @('ArmLetter', 'B', 'C'),
+    @('KitArmLine', 'ts3fixes: kit: arm B: TS3 test kit: arm B - commodmapfast OFF (game''s own code) | read-back commodmapfast=off commodmapshadow=off', 'ts3fixes: kit: stats arm B (minute): in world 1.0 min'),
+    @('KitStatsLine', 'ts3fixes: kit: stats arm A (world quit): in world 12.3 min, worlds 1', 'ts3fixes: kit: arm A: TS3 test kit: arm A | read-back -'),
+    @('KitStatsNums', 'in world 12.3 min, worlds 1, sim updates/s median 30 min 0 (712 s), hitches >= 250 ms 5, >= 1 s 1, longest 1830 ms, save pauses 2 (longest 9100 ms), read-back commodmapfast=on commodmapshadow=off', 'in world 12.3 min, worlds 1'),
+    @('ApexFps', '10:34:08.847 [INFO] [Screen] frame rate 58.5 fps', '10:34:08.847 [INFO] [Screen] At start: window game, resolution game, limit 60, background on, FPS counter on'),
+    @('ScriptErrorFile', 'ScriptError_6a1b2c3d_4e5f.xml', 'ScriptError_6a1b.txt'),
     @('MaskOtherUser', 'D:\Users\Bob\Documents\Electronic Arts', 'C:\Users\Public\Documents'),
     @('AnswerSep', '1,y', '1'),
     @('FileNameBad', '%USERPROFILE%\x.ini', 'Options.ini'),
@@ -1250,7 +1462,12 @@ function SelfTest {
     @('LoaderDllInstall', 'winmm.dll', 'binkw32.dll'),
     @('FixesPkg', 'ts3fixes.package', 'NRaas_Overwatch.package'),
     @('PkgVersion', 'ts3fixes 0.2.13-exp', 'ts3fixes 1.0'),
-    @('GameBinDir', 'D:\Games\The Sims 3\Game\Bin', 'D:\Games\The Sims 3\Game')
+    @('GameBinDir', 'D:\Games\The Sims 3\Game\Bin', 'D:\Games\The Sims 3\Game'),
+    @('DiagCsv', 'adaptdiag-sessions.csv', 'adaptdiag-sessions.csv.bak'),
+    @('AdaptTxt', 'adaptdiag-report.txt', 'adaptdiag-report.csv'),
+    @('AdaptTxt', 'adaptdiag-bench.txt', 'adaptdiag.txt'),
+    @('ReportFile', 'ts3native.adaptdiag-state.ini', 'ts3native.asi'),
+    @('ReportFile', 'pccheck-summary.txt', 'GraphicsRules.sgr')
   )
   foreach ($c in $RxCases) { Check (("$($c[1])" -match $Rx[$c[0]]) -and -not ("$($c[2])" -match $Rx[$c[0]])) "regex $($c[0])" }
   Check (@($Rx.Keys | Where-Object { $k = $_; -not @($RxCases | Where-Object { $_[0] -eq $k }).Count }).Count -eq 0) every $Rx regex has cases
@@ -1281,6 +1498,21 @@ function SelfTest {
     Check ((PeInfo $tmp).sections -eq '.ooa EB4000+2712') 'exe header: section table read back (name va+size)'
     [BitConverter]::GetBytes([uint32]0x11111111).CopyTo($b, 0x88); [System.IO.File]::WriteAllBytes($tmp, $b)
     Check ((PeInfo $tmp).edition -eq 'unknown build') 'exe header: unknown timestamp stays unknown' } finally { Remove-Item -LiteralPath $tmp -Force }
+  $ad = Join-Path ([System.IO.Path]::GetTempPath()) "ts3kit-selftest-ad-$PID"
+  try {
+    [void](New-Item -ItemType Directory -Force -Path $ad)
+    SetAdSession $ad 'Benchmark' '1'; SetAdSession $ad 'BenchmarkName' 'walk-1'; [System.IO.File]::AppendAllText((Join-Path $ad $AdState), "`r`n[Live]`r`nClean=1`r`n"); SetAdSession $ad 'Benchmark' '0'
+    $st = ParseToml ([System.IO.File]::ReadAllText((Join-Path $ad $AdState)))
+    Check ($st['Session']['Benchmark'] -eq '0' -and $st['Session']['BenchmarkName'] -eq 'walk-1' -and $st['Live']['Clean'] -eq '1') 'adaptdiag state: SetAdSession sets one [Session] key, keeps the others and [Live]'
+    $fi = Join-Path $ad 'a.ini'; [System.IO.File]::WriteAllText($fi, "[HitchAttr]`r`nEnabled=0`r`nHitchMs=0`r`n`r`n[Other]`r`nX=1`r`n")
+    $fr = Join-Path $payload 'adaptdiag\ts3native-adaptdiag.ini'
+    $mi = ParseToml ([System.Text.Encoding]::UTF8.GetString((AdaptIni $fi @([ordered]@{ src = $fr }))))
+    Check ($mi['HitchAttr']['HitchMs'] -eq '1000' -and $mi['HitchAttr']['Enabled'] -eq '0' -and $mi['Other']['X'] -eq '1' -and $mi['AdaptDiag']['Enabled'] -eq '1') 'adaptdiag ini: fragment keys win, other keys and sections stay, [AdaptDiag] added'
+    Check ([System.Text.Encoding]::UTF8.GetString((AdaptIni $fi @())) -eq [System.IO.File]::ReadAllText($fi)) 'adaptdiag ini: without the kit files the ini is unchanged'
+    $kn = @(Get-Content -LiteralPath (Join-Path $payload 'adaptdiag\ts3native.adaptdiag-known.tsv') | Where-Object { $_ -and -not $_.StartsWith('#') })
+    Check ($kn.Count -ge 10 -and -not @($kn | Where-Object { @($_ -split "`t").Count -ne 8 }).Count) 'known-issue library: every row has 8 tab-separated fields'
+    Check ($AdExpect.Contains($KitEdition) -and -not @($AdExpect.Values | Where-Object { -not (Test-Path -LiteralPath (Join-Path $payload "adaptdiag\$_")) }).Count) 'adaptdiag: an expected-install list for every edition, incl. this kit''s'
+  } finally { Remove-Item -LiteralPath $ad -Recurse -Force -ErrorAction SilentlyContinue }
   $tb = Join-Path ([System.IO.Path]::GetTempPath()) "ts3kit-selftest-turbo-$PID"
   try {
     [void](New-Item -ItemType Directory -Force -Path $tb)
@@ -1328,7 +1560,11 @@ try {
     'Diag' { [void](RunDiag @()) }
     'Capture' { if (-not $GameDir) { throw 'Capture needs -GameDir "<game folder>"' }; [void](RunCapture $GameDir.TrimEnd('\') $Launch) }
     'Install' { if (-not $GameDir) { throw 'Install needs -GameDir "<game folder>"' }; $u = $UserDir; if (-not $u -and (-not $NoSystem -or $DocsDir)) { $u = PickUser }; if (-not (DoInstall $GameDir.TrimEnd('\') $u ([bool]$S3SS))) { exit 2 } }
+    'Play' { if (-not $GameDir) { throw 'Play needs -GameDir "<game folder>"' }; $u = $UserDir; if (-not $u -and (-not $NoSystem -or $DocsDir)) { $u = PickUser }; [void](DoPlay $GameDir.TrimEnd('\') $u $Launch) }
     'Uninstall' { if (-not $GameDir) { throw 'Uninstall needs -GameDir "<game folder>"' }; $u = $UserDir; if (-not $u -and (-not $NoSystem -or $DocsDir)) { $u = PickUser }; if (-not (DoUninstall $GameDir.TrimEnd('\') $u)) { exit 2 } }
+    'Report' { $x = @(); if ($GameDir) { $x = @($GameDir) }; [void](MakeReport $x) }
+    # TS3Bench.ps1 (docs/315): set one A/B arm's files without starting the game; benchmark arms = payload\ab\arms.json
+    'ArmApply' { $c = AbConfig; if (-not $c) { throw 'This kit has no A/B arms (payload\ab\arms.json).' }; if (-not $GameDir -or -not $UserDir -or -not $Arm) { throw 'ArmApply needs -GameDir, -UserDir and -Arm' }; $r = AbApply $c $Arm (Join-Path $GameDir.TrimEnd('\') 'Game\Bin') $UserDir; Say "  arm $($Arm): $($r.text)"; if (-not $r.ok) { exit 2 } }
     'Menu' {
       while ($true) {
         Write-Host ''
@@ -1338,7 +1574,11 @@ try {
         Write-Host '  3. Install the test build (D = diagnostic) and ts3fixes.package (asks before it writes, keeps a backup)'
         Write-Host '  4. Uninstall: put the earlier files back'
         Write-Host '  5. Quit'
-        $c = Read-Host 'Choose 1-5'
+        $abc = AbConfig
+        if ($abc) { $abs = AbState; Write-Host "  6. Play one A/B test session (next: arm $($abs.next) - $($abc.arms.$($abs.next).label)); start the game here every time"; Write-Host '  7. Choose the arm of the next session (A or B)' }
+        # Report is 8 so A/B kits keep 6/7 (docs/314, kits already with testers)
+        Write-Host '  8. Make report: shows the size first, then the masked report zip with the adaptive diag files (after playing with the diagnostic build)'
+        $c = Read-Host $(if ($abc) { 'Choose 1-8' } else { 'Choose 1-5 or 8' })
         try {
           if ($c -eq '1') { $x = Read-Host 'If you test on a copied game folder, paste its path here (or just press Enter)'; [void](RunDiag @($x)) }
           elseif ($c -eq '2') {
@@ -1352,7 +1592,10 @@ try {
             [void](DoInstall $g $u ($s -match $Rx.Yes))
           }
           elseif ($c -eq '4') { $g = AskGame; if (-not $g) { continue }; $u = $UserDir; if (-not $u) { $u = PickUser }; [void](DoUninstall $g $u) }
+          elseif ($c -eq '8') { $x = Read-Host 'If you test on a copied game folder, paste its path here (or just press Enter)'; [void](MakeReport @($x)) }
           elseif ($c -eq '5' -or $c -eq '') { break }
+          elseif ($c -eq '6' -and $abc) { $g = AskGame; if (-not $g) { continue }; $u = $UserDir; if (-not $u) { $u = PickUser }; [void](DoPlay $g $u '') }
+          elseif ($c -eq '7' -and $abc) { AbSetNext ((Read-Host 'Next arm (A or B)').Trim().ToUpper()) }
         } catch { Say "Stopped: $($_.Exception.Message)" 'Red' }
       }
     }
