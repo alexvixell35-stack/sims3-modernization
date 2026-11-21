@@ -111,7 +111,40 @@ static PfKeyFn g_pfKey = (PfKeyFn)(uintptr_t)TS3A(0x007CFA30);
 // call; 2 UpdateObjectLot); pf: a private footprint remove (high = the IC's flag, docs/89 §14); else add says Add or Remove
 // lr, lotLo, lotHi: a kind 2 record made with LostRemovalFix on and the object's lot at the call (docs/89 §16)
 // fp2 3: UofDefer (docs/852): event 9's insert 0x833680, queued behind the object's records while a job runs (UofQueue)
-struct DiscRec { bool add; DWORD high, allow, placement, idLo, idHi, t; int n; u8* pts; void* lock; void* obj; bool usf; u8 fp2; bool pf; bool lr; DWORD lotLo, lotHi; };
+// pfa (docs/670 §16): a private footprint ADD; pf is set too, so every "private record" rule holds for it (applied in order
+// like a remove, never taken for D's own remove). pts / n = the caller's points, high = the IC's flag, lotLo / lotHi = the
+// object's lot at the call (for the skew counter only)
+struct DiscRec { bool add; DWORD high, allow, placement, idLo, idHi, t; int n; u8* pts; void* lock; void* obj; bool usf; u8 fp2; bool pf; bool lr; DWORD lotLo, lotHi; bool pfa; };
+
+// [Discourage] DeferPrivateFpAdd (docs/670 §16). Exported block ts3native_pfadd: +0x00 mode is the runtime switch (native_set
+// pfadd): 1 = the IC's add becomes a record while a job runs; 2 = probe (today's flush and call, then the object's lot is read
+// again at the next drain point: how often a deferred add would have met a moved object)
+struct PfAddCounters {
+    volatile LONG paMode;        // +0x00
+    volatile LONG paReady;       // +0x04
+    volatile LONG paCalls;       // +0x08 sim-thread IC adds seen
+    volatile LONG paInJob;       // +0x0C of those, while a job ran
+    volatile LONG paDeferred;    // +0x10 records made (answered 1)
+    volatile LONG paOrderDefer;  // +0x14 of those, with no job running (the object had a queued record)
+    volatile LONG paApplied;     // +0x18 records applied with the game's 0x831BA0
+    volatile LONG paDropped;     // +0x1C the object was gone or its id reused at the apply: no footprint
+    volatile LONG paSkew;        // +0x20 applied, but the object's lot was another one than at the call
+    volatile LONG paPass;        // +0x24 +0x918 held, a job callback, a drain, another world, closing: today's call
+    volatile LONG paFlag0;       // +0x28 not deferred: flag 0 (the result depends on the object's lot), today's flush and call
+    volatile LONG paShape;       // +0x2C not deferred: fewer than 3 points, more than kPfaMaxPts, no world manager
+    volatile LONG paFull;        // +0x30 queue full
+    LONG paAgeMaxMs;             // +0x34 oldest record at its apply
+    volatile LONG paProbe;       // +0x38 mode 2: adds checked again at the next drain point
+    volatile LONG paProbeMoved;  // +0x3C of those, the lot differed (or the object was gone)
+    LONG paProbeMaxMs;           // +0x40 longest call-to-check time
+    volatile LONG paWaitUs;      // +0x44 mode 0 / 2 and not-deferred calls: time in the flush before the add (the wait a deferral saves)
+};
+extern "C" __declspec(dllexport) PfAddCounters ts3native_pfadd = {};
+enum { kPfaMaxPts = 64, kPfaProbes = 16 };
+struct PfaProbe { DWORD idLo, idHi, lotLo, lotHi, t; void* obj; };
+static PfaProbe g_pfaProbe[kPfaProbes];
+static int g_pfaProbeN;  // owner thread only
+static const DWORD* g_pfaWm = (const DWORD*)(uintptr_t)TS3A(0x011ECBC4);  // the world manager slot 0x831BA0 tests under its lock
 static const int kDiscCap = 256;
 static const DWORD kDiscMaxAgeMs = 250;  // older records are applied even if that means waiting for the running job
 static DiscRec g_disc[kDiscCap];
@@ -134,7 +167,7 @@ static DWORD CeDestroyObj(DWORD idLo, DWORD idHi) {
 }
 // docs/186 §8: our-events ring entry for a queued record
 static void CeDiscQ(const DiscRec& r) {
-    CeRec(CE_FP_QUEUE, (DWORD)(uintptr_t)r.obj, r.idLo, r.usf ? 1 : r.fp2 == 3 ? 6 : r.fp2 ? 2 + r.fp2 : r.pf ? 5 : r.add ? 0x10 : 0);
+    CeRec(CE_FP_QUEUE, (DWORD)(uintptr_t)r.obj, r.idLo, r.usf ? 1 : r.fp2 == 3 ? 6 : r.fp2 ? 2 + r.fp2 : r.pfa ? 7 : r.pf ? 5 : r.add ? 0x10 : 0);
 }
 static bool DiscWorldOk(void* world) { return world && *((const u8*)world + 0x974) != 0; }
 
@@ -244,6 +277,21 @@ static bool DiscApplyOne(DiscRec& r, void* world) {
             if (r.fp2 == 2 && k.fp2lrReady && !obj && FpgMapHas((u8*)world, r.idLo, r.idHi)) InterlockedIncrement(&k.fp2lrLost);  // fix off: a ghost
         }
         if (obj) g_objRelease(&obj, NULL);
+    } else if (r.pfa) {  // private footprint add (docs/670 §16): the game's call on the points of the call. Gone or a reused
+                         // id: nothing (vanilla's footprint would have left with the object, 0x82B551)
+        PfAddCounters& a = ts3native_pfadd;
+        Max(&a.paAgeMaxMs, (LONG)(GetTickCount() - r.t));
+        if (applied) {
+            if (g_async.state == A_RUNNING) InterlockedIncrement(&k.pfApplyInJob);
+            const unsigned __int64 lot = g_objLot(obj);
+            if ((DWORD)lot != r.lotLo || (DWORD)(lot >> 32) != r.lotHi) InterlockedIncrement(&a.paSkew);
+            u8* vec[3] = {r.pts, r.pts + r.n * 16, r.pts + r.n * 16};  // begin, end, capacity (0x831BA0 reads begin and end)
+            g_pfAdd(world, NULL, obj, vec, r.high);
+            InterlockedIncrement(&a.paApplied);
+        } else {
+            InterlockedIncrement(&a.paDropped);
+        }
+        if (obj) g_objRelease(&obj, NULL);
     } else if (r.pf) {  // private footprint remove: the original; gone: its lot key swept from every lot (the component went
                         // with the object); reused id: dropped
         if (applied) {
@@ -296,8 +344,10 @@ static bool UsfSuperseded(const DiscRec& r, u8* world) {
 
 // Owner thread: applies every record in order. force = wait for a running job; else only when no job runs.
 // site (DS_*, docs/247 §13.4 C): the drain point, for the per-site wait counters v192 (dsN / dsUs / dsYield)
+static void PfaProbeCheck();
 static void DiscDrain(bool force, int site) {
     Ts3nCounters& k = ts3native_counters;
+    if (g_pfaProbeN && !g_discDraining && GetCurrentThreadId() == g_async.owner && (force || g_async.state != A_RUNNING)) PfaProbeCheck();
     if (!g_discCount || g_discDraining || GetCurrentThreadId() != g_async.owner) return;
     if (!force && g_async.state == A_RUNNING) return;
     const bool jobRan = g_async.state == A_RUNNING;
@@ -353,6 +403,7 @@ static bool DiscPending() { return g_discCount != 0; }  // records still deferre
 
 // A drain point that is not a D1/D2 call: apply when no job runs, or when the oldest record is too old.
 static void DiscPoll(int site) {
+    if (g_pfaProbeN && !g_discDraining && GetCurrentThreadId() == g_async.owner && g_async.state != A_RUNNING) PfaProbeCheck();
     if (!g_discCount) return;
     DiscDrain(GetTickCount() - g_disc[g_discHead].t >= kDiscMaxAgeMs, site);
 }
@@ -370,7 +421,7 @@ static LONG g_rfParked, g_rfCapped, g_rfTicksMax;
 static bool DiscRemovalQueued() {
     for (int i = 0; i < g_discCount; i++) {
         const DiscRec& r = g_disc[(g_discHead + i) % kDiscCap];
-        if (r.fp2 == 2 || r.pf || (!r.usf && !r.fp2 && !r.add)) return true;
+        if (r.fp2 == 2 || (r.pf ? !r.pfa : (!r.usf && !r.fp2 && !r.add))) return true;  // a private add (docs/670 §16) is no removal
     }
     return false;
 }
@@ -758,7 +809,7 @@ static int PfRemoveDefer(u8* world, u8* obj, DWORD flag) {
     if (last < 0 && !(k.pfMode == 1 && running)) return -1;  // today's call
     if (last >= 0) {  // the same remove right behind: the second finds nothing (0x635700 says no, the flag branch is skipped)
         const DiscRec& p = g_disc[(g_discHead + last) % kDiscCap];
-        if (p.pf && p.obj == obj && p.high == flag) { InterlockedIncrement(&k.pfDup); return 1; }
+        if (p.pf && !p.pfa && p.obj == obj && p.high == flag) { InterlockedIncrement(&k.pfDup); return 1; }
     }
     if (g_discCount == kDiscCap) {  // as design U: drain unless an Add (World_FireEvent 0x11) is queued, then the call now
         bool add = false;
@@ -790,11 +841,100 @@ static u8 __fastcall PfRemoveSite(void* world, void*, u8* obj, DWORD flag) {
     Fp2FlushFor(obj);  // not deferred: the object's older records first (a deferred FromTool could re-insert after this remove)
     return g_pfRemove(world, NULL, obj, flag);
 }
+// docs/670 §16 ([Discourage] DeferPrivateFpAdd=1, switch pfadd): the IC's 0x831BA0 call (0x75DE1A) on the sim thread while a job
+// runs becomes a record in D's FIFO with a copy of the caller's points, answered 1. 0x831BA0 [audit: decompile + disassembly,
+// docs/670 §16.1]: returns 0 before its lock for a closed world, no object or fewer than 3 points; under +0x918 it returns 0
+// with no world manager, and for an object on no lot / the active lot / an unknown lot ONLY when the flag byte is 0; every
+// other path ends in `return 1`. So with a non-zero flag (the script's boat case) the answer is 1 whatever the lot says, and
+// the record is exact in its result; with flag 0 the call is not deferred. Same skeleton as PfRemoveDefer: pass-through
+// rules, order rule, queue full, applied at D's drain points in FIFO order and at D-X destroy. Returns -1 = not deferred.
+static int PfAddDefer(u8* world, u8* obj, const DWORD* points, DWORD flag) {
+    Ts3nCounters& k = ts3native_counters;
+    PfAddCounters& a = ts3native_pfadd;
+    const DWORD me = GetCurrentThreadId();
+    if (me != g_async.owner || t_snapRun || !obj || !points) return -1;
+    InterlockedIncrement(&a.paCalls);
+    const bool running = g_async.state == A_RUNNING;
+    if (running) InterlockedIncrement(&a.paInJob);
+    if (a.paMode != 1) return -1;
+    if (k.rgOwnerTid == (LONG)me || g_inInvoke || g_discDraining || !DiscWorldOk(world) || (void*)(world + 0x918) != g_rgLock ||
+        k.rtClosing) {
+        InterlockedIncrement(&a.paPass);
+        return -1;
+    }
+    const DWORD idLo = *(const DWORD*)(obj + 8), idHi = *(const DWORD*)(obj + 0xC);
+    if (DiscLastOf(idLo, idHi) < 0 && !running) return -1;  // today's call: nothing queued for the object, no job to wait for
+    const DWORD n = (points[1] - points[0]) >> 4;  // unsigned, as 0x831BD0
+    if (n < 3 || n > (DWORD)kPfaMaxPts || !points[0] || !*g_pfaWm) { InterlockedIncrement(&a.paShape); return -1; }
+    if (!(flag & 0xFF)) { InterlockedIncrement(&a.paFlag0); return -1; }
+    if (g_discCount == kDiscCap) { InterlockedIncrement(&a.paFull); return -1; }  // PfAddSite's flush drains (or the add waits as today)
+    u8* pts = (u8*)_aligned_malloc((size_t)n * 16, 16);
+    if (!pts) { InterlockedIncrement(&a.paFull); return -1; }
+    memcpy(pts, (const void*)(uintptr_t)points[0], (size_t)n * 16);
+    const unsigned __int64 lot = g_objLot(obj);
+    DiscRec& r = g_disc[(g_discHead + g_discCount) % kDiscCap];
+    r = DiscRec{};
+    r.pf = r.pfa = true;
+    r.high = flag;
+    r.n = (int)n;
+    r.pts = pts;
+    r.lotLo = (DWORD)lot;
+    r.lotHi = (DWORD)(lot >> 32);
+    r.idLo = idLo;
+    r.idHi = idHi;
+    r.t = GetTickCount();
+    r.lock = g_rgLock;
+    r.obj = obj;
+    g_discCount++, CeDiscQ(r);
+    InterlockedIncrement(&a.paDeferred);
+    if (!running) InterlockedIncrement(&a.paOrderDefer);
+    Max(&k.discPendingMax, g_discCount);
+    return 1;
+}
+
+// mode 2: the add ran as today; remember the object's lot for the next drain point
+static void PfaProbeNote(u8* obj) {
+    if (g_pfaProbeN == kPfaProbes || GetCurrentThreadId() != g_async.owner) return;
+    const unsigned __int64 lot = g_objLot(obj);
+    g_pfaProbe[g_pfaProbeN++] = PfaProbe{*(const DWORD*)(obj + 8), *(const DWORD*)(obj + 0xC), (DWORD)lot, (DWORD)(lot >> 32), GetTickCount(), obj};
+}
+// owner thread, a drain point with no job running or about to be waited for: where a record of the add would be applied
+static void PfaProbeCheck() {
+    PfAddCounters& a = ts3native_pfadd;
+    void* svc = g_objSvc();
+    const DWORD now = GetTickCount();
+    for (int i = 0; i < g_pfaProbeN; i++) {
+        const PfaProbe& p = g_pfaProbe[i];
+        void* obj = NULL;
+        if (!svc || !g_findRef(svc, NULL, p.idLo, p.idHi, &obj)) obj = NULL;
+        bool moved = !obj || obj != p.obj;
+        if (!moved) {
+            const unsigned __int64 lot = g_objLot(obj);
+            moved = (DWORD)lot != p.lotLo || (DWORD)(lot >> 32) != p.lotHi;
+        }
+        if (obj) g_objRelease(&obj, NULL);
+        InterlockedIncrement(&a.paProbe);
+        if (moved) InterlockedIncrement(&a.paProbeMoved);
+        Max(&a.paProbeMaxMs, (LONG)(now - p.t));
+    }
+    g_pfaProbeN = 0;
+}
+
 static u8 __fastcall PfAddSite(void* world, void*, u8* obj, void* points, DWORD flag) {
-    // shortcut: Add is not deferred (0x831BA0 is ~0x640 bytes with string and lot lookups, not audited); a queued remove of the
-    // object is flushed first, so the add waits as today. Defer it too if pfAddFlush is large in the verify.
-    if (Fp2FlushFor(obj) && ts3native_counters.pfReady) InterlockedIncrement(&ts3native_counters.pfAddFlush);
-    return g_pfAdd(world, NULL, obj, points, flag);
+    PfAddCounters& a = ts3native_pfadd;
+    if (a.paReady) {
+        const int r = PfAddDefer((u8*)world, obj, (const DWORD*)points, flag);
+        if (r >= 0) return (u8)r;
+    }
+    // not deferred: a queued record of the object is flushed first, so the add waits as today
+    LARGE_INTEGER t0 = {};
+    QueryPerformanceCounter(&t0);
+    const bool flushed = Fp2FlushFor(obj);
+    if (flushed && ts3native_counters.pfReady) InterlockedIncrement(&ts3native_counters.pfAddFlush);
+    if (flushed && a.paReady) InterlockedExchangeAdd(&a.paWaitUs, UsSince(t0));
+    const u8 res = g_pfAdd(world, NULL, obj, points, flag);
+    if (a.paMode == 2 && res && obj && GetCurrentThreadId() == g_async.owner) PfaProbeNote(obj);
+    return res;
 }
 
 // the two private-footprint IC call sites, shared by phase 2 (flush) and DeferPrivateFp (defer); patched once
@@ -809,7 +949,11 @@ static bool PfSitesInstall() {
 
 static void InstallPrivateFpDefer(const wchar_t* ini) {
     Ts3nCounters& k = ts3native_counters;
-    if (!GetPrivateProfileIntW(L"Discourage", L"DeferPrivateFp", 0, ini)) { Log("private footprint deferral off (DeferPrivateFp=0)"); return; }
+    if (!GetPrivateProfileIntW(L"Discourage", L"DeferPrivateFp", 0, ini)) {
+        Log("private footprint deferral off (DeferPrivateFp=0)");
+        if (GetPrivateProfileIntW(L"Discourage", L"DeferPrivateFpAdd", 0, ini)) Log("SKIP private footprint add deferral: needs DeferPrivateFp=1");
+        return;
+    }
     // phase 2's detours keep FromTool / UpdateObjectLot calls of the object behind its queued remove (order rule, also with
     // fp2Mode 0: DeferFootprint2=2)
     if (!k.fp2Ready) { Log("FAIL private footprint deferral: needs design U phase 2 ([Discourage] DeferFootprint2=1 or 2)"); return; }
@@ -817,6 +961,27 @@ static void InstallPrivateFpDefer(const wchar_t* ini) {
     k.pfReady = 1;
     k.pfMode = 1;
     Log("OK   private footprint deferral (IC RemovePrivateFootprint 0x75465E -> 0x82A0C0; docs/89 §14)");
+    // docs/670 §16: the add, on the same call-site pair. Needs the remove's deferral: the script's remove of the object must be
+    // able to queue behind a queued add, or it would flush (wait) instead
+    PfAddCounters& a = ts3native_pfadd;
+    const LONG mode = Clamp(GetPrivateProfileIntW(L"Discourage", L"DeferPrivateFpAdd", 0, ini), 0, 2);
+    if (!mode) { Log("private footprint add deferral off (DeferPrivateFpAdd=0)"); return; }
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    a.paMode = mode;
+    a.paReady = 1;
+    Log("OK   private footprint add deferral (IC AddPrivateFootprint 0x75DE1A -> 0x831BA0; docs/670 §16; mode %ld: %s)", mode,
+        mode == 1 ? "defer while a job runs" : "probe only");
+}
+
+// the 60 s counter line (ts3native.cpp MaybeLogCounters)
+static void PfaLogCounters() {
+    const PfAddCounters& a = ts3native_pfadd;
+    if (!a.paReady) return;
+    Log("private footprint add: mode %ld calls %ld (in a job %ld): deferred %ld (no job, order rule %ld), applied %ld, object gone %ld, lot "
+        "moved %ld, oldest %ld ms; not deferred: pass %ld, flag 0 %ld, shape %ld, queue full %ld; flush wait before an add %ld ms; probe "
+        "%ld moved %ld (longest %ld ms)",
+        a.paMode, a.paCalls, a.paInJob, a.paDeferred, a.paOrderDefer, a.paApplied, a.paDropped, a.paSkew, a.paAgeMaxMs, a.paPass, a.paFlag0,
+        a.paShape, a.paFull, a.paWaitUs / 1000, a.paProbe, a.paProbeMoved, a.paProbeMaxMs);
 }
 
 #if defined(TS3N_EA_PORT) || defined(TS3A_RETAIL)

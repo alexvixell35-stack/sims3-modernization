@@ -1,0 +1,135 @@
+{
+  "note": "hotfix-v031b-correct-1121: hf031b set (asi/ini hf031 + ts3fixes hf031b = v0.3.0 + PR 616). Smoke + speedlock-modeswitch only (Rodney 11-21: trust Dalexlol harness; other hf031 jobs and Apex gate dropped). ",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rc1119-smoke-hf031b",
+      "note": "[hotfix v0.3.1, Bin state apex = Apex Radiance 4.0.12 (latest) + bridge] [docs/293: the RC set must load Baseline-BP-Spring with 0 saved-frame repairs (vanilla layout) and no crash] [rc-1119 set smoke, version 0.36.287-rc1118n] [natural play, no cheats] master-1117c (0.36.271-mc1117) smoke, Baseline-BP-Spring: Dalexlol batch switches ON; version, LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "pinReason": "[pinned 2026-11-21 to hotfix set hf031b: ts3fixes game-copy/ts3fixes.package.hf031b (v0.3.0 sources + PR 616 speedlockowner switch fix) + asi/ini hf031] [pinned 2026-11-20 to the v0.3.1 hotfix set hf031: asi game-copy/ts3native.asi.hf031 (0.36.295a = v0.3.0 0.36.295-rc1119b + [HostMapIterFix] ON + EA .ooa host gate + JIT Apex-AV fault fix, branch hotfix/v0.3.1-ea-exe-crash) + ini game-copy/ts3native.ini.hf031 (v0.3.0 tested ini + [HostMapIterFix] Enabled=1 Repair=1) + ts3fixes game-copy/ts3fixes.package.rc-1119b (unchanged v0.3.0 package)] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [repinned 2026-11-19 to RC set rc-1119b (master with bugfix/save-ip-portable-1119, 0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^OK   lost removal fix": 1,
+        "ghost census at world load: GhostSweep=2": 1,
+        "removal first: mode 1": 1,
+        "^ts3native 0\\.36\\.295a ": 1,
+        "^OK   saved frame guard": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 3
+        }
+      },
+      "timeoutMin": 12,
+      "regexCases": {
+        "^OK   lost removal fix": {
+          "match": [
+            "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+          ],
+          "noMatch": [
+            "SKIP lost removal fix: off"
+          ]
+        },
+        "ghost census at world load: GhostSweep=2": {
+          "match": [
+            "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+          ],
+          "noMatch": [
+            "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+          ]
+        },
+        "removal first: mode 1": {
+          "match": [
+            "footprint removal first: mode 1 parked 0 capped 0 max ticks 0"
+          ],
+          "noMatch": [
+            "footprint removal first: mode 0 parked 0 capped 0 max ticks 0"
+          ]
+        },
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-21 00:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.293-m1119s 2026-11-19 05:01:02",
+            "ts3native 0.36.292-rc1119a 2026-11-19 02:34:18",
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"
+          ]
+        },
+        "^OK   saved frame guard": {
+          "match": [
+            "OK   saved frame guard: a saved task frame inside an instruction is repaired or its stack dropped at load ([EaCrashFixes] SavedFrameGuard=1)"
+          ],
+          "noMatch": [
+            "OK   detour saved frame guard (TaskControl_SetTaskContext 0xD84360) at 0x00D84360",
+            "saved frame guard: 561 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 0 boundaries that follow no call (left alone)"
+          ]
+        },
+        "^ea fix: SavedFrameGuard: frame": {
+          "match": [
+            "ea fix: SavedFrameGuard: frame 6 of 10 in MetaRabbitHoleInteraction`2.Run: saved ip word 118 of 210 is inside an instruction (words FFA9 00EA 001B 0079 | 0009 0024 006E 0009), set to the call return at word 117"
+          ],
+          "noMatch": [
+            "saved frame guard: 561 frames checked at load, 0 repaired, 0 stacks dropped, 0 not walked, 0 boundaries that follow no call (left alone)"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0,
+      "logForbid": {
+        "^ea fix: SavedFrameGuard: frame": 0
+      }
+    },
+    {
+      "id": "bp-speedlock-modeswitch-hf031b",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "[pinned 2026-11-21 to hotfix set hf031b: ts3fixes game-copy/ts3fixes.package.hf031b (v0.3.0 sources + PR 616 speedlockowner switch fix) + asi/ini hf031] [pinned 2026-11-20 to the v0.3.1 hotfix set hf031: asi game-copy/ts3native.asi.hf031 (0.36.295a = v0.3.0 0.36.295-rc1119b + [HostMapIterFix] ON + EA .ooa host gate + JIT Apex-AV fault fix, branch hotfix/v0.3.1-ea-exe-crash) + ini game-copy/ts3native.ini.hf031 (v0.3.0 tested ini + [HostMapIterFix] Enabled=1 Repair=1) + ts3fixes game-copy/ts3fixes.package.rc-1119b (unchanged v0.3.0 package)] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [repinned 2026-11-19 to RC set rc-1119b (master with bugfix/save-ip-portable-1119, 0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 12,
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "speedlock-modeswitch"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-21 00:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.293-m1119s 2026-11-19 05:01:02",
+            "ts3native 0.36.292-rc1119a 2026-11-19 02:34:18",
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"
+          ]
+        }
+      },
+      "note": "[hotfix v0.3.1b, Bin state apex + bridge] Dalexlol PR 616 repro speedlock-modeswitch: live -> Buy -> Build -> live, mGameSpeedLocked False back in live (pass read from the repro jsonl)."
+    }
+  ]
+}

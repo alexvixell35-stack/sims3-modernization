@@ -29,7 +29,7 @@ quiet_ui,HarnessHandlers,Any,Options > memories off; dismissing notifications,na
 autopilot,HarnessHandlers,Live,none (harness: keeps speed and answers dialogs),harness,,handler,none
 weather,HarnessHandlers,Live,none: read only; set forces season/weather (Weather Stone changes weather in game),cheat,Seasons (EP8) installed; set: forced season/weather (docs/599),handler,live
 dialog_expect,AutopilotHandlers,Any,none (harness: tells the autopilot to leave the next dialog to auto_dialog),harness,,handler,none
-build_mode,BuildHandlers,Live;Build,Build button,natural,active household has a home lot; on = Build on the home lot; clock stops (R-MODE-2),handler + R-MODE-2,none
+build_mode,BuildHandlers,Live;Build;Buy,Build button (Buy/Build switch in the mode bar),natural,active household has a home lot; on = Build on the home lot (from Buy: the Buy -> Build switch without an exit); clock stops (R-MODE-2),handler + R-MODE-2,none
 pick,BuildHandlers,Any,none (read),harness,,handler,none
 calibrate,BuildHandlers,Any,none (harness),harness,,handler,none
 tile_info,BuildHandlers,Any,none (read),harness,,handler,none
@@ -89,6 +89,7 @@ fresh_world,FreshWorld,MainMenu;Live,New Game with a premade household,natural,n
 crowd_do,RareHandlers,Live,none: one pie-menu click per Sim; 30-50 Sims queue one interaction on one object in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_go,RareHandlers,Live,none: one Go Here per click; 30-50 Sims to one point in one tick,stress,spawn_sims Sims (and the household),handler + R-VOL-1,live
 crowd_visit_lot,RareHandlers,Live,none: one Visit Lot per Sim; 30-50 townies start the same lot trip in one tick,stress,spawn_sims Sims,handler + R-VOL-1,live
+route_storm,RouteStormHandlers,Live,none: autonomy and situations push one lot trip / go home per NPC; a storm pushes 40 NPC route interactions per wave (non-user-directed),stress,resident NPCs in the world,handler + R-VOL-1,live
 houseboat_leave,RareHandlers,Live,none: one Visit Lot per townie on a houseboat; all start the same lot trip in one tick,stress,townies on a houseboat lot,handler + R-VOL-1,live
 compat_visit,ReproHandlers,Live,lot pie menu: Visit or a mod's Visit With (picker: one Sim along),natural,active Sim; mod installed,handler + docs/TESTING.md compat evidence,live
 compat_visit_status,ReproHandlers,Live,none (read only),harness,compat_visit first,handler,none

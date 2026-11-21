@@ -112,6 +112,7 @@ static void SypEnd() {
     Add(k.sypPhaseUs, p.us, RJP_N);
     Add(k.sypLoopN, p.loopN, SYP_LOOPS);
     Add(k.sypLoopUs, p.loopUs, SYP_LOOPS);
+    if (g_hsOn) HsSync(p.us, us);  // docs/666: the frame's sync plan split
     const LONG ms = us / 1000;
     if (!k.rfbLogMs || ms < k.rfbLogMs) return;
     InterlockedIncrement(&k.sypLongN);
@@ -122,9 +123,10 @@ static void SypEnd() {
     if (tick - g_sypMinute >= 60000) { g_sypMinute = tick; g_sypLinesMin = 0; }
     if (g_sypLinesMin >= g_sypLinesCap) { InterlockedIncrement(&k.sypLinesDropped); return; }
     g_sypLinesMin++;
-    char line[480];
+    char line[480], mc[420] = "";
     SypLine(line, sizeof(line), p, ms, res);
-    Log("%s", line);
+    if (p.entry == SYP_PLANLOCKED) RfbCallerText(mc, sizeof(mc), NULL);  // docs/666: no IC line names this plan's caller
+    Log("%s%s", line, mc);
     InterlockedIncrement(&k.sypLines);
 }
 

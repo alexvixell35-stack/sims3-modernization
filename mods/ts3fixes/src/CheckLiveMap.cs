@@ -136,6 +136,7 @@ namespace Ts3Fixes
                 case "doorlockowner": return EpLive(typeof(BDlHook), 2);
                 case "doormirror": return EpJoin(EpLive(typeof(DoorImportHook), 0), EpLive(typeof(RouteBackoffHook), 4));
                 case "doorprivacynull": return EpLive(typeof(B12DpHook), 1, "sDpNeed", sDpNeed, typeof(bool), "sDpHandler", sDpHandler, null, "sDpNeed", sDpNeed, null);
+                case "doorshare": return EpJoin(EpLive(typeof(DoorShareCbHook), 0), EpLive(typeof(DoorShareLotHook), 2));
                 case "dragoncurserun": return EpLive(typeof(WsCurseHook), 1);
                 case "dreamcleanup": return EpLive(typeof(DcHook), 1, "sDcRemoval", sDcRemoval, null);
                 case "dreamrootorphan": return EpLive(typeof(WlNode), 0, "sWlListener", sWlListener, null);

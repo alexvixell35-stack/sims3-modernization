@@ -147,6 +147,7 @@ static __declspec(noinline) LONG HoAcquire(void* lock, void* edx, const DWORD* d
     const DWORD site1 = HoFind(lock, htid);  // the holder's entry, complete now; before ours replaces it
     // ours before the record: a waiter on this thread during HoNote's log write finds our site (docs/165 §8 cause A)
     if (r == 1) HoPut(lock, tid, ret);
+    if (g_hsOn && waiter == 0) HsOtherLock(us);  // docs/666: the frame's other-lock sum
     if (us >= ts3native_lockholders.minUs) HoNote(waiter, lock, us, htid, site1 ? site1 : site0, ret);
     return r;
 }

@@ -95,6 +95,7 @@ namespace Ts3Fixes
             ApplyRouteBackoff();
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
             ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
+            ApplyDoorShare();     // DoorShare.cs (docs/674): Sim class and shareable door answers for ts3native DoorShare (switch doorshare, off)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
@@ -1882,6 +1883,7 @@ namespace Ts3Fixes
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
                 case "ufplansplit": return false;  // log only: where a slow unseen-fallback plan's wall time goes (UnseenFallback.cs)
+                case "doorshare": return Instantiator.kDoorShare;  // DoorShare.cs (docs/674): mark Sim-independent door answers for ts3native [RouteSnap] DoorShare, off
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)
                 case "alarmtime": case "boatreplanlog": case "owresettime": case "synctime": return false; // docs/247 §9: logging, hooks only with kHitchCauseHooks
                 case "legreplanskip": return Instantiator.kLegReplanSkip;
@@ -2039,6 +2041,7 @@ namespace Ts3Fixes
                 case "spawnfix": return Instantiator.kSpawnFix;
                 case "spawnoffworld": return Instantiator.kSpawnOffWorld;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
+                case "firegreet": return Instantiator.kFireGreet;
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;

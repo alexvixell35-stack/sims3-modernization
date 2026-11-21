@@ -1198,6 +1198,7 @@ namespace Ts3Fixes
                 sKdLastOp = UnseenFallbackCore.KdScopeOp(kdWhy); sKdLastIa = ownCheck ? (ushort)0 : RflIaId(who); sKdLastH = Handle;  // retryscope (RetryScope.cs)
                 DiagSend(sKdLastOp, Handle, sKdLastIa);  // docs/197 §7 [RouteAsync] KdExemptSeen: this route's scope for its START or sync plan (13 = seen NPC, KdSeenNpcCeilMs); first thing in every plan, these switches or not; docs/226: with the Sim's interaction id for ts3native's routefail job lines
                 PfRouteMark(who, Handle, ownCheck);  // docs/631 playerfirst: a player-ordered route's job runs first ([RouteAsync] PlayerFirst)
+                DshRouteSend(proxy, sim, who, Handle, ownCheck);  // docs/674 doorshare: the follower's class for ts3native DoorShare (op 40; nothing when off)
                 GvaSend(sim, why, ownCheck);  // docs/250 §7.0 ts3native gvattr: this plan's source class and scope (one ask a tick when off)
                 if (!pre && !leave && !ShortcutOn("unseenfbplan")) return false;
                 // never: stuck-check probes (phase B), our own route checks, IsPointInLotSafelyRoutable, non-Sims, pets, D-leave's own leg

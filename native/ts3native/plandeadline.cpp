@@ -61,6 +61,7 @@ struct PdSess {
     DWORD handle;
     bool ceil;                     // docs/197 §7: runs under KdSeenCeilMs instead of the caps below
     LONG wouldUs;                  // that plan's old cap (us), <= 0 = none
+    LONG scope;                    // docs/663: the router's scope at the session's open (KdScopeTag; 0 unknown = household)
 };
 static __declspec(thread) PdSess t_pd;
 static DWORD g_pdMinute, g_pdLinesMin;
@@ -691,8 +692,17 @@ static LONG PdIcUs(int why, bool scLast) {
     InterlockedIncrement(&k.pdOwnExempt);  // pdMode 1 with pdOwnUs 0: pdUs is set
     return -1;
 }
+// docs/663 ([RouteSpeed] NeighbourMemo's router scope): the scope this session's plan was asked with, read as KdSyncCeilUs
+// reads it; a marked UnseenFallback session is unseen. Read once at the open, so a later answer for another route cannot
+// change it mid-plan.
+static LONG PdScopeAt(DWORD handle) {
+    if (t_ufSess) return 2;
+    return g_kdScopeH && (!handle || g_kdScopeH == handle) ? g_kdScope : 0;
+}
 static void PdIcBegin(LONG us, int kind, int why, const char* entry, DWORD handle) {
+    const LONG scope = PdScopeAt(handle);
     PdOpen(0, us);
+    t_pd.scope = scope;
     sprintf_s(t_pd.ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
     t_pd.handle = handle;
     t_pd.ceil = t_kdCeil != 0, t_pd.wouldUs = t_kdCeil;
@@ -704,7 +714,9 @@ static bool PdPlanBegin() {
     const Ts3nCounters& k = ts3native_counters;
     if (k.pdMode != 1 || !k.pdUs || t_pd.open || t_pdNoCut || !RgIsSim(GetCurrentThreadId())) return false;
     const LONG ceil = KdSyncCeilUs(0);
+    const LONG scope = PdScopeAt(0);
     PdOpen(1, ceil ? ceil : k.pdUs);
+    t_pd.scope = scope;
     if (ceil) t_pd.ceil = true, t_pd.wouldUs = k.pdUs, t_pd.handle = g_kdScopeH;
     else KdCamSyncArm(0);
     return true;

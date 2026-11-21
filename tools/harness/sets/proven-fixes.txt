@@ -27,6 +27,7 @@
 #   casuihandlers deadrefguards firepitchair preferredservice
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
+#   firegreet
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
@@ -62,3 +63,5 @@
 #   unseenhouseboatview
 # Dalexlol PRs #503 / #490 (import 2026-11-20), default off by choice (gohomeshell: apartment arrivals, test with LotLevelPastEnd; spawnoffworld: Rodney call):
 #   gohomeshell spawnoffworld
+# docs/674 (route worker carve-out 2026-11-20), default off, ran in game on the combo branch only (s163-s166 compare runs):
+#   doorshare

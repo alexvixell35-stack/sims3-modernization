@@ -4,7 +4,35 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
-- **Fix for a rare crash while Sims and objects come and go (`[HostMapIterFix]`, EA bug; Steam and EA app).** The game could keep a stale position in one of its internal lists after the list grew, and crash (`0xD71E7D` on Steam, `0xD71EBD` on the EA app) when it later removed an entry with it. The plugin now finds the right position first. On by default; `Enabled=0` under `[HostMapIterFix]` switches it off.
+Nothing yet: changes after v0.3.1 are listed here once they are built.
+
+## v0.3.1 (2026-11-21, hotfix)
+
+A small fix release on top of v0.3.0: the fix for the game staying paused after Buy or Build mode, a crash fix, an EA app start-up fix found by EA app testers, and a fix that keeps the script speed-up on with Apex Radiance; nothing else changed. If v0.3.0 runs fine for you, this update is still worth taking: the crash it fixes can happen on any edition.
+
+### Download
+
+- `ts3native-v0.3.1.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both. The log shows `ts3native 0.36.295a`.
+- `ts3native-ea169-v0.3.1.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3fixes.package` (sha256 starts `0662ff4a`): new in this release, replace the v0.3.0 file.
+- Everything else is as in v0.3.0: same settings switched on, same setup (Apex Radiance with its RTX Remix bridge recommended), and nothing of ours is written into your save.
+
+### Fixed
+
+- **The game stayed paused after Buy or Build mode, and the time controls did nothing (v0.3.0 bug).** It happened when you switched between Buy and Build mode (or Blueprint) before going back to live mode: our speed-lock fix lost track of who paused the game, so it never let go, until a restart. Fixed by Dalexlol (PR #616), thanks to the player who reported it. Saves were never affected (the lock is not stored in the save), so after the update there is nothing to clean up; the v0.3.0 workaround (save, then restart the game) is no longer needed.
+
+- **A rare crash while Sims and objects come and go (`0xD71E7D` on Steam, `0xD71EBD` on the EA app).** This is a bug in the game itself, so it can hit any edition, with or without mods. While the game handles its list of scripted objects, adding an object at the wrong moment can make the list grow and move, and the game then removes an entry using a position in the old, freed copy, which crashes. It is rare, and more likely on busy lots with many objects. The plugin now finds the right position before the game removes the entry. In our test we forced the bad moment 20 times: with the fix the game kept running all 20 times; without it, it crashed. On by default; `Enabled=0` under `[HostMapIterFix]` in `ts3native.ini` switches it off. Thanks to Eli for the crash report.
+- **With Apex Radiance: our script speed-up no longer switches itself off when Apex Radiance handles its own internal errors (`[MonoJit]`, Steam 1.67).** Apex Radiance catches and handles a few thousand of its own harmless internal errors per session. When one of those happened while a compiled script method was further up the call chain, the plugin could take it for a fault in that method and send the method back to the slower game interpreter for the rest of the session. We saw it in a test build; our v0.3.0 test sessions with Apex showed no such case, so this is a safety fix. Errors that Apex handles itself are now left to Apex; a real fault in compiled code is still caught as before.
+- **EA app: the plugin switched itself off on some EA app installs.** Some EA app copies of The Sims 3 1.69.47 have a slightly larger copy-protection part in `TS3.exe` (the game code is the same). v0.3.0 saw the different size, decided it was a different game version, and installed nothing: the game ran without any of our fixes, and `ts3native.log` showed `SKIP all: host is not EA app 1.69.47 (pe 6707155C size 0xEB7000)`. The plugin now accepts that copy-protection size. It still checks every place it changes before changing it, so a really different game version is still left alone. If your log shows `host build: EA app 1.69.47`, you were not affected.
+
+### Known issues
+
+- **Apex Radiance 4.0.13 with the RTX Remix bridge: a rare crash in `d3d9.dll` when you enter Buy mode.** It is on the Apex side (it happens before any of our code runs) and can happen on v0.3.0 too; we saw it in 2 of 3 tries in one test session. If it hits you, please report it to Apex Radiance with your crash files.
+- Everything listed under v0.3.0's known issues still applies.
+
+### Tested
+
+Steam 1.67, Apex Radiance 4.0.13 with the RTX Remix bridge, on this exact `ts3native.asi`, `ts3native.ini` and `ts3fixes.package`: a Bridgeport smoke test (passed, no script errors) and the Buy -> Build -> live check (the game unpauses back in live mode; with the v0.3.0 package it stayed paused). The `[HostMapIterFix]` crash fix was tested with forced bad moments on our development build (above). The EA app files got an offline check of the start-up gate on real `TS3.exe` headers, not a game run.
 
 ## v0.3.0 (2026-11-21)
 
