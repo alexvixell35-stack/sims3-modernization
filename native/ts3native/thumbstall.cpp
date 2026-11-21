@@ -199,6 +199,115 @@ static bool TsBuilding(LONG obj) {
 
 typedef u8*(__fastcall* TsPickFn)(u8* svc);
 static TsPickFn g_tsPickOrig = (TsPickFn)(uintptr_t)TS_PICK;  // selftest: its own
+
+// ---- [OutfitFirst] (docs/684 §9, 2026-11-20). Off by default. ----
+// A live outfit change (script CASUtils.SetOutfitInGameObjectDelayed; Sim.SwitchOutfitHelper.Wait idles the Sim until its
+// callback) is built by the same SimService queue as every Sim LOD [verified decompile, Steam TS3W 1.67 code]:
+//   0x5ADD40  the swap message; once the outfit's resources are in and the Sim has an animation instance it posts
+//             0x6A4479F1 with the outfit object's provider interface (object +0x28) and the callback
+//   0x703CB0  the model manager's handler -> 0x700150 -> 0x6F4910 -> 0x6DD160 (thiscall on the model proxy, object +0x210;
+//             stack: +4 outfit, +8 callback, +0xC provider; ret 0Ch): keeps both in "DelayedSwapParams" (proxy +0x44) and
+//             calls the provider's attach (+0x18 = 0x5E6720) with the Sim's scene object id
+//   0x6DC5B0  the proxy's update asks provider +0x10 (0x5E4EB0 -> RequestSim 0x5EE910) each step until the LOD is built,
+//             then runs the callback (script: SwitchOutfitHelper.Ready)
+// So the swap's build is one job in the ready ring, taken by 0x5EDB30 when its Sim is the nearest to the camera of all
+// ready jobs: a Sim that changes clothes away from the camera stands idle behind every nearer Sim's LOD build.
+// The call of 0x6DD160 at 0x6F492C is re-pointed at OfSwap, which notes the provider's object; TsPick (the pick's one call
+// site, shared with [ThumbStall] Action 3) then either only measures (Mode 1: how long a noted job sat ready and how many
+// jobs the game took before it) or takes the noted job first (Mode 2). Same jobs, same builds, another order; the swap
+// itself, its callback and the script side are untouched, for every Sim alike (nothing is skipped or faked: no household
+// exemption needed). Lines "outfitfirst:".
+// [OutfitFirst]
+//   Enabled=0       1 = install
+//   Mode=1          1 = measure only (the game's order); 2 = a pending live swap's ready job is built first, oldest swap first
+//   LogMs=100       a swap job that sat ready this long (or was passed over) gets a line; a summary line once a minute
+//   MaxAgeMs=60000  a noted swap with no job after this long is dropped (its LOD was cached, or the swap was cancelled)
+#include "outfitfirst-core.h"
+static const DWORD OF_CALL_AT = TS3A(0x006F4926), OF_SWAP = TS3A(0x006DD160), OF_REQ = TS3A(0x005E4EB0);
+// lea ecx,[esi+210h]; call 0x6DD160; and byte ptr [esi+29Ch],0FEh
+static const u8 kOfSite[18] = {0x8D, 0x8E, 0x10, 0x02, 0x00, 0x00, 0xE8, 0x2F, 0x88, 0xFE, 0xFF, 0x80, 0xA6, 0x9C, 0x02, 0x00, 0x00, 0xFE};
+static int g_ofMode;                 // 0 = off, 1 = measure, 2 = first
+static DWORD g_ofLogMs = 100, g_ofMaxAgeMs = 60000, g_ofSumAt;
+static OfTable g_of;
+static volatile LONG g_ofLock;
+static LONG g_ofLines, g_ofReadyMs, g_ofWaitMs, g_ofMaxReadyMs, g_ofSumSeen;
+static bool g_ofInstalled;
+typedef void(__fastcall* OfSwapFn)(u8* self, void* edx, DWORD outfit, DWORD cb, DWORD provider);
+static OfSwapFn g_ofSwapOrig = (OfSwapFn)(uintptr_t)OF_SWAP;  // selftest: its own
+
+static void OfLockIn() { while (InterlockedExchange(&g_ofLock, 1)) Sleep(0); }
+static void OfLockOut() { InterlockedExchange(&g_ofLock, 0); }
+
+// The provider of a SimService outfit object has the RequestSim wrapper at +0x10 of its vtable (all three of its
+// vtables do); the build job will name the object 0x28 below it. Anything else is not noted.
+static void OfNoteProvider(DWORD provider) {
+    __try {
+        if (!provider || (provider & 3) != 0) return;
+        const DWORD vt = *(const DWORD*)(uintptr_t)provider;
+        if (!vt || (vt & 3) != 0 || *(const DWORD*)(uintptr_t)(vt + 0x10) != OF_REQ) return;
+        const DWORD now = g_tsNow();
+        OfLockIn();
+        OfNote(&g_of, provider - 0x28, now);
+        OfLockOut();
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+static void __fastcall OfSwap(u8* self, void* edx, DWORD outfit, DWORD cb, DWORD provider) {
+    OfNoteProvider(provider);
+    g_ofSwapOrig(self, edx, outfit, cb, provider);
+}
+
+static void OfReport(const OfDone* d, bool first, DWORD now) {
+    g_ofReadyMs += (LONG)d->readyMs, g_ofWaitMs += (LONG)d->waitMs;
+    if ((LONG)d->readyMs > g_ofMaxReadyMs) g_ofMaxReadyMs = (LONG)d->readyMs;
+    if ((d->readyMs >= g_ofLogMs || d->passed > 0) && g_ofLines < 2000) {
+        g_ofLines++;
+        Log("outfitfirst: swap job %s %lu ms after the swap was set up; ready for %lu ms, the game built %d other jobs meanwhile; lod %d, "
+            "place %d in the ready list, object %08lX", first ? "taken first" : "taken by the game's order", (unsigned long)d->waitMs,
+            (unsigned long)d->readyMs, d->passed, d->lod, d->pos, (unsigned long)d->obj);
+    }
+    const LONG seen = g_of.first + g_of.ea;
+    if (now - g_ofSumAt >= 60000 && seen != g_ofSumSeen) {
+        g_ofSumAt = now, g_ofSumSeen = seen;
+        Log("outfitfirst: mode %d, swaps noted %ld (again %ld, pushed out %ld, no job %ld), jobs taken first %ld, by the game's order %ld, "
+            "other jobs built past a ready swap %ld; ready ms in all %ld (longest %ld), set-up to build ms in all %ld", g_ofMode, g_of.notes,
+            g_of.renotes, g_of.evicted, g_of.expired, g_of.first, g_of.ea, g_of.passes, g_ofReadyMs, g_ofMaxReadyMs, g_ofWaitMs);
+    }
+}
+
+// The pick with [OutfitFirst] on: Mode 2 takes the oldest pending swap's ready job, else the game's own pick runs and
+// what it took is filed (a noted job: how long it waited; any other: it went past the noted jobs that sat ready).
+static u8* OfPick(u8* svc) {
+    const DWORD now = g_tsNow();
+    OfDone d = {};
+    u8* job = 0;
+    bool done = false, first = false;
+    int pos = -1;
+    OfLockIn();
+    __try {
+        OfExpire(&g_of, now, g_ofMaxAgeMs);
+        u8* const mine = OfChoose(&g_of, svc + 0x60, now, &pos);
+        if (mine && g_ofMode == 2) {
+            OfUnlink(mine);
+            job = mine, first = true;
+            done = OfTaken(&g_of, mine, now, true, &d);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { job = 0, first = false, done = false; }
+    OfLockOut();
+    if (!first) {
+        job = g_tsPickOrig(svc);
+        if (job) {
+            OfLockIn();
+            __try { done = OfTaken(&g_of, job, now, false, &d); } __except (EXCEPTION_EXECUTE_HANDLER) { done = false; }
+            OfLockOut();
+        }
+    }
+    if (done) {
+        d.pos = pos;
+        OfReport(&d, first, now);
+    }
+    return job;
+}
+
 static u8* __fastcall TsPick(u8* svc) {
     const LONG obj = g_tsPickObj;
     if (obj) {
@@ -220,7 +329,7 @@ static u8* __fastcall TsPick(u8* svc) {
             }
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
     }
-    return g_tsPickOrig(svc);
+    return g_ofMode ? OfPick(svc) : g_tsPickOrig(svc);
 }
 
 // how: 0 rendered (the same request moved past 0x11: below 0x19, or 0x19.. with its LOD built), 1 aborted by us, 2 other
@@ -394,6 +503,13 @@ static void TsRevert() {
     u8* const site = (u8*)(uintptr_t)TS_SITE;
     if (g_tsInstalled && Readable(site, 1) && *site == 0xE9) Write(site, kTsOrig, sizeof(kTsOrig));
     g_tsInstalled = false;
+    if (g_ofInstalled) {
+        u8* const call = (u8*)(uintptr_t)OF_CALL_AT;
+        const DWORD ours = (DWORD)(uintptr_t)&OfSwap - (OF_CALL_AT + 6 + 5);
+        if (Readable(call, sizeof(kOfSite)) && *(const DWORD*)(call + 7) == ours) Write(call, kOfSite, sizeof(kOfSite));
+        g_ofInstalled = false;
+        g_ofMode = 0;
+    }
     if (g_tsPickPatched) {
         u8* const pick = (u8*)(uintptr_t)TS_PICK_AT;
         const DWORD ours = (DWORD)(uintptr_t)&TsPick - (TS_PICK_AT + 2 + 5);
@@ -407,6 +523,22 @@ static void TsRevert() {
     }
 }
 
+// The pick's one call site -> TsPick ([ThumbStall] Action 3 and [OutfitFirst] share it); true = in place (now or before).
+static bool TsPickInstall(const char* who) {
+    if (g_tsPickPatched) return true;
+    u8* const site = (u8*)(uintptr_t)TS_PICK_AT;
+    if (!Matches((u8*)(uintptr_t)TS_PICK_AT, kTsPickSite, sizeof(kTsPickSite))) {
+        Log("SKIP %s: the ready-job pick at 0x%08X differs", who, TS_PICK_AT + 2);
+        return false;
+    }
+    u8 call[5] = {0xE8, 0, 0, 0, 0};
+    const DWORD rel = (DWORD)(uintptr_t)&TsPick - (TS_PICK_AT + 2 + 5);
+    memcpy(call + 1, &rel, 4);
+    if (!Write(site + 2, call, 5)) { Log("FAIL %s: cannot write 0x%08X", who, TS_PICK_AT + 2); return false; }
+    g_tsPickPatched = true;
+    return true;
+}
+
 // Action 3 / 4 extras; false = not installed (the caller falls back to Action 1)
 static bool TsInstallFallback() {
     void** const slot = (void**)(uintptr_t)TS_TM_SLOT;
@@ -414,18 +546,7 @@ static bool TsInstallFallback() {
         Log("SKIP thumb stall fallback: manager Update slot 0x%08X does not hold 0x%08X", TS_TM_SLOT, TS_TM_UPDATE);
         return false;
     }
-    if (g_tsAction == 3) {
-        u8* const site = (u8*)(uintptr_t)TS_PICK_AT;
-        if (!Matches((u8*)(uintptr_t)TS_PICK_AT, kTsPickSite, sizeof(kTsPickSite))) {
-            Log("SKIP thumb stall fallback: the ready-job pick at 0x%08X differs", TS_PICK_AT + 2);
-            return false;
-        }
-        u8 call[5] = {0xE8, 0, 0, 0, 0};
-        const DWORD rel = (DWORD)(uintptr_t)&TsPick - (TS_PICK_AT + 2 + 5);
-        memcpy(call + 1, &rel, 4);
-        if (!Write(site + 2, call, 5)) { Log("FAIL thumb stall fallback: cannot write 0x%08X", TS_PICK_AT + 2); return false; }
-        g_tsPickPatched = true;
-    }
+    if (g_tsAction == 3 && !TsPickInstall("thumb stall fallback")) return false;
     g_tsTmOrig = (TsTmUpdateFn)*slot;
     const void* const hook = (const void*)&TsTmUpdate;
     if (!Write(slot, &hook, 4)) {
@@ -467,6 +588,39 @@ static void ApplyThumbStall(const wchar_t* ini) {
         "(0 log, 1 abort the request, 2 render when the blocker is not its own model, 3 build its LOD job first "
         "then abort, 4 min LOD 0 then abort); action 3: pick after %lu ms, keep a building job up to %d more timeouts",
         g_tsTimeoutMs, g_tsAction, g_tsPickMs ? g_tsPickMs : g_tsTimeoutMs, g_tsKeep);
+}
+
+// [OutfitFirst]: after ApplyThumbStall (a failed [ThumbStall] install reverts the shared pick site; this puts it back).
+static void ApplyOutfitFirst(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"OutfitFirst", L"Enabled", 0, ini)) return;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP outfit first ([OutfitFirst]): no EA 1.69 address, docs/232 §8"); return; }
+#endif
+#if defined(TS3A_TABLE) && defined(TS3A_RETAIL)
+    // its three rows are 0 in ts3addr-retail167.h too (not mapped yet); a runtime flag, as ts3a_noaddr, keeps /W4 /WX quiet
+    static volatile bool noRetailRow = true;
+    if (noRetailRow) { Log("SKIP outfit first ([OutfitFirst]): no retail 1.67 address, docs/273"); return; }
+#endif
+    const int mode = GetPrivateProfileIntW(L"OutfitFirst", L"Mode", 1, ini);
+    const int logMs = GetPrivateProfileIntW(L"OutfitFirst", L"LogMs", 100, ini), age = GetPrivateProfileIntW(L"OutfitFirst", L"MaxAgeMs", 60000, ini);
+    g_ofLogMs = (DWORD)(logMs < 0 ? 0 : logMs);
+    g_ofMaxAgeMs = (DWORD)(age < 1000 ? 1000 : age > 600000 ? 600000 : age);
+    u8* const site = (u8*)(uintptr_t)OF_CALL_AT;
+    if (!Matches((u8*)(uintptr_t)OF_CALL_AT, kOfSite, sizeof(kOfSite))) {
+        Log("SKIP outfit first: the delayed-swap call at 0x%08X differs: not installed", OF_CALL_AT + 6);
+        return;
+    }
+    if (!TsPickInstall("outfit first")) return;
+    u8 call[5] = {0xE8, 0, 0, 0, 0};
+    const DWORD rel = (DWORD)(uintptr_t)&OfSwap - (OF_CALL_AT + 6 + 5);
+    memcpy(call + 1, &rel, 4);
+    g_ofSumAt = GetTickCount();
+    if (!Write(site + 6, call, 5)) { Log("FAIL outfit first: cannot write 0x%08X", OF_CALL_AT + 6); return; }
+    g_ofInstalled = true;
+    g_ofMode = mode == 2 ? 2 : 1;
+    Log("OK   outfit first ([OutfitFirst], docs/684 §9): live outfit swaps noted at 0x%08X, mode %d (1 measure: the game's order, "
+        "2 a pending swap's ready build job goes first), line from %lu ms ready, a swap without a job dropped after %lu ms",
+        OF_CALL_AT + 6, g_ofMode, g_ofLogMs, g_ofMaxAgeMs);
 }
 
 // ---- [ThumbCallers] (2026-11-12): who asks for thumbnails. Log only, off by default. ----

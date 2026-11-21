@@ -13271,6 +13271,7 @@ static void TestP5() {
 #include "unseen-test.h"  // TestUnseen ([UnseenProbe], docs/143)
 #include "ghost-test.h"   // TestUnseenGhost ([UnseenGhost], docs/202 §3.9.5)
 #include "thumbstall-test.h"  // TestThumbLod ([ThumbStall] Actions 3 and 4, thumbstall.cpp)
+#include "outfitfirst-test.h"  // TestOutfitFirstCore ([OutfitFirst], docs/684 §9)
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
 #include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
 #include "modtime-test.h"  // TestModTime ([Diag] ModTime, docs/298)
@@ -14963,6 +14964,8 @@ int main() {
     TestLauncherFix();
     TestHostBuild();
     TestThumbLod();
+    TestOutfitFirstCore();   // docs/684 §9
+    TestOutfitFirstPick();
     TestCombasePattern();
     puts("selftest ok");
     return 0;

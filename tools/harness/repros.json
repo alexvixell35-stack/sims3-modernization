@@ -113553,6 +113553,54 @@
     ]
   },
   {
+    "id": "outfitfirst-check",
+    "bug": "docs/684 §9: a Sim that changes clothes (going to work or school, Switch To Outfit, bath, bed) stands idle in Sim.SwitchOutfitHelper.Wait until the SimService has built the new outfit's model; the service builds one job at a time and takes the ready job of the Sim nearest the camera first, so the swap of a Sim away from the camera waits behind every nearer Sim's LOD build",
+    "fix": "ts3native [OutfitFirst] (thumbstall.cpp, default off): Enabled=1 notes each live outfit swap at the call 0x6F492C; Mode=1 measures (how long the swap's job sat ready, how many other jobs were built first), Mode=2 builds the oldest pending swap's ready job first (same builds, another order, every Sim alike)",
+    "save": "needs a loaded world in live mode with an active household of two or more Sims, child or older, and townies around (Isla Paradiso: Baseline-IP-Spring)",
+    "note": "Measured in natural play (docs/684 §9.1, contributor rig, Isla Paradiso 6-min calm soaks): s233 Mode 1 / s234 Mode 2 ready ms in all 6,327 -> 3,988, other jobs built past a ready swap 8 -> 0. Job ini: [OutfitFirst] Enabled=1 Mode=1 for the off arm (measure), Mode=2 for the on arm (no runtime switch: the mode is read at start-up). The trigger is the agent's outfit_change, which runs EA's SwitchToOutfitWithoutSpin (CASUtils.SetOutfitInGameObjectDelayed, the same delayed swap as Switch To Outfit) on the household Sims and then on townies spread over the town, so most swaps are away from the camera. A game whose swaps never wait behind other jobs (ready 0 in the off arm) is N/A, not FAIL: then the wait is the build itself.",
+    "expect": "ts3native.log: 'OK   outfit first ([OutfitFirst], docs/684 §9)' with the job's mode; 'outfitfirst: swap job taken by the game's order' lines (Mode 1) or 'outfitfirst: swap job taken first' lines (Mode 2) after the outfit_change steps; the once-a-minute 'outfitfirst: mode N, swaps noted N' summary with swaps noted > 0, and in Mode 2 'other jobs built past a ready swap' near 0. outfit_change answers list the changed Sims, every one wears the asked outfit; no new exceptions",
+    "steps": [
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "formal"
+        },
+        "waitS": 30,
+        "note": "the household Sims (then others) change into Formalwear at once: delayed swaps, one SimService build job each"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 12,
+          "category": "athletic",
+          "townies": true
+        },
+        "waitS": 30,
+        "note": "townies over the town (most away from the camera) change at once"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 12,
+          "category": "everyday",
+          "townies": true
+        },
+        "waitS": 30,
+        "note": "more townies, back to Everyday"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "everyday"
+        },
+        "waitS": 70,
+        "note": "the household back to Everyday; the wait spans the once-a-minute summary line"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

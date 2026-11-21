@@ -6859,6 +6859,7 @@ static void Run(HMODULE self) {
         ApplyD3dMultithreaded(ini);
         ApplyForegroundRender(ini);  // TEST ONLY (docs/162 §7): unfocused harness runs pace like focused ones
         ApplyThumbStall(ini);  // EXPERIMENT, off: start-up patch
+        ApplyOutfitFirst(ini);  // docs/684 §9, off: live outfit swaps' build jobs measured / built first
         ApplyThumbCallers(ini);  // LOG ONLY, off: who asks for thumbnails
         keepLog = ApplyLotSinCos(ini) || keepLog;
         keepLog = ApplyIdCache(ini) || keepLog;
