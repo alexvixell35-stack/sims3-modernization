@@ -143,11 +143,13 @@ namespace Ts3Fixes
                 long now = SimClock.CurrentTicks, last;
                 bool seen = sLfsLast.TryGetValue(id, out last);
                 if (!LadderFootCore.Due(seen, now, last, SimClock.ConvertToTicks(Instantiator.kLadderFootCooldownMinutes, TimeUnit.Minutes))) return null;
-                if (sLfsLast.Count > 256) sLfsLast.Clear();
-                sLfsLast[id] = now;
                 c[kLfsScans]++;
                 LfsCase cs = LfsScan(sim, lot, sim.Level, gl.mLevel);
                 if (cs == null) return null;
+                // the cooldown starts only on a found case: a first failure while the ladder was in use (a climber on it,
+                // not standing Sims) must not hide the next failure, when Sims stand on its end (s411)
+                if (sLfsLast.Count > 256) sLfsLast.Clear();
+                sLfsLast[id] = now;
                 bool hh = ShortcutOn("ladderfootshoohh");
                 int what = LadderFootCore.Decide(true, cs.Blockers.Count, on, hh, HouseholdExempt(sim));
                 if (what == LadderFootCore.kKeep) return null;
