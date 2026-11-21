@@ -585,6 +585,7 @@ static void ReadPlanDeadline(const wchar_t* ini) {
     g_fbjdIni = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"FbJobDeadline", 0, ini), 0, 1);  // docs/178 T1
     k.owReady = GetPrivateProfileIntW(L"RouteAsync", L"OwnJobWait", 0, ini) ? 1 : 0;          // docs/178 T4 (observe only)
     k.jyMode = GetPrivateProfileIntW(L"RouteAsync", L"JobYield", 0, ini) ? 1 : 0;             // docs/183 (runtime switch)
+    g_jyFollowed = GetPrivateProfileIntW(L"RouteAsync", L"JobYieldFollowed", 0, ini) ? 1 : 0; // docs/183 §7: 1 = a followed route's plan steps aside too
     k.rwMode = GetPrivateProfileIntW(L"RouteAsync", L"WorkerWait", 0, ini) ? 1 : 0;           // docs/203 §6 (runtime switch)
     ts3native_readydrain.mode = GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrain", 0, ini) ? 1 : 0;  // ts3native.cpp ReadyDrain
     ts3native_readydrain.budgetUs = Clamp((LONG)GetPrivateProfileIntW(L"RouteAsync", L"ReadyDrainUs", 2000, ini), 100, 10000);
@@ -594,8 +595,8 @@ static void ReadPlanDeadline(const wchar_t* ini) {
                                        ts3native_readydrain.budgetUs, ts3native_readydrain.frameUs, ts3native_readydrain.gapUs);
     ReadKindDeadlines(ini);                                                                    // docs/197
     ReadUnseenFallback(ini);                                                                   // docs/202 (unseenfb.cpp)
-    Log("route async: PlanDeadlineMs=%ld PlanDeadlineOwnMs=%ld FailMemo=%d FbJobDeadline=%d OwnJobWait=%ld JobYield=%ld WorkerWait=%ld",
-        k.pdUs / 1000, k.pdOwnUs / 1000, g_fmIni, g_fbjdIni, k.owReady, k.jyMode, k.rwMode);
+    Log("route async: PlanDeadlineMs=%ld PlanDeadlineOwnMs=%ld FailMemo=%d FbJobDeadline=%d OwnJobWait=%ld JobYield=%ld WorkerWait=%ld "
+        "JobYieldFollowed=%ld", k.pdUs / 1000, k.pdOwnUs / 1000, g_fmIni, g_fbjdIni, k.owReady, k.jyMode, k.rwMode, g_jyFollowed);
 }
 
 static LONGLONG PdNow() { LARGE_INTEGER q; QueryPerformanceCounter(&q); return q.QuadPart; }

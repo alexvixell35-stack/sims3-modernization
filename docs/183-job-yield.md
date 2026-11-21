@@ -114,3 +114,45 @@ Setup: the bridge test copy (Apex aside), ts3native main 2f50e37f plus #378, rel
 - Not checked: the >= 2 s class (too few events in both arms), and a soak longer than 10 min.
 - Rough spots noted at merge, not blocking: the >= 2 s class went 2.1 -> 5.4 per 10 min in the IP seed 12345 pair (4 events); SV >= 300 ms 0 -> 4.7 (1 event, 374 ms). Watch both in the release soaks.
 - O1-O3 (§4): O3 is answered for stuck Sims (no rise per check); route-fail reactions were not compared, because the routefail lines share ts3native's 400-line text cap.
+
+## 7. Household stuck upstairs in JobYield storms: what the logs show, and the state a sleep left behind (2026-11-21)
+
+Branch `fix/jobyield-strand-1121`. Built (ts3fixes), host tests pass, native selftest written for the MSVC CI build, NOT RUN in the game.
+
+### 7.1 The finding and how far the data goes
+
+- Isla Paradiso route storms, same seed, Collins household (Colonial Casa). In three runs (s229, s241, s265) every household Sim that goes to the third floor (y 61, room 11) gets `NoPathToDestination`, blocker None, for every goal on the two floors below: async jobs (7-60 ms, `nodes 0 in 1 plans`, uncut) and the stuck check's own synchronous `PlanFromPoint` pair alike [verified, `routefail:` lines].
+- All three had `[RouteAsync] JobYield=1`. Storm runs with waves on this build line: JobYield 1: 3 of 24; JobYield 0: 0 of about 90. But only 7 of the JobYield 0 runs had the same other keys (TaskServe 1, SmoothCut 1: s245-s248, s253, s258, s263), and at 3 / 24 seven clean runs happen 39% of the time. So JobYield is **associated, not proven** [verified counts; cause inferred]. The run plan in §7.5 settles it.
+- The block is **one-way and starts before the crowd**: each Sim arrives on the third floor after the first failure there (s229: Rosemarie line 1772, Cristobel 1912, Omar 2011, Christopher 2243; s265: the children 2155 / 2161, Rosemarie 2914, Christopher 3020), so the way up worked while the way down failed [verified]. One Sim got down and came back (s265 Omar: y 61 at line 2569, ground floor at 2749, y 61 again at 3005) [verified]. The Sim at the stair top with `NoDestinationSpecified` appears after the first failure in s229 and s265: a victim, not the start [verified].
+- It does not end in the run and it outlasts the storm: s265 fails on after `route_storm: stop` (line 3367; fails to 3532 of 3635), s229 after its stop (3554; fails to 3756 of 3855), about 9 sim-hours in s265 [verified]. No calm phase longer than the tail of those logs was recorded.
+- The repro `upstairs-landing-jam` (user-directed Go Here from the same spots) passes with JobYield on [verified, landing1-3]. The storm fails are autonomous plans. A one-way block that passes player commands fits a portal answer given at plan time (the game asks the lot's portal handlers per Sim and interaction; a privacy situation locks the portals into the room of its Sim for autonomous plans only) better than a damaged routing table [inferred, not shown by a log line].
+- **Not found in the logs:** the event before the first failure. The step-asides are few (s265: 116 asks, 32 busy answers in the whole run) and were not logged one by one, so no line ties a step-aside to the first failure. §7.4 adds that line.
+- Not the cause [verified in the logs]: the no-path memo (served 0), a cut (every failing job `uncut (exempt)`), a deadline (10 s), the three RO clones of s229 (s265 ran without them), PlayerFirst (s265 had it off).
+
+### 7.2 What a step-aside did that the same plan without it does not [verified in the code]
+
+`StepAside` sleeps between a refused START and the synchronous plan. Before JobYield nothing ran between the two, and three things were built on that:
+
+1. **ts3native's records "for the IC right after".** A refused START leaves in single slots: the refusal reason (`g_rfbHandle` / `g_rfbWhy`, which picks the plan's deadline class in `PdIcUs`: `NoStart` / `Foreign` take `PlanDeadlineMs`, every other reason `PlanDeadlineOwnMs`), the stuck check's last-round mark (`g_scSyncH`: that plan is never cut), ts3fixes' scope answer (`g_kdScopeH` / `g_kdScope`) and the UnseenFallback mark (`g_ufH`). During the sleep (a) the next route's marks and START overwrite them, so the plan after the sleep runs as `NoStart` with no scope and no mark, and (b) a plan entered with no route handle (`PdPlanBegin`, `KdSyncCeilUs(0)`, `PdScopeAt(0)`: "the plan ts3fixes is running") takes the sleeping route's scope as its own. A sleeping unseen NPC so lends "unseen" to whatever plans natively in those ticks, a household Sim included: the 300 ms deadline instead of the household ceiling, and every shortcut keyed on the session's scope.
+2. **asyncjigsync (docs/240).** A plan made while the Sim's interaction holds an unplaced social jig is kept synchronous so the partner cannot run before `AddToWorld`. `PlanBackoffBody` then reached `StepAside`, which slept when a job ran: the docs/226 race again, only under a busy worker.
+3. **A route that is being followed.** ts3native refuses a kind START for it, so that plan (a Replan in the middle of a walk) was always synchronous; with JobYield the Sim walked on along the old path while its task slept.
+
+None of the three is shown to be the cause of §7.1. They are what the yield path left behind or changed, and each is closed in §7.3.
+
+### 7.3 Fix
+
+- ts3native (`jobyield.cpp`, `jobyield-core.h`): JOBBUSY is asked on the plan's own route. The first busy answer takes that route's four records out of the slots into a small table (8 routes); the answer that ends the sleep puts them back right before the plan. A record leaves the table exactly once: back, dropped (op 2: the sleep ended by an exception, or the route sent a new START) or expired (20 s: the task never came back). A route that is being followed answers "not busy" (`[RouteAsync] JobYieldFollowed=1` restores the old behaviour for an A/B). Counts on the minute line: `records parked / back / dropped / lost, followed routes not yielded`. No counter layout change.
+- ts3fixes (`RouteBackoff.cs` `StepAside`, `StepAsideCore.cs`): polls on its own route; no step-aside while the task's Sim or the route's Sim holds an unplaced jig; every sleep ends with exactly one closing message (the "not busy" answer, op 1 at the cap, op 2 from the `finally` when a reset leaves the sleep).
+- Old pairs: a new ts3fixes on an older ts3native behaves as before (the handle and the low word are ignored); an older ts3fixes asks on a route with handle 0, for which nothing is parked.
+- JobYield's reach is unchanged for every other plan: the task still sleeps instead of the sim thread waiting. What no longer steps aside: plans with a pending jig and plans on a followed route (both wait for the job as before JobYield); their share shows in the two counts.
+
+### 7.4 Tests and logging
+
+- `native/ts3native/jobyield-host-test.cpp` (Linux, no libc): part 1 reproduces the leak on a model of the slots (a household plan with no handle reads the sleeping NPC's scope; the NPC's plan comes back as `NoStart` with no scope and no stuck-check mark), parts 2-5 the same steps with the table (nothing readable during the sleep, the plan it would have been after it, two routes at once, drop, expiry, clock wrap, full table, no handle).
+- `tools/selftest/stepaside` (C#): the loop's closing message for job over / cap / reset in the first or a later sleep, the jig rule.
+- `jobyield-test.h` step 5 (MSVC selftest): the real slots through `GetOptionHook`: park, another route's marks meanwhile, back once, op 1, op 2, a new START's drop, switched off mid-sleep, followed route with and without `JobYieldFollowed`, an old ts3fixes' handle 0.
+- New log line per step-aside (30 a minute): `ts3fixes: jobyield: <IC>, <ticks> ticks <ms> ms, job over|cap|reset, <Sim> in <task>, <interaction>; session: asides N capped N, kept sync for a jig N, resets N`. The next run with a stuck household names what stepped aside before the first failure.
+
+### 7.5 Run plan (repro `ip-jobyield-strand-storm`)
+
+Twelve 2-min storms, seed 152, the s265 key set (PlayerFirst 0, no new RO clones), interleaved: fix, fix, control, three more times; fix = this build with `JobYield=1`, control = the same build with `JobYield=0` (ts3fixes `jobyield` on in both). Pass: 0 runs with two or more household Sims failing from y 61 (scan `strand=`), `records lost 0`, `back + dropped = parked` at the end of each run, no new script error. Then read: 0 / 8 with the fix against 3 / 24 before is still only p = 0.34 for "fixed", so a pass means "not seen", and the claim needs about 24 clean fix runs (p < 0.05) or a run of the old build that strands with the new `jobyield:` line just before the first failure. If a fix run strands: its `jobyield:` lines before the first `routefail:` at y 61 name the plan; next arm `JobYield=0` + TaskServe / SmoothCut one at a time (the other two keys every stuck run shared).
