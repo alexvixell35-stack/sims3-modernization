@@ -34,8 +34,8 @@ namespace Ts3Fixes
             public int Pushes, Mutual, Withheld;
         }
 
-        public const int kEndNone = 0, kEndYield = 1, kEndPass = 2, kEndPush = 3, kEndTimeout = 4, kEndOther = 5;
-        public static readonly string[] kEndNames = { "none", "yield", "pass", "replan ok after push", "timeout", "other" };
+        public const int kEndNone = 0, kEndYield = 1, kEndPass = 2, kEndPush = 3, kEndTimeout = 4, kEndOther = 5, kEndGaveUp = 6;
+        public static readonly string[] kEndNames = { "none", "yield", "pass", "replan ok after push", "timeout", "other", "gave up (privacy lock)" };
 
         // Higher priority first, then the selected Sim, then the lower object id: one fixed order for any pair.
         public static int Rank(int priorityLevel, bool selected) { return priorityLevel * 2 + (selected ? 1 : 0); }
@@ -86,15 +86,21 @@ namespace Ts3Fixes
             nextPass = blockedCycle + (passEvery < 1 ? 1 : passEvery);
         }
 
-        // How a wait with blocked cycles ended.
-        public static int EndKind(int blockedCycles, bool yielded, bool passed, bool planOkAtEnd, int lastPushCycle, float elapsedMin, float durationMin)
+        // How a wait with blocked cycles ended. gaveUp: StandWaitLocked.cs ended it at a privacy lock (docs/686 §7).
+        public static int EndKind(int blockedCycles, bool yielded, bool passed, bool planOkAtEnd, int lastPushCycle, float elapsedMin, float durationMin, bool gaveUp)
         {
             if (blockedCycles <= 0) return kEndNone;
+            if (gaveUp) return kEndGaveUp;
             if (yielded) return kEndYield;
             if (passed) return kEndPass;
             if (planOkAtEnd && lastPushCycle > 0 && blockedCycles - lastPushCycle <= 2) return kEndPush;
             if (durationMin > 0f && elapsedMin >= 0.9f * durationMin) return kEndTimeout;
             return kEndOther;
+        }
+
+        public static int EndKind(int blockedCycles, bool yielded, bool passed, bool planOkAtEnd, int lastPushCycle, float elapsedMin, float durationMin)
+        {
+            return EndKind(blockedCycles, yielded, passed, planOkAtEnd, lastPushCycle, elapsedMin, durationMin, false);
         }
 
         // Cycles the wait had left until the game's own timeout, at the wait's own pace: the most a resolved wait can

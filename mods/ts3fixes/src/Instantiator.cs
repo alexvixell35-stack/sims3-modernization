@@ -387,6 +387,9 @@ namespace Ts3Fixes
         [Tunable] public static int kStandWaitPassEvery = 3;  // blocked cycles between two such plans
         [Tunable] public static float kStandWaitPassMinutes = 5f;  // sim-minutes of the game's ignore-obstacles timer after a pass
         [Tunable] public static int kStandWaitLogLines = 300;  // standwaitlog lines per session
+        [Tunable] public static bool kStandWaitLocked = false;  // standwaitlocked (docs/686 §7): a blocked obstacle stand-and-wait whose destination room is privacy-locked for the Sim ends after kStandWaitLockedCycles cycles the way the game's own timeout ends it (route failed), instead of standing out the 20 sim-minutes
+        [Tunable] public static bool kStandWaitLockedHousehold = false;  // standwaitlockedhh: standwaitlocked for household and selected Sims too (never a player's own order: the game does not privacy-lock those)
+        [Tunable] public static int kStandWaitLockedCycles = 2;  // privacy-locked blocked cycles in a row before the wait ends (0 = never; a cycle is about 1.6 sim-minutes)
         [Tunable] public static bool kActDelay = false;  // actdelay (docs/684): read-only probe, per interaction instance the time from queued to the Sim acting, split into buckets; one log line per instance over kActDelayLogMs and a summary a minute; test runs only
         [Tunable] public static int kActDelayLogMs = 500;  // actdelay: an instance whose queued -> act time reaches this gets its own log line
         [Tunable] public static int kActDelayLinesPerMin = 30;  // actdelay: most instance lines a minute of real time

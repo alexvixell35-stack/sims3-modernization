@@ -525,7 +525,7 @@ namespace Ts3Fixes
             ApplyCasOccultLog();       // docs/658 §6.4 (CasOccultLog.cs), off by default
             ApplyCasTintReset();       // docs/658 §6.6 (CasTintReset.cs), off by default, unconfirmed
             ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
-            ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
+            ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, and §7 standwaitlocked / standwaitlockedhh (StandWaitLocked.cs), off by default (counts either way)
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
             // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
             ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off)
@@ -1308,10 +1308,14 @@ namespace Ts3Fixes
         // [4320-4327] failreplanboat (FailReplanBoat.cs, docs/642 §10; block 4320-4329): failed plans with a Boat follower / kept (no driver, or the driver or an
         // occupant is household, selected, unknown scope or seen) / would switch the route-fail behaviour off (switch off) / switched off (DoRouteFail = false) /
         // DoRouteFail off already (EA's fail-path plan, or the caller's choice) / errors / lines written / flag set back (the cleared route planned again, succeeded).
+        // [4340-4351] standwaitlocked (StandWaitLocked.cs, docs/686 §7; 4330-4339 left for a parallel branch): blocked stand-and-wait cycles whose plan failed on a
+        // locked destination portal / waits with one / of the cycles privacy-locked for the Sim / waits with one / waits ended by the fix (on) / would end (off) /
+        // exempt waits (household without standwaitlockedhh) / waits at another lock (kept) / timeout cycles left of the ended waits / privacy waits that ran to
+        // the timeout / privacy waits whose lock ended while the Sim waited / errors.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
         // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets, 4200-4219 other branches, 4220-4249 docs/661 lot gameplay, 4250-4259 fglinbound docs/682, 4270-4279 actdelay docs/684), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4330;
+        const int kCounterSlots = 4352;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1604,6 +1608,8 @@ namespace Ts3Fixes
                 case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
                 case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
                 case "failreplanboat": return Instantiator.kFailReplanBoat;  // FailReplanBoat.cs (docs/642 §10): an unseen NPC boat's failed plan skips EA's route-fail behaviour, off
+                case "standwaitlocked": return Instantiator.kStandWaitLocked;  // StandWaitLocked.cs (docs/686 §7): a stand-and-wait at a privacy-locked room ends after kStandWaitLockedCycles cycles, off
+                case "standwaitlockedhh": return Instantiator.kStandWaitLockedHousehold;  // StandWaitLocked.cs (docs/686 §7): standwaitlocked for household and selected Sims too, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off

@@ -105,7 +105,8 @@ static class StandWaitTest
         Check(StandWaitCore.TimeoutCyclesLeft(2, 7.6f, 50f) == 11, "2 cycles in 7.6 min: 11 left");
         Check(StandWaitCore.TimeoutCyclesLeft(13, 50f, 50f) == 0 && StandWaitCore.TimeoutCyclesLeft(0, 5f, 50f) == 0 && StandWaitCore.TimeoutCyclesLeft(3, 0f, 50f) == 0, "nothing left / no data");
         Check(StandWaitCore.TimeoutCyclesLeft(1, 0.1f, 50f) == 30, "capped at 30");
-        Check(StandWaitCore.kEndNames.Length == 6, "a name per end kind");
+        Check(StandWaitCore.kEndNames.Length == 7, "a name per end kind");
+        Check(StandWaitCore.EndKind(3, true, true, true, 1, 60f, 50f, true) == StandWaitCore.kEndGaveUp && StandWaitCore.EndKind(0, false, false, false, 0, 1f, 50f, true) == StandWaitCore.kEndNone, "gave up at a privacy lock: named first, not without a blocked cycle");
     }
 
     // Model: Sims stand in a spot too small for more than one. Each cycle a Sim's replan fails while another Sim stands

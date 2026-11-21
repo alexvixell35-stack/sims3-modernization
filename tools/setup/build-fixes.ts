@@ -165,6 +165,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStandWaitPassEvery value="3" />
     <kStandWaitPassMinutes value="5" />
     <kStandWaitLogLines value="300" />
+    <kStandWaitLocked value="False" />
+    <kStandWaitLockedHousehold value="False" />
+    <kStandWaitLockedCycles value="2" />
     <kActDelay value="False" />
     <kActDelayLogMs value="500" />
     <kActDelayLinesPerMin value="30" />
