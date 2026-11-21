@@ -1450,11 +1450,24 @@ static void TestMonoJitFaultRecover() {
     mb.dead = false, JitPatchMeth(mb, true);
     u8* w = NULL;
     for (u8* q = mb.native0 + 6; q < mb.native0 + mb.bytes && !w; q++) if (JitFrRetAddr(mb, q)) w = q;
-    if (w) {  // only a body with a call (or bytes that read like one) has a return address to find
-        stk[1] = (DWORD)(uintptr_t)w;
-        er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION, cx.Eip = (DWORD)(uintptr_t)fake, cx.Esp = (DWORD)(uintptr_t)stk;
-        assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 3 && mb.dead);
-    }
+    // no call in the body: an E8 rel32 written over 5 of its last 6 bytes (the body does not run again; bytes restored) gives a return address
+    u8 save5[5];
+    u8* const tail = mb.native0 + mb.bytes - 6;  // w = tail + 5 stays inside the body
+    DWORD op = 0;
+    const bool wrote = !w && VirtualProtect(tail, 5, PAGE_EXECUTE_READWRITE, &op);
+    if (wrote) memcpy(save5, tail, 5), tail[0] = 0xE8, memset(tail + 1, 0, 4), w = tail + 5;
+    assert(w && JitFrMethAt((DWORD)(uintptr_t)w) == &mb);
+    stk[1] = (DWORD)(uintptr_t)w;
+    er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION, cx.Eip = (DWORD)(uintptr_t)fake, cx.Esp = (DWORD)(uintptr_t)stk;
+    // docs/537 §29a: eip in another module (no own image range set): untouched, the method stays on, counted
+    memset(g_jitFrImg, 0, sizeof(g_jitFrImg)), g_jitFrForeignN = 0;
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 2 && !mb.dead && g_jitFrForeignN == 1 && g_jitFrForeignEip == (LONG)cx.Eip);
+    // eip in an own image (the test exe stands in for TS3W.exe): a helper fault, passed on, the method off
+    JitFrImgRange(GetModuleHandleW(NULL), g_jitFrImg[0]);
+    assert(JitFrOwnImage(cx.Eip) && !JitFrOwnImage(0x10));
+    assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == 3 && mb.dead && g_jitFrForeignN == 1);
+    if (wrote) memcpy(tail, save5, 5), VirtualProtect(tail, 5, op, &op);
+    memset(g_jitFrImg, 0, sizeof(g_jitFrImg)), g_jitFrForeignN = 0, g_jitFrForeignEip = 0;
     // the lazy body: passed on
     g_jitLazy = true, g_jitLeafOnly = true, g_jitForceJit = &g_jtForceByte, g_jitProxyClassP = (const void* const*)&g_jtProxy;
     static unsigned short l[] = {JT_LDC3, JT_RET};
@@ -1465,7 +1478,7 @@ static void TestMonoJitFaultRecover() {
     const LONG passed0 = C.frPassed;
     er.ExceptionCode = EXCEPTION_ACCESS_VIOLATION, cx.Eip = (DWORD)(uintptr_t)lc->entry;
     assert(JitFrVeh(&xp) == EXCEPTION_CONTINUE_SEARCH && C.frPassed == passed0 + 1 && g_jitMeth[g_jitMethN - 1].dead && !JitLazyCellFor(mL.rm)->entry);
-    printf("monojit: FaultRecover: a real fault resumed at word 0; %ld recovered, %ld passed on%s\n", C.frRecovered, C.frPassed, w ? ", return-address case run" : "");
+    printf("monojit: FaultRecover: a real fault resumed at word 0; %ld recovered, %ld passed on%s\n", C.frRecovered, C.frPassed, ", return-address case run (own image and foreign)");
     RemoveVectoredExceptionHandler(g_jitFrVeh);
     g_jitFrVeh = NULL, g_jitFrOn = false, g_jitFrTestN = 0, g_jitFrTestRm = NULL, g_jitFrBadN = 0, g_jitFrLogN = 0, g_jitLazy = false;
     C.frRecovered = C.frPassed = C.frTestCalls = 0;
@@ -1565,9 +1578,9 @@ static void TestMonoJit() {
         VirtualFree(g_jitTab, 0, MEM_RELEASE);
         g_jitAllocFail = 2;
         assert(!JitAllocOrFallback(JIT_METH_MAX) && g_jitAllocFail == 0);
-        printf("monojit: T4096 address space: R1 %u KB (2048 methods, ip table 2^16, 4096 KB code), now %u KB (%d methods, ip table 2^18, 16384 KB code), fallback %u KB\n",
+        printf("monojit: T4096 address space: R1 %u KB (2048 methods, ip table 2^16, 4096 KB code), now %u KB (%d methods, ip table 2^19, 24576 KB code), fallback %u KB\n",
                (unsigned)((((sizeof(JitEnt) * (65536 + 4096) + sizeof(JitMeth) * 2048 + 4 * 49152 + sizeof(JitLazyCell) * 2048 + sizeof(JitGuardSite) * 1024 + sizeof(JitScratch) + 0xFFF) & ~(size_t)0xFFF) + (4u << 20)) >> 10),
-               (unsigned)((JitDataBytes(JIT_METH_MAX) + (16u << 20)) >> 10), JIT_METH_MAX, (unsigned)((JitDataBytes(JIT_METH_OLD) + (4u << 20)) >> 10));
+               (unsigned)((JitDataBytes(JIT_METH_MAX) + (24u << 20)) >> 10), JIT_METH_MAX, (unsigned)((JitDataBytes(JIT_METH_OLD) + (4u << 20)) >> 10));
         g_jitCodeBytes = code0;
     }
     assert(JitAlloc() && g_jitMethCap == JIT_METH_MAX && g_jitPosCap == JIT_METH_MAX * JIT_POS_PER && g_jitGuardCap == JIT_METH_MAX / 2);
@@ -1892,7 +1905,7 @@ static void TestMonoJit() {
         g_jitCodeUsed = used0;
         JitPostPass(mFull.rm, &domain);  // room again: compiled
         assert(C.jitRefused == refused && g_jitMethN == compiled + 2 && pF[0] == JIT_OP);
-        assert(JitCodeBytes(0) == 1024u << 10 && JitCodeBytes(4096) == 4096u << 10 && JitCodeBytes(1 << 20) == 16384u << 10);
+        assert(JitCodeBytes(0) == 1024u << 10 && JitCodeBytes(4096) == 4096u << 10 && JitCodeBytes(1 << 20) == 24576u << 10);
         JitRefSummary("selftest");
         // T4096: a full method table refuses with its own reason and counts jitTableFull; nothing is patched
         const int methN0 = g_jitMethN;

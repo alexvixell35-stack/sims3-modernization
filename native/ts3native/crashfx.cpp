@@ -533,6 +533,168 @@ static void CdInstall() {
     if (CfJmp(kCdFxAt, kCdFxPro, sizeof(kCdFxPro), (void*)CdFxStub)) k.cdReady |= 4, Log("OK   crash forensics draw guard effect 0x71D562 (check only)");
 }
 
+// [CrashForensics] VbGuard=1 (docs/67 §44, default off, Steam 1.67 only): the 2026-11-21 Buy-mode crashes on Apex 4.0.13 + the RTX
+// Remix bridge fault inside the bridge's SetStreamSource, called from the game's stream wrapper Device_SetStreamSource 0x60F020
+// (thiscall: stream, VB wrapper, offset, stride; D3D VB = wrapper +0x14) with a VB wrapper that is gone (+0x14 = 0x11) or whose
+// D3D VB is gone. Check-only detours: the two D3D VB release helpers every VB wrapper class reaches from its destructor,
+// 0x619E10 (class 0xFE9580's dtor 0x61A340) and 0x619F10 (class 0xFE9590 0x61A3D0, also the model-factory buffers at +0x28 of
+// 0x6D9030), record wrapper, D3D VB (+0x14, still set), thread and the code words on the stack (who released it) in a ring;
+// 0x60F020 checks the wrapper's vtable (TS3W .rdata, not the RefCounted base 0xFF39F8 a finished dtor leaves) and the D3D VB's
+// vtable (inside the device's module) and logs a bad one with the ring entries before the game's code runs unchanged. At any
+// later access violation the registers are looked up.
+#ifndef TS3A_TABLE
+static const DWORD kVbSsAt = 0x0060F020, kVbRelA = 0x00619E10, kVbRelB = 0x00619F10, kVbVtBase = 0x00FF39F8;
+static const u8 kVbSsPro[] = {0x53, 0x8B, 0x5C, 0x24, 0x14, 0x57};         // push ebx ; mov ebx,[esp+14h] ; push edi
+static const u8 kVbRelProA[] = {0x56, 0x8B, 0xF1, 0x8D, 0x4E, 0x08};        // push esi ; mov esi,ecx ; lea ecx,[esi+8]
+static const u8 kVbRelProB[] = {0x56, 0x8B, 0xF1, 0x83, 0x7E, 0x14, 0x00};  // push esi ; mov esi,ecx ; cmp dword ptr [esi+14h],0
+typedef void(__fastcall* VbDelFn)(u8* self, void* edx);
+typedef HRESULT(__fastcall* VbSsFn)(u8* dev, void* edx, DWORD stream, u8* w, DWORD off, DWORD stride);
+static VbDelFn g_vbDelOrig[2];
+static VbSsFn g_vbSsOrig;
+struct VbEnt { LONG seq; DWORD w, vb, tid; LONGLONG qpc; DWORD code[8]; };
+static const DWORD kVbRing = 2048;  // power of two
+static VbEnt g_vbRing[kVbRing];
+static volatile LONG g_vbSeq, g_vbBadN, g_vbOn;
+static DWORD g_vbModLo[8], g_vbModHi[8], g_vbModN, g_vbDevLo, g_vbDevHi;
+static void VbAddMod(const void* p) {
+    MEMORY_BASIC_INFORMATION m;
+    if (!p || g_vbModN >= 8 || !VirtualQuery(p, &m, sizeof(m)) || m.Type != MEM_IMAGE) return;
+    const u8* b = (const u8*)m.AllocationBase;
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
+    g_vbModLo[g_vbModN] = (DWORD)(uintptr_t)b, g_vbModHi[g_vbModN++] = (DWORD)(uintptr_t)b + nt->OptionalHeader.SizeOfImage;
+}
+// cheap code filter for the record path: TS3W.exe .text or one of the mod images found at install (no VirtualQuery per word)
+static bool VbIsCode(DWORD v) {
+    if (v >= 0x00401000 && v < 0x00F95000) return true;
+    for (DWORD i = 0; i < g_vbModN; i++) if (v >= g_vbModLo[i] && v < g_vbModHi[i]) return true;
+    return false;
+}
+static void __fastcall VbRecord(const u8* self, const DWORD* sp) {
+    const LONG s = InterlockedIncrement(&g_vbSeq);
+    VbEnt& e = g_vbRing[(DWORD)(s - 1) & (kVbRing - 1)];
+    e.seq = 0;
+    e.w = (DWORD)(uintptr_t)self, e.vb = *(const DWORD*)(self + 0x14), e.tid = GetCurrentThreadId();
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    e.qpc = q.QuadPart;
+    int n = 0;
+    __try {
+        for (int i = 0; i < 64 && n < 8; i++) if (VbIsCode(sp[i])) e.code[n++] = sp[i];
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    for (; n < 8; n++) e.code[n] = 0;
+    e.seq = s;
+}
+static void __fastcall VbDelHookA(u8* self, void* edx) {
+    if (*(const DWORD*)(self + 0x14)) VbRecord(self, (const DWORD*)_AddressOfReturnAddress());
+    g_vbDelOrig[0](self, edx);
+}
+static void __fastcall VbDelHookB(u8* self, void* edx) {
+    if (*(const DWORD*)(self + 0x14)) VbRecord(self, (const DWORD*)_AddressOfReturnAddress());
+    g_vbDelOrig[1](self, edx);
+}
+// the newest ring entry whose wrapper or D3D VB holds v (+-0x40: a register may point into the object): "freed N ms ago ..."
+static bool VbExplain(DWORD v, char* out, size_t cap) {
+    const LONG top = g_vbSeq;
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    for (LONG s = top; s > 0 && top - s < (LONG)kVbRing; s--) {
+        const VbEnt& e = g_vbRing[(DWORD)(s - 1) & (kVbRing - 1)];
+        if (e.seq != s) continue;
+        const bool isW = v >= e.w && v < e.w + 0x40, isVb = e.vb && v >= e.vb && v < e.vb + 0x40;
+        if (!isW && !isVb) continue;
+        size_t o = (size_t)sprintf_s(out, cap, "%s of VB wrapper 0x%08lX (D3D VB 0x%08lX) released %.1f ms ago, #%ld of %ld, thread %lu, by:",
+                                     isW ? "inside" : "D3D VB", e.w, e.vb, g_cfQpf ? (double)(q.QuadPart - e.qpc) * 1000.0 / (double)g_cfQpf : -1.0,
+                                     s, top, e.tid);
+        char c[96];
+        for (int i = 0; i < 8 && e.code[i] && o + 100 < cap; i++)
+            o += (size_t)sprintf_s(out + o, cap - o, " %s", CdCode(e.code[i], c, sizeof(c)) ? c : "?");
+        return true;
+    }
+    sprintf_s(out, cap, "not in the VB release ring (%ld releases)", top);
+    return false;
+}
+static void VbBad(const char* why, const u8* dev, DWORD stream, DWORD w, DWORD vt, DWORD vb, DWORD vbvt, const DWORD* sp) {
+    const LONG n = InterlockedIncrement(&g_vbBadN);
+    if (n > 8) {
+        if (n <= 256) Log("crash forensics: VB BAD #%ld: %s, wrapper 0x%08lX vt 0x%08lX D3D VB 0x%08lX vt 0x%08lX", n, why, w, vt, vb, vbvt);
+        return;
+    }
+    char ws[200], d1[400], d2[400], st[440], c[96];
+    CdWords(w, 8, ws, sizeof(ws));
+    VbExplain(w, d1, sizeof(d1));
+    if (vb) VbExplain(vb, d2, sizeof(d2)); else strcpy_s(d2, "-");
+    Log("crash forensics: VB BAD #%ld at Device_SetStreamSource 0x60F020: %s; stream %lu, wrapper 0x%08lX vtable 0x%08lX (base 0x%08lX "
+        "= destroyed), D3D VB 0x%08lX vtable 0x%08lX (device module 0x%08lX-0x%08lX), device wrapper 0x%08lX, thread %lu; wrapper words: %s",
+        n, why, stream, w, vt, kVbVtBase, vb, vbvt, g_vbDevLo, g_vbDevHi, (DWORD)(uintptr_t)dev, GetCurrentThreadId(), ws);
+    Log("crash forensics:   wrapper: %s", d1);
+    Log("crash forensics:   D3D VB: %s", d2);
+    size_t o = 0;
+    st[0] = 0;
+    __try {
+        for (int i = 0, k = 0; i < 256 && k < 16 && o + 100 < sizeof(st); i++)
+            if (CdCode(sp[i], c, sizeof(c))) o += (size_t)sprintf_s(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), k++;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("crash forensics:   stack code words (the draw callback first): %s", st);
+}
+static HRESULT __fastcall VbSsHook(u8* dev, void* edx, DWORD stream, u8* w, DWORD off, DWORD stride) {
+    if (w) {
+        DWORD vt = 0, vb = 0, vbvt = 0;
+        const char* why = NULL;
+        __try {
+            vt = *(const DWORD*)w;
+            vb = *(const DWORD*)(w + 0x14);
+            if (vt == kVbVtBase) why = "wrapper destroyed (RefCounted base vtable)";
+            else if (!CfVtOk(vt)) why = "wrapper vtable outside TS3W .rdata (freed and reused)";
+            else if (vb) {
+                vbvt = *(const DWORD*)(uintptr_t)vb;
+                if (!g_vbDevLo) {  // the device's module (bridge client, DXVK or system d3d9): its vtable [wrapper +0xC]
+                    MEMORY_BASIC_INFORMATION m;
+                    const DWORD dvt = *(const DWORD*)(uintptr_t)*(const DWORD*)(dev + 0xC);
+                    if (VirtualQuery((void*)(uintptr_t)dvt, &m, sizeof(m)) && m.Type == MEM_IMAGE) {
+                        const u8* b = (const u8*)m.AllocationBase;
+                        g_vbDevHi = (DWORD)(uintptr_t)b + ((const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew))->OptionalHeader.SizeOfImage;
+                        g_vbDevLo = (DWORD)(uintptr_t)b;
+                        Log("crash forensics: VB guard: device module 0x%08lX-0x%08lX (vtable 0x%08lX)", g_vbDevLo, g_vbDevHi, dvt);
+                    }
+                }
+                if (g_vbDevLo && (vbvt < g_vbDevLo || vbvt >= g_vbDevHi)) why = "D3D VB vtable outside the device's module (released)";
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) { why = "wrapper or D3D VB unreadable"; }
+        if (why) VbBad(why, dev, stream, (DWORD)(uintptr_t)w, vt, vb, vbvt, (const DWORD*)_AddressOfReturnAddress());
+    }
+    return g_vbSsOrig(dev, edx, stream, w, off, stride);
+}
+static void VbInstall() {
+    static const char* const mods[] = {"ApexRadiance.asi", "Sims3SettingsSetter.asi", "Sims3Performance.asi", "MonoPatcher.asi"};
+    for (const char* m : mods) VbAddMod(GetModuleHandleA(m));
+    VbAddMod((const void*)(uintptr_t)VbInstall);  // ts3native
+    g_vbDelOrig[0] = (VbDelFn)InstallDetour("crash forensics VB release 0x619E10 (check only)", kVbRelA, kVbRelProA, sizeof(kVbRelProA), (void*)VbDelHookA, &g_vbDelOrig[0]);
+    g_vbDelOrig[1] = (VbDelFn)InstallDetour("crash forensics VB release 0x619F10 (check only)", kVbRelB, kVbRelProB, sizeof(kVbRelProB), (void*)VbDelHookB, &g_vbDelOrig[1]);
+    g_vbSsOrig = (VbSsFn)InstallDetour("crash forensics VB guard Device_SetStreamSource 0x60F020 (check only)", kVbSsAt, kVbSsPro, sizeof(kVbSsPro), (void*)VbSsHook, &g_vbSsOrig);
+    g_vbOn = g_vbDelOrig[0] && g_vbDelOrig[1] && g_vbSsOrig;
+    Log("crash forensics: VB guard (docs/67 §44) %s: release ring %lu, %lu mod images for the release stacks", g_vbOn ? "on" : "PARTIAL", kVbRing, g_vbModN);
+}
+// any access violation (eip anywhere): the fault address and registers against the VB free ring
+static void VbOnFault(const EXCEPTION_POINTERS* x) {
+    if (!g_vbOn) return;
+    static volatile LONG logged;
+    if (logged >= 8) return;  // Apex's routine first-chance AVs come here too: only faults with a ring hit are logged
+    const CONTEXT* c = x->ContextRecord;
+    const EXCEPTION_RECORD* r = x->ExceptionRecord;
+    const struct { const char* n; DWORD v; } regs[] = {{"fault address", r->NumberParameters > 1 ? (DWORD)r->ExceptionInformation[1] : 0},
+        {"eax", c->Eax}, {"ebx", c->Ebx}, {"ecx", c->Ecx}, {"edx", c->Edx}, {"esi", c->Esi}, {"edi", c->Edi}};
+    char d[400];
+    int hits = 0;
+    for (const auto& g : regs)
+        if (g.v >= 0x10000 && VbExplain(g.v, d, sizeof(d)) && InterlockedIncrement(&logged) <= 8)
+            hits++, Log("crash forensics: VB guard: %s 0x%08lX: %s", g.n, g.v, d);
+    if (hits) Log("crash forensics: VB guard at AV eip 0x%08lX: %d register hits, %ld VB BAD before, %ld VB releases", c->Eip, hits, g_vbBadN, g_vbSeq);
+}
+#else
+static void VbInstall() { Log("SKIP crash forensics VB guard: Steam 1.67 only"); }
+static void VbOnFault(const EXCEPTION_POINTERS*) {}
+#endif
+
 // crash dump part 2: the fault and registers against our-events ring, the route job, the newest 64 events of each kind
 static void CeDump(const EXCEPTION_POINTERS* x) {
     if (!g_ceOn) return;
@@ -1261,6 +1423,7 @@ static bool ApplyCrashForensics(const wchar_t* ini) {
         g_cfHeap = Matches((const void*)(uintptr_t)EA_FREE, kEaLockedPrologue, sizeof(kEaLockedPrologue)) || g_eaFreeOrig != NULL;
     g_cfOn = 1;
     k.cfReady = 1 | (g_cfHeap ? 8 : 0);
+    if (GetPrivateProfileIntW(L"CrashForensics", L"VbGuard", 0, ini)) VbInstall();  // docs/67 §44, Light or full
     if (!full) {
         g_ceOn = 1, k.cfReady |= 16, k.cdReady |= 16;
         Log("crash forensics: light (docs/67 §18): ring %lu P5 heap events + g_rpUse holds, heap check %s, our-events ring %lu events, "

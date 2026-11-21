@@ -19,7 +19,8 @@
 #   -Mode SelfTest checks of the merge / mask / exe-header code on temp data, then exit
 # The diagnostic never writes outside its zip (and a temp staging folder it removes). The installer writes only
 # Game\Bin\ts3native.asi, Game\Bin\ts3native.ini, Mods\Packages\ts3fixes.package (and Mods\Resource.cfg when there is
-# none) and (if asked) S3SS\S3SS.toml, after a backup. TS3W.exe and Options.ini are never changed.
+# none) and (if asked) S3SS\S3SS.toml, after a backup; it moves stray ts3native asis / ts3fixes packages and TS3 Turbo
+# Engine (Turbo.asi + its config) into the backup, never deletes them. TS3W.exe and Options.ini are never changed.
 param(
   [ValidateSet('Menu', 'Diag', 'Capture', 'Install', 'Uninstall', 'SelfTest')][string]$Mode = 'Menu',
   [ValidateSet('', 'Direct', 'Steam', 'Launcher', 'Self')][string]$Launch = '', [int]$CaptureMaxSec = 0, [int]$InfoAfterSec = 20,
@@ -30,7 +31,7 @@ param(
   [string]$DocsDir = ''   # tests only: stands in for the Documents known folder (with -NoSystem)
 )
 $ErrorActionPreference = 'Stop'
-$KitVersion = '1120.e6'  # e6: exe section table, ts3native.launcher.log SKIP line when there is no ts3native.log; e5: EA 1.69 matched on the link timestamp (other image sizes), unknown builds install with a note; e4: payload\diag asi 0.36.247-elidiag4 (ModTime checked name reads, relaxed frame walk, docs/300 §8; e3 §7, e2 §6)
+$KitVersion = '1121.e7'  # e7: ts3fixes with swapinvokediag (diag package on, docs/312) + PR #616, the install moves TS3 Turbo Engine (Turbo.asi + its config) into the backup; e6: exe section table, ts3native.launcher.log SKIP line when there is no ts3native.log; e5: EA 1.69 matched on the link timestamp (other image sizes), unknown builds install with a note; e4: payload\diag asi 0.36.247-elidiag4 (ModTime checked name reads, relaxed frame walk, docs/300 §8; e3 §7, e2 §6)
 # Kit target: the EA app 1.69 exe (Game\Bin\TS3.exe). Kit 1119.2 (retail) used 'retail 1.67' / TS3W.exe / ts3native-retail167.asi.
 $KitEdition = 'EA app 1.69'; $KitExe = 'TS3.exe'; $KitAsi = 'ts3native-ea169.asi'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -38,13 +39,16 @@ $payload = Join-Path (Split-Path -Parent $here) 'payload'
 $CapBytes = 5MB          # copied text files above this are listed, not copied
 $HashCapBytes = 256MB    # Bin files above this are listed without a hash
 $Days = 14
-# The normal build of kit 1120.e6 is a TEST BUILD, not the release: EA asi 0.36.297-eaooa1 (master m1120t + the .ooa host
+# The normal build of kit 1121.e7 is a TEST BUILD, not the release: EA asi 0.36.297-eaooa1 (master m1120t + the .ooa host
 # gate, builds.json ts3native-ea169.asi.eaooa1-1120), the v0.3.0 EA release ini + [HostMapIterFix] Enabled=1 (e6normal),
-# ts3fixes.package m1120t. payloaddiag holds the same asi + the diag ini (e6diag, same package); its hashes are not pinned here.
+# ts3fixes.package cas-targetexc-1121 (master d1121 + PR #616 + swapinvokediag off). payload\diag holds the same asi + the
+# diag ini (e6diag) + ts3fixes.package cas-targetexc-1121-diag (kSwapInvokeDiag True, docs/312); its hashes are not pinned here.
 $RcAsiSha = 'baf7c06bd96d2aa085639fb3d1c3ae5c37a64293419ecd5b4a8c1f0550dd289a'
 $RcIniSha = '683d535e19c8a567a5579ae04de3ee7c3ec35ec150660c00671c50a05fbcdf45'
-$RcPkgSha = '53d571ae8954e83e60237c7e1e7ed7dbd6561c77f8cbeb97e8151bbfbc5271c5'
+$RcPkgSha = '6add27281ee60fbfa1f9eb2bebe54f673fd5ef5c795a4a22f16fc23844c554a4'
 $RcTomlSha = '706ad37b61382a28935740087cb3e07e844eadce485880b1b9c65ea5cd4569aa'   # payload\S3SS-tunings.toml, LF line ends
+# TS3 Turbo Engine (third-party Turbo.asi in Game\Bin): the copy in the tester's 1120 report (sha256 prefix, 370176 bytes)
+$TurboSha12 = '74f971bcaf1c'
 $RunNames = @($ProcNames) + @('Sims3Launcher', 'Sims3LauncherW')
 $Editions = @{ '52D872DA/E5B000' = 'retail 1.67'; '52DEC247/E5A000' = 'Steam 1.67'; '6707155C/EB5000' = 'EA app 1.69' }
 # Every regex the kit uses, by name; SelfTest runs each against a real matching and a real non-matching line (AGENTS.md).
@@ -991,6 +995,16 @@ function CheckGameForInstall([string]$game) {
 }
 # The game's usual Mods\Resource.cfg (Mod The Sims): loads .package files up to 5 folders deep under Mods\Packages.
 $StdResourceCfg = "Priority 500`r`nPackedFile Packages/*.package`r`nPackedFile Packages/*/*.package`r`nPackedFile Packages/*/*/*.package`r`nPackedFile Packages/*/*/*/*.package`r`nPackedFile Packages/*/*/*/*/*.package`r`n`r`nPriority 501`r`nPackedFile DCCache/*.dbc`r`n"
+# TS3 Turbo Engine (Turbo.asi): it takes TS3's CreateThread import before ts3native, so ts3native's thread stack fix stands
+# down ("SKIP thread stack CreateThread: IAT ... another hook first?"). The install moves it and its config file (Turbo.txt,
+# Turbo.ini) into the backup folder, never deletes them; uninstall puts them back, sha256 checked. A Turbo.asi with another
+# sha is moved too, with a note.
+function TurboFiles([string]$bin) {
+  $a = Join-Path $bin 'Turbo.asi'; if (-not (Test-Path -LiteralPath $a)) { return @() }
+  $out = @([ordered]@{ target = $a; turbo = $true; known = ("$(Sha $a)".StartsWith($TurboSha12)) })
+  foreach ($n in 'Turbo.txt', 'Turbo.ini') { $c = Join-Path $bin $n; if (Test-Path -LiteralPath $c) { $out += [ordered]@{ target = $c; turbo = $true; known = $true } } }
+  return $out
+}
 function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   CheckGameForInstall $game
   $bin = Join-Path $game 'Game\Bin'
@@ -1041,6 +1055,13 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
     foreach ($m in $moves) { Say "  $($m.target)   sha $(Sha12 $m.target)" }
     if (-not $Yes -and (Ask 'Move them into the kit''s backup folder (not deleted; uninstall puts them back)? (Y/N)') -notmatch $Rx.Yes) { $moves = @(); Say '  Left in place: the check after the install will say MISMATCH.' 'Yellow' }
   }
+  $turbo = @(TurboFiles $bin)
+  if ($turbo.Count) {
+    Say ''; Say 'Found TS3 Turbo Engine (Turbo.asi) in Game\Bin: it hooks thread creation before ts3native, so ts3native''s thread stack fix switches itself off. It is moved into the kit''s backup folder (not deleted; uninstall puts it back):' 'Yellow'
+    foreach ($m in $turbo) { Say "  $($m.target)   sha $(Sha12 $m.target)" }
+    if (-not $turbo[0].known) { Say "  Note: this Turbo.asi is not the copy we know (sha $(Sha12 $turbo[0].target), expected $TurboSha12); it is moved all the same." 'Yellow' }
+    $moves += $turbo
+  }
   if ($todo.Count -eq 0 -and $moves.Count -eq 0) { Say 'Everything is already installed. Nothing to do.' 'Green'; return (VerifyInstall $bin $user $srcAsi $plan[2].sha) }
   $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
   $bdir = Join-Path (BackupRoots $user)[0] $stamp
@@ -1053,10 +1074,17 @@ function DoInstall([string]$game, [string]$user, [bool]$withS3ss) {
   [void](New-Item -ItemType Directory -Force -Path $bdir)
   $entries = @(); $i = 0
   foreach ($p in $todo) { $i++; $bn = ''; if ($p.existed) { $bn = "$i-" + (Split-Path -Leaf $p.target); Copy-Item -LiteralPath $p.target -Destination (Join-Path $bdir $bn) }; $entries += [ordered]@{ target = $p.target; existed = [bool]$p.existed; backup = $bn; installedSha = $p.sha } }
-  foreach ($m in $moves) { $i++; $bn = "$i-moved-" + (Split-Path -Leaf $m.target); Copy-Item -LiteralPath $m.target -Destination (Join-Path $bdir $bn); $entries += [ordered]@{ target = $m.target; existed = $true; backup = $bn; installedSha = '' } }
+  $kitLog = @()
+  foreach ($m in $moves) {
+    $i++; $bn = "$i-moved-" + (Split-Path -Leaf $m.target); Copy-Item -LiteralPath $m.target -Destination (Join-Path $bdir $bn)
+    $ms = Sha $m.target; if ((Sha (Join-Path $bdir $bn)) -ne $ms) { throw "Could not copy $($m.target) into the backup (sha differs). Nothing was moved." }
+    $entries += [ordered]@{ target = $m.target; existed = $true; backup = $bn; installedSha = ''; movedSha = $ms }
+    if ($m.turbo) { $kitLog += "moved $(Split-Path -Leaf $m.target) to $(Join-Path $bdir $bn), restore with TS3Kit.bat -Mode Uninstall$(if (-not $m.known) { " (sha $($ms.Substring(0, 12)), not the known $TurboSha12)" })" }
+  }
   if ($user -and (Test-Path -LiteralPath (Join-Path $user 'Options.ini'))) { Copy-Item -LiteralPath (Join-Path $user 'Options.ini') -Destination (Join-Path $bdir 'Options.ini.safety-copy') }
   $man = [ordered]@{ kit = $KitVersion; created = $stamp; game = $game; entries = $entries }
   [System.IO.File]::WriteAllText((Join-Path $bdir 'manifest.json'), ($man | ConvertTo-Json -Depth 5), $utf8)
+  if ($kitLog.Count) { [System.IO.File]::AppendAllText((Join-Path $bdir 'kit.log'), (($kitLog -join "`r`n") + "`r`n"), $utf8); foreach ($l in $kitLog) { Say "  kit log: $l" } }
   try {
     foreach ($p in $todo) {
       [void](New-Item -ItemType Directory -Force -Path (Split-Path -Parent $p.target))
@@ -1108,7 +1136,11 @@ function RestoreBackup([string]$bdir) {
   $ok = $true
   foreach ($e in @($man.entries)) {
     try {
-      if ($e.existed) { Copy-Item -LiteralPath (Join-Path $bdir $e.backup) -Destination $e.target -Force; Say "  restored: $($e.target)" }
+      if ($e.existed) {
+        Copy-Item -LiteralPath (Join-Path $bdir $e.backup) -Destination $e.target -Force
+        # a moved file (kit e7: movedSha) must come back byte for byte
+        if ($e.movedSha -and (Sha $e.target) -ne $e.movedSha) { $ok = $false; Say "  restored but sha differs: $($e.target)" 'Red' } else { Say "  restored: $($e.target)" }
+      }
       elseif (Test-Path -LiteralPath $e.target) {
         # only remove a file this kit put there and nobody changed since
         if ((Sha $e.target) -eq $e.installedSha) { Remove-Item -LiteralPath $e.target -Force; Say "  removed: $($e.target)" } else { Say "  kept (changed since the install): $($e.target)" 'Yellow' }
@@ -1249,6 +1281,16 @@ function SelfTest {
     Check ((PeInfo $tmp).sections -eq '.ooa EB4000+2712') 'exe header: section table read back (name va+size)'
     [BitConverter]::GetBytes([uint32]0x11111111).CopyTo($b, 0x88); [System.IO.File]::WriteAllBytes($tmp, $b)
     Check ((PeInfo $tmp).edition -eq 'unknown build') 'exe header: unknown timestamp stays unknown' } finally { Remove-Item -LiteralPath $tmp -Force }
+  $tb = Join-Path ([System.IO.Path]::GetTempPath()) "ts3kit-selftest-turbo-$PID"
+  try {
+    [void](New-Item -ItemType Directory -Force -Path $tb)
+    Check (@(TurboFiles $tb).Count -eq 0) 'Turbo: nothing listed without Turbo.asi'
+    Set-Content -LiteralPath (Join-Path $tb 'Turbo.txt') -Value 'Turbo = 2018'
+    Check (@(TurboFiles $tb).Count -eq 0) 'Turbo: a config file alone is left alone'
+    Set-Content -LiteralPath (Join-Path $tb 'turbo.ASI') -Value 'fake turbo'
+    $tf = @(TurboFiles $tb)
+    Check ($tf.Count -eq 2 -and $tf[0].turbo -and -not $tf[0].known -and $tf[1].target -like '*Turbo.txt') 'Turbo: asi (any case, unknown sha) + its config listed for the move'
+  } finally { Remove-Item -LiteralPath $tb -Recurse -Force -ErrorAction SilentlyContinue }
   Check ((@('Sims 3 Backup', 'The Sims 3 Backup', 'The Sims 3 - Copy', 'The Sims 3 (2)', 'The Sims 3 old', 'Copia de The Sims 3', 'The Sims 3 bak') | Where-Object { -not (IsCopyName $_) }).Count -eq 0 -and
     (@('The Sims 3', 'Die Sims 3', 'Sims 3', 'The Sims 3 Gold') | Where-Object { IsCopyName $_ }).Count -eq 0) 'copy / backup folder names'
   $fx = Join-Path ([System.IO.Path]::GetTempPath()) "ts3kit-selftest-$PID"

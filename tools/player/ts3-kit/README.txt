@@ -1,4 +1,4 @@
-TS3 kit 1120.e6: ts3native TEST BUILD for the EA app (TS3.exe 1.69) + diagnostic tool
+TS3 kit 1121.e7: ts3native TEST BUILD for the EA app (TS3.exe 1.69) + diagnostic tool
 =====================================================================================
 
 What is in this kit
@@ -15,6 +15,8 @@ What is in this kit
 The installer only accepts the EA app 1.69 exe (Game\Bin\TS3.exe, PE timestamp 6707155C; image size 0xEB5000 or larger).
 It writes Game\Bin\ts3native.asi, Game\Bin\ts3native.ini and Documents\Electronic Arts\The Sims 3\Mods\Packages\
 ts3fixes.package (it picks the user folder the game uses, also when Documents is in OneDrive), after a backup.
+It moves TS3 Turbo Engine (Game\Bin\Turbo.asi and its Turbo.txt / Turbo.ini) into that backup folder, never deletes
+it (it hooks thread creation before ts3native, so ts3native's thread stack fix switches off); uninstall puts it back.
 TS3.exe and Options.ini are never changed. The diagnose option never changes anything; it masks your Windows user
 name, computer name and home folder in the zip.
 

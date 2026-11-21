@@ -103,12 +103,15 @@ namespace Ts3Fixes
             ApplyErrorTrapSpread(false);
             ApplyPortalAdaptorLeak();
             ApplyCasGrid();
+            ApplySwapInvokeDiag();  // SwapInvokeDiag.cs, docs/312 (load-time tuning kSwapInvokeDiag)
             ApplySpatialCache();
             ApplyFewerPlans();
             ApplyCandidateLoops();
             ApplyUnseenTraffic();  // docs/855: npccarexit's hook; unseentraffic lives in ParkingSpotHook / TrafficReleaseHook
             // festivalhidden (FestivalHidden.cs, docs/856), default ON: out-of-season festival objects stay out of autonomy's map
             Patch(typeof(GameObject), "UpdateCommodityInteractionMap", Type.EmptyTypes, typeof(FestivalHiddenHook), "CimHook", "CimOrig");
+            // commodmapfast / commodmapshadow (CommodMapFast.cs, docs/313), default off: exact one-pass RemoveObject
+            Patch(typeof(Sims3.Gameplay.Autonomy.CommodityInteractionMap), "RemoveObject", new Type[] { typeof(Sims3.Gameplay.Interfaces.IGameObject) }, typeof(CmfHook), "RemoveHook", "RemoveOrig");
             ApplyRefTable();
             ApplyCachedReflection();
             ApplyUiCaches();
@@ -782,6 +785,7 @@ namespace Ts3Fixes
         // [2079] dreamnodedeadsim (DeadSimHolders.cs): EA dream nodes' owner-less trigger listeners removed whose node's Sim object is gone.
         // [2080] overwatchdeadsim (DeadSimHolders.cs): NRaas Overwatch stuck-check entries removed whose last interaction's Sim object is gone.
         // [934-935] dreamnodedeadsim / overwatchdeadsim (DeadSimHolders.cs): listeners / entries kept by the household rule (owner household, selected or unknown scope).
+        // [1496-1499] swapinvokediag (SwapInvokeDiag.cs, docs/312): TargetException out of MethodInfo.Invoke on a method we swapped / other exception from one / TargetException from a method we did not swap / lines not written.
         // [945-947] boatgetoutdiag (BoatGetOutDiag.cs, docs/257 §7): Boat.GetOut calls watched / SittingInBoat replaced by another task during the fade / NullReferenceException out of a watched GetOut (rethrown).
         // [953-954] boatgetoutguard (BoatGetOutDiag.cs, docs/257 §9): stale-posture NullReferenceExceptions out of Boat.GetOut swallowed for NPCs (Sim reset) / kept by the household rule (household, selected or unknown scope; EA's error stays).
         // [937] boatparkgone (BoatParkGone.cs, docs/257): BoatOwnable.Park calls skipped because the boat was already destroyed (no RoutingComponent; EA would throw).
@@ -1560,6 +1564,7 @@ namespace Ts3Fixes
         // game's call (actor / other Sim out of scope, not indoor, seq overflow), errors, verify checks, differences, reorder-only differences
         // [1376-1377] bouncermemo (RouteSources.cs, docs/801): townie bouncer WatchDoor loops skipped / routed
         // [1370-1373] festivalhidden (FestivalHidden.cs, docs/856): see the list there.
+        // [1500-1507] commodmapfast / commodmapshadow (CommodMapFast.cs, docs/313): see the list there.
         // [1328-1344] spawnfix / spawnoffworld (SpawnFix.cs, docs/857): see the list there.
         // [1301-1327] unseentraffic (1301-1315) + npccarexit (1316-1327) (UnseenTraffic.cs, docs/855): see the list there.
         // [1292-1300] trip arrivals (Fixes.cs, docs/804): visitarrive [1292] visits that arrived after the shortcut without a route;
@@ -2035,6 +2040,8 @@ namespace Ts3Fixes
                 case "gigwaitleave": return Instantiator.kGigWaitLeave;
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "festivalhidden": return Instantiator.kFestivalHidden;
+                case "commodmapfast": return Instantiator.kCommodMapFast;
+                case "commodmapshadow": return Instantiator.kCommodMapShadow;
                 case "trainboost": return Instantiator.kTrainBoost;
                 case "tagunseen": return Instantiator.kTagUnseen;
                 case "eatoutsidecount": return Instantiator.kEatOutsideCount;
@@ -2537,6 +2544,7 @@ namespace Ts3Fixes
                 case "spawncapprobe": case "routelen": return false;  // diagnostics only (SpawnCap.cs, RouteLen.cs)
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
+                case "swapinvokediag": return Instantiator.kSwapInvokeDiag;  // diagnostics only, off (SwapInvokeDiag.cs, docs/312)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
                 case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
                 case "unseenoutfitnospin": return Instantiator.kUnseenOutfitNoSpin;

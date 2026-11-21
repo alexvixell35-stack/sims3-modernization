@@ -27,6 +27,7 @@ namespace Ts3Agent
             Dispatcher.Register("cas_open", CasOpen);
             Dispatcher.Register("cas_category", CasCategory);
             Dispatcher.Register("cas_close", CasClose);
+            Dispatcher.Register("cas_click", CasClick);
             Dispatcher.Register("cas_state", CasState);
             Dispatcher.Register("cas_bench", CasBench);
             Dispatcher.Register("buy_open", BuyOpen);
@@ -360,6 +361,42 @@ namespace Ts3Agent
                 m.RequestClearChangeReport();
                 ctl.Shutdown(); // = SetCurrentState(CASState.None): CASModel.Done -> ClosingDown -> Quit -> GameStates.ReturnFromCAS
             }, delegate { return SubState() == "LiveModeState"; }, null, 180000);
+        }
+
+        // cas_click {button: tops|bottoms|shoes|outfits|accessories|design|save|sort, key: left|right}: what a player's click on
+        // a CASClothingCategory button sends, through the game's own UI entry UIManager.ProcessEvent: MouseDown (event 6, arg1 =
+        // mouse key), then for the left key Click (kEventButtonClick 678582774). Every handler on the button runs, EA's and other
+        // mods' (NRaas MasterController adds a MouseDown handler to the type buttons). A left click on the type already selected
+        // opens the designer (Create-a-Style, CASClothingCategory activateDesigner), as in play. Repro cas-targetexc-check.
+        static object CasClick(Args a)
+        {
+            if (!CasUp()) throw new McpException("CAS is not open (state " + SubState() + ")");
+            WindowBase cc = Panel(typeof(CASClothingCategory)) as WindowBase;
+            if (cc == null || !cc.Visible) throw new McpException("no clothing panel shown (cas_category everyday first)");
+            string b = a.Str("button").Trim().ToLowerInvariant();
+            if (b.Length == 0) throw new McpException("button missing");
+            FieldInfo f = typeof(CASClothingCategory).GetField("m" + char.ToUpperInvariant(b[0]) + b.Substring(1) + "Button", kPriv);
+            Button btn = f != null ? f.GetValue(cc) as Button : null;
+            if (btn == null) throw new McpException("no button '" + b + "' on the clothing panel");
+            bool right = a.Str("key", "left").Trim().ToLowerInvariant() == "right";
+            MethodInfo pe = typeof(UIManager).GetMethod("ProcessEvent", kPriv | BindingFlags.Public);
+            if (pe == null) throw new McpException("UIManager.ProcessEvent not found");
+            Dictionary<string, object> r = Util.Obj();
+            r["button"] = b;
+            r["key"] = right ? "right" : "left";
+            r["mouse_down"] = CasSend(pe, btn, 6u, (int)(right ? MouseKeys.kMouseRight : MouseKeys.kMouseLeft));
+            if (!right) r["click"] = CasSend(pe, btn, 678582774u, 0);
+            r["designer"] = CASCompositorController.Instance != null && CASCompositorController.Instance.Visible;
+            return r;
+        }
+
+        // One event into UIManager.ProcessEvent(handle, type, src, dst, arg1, ref arg2, arg3, f1-f4, ref result, text): true = a handler ran.
+        static object CasSend(MethodInfo pe, WindowBase w, uint type, int arg1)
+        {
+            object h = typeof(WindowBase).GetProperty("WinHandle", kPriv | BindingFlags.Public).GetValue(w, null);  // internal
+            object[] args = { h, type, w, w, arg1, 0, 0, 0f, 0f, 0f, 0f, false, null };
+            try { return pe.Invoke(null, args); }
+            catch (TargetInvocationException e) { return "threw " + (e.InnerException != null ? e.InnerException.GetType().Name + ": " + e.InnerException.Message : e.Message); }
         }
 
         // cas_state: in-world state, CAS tab, Buy catalog, whether a timing is running, and all recorded timings.

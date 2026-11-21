@@ -954,6 +954,67 @@ static bool ApplySlaveLink(const wchar_t* ini) {
     return keep;
 }
 
+// [EaCrashFixes] VbFreeDelayMs (docs/67 §44, default 0 = off, Steam 1.67 only): EA use after free of a vertex buffer wrapper.
+// 0xA85DF0 releases the wrapper at +0x70 of its owner (0xEC17A0, last ref: deleting dtor 0x61A410 / 0x61A340, then free
+// 0x4E3F70) while a queued draw item still runs the draw callback 0xA84D00 with the old pointer (VbGuard caught it 23-894 ms
+// after the release, same thread). Freed memory reused = Device_SetStreamSource 0x60F020 hands garbage to the device (the
+// bridge crashes at d3d9.dll+0x3A91D / +0x2789B). Fix: the two deleting dtors run without their free; the wrapper (base
+// vtable, D3D VB +0x14 = 0, the game's own released state) is freed VbFreeDelayMs later, so a late draw binds a NULL stream,
+// as the not yet reused memory already did in the caught cases. Its refcount is pinned high so a late Release cannot free it twice.
+#ifndef TS3A_TABLE
+static const DWORD kVqDelA = 0x0061A340, kVqDelB = 0x0061A410, kVqFree = 0x004E3F70;
+static const u8 kVqPro[] = {0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x7E, 0x08};  // push esi ; mov esi,ecx ; push edi ; lea edi,[esi+8]
+typedef void*(__fastcall* VqDelFn)(u8* self, void* edx, DWORD flags);
+static VqDelFn g_vqOrig[2];
+static const DWORD kVqCap = 8192;
+static u8* g_vqPtr[kVqCap];
+static DWORD g_vqTick[kVqCap], g_vqHead, g_vqN, g_vqMs;
+static SRWLOCK g_vqLock = SRWLOCK_INIT;
+static volatile LONG g_vqForced;
+static void VqPush(u8* self) {
+    *(volatile LONG*)(self + 4) = 0x40000000;  // refcount (0xEC17A0 left 1): a late Release never reaches 0
+    u8* due[16];
+    int n = 0;
+    const DWORD now = GetTickCount();
+    AcquireSRWLockExclusive(&g_vqLock);
+    while (g_vqN && n < 16 && (now - g_vqTick[g_vqHead] >= g_vqMs || g_vqN == kVqCap)) {
+        if (g_vqN == kVqCap && InterlockedIncrement(&g_vqForced) == 1) Log("ea fix: VbFreeDelay: queue full (%lu), freeing early", kVqCap);
+        due[n++] = g_vqPtr[g_vqHead], g_vqHead = (g_vqHead + 1) % kVqCap, g_vqN--;
+    }
+    const DWORD t = (g_vqHead + g_vqN) % kVqCap;
+    g_vqPtr[t] = self, g_vqTick[t] = now, g_vqN++;
+    ReleaseSRWLockExclusive(&g_vqLock);
+    for (int i = 0; i < n; i++) ((void(__cdecl*)(void*))kVqFree)(due[i]);
+}
+static void* __fastcall VqDelA(u8* self, void* edx, DWORD flags) {
+    void* r = g_vqOrig[0](self, edx, flags & ~1u);
+    if (flags & 1) VqPush(self);
+    return r;
+}
+static void* __fastcall VqDelB(u8* self, void* edx, DWORD flags) {
+    void* r = g_vqOrig[1](self, edx, flags & ~1u);
+    if (flags & 1) VqPush(self);
+    return r;
+}
+static bool ApplyVbFreeDelay(const wchar_t* ini) {
+    g_vqMs = GetPrivateProfileIntW(L"EaCrashFixes", L"VbFreeDelayMs", 0, ini);
+    if (!g_vqMs) return false;
+    if (g_vqMs > 10000) g_vqMs = 10000;
+    g_vqOrig[0] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A340", kVqDelA, kVqPro, sizeof(kVqPro), (void*)VqDelA, &g_vqOrig[0]);
+    g_vqOrig[1] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A410", kVqDelB, kVqPro, sizeof(kVqPro), (void*)VqDelB, &g_vqOrig[1]);
+    const bool ok = g_vqOrig[0] && g_vqOrig[1];
+    Log("%s ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed %lu ms after their destructor (late draw 0xA84D00 binds NULL, "
+        "not reused memory)", ok ? "OK  " : "PARTIAL", g_vqMs);
+    return ok;
+}
+#else
+static bool ApplyVbFreeDelay(const wchar_t* ini) {  // EA 1.69: the VB wrapper dtor sites are unmapped
+    if (GetPrivateProfileIntW(L"EaCrashFixes", L"VbFreeDelayMs", 0, ini))
+        Log("SKIP ea fix: VbFreeDelay (docs/67 §44): Steam 1.67 only, no EA 1.69 rows: not installed");
+    return false;
+}
+#endif
+
 static bool ApplyEaCrashFixes(const wchar_t* ini) {
     bool keep = ApplyConformActor(ini);
     ApplyThumbPose(ini);
@@ -963,6 +1024,7 @@ static bool ApplyEaCrashFixes(const wchar_t* ini) {
     keep = ApplyGeomNoMaterial(ini) || keep;
     keep = ApplyMintDivGuard(ini) || keep;
     keep = ApplySlaveLink(ini) || keep;
+    keep = ApplyVbFreeDelay(ini) || keep;
 #ifdef TS3N_EA_PORT
     keep = ApplySimNoTexture(ini) || keep;
     keep = ApplySimNoTextureAtlas(ini) || keep;

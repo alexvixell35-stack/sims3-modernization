@@ -105,6 +105,14 @@ static int g_jitRowN = kJitRowN;
 static bool g_jitYRows;
 static const JitRow* g_jitYRowP = kJitYRows;
 static int g_jitYRowCnt = kJitYRowN;
+// docs/537 §34, default 0: [MonoJit] CoreModMatch=1 also accepts a listed method whose IL equals a row's body up to metadata token
+// numbers (monojit-norm.h): the core mods' re-emitted Sims3GameplaySystems / ScriptCore. The exact hash stays the first check.
+static bool g_jitCoreMod;
+static const JitRow* g_jitNormRows = kJitNormRows;  // the token-normalized hashes of kJitRows / kJitYRows (same generator run)
+static int g_jitNormRowN = kJitNormRowN;
+static const JitRow* g_jitYNormRows = kJitYNormRows;
+static int g_jitYNormRowN = kJitYNormRowN;
+static LONG g_jitNormHits;  // methods let through by the normalized hash (the refusal summary line); under g_jitCs
 // ts3fixes' body swaps (Fixes.SwapMethod keeps each method's own name) move EA's body of a Y key into the hook's stub, on the key's
 // class: with motivemultonce (docs/589 B11 §2, default on) EA's UpdateMotiveWithDecay runs as Motive.DecayOrig and the key name never
 // transforms (hotres2 BP 1117: no Motive line, jitHotKB 1800 to the end). The IL hash still has to be EA's.
@@ -400,12 +408,15 @@ static_assert(sizeof(JitEnt) == 16 && offsetof(JitEnt, native) == 4 && offsetof(
 // methods, positions (24 a method, R1's ratio), lazy cells and guard sites at install; the ip table is sized for the largest cap
 // (JitEnter's mask is an immediate). Table grow (docs/537 §30): 4096 was full in every jit-bundle-ab-1113 ON run (jitMethods 4096,
 // jitTableFull 1147-1435 in 10 min: each closed generic type is its own runtime method), so the cap is 8192 and the ip table 2^18.
-// shortcut: MaxMethods tops out at 8192, a larger cap needs a 2^19 ip table (+4 MB).
-static const DWORD JIT_TAB_N = 1 << 18;  // JitEnter's mask
-static const int JIT_METH_MAX = 8192, JIT_METH_OLD = 2048, JIT_POS_PER = 24, JIT_MAX_POS = 4000, JIT_MAX_WORDS = 16384;
+// kit k2 (docs/537 §34.5): a core-mod tester filled 12285 of 12288 KB with 8059 methods (1555 refused), so the ip table is 2^19
+// (+4 MB, always committed while the jit is on) and MaxMethods goes to 16384; the default stays 8192 (JIT_METH_DEF).
+static const DWORD JIT_TAB_N = 1 << 19;  // JitEnter's mask
+static const int JIT_METH_DEF = 8192;    // [MonoJit] MaxMethods when the ini does not set it
+static const int JIT_METH_MAX = 16384, JIT_METH_OLD = 2048, JIT_POS_PER = 24, JIT_MAX_POS = 4000, JIT_MAX_WORDS = 16384;
 static int g_jitMethCap = JIT_METH_MAX, g_jitPosCap = JIT_METH_MAX * JIT_POS_PER;  // [MonoJit] MaxMethods in force (JitAlloc)
 static size_t g_jitCodeBytes = 2 << 20;  // [MonoJit] CodeKB (JitCodeBytes); the selftest keeps 2 MB
-static const int JIT_REF_REASONS = 16, JIT_REF_NAMES = 32;  // R1: refusal reasons tracked, names logged per reason
+// R1: refusal reasons tracked, names logged per reason (32 until docs/537 §34: a tester's core-mod log hid the hot names past 32)
+static const int JIT_REF_REASONS = 16, JIT_REF_NAMES = 256;
 struct JitRefWhy { const char* why; LONG n; };
 static JitRefWhy g_jitRefWhy[JIT_REF_REASONS];  // under g_jitCs
 static int g_jitRefWhyN;
@@ -1348,7 +1359,12 @@ static const char* JitHotHeld(const char* why) {  // a general body refused for 
     return why;
 }
 static const char* JitCompile(u8* rm) {
-    if (g_jitMethN >= g_jitMethCap) return ts3native_counters.jitTableFull++, "method table full";
+    if (g_jitMethN >= g_jitMethCap) {
+        static bool logged;  // docs/537 §34: say once what fills it and what to change (the refusal lines name only the methods)
+        if (!logged) logged = true, Log("jit: the method table is full at %d methods (MaxMethods=%d, CodeKB=%ld): every closed generic type is its own method, load-time methods count too; later methods stay interpreted. MaxMethods=8192 with CodeKB=12288 holds the measured ~5.7k (docs/537 §30)",
+                                        g_jitMethN, g_jitMethCap, ts3native_counters.jitRegionKB);
+        return ts3native_counters.jitTableFull++, "method table full";
+    }
     const bool hotHold = JitHotHold();  // docs/537 §32: a general body leaves the Y rows' room alone (until the deadline)
     if (hotHold && g_jitMethN >= g_jitMethCap - g_jitHotPend) return JitHotHeld("method table full (HotReserve)");
     if (g_jcn) g_jcn->meth = g_jitMethN;  // count mode: the index this method gets if it compiles
@@ -2084,6 +2100,45 @@ static void JitFrBan(JitMeth& m) {
     if (!m.dead) m.dead = true, JitPatchMeth(m, false), JitLazyOff(m.rm);
     if (!JitFrBanned(m.name) && g_jitFrBadN < 32) strcpy_s(g_jitFrBad[g_jitFrBadN++], m.name);
 }
+// The images whose faults can be a compiled body's helper: TS3W.exe (EA's helpers), MSVCR80, this module (JitFrInstall). A
+// first-chance fault in any other module, such as ApexRadiance.asi, which probes pointers and catches its own AVs (thousands per
+// session), belongs to that module: a return address into the region further up the stack does not make the body the cause, so
+// such a fault is never touched and the method stays on (docs/537 §29a). Counted; the tick names the first one's module.
+static DWORD g_jitFrImg[3][2];
+static volatile LONG g_jitFrForeignN;
+static volatile LONG g_jitFrForeignEip;
+static bool JitFrOwnImage(DWORD eip) {
+    for (int i = 0; i < 3; i++) if (eip >= g_jitFrImg[i][0] && eip < g_jitFrImg[i][1]) return true;
+    return false;
+}
+static void JitFrImgRange(HMODULE m, DWORD* r) {
+    if (!m) return;
+    const u8* b = (const u8*)m;
+    r[0] = (DWORD)(uintptr_t)b, r[1] = r[0] + ((const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew))->OptionalHeader.SizeOfImage;
+}
+// the tick's line (not the handler: module lookups take the loader lock): every 5 min while the count grows
+static void JitFrForeignTick() {
+    static DWORD last;
+    static LONG logged;
+    const DWORD now = GetTickCount();
+    const LONG n = g_jitFrForeignN;
+    if (!n || n == logged || (last && now - last < 300000)) return;
+    last = now, logged = n;
+    const DWORD eip = (DWORD)g_jitFrForeignEip;
+    HMODULE m = NULL;
+    wchar_t w[MAX_PATH] = L"?";
+    char nm[MAX_PATH] = "?";
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)(uintptr_t)eip, &m) && m &&
+        GetModuleFileNameW(m, w, MAX_PATH)) {
+        const wchar_t* b = w;
+        for (const wchar_t* q = w; *q; q++) if (*q == L'\\' || *q == L'/') b = q + 1;
+        int i = 0;
+        for (; b[i] && i < MAX_PATH - 1; i++) nm[i] = (char)b[i];
+        nm[i] = 0;
+    }
+    Log("jit: foreign faults left alone: %ld first-chance faults in other modules with a compiled body further up the stack, first at %s+0x%lX (docs/537 §29a)",
+        n, nm, m ? eip - (DWORD)(uintptr_t)m : eip);
+}
 // shortcut: no g_jitCs here (a compile on another thread could race the ban); compiles run on the sim thread, the faulting one
 static LONG CALLBACK JitFrVeh(EXCEPTION_POINTERS* x) {
     const DWORD code = x->ExceptionRecord->ExceptionCode;
@@ -2108,6 +2163,10 @@ static LONG CALLBACK JitFrVeh(EXCEPTION_POINTERS* x) {
             }
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
         if (!m) return EXCEPTION_CONTINUE_SEARCH;  // not ours: untouched
+        if (!JitFrOwnImage(eip)) {  // another module's own first-chance fault: untouched, the method stays on
+            if (InterlockedIncrement(&g_jitFrForeignN) == 1) InterlockedExchange(&g_jitFrForeignEip, (LONG)eip);
+            return EXCEPTION_CONTINUE_SEARCH;
+        }
     }
     const JitEnt* at = NULL;
     const char* why = !m ? "no compiled method there (a shared stub)"
@@ -2139,6 +2198,11 @@ static LONG CALLBACK JitFrVeh(EXCEPTION_POINTERS* x) {
 }
 static void JitFrInstall(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"MonoJit", L"FaultRecover", 1, ini)) return;
+    {
+        HMODULE self = NULL;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)(void*)JitFrOwnImage, &self);
+        JitFrImgRange(GetModuleHandleW(NULL), g_jitFrImg[0]), JitFrImgRange(GetModuleHandleW(L"msvcr80.dll"), g_jitFrImg[1]), JitFrImgRange(self, g_jitFrImg[2]);
+    }
     if (!(g_jitFrVeh = AddVectoredExceptionHandler(1, JitFrVeh))) { Log("SKIP mono jit FaultRecover: AddVectoredExceptionHandler (err %lu)", GetLastError()); return; }
     g_jitFrOn = true, ts3native_counters.frOn = 1;
     wchar_t w[96] = L"";
@@ -2158,7 +2222,7 @@ static __declspec(naked) void JitEnter() {
     __asm {
         mov eax, edi
         shr eax, 1
-        and eax, 0x3FFFF           // JIT_TAB_N - 1
+        and eax, 0x7FFFF           // JIT_TAB_N - 1
         shl eax, 4
         add eax, g_jitTab
     probe:
@@ -2914,6 +2978,19 @@ static bool JitHashKnown(const char* full, const char* mn, DWORD size, const BYT
     }
     return false;
 }
+#include "monojit-norm.h"  // docs/537 §34: JnNormSha, JnImageBytes
+// docs/537 §34 [MonoJit] CoreModMatch: the body's token-normalized hash is a row's (same name rule as JitHashKnown)
+static bool JitNormKnown(const char* full, const BYTE* mm, const BYTE* code, DWORD size) {
+    const BYTE* b;
+    DWORD n;
+    BYTE sha[32];
+    if (!g_jitCoreMod || !JnImageBytes(mm, &b, &n) || !JnNormSha(b, n, code, size, sha)) return false;
+    for (int i = 0; i < g_jitNormRowN; i++)
+        if (g_jitNormRows[i].size == size && !memcmp(g_jitNormRows[i].sha, sha, 32) && JitEndsWith(full, g_jitNormRows[i].key)) return true;
+    for (int i = 0; g_jitYRows && i < g_jitYNormRowN; i++)
+        if (g_jitYNormRows[i].size == size && !memcmp(g_jitYNormRows[i].sha, sha, 32) && JitYEnds(full, g_jitYNormRows[i].key)) return true;
+    return false;
+}
 // NULL = compiled or nothing to do; else why not (name and note filled)
 static const char* JitOne(BYTE* rm, void* ctx, char* name, int nameN, char* note, int noteN) {
     if (!*(void**)rm) return NULL;
@@ -2934,9 +3011,12 @@ static const char* JitOne(BYTE* rm, void* ctx, char* name, int nameN, char* note
     BYTE sha[32];
     if (!code || !size || size > (1u << 20) || !IlpSha256(code, size, sha)) return "no readable IL body";
     if (!JitHashKnown(name, *(const char* const*)(mm + 0x18), size, sha)) {
-        char hex[17];
-        sprintf_s(note, noteN, " (%lu bytes, sha256 %s...)", size, IlpHex(sha, 8, hex));
-        return "the IL hash is not a known one";
+        if (!JitNormKnown(name, mm, code, size)) {
+            char hex[17];
+            sprintf_s(note, noteN, " (%lu bytes, sha256 %s...)", size, IlpHex(sha, 8, hex));
+            return "the IL hash is not a known one";
+        }
+        if (++g_jitNormHits <= JIT_REF_NAMES) Log("jit: %s matched by the token-normalized IL hash (%lu bytes, CoreModMatch, docs/537 §34)", name, size);
     }
     g_jitClauseOk = rm[0x41] && JitClauseAllowed(name, size, sha);
     g_jitDomain = ctx ? *(void**)ctx : NULL;
@@ -2957,6 +3037,12 @@ static int JitRefSlot(const char* why) {
     while (r < g_jitRefWhyN && strcmp(g_jitRefWhy[r].why, why)) r++;
     return r;
 }
+static const char* JitNormNote() {  // docs/537 §34: the summary's tail with CoreModMatch=1 (empty without, so old regexes still match)
+    static char s[64];
+    if (!g_jitCoreMod) return "";
+    sprintf_s(s, "; %ld matched by the normalized hash", g_jitNormHits);
+    return s;
+}
 // one line: every reason with its count, the region and the "code region full" bound; under g_jitCs
 static void JitRefSummary(const char* when) {
     char line[1024];
@@ -2966,8 +3052,8 @@ static void JitRefSummary(const char* when) {
         n = k < 0 ? -1 : n + k;
     }
     const Ts3nCounters& C = ts3native_counters;
-    Log("%s%s; code region %lu of %ld KB, %d methods, %ld refused \"code region full\" asking %ld KB", line, g_jitRefWhyN ? "" : " none",
-        (unsigned long)(g_jitCodeUsed >> 10), C.jitRegionKB, g_jitMethN, C.jitFullN, C.jitFullBytes >> 10);
+    Log("%s%s; code region %lu of %ld KB, %d methods, %ld refused \"code region full\" asking %ld KB%s", line, g_jitRefWhyN ? "" : " none",
+        (unsigned long)(g_jitCodeUsed >> 10), C.jitRegionKB, g_jitMethN, C.jitFullN, C.jitFullBytes >> 10, JitNormNote());
 }
 // docs/537 §32: a Y key is settled once compiled or refused for any reason but "another thread" (a later transform can still come);
 // the reserve goes back to general compiles when every Y key is settled. Under g_jitCs.
@@ -3025,7 +3111,7 @@ static void __cdecl JitPostPass(BYTE* rm, void* ctx) {
     }
     LeaveCriticalSection(&g_jitCs);
 }
-static size_t JitCodeBytes(int kb) { return (size_t)(kb < 1024 ? 1024 : kb > 16384 ? 16384 : kb) << 10; }  // [MonoJit] CodeKB, 1-16 MB
+static size_t JitCodeBytes(int kb) { return (size_t)(kb < 1024 ? 1024 : kb > 24576 ? 24576 : kb) << 10; }  // [MonoJit] CodeKB, 1-24 MB (kit k2)
 // End of every Simulate iteration (sim thread): names the sim thread, applies jitSwitch
 static void __cdecl JitTick() {
     if (!g_jitSimTid) {
@@ -3041,6 +3127,7 @@ static void __cdecl JitTick() {
         if (first || ts3native_counters.jitRefused != g_jitRefLogged) JitRefSummary(first ? "first tick" : "save"), g_jitRefLogged = ts3native_counters.jitRefused;
         LeaveCriticalSection(&g_jitCs);
     }
+    if (g_jitFrOn) JitFrForeignTick();
     const bool on = ts3native_counters.jitSwitch != 0;
     if (on != g_jitPatched) JitSetPatched(on);
     if (g_jitTrap) JitTrapTick();
@@ -3104,7 +3191,8 @@ static bool JitAlloc(int cap = JIT_METH_MAX) {
     return true;
 }
 static_assert(JIT_METH_MAX * JIT_POS_PER <= (int)(JIT_TAB_N * 3 / 4), "the ip table stays under 3/4 full");
-static int JitMaxMethods(int n) { return n < 512 ? 512 : n > JIT_METH_MAX ? JIT_METH_MAX : n; }  // [MonoJit] MaxMethods, 512-8192
+static_assert(JIT_TAB_N - 1 == 0x7FFFF, "JitEnter's and-mask immediate is JIT_TAB_N - 1");
+static int JitMaxMethods(int n) { return n < 512 ? 512 : n > JIT_METH_MAX ? JIT_METH_MAX : n; }  // [MonoJit] MaxMethods, 512-16384
 // T4096: MaxMethods / CodeKB as asked, else R1's 2048 methods / 4096 KB (logged); false = neither fits
 static bool JitAllocOrFallback(int cap) {
     if (JitAlloc(cap)) return true;
@@ -3178,7 +3266,7 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     // R1, docs/537 §20.0; T4096 (§25): 4096 KB held only ~2100 Mode=1 bodies; §30: 12288 KB default (merge: ~5.5k bodies x ~1.7 KB = 9.4 MB, 25% headroom; max 16384), 8192 KB held 4096 Mode=1 bodies
     // (jit-bundle-ab-1113: 6944-6986 KB, ~1.7 KB a method) and ~3860 Mode=2 ones (jit-bundle-verify-1113: full at 8188 KB)
     g_jitCodeBytes = JitCodeBytes(GetPrivateProfileIntW(L"MonoJit", L"CodeKB", 12288, ini));
-    const int capWant = JitMaxMethods(GetPrivateProfileIntW(L"MonoJit", L"MaxMethods", JIT_METH_MAX, ini));
+    const int capWant = JitMaxMethods(GetPrivateProfileIntW(L"MonoJit", L"MaxMethods", JIT_METH_DEF, ini));
     if (!JitAllocOrFallback(capWant)) { Log("SKIP mono jit: no address space for the region (%lu KB)", (unsigned long)(g_jitCodeBytes >> 10)); return false; }
     C.jitRegionKB = (LONG)(g_jitCodeBytes >> 10), C.jitMethCap = g_jitMethCap;
     // docs/537 §27 [MonoJit] RetTeardown: the block takes the region's first page before any compile (RX from here on)
@@ -3248,6 +3336,8 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     JitFrInstall(ini);  // docs/537 §29
     g_jitMode = mode;
     JitHotInit(ini);  // docs/537 §32: its own line; the OK line stays as it is (queues read it)
+    if ((g_jitCoreMod = GetPrivateProfileIntW(L"MonoJit", L"CoreModMatch", 0, ini) != 0))  // docs/537 §34: its own line too
+        Log("OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, %d normalized rows + %d YRows, form jn1", g_jitNormRowN, g_jitYNormRowN);
     g_jitPatched = true;
     C.jitSwitch = 1;
     C.jitOn = mode;

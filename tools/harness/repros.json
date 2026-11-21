@@ -110369,6 +110369,155 @@
     ]
   },
   {
+    "id": "cas-targetexc-check",
+    "bug": "Player report 2026-11-20 (EA 1.69, CAS / Create-a-Style with NRaas MasterController, BetterCAS): 10 ScriptErrors TargetException 'Unable to invoke an invalid target.' with a one-frame stack (Type.get_HasElementType) from a CASLogic task and MasterController's CASClothingCategory OnButtonMouseDown handler; Mono's reflection Invoke refuses a method our swaps moved to the hook class (docs/312)",
+    "fix": "ts3fixes SwapInvokeDiag.cs: swapinvokediag (tuning kSwapInvokeDiag, load-time, default off; on in the diag package ts3fixes-on-kSwapInvokeDiag): logs who invokes a swapped method by reflection, with the managed stack. Diagnostic only, no fix yet",
+    "save": "Baseline-BP",
+    "note": "Needs the diag package (kSwapInvokeDiag True) and the ts3agent build with cas_click (cas-targetexc-1121). CAS on the active Sim's temporary copy, left through the discard path: no Sim changes. Clicks go through UIManager.ProcessEvent, so other mods' button handlers run as in play.",
+    "expect": "SwapInvokeDiagCheck: 'swapinvokediag check: OK' (every CAS swap throws TargetException on a reflection Invoke, invoke hook in, switch on, [1496] grew by the swap count, pure ok); ts3native.log has 'ts3fixes: swapinvokediag: TargetException' lines with 'swapinvokediag stack:' after each; cas_click results true / no 'threw'; designer true after the second tops click; 0 script errors",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swapinvokediag": true
+        },
+        "waitS": 1,
+        "note": "runtime switch on (the load-time tuning put the hook in)"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "note": "CAS on the active Sim, everyday",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "everyday"
+        },
+        "waitS": 15,
+        "note": "clothing panel"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwapInvokeDiagCheck"
+        },
+        "waitS": 2,
+        "note": "reflection Invoke on every swapped CAS method: expect OK"
+      },
+      {
+        "cmd": "cas_click",
+        "args": {
+          "button": "bottoms"
+        },
+        "waitS": 8,
+        "note": "type button (MouseDown + Click)"
+      },
+      {
+        "cmd": "cas_click",
+        "args": {
+          "button": "shoes"
+        },
+        "waitS": 8
+      },
+      {
+        "cmd": "cas_click",
+        "args": {
+          "button": "tops"
+        },
+        "waitS": 8
+      },
+      {
+        "cmd": "cas_click",
+        "args": {
+          "button": "tops",
+          "key": "right"
+        },
+        "waitS": 8,
+        "note": "right click (MasterController: random part)"
+      },
+      {
+        "cmd": "cas_click",
+        "args": {
+          "button": "tops"
+        },
+        "waitS": 15,
+        "note": "tops again = the designer (Create-a-Style, ObjectDesigner.SetCASPart)"
+      },
+      {
+        "cmd": "cas_state",
+        "waitS": 2
+      },
+      {
+        "cmd": "cas_click",
+        "args": {
+          "button": "bottoms"
+        },
+        "waitS": 10,
+        "note": "leave the designer by another type"
+      },
+      {
+        "cmd": "cas_click",
+        "args": {
+          "button": "bottoms"
+        },
+        "waitS": 15,
+        "note": "designer on bottoms"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SwapInvokeDiagCheck"
+        },
+        "waitS": 2,
+        "note": "again with the designer open: expect OK"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1,
+        "note": "counters 1496-1499"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "swapinvokediag": false
+        }
+      }
+    ],
+    "switches": [
+      "swapinvokediag"
+    ]
+  },
+  {
     "id": "errortraploop-check",
     "bug": "NRaas ErrorTrap ScriptCore re-runs a task after every handled error (OnScriptError true); a task that throws at once loops (af4 2026-11-17 LiteDriver NREs)",
     "fix": "ts3fixes ErrorTrapLoop.cs: errortraploop (default off)",
@@ -113548,6 +113697,312 @@
         "cmd": "patches",
         "args": {
           "doorshare": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "apex-buy-entry-stress",
+    "bug": "2026-11-21: Apex Radiance 4.0.13 + RTX Remix bridge crash 3-4 s after the first Buy-mode entry (2 of 3 tries of speedlock-modeswitch): AV inside the bridge client SetStreamSource (d3d9.dll+0x3A91D read 0x61, or a wild call from its D3DAutoPtr release at +0x27898), called from the game wrapper Device_SetStreamSource 0x60F020 with a gone VB wrapper or D3D VB (docs/67 §44)",
+    "fix": "none yet: detector [CrashForensics] VbGuard=1 (0.36.297-vbg1121b) names who freed the VB wrapper",
+    "save": "any world with an active household on a home lot (Baseline-BP)",
+    "note": "Live -> Buy -> live four times in one session (the harness test_env forces winter -> spring and snow -> sun just before, as in the crashed runs). Stress repro: stops at the first crash; the VB BAD / VB guard lines name the freer.",
+    "expect": "no crash; any VB BAD line = the catch",
+    "steps": [
+      {
+        "cmd": "cas_state",
+        "waitS": 1,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #1",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #1",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #2",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #2",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #3",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #3",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #4",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #4",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ]
+  },
+  {
+    "id": "commodmap-fast-check",
+    "bug": "CommodityInteractionMap.RemoveObject removes each pair of a moved object from each commodity list with List.Remove (one pair.Equals per element from the start): k pairs on a list of n cost ~k*n Equals chains; with ~1070 packages a mod moving many objects took 57 s / 13 s (docs/856 §4, I-566-1)",
+    "fix": "ts3fixes CommodMapFast.cs: commodmapfast (exact one-pass removal per list) and commodmapshadow (plan + EA + compare), both default off, docs/313",
+    "save": "Baseline-BP",
+    "switches": [
+      "commodmapfast",
+      "commodmapshadow"
+    ],
+    "note": "Read-only: throwaway CommodityInteractionMaps filled with the real pairs of up to N world objects (+ Clone() copies for a mod-heavy load), disposed at the end; no object, lot map or Sim changes. Map A by EA rule per pair, map B by the batch plan; then maps C / D through the hooked RemoveObject in the arm mode. Answers carry EA vs batch ms per removal.",
+    "expect": "every run: 'verdict: EXACT'; shadow arm: 'hook path (shadow, N calls): same' and 'mismatches 1505=0'; fast arm: 'hook path (fast, N calls): same'; heavy run: batch ms below EA ms. 0 script errors.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "note": "read-only checks, paused"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "commodmapfast": false,
+          "commodmapshadow": false
+        },
+        "note": "off arm: EA",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CommodMapFastCheck",
+          "args": [
+            "run",
+            150,
+            4,
+            2
+          ]
+        },
+        "waitS": 2,
+        "note": "off: batch vs EA on throwaway maps, hook path = EA both sides",
+        "mustMatch": "verdict: EXACT"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "commodmapshadow": true
+        },
+        "note": "shadow arm",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CommodMapFastCheck",
+          "args": [
+            "run",
+            150,
+            4,
+            2
+          ]
+        },
+        "waitS": 2,
+        "note": "shadow: hooked RemoveObject compares plan and EA",
+        "mustMatch": "hook path (shadow, [1-9][0-9]* calls): same; verdict: EXACT"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CommodMapFastCheck",
+          "args": [
+            "result",
+            0,
+            0,
+            0
+          ]
+        },
+        "waitS": 2,
+        "note": "no mismatch, switch still live",
+        "mustMatch": "mismatches 1505=0, "
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "commodmapshadow": false,
+          "commodmapfast": true
+        },
+        "note": "fast arm",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CommodMapFastCheck",
+          "args": [
+            "run",
+            150,
+            4,
+            2
+          ]
+        },
+        "waitS": 2,
+        "note": "fast: hooked RemoveObject applies the plan",
+        "mustMatch": "hook path (fast, [1-9][0-9]* calls): same; verdict: EXACT"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CommodMapFastCheck",
+          "args": [
+            "run",
+            200,
+            6,
+            3
+          ]
+        },
+        "waitS": 2,
+        "note": "heavy (mod-heavy timing): 200 objects, 6 copies, every third removed",
+        "mustMatch": "verdict: EXACT"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CommodMapFastCheck",
+          "args": [
+            "result",
+            0,
+            0,
+            0
+          ]
+        },
+        "waitS": 2,
+        "note": "counters",
+        "mustMatch": "mismatches 1505=0, "
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "commodmapfast": false,
+          "commodmapshadow": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "commodmapfast": false,
+          "commodmapshadow": false
         }
       }
     ]

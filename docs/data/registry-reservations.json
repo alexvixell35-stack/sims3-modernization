@@ -9296,6 +9296,206 @@
       "what": "task seam + ModBudget inferences",
       "at": "2026-11-20T07:42:36.071Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\mod-seam-budget-1120"
+    },
+    {
+      "id": "ledger-557",
+      "kind": "ledger",
+      "from": 557,
+      "to": 557,
+      "by": "sims-3-modernization",
+      "what": "gc topdown region",
+      "at": "2026-11-20T09:34:20.381Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-309",
+      "kind": "doc",
+      "from": 309,
+      "to": 309,
+      "by": "render-r-1120",
+      "what": "lane R render/Apex-area items 1120",
+      "at": "2026-11-20T09:36:24.885Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-558",
+      "kind": "ledger",
+      "from": 558,
+      "to": 558,
+      "by": "render-r-1120",
+      "what": "lane R render/Apex-area static RE 1120",
+      "at": "2026-11-20T09:36:25.272Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-559",
+      "kind": "ledger",
+      "from": 559,
+      "to": 559,
+      "by": "laneg",
+      "what": "taskseam-ea",
+      "at": "2026-11-20T09:43:27.282Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\laneg-1120"
+    },
+    {
+      "id": "doc-310",
+      "kind": "doc",
+      "from": 310,
+      "to": 310,
+      "by": "laneg",
+      "what": "lane G gap measurements 1120",
+      "at": "2026-11-20T09:48:55.115Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-560",
+      "kind": "ledger",
+      "from": 560,
+      "to": 560,
+      "by": "laneg",
+      "what": "lane G gaps 1120",
+      "at": "2026-11-20T09:48:57.510Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-561",
+      "kind": "ledger",
+      "from": 561,
+      "to": 561,
+      "by": "bugfix/crash-report-every-job-1120",
+      "what": "c96-unlogged-crash-1120",
+      "at": "2026-11-20T11:34:01.089Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-562",
+      "kind": "ledger",
+      "from": 562,
+      "to": 562,
+      "by": "jit-coremod-1120",
+      "what": "jit-coremod-1120 CoreModMatch normalized IL hash",
+      "at": "2026-11-20T11:47:52.173Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-coremod-1120"
+    },
+    {
+      "id": "doc-311",
+      "kind": "doc",
+      "from": 311,
+      "to": 311,
+      "by": "jit-iopequals-1120",
+      "what": "jit-vslot-iopequals",
+      "at": "2026-11-20T13:09:45.185Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-iopequals-1120"
+    },
+    {
+      "id": "ledger-563",
+      "kind": "ledger",
+      "from": 563,
+      "to": 563,
+      "by": "jit-iopequals-1120",
+      "what": "jit-vslot-iopequals",
+      "at": "2026-11-20T13:09:45.507Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\jit-iopequals-1120"
+    },
+    {
+      "id": "ledger-564",
+      "kind": "ledger",
+      "from": 564,
+      "to": 564,
+      "by": "feature/exe-shape-gate-1120",
+      "what": "host gate by code: same link stamp = same code; unknown-stamp 90% anchor rule",
+      "at": "2026-11-20T15:07:43.931Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1494",
+      "kind": "fixes",
+      "from": 1494,
+      "to": 1495,
+      "by": "dalexlol-618-import",
+      "what": "firegreet FireGreet.cs greeted/errors (PR 618)",
+      "at": "2026-11-20T23:09:54.065Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-618-1121"
+    },
+    {
+      "id": "ledger-565",
+      "kind": "ledger",
+      "from": 565,
+      "to": 565,
+      "by": "apex-buy-vb-guard-1121",
+      "what": "Apex 4.0.13 Buy-mode bridge SetStreamSource crash",
+      "at": "2026-11-21T00:30:01.713Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\bugfix\\apex-buy-vb-guard-1121"
+    },
+    {
+      "id": "ledger-566",
+      "kind": "ledger",
+      "from": 566,
+      "to": 566,
+      "by": "coremod-kit2-1121",
+      "what": "festivalhidden hitch attribution + kit k2 JIT sizing (coremod-kit2-1121)",
+      "at": "2026-11-21T00:54:20.960Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\coremod-kit2-1121"
+    },
+    {
+      "id": "fixes-1496",
+      "kind": "fixes",
+      "from": 1496,
+      "to": 1499,
+      "by": "cas-targetexc-1121",
+      "what": "castargetdiag: reflection Invoke on swapped methods (TargetException ours / other exception ours / TargetException not ours / log lines dropped)",
+      "at": "2026-11-21T00:55:11.827Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\cas-targetexc-1121"
+    },
+    {
+      "id": "doc-312",
+      "kind": "doc",
+      "from": 312,
+      "to": 312,
+      "by": "cas-targetexc-1121",
+      "what": "CAS TargetException detector (castargetdiag), Eli 1120",
+      "at": "2026-11-21T00:55:12.272Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\cas-targetexc-1121"
+    },
+    {
+      "id": "ledger-567",
+      "kind": "ledger",
+      "from": 567,
+      "to": 567,
+      "by": "cas-targetexc-1121",
+      "what": "CAS TargetException (swapinvokediag), Eli 1120",
+      "at": "2026-11-21T01:07:28.575Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\cas-targetexc-1121"
+    },
+    {
+      "id": "fixes-1500",
+      "kind": "fixes",
+      "from": 1500,
+      "to": 1507,
+      "by": "commodmap-fast-1121",
+      "what": "commodmapfast (CommodMapFast.cs)",
+      "at": "2026-11-21T01:26:47.929Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-313",
+      "kind": "doc",
+      "from": 313,
+      "to": 313,
+      "by": "commodmap-fast-1121",
+      "what": "commodmapfast",
+      "at": "2026-11-21T01:26:48.349Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-568",
+      "kind": "ledger",
+      "from": 568,
+      "to": 568,
+      "by": "commodmap-fast-1121",
+      "what": "commodmapfast",
+      "at": "2026-11-21T01:26:48.709Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
     }
   ]
 }

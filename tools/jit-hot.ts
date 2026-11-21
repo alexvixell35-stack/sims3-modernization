@@ -12,13 +12,17 @@
 //      [MonoJit] built-in list, the compile rows of the csv with size and SHA-256 of every overload's IL body (docs/527 §4.2); overloads
 //      whose signature is in docs/data/binder-bodies.csv (EA native bodies, never run as mint in game) are left out (docs/537 §20.2 C2c);
 //      --alt <dll>: a core mod's copy of an assembly (simler90 UPDATE242): its Y-row bodies whose token-resolved IL equals EA's join kJitYRows (docs/537 §31.1)
+//      --norm-tool <selftest.exe> (default native/ts3native/out/selftest.exe): kJitNormRows / kJitYNormRows, the token-normalized hash of every
+//      row body ([MonoJit] CoreModMatch, docs/537 §34), computed by the game's own normalizer (`selftest.exe --jitnorm <dll> <offsets>`)
 //   node tools/jit-hot.ts --coverage <monohost.exe.log> [--list native/ts3native/monojit-list.h]: docs/data/jit-call-edges.csv, the edges a [MonoJit] Direct build
 //      takes lazily with that list (callee's lazy body from the log's jitlazy rows, a count run with MONOHOST_JITLAZY=1)
 //   node tools/jit-hot.ts --game-count <ts3native.log> [--out <host-style.log>] [--method Class.Method]: the last complete `jitcount: begin` .. `end` block of a
 //      game count run ([MonoJit] Count=1; cumulative counters, so only the last block counts), as monohost-style lines that --count
 //      and tools/jit-exit-census.ts --census read unchanged; prints the bails by reason and the top exit sites, and the bail census
 //      (docs/537 §23): the block's `jitcallee` rows ranked by callee (bails per run, share, EA native body or managed, sites) [--top 30]
+//   node tools/jit-hot.ts --norm-check <EA dll> <core mod copy> [--norm-tool <selftest.exe>]: the normalizer vs the token-resolved shape per method (docs/537 §34)
 //   node tools/jit-hot.ts --self-check
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -190,8 +194,9 @@ export function ilCode(b: Buffer, p: number): Buffer {
   if ((b[p] & 3) === 2) return b.subarray(p + 1, p + 1 + (b[p] >> 2));
   return b.subarray(p + (b.readUInt16LE(p) >> 12) * 4, p + (b.readUInt16LE(p) >> 12) * 4 + b.readUInt32LE(p + 4));
 }
-export type NativeRow = { key: string; size: number; sha: string };
-const ilRow = (key: string, il: Buffer): NativeRow => ({ key, size: il.length, sha: createHash('sha256').update(il).digest('hex') });
+// at / dll: the method header's file offset and its assembly file (the --jitnorm input)
+export type NativeRow = { key: string; size: number; sha: string; at?: number; dll?: string };
+const ilRow = (key: string, il: Buffer, at?: number): NativeRow => ({ key, size: il.length, sha: createHash('sha256').update(il).digest('hex'), at });
 // docs/537 §20.2 C2c: managed signatures EA binds to a native body (docs/data/binder-bodies.csv): the interpreter calls that body
 // at RuntimeMethod+0x24, so a compiled mint of these overloads never runs in game (I-475-4)
 // docs/537 §24: overloads left off the list on purpose: the two long Array.Copy overloads (no game caller known, never compiled by
@@ -203,7 +208,7 @@ export function rowsOf(a: Asm, frame: string, key: string, bound: Set<string> = 
   const dot = key.indexOf('.'), cls = key.slice(0, dot), name = key.slice(dot + 1), ns = frame.slice(0, -key.length - 1);
   const out: NativeRow[] = [];
   for (const t of a.types) if (t.name === cls && t.ns === ns)  // a nested type's frame has no namespace, so "Enumerator" is several types
-    for (const m of t.methods) if (m.name === name && m.rva && !bound.has(m.id)) out.push(ilRow(key, ilCode(a.buf, rva(a, m.rva))));
+    for (const m of t.methods) if (m.name === name && m.rva && !bound.has(m.id)) out.push(ilRow(key, ilCode(a.buf, rva(a, m.rva)), rva(a, m.rva)));
   return out.filter((r, i) => out.findIndex(x => x.sha === r.sha) === i);
 }
 // docs/537 §31.1: the bodies of `alt` (a core mod's rebuild of the same assembly) whose IL differs from EA's only in token numbers:
@@ -215,12 +220,29 @@ export function shapeTwins(ea: Asm, alt: Asm, frame: string, key: string): Nativ
   const eaShas = new Set(bodies(ea).map(p => ilRow(key, ilCode(ea.buf, p)).sha));
   return bodies(alt).filter(p => eaShapes.has(ilShapeBody(alt, alt.buf, p))).map(p => ilRow(key, ilCode(alt.buf, p))).filter(r => !eaShas.has(r.sha));
 }
-export function nativeHeader(rows: NativeRow[], csv: string, yRows: NativeRow[] = []): string {
+export function nativeHeader(rows: NativeRow[], csv: string, yRows: NativeRow[] = [], norm: NativeRow[] = [], yNorm: NativeRow[] = []): string {
   const row = (r: NativeRow) => `    {"${r.key}", ${r.size}, {${r.sha.match(/../g)!.map(h => '0x' + h).join(', ')}}},`;
+  // an empty table keeps one blank row (C++ has no empty arrays) and a count of 0
+  const table = (name: string, rs: NativeRow[]) => [`static const JitRow ${name}s[] = {`, ...(rs.length ? rs.map(row) : ['    {"", 0, {0}},']), '};',
+    rs.length ? `static const int ${name}N = (int)(sizeof(${name}s) / sizeof(${name}s[0]));` : `static const int ${name}N = 0;`];
   return [`// Generated by node tools/jit-hot.ts --emit-native from the compile rows of ${csv}, EA's TS3 1.67 assemblies. Names, sizes and hashes only.`,
-    'static const JitRow kJitRows[] = {', ...rows.map(row), '};', 'static const int kJitRowN = (int)(sizeof(kJitRows) / sizeof(kJitRows[0]));',
-    '// docs/537 §31: the hand-checked class-Y rows (Y_ADMIT), compiled only with [MonoJit] YRows=1',
-    'static const JitRow kJitYRows[] = {', ...yRows.map(row), '};', 'static const int kJitYRowN = (int)(sizeof(kJitYRows) / sizeof(kJitYRows[0]));', ''].join('\r\n');
+    ...table('kJitRow', rows), '// docs/537 §31: the hand-checked class-Y rows (Y_ADMIT), compiled only with [MonoJit] YRows=1', ...table('kJitYRow', yRows),
+    '// docs/537 §34: the token-normalized hashes (monojit-norm.h, form jn1) of the bodies above, [MonoJit] CoreModMatch=1',
+    ...table('kJitNormRow', norm), ...table('kJitYNormRow', yNorm), ''].join('\r\n');
+}
+// docs/537 §34: one line per offset of `selftest.exe --jitnorm <dll> <offset hex>...`: "<offset> <IL size> <sha256 | ->"
+export const NORM_RE = /^([0-9a-f]+) (\d+) ([0-9a-f]{64}|-)$/;
+export function normRows(out: string, byAt: Map<number, NativeRow>): NativeRow[] {
+  const rows: NativeRow[] = [];
+  for (const l of out.split(/\r?\n/)) {
+    const m = NORM_RE.exec(l.trim()), r = m ? byAt.get(parseInt(m[1], 16)) : undefined;
+    if (!m || !r) continue;
+    if (+m[2] !== r.size) throw new Error(`--jitnorm: ${r.key} at ${m[1]}: size ${m[2]}, the IL has ${r.size}`);
+    if (m[3] === '-') throw new Error(`--jitnorm: ${r.key} at ${m[1]}: no normalized hash (a token the normalizer cannot name)`);
+    rows.push({ key: r.key, size: r.size, sha: m[3] });
+  }
+  if (rows.length !== byAt.size) throw new Error(`--jitnorm: ${rows.length} of ${byAt.size} bodies answered`);
+  return rows.filter((r, i) => rows.findIndex(x => x.sha === r.sha && x.key === r.key) === i);
 }
 
 // the static coverage of docs/537 §5: an edge is lazy if the caller is listed and the callee has a lazy body; DirectLeaf=1 takes direct sites of a leaf callee only
@@ -364,6 +386,19 @@ function selfCheck() {
   const rk = calleeRanking([...gcc!.callee, 'jitcallee broken']);
   ok(rk.total === 8520140 && rk.bad === 1 && rk.rows.length === 4 && rk.rows[0].callee === 'System.String.GetHashCode' && rk.rows[0].bails === 6760040 &&
     rk.rows[0].sites === 2 && rk.rows[0].top.endsWith('GetHashCode@4') && rk.rows[3].callee === '(other)' && rk.rows[3].native === '?', 'census ranking by callee');
+  const e0 = nativeHeader([], 'x.csv');
+  ok(e0.includes('static const int kJitNormRowN = 0;') && e0.includes('static const int kJitYNormRowN = 0;') && e0.includes('kJitNormRows[] = {\r\n    {"", 0, {0}},'), 'empty tables: one blank row, count 0');
+  const nr = nativeHeader([ilRow('A.B', Buffer.from([1]))], 'x.csv', [], [{ key: 'A.B', size: 1, sha: 'ab'.repeat(32) }]);
+  ok(nr.indexOf('{"A.B", 1, {0xab,') > nr.indexOf('kJitNormRows[] = {') && nr.includes('(int)(sizeof(kJitNormRows)'), 'normalized rows in their own table');
+  // regexCases for NORM_RE: real tool lines (offsets as the CLI echoes them) and lines it must not take
+  const sha = 'f8c6d05df8ad06c35a51193ced7d27e1ffef46c660c635b044f9ae400ac87912';
+  ok(NORM_RE.test(`1a2b3c 106 ${sha}`) && NORM_RE.test('400 11 -'), 'NORM_RE: match');
+  ok(!NORM_RE.test(`06000001 1a2b3c 106 ${sha}`) && !NORM_RE.test('usage: selftest.exe --jitnorm <dll>') && !NORM_RE.test(`1a2b3c 106 ${sha.slice(1)}`), 'NORM_RE: no match');
+  const byAt = new Map<number, NativeRow>([[0x1a2b3c, { key: 'A.B', size: 106, sha: '' }]]);
+  ok(normRows(`usage line\r\n1a2b3c 106 ${sha}\r\n`, byAt)[0].sha === sha, 'normRows: by offset');
+  let threw = false;
+  try { normRows('1a2b3c 106 -', byAt); } catch { threw = true; }
+  ok(threw, 'normRows: a body with no normalized hash stops the generator');
   console.log(`jit-hot self-check: ${k} checks, ok`);
 }
 
@@ -407,6 +442,32 @@ if (process.argv[1] && /jit-hot\.ts$/.test(process.argv[1])) {
     console.log(`DirectLeaf=1: ${c.leaf.length} edges, ${sum(c.leaf)} calls, ${pct(sum(c.leaf))}`);
     console.log(`DirectLeaf=0: ${c.leaf.length + c.chain.length} edges, ${sum(c.leaf) + sum(c.chain)} calls, ${pct(sum(c.leaf) + sum(c.chain))}`);
     for (const e of [...c.leaf, ...c.chain].sort((a, b) => b.calls - a.calls)) console.log(`  ${String(e.calls).padStart(9)} ${c.leaf.includes(e) ? 'leaf ' : 'chain'} ${e.caller} -> ${e.callee}`);
+  } else if (process.argv.includes('--norm-check')) {
+    // docs/537 §34: the normalizer against tools/managed-callgraph.ts's token-resolved shape on a real re-emit (EA dll vs a core
+    // mod's copy): per method id in both, shape equal must mean normalized hash equal, and the other way round
+    const [eaPath, altPath] = [arg('--norm-check')!, process.argv[process.argv.indexOf('--norm-check') + 2]];
+    const tool = resolve(ROOT, arg('--norm-tool') ?? 'native/ts3native/out/selftest.exe');
+    const all = (p: string) => new Map(execFileSync(tool, ['--jitnorm', p], { encoding: 'utf8', maxBuffer: 1 << 28, timeout: 300000 }).split(/\r?\n/)
+      .map(l => l.trim().split(' ')).filter(f => f.length === 4).map(f => [parseInt(f[1], 16), f[3]] as [number, string]));
+    const ea = loadStandalone(eaPath, 'ea'), alt = loadStandalone(altPath, 'alt'), nEa = all(eaPath), nAlt = all(altPath);
+    const byId = (a: Asm) => new Map(a.types.flatMap(t => t.methods.filter(m => m.rva).map(m => [m.id, rva(a, m.rva)] as [string, number])));
+    const idsAlt = byId(alt);
+    const n = { both: 0, sameBytes: 0, shapeEq: 0, normEq: 0, agree: 0, noNorm: 0, eqShapeDiffNorm: [] as string[], diffShapeEqNorm: [] as string[] };
+    for (const [id, pe] of byId(ea)) {
+      const pa = idsAlt.get(id);
+      if (pa === undefined) continue;
+      n.both++;
+      const ce = ilCode(ea.buf, pe), ca = ilCode(alt.buf, pa), he = nEa.get(pe), ha = nAlt.get(pa);
+      if (ce.equals(ca)) n.sameBytes++;
+      if (!he || !ha || he === '-' || ha === '-') { n.noNorm++; continue; }
+      const s = ilShapeBody(ea, ea.buf, pe) === ilShapeBody(alt, alt.buf, pa), h = he === ha;
+      n.shapeEq += +s, n.normEq += +h, n.agree += +(s === h);
+      if (s && !h) n.eqShapeDiffNorm.push(id);
+      if (!s && h) n.diffShapeEqNorm.push(id);
+    }
+    console.log(`norm-check: ${n.both} methods in both, ${n.sameBytes} byte-identical IL, ${n.noNorm} without a normalized hash; shape equal ${n.shapeEq}, ` +
+      `normalized equal ${n.normEq}, agree ${n.agree}; shape equal + hash differs ${n.eqShapeDiffNorm.length}, shape differs + hash equal ${n.diffShapeEqNorm.length}`);
+    for (const id of [...n.eqShapeDiffNorm.slice(0, 10).map(i => 'shape= hash!= ' + i), ...n.diffShapeEqNorm.slice(0, 10).map(i => 'shape!= hash= ' + i)]) console.log('  ' + id);
   } else if (process.argv.includes('--emit-native')) {
     const dir = arg('--emit-native')!, csv = arg('--csv') ?? 'docs/data/jit-hot.csv', out = arg('--out') ?? 'native/ts3native/monojit-list.h';
     const hot = readFileSync(resolve(ROOT, csv), 'utf8').split(/\r?\n/).slice(1).filter(l => l.trim()).map(csvFields).filter(f => f[13].startsWith('compile') || f[13] === Y_VERDICT);
@@ -417,7 +478,7 @@ if (process.argv[1] && /jit-hot\.ts$/.test(process.argv[1])) {
     for (const f of hot) {
       const of = (b?: Set<string>) => f[8].split('+').flatMap(name => {  // an Enumerator frame merges assemblies
         if (!asms.has(name)) asms.set(name, loadStandalone(join(dir, name + '.dll'), name));
-        return rowsOf(asms.get(name)!, f[2], f[1], b);
+        return rowsOf(asms.get(name)!, f[2], f[1], b).map(r => ({ ...r, dll: join(dir, name + '.dll') }));
       });
       const all = of(LEFT_OUT), r = of(new Set([...bound, ...LEFT_OUT]));
       if (!all.length) throw new Error(`no IL body for ${f[2]} in ${f[8]}`);
@@ -433,8 +494,24 @@ if (process.argv[1] && /jit-hot\.ts$/.test(process.argv[1])) {
       }
       console.log(`${f[1].padEnd(60)} ${r.length} overload(s), IL ${r.map(x => x.size).join(' ')}`);
     }
-    writeFileSync(resolve(ROOT, out), nativeHeader(rows, csv, yRows));
-    console.log(`wrote ${out}: ${methods} methods, ${rows.length} bodies + ${yRows.length} YRows bodies (${dropped} binder-bound bodies left out)`);
+    // docs/537 §34: the normalized hash of each EA body (--alt twins carry no offset: EA's own body gives their normalized row)
+    const tool = resolve(ROOT, arg('--norm-tool') ?? 'native/ts3native/out/selftest.exe');
+    const norm = (rs: NativeRow[]) => {
+      const res: NativeRow[] = [];
+      const byDll = new Map<string, Map<number, NativeRow>>();
+      for (const r of rs) {
+        if (r.at === undefined || !r.dll) continue;
+        if (!byDll.has(r.dll)) byDll.set(r.dll, new Map());
+        byDll.get(r.dll)!.set(r.at, r);
+      }
+      for (const [dll, byAt] of byDll)
+        res.push(...normRows(execFileSync(tool, ['--jitnorm', dll, ...[...byAt.keys()].map(a => a.toString(16))], { encoding: 'utf8', timeout: 120000 }), byAt));
+      return res;
+    };
+    const normR = norm(rows), normY = norm(yRows);
+    writeFileSync(resolve(ROOT, out), nativeHeader(rows, csv, yRows, normR, normY));
+    console.log(`wrote ${out}: ${methods} methods, ${rows.length} bodies + ${yRows.length} YRows bodies (${dropped} binder-bound bodies left out), ` +
+      `${normR.length} + ${normY.length} normalized rows`);
   } else {
     const threshold = +(arg('--threshold') ?? 1);
     const rows = ranking(readFileSync(resolve(ROOT, 'docs/data/compile-candidates.csv'), 'utf8'));

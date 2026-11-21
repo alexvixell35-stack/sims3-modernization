@@ -865,10 +865,13 @@ export function restoreContent(stash: string): { restored: number; problems: str
   // listing read-back: every manifest file is in Mods now (a file missing from both places was lost, not "already back")
   const lost = m.files.filter(rel => !existsSync(join(m.mods, rel)) && !existsSync(join(stash, rel)));
   if (lost.length) problems.push(`read-back: ${lost.length} manifest files in neither Mods nor the stash: ${lost.slice(0, 3).join(', ')}`);
+  // an outside scanner's "<moved file>.tmp" (seen in the stash of the self-check under parallel load) is not content
+  const scratch = new Set(m.files.map(rel => normalize(join(stash, rel + '.tmp')).toLowerCase()));
   const left = readdirSync(stash, { recursive: true, withFileTypes: true })
-    .filter(e => e.isFile() && !(e.name === 'manifest.json' && normalize(e.parentPath) === normalize(stash)));
-  if (!problems.length && left.length) problems.push(`${left.length} files in ${stash} not in the manifest; stash kept`);
-  if (!problems.length) rmSync(stash, { recursive: true, force: true });
+    .filter(e => e.isFile() && !(e.name === 'manifest.json' && normalize(e.parentPath) === normalize(stash))
+      && !scratch.has(normalize(join(e.parentPath, e.name)).toLowerCase()));
+  if (!problems.length && left.length) problems.push(`${left.length} files in ${stash} not in the manifest (${left.slice(0, 3).map(e => join(e.parentPath, e.name)).join(", ")}); stash kept`);
+  if (!problems.length) rmSync(stash, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); // a scanner can hold a file for a moment (EPERM)
   return { restored, problems };
 }
 
@@ -2176,6 +2179,7 @@ if (values['self-check']) {
   assert.ok(all.filter(r => !moved.includes(r)).every(r => existsSync(join(mods, r))), 'the rest stays');
   assert.deepEqual(JSON.parse(readFileSync(manifestOf(stash), 'utf8')).files, moved);
   assert.throws(() => stashContent(mods, stash, []), /manifest exists/);
+  writeFileSync(join(stash, 'Overrides/Body/C.PACKAGE.tmp'), 'scanner'); // a scanner's leftover is not content
   assert.deepEqual(restoreContent(stash), { restored: 4, problems: [] });
   assert.ok(all.every(r => readFileSync(join(mods, r), 'utf8') === r) && !existsSync(stash), 'all back, stash gone');
   // interrupted: manifest written, only one file moved; a file present in both places is never overwritten

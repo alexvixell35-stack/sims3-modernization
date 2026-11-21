@@ -13287,6 +13287,7 @@ static void TestP5() {
 #include "ilpatch-test.h"  // TestIlPatch ([IlPatch], docs/506 §2, docs/526)
 #include "mintcall-test.h"  // TestMintCall ([MonoFast] CallPath, docs/139 §8)
 #include "monojit-test.h"  // TestMonoJit ([MonoJit], docs/527 step 1)
+#include "monojit-norm-test.h"  // TestJitNorm, the --jitnorm row tool ([MonoJit] CoreModMatch, docs/537 §34)
 #include "mintfuse-test.h"  // TestMintFuse ([MintFuse] Sub, docs/139 §4)
 #include "autshadow-test.h"  // TestAutShadow ([AutShadow] part 1, docs/122 §13: T1, T2, T4)
 #include "autraces-test.h"  // TestAutRaces ([AutShadow] Races: R1b pre-warm, R2b/R3a witness, docs/data/races-handoff.md)
@@ -14731,8 +14732,9 @@ static void TestCombasePattern() {
     assert(PatScan(text, len, want, &at) == 1);
     puts("combase keepalive: applied in this process (both 30000 -> 0xFFFFFFFF), file untouched");
 }
-int main() {
+int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);  // a crash keeps what was printed
+    if (argc > 1 && !strcmp(argv[1], "--jitnorm")) return JnCli(argc, argv);  // docs/537 §34: the CoreModMatch rows (tools/jit-hot.ts)
     SetUnhandledExceptionFilter([](EXCEPTION_POINTERS* e) -> LONG {
         printf("selftest: unhandled exception %08lX at %p\n", e->ExceptionRecord->ExceptionCode, e->ExceptionRecord->ExceptionAddress);
         return EXCEPTION_EXECUTE_HANDLER;
@@ -14920,6 +14922,7 @@ int main() {
     TestWorldAStarRefs();
     TestIlPatch();
     TestMonoJit();
+    TestJitNorm();
     TestEarlyOut();
     TestRouteJobPhases();
     TestGoalGen();

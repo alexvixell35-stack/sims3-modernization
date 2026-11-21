@@ -297,6 +297,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSpawnCapCount value="False" />
     <kMenuMaven value="True" />
     <kDanceFloorListGuard value="True" />
+    <kSwapInvokeDiag value="False" />
     <kBoatGetOutDiag value="False" />
     <kBoatGetOutGuard value="False" />
     <kUnseenOutfitDefer value="True" />
@@ -400,6 +401,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kGigWaitLeave value="True" />
     <kSculptPose value="True" />
     <kFestivalHidden value="True" />
+    <kCommodMapFast value="False" />
+    <kCommodMapShadow value="False" />
     <kTrainBoost value="True" />
     <kEatOutsideCount value="True" />
     <kQueueProximity value="True" />

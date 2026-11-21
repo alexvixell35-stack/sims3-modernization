@@ -97,7 +97,7 @@ export function restore(s: Spec) {
   for (const e of all) if (existsSync(e.to)) move(e.to, e.from);
   const bad = all.filter(e => !existsSync(e.from) || sha(e.from) !== e.sha).map(e => e.rel);
   if (bad.length) throw new Error(`restore read-back failed: ${bad.join(', ')}; stash kept`);
-  rmSync(s.stash, { recursive: true, force: true });
+  rmSync(s.stash, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); // a scanner can hold a file for a moment (EPERM)
   return all.length;
 }
 

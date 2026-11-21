@@ -35,9 +35,14 @@ function Lnk([string]$path, [string]$target, [string]$arguments = '', [string]$c
 try {
   $kc = Join-Path $sb 'kit'; [void](New-Item -ItemType Directory -Force -Path $kc); Copy-Item -Path (Join-Path $Kit '*') -Destination $kc -Recurse -Force
   $ps1 = Join-Path $kc 'tools\TS3Kit.ps1'
+  # the kit's target edition, exe and asi name (kit 1120.k1 is retail 1.67, e1-e6 were EA app 1.69)
+  $src = Get-Content -LiteralPath $ps1 -Raw
+  if ($src -notmatch "\`$KitEdition = '([^']+)'; \`$KitExe = '([^']+)'; \`$KitAsi = '([^']+)'") { throw 'kit edition line not found in TS3Kit.ps1' }
+  $kEd = $Matches[1]; $kExe = $Matches[2]; $kAsi = $Matches[3]
+  $kPe = @{ 'retail 1.67' = @(0x52D872DA, 0xE5B000); 'Steam 1.67' = @(0x52DEC247, 0xE5A000); 'EA app 1.69' = @(0x6707155C, 0xEB5000) }[$kEd]
   if (Test-Path -LiteralPath (Join-Path $kc 'payload\diag')) { Remove-Item -LiteralPath (Join-Path $kc 'payload\diag') -Recurse -Force }
   $pkg = Join-Path $kc 'payload\ts3fixes.package'; if (-not (Test-Path -LiteralPath $pkg)) { Set-Content -LiteralPath $pkg -Value 'stand-in ts3fixes package' }
-  $game = Join-Path $sb 'Game Copy\The Sims 3'; $bin = NewGame $game 0x6707155C 0xEB5000 'TS3.exe'   # kit 1120.e1: the EA app 1.69 exe
+  $game = Join-Path $sb 'Game Copy\The Sims 3'; $bin = NewGame $game $kPe[0] $kPe[1] $kExe   # the kit's edition (kit 1120.e1-e6: EA app 1.69, k1: retail 1.67)
   $user = Join-Path $sb 'Docs\Electronic Arts\The Sims 3'
   [void](New-Item -ItemType Directory -Force -Path (Join-Path $user 'S3SS'), (Join-Path $user 'Saves\Town.sims3'), (Join-Path $user 'Mods\Packages'))
   $opt = Join-Path $user 'Options.ini'
@@ -64,7 +69,7 @@ try {
   Check ($zip.Count -eq 1 -and $code -eq 0) 'one zip written'
   $x = Unzip $zip[0].FullName
   $j = Get-Content -LiteralPath (Join-Path $x 'report.json') -Raw | ConvertFrom-Json
-  Check ($j.games[0].edition -eq 'EA app 1.69' -and @($j.games[0].exes | Where-Object { $_.name -eq 'TS3.exe' })[0].largeAddressAware) 'exe read as EA app 1.69 (TS3.exe), LAA'
+  Check ($j.games[0].edition -eq $kEd -and @($j.games[0].exes | Where-Object { $_.name -eq $kExe })[0].largeAddressAware) "exe read as $kEd ($kExe), LAA"
   Check ($j.findings[0].id -eq 'lastdevice-mismatch' -and $j.verdict -match 'lastdevice|graphics device') 'verdict: lastdevice mismatch'
   Check ($j.userFolders[0].saves[0].name -eq 'Town.sims3' -and -not (Get-ChildItem -LiteralPath $x -Recurse -Filter '*.nhd')) 'saves listed, not copied'
   Check ((Test-Path -LiteralPath (Join-Path $x 'files\user1\Options.ini')) -and (Test-Path -LiteralPath (Join-Path $x 'files\user1\S3SS\S3SS.toml')) -and (Test-Path -LiteralPath (Join-Path $x 'files\game1-bin\ts3native.ini'))) 'settings files copied'
@@ -81,16 +86,16 @@ try {
   Check ((Tree $sb '^\\kit\\') -eq $t0) 'diag changed nothing in the sandbox'
 
   Write-Host 'Install'
-  $exe0 = FileSha (Join-Path $bin 'TS3.exe'); $opt0 = FileSha $opt
+  $exe0 = FileSha (Join-Path $bin $kExe); $opt0 = FileSha $opt
   $o = Run @('-Mode', 'Install', '-NoSystem', '-Yes', '-S3SS', '-GameDir', $game, '-UserDir', $user)
   Check ($code -eq 0 -and $o -match 'Installed \(test build\)' -and $o -notmatch 'diagnostic') 'install ok, no build question without payload\diag'; if ($code) { Write-Host $o }
-  Check ((FileSha (Join-Path $bin 'ts3native.asi')) -eq (FileSha (Join-Path $kc 'payload\ts3native-ea169.asi'))) 'asi equals the payload'
+  Check ((FileSha (Join-Path $bin 'ts3native.asi')) -eq (FileSha (Join-Path $kc "payload\$kAsi"))) 'asi equals the payload'
   Check ((FileSha (Join-Path $bin 'ts3native.ini')) -eq (FileSha (Join-Path $kc 'payload\ts3native.ini'))) 'ini equals the payload'
   Check ((FileSha (Join-Path $user 'Mods\Packages\ts3fixes.package')) -eq (FileSha $pkg)) 'ts3fixes.package equals the payload'
   Check ((Get-Content -LiteralPath (Join-Path $user 'Mods\Resource.cfg') -Raw) -match 'PackedFile Packages/\*\.package' -and $o -match 'standard Resource\.cfg') 'missing Resource.cfg written, and said so'
   $toml = [System.IO.File]::ReadAllText((Join-Path $user 'S3SS\S3SS.toml'))
   Check ($toml -match '(?s)\[patches\.Mimalloc\]\r\nenabled = true.*\[qol\.ui\]\r\ndisable_overlay = true.*frameRateLimit = 60') 'S3SS.toml merged, user key kept'
-  Check ((FileSha (Join-Path $bin 'TS3.exe')) -eq $exe0 -and (FileSha $opt) -eq $opt0) 'TS3.exe and Options.ini untouched'
+  Check ((FileSha (Join-Path $bin $kExe)) -eq $exe0 -and (FileSha $opt) -eq $opt0) 'TS3.exe and Options.ini untouched'
   $bk = @(Get-ChildItem -LiteralPath (Join-Path $user 'TS3Kit-Backup') -Directory)
   Check ($bk.Count -eq 1 -and (Get-Content -LiteralPath (Join-Path $bk[0].FullName '2-ts3native.ini') -Raw) -match 'Mine=1' -and (Test-Path -LiteralPath (Join-Path $bk[0].FullName 'Options.ini.safety-copy'))) 'backup holds the old ini and an Options.ini copy'
   Check ((Get-Content -LiteralPath (Join-Path $bk[0].FullName '3-ts3fixes.package') -Raw) -match 'old fixes' -and -not (Get-ChildItem -LiteralPath $bk[0].FullName -Filter '*-Resource.cfg')) 'backup holds the old ts3fixes.package (no Resource.cfg: there was none)'
@@ -109,11 +114,11 @@ try {
   Write-Host 'Install the diagnostic build (payload\diag, answers typed in)'
   $dg = Join-Path $kc 'payload\diag'; [void](New-Item -ItemType Directory -Force -Path $dg)
   Set-Content -LiteralPath (Join-Path $dg 'ts3fixes.package') -Value 'diag package'; Set-Content -LiteralPath (Join-Path $dg 'ts3native.ini') -Value "[UserDiag]`r`nVerbose=1"
-  Set-Content -LiteralPath (Join-Path $dg 'ts3native-ea169.asi') -Value 'ts3native 0.36.999-diagtest'   # the diagnostic's own asi
+  Set-Content -LiteralPath (Join-Path $dg $kAsi) -Value 'ts3native 0.36.999-diagtest'   # the diagnostic's own asi
   [System.IO.File]::WriteAllText((Join-Path $user 'Mods\Resource.cfg'), 'Priority 500 mine')
   $o = Run @('-Mode', 'Install', '-NoSystem', '-Answers', 'D,y', '-GameDir', $game, '-UserDir', $user)
   Check ($code -eq 0 -and $o -match 'normal test build \(N\) or the diagnostic build' -and $o -match 'Installed \(diagnostic build\)') 'asked normal or diagnostic, installed the diagnostic build'; if ($code) { Write-Host $o }
-  Check ((FileSha (Join-Path $user 'Mods\Packages\ts3fixes.package')) -eq (FileSha (Join-Path $dg 'ts3fixes.package')) -and (FileSha (Join-Path $bin 'ts3native.ini')) -eq (FileSha (Join-Path $dg 'ts3native.ini')) -and (FileSha (Join-Path $bin 'ts3native.asi')) -eq (FileSha (Join-Path $dg 'ts3native-ea169.asi')) -and $o -match 'OK +ts3native\.asi version 0\.36\.999-diagtest \(kit 0\.36\.999-diagtest\)') 'diagnostic package, ini and its own asi in place, version read back'
+  Check ((FileSha (Join-Path $user 'Mods\Packages\ts3fixes.package')) -eq (FileSha (Join-Path $dg 'ts3fixes.package')) -and (FileSha (Join-Path $bin 'ts3native.ini')) -eq (FileSha (Join-Path $dg 'ts3native.ini')) -and (FileSha (Join-Path $bin 'ts3native.asi')) -eq (FileSha (Join-Path $dg $kAsi)) -and $o -match 'OK +ts3native\.asi version 0\.36\.999-diagtest \(kit 0\.36\.999-diagtest\)') 'diagnostic package, ini and its own asi in place, version read back'
   Check ([System.IO.File]::ReadAllText((Join-Path $user 'Mods\Resource.cfg')) -eq 'Priority 500 mine') 'existing Resource.cfg left alone'
   $o = Run @('-Mode', 'Uninstall', '-NoSystem', '-Yes', '-GameDir', $game, '-UserDir', $user)
   Check ($code -eq 0 -and (Get-Content -LiteralPath (Join-Path $user 'Mods\Packages\ts3fixes.package') -Raw) -match 'old fixes' -and (Get-Content -LiteralPath (Join-Path $bin 'ts3native.ini') -Raw) -match 'Mine=1' -and (Test-Path -LiteralPath (Join-Path $user 'Mods\Resource.cfg'))) 'diagnostic uninstall: old package and ini back, user Resource.cfg kept'
@@ -145,10 +150,23 @@ try {
   $o = Run @('-Mode', 'Uninstall', '-NoSystem', '-Yes', '-GameDir', $game, '-UserDir', $real)
   Remove-Item -LiteralPath $docs -Recurse -Force; Remove-Item -LiteralPath $oldAsi -Force
 
+  Write-Host 'Install moves TS3 Turbo Engine (fake Turbo.asi + Turbo.txt) into the backup, kit.log line, uninstall puts them back by sha'
+  $tAsi = Join-Path $bin 'Turbo.asi'; $tTxt = Join-Path $bin 'Turbo.txt'
+  Set-Content -LiteralPath $tAsi -Value 'fake turbo engine'; Set-Content -LiteralPath $tTxt -Value 'Turbo = 2018'
+  $tAsiSha = FileSha $tAsi; $tTxtSha = FileSha $tTxt
+  $o = Run @('-Mode', 'Install', '-NoSystem', '-Yes', '-Build', 'Normal', '-GameDir', $game, '-UserDir', $user)
+  $tl = @(Get-ChildItem -LiteralPath (Join-Path $user 'TS3Kit-Backup') -Recurse -Filter 'kit.log' | Sort-Object LastWriteTime -Descending)
+  Check ($code -eq 0 -and -not (Test-Path -LiteralPath $tAsi) -and -not (Test-Path -LiteralPath $tTxt) -and @(Get-ChildItem -LiteralPath (Join-Path $user 'TS3Kit-Backup') -Recurse -Filter '*-moved-Turbo.*').Count -eq 2) 'Turbo.asi and Turbo.txt moved into the backup (not deleted)'; if ($code) { Write-Host $o }
+  Check ($o -match 'Found TS3 Turbo Engine' -and $o -match 'not the copy we know' -and $tl.Count -ge 1 -and (Get-Content -LiteralPath $tl[0].FullName -Raw) -match 'moved Turbo\.asi to .*-moved-Turbo\.asi, restore with TS3Kit\.bat -Mode Uninstall \(sha [0-9a-f]{12}, not the known') 'Turbo: notice, unknown-sha note, kit.log line'
+  $o = Run @('-Mode', 'Uninstall', '-NoSystem', '-Yes', '-GameDir', $game, '-UserDir', $user)
+  Check ($code -eq 0 -and (Test-Path -LiteralPath $tAsi) -and (FileSha $tAsi) -eq $tAsiSha -and (FileSha $tTxt) -eq $tTxtSha -and $o -notmatch 'sha differs') 'uninstall puts Turbo.asi and Turbo.txt back, same sha'
+  Remove-Item -LiteralPath $tAsi, $tTxt -Force
+  if (Test-Path -LiteralPath (Join-Path $user 'Mods\Resource.cfg')) { Remove-Item -LiteralPath (Join-Path $user 'Mods\Resource.cfg') -Force }
+
   Write-Host 'Install refused on a Steam exe'
   $steam = Join-Path $sb 'Steam\The Sims 3'; $sbin = NewGame $steam 0x52DEC247 0xE5A000; $ts = Tree $steam
   $o = Run @('-Mode', 'Install', '-NoSystem', '-Yes', '-GameDir', $steam, '-UserDir', $user)
-  Check ($code -ne 0 -and $o -match 'No Game\\Bin\\TS3\.exe in' -and (Tree $steam) -eq $ts) 'refused, nothing changed'
+  Check ($code -ne 0 -and $o -match "No Game\\Bin\\$([regex]::Escape($kExe)) in|This $([regex]::Escape($kExe)) is 'Steam 1\.67'" -and (Tree $steam) -eq $ts) 'refused, nothing changed'
 
   Write-Host 'Launch routes (nothing is started: every run answers N / 0 / Enter)'
   $o = Run @('-Mode', 'Capture', '-NoSystem', '-Answers', ',', '-GameDir', $steam, '-UserDir', $user, '-OutDir', $out)

@@ -9,6 +9,8 @@ What it is
     and which graphics card the game and the bridge are set to use
   - mod timing: which script mods use the game's simulation time
   - task timing: which game task or script is running during a long pause
+  - CAS errors: when a mod calls one of our changed CAS methods in a way that fails (the "Unable to invoke
+    an invalid target" errors in Create-a-Style), which mod and which method
   Everything is written to ts3native.log and small text files in Game\Bin.
 
 Install with the kit (close the game first)
@@ -16,6 +18,10 @@ Install with the kit (close the game first)
   2. Double-click TS3Kit.bat, choose 3 (Install), pick your game folder, answer D (diagnostic build).
      The kit first backs up your current ts3native.asi, ts3native.ini and ts3fixes.package, then writes
      the diagnostic ones. Your other mods and settings stay as they are.
+     If TS3 Turbo Engine (Turbo.asi) is in Game\Bin, the kit moves it and its Turbo.txt into the same
+     backup folder (not deleted): it takes over thread creation before our build, so one of our fixes
+     switches itself off. The kit's backup folder has a kit.log line saying where it went. Uninstall
+     (option 4) puts it back.
   3. The last lines must say "Install check: OK". If they say MISMATCH, send us a screenshot of that window.
 
 Play

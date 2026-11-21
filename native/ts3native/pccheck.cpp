@@ -12,7 +12,7 @@
 // Verdict (PcVerdict, pure, selftest fixtures): clock limited (> 20% of busy samples with MhzLimit < MaxMhz or the fastest
 // core < 90% of MaxMhz), power saver plan / best-efficiency overlay, battery, affinity < all cores, efficiency mode, low
 // priority class (these six are "problems": ts3fixes shows one notice per session when Notify=1), plus advice lines that are
-// not problems: other programs >= 25% CPU, few cores for the busy threads (our workers compete with the game).
+// not problems: other programs >= 25% CPU, no core left for the busy threads (judged on busy threads, not on how many exist).
 // Nothing here changes the game, a thread or a setting. Windows 11 reports CurrentMhz = the base clock and MhzLimit 0
 // [verified: smoke 2026-11-20, i7-11800H: 2304 / 0 in all 100 samples], so the clock comes from PDH when it has the counters:
 // \Processor Information(_Total)\% Processor Performance (effective clock in % of base, > 100 = boost) x Processor Frequency
@@ -34,6 +34,7 @@ struct PcFacts {
     LONG maxMhz, minLimitMhz, meanCurMhz;
     double otherCpuPct;     // other programs, % of all logical cores
     double busyThreads;     // TS3W threads >= 50% of a core, mean per sample
+    double ourBusyThreads;  // of those: started in ts3native (mostly idle monitors; the sim thread is EA's)
     LONG ourThreads, gameThreads;  // threads started in ts3native / in TS3W.exe
     bool powerSaver, onBattery, efficiency, lowPriority;
 };
@@ -70,10 +71,12 @@ static int PcVerdict(const PcFacts& f, char* out, size_t cap) {
     // headroom: the game's busy threads + other programs' share vs the cores TS3W may use
     const double cores = (double)(f.affinityCpus > 0 && f.affinityCpus < f.logical ? f.affinityCpus : f.logical);
     const double need = f.busyThreads + f.otherCpuPct / 100 * f.logical;
-    if (cores > 0 && (cores <= 4 || need + 1 > cores)) {
+    // docs/537 §34: busy threads only (it fired on every <= 4-core PC before, blaming ts3native's mostly idle monitor threads)
+    if (cores > 0 && need + 1 > cores) {
         fl |= PC_FEWCORES;
-        PcCat(out, cap, "%.0f threads for %.1f busy game threads + %.1f cores of other programs: our worker threads (%ld) compete with the game; expect smaller gains\n",
-              cores, f.busyThreads, f.otherCpuPct / 100 * f.logical, f.ourThreads);
+        PcCat(out, cap, "%.0f threads for %.1f busy game threads (%.1f of them ts3native's) + %.1f cores of other programs: no core left over%s\n",
+              cores, f.busyThreads, f.ourBusyThreads, f.otherCpuPct / 100 * f.logical,
+              f.ourBusyThreads >= 0.5 ? "; our busy worker threads compete with the game, expect smaller gains" : "");
     }
     if (!(fl & (kPcProblems | PC_OTHERLOAD))) PcCat(out, cap, "PC: no problem found\n");
     return fl;
@@ -123,7 +126,7 @@ struct PcProc { char name[40]; double ms; };
 enum { kPcPerfBins = 400 };  // % Processor Performance 0..399 (higher values land in the last bin)
 struct PcAcc {
     LONG samples, busy, slow, limited, minLimit, curN;
-    double curSum, otherPct, ownPct, simPct, busyThr, wallS;
+    double curSum, otherPct, ownPct, simPct, busyThr, ourBusyThr, wallS;
     LONG perfN, perfFlagged, perfHist[kPcPerfBins];  // busy samples with a PDH reading; of those: Performance Limit Flags != 0
     double perfSum;
     PcProc top[64];
@@ -305,15 +308,15 @@ static char PcOwner(HANDLE h) {
     GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)(void*)&PcOwner, &self);
     return m == self ? 'n' : 'o';
 }
-// busy threads (>= 50% of a core over dt100ns) this sample; counts of ours / game's threads into *nOurs / *nGame
-static double PcThreads(LONGLONG dt100ns, LONG* nOurs, LONG* nGame) {
+// busy threads (>= 50% of a core over dt100ns) this sample; counts of ours / game's threads into *nOurs / *nGame, our busy ones into *ourBusy
+static double PcThreads(LONGLONG dt100ns, LONG* nOurs, LONG* nGame, int* ourBusy) {
     for (int i = 0; i < g_pcThrN; i++) g_pcThr[i].seen = false;
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
     if (snap == INVALID_HANDLE_VALUE) return 0;
     THREADENTRY32 te = {sizeof(te)};
     const DWORD pid = GetCurrentProcessId();
     int busy = 0;
-    *nOurs = *nGame = 0;
+    *nOurs = *nGame = 0, *ourBusy = 0;
     for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te)) {
         if (te.th32OwnerProcessID != pid) continue;
         int i = 0;
@@ -331,7 +334,7 @@ static double PcThreads(LONGLONG dt100ns, LONG* nOurs, LONG* nGame) {
         FILETIME c, e, k, u;
         if (!GetThreadTimes(t.h, &c, &e, &k, &u)) continue;
         const LONGLONG cpu = PcFt(k) + PcFt(u);
-        if (t.cpu >= 0 && dt100ns > 0 && (cpu - t.cpu) * 2 >= dt100ns) busy++;
+        if (t.cpu >= 0 && dt100ns > 0 && (cpu - t.cpu) * 2 >= dt100ns) busy++, *ourBusy += t.owner == 'n';
         t.cpu = cpu;
     }
     CloseHandle(snap);
@@ -401,8 +404,9 @@ static void PcSample() {
     if (g_pcSimTid && g_pcSimTid != simTid) { if (simH) CloseHandle(simH); simTid = g_pcSimTid; simH = OpenThread(THREAD_QUERY_INFORMATION, FALSE, simTid); }
     if (simH && GetThreadTimes(simH, &c, &e, &k, &u)) sim = PcFt(k) + PcFt(u);
     LONG nOurs = 0, nGame = 0;
+    int ourBusy = 0;
     const LONGLONG dt = lastQpc ? now - lastQpc : 0;
-    const double busyThr = PcThreads(dt, &nOurs, &nGame);
+    const double busyThr = PcThreads(dt, &nOurs, &nGame, &ourBusy);
     // what a launcher, tool or the player can change while the game runs (the start text keeps the start values)
     SYSTEM_POWER_STATUS ps = {};
     const bool psOk = GetSystemPowerStatus(&ps) != 0;
@@ -444,7 +448,7 @@ static void PcSample() {
         const bool busy = ownD * 2 >= (double)dt;  // TS3W used >= half a core: clocks of an idle PC are not a verdict
         PcAcc* acc[2] = {&g_pcWin, &g_pcAll};
         for (PcAcc* a : acc) {
-            a->samples++, a->wallS += dt / 1e7, a->otherPct += otherPct, a->ownPct += ownPct, a->simPct += simPct, a->busyThr += busyThr;
+            a->samples++, a->wallS += dt / 1e7, a->otherPct += otherPct, a->ownPct += ownPct, a->simPct += simPct, a->busyThr += busyThr, a->ourBusyThr += ourBusy;
             if (nc && sumCur) a->curSum += (double)sumCur / nc, a->curN++;
             if (busy && pdh) {
                 const int bin = perf >= kPcPerfBins - 1 ? kPcPerfBins - 1 : (int)perf;
@@ -479,6 +483,7 @@ static PcFacts PcFactsOf(const PcAcc& a) {
     }
     f.otherCpuPct = a.samples ? a.otherPct / a.samples : 0;
     f.busyThreads = a.samples ? a.busyThr / a.samples : 0;
+    f.ourBusyThreads = a.samples ? a.ourBusyThr / a.samples : 0;
     return f;
 }
 
@@ -492,11 +497,11 @@ static int PcBlock(const PcAcc& a, const char* what, char* out, size_t cap) {
     _snprintf_s(out, cap, _TRUNCATE,
                 "PC check (%s, %ld samples of 10 s, %.0f real s)\n%s\nclock (%s): max %ld MHz, mean %ld MHz, %ld busy samples: slow in %ld, "
                 "limited in %ld (lowest %ld MHz)\nCPU use: TS3W %.1f%% of all cores (sim thread %.0f%% of one core), other programs %.1f%%; "
-                "top other: %s\nthreads: %.1f busy TS3W threads (>= 50%% of a core), %ld started by ts3native, %ld by TS3W.exe\n%s",
+                "top other: %s\nthreads: %.1f busy TS3W threads (>= 50%% of a core; %.1f of them ts3native's), %ld started by ts3native, %ld by TS3W.exe\n%s",
                 what, a.samples, a.wallS, g_pcStatic, a.perfN ? "PDH % Processor Performance x base, slow = < 85% of the session's best, limited = Performance Limit Flags"
                 : "CallNtPowerInformation, slow = fastest core < 90% of max, limited = MhzLimit below max",
                 f.maxMhz, f.meanCurMhz, f.busySamples, f.slowSamples, f.limitSamples, f.minLimitMhz, a.ownPct / n, a.simPct / n, f.otherCpuPct, top,
-                f.busyThreads, f.ourThreads, f.gameThreads, v);
+                f.busyThreads, f.ourBusyThreads, f.ourThreads, f.gameThreads, v);
     if (f.logical && f.busyThreads + 1 > f.logical)  // proposal only: nothing adapts yet (docs/299 §4)
         PcCat(out, cap, "proposal (not active): fewer route workers on this PC would leave a core for the game\n");
     return fl;

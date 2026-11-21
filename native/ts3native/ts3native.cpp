@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.297-d1121"  // master set d1121: m1120u + Dalexlol 1121 imports (#605 NeighbourMemo + route profiler, #613 route lock RO switches, #617 DoorShare + DeferPrivateFpAdd; all off) (2026-11-21); was m1120u: master set m1120u: m1120t + .ooa host gate (EA kit asi 0.36.297-eaooa1) + [HostMapIterFix] ON in the release ini (2026-11-20); m1120t: 0.36.295-tsk1 (master with [Diag] TaskSeam) + doormemox-privacy, pccheck, keep-options-gpu, stbl-index (next-week merges 2026-11-20)
+#define TS3NATIVE_VERSION "0.36.298-m1121"  // m1121: master set m1121 (merge/agents-1121): d1121 + VbFreeDelayMs ON / VbGuard (docs/67 §44) + core-mod kits k1-k3 ([MonoJit] CoreModMatch, JIT foreign-fault fix, JIT table ceiling 16384 methods / 24 MB; docs/537) (2026-11-21); was vbg1121c: d1121 + [EaCrashFixes] VbFreeDelayMs (off) + [CrashForensics] VbGuard (docs/67 §44, off; 2026-11-21); was d1121: master set d1121: m1120u + Dalexlol 1121 imports (#605 NeighbourMemo + route profiler, #613 route lock RO switches, #617 DoorShare + DeferPrivateFpAdd; all off) (2026-11-21); was m1120u: master set m1120u: m1120t + .ooa host gate (EA kit asi 0.36.297-eaooa1) + [HostMapIterFix] ON in the release ini (2026-11-20); m1120t: 0.36.295-tsk1 (master with [Diag] TaskSeam) + doormemox-privacy, pccheck, keep-options-gpu, stbl-index (next-week merges 2026-11-20)
 // was "0.36.297-m1120n" (the same merges on 0.36.295-mdt1, before TaskSeam)
 // was "0.36.295-tsk1"  // feature/mod-seam-budget-1120: [Diag] TaskSeam (docs/308, off) on 0.36.295-mdt1; feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
 // was "0.36.295-mdt1"  // feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
@@ -391,6 +391,7 @@ static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
 }
 static DWORD P5cRelMatch(const CONTEXT* c);  // p5c.cpp: registers in an object our graveyard flush released (crash I)
 static void CfOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] dump (off unless Enabled=1)
+static void VbOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] VbGuard=1 register lookup (docs/67 §44)
 static void CfModInit();  // crashfx.cpp: TS3W.exe / MSVCR80.dll ranges for the CtOsFault gate (docs/254 R2)
 static void P5cRelDump();  // p5c.cpp: the whole released ring (docs/67 §15), once
 static bool AtOwnsXcpt(const EXCEPTION_POINTERS* e);  // arenatail.cpp: [GcRootCheck] TailWatch arm requests and hits (docs/67 §22.7)
@@ -417,7 +418,7 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     // [CrashForensics] dump before the 16-line cap; not for our own probes' guarded reads (caught in ts3native)
     // docs/67 §17: an illegal instruction too (a wild call into the heap, Crash M / O)
     const bool pure = XcptPure(r);
-    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code) || pure) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e);
+    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code) || pure) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e), VbOnFault(e);
     const CONTEXT* c = e->ContextRecord;
     if (code == EXCEPTION_ACCESS_VIOLATION)  // docs/172 §7: another module's address already logged
         for (LONG i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8; i < n; i++)
@@ -6874,7 +6875,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyLotGridMiss(ini) || keepLog;  // docs/67 §31.8
         keepLog = ApplyHeightsInfLoop(ini) || keepLog;  // docs/67 §36: off by default
         keepLog = ApplyBridgeHeightNaN(ini) || keepLog;  // docs/67 §37: off by default
-        keepLog = ApplyFglStaleObject(ini) || keepLog;  // docs/67 §41: off by default
+        keepLog = ApplyFglStaleObject(ini) || keepLog;  // docs/67 §44: off by default
         keepLog = ApplyProbeValues(ini) || keepLog;  // after every behaviour section: it counts inside their stubs or skips
         keepLog = ApplyRouteSnap(ini) || keepLog;  // after [ProbeValues]: counts inside its, [SteerRO]'s and [RouteGate]'s stubs
         InstallLotRemoveGuard(ini);                 // after [RouteSnap]: its stub at 0x635700 runs the same guard

@@ -20,7 +20,7 @@
 #   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
 #   iafailmemo
 # measurement / diagnostics / test aids:
-#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc swapinvokediag wildflowerprobe
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
 #   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
 # leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
@@ -65,3 +65,5 @@
 #   gohomeshell spawnoffworld
 # docs/674 (route worker carve-out 2026-11-20), default off, ran in game on the combo branch only (s163-s166 compare runs):
 #   doorshare
+# perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
+#   commodmapfast commodmapshadow

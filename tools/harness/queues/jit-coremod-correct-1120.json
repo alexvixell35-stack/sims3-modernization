@@ -1,0 +1,283 @@
+{
+  "note": "jit-coremod-correct-1120 (READY, NOT RUN, dry-run clean; CORRECTNESS + COVERAGE, tester-first window; docs/537 §34). [MonoJit] CoreModMatch: a listed method whose IL equals EA's up to metadata token numbers compiles (core mods simler90 UPDATE242 Sims3GameplaySystems + NRaas ErrorTrap ScriptCore, both in the harness Mods). Bin state apex (tools/turbo-compat.ts snapshot -> state apex -> restore). Offline: 40 list bodies of simler90's Sims3GameplaySystems + 3 of ErrorTrap's ScriptCore pass by the normalized hash (2 + 0 by the exact one). Coverage verdict (read, not gated): bp-coremod-off vs bp-coremod-on summary lines: methods compiled up, \"the IL hash is not a known one\" down, N matched. Correctness: Mode=2 verify arms on BP and IP (jitMismatch 0, faults 0). Household untouched = exact compiled code (verified Mode=2) + 0 script errors + seed compare PASS; no Sim decision changes. Table: every arm runs the new ini default CodeKB=12288 / MaxMethods=8192 (+7.2 MB address space).",
+  "rewind": "off",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.298-coremod1 ": {
+      "match": [
+        "ts3native 0.36.298-coremod1 2026-11-20 21:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.297-m1120t 2026-11-20 08:00:00"
+      ]
+    },
+    "OK   mono jit \\(docs/527\\): Mode=1, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\)": {
+      "match": [
+        "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+      ],
+      "noMatch": [
+        "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+        "OK   mono jit (docs/527): Mode=2, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+      ]
+    },
+    "OK   mono jit \\(docs/527\\): Mode=2, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\)": {
+      "match": [
+        "OK   mono jit (docs/527): Mode=2, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+      ],
+      "noMatch": [
+        "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+      ]
+    },
+    "^OK   mono jit core-mod match \\(docs/537 .34\\): CoreModMatch=1, 117 normalized rows \\+ 1 YRows, form jn1$": {
+      "match": [
+        "OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, 117 normalized rows + 1 YRows, form jn1"
+      ],
+      "noMatch": [
+        "OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, 0 normalized rows + 0 YRows, form jn1",
+        "OK   mono jit hot reserve (docs/537 §32): HotReserve=1, 1800 KB of the 12288 KB region, 1 method slots, 1792 positions held for 1 YRows keys until they compile"
+      ]
+    },
+    "^jit: \\S+ matched by the token-normalized IL hash \\([0-9]+ bytes, CoreModMatch, docs/537 .34\\)$": {
+      "match": [
+        "jit: Sims3.Gameplay.ObjectComponents.ItemComponent.get_BaseType matched by the token-normalized IL hash (11 bytes, CoreModMatch, docs/537 §34)"
+      ],
+      "noMatch": [
+        "jit: Sims3.Gameplay.ObjectComponents.ItemComponent.get_BaseType refused: the IL hash is not a known one (11 bytes, sha256 0011223344556677...) (#1 of this reason)"
+      ]
+    },
+    "^jit: refusals by reason \\(.*; [1-9][0-9]* matched by the normalized hash$": {
+      "match": [
+        "jit: refusals by reason (save): the IL hash is not a known one 4, another thread 1; code region 8926 of 12288 KB, 5741 methods, 0 refused \"code region full\" asking 0 KB; 43 matched by the normalized hash"
+      ],
+      "noMatch": [
+        "jit: refusals by reason (save): the IL hash is not a known one 35, another thread 1; code region 8926 of 12288 KB, 5741 methods, 0 refused \"code region full\" asking 0 KB",
+        "jit: refusals by reason (save): none; code region 36 of 12288 KB, 19 methods, 0 refused \"code region full\" asking 0 KB; 0 matched by the normalized hash"
+      ]
+    },
+    "^jit: refusals by reason \\(": {
+      "match": [
+        "jit: refusals by reason (first tick): none; code region 36 of 12288 KB, 19 methods, 0 refused \"code region full\" asking 0 KB"
+      ],
+      "noMatch": [
+        "jit: compiled List`1.Add: 12 positions"
+      ]
+    },
+    "jit verify MISMATCH": {
+      "match": [
+        "jit verify MISMATCH in X.Y at ip 12"
+      ],
+      "noMatch": [
+        "jit verify ok 1080046"
+      ]
+    },
+    "^jit: fault ": {
+      "match": [
+        "jit: fault 0xC0000005 while compiling A.B: no more compiles this session"
+      ],
+      "noMatch": [
+        "jit: compiled A.B: 3 positions"
+      ]
+    },
+    "^FAIL mono jit": {
+      "match": [
+        "FAIL mono jit: jump-table entry (err 5)"
+      ],
+      "noMatch": [
+        "OK   mono jit hot reserve (docs/537 §32): HotReserve=1"
+      ]
+    },
+    "^SKIP mono jit": {
+      "match": [
+        "SKIP mono jit: not the Steam 1.67 exe"
+      ],
+      "noMatch": [
+        "OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, 117 normalized rows + 1 YRows, form jn1"
+      ]
+    },
+    "^OK   mono jit core-mod match": {
+      "match": [
+        "OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, 117 normalized rows + 1 YRows, form jn1"
+      ],
+      "noMatch": [
+        "OK   mono jit (docs/527): Mode=1, 290 templates"
+      ]
+    },
+    "matched by the token-normalized IL hash": {
+      "match": [
+        "jit: A.B matched by the token-normalized IL hash (8 bytes, CoreModMatch, docs/537 §34)"
+      ],
+      "noMatch": [
+        "jit: A.B refused: the IL hash is not a known one (8 bytes, sha256 00...) (#1 of this reason)"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-coremod-off",
+      "note": "[est 15 min] BP-Spring 10 min, Mode=1, CoreModMatch=0: baseline methods / refusals with the core mods",
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "asi": "game-copy/ts3native.asi.coremod-1120",
+      "iniBase": "game-copy/ts3native.ini.coremod-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "feature/jit-coremod-1120: 0.36.298-coremod1 = master m1120t + [MonoJit] CoreModMatch (docs/537 §34); asi + ini from the same commit (ini CodeKB=12288 MaxMethods=8192), ts3fixes = master m1120t (no managed change)",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "MonoJit.Mode": 1,
+        "MonoJit.CoreModMatch": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@jitMismatch<=0,jitFaults<=0,jitMethods>=500",
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-coremod1 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "^jit: fault ": 0,
+        "^FAIL mono jit": 0,
+        "^SKIP mono jit": 0,
+        "^OK   mono jit core-mod match": 0,
+        "matched by the token-normalized IL hash": 0
+      }
+    },
+    {
+      "id": "bp-coremod-on",
+      "note": "[est 15 min] BP-Spring 10 min, Mode=1, CoreModMatch=1: >= 1 normalized match, summary count",
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "asi": "game-copy/ts3native.asi.coremod-1120",
+      "iniBase": "game-copy/ts3native.ini.coremod-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "feature/jit-coremod-1120: 0.36.298-coremod1 = master m1120t + [MonoJit] CoreModMatch (docs/537 §34); asi + ini from the same commit (ini CodeKB=12288 MaxMethods=8192), ts3fixes = master m1120t (no managed change)",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "MonoJit.Mode": 1,
+        "MonoJit.CoreModMatch": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@jitMismatch<=0,jitFaults<=0,jitMethods>=500",
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-coremod1 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(": 1,
+        "^OK   mono jit core-mod match \\(docs/537 .34\\): CoreModMatch=1, 117 normalized rows \\+ 1 YRows, form jn1$": 1,
+        "^jit: \\S+ matched by the token-normalized IL hash \\([0-9]+ bytes, CoreModMatch, docs/537 .34\\)$": 1,
+        "^jit: refusals by reason \\(.*; [1-9][0-9]* matched by the normalized hash$": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "^jit: fault ": 0,
+        "^FAIL mono jit": 0,
+        "^SKIP mono jit": 0
+      }
+    },
+    {
+      "id": "bp-coremod-verify",
+      "note": "[est 18 min] BP-Spring 10 min, Mode=2 verify, CoreModMatch=1: every 16th call of each compiled method checked against EA",
+      "save": "Baseline-BP-Spring",
+      "timeoutMin": 30,
+      "asi": "game-copy/ts3native.asi.coremod-1120",
+      "iniBase": "game-copy/ts3native.ini.coremod-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "feature/jit-coremod-1120: 0.36.298-coremod1 = master m1120t + [MonoJit] CoreModMatch (docs/537 §34); asi + ini from the same commit (ini CodeKB=12288 MaxMethods=8192), ts3fixes = master m1120t (no managed change)",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "MonoJit.Mode": 2,
+        "MonoJit.CoreModMatch": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@jitMismatch<=0,jitFaults<=0,jitMethods>=500",
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-coremod1 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=2, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(": 1,
+        "^OK   mono jit core-mod match \\(docs/537 .34\\): CoreModMatch=1, 117 normalized rows \\+ 1 YRows, form jn1$": 1,
+        "^jit: \\S+ matched by the token-normalized IL hash \\([0-9]+ bytes, CoreModMatch, docs/537 .34\\)$": 1,
+        "^jit: refusals by reason \\(.*; [1-9][0-9]* matched by the normalized hash$": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "^jit: fault ": 0,
+        "^FAIL mono jit": 0,
+        "^SKIP mono jit": 0
+      }
+    },
+    {
+      "id": "ip-coremod-verify",
+      "note": "[est 18 min] IP-Spring 10 min, Mode=2 verify, CoreModMatch=1",
+      "save": "Baseline-IP-Spring",
+      "timeoutMin": 30,
+      "asi": "game-copy/ts3native.asi.coremod-1120",
+      "iniBase": "game-copy/ts3native.ini.coremod-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "feature/jit-coremod-1120: 0.36.298-coremod1 = master m1120t + [MonoJit] CoreModMatch (docs/537 §34); asi + ini from the same commit (ini CodeKB=12288 MaxMethods=8192), ts3fixes = master m1120t (no managed change)",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "MonoJit.Mode": 2,
+        "MonoJit.CoreModMatch": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@jitMismatch<=0,jitFaults<=0,jitMethods>=500",
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-coremod1 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=2, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(": 1,
+        "^OK   mono jit core-mod match \\(docs/537 .34\\): CoreModMatch=1, 117 normalized rows \\+ 1 YRows, form jn1$": 1,
+        "^jit: \\S+ matched by the token-normalized IL hash \\([0-9]+ bytes, CoreModMatch, docs/537 .34\\)$": 1,
+        "^jit: refusals by reason \\(.*; [1-9][0-9]* matched by the normalized hash$": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "^jit: fault ": 0,
+        "^FAIL mono jit": 0,
+        "^SKIP mono jit": 0
+      }
+    }
+  ]
+}

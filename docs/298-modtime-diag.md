@@ -110,6 +110,18 @@ Measured on the diag branch at 50 Hz: 73 us per sample, 0.33% of one core [measu
 - The load block has no hitch stacks (one long load iteration would dominate them); its top 5 is the answer for L8.
 - EA 1.69: the rows are the generated table's (not read again for ModTime); the EA laptop smoke confirms names and samples.
 
+### 5.1 Pass-through hooks label EA time as ours (2026-11-21, proposal, not built)
+
+A sample with no mod frame whose innermost ts3fixes frame is a swapped EA method that only calls through
+(`FestivalHiddenHook` on `GameObject.UpdateCommodityInteractionMap`, `EcHook` on `EventTracker.ProcessEvent`,
+`TrafficCreateHook` on `GlobalFunctions.CreateObjectOutOfWorld`, `SpatialCacheHook` on `Queries.GetObjects`) is credited
+to Ts3Fixes, although the time is EA's body (the stub, with the EA class word, reads as game) or what it calls [verified:
+`SwapMethod` keeps the name and copies the class word; `MdtPick`]. A tester's report showed 101 s of hitches topped by
+FestivalHiddenHook with ts3fixes own time at 0.6% (docs/856 §4). Proposed label: when the inclusive pick is an ours frame
+and frame 0 (own) is game, report the owner as `game via ts3fixes hook (<hook method>)`, a row apart from `Ts3Fixes` in
+the top owners, the hitch lines and the notice rule; Ts3Fixes keeps the samples whose frame 0 is ours. Cost: one compare
+per sample. Needs a selftest case in modtime-test.h (kinds {GAME, OURS, GAME} -> via hook; {OURS, GAME} -> ours).
+
 ## 6. Tests
 
 - Native selftest `TestModTime` (modtime-test.h): MVID from a metadata root incl. a truncated one, S3SA decrypt round trip,

@@ -41,6 +41,7 @@ auto_roof,BuildHandlers,Build,Auto Roof tool,natural,in Build mode,handler,none
 cas_open,CasHandlers,Live,Plan Outfit (dresser) / Change Appearance (mirror); Edit in CAS is a cheat,cas,active household Sim Child+; agent opens Edit-in-CAS on a copy,handler + R-CAS-1,live
 cas_category,CasHandlers,CAS,clicking a CAS tab,natural,in CAS,handler,none
 cas_close,CasHandlers,CAS,Done in CAS,natural,in CAS,handler,none
+cas_click,CasHandlers,CAS,clicking a clothing type or design button in CAS,natural,in CAS (clothing panel),handler,none
 cas_state,CasHandlers,Any,none (read),harness,,handler,none
 cas_bench,CasHandlers,CAS,clicking through CAS parts,stress,timed part sweep,handler,none
 buy_open,CasHandlers,Live,Buy button,natural,active household has a home lot; clock stops (R-MODE-2),handler + R-MODE-2,live

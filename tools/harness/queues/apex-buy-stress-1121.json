@@ -1,0 +1,486 @@
+{
+  "note": "apex-buy-stress-1121 (docs/67 §44): stress the 2026-11-21 Buy-mode crash on Apex Radiance 4.0.13 + RTX Remix bridge (AV in the bridge client SetStreamSource, d3d9.dll+0x3A91D / wild call from +0x27898, game wrapper 0x60F020; 2 of 3 tries of bp-speedlock-modeswitch-hf031b) until it breaks, with the culprit logged by [CrashForensics] VbGuard=1 (0.36.297-vbg1121b). Rodney: one stress job, stop at the first hit, no off arms. Six launches (the crash came 3-4 s after the first Buy entry of a fresh load), four Buy entries each. Bin state apex (Apex 4.0.13 release + its bridge). Correctness only: run with --no-smoke. A FAIL with a VB BAD line or a crash is the catch: triage at once (crash-ledger.ts triage, the job's ts3native.log 'crash forensics: VB' lines).",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-apexbuy-stress-1",
+      "asi": "game-copy/ts3native.asi.vbg1121b",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121b ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121b ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121b 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        }
+      },
+      "note": "[stress, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load; stop at the first crash or VB BAD."
+    },
+    {
+      "id": "bp-apexbuy-stress-2",
+      "asi": "game-copy/ts3native.asi.vbg1121b",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121b ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121b ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121b 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        }
+      },
+      "note": "[stress, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load; stop at the first crash or VB BAD."
+    },
+    {
+      "id": "bp-apexbuy-stress-3",
+      "asi": "game-copy/ts3native.asi.vbg1121b",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121b ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121b ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121b 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        }
+      },
+      "note": "[stress, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load; stop at the first crash or VB BAD."
+    },
+    {
+      "id": "bp-apexbuy-stress-4",
+      "asi": "game-copy/ts3native.asi.vbg1121b",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121b ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121b ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121b 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        }
+      },
+      "note": "[stress, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load; stop at the first crash or VB BAD."
+    },
+    {
+      "id": "bp-apexbuy-stress-5",
+      "asi": "game-copy/ts3native.asi.vbg1121b",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121b ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121b ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121b 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        }
+      },
+      "note": "[stress, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load; stop at the first crash or VB BAD."
+    },
+    {
+      "id": "bp-apexbuy-stress-6",
+      "asi": "game-copy/ts3native.asi.vbg1121b",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121b ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB BAD": 0,
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121b ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121b 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB BAD": {
+          "match": [
+            "crash forensics: VB BAD #1 at Device_SetStreamSource 0x60F020: wrapper destroyed (RefCounted base vtable); stream 0"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        }
+      },
+      "note": "[stress, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load; stop at the first crash or VB BAD."
+    }
+  ]
+}

@@ -468,6 +468,7 @@ namespace Ts3Fixes
                 case "stuckcheckown": return EpLive(typeof(RouteBackoffHook), 4);
                 case "stuckhbskip": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "subroutefail": return EpJoin(EpLive(typeof(SrfPlayHook), 1), EpLive(typeof(SrfTryHook), 1));
+                case "swapinvokediag": return EpLive(typeof(SidHook), 1);
                 case "swiperestore": return EpLive(typeof(SwrRunHook), 1, "sSwrObj", sSwrObj, null, "sSwrFinal", sSwrFinal, null, "sSwrParent", sSwrParent, null, "sSwrSlot", sSwrSlot, null);
                 case "synctime": return EpLive(typeof(SfHook), 1);
                 case "tagunseen": return EpLive(typeof(TagLoopHook), 2);
