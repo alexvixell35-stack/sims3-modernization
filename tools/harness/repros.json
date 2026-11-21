@@ -116587,7 +116587,7 @@
     "bug": "A floor reached only by a ladder is cut off while Sims stand on the ladder's lane ends: the route search's endpoint test (PortalEdgeCost 0x634500 -> 0x6338A0) makes the ladder a wall, the plan answers NoPathToDestination and the route fails at once. Doors and spiral stairs ask such Sims to step away (DoAdditionalLaneChecks -> PushSimsStatic); Ladder has no such step (docs/183 §9; Colonial Casa storms, 'routefail strand link: Ladder ... B free (with Sims: sim)')",
     "fix": "ts3fixes LadderFoot.cs: ladderfootshoo (+ ladderfootshoohh for household and selected Sims), default off, docs/183 §9",
     "save": "any world (pure check)",
-    "note": "UNVERIFIED (2026-11-21, offline only, never run). LadderFootCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4352-4363 and the last ladderfoot: line; 'lot' lists the level links of the selected Sim's lot with their lanes by the game's slot test. No forced repro here: it needs Sims idling on a ladder's ends while another plans across it; the Colonial Casa storms (repro ip-jobyield-strand-storm with routefaillog) show it about 2 times in 12 runs (docs/183 §9.5).",
+    "note": "UNVERIFIED (2026-11-21, offline only, never run). LadderFootCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4352-4363 and the last ladderfoot: line; 'lot' lists the level links of the selected Sim's lot with their lanes by the game's slot test. Forced repro: ladderfoot-force (and ladderfoot-force-down); the Colonial Casa storms (repro ip-jobyield-strand-storm with routefaillog) show it about 2 times in 12 runs (docs/183 §9.5).",
     "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
     "steps": [
       {
@@ -119856,5 +119856,2567 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "ladderfoot-force",
+    "bug": "A Sim that stands on a ladder's lane end closes the ladder: a Sim that walks to it gets 'Replan FailedBecauseDestinationPortalLocked' in EA's stand-and-wait, cycle after cycle (EA's cycle handler returns before it pushes anyone), and gives up; plans that still have to reach the ladder can answer NoPathToDestination (docs/183 §9; Colonial Casa storms, 'routefail strand link: Ladder ... B free (with Sims: sim)').",
+    "fix": "ts3fixes LadderFoot.cs: ladderfootshoo + ladderfootshoohh (default off), docs/183 §9",
+    "save": "IslaParadiso.world fresh start, largest household (Collins) active: the storm-ab.sh load of ip-jobyield-strand-storm (the Linux rig: lf-run.sh, not in the repo). Needs an agent with go_here exact.",
+    "area": [
+      927.6,
+      1204.5
+    ],
+    "note": "RUN 2026-11-21 (lf-r2, lf-r3; docs/183 §9.6): on arms 4 of 6 'retry ok' (the other 2: blocker already off the end when the planner arrived, no failed plan), off arms cross too (an idle blocker is pushed by the stand-and-wait fixes or by its neighbour): proves the fix's path, not a gain over off. Forced repro on Colonial Casa's Ladder 0x48EE00559434C9B0, blockers on its lower end (end B 927.6,58.0,1204.5, level 1), up: planner on the ground floor, Go Here to the third floor (room 11). Per arm ('mem: ladderfoot-<arm>' in ts3native.log): queues cancelled and autonomy off (setup_sims), Omar stood on the ladder end and Cristobel 0.7 m from it (place_sim: harness setup, both idle); LadderFootCheck lot shows the lanes 'Sims Sims' and who stands there; Rosemarie gets Go Here (exact: the agent's routable-point swap off, it would move a goal behind the closed ladder) across the ladder and is read every 5 s for 60 s (HiddenRoomCheck level: 2 = across). 45 s between arms: the fix looks once per Sim per kLadderFootCooldownMinutes (2 sim-min). eaoff / eaon: the same with standwaitfix(hh) and standwaitlocked(hh) off: EA's own stand-and-wait against ladderfootshoo alone. Not a planner that carries a toddler (Christopher in this save: no ladder for him).",
+    "expect": "off arms: 'gohere plan: ... Replan async FailedBecauseDestinationPortalLocked' (one with standwaitfix, which pushes the blocker; one per wait cycle without it, then 'standwait: ... end timeout' and 'gohere end: ... route false'), a 'ladderfoot: ... portal locked from level N ... fix off: would ask 1' line. on arms: one failed replan, 'ladderfoot: ... asked 1 (1 stepping away, 0 refused), waited M min: retry ok', the planner on level 2 within about 15 s, Omar 0.6 m or more from the end, counters 4356 (asked), 4358 (waits), 4359 (retry ok) up, 4363 (errors) 0.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "normal speed: the waits below are real seconds at x1 (1 sim-min = 1 s)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "settle: queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 15
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        },
+        "note": "arm off1: ladderfootshoo + ladderfootshoohh off, standwait fixes on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-off1"
+        },
+        "note": "log marker ladderfoot-off1"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "off1 queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.2,
+          "y": 55.0,
+          "z": 1207.1
+        },
+        "note": "off1 planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "off1 Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "off1 Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "off1 Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "off1 Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off1 lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.4,
+          "y": 61.0,
+          "z": 1201.5,
+          "exact": true
+        },
+        "note": "off1 planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "off1 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "off1 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off1 lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off1 counters",
+        "max": 1500,
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": true,
+          "ladderfootshoohh": true,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        },
+        "note": "arm on1: ladderfootshoo + ladderfootshoohh on, standwait fixes on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-on1"
+        },
+        "note": "log marker ladderfoot-on1"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "on1 queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.2,
+          "y": 55.0,
+          "z": 1207.1
+        },
+        "note": "on1 planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "on1 Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "on1 Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "on1 Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "on1 Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on1 lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.4,
+          "y": 61.0,
+          "z": 1201.5,
+          "exact": true
+        },
+        "note": "on1 planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "on1 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "on1 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on1 lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on1 counters",
+        "max": 1500,
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        },
+        "note": "arm off2: ladderfootshoo + ladderfootshoohh off, standwait fixes on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-off2"
+        },
+        "note": "log marker ladderfoot-off2"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "off2 queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.2,
+          "y": 55.0,
+          "z": 1207.1
+        },
+        "note": "off2 planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "off2 Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "off2 Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "off2 Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "off2 Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off2 lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.4,
+          "y": 61.0,
+          "z": 1201.5,
+          "exact": true
+        },
+        "note": "off2 planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "off2 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "off2 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off2 lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off2 counters",
+        "max": 1500,
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": true,
+          "ladderfootshoohh": true,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        },
+        "note": "arm on2: ladderfootshoo + ladderfootshoohh on, standwait fixes on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-on2"
+        },
+        "note": "log marker ladderfoot-on2"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "on2 queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.2,
+          "y": 55.0,
+          "z": 1207.1
+        },
+        "note": "on2 planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "on2 Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "on2 Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "on2 Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "on2 Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on2 lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.4,
+          "y": 61.0,
+          "z": 1201.5,
+          "exact": true
+        },
+        "note": "on2 planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "on2 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "on2 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on2 lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on2 counters",
+        "max": 1500,
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlocked": false,
+          "standwaitlockedhh": false
+        },
+        "note": "arm eaoff: ladderfootshoo + ladderfootshoohh off, standwait fixes off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-eaoff"
+        },
+        "note": "log marker ladderfoot-eaoff"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "eaoff queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.2,
+          "y": 55.0,
+          "z": 1207.1
+        },
+        "note": "eaoff planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "eaoff Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "eaoff Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "eaoff Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "eaoff Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "eaoff lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.4,
+          "y": 61.0,
+          "z": 1201.5,
+          "exact": true
+        },
+        "note": "eaoff planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaoff planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "eaoff Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "eaoff Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "eaoff lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "eaoff counters",
+        "max": 1500,
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": true,
+          "ladderfootshoohh": true,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlocked": false,
+          "standwaitlockedhh": false
+        },
+        "note": "arm eaon: ladderfootshoo + ladderfootshoohh on, standwait fixes off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-eaon"
+        },
+        "note": "log marker ladderfoot-eaon"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "eaon queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.2,
+          "y": 55.0,
+          "z": 1207.1
+        },
+        "note": "eaon planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "eaon Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "eaon Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.6,
+          "y": 58.0,
+          "z": 1204.5
+        },
+        "note": "eaon Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.7,
+          "y": 58.0,
+          "z": 1203.8
+        },
+        "note": "eaon Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "eaon lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.4,
+          "y": 61.0,
+          "z": 1201.5,
+          "exact": true
+        },
+        "note": "eaon planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "eaon planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "eaon Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "eaon Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "eaon lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "eaon counters",
+        "max": 1500,
+        "waitS": 45
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ladderfoot-force-down",
+    "bug": "A Sim that stands on a ladder's lane end closes the ladder: a Sim that walks to it gets 'Replan FailedBecauseDestinationPortalLocked' in EA's stand-and-wait, cycle after cycle (EA's cycle handler returns before it pushes anyone), and gives up; plans that still have to reach the ladder can answer NoPathToDestination (docs/183 §9; Colonial Casa storms, 'routefail strand link: Ladder ... B free (with Sims: sim)').",
+    "fix": "ts3fixes LadderFoot.cs: ladderfootshoo + ladderfootshoohh (default off), docs/183 §9",
+    "save": "IslaParadiso.world fresh start, largest household (Collins) active: the storm-ab.sh load of ip-jobyield-strand-storm (the Linux rig: lf-run.sh, not in the repo). Needs an agent with go_here exact.",
+    "area": [
+      927.6,
+      1204.5
+    ],
+    "note": "NOT A REPRO YET (lf-r4, 2026-11-21): a Sim on the upper end takes one lane only (LadderFootCheck lot: '[Sims free]'), the planner climbs down the other lane in both arms, no failed plan, scans 0. Needs a second Sim on the other lane's upper end. Forced repro on Colonial Casa's Ladder 0x48EE00559434C9B0, blockers on its upper end (end A 927.3,61.0,1205.2, level 2), down: planner on the third floor, Go Here to the ground floor. Per arm ('mem: ladderfoot-<arm>' in ts3native.log): queues cancelled and autonomy off (setup_sims), Omar stood on the ladder end and Cristobel 0.7 m from it (place_sim: harness setup, both idle); LadderFootCheck lot shows the lanes 'Sims Sims' and who stands there; Rosemarie gets Go Here (exact: the agent's routable-point swap off, it would move a goal behind the closed ladder) across the ladder and is read every 5 s for 60 s (HiddenRoomCheck level: 0 = across). 45 s between arms: the fix looks once per Sim per kLadderFootCooldownMinutes (2 sim-min). Not a planner that carries a toddler (Christopher in this save: no ladder for him).",
+    "expect": "off arms: 'gohere plan: ... Replan async FailedBecauseDestinationPortalLocked' (one with standwaitfix, which pushes the blocker; one per wait cycle without it, then 'standwait: ... end timeout' and 'gohere end: ... route false'), a 'ladderfoot: ... portal locked from level N ... fix off: would ask 1' line. on arms: one failed replan, 'ladderfoot: ... asked 1 (1 stepping away, 0 refused), waited M min: retry ok', the planner on level 0 within about 15 s, Omar 0.6 m or more from the end, counters 4356 (asked), 4358 (waits), 4359 (retry ok) up, 4363 (errors) 0.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "normal speed: the waits below are real seconds at x1 (1 sim-min = 1 s)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "settle: queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 15
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        },
+        "note": "arm off1: ladderfootshoo + ladderfootshoohh off, standwait fixes on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-off1"
+        },
+        "note": "log marker ladderfoot-off1"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "off1 queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 932.4,
+          "y": 61.0,
+          "z": 1203.1
+        },
+        "note": "off1 planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.3,
+          "y": 61.0,
+          "z": 1205.2
+        },
+        "note": "off1 Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.6,
+          "y": 61.0,
+          "z": 1204.4
+        },
+        "note": "off1 Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.3,
+          "y": 61.0,
+          "z": 1205.2
+        },
+        "note": "off1 Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.6,
+          "y": 61.0,
+          "z": 1204.4
+        },
+        "note": "off1 Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off1 lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "off1 planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "off1 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "off1 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off1 lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off1 counters",
+        "max": 1500,
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": true,
+          "ladderfootshoohh": true,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        },
+        "note": "arm on1: ladderfootshoo + ladderfootshoohh on, standwait fixes on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfoot-on1"
+        },
+        "note": "log marker ladderfoot-on1"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "on1 queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 932.4,
+          "y": 61.0,
+          "z": 1203.1
+        },
+        "note": "on1 planner Rosemarie to its start",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.3,
+          "y": 61.0,
+          "z": 1205.2
+        },
+        "note": "on1 Omar onto the ladder end"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.6,
+          "y": 61.0,
+          "z": 1204.4
+        },
+        "note": "on1 Cristobel next to it",
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 927.3,
+          "y": 61.0,
+          "z": 1205.2
+        },
+        "note": "on1 Omar onto the ladder end again (a cancelled walk may have gone on)"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 927.6,
+          "y": 61.0,
+          "z": 1204.4
+        },
+        "note": "on1 Cristobel next to it again",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on1 lanes before",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "on1 planner go",
+        "max": 300,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 5 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 10 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 15 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 20 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 25 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 30 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 35 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 40 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 45 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 50 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 55 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 planner at 60 s",
+        "max": 900,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "on1 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "on1 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on1 lanes after",
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on1 counters",
+        "max": 1500,
+        "waitS": 45
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false,
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        }
+      }
+    ]
   }
 ]

@@ -12,8 +12,10 @@ namespace Ts3Fixes
         // BlockedStatus of the game's slot test
         public const int kFree = 0, kSim = 1;
 
-        // A failed plan of a Sim to another level of the lot it stands on, with no path. Other failures have their own
-        // reasons (a locked door, no goal); a goal on the same level does not need a level link.
+        // A failed plan of a Sim to another level of the lot it stands on, with no path (noPath also stands for "destination
+        // portal locked": the answer when the Sim already stands at the closed link). Other failures have their own reasons
+        // (no goal); a goal on the same level does not need a level link. A door that is really locked gives no case: the
+        // scan wants a level link closed by Sims.
         public static bool Wants(bool noPath, bool onLot, bool sameLot, int simLevel, int goalLevel)
         {
             return noPath && onLot && sameLot && simLevel != goalLevel;

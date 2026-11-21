@@ -25,7 +25,8 @@ namespace Ts3Fixes
     // its lane test ignores Sims; a ladder puts each climber exactly on a lane end (PortalClimb.PositionSim), and its
     // two lanes lie so close that Sims who stay where they arrived close it.
     //
-    // Fix (rules in LadderFootCore): for a plan of a Sim to another level of its lot that failed with "no path", the
+    // Fix (rules in LadderFootCore): for a plan of a Sim to another level of its lot that failed with "no path" (or, for
+    // a Sim already at the link, "destination portal locked"), the
     // level links on the way are tested with the game's slot test. A link whose lanes are free of objects but taken by
     // Sims, with no other link between the same two levels free, gets the game's own step-away for the Sims standing on
     // its taken ends (PushSimsStatic, the door's distances and "out of a conversation", at the planning Sim's priority:
@@ -54,6 +55,7 @@ namespace Ts3Fixes
             public List<Sim> Blockers = new List<Sim>();  // standing on taken lane ends
             public List<Sim> Asked = new List<Sim>();     // have the step-away queued or running
             public int NewlyAsked, Refused;
+            public bool Locked;  // the plan answered "portal locked", not "no path"
         }
 
         static readonly Dictionary<ulong, long> sLfsLast = new Dictionary<ulong, long>();   // SimDescriptionId -> ticks of its last scan
@@ -65,6 +67,14 @@ namespace Ts3Fixes
         {
             IScriptProxy f = r.Follower;
             return f != null ? f.Target as Sim : null;
+        }
+
+        // The two answers a link closed by Sims gives (forced repro ladderfoot-force, Colonial Casa storms s422 / s424):
+        // "no path" from a plan that still has to reach the link, "destination portal locked" from the replans of a Sim
+        // that already stands at it (EA's stand-and-wait cycles, which then run to their 50 sim-min timeout).
+        static bool LfsKind(RoutePlanResultType t)
+        {
+            return t == RoutePlanResultType.FailedBecauseNoPathToDestination || t == RoutePlanResultType.FailedBecauseDestinationPortalLocked;
         }
 
         static bool LfsStepAwayPending(Sim s)
@@ -129,7 +139,7 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             try
             {
-                if (res.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return null;
+                if (!LfsKind(res.mType)) return null;
                 bool on = ShortcutOn("ladderfootshoo");
                 // off: only the plans the strand lines watch are counted (a scan of the lot per look)
                 if (!on && !(sim.IsInActiveHousehold && ShortcutOn("routefaillog"))) return null;
@@ -146,6 +156,7 @@ namespace Ts3Fixes
                 c[kLfsScans]++;
                 LfsCase cs = LfsScan(sim, lot, sim.Level, gl.mLevel);
                 if (cs == null) return null;
+                cs.Locked = res.mType == RoutePlanResultType.FailedBecauseDestinationPortalLocked;
                 // the cooldown starts only on a found case: a first failure while the ladder was in use (a climber on it,
                 // not standing Sims) must not hide the next failure, when Sims stand on its end (s411)
                 if (sLfsLast.Count > 256) sLfsLast.Clear();
@@ -225,7 +236,7 @@ namespace Ts3Fixes
         {
             try
             {
-                StringBuilder b = new StringBuilder("ladderfoot: ").Append(cs.Planner.FullName).Append(", ").Append(kRflKind[kind & 3]).Append(" no path from level ")
+                StringBuilder b = new StringBuilder("ladderfoot: ").Append(cs.Planner.FullName).Append(", ").Append(kRflKind[kind & 3]).Append(cs.Locked ? " portal locked from level " : " no path from level ")
                     .Append(cs.Planner.Level).Append(goalLevel >= -64 ? " to level " + goalLevel : "").Append(", ").Append(RflIa(cs.Planner.CurrentInteraction))
                     .Append(", closed by Sims: ").Append(cs.LinkText).Append(", standing there:");
                 int n = 0;
@@ -255,7 +266,7 @@ namespace Ts3Fixes
                     if (sLfsOpen.Count > 0) { Sim ok = LfsFollower(this); if (ok != null) LfsSucceeded(ok); }
                     return r;
                 }
-                if (r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return r;
+                if (!LfsKind(r.mType)) return r;
                 Sim sim = LfsFollower(this);
                 if (sim == null) return r;
                 LfsCase cs = LfsFailed(this, sim, kind, r);
@@ -341,6 +352,22 @@ namespace Ts3Fixes
                 + "; verdict: " + GlVerdict(on, fixedNow, controls, true) + "; " + counters;
         }
 
+        // The Sims at one lane end with what decides whether the game's own pushes reach them: walking, in a conversation
+        // (EA's stand-and-wait push leaves those out; the door's push and this fix do not), what they do.
+        static void LfsLotSims(StringBuilder b, Vector3 end)
+        {
+            Sim[] at = Sims3.Gameplay.Queries.GetObjects<Sim>(end, kLfsRadius);
+            b.Append(' ').Append(at.Length);
+            for (int i = 0; i < at.Length && i < 4; i++)
+            {
+                Sim o = at[i];
+                if (o == null) continue;
+                b.Append(i == 0 ? " (" : ", ").Append(o.FullName).Append(o.IsRouting ? " walking" : " standing").Append(o.Conversation != null ? ", in a conversation" : "")
+                    .Append(", ").Append(o.Posture != null ? o.Posture.GetType().Name : "no posture").Append(", ").Append(RflIa(o.CurrentInteraction));
+            }
+            if (at.Length > 0) b.Append(')');
+        }
+
         static string LfsLot()
         {
             try
@@ -364,8 +391,11 @@ namespace Ts3Fixes
                             LevelLinkSlot(sim, k.Obj, s[0], true, false), LevelLinkSlot(sim, k.Obj, s[1], false, true), LevelLinkSlot(sim, k.Obj, s[1], true, true));
                         b.Append(i > 0 ? " " : "").Append(LadderFootCore.LaneName(lane));
                     }
-                    b.Append("] Sims within ").Append(kLfsRadius).Append(" m of end A ").Append(Sims3.Gameplay.Queries.GetObjects<Sim>(k.A, kLfsRadius).Length)
-                        .Append(", of end B ").Append(Sims3.Gameplay.Queries.GetObjects<Sim>(k.Z, kLfsRadius).Length).Append(';');
+                    b.Append("] Sims within ").Append(kLfsRadius).Append(" m of end A");
+                    LfsLotSims(b, k.A);
+                    b.Append(", of end B");
+                    LfsLotSims(b, k.Z);
+                    b.Append(';');
                 }
                 return shown == 0 ? b.Append(" none").ToString() : b.ToString();
             }

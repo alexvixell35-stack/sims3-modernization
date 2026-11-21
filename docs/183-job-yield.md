@@ -249,7 +249,7 @@ the reason nobody is shooed is that EA's shoo sits at lane-lock time and the lad
 ### 9.3 Fix (`LadderFoot.cs`, rules in `LadderFootCore.cs`, shared scan in `LevelLink.cs`)
 
 After each of the four plan hooks (`RouteBackoff.cs`), for a plan of a Sim that failed with
-`FailedBecauseNoPathToDestination` to another level of the lot it stands on, at most once per Sim per
+`FailedBecauseNoPathToDestination` (or `FailedBecauseDestinationPortalLocked`, §9.6) to another level of the lot it stands on, at most once per Sim per
 `kLadderFootCooldownMinutes` (2):
 
 1. **Detect.** The lot's level links on the way (the scan the strand lines use, by portal component; lane ends on two
@@ -277,7 +277,7 @@ household Sims, so the storm arm needs both.
 
 **Off = compare mode** for the plans the strand lines watch (active household, `routefaillog` on): counted, nothing asked.
 
-**Line** (120 a session): `ladderfoot: <Sim>, <Plan kind> no path from level N [to level M], <interaction>, closed by
+**Line** (120 a session): `ladderfoot: <Sim>, <Plan kind> <no path | portal locked> from level N [to level M], <interaction>, closed by
 Sims: <Type> 0x<id> level a>b lanes <Sims|blocked ...>, standing there: <Sim>@<pos> (<interaction>) ...; <fix off: would
 ask N | exempt (household) | asked N (M stepping away, K refused), waited X min: retry ok | gave up (timeout | canceled
 | second plan <result>) | not waited for>`.
@@ -315,3 +315,49 @@ Also tidied: `StrandLog.cs` no longer carries its own link scan and slot test; b
   Sim pushed back and forth (the same Sim in 3 or more `standing there` lists within a few minutes would be a loop to
   look at). About 2 strands in 12 off runs, so "not seen" needs some 18 clean on runs for p < 0.05; a line with
   `retry ok` on a run that would have stranded is the direct proof.
+
+### 9.6 Forced repro and first live run (2026-11-21, repros `ladderfoot-force`, `ladderfoot-force-down`)
+
+Setup (harness, not gameplay): queues cancelled and autonomy off, Omar stood on the ladder's lower end (one Sim there
+closes both lanes: `LadderFootCheck lot` says `[Sims Sims]`), Cristobel 0.7 m from it, Rosemarie on the ground floor with
+Go Here to room 11 (`go_here` with `exact`: the agent's routable-point swap would move a goal behind the closed ladder).
+
+What the game does there [verified, Deck runs]:
+
+- The first plan, from the ground floor, **succeeds**: a standing Sim on the end does not fail a plan made without
+  "blocked by people". The Sim walks to the ladder, EA's stand-and-wait starts, and its replan (with "blocked by people")
+  answers **`FailedBecauseDestinationPortalLocked`**, not "no path". The storms have both answers at this ladder (s422,
+  s424: `Replan ... DestinationPortalLocked` from level 1 to a level 2 goal and from level 2 down, next to the "no path"
+  lines of §9.1).
+- **Bug found in the fix:** it looked only at "no path", so in the forced case it never scanned (`scans 0`, fix on).
+  Now both answers start the scan (`LfsKind`); the line says `portal locked from level N` for the second. A door that
+  is really locked gives no case: the scan still wants a level link closed by Sims.
+- An idle Sim on the end is not a strand by itself: in the off arms the walker crossed too (the blocker was pushed by
+  the stand-and-wait fixes or had been pushed off the end by its neighbour before the walker arrived; no failed plan at
+  all in 2 of 3 off arms). The long waits seen by hand (13 blocked cycles, 20 sim-min, route failed; twice) had a blocker
+  left in `SocializingPosture` by a cancelled pillow fight; that state is not forced yet (a pillow fight started and
+  cancelled by steps walks on after the cancel and leaves the end).
+
+Run lf-r2 (one load, s420 keys and switches, package `ladderfoot3`; arms switch `ladderfootshoo` + `ladderfootshoohh`;
+`ea*` = standwaitfix(hh) and standwaitlocked(hh) off as well; crossing read every 5 s):
+
+| arm | failed plans | `ladderfoot:` line | crossed |
+|---|---|---|---|
+| off1 | Replan DestinationPortalLocked x1 | fix off: would ask 1 | within 25 s |
+| on1 | Replan DestinationPortalLocked x1 | asked 1 (1 stepping away, 0 refused), waited 3.0 min: retry ok | within 25 s |
+| off2 | none | none | within 20 s |
+| on2 | Replan DestinationPortalLocked x1 | asked 1 (1 stepping away, 0 refused), waited 2.4 min: retry ok | within 25 s |
+| eaoff | none | none | within 20 s |
+| eaon | Replan DestinationPortalLocked x1 | asked 1 (1 stepping away, 0 refused), waited 2.3 min: retry ok | within 25 s |
+
+Run lf-r3 (same, second load): off1 and off2 one failed replan each, `fix off: would ask 1`, crossed within 25 s; on2
+`asked 1 (1 stepping away, 0 refused), waited 2.6 min: retry ok`, crossed within 25 s; on1, eaoff, eaon no failed plan
+(Omar already off the end when the walker arrived). Counters after lf-r2 / lf-r3: scans 4 / 4, closed by Sims 4 / 3,
+asked 3 / 1, waits 3 / 1, retry ok 3 / 1, gave up 0, would ask 1 / 2, errors 0.
+
+`ladderfoot-force-down` (lf-r4) is not a repro yet: one Sim on the upper end takes one lane (`[Sims free]`), the walker
+climbs down the other; no failed plan in either arm.
+
+So the fix's own path is proven live four times (detect, EA's push accepted by a household Sim, the wait ends when the
+push is done, the second plan succeeds, the Sim climbs), errors 0. Not shown: a gain over the off arm for an idle
+blocker (there is none to show), the "no path" entry, a busy blocker (equal priority, §9.4).
