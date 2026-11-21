@@ -86,7 +86,9 @@ namespace Ts3Bench
                 if (VirtualQueryEx(mH, new IntPtr(a), out m, new IntPtr(Marshal.SizeOf(typeof(Mbi)))) == IntPtr.Zero) break;
                 long baseA = m.BaseAddress.ToInt64(), size = m.RegionSize.ToInt64();
                 if (size <= 0) break;
-                if (m.State == 0x1000 && (m.Protect & 0xFF) == 0x04 && (m.Protect & 0x100) == 0 && size >= Capacity)
+                // READWRITE or EXECUTE_READWRITE: the game's Boehm heap is RWX (Frida's 'rw-' in tools/probe/agent.js matches both)
+                uint p = m.Protect & 0xFF;
+                if (m.State == 0x1000 && (p == 0x04 || p == 0x40) && (m.Protect & 0x100) == 0 && size >= Capacity)
                 {
                     for (long off = 0; off < size; off += Chunk - Header)
                     {

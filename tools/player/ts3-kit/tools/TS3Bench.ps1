@@ -30,7 +30,7 @@ $Rx = @{
 }
 # Frame counter = GameClock +0x4C, u32, one per main-loop iteration (docs/315 §3; docs/51 §570). Steam / retail 1.67 [verified];
 # EA app 1.69 by the .data delta [inferred]: every sample is plausibility-checked, else fps is n/a.
-$FrameAddr = @{ 'TS3W.exe' = 0x11CDD94; 'TS3.exe' = 0x1227E14 }
+$FrameAddrs = @{ 'TS3W.exe' = 0x11CDD94; 'TS3.exe' = 0x1227E14 }   # per exe; $script:FrameAddr = this run's (one name for both overwrote the table: run 2 fps n/a, run 3 threw)
 
 function Log([string]$s) { $l = "$((Get-Date).ToString('HH:mm:ss')) $s"; Write-Host $l; if ($script:LogFile) { Add-Content -LiteralPath $script:LogFile -Value $l } }
 
@@ -167,7 +167,7 @@ function Run-Arm($arm, [int]$idx, [int]$total, [int]$minutesLeft) {
   $script:Phases = New-Object System.Collections.ArrayList
   $started = Get-Date; $w0 = Get-Date; $cpu0 = $null
   try {
-    if ($arm.apply) { Log "  arm $($arm.name): $(if ($arm.apply -is [scriptblock]) { kit A/B arm } else { $arm.apply })"; & $arm.apply -Arm $arm.name -Game $Game -User $User }
+    if ($arm.apply) { Log "  arm $($arm.name): $(if ($arm.apply -is [scriptblock]) { 'kit A/B arm' } else { $arm.apply })"; & $arm.apply -Arm $arm.name -Game $Game -User $User }
     # fresh copy per arm: every arm starts from the same bytes
     foreach ($d in @($script:CopyDir, "$($script:CopyDir).backup")) { if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force } }
     Copy-Item -LiteralPath $script:OrigDir -Destination $script:CopyDir -Recurse
@@ -179,7 +179,7 @@ function Run-Arm($arm, [int]$idx, [int]$total, [int]$minutesLeft) {
     Log "  started $($script:ExeName) pid $($script:Proc.Id)"
     $cpu0 = OtherCpuSeconds $script:Proc.Id; $w0 = Get-Date
     $script:Mb = New-Object Ts3Bench.Mbox($script:Proc.Id)
-    $script:FrameAddr = $FrameAddr[$script:ExeName]; $script:LastFrames = -1; $script:LastSample = [Environment]::TickCount
+    $script:FrameAddr = $FrameAddrs[$script:ExeName]; $script:LastFrames = -1; $script:LastSample = [Environment]::TickCount
     $script:CheckAt = [Environment]::TickCount; $script:Misses = 0; $script:Prog = @{ hb = -2; fr = -2; cpu = -1 }; $script:Fps = New-Object System.Collections.ArrayList
     # agent mailbox (scan every 5 s; the native mod-version warning is answered on the way)
     $script:Token = ''
