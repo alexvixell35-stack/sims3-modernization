@@ -97,7 +97,7 @@ namespace Ts3Fixes
             if (sWpWatch == null && sWpProbe)
             {
                 sWpWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
-                if (sWpWatch != null) sWpWatch.Start();
+                if (sWpWatch != null) sWpWatch.Start(); // null when the engine has none
             }
         }
 

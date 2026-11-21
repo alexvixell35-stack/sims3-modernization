@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Sims3.Gameplay;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Core;
@@ -22,6 +23,57 @@ namespace Ts3Agent
         {
             Dispatcher.Register("pet_adopt", PetAdopt);
             Dispatcher.Register("pet_give_away", PetGiveAway);
+            Dispatcher.Register("spawn_horse", SpawnHorse);
+        }
+
+        // spawn_horse {count?: 1 (1..4), near?: a target (object id, "@type:BoxStall", "@far"; default: the horse's home lot)}
+        // (docs/267 F3; Pets EP5): `count` adult horses join townie households with room (CanAddSpeciesToHousehold), never the
+        // active household: from EA's AdoptHorse pool when it has one (RemovePet starts EA's refill), else a new random horse as
+        // Sim.MakePet makes one (GeneticsPet.MakeRandomPet + AssignRandomTraits). Instantiated at `near` (lot: its centre).
+        // The horses replace the pick_sims list, so later steps name them "picked:N" (sim) or "@picked:N" (target).
+        static object SpawnHorse(Args a)
+        {
+            RequireLive();
+            if (!GameUtils.IsInstalled(ProductVersion.EP5)) throw new McpException("spawn_horse needs Pets (EP5)");
+            int n = (int)a.Long("count", 1);
+            if (n < 1 || n > 4) throw new McpException("count must be 1..4");
+            Vector3 at = Vector3.Invalid;
+            if (a.Has("near")) { GameObject t = FindTarget(a, "near"); at = t is Lot ? ((Lot)t).GetCenterPosition() : t.Position; }
+            List<Household> room = TownieHomes().FindAll(delegate(Household h) { return h.CanAddSpeciesToHousehold(CASAgeGenderFlags.Horse); });
+            if (room.Count == 0) throw new McpException("spawn_horse: no townie household with room for a horse");
+            Household active = Household.ActiveHousehold;
+            Util.Picked.Clear();
+            Util.PickFilter = delegate(SimDescription sd) { return sd != null && sd.IsHorse && (active == null || sd.Household != active); };
+            List<object> made = new List<object>();
+            for (int i = 0; i < n; i++)
+            {
+                List<SimDescription> pool = PetPoolManager.GetPetsByType(PetPoolType.AdoptHorse);
+                SimDescription horse = null;
+                if (pool != null && pool.Count > 0)
+                {
+                    horse = RandomUtil.GetRandomObjectFromList(pool);
+                    if (!PetPoolManager.RemovePet(PetPoolType.AdoptHorse, horse, true)) horse = null;
+                }
+                bool fromPool = horse != null;
+                if (horse == null)
+                {
+                    horse = GeneticsPet.MakeRandomPet(CASAgeGenderFlags.Adult, RandomUtil.CoinFlip() ? CASAgeGenderFlags.Female : CASAgeGenderFlags.Male, CASAgeGenderFlags.Horse);
+                    if (horse == null) throw new McpException("spawn_horse: the game made no horse");
+                    GeneticsPet.AssignRandomTraits(horse);
+                }
+                Household home = RandomUtil.GetRandomObjectFromList(room);
+                home.Add(horse);
+                Sim hs = horse.Instantiate(at != Vector3.Invalid ? at : Service.GetPositionInRandomLot(home.LotHome));
+                if (hs == null) throw new McpException("spawn_horse: " + horse.FullName + " did not instantiate");
+                Util.Picked.Add(horse.SimDescriptionId);
+                Dictionary<string, object> d = PetRow(horse, home);
+                d["from_pool"] = fromPool;
+                d["picked"] = "picked:" + Util.Picked.Count;
+                made.Add(d);
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["horses"] = made;
+            return r;
         }
 
         static readonly PetPoolType[] kAdoptPools = { PetPoolType.AdoptDog, PetPoolType.AdoptCat };

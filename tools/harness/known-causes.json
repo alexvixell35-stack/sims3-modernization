@@ -1,0 +1,49 @@
+{
+ "_doc": "Known third-party causes of a game crash or hang (Rodney 2026-11-16): queue.ts marks a job that ends in one of these 'VOID: known cause <id> (<owner>)' and relaunches it once as <id>-kc; a hit on the relaunch is a normal CRASH/FAIL row and today's stop rules apply. Ours until proven: only exact signatures. crash = the EA xcpt report's exception type starts with `exception`, the fault module is `module` and the fault RVA (address - module base, crash-ledger.ts faultRva) is `rva`; without a module base in the report only the low 16 bits are compared and the row says 'weak match'. hang = a kill dump whose lock cycle (tools/dump-locks.ts) has every lock and every lock call in `cycleModules` and nowhere else. `cases` are real lines (machine name and paths replaced) the self-check runs. Matcher: tools/harness/known-causes.ts.",
+ "causes": [
+  {
+   "id": "apex-0010-backbuffer",
+   "kind": "crash",
+   "owner": "Apex Radiance 4.0.1 bridge client, patch 0010",
+   "exception": "ACCESS_VIOLATION reading from address 0x00000000",
+   "module": "d3d9.dll",
+   "rva": "0x2d4b4",
+   "upstream": "fixed by our bridge patch 0016, https://github.com/loinyx/Sims3-ApexRadiance/pull/89",
+   "doc": "docs/270 §29",
+   "cases": {
+    "match": [
+     "xcpt <machine> 26-11-16 12.02.21.txt\n  2026-11-16T04:02:21.000Z  ACCESS_VIOLATION reading from address 0x00000000 (NULL)  at 0x7208d4b4 in d3d9.dll+0x2d4b4  stack: d3d9.dll, ApexRadiance.asi, Sims3SettingsSetter.asi, TS3W.exe",
+     "xcpt <machine> 26-11-16 03.03.00.txt\n  2026-11-15T19:03:00.000Z  ACCESS_VIOLATION reading from address 0x00000000 (NULL)  at 0x6fa4d4b4 in d3d9.dll+0x2d4b4  stack: d3d9.dll, ApexRadiance.asi, Sims3SettingsSetter.asi, TS3W.exe"
+    ],
+    "weakMatch": [
+     "xcpt <machine> 26-11-16 12.02.21.txt\n  2026-11-16T04:02:21.000Z  ACCESS_VIOLATION reading from address 0x00000000 (NULL)  at 0x7208d4b4 in d3d9.dll  stack: d3d9.dll, ApexRadiance.asi, Sims3SettingsSetter.asi, TS3W.exe"
+    ],
+    "noMatch": [
+     "xcpt <machine> 26-11-14 23.51.34.txt\n  2026-11-14T15:51:34.000Z  ACCESS_VIOLATION reading from address 0xe8cc292f; State: MEM_FREE  at 0x0084eac3 in TS3W.exe+0x44eac3  stack: TS3W.exe",
+     "xcpt <machine> 26-11-16 12.02.21.txt\n  2026-11-16T04:02:21.000Z  ACCESS_VIOLATION reading from address 0x00000000 (NULL)  at 0x7208d4b8 in d3d9.dll+0x2d4b8  stack: d3d9.dll, ApexRadiance.asi, Sims3SettingsSetter.asi, TS3W.exe",
+     "xcpt <machine> 26-11-16 12.02.21.txt\n  2026-11-16T04:02:21.000Z  ACCESS_VIOLATION writing to address 0x00000000 (NULL)  at 0x7208d4b4 in d3d9.dll+0x2d4b4  stack: d3d9.dll, ApexRadiance.asi, Sims3SettingsSetter.asi, TS3W.exe",
+     "no crash report of this run written since 2026-11-16T04:02:10.000Z; game exit code 0xC0000005 (access violation)"
+    ]
+   }
+  },
+  {
+   "id": "apex-401-present-lock-cycle",
+   "kind": "hang",
+   "owner": "Apex Radiance 4.0.1, ABBA on two of its own mutexes with the main thread in Device_Present",
+   "cycleModules": "ApexRadiance.asi",
+   "upstream": "https://github.com/loinyx/Sims3-ApexRadiance/issues/90",
+   "doc": "docs/67 §38",
+   "cases": {
+    "match": [
+     "00:51:26 queue: bp-jitsmall-b6: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi"
+    ],
+    "noMatch": [
+     "00:51:26 queue: bp-x: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi, ts3native.asi",
+     "00:51:26 queue: bp-x: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 0 of 129 threads; no cycle",
+     "lock waits: 3 of 4 threads; deadlock cycle 10>20>10; EA package-lock deadlock (docs/539 §13.8); cycle modules: TS3W.exe",
+     "cycle modules: ApexRadiance.asi (locks ApexRadiance.asi+0xC7ECD8, ApexRadiance.asi+0xC7FF28; callers ApexRadiance.asi+0x560C73, ApexRadiance.asi+0x476402)"
+    ]
+   }
+  }
+ ]
+}

@@ -56,14 +56,13 @@ namespace Ts3Fixes
             public void MadeInsideOrig() { }                                    // receives SimMadeItInside's original header
         }
 
-        const BindingFlags kPsInst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
         const int kPsTakingPhoto = 2;  // GreetingCardTakePhotoHelper.State.TakingPhoto
         static readonly Type sPsType = typeof(GreetingCardTakePhotoHelper);
-        static readonly FieldInfo sPsState = sPsType.GetField("mCurrentState", kPsInst), sPsExpected = sPsType.GetField("mSimsExpected", kPsInst),
-            sPsOwner = sPsType.GetField("mOwner", kPsInst);
-        static readonly MethodInfo sPsReset = sPsType.GetMethod("Reset", kPsInst, null, Type.EmptyTypes, null);
-        static readonly FieldInfo sPsBoothHelper = typeof(GreetingCardPhotoBooth).GetField("mPhotoHelper", kPsInst),
-            sPsRabbitHoleHelper = typeof(GreetingCardRabbitHole).GetField("mPhotoHelper", kPsInst);
+        static readonly FieldInfo sPsState = sPsType.GetField("mCurrentState", kInstAll), sPsExpected = sPsType.GetField("mSimsExpected", kInstAll),
+            sPsOwner = sPsType.GetField("mOwner", kInstAll);
+        static readonly MethodInfo sPsReset = sPsType.GetMethod("Reset", kInstAll, null, Type.EmptyTypes, null);
+        static readonly FieldInfo sPsBoothHelper = typeof(GreetingCardPhotoBooth).GetField("mPhotoHelper", kInstAll),
+            sPsRabbitHoleHelper = typeof(GreetingCardRabbitHole).GetField("mPhotoHelper", kInstAll);
         static int sPsLines;
 
         static List<SimDescription> PsExpected(GreetingCardTakePhotoHelper h) { return sPsExpected != null ? sPsExpected.GetValue(h) as List<SimDescription> : null; }

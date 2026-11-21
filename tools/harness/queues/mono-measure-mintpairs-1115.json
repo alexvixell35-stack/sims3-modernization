@@ -1,0 +1,120 @@
+{
+  "note": "RUN FIRST (prepared 2026-11-15, lane mono-measure, NOT RUN). D6 = docs/139 rank 3 (superinstructions for hot pairs) needs the pairs from play first, not from the monohost phases (docs/139 §3). Build ts3native.asi.mono-measure-1115 (feature/mono-measure-1115, 0.36.261-mintpairs1) = master aae8e1d6 + [MonoFast] PairCount (mintpairs.cpp, TEST-RUN TOOL, default 0): the mint dispatch head 0xE544D5 counts (previous op, op) on the sim thread and logs the top 200 pairs / 120 ops every 5 min, after each save and at exit. CallPath=0 in every job (its fast call / ret handlers dispatch the next op through their own head copy, which the counter does not see). Jobs: (1) bp-mintpairs-jiton: master defaults (MonoJit on): what the JIT leaves interpreted = the pairs a superop could still speed up; (2) ip-mintpairs-jiton: same on IP; (3) bp-mintpairs-jitoff: MonoJit.Enabled=0, the vanilla interpreter mix to compare with docs/139 §3's host phases. 11 min each (two interval reports). Data runs, not timing (the counter adds ~10 instructions per dispatch). Household untouched by construction: a counter at the dispatch head, the same handler runs for every op. Read: node tools/harness/mint-pairs.ts mono-measure-mintpairs-1115-<date> -> the docs/139 §3 table rows (dispatches, superop share, top fusable pairs, top 10/20/50 cover). Decision after the run: superops only if the JIT-on top fusable pairs cover a share worth 1-4 ms/s (docs/139 rank 3); else drop D6 (inventory: overlaps MonoJit). Regex cases: the version line is real (master log), the mint pair lines are from the Log formats (no run of the counter yet). Start: node tools/harness/queue.ts tools/harness/queues/mono-measure-mintpairs-1115.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-mintpairs-jiton",
+      "note": "[est 16 min] DATA: BP 11 min natural, [MonoFast] PairCount=1 CallPath=0, MonoJit at the master default (on). Pass: version + OK line, >= 2 mintpairs reports with >= 50 pair lines, no SKIP mint pair count, 0 new script errors, no crash.",
+      "asi": "game-copy/ts3native.asi.mono-measure-1115",
+      "iniBase": "game-copy/ts3native.ini.mono-measure-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+      "pinReason": "mono-measure-1115 (builds.json): feature/mono-measure-1115 = master aae8e1d6 native + [MonoFast] PairCount (default off); its own ini (master ini + PairCount=0); ts3fixes l3-convgone-1115 = master ts3fixes",
+      "minCounters": 1,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": { "MonoFast.PairCount": 1, "MonoFast.CallPath": 0 },
+      "run": { "profile": { "seed": 12345, "minutes": 11, "noSamplers": true } },
+      "logRequire": {
+        "^ts3native 0\\.36\\.261-mintpairs1 ": 1,
+        "^OK   mint pair count \\(\\[MonoFast\\] PairCount": 1,
+        "^mintpairs: \\w+ #\\d+ dispatches [1-9]\\d*, ": 2,
+        "^mintpair: 0x[0-9A-F]{3} 0x[0-9A-F]{3} \\d+$": 50
+      },
+      "logForbid": { "^SKIP mint pair count": 0 },
+      "regexCases": {
+        "^ts3native 0\\.36\\.261-mintpairs1 ": {
+          "match": ["ts3native 0.36.261-mintpairs1 2026-11-15 21:10:00"],
+          "noMatch": ["ts3native 0.36.261-lanes1 2026-11-15 17:24:21", "prior log: ts3native 0.36.261-mintpairs1 2026-11-15 21:10:00"]
+        },
+        "^OK   mint pair count \\(\\[MonoFast\\] PairCount": {
+          "match": ["OK   mint pair count ([MonoFast] PairCount, docs/139 §3, TEST-RUN TOOL): head 0x00E544D5 -> counter, sim thread only, report every 5 min / save / exit"],
+          "noMatch": ["SKIP mint pair count: dispatch head bytes at 0x00E544D5 differ or no table memory"]
+        },
+        "^mintpairs: \\w+ #\\d+ dispatches [1-9]\\d*, ": {
+          "match": ["mintpairs: interval #1 dispatches 18234567, distinct pairs 9123, ops 301 (sim thread, head 0x00E544D5)"],
+          "noMatch": ["mintpairs: interval #1 dispatches 0, distinct pairs 0, ops 0 (sim thread, head 0x00E544D5)", "mintpair: 0x024 0x042 123"]
+        },
+        "^mintpair: 0x[0-9A-F]{3} 0x[0-9A-F]{3} \\d+$": {
+          "match": ["mintpair: 0x024 0x042 123"],
+          "noMatch": ["mintop: 0x042 123", "mintpairs: interval #1 dispatches 18234567, distinct pairs 9123, ops 301 (sim thread, head 0x00E544D5)"]
+        },
+        "^SKIP mint pair count": {
+          "match": ["SKIP mint pair count: dispatch head bytes at 0x00E544D5 differ or no table memory"],
+          "noMatch": ["OK   mint pair count ([MonoFast] PairCount, docs/139 §3, TEST-RUN TOOL): head 0x00E544D5 -> counter, sim thread only, report every 5 min / save / exit"]
+        }
+      }
+    },
+    {
+      "id": "ip-mintpairs-jiton",
+      "note": "[est 16 min] DATA: as bp-mintpairs-jiton on IP.",
+      "asi": "game-copy/ts3native.asi.mono-measure-1115",
+      "iniBase": "game-copy/ts3native.ini.mono-measure-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+      "pinReason": "mono-measure-1115 (builds.json): feature/mono-measure-1115 = master aae8e1d6 native + [MonoFast] PairCount (default off); ts3fixes l3-convgone-1115 = master ts3fixes",
+      "minCounters": 1,
+      "save": "Baseline-IP-Spring",
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": { "MonoFast.PairCount": 1, "MonoFast.CallPath": 0 },
+      "run": { "profile": { "seed": 12345, "minutes": 11, "noSamplers": true } },
+      "logRequire": {
+        "^OK   mint pair count \\(\\[MonoFast\\] PairCount": 1,
+        "^mintpairs: \\w+ #\\d+ dispatches [1-9]\\d*, ": 2
+      },
+      "logForbid": { "^SKIP mint pair count": 0 },
+      "regexCases": {
+        "^OK   mint pair count \\(\\[MonoFast\\] PairCount": {
+          "match": ["OK   mint pair count ([MonoFast] PairCount, docs/139 §3, TEST-RUN TOOL): head 0x00E544D5 -> counter, sim thread only, report every 5 min / save / exit"],
+          "noMatch": ["SKIP mint pair count: dispatch head bytes at 0x00E544D5 differ or no table memory"]
+        },
+        "^mintpairs: \\w+ #\\d+ dispatches [1-9]\\d*, ": {
+          "match": ["mintpairs: interval #1 dispatches 18234567, distinct pairs 9123, ops 301 (sim thread, head 0x00E544D5)"],
+          "noMatch": ["mintpairs: interval #1 dispatches 0, distinct pairs 0, ops 0 (sim thread, head 0x00E544D5)"]
+        },
+        "^SKIP mint pair count": {
+          "match": ["SKIP mint pair count: dispatch head bytes at 0x00E544D5 differ or no table memory"],
+          "noMatch": ["OK   mint pair count ([MonoFast] PairCount, docs/139 §3, TEST-RUN TOOL): head 0x00E544D5 -> counter, sim thread only, report every 5 min / save / exit"]
+        }
+      }
+    },
+    {
+      "id": "bp-mintpairs-jitoff",
+      "note": "[est 16 min] DATA: BP 11 min, PairCount=1 CallPath=0 MonoJit.Enabled=0: the whole interpreter mix (compare with docs/139 §3's host phases).",
+      "asi": "game-copy/ts3native.asi.mono-measure-1115",
+      "iniBase": "game-copy/ts3native.ini.mono-measure-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.l3-convgone-1115",
+      "pinReason": "mono-measure-1115 (builds.json): feature/mono-measure-1115 = master aae8e1d6 native + [MonoFast] PairCount (default off); ts3fixes l3-convgone-1115 = master ts3fixes",
+      "minCounters": 1,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "ini": { "MonoFast.PairCount": 1, "MonoFast.CallPath": 0, "MonoJit.Enabled": 0 },
+      "run": { "profile": { "seed": 12345, "minutes": 11, "noSamplers": true } },
+      "logRequire": {
+        "^OK   mint pair count \\(\\[MonoFast\\] PairCount": 1,
+        "^mintpairs: \\w+ #\\d+ dispatches [1-9]\\d*, ": 2
+      },
+      "logForbid": { "^SKIP mint pair count": 0 },
+      "regexCases": {
+        "^OK   mint pair count \\(\\[MonoFast\\] PairCount": {
+          "match": ["OK   mint pair count ([MonoFast] PairCount, docs/139 §3, TEST-RUN TOOL): head 0x00E544D5 -> counter, sim thread only, report every 5 min / save / exit"],
+          "noMatch": ["SKIP mint pair count: dispatch head bytes at 0x00E544D5 differ or no table memory"]
+        },
+        "^mintpairs: \\w+ #\\d+ dispatches [1-9]\\d*, ": {
+          "match": ["mintpairs: interval #1 dispatches 18234567, distinct pairs 9123, ops 301 (sim thread, head 0x00E544D5)"],
+          "noMatch": ["mintpairs: interval #1 dispatches 0, distinct pairs 0, ops 0 (sim thread, head 0x00E544D5)"]
+        },
+        "^SKIP mint pair count": {
+          "match": ["SKIP mint pair count: dispatch head bytes at 0x00E544D5 differ or no table memory"],
+          "noMatch": ["OK   mint pair count ([MonoFast] PairCount, docs/139 §3, TEST-RUN TOOL): head 0x00E544D5 -> counter, sim thread only, report every 5 min / save / exit"]
+        }
+      }
+    }
+  ]
+}

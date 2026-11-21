@@ -25,6 +25,8 @@ Logging only: no game behaviour changes. `[UserDiag] Enabled=1` by default (cost
 
 Not built: an ini diff against the release defaults (the log lists every key of every enabled section; compare with the release `ts3native.ini` by hand), the DXVK version number, NRaas module versions beyond their file names (`NRaas_X_V123.package`) and assembly MVIDs, CC split by kind (CAS / objects).
 
+**2026-11-15 (lane L9, offline, not run in game):** CC split by kind built: the `diag: Mods\Packages` line ends with `; CC by kind: N with CAS parts (CASP), M with objects (OBJD)` (packages whose DBPF index holds a `0x034AEECB` / `0x319E4F1D` entry [community: TS3 resource type ids]). ini diff built in `tools/player-log-digest.ts` (not in the plugin: the repo ini is the reference): `ini vs repo defaults (N): [X] on (repo default off); [Y] Key=v (repo w); ...`, self-check on the `UdIniLines` shape, checked on a real 0.36.x log line. NRaas versions + MVIDs: already in the ts3fixes `script assemblies` line (§2, name + version + MVID of every non-game assembly). DXVK version: still not built (the version string is not a fixed byte pattern in the DLL [inferred]; the Apex bridge is the baseline now).
+
 ## 2. World size and ts3fixes settings (`ts3fixes:` lines)
 
 ts3fixes cannot write to ts3native.log itself, so at every world load (`World.OnWorldLoadFinishedEventHandler`, Instantiator) `Fixes.DiagWorldLoad` sends text lines over a GetOption2 channel: top byte `0x87` (RouteOption2 bits 63 + 58 + 57 + 56, unnamed; `0x86` alone is the stuck-check PROBE mark, docs/163 §10: the game answers false, older ts3native builds pass it to the game, so ts3fixes stops at the first refused message), op in bits 48-55 (0 begin, 1 four ASCII bytes in bits 0-31, 2 end). ts3native logs each line as `ts3fixes: <text>` (non-printables `?`, 470 characters, 400 lines per session). Lines:
@@ -87,6 +89,8 @@ When: world load, save start and end, every 10 min of play (nothing before the f
 
 Not built: an ini threshold (256 MB fixed), a per-heap split (heaps are one `MEM_PRIVATE` sum), the warning on the save watchdog lines.
 
+**2026-11-15 (lane L9, offline, not run in game):** `[UserDiag] LowSpaceMB=256` (64-1024) sets the threshold; every `save: still running after N s` line ends with `; largest free N MB` and ` - LOW (under T MB)` below it (one VirtualQuery walk on the watchdog thread per 5 s line). Per-heap split: `[MemDiag]` module 1 (§7).
+
 **For the next release notes ("The log now shows"):** the game's memory use when a world loads, when you save (start and end), every 10 minutes of play and when you quit: how much of the game's 4 GB is in use, the biggest free block left, the lowest it got this session, and a warning line when the biggest free block falls under 256 MB (the point where Error 12 and crashes on save get likely). CHANGELOG has no unreleased section yet (v0.1.6 is the latest): copy this bullet there when the next release section opens.
 
 ## 7. Player memory lines (`[MemDiag] Light`, ts3native 0.36.79, default on)
@@ -113,3 +117,5 @@ and once per load `diag: memsus types: n=10837 kinds=310 ms=12.50 top=Sim:265,..
 - **issues:** unsupported or changed exe, save results other than 0, saves over 60 s or with long waits, a largest free block under 300 MB (docs/66), a previous session that crashed, no LAA, no or old ts3fixes, exceptions inside ts3native, overlapping add-ons and mods, and every issue of the doctor report.
 
 The self-check (`--self-check`) runs on made-up log lines in the 0.36.148 shapes and a zip built in memory; no player data.
+
+**2026-11-19:** `ts3fixes:` lines without a dedicated cap used to share one 400-line session cap, which `ufplansplit:` / `callcensus` / `syncwait` / `socialfinish` filled in every run, dropping later fix lines. Now each prefix (text up to the first `:`, max 24 chars; 64 prefixes, later ones share one bucket) has its own cap `[UserDiag] LinesPerPrefix=400` (10-10000), with a 50000-line total guard; one `ts3fixes: <prefix> lines capped at N` line per capped prefix. `world:` / `world quit` / `mem:` handling runs regardless of caps.

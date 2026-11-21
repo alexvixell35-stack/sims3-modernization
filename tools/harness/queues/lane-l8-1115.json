@@ -1,0 +1,188 @@
+{
+  "note": "lane-l8-1115: lane L8 (2026-11-15) correctness dry compares of the docs/126 §8 rows #14 GetPondInfo (AS_OF_BIG pool-backed out) and #20 LotGetDisplayLevelInfo (masked struct), the #18 level-bit gate (Tier2RoomGate) and the DumpOnMismatch row dump. Not run; needs the lane-L8-1115 pair.",
+  "smoke": {
+    "id": "bp-l8-smoke",
+    "note": "Smoke (4 min BP): the per-arm switches read back (Tier2IcNew bits 5-6 = 3, Tier2RoomGate=1), autoff_t2ic_items > 0, 0 crashes.  10 min, Mode R only (no apply: no Sim, household or not, changes; IcG9 skips lots of the active household, as IcG5): PASS = 0 crashes, no freeze, 0 script errors; the log reads back Tier2IcNew bits 5-6 = 3 and Tier2RoomGate=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches over slots 0-27), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Read the autshadow level gate lines for World_GetInformationAboutRoomImpl (skip vs fill). DumpOnMismatch=1: any A1-A3 pair writes t=dump/t=row lines to autshadow.jsonl (cap 20); a mismatch: off-t2ic records (slots 25-27 = IcG9) plus those dumps, triage before the next job.",
+    "asi": "game-copy/ts3native.asi.master-lanes-1115",
+    "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+    "pinReason": "master-lanes-1115 pair (builds.json, master 84ee284f): lane L8 merged (rows #14, #20, #18 Tier2RoomGate, DumpCut + ts3fixes IcG9 slots 25-27); repinned from lane-L8-1115 2026-11-15",
+    "save": "Baseline-BP-Spring",
+    "minCounters": 90,
+    "ini": {
+      "HitchAttr.Enabled": 1,
+      "RouteSnap.Enabled": 1,
+      "RouteSnap.Count": 1,
+      "RouteSnap.AuditEvery": 0,
+      "MonoThread.Enabled": 1,
+      "MonoThread.Mode": 1,
+      "MonoThread.GcLock": 1,
+      "MonoThread.FrameTls": 1,
+      "MonoThread.ArenaFix": 1,
+      "MonoThread.N2mPrivate": 1,
+      "AutShadow.Enabled": 1,
+      "AutShadow.Mode": 1,
+      "AutShadow.Sample": 4,
+      "AutShadow.Audit": 50,
+      "AutShadow.DumpOnMismatch": 1,
+      "AutShadow.WindowWaitUs": 5000,
+      "AutShadow.ColdIc": 1,
+      "AutShadow.CutLean": 2,
+      "AutShadow.TierMs": 1500,
+      "AutShadow.ListAudit": 1,
+      "AutShadow.TierClassMs": 1000,
+      "AutShadow.RowHot": 200,
+      "AutShadow.RunSkip": 1,
+      "AutShadow.FreshEvery": 8,
+      "AutShadow.KeepPartial": 1,
+      "AutShadow.Tier2Rows": 1,
+      "AutShadow.Tier2IcRows": 1,
+      "AutShadow.Tier2IcNew": 96,
+      "AutShadow.Tier2RoomGate": 1
+    },
+    "logRequire": {
+      "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+      "OK   mono thread P4": 1,
+      "autonomy shadow: Tier2Rows=1": 1,
+      "autonomy shadow: Tier2IcNew bits 5-6 = 3 \\(L8 #14 GetPondInfo, #20 LotGetDisplayLevelInfo\\) Tier2RoomGate=1": 1
+    },
+    "run": {
+      "profile": {
+        "minutes": 4,
+        "seed": 12345,
+        "fixesOn": "autshadow,autofft2,autofft2ic",
+        "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+        "repros": [
+          "tier2-ic-rows-dry"
+        ]
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "timeoutMin": 30
+  },
+  "jobs": [
+    {
+      "id": "bp-l8-dry",
+      "note": "Dry compare, Baseline-BP-Spring (lot ponds on community lots), 10 min, Mode R only (no apply: no Sim, household or not, changes; IcG9 skips lots of the active household, as IcG5): PASS = 0 crashes, no freeze, 0 script errors; the log reads back Tier2IcNew bits 5-6 = 3 and Tier2RoomGate=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches over slots 0-27), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Read the autshadow level gate lines for World_GetInformationAboutRoomImpl (skip vs fill). DumpOnMismatch=1: any A1-A3 pair writes t=dump/t=row lines to autshadow.jsonl (cap 20); a mismatch: off-t2ic records (slots 25-27 = IcG9) plus those dumps, triage before the next job.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 pair (builds.json, master 84ee284f): lane L8 merged (rows #14, #20, #18 Tier2RoomGate, DumpCut + ts3fixes IcG9 slots 25-27); repinned from lane-L8-1115 2026-11-15",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "AutShadow.Tier2IcRows": 1,
+        "AutShadow.Tier2IcNew": 96,
+        "AutShadow.Tier2RoomGate": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autonomy shadow: Tier2Rows=1": 1,
+        "autonomy shadow: Tier2IcNew bits 5-6 = 3 \\(L8 #14 GetPondInfo, #20 LotGetDisplayLevelInfo\\) Tier2RoomGate=1": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autofft2,autofft2ic",
+          "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "repros": [
+            "tier2-ic-rows-dry"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-l8-dry",
+      "note": "Dry compare, Baseline-IP-Spring (world ponds and sea lots, houseboats; the active household owns a houseboat, its lot is skipped), 10 min, Mode R only (no apply: no Sim, household or not, changes; IcG9 skips lots of the active household, as IcG5): PASS = 0 crashes, no freeze, 0 script errors; the log reads back Tier2IcNew bits 5-6 = 3 and Tier2RoomGate=1; autoff_t2ic_mis == 0 and autoff_t2ic_exc == 0 (gate: 0 mismatches over slots 0-27), autoff_t2ic_eq > 0; autshadow A1-A3 still 0 and autoff_t2_a2 == 0. Read the autshadow level gate lines for World_GetInformationAboutRoomImpl (skip vs fill). DumpOnMismatch=1: any A1-A3 pair writes t=dump/t=row lines to autshadow.jsonl (cap 20); a mismatch: off-t2ic records (slots 25-27 = IcG9) plus those dumps, triage before the next job.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 pair (builds.json, master 84ee284f): lane L8 merged (rows #14, #20, #18 Tier2RoomGate, DumpCut + ts3fixes IcG9 slots 25-27); repinned from lane-L8-1115 2026-11-15",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "AutShadow.Tier2IcRows": 1,
+        "AutShadow.Tier2IcNew": 96,
+        "AutShadow.Tier2RoomGate": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autonomy shadow: Tier2Rows=1": 1,
+        "autonomy shadow: Tier2IcNew bits 5-6 = 3 \\(L8 #14 GetPondInfo, #20 LotGetDisplayLevelInfo\\) Tier2RoomGate=1": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autofft2,autofft2ic",
+          "fixesRequire": "autoff_t2ic_items>=1,autoff_t2ic_eq>=1,autoff_t2ic_mis<1,autoff_t2ic_exc<1,autoff_t2_a2<1,autoff_t2_exc<1",
+          "repros": [
+            "tier2-ic-rows-dry"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

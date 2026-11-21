@@ -1,0 +1,85 @@
+{
+ "note": "defon-1113-verify (prepared 2026-11-13, NOT RUN): correctness of the 29 leak switches now ON by default (branch feature/default-on-1113, PLAN.md, docs/545 status). ts3fixes package built from the branch with release defaults, no --ab: natural BP and IP play, the switches on from load. Gate: no crash, 0 script errors, dnpsubjectcache_entries >= 1 in BP (565 in bp-m1112b-leaks-offon), so the defaults really are on. Not timing. Est ~35 min. node tools/harness/queue.ts tools/harness/queues/defon-1113-verify.json --no-smoke",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-defon-natural",
+   "asi": "game-copy/ts3native.asi.master1112b",
+   "fixesPackage": "game-copy/ts3fixes.package.defon1113",
+   "pinReason": "ts3native master1112b (0.36.248, builds.json) + ts3fixes game-copy/ts3fixes.package.defon1113 (sha256 a9decafa52bf, build of feature/default-on-1113 on master 96bbaf1b: 29 leak switches default True)",
+   "minCounters": 912,
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "note": "[est 16 min] CORRECTNESS. BP natural 14 min with the new defaults (no fixesOn, no --ab). Pass: no crash, 0 script errors, dnpsubjectcache_entries >= 1.",
+   "logRequire": {
+    "^ts3native 0\\.36\\.248 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.248 ": {
+     "match": [
+      "ts3native 0.36.248 2026-11-12 21:05:10"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-12 20:36:39",
+      "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+      "ts3native 0.36.2480 2026-11-12 21:05:10"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 14,
+     "fixesReport": "dnpsubjectcache,exitcbsweep,customctlsweep",
+     "fixesRequire": "dnpsubjectcache_entries>=1"
+    }
+   },
+   "timeoutMin": 35
+  },
+  {
+   "id": "ip-defon-natural",
+   "asi": "game-copy/ts3native.asi.master1112b",
+   "fixesPackage": "game-copy/ts3fixes.package.defon1113",
+   "pinReason": "ts3native master1112b (0.36.248, builds.json) + ts3fixes game-copy/ts3fixes.package.defon1113 (sha256 a9decafa52bf, build of feature/default-on-1113 on master 96bbaf1b: 29 leak switches default True)",
+   "minCounters": 912,
+   "releaseDefaults": true,
+   "save": "Baseline-IP",
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "note": "[est 16 min] CORRECTNESS. IP natural 14 min with the new defaults. Pass: no crash, 0 script errors (the EA Boat.GetOutIntoWater NRE, docs/257 §7, is a known natural EA error: read the row before calling a FAIL ours).",
+   "logRequire": {
+    "^ts3native 0\\.36\\.248 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.248 ": {
+     "match": [
+      "ts3native 0.36.248 2026-11-12 21:05:10"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-12 20:36:39",
+      "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+      "ts3native 0.36.2480 2026-11-12 21:05:10"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 14,
+     "fixesReport": "dnpsubjectcache,exitcbsweep,customctlsweep"
+    }
+   },
+   "timeoutMin": 35
+  }
+ ]
+}

@@ -246,6 +246,38 @@ static void PdtRunWorker(PdtWk& w) {
     CloseHandle(h);
 }
 
+// docs/264 (issue #338) [RouteAsync] KdUncutCeilMs: the ini range, which jobs get the ceiling, and the hit counter / line
+static void TestUncutCeil() {
+    Ts3nCounters& k = ts3native_counters;
+    const LONG mode0 = k.kdUncutMode, ceil0 = k.kdUncutCeilUs, hit0 = k.kdUncutHit, max0 = k.kdUncutMaxUs;
+    // ini: 0 or less = off, else clamped to 5-300 s, in us
+    assert(UcIniUs(0) == 0 && UcIniUs(-1) == 0 && UcIniUs(1000) == 5000000 && UcIniUs(30000) == 30000000 && UcIniUs(999999) == 300000000);
+    // only a job with no deadline gets it; any other deadline stays as it was (smaller or larger)
+    k.kdUncutMode = 1, k.kdUncutCeilUs = 30000000;
+    assert(UcCapUs(0) == 30000000 && UcCapUs(250000) == 250000 && UcCapUs(10000000) == 10000000 && UcCapUs(60000000) == 60000000);
+    k.kdUncutCeilUs = 300000;  // native_set kduncutceilus 300000 (handoff repro): used raw, below the 5 s ini minimum
+    assert(UcCapUs(0) == 300000);
+    k.kdUncutCeilUs = 30000000;
+    k.kdUncutMode = 0;  // switch off (native_set kduncutceil 0): uncut as before
+    assert(UcCapUs(0) == 0);
+    k.kdUncutMode = 1, k.kdUncutCeilUs = 0;  // ini 0
+    assert(UcCapUs(0) == 0);
+    // hit = a capped job that ran under the ceiling; not capped, or a job with its own deadline, is no hit
+    k.kdUncutCeilUs = 30000000, k.kdUncutHit = 0, k.kdUncutMaxUs = 0;
+    AsyncJob j = {};
+    j.handle = 0x25338338, j.kdScope = 1;
+    t_ucJob = true;
+    UcJobEnd(&j, false, 31000000);
+    assert(k.kdUncutHit == 0 && k.kdUncutMaxUs == 0);
+    UcJobEnd(&j, true, 30012000);
+    assert(k.kdUncutHit == 1 && k.kdUncutMaxUs == 30012000);
+    t_ucJob = false;
+    UcJobEnd(&j, true, 40000000);
+    assert(k.kdUncutHit == 1 && k.kdUncutMaxUs == 30012000);
+    k.kdUncutMode = mode0, k.kdUncutCeilUs = ceil0, k.kdUncutHit = hit0, k.kdUncutMaxUs = max0;
+    printf("KdUncutCeilMs (docs/264): counters v198; ini range 0 / 5-300 s, ceiling only for a job with no deadline, switch and 0 off, "
+           "hit counter + max only for a capped ceiling job ok\n");
+}
 static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, fbjdMode) == 0x440C && offsetof(Ts3nCounters, fbjdCapped) == 0x441C &&
                       offsetof(Ts3nCounters, fbjdLines) == 0x4438 && offsetof(Ts3nCounters, owReady) == 0x443C &&
@@ -255,7 +287,7 @@ static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, pdMode) == 0x4244 && offsetof(Ts3nCounters, pdSessions) == 0x4254 &&
                       offsetof(Ts3nCounters, pdLines) == 0x427C && offsetof(Ts3nCounters, fmMode) == 0x4280 &&
                       offsetof(Ts3nCounters, fmInval) == 0x4298 && offsetof(Ts3nCounters, fmServedUs) == 0x42C4 &&
-                      sizeof(Ts3nCounters) == 6112 * 4,
+                      sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v99 layout after v98 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -380,7 +412,7 @@ static void TestPlanDeadline() {
     //     exempt even as NoStart, once; nested in an open session it cannot be: a cut there counts pdCutSc
     {
         static_assert(offsetof(Ts3nCounters, pdExemptSc) == 0x52C0 && offsetof(Ts3nCounters, pdCutSc) == 0x52C4 &&
-                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6112 * 4,
+                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6478 * 4,
                       "counters v135 layout after v134 (docs/registry.md)");
         g_icPlanOrig = [](u8* o, DWORD) -> u8* {
             assert(t_pdNoCut && !PdPlanBegin() && !t_pd.open && !g_pdTid);
@@ -576,6 +608,35 @@ static void TestPlanDeadline() {
         assert(KdJobBegin(&j) == 250000);  // reset by the success
         KdJobEnd(&j, false, 1000, 0, 0);
         assert(k.kdAfterOk == 1);  // nothing pending
+        {  // docs/197 §7 KdUnseenForeignCap: foreign (Plan, A10) of an unseen follower at level 2 = doubled, not uncut; own kinds unchanged
+            KdRow* row = KdFind(11, true);
+            row->level = 2, row->cutTick = GetTickCount();
+            AsyncJob uf = {}, ua = {}, uo = {};
+            uf.fb = 1, uf.uf = 1, uf.kdId = 11;
+            ua.af = 1, ua.kind = 3, ua.uf = 1, ua.kdId = 11;
+            uo.uf = 1, uo.kdId = 11;
+            g_kdUfCap = false;
+            assert(KdJobBegin(&uf) == 0 && t_kdUncut && KdJobBegin(&ua) == 0 && t_kdUncut);
+            g_kdUfCap = true;
+            assert(KdJobBegin(&uf) == 400000 && !t_kdUncut && KdJobBegin(&ua) == 400000 && !t_kdUncut);
+            assert(KdJobBegin(&uo) == 0 && t_kdUncut);  // own plan: its backoff still ends uncut
+            g_kdUfCap = 2;  // own kinds too: the unseen own Plan keeps its doubled 500 ms, the foreign ones as with 1
+            assert(KdJobBegin(&uo) == 500000 && !t_kdUncut && KdJobBegin(&uf) == 400000 && !t_kdUncut);
+            for (LONG sc = 0; sc <= 3; sc += (sc == 1 ? 2 : 1)) {  // unknown, seen, seen NPC: the same answer as with 1
+                AsyncJob so = uo;
+                so.uf = 0, so.kdScope = sc;
+                g_kdUfCap = 1;
+                const LONG was = KdJobBegin(&so);
+                const bool wasUncut = t_kdUncut;
+                g_kdUfCap = 2;
+                assert(KdJobBegin(&so) == was && t_kdUncut == wasUncut);
+            }
+            g_kdUfCap = 1;
+            row->cutTick = GetTickCount() - kKdWinMs - 1;
+            assert(KdJobBegin(&uf) == 200000);  // window over: level ignored, as before
+            g_kdUfCap = false;
+            memset(row, 0, sizeof(*row));
+        }
         // a cut that still succeeded; late time past the deadline
         KdJobBegin(&j);
         KdJobEnd(&j, true, 300000, g_qpf.QuadPart * 3, g_qpf.QuadPart * 2);
@@ -709,6 +770,24 @@ static void TestPlanDeadline() {
         assert(!rf[0]);
         RfAppend("routefail: x, route 25ABCDE0", rf, sizeof(rf));
         assert(!rf[0]);
+        // docs/226: the job's interaction, by the id ts3fixes sent with the scope; the RfAppend tail does not repeat it
+        RfIaName("rfia: 5 ReactToFire target FireSource");
+        RfIaName("rfia: 1024 Too far");  // past the table: ignored
+        RfIaName("rfia: x Bad");
+        KdScopeSet(0x25000009, 3, 5);
+        assert(RfIaPeek(0x25000008) == 0 && RfIaPeek(0x25000009) == 5 && KdScopeTake(0x25000009) == 3 && RfIaPeek(0x25000009) == 0);
+        char ia[kRfIaLen + 4];
+        RfIaText(5, ia, sizeof(ia));
+        assert(!strcmp(ia, ", ReactToFire target FireSource"));
+        RfIaText(6, ia, sizeof(ia));
+        assert(!strcmp(ia, ", interaction unknown"));
+        RfIaText(1024, ia, sizeof(ia));
+        assert(!strcmp(ia, ", interaction unknown"));
+        e.rfIa = 5;
+        RfJobNote(&e, false, 300000, sp, 0, 0);
+        RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+        assert(rf[0] && !strstr(rf, "ReactToFire"));
+        g_rfIa[5][0] = 0, e.rfIa = 0;
         t_kdKind = 1, t_kdExemptUs = 250000;
         RfJobNote(&e, true, 12000000, sp, 10000000, 1);
         assert(k.kdCeilCut == 1);

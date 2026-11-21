@@ -134,8 +134,9 @@ def main():
             sz, hmap, kind = struct.unpack_from("<I", hb, 0)[0], struct.unpack_from("<I", hb, 0x10)[0], hb[0x14]
             span = max(HBLK, (sz * 4 + HBLK - 1) // HBLK * HBLK) if sz * 4 > HBLK // 2 else HBLK
             if hmap == inv or not sz:
-                free_bytes += max(sz * 4, HBLK) if hmap == inv else HBLK
-                p += max(HBLK, (sz * 4 + HBLK - 1) // HBLK * HBLK) if hmap == inv else HBLK
+                # a free block's hb_sz is in bytes, not words (docs/542 sec 7.2)
+                free_bytes += max(sz, HBLK) if hmap == inv else HBLK
+                p += max(HBLK, (sz + HBLK - 1) // HBLK * HBLK) if hmap == inv else HBLK
                 continue
             used_blocks += 1
             marks = array.array("I", hb[0x1C:0x9C])

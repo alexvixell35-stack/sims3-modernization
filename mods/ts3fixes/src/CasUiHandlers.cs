@@ -36,12 +36,11 @@ namespace Ts3Fixes
             try
             {
                 if (!ShortcutOn("casuihandlers")) return;
-                const BindingFlags kS = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
                 const BindingFlags kI = BindingFlags.NonPublic | BindingFlags.Instance;
                 if (sCasWinTypes == null)
                 {
-                    sCasDashEv = typeof(DownloadDashboard).GetField("DashboardStateUpdate", kS);
-                    sCasLogicOne = typeof(CASLogic).GetField("sSingleton", kS);
+                    sCasDashEv = typeof(DownloadDashboard).GetField("DashboardStateUpdate", kStaticAll);
+                    sCasLogicOne = typeof(CASLogic).GetField("sSingleton", kStaticAll);
                     sCasLogicEv = new List<FieldInfo>();
                     foreach (string n in kCasLogicEvents) { FieldInfo f = typeof(CASLogic).GetField(n, kI); if (f != null) sCasLogicEv.Add(f); }
                     Type[] t = new Type[kCasWindows.Length];
@@ -49,7 +48,7 @@ namespace Ts3Fixes
                     for (int i = 0; i < t.Length; i++)
                     {
                         t[i] = typeof(CASPuck).Assembly.GetType(kCasWindows[i]);
-                        one[i] = t[i] == null ? null : t[i].GetField("gSingleton", kS);
+                        one[i] = t[i] == null ? null : t[i].GetField("gSingleton", kStaticAll);
                         if (one[i] == null) throw new MissingFieldException(kCasWindows[i] + ".gSingleton");
                     }
                     if (sCasDashEv == null || sCasLogicOne == null) throw new MissingFieldException("DownloadDashboard.DashboardStateUpdate or CASLogic.sSingleton");
@@ -70,7 +69,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sCasUiThrew) { sCasUiThrew = true; AppliedLog().Add("casuihandlers: pass threw " + e.Message); }
+                PassThrewOnce(ref sCasUiThrew, "casuihandlers", e);
             }
         }
 

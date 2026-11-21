@@ -47,10 +47,10 @@ static wchar_t g_asJsonlPath[MAX_PATH];
 typedef void(__cdecl* AsAddIcFn)(const char* name, const void* fn);
 typedef void(__cdecl* AsAddRootsFn)(void* lo, void* hi);
 typedef void*(__cdecl* AsGcMallocFn)(size_t n);
-static AsAddIcFn g_asAddIc = (AsAddIcFn)(uintptr_t)0x00E82550;          // mono_add_internal_call
-static AsAddRootsFn g_asAddRoots = (AsAddRootsFn)(uintptr_t)0x00E4D9F0;  // GC_add_roots (P3 site 17)
-static AsGcMallocFn g_asGcMalloc = (AsGcMallocFn)(uintptr_t)0x00E4BE30;  // GC_malloc (P3-locked)
-static u8** g_asHostPtr = (u8**)(uintptr_t)0x011EE514;                  // MonoScriptHost; script RNG at +0xC30 (docs/27 §1.1)
+static AsAddIcFn g_asAddIc = (AsAddIcFn)(uintptr_t)TS3A(0x00E82550);          // mono_add_internal_call
+static AsAddRootsFn g_asAddRoots = (AsAddRootsFn)(uintptr_t)TS3A(0x00E4D9F0);  // GC_add_roots (P3 site 17)
+static AsGcMallocFn g_asGcMalloc = (AsGcMallocFn)(uintptr_t)TS3A(0x00E4BE30);  // GC_malloc (P3-locked)
+static u8** g_asHostPtr = (u8**)(uintptr_t)TS3A(0x011EE514);                  // MonoScriptHost; script RNG at +0xC30 (docs/27 §1.1)
 // MT object: 624 words, read pointer +0x9C0 (absolute, into the words), words left +0x9C4; the LCG follows at +0x15F8
 // [verified: 0x4FA9F0 / 0x4FA8B0 in the disassembly, docs/125 §2.1]
 static const DWORD AS_RNG_OFF = 0xC30, AS_RNG_LEN = 0x9C8;
@@ -62,9 +62,9 @@ static const DWORD AS_RNG_OFF = 0xC30, AS_RNG_LEN = 0x9C8;
 // is the same value on both threads whatever happened in other units (aborts, tooltip draws), and Mode R stays bit-equal.
 typedef void(__fastcall* AsMtInitFn)(void* mt, void* edx, DWORD seed);  // 0x4FA990 thiscall, ret 4 (seed -1 = RDTSC)
 typedef double(__fastcall* AsMtNextFn)(void* mt, void* edx);             // 0x4FAA70 thiscall: [0,1) on x87
-static AsMtInitFn g_asMtInit = (AsMtInitFn)(uintptr_t)0x004FA990;
-static AsMtNextFn g_asMtNext = (AsMtNextFn)(uintptr_t)0x004FAA70;
-static const volatile u8* g_asDetFlag = (const volatile u8*)(uintptr_t)0x011CDBC5;  // `Deterministic`: draws are 0.5 (docs/27 §1.3)
+static AsMtInitFn g_asMtInit = (AsMtInitFn)(uintptr_t)TS3A(0x004FA990);
+static AsMtNextFn g_asMtNext = (AsMtNextFn)(uintptr_t)TS3A(0x004FAA70);
+static const volatile u8* g_asDetFlag = (const volatile u8*)(uintptr_t)TS3A(0x011CDBC5);  // `Deterministic`: draws are 0.5 (docs/27 §1.3)
 static volatile DWORD g_asRngSeedV[2];  // per published version: the cut seed, 0 = none
 static LONG g_asRngUnitW = -1;          // worker: current unit (-1 = none yet in this run)
 static bool g_asRngLiveW;               // worker: g_asRngMtW is seeded for that unit
@@ -279,7 +279,7 @@ static void __cdecl AsJobHook(int phase, void* method) {
         if (g_asFpuSet) SetX87(g_asSimCw), _mm_setcsr(g_asSimCsr);
         InterlockedExchange(&g_asHeld, g_asPub);  // AsWorkerBegin without clearing stop: the sim may have set it already
         // the world moved between cut and start; with Satb act the worker reads the cut through the log, so a move is fine
-        if (g_asRunEpoch != g_asEpoch && !(g_satbMode == SATB_ACT && g_satbLive)) InterlockedExchange(&g_asStop, 1);
+        if ((g_asRunEpoch != g_asEpoch && !(g_satbMode == SATB_ACT && g_satbLive)) || g_arGate) InterlockedExchange(&g_asStop, 1);  // R2c: gate closed
         g_asRngUnitW = -1, g_asRngLiveW = false;
         InterlockedExchange(&g_asJobIn, 1);
         QueryPerformanceCounter(&g_asJob0);
@@ -296,6 +296,16 @@ static void __cdecl AsJobHook(int phase, void* method) {
 }
 
 static bool __cdecl AsSatbBusy() { return g_mtBusy != 0; }
+// races R2c (autraces.cpp ArDrain), sim thread at a going-away world event: our job is inside the worker; tell it to stop and
+// drop its result (an overrun's kept part too: the world it scored is going away)
+static bool AsDrainBusy() { return g_asRun != AS_RUN_IDLE && g_mtBusy != 0; }
+static bool AsDrainStop() {
+    InterlockedExchange(&g_asStop, 1);
+    g_asLast = AS_LAST_EPOCH;
+    return g_satbMode == SATB_ACT && g_satbLive;
+}
+// monothread QuitStop (Mono shutdown entry, sim thread): our job in flight aborts every later answer, result dropped
+static void __cdecl AsQuitDrain() { if (AsDrainBusy()) AsDrainStop(); }
 static bool AsWorkerIdle() { return g_mtWorker && ts3native_mtprobe.workerState == 2 && !g_mtBusy; }
 
 // return of MonoScriptHost_Simulate (sim thread): finish a run whose job ended, else cut for a posted request
@@ -305,6 +315,7 @@ static void __cdecl AsSimLeave() {
     g_asGwNow = g_asFrame;  // go-live watch stamps: events from here on belong to the next frame
     if (g_satbMode == SATB_PROBE && g_satbLive) SatbEnd();  // probe: the span was this tick (from the Simulate entry)
     if (g_asRun == AS_RUN_WAIT) {
+        if (g_mtBusy && g_satbMode == SATB_ACT && g_satbLive) SatbColdLetGo();  // satb.cpp, docs/206 §18: a parked cold call runs now
         if (g_mtBusy) {  // the job (or a skip) has not left the worker yet
             k.waitTicks++;
             if (g_satbLive && g_satbMode == SATB_ACT) {
@@ -313,6 +324,7 @@ static void __cdecl AsSimLeave() {
             }
             return;
         }
+        ArJobLeft();  // races R2c: an aborted drain's job is out
         LONG st = g_asLast;
         if (g_satbMode == SATB_ACT && g_satbLive) {
             SatbEnd();  // worker idle: accounting, roots off
@@ -326,6 +338,7 @@ static void __cdecl AsSimLeave() {
         return;
     }
     if (g_asRun != AS_RUN_IDLE || !g_asReqId) return;
+    if (g_arGate) { ts3native_counters.r2cHeld++; AsFinish(AS_LAST_EPOCH); return; }  // races R2c: no world to cut
     AsRootOnce();
     const LONG pl0 = g_asPreLearnRows, t10 = g_asReqLotT1;
     AsCut();
@@ -488,7 +501,9 @@ static int __cdecl AsIcConfig(int key) {
         case 32: return g_satbMode == SATB_ACT ? 1 : 0;  // 0.36.148: RainArm is registered and can skip (docs/127 H11 shelter answer)
         case 33: return g_asLastJobBits;  // 0.36.148: native feature bits of the last finished job (AS_FEAT_*, ts3fixes AutLiveCore.Feat)
         case 34: return 1;  // 0.36.148: SearchMark registered, Config(33) answers
-        case 35: return 1;  // P6: ActorScope registered (the Query_CountObjectsInRange row's actor gate)
+        case 35: return 1;  // P6: ActorScope registered (the Query_CountObjectsInRange row's actor gate; P5 slot rows since 0.36.213)
+        case 36: return (g_asT2eBits >> 8) & 1;  // 0.36.213 P5: [AutShadow] Tier2SlotRows in force (ts3fixes autofft2ic slots 23-24)
+        case 37: return 1;  // lane L8: DumpCut registered (DumpOnMismatch snapshot dump, docs/122 §5.1)
         default: return AsLgConfig(key);  // 5-10: ledger probe (autledger.cpp)
     }
 }
@@ -499,7 +514,7 @@ static void __cdecl AsIcAbort(int reason) { if (AsIcIsWorker()) AsManagedAbort(r
 // the abort word and the stop flag belong to the worker's run: on any other thread they read as clear
 static int __cdecl AsIcAborted() { return AsIcIsWorker() ? AsAborted() : -1; }
 static void __cdecl AsIcResetAbort() { if (AsIcIsWorker()) AsResetAbort(); }
-static int __cdecl AsIcStopped() { return AsIcIsWorker() && g_asStop != 0; }
+static int __cdecl AsIcStopped() { return AsIcIsWorker() && (g_asStop != 0 || g_arGate != 0); }
 // P6 actor gate (Config(35) == 1): ts3fixes says per request whether its actor is household, selected or unknown (1) or
 // not (0); worker only, a sim-thread call is a no-op (load warm-up)
 static void __cdecl AsIcActorScope(int hh) { if (AsIcIsWorker()) InterlockedExchange(&g_asActorHh, hh ? 1 : 0); }
@@ -530,6 +545,7 @@ static void AsCrashLine() {
     Log("  autshadow search: run %ld, posted req %ld, worker unit obj %d pair %d (thread %s), this cut's native bits 0x%lX; last finished "
         "search req %ld mask 0x%03lX [%s] top definition %s", (LONG)g_asRun, (LONG)g_asReqId, u >> 16, u & 0xFFFF,
         AsIcIsWorker() ? "worker" : "sim", g_asJobBits, g_asMarkReq, g_asMarkMask, names, g_asMarkDef[0] ? g_asMarkDef : "-");
+    SatbCrashLine();  // satb.cpp: the last cold-site entries per side (docs/130 §208 crash diag)
 }
 // docs/127 H11 (worker only; -1 elsewhere, so the sim-thread warm-up is a no-op): def != null arms the next callvirt of site
 // on def (satb.cpp SatbRainSkip), 1 armed, 0 not (no Satb act span: ts3fixes aborts the pair `rain` as before); def null
@@ -695,23 +711,79 @@ static void __cdecl AsIcSetRefs(void* empty, void* fmtExc) {
     if (empty) ts3native_autshadow.rooted |= 4;
     if (fmtExc) ts3native_autshadow.rooted |= 8;
 }
-// EA's MonoString {vtable, length, UTF-16 at +8} [verified, as AsStrKey]: one line to autshadow.jsonl
-static void __cdecl AsIcLog(const DWORD* s) {
+// one line (buf must have room for the newline after n bytes) to autshadow.jsonl, cap 100k lines
+static void AsJsonlLine(char* buf, int n) {
     Ts3nAutShadow& k = ts3native_autshadow;
-    if (!s || k.logLines >= 100000) return;
+    if (n <= 0 || k.logLines >= 100000) return;
     if (g_asJsonl == INVALID_HANDLE_VALUE) {
         if (!g_asJsonlPath[0]) return;
         g_asJsonl = CreateFileW(g_asJsonlPath, FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (g_asJsonl == INVALID_HANDLE_VALUE) { g_asJsonlPath[0] = 0; return; }
     }
-    const LONG len = (LONG)s[1];
-    char buf[4096];
-    int n = len > 0 && len < 1300 ? WideCharToMultiByte(CP_UTF8, 0, (const wchar_t*)(s + 2), len, buf, sizeof(buf) - 2, NULL, NULL) : 0;
-    if (n <= 0) return;
     buf[n++] = '\n';
     DWORD w;
     WriteFile(g_asJsonl, buf, (DWORD)n, &w, NULL);
     k.logLines++;
+}
+// EA's MonoString {vtable, length, UTF-16 at +8} [verified, as AsStrKey]: one line to autshadow.jsonl
+static void __cdecl AsIcLog(const DWORD* s) {
+    if (!s || ts3native_autshadow.logLines >= 100000) return;
+    const LONG len = (LONG)s[1];
+    char buf[4096];
+    const int n = len > 0 && len < 1300 ? WideCharToMultiByte(CP_UTF8, 0, (const wchar_t*)(s + 2), len, buf, sizeof(buf) - 2, NULL, NULL) : 0;
+    AsJsonlLine(buf, n);
+}
+// DumpOnMismatch (docs/122 §5.1, §14.6; lane L8): ts3fixes calls DumpCut(meta object id) after logging an A1-A3 pair
+// (Config(37) == 1). The sim thread writes the published version's rows that the worker read since that version was
+// published (used) or that the meta object owns, one {"t":"row"} line each after a {"t":"dump"} header, so the IC answers
+// can be checked offline against the row builder. At most AS_DUMP_ROWS rows per dump, AS_DUMP_MAX dumps per session.
+// Read-only: the sim thread is the only publisher, so the version cannot change during the walk.
+static const int AS_DUMP_MAX = 20, AS_DUMP_ROWS = 256;
+static LONG g_asDumpN;
+// append to b at n; n = -1 once anything was cut (the line is then dropped)
+static void AsCat(char* b, int cap, int& n, const char* fmt, ...) {
+    if (n < 0) return;
+    va_list ap;
+    va_start(ap, fmt);
+    const int w = _vsnprintf_s(b + n, cap - n, _TRUNCATE, fmt, ap);
+    va_end(ap);
+    n = w < 0 ? -1 : n + w;
+}
+static int AsDumpRow(char* b, int cap, LONG dump, int i, const AsTab& t) {
+    const AsEnt& e = t.e[i];
+    const char* nm = g_asName[e.ic] ? g_asName[e.ic] : "-";
+    DWORD f[2];
+    memcpy(f, &e.f, 8);
+    int n = _snprintf_s(b, cap, _TRUNCATE, "{\"t\":\"row\",\"n\":%ld,\"i\":%d,\"ic\":\"%s\",\"own\":%llu,\"fl\":%u,\"used\":%u,\"key\":[",
+                        dump, i, nm, (unsigned long long)e.owner, (unsigned)e.flags, (unsigned)t.used[i]);
+    for (int q = 0; q < e.nKey && q < AS_KEY; q++) AsCat(b, cap, n, "%s%lu", q ? "," : "", e.key[q]);
+    AsCat(b, cap, n, "],\"r\":[%lu,%lu],\"f\":\"%08lX%08lX\",\"st\":\"", e.r[0], e.r[1], f[1], f[0]);
+    for (int q = 0; q < (int)sizeof(e.st); q++) AsCat(b, cap, n, "%02X", e.st[q]);
+    AsCat(b, cap, n, "\",\"out\":\"");
+    for (int q = 0; q < (int)sizeof(e.out); q++) AsCat(b, cap, n, "%02X", e.out[q]);
+    AsCat(b, cap, n, "\",\"payN\":%ld,\"pay\":[", e.payN);
+    for (int q = 0; q < e.payN && q < 16; q++) AsCat(b, cap, n, "%s%lu", q ? "," : "", t.pool[e.pay + q]);
+    AsCat(b, cap, n, "]}");
+    return n;  // -1 when truncated: AsJsonlLine drops the line
+}
+static void __cdecl AsIcDumpCut(DWORD lo, DWORD hi) {
+    if (!g_asDump || !g_as || AsIcIsWorker() || g_asDumpN >= AS_DUMP_MAX) return;
+    const LONG v = g_asPub;
+    if (v < 0) return;
+    const AsTab& t = g_as->v[v];
+    const AsU64 meta = lo | (AsU64)hi << 32;
+    const LONG dump = ++g_asDumpN;
+    int rows = 0, used = 0;
+    for (int i = 0; i < t.n; i++) if (t.used[i] || t.e[i].owner == meta) rows++, used += t.used[i] != 0;
+    char b[1024];
+    const int n = _snprintf_s(b, sizeof(b) - 1, _TRUNCATE, "{\"t\":\"dump\",\"n\":%ld,\"meta\":%llu,\"cut\":%ld,\"ver\":%ld,\"rows\":%d,\"used\":%d,\"of\":%ld,\"cap\":%d}",
+                              dump, (unsigned long long)meta, g_asCut, v, rows, used, t.n, AS_DUMP_ROWS);
+    AsJsonlLine(b, n);
+    for (int i = 0, w = 0; i < t.n && w < AS_DUMP_ROWS; i++) {
+        if (!t.used[i] && t.e[i].owner != meta) continue;
+        AsJsonlLine(b, AsDumpRow(b, sizeof(b) - 1, dump, i, t));
+        w++;
+    }
 }
 
 static void AsRegisterIcs() {
@@ -751,13 +823,14 @@ static void AsRegisterIcs() {
         {"Ts3Fixes.AutShadowNative::SearchMark", (const void*)AsIcSearchMark},
         {"Ts3Fixes.AutShadowNative::ImageSha", (const void*)AsIcImageSha},
         {"Ts3Fixes.AutShadowNative::ActorScope", (const void*)AsIcActorScope},
+        {"Ts3Fixes.AutShadowNative::DumpCut", (const void*)AsIcDumpCut},
     };
     if (!g_asAddIc) return;
     for (const auto& ic : kIcs) g_asAddIc(ic.name, ic.fn);
     ts3native_autshadow.icRegistered = (LONG)(sizeof(kIcs) / sizeof(kIcs[0]));
 }
 
-// [AutShadow] Mode/Sample/WarmIn/DumpOnMismatch; the cut needs [MonoThread]'s Simulate slot stub (Enabled=1, any Mode)
+// [AutShadow] Mode/Sample/WarmIn/DumpOnMismatch (ts3fixes + the DumpCut row dump); the cut needs [MonoThread]'s Simulate slot stub (Enabled=1, any Mode)
 static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     Ts3nAutShadow& k = ts3native_autshadow;
     LARGE_INTEGER f;
@@ -805,6 +878,13 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     k.transOn = g_asTransient, k.hcOn = g_asHostCls, k.lwOn = g_asListWalk;
     if (ini) Log("autshadow cut: RunSkip=%d Transient=%d HostCls=%d ListWalk=%d ListWalkCheck=%d (docs/122 §14.21, §14.26)", g_asRunSkip,
                  g_asTransient, g_asHostCls, g_asListWalk, g_asListWalkCheck);
+    // docs/122 §14.29: WorldIndex=1 ListWalk's world part from one world-lot vector walk a cut (WorldIndexCheck=N: every Nth
+    // world part also walked per lot and compared, 0 = never); only with ListWalk=1
+    g_asWorldIndex = ini && g_asListWalk > 0 ? (GetPrivateProfileIntW(L"AutShadow", L"WorldIndex", 0, ini) ? 1 : 0) : 0;
+    g_asWorldIndexCheck = ini ? GetPrivateProfileIntW(L"AutShadow", L"WorldIndexCheck", 8, ini) : 8;
+    if (g_asWorldIndexCheck < 0 || g_asWorldIndexCheck > 100000) g_asWorldIndexCheck = 8;
+    k.wiOn = g_asWorldIndex;
+    if (ini) Log("autshadow cut29: WorldIndex=%d WorldIndexCheck=%d (docs/122 §14.29)", g_asWorldIndex, g_asWorldIndexCheck);
     // docs/122 §14.27 (mono-cost16): SimEvRows=1 a reachable Sim's rows of the SimEvIcs ICs refresh on its object events
     // (SimEvCheck=N: every Nth kept row against the body); TierMoveLot=1 a Sim's move re-classifies it only across a lot or
     // room; ListAuditEvery=N the audit at every Nth dirty cut; GoneDelta=1 a destroy is removed from the stored list answers
@@ -875,6 +955,7 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     // docs/206 §7: Satb=1 probe (S0 store counts in one job length of the next tick, no concurrency), 2 act (the worker runs
     // concurrently with the next tick and reads the cut through the log); needs Mode >= 1 and the worker (default 0)
     const int satb = ini ? GetPrivateProfileIntW(L"AutShadow", L"Satb", 0, ini) : 0;
+    g_satbTripwire = ini && GetPrivateProfileIntW(L"AutShadow", L"SatbTripwire", 0, ini) == 1;  // docs/206 §15 rows 4 / 9 (off)
     if (satb > 0 && slotStub && g_asMode >= 1) {
         g_satbRtSwapped = SatbInstallRt();
         const int m = SatbInstall(satb);
@@ -887,5 +968,6 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     g_mtOnEnter = AsSimEnter;
     g_mtOnLeave = AsSimLeaveLoop;
     g_mtJobHook = AsJobHook;
+    g_mtQuitDrain = AsQuitDrain;
     if (ini) SimPumpAdd(AsSimPump, "autshadow cut + worker dispatch (window = frame limiter)");  // game only: patches 0xFD97C8
 }

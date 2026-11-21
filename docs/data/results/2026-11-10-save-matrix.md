@@ -129,3 +129,115 @@ Tool: `tools/harness/save-matrix.ts` (docs/TESTING.md). Times UTC. Save ms = ts3
 | 05:11:17 | reload | pending | Matrix-NewDowntownWorld-reload-off-4, Matrix-NewDowntownWorld-reload-on-4 | 8634, 8562 | info routegate: N/A: no runtime switch, installed on both sides; its gates wait only while an async job runs (none with routeasync 0) |
 
 8 cases, 8 passed, 0 failed, pending: reload
+
+## 2026-11-10T09:56 UTC NewDowntownWorld, start save null, build e020e102+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 09:56:31 | reload | pending | Matrix-NewDowntownWorld-reload-off-5, Matrix-NewDowntownWorld-reload-on-5 | 11305, 10084 | info routegate: N/A: no runtime switch, installed on both sides; its gates wait only while an async job runs (none with routeasync 0) |
+
+0 cases, 0 passed, 0 failed, pending: reload
+
+## 2026-11-10T09:59 NewDowntownWorld reload check of Matrix-NewDowntownWorld-reload-on-5 (ON), build e020e102+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 09:59:25 | reload | pending |  |  | info sims in world: 270 before save, 270 after load (NPCs come and go)<br>info ScriptError files (ON): none since the save at 09:56:31 |
+
+0 cases, 0 passed, 0 failed, pending: reload
+
+## 2026-11-10T10:02 NewDowntownWorld reload check of Matrix-NewDowntownWorld-reload-off-5 (OFF), build e020e102+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 10:02:25 | reload | PASS |  |  | info sims in world: 270 before save, 270 after load (NPCs come and go)<br>info ScriptError files (OFF): none since the save at 09:56:31<br>info ScriptError files per save: ON 0, OFF 0 |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-10T10:06 UTC NewDowntownWorld, start save null, build e92cd6a9+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 10:07:01 | reload | pending | Matrix-NewDowntownWorld-reload-off-6, Matrix-NewDowntownWorld-reload-on-6 | 10782, 9341 | info routegate: N/A: no runtime switch, installed on both sides; its gates wait only while an async job runs (none with routeasync 0) |
+
+0 cases, 0 passed, 0 failed, pending: reload
+
+## 2026-11-10T10:09 NewDowntownWorld reload check of Matrix-NewDowntownWorld-reload-on-6 (ON), build e92cd6a9+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 10:09:55 | reload | pending |  |  | info sims in world: 270 before save, 270 after load (NPCs come and go)<br>info ScriptError files (ON): none since the save at 10:07:01 |
+
+0 cases, 0 passed, 0 failed, pending: reload
+
+## 2026-11-10T10:12 NewDowntownWorld reload check of Matrix-NewDowntownWorld-reload-off-6 (OFF), build e92cd6a9+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 10:12:51 | reload | PASS |  |  | info sims in world: 270 before save, 270 after load (NPCs come and go)<br>info ScriptError files (OFF): none since the save at 10:07:01<br>info ScriptError files per save: ON 0, OFF 0 |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-10T11:28 UTC NewDowntownWorld, start save null, build fd5273d8+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 11:32:13 | travel | PASS | Matrix-NewDowntownWorld-travel-start-49, Matrix-NewDowntownWorld-travel-away-175, Matrix-NewDowntownWorld-travel-home-166 | 11713, 20252, 13189 | skip fixes skipped (not in this build/ini): cachedreflection (PersistedClass.Init: already compiled; PersistedClassDB.GetPersistedClass: already compiled; Persist.GetPersistedTypeCode: already compiled; CachedReflection: not patched, off), footprint (footprint index disabled (Enabled=0)), compress (save compress off (Enabled=0)), flush (save flush off (Enabled=0))<br>info trip route: travel_vacation: queued car on the world lot<br>info travel saves target:  untouched (travel saves went to the Matrix save) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-10T11:44 UTC NewDowntownWorld, start save Matrix-NewDowntownWorld-travel-home-166.sims3, build fd5273d8+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 11:47:08 | travel | PASS | Matrix-NewDowntownWorld-travel-start-50, Matrix-NewDowntownWorld-travel-away-176, Matrix-NewDowntownWorld-travel-home-167 | 12400, 9671, 12821 | skip fixes skipped (not in this build/ini): cachedreflection (PersistedClass.Init: already compiled; PersistedClassDB.GetPersistedClass: already compiled; Persist.GetPersistedTypeCode: already compiled; CachedReflection: not patched, off), footprint (footprint index disabled (Enabled=0)), compress (save compress off (Enabled=0)), flush (save flush off (Enabled=0))<br>info trip route: travel_vacation: queued car on the world lot<br>info vacation cooldown: trips 2+ clear the WentToLocation buff (stress shortcut)<br>info travel saves target: Matrix-NewDowntownWorld-travel-home-166.sims3 untouched (travel saves went to the Matrix save) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-10T12:01 UTC NewDowntownWorld, start save null, build 59ae62c2+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 12:04:22 | travel | PASS | Matrix-NewDowntownWorld-travel-start-51, Matrix-NewDowntownWorld-travel-away-177, Matrix-NewDowntownWorld-travel-home-168 | 11184, 19227, 12503 | skip fixes skipped (not in this build/ini): cachedreflection (PersistedClass.Init: already compiled; PersistedClassDB.GetPersistedClass: already compiled; Persist.GetPersistedTypeCode: already compiled; CachedReflection: not patched, off), footprint (footprint index disabled (Enabled=0)), compress (save compress off (Enabled=0)), flush (save flush off (Enabled=0))<br>info trip route: travel_vacation: queued car on the world lot<br>info travel saves target:  untouched (travel saves went to the Matrix save) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-10T12:16 UTC NewDowntownWorld, start save Matrix-NewDowntownWorld-travel-home-168.sims3, build 59ae62c2+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 12:19:26 | travel | PASS | Matrix-NewDowntownWorld-travel-start-52, Matrix-NewDowntownWorld-travel-away-178, Matrix-NewDowntownWorld-travel-home-169 | 12385, 9939, 13989 | skip fixes skipped (not in this build/ini): cachedreflection (PersistedClass.Init: already compiled; PersistedClassDB.GetPersistedClass: already compiled; Persist.GetPersistedTypeCode: already compiled; CachedReflection: not patched, off), footprint (footprint index disabled (Enabled=0)), compress (save compress off (Enabled=0)), flush (save flush off (Enabled=0))<br>info trip route: travel_vacation: queued car on the world lot<br>info vacation cooldown: trips 2+ clear the WentToLocation buff (stress shortcut)<br>info travel saves target: Matrix-NewDowntownWorld-travel-home-168.sims3 untouched (travel saves went to the Matrix save) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-10T12:29 UTC NewDowntownWorld, start save null, build a2232557+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 12:49:34 | travel | PASS | Matrix-NewDowntownWorld-travel-start-53, Matrix-NewDowntownWorld-travel-away-179, Matrix-NewDowntownWorld-travel-home-170, Matrix-NewDowntownWorld-travel-away-180, Matrix-NewDowntownWorld-travel-home-171, Matrix-NewDowntownWorld-travel-away-181, Matrix-NewDowntownWorld-travel-home-172, Matrix-NewDowntownWorld-travel-away-182, Matrix-NewDowntownWorld-travel-home-173, Matrix-NewDowntownWorld-travel-away-183, Matrix-NewDowntownWorld-travel-home-174, Matrix-NewDowntownWorld-travel-away-184, Matrix-NewDowntownWorld-travel-home-175, Matrix-NewDowntownWorld-travel-away-185, Matrix-NewDowntownWorld-travel-home-176, Matrix-NewDowntownWorld-travel-away-186, Matrix-NewDowntownWorld-travel-home-177 | 10588, 19285, 12023, 9378, 12821, 9396, 13667, 9810, 14308, 9621, 12116, 10155, 15582, 10569, 15756, 10827, 15222 | skip fixes skipped (not in this build/ini): cachedreflection (PersistedClass.Init: already compiled; PersistedClassDB.GetPersistedClass: already compiled; Persist.GetPersistedTypeCode: already compiled; CachedReflection: not patched, off), footprint (footprint index disabled (Enabled=0)), compress (save compress off (Enabled=0)), flush (save flush off (Enabled=0))<br>info trip route: travel_vacation: queued car on the world lot<br>info vacation cooldown: trips 2+ clear the WentToLocation buff (stress shortcut)<br>info travel saves target:  untouched (travel saves went to the Matrix save) |
+
+1 cases, 1 passed, 0 failed
+
+## 2026-11-10T12:51 UTC NewDowntownWorld, start save null, build a2232557+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 12:52:00 | control | PASS | Matrix-NewDowntownWorld-off-10, Matrix-NewDowntownWorld-off-11 | 10711, 9262 | info unstable types: d84e7fc6 (ridgeport_0x09ffe3d7.nhd d84e7fc6:00000000:6c1100337657b720 changed) |
+| 12:52:25 | identical | PASS | Matrix-NewDowntownWorld-off-12, Matrix-NewDowntownWorld-on-4 | 9337, 9325 | info routegate: N/A: no runtime switch, installed on both sides; its gates wait only while an async job runs (none with routeasync 0) |
+| 12:53:01 | per-fix | PASS | Matrix-NewDowntownWorld-pf-off-4, Matrix-NewDowntownWorld-pf-routeasync-4, Matrix-NewDowntownWorld-pf-discourage-4 | 9251, 9193, 9340 | info routegate: N/A: no runtime switch, installed on both sides; its gates wait only while an async job runs (none with routeasync 0) |
+| 12:53:36 | overwrite | PASS | Matrix-NewDowntownWorld-ow-4, Matrix-NewDowntownWorld-ow-4, Matrix-NewDowntownWorld-ow-4 | 9240, 9203, 9183 | all checks pass |
+| 12:53:59 | back-to-back | PASS | Matrix-NewDowntownWorld-b2b-7, Matrix-NewDowntownWorld-b2b-8 | 9087, 9168 | info flush waits: +0 (0 means the worker had finished before the second save) |
+| 12:54:20 | unpaused | PASS | Matrix-NewDowntownWorld-run-4 | 12340 | all checks pass |
+| 12:54:51 | build-mode | PASS | Matrix-NewDowntownWorld-build-1 | - | skip save in build mode: game refuses: the game cannot save right now |
+| 12:55:05 | verify-counters | PASS | Matrix-NewDowntownWorld-verify-4 | 10867 | skip compress verify ran: save compress not loaded<br>skip footprint verify ran: verify off: set [FootprintIndex] Verify=1 in ts3native.ini (read at game start only) |
+| 12:55:31 | reload | pending | Matrix-NewDowntownWorld-reload-off-7, Matrix-NewDowntownWorld-reload-on-7 | 10488, 10522 | info routegate: N/A: no runtime switch, installed on both sides; its gates wait only while an async job runs (none with routeasync 0) |
+
+8 cases, 8 passed, 0 failed, pending: reload
+
+## 2026-11-10T18:11 UTC NewDowntownWorld, start save null, build fdc4dc7a+dirty
+
+| time | case | result | saves | save ms | failed checks / notes |
+|---|---|---|---|---|---|
+| 18:18:41 | travel | PASS | Matrix-NewDowntownWorld-travel-start-54, Matrix-NewDowntownWorld-travel-away-187, Matrix-NewDowntownWorld-travel-home-178, Matrix-NewDowntownWorld-travel-away-188, Matrix-NewDowntownWorld-travel-home-179, Matrix-NewDowntownWorld-travel-away-189, Matrix-NewDowntownWorld-travel-home-180 | 10272, 18635, 12098, 10228, 12211, 10020, 12820 | skip fixes skipped (not in this build/ini): cachedreflection (PersistedClass.Init: already compiled; PersistedClassDB.GetPersistedClass: already compiled; Persist.GetPersistedTypeCode: already compiled; CachedReflection: not patched, off), footprint (footprint index disabled (Enabled=0)), compress (save compress off (Enabled=0)), flush (save flush off (Enabled=0))<br>info trip route: travel_vacation: queued car on the world lot<br>info vacation cooldown: trips 2+ clear the WentToLocation buff (stress shortcut)<br>info travel saves target:  untouched (travel saves went to the Matrix save) |
+
+1 cases, 1 passed, 0 failed

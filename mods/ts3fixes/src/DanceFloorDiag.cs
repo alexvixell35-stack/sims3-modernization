@@ -74,11 +74,10 @@ namespace Ts3Fixes
                 sDfReady = -1;
                 try
                 {
-                    const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-                    sDfNear = typeof(DanceFloor).GetMethod("GetDanceFloorsNearObject", all, null, new Type[] { typeof(IDanceable) }, null);
-                    sDfRoute = typeof(DanceFloor).GetMethod("RouteOntoADanceFloorWithFollower", all, null, new Type[] { typeof(Sim), typeof(Sim) }, null);
-                    sDfEnumList = typeof(List<DanceFloor>.Enumerator).GetField("l", all);
-                    sDfEnumVer = typeof(List<DanceFloor>.Enumerator).GetField("ver", all);
+                    sDfNear = typeof(DanceFloor).GetMethod("GetDanceFloorsNearObject", kAnyAll, null, new Type[] { typeof(IDanceable) }, null);
+                    sDfRoute = typeof(DanceFloor).GetMethod("RouteOntoADanceFloorWithFollower", kAnyAll, null, new Type[] { typeof(Sim), typeof(Sim) }, null);
+                    sDfEnumList = typeof(List<DanceFloor>.Enumerator).GetField("l", kAnyAll);
+                    sDfEnumVer = typeof(List<DanceFloor>.Enumerator).GetField("ver", kAnyAll);
                     if (sDfNear != null && sDfRoute != null && sDfEnumList != null && sDfEnumVer != null) sDfReady = 1;
                     else DiagLine("dancefloor list: diag off, EA member missing (near " + (sDfNear != null) + ", route " + (sDfRoute != null) + ", enumerator fields " + (sDfEnumList != null && sDfEnumVer != null) + ")");
                 }

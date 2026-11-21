@@ -35,7 +35,7 @@ static DWORD WINAPI AuWorker(void*) {
 static void TestAskLent() {
     static_assert(offsetof(Ts3nCounters, auMode) == 0x4FFC && offsetof(Ts3nCounters, auStaleAfter) == 0x500C &&
                       offsetof(Ts3nCounters, dmxMode) == 0x5014 && offsetof(Ts3nCounters, dmxMismatch) == 0x5028 &&
-                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, auSpare) == 0x5030 && sizeof(Ts3nCounters) == 6478 * 4,
                   "counters v126 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -146,6 +146,7 @@ static void TestAskLent() {
     g_dmxTicks = g_qpf.QuadPart / 4;  // 250 ms
     g_dmxDelegate = NULL;
     k.dmxMode = 1, g_dmxLast = 0;
+    t_hcScope = 2;  // an unseen job: the memo may answer it (household rule cases below)
     LONG c0 = g_hcFakeCalls;
     t_hcJob = 10, g_hcFakeAns = 2;
     assert(HcAsk(400) == 2 && k.dmxClear == 1 && k.dmxMiss == 1 && g_hcFakeCalls == c0 + 1);  // flip clears, miss, kept
@@ -203,6 +204,46 @@ static void TestAskLent() {
     t_snapRun = 0;
     g_workerTid = me + 7;
     assert(HcAsk(500) == 2 && g_hcFakeCalls == c0 + 2);
+    g_workerTid = me;
+    // household rule (DoorMemoX=3, armed): a valid row for key 600, kept by an unseen job. Household and selected Sims (ts3fixes
+    // op 10 = scope 1) and unknown scope (0, no answer) always get the live ask; a seen NPC (3) and an unseen Sim (2) take the memo
+    const LONG sArmed = ts3native_doorgen.armed;
+    ts3native_doorgen.armed = 1, k.dmxMode = 3;
+    t_hcScope = 2, t_hcJob = 30, g_hcFakeAns = 2;
+    assert(HcAsk(600) == 2);  // the flip to mode 3 clears; asked, kept
+    const LONG ex0 = ts3native_doorgen.exempt, hit0 = k.dmxHit;
+    static const LONG kLive[] = {1, 1, 0};  // household, selected, unknown
+    for (LONG s : kLive) {
+        t_hcScope = s, t_hcJob++, g_dmxSelf = 0;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 + 1 && k.dmxHit == hit0);
+    }
+    assert(ts3native_doorgen.exempt == ex0 + 3);
+    static const LONG kMemo[] = {3, 2};  // seen NPC, unseen
+    for (LONG s : kMemo) {
+        t_hcScope = s, t_hcJob++, g_dmxSelf = 0, g_hcFakeAns = 1;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 && ts3native_doorgen.exempt == ex0 + 3);
+    }
+    assert(k.dmxHit == hit0 + 2);
+    // docs/271 [Experimental] HouseholdToo=1: household, selected and unknown scope take the memo as a seen NPC does, each counted
+    // once (hhTooLift); unseen and seen-NPC asks are not counted; flag back off = live asks again (the stale-row case below)
+    g_hhToo = 1;
+    const LONG lift0 = k.hhTooLift;
+    for (LONG s : kLive) {
+        t_hcScope = s, t_hcJob++, g_dmxSelf = 0, g_hcFakeAns = 1;
+        c0 = g_hcFakeCalls;
+        assert(HcAsk(600) == 2 && g_hcFakeCalls == c0 && ts3native_doorgen.exempt == ex0 + 3);
+    }
+    assert(k.hhTooLift == lift0 + 3 && k.dmxHit == hit0 + 5);
+    t_hcScope = 3, t_hcJob++, g_dmxSelf = 0;
+    assert(HcAsk(600) == 2 && k.hhTooLift == lift0 + 3);
+    g_hhToo = 0;
+    assert(HhExempt(true) && !HhExempt(false) && k.hhTooLift == lift0 + 3);
+    // the sim's answer changed: a household Sim still gets it live (vanilla), and the stale row turns the memo off
+    t_hcScope = 1, t_hcJob++, g_hcFakeAns = 1;
+    assert(HcAsk(600) == 1 && k.dmxMode == 0);
+    ts3native_doorgen.armed = sArmed, t_hcScope = 0;
     k.dmxMode = 0;
     t_hcJob = 0;
     g_workerTid = sWorker, g_invJob = sInv, k.dmMode = sDm, g_hcOn = sOn, g_hcDoorJmp = sDoorJmp;

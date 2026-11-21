@@ -1,0 +1,41 @@
+# Semgrep rules for EA store-object / UI script code (docs/557). Our own rules; run on a local decompile only:
+#   ~/.local/share/venvs/ts3/bin/semgrep --config tools/static/ea-store-ui.semgrep.yml --metrics=off --no-git-ignore \
+#     -j 2 --max-memory 2000 game-copy/decompiled/Sims3StoreObjects game-copy/decompiled/Sims3GameplaySystems
+# See also tools/static/ui-subscription-scan.ts (model events without -=) and tools/static/infersharp.sh.
+rules:
+  - id: buff-shared-field-write
+    languages: [csharp]
+    severity: WARNING
+    message: >-
+      Buff subclass writes an instance field in OnAddition/OnRemoval/handlers. A Buff object is shared by every Sim with
+      that buff (one per guid in BuffManager.BuffDictionary): per-Sim state here is overwritten by the next Sim
+      (docs/557 §3.1). Per-Sim state belongs in a BuffInstance subclass.
+    patterns:
+      - pattern-inside: |
+          class $C : Buff { ... }
+      - pattern-not-inside: |
+          class $I : BuffInstance { ... }
+      - pattern-inside: |
+          $RET $M(...) { ... }
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(OnAddition|OnRemoval|OnTimeout|On\w+)$
+      - pattern: $F = $X;
+      - metavariable-regex:
+          metavariable: $F
+          regex: ^m[A-Z]\w*$
+  - id: static-event-instance-handler-no-remove
+    languages: [csharp]
+    severity: INFO
+    message: >-
+      instance handler added to a static World / LoadSaveManager event in OnStartup; check that Dispose/Destroy remove it
+      (a static list keeps deleted and previous-world objects alive; docs/192 #2, docs/557 §4.2)
+    patterns:
+      - pattern-inside: |
+          public override void OnStartup() { ... }
+      - pattern-either:
+          - pattern: World.$E += $H;
+          - pattern: LoadSaveManager.$E += $H;
+      - pattern-not-inside: |
+          World.$E -= $H;
+          ...

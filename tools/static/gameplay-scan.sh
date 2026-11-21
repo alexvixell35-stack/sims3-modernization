@@ -1,0 +1,48 @@
+#!/bin/bash
+# Gameplay logic scan of the decompiled EA script assemblies (docs/559; loop rules docs/572). Runs our semgrep rule sets plus two greps that
+# semgrep's C# parser misses, then prints a ranked summary (rule severity, then hits per file). Results stay local.
+#   tools/static/gameplay-scan.sh [out-dir]      (default game-copy/analysis/gameplay-scan)
+# Needs: semgrep in ~/.local/share/venvs/ts3/bin, a decompile in game-copy/decompiled (ilspycmd, docs/557).
+# Memory: semgrep -j 2 --max-memory 2500 (~1 min, < 3 GB); safe next to a running game.
+set -euo pipefail
+repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
+out=${1:-$repo/game-copy/analysis/gameplay-scan}
+mkdir -p "$out"
+src=("$repo/game-copy/decompiled/Sims3GameplaySystems" "$repo/game-copy/decompiled/Sims3GameplayObjects")
+sg=${SEMGREP:-$HOME/.local/share/venvs/ts3/bin/semgrep}
+nice -n 10 "$sg" --config "$repo/tools/static/ea-gameplay-logic.semgrep.yml" --config "$repo/tools/static/ea-script-logic.semgrep.yml" \
+  --config "$repo/tools/static/ea-loop-logic.semgrep.yml" \
+  --metrics=off --no-git-ignore -j 2 --max-memory 2500 --timeout 20 --json -o "$out/semgrep.json" "${src[@]}" > "$out/semgrep.log" 2>&1 || true
+# greps: inclusive RandomUtil.GetInt(Count) indexing (semgrep misses it inside do/while), and sleep-wait loops whose
+# condition has no exit-reason / destroyed / counter test (uncancellable waits: bowling start wait, docs/559 §3)
+grep -rnE "GetInt\((0, )?[A-Za-z0-9_.]+\.(Count|Length)\)" "${src[@]}" > "$out/grep-random-inclusive.txt" || true
+grep -rnP -A2 "^\s*while \((?!.*(ExitReason|HasBeenDestroyed|Count|ElapsedTime|num|i <|j <))[^;]*\)\s*$" "${src[@]}" \
+  | grep -B2 "Simulator.Sleep" | grep -E "while \(" > "$out/grep-sleep-wait.txt" || true
+# direct Sim.RequestWalkStyle / x.SimRoutingComponent.RequestWalkStyle (per-Sim count, never released by an interaction's
+# cleanup), every call site (~50; no per-file filter): GoHome's Run left set (docs/560 §1-2), megaphone wake and
+# dragon curse Run left set (docs/608; a per-file filter hid them, Sim.cs unrequests elsewhere). Hand-check list: posture
+# pairs (swimming, ghost walk) release in other classes.
+grep -rnE "[A-Za-z]\.RequestWalkStyle\(" "${src[@]}" \
+  | grep -vE "(interactionInstance|base|this|[Ii]nteraction)\.RequestWalkStyle|^\S+:[0-9]+:\s*(public|private|protected)" \
+  > "$out/grep-walkstyle-unreleased.txt" || true
+python3 -I - "$out" "$repo/game-copy/decompiled/" <<'EOF'
+import json, sys, collections
+out, root = sys.argv[1], sys.argv[2]
+d = json.load(open(out + '/semgrep.json'))
+sev = {'ERROR': 0, 'WARNING': 1, 'INFO': 2}
+seen, rows = set(), []
+for r in d['results']:
+    k = (r['path'], r['start']['line'], r['check_id'])
+    if k in seen: continue
+    seen.add(k)
+    line = open(r['path'], errors='replace').read().split('\n')[r['start']['line'] - 1].strip()
+    rows.append((sev.get(r['extra']['severity'], 3), r['check_id'].split('.')[-1], r['path'].replace(root, ''), r['start']['line'], line[:110]))
+rows.sort()
+per = collections.Counter(x[1] for x in rows)
+print('semgrep hits per rule:', dict(per), '| parse errors:', len(d['errors']))
+for n in ('grep-random-inclusive.txt', 'grep-sleep-wait.txt', 'grep-walkstyle-unreleased.txt'):
+    print(n + ':', sum(1 for _ in open(out + '/' + n)))
+with open(out + '/ranked.tsv', 'w') as f:
+    for x in rows: f.write('\t'.join(map(str, x)) + '\n')
+print('ranked list:', out + '/ranked.tsv')
+EOF
