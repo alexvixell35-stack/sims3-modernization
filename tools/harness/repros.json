@@ -113553,6 +113553,113 @@
     ]
   },
   {
+    "id": "ip-smoothcut-storm",
+    "bug": "docs/676 §15: the path smoothing pass 0x64DD40 (post pass 3) is about 2.5 ms a call under the routing lock. Its anchor moves one sample at a time and asks two failing segment tests per stop where the path cannot be pulled straight (121 tests a pass, s195); on a lot each test walks every quadtree cell the segment crosses, because the walk's callback 0x662D30 never stops the walk",
+    "fix": "ts3native [WorldPrecompute] SmoothCut (1 serve, 2 shadow; default 0): the segment query 0x667350 called at 0x6676CE ends at the first cell above both end multipliers and first tries the last blocking cells of the tree; identical answers (docs/676 §15)",
+    "save": "Baseline-IP-Spring",
+    "note": "Shadow and serve runs on Isla Paradiso 2-min storms (contributor rig, every proven fix on): s216 shadow 218,969 queries, mismatch 0; s217 / s222 serve, no hitch frame. Job ini: [WorldPrecompute] SmoothCut=2 (the hook installs only with a non-zero ini value). Arm 1 is off (mode 0: the game's query), arm 2 shadow (ours and the game's on every query: the mismatch count and the two times in the line are the result), arm 3 serves.",
+    "expect": "'OK   world precompute smooth cut: SmoothCut=2' with ready 0x1. After arm 2: 'world precompute: smooth cut mode 2' with shadow checks > 0, mismatch 0, no 'SMOOTH CUT MISMATCH' line, and '(N ms)' of our walk below 'the game's queries N ms'. After arm 3 (mode 1): 'blocked by a remembered cell' and 'blocked at a cell in the walk' > 0. No crash, plans / fails in 'route plans:' as in the off arm",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 0
+        },
+        "waitS": 1,
+        "note": "arm 1: off (the game's query)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-worldpre-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 2
+        },
+        "waitS": 1,
+        "note": "arm 2: shadow"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm, every query run both ways and compared; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 1
+        },
+        "waitS": 1,
+        "note": "arm 3: our walk answers (every router: the answers are the game's)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with the cut serving; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
