@@ -379,7 +379,8 @@ namespace Ts3Agent
             Button btn = f != null ? f.GetValue(cc) as Button : null;
             if (btn == null) throw new McpException("no button '" + b + "' on the clothing panel");
             bool right = a.Str("key", "left").Trim().ToLowerInvariant() == "right";
-            MethodInfo pe = typeof(UIManager).GetMethod("ProcessEvent", kPriv | BindingFlags.Public);
+            MethodInfo pe = null;   // ProcessEvent has overloads (AmbiguousMatchException 2026-11-21): take (uint, uint, WindowBase, WindowBase, ...), the one CasSend passes; a uint-handle twin has 13 too
+            foreach (MethodInfo m in typeof(UIManager).GetMethods(kPriv | BindingFlags.Public | BindingFlags.Static)) { ParameterInfo[] ps = m.GetParameters(); if (m.Name == "ProcessEvent" && ps.Length == 13 && ps[2].ParameterType == typeof(WindowBase)) { pe = m; break; } }
             if (pe == null) throw new McpException("UIManager.ProcessEvent not found");
             Dictionary<string, object> r = Util.Obj();
             r["button"] = b;
