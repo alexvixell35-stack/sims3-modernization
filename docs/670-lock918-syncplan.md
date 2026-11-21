@@ -1497,10 +1497,10 @@ places the function waits.
   (§24.1), so this ends with the sim's own work. A cap (4000 pause loops, then 250 sleeps of 1 ms; `gave up`, must stay
   0) sets Mode to 0 and lets the worker go on. After a drop for another reason the sim runs on to its next gate with
   the area free, as today.
-- `Shadow=1`: with no job running and none allowed to start (`g_rgOffSimOpen`), the game's gather, then the gather again
-  under a dry hold; AL, the area's flags, the candidate count and an FNV hash of the candidate records compared
-  (`land check RO: SHADOW MISMATCH ...`, 16 lines at most). It checks that the gates passed without `+0x918` change
-  nothing; it costs a second gather per call.
+- `Shadow=1` (changed 2026-11-21, §26): with no job running, the game's gather as with the switch off, then (job starts
+  held off, no job since) the gather again under a dry hold **on a private copy of the area**; AL, the area's flags, the
+  candidate count and an FNV hash of the candidate records compared (`land check RO: SHADOW MISMATCH ...`, 16 lines at
+  most). It checks that the gates passed without `+0x918` change nothing; it costs a second gather per call.
 - The answer is the game's own code for every Sim: no scope gate, nothing cached, nothing skipped.
 
 Keys: `[LandCheckRO] Enabled=0`, `Mode=1`, `Shadow=0`. Needs `[RouteGate] Enforce=1` (gate stubs 0 and 12), `[RouteAsync]`,
@@ -1645,3 +1645,72 @@ First the config: `RouteAsync.JobYield=1` in every arm (the release value). Then
 - serve arm: `SteerRO.RetryWait=1 SteerRO.RetryWaitMs=50`. Read `answered` against `waits`, `budget used` small, `the
   game's call after a wait` against s216-s225's `job waits in given-back calls` (110-619 ms), keys `0085FE10` + `0085FD10`
   together against 304 ms a run, no new stuck Sim, `steer RO: ... shadow` unchanged.
+
+## 26. Shadow mode of `[ObstructAtRO]` / `[Blocker2dRO]` / `[LandCheckRO]` made free of side effects (2026-11-21, `fix/ro-shadow-side-1121`, NOT RUN, no MSVC build)
+
+### 26.1 Why: repro `upstairs-landing-jam`, arm c
+
+Two loads (landing-11202338, landing-11210005). Arms 0, a, b, d: the four household Sims reach the ground floor (crowd
+4/4, 10-20 s). Arm c (= b with the three switches at `Mode=0 Shadow=1`): crowd 1/4 in both loads, alone and top pass.
+
+What the logs show **[verified, counter lines and `gohere` lines of both logs]**:
+
+- The plans succeed in every arm. In arm c three or four Sims stand within 0.3 m of each other at the stair top
+  (927.2-927.7, 61.0, 1203.4-1203.8), each Go Here ends with `MidRoutePushRequested`, and the push routes (1.0-2.2 m) are
+  replanned 15-18 times and end `route false`; the Sims are still on the landing or the stair when the 50 s wait ends.
+  Arms a and d show the same push (1-3 Sims) and it ends `route ok` after one more plan.
+- `[Blocker2dRO]`: its stub was not reached in arm c in either load (`calls 4` before and after).
+- `[ObstructAtRO]`: load 1: no call in the failing segment (`calls 5` before it and after the last `route false`);
+  load 2: 2 calls, both ended at `no lot` (the clone had read the lot index only).
+- `[LandCheckRO]`: the only shadow path that ran in both failing segments (6 and 2 shadow gathers, mismatch 0).
+
+So of the three, only the land check's shadow can be tied to the failing segments, and it was the only one whose shadow
+wrote data the game reads: its second gather ran **on the live area** (`0x654790` resets the candidate vector at `+0x34`,
+refills it and clears flag `0x400`; the function's only two writes through the area pointer, plus the append `0x654240`
+on `area+0x30`, **[verified disassembly `0x654790..0x654CB0`, `0x654240`, `0x6534A0`]**), with the gates of
+`LotTable_GetIfPresent` passed without `+0x918`. All three ran the game's own call inside a job-start hold-off
+(`g_rgOffSimOpen`) that a call with the switch off does not have.
+
+**Not shown:** how a doubled gather (equal result, 33 of 33 compares) changes route following on a stair. No per-call
+line exists and the mechanism was not found in the code; the tie to arm c is the two loads (arm c is also always the
+fourth crowd segment at the same game time, so position in the load is not excluded). The fix below removes every
+difference a shadow run had from a switch-off run; the rerun decides whether arm c was the shadow's doing.
+
+### 26.2 The rule and the build (`roshadow-core.h`, `landro.cpp`, `gvro.cpp`, `rtoro.cpp`)
+
+With `Shadow=1` the game's call runs exactly as with the switch off; the clone works on copies; nothing the game reads
+is written.
+
+- `RoShadow(env, game, clone)` (`roshadow-core.h`): the game's call first, with no frame of ours open. Then job starts
+  are held off (`g_rgOffSimOpen`, the worker's Dekker order) and the clone runs only when no job runs and none ran since
+  before the game's call (`g_asyncRuns`, counted by the worker with `A_RUNNING` published); else the call is not
+  compared. All three hooks use it.
+- `[LandCheckRO]`: the dry gather runs on `g_lcScratch`, a private copy of the area holding the inputs as they were
+  before the game's call (bytes `+0x00..+0x2F`, `+0x3C..+0x43`) and a candidate vector of its own, empty at the start. The
+  game's vector code grows it through `EA_AllocTagged 0x4E3F90` (`0x6534A0`: an empty vector frees nothing) and the hook
+  gives the storage back with `EA_Free 0x4E3F70` (cdecl, one argument, as the call at `0x6535B3`) after the compare.
+  Nothing is published for the copy (`g_lcSim` stays NULL; `t_lcArea` = the copy, which no other thread gathers). The
+  live area and its storage are only read (hash, count, flags). The record is written whole before the append
+  (`0x654C66..0x654C9A`: all 32 bytes), so the hash does not see stack residue.
+- Line: `land check RO: ... shadow runs R mismatch M dropped D not compared N` (`lcFb[6]`, `+0x60`: a job ran or runs
+  since the game's call). The other two count such a call in neither `shadow runs` nor a give-back.
+
+### 26.3 Checks (2026-11-21, no game)
+
+- `roshadow-host-test.cpp` (clang++ `-m32`, freestanding, exit 0): the order (the game's call sees no hold-off, the clone
+  one; a live job, a job that started, a whole job in between, a backing-off worker: no clone), the area copy (0-4
+  candidates: the live area and its storage byte-equal across the clone, the copy's storage from the allocator and handed
+  back, inputs from before the game's call, a skewed gather = mismatch, an empty vector hashes equal with and without
+  storage), and the order used before this change run through the same checks, which it fails. Writing the test found
+  one error of the first draft (an empty gather on the copy hashed differently from the live one).
+- `TestLandCheckRO` section 4 and `TestBlocker2dRO` (MSVC selftest, **CI only, not run here**): the game's call with
+  `g_rgOffSimOpen == 0` and no hold, the dry gather on `g_lcScratch`, the live fake area unchanged, one free of the
+  copy's storage, a job in between not compared.
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `steerro-test.cpp`: no error, no
+  diagnostic in the changed files. `node tools/selftest-all.ts --ci`: pass.
+
+### 26.4 Next run
+
+Repro `upstairs-landing-jam` with the CI asi of this branch, twice. Pass: arm c crowd 4/4 in both loads, `land check RO`
+with `shadow runs` > 0 and `mismatch 0`. If arm c still fails, the shadow switches are not the cause (26.1's open
+point): swap arms c and d in the repro, and run arm c with one shadow word at a time.

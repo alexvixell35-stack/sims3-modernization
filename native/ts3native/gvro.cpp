@@ -320,7 +320,7 @@ static void InstallGoalValidRO(const wchar_t* ini) {
 static const DWORD OA_FN = TS3A(0x00655880);
 struct ObstructAtCounters {
     LONG oaMode;            // +0x00: 1 = answer while a job runs
-    LONG oaShadow;          // +0x04: 1 = with no job, the game's call then the clone, compared
+    LONG oaShadow;          // +0x04: 1 = with no job, the game's call (as with the switch off), then the clone, compared
     LONG oaReady;           // +0x08
     LONG oaCalls;           // +0x0C: owner-thread calls with mode or shadow on
     LONG oaTaken;           // +0x10: answered while a job ran
@@ -450,9 +450,10 @@ static u64 __fastcall OaHook(u8* self, void* edx, const u8* ctx, float x, float 
     const bool cls = (u8)flag != 0;
     if (g_async.state != A_RUNNING) {
         if (!k.oaShadow) return g_oaOrig(self, edx, ctx, x, y, z, flag);
-        InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
-        const u64 r = g_oaOrig(self, edx, ctx, x, y, z, flag);
-        if (g_async.state != A_RUNNING) {
+        // docs/670 §26 (roshadow-core.h): the game's call as with the switch off, then the clone with job starts held off
+        u64 r = 0;
+        RoShadowEnv env;
+        RoShadow(env, [&] { r = g_oaOrig(self, edx, ctx, x, y, z, flag); }, [&] {
             u64 r2 = 0;
             const int why = OaRun(self, ctx, x, y, z, cls, false, &r2);
             InterlockedIncrement(&k.oaShadowRuns);
@@ -463,8 +464,7 @@ static u64 __fastcall OaHook(u8* self, void* edx, const u8* ctx, float x, float 
                     Log("obstruction at point RO: SHADOW MISMATCH at (%.2f, %.2f) flag %u: game %08lX:%08lX, clone %08lX:%08lX", x, z,
                         (unsigned)cls, (DWORD)(r >> 32), (DWORD)r, (DWORD)(r2 >> 32), (DWORD)r2);
             }
-        }
-        RgOffSimDrop();
+        });
         return r;
     }
     if (!k.oaMode) return g_oaOrig(self, edx, ctx, x, y, z, flag);

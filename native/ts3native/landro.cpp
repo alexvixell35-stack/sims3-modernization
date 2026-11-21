@@ -32,8 +32,12 @@
 // so the worker's wait is bounded by the sim's own work; a cap (must never be reached) turns the switch off.
 // What is not covered, as today: the area cache's list itself (0x652D80's move-to-front and recycle on both threads).
 //
-// Shadow (no job, job starts held off): the game's gather, then the gather again under a dry hold; return value, flags,
-// candidate count and a hash of the candidates compared.
+// Shadow (docs/670 §26, roshadow-core.h): the game's gather exactly as with the switch off (no frame of ours around it).
+// Then, when no job ran or runs meanwhile and with job starts held off, the gather again under a dry hold on a private copy
+// of the area (the inputs as they were before the game's call, a candidate vector of its own that the game's allocator
+// grows and EA_Free 0x4E3F70 gives back); return value, flags, candidate count and a hash of the candidates compared. The
+// live area and its vector are only read. (Until 2026-11-21 the second gather ran on the live area inside the same frame
+// as the game's call: it rewrote the vector the caller reads.)
 
 struct LandCheckRoCounters {
     volatile LONG lcMode;            // +0x00 runtime switch (native_set landcheckro): 1 = hold during a job
@@ -49,7 +53,7 @@ struct LandCheckRoCounters {
     volatile LONG lcDrop[8];         // +0x28 holds dropped: gate site, gate-0 miss, (unused), lock, managed / host call, lot
                                      //       table shape, other caller of the gate, the worker came for the area
     volatile LONG lcFb[8];           // +0x48 not held: state, nested, clone path broken, QL busy, dirty lot index, the worker is
-                                     //       on the area; [6], [7] unused
+                                     //       on the area; [6] shadow not compared (a job ran or runs since the game's call); [7] unused
     volatile LONG lcShadowRuns;      // +0x68
     volatile LONG lcShadowMismatch;  // +0x6C must stay 0
     volatile LONG lcShadowDrop;      // +0x70 dry holds that dropped (reasons in lcDrop)
@@ -70,7 +74,7 @@ enum : DWORD { LC_GIP_RET0_OFF = 0x2B };  // 0x62FB8B: the return of GetOrInsert
 static const u8 kLcGipA[] = {0x8B, 0x44, 0x24, 0x08, 0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24, 0x08, 0x50, 0x51, 0x8B, 0xCE, 0xE8};
 static const u8 kLcGipB[] = {0x84, 0xC0, 0x75, 0x06, 0x33, 0xC0, 0x5E, 0xC2, 0x08, 0x00, 0x8D, 0x54, 0x24, 0x08, 0x52, 0x8D, 0x4E, 0x48, 0xE8};
 static const u8 kLcGipC[] = {0x5E, 0xC2, 0x08, 0x00};
-enum { LC_FB_STATE = 1, LC_FB_NESTED, LC_FB_BROKEN, LC_FB_TRY, LC_FB_DIRTY, LC_FB_AREA };  // 2-4 = slotro.cpp's SL_FB_*
+enum { LC_FB_STATE = 1, LC_FB_NESTED, LC_FB_BROKEN, LC_FB_TRY, LC_FB_DIRTY, LC_FB_AREA, LC_FB_JOB };  // 2-4 = slotro.cpp's SL_FB_*
 enum { LCD_CALLER = 6, LCD_WORKER = 7 };                                                    // 0-5 = SLD_*
 static_assert((int)LC_FB_NESTED == (int)SL_FB_NESTED && (int)LC_FB_BROKEN == (int)SL_FB_BROKEN && (int)LC_FB_TRY == (int)SL_FB_TRY &&
                   (int)LCD_CALLER == (int)SLD_TABLE + 1,
@@ -78,9 +82,13 @@ static_assert((int)LC_FB_NESTED == (int)SL_FB_NESTED && (int)LC_FB_BROKEN == (in
 
 typedef DWORD(__fastcall* LcFn)(u8* area, void* edx);
 static LcFn g_lcOrig;
-static void* volatile g_lcSim;  // the area the sim thread gathers under a hold (also a dry one), else NULL
+static void* volatile g_lcSim;  // the area the sim thread gathers under a hold (not a dry one: that is on the private copy), else NULL
 static void* volatile g_lcWk;   // the area another thread gathers, else NULL
 static __declspec(thread) u8* t_lcArea;
+// shadow's private copy of the area (owner thread only) and the game's free for the vector the dry gather grew in it
+static __declspec(align(16)) u8 g_lcScratch[RSH_AREA_SIZE];
+typedef void(__cdecl* LcFreeFn)(void* p);  // EA_Free 0x4E3F70: cdecl, one argument (its caller 0x6535B3 in the vector's own grow)
+static LcFreeFn g_lcFree = (LcFreeFn)(uintptr_t)TS3A(0x004E3F70);
 static LONG g_lcWaitSpins = 4000, g_lcWaitSleeps = 250;  // the worker's wait: pause loops, then 1 ms sleeps, then the cap
 static volatile LONG g_lcNoted, g_lcCapNoted;
 // the two published areas are pointer-sized words of a 32-bit process: exchanged as LONG, like the code pointers elsewhere
@@ -144,16 +152,25 @@ static bool LcIndexDirty(const u8* area) {
 }
 
 // 0 = the hold is on; else the LC_FB_* reason (nothing is held or published)
-static int LcBegin(u8* area, bool dry) {
+static int LcBegin(u8* area) {
     if (LcIndexDirty(area)) return LC_FB_DIRTY;
     // Dekker with LcOther: each side publishes its area, then reads the other's
     LcXchg(&g_lcSim, area);
-    int why = g_lcWk == (void*)area ? LC_FB_AREA : SlBegin(dry, SLK_LAND);
+    int why = g_lcWk == (void*)area ? LC_FB_AREA : SlBegin(false, SLK_LAND);
     if (why) {
         LcClearIf(&g_lcSim, area);
         return why;
     }
     t_lcArea = area;
+    return 0;
+}
+// shadow's dry hold, for the gather on the private copy: nothing is published (no other thread ever gathers the copy, so
+// the gate rule's hand-over never fires and no worker waits for it)
+static int LcBeginDry(const u8* live) {
+    if (LcIndexDirty(live)) return LC_FB_DIRTY;
+    const int why = SlBegin(true, SLK_LAND);
+    if (why) return why;
+    t_lcArea = g_lcScratch;
     return 0;
 }
 // the game's gather inside the hold; an unwind through it still releases QL and the area
@@ -172,33 +189,40 @@ static void LcFallback(int why) {
 
 // candidates of the area: 32 bytes each in [+0x30, +0x34); FNV-1a over them
 static DWORD LcHash(const u8* area, DWORD* count) {
-    const u8* b = *(const u8* const*)(area + 0x30);
-    const u8* e = *(const u8* const*)(area + 0x34);
-    *count = 0;
-    if (!b || e < b || (size_t)(e - b) > 0x400000) return 0;
-    *count = (DWORD)(e - b) / 32;
-    DWORD h = 2166136261u;
-    for (const u8* p = b; p < e; p++) h = (h ^ *p) * 16777619u;
+    unsigned long n = 0;
+    const DWORD h = (DWORD)RshAreaHash(area, &n);
+    *count = (DWORD)n;
     return h;
 }
 
-static DWORD LcShadow(u8* area, void* edx) {
+// the clone's side of shadow: job starts are held off, no job ran since the game's gather returned r. The live area is read
+// only; the dry gather runs on g_lcScratch
+static void LcCompare(const u8* area, void* edx, const RshArea& in, DWORD r) {
     LandCheckRoCounters& k = ts3native_landcheckro;
-    const DWORD r = g_lcOrig(area, edx);
-    DWORD n1 = 0, n2 = 0;
-    const DWORD h1 = LcHash(area, &n1), f1 = *(const DWORD*)(area + 0x2C);
-    const int why = LcBegin(area, true);
-    if (why) { LcFallback(why); return r; }
+    const int why = LcBeginDry(area);
+    if (why) { LcFallback(why); return; }
+    RshAreaLoad(g_lcScratch, &in);
     bool kept = false;
-    const DWORD r2 = LcCall(area, edx, &kept);
+    const DWORD r2 = LcCall(g_lcScratch, edx, &kept);
     InterlockedIncrement(&k.lcShadowRuns);
-    const DWORD h2 = LcHash(area, &n2), f2 = *(const DWORD*)(area + 0x2C);
+    DWORD n1 = 0, n2 = 0;
+    const DWORD h1 = LcHash(area, &n1), f1 = *(const DWORD*)(area + RSH_AREA_FLAGS);
+    const DWORD h2 = LcHash(g_lcScratch, &n2), f2 = *(const DWORD*)(g_lcScratch + RSH_AREA_FLAGS);
     if ((u8)r != (u8)r2 || n1 != n2 || h1 != h2 || f1 != f2) {
         InterlockedIncrement(&k.lcShadowMismatch);
         if (InterlockedIncrement(&g_lcNoted) <= 16)
             Log("land check RO: SHADOW MISMATCH area %08lX: game %u, %lu candidates, hash %08lX, flags %08lX; hold %u, %lu, %08lX, %08lX (kept %d)",
                 (DWORD)(uintptr_t)area, (u8)r, n1, h1, f1, (u8)r2, n2, h2, f2, kept ? 1 : 0);
     }
+    if (u8* const mem = RshAreaTakeStorage(g_lcScratch)) g_lcFree(mem);  // the copy's vector, grown by the game's allocator
+}
+static DWORD LcShadow(u8* area, void* edx) {
+    RshArea in = {};
+    RshAreaSnap(&in, area);  // the gather's inputs, before the game's call clears flag 0x400
+    DWORD r = 0;
+    RoShadowEnv env;
+    const int end = RoShadow(env, [&] { r = g_lcOrig(area, edx); }, [&] { LcCompare(area, edx, in, r); });
+    if (end == RSH_JOB) LcFallback(LC_FB_JOB);
     return r;
 }
 
@@ -242,19 +266,13 @@ static DWORD __fastcall LcHook(u8* area, void* edx) {
     if (tid != g_async.owner) return k.lcMode ? LcOther(area, edx) : g_lcOrig(area, edx);
     if (t_slHold || !LcShapeOk(area)) return g_lcOrig(area, edx);
     InterlockedIncrement(&k.lcCalls);
-    if (g_async.state != A_RUNNING) {
-        if (!k.lcShadow) return g_lcOrig(area, edx);
-        InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two gathers are compared (worker Dekker order)
-        const DWORD r = g_async.state == A_RUNNING ? g_lcOrig(area, edx) : LcShadow(area, edx);
-        RgOffSimDrop();
-        return r;
-    }
+    if (g_async.state != A_RUNNING) return k.lcShadow ? LcShadow(area, edx) : g_lcOrig(area, edx);
     if (!k.lcMode) return g_lcOrig(area, edx);
     InterlockedIncrement(&k.lcInJob);
     // a job runs: hold, unless this thread holds +0x918, serves the job's callback or has a gate frame open
     const RgThread& t = t_rg;
     int why = LC_FB_STATE;
-    if (!g_inInvoke && ts3native_counters.rgOwnerTid != (LONG)tid && t.n == t.readers) why = LcBegin(area, false);
+    if (!g_inInvoke && ts3native_counters.rgOwnerTid != (LONG)tid && t.n == t.readers) why = LcBegin(area);
     if (why) { LcFallback(why); return g_lcOrig(area, edx); }
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
@@ -279,11 +297,12 @@ static void LcLogCounters() {
     Log("land check RO: mode %ld shadow %ld gathers %ld, in a job %ld: held to the end %ld (gate 12 passed %ld, gate 0 hits %ld, "
         "candidates %ld; %ld ms, max %ld us); dropped: gate %ld, miss %ld, lock %ld, managed %ld, table %ld, caller %ld, worker %ld; "
         "not held: state %ld, nested %ld, broken %ld, QL busy %ld, dirty lot index %ld, worker on the area %ld; worker gathers %ld "
-        "waited %ld (max %ld us) gave up %ld; shadow runs %ld mismatch %ld dropped %ld",
+        "waited %ld (max %ld us) gave up %ld; shadow runs %ld mismatch %ld dropped %ld not compared %ld",
         k.lcMode, k.lcShadow, k.lcCalls, k.lcInJob, k.lcTaken, k.lcPass12, k.lcPass0, k.lcCands, k.lcUs / 1000, k.lcMaxUs, k.lcDrop[SLD_GATE],
         k.lcDrop[SLD_MISS], k.lcDrop[SLD_LOCK], k.lcDrop[SLD_MANAGED], k.lcDrop[SLD_TABLE], k.lcDrop[LCD_CALLER], k.lcDrop[LCD_WORKER],
         k.lcFb[LC_FB_STATE - 1], k.lcFb[LC_FB_NESTED - 1], k.lcFb[LC_FB_BROKEN - 1], k.lcFb[LC_FB_TRY - 1], k.lcFb[LC_FB_DIRTY - 1],
-        k.lcFb[LC_FB_AREA - 1], k.lcWkGathers, k.lcWkWaits, k.lcWkWaitMaxUs, k.lcWkGiveUp, k.lcShadowRuns, k.lcShadowMismatch, k.lcShadowDrop);
+        k.lcFb[LC_FB_AREA - 1], k.lcWkGathers, k.lcWkWaits, k.lcWkWaitMaxUs, k.lcWkGiveUp, k.lcShadowRuns, k.lcShadowMismatch, k.lcShadowDrop,
+        k.lcFb[LC_FB_JOB - 1]);
 }
 
 // [LandCheckRO] Enabled=1 (default 0): needs [RouteGate] Enforce=1 (gate stubs 0 and 12) with the async path and the QL

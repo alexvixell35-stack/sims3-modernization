@@ -220,7 +220,8 @@ static void TestBlocker2dRO() {
                 ok = ok && (fb ? gameCalls == game0 + 1 && k.b2Fb[fbi] == fb0 + 1 && k.b2Taken == taken0 && gameOpen == 0
                                : gameCalls == game0 && k.b2Taken == taken0 + 1 && k.b2Code[c.code] == code0 + 1);
             } else {
-                ok = ok && gameCalls == game0 + 1 && gameOpen == 1 && k.b2ShadowRuns == runs0 + 1 && k.b2ShadowMismatch == mm0 &&
+                // docs/670 §26: the game's call runs as with the switch off (no start hold-off open around it)
+                ok = ok && gameCalls == game0 + 1 && gameOpen == 0 && k.b2ShadowRuns == runs0 + 1 && k.b2ShadowMismatch == mm0 &&
                      k.b2ShadowFb == sfb0 + (fb ? 1 : 0) && k.b2Taken == taken0;
             }
             if (c.x & X_TAIL)

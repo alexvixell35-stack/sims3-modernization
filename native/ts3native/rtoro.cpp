@@ -944,9 +944,10 @@ static DWORD* __fastcall B2Stub(u8* world, void* edx, DWORD* out, u8* lot, const
     DWORD c[4] = {};
     if (g_async.state != A_RUNNING) {
         if (!k.b2Shadow) return g_b2Orig(world, edx, out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt);
-        InterlockedIncrement(&g_rgOffSimOpen);  // no job starts while the two answers are compared (worker Dekker order)
-        DWORD* r = g_b2Orig(world, edx, out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt);
-        if (g_async.state != A_RUNNING) {
+        // docs/670 §26 (roshadow-core.h): the game's call as with the switch off, then the clone with job starts held off
+        DWORD* r = NULL;
+        RoShadowEnv env;
+        RoShadow(env, [&] { r = g_b2Orig(world, edx, out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt); }, [&] {
             const int why = B2Run(false, in, world, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt, c);
             InterlockedIncrement(&k.b2ShadowRuns);
             if (why) {
@@ -959,8 +960,7 @@ static DWORD* __fastcall B2Stub(u8* world, void* edx, DWORD* out, u8* lot, const
                         "%08lX:%08lX (%d footprints gathered)", start[0], start[2], goal[0], goal[1], *(const LONG*)((const u8*)start + 0x24),
                         out[0], out[3], out[2], c[0], c[3], c[2], g_rtoG.n);
             }
-        }
-        RgOffSimDrop();
+        });
         return r;
     }
     InterlockedIncrement(&k.b2Job);

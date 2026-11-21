@@ -3803,6 +3803,16 @@ static void RwWake() {
 static void RgOffSimDrop() {
     if (InterlockedDecrement(&g_rgOffSimOpen) == 0) RwWake();
 }
+// Shadow mode of the read-only clones (roshadow-core.h, docs/670 §26): jobs the worker committed to run (ServeAsync, with
+// A_RUNNING published), so a shadow compare can tell that a job ran between the game's call and the clone
+static volatile LONG g_asyncRuns;
+#include "roshadow-core.h"
+struct RoShadowEnv {
+    unsigned long JobRuns() const { return (unsigned long)g_asyncRuns; }
+    bool JobLive() const { return g_async.state == A_RUNNING; }
+    void HoldStarts() { InterlockedIncrement(&g_rgOffSimOpen); }  // the worker's Dekker order: it publishes A_RUNNING, then reads this
+    void ReleaseStarts() { RgOffSimDrop(); }
+};
 enum { G0W_JOBWAIT, G0W_SYNCPLAN };
 static void G0wDrop(int site, const void* ret);  // locowin.cpp
 static void RcDrop();  // rcguard.cpp: kept +0x918 levels released before a sim wait for the worker
@@ -4464,6 +4474,7 @@ static void ServeAsync() {
             SetEvent(g_asyncDone);  // an owner that saw A_RUNNING meanwhile waits in WaitAsyncDone: wake it now, not at its 2 s timeout
             InterlockedIncrement(&k.asyncBackoffs);
         }
+        InterlockedIncrement(&g_asyncRuns);  // roshadow-core.h: A_RUNNING is published, no shadow compare spans this job
         if (late) {  // backed out as the early refusal above: J_SKIPPED, the collect plans synchronously
             InterlockedExchange(&g_async.state, A_IDLE);
             LockReleaseHook(j->lock, NULL);
