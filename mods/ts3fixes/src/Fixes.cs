@@ -1305,10 +1305,13 @@ namespace Ts3Fixes
         // per scope (household, selected, seenNpc, unseen, unknown), bursts, call lines, lines dropped, would start but Kinds
         // [1057] householdtoo (PlayerSims.cs HouseholdExempt, docs/271, ts3native [Experimental] HouseholdToo=1): household, selected or
         // unknown-scope asks the flag let through to a realistic-only path (worker answers, exact go-live); 0 with the flag off
+        // [4320-4327] failreplanboat (FailReplanBoat.cs, docs/642 §10; block 4320-4329): failed plans with a Boat follower / kept (no driver, or the driver or an
+        // occupant is household, selected, unknown scope or seen) / would switch the route-fail behaviour off (switch off) / switched off (DoRouteFail = false) /
+        // DoRouteFail off already (EA's fail-path plan, or the caller's choice) / errors / lines written / flag set back (the cleared route planned again, succeeded).
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
         // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets, 4200-4219 other branches, 4220-4249 docs/661 lot gameplay, 4250-4259 fglinbound docs/682, 4270-4279 actdelay docs/684), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4320;
+        const int kCounterSlots = 4330;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1600,6 +1603,7 @@ namespace Ts3Fixes
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
                 case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
                 case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
+                case "failreplanboat": return Instantiator.kFailReplanBoat;  // FailReplanBoat.cs (docs/642 §10): an unseen NPC boat's failed plan skips EA's route-fail behaviour, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off

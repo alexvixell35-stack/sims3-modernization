@@ -117,6 +117,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/venuememo/run.ts': CSC,
   'tools/selftest/wakepark/run.ts': CSC,
   'tools/selftest/boatroamcap/run.ts': CSC,
+  'tools/selftest/failreplanboat/run.ts': CSC,
   'tools/selftest/casdefaultskin/run.ts': CSC,
   'tools/selftest/casoccultlog/run.ts': CSC,
   'tools/selftest/caspropagateextra/run.ts': CSC,

@@ -1903,3 +1903,39 @@ First the keys that exist (§27.1), then the two new ones, one at a time against
 | C | B + `[Discourage] DeferObjInsert=2` | `object footprint insert:` `would defer` against `calls`, and its `ms in the flush and the game's call` against the `lost removal flush:` line |
 | D | B + `[Discourage] DeferObjInsert=1` | no `rtwait ... site lost-removal flush` line, key `00833697` gone, `deferred` = `applied` + `replaced` + `gone` + `dropped at its destroy` at a quiet point, `applied in batch mode 0`; `disc` waits must not rise by what `rtwait` fell (moved waits); no Sim walking through a parked car or boat, no stuck Sim |
 | E | D + `[RouteAsync] DiscYieldOwn=1`, `DiscYieldForeign=1` | `disc ... drain point READY` lines, `disc yield:` totals (`parked capped` near 0, `READY kept for a queued job`) |
+
+## 28. s344-s355 read: the s347 outlier is a stranded NPC boat's route-fail plans, not arm G (2026-11-21, `fix/boatwp-1121`)
+
+Arms: s344-s355 alternate baseline and G (§27.8 arm E's keys without the RO clones). s347 (G): 29 `hitch:` frames in the
+play window, 43.7 s, 18 `route async: long job` lines of 1 s or more. No other run of s310-s355 has one.
+
+**The hypothesis tested** ("`ForeignKindsUnseen=2` sends the boat's plan to the worker, `KindDeadlines` cuts it late, the
+cut returns as no-path and the interaction retries") **does not hold** [verified, logs]:
+
+- The slow jobs are `foreign START, IC kind 0` (a Plan sent from the rider's task with the boat as follower). Kind 0 foreign
+  jobs run on the worker in the baseline too: s309 (baseline arm) has the same job three times (`closestWps 488/91`,
+  `1288/92`, `509/91`, cut by `KindDeadlines`, another follower). `ForeignKindsUnseen=2` only adds kind 2.
+- 10 of the 18 are **not cut** (`uncut: backoff (KdUncutCeilMs)`, deadline 30000 ms) and take 2.2-3.6 s anyway; 8 are cut
+  (deadline 200 / 400 ms, `capAt` 1.5-1.6 s, tail 0.5 s). The cut is late, as §27.3 said, but it is not what repeats.
+- The boat's first failure is an uncut 26 ms plan (`VisitCommunityLot`, result 16). Every later plan of that follower
+  fails as well, cut or not (41 of 43 jobs, the other two "no destination"): nothing here is a cut read as a failure.
+- The repeats are pairs on one route handle: a 0-69 ms plan, then at once the slow one. That is EA's route-fail path
+  (`DoRouteFailureBehavior` -> `GetRouteFailPath`: the same route planned again toward the blocker), docs/642 §2.6 and
+  §10. The rider stays seated, so each new route the storm or autonomy gives it (24 handles in a minute) fails and pays
+  the pair again. In natural play docs/642 measured the same pair about every 50 sim-minutes.
+- What G changes is who waits: 10 frames are `lock918` (sim-thread writers at `0x834201` behind the worker's hold), 17
+  `job-wait` (forced drains at `disc`); 13 of the 29 frames name one of the 18 jobs (29.9 s). Without G the same jobs
+  would hold the lock as long.
+
+**Why the closest-waypoint phase takes 2 s:** docs/642 §10 (every candidate of up to 36 chunks gets the routability test,
+none passes from open water, 84-94 snaps a plan). Not the gather, so not `[WaypointSnap]`.
+
+**Answers.** `failreplanboat` (ts3fixes, docs/642 §10, default off) removes the slow plan for unseen NPC riders.
+`[RouteAsync] CandidateCut=1` (exists, docs/644; off in these arms) makes a cut take effect within one snap for the plans
+that are cut. No ts3native change.
+
+**Next storm.** Managed switch `failreplanboat` on top of arm G, and separately `RouteAsync.CandidateCut=1`. A stranded
+boat is chance (1 run in 26), so read the counters first: `failreplanboat: ... would be off` lines in an off arm give the
+number of plans the switch would have spared; on arm: no `route candidate split` line with `closestWps` over 500 ms for a
+boat follower, `failreplanboat_off` > 0, no `ufplansplit ... src Boat... FailedBecauseNoPathToDestination` line of 1 s or
+more with `scope unseen`.

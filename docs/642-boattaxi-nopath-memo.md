@@ -292,3 +292,62 @@ autonomy off, boards it as driver with EA's Board Boat, then pushes BoatAround a
 the helm (EA's GoBoating needs a map-view click, so it cannot be pushed from script). `{result}` gives per Sim the BoatAround
 runs, ReturnToShore runs, `ashore`, and the 4062-4069 deltas. Expected OFF: roams grow for the whole window, no return, 4062-4069
 +0. ON: roams stop at 3 (0-1 at night), one ReturnToShore, `ashore` true, 4062 / 4063 / 4067 +1, the `back to shore` line.
+
+## 10. The 2 s plan is EA's route-fail path; a seated rider never passes `failreplan`: `failreplanboat` (`FailReplanBoat.cs`, default off, 2026-11-21, NOT RUN)
+
+Counters 4320-4327 (block 4320-4329, `kCounterSlots` 4330). Source: storm s347 (arm G of docs/670 §27.8, Isla Paradiso,
+`ts3native-full.log`, play window), s309 for the baseline, decompiled C#, Ghidra decompile of `0x65BB90` / `0x6595B0`.
+Full read of the run: docs/670 §28.
+
+**What the run shows [verified, log].** One NPC (driver of a `BoatPaddleBoat`, follower id constant) fails 41 of 43 route
+jobs with no path in about a minute, from the same spot. 17 of its 24 routes have two jobs on the **same route handle**:
+first 0-69 ms (`nodes 0`), then at once a second one of 0.4-3.6 s. All 18 jobs of the run that took 1 s or more are these
+second jobs (44.4 s of worker time with the routing lock held; 15 of the 18 are followed by this boat's `ufplan` line, the
+other three have no managed line left in the minute's log budget). Their `route candidate split` line: `closestWps
+1.1-2.1 s / 84-94 calls`, in 9 of them also `world` 0.9-1.5 s.
+
+**Why two plans [verified, decompiled].** `SimRoutingComponent.DoRoute` on a failed plan calls `DoRouteFailureBehavior`,
+which calls `GetRouteFailPath` (up to twice): the same route object is planned again toward the blocker
+(`PlanToPointRadialRange` 1-3 m around the blocker object, else `PlanToPointRadius` at the blocker's spot), so the Sim can
+go there and play the route-fail animation. §2.6 already named it for the taxi. `failreplan` (default on) skips that path
+for an unseen townie, but its test is `TownieUnseen`, which answers false for any Sim that does not stand: a rider seated in
+a boat always gets EA's fail path, seen or not.
+
+**Why that plan is slow from a boat [verified structure, decompile; cost split inferred].** The planner snaps each radial
+goal to waypoints with `0x65BB90`: up to three tries of `0x6595B0`, each over a wider area (1-4, 9-16, 25-36 chunks of the
+waypoint grid, docs/679 §1). Inside one try the candidates are sorted and then tested one by one with the routability test
+`0x659390` until the wanted number pass. For a boat on open water no land waypoint passes, so every try tests **every**
+candidate of its area and the call answers "none" after the third: about 22 ms a call, 84-94 calls a plan. The game's ten
+cached areas (docs/679 §5.1) save the gather, not the tests, so `[WaypointSnap] Gather` (which also leaves water areas to
+the game) would not change it. The planner has no deadline test in that loop; `[RouteAsync] CandidateCut=1` (docs/644 §3)
+answers the snap "not found" once the plan is past its deadline, which bounds a cut plan at its deadline plus one call.
+
+**Fix (ts3fixes only).** `RouteBackoffHook.FrbPost`, called from `UfPlan` after every plan: for a failed plan whose
+follower is a `Boat` with a driver, when the driver is unseen by the rule native's `KindDeadlines` already uses for boats
+(`UfWhy` = held: not household, not selected, known scope, not on an active lot, off screen and away from the viewers;
+`UfVehicleNpcOnly`: held only by the boat, no household or selectable occupant), the route's `DoRouteFail` is set false.
+That is the game's own "no route-fail show" flag: `DoRouteFailureBehavior` tests it first and returns. The plan's result,
+the caller's failure branch and the `RouteFailed` exit reason are unchanged. The flag stays on that route object; if the
+route cleared last is planned again and succeeds, the flag is set back (4327). Not changed: seen, household, selected and
+unknown-scope riders, boats without a driver, routes whose flag is off already. The rule is `FailReplanBoatCore.Decide`.
+
+Differs from EA only in: an unseen NPC boat does not drive toward the blocker of its failed route and its rider does not
+turn or play the fail animation (which EA plays only for a Sim on screen). The rider stays where it is, as in EA when the
+fail path finds no path (every one of the 18 in s347 did not). Nothing is moved or teleported.
+
+Counters: [4320] failed plans with a Boat follower, [4321] kept (no driver, or the rule did not hold), [4322] would switch
+the behaviour off (switch off), [4323] switched off, [4324] flag off already, [4325] errors, [4326] lines, [4327] flag set back. Agent `patches`
+read-back `failreplanboat_*`. Log (10 a minute): `failreplanboat: <BoatType> <rider>, <result> in N ms, blocker <type>:
+route-fail behaviour off (#n)` / `would be off (switch off, #n)` / `DoRouteFail off already ...` / `kept (<why>)`.
+Self-check `node tools/selftest/failreplanboat/run.ts` (all 128 inputs of the rule: one acts, one would act).
+
+**Not done, not known.**
+- NOT RUN in the game. No forced repro: `ip-boat-nopath-memo` seats its riders next to the selected Sim (seen, so `kept`)
+  and plans without `DoRoute`; it shows the counters 4320 / 4321 only.
+- Whether a blocker was named in the failed plans of s347 is not in the log (`routefail:` lines are written for household
+  Sims only); that `GetRouteFailPath` planned is inferred from the same-handle pair and the code. The off arm's `would be
+  off` lines with a `blocker` field settle it.
+- A **seen** NPC rider keeps EA's fail path, so the 2 s plan can still happen in view; `CandidateCut=1` bounds it for the
+  deadlines of 200 / 400 ms, not for the uncut retry (`KdUncutCeilMs`, 10 of the 18).
+- The rider stays stranded until EA's 3 AM stuck check, as before (§3). `boattaximemo` answers the repeat plans to a
+  destination already proven; it and this switch are independent.

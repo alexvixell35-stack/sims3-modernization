@@ -25,6 +25,7 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  failreplanboat: 'no forced repro yet (docs/642 §10): needs an NPC stranded in a boat away from the camera whose Sim route fails through SimRoutingComponent.DoRoute; boat_nopath_repro seats its riders next to the selected Sim (seen, so kept) and plans without DoRoute. Judged by storm counters failreplanboat_* (would / off) and the route candidate split lines (docs/670 §28)',
   unseenoutfitdefer: 'speed change with no bug to trigger (issue #451, docs/602): counters 1981-1999 per game, natural-play compositor and frame times on 4 worlds; the next test is the in-load --ab unseenoutfitdefer on BP',
   boundcall: 'exact speedup, no hitch to repro (docs/537 §22): the same EA String bodies run, judged by the native selftest, the monohost corpus + c3g replays (MONOHOST_JITBIND=1 MONOHOST_JITBOUNDCALL=3, 0 differ) and boundcall.json (BP/IP correctness, --ab boundcall timing)',
   equalsfast: 'exact speedup, no hitch to repro (docs/258 option C): judged by the native selftest and the monohost exactness corpus (MONOHOST_EQFAST=1, 0 mismatches) and the BP/IP --ab equalsfast timing pair (queues/equalsfast-1112.json)',

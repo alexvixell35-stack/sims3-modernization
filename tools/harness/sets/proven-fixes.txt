@@ -439,5 +439,7 @@ worldpondskatetest
 #   fglinbound fglinboundhh
 # built 2026-11-21 (fix/stand-wait-1121, docs/686), default off, not run in the game (EA bug fix: blocked obstacle stand-and-wait yields, pushes, passes; household behind standwaitfixhh):
 #   standwaitfix standwaitfixhh standwaitlog
+# built 2026-11-21 (fix/boatwp-1121, docs/642 §10), default off, not run in the game (an unseen NPC boat's failed plan skips EA's route-fail path):
+#   failreplanboat
 # built 2026-11-20 (feat/act-delay-1120, docs/684), default off, not run in the game (read-only probe, test runs only):
 #   actdelay
