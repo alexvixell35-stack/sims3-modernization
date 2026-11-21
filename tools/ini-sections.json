@@ -111,5 +111,6 @@
  "EqualsFast": ["equalsfast.cpp"],
  "ThumbStall": ["thumbstall.cpp"],
  "ThumbCallers": ["thumbstall.cpp"],
+ "OutfitFirst": ["thumbstall.cpp"],
  "Experimental": ["ts3native.cpp"]
 }

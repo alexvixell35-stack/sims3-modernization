@@ -128,6 +128,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x005E0872, 0x005E1742},
     {0x005E2050, 0x005E2F30},
     {0x005E299E, 0x005E37BE},
+    {0x005E4EB0, 0x00000000},
     {0x005E61A0, 0x005E6EB0},
     {0x005E621C, 0x005E6F2C},
     {0x005E6E60, 0x005E7920},
@@ -387,6 +388,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006DCD23, 0x006DDBA3},
     {0x006DCD34, 0x006DDBB4},
     {0x006DCD90, 0x006DDC10},
+    {0x006DD160, 0x00000000},
     {0x006DD353, 0x006DE1D3},
     {0x006E4770, 0x006E5530},
     {0x006EA260, 0x006EB070},
@@ -400,6 +402,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006F3C30, 0x006F4960},
     {0x006F3C50, 0x006F4980},
     {0x006F3DC0, 0x006F4AF0},
+    {0x006F4926, 0x00000000},
     {0x006F6B5B, 0x006F785B},
     {0x006F7331, 0x006F8031},
     {0x006F734E, 0x006F804E},
@@ -1761,7 +1764,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1586;
+constexpr int ts3addr_count = 1589;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)
@@ -1866,3 +1869,6 @@ constexpr int ts3addr_count = 1586;
 // unresolved: 0x0075A950 no-ea-1.69-address native/ts3native/gvhits.cpp (docs/670, docs/671)
 // unresolved: 0x00AB88A0 no-ea-1.69-address native/ts3native/gvhits.cpp (docs/670, docs/671)
 // unresolved: 0x01010960 no-ea-1.69-address native/ts3native/gvhits.cpp (docs/670, docs/671)
+// unresolved: 0x005E4EB0 no-ea-1.69-address native/ts3native/thumbstall.cpp (docs/684 §9)
+// unresolved: 0x006DD160 no-ea-1.69-address native/ts3native/thumbstall.cpp (docs/684 §9)
+// unresolved: 0x006F4926 no-ea-1.69-address native/ts3native/thumbstall.cpp (docs/684 §9)
