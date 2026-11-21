@@ -150,6 +150,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kJobYieldSpawn value="True" />
     <kJobYieldReady value="True" />
     <kJobYieldFp value="True" />
+    <kLadderFootShoo value="False" />
+    <kLadderFootShooHousehold value="False" />
+    <kLadderFootWaitMinutes value="5" />
+    <kLadderFootCooldownMinutes value="2" />
     <kDriverTaskAsync value="False" />
     <kWatchdogAsync value="True" />
     <kStuckCheckOwn value="False" />

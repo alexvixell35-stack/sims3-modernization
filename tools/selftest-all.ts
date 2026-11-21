@@ -111,6 +111,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/deadrefs/run.ts': CSC,
   'tools/selftest/outfitwait/run.ts': CSC,
   'tools/selftest/rabbitholedirect/run.ts': CSC,
+  'tools/selftest/ladderfoot/run.ts': CSC,
   'tools/selftest/lanesnap/run.ts': CSC,
   'tools/selftest/tripstage/run.ts': CSC,
   'tools/selftest/ageupswap/run.ts': CSC,

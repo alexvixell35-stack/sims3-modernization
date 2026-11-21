@@ -1583,7 +1583,12 @@ namespace Ts3Fixes
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4200;
+        // [4352-4363] ladderfootshoo (LadderFoot.cs, docs/183 §9): scans of a lot's level links for a cross-level no-path plan / plans whose needed link is closed by
+        // standing Sims / would ask them, off / exempt (household planner without ladderfootshoohh) / Sims asked to step away / Sims not asked (the game's push rules,
+        // or household without its switch) / waits of the planner / second plan succeeded / gave up (timeout, cancel, nobody askable, second plan failed) / asked but
+        // not waited for (not the Sim's own task) / a later plan of such a Sim succeeded within 60 sim-minutes / errors. Same slots as the contributor's combo branch
+        // (4200-4351 left free; the contributor ranges up to 4089 are full).
+        const int kCounterSlots = 4364;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1899,6 +1904,8 @@ namespace Ts3Fixes
                 case "stuckchecknear": return Instantiator.kStuckCheckNear;
                 case "failrepeat": return Instantiator.kFailRepeat;
                 case "jobyield": return Instantiator.kJobYield;
+                case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
+                case "ladderfootshoohh": return Instantiator.kLadderFootShooHousehold;  // LadderFoot.cs (docs/183 §9): ladderfootshoo for household and selected Sims too (as planner and as the Sim asked), off
                 case "jobyieldroad": return Instantiator.kJobYieldRoad;
                 case "jobyieldroadow": return Instantiator.kJobYieldRoadOw;
                 case "jobyieldspawn": return Instantiator.kJobYieldSpawn;

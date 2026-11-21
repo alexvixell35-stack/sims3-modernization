@@ -114074,6 +114074,95 @@
     ]
   },
   {
+    "id": "ladderfootshoo-check",
+    "bug": "A floor reached only by a ladder is cut off while Sims stand on the ladder's lane ends: the route search's endpoint test (PortalEdgeCost 0x634500 -> 0x6338A0) makes the ladder a wall, the plan answers NoPathToDestination and the route fails at once. Doors and spiral stairs ask such Sims to step away (DoAdditionalLaneChecks -> PushSimsStatic); Ladder has no such step (docs/183 §9; Colonial Casa storms, 'routefail strand link: Ladder ... B free (with Sims: sim)')",
+    "fix": "ts3fixes LadderFoot.cs: ladderfootshoo (+ ladderfootshoohh for household and selected Sims), default off, docs/183 §9",
+    "save": "any world (pure check)",
+    "note": "Pure check (read-only), not a forced case. LadderFootCheck 'run' evaluates the rules with controls; 'result' shows the counters 4352-4363 and the last ladderfoot: line; 'lot' lists the level links of the selected Sim's lot with their lanes by the game's slot test. The forced in-game case (a Sim stood on a ladder end, another sent across) was run on the contributor's rig with harness pieces not in this repo (docs/183 §9.6); the Colonial Casa storms show the strand about 2 times in 12 runs (docs/183 §9.5).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": true,
+          "ladderfootshoohh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

@@ -67,3 +67,5 @@
 #   doorshare
 # perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
 #   commodmapfast commodmapshadow
+# docs/183 §9 (ladder foot 2026-11-21), default off, forced case run on the Deck (4 fix-on arms retry ok, errors 0; off arms crossed too): Sims standing on a ladder's lane ends are asked to step away, the failed plan is made once more (household behind ladderfootshoohh):
+#   ladderfootshoo ladderfootshoohh

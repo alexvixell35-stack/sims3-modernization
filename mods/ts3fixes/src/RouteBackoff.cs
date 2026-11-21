@@ -47,7 +47,7 @@ namespace Ts3Fixes
                 if (urx != 0) UrxAfter(urx, 0, Vector3.Invalid, r);
                 if (ShortcutOn("boattrip")) { try { r = BtAfter(0, Vector3.Invalid, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
                 IaNote(0, Vector3.Invalid, r, rflT0);  // after BtAfter: iafailmemo sees the final result (boattrip may turn a failed boat plan into a working one)  // note: start and ms are read after BtAfter
-                return r;
+                return LfsAfterPlan(0, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
 
             // marked: this plan carries unseenfbplan's cut mark (an argument, not a static: UfPre's holds sleep before they plan)
@@ -359,7 +359,7 @@ namespace Ts3Fixes
                 RflPlan(this, 1, rflT0, r);
                 IaNote(1, Vector3.Invalid, r, rflT0);
                 if (urx != 0) UrxAfter(urx, 1, Vector3.Invalid, r);
-                return r;
+                return LfsAfterPlan(1, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
             RoutePlanResult ReplanAsync()
             {
@@ -393,7 +393,7 @@ namespace Ts3Fixes
                 if (urx != 0) UrxAfter(urx, 2, startPosition, r);
                 if (ShortcutOn("boattrip")) { try { r = BtAfter(2, startPosition, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
                 IaNote(2, startPosition, r, rflT0);  // after BtAfter, as above
-                return r;
+                return LfsAfterPlan(2, startPosition, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
             RoutePlanResult PlanFromPointAsync(Vector3 startPosition)
             {
@@ -441,7 +441,7 @@ namespace Ts3Fixes
                 RflPlan(this, 3, rflT0, r);
                 IaNote(3, fromPt, r, rflT0);
                 if (urx != 0) UrxAfter(urx, 3, fromPt, r);
-                return r;
+                return LfsAfterPlan(3, fromPt, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
             RoutePlanResult ReplanFromPointAsync(Vector3 fromPt)
             {

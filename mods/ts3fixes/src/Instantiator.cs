@@ -110,6 +110,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kJobYieldSpawn = true;  // ON since import 2026-11-19 (his 11-19 17-job soak): spawner placement steps aside from a running route job (JobYieldRoad.cs, docs/800)
         [Tunable] public static bool kJobYieldReady = true;  // ON since import 2026-11-19 (his 11-19 17-job soak): no READY poll while a route job runs (JobYieldRoad.cs, docs/800)
         [Tunable] public static bool kJobYieldFp = true;  // ON since import 2026-11-19 (his 11-19 17-job soak): townies' turn-in-place checks step aside from a running route job (JobYieldRoad.cs, docs/800)
+        [Tunable] public static bool kLadderFootShoo = false;  // ladderfootshoo (docs/183 §9): a plan to another level that fails with no path because Sims stand on the lane ends of the ladder or stair it needs asks them to step away (the game's own push, as at doors), waits for them and plans once more
+        [Tunable] public static bool kLadderFootShooHousehold = false;  // ladderfootshoohh: ladderfootshoo for household and selected Sims too, as the planning Sim and as the Sim asked to step away
+        [Tunable] public static float kLadderFootWaitMinutes = 5f;  // sim-minutes the planning Sim waits for the asked Sims before it gives up (never above the game's own wait for pushed Sims; 0 = ask, do not wait)
+        [Tunable] public static float kLadderFootCooldownMinutes = 2f;  // sim-minutes between two looks at the level links for the same Sim
         [Tunable] public static bool kDriverTaskAsync = false;     // opt-in until measured: a traffic car's plan in its LiteDriver task and a ridden vehicle's plan in its rider's task go async as own-task plans (RouteBackoff.cs OwnerTaskStart, docs/163 §7)
         [Tunable] public static bool kOverwatchStuckSlice = true;  // on, same as the shipped tuning (2026-11-14); was: opt-in until measured: NRaas Overwatch's Stuck Check takes a sim tick inside its walk over every Sim once 8 ms have passed since its last tick (OverwatchStuck.cs, docs/145 §12)
         // docs/250 §7.1 A1: StuckWatchdog.CheckIdle's route check as an own-task route job, verdict re-validated before acting.
