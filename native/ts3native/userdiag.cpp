@@ -730,6 +730,7 @@ static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample want
 static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
 static u8 MdtOp(DWORD lo, DWORD hi);   // modtime.cpp: op 61, [Diag] ModTime (docs/298)
 static u8 PcOp(DWORD lo, DWORD hi);  // pccheck.cpp: op 62, [PcCheck] (docs/299)
+static u8 FglInsideOp(DWORD lo);  // fglprof.cpp: op 48, ts3fixes fglinbound arms / ends the indoors stage's search (docs/682 §9)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
     switch ((hi >> 16) & 0xFF) {
@@ -745,6 +746,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
         case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 40: return DsClassOp(lo, hi);  // docs/674 doorshare.cpp: route lo's Sim class (hi 0-15), before its START; 1 = DoorShare on
+        case 48: return FglInsideOp(lo);    // docs/682 §9: lo 1 = this thread's next FindGoodLocation search is the indoors stage, 0 = over; 1 = [FglInside] installed
         case 41: return DsNoteOp(lo, hi);   // docs/674: the door answer just given is shareable (lo = hash of the ask, hi 0-15 = kind)
         case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);

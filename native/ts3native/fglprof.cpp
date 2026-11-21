@@ -21,7 +21,9 @@
 // The inner sites are shared with World_TestObjectPlacement* and the slot test: outside a profiled search FglEnter returns
 // at once. One search is profiled at a time (the thread that entered first owns the tallies and the shadow stack; the IC
 // runs on the sim thread); a nested search (the managed ValidatePlacementDelegate calling FindGoodLocation again) is not
-// split from its parent: its tests count for the parent.
+// split from its parent: its tests count for the parent, and [FglFacing] / [FglMemo] neither answer nor learn nor store
+// for the rest of the parent (g_fgl.spoiled).
+// [FglInside] (docs/682 §9) uses the search and facing sites too: see FglInsTile in fglprof-core.h.
 #include "fglprof-core.h"
 
 enum { FGL_S_SEARCH, FGL_S_TILE_A, FGL_S_TILE_B, FGL_S_FACING, FGL_S_OWN, FGL_S_PART_LOOP, FGL_S_PART_OCT, FGL_S_CORE, FGL_S_CHECK0, FGL_SITES = 14 };
@@ -63,7 +65,42 @@ static struct {
     FglProof proof;
     FglLearn learn;        // this search: the disc about the position inside each part's polygon, per facing
     unsigned ignoreHash;
+    // a search of this thread began inside this one (a placement delegate that searches, or a search deeper on the stack
+    // than one an unwind left open): its tests are of another record and object but run through the same per-test state,
+    // the learn table and the memo, which hold no object. Until this search ends nothing is answered, learned, proven or
+    // stored; the tallies go on (they count for this search).
+    bool spoiled;
+    // [FglInside] (docs/682 §9)
+    FglIns ins;
+    void* insGrid;         // the lot's room grid (lot +0x298)
 } g_fgl;
+
+// [FglInside]: mode 0 off / 1 answer, shadow 0 / 1 (run every test, count what would be answered, check the premise)
+static struct {
+    LONG mode, shadow, ready;
+    volatile LONG armTid;   // thread whose next search is the indoors stage (ts3fixes op 48)
+    LONG arms, searches, notStage, found, tilesOut, tilesIn, answered, ranOut, passOut, ranIn, passIn, mismatch, lines;
+} g_fgli;
+static FglRoomAt g_fglRoomTest;   // selftest: the fake room lookup; NULL = the game's
+
+// World.GetRoomId(lot, LotLocation(tx, tz, level), LightBlocking) as the script IC 0x785210 runs it: the grid's lookup
+// 0xB499D0 (thiscall, three stack words, ret 0xC; x, z and level bounds-checked in 0xC05430, -1 off the grid) with
+// { (float)tx, (float)tz, level }, room definition 0, flag 1.
+typedef int(__fastcall* FglGridRoomFn)(void* grid, void* edx, const void* pos, int def, int flag);
+static const DWORD FGL_GRID_ROOM = TS3A(0x00B499D0);
+static int FglRoomGame(void* grid, int tx, int tz, int level) {
+    struct { float x, z; int level; } p = {(float)tx, (float)tz, level};
+    return ((FglGridRoomFn)(uintptr_t)FGL_GRID_ROOM)(grid, NULL, &p, 0, 1);
+}
+
+// ts3fixes op 48 (userdiag.cpp): lo bit 0 = 1 "the next FindGoodLocation search of this thread is the indoors stage, its
+// check is IsInside", 0 = "over". Answer 1 = [FglInside] is installed.
+static u8 FglInsideOp(DWORD lo) {
+    if (!g_fgli.ready) return 0;
+    if (lo & 1) { InterlockedExchange(&g_fgli.armTid, (LONG)GetCurrentThreadId()); InterlockedIncrement(&g_fgli.arms); }
+    else InterlockedExchange(&g_fgli.armTid, 0);
+    return 1;
+}
 
 // [FglFacing]: mode 0 off / 1 skip, shadow 0 / 1 (run every facing and compare)
 static struct {
@@ -134,6 +171,16 @@ static void FglSearchBegin(const u8* rec) {
     g_fgl.shadowTest = false;
     g_fgl.memoTest = false;
     g_fgl.inFacing = false;
+    g_fgl.spoiled = false;
+    g_fgl.ins = FglIns();
+    g_fgl.insGrid = NULL;
+    if (g_fgli.ready && (DWORD)g_fgli.armTid == GetCurrentThreadId()) {
+        InterlockedExchange(&g_fgli.armTid, 0);   // one search per arm
+        const u8* const lot = *(const u8* const*)(rec + 4);
+        void* const grid = lot ? *(void* const*)(lot + 0x298) : NULL;
+        if (*(const DWORD*)(rec + 0x28) && (grid || g_fglRoomTest)) { g_fgl.ins.on = true; g_fgl.insGrid = grid; g_fgli.searches++; }
+        else g_fgli.notStage++;   // no managed check or no room grid: not the stage
+    }
     FglLearnReset(&g_fgl.learn);
     FglKey key = {};
     const u8* obj = *(const u8* const*)rec;   // the game's object, 0 = none (0xB470C0 then tests no placement)
@@ -173,6 +220,24 @@ static void FglSearchBegin(const u8* rec) {
 
 static void FglSearchEnd(bool ok, LONG us) {
     const FglTally& t = g_fgl.t;
+    if (g_fgl.ins.on) {
+        const FglIns& n = g_fgl.ins;
+        g_fgli.tilesOut += n.tilesOut; g_fgli.tilesIn += n.tilesIn; g_fgli.answered += n.answered;
+        g_fgli.ranOut += n.ranOut; g_fgli.passOut += n.passOut; g_fgli.ranIn += n.ranIn; g_fgli.passIn += n.passIn;
+        if (ok) g_fgli.found++;
+        const bool bad = FglInsMismatch(n, ok);
+        if (bad) g_fgli.mismatch++;
+        if (g_fgli.lines < (bad ? 216 : 200)) {
+            g_fgli.lines++;
+            float pos[2] = {0, 0};
+            memcpy(pos, g_fgl.rec + 8, sizeof(pos));
+            Log("fgl inside: %ssearch %s%s, start %.1f %.1f: tiles that reached a facing test: %ld with no room on the level or one either "
+                "side (%ld facing tests answered 0, %ld run of which %ld passed), %ld that may be indoors (%ld facing tests run, %ld passed "
+                "and went to the managed check)", bad ? "SHADOW MISMATCH, " : "", ok ? "found a spot" : "found nothing",
+                bad ? " on a tile with no room" : "", pos[0], pos[1], n.tilesOut, n.answered, n.ranOut, n.passOut, n.tilesIn, n.ranIn, n.passIn);
+        }
+        g_fgl.ins.on = false;
+    }
     g_fglm.lastEnd = GetTickCount();
     g_fglk.searches++;
     if (!ok) g_fglk.failed++;
@@ -287,7 +352,12 @@ static void __cdecl FglEnter(int site, DWORD* slot, DWORD* go) {
     if (site == FGL_S_SEARCH) {
         if ((DWORD)g_fgl.owner == tid) {
             // our own thread is inside a search: nested (deeper on the stack), or the outer search was unwound by an exception
-            if (g_fgl.depth && g_fgl.frames[0].slot > slot) return;
+            if (g_fgl.depth && g_fgl.frames[0].slot > slot) {
+                g_fgl.spoiled = true;
+                g_fgl.proof.on = false;
+                g_fgl.inFacing = g_fgl.shadowTest = g_fgl.memoTest = false;
+                return;
+            }
             g_fgl.depth = 0;
             g_fglk.stale++;
         } else if (InterlockedCompareExchange(&g_fgl.owner, (LONG)tid, 0) != 0) return;
@@ -317,7 +387,18 @@ static void __cdecl FglEnter(int site, DWORD* slot, DWORD* go) {
             g_fgl.inFacing = site == FGL_S_FACING && rec != NULL;
             g_fgl.testPart = 0;
             if (rec && !FglProofSame(g_fgl.proof, rec, *(const DWORD*)rec, key)) g_fgl.proof.on = false;
-            if (g_fgl.inFacing && (g_fglf.ready || g_fglm.ready)) {
+            if (g_fgl.ins.on && !g_fgl.spoiled) {
+                if (site == FGL_S_FACING && rec) {
+                    // [FglInside]: the managed check refuses every spot of this tile, so no facing of it can end the search
+                    if (FglInsTile(&g_fgl.ins, key, g_fglRoomTest ? g_fglRoomTest : FglRoomGame, g_fgl.insGrid) && g_fgli.mode && !g_fgli.shadow) {
+                        g_fgl.ins.answered++;
+                        g_fgl.inFacing = false;
+                        if (go) *go = (DWORD)(uintptr_t)FglRet0;
+                        return;
+                    }
+                } else g_fgl.ins.have = false;   // the own-facing path: never answered
+            }
+            if (g_fgl.inFacing && !g_fgl.spoiled && (g_fglf.ready || g_fglm.ready)) {
                 float ang = 0;
                 memcpy(&ang, rec + 0x14, sizeof(ang));
                 g_fgl.testIdx = g_fglf.ready ? FglFacingIdx(ang, FglStep()) : -1;
@@ -355,7 +436,12 @@ static void __cdecl FglEnter(int site, DWORD* slot, DWORD* go) {
 
 // Called by FglAfter (the swapped return address) with everything saved: result = the callee's eax; *out = where to return.
 // Only the thread that owns the profile reaches this (FglEnter swaps return addresses for no other).
+// out + 1 = FglAfter's stack pointer at entry, just above the returning call's slot and the arguments its `ret N` popped. A
+// frame deeper than the returning one was left by an unwind inside that call that no later FglEnter dropped (an exception
+// caught within the search): it is dropped here, else its dead return address would be taken for this call's.
 static void __cdecl FglLeave(DWORD result, DWORD* out) {
+    const DWORD* const sp = out + 1;
+    while (g_fgl.depth > 1 && g_fgl.frames[g_fgl.depth - 2].slot < sp) { g_fgl.depth--; g_fglk.stale++; }
     const FglFrame f = g_fgl.frames[--g_fgl.depth];
     *out = f.ret;
     const LONG us = g_fglk.prof ? UsSince(f.t0) : 0;
@@ -375,8 +461,10 @@ static void __cdecl FglLeave(DWORD result, DWORD* out) {
         g_fgl.testUs += us;
         FglTestEnd(&g_fgl.t, facing, g_fgl.firstFacing, yes, yes ? -1 : g_fgl.failCheck < 0 ? FGC_OTHER : g_fgl.failCheck, us);
         if (facing) g_fgl.facingOnTile++;
+        if (g_fgl.ins.on && !g_fgl.spoiled) FglInsRan(&g_fgl.ins, yes);
         if (!facing || !g_fgl.testRec) break;
         g_fgl.inFacing = false;
+        if (g_fgl.spoiled) break;
         if (g_fglm.ready) {
             if (g_fgl.memoTest) {
                 g_fglm.shadowTests++;
@@ -414,7 +502,7 @@ static void __cdecl FglLeave(DWORD result, DWORD* out) {
     case FGL_S_PART_LOOP: case FGL_S_PART_OCT:
         g_fgl.partUs += us;
         if (f.site == FGL_S_PART_OCT) g_fgl.t.octTests++; else g_fgl.t.fpTests++;
-        if (g_fgl.inFacing && g_fgl.testRec && g_fglf.ready) {
+        if (g_fgl.inFacing && !g_fgl.spoiled && g_fgl.testRec && g_fglf.ready) {
             // the record still holds this part's polygon (the next part, or the next test, rebuilds it)
             if (g_fgl.testIdx >= 0) FglLearnPut(&g_fgl.learn, g_fgl.testIdx, g_fgl.testPart, FglPartDisc(g_fgl.testRec));
             g_fgl.testPart++;
@@ -460,7 +548,8 @@ static void InstallFglProf(const wchar_t* ini) {
     const bool prof = GetPrivateProfileIntW(L"FglProf", L"Enabled", 0, ini) != 0;
     const bool facing = GetPrivateProfileIntW(L"FglFacing", L"Enabled", 0, ini) != 0;
     const bool memo = GetPrivateProfileIntW(L"FglMemo", L"Enabled", 0, ini) != 0;
-    if (!prof && !facing && !memo) { Log("fgl prof off, fgl facing off, fgl memo off (Enabled=0)"); return; }
+    const bool inside = GetPrivateProfileIntW(L"FglInside", L"Enabled", 0, ini) != 0;
+    if (!prof && !facing && !memo && !inside) { Log("fgl prof off, fgl facing off, fgl memo off, fgl inside off (Enabled=0)"); return; }
 #ifdef TS3A_TABLE
     if (ts3a_noaddr) { Log("SKIP fgl prof: no EA 1.69 address, docs/671"); return; }
 #endif
@@ -490,7 +579,14 @@ static void InstallFglProf(const wchar_t* ini) {
             g_fglk.linesPerMin, g_fglk.frames);
     } else g_fglk.logMs = 0x7FFFFFFF;   // no per-search line, no timers
     const bool sitesOk = (g_fglk.sites & kNeed) == kNeed;
-    if ((facing || memo) && !sitesOk) Log("SKIP fgl facing / memo: [FglProf] Sites=0x%04lX leaves out a site they read (needs 0x%04lX)", g_fglk.sites, kNeed);
+    if ((facing || memo || inside) && !sitesOk) Log("SKIP fgl facing / memo / inside: [FglProf] Sites=0x%04lX leaves out a site they read (needs 0x%04lX)", g_fglk.sites, kNeed);
+    if (inside && sitesOk) {
+        g_fgli.mode = Clamp(GetPrivateProfileIntW(L"FglInside", L"Mode", 1, ini), 0, 1);
+        g_fgli.shadow = Clamp(GetPrivateProfileIntW(L"FglInside", L"Shadow", 0, ini), 0, 1);
+        g_fgli.ready = 1;
+        Log("OK   fgl inside: Mode=%ld Shadow=%ld (acts on the search ts3fixes fglinbound arms with op 48; room lookup 0x%08lX)", g_fgli.mode,
+            g_fgli.shadow, (unsigned long)FGL_GRID_ROOM);
+    } else if (!inside) Log("fgl inside off (Enabled=0)");
     if (facing && sitesOk) {
         g_fglf.mode = Clamp(GetPrivateProfileIntW(L"FglFacing", L"Mode", 1, ini), 0, 1);
         g_fglf.shadow = Clamp(GetPrivateProfileIntW(L"FglFacing", L"Shadow", 0, ini), 0, 1);
@@ -537,6 +633,12 @@ static void FglLogCounters() {
             "passed %ld (mismatch)",
             g_fglm.mode, g_fglm.shadow, g_fglm.stored, g_fglm.hits, g_fglm.carried, g_fglm.dropKey, g_fglm.dropSeq, g_fglm.dropGap,
             g_fglm.shadowTests, g_fglm.shadowMismatch);
+    if (g_fgli.ready)
+        Log("fgl inside: mode %ld shadow %ld, arms %ld, stage searches %ld (found a spot %ld; armed but not the stage %ld); tiles that "
+            "reached a facing test: no room %ld (facing tests answered 0: %ld; run in shadow: %ld, passed %ld), may be indoors %ld (facing "
+            "tests run %ld, passed %ld); shadow mismatch %ld (must stay 0)",
+            g_fgli.mode, g_fgli.shadow, g_fgli.arms, g_fgli.searches, g_fgli.found, g_fgli.notStage, g_fgli.tilesOut, g_fgli.answered,
+            g_fgli.ranOut, g_fgli.passOut, g_fgli.tilesIn, g_fgli.ranIn, g_fgli.passIn, g_fgli.mismatch);
     if (!g_fglk.ready) return;
     Log("fgl prof: searches %ld (failed %ld) %ld ms, max %ld ms, >= %ld ms: %ld; tiles %ld tests %ld; first facing failed on %ld tiles: "
         "%ld more tests there %ld ms, a later facing passed on %ld; repeats within 10 s %ld (same result %ld) %ld ms; failed tests by "

@@ -854,6 +854,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00B47579, 0x00000000},
     {0x00B47DDF, 0x00000000},
     {0x00B4821B, 0x00000000},
+    {0x00B499D0, 0x00000000},
     {0x00B57F20, 0x00B56760},
     {0x00B69840, 0x00B680D0},
     {0x00B745A0, 0x00000000},
@@ -1760,7 +1761,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1585;
+constexpr int ts3addr_count = 1586;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)
@@ -1825,6 +1826,7 @@ constexpr int ts3addr_count = 1585;
 // unresolved: 0x00B47579 no-ea-1.69-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B47DDF no-ea-1.69-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B4821B no-ea-1.69-address native/ts3native/fglprof.cpp (docs/670, docs/671)
+// unresolved: 0x00B499D0 no-ea-1.69-address native/ts3native/fglprof.cpp (docs/682 §9)
 // unresolved: 0x00B468DD no-ea-1.69-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B46B0D no-ea-1.69-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B4677F no-ea-1.69-address native/ts3native/fglprof.cpp (docs/670, docs/671)

@@ -199,6 +199,8 @@ export const EXEMPT: Record<string, string> = {
   turnjigskip: 'Dalexlol: ON, performance skip for unseen townies, fired in natural play (91 games); no forced repro',
   unseenrelax: 'Dalexlol unseen route cost PR: ON (import 2026-11-20), route-cost switch for unseen townies, judged by natural games (no off arm); no forced repro',
   iafailmemo: 'Dalexlol unseen route cost PR: default off (his own advice: until a watchdog A/B), route-cost memo for townies, judged by natural games (no off arm); no forced repro',
+  // contributor PR post/fglinbound-1121 (docs/682 §9)
+  fglinboundhh: 'contributor: default off, household variant of fglinbound (same code path, the household gate lifted); its repro is fglinbound-check, whose live / live:big compares call the path directly; turned on only after fglinbound shadow runs (docs/682 §9.8 step 3)',
 };
 
 // Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,
