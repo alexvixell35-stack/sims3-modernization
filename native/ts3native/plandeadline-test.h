@@ -767,7 +767,10 @@ static void TestPlanDeadline() {
         RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
         assert(strstr(rf, "uncut (exempt)") && strstr(rf, "300 ms result 16") && strstr(rf, "deadline 250 ms") && strstr(rf, "scope unknown"));
         {   // docs/183 §8: the job's portal lock asks on its text; the scope word stays the last field
-            const JobDoor sDoor = t_jobDoor;
+            const JobDoor sDoor = t_jobDoor;  // whatever an earlier section's door asks left
+            t_jobDoor = JobDoor();
+            RfJobNote(&e, false, 300000, sp, 0, 0);
+            RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
             assert(strstr(rf, "door asks 0 live 0 locked 0 discouraged 0 native 0, scope unknown"));
             const JobDoor jd = {5, 3, 2, 1, 1, {0x5429FBA9, 0x374A0055, 11, 6, 0}};
             t_jobDoor = jd;
