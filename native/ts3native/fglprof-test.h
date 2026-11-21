@@ -1,6 +1,97 @@
 // docs/671: [FglProf] tallies (fglprof-core.h). Included by selftest.cpp and fglprof-host-test.cpp.
 #pragma once
 
+// [FglInside] (docs/682 §9): rooms of a fake lot, three levels of 16 x 16 tiles
+struct FiLot { signed char room[3][16 * 16]; int calls; };
+static int FiRoom(void* ctx, int tx, int tz, int level) {
+    FiLot* l = (FiLot*)ctx;
+    l->calls++;
+    if (tx < 0 || tz < 0 || tx >= 16 || tz >= 16 || level < 0 || level > 2) return 0xFFFF;   // the game: -1 as a 16-bit word
+    return l->room[level][tz * 16 + tx];
+}
+static unsigned FiRnd(unsigned* s) { *s = *s * 1664525u + 1013904223u; return *s >> 8; }
+// One search over the lot's tiles in a fixed order on level 1: per tile up to 3 facing tests (pass = the tile's bit), each
+// pass goes to the check (room on checkLevel > 0), an accepted spot ends it. skip = [FglInside] answers. Returns the tile.
+static int FiSearch(FiLot* l, const bool* pass, int checkLevel, bool skip, FglIns* ins, long* tests) {
+    *ins = FglIns();
+    ins->on = true;
+    for (int t = 0; t < 256; t++) {
+        const float x = (float)(t % 16) + 0.5f, z = (float)(t / 16) + 0.5f;
+        unsigned key[3] = {0, 0, 1};
+        memcpy(&key[0], &x, 4); memcpy(&key[1], &z, 4);
+        for (int f = 0; f < 3; f++) {
+            if (FglInsTile(ins, key, FiRoom, l) && skip) { ins->answered++; continue; }
+            (*tests)++;
+            FglInsRan(ins, pass[t]);
+            if (pass[t] && (checkLevel >= 0 && checkLevel <= 2 && l->room[checkLevel][t] > 0)) return t;
+        }
+    }
+    return -1;
+}
+static void TestFglInsideCore() {
+    assert(FglFloor(3.5f) == 3 && FglFloor(3.0f) == 3 && FglFloor(-0.5f) == -1 && FglFloor(0.0f) == 0 && FglFloor(127.5f) == 127);
+    static FiLot lot;
+    static bool pass[256];
+    unsigned seed = 682;
+    long skipTests = 0, eaTests = 0;
+    int found = 0, wrongLevel = 0;
+    for (int k = 0; k < 4000; k++) {
+        memset(&lot, 0, sizeof(lot));
+        const unsigned dens = FiRnd(&seed) % 40, passPct = FiRnd(&seed) % 60;
+        for (int lv = 0; lv < 3; lv++)
+            for (int t = 0; t < 256; t++) lot.room[lv][t] = (signed char)(FiRnd(&seed) % 100 < dens ? 1 + FiRnd(&seed) % 5 : 0);
+        for (int t = 0; t < 256; t++) pass[t] = FiRnd(&seed) % 100 < passPct;
+        // the check may read the tile on the search's level (1) or one either side: the answer must be the same in all three
+        for (int cl = 0; cl <= 2; cl++) {
+            FglIns a, b;
+            long ta = 0, tb = 0;
+            const int ea = FiSearch(&lot, pass, cl, false, &a, &ta);
+            const int mine = FiSearch(&lot, pass, cl, true, &b, &tb);
+            assert(ea == mine && tb <= ta);
+            assert(!FglInsMismatch(a, ea >= 0) && !FglInsMismatch(b, mine >= 0));   // shadow never fires when the premise holds
+            assert(b.ranOut == 0 && a.answered == 0 && b.tilesOut + b.tilesIn == a.tilesOut + a.tilesIn);
+            skipTests += tb; eaTests += ta;
+            if (ea >= 0) found++;
+        }
+        // a check that read two levels off would be caught by the shadow rule in some lot (the cases reach it)
+        {
+            static FiLot low;
+            memset(&low, 0, sizeof(low));
+            for (int t = 0; t < 256; t++) low.room[0][t] = lot.room[0][t];   // rooms on level 0 only; the search runs on level 2 below
+            FglIns a = FglIns();
+            a.on = true;
+            for (int t = 0; t < 256 && !FglInsMismatch(a, true); t++) {
+                const float x = (float)(t % 16) + 0.5f, z = (float)(t / 16) + 0.5f;
+                unsigned key[3] = {0, 0, 2};
+                memcpy(&key[0], &x, 4); memcpy(&key[1], &z, 4);
+                const bool out = FglInsTile(&a, key, FiRoom, &low);
+                assert(out);   // levels 1-3 have no room
+                FglInsRan(&a, pass[t] && low.room[0][t] > 0);
+            }
+            if (FglInsMismatch(a, true)) wrongLevel++;
+        }
+    }
+    assert(found > 1000 && skipTests * 10 < eaTests * 9 && wrongLevel > 1000);
+    // the tile's verdict is asked once per tile (three levels), not per facing
+    memset(&lot, 0, sizeof(lot));
+    lot.room[2][5 * 16 + 3] = 4;
+    FglIns s = FglIns();
+    s.on = true;
+    float x = 3.5f, z = 5.5f;
+    unsigned key[3] = {0, 0, 1};
+    memcpy(&key[0], &x, 4); memcpy(&key[1], &z, 4);
+    assert(!FglInsTile(&s, key, FiRoom, &lot) && lot.calls == 3 && !FglInsTile(&s, key, FiRoom, &lot) && lot.calls == 3 && s.tilesIn == 1);
+    key[2] = 0;   // the level below: no room on -1 (off the grid), 0 or 1
+    assert(FglInsTile(&s, key, FiRoom, &lot) && s.tilesOut == 1 && lot.calls == 6);
+    FglInsRan(&s, true);
+    assert(s.ranOut == 1 && s.passOut == 1 && FglInsMismatch(s, true) && !FglInsMismatch(s, false));
+    key[2] = 3;   // rooms on level 2: kept
+    assert(!FglInsTile(&s, key, FiRoom, &lot));
+    FglInsRan(&s, true);
+    assert(!FglInsMismatch(s, true) && s.ranIn == 1 && s.passIn == 1);
+    printf("ok FglInside core\n");
+}
+
 static void TestFglProfCore() {
     FglTally t;
     FglTallyReset(&t);
@@ -133,5 +224,6 @@ static void TestFglProfCore() {
     cb.room = 3;
     assert(!FglMemoCtxEq(ca, cb));
     assert(FglBits(1.0f) == 0x3F800000u);
+    TestFglInsideCore();
     printf("ok FglProf core\n");
 }

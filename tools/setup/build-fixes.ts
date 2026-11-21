@@ -766,6 +766,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenLoopSkipStep value="False" />
     <kDoorGen value="True" />
     <kDoorShare value="False" />
+    <kFglInBound value="False" />
+    <kFglInBoundHousehold value="False" />
+    <kFglInBoundShadow value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />
