@@ -3,7 +3,7 @@ namespace Ts3Fixes
     // Game-independent part of the strand lines (StrandLog.cs, docs/183 §8), checked offline by tools/selftest/strandlog.
     public static class StrandCore
     {
-        public const int kPerSim = 3, kEvery = 25, kMaxLines = 240, kMaxPrivacy = 4, kMaxStairs = 4, kMaxNear = 4;
+        public const int kPerSim = 3, kEvery = 25, kMaxLines = 240, kMaxPrivacy = 4, kMaxStairs = 6, kMaxRooms = 48, kMaxNear = 4;
         // InteractionPriorityLevel as EA's PrivacySituation.OnPortalPathPlan compares it
         public const int kUserDirected = 3, kPrivacy = 5;
 
@@ -44,6 +44,51 @@ namespace Ts3Fixes
                 case 6: return "other reason";
                 default: return "?" + status;
             }
+        }
+
+        // The rooms next to a room, as EA's room graph gives them (World.GetConnectedRooms over the levels of the way)
+        public delegate int[] Neighbours(int room);
+
+        // Breadth-first over the room graph: "A>B>C" = the shortest chain of rooms from one to the other, null = none within
+        // maxRooms visited rooms. Room 0 (outside) and 36863 (EA's "no room") are walked like any other only when they are
+        // an end; EA's own walk (Lot front-room scan) skips them too.
+        public static string RoomPath(int from, int to, int maxRooms, Neighbours next, out int visited)
+        {
+            visited = 0;
+            if (from == to) return from.ToString();
+            System.Collections.Generic.Dictionary<int, int> prev = new System.Collections.Generic.Dictionary<int, int>();
+            System.Collections.Generic.Queue<int> q = new System.Collections.Generic.Queue<int>();
+            prev[from] = from; q.Enqueue(from);
+            while (q.Count > 0 && visited < maxRooms)
+            {
+                int r = q.Dequeue();
+                visited++;
+                int[] n = next(r);
+                if (n == null) continue;
+                for (int i = 0; i < n.Length; i++)
+                {
+                    int x = n[i];
+                    if (prev.ContainsKey(x)) continue;
+                    if ((x == 0 || x == 36863) && x != to) continue;
+                    prev[x] = r;
+                    if (x == to)
+                    {
+                        string path = x.ToString();
+                        for (int at = r; ; at = prev[at]) { path = at + ">" + path; if (at == from) break; }
+                        return path;
+                    }
+                    q.Enqueue(x);
+                }
+            }
+            return null;
+        }
+
+        // Is an object with a portal component a way between levels? Its lane ends on two levels, or it is one of EA's
+        // classes that link levels through a second object (elevator doors and cars, tube elevators).
+        public static bool LinksLevels(int endLevelA, int endLevelB, string typeName)
+        {
+            if (endLevelA != endLevelB) return true;
+            return typeName != null && typeName.IndexOf("Elevator", System.StringComparison.Ordinal) >= 0;
         }
 
         // Does a stair between these two levels lie on the way from simLevel to goalLevel (either direction)?

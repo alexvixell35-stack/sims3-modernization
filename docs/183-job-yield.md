@@ -181,7 +181,10 @@ s321 (2-min Isla Paradiso storm, seed 152, asi of `27a222c8`, ts3fixes with the 
 - **ts3fixes (`StrandLog.cs`, part of `routefaillog`)**, for a failed plan (`NoPathToDestination` / `NoDestinationSpecified`) of an active-household Sim to another level of the lot it stands on; per Sim the first 3, then every 25th:
   - `routefail strand:` cached level / room against the live lot location of its position, the goal's, current and transition interaction with autonomous flag and priority, the rooms connected to its room (`World.GetConnectedRooms`);
   - `routefail strand privacy:` each privacy situation subscribed to the lot's portal event: type, its Sim, where that Sim is (cached and live room), what it is doing, and `portals into room R LOCKED|open for this plan` by EA's rule;
-  - `routefail strand stairs:` each stair between the two levels: both ends (position, level, room), hidden flag, per lane EA's slot test at both ends without and with Sims, and what stands within 0.75 m of each end.
+  - `routefail strand link:` each object with a portal component whose lane ends lie on two levels of the way: class, both ends (position, level, room), per lane EA's slot test at both ends without and with Sims, and what stands within 0.75 m of each end. Then always `routefail strand links:` N on the way, the portal objects on the lot, and every level link on the lot by class and levels.
+  - `routefail strand rooms:` (a Sim's first line) the chain of rooms from its room to the goal's and back, walked over `World.GetConnectedRooms`, and `World.ArePointsConnectedByLand` for the two points.
+
+**Changed 2026-11-21 (branch `fix/strand2-1121`, built, NOT RUN).** The first version listed `Stairs` objects only. s372 showed that is not enough: a household plan from level 1 (room 9) to level 2 (room 11) of Colonial Casa got `no stair between level 1 and 2 (1 on the lot)`, the one `Stairs` being level 0 room 2 to level 1 room 9, while the room graph lists 11 next to 9. So the link the third-floor strands lose is not a `Stairs`. The classes that add a level-to-level portal [verified, every `PortalComponent` subclass and `Route.Add*Portal*` call in the decompile]: `Stairs` (`AddStairPortals`), `StaircaseSpiral` (one `Route.AddPortal` from `RoutingSlot_0` to `RoutingSlot_1`, AnimateThrough, human age mask, cost 2, plus pet variations; removed and re-added by `ValidatePortals` on reset and on leaving build mode), `Ladder`, `FirefighterPole`, `ElevatorDoors` / `ElevatorInterior`, `TubeElevator`. Which of them stands on this lot is **not known yet**: the new lines find links by component, not by class, and name it. EA has no script call for "is there a path between two rooms"; `World.GetConnectedRooms` (neighbours) is the only room-graph call, so the line walks it.
 
 ### 8.4 Reading the next strand
 
@@ -190,8 +193,8 @@ s321 (2-min Isla Paradiso storm, seed 152, asi of `27a222c8`, ts3fixes with the 
 | `locked` > 0 with `rooms 11>R`, and a privacy line `portals into room R LOCKED` | EA's privacy lock; the line names the situation's Sim and what it is doing for hours. Next: why that situation does not end (its Sim's interaction) |
 | `locked` > 0, no privacy line locks | another `Lot.PortalPathPlan` handler (a mod) or the rule read wrongly: the first locked portal's owner id names the object |
 | `native` > 0 for the stair's owner id | cost / mask / forbidden list: read the route's options |
-| `door asks` > 0, `locked 0`, a lane end not `free` | the endpoint test: the `near` list names the object, or nothing stands there (a footprint left behind: then `[Discourage]` deferral is the suspect) |
-| `door asks 0`, `host 0` | the search never costed a portal: room graph or missing portal; the connected-rooms list and the stair line's rooms show which |
+| `door asks` > 0, `locked 0`, a link's lane end not `free` | the endpoint test: the `near` list names the object, or nothing stands there (a footprint left behind: then `[Discourage]` deferral is the suspect) |
+| `door asks 0`, `host 0` | the search never costed a portal: room graph or missing portal; `strand rooms` says whether the graph still has the chain, `strand links` whether the object is still there |
 | cached and live level / room differ | the Sim's room was not updated after its last move |
 
 Checks: `tools/selftest/strandlog` (which plans, how often, the privacy rule, the stair filter), `asklent-test.h` (the stub's counts over live, memo and locked answers), `plandeadline-test.h` (the text, the scope word still last for `unseen-scorecard.ts`).
