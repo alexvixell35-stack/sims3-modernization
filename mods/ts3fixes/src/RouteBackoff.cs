@@ -41,7 +41,7 @@ namespace Ts3Fixes
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
                 ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 0, rflT0, r);
-                return r;
+                return LfsAfterPlan(0, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
 
             // marked: this plan carries unseenfbplan's cut mark (an argument, not a static: UfPre's holds sleep before they plan)
@@ -343,7 +343,7 @@ namespace Ts3Fixes
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
                 ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 1, rflT0, r);
-                return r;
+                return LfsAfterPlan(1, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
             RoutePlanResult ReplanAsync()
             {
@@ -372,7 +372,7 @@ namespace Ts3Fixes
                 ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 SemCapture(r);  // docs/636 spotedgememo: which goal EA's full routability plan reached
                 RflPlan(this, 2, rflT0, r);
-                return r;
+                return LfsAfterPlan(2, startPosition, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
             RoutePlanResult PlanFromPointAsync(Vector3 startPosition)
             {
@@ -416,7 +416,7 @@ namespace Ts3Fixes
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
                 ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 3, rflT0, r);
-                return r;
+                return LfsAfterPlan(3, fromPt, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
             }
             RoutePlanResult ReplanFromPointAsync(Vector3 fromPt)
             {

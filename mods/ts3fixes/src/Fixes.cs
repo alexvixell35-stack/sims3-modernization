@@ -1315,7 +1315,11 @@ namespace Ts3Fixes
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
         // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets, 4200-4219 other branches, 4220-4249 docs/661 lot gameplay, 4250-4259 fglinbound docs/682, 4270-4279 actdelay docs/684), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4352;
+        // [4352-4363] ladderfootshoo (LadderFoot.cs, docs/183 §9): scans of a lot's level links for a cross-level no-path plan / plans whose needed link is closed by
+        // standing Sims / would ask them, off / exempt (household planner without ladderfootshoohh) / Sims asked to step away / Sims not asked (the game's push rules,
+        // or household without its switch) / waits of the planner / second plan succeeded / gave up (timeout, cancel, nobody askable, second plan failed) / asked but
+        // not waited for (not the Sim's own task) / a later plan of such a Sim succeeded within 60 sim-minutes / errors.
+        const int kCounterSlots = 4364;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1610,6 +1614,8 @@ namespace Ts3Fixes
                 case "failreplanboat": return Instantiator.kFailReplanBoat;  // FailReplanBoat.cs (docs/642 §10): an unseen NPC boat's failed plan skips EA's route-fail behaviour, off
                 case "standwaitlocked": return Instantiator.kStandWaitLocked;  // StandWaitLocked.cs (docs/686 §7): a stand-and-wait at a privacy-locked room ends after kStandWaitLockedCycles cycles, off
                 case "standwaitlockedhh": return Instantiator.kStandWaitLockedHousehold;  // StandWaitLocked.cs (docs/686 §7): standwaitlocked for household and selected Sims too, off
+                case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
+                case "ladderfootshoohh": return Instantiator.kLadderFootShooHousehold;  // LadderFoot.cs (docs/183 §9): ladderfootshoo for household and selected Sims too (as planner and as the Sim asked), off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off

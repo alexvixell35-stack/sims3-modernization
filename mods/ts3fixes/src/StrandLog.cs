@@ -7,10 +7,8 @@ using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
-using Sims3.Gameplay.ObjectComponents;
 using Sims3.Gameplay.Situations;
 using Sims3.SimIFace;
-using Sims3.SimIFace.CAS;
 
 namespace Ts3Fixes
 {
@@ -32,6 +30,8 @@ namespace Ts3Fixes
     //       World.GetConnectedRooms (EA has no "is there a path" call), and World.ArePointsConnectedByLand for the two points.
     // ts3native's job text on the "routefail:" line carries the other half: the portal asks of that job and the first
     // locked answer (plandeadline.cpp RfText). Per Sim: the first 3 such fails, then every 25th; 240 fails a session.
+    // The link scan and the slot test live in LevelLink.cs, shared with ladderfootshoo (LadderFoot.cs, docs/183 §9), the fix for
+    // the answer these lines gave.
     // Off path: one bool test per failed plan. All reads; the slot tests are EA's own read-only ICs (Route.IsSlotUnobstructed).
     public static partial class Fixes
     {
@@ -142,66 +142,49 @@ namespace Ts3Fixes
             catch (Exception) { }
         }
 
-        // Every object on the lot with a portal component whose lane ends lie on two levels (Stairs, StaircaseSpiral, Ladder,
-        // FirefighterPole, ...) or that links levels through a second object (elevators), found by its component, not by its
-        // class: Colonial Casa's link from level 1 to level 2 is not a Stairs (s372). A summary line always, also with 0 found.
+        // Every level link of the lot (LevelLink.cs: found by its portal component, not by its class: Colonial Casa's link from
+        // level 1 to level 2 is not a Stairs, s372), those on the way in full. A summary line always, also with 0 found.
         static void StrandLinks(Sim sim, Lot lot, int simLevel, int goalLevel)
         {
             try
             {
-                GameObject[] all = lot.GetObjects<GameObject>();
-                int shown = 0, onWay = 0, portals = 0;
+                int shown = 0, onWay = 0, portals;
                 Dictionary<string, int> census = new Dictionary<string, int>();  // "Type a>b" of every level link on the lot
-                foreach (GameObject o in all)
+                foreach (LevelLink k in LevelLinks(lot, out portals))
                 {
-                    PortalComponent pc = o != null ? o.PortalComponent : null;
-                    if (pc == null) continue;
-                    portals++;
-                    string type = o.GetType().Name;
-                    Slot[] s0 = null;
-                    uint lanes = 0;
-                    try { lanes = pc.GetNumLanes(); if (lanes > 0) s0 = pc.GetSlotsForLaneIndex(0); } catch (Exception) { }
-                    bool ends = s0 != null && s0.Length >= 2;
-                    Vector3 a = ends ? o.GetSlotPosition(s0[0]) : o.Position, z = ends ? o.GetSlotPosition(s0[1]) : o.Position;
-                    LotLocation al = LotLocation.Invalid, zl = LotLocation.Invalid;
-                    World.GetLotLocation(a, ref al, eRoomDefinition.Default);
-                    World.GetLotLocation(z, ref zl, eRoomDefinition.Default);
-                    if (!StrandCore.LinksLevels(al.mLevel, zl.mLevel, type)) continue;
-                    string key = type + " " + al.mLevel + ">" + zl.mLevel;
+                    GameObject o = k.Obj;
+                    string key = k.Type + " " + k.Al.mLevel + ">" + k.Zl.mLevel;
                     int c;
                     census.TryGetValue(key, out c);
                     census[key] = c + 1;
-                    bool way = al.mLevel != zl.mLevel ? StrandCore.StairOnWay(al.mLevel, zl.mLevel, simLevel, goalLevel)
-                        : al.mLevel >= Math.Min(simLevel, goalLevel) && al.mLevel <= Math.Max(simLevel, goalLevel);
-                    if (!way) continue;
+                    if (!LevelLinkOnWay(k, simLevel, goalLevel)) continue;
                     onWay++;
                     if (shown >= StrandCore.kMaxStairs) continue;
                     shown++;
                     Stairs st = o as Stairs;
-                    StringBuilder b = new StringBuilder("routefail strand link: for ").Append(sim.FullName).Append(": ").Append(type)
+                    StringBuilder b = new StringBuilder("routefail strand link: for ").Append(sim.FullName).Append(": ").Append(k.Type)
                         .Append(" 0x").Append(o.ObjectId.Value.ToString("X")).Append(st != null && st.IsHidden ? " HIDDEN" : "").Append(o.InUse ? " in use" : "")
                         .Append(", at ").Append(V(o.Position)).Append(" level ").Append(o.Level).Append(" room ").Append(o.RoomId)
-                        .Append(", end A ").Append(V(a)).Append(" level ").Append(al.mLevel).Append(" room ").Append(al.mRoom)
-                        .Append(", end B ").Append(V(z)).Append(" level ").Append(zl.mLevel).Append(" room ").Append(zl.mRoom)
-                        .Append(", lanes ").Append(lanes);
-                    for (uint i = 0; ends && i < lanes && i < 3; i++)
+                        .Append(", end A ").Append(V(k.A)).Append(" level ").Append(k.Al.mLevel).Append(" room ").Append(k.Al.mRoom)
+                        .Append(", end B ").Append(V(k.Z)).Append(" level ").Append(k.Zl.mLevel).Append(" room ").Append(k.Zl.mRoom)
+                        .Append(", lanes ").Append(k.Lanes);
+                    for (uint i = 0; k.Ends && i < k.Lanes && i < 3; i++)
                     {
-                        Slot[] s = null;
-                        try { s = pc.GetSlotsForLaneIndex(i); } catch (Exception) { }
-                        if (s == null || s.Length < 2) { b.Append(" [").Append(i).Append(": no slots]"); continue; }
-                        b.Append(" [").Append(i).Append(": A ").Append(StrandSlot(sim, o, s[0], false, st != null)).Append(", B ").Append(StrandSlot(sim, o, s[1], true, st != null)).Append(']');
+                        Slot[] s = LevelLinkLane(k, i);
+                        if (s == null) { b.Append(" [").Append(i).Append(": no slots]"); continue; }
+                        b.Append(" [").Append(i).Append(": A ").Append(StrandSlot(sim, o, s[0], false)).Append(", B ").Append(StrandSlot(sim, o, s[1], true)).Append(']');
                     }
-                    b.Append(", near A:").Append(StrandNear(o, sim, a)).Append(", near B:").Append(StrandNear(o, sim, z));
+                    b.Append(", near A:").Append(StrandNear(o, sim, k.A)).Append(", near B:").Append(StrandNear(o, sim, k.Z));
                     DiagLine(b.ToString());
                 }
                 StringBuilder t = new StringBuilder("routefail strand links: for ").Append(sim.FullName).Append(": ").Append(onWay).Append(" between level ")
                     .Append(simLevel).Append(" and ").Append(goalLevel).Append(onWay > shown ? " (" + (onWay - shown) + " not shown)" : "")
                     .Append(", portal objects on the lot ").Append(portals).Append(", level links on the lot:");
                 if (census.Count == 0) t.Append(" none");
-                int k = 0;
+                int n = 0;
                 foreach (KeyValuePair<string, int> e in census)
                 {
-                    if (k++ >= 10) { t.Append(" ..."); break; }
+                    if (n++ >= 10) { t.Append(" ..."); break; }
                     t.Append(' ').Append(e.Key).Append(e.Value > 1 ? " x" + e.Value : "").Append(';');
                 }
                 DiagLine(t.ToString());
@@ -240,17 +223,11 @@ namespace Ts3Fixes
         }
 
         // EA's slot test as StairsPortalComponent.IsLaneUnobstructed runs it (Sims not counted), then with Sims counted
-        static string StrandSlot(Sim sim, GameObject st, Slot slot, bool exit, bool stairs)
+        static string StrandSlot(Sim sim, GameObject st, Slot slot, bool exit)
         {
-            try
-            {
-                Route.RouteOption opt = stairs ? Route.RouteOption.PlatformsNotBlocking : Route.RouteOption.None;
-                CASAgeGenderFlags ags = sim.SimDescription.AgeGenderSpecies;
-                BlockedStatus a = Route.IsSlotUnobstructed(sim.ObjectId, st.ObjectId, slot, false, opt, sim.ObjectId, ags, exit);
-                BlockedStatus s = Route.IsSlotUnobstructed(sim.ObjectId, st.ObjectId, slot, true, opt, sim.ObjectId, ags, exit);
-                return StrandCore.Blocked((int)a) + (s != a ? " (with Sims: " + StrandCore.Blocked((int)s) + ")" : "");
-            }
-            catch (Exception) { return "threw"; }
+            int a = LevelLinkSlot(sim, st, slot, false, exit), s = LevelLinkSlot(sim, st, slot, true, exit);
+            if (a < 0 || s < 0) return "threw";
+            return StrandCore.Blocked(a) + (s != a ? " (with Sims: " + StrandCore.Blocked(s) + ")" : "");
         }
 
         static string StrandNear(GameObject st, Sim sim, Vector3 p)

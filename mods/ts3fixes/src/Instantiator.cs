@@ -390,6 +390,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kStandWaitLocked = false;  // standwaitlocked (docs/686 §7): a blocked obstacle stand-and-wait whose destination room is privacy-locked for the Sim ends after kStandWaitLockedCycles cycles the way the game's own timeout ends it (route failed), instead of standing out the 20 sim-minutes
         [Tunable] public static bool kStandWaitLockedHousehold = false;  // standwaitlockedhh: standwaitlocked for household and selected Sims too (never a player's own order: the game does not privacy-lock those)
         [Tunable] public static int kStandWaitLockedCycles = 2;  // privacy-locked blocked cycles in a row before the wait ends (0 = never; a cycle is about 1.6 sim-minutes)
+        [Tunable] public static bool kLadderFootShoo = false;  // ladderfootshoo (docs/183 §9): a plan to another level that fails with no path because Sims stand on the lane ends of the ladder or stair it needs asks them to step away (the game's own push, as at doors), waits for them and plans once more
+        [Tunable] public static bool kLadderFootShooHousehold = false;  // ladderfootshoohh: ladderfootshoo for household and selected Sims too, as the planning Sim and as the Sim asked to step away
+        [Tunable] public static float kLadderFootWaitMinutes = 5f;  // sim-minutes the planning Sim waits for the asked Sims before it gives up (never above the game's own wait for pushed Sims; 0 = ask, do not wait)
+        [Tunable] public static float kLadderFootCooldownMinutes = 2f;  // sim-minutes between two looks at the level links for the same Sim
         [Tunable] public static bool kActDelay = false;  // actdelay (docs/684): read-only probe, per interaction instance the time from queued to the Sim acting, split into buckets; one log line per instance over kActDelayLogMs and a summary a minute; test runs only
         [Tunable] public static int kActDelayLogMs = 500;  // actdelay: an instance whose queued -> act time reaches this gets its own log line
         [Tunable] public static int kActDelayLinesPerMin = 30;  // actdelay: most instance lines a minute of real time

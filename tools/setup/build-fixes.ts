@@ -168,6 +168,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStandWaitLocked value="False" />
     <kStandWaitLockedHousehold value="False" />
     <kStandWaitLockedCycles value="2" />
+    <kLadderFootShoo value="False" />
+    <kLadderFootShooHousehold value="False" />
+    <kLadderFootWaitMinutes value="5" />
+    <kLadderFootCooldownMinutes value="2" />
     <kActDelay value="False" />
     <kActDelayLogMs value="500" />
     <kActDelayLinesPerMin value="30" />
