@@ -23,5 +23,19 @@ static void TestMintCall() {
     assert(!McVAdd(v, 0x30000, MC_VBYTES) && v.nr == 2);
     for (int i = v.nr; i < MC_VR; i++) assert(McVAdd(v, 0x40000 + i * 16, 4));
     assert(!McVAdd(v, 0x50000, 4));
+    // McVChain: a later owner goes behind the verify catch only in verify mode, only on a catch entry still holding stock
+    static DWORD tab[MC_NOP];
+    void* const keep = g_mcOrig[0x1A9];
+    const int keepV = g_mcVerify;
+    tab[0x1A9] = (DWORD)(uintptr_t)McVCatch, g_mcOrig[0x1A9] = (void*)(uintptr_t)0x1234;
+    g_mcVerify = 0;
+    assert(!McVChain(tab, 0x1A9, 0x1234, 0x5678));
+    g_mcVerify = 1;
+    assert(!McVChain(tab, 0x1A9, 0x9999, 0x5678) && g_mcOrig[0x1A9] == (void*)(uintptr_t)0x1234);
+    assert(!McVChain(tab, MC_NOP, 0x1234, 0x5678));
+    assert(McVChain(tab, 0x1A9, 0x1234, 0x5678) && g_mcOrig[0x1A9] == (void*)(uintptr_t)0x5678 && tab[0x1A9] == (DWORD)(uintptr_t)McVCatch);
+    tab[0x1A8] = 0x1234;
+    assert(!McVChain(tab, 0x1A8, 0, 0x5678));  // not the catch: the owner writes the table itself
+    g_mcOrig[0x1A9] = keep, g_mcVerify = keepV;
     printf("TestMintCall ok\n");
 }

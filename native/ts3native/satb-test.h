@@ -363,12 +363,16 @@ static void TestSatbRainSkip() {
 // docs/206 §15: native writers. Sim: PriorityQueue bodies log the object's fields and its items array, Rehash the fields,
 // ElapsedTime*(ref float) the float; the tick statics are logged at the cut (fake host). Worker: Curve.Fx's m_x store is
 // taken back, a body on a private ref runs, a body on an unchanged `this` runs without a give-up.
-static DWORD g_snKlass[0x18], g_snArrKlass[0x18], g_snObj[8], g_snArr[4 + 8], g_snRm[12], g_snFrame[10], g_snArgs[2];
+static DWORD g_snKlass[0x18], g_snArrKlass[0x18], g_snObj[8], g_snArr[4 + 8], g_snRm[0x48 / 4], g_snFrame[10], g_snArgs[2];
 static DWORD g_snFloat, g_snTick[2][2], g_snHost[0xC30 / 4];
 static LONG g_snCalls;
+static DWORD g_snSelf, g_snWord0;  // the `this` the body saw and its first word
+static DWORD g_snHostSetArgs;      // row 9 fake setter: ecx + both stack args (callee pops them, like the thiscall setters)
+static void __fastcall SatbTestHostSet(DWORD ecx, DWORD, DWORD a, DWORD b) { g_snHostSetArgs = ecx + a + b; }
 static void __cdecl SatbTestBody(DWORD frame, DWORD) {
     g_snCalls++;
     const DWORD self = *(const DWORD*)(uintptr_t)(frame + 0xC);
+    g_snSelf = self, g_snWord0 = self ? *(const DWORD*)(uintptr_t)self : 0;
     if (self) *(DWORD*)(uintptr_t)(self + 0x14) = 0x7777;  // Fx-like: caches its argument in m_x
 }
 static void TestSatbNativeWriters() {
@@ -426,6 +430,58 @@ static void TestSatbNativeWriters() {
     g_snRm[9] = 0x1000, g_snFrame[3] = (DWORD)(uintptr_t)g_snObj;  // any other body on an object nobody logged
     SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
     assert(g_snCalls == 6 && ts3native_autshadow.satbWGiveUp == give0 && g_snObj[5] == 0x7777);
+    // docs/206 §15 rows 4 / 9 tripwires (SatbTripwire=1): count only, the body runs, no give-up
+    {
+        const char** nm = (const char**)((u8*)g_snKlass + 0x34);
+        const char *nm0 = nm[0], *ns0 = nm[1];
+        const LONG r4 = g_satbRow4, r9 = g_satbRow9[1][1];
+        nm[0] = "StringBuilder", nm[1] = "System.Text";
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);  // switch off: not counted
+        assert(g_snCalls == 7 && g_satbRow4 == r4);
+        g_satbTripwire = true;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 8 && g_satbRow4 == r4 + 1 && ts3native_autshadow.satbWGiveUp == give0);
+        nm[1] = "Other";  // another class named StringBuilder: not counted
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 9 && g_satbRow4 == r4 + 1);
+        // row 9: the count stub keeps ecx and the stack args and runs the trampoline (a fake setter here)
+        void* const t0 = g_satbHostSetTramp[1];
+        g_satbHostSetTramp[1] = (void*)SatbTestHostSet;
+        g_snHostSetArgs = 0;
+        typedef void(__fastcall * HsFn)(DWORD ecx, DWORD edx, DWORD a, DWORD b);
+        ((HsFn)(void*)SatbHostSet1)(0xC0DE, 0, 0x11, 0x22);
+        assert(g_snHostSetArgs == 0xC0DE + 0x11 + 0x22 && g_satbRow9[1][1] == r9 + 1);  // on the worker (g_satbWTid = this thread)
+        g_satbHostSetTramp[1] = t0;
+        g_satbTripwire = false, nm[0] = nm0, nm[1] = ns0, g_snCalls = 6;
+    }
+    // docs/206 §17 (#352): value-type `this` (RuntimeMethod+0x44 & 0x400) points at struct data whose first word (0x4650)
+    // is no vtable. Shared: give up, the body runs on a worker copy with the cut's bytes, the shared struct is never
+    // written; worker-private: runs as is, no give-up. Flag clear on such data: SatbObjFields refuses the low header
+    {
+        Ts3nCounters& c = ts3native_counters;
+        const LONG vt0 = c.sbVtGiveUp, low0 = c.sbLowHdr, stop0 = g_asStop, stale0 = g_satbStale;
+        static DWORD shared[8] = {0x4650, 0x11};
+        assert(SatbLogWord((DWORD)(uintptr_t)&shared[0]));
+        shared[0] = 0x4651;  // the sim's store after the cut
+        g_snRm[9] = 0x1000, g_snRm[0x44 / 4] = 0x400 | 0x200, g_snFrame[3] = (DWORD)(uintptr_t)shared;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 7 && g_snSelf != (DWORD)(uintptr_t)shared && g_snWord0 == 0x4650 && shared[5] == 0 && shared[0] == 0x4651);
+        assert(g_snFrame[3] == (DWORD)(uintptr_t)shared && c.sbVtGiveUp == vt0 + 1 && c.sbLowHdr == low0);
+        assert(ts3native_autshadow.satbWGiveUp == give0 + 1 && ts3native_autshadow.satbWGiveUpOp == 0xE525C0 && g_asStop == 1);
+        DWORD priv[8] = {0x4650};
+        g_snFrame[3] = (DWORD)(uintptr_t)priv;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 8 && g_snSelf == (DWORD)(uintptr_t)priv && priv[5] == 0x7777 && ts3native_autshadow.satbWGiveUp == give0 + 1);
+        // flag clear (row 12 (b)): the backstop answers "unknown" instead of reading [0x4650]; the body runs, no give-up
+        g_snRm[0x44 / 4] = 0x200, g_snFrame[3] = (DWORD)(uintptr_t)shared;
+        SatbBindCall((DWORD)(uintptr_t)g_snFrame, 0);
+        assert(g_snCalls == 9 && c.sbLowHdr == low0 + 1 && ts3native_autshadow.satbWGiveUp == give0 + 1 && shared[5] == 0x7777);
+        static DWORD lowKlassVt[1] = {0x20}, lowKlassObj[2] = {(DWORD)(uintptr_t)lowKlassVt};  // vtable fine, class word low
+        assert(SatbObjFields((DWORD)(uintptr_t)lowKlassObj) == 0 && c.sbLowHdr == low0 + 2 && SatbObjFields((DWORD)(uintptr_t)g_snObj) == 12);
+        g_snRm[0x44 / 4] = 0;
+        ts3native_autshadow.satbWGiveUp = give0, g_asStop = stop0, g_satbStale = stale0;
+        AsResetAbort();
+    }
     // docs/206 §16: address-of a static struct the sim changed since the cut: the worker gets a private copy with the cut
     // bytes (no give-up); an unchanged static keeps its own address
     {
@@ -442,10 +498,120 @@ static void TestSatbNativeWriters() {
     g_satbMode = mode0, g_satbWTid = wtid0, g_curState = cur0;
     SatbReset();
     printf("satb native writers: PriorityQueue fields + items, Rehash fields, ElapsedTime ref float, tick statics at the cut "
-           "logged (sim); Curve.Fx m_x taken back, private ref and unchanged this run (worker)\n");
+           "logged (sim); Curve.Fx m_x taken back, private ref and unchanged this run, shared struct this gives up on a copy, "
+           "low header refused (worker)\n");
 }
 
+// cold-site diag ring (docs/130 §208 crash 2026-11-14): the naked hook passes caller, first stack arg and ebx, then runs the
+// original with every register and the stack as they were; site 2 reads the class words, an unreadable class is flagged
+static DWORD __cdecl TestSatbColdTarget(DWORD a) { return a ^ 0x5A5Au; }
+static DWORD g_tscRetLo, g_tscEbxAfter;
+static __declspec(noinline) DWORD TestSatbColdCall(DWORD arg, DWORD ebxv) {
+    DWORD r, eb;
+    __asm {
+        push ebx
+        mov ebx, ebxv
+        push arg
+        call SatbCold4
+        add esp, 4
+        mov eb, ebx
+        pop ebx
+        mov r, eax
+    }
+    g_tscEbxAfter = eb;
+    return r;
+}
+static void TestSatbColdDiag() {
+    const LONG live0 = g_satbLive, on0 = g_satbOn;
+    const int mode0 = g_satbMode;
+    const DWORD wtid0 = g_satbWTid;
+    void* next0 = g_satbColdNext[4];
+    g_satbLive = 1, g_satbMode = SATB_ACT, g_satbOn = 1, g_satbWTid = 0;  // sim side during a span; no worker, no wait
+    g_satbColdNext[4] = (void*)TestSatbColdTarget;
+    const LONG sn0 = g_satbCrecSN;
+    assert(TestSatbColdCall(0x1234, 0xCAFE0000u) == (0x1234u ^ 0x5A5Au) && g_tscEbxAfter == 0xCAFE0000u);
+    assert(g_satbCrecSN == sn0 + 1);
+    const SatbColdRec& r = g_satbCrecS[(g_satbCrecSN - 1) & (SATB_CREC - 1)];
+    const DWORD fn = (DWORD)(uintptr_t)&TestSatbColdCall;
+    assert(r.site == 4 && r.arg0 == 0x1234 && r.ebxv == 0xCAFE0000u && r.ret > fn && r.ret < fn + 0x100 && r.ok == 0 && !r.tmo);
+    static DWORD cls[0x40];
+    cls[0x14 / 4] = 0x11, cls[0xA8 / 4] = 0xFFFFFFFFu;
+    SatbColdEnterR(2, 0xE643F6, 0x2000, (DWORD)(uintptr_t)cls);  // a class whose +0xA8 is -1: logged as an anomaly
+    const SatbColdRec& c = g_satbCrecS[(g_satbCrecSN - 1) & (SATB_CREC - 1)];
+    assert(c.site == 2 && c.ok == 3 && c.f14 == 0x11 && c.fa8 == 0xFFFFFFFFu && c.arg0 == 0x2000);
+    SatbColdEnterR(2, 0, 0, 0x10);  // null class page: not read
+    assert(g_satbCrecS[(g_satbCrecSN - 1) & (SATB_CREC - 1)].ok == 0);
+    g_satbOn = 0;  // sim outside a span: not recorded
+    const LONG sn1 = g_satbCrecSN;
+    SatbColdEnterR(3, 0, 0, 0);
+    assert(g_satbCrecSN == sn1);
+    SatbCrashLine();
+    g_satbLive = live0, g_satbMode = mode0, g_satbOn = on0, g_satbWTid = wtid0, g_satbColdNext[4] = next0;
+}
+// cold park (docs/206 §18): the worker waits at a cold entry until the sim lets it go; nested (owns a Mono lock) and an
+// already let-go job never wait; the cap releases it; the sim skips its wait for a parked worker
+static volatile LONG g_tspBusy;
+static bool __cdecl TestSatbParkBusy() { return g_tspBusy != 0; }
+static DWORD __cdecl TestSatbParkDomain() { return 0; }
+static DWORD WINAPI TestSatbParkSim(void*) {
+    for (int i = 0; g_satbColdPark != 1 && i < 2000; i++) Sleep(1);
+    SatbColdLetGo();  // the job "left" (busy 0): the wait returns at once
+    return 0;
+}
+static void TestSatbColdPark() {
+    const DWORD* locks0 = g_satbParkLocks;
+    const int lockN0 = g_satbParkLockN, mode0 = g_satbMode;
+    DWORD(__cdecl* dom0)() = g_satbDomainGet;
+    bool(__cdecl* busy0)() = g_satbWorkerBusy;
+    const DWORD wtid0 = g_satbWTid;
+    const LONG stale0 = g_satbStale;
+    static CRITICAL_SECTION cs;
+    InitializeCriticalSection(&cs);
+    static DWORD lockList[1];
+    lockList[0] = (DWORD)(uintptr_t)&cs;
+    g_satbParkLocks = lockList, g_satbParkLockN = 1, g_satbDomainGet = TestSatbParkDomain, g_satbWorkerBusy = TestSatbParkBusy;
+    // nested: the worker owns a Mono lock
+    EnterCriticalSection(&cs);
+    LONG n0 = g_satbParkN, nest0 = g_satbParkNested;
+    SatbColdPark(2);
+    assert(g_satbParkNested == nest0 + 1 && g_satbParkN == n0 && g_satbColdPark == 0);
+    LeaveCriticalSection(&cs);
+    // let go in this job: no wait
+    g_satbColdPark = 2;
+    SatbColdPark(0);
+    assert(g_satbParkN == n0 && g_satbColdPark == 2);
+    g_satbColdPark = 0;
+    SatbColdLetGo();  // nothing parked: no-op
+    assert(g_satbColdPark == 0);
+    // parked, the sim lets it go
+    const LONG go0 = g_satbParkGo, tmo0 = g_satbParkTmo;
+    g_tspBusy = 0;
+    HANDLE h = CreateThread(NULL, 0, TestSatbParkSim, NULL, 0, NULL);
+    assert(h);
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    SatbColdPark(3);
+    assert(SatbUs(t0) < SATB_PARK_US && g_satbParkN == n0 + 1 && g_satbParkGo == go0 + 1 && g_satbParkTmo == tmo0);
+    WaitForSingleObject(h, INFINITE);
+    CloseHandle(h);
+    assert(g_satbColdPark == 0);
+    // the sim's wait for a parked worker is skipped
+    g_satbMode = SATB_ACT, g_satbWTid = GetCurrentThreadId() + 1, g_tspBusy = 1, g_satbColdPark = 1;
+    const LONG skip0 = g_satbParkSimSkip, waits0 = ts3native_autshadow.satbWaits;
+    SatbSimWait(SATB_ST_CLASS);
+    assert(g_satbParkSimSkip == skip0 + 1 && ts3native_autshadow.satbWaits == waits0);
+    // nobody comes by: the cap releases the worker
+    g_satbColdPark = 0;
+    SatbColdPark(1);
+    assert(g_satbParkTmo == tmo0 + 1 && g_satbColdPark == 0);
+    g_tspBusy = 0;
+    DeleteCriticalSection(&cs);
+    g_satbParkLocks = locks0, g_satbParkLockN = lockN0, g_satbDomainGet = dom0, g_satbWorkerBusy = busy0;
+    g_satbMode = mode0, g_satbWTid = wtid0, g_satbStale = stale0;
+}
 static void TestSatbLog() {
+    TestSatbColdDiag();
+    TestSatbColdPark();
     assert(SatbAlloc());
     // single thread: the first write's value is kept, bytes of a partly covered word are merged
     for (int i = 0; i < 4096; i++) g_sbArr[i] = 0x1000 + i;

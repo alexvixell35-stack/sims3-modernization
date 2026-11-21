@@ -1,0 +1,433 @@
+{
+  "note": "mono-park-timing-1115 (PREPARED, NOT RUN; NEEDS QUIET MACHINE, clean night): unseenpark D1 timing (docs/243 §7/§9). Why unseenpark-1113 timing was invalid: every row noise medium (other apps 8.4-12.7% of game CPUs) because every job had noiseCheck false, so queue.ts never stopped or reran a noisy job; also the in-load 2-min --ab slices mix arms for a hold of 30 sim-min (switching OFF releases every held Sim into the next off slice, switching ON starts with no backlog), off first and last gave 503 s off vs 420 s on, and only one order ran (raw, invalid: BP +1.5, IP +10.0 ms/s on - off, i.e. ON slower). Fixed here: separate loads in ABBA order per world (off on on off) x BP, IP, SV, 10 min each, noise check on (queue.ts stops a job at >= 10% other CPU or a clock drop and reruns it once as <id>-rerun), unseenprobe off in both arms (not shipped), switch read back per job by fixesRequire. ~13 jobs x ~12 min = ~2.6 h plus noise reruns. Run: node tools/harness/queue.ts tools/harness/queues/mono-park-timing-1115.json; then node tools/harness/arm-ms.ts mono-park-timing-1115, run-verdict.ts, hitch-ab.ts. Stop rule (docs/243 §7): pooled on - off sum ms/s <= -5 (a gain of >= 5 ms/s) on BP and IP with both ABBA halves the same sign, hitches not worse, routing bars R1-R6 OK; 0-5 = one fix round (poll cost: held Sims poll every 2 ticks, ~380 polls/s on BP, docs/243 §9.2), then park. Default stays OFF; Rodney decides ON.",
+  "smoke": {
+    "id": "bp-upark-smoke",
+    "note": "Measurement smoke (AGENTS.md): BP 10 min ON arm: fixes on unseenpark (verified) line, unseen_park_held >= 1, heavy tools off, noise checked. The OFF read-back (held 0) is proven by the first real job, which stops the queue on FAIL.",
+    "asi": "game-copy/ts3native.asi.master-merge-1115",
+    "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+    "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+    "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+    "releaseDefaults": true,
+    "minCounters": 159,
+    "save": "Baseline-BP-Spring",
+    "scriptErrorsMax": 0,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "stopQueueOnFail": true,
+    "timeoutMin": 30,
+    "earlyGates": [
+      {
+        "afterSec": 300,
+        "counter": "fixes:unseen_park_held",
+        "op": ">",
+        "value": 0,
+        "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+      }
+    ],
+    "routingFailFast": {
+      "ms": 300,
+      "scope": "unseen"
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 10,
+        "noSamplers": true,
+        "fixesOn": "unseenpark",
+        "fixesReport": "unseen_park_,gohome_",
+        "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+      }
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-upark-abba-off-1",
+      "note": "BP 10 min ABBA arm, unseenpark OFF; same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held < 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-BP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held<1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "bp-upark-abba-on-1",
+      "note": "BP 10 min ABBA arm, unseenpark ON (fixesOn unseenpark); same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held >= 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-BP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "unseenpark",
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "bp-upark-abba-on-2",
+      "note": "BP 10 min ABBA arm, unseenpark ON (fixesOn unseenpark); same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held >= 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-BP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "unseenpark",
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "bp-upark-abba-off-2",
+      "note": "BP 10 min ABBA arm, unseenpark OFF; same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held < 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-BP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "routingFailFast": {
+        "ms": 300,
+        "scope": "unseen"
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held<1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "ip-upark-abba-off-1",
+      "note": "IP 10 min ABBA arm, unseenpark OFF; same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held < 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-IP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held<1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "ip-upark-abba-on-1",
+      "note": "IP 10 min ABBA arm, unseenpark ON (fixesOn unseenpark); same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held >= 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-IP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "unseenpark",
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "ip-upark-abba-on-2",
+      "note": "IP 10 min ABBA arm, unseenpark ON (fixesOn unseenpark); same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held >= 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-IP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "unseenpark",
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "ip-upark-abba-off-2",
+      "note": "IP 10 min ABBA arm, unseenpark OFF; same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held < 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-IP-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held<1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "sv-upark-abba-off-1",
+      "note": "SV 10 min ABBA arm, unseenpark OFF; same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held < 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-SV-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held<1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "sv-upark-abba-on-1",
+      "note": "SV 10 min ABBA arm, unseenpark ON (fixesOn unseenpark); same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held >= 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-SV-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "unseenpark",
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "sv-upark-abba-on-2",
+      "note": "SV 10 min ABBA arm, unseenpark ON (fixesOn unseenpark); same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held >= 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-SV-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "earlyGates": [
+        {
+          "afterSec": 300,
+          "counter": "fixes:unseen_park_held",
+          "op": ">",
+          "value": 0,
+          "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+        }
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesOn": "unseenpark",
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1"
+        }
+      }
+    },
+    {
+      "id": "sv-upark-abba-off-2",
+      "note": "SV 10 min ABBA arm, unseenpark OFF; same asi, package, ini, seed in every arm; no --ab, no samplers, no unseenprobe. Switch read-back: unseen_park_held < 1 (the hook counts only while the switch is on). Read: node tools/harness/arm-ms.ts mono-park-timing-1115 (pools *-off-* vs *-on-* per world), hitch-ab.ts for p99/p99.9/max.",
+      "asi": "game-copy/ts3native.asi.master-merge-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-park-1115",
+      "pinReason": "master-merge-1115 asi + ini (builds.json, master 5d5a581f, 0.36.261-lanes1); ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing) (feature/mono-park-1115), kUnseenPark False by default, switched on per job by profile.fixesOn unseenpark",
+      "releaseDefaults": true,
+      "minCounters": 159,
+      "save": "Baseline-SV-Spring",
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "stopQueueOnFail": true,
+      "timeoutMin": 30,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesReport": "unseen_park_,gohome_",
+          "fixesRequire": "unseen_park_held<1,unseenpark_household_held<1"
+        }
+      }
+    }
+  ]
+}

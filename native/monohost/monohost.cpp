@@ -11,7 +11,7 @@
 // driver with yields) against out\MonoHostTest.dll (HostTest.cs) and prints PASS/FAIL lines; exit code = failed checks.
 // It also runs the M2 stubs (docs/119 §12; "m13 <hostdata> m2" for the sweep alone) and the M5 proof (docs/120 §8: the
 // unchanged ts3native [MonoThread] code with a worker; both threads interpreting at once, docs/120 §9).
-// docs/139 (env, selftest mode): MONOHOST_MINT=count|threaded|nocheck, MONOHOST_MINTFUSE=sub, MONOHOST_MINTBENCH=<n>.
+// docs/139 (env, selftest mode): MONOHOST_MINT=count|threaded|nocheck, MONOHOST_MINTFUSE=sub|eatime, MONOHOST_MINTBENCH=<n>.
 // docs/207 §7 (env, selftest mode): MONOHOST_JIT=off|dump|on|verify method compiler prototype (monohost-jit.cpp).
 // Never point it at the installed game: the exe is only mapped, but keep EA files out of git (copy under game-copy/).
 #include <windows.h>
@@ -20,6 +20,7 @@
 #include <string.h>
 #include <limits.h>
 #include <intrin.h>  // _ReturnAddress (ts3native simloop.cpp SppHook)
+#include "../ts3native/ts3addr.h"  // TS3A() in the ts3native sources included below; no /DTS3A_TABLE here, so the host stays on Steam addresses
 
 typedef unsigned char u8;
 static const DWORD IMG_LO = 0x00400000, IMG_HI = 0x0125A000;  // SizeOfImage 0xE5A000 (Steam 1.67)
@@ -69,7 +70,7 @@ static int RunChild() {
     }
     ResumeThread(pi.hThread);
     DWORD rc = 2;
-    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
+    if (WaitForSingleObject(pi.hProcess, GetEnvironmentVariableA("MONOHOST_JIT", NULL, 0) || GetEnvironmentVariableA("MONOHOST_EQFAST", NULL, 0) ? 900000 : 120000) == WAIT_TIMEOUT) {  // fail fast: init takes seconds
         printf("child timed out after 120 s\n");
         TerminateProcess(pi.hProcess, 4);
     }
@@ -98,6 +99,25 @@ static LONG CALLBACK Veh(EXCEPTION_POINTERS* e) {
         if (!VirtualQuery(sp + i, &m, sizeof(m)) || m.State != MEM_COMMIT) break;
         DWORD v = sp[i];
         if (v > IMG_LO + 0x1000 && v < 0x00F95000) { Log(" %08lX", v); n++; }  // .text range of the exe
+    }
+    // host code (own image at 0x30000000, /FIXED) and JIT pool (private RWX) values with their stack slot, so a fault in the CRT
+    // or in a lazy body names its caller (2026-11-10: the strnlen fault had only exe values)
+    Log("\n  host/jit values on stack:");
+    n = 0;
+    for (int i = 0; i < 4096 && n < 64; i++) {
+        MEMORY_BASIC_INFORMATION m;
+        if (!VirtualQuery(sp + i, &m, sizeof(m)) || m.State != MEM_COMMIT) break;
+        const DWORD v = sp[i];
+        if (v > 0x30001000 && v < 0x30070000) {  // host .text: only values right after a call (return addresses)
+            const u8* r = (const u8*)(uintptr_t)v;
+            if (r[-5] == 0xE8 || (r[-2] == 0xFF && (r[-1] & 0x38) == 0x10) || (r[-3] == 0xFF && (r[-2] & 0x38) == 0x10) || (r[-6] == 0xFF && (r[-5] & 0x38) == 0x10)) {
+                Log(" +%X:h%05lX", i * 4, v - 0x30000000); n++;
+            }
+            continue;
+        }
+        if (v >= 0x01000000 && VirtualQuery((LPCVOID)(uintptr_t)v, &m, sizeof(m)) && m.State == MEM_COMMIT && m.Type == MEM_PRIVATE && m.Protect == PAGE_EXECUTE_READWRITE) {
+            Log(" +%X:j%08lX", i * 4, v); n++;
+        }
     }
     Log("\n");
     return EXCEPTION_CONTINUE_SEARCH;  // first chance: Mono or the exe may handle it; the unhandled filter ends the run
@@ -994,7 +1014,9 @@ namespace mt {
 #pragma warning(push)
 #pragma warning(disable : 4505)  // ts3native helpers the M5 code does not call here
 static DWORD g_mainTid;
-struct Ts3nCounters { LONG mtMode, mtReady, mtSimTid, mtSimRegistered, mtThreads, mtPushCalls, mtCtxFails, mtStacksPushed; };
+struct Ts3nCounters { LONG mtMode, mtReady, mtSimTid, mtSimRegistered, mtThreads, mtPushCalls, mtCtxFails, mtStacksPushed;
+    LONG sbLowHdr, sbVtGiveUp;  // satb.cpp (#352 Satb struct this, counters v185)
+    LONG r2cOn, r2cDrainMs, r2cCloses, r2cIdle, r2cDrainReq, r2cDrained, r2cAborted, r2cSatb, r2cWaitUs, r2cWaitMaxUs, r2cLate, r2cGateAborts, r2cHeld, r2cReopens; };  // autraces.cpp R2c drain (counters v187)
 static Ts3nCounters ts3native_counters;
 static DWORD* g_curState = (DWORD*)(uintptr_t)0x011F4170;  // ts3native's current-state pointer, repointed by MtInstallP4
 static void Log(const char* fmt, ...) {
@@ -1022,6 +1044,8 @@ static bool Write(void* addr, const void* bytes, size_t n) {
 // ts3native pieces the included files call (monothread-m5 arena guard detours, autshadow FPU state, locowin shims): host no-ops
 static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*) { return NULL; }
 template <class F> static void* InstallDetour(const char*, DWORD, const u8*, size_t, void*, F*) { return NULL; }
+static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }  // ts3native.cpp's (QuitStop ini read)
+#include "../ts3native/uaftag.h"  // UafTagSet in MtWorkerMain ([UafCheck] free tags; only a thread-local write here)
 #include "../ts3native/simloop.cpp"  // the per-iteration hook ApplyMonoThread adds (the host never runs Simulate)
 #include "../ts3native/monothread.cpp"
 // [AutShadow] (docs/122 §13-§14) on top of M5: routesnap's pieces it touches, as no-ops (no routing in the host)
@@ -1038,12 +1062,21 @@ static void* g_snJmp[1];
 struct McCtr { LONG mcSwitch, mcReady, mcCall, mcCallvirt, mcRet, mcBailCall, mcBailCallvirt, mcBailRet, mcVerified, mcMismatch, mcVSkipped, mcVerifyEvery, mcFirstBad; };
 static McCtr g_mcCtr;
 #define MC_CTR g_mcCtr
+#define MC_COUNTFAST  // fast mode counts fast calls (mcCall) and rets (mcRet) too: the fire rate on host inputs
 #include "../ts3native/mintcall.cpp"
 // [MintFuse] Sub (docs/139 §4)
 struct MfCtr { LONG mfReady, mfRuns, mfWhole, mfInner; };
 static MfCtr g_mfCtr;
 #define MF_CTR g_mfCtr
+static LONGLONG g_mfTicks;
+#define MF_TICKS g_mfTicks
 #include "../ts3native/mintfuse.cpp"
+// [EqualsFast] (docs/258 option C): the plan code, run against EA's own InternalEquals by the MONOHOST_EQFAST corpus
+struct EqCtr { LONG eqOn, eqMode, eqHits, eqPlans, eqRejects, eqFtNull, eqFtType, eqFtKind, eqFtNew, eqFtBusy, eqFtFull, eqRejGeneric, eqRejKind, eqRejMany, eqSmall; };
+static EqCtr g_eqCtr;
+#define EQ_CTR g_eqCtr
+#define EQ_NO_INSTALL
+#include "../ts3native/equalsfast.cpp"
 static void* g_ilpNext;  // [IlPatch] (ilpatch.cpp) is not in the host: satb.cpp keeps its own cold site 0
 static void (*g_ilpColdEnter)(int site, DWORD arg0);
 #include "../ts3native/autshadow.cpp"
@@ -1386,7 +1419,7 @@ static int AsG2() {
     mt::g_asMode = 1;  // R: reference on this thread, then the worker
     mt::MtTick();      // first Simulate entry: the AutShadowNative ICs register
     const int ver = I32(TA("Setup", 0, NULL));
-    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 34 && ver == 11 && p.workerState == 2,
+    if (!Check("AS-install", guards && k.descIcs == nIc && k.icRegistered == 35 && ver == 11 && p.workerState == 2,
                "guards %d (%ld descriptor ICs), AutShadowNative ICs %ld, Setup -> Version %d, worker state %ld", guards, k.descIcs,
                k.icRegistered, ver, p.workerState))
         return 160;
@@ -1742,7 +1775,8 @@ static bool InstallMint() {
 static bool InstallSubFuse() {  // docs/139 §4 (native/ts3native/mintfuse.cpp)
     char v[64] = "";
     GetEnvironmentVariableA("MONOHOST_MINTFUSE", v, sizeof(v));
-    return strcmp(v, "sub") || mt::MfInstall();
+    mt::g_mfEaTimed = !strcmp(v, "eatime");  // EA's matcher behind the same shim, timed: the transform-cost base (docs/139 §4.7)
+    return (strcmp(v, "sub") && !mt::g_mfEaTimed) || mt::MfInstall();
 }
 static const char* MintName(DWORD op, char* buf) {
     const char* const* names = (const char* const*)(uintptr_t)0x11949E0;
@@ -1753,6 +1787,7 @@ static const char* MintName(DWORD op, char* buf) {
 // log the top opcodes and pairs of this phase, append every non-zero pair to mint-pairs.csv next to the exe, reset
 static void MintDump(const char* phase) {
     if (mt::g_mfCtr.mfRuns) Log("mint %s: subfuse runs %ld, whole-run fusions %ld, inner fusions %ld\n", phase, mt::g_mfCtr.mfRuns, mt::g_mfCtr.mfWhole, mt::g_mfCtr.mfInner);
+    if (mt::g_mfCtr.mfRuns) { LARGE_INTEGER fq; QueryPerformanceFrequency(&fq); Log("mint %s: subfuse matcher time %.1f us total, %.0f ns per run (cumulative)\n", phase, 1e6 * mt::g_mfTicks / fq.QuadPart, 1e9 * mt::g_mfTicks / fq.QuadPart / mt::g_mfCtr.mfRuns); }
     if (g_mintMode != 1) return;
     unsigned long long tot = 0;
     for (DWORD i = 0; i < MINT_NOP; i++) tot += g_opN[i];
@@ -1897,7 +1932,82 @@ static void McBench() {
 #include "monohost-jit.cpp"  // docs/207 P0 method compiler (MONOHOST_JIT)
 static int M5PassBar() { return g_jitMode == 3 ? 4 : 10; }  // verify snapshots every call of a listed method: 15x fewer passes with Math.Min listed, same overlap
 
+// ---- docs/258 option C, MONOHOST_EQFAST=1: [EqualsFast] exactness corpus. HostTest.EqCorpusRun (EqCorpus.cs) boxes values of
+// every value type it can build from the game's assemblies and hands each pair to EqIc.Check = EqCheckIc: EA's InternalEquals
+// 0xE7A590 (no detour in the host), then the [EqualsFast] hook twice (the first call may learn the class through EA's field walk,
+// the second answers from its plan). A different answer, or a plan answer where EA boxed a field, is a mismatch.
+static LONG g_eqPairs, g_eqHitPairs, g_eqBad, g_eqEnumHits;
+static bool g_eqTrace;  // MONOHOST_EQTRACE=1: one line per pair before EA's call (finds a hang)
+static int __cdecl EqCheckIc(const u8* a, const u8* b) {
+    if (g_eqTrace) {
+        const u8* k = **(const u8* const* const*)a;
+        Log("eq pair %s.%s\n", *(const char* const*)(k + 0x38), *(const char* const*)(k + 0x34));
+    }
+    void* f0 = (void*)1;
+    const bool r0 = ((mt::EqFn)(uintptr_t)mt::EQ_ICALL)(a, b, &f0);
+    g_eqPairs++;
+    bool hit = false;
+    for (int rep = 0; rep < 2; rep++) {
+        void* f1 = (void*)1;
+        const LONG h0 = mt::g_eqCtr.eqHits;
+        const bool r1 = mt::EqHook(a, b, &f1);
+        hit = mt::g_eqCtr.eqHits != h0;
+        if (r1 != r0 || (hit && (f1 != NULL || f0 != NULL))) {
+            if (g_eqBad++ < 20) {
+                const u8* k = **(const u8* const* const*)a;
+                Log("EQ MISMATCH %s.%s call %d: EA %d (fields %p), fast %d (fields %p, plan answer %d)\n", *(const char* const*)(k + 0x38),
+                    *(const char* const*)(k + 0x34), rep + 1, r0, f0, r1, f1, hit);
+            }
+            return -1;
+        }
+    }
+    if (hit) {
+        g_eqHitPairs++;
+        if ((**(const u8* const* const*)a)[0x14] & 0x10) g_eqEnumHits++;  // klass+0x14 bit 4 = enumtype [inferred, mono-glue-map 0xE6B700]
+    }
+    return hit ? 1 : 0;
+}
+static bool EqQuickRun() {
+    char v[4] = "";
+    if (!GetEnvironmentVariableA("MONOHOST_EQFAST", v, sizeof(v)) || v[0] != '1') return false;
+    ((AddInternalCall)0xE82550)("MonoHostTest.EqIc::Check", (const void*)EqCheckIc);
+    g_eqTrace = GetEnvironmentVariableA("MONOHOST_EQTRACE", v, sizeof(v)) && v[0] == '1';
+    int st = -1;
+    void* img = LoadImageByName("MonoHostTest.dll");
+    if (img) ((AsmLoadFromFull)0xE68290)(img, "MonoHostTest.dll", &st, 0);
+    g_testK = Cls(img, "MonoHostTest", "HostTest");
+    mt::g_eqOrig = (mt::EqFn)(uintptr_t)mt::EQ_ICALL;
+    mt::g_eqCtr.eqMode = 1;
+    int seed = 12345, w0 = 0, w1 = 1, w2 = 2, w3 = 3;
+    void* a0[1] = {&w0}; void* a1[1] = {&w1}; void* a2[1] = {&w2}; void* a3[1] = {&w3};
+    const int nAsm = I32(T("EqCorpusInfo", 1, a3));
+    int n = 0;
+    for (int asmI = -1; asmI < nAsm; asmI++) {  // -1: the generic instances; then one game / BCL assembly per call
+        const DWORD t0 = GetTickCount();
+        void* args[2] = {&seed, &asmI};
+        const int got = I32(T("EqCorpusRun", 2, args));
+        n += got > 0 ? got : 0;
+        Log("eqfast corpus: assembly %d: %d pairs, %lu ms (total %ld checked, %ld plan answers, %ld mismatches)\n", asmI, got,
+            GetTickCount() - t0, g_eqPairs, g_eqHitPairs, g_eqBad);
+    }
+    int w4 = 4;
+    void* a4[1] = {&w4};
+    const int types = I32(T("EqCorpusInfo", 1, a0)), skipped = I32(T("EqCorpusInfo", 1, a1)), managedBad = I32(T("EqCorpusInfo", 1, a2));
+    const int ptrSkipped = I32(T("EqCorpusInfo", 1, a4));
+    const mt::EqCtr& k = mt::g_eqCtr;
+    Log("eqfast corpus: %d value types (%d skipped, %d with pointer fields left out), %d pairs from managed, %ld checked, %ld answered from a plan (%ld enum pairs), "
+        "%ld mismatches; plans %ld, not eligible %ld (not VALUETYPE %ld, field kind %ld, > 8 fields %ld); fall-through new %ld, "
+        "not eligible %ld, other vtable %ld, null %ld, busy %ld, full %ld\n", types, skipped, ptrSkipped, n, g_eqPairs, g_eqHitPairs, g_eqEnumHits,
+        g_eqBad, k.eqPlans, k.eqRejects, k.eqRejGeneric, k.eqRejKind, k.eqRejMany, k.eqFtNew, k.eqFtKind, k.eqFtType, k.eqFtNull,
+        k.eqFtBusy, k.eqFtFull);
+    Check("EQ-corpus-exact", n > 0 && g_eqBad == 0 && managedBad == 0, "%ld pairs, %ld mismatches (managed %d)", g_eqPairs, g_eqBad, managedBad);
+    Check("EQ-corpus-hits", g_eqHitPairs > 0 && g_eqEnumHits > 0 && k.eqPlans > 0 && k.eqRejects > 0,
+          "%ld plan answers (%ld enum), %ld plans, %ld not eligible", g_eqHitPairs, g_eqEnumHits, k.eqPlans, k.eqRejects);
+    return true;
+}
+
 static int SelfTest(void* domain) {
+    if (EqQuickRun()) return g_fail;
     if (JitQuickRun()) return 0;
     int rc = M13(domain);
     MintDump("m13");  // docs/139: the .cctor sweep = EA script code; the rest is HostTest code
@@ -2012,8 +2122,8 @@ int wmain(int argc, wchar_t** argv) {
         g_m2 = argc > 5 && !wcscmp(argv[5], L"m2");  // m13 with the M2 hand-written stubs (selftest always uses them)
     }
     char logPath[MAX_PATH];
-    GetModuleFileNameA(NULL, logPath, MAX_PATH);
-    strcat_s(logPath, ".log");
+    // MONOHOST_LOG=<path>: this run's log elsewhere, so parallel runs (tools/jit-piece-bench.ts) do not share <exe>.log
+    if (!GetEnvironmentVariableA("MONOHOST_LOG", logPath, MAX_PATH) || !logPath[0]) GetModuleFileNameA(NULL, logPath, MAX_PATH), strcat_s(logPath, ".log");
     fopen_s(&g_log, logPath, "w");
     AddVectoredExceptionHandler(1, Veh);
     SetUnhandledExceptionFilter(Unhandled);

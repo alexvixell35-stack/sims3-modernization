@@ -151,7 +151,7 @@ For `gate2-report.ts` and the queues' expectations. **Implemented 2026-11-06 (br
 | R2 route work | `asyncUs` per Sim-hour | same rule | BP 9.5, IP 8.7 ms |
 | R3 length proxy | `asyncUs` / `asyncStarted` | up > 15% pooled and both orders, with R2 up too | BP 4.6, IP 10.9 ms |
 | R4 fails | `backoff_failures` / `backoff_plans` | > 1.5 x off + 5 events | 0.18% BP, 0.37% IP |
-| R5 300 ms | `ufLong`, route-led hitch >= 300 per 10 min | on > off + 2 per pair; hitch-ab clear-regression rule | BP 0, IP 3 per ~25 min |
+| R5 300 ms | `ufLong`, route-led hitch >= 300 per 10 min | pooled exact-Poisson on/off rate ratio over the arms (`hitch-ab.ts` `rateCompare`): FAIL when its 95% CI lies wholly above 1 (was on > off + 2 per pair until 2026-11-12, docs/23 #21) | BP 0, IP 3 per ~25 min |
 | R6 bursts | p99.9 of `routes + routeOtherThreads` per second | > 1.25 x off | BP 72, IP 39 |
 | log | `routes` per Sim-hour, unseen-marked share, `asyncRefused`, `gohome_runs`, `visitlot_runs` | never | |
 
@@ -166,7 +166,11 @@ The thresholds are judgement from one data set: adjust after the first pair. The
 | `unseen-park.json` | R1-R6 replace the `routes/s` stop line. Add a pair with `autunseen` on. Read `unseen_park_snap` against camera jumps in `unseen-park-loop` |
 | `routingFailFast` | `{ ms: 300, scope: "unseen" }` on BP jobs of `gate2` and `unseen-park`. **Not on IP:** IP has 2-3 marked plans >= 300 ms per arm set in both arms, so the job would stop on baseline; use R5 there. None of these queues has the field today |
 
-**Missing counters** (reserve slots at build time; none built here):
+**Missing counters** (reserve slots at build time; none built here). **1, 3 and 4 built 2026-11-15 (lane L6, not run)** as the
+diagnostic switch `routelen` (`RouteLen.cs`, counters 1004-1011, off): 1 at `RouteSrcEnd` (metres from
+`GetDistanceRemaining`, class by `UfWhy`), 4 as unseen plans whose goal passes `!UfGoalUnseen`, 3 as `pick:<definition>`
+keys in the agent's patches result while `routelen` is on, so every --ab slice snapshot holds them. `gate2-report.ts` prints
+them as log rows (block "docs/246 §6 missing counters"). Queue `lane-l6-1115.json` `bp-routelen-crowd`.
 
 1. **Route length by class.** Sum and count of `Route.GetDistanceRemaining()` at a successful plan, seen / unseen, plus a >= 40 m bucket. Site: `RouteSrcEnd`. The one thing that closes "farther picks".
 2. **Park release burst.** Built as `unseen_park_burst_max` (most snap releases in one tick) with the stagger of docs/243 §9; slots 824-825.

@@ -1,0 +1,28 @@
+{
+  "note": "diag-lifeevent-1114: one IP load of the player-report diagnostic build (feature/diag-life-events-twopointjj, docs/handoff/diag-life-events-twopointjj.md): v0.2.12 asi + ini + ts3fixes.package.diaglife-twopointjj with lifeeventdiag on. Not a timing job. PASS = no crash, script errors 0, ts3native.log has a 'lifeevent owners:' line from the world load.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "ip-diag-lifeevent",
+      "note": "[est 8 min] IP load, lifeeventdiag on. Pass: no crash, ScriptErrors 0, 'lifeevent owners:' line at world load.",
+      "asi": "game-copy/ts3native.asi.rc1111g",
+      "iniBase": "game-copy/ts3native.ini.rc1111g",
+      "fixesPackage": "game-copy/ts3fixes.package.diaglife-twopointjj",
+      "pinReason": "v0.2.12 release pair (ts3native.asi.rc1111g (same sha as rel0212) 0.36.247 + ini rc1111g, builds.json) + ts3fixes.package.diaglife-twopointjj (sha256 c951e2c6, branch feature/diag-life-events-twopointjj, based on the v0.2.12 package source 408b8cf6 + the life-event diagnostic)",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 1,
+      "noiseCheck": false,
+      "ini": {},
+      "logRequire": { "lifeevent owners:": 1 },
+      "regexCases": {
+        "lifeevent owners:": {
+          "match": ["lifeevent owners: 0 replaced by another mod, ForceJIT bytes 0x00 vanilla"],
+          "noMatch": ["lifeevent pregnancy start Anna 0x1 by Bo -> true"]
+        }
+      },
+      "run": { "profile": { "seed": 12345, "minutes": 5, "fixesOn": "lifeeventdiag" } },
+      "gameArgs": ["-disablestoryprogression"],
+      "timeoutMin": 20
+    }
+  ]
+}

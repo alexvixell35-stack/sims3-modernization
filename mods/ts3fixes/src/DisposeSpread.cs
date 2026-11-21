@@ -61,7 +61,7 @@ namespace Ts3Fixes
         {
             if (o == null || o.HasBeenDestroyed) return false;
             Sim s = o as Sim;
-            if (s != null && (s.IsSelectable || s.Household == Household.ActiveHousehold)) return false;
+            if (s != null && IsPlayerSim(s)) return false;  // household rule (PlayerSims.cs)
             if (!o.InWorld) return true;
             int b = s != null ? UtbBits(s) : -1;  // docs/227 §6 central table (Sims only; objects keep the old rule)
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(o.ObjectId) && FarFromViewers(o.Position)) : UtbUnseen(b);
@@ -175,6 +175,7 @@ namespace Ts3Fixes
                 try { SeasonImposterFlush(); } catch (Exception) { } // seasonimposter: the save holds fresh imposters (SeasonImposter.cs)
                 try { PreferredServiceSweep(); } catch (Exception) { } // preferredservice (EaFixes.cs)
                 try { FirePitChairSweep(); } catch (Exception) { } // firepitchair (EaFixes.cs)
+                try { OdFlushAll(); } catch (Exception) { } // unseenoutfitdefer: every waiting outfit is on its Sim before the save (UnseenOutfitDefer.cs)
                 try { DeadRefSavePass(); } catch (Exception) { } // deadrefsweep: cheap final pass, the rest is spread hourly (DeadRefs.cs)
                 bool saved = SaveOrig(synchronous, forceUseSaveName, forceSaveAs);
                 try { PlayedSyncKey(); } catch (Exception) { } // Save As: the played-household sidecar follows the new name (PlayedHouseholds.cs)

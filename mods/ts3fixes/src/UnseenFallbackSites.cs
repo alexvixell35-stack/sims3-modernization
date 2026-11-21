@@ -110,15 +110,17 @@ namespace Ts3Fixes
 
         static bool UfSitesLive() { return GameStates.IsLiveState && !GameStates.IsTravelling && !GameStates.IsWorldShuttingDown; }
 
+        static readonly Sim[] sUfNoSims = new Sim[0];  // shared: an empty array cannot change
+
         // one snapshot per push; empty out of live mode (the list then goes out empty)
         static Sim[] UfSitesBegin()
         {
-            if (!UfSitesLive()) { sUfSiteCache.Clear(); return new Sim[0]; }
+            if (!UfSitesLive()) { sUfSiteCache.Clear(); return sUfNoSims; }
             Vector3 cam = CameraController.GetPosition();
             if (sUfSiteCam == Vector3.Invalid || (cam - sUfSiteCam).LengthSqr() >= 1f) { sUfSiteCam = cam; sUfSiteCache.Clear(); }
             if (sUfSiteCache.Count > 4 * kUfSitesMax) sUfSiteCache.Clear();  // shortcut: Sims gone since are dropped wholesale
             Sim[] all = Sims3.Gameplay.Queries.GetObjects<Sim>();
-            return all ?? new Sim[0];
+            return all ?? sUfNoSims;
         }
 
         static void UfSitesEval(Sim s, int now, System.Collections.Generic.List<Sim> sims)

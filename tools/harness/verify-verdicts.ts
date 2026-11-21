@@ -181,18 +181,20 @@ if (values['self-check']) {
 }
 
 if (!values.run?.length) { console.error('usage: node tools/harness/verify-verdicts.ts --run <queue>-<date>-<job> [--run ...] [--write] [--force] | --self-check'); process.exit(2); }
-const sum: Counters = {}, main: string[][] = [];
+const sum: Counters = {}, main: string[][] = [], skipped: string[] = [];
 for (const run of values.run) {
   const nf = join(ROOT, 'probe-out', 'queue', `${run}-native.json`), mf = join(ROOT, 'probe-out', 'profile', `${run}-mainstack.jsonl`);
   if (!existsSync(nf)) { console.error(`${run}: no ${nf} (did the job run with minCounters?)`); process.exit(2); }
   const dump = JSON.parse(readFileSync(nf, 'utf8')), after = dump.after ?? {};
-  if (!(Number(after.version) >= 20)) console.error(`${run}: /native version ${after.version ?? '?'}: no [Verify] counters`);
-  if (!dump.before) console.error(`${run}: no /native before: counts include the world load`);
+  // docs/236 #22: no [Verify] counters or no "before" snapshot = load-time counts would be credited to play: no verdict, unless --force
+  if (!(Number(after.version) >= 20)) { console.error(`${run}: /native version ${after.version ?? '?'}: no [Verify] counters${values.force ? ' (--force: used anyway)' : ': skipped (--force to use anyway)'}`); if (!values.force) { skipped.push(run); continue; } }
+  if (!dump.before) { console.error(`${run}: no /native before: counts include the world load${values.force ? ' (--force: used anyway)' : ': skipped (--force to use anyway)'}`); if (!values.force) { skipped.push(run); continue; } }
   if (!dump.maxReset) console.error(`${run}: maxima were not reset after the load (dump without maxReset): *Max* include the load`);
   merge(sum, live(dump.before, after));
   if (existsSync(mf)) for (const l of readFileSync(mf, 'utf8').split('\n')) if (l.trim()) { try { main.push(JSON.parse(l).stack ?? []); } catch { /* torn line */ } }
   else console.error(`${run}: no ${mf} (stack rules give no verdict)`);
 }
+if (skipped.length && skipped.length === values.run.length) process.exit(2);
 const r = fill(readFileSync(LEDGER, 'utf8'), sum, main, values.run.join('+'), values.force);
 for (const l of r.log) console.log(l);
 console.log(`${Object.keys(sum).length} vf keys, ${main.length} main samples; ${r.log.filter(l => / (confirmed|refuted) /.test(l)).length} mechanical verdicts`);

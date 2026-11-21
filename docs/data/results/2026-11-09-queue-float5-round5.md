@@ -1,0 +1,10 @@
+# Queue float5-round5 2026-11-09
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/float5-round5-2026-11-09.jsonl`.
+
+## 2026-11-09T05:06 UTC, build af5294da, jobs bp-float5-r5-all-off-1, bp-float5-r5-all-off-2
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-float5-r5-all-off-1 | 05:06 (13:06) | 30.2 | **CRASH** | FAIL: game died at 05:36:48 (TS3W.exe process gone)<br>run: FAIL<br>summary: 1 cases, 0 passed, 1 failed (run)<br>FAIL: events not fired: log /^diag: mem #\d+ save-start ev=travel-save / 0 lines (want >= 8)<br>PASS: no forbidden log lines<br>FAIL: 1 new script errors (max 0, 2 known EA ignored): ScriptError_<pc>__11-09-2026__13-11-56__65029D2B.xml | 1 | 2041.6/1695/1717.8 -> ? | - | timing: invalid (job FAIL: crash: xcpt <pc> 26-11-09 13.36.46.txt; FAIL: game died at 05:36:48 (TS3W.exe process gone); FAIL: events not fire; noise high); build: asi 0a848a7c5149 ts3native.asi.float5mono-1109b ts3native 0.36.233 (log ok); ts3fixes tuning 718c92c6f84d ts3fixes.package.wdasync-1109/ts3fixes.package.master1109c/ts3fixes.package.float5trap-1109/ts3fixes.package.float5uaf-1109/t |
+| bp-float5-r5-all-off-2 | 05:37 (13:37) | 21.9 | **CRASH** | FAIL: game died at 05:58:52 (TS3W.exe process gone)<br>run: FAIL<br>summary: 1 cases, 0 passed, 1 failed (run)<br>FAIL: events not fired: log /^diag: mem #\d+ save-start ev=travel-save / 0 lines (want >= 8)<br>PASS: no forbidden log lines<br>FAIL: 2 new script errors (max 0, 2 known EA ignored): ScriptError_<pc>__11-09-2026__13-42-24__A5590E16.xml, ScriptError_<pc>__11-09-2026__13-54-2 | 1 | 2043.6/1691.6/1715.8 -> ? | - | timing: invalid (job FAIL: crash: xcpt <pc> 26-11-09 13.58.49.txt; FAIL: game died at 05:58:52 (TS3W.exe process gone); FAIL: events not fire; noise high); build: asi 0a848a7c5149 ts3native.asi.float5mono-1109b ts3native 0.36.233 (log ok); ts3fixes tuning 718c92c6f84d ts3fixes.package.wdasync-1109/ts3fixes.package.master1109c/ts3fixes.package.float5trap-1109/ts3fixes.package.float5uaf-1109/t |

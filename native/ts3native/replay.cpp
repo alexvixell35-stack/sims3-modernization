@@ -45,7 +45,7 @@
 static const LONG RP_BIAS = 0x20000000;
 enum { RP_INS = 1, RP_REM, RP_STALE, RP_LOTS, RP_EPOCH, RP_AUDIT, RP_SYNC, RP_NTYPES };
 enum { RPS_NOQ, RPS_STALE, RPS_NOCOPY, RPS_NOCLONE };  // RPS_STALE counts records applied to a lot waiting for its rebase
-static const DWORD kRpNodeSz = 0x194, kRpQSz = 0x58, kRpPSz = 0x110, kRpMSz = 0x40, kRpRet665F87 = 0x00665F87;
+static const DWORD kRpNodeSz = 0x194, kRpQSz = 0x58, kRpPSz = 0x110, kRpMSz = 0x40, kRpRet665F87 = TS3A(0x00665F87);
 
 // game entry points (thiscall as fastcall with a dummy edx; the tests point them at fakes)
 typedef char(__fastcall* RpInsFn)(u8* q, void*, u8* fp, DWORD flag);                        // 0x665C50, ret 8
@@ -57,16 +57,16 @@ typedef void*(__cdecl* RpFmePoolFn)(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);  
 typedef void*(__cdecl* RpNewFn)(DWORD size, DWORD flags, DWORD, DWORD, DWORD name, DWORD line);  // 0x4E3F90
 typedef DWORD(__fastcall* RpVoidFn)(const u8* self, void*);                                 // footprint slots +0, +0x70
 typedef void(__fastcall* RpDtorFn)(u8* self, void*, DWORD flags);                           // deleting destructors
-static RpInsFn g_rpIns = (RpInsFn)(uintptr_t)0x00665C50;
-static RpRemFn g_rpRem = (RpRemFn)(uintptr_t)0x00666750;
-static RpMapAllocFn g_rpMapAlloc = (RpMapAllocFn)(uintptr_t)0x00624A10;
-static RpMapFreeFn g_rpMapFree = (RpMapFreeFn)(uintptr_t)0x00624AB0;
-static RpMapNodeFreeFn g_rpMapNodeFree = (RpMapNodeFreeFn)(uintptr_t)0x006281A0;
-static RpFmePoolFn g_rpFmePool = (RpFmePoolFn)(uintptr_t)0x0061ED80;
-static RpNewFn g_rpNew = (RpNewFn)(uintptr_t)0x004E3F90;
+static RpInsFn g_rpIns = (RpInsFn)(uintptr_t)TS3A(0x00665C50);
+static RpRemFn g_rpRem = (RpRemFn)(uintptr_t)TS3A(0x00666750);
+static RpMapAllocFn g_rpMapAlloc = (RpMapAllocFn)(uintptr_t)TS3A(0x00624A10);
+static RpMapFreeFn g_rpMapFree = (RpMapFreeFn)(uintptr_t)TS3A(0x00624AB0);
+static RpMapNodeFreeFn g_rpMapNodeFree = (RpMapNodeFreeFn)(uintptr_t)TS3A(0x006281A0);
+static RpFmePoolFn g_rpFmePool = (RpFmePoolFn)(uintptr_t)TS3A(0x0061ED80);
+static RpNewFn g_rpNew = (RpNewFn)(uintptr_t)TS3A(0x004E3F90);
 typedef void(__cdecl* RpDelFn)(void* p);                                                    // EA_Free 0x4E3F70
-static RpDelFn g_rpDel = (RpDelFn)(uintptr_t)0x004E3F70;
-static const DWORD* g_rpNewFlags = (const DWORD*)(uintptr_t)0x01158060;  // the leaf array resize 0x663766 passes it
+static RpDelFn g_rpDel = (RpDelFn)(uintptr_t)TS3A(0x004E3F70);
+static const DWORD* g_rpNewFlags = (const DWORD*)(uintptr_t)TS3A(0x01158060);  // the leaf array resize 0x663766 passes it
 
 // footprint classes (docs/82 §3.1; sizes from the factory 0x62CD40): cache = [fp+0x38] is a polygon cache. child = a child
 // sub-footprint that lives only in a parent's child list (+0x24 nodes): 0xFEBF90, 0x28 bytes from the pool 0x1165B80, made
@@ -79,9 +79,9 @@ static const DWORD* g_rpNewFlags = (const DWORD*)(uintptr_t)0x01158060;  // the 
 // at +0x38 / count +0x3C, slot +0x70 = 0x80E610 [verified disassembly, Steam 1.67; P3-B live run 2026-10-18 on 0.29.0:
 // left out of the table, every clone build failed on it].
 struct RpCls { DWORD vt, size, cache, child; };
-static const RpCls kRpClsGame[] = {{0xFEBBC0, 0x48, 1, 0}, {0xFEBA98, 0x44, 1, 0}, {0xFEB848, 0x44, 1, 0}, {0xFEB970, 0x44, 1, 0},
-                                   {0xFEBE38, 0x48, 1, 0}, {0xFEBD10, 0x44, 1, 0}, {0xFEB5F8, 0x40, 1, 0}, {0xFEB720, 0x40, 1, 0},
-                                   {0x1020AE8, 0x40, 1, 0}, {0xFEAE08, 0x4C, 0, 0}, {0xFEBF90, 0x28, 0, 1}};
+static const RpCls kRpClsGame[] = {{TS3A(0xFEBBC0), 0x48, 1, 0}, {TS3A(0xFEBA98), 0x44, 1, 0}, {TS3A(0xFEB848), 0x44, 1, 0}, {TS3A(0xFEB970), 0x44, 1, 0},
+                                   {TS3A(0xFEBE38), 0x48, 1, 0}, {TS3A(0xFEBD10), 0x44, 1, 0}, {TS3A(0xFEB5F8), 0x40, 1, 0}, {TS3A(0xFEB720), 0x40, 1, 0},
+                                   {TS3A(0x1020AE8), 0x40, 1, 0}, {TS3A(0xFEAE08), 0x4C, 0, 0}, {TS3A(0xFEBF90), 0x28, 0, 1}};
 static const int kRpNClsGame = sizeof(kRpClsGame) / sizeof(kRpClsGame[0]);
 static const RpCls* g_rpCls = kRpClsGame;
 static int g_rpNCls = kRpNClsGame;
@@ -299,7 +299,7 @@ static DWORD RpFpMeasure(const u8* f, int depth, DWORD* kids) {
 }
 static u8* RpGameCopy(const u8* src, DWORD n, bool* ok) {  // a polygon or vertex array in the game's allocator (+0xC words kept)
     if (!n) return NULL;
-    u8* d = (u8*)g_rpNew(n, *g_rpNewFlags, 0, 0, 0xF98980, 0xE7);
+    u8* d = (u8*)g_rpNew(n, *g_rpNewFlags, 0, 0, TS3A(0xF98980), 0xE7);
     if (!d) { *ok = false; return NULL; }
     CfRec(CF_COPY_NEW, d, n);
     memcpy(d, src, n);
@@ -515,7 +515,7 @@ static bool RpVecCopyEA(u8* g, DWORD off, DWORD elem) {
     const u8* b = RpP(g + off);
     const u8* e = RpP(g + off + 4);
     const DWORD n = b && e > b && (DWORD)(e - b) <= elem * 65536 ? (DWORD)(e - b) : 0;
-    u8* c = n ? (u8*)g_rpNew(n, RpD(g + off + 0xC), 0, 0, 0xF98980, 0xE7) : NULL;
+    u8* c = n ? (u8*)g_rpNew(n, RpD(g + off + 0xC), 0, 0, TS3A(0xF98980), 0xE7) : NULL;
     if (n && !c) return false;
     if (n) CfRec(CF_VEC_NEW, c, n), memcpy(c, b, n);
     *(u8**)(g + off) = c, *(u8**)(g + off + 4) = c + n, *(u8**)(g + off + 8) = c + n;
@@ -548,7 +548,7 @@ static bool RpHashCopyEA(u8* h) {
     const DWORD n = RpD(h + 8);
     if (!bk) return true;
     if (!n || n > (1u << 20)) return false;
-    DWORD* c = (DWORD*)g_rpNew((n + 1) * 4, RpD(h + 0x1C), 0x400000, 0, 0xF98980, 0xE7);
+    DWORD* c = (DWORD*)g_rpNew((n + 1) * 4, RpD(h + 0x1C), 0x400000, 0, TS3A(0xF98980), 0xE7);
     if (!c) return false;
     CfRec(CF_HASH_NEW, c, (n + 1) * 4);
     memset(c, 0, n * 4);
@@ -557,7 +557,7 @@ static bool RpHashCopyEA(u8* h) {
     for (DWORD i = 0; i < n; i++) {
         DWORD* link = &c[i];
         for (const u8* nd = (const u8*)(uintptr_t)bk[i]; nd; nd = RpP(nd + 8)) {
-            u8* m = (u8*)g_rpNew(12, RpD(h + 0x1C), 0, 0, 0xF98980, 0xE7);
+            u8* m = (u8*)g_rpNew(12, RpD(h + 0x1C), 0, 0, TS3A(0xF98980), 0xE7);
             if (!m) return false;  // the chain ends here: private, short (the caller fails the build)
             CfRec(CF_HNODE_NEW, m, 12);
             memcpy(m, nd, 8);
@@ -658,7 +658,7 @@ static u8* RpFme(RpCtx& x, const u8* live) {
     u8* lfp = RpP(live + 8);
     u8* fp = lfp ? RpFpFor(x, lfp, RpD(live + 0xC)) : NULL;
     if (lfp && !fp) return NULL;
-    u8* f = (u8*)g_rpFmePool(0x14, 0xFEAC80, 0, 0, 0, 0);
+    u8* f = (u8*)g_rpFmePool(0x14, TS3A(0xFEAC80), 0, 0, 0, 0);
     if (!f) { RpFailW(x, RW_ALLOC, RpQKey(RpD(live + 0xC))); return NULL; }
     memcpy(f, live, 0x14);
     *(LONG*)(f + 4) = 0;
@@ -708,7 +708,7 @@ static u8* RpTree(RpCtx& x, const u8* n, int depth, u8* parent = NULL) {
         const u8* src = (const u8*)(uintptr_t)(RpD(n + 8) & ~1u);
         if (cnt) {
             if (cnt > 65536) { RpFailW(x, RW_LEAFCNT, x.lot, cnt); return m; }
-            u8* arr = (u8*)g_rpNew(cnt * 12, *g_rpNewFlags, 0, 0, 0xF98980, 0xE7);
+            u8* arr = (u8*)g_rpNew(cnt * 12, *g_rpNewFlags, 0, 0, TS3A(0xF98980), 0xE7);
             if (!arr) { *(DWORD*)(m + 8) = 1, *(DWORD*)(m + 0xC) = 0; RpFailW(x, RW_ALLOC, x.lot, 3); return m; }
             CfRec(CF_LEAF_NEW, arr, cnt * 12);
             for (DWORD j = 0; j < cnt; j++) {
@@ -1497,8 +1497,8 @@ static void RpNoQNote(u64 key, bool all) {
 // false = another slot (the cut then resyncs every Q-less node)
 static bool RpFpKey(const u8* fp, u64* key) {
     const DWORD s = RpD(RpP(fp) + 0x7C);
-    if (s == 0x00806FE0) { *key = ((u64)RpD(fp + 0x18) << 32) | RpD(fp + 0x14); return true; }
-    if (s == 0x006262B0 && RpP(fp + 0xC) && RpD(RpP(RpP(fp + 0xC)) + 0x7C) == 0x00806FE0) {
+    if (s == TS3A(0x00806FE0)) { *key = ((u64)RpD(fp + 0x18) << 32) | RpD(fp + 0x14); return true; }
+    if (s == TS3A(0x006262B0) && RpP(fp + 0xC) && RpD(RpP(RpP(fp + 0xC)) + 0x7C) == TS3A(0x00806FE0)) {
         const u8* p = RpP(fp + 0xC);
         *key = ~(((u64)RpD(p + 0x18) << 32) | RpD(p + 0x14));
         return true;
@@ -1768,8 +1768,8 @@ static RpBatch* RpRebase(const u8* world, const RpLiveLot* set, int n, const u64
 // used here); rpRebaseLots in play shows what is left.
 typedef char(__fastcall* RpFirstUseFn)(const u8* p, void*, u8* entry, DWORD room);  // 0x63D2F0, ret 8
 typedef char(__fastcall* RpContainsFn)(const u8* p, void*, DWORD lo, DWORD hi);     // 0x628A90, ret 8
-static RpFirstUseFn g_rpFirstUse = (RpFirstUseFn)(uintptr_t)0x0063D2F0;
-static RpContainsFn g_rpContains = (RpContainsFn)(uintptr_t)0x00628A90;
+static RpFirstUseFn g_rpFirstUse = (RpFirstUseFn)(uintptr_t)TS3A(0x0063D2F0);
+static RpContainsFn g_rpContains = (RpContainsFn)(uintptr_t)TS3A(0x00628A90);
 static bool g_rpPrebuild;
 static LONG RpPrivateKB() {
     PROCESS_MEMORY_COUNTERS_EX m = {};
@@ -1809,7 +1809,7 @@ static const int kRpRemLiveMax = 16;
 // child copies widened by 0.2-2.0 more than live, 0xFEB848 copies off by ~0.001: inputs that change in live without a record
 // (W6 transforms and the child's +0x10 are not records). The consumer copies them into the clone copy before the remove
 struct RpRemPatch { float box[4]; float w30, z; DWORD f34; u8 has, empty, child, pad; };
-static DWORD g_rpLevelBox = 0x0080EF80;  // the selftest points it at its stand-in
+static DWORD g_rpLevelBox = TS3A(0x0080EF80);  // the selftest points it at its stand-in
 struct RpRemLiveE { DWORD cls, lo, hi, lvl; float b[4]; RpRemPatch p; };
 struct RpRemLive { int n; RpRemLiveE e[kRpRemLiveMax]; };
 // the footprint that answers through 0x80EF80 (fp, or a child's parent), NULL = another answer (left as before)
@@ -1923,7 +1923,7 @@ static RpInsLive* RpInsLiveTake(u8* fp) {
 // forces every live lot that holds an FME of its key / ~key (sim thread, +0x918 not needed: only the sim writes the live map)
 // and counts as a routing write (P5c's stale test); Q-less FMEs are refreshed through the cut's Q-less pass. The other writer
 // of fp+0x20, slot +0xA8 0x80C8C0 from the lot rebuild path, ends in a W3/W4 (I-156-6, open).
-static const DWORD kRpLkAt = 0x0082B3A1;
+static const DWORD kRpLkAt = TS3A(0x0082B3A1);
 static void* g_rpLkTramp;
 static volatile LONG g_rpLkLog;
 static void __cdecl RpLockKeyEnter(DWORD* slot) {
@@ -2478,7 +2478,7 @@ static RpLot* RpFindLot(RpClone* c, u64 key) {
 // the record and forces the lot). A miss on the clone table (the lot left since the cut) forces the lot and lets the
 // game's body skip the record, as the locked path's no-copy branch does. RgEnter passes sites 0 / 12 through under t_rpUl.
 typedef u8*(__fastcall* RpGetIfPresentFn)(const u8* p, void*, DWORD lo, DWORD hi);  // 0x62FB60, ret 8
-static RpGetIfPresentFn g_rpGetIfPresent = (RpGetIfPresentFn)(uintptr_t)0x0062FB60;
+static RpGetIfPresentFn g_rpGetIfPresent = (RpGetIfPresentFn)(uintptr_t)TS3A(0x0062FB60);
 static LONG g_rpUlLotMiss;  // misses on the clone table inside a round (log + force; no counter slot reserved)
 static u8* __fastcall RpGetIfPresent(const u8* p, void* edx, DWORD lo, DWORD hi) {
     RpClone* c = t_rpUl ? g_rpClone : NULL;
@@ -2491,7 +2491,7 @@ static u8* __fastcall RpGetIfPresent(const u8* p, void* edx, DWORD lo, DWORD hi)
     }
     return r;
 }
-static const CallSite kRpGetIfPresentSites[2] = {{0x00665D1E, 0x0062FB60, (void*)RpGetIfPresent}, {0x00666796, 0x0062FB60, (void*)RpGetIfPresent}};
+static const CallSite kRpGetIfPresentSites[2] = {{TS3A(0x00665D1E), TS3A(0x0062FB60), (void*)RpGetIfPresent}, {TS3A(0x00666796), TS3A(0x0062FB60), (void*)RpGetIfPresent}};
 // 0.35.21 (docs/94 §22.24.2): the lots of a clone footprint, for a W6b (Footprint_EnsureAllPolygons, ecx = the footprint) in a
 // clone run, which made every release rebase all lots (BP 0303: 2 force-all batches, ~180 ms each). The clone map's nodes with
 // the footprint's key whose FME holds it name its Qs (lot id Q+0x18/+0x1C). Worker, g_rpUse held (the clone is stable).
@@ -3392,7 +3392,7 @@ static void RpNoQApply(RpClone* c, RpNoQRec* r) {
         u8* fp = e.liveFp ? RpFpUse(c, e.liveFp, e.copy) : NULL;
         e.copy = NULL;  // RpFpUse took it (kept or freed)
         if (e.liveFp && !fp) { RP_NEED_EPOCH(); continue; }  // no copy of its footprint: rebuild
-        u8* f = (u8*)g_rpFmePool(0x14, 0xFEAC80, 0, 0, 0, 0);
+        u8* f = (u8*)g_rpFmePool(0x14, TS3A(0xFEAC80), 0, 0, 0, 0);
         if (!f) { RP_NEED_EPOCH(); continue; }
         memcpy(f, e.fme, 0x14);
         *(LONG*)(f + 4) = 0;

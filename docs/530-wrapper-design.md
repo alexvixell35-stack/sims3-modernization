@@ -1,6 +1,6 @@
 # 530. Wrapper: host window and restart, owner's design (v0.2.6)
 
-Status (2026-11-04): design, nothing built. Owner: alexvixell35-stack. Follows the draft in docs/241, which gives the
+Status (2026-11-04): design, nothing built. **Update 2026-11-15 [verified 2026-11-15: GitHub]:** step 0 (#360) and step 1 (#363) built by the owner as draft PRs, not merged here; the restart host (`ts3wrap.exe`, Apex `features/restart_host.cpp`) ships in Apex Radiance 3.1.3 (2026-11-12) and later, off until `[ui] restart_host = true`. Not run in our harness. Owner: alexvixell35-stack. Follows the draft in docs/241, which gives the
 why (a restart gives back ~600 MB of largest free block at load, BP 636 and LR 609 MB; an in-process reload gives
 nothing; docs/204 §2.1 in PR #208). This document settles process and window ownership, the input and focus path, the
 trigger states, the failure paths, the sidecar and the launch path. **§9 lists what needs a decision before the

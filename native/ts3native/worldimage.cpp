@@ -28,7 +28,7 @@ static void __cdecl WiCut() {
     GetSystemTime(&st);
     char dir[MAX_PATH + 64], user[2048], err[256];
     sprintf_s(dir, "%s\\wi-%04d%02d%02d-%02d%02d%02d-%d", g_wiDir, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, g_wiDone);
-    const DWORD host = Readable((void*)(uintptr_t)0x011EE514, 4) ? *(DWORD*)(uintptr_t)0x011EE514 : 0;
+    const DWORD host = Readable((void*)(uintptr_t)TS3A(0x011EE514), 4) ? *(DWORD*)(uintptr_t)TS3A(0x011EE514) : 0;
     // MT index after the 624 state words at host+0xC30 (docs/27 §1.1) [inferred offset, I-123-23]
     const DWORD mt = host && Readable((void*)(uintptr_t)(host + 0x15F0), 4) ? *(DWORD*)(uintptr_t)(host + 0x15F0) : 0xFFFFFFFF;
     int n = sprintf_s(user, "build ts3native-" TS3NATIVE_VERSION "\ncut simulate-iteration\ntick %lu\nhost %08lX\nmtindex %lu\n", g_wiTicks, host, mt);

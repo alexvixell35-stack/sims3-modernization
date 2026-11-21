@@ -93,17 +93,17 @@ static void P5Snapshot() {
     for (int i = 0; i < P4_SITES; i++) P5SnapAt(g_p4At[i]);
     P5SnapAt(P4_DOOR_AT);
     P5SnapAt(ROUTE_PLAN_LOCKED);
-    P5SnapAt(0x00765550);  // IC_Route_ReplanFromPosition: the A10 collect detour
-    if (g_pcQIns) P5SnapAt(0x00666C50);
-    if (g_pcQRem) P5SnapAt(0x00666E30);
+    P5SnapAt(TS3A(0x00765550));  // IC_Route_ReplanFromPosition: the A10 collect detour
+    if (g_pcQIns) P5SnapAt(TS3A(0x00666C50));
+    if (g_pcQRem) P5SnapAt(TS3A(0x00666E30));
     for (int i = 0; i < RG_SITES; i++) if (g_rgTramp[i]) P5SnapAt(kRgSites[i].addr);
     for (int i = 0; i < RT_N; i++) if (g_rtTramp[i]) P5SnapAt(kRtSites[i].addr);
     for (int i = 0; i < SN_N; i++) if (g_snJmp[i]) P5SnapAt(kSn[i].at);
     for (int i = 0; i < 3; i++) if (g_p4DlJmp[i]) P5SnapAt(kP4Dl[i].at);
-    if (k.p6Plan) P5SnapAt(0x00765160);  // P6: IC_Route_Plan, the async START detour of the taken Route.Plan jobs
+    if (k.p6Plan) P5SnapAt(TS3A(0x00765160));  // P6: IC_Route_Plan, the async START detour of the taken Route.Plan jobs
     if (k.p6All) {  // docs/189 phase 2c: the A10 collect detours of the taken Replan / PlanFromPoint jobs
-        if (k.arReady & 1) P5SnapAt(0x00765490);
-        if (k.arReady & 2) P5SnapAt(0x00765240);
+        if (k.arReady & 1) P5SnapAt(TS3A(0x00765490));
+        if (k.arReady & 2) P5SnapAt(TS3A(0x00765240));
     }
     k.m2Sites = g_p5NSites;
     InterlockedOr(&k.m2Ready, 2);
@@ -121,11 +121,11 @@ static DWORD P5SiteChanged() {
 // --- M2-3 (log only): MonoPatcher.asi's native sites (docs/107 §2.2, docs/104 L2) ---
 struct P5L2 { DWORD at; u8 len; u8 b[8]; const char* what; };
 static P5L2 g_p5L2[5] = {  // b = the vanilla bytes [verified, docs/104 §5.4, docs/107 §2.2; steerro-test checks them on the image]
-    {0x00D7E560, 1, {0x51}, "MonoScriptHost_Init: detoured (MinHook)"},
-    {0x00E5CA90, 8, {0x55, 0x8D, 0x6C, 0x24, 0x98, 0x81, 0xEC, 0x08}, "GenerateCode: ReplaceIL detour"},
-    {0x00E59218, 6, {0x0F, 0x86, 0xA9, 0xB1, 0xFF, 0xFF}, "ret-values jump rewritten (MonoPatcher.asi at load)"},
-    {0x00E5637D, 2, {0x75, 0x26}, "JIT check 1: ForceJIT on"},
-    {0x00E648DC, 2, {0x74, 0x4C}, "JIT check 2: ForceJIT on"},
+    {TS3A(0x00D7E560), 1, {0x51}, "MonoScriptHost_Init: detoured (MinHook)"},
+    {TS3A(0x00E5CA90), 8, {0x55, 0x8D, 0x6C, 0x24, 0x98, 0x81, 0xEC, 0x08}, "GenerateCode: ReplaceIL detour"},
+    {TS3A(0x00E59218), 6, {0x0F, 0x86, 0xA9, 0xB1, 0xFF, 0xFF}, "ret-values jump rewritten (MonoPatcher.asi at load)"},
+    {TS3A(0x00E5637D), 2, {0x75, 0x26}, "JIT check 1: ForceJIT on"},
+    {TS3A(0x00E648DC), 2, {0x74, 0x4C}, "JIT check 2: ForceJIT on"},
 };
 static void P5ModGuard() {
     Ts3nCounters& k = ts3native_counters;

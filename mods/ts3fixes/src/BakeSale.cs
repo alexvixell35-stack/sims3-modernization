@@ -108,7 +108,7 @@ namespace Ts3Fixes
                     sBstSeller.SetValue(t, seller);
                     home.Remove(sd);
                     sd.Dispose(true, false, true);
-                    FieldInfo keep = typeof(BakeSaleTable).GetField("kKeepEADeadSeller", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                    FieldInfo keep = typeof(BakeSaleTable).GetField("kKeepEADeadSeller", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic); // refs: optional (patched Objects build only)
                     if (keep != null) { sBstKeepEA = keep.GetValue(null); keep.SetValue(null, true); }
                     return "table " + t.ObjectId + ", seller " + seller.FullName + " deleted; switch " + ShortcutOn("bakesaleseller") + (keep != null ? "; patched Objects build set to EA" : "");
                 }
@@ -144,7 +144,7 @@ namespace Ts3Fixes
                 {
                     if (sBstTable != null && !sBstCleaned && !sBstTable.HasBeenDestroyed) sBstTable.Destroy(); // EA's handler already destroyed it
                     sBstTable = null; sBstCleaned = false;
-                    FieldInfo keep = typeof(BakeSaleTable).GetField("kKeepEADeadSeller", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                    FieldInfo keep = typeof(BakeSaleTable).GetField("kKeepEADeadSeller", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic); // refs: optional (patched Objects build only)
                     if (keep != null && sBstKeepEA != null) keep.SetValue(null, sBstKeepEA);
                     sBstKeepEA = null;
                     return "stopped";

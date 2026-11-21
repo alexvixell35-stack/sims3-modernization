@@ -28,6 +28,7 @@ struct HaFrame {
 extern "C" __declspec(dllexport) HaFrame ts3native_hitchattr = {2, 0, {0, 0, 0, 0}, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static void HaNote(DWORD key, LONG us, int cls) {
+    if (cls != HA_OTHERLOCK && us > 0 && __readfsdword(0x24) == g_async.owner) g_w918Us += us, g_w918Key = key;  // docs/250 meter (TEB thread id)
     if (!ts3native_hitchattr.enabled || us <= 0 || GetCurrentThreadId() != g_async.owner) return;
     HaFrame& f = ts3native_hitchattr;  // the owner thread only (the reader zeroes it on the same thread)
     f.us[cls] += us;
@@ -146,6 +147,7 @@ static __declspec(noinline) LONG HoAcquire(void* lock, void* edx, const DWORD* d
     const DWORD site1 = HoFind(lock, htid);  // the holder's entry, complete now; before ours replaces it
     // ours before the record: a waiter on this thread during HoNote's log write finds our site (docs/165 §8 cause A)
     if (r == 1) HoPut(lock, tid, ret);
+    if (g_hsOn && waiter == 0) HsOtherLock(us);  // docs/666: the frame's other-lock sum
     if (us >= ts3native_lockholders.minUs) HoNote(waiter, lock, us, htid, site1 ? site1 : site0, ret);
     return r;
 }

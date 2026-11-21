@@ -43,7 +43,8 @@ namespace Ts3Fixes
         static readonly System.Collections.Generic.Dictionary<ulong, string> sUbLastWhy = new System.Collections.Generic.Dictionary<ulong, string>();
         static readonly UbReasonMs sUbMs = new UbReasonMs();
         // docs/247 §12.9 (boatreplanlog only, log text): which UbTrip exit left the Sim with no refusal record after the Remove, so the
-        // boatreplan: lines can split the "no refusal" row: "goal invalid or < 40 m", "nested plan", "same lot", "one land area"
+        // boatreplan: lines can split the "no refusal" row; since §12.10 the same strings as the sUbLastWhy entries (UbTripWhy):
+        // "trip: no goal", "trip: short", "trip: nested", "trip: same lot", "trip: one land area", "trip: placed houseboat|goal"
         static readonly System.Collections.Generic.Dictionary<ulong, string> sUbCleared = new System.Collections.Generic.Dictionary<ulong, string>();
         static void UbClearedBy(ulong sim, string exit)
         {
@@ -56,10 +57,19 @@ namespace Ts3Fixes
             string e;
             return sUbCleared.TryGetValue(sim, out e) ? e : "-";
         }
+        // docs/247 §12.10: a UbTrip exit that refuses nothing still owns the trip's boat replans (report only: UbBookReplan is the
+        // only reader of sUbLastWhy), and the boatreplan: cleared text gets the same string
+        static void UbTripWhy(ulong sim, string why)
+        {
+            if (sUbLastWhy.Count >= 512) sUbLastWhy.Clear();
+            sUbLastWhy[sim] = why;
+            UbClearedBy(sim, why);
+        }
         static void UbBookReplan(ulong sim, uint ms)
         {
             string why;
             sUbLastWhy.TryGetValue(sim, out why);
+            if (why == null) { int[] c = PatchCounters(); c[948]++; c[949] += (int)ms; }  // still no entry: never reached UbTrip, or the 512 clear
             sUbMs.Add(why, ms);
             AppDomain.CurrentDomain.SetData("ts3fixes.unseenboat.ms", sUbMs.Lines());
         }
@@ -95,70 +105,119 @@ namespace Ts3Fixes
                 UbClearedBy(sim.ObjectId.Value, null);
                 int[] c = PatchCounters();
                 Vector3 dest = GetApproximateOriginalDestination(), start = sim.Position;
-                if (dest == Vector3.Origin || dest == Vector3.Invalid || !UbCore.FarEnough((dest - start).Length())) { UbClearedBy(sim.ObjectId.Value, "goal invalid or < 40 m"); return; }
-                if (sUfPlanDepth.Depth(Simulator.CurrentTask.Value) > 1) { UbClearedBy(sim.ObjectId.Value, "nested plan"); return; }
+                if (dest == Vector3.Origin || dest == Vector3.Invalid) { UbTripWhy(sim.ObjectId.Value, "trip: no goal"); return; }
+                if (!UbCore.FarEnough((dest - start).Length())) { UbTripWhy(sim.ObjectId.Value, "trip: short"); return; }
+                if (sUfPlanDepth.Depth(Simulator.CurrentTask.Value) > 1) { UbTripWhy(sim.ObjectId.Value, "trip: nested"); return; }
                 Lot goal = LotManager.GetLotAtPoint(dest), from = sim.LotCurrent;
                 int trip, colours = 0;
                 string caller = null;
                 Vector3 place = dest;
-                bool leave = false;
+                bool leave = false, wide = ShortcutOn("unseenboatwide");  // docs/248 §12: off = every rule below as before
+                int rules = 0;
+                System.Collections.Generic.List<Sim> party = null;
                 try
                 {
                     bool house = goal != null && goal.IsHouseboatLot(), same = goal == from;
                     leave = !same && UbBoatOf(from) != null && ShortcutOn("unseenboatstart");
                     colours = house || same || leave ? 1 : UfSameComponent(sim, start, dest, goal);
+                    if (colours == 0 && wide)
+                    {
+                        colours = UbwColours(sim, start, dest, goal);  // rj_unknown fallback: probes at the ends and their lots' entries
+                        if (colours > 0) c[UbWideCore.kSlotUnknownSame]++;
+                        else if (colours < 0) rules |= UbWideCore.kUnknown;
+                    }
                     trip = UbCore.Trip(house, colours, same, leave);
                     if (trip == UbCore.kExact)
                     {
                         if (colours == 0) { c[849]++; UbSample(sim, "colours unknown, start " + (UfColourA(start, sim.LotCurrent) ? "known" : "unknown"), goal, dest, start, colours, caller); }
-                        else UbClearedBy(sim.ObjectId.Value, same ? "same lot" : "one land area");  // one colour: planned by boat inside one land area
+                        else UbTripWhy(sim.ObjectId.Value, same ? "trip: same lot" : "trip: one land area");  // one colour: planned by boat inside one land area
                         return;
                     }
                     c[845]++;
                     if (leave) c[850]++;
-                    string why = UbGate(sim, trip, goal, dest, start, ref place, c, leave, out caller);
+                    string why = UbGate(sim, trip, goal, dest, start, ref place, c, leave, out caller, wide, ref rules, ref party);
                     if (why != null) { UbSample(sim, UbCore.LeaveReason(leave, why), goal, dest, start, colours, caller); return; }
+                    if (rules != 0)
+                    {
+                        UbWideCore.CountRules(c, rules);
+                        UbwLog("pass " + UbWideCore.RuleText(rules) + ", " + sim.FullName + " " + (int)(dest - start).Length() + " m, party " + (party != null ? party.Count : 0) + ", goal " + (goal != null ? goal.Name : "street"));
+                    }
                 }
-                catch (Exception e) { c[841]++; UbSample(sim, UbCore.LeaveReason(leave, "threw " + e.GetType().Name), goal, dest, start, colours, caller); return; }  // a gate failure costs nothing but the exact plan
+                catch (Exception e) { c[841]++; if (rules != 0) c[UbWideCore.kSlotErrors]++; UbSample(sim, UbCore.LeaveReason(leave, "threw " + e.GetType().Name), goal, dest, start, colours, caller); return; }  // a gate failure costs nothing but the exact plan
                 if (marked) UfSend(2);  // unseenfbplan's cut mark is for the plan, not for a wait
-                try { UbGo(sim, trip, goal, dest, start, place, c, colours, caller, leave); }
+                try { UbGo(sim, trip, goal, dest, start, place, c, colours, caller, leave, rules, party); }
                 finally { if (marked) UfSend(1); }
             }
 
             // null = go on; else the refusal, counted
-            string UbGate(Sim sim, int trip, Lot goal, Vector3 dest, Vector3 start, ref Vector3 place, int[] c, bool leave, out string caller)
+            // wide (unseenboatwide, docs/248 §12): rules gets the relaxations this trip needed, party the Sims that move with it; both stay 0 / null when off
+            string UbGate(Sim sim, int trip, Lot goal, Vector3 dest, Vector3 start, ref Vector3 place, int[] c, bool leave, out string caller, bool wide, ref int rules, ref System.Collections.Generic.List<Sim> party)
             {
+                wide = wide && trip == UbCore.kTransport && !leave;  // houseboat goals and starts keep the §2 / §10 rules
                 bool follows = UbFollows(out caller), startOut = World.GetRoomId(start) == 0;
                 // indoors counts as in D's relaxed rule: its lot may not lock the Sim in (below). The start height is not used: the Sim is placed elsewhere
                 if (sim.Posture != null && UbCore.WaterPosture(sim.Posture.GetType().Name)) return UbNo(c, 841, "start swimming");
                 if (GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat) || GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater)) return UbNo(c, 841, "ends on the water");
                 if (!follows) return UbNo(c, 841, "caller " + (caller ?? "?"));
                 if (!MayYield()) return UbNo(c, 841, "no yield");
-                if (!UfPreSim(sim, false)) return UbNo(c, 842, "Sim " + UfPreSimWhy(sim, false));
+                if (wide)
+                {
+                    string pw = UbwPreSim(sim, ref rules, out party);  // groups, followers, a child with a parent: the party moves together
+                    if (pw != null) return UbNo(c, 842, pw);
+                }
+                else if (!UfPreSim(sim, false)) return UbNo(c, 842, "Sim " + UfPreSimWhy(sim, false));
                 if (sim.Household == null) return UbNo(c, 842, "Sim no household");  // unknown scope counts as household (household rule)
                 if (UbCore.Denied(sim.CurrentInteraction.GetType().FullName)) return UbNo(c, 842, "water interaction");
-                if (!UbAlone(sim.CurrentInteraction)) return UbNo(c, 842, "followers");
+                if (!wide && !UbAlone(sim.CurrentInteraction)) return UbNo(c, 842, "followers");
                 string lw = leave ? UbLeaveWhy(sim) : UfRelaxedLotWhy(sim.LotCurrent, "start", UrCore.StartLotCounts(startOut));  // leaving: a cabin is no reason, the boat's state is
                 if (lw != null) return UbNo(c, 842, lw);
                 if (UfWhy(sim) != 0 || !TownieUnseen(sim, null) || !UfGoalUnseen(dest) || !UbBoatUnseen(sim.LotCurrent) || !UbBoatUnseen(goal)) return UbNo(c, 846, "seen");
-                bool temporary = false;
-                if (sim.GetOwnedAndUsableBoat(sim.LotCurrent, false, null, ref temporary) != null || temporary) return UbNo(c, 844, "owned boat");
-                if (goal != null && goal == Household.ActiveHouseholdLot) return UbNo(c, 847, "goal household lot");
+                if (UbOwnsBoat(sim))
+                {
+                    if (!wide || !UbwOwnedMayStay(sim)) return UbNo(c, 844, "owned boat");
+                    rules |= UbWideCore.kOwned;  // the boat stays parked: GetInBoatRouteAction fetches it from anywhere next time
+                }
+                bool hhLot = false;
+                if (goal != null && goal == Household.ActiveHouseholdLot)
+                {
+                    if (!wide || !UbWideCore.HhLotOk(true, sim.LotHome == goal, goal.IsHouseboatLot())) return UbNo(c, 847, "goal household lot");
+                    hhLot = true;  // a visitor: only to the street side, below
+                }
                 if (leave && !UbCore.FarEnough(UbTripM(sim.LotCurrent, start, goal, dest))) return UbNo(c, 847, "short trip");
                 if (trip == UbCore.kHouseboat)
                 {
                     Houseboat gh = goal.GetHouseboat();  // a goal boat under way stays exact (§4): a Sim placed on it would get no seasickness alarm
                     return gh == null ? UbNo(c, 847, "no houseboat") : gh.CurrentStatus == Houseboat.Status.Routing ? UbNo(c, 847, "goal boat moving") : null;
                 }
-                lw = UfRelaxedLotWhy(goal, "goal", true);
+                lw = hhLot ? UbwLotWhy(goal) : UfRelaxedLotWhy(goal, "goal", true);
                 if (lw != null) return UbNo(c, 847, lw);  // a resort or dive lot: exact
                 if (leave && UbStreetSide(goal, ref place)) return null;
-                if (!UfOutdoorGround(dest)) return UbNo(c, 847, "goal indoors, raised or in the water");
+                if (hhLot)
+                {
+                    if (UbwStreetSide(goal, ref place) && FarFromViewers(place)) { rules |= UbWideCore.kHhLot; return null; }
+                    c[UbWideCore.kSlotNoStreet]++;
+                    return UbNo(c, 847, "goal household lot");
+                }
+                if (!UfOutdoorGround(dest))
+                {
+                    if (wide && goal != null && !goal.IsWorldLot && UbWideCore.GoalKind(false, UbwWater(dest)) == UbWideCore.kGoalIndoorOrRaised)
+                    {
+                        if (UbwStreetSide(goal, ref place)) { rules |= UbWideCore.kIndoor; return null; }
+                        c[UbWideCore.kSlotNoStreet]++;
+                    }
+                    return UbNo(c, 847, "goal indoors, raised or in the water");
+                }
                 RouteProfile prof = ProfileOf(sim);
                 if (!prof.Ok || !(IsPointRoutable(dest) || UfNearGoal(dest, start, out place))) return UbNo(c, 840, "goal not routable");
                 bool street = goal == null || goal.IsWorldLot;
                 bool? gv = street ? true : UfVerdict(sim, goal, prof, dest);
-                return gv == true || (gv == null && goal.IsCommunityLot) ? null : UbNo(c, 847, "goal verdict");
+                if (gv == true || (gv == null && goal.IsCommunityLot)) return null;
+                if (wide && gv == null)  // no verdict (a false one stays refused): the street side, EA walks the lot
+                {
+                    if (UbwStreetSide(goal, ref place)) { rules |= UbWideCore.kVerdict; return null; }
+                    c[UbWideCore.kSlotNoStreet]++;
+                }
+                return UbNo(c, 847, "goal verdict");
             }
 
             static string UbNo(int[] c, int slot, string why) { c[slot]++; return why; }
@@ -255,7 +314,7 @@ namespace Ts3Fixes
             }
             static string UbPoint(Vector3 p) { return (int)p.x + "," + (int)p.y + "," + (int)p.z; }
 
-            void UbGo(Sim sim, int trip, Lot goal, Vector3 dest, Vector3 start, Vector3 place, int[] c, int colours, string caller, bool leave)
+            void UbGo(Sim sim, int trip, Lot goal, Vector3 dest, Vector3 start, Vector3 place, int[] c, int colours, string caller, bool leave, int rules, System.Collections.Generic.List<Sim> party)
             {
                 Lot from = sim.LotCurrent;
                 float dist = UbTripM(from, start, goal, dest), minutes = UbCore.HoldMinutes(dist);
@@ -264,6 +323,7 @@ namespace Ts3Fixes
                 finally { if (ghost) UrGhostEnd(sim); }
                 if ((int)minutes > c[848]) c[848] = (int)minutes;
                 if (!held || sim.HasBeenDestroyed || UfWhy(sim) != 0 || !TownieUnseen(sim, null) || !UfGoalUnseen(dest) || !UbBoatUnseen(from) || !UbBoatUnseen(goal)) { c[846]++; UbSample(sim, UbCore.LeaveReason(leave, "seen or ended in the wait"), goal, dest, start, colours, caller); return; }
+                if (rules != 0 && (!UbwPartyStill(party) || !UfGoalUnseen(place) || ((rules & UbWideCore.kHhLot) != 0 && !FarFromViewers(place)))) { c[846]++; UbSample(sim, "wide: party or spot seen in the wait", goal, dest, start, colours, caller); return; }
                 if (leave)
                 {
                     string lw = UbLeaveWhy(sim);  // the wait is minutes long: the boat may have left
@@ -289,8 +349,11 @@ namespace Ts3Fixes
                     PlaceSim(sim, place, fwd, "unseenboat route goal");
                     if (sUrPlaced.Count >= 256) sUrPlaced.Clear();
                     sUrPlaced[sim.ObjectId.Value] = true;  // §3.9.7 (D): checked when it is seen and plans again
+                    UbwPlaceParty(party, place, fwd, c);
                 }
                 c[839]++;
+                if (rules != 0) c[UbWideCore.kSlotShortcuts]++;
+                if (!leave) UbTripWhy(sim.ObjectId.Value, trip == UbCore.kHouseboat ? "trip: placed houseboat" : "trip: placed goal");  // the replans after our placement (EnterHouseboatThroughGangway) get their own row
                 if (leave)
                 {
                     c[851]++;
@@ -298,8 +361,38 @@ namespace Ts3Fixes
                     Houseboat left = UbBoatOf(from);
                     UbSample(sim, UbCore.LeaveReason(true, "placed, " + (left != null ? left.CurrentStatus.ToString() : "?") + (left != null && left.GetPortGangway() == null ? ", no gangway" : "")), goal, dest, start, colours, caller);
                 }
-                ShortcutLog(sim.FullName + " => " + (trip == UbCore.kHouseboat ? "houseboat" : "route goal") + " (unseenboat, " + (int)dist + " m, held " + (int)minutes + " sim-min)");
+                ShortcutLog(sim.FullName + " => " + (trip == UbCore.kHouseboat ? "houseboat" : "route goal") + " (unseenboat" + (rules != 0 ? " wide " + UbWideCore.RuleText(rules) : "") + ", " + (int)dist + " m, held " + (int)minutes + " sim-min)");
             }
+        }
+    }
+}
+
+namespace Ts3Fixes
+{
+    public static partial class Fixes
+    {
+        // docs/642 §8 unseenboatgenboat (default off): EA's BoatOwnable.Park puts a boat it generated for an NPC trip
+        // (GeneratedOwnableForNpc) into the driver's inventory instead of mooring it (BoatOwnable.cs:389-406), and
+        // GetOwnedAndUsableBoat then returns it, so after its first boat trip every NPC counts as owning a boat and unseenboat /
+        // unseenboatland refuse it for good ("owned boat"). With the switch on, such a boat (generated for an NPC, in that NPC's own
+        // inventory, NPC not household, selected or of unknown scope) is not "its own boat"; any other boat still is.
+        // [4060] generated boats ignored, [4061] errors.
+        static bool UbOwnsBoat(Sim sim)
+        {
+            bool temporary = false;
+            Boat b = sim.GetOwnedAndUsableBoat(sim.LotCurrent, false, null, ref temporary);
+            if (temporary) return true;
+            if (b == null) return false;
+            if (!ShortcutOn("unseenboatgenboat")) return true;
+            try
+            {
+                BoatOwnable o = b as BoatOwnable;
+                if (o == null || !o.GeneratedOwnableForNpc || !sim.IsNPC || sim.Household == null || HouseholdExempt(sim)) return true;
+                if (sim.Inventory == null || !sim.Inventory.Contains(o)) return true;
+                PatchCounters()[4060]++;
+                return false;
+            }
+            catch (Exception) { PatchCounters()[4061]++; return true; }
         }
     }
 }

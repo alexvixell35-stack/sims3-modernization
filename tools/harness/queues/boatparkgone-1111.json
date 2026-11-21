@@ -1,0 +1,114 @@
+{
+ "note": "boatparkgone-1111 (2026-11-11): forced repro of the EA BoatOwnable.Park NRE (docs/257), OFF then ON on pair rc1111 with the branch ts3fixes package (boatparkgone) and ts3agent (boat_gone_watch). Est ~30 min. node tools/harness/queue.ts tools/harness/queues/boatparkgone-1111.json > probe-out/boatparkgone-1111-run.log 2>&1",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "releaseDefaults": true,
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.boatparkgone (build of branch bugfix/boat-park-destroyed = master fdc4dc7a + boatparkgone) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "ini": {
+    "RouteAsync.ForeignKinds": 4,
+    "RouteAsync.ForeignKindsMode": 1,
+    "RouteAsync.KdA10ForeignMs": 1000,
+    "HitchAttr.Enabled": 1,
+    "RouteAsync.LogFallbackMs": 20
+   },
+   "id": "ip-boatgone-off-1111",
+   "save": "Baseline-IP",
+   "noiseCheck": false,
+   "note": "[boatparkgone-1111] [est 15 min] Forced repro ip-boat-gone, boatparkgone OFF: must reproduce the EA NRE in BoatOwnable.Park (REPORT: >= 1 script errors matching BoatOwnable:Park; read the row: 0 = not reproduced). Other script errors still FAIL.",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10,
+     "repro": "ip-boat-gone",
+     "fixesReport": "boatparkgone",
+     "fixesOff": "boatparkgone"
+    }
+   },
+   "timeoutMin": 20,
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.boatparkgone",
+   "logRequire": {
+    "^ts3native 0.36.239 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "routingFailFast": {
+    "ms": 300,
+    "scope": "unseen"
+   },
+   "scriptErrorsReport": [
+    "BoatOwnable:Park"
+   ]
+  },
+  {
+   "asi": "game-copy/ts3native.asi.rc1111",
+   "releaseDefaults": true,
+   "minCounters": 912,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "pinReason": "pair rc1111 (docs/data/builds.json, Sat 11-14 release candidate): asi game-copy/ts3native.asi.rc1111 (0.36.239, baaa4cfc) + ini game-copy/ts3native.ini.rc1111 (a0f698b9 = master ini + [LotPool] Trim=1 SettleSec=15 + [RouteAsync] WatchdogKind2=1) + ts3fixes game-copy/ts3fixes.package.boatparkgone (build of branch bugfix/boat-park-destroyed = master fdc4dc7a + boatparkgone) via fixesPackage (fixesBuild would let cycle.ts install a master build, not the pair)",
+   "ini": {
+    "RouteAsync.ForeignKinds": 4,
+    "RouteAsync.ForeignKindsMode": 1,
+    "RouteAsync.KdA10ForeignMs": 1000,
+    "HitchAttr.Enabled": 1,
+    "RouteAsync.LogFallbackMs": 20
+   },
+   "id": "ip-boatgone-on-1111",
+   "save": "Baseline-IP",
+   "noiseCheck": false,
+   "note": "[boatparkgone-1111] [est 15 min] Forced repro ip-boat-gone, boatparkgone ON: boat_gone_watch destroys a driving NPC generated boat (Arias/Scott houseboat NPCs sent to the island lot). Pass: 0 new script errors, boatparkgone_skipped >= 1, boat_gone_watch destroyed >= 1.",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 10,
+     "repro": "ip-boat-gone",
+     "fixesReport": "boatparkgone",
+     "fixesOn": "boatparkgone",
+     "fixesRequire": "boatparkgone_skipped>=1"
+    }
+   },
+   "timeoutMin": 20,
+   "iniBase": "game-copy/ts3native.ini.rc1111",
+   "fixesPackage": "game-copy/ts3fixes.package.boatparkgone",
+   "logRequire": {
+    "^ts3native 0.36.239 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.239 ": {
+     "match": [
+      "ts3native 0.36.239 2026-11-10 14:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.238 2026-11-10 01:30:00",
+      "ts3native 0.36.2390 2026-11-10 14:30:00"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "routingFailFast": {
+    "ms": 300,
+    "scope": "unseen"
+   }
+  }
+ ]
+}

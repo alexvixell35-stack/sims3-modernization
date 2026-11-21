@@ -12,7 +12,7 @@
 // counts a miss. Verify=1: every hit also runs the game's function and compares the bits (first 10 mismatches logged; a
 // mismatch returns the game's answer). Runtime switch: ts3native_counters.lscMode (+0xC28; 0 = the game's code, 1 = cache).
 
-static const DWORD LSC_FN = 0x00AB8540;
+static const DWORD LSC_FN = TS3A(0x00AB8540);
 static const u8 kLscPrologue[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16
 
 typedef void(__fastcall* LscFn)(void* lot, void* edx, float x, float z, float* outX, float* outZ);  // thiscall

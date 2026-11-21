@@ -1,0 +1,215 @@
+{
+ "note": "boat-getout-stress (2026-11-13, docs/257 §9): forced stress repro of the EA Boat.GetOutIntoWater stale-posture NRE, arm A guard OFF (repro proven) then arm B guard ON (0 NPC NRE, household keeps EA behaviour); boatgetoutdiag on in both. Correctness only (--no-smoke is fine: no timing). Run after the timing queues. Est ~30 min. node tools/harness/queue.ts tools/harness/queues/boat-getout-stress.json > probe-out/boat-getout-stress-run.log 2>&1",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "ip-bgo-stress-guard-off",
+   "note": "[boat-getout-stress] [est 15 min] Arm A, boatgetoutguard OFF + boatgetoutdiag ON, repro ip-boat-getout-stress (stops at the first stale NRE). Pass = repro proven: >= 1 Boat:GetOutIntoWater NRE (REPORT row), boatgetoutdiag_stale >= 1, a \"boatgetout replaced\" line naming the writer task, no guard line. 0 stale = not reproduced: read the forced rows (which writer, posture_after) before changing anything.",
+   "asi": "game-copy/ts3native.asi.master1112b",
+   "iniBase": "game-copy/ts3native.ini.master1112b",
+   "fixesPackage": "game-copy/ts3fixes.package.boatgetoutguard",
+   "pinReason": "master1112b asi + ini (docs/data/builds.json, latest registered master pair, ts3native 0.36.248) + ts3fixes game-copy/ts3fixes.package.boatgetoutguard (branch bugfix/boat-getout-stale-posture = master 1e124b98 + boatgetoutguard de9290b6, builds.json ts3fixes.package.boatgetoutguard tuning e2f1b9e4, all tunings = master defaults; guard off by default, switched by fixesOn). The ts3agent with boat_getout_stress is built by cycle.ts from the checkout, so merge the branch (or run from its worktree) before this queue.",
+   "minCounters": 912,
+   "releaseDefaults": true,
+   "save": "Baseline-IP",
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 12,
+     "repro": "ip-boat-getout-stress",
+     "fixesReport": "boatgetoutdiag,boatgetoutguard",
+     "fixesOn": "boatgetoutdiag",
+     "fixesOff": "boatgetoutguard",
+     "fixesRequire": "boatgetoutdiag_stale>=1,boatgetoutguard_hit<1"
+    }
+   },
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0\\.36\\.248 ": 1,
+    "boat_getout_stress: forced ": 1,
+    "boat_getout_stress: stop \\(": 1,
+    "boatgetout replaced #\\d+: ": 1,
+    "boatgetout stale: .+ npc NRE in GetOut after ": 1
+   },
+   "logForbid": {
+    "^FAIL ": 0,
+    "boatgetout guard: ": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.248 ": {
+     "match": [
+      "ts3native 0.36.248 2026-11-12 21:05:10"
+     ],
+     "noMatch": [
+      "ts3native 0.36.246 2026-11-12 21:05:10",
+      "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+      "ts3native 0.36.2480 2026-11-12 21:05:10"
+     ]
+    },
+    "boat_getout_stress: forced ": {
+     "match": [
+      "boat_getout_stress: forced boatreset on Mylee Arias npc in window 2"
+     ],
+     "noMatch": [
+      "boat_getout_stress: stop (iterations done) after 60 windows, 0 forced: stale 0, guard hit 0, household kept 0; last forced ",
+      "boat_gone_watch: destroyed BoatSpeedBoat of Mylee Arias (Arias) at 1.0,2.0"
+     ]
+    },
+    "boat_getout_stress: stop \\(": {
+     "match": [
+      "boat_getout_stress: stop (first stale NRE) after 4 windows, 2 forced: stale 1, guard hit 0, household kept 0; last forced boatreset on Mylee Arias npc in window 4"
+     ],
+     "noMatch": [
+      "boat_getout_stress: forced boatreset on Mylee Arias npc in window 2"
+     ]
+    },
+    "boatgetout replaced #\\d+: ": {
+     "match": [
+      "boatgetout replaced #1: Mylee Arias 0x1a2b npc SittingInBoat->StandingPosture during GetOut of BoatSpeedBoat 0x3c4d (+3 ticks, 2:15 PM, water True, houseboat False) by foreign task OneShotFunctionTask; ours: none; last move: none"
+     ],
+     "noMatch": [
+      "boatgetout stack #1: Handlers.BgsForce < Handlers.BgsTick",
+      "boatgetout replaced #d: x"
+     ]
+    },
+    "boatgetout stale: .+ npc NRE in GetOut after ": {
+     "match": [
+      "boatgetout stale: Mylee Arias npc NRE in GetOut after replaced #1"
+     ],
+     "noMatch": [
+      "boatgetout stale: Lala Dregg household NRE in GetOut after replaced #2",
+      "boatgetout replaced #1: Mylee Arias 0x1a2b npc SittingInBoat->StandingPosture"
+     ]
+    },
+    "^FAIL ": {
+     "match": [
+      "FAIL detour x at 0x00E7A590: prologue differs"
+     ],
+     "noMatch": [
+      "OK   equals fast (docs/258 option C)"
+     ]
+    },
+    "boatgetout guard: ": {
+     "match": [
+      "boatgetout guard: Mylee Arias 0x1a2b npc SittingInBoat->StandingPosture after the fade: NRE swallowed, Sim reset (EA reset end state)"
+     ],
+     "noMatch": [
+      "boatgetout stale: Mylee Arias npc NRE in GetOut after replaced #1"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "scriptErrorsReport": [
+    "Boat:GetOutIntoWater"
+   ],
+   "routingFailFast": {
+    "ms": 300,
+    "scope": "unseen"
+   }
+  },
+  {
+   "id": "ip-bgo-stress-guard-on",
+   "note": "[boat-getout-stress] [est 15 min] Arm B, boatgetoutguard ON + boatgetoutdiag ON, repro ip-boat-getout-stress (stops at the first guard hit + the household Sim's kept error). Pass: boatgetoutguard_hit >= 1, every NPC NRE swallowed (agent check stale == hit + household), boatgetoutguard_skipped_household >= 1 with exactly the household Sim's Boat:GetOutIntoWater script error (REPORT row, not counted), guard npc + household lines, no crash, no stuck NPC left in a boat posture.",
+   "asi": "game-copy/ts3native.asi.master1112b",
+   "iniBase": "game-copy/ts3native.ini.master1112b",
+   "fixesPackage": "game-copy/ts3fixes.package.boatgetoutguard",
+   "pinReason": "master1112b asi + ini (docs/data/builds.json, latest registered master pair, ts3native 0.36.248) + ts3fixes game-copy/ts3fixes.package.boatgetoutguard (branch bugfix/boat-getout-stale-posture = master 1e124b98 + boatgetoutguard de9290b6, builds.json ts3fixes.package.boatgetoutguard tuning e2f1b9e4, all tunings = master defaults; guard off by default, switched by fixesOn). The ts3agent with boat_getout_stress is built by cycle.ts from the checkout, so merge the branch (or run from its worktree) before this queue.",
+   "minCounters": 912,
+   "releaseDefaults": true,
+   "save": "Baseline-IP",
+   "noiseCheck": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 12,
+     "repro": "ip-boat-getout-stress",
+     "fixesReport": "boatgetoutdiag,boatgetoutguard",
+     "fixesOn": "boatgetoutdiag,boatgetoutguard",
+     "fixesRequire": "boatgetoutguard_hit>=1,boatgetoutguard_skipped_household>=1"
+    }
+   },
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0\\.36\\.248 ": 1,
+    "boat_getout_stress: forced ": 1,
+    "boat_getout_stress: stop \\(": 1,
+    "boatgetout guard: .+ npc SittingInBoat->\\S+ after the fade: NRE swallowed": 1,
+    "boatgetout guard: .+ household SittingInBoat->\\S+ after the fade: EA error kept": 1
+   },
+   "logForbid": {
+    "^FAIL ": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.248 ": {
+     "match": [
+      "ts3native 0.36.248 2026-11-12 21:05:10"
+     ],
+     "noMatch": [
+      "ts3native 0.36.246 2026-11-12 21:05:10",
+      "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+      "ts3native 0.36.2480 2026-11-12 21:05:10"
+     ]
+    },
+    "boat_getout_stress: forced ": {
+     "match": [
+      "boat_getout_stress: forced boatreset on Mylee Arias npc in window 2"
+     ],
+     "noMatch": [
+      "boat_getout_stress: stop (iterations done) after 60 windows, 0 forced: stale 0, guard hit 0, household kept 0; last forced ",
+      "boat_gone_watch: destroyed BoatSpeedBoat of Mylee Arias (Arias) at 1.0,2.0"
+     ]
+    },
+    "boat_getout_stress: stop \\(": {
+     "match": [
+      "boat_getout_stress: stop (first stale NRE) after 4 windows, 2 forced: stale 1, guard hit 0, household kept 0; last forced boatreset on Mylee Arias npc in window 4"
+     ],
+     "noMatch": [
+      "boat_getout_stress: forced boatreset on Mylee Arias npc in window 2"
+     ]
+    },
+    "boatgetout guard: .+ npc SittingInBoat->\\S+ after the fade: NRE swallowed": {
+     "match": [
+      "boatgetout guard: Mylee Arias 0x1a2b npc SittingInBoat->StandingPosture after the fade: NRE swallowed, Sim reset (EA reset end state)"
+     ],
+     "noMatch": [
+      "boatgetout guard: Lala Dregg 0x3c household SittingInBoat->StandingPosture after the fade: EA error kept (household rule)",
+      "boatgetout stale: Mylee Arias npc NRE in GetOut after replaced #1"
+     ]
+    },
+    "boatgetout guard: .+ household SittingInBoat->\\S+ after the fade: EA error kept": {
+     "match": [
+      "boatgetout guard: Lala Dregg 0x3c household SittingInBoat->StandingPosture after the fade: EA error kept (household rule)"
+     ],
+     "noMatch": [
+      "boatgetout guard: Mylee Arias 0x1a2b npc SittingInBoat->StandingPosture after the fade: NRE swallowed, Sim reset (EA reset end state)"
+     ]
+    },
+    "^FAIL ": {
+     "match": [
+      "FAIL detour x at 0x00E7A590: prologue differs"
+     ],
+     "noMatch": [
+      "OK   equals fast (docs/258 option C)"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "scriptErrorsReport": [
+    "Boat:GetOutIntoWater"
+   ],
+   "routingFailFast": {
+    "ms": 300,
+    "scope": "unseen"
+   }
+  }
+ ]
+}

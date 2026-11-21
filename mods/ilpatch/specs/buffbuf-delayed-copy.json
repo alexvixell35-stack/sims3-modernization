@@ -1,0 +1,40 @@
+{
+  "id": "buffbuf-delayed-copy",
+  "switch": "ilp_buffbuf",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.ActorSystems.BuffManager::UpdateBuffs(float)",
+  "ilHashG6": "51054c8adf5ad6b3",
+  "builds": {
+    "ea-1.67": {
+      "size": 639,
+      "sha256": "14361c2134fb03fd4d1682f615f52cdab2f0c5344ba3008109241047c833936e",
+      "tokens": {
+        "class Sims3.Gameplay.Utilities.ListSorted`1<class Sims3.Gameplay.ActorSystems.BuffTimer> Sims3.Gameplay.ActorSystems.BuffManager::mDelayedBuffs": "0x04006f9e",
+        "instance class [mscorlib]System.Collections.Generic.IEnumerator`1<!0> class Sims3.Gameplay.Utilities.ListSorted`1<class Sims3.Gameplay.ActorSystems.BuffTimer>::GetEnumerator()": "0x0a002f3d",
+        "instance bool [mscorlib]System.Collections.IEnumerator::MoveNext()": "0x0a00003c"
+      },
+      "patchedSha256": "8f9328ca7228a65e68d9532ece2291d0fa112ceca2bf32c5bd1bf7c3a3c194ca"
+    }
+  },
+  "edits": [
+    {
+      "at": "0x0",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0",
+        "ldfld",
+        "newobj"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "ldfld class Sims3.Gameplay.Utilities.ListSorted`1<class Sims3.Gameplay.ActorSystems.BuffTimer> Sims3.Gameplay.ActorSystems.BuffManager::mDelayedBuffs",
+        "callvirt instance class [mscorlib]System.Collections.Generic.IEnumerator`1<!0> class Sims3.Gameplay.Utilities.ListSorted`1<class Sims3.Gameplay.ActorSystems.BuffTimer>::GetEnumerator()",
+        "callvirt instance bool [mscorlib]System.Collections.IEnumerator::MoveNext()",
+        "brfalse @0x89"
+      ]
+    }
+  ]
+}
