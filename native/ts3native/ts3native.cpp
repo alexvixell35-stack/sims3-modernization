@@ -3436,6 +3436,9 @@ static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
+// docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
+static LONG g_jyFollowed;
+static LONG g_jyParkedN, g_jyBackN, g_jyDropN, g_jyLostN, g_jyActiveN;  // records parked / put back / dropped / expired or no slot; asks on a followed route
 static void MaybeLogCounters(ULONGLONG now) {
     LONG64 next = g_nextLog;
     if ((LONG64)now < next || InterlockedCompareExchange64(&g_nextLog, (LONG64)now + 60000, next) != next) return;
@@ -3495,10 +3498,11 @@ static void MaybeLogCounters(ULONGLONG now) {
     PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
         Log("route jobs sim waits: runplan %ld/%ld/%ld rtwait %ld/%ld/%ld disc %ld/%ld/%ld collect %ld/%ld/%ld drop %ld/%ld/%ld "
-            "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
+            "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld, records parked %ld back %ld dropped %ld lost %ld, "
+            "followed routes not yielded %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
             c.swN[1], c.swUs[1] / 1000, c.swYieldable[1], c.swN[2], c.swUs[2] / 1000, c.swYieldable[2], c.swN[3],
             c.swUs[3] / 1000, c.swYieldable[3], c.swN[4], c.swUs[4] / 1000, c.swYieldable[4], c.swN[5], c.swUs[5] / 1000,
-            c.swYieldable[5], c.swMaxUs / 1000, c.jyMode, c.jyAsks, c.jyBusy);
+            c.swYieldable[5], c.swMaxUs / 1000, c.jyMode, c.jyAsks, c.jyBusy, g_jyParkedN, g_jyBackN, g_jyDropN, g_jyLostN, g_jyActiveN);
     if (c.avReady)  // docs/137
         Log("avoid RO: mode %ld shadow %ld hit %ld miss %ld (site %ld) B %ld fallbacks %ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld T-AV %ld "
             "shadow %ld (mismatch %ld B %ld query %ld order %ld simscan %ld) writeInRo %ld", c.avMode, c.avShadow, c.avTakenHit,
@@ -5183,19 +5187,13 @@ static void SwNote(int site, LONG us, bool yieldable, DWORD handle, bool own) {
         own ? "own" : "foreign", yieldable ? "yes" : "no");
 }
 
-// docs/183 JOBBUSY (ts3fixes RouteBackoff.cs StepAside, GetOption2 with optHi 0x85000000 on any route; bit 63 has no name, so
-// the game and older builds answer false and the plan goes on as before): true = a job runs that this plan would wait for
-// here, and the caller may sleep a tick instead. Serves one pending managed call of the job, as READY does.
+// docs/183 JOBBUSY (ts3fixes RouteBackoff.cs StepAside, GetOption2 with optHi 0x85000000; bit 63 has no name, so the game and
+// older builds answer false and the plan goes on as before): jobyield.cpp. op 0 = poll (true = a job runs that this plan
+// would wait for here, and the caller may sleep a tick instead), 1 = the caller stops stepping aside and plans now, 2 = the
+// caller left its sleep by an exception.
 static const DWORD kJobBusyHi = 0x85000000;
-static u8 JyBusy() {
-    Ts3nCounters& k = ts3native_counters;
-    if (k.jyMode != 1) return 0;
-    InterlockedIncrement(&k.jyAsks);
-    if (GetCurrentThreadId() != g_async.owner || g_inInvoke || g_async.state != A_RUNNING || !CanYield()) return 0;
-    if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-    InterlockedIncrement(&k.jyBusy);
-    return 1;
-}
+static u8 JyBusy(DWORD handle, DWORD op);
+static void JyDrop(DWORD handle);
 
 // Owner side: runs the running job's managed calls until no job runs (2 s watchdog: log and keep waiting, as RunPlan does).
 static void WaitAsyncDone(int site) {
@@ -5663,6 +5661,7 @@ static u8 AsyncStart(DWORD handle, int kind = 0, const float* pt = NULL, bool fo
 }
 static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) {
     g_collect = 0;
+    JyDrop(handle);  // docs/183 §7: a new START of a route whose task stepped aside: the parked records are not this plan's
     const LONG probe = handle && g_scProbeH == handle && !kind && !foreign ? 1 : 0;  // a mark is good for one START only
     // docs/250 §7.1 (0.36.239): the watchdog tag labels an own PlanFromPoint job too (WatchdogKind2), so its time lands in wdJob*
     const LONG sc = handle && g_scTagH == handle && !foreign && (!kind || (kind == 2 && (g_scTag & 0x400))) ? g_scTag : 0;
@@ -5930,7 +5929,7 @@ static bool ArOwnGateOk(DWORD handle) {
 }
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
-    if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
+    if ((u8)options2 && optHi == kJobBusyHi && optLo <= 2) return JyBusy(handle, optLo);  // docs/183
     if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2 || optLo == 4)) return UfMsg(handle, optLo);  // docs/202; 4 = VIEW? (KdCutCamRecheck=2)
     if ((u8)options2 && optHi == 0x83000000 && (optLo & 0xFFFF00FF) == 3) return GvuMsg(handle, optLo >> 8 & 0xFF);  // docs/250 §7.3 B2 DEFER?
     if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x83000000 && (optHi >> 16 & 0xFF) >= 3) return UfCamMsg(optLo, optHi);  // docs/202 §2.1
@@ -6619,6 +6618,7 @@ static void RewindPoolParkInit(const wchar_t* ini) {
 #include "earlyout.cpp"
 #include "plandeadline.cpp"  // docs/164 §7: [RouteAsync] PlanDeadlineMs / FailMemo (routephases.cpp takes its trampolines)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
+#include "jobyield.cpp"      // docs/183 §7: JOBBUSY and the records of a sleeping plan (after plandeadline.cpp: g_kdScope*; unseenfb.cpp)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
 #include "ghost.cpp"         // docs/202 §3.9.5: [UnseenGhost] (after unseenfbc.cpp: agent site, 0x833560 layers)
 #include "unseenanim.cpp"    // docs/144 §3.4: [UnseenAnim] U-A1 (after unseen.cpp: classifier, household table)

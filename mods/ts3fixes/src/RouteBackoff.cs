@@ -140,7 +140,7 @@ namespace Ts3Fixes
                 {
                     if (ReferenceEquals(sUfMarked, this) && UfNoSync(sim, out r)) return r;  // unseenfbnosync (docs/202 §3.10): a marked unseen plan about to run on the sim thread
                     int ts = UfSyncStart();
-                    StepAside();
+                    StepAside("Plan");
                     if (!GvuDefer(0, out r)) r = PlanOrig();
                     UfSyncEnd(ts);
                 }
@@ -282,7 +282,7 @@ namespace Ts3Fixes
                     else if (GetOption2(kAsyncReady)) break;
                     // shortcut: a fixed cap (~10-20 s real time); past it the plan waits natively and is then made
                     // again synchronously. Upgrade to a time-based cap if long searches ever reach it.
-                    if (i >= kAsyncMaxPolls) { c[58]++; StepAside(); break; }
+                    if (i >= kAsyncMaxPolls) { c[58]++; StepAside("poll cap"); break; }
                     c[57]++;
                     Simulator.Sleep(0);
                 }
@@ -502,7 +502,7 @@ namespace Ts3Fixes
                     c[246]++;
                     if (started) c[247]++;
                 }
-                if (!started) StepAside();  // the kind's sync plan follows
+                if (!started) StepAside(kind == 1 ? "Replan" : kind == 2 ? "PlanFromPoint" : "ReplanFromPoint");  // the kind's sync plan follows
                 if (rtGate && !started) PatchCounters()[2738]++;
                 return started;
             }
@@ -513,6 +513,54 @@ namespace Ts3Fixes
             // with no job left to wait for. Off: one switch read. Without ts3native's [RouteAsync] JobYield the game answers
             // false (bit 63 has no name) and nothing changes. Switch "jobyield" (default ON). Counters: [248] step-asides,
             // [249] ticks slept, [250] gave up at the cap (the plan then waits natively, as before).
+            // docs/183 §7 (2026-11-21): the poll goes to the plan's own route, so ts3native can (1) hold that route's records
+            // (refusal reason, scope answer, stuck-check and UnseenFallback marks) while this task sleeps and put them back
+            // for the plan, and (2) answer "not busy" for a route that is being followed. The sleep ends with exactly one
+            // closing message (StepAsideCore.cs): the "not busy" answer itself, kJobBusyEnd at the cap, kJobBusyDrop when an
+            // exception leaves the sleep (a reset: no plan follows). An older ts3native ignores the low word and the handle.
+            // No step-aside while the task's Sim or the route's Sim holds an unplaced social jig (asyncjigsync, docs/240):
+            // that plan is kept synchronous so the partner cannot run before AddToWorld, and a sleep here would undo it.
+            // No counter slot: the "jobyield:" log line carries the session counts (asides, kept sync for a jig, resets).
+            void StepAside(string ic)
+            {
+                if (!ShortcutOn("jobyield") || !MayYield()) return;
+                IScriptProxy fp = Follower, tp = Simulator.GetProxy(Simulator.CurrentTask);
+                Sims3.Gameplay.Actors.Sim rs = fp != null ? fp.Target as Sims3.Gameplay.Actors.Sim : null;
+                Sims3.Gameplay.Actors.Sim ts = tp != null ? tp.Target as Sims3.Gameplay.Actors.Sim : null;
+                if (!GetOption2(kJobBusy)) return;
+                if (StepAsideCore.KeepSync(JigPending(ts), rs != ts ? JigPending(rs) : 0))
+                {
+                    sJyJig++;
+                    GetOption2(kJobBusy | (Sims3.SimIFace.Route.RouteOption2)(ulong)StepAsideLoop.kOpEnd);  // the busy answer took the records
+                    return;
+                }
+                int[] c = PatchCounters();
+                c[248]++;
+                int t0 = System.Environment.TickCount;
+                StepAsideLoop l = default(StepAsideLoop);
+                l.Begin(t0, kStepAsideMaxMs);
+                try
+                {
+                    for (;;)
+                    {
+                        c[249]++;
+                        Simulator.Sleep(0);
+                        // shortcut: a fixed real-time cap; a job queue that stays busy longer than this gets the old native wait
+                        if (!l.AfterSleep(System.Environment.TickCount)) { c[250]++; break; }
+                        if (!l.Answer(GetOption2(kJobBusy))) break;
+                    }
+                }
+                finally
+                {
+                    int op = l.FinalOp();
+                    if (op == StepAsideLoop.kOpDrop) sJyReset++;
+                    if (op != StepAsideLoop.kOpNone) GetOption2(kJobBusy | (Sims3.SimIFace.Route.RouteOption2)(ulong)op);
+                }
+                StepAsideNote(ic, l, unchecked(System.Environment.TickCount - t0), rs, ts, fp);
+            }
+            // The step-asides with no route of their own (JobYieldRoad.cs spawn / turn-in-place / road / traffic sites,
+            // BoatTrip.cs boarding): the poll goes through sYieldProbe (handle 0), so ts3native holds no records for them and
+            // the old loop stays as it was.
             static void StepAside()
             {
                 if (!ShortcutOn("jobyield") || !MayYield() || !sYieldProbe.GetOption2(kJobBusy)) return;
@@ -526,6 +574,27 @@ namespace Ts3Fixes
                     // shortcut: a fixed real-time cap; a job queue that stays busy longer than this gets the old native wait
                     if (unchecked(System.Environment.TickCount - t0) >= kStepAsideMaxMs) { c[250]++; return; }
                 } while (sYieldProbe.GetOption2(kJobBusy));
+            }
+            static int sJyJig, sJyReset, sJyLogMinute, sJyLogged;
+            const int kJyLinesPerMin = 30;
+            // log only, after the closing message (the lines go through a route with handle 0, never this route's records)
+            static void StepAsideNote(string ic, StepAsideLoop l, int ms, Sims3.Gameplay.Actors.Sim rs, Sims3.Gameplay.Actors.Sim ts, IScriptProxy fp)
+            {
+                int minute = System.Environment.TickCount / 60000;
+                if (minute != sJyLogMinute) { sJyLogMinute = minute; sJyLogged = 0; }
+                if (sJyLogged++ >= kJyLinesPerMin) return;
+                try
+                {
+                    object ft = fp != null ? fp.Target : null;
+                    string who = rs != null ? rs.FullName : ft != null ? ft.GetType().Name : "no follower";
+                    string task = ts == null ? "a non-Sim task" : ts == rs ? "own task" : ts.FullName + "'s task";
+                    Sims3.Gameplay.Interactions.InteractionInstance ia = rs != null ? rs.CurrentInteraction : null;
+                    int[] c = PatchCounters();
+                    DiagLine("jobyield: " + ic + ", " + l.Ticks + " ticks " + ms + " ms, " + StepAsideCore.EndName(l.End) + ", " + who + " in " + task
+                        + ", " + (ia != null ? ia.GetType().Name : "no interaction") + "; session: asides " + c[248] + " capped " + c[250]
+                        + ", kept sync for a jig " + sJyJig + ", resets " + sJyReset);
+                }
+                catch (Exception) { }
             }
             const int kStepAsideMaxMs = 10000;
             static readonly Sims3.SimIFace.Route.RouteOption2 kJobBusy = unchecked((Sims3.SimIFace.Route.RouteOption2)0x8500000000000000UL);

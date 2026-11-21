@@ -114074,6 +114074,41 @@
     ]
   },
   {
+   "id": "ip-jobyield-strand-storm",
+   "bug": "docs/183 §7: in 3 of 24 Isla Paradiso route storms with [RouteAsync] JobYield=1 (s229, s241, s265) every Collins household Sim that reaches the third floor of Colonial Casa (y 61, room 11) gets NoPathToDestination, blocker None, to every goal on the two floors below, async jobs and the stuck check's sync plans alike, until the end of the run and past the storm's stop; 0 of about 90 storms with JobYield=0 (7 of them with the same other keys). Associated with JobYield, cause not shown by a log line.",
+   "fix": "ts3native jobyield.cpp + ts3fixes StepAside (docs/183 §7.3): the refused START's records are held while the task sleeps and put back for its plan, no step-aside with a pending social jig or on a followed route ([RouteAsync] JobYieldFollowed=1 = old behaviour), every sleep closed exactly once.",
+   "save": "IslaParadiso.world fresh start, largest household (Collins) active: the storm-ab.sh load (the Linux rig's runner, not in the repo)",
+   "note": "UNVERIFIED in the game (2026-11-21: host test + C# selftest + clang-cl syntax check; MSVC selftest step 5 written for the CI build). Decision repro, one load per arm (the ini keys of s265: KindsUnseen=7, the BASE RO set, TaskServe=1, SmoothCut=1, PlayerFirst=0): fix arm JobYield=1, control arm JobYield=0, ts3fixes jobyield on in both; 8 fix and 4 control loads interleaved (fix, fix, control). The steps below are one arm's storm.",
+   "expect": "Per load: no two household Sims with 3 or more 'ts3fixes: routefail:' lines from y 61 to a goal below y 60 (scan: strand=0); 'route jobs sim waits:' line with records lost 0 and back + dropped = parked; 'ts3fixes: jobyield:' lines present in the fix arm (asides > 0), none in the control arm. A stuck load: the jobyield lines before its first y 61 routefail name the plan that stepped aside.",
+   "steps": [
+    {
+     "cmd": "set_speed",
+     "args": {
+      "speed": "normal"
+     },
+     "waitS": 2
+    },
+    {
+     "cmd": "route_storm",
+     "args": {
+      "count": 80,
+      "repeatS": 10,
+      "seed": 152
+     },
+     "waitS": 120,
+     "note": "the s265 storm: 80 forced routes every 10 s for 2 min"
+    },
+    {
+     "cmd": "route_storm",
+     "args": {
+      "stop": true
+     },
+     "waitS": 60,
+     "note": "calm tail: a stuck household keeps failing here"
+    }
+   ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
