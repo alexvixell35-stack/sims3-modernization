@@ -1913,7 +1913,7 @@ play window, 43.7 s, 18 `route async: long job` lines of 1 s or more. No other r
 cut returns as no-path and the interaction retries") **does not hold** [verified, logs]:
 
 - The slow jobs are `foreign START, IC kind 0` (a Plan sent from the rider's task with the boat as follower). Kind 0 foreign
-  jobs run on the worker in the baseline too: s309 (baseline arm) has the same job three times (`closestWps 488/91`,
+  jobs run on the worker without the G keys too: s309 has the same job three times (`closestWps 488/91`,
   `1288/92`, `509/91`, cut by `KindDeadlines`, another follower). `ForeignKindsUnseen=2` only adds kind 2.
 - 10 of the 18 are **not cut** (`uncut: backoff (KdUncutCeilMs)`, deadline 30000 ms) and take 2.2-3.6 s anyway; 8 are cut
   (deadline 200 / 400 ms, `capAt` 1.5-1.6 s, tail 0.5 s). The cut is late, as §27.3 said, but it is not what repeats.

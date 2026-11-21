@@ -301,10 +301,10 @@ Full read of the run: docs/670 §28.
 
 **What the run shows [verified, log].** One NPC (driver of a `BoatPaddleBoat`, follower id constant) fails 41 of 43 route
 jobs with no path in about a minute, from the same spot. 17 of its 24 routes have two jobs on the **same route handle**:
-first 0-69 ms (`nodes 0`), then at once a second one of 0.4-3.6 s. All 18 jobs of the run that took 1 s or more are these
+first 0-69 ms (mostly `nodes 0`), then at once a second one of 0.4-3.6 s. All 18 jobs of the run that took 1 s or more are these
 second jobs (44.4 s of worker time with the routing lock held; 15 of the 18 are followed by this boat's `ufplan` line, the
 other three have no managed line left in the minute's log budget). Their `route candidate split` line: `closestWps
-1.1-2.1 s / 84-94 calls`, in 9 of them also `world` 0.9-1.5 s.
+0.6-2.1 s / 84-94 calls` (17 of the 18 have the line), in 9 of them also `world` 1.0-2.1 s.
 
 **Why two plans [verified, decompiled].** `SimRoutingComponent.DoRoute` on a failed plan calls `DoRouteFailureBehavior`,
 which calls `GetRouteFailPath` (up to twice): the same route object is planned again toward the blocker
