@@ -353,6 +353,7 @@ namespace Ts3Fixes
                 if (sim == null) return;
                 if (!ok) SrlReplan(r, sim, kind, res);  // socialreplanlog (SocialReplanLog.cs, docs/577 §2), logging only
                 if (!ok) RclPlan(r, sim, kind, res);  // routecauselog (RouteCauseLog.cs, docs/580), logging only
+                if (!ok) StrandPlan(r, sim, kind, res);  // strand lines (StrandLog.cs, docs/183 §8), logging only: the household's cross-level no-path plans
                 if (!ok) PfmPlan(sim, res);  // poolfailmemo (PoolFailMemo.cs, docs/645 §2)
                 if (!ok) PssPlan(sim, res);  // petstartleskip (PetStartleSkip.cs, docs/645 §3)
                 if (!ok) { TofPlan(sim, res); WlsPlan(sim, res); }  // trashoutsidefallback / wildlotskip (docs/646): note no-path plans

@@ -196,6 +196,17 @@ static void HcCross(const DWORD* key, DWORD ans, LONGLONG now) {
     w.ans = ans, w.job = t_hcJob, w.t = now;
 }
 
+// docs/183 §8: one answered ask of the running job, for its "routefail job:" text (JobDoor, ts3native.cpp). Worker only.
+static void HcJobDoorNote(const DWORD* key, DWORD ans, bool live) {
+    JobDoor& d = t_jobDoor;
+    d.asks++;
+    if (live) d.live++;
+    if (key[8]) d.nativeLocked++;
+    if (ans == 3) d.discouraged++;
+    if (ans != 1) return;
+    if (!d.locked++) d.first[0] = key[4], d.first[1] = key[5], d.first[2] = key[6], d.first[3] = key[7], d.first[4] = key[8];
+}
+
 // slot = the call's return slot: slot[1..9] = the arguments. 0 = pass through to the next, 1 = return g_hcDoorAns
 static int __cdecl HcDoorEnter(DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
@@ -212,6 +223,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     // nothing is answered or kept until ts3fixes doorgen armed it)
     DsAsk ds = {};
     if (share && DsBefore(key, DmxDeleg(), HcNow(), &ds)) {
+        HcJobDoorNote(key, 2, false);
         g_hcDoorAns = 2;
         return 1;
     }
@@ -236,6 +248,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         if ((xm == 1 || xm == 3) && !npc) InterlockedIncrement(&ts3native_doorgen.exempt);
         if (xRow && (xm == 1 || xm == 3) && npc && (InterlockedIncrement(&g_dmxSelf) & 7)) {
             InterlockedIncrement(&k.dmxHit);
+            HcJobDoorNote(key, xRow->ans, false);
             g_hcDoorAns = xRow->ans;
             return 1;
         }
@@ -251,6 +264,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     }
     if (hit && mode == 1) {
         InterlockedIncrement(&k.dmHits);
+        HcJobDoorNote(key, hit->ans, false);
         g_hcDoorAns = hit->ans;
         return 1;
     }
@@ -261,6 +275,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     t_hcDoor = 0;
     const LONGLONG now = HcNow();
     const LONG us = HcUs(now - t0);
+    HcJobDoorNote(key, r, true);
     DsAfter(&ds, key, r, us);
     if (split) InterlockedExchangeAdd(&k.hcDoorWaitUs, us);
     if (hit) {
