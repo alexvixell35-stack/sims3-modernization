@@ -128,6 +128,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/routerelax/run.ts': CSC,
   'tools/selftest/nearestlot/run.ts': CSC,
   'tools/selftest/actdelay/run.ts': CSC,
+  'tools/selftest/standwait/run.ts': CSC,
   'tools/selftest/houseboatgangwayrescue/run.ts': CSC,
   'tools/selftest/houseboatlegmemo/run.ts': CSC,
   'tools/selftest/lotgameplay/run.ts': CSC,

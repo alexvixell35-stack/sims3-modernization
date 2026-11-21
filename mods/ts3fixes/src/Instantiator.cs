@@ -379,6 +379,13 @@ namespace Ts3Fixes
         [Tunable] public static bool kFglInBound = false;  // fglinbound (docs/682 §9): FindGoodLocationNearby's lot-wide indoors search is made by ts3fixes and announced to ts3native, whose [FglInside] skips the placement tests on tiles without a room (EA's answer); needs ts3native [FglInside] Enabled=1; NPC task Sims; off until its in-game run
         [Tunable] public static bool kFglInBoundHousehold = false;  // fglinboundhh: fglinbound for household and selected Sims too (EA's answer; own switch until the shadow counts are in)
         [Tunable] public static bool kFglInBoundShadow = false;  // fglinbound: also run EA's indoors stage, return its answer and count / log a difference (costs EA's full time; for the first runs only)
+        [Tunable] public static bool kStandWaitFix = false;  // standwaitfix (docs/686): in a blocked cycle of the obstacle stand-and-wait (replan failed) a Sim obeys a push or cancel, pushes the Sims in its way and, when only people block, walks on with the game's ignore-obstacles timer
+        [Tunable] public static bool kStandWaitFixHousehold = false;  // standwaitfixhh: standwaitfix for household and selected Sims too (their result differs from EA's 50-minute wait)
+        [Tunable] public static bool kStandWaitLog = false;  // standwaitlog: one ts3native.log line per stand-and-wait that had blocked cycles (either switch state)
+        [Tunable] public static int kStandWaitPassCycle = 2;  // blocked cycle from which the route is planned once without people (0 = never)
+        [Tunable] public static int kStandWaitPassEvery = 3;  // blocked cycles between two such plans
+        [Tunable] public static float kStandWaitPassMinutes = 5f;  // sim-minutes of the game's ignore-obstacles timer after a pass
+        [Tunable] public static int kStandWaitLogLines = 300;  // standwaitlog lines per session
         [Tunable] public static bool kActDelay = false;  // actdelay (docs/684): read-only probe, per interaction instance the time from queued to the Sim acting, split into buckets; one log line per instance over kActDelayLogMs and a summary a minute; test runs only
         [Tunable] public static int kActDelayLogMs = 500;  // actdelay: an instance whose queued -> act time reaches this gets its own log line
         [Tunable] public static int kActDelayLinesPerMin = 30;  // actdelay: most instance lines a minute of real time

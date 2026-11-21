@@ -525,6 +525,7 @@ namespace Ts3Fixes
             ApplyCasOccultLog();       // docs/658 §6.4 (CasOccultLog.cs), off by default
             ApplyCasTintReset();       // docs/658 §6.6 (CasTintReset.cs), off by default, unconfirmed
             ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
+            ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
             // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
             ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off)
@@ -823,6 +824,10 @@ namespace Ts3Fixes
         // household or unknown Sim / shadow compares / shadow different (must stay 0) / errors / our ms / EA's stage ms in shadow.
         // [4270-4279] actdelay (ActDelay.cs, docs/684; 4260-4269 left for a parallel branch): instances that acted / of them over kActDelayLogMs / ended without acting /
         // left the queue before Run / dropped (table full or stale) / errors / lines written / plans inside records / summed queued -> act ms / longest queued -> act ms.
+        // [4300-4319] standwaitfix (StandWait.cs, docs/686; 4290-4299 left for a parallel branch): obstacle stand-and-waits / blocked cycles (replan failed, the game's
+        // early return) / waits with blocked cycles / of them ran to the game's timeout / yields (on) / would yield (off) / push cycles / Sims pushed / would push (off) /
+        // mutual cycles / pushes withheld (outranked) / plans without people / passes / would pass (off) / exempt cycles (household without standwaitfixhh) /
+        // waits resolved by the fix / their timeout cycles left (upper bound of cycles saved) / errors / longest blocked run (gauge) / lines written.
         // [4280-4289] actdelay overlays (ActDelay.cs, docs/684 §8): outfit waits that slept / their summed ms / longest ms / of them household or selected /
         // instances with a sync wait / their summed sync ms / instances whose Run began in a vehicle / inside a rabbit hole / long outfit waits with the Sim on screen / long outfit waits.
         // [4248-4249] firegreet (FireGreet.cs, docs/681): firefighter greeted on the emergency lot / errors.
@@ -1303,7 +1308,7 @@ namespace Ts3Fixes
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 2799, then 2800-3999 (upstream #470; s74 3388-3393, s77 3394-3404),
         // then the contributor block 4000-4089, then 4090-4129 (4090-4099 npcloops-c, 4100-4109 npcstallend, 4110-4119 another branch, 4120-4129 objfailmemo, 4130-4139 another branch, 4140-4149 socialunlinkend, 4150-4169 other branches, 4170-4199 docs/656 pets, 4200-4219 other branches, 4220-4249 docs/661 lot gameplay, 4250-4259 fglinbound docs/682, 4270-4279 actdelay docs/684), docs/registry.md), so a new fix
         // never needs the array resized by hand.
-        const int kCounterSlots = 4290;
+        const int kCounterSlots = 4320;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1593,6 +1598,9 @@ namespace Ts3Fixes
                 case "followerlasttry": return Instantiator.kFollowerLastTry;  // RouteRelax.cs (docs/675): full ring on an NPC follower's last meet-up try, off
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
+                case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
+                case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
+                case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off
                 case "doorshare": return Instantiator.kDoorShare;  // DoorShare.cs (docs/674): mark Sim-independent door answers for ts3native [RouteSnap] DoorShare, off

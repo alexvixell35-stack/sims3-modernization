@@ -115653,6 +115653,846 @@
     ]
   },
   {
+    "id": "standwait-check",
+    "bug": "EA's obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) answers 'keep waiting' as soon as its replan fails, before its own tests for a push request or cancel and before it pushes the Sims in the way; two Sims standing in each other's footprint at a stair top or doorway wait the full 50 sim-min (docs/686)",
+    "fix": "ts3fixes StandWait.cs: standwaitfix (+ standwaitfixhh for household and selected Sims), default off, docs/686",
+    "save": "any world (pure check)",
+    "note": "StandWaitCheck 'run' evaluates the blocked-cycle rules with controls (read-only); 'result' shows the counters 4300-4319, the members found and the last wait's line.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": true,
+          "standwaitfixhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "standwait-landing-crowd",
+    "bug": "Household Sims that leave the third-floor landing of Colonial Casa together stand at a stair top replanning one short route every wait cycle (5-17 'Replan ... FailedBecause...' routefail lines per Sim, up to EA's 50 sim-min timeout): each stands in the other's footprint, the replan fails, and EA's cycle handler returns before it pushes or obeys a push (docs/686; storms s141-s291, repro upstairs-landing-jam arm c)",
+    "fix": "ts3fixes StandWait.cs: standwaitfix + standwaitfixhh (default off), docs/686",
+    "save": "IslaParadiso.world fresh start, largest household (Collins) active: the storm-ab.sh load (the Linux rig: landing-run.sh keys, not in the repo)",
+    "area": [
+      930.5,
+      1202.0
+    ],
+    "note": "UNVERIFIED (2026-11-21, offline only: JSON and steps checked, never run). Four arms in one load, off / on / off / on, each a 'mem: standwait-<arm>' line in ts3native.log: the four Sims placed on the landing at their upstairs-landing-jam spots (setup_sims, autonomy off), then Go Here to the ground floor: arms 1 to the four separate goals of upstairs-landing-jam, arms 2 to four goals 0.5 m apart. standwaitlog is on in every arm, so each wait with blocked cycles writes one 'standwait:' line (off arms: what the fix would have done). The jam does not form in every load (upstairs-landing-jam: 1 of 5 arms): an off arm without a 'standwait:' line proves nothing, rerun. Read per arm: the 'standwait:' lines (blocked cycles, end kind), the routefail 'Replan' lines per Sim, HiddenRoomCheck level per Sim after 60 s (0 = ground floor reached), StandWaitCheck result.",
+    "expect": "off arms: 'standwait:' lines with 'fix off', blocked cycles up to 13-17 and 'end timeout' or 'end other', 'would yield' / 'push' / 'pass' filled in; Sims may still be on level 2 or 1 after 60 s. on arms: every 'standwait:' line ends 'yield', 'pass' or 'replan ok after push' within 4 blocked cycles, all four Sims at level 0, no 'route false' in the gohere end lines, errors 0, no teleport (the Sims walk: gohere end lines 'route ok').",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "normal speed: the waits below are real seconds at x1"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": true
+        },
+        "note": "arm off1: standwaitfix + standwaitfixhh off (compare mode counts), standwaitlog on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "standwait-off1"
+        },
+        "note": "log marker standwait-off1"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "off1 Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "off1 Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "off1 Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "off1 Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "off1 Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 939.9,
+          "y": 55,
+          "z": 1205.0
+        },
+        "note": "off1 Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 928.4,
+          "y": 55,
+          "z": 1205.5
+        },
+        "note": "off1 Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "off1 Christopher go",
+        "max": 300,
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off1 Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "off1 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "off1 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "off1 Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off1: counters after the arm",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlog": true
+        },
+        "note": "arm on1: standwaitfix + standwaitfixhh on, standwaitlog on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "standwait-on1"
+        },
+        "note": "log marker standwait-on1"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "on1 Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "on1 Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "on1 Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "on1 Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "on1 Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 939.9,
+          "y": 55,
+          "z": 1205.0
+        },
+        "note": "on1 Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 928.4,
+          "y": 55,
+          "z": 1205.5
+        },
+        "note": "on1 Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "on1 Christopher go",
+        "max": 300,
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on1 Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "on1 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "on1 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "on1 Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on1: counters after the arm",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": true
+        },
+        "note": "arm off2: standwaitfix + standwaitfixhh off (compare mode counts), standwaitlog on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "standwait-off2"
+        },
+        "note": "log marker standwait-off2"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "off2 Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "off2 Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "off2 Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "off2 Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "off2 Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 936.9,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "off2 Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1207.0
+        },
+        "note": "off2 Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 936.9,
+          "y": 55,
+          "z": 1207.0
+        },
+        "note": "off2 Christopher go",
+        "max": 300,
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "off2 Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "off2 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "off2 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "off2 Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off2: counters after the arm",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": true,
+          "standwaitfixhh": true,
+          "standwaitlog": true
+        },
+        "note": "arm on2: standwaitfix + standwaitfixhh on, standwaitlog on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "standwait-on2"
+        },
+        "note": "log marker standwait-on2"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "on2 Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "on2 Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "on2 Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "on2 Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "on2 Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 936.9,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "on2 Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1207.0
+        },
+        "note": "on2 Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 936.9,
+          "y": 55,
+          "z": 1207.0
+        },
+        "note": "on2 Christopher go",
+        "max": 300,
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "on2 Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "on2 Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "on2 Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "on2 Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on2: counters after the arm",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": false
+        },
+        "note": "back to the default"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        },
+        "note": "autonomy back on"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": false
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
