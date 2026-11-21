@@ -67,6 +67,7 @@ namespace Ts3Fixes
         static void FireGreetTick()
         {
             FireLeftoverTick();  // fireleftover (FireLeftover.cs) shares this minute alarm; it reads its own switch
+            AptGasLeakTick();    // aptgasleak (AptJobTargets.cs) too
             try
             {
                 if (!ShortcutOn("firegreet")) return;

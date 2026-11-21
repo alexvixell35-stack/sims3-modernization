@@ -69,6 +69,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
 'tools/selftest/autshadow/run.ts': CSC,
   'tools/selftest/doormirror/run.ts': CSC,
   'tools/selftest/fireleftover/run.ts': CSC,
+  'tools/selftest/aptjobtargets/run.ts': CSC,
   'tools/selftest/easpread/run.ts': CSC,
   'tools/selftest/errortrapspread/run.ts': CSC,
   'tools/selftest/switchcache/run.ts': CSC,

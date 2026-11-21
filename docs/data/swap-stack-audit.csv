@@ -1,5 +1,6 @@
 hook,target,method,file,stub,yields,proof,purpose,action
 AkHook.RemoveHook,AlarmManager,InternalRemoveAlarm,AlarmKillLog.cs,RemoveOrig,no,no path to a yield in 1 overload(s),alarmkilllog (docs/546 row 5): log a repeating alarm removed after its callback threw,"keep: no yield, never on a saved stack"
+AppHook.RangeHook,GhostHunter.GhostHunterJob,GetPossessableObjectInRange,AptJobTargets.cs,RangeOrig,no,no path to a yield in 1 overload(s),AptJobTargets,keep
 AlRoomHook.RoomHook,Sim,RoomChanged,AptLeave.cs,RoomOrig,yes,Sim::RoomChanged > LightGameObject::AutoLightsOn > .. 2 .. > StateMachineClient::RequestState,AptLeave,"keep, stub remap (SavedStacks.cs)"
 AlLeaveHook.LeaveHook,VisitSituation,OnSimLeavingLot,AptLeave.cs,LeaveOrig,yes,VisitSituation::OnSimLeavingLot > HostedSituation::RemoveGuest > .. 6 .. > Simulator::Sleep,AptLeave,"keep, stub remap (SavedStacks.cs)"
 AutEnvHook.EnvHook,SimUpdate,CalculateSimEnvironmentScore,AutOffload.cs,EnvOrig,yes,SimUpdate::CalculateSimEnvironmentScore > Inventory::TurnOfMP3 > PortableMp3Player::StopMusic > Simulator::Sleep,AutOffload,"keep, stub remap (SavedStacks.cs)"

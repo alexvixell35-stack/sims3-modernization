@@ -19,6 +19,7 @@ namespace Ts3Fixes
                 case "alarmtime": return EpJoin(EpJoin(EpLive(typeof(AzTimerHook), 1), EpLive(typeof(HcLotHook), 0)), EpLive(typeof(SpkPlaceHook), 2));
                 case "alarmzeroperiod": return EpLive(typeof(AzTimerHook), 1);
                 case "aptleave": return EpJoin(EpLive(typeof(AlLeaveHook), 1), EpLive(typeof(AlRoomHook), 1));
+                case "aptpossess": return EpLive(typeof(AppHook), 1, "sAppList", sAppList, null, "sAppRange", sAppRange, typeof(float), "sAppRange", sAppRange, "static");
                 case "artsellnoartist": return EpLive(typeof(ArtSellHook), 1);
                 case "asyncreplan": return EpLive(typeof(RouteBackoffHook), 4);
                 case "asyncreplanforeign": return EpLive(typeof(RouteBackoffHook), 4);

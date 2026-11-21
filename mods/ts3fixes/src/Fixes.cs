@@ -190,6 +190,7 @@ namespace Ts3Fixes
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
             ApplyFireActiveJob();    // docs/570 §1 (FireActiveJob.cs)
             ApplyFireTrapCount();    // docs/570 §5 (FireTrapCount.cs)
+            ApplyAptPossess();       // docs/863 (AptJobTargets.cs)
             ApplyGenerationsLogic(); // docs/571 §1-4 (GenerationsLogic.cs)
             ApplySeasonsLogic();     // docs/571 §5-7 (SeasonsLogic.cs)
             ApplySupernaturalLogic(); // docs/571 §8 (SupernaturalLogic.cs)
@@ -1061,6 +1062,8 @@ namespace Ts3Fixes
         // [3953-3955] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
         // [3956-3959] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
         // [2178-2180] fireleftover (FireLeftover.cs, docs/862): emergency rescue tasks dropped with nobody trapped left / window-fire tasks completed with no window fire left / errors.
+        // [2181-2183] aptgasleak (AptJobTargets.cs, docs/863): earthquake gas leaks in hidden apartment units dropped / seen with the switch off / errors.
+        // [2184-2186] aptpossess (AptJobTargets.cs, docs/863): ghost-hunter spirit hops into hidden apartment units re-picked / seen with the switch off / errors.
         // [3960-3962] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
         // [3963-3966] sneakoutlistener (GenerationsLogic.cs, docs/571 §2): stale sneak-outs skipped / duplicate return-home listeners removed / left-over sneak listeners removed / errors.
         // [3618-3619] promcarpool (GenerationsLogic.cs, docs/571 §3): prom carpools removed / errors.
@@ -2051,6 +2054,8 @@ namespace Ts3Fixes
                 case "fireactivejob": return Instantiator.kFireActiveJob;
                 case "firegreet": return Instantiator.kFireGreet;
                 case "fireleftover": return Instantiator.kFireLeftover;
+                case "aptgasleak": return Instantiator.kAptGasLeak;
+                case "aptpossess": return Instantiator.kAptPossess;
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;

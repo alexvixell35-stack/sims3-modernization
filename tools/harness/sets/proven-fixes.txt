@@ -69,3 +69,5 @@
 #   commodmapfast commodmapshadow
 # EA bug fix: firefighter emergency ends when its last rescue / window-fire task cannot be done any more (docs/862, 2026-11-21), default off, NOT RUN:
 #   fireleftover
+# EA bug fix: apartment job targets: earthquake gas leak in a hidden unit dropped; ghost-hunter spirit hop never lands in a hidden unit (docs/863, 2026-11-21), default off, NOT RUN:
+#   aptgasleak aptpossess

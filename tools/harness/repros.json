@@ -98895,6 +98895,93 @@
     ]
   },
   {
+    "id": "apt-job-targets",
+    "bug": "Active-career job targets inside hidden apartment units: an earthquake gas leak starts on a stove in a neighbour's hidden unit (FireFightingJob.SetupTask(GasLeak) has no room test), and a ghost-hunter spirit hops after a failed exorcise to any possessable object within 8 m on the same level (GhostHunterJob.GetPossessableObjectInRange has no room or route test). Nobody can enter a hidden unit, so the task can never be done and the job waits out its timeout (docs/863)",
+    "fix": "ts3fixes AptJobTargets.cs: aptgasleak, aptpossess (default off), docs/863",
+    "save": "any world (pure check); scan needs a world with apartment lots (Bridgeport)",
+    "note": "AptJobTargetsCheck 'run' puts both reported layouts through the decisions with controls (read-only); 'scan' lists, per apartment lot, stoves and other unparented objects inside hidden rooms (whether this world can trigger either bug). End to end: a household firefighter with an earthquake job on an apartment lot whose hidden unit holds a stove (2182 off / 2181 on), or a ghost hunter's possessed-objects job on an apartment lot with furnished hidden units next to the possessed object (2185 off / 2184 on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2183 and 2186 (errors) stay 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": false,
+          "aptpossess": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "can this world trigger it"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": true,
+          "aptpossess": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": false,
+          "aptpossess": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": false,
+          "aptpossess": false
+        }
+      }
+    ]
+  },
+  {
     "id": "fire-trap-count",
     "bug": "Firefighter large fire / earthquake: a trapped Sim who leaves the lot (or is deleted) unfreed keeps its 'free N Sims' task, and on apartment lots trap spots include hidden neighbour units nobody can enter; the count cannot be met and the job times out (docs/570 §5)",
     "fix": "ts3fixes FireTrapCount.cs: firetrapcount (default off), docs/570 §5",
