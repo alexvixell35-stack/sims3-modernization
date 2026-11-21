@@ -3296,6 +3296,14 @@ static void MaybeLogCounters(ULONGLONG now) {
         Log("footprint defer 2: mode %ld deferred %ld/%ld applied %ld/%ld dropped %ld/%ld dup %ld pass %ld forced %ld fullPass %ld ageMax %ld ms applyInJob %ld",
             c.fp2Mode, c.fp2Deferred[0], c.fp2Deferred[1], c.fp2Applied[0], c.fp2Applied[1], c.fp2Dropped[0], c.fp2Dropped[1],
             c.fp2Dup, c.fp2Pass, c.fp2Forced, c.fp2FullPass, c.fp2AgeMaxMs, c.fp2ApplyInJob);
+    if (c.fp2lrReady)  // docs/670 §27: the flushes before event 9's insert by call site (0 = bracketed 0x9462D4, 1 = plain 0x94630A)
+        Log("lost removal flush: flushes %ld, at the bracketed site %ld (%ld ms), at the plain site %ld (%ld ms), task could yield %ld "
+            "(%ld ms), order misses %ld", c.fp2lrFlush, c.lrsN[0], c.lrsUs[0] / 1000, c.lrsN[1], c.lrsUs[1] / 1000, c.lrsYieldN,
+            c.lrsYieldUs / 1000, c.fp2lrOrderMiss);
+    if (c.ltReady && c.ltCalls)  // docs/670 §27: L1's give-backs (what waits at key 0x631814) had no line
+        Log("lot front door RO: mode %ld shadow %ld calls %ld answered in a job %ld (max %ld us); given back: state %ld, nested QL %ld, "
+            "no world manager / active lot %ld, QL busy %ld, shape %ld, QL frames lost %ld",
+            c.ltMode, c.ltShadow, c.ltCalls, c.ltTaken, c.ltMaxUs, c.ltFb[0], c.ltFb[1], c.ltFb[2], c.ltFb[3], c.ltFb[4], c.ltFb[5]);
     DiscRfLog();  // docs/89 §18
     PfLog();      // docs/631 §5
     if (c.pfReady)  // docs/89 §14 private footprint remove

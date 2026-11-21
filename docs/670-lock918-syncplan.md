@@ -1422,6 +1422,9 @@ counts its tails in its own block. `[RouteToObjRO]`'s behaviour and counters are
 
 ```
 [Blocker2dRO]
+Enabled=1
+```
+
 ## 24. `[LandCheckRO]`: the closest-waypoint gather under design SH (ts3native, default off, NOT RUN)
 
 2026-11-20, branch `fix/land-check-ro`. Tools: capstone on the Steam 1.67 code (function bodies, a direct-call closure of
@@ -1714,3 +1717,189 @@ is written.
 Repro `upstairs-landing-jam` with the CI asi of this branch, twice. Pass: arm c crowd 4/4 in both loads, `land check RO`
 with `shadow runs` > 0 and `mismatch 0`. If arm c still fails, the shadow switches are not the cause (26.1's open
 point): swap arms c and d in the repro, and run arm c with one shadow word at a time.
+
+## 27. s294-s309 read: the 142 frames by cause; `[Discourage] DeferObjInsert`, `[RouteAsync] DiscYieldOwn` (ts3native, default off, NOT RUN)
+
+2026-11-21, branch `fix/lockstall-1121` (off `work/combo-1117` at `d067fe20`). Input: the play windows of the 16 on arms
+s294-s309 (2-minute Isla Paradiso route storms; `ts3native-full.log` between `mem: p-base` and `mem: p-end`, GC brackets
+left out), `[HitchAttr] RouteLockCallers=1` on in all of them; Ghidra headless `DecompileTo` and `llvm-objdump` on the
+Steam 1.67 code. **No game run in this pass.**
+
+### 27.1 What the arms had off [verified: the startup lines of each log]
+
+All 16: `land check RO off`, `obstruction at point RO off`, `blocker check 2d RO off`, `[SteerRO] RetryWait=0`,
+`ForeignKindsUnseen=0`, `DiscYieldForeign=0`, no `route skip retry:` line (`SkipRetry=0`), `waypoint snap off`.
+`job yield mode 1` in all of them. So §25.2's list of built answers was again not in the test.
+
+### 27.2 The frames [measured]
+
+142 frames >= 150 ms: `lock918` 64, `job-wait` 33, `sim-cpu` 29, `mixed` 11, `sync-plan` 5. Logged waits (>= 20 ms):
+`route lock wait:` 578 lines / 32.7 s, `route jobs: sim waited` 465 lines / 26.3 s. s294, between its two minute lines in
+play: 891 jobs, 16.0 s of job time (27 % of the wall time), 717 pump waits on `+0x918`, 1.8 s.
+
+**`+0x918` waits by key and caller** (the `callers` word; 16 arms summed; "frames" = `lock918` / `mixed` frames whose
+largest key it is):
+
+| key < caller | lines / ms / max | frames / lock ms | who | answer that exists | on in these arms |
+|---|---|---|---|---|---|
+| `0x62FB74` < `0x654BE5` (+ `0x62FB8B`) | 145 / 7,062 / 226 | 17 / 2,250 | `ArePointsConnectedByLand`'s closest-waypoint gather | `[LandCheckRO]` (§24) | no |
+| `0x62EF7A` < `0x655ABE` | 98 / 5,088 / 224 | 7 / 991 | `RouteObstructionAtPoint` | `[ObstructAtRO]` (§22) | no |
+| `0x85FE10` | 45 / 3,344 / 176 | 13 / 1,946 | S2's given-back steering queries | `[SteerRO] RetryWait` (§25) | no |
+| `0x760BFF` < `0x76429D` (Plan / Replan), `0x764400` (PlanFromPoint) | 43 / 3,238 / 1,307 | 6 / 1,795 | a sync plan's goal step | §27.3 | no |
+| `0x631814` < our L1 hook | 35 / 2,336 / 183 | 7 / 884 | `[LotFrontDoorRO]` give-backs | none; the reasons had no log line (§27.6) | - |
+| `0x62FB74` < `0x834201` | 42 / 2,059 / 214 | 3 / 423 | writer path `0x8341D0` (§21.2) | none (writer) | - |
+| `0xD882D7` | 31 / 1,463 / 106 | 2 / 207 | `[ConnRoomsRO]` give-backs (`lot not built`) | none | - |
+| `0x62F782` < `0x76F15D`, `0x7581A6` | 38 / 2,162 / 159 | 4 / 600 | `PortalsForObject`; `0x7581A6` = `SetPortalCost` (writer), `0x76F15D` not read | none | - |
+| `0x62EF7A` < `0x75167F` | 15 / 1,013 / 192 | 3 / 475 | gate 0 from `0x75167F` (inside the `IsPointObstructedBySim` IC body `0x751480`; `[ObstructedRO]`'s give-back [inferred]) | none | - |
+| `0x85F6CB` | 18 / 1,032 | 2 / 228 | `[EditPathRO]` give-backs | - | - |
+| `0x833697` | 19 / 801 / 88 | 1 / 59 | event 9's footprint insert `0x833680` | **`DeferObjInsert` (§27.4)** | new |
+| `0x62EF7A` < `0x82E696` | 9 / 560 / 206 | 1 / 206 | `BlockerCheck2d` | `[Blocker2dRO]` (§24) | no |
+| `0x631F40`, `0x83156D`, `0x846D21`, `0x62FB74` < a non-image caller, others | 40 / 2,498 | 9 / 1,156 | readers' give-backs | - | - |
+
+So 16.1 of the 32.7 s (the first three rows and `0x82E696`) and 38 of the 75 frames have an answer that was built and
+was off.
+
+**Job waits by site** ("frames" = `job-wait` frames, by the frame's last wait line):
+
+| site | lines / ms / max | frames / wait ms | what blocks | answer |
+|---|---|---|---|---|
+| `rtwait`, `lost-removal flush` | 283 / 15,933 / 458 | 18 / 3,092 | `UolFlushFor` before event 9's insert `0x833680` (§27.4) | **`DeferObjInsert`** (new) |
+| `disc`, drain point `READY` | 81 / 4,531 / 423 | 5 / 1,084 | a forced drain (oldest record >= 250 ms) at a READY poll; 67 lines / 3,602 ms behind an own job | `DiscYieldForeign` (off) for the foreign 14; **`DiscYieldOwn`** (new, §27.5) |
+| `runplan` | 44 / 3,294 / 340 | 7 / 1,284 | a sync plan waits for the running job before it plans | §27.3 |
+| `rtwait`, `destroy` | 23 / 924 / 130 | 1 / 130 | `ObjectService_DestroyById` while a job runs, task cannot yield | none (D-X; `DestroyPark` is on) |
+| `disc`, `fp2 reader` | 20 / 918 / 134 | 1 / 134 | the private-footprint ICs flush an object's queued record | none here |
+| `disc`, `A10 START`, `START`, `CANCEL` | 14 / 679 / 227 | 1 / 227 | forced drains at the other poll points | `DiscYieldOwn` / `DiscYieldForeign` for START and A10 START; CANCEL keeps the wait |
+
+### 27.3 Question 1: the sync plans [verified: logs + source]
+
+`route phases: sync plan` lines (plans >= 40 ms), 16 arms:
+
+| entry | lines / plan ms / lock ms | what it is | answer |
+|---|---|---|---|
+| `Route_PlanLocked (no IC)`, managed caller `Route_PlanFromPoint` 149, `Route_Replan` 7 | 157 / 8,662 / 46 | kind 2 / kind 1 calls from a task that is not the route's own: ts3fixes sends a foreign START (`RouteBackoff.cs`, the `kArForeign` bit), ts3native refuses it as `Foreign` with `ForeignKinds=4` (`route async: kind 2 call ... runs the game's IC with no job (Foreign)`, 45 such lines). The whole plan then runs on the sim thread: this is plan time, not lock wait | `[RouteAsync] ForeignKindsUnseen=2` (§24; kind 2 = PlanFromPoint) moves the unseen ones to the worker. Off in every arm |
+| `IC Plan/Skipped`, `IC ReplanFromPosition/Skipped` | 25 / 2,013 / 492 | the job was queued; when the worker claimed it the world was not quiet (`ServeAsync`: `rtBusy`, pending lot updates, dirty lot index), `J_SKIPPED`; the task's READY poll then plans on the sim thread with no step-aside, usually behind the job that runs by then. Callers: `Lot.PlanToLotEx` 7, `PlanToPointRadialRange` 3, `RoutingComponent.DoRoute` 2, `ExitHouseboatThroughGangway` 2, boat, door and mailbox routes one each | `[RouteAsync] SkipRetry=1` (§20): parked again and retried on READY polls, unseen routes only. Off in every arm, never run |
+| `IC Plan/NoStart`, `IC ReplanFromPosition/NoStart` | 12 / 691 / 634 | no START was sent: the route is not async-eligible and the task is not one a foreign START may come from (`PlanRouteTurnToFace` 4, `Sim.Wander` 2 of the lines with a script stack). Nearly all of its time is the lock wait | none: the plan needs the lock, and the step-aside did not act (the task may not yield, or a job started after the "not busy" answer) [inferred] |
+| `IC Plan/Los` | 1 / 77 / 49 | `ForcePhysicsBasedRaycast` (`ViewObjects`) | none (§19.3) |
+
+The largest single frame of the 16 arms is this class twice over (s309, 1,361 ms): a foreign kind 0 job ran 1,367 ms,
+1,288 ms of it in 92 closest-waypoint searches (`route candidate split: ... closestWps 1288/92`); `KindDeadlines` cut it
+at 535 ms and the cut took effect 831 ms later (`post-cut tail 831 ms`: the closest-waypoint search has no deadline
+check); behind it a refused kind 2 START (`ufplansplit: kind 2 1314 ms, sync 1314 ms (START refused)`) waited 1,307 ms
+at `0x760BFF` < `0x764400`. `ForeignKindsUnseen=2` takes the waiter off the sim thread; the search itself is docs/679's
+subject (`[WaypointSnap]`, off in these arms).
+
+### 27.4 Question 3, the largest job wait: `[Discourage] DeferObjInsert` (`discourage.cpp` `UofCall`, `UoiDefer`, `UoiVoidFor`)
+
+**The wait [verified: source + decompile `0x833680`, `0x8321F0`, `0x829A60`, `0x82A720`, `0x946160`, `0x624620`, `0x829BC0`,
+`0x945E40`; disassembly `0x946160..0x946330`].** An object that crosses a lot line fires event `0xA` (`0x946F70` ->
+`UpdateObjectLot 0x82D280`, remove-only) and then event 9 (`0x946160` -> `0x833680`, the insert). With
+`DeferFootprint2=1` and a job running the remove becomes a record (`fp2` 2). The insert that follows was never deferred:
+`UofSite` flushes the object's records first, which is a wait for the running job (`RtWaitJob`, the `lost-removal flush`
+site), and without a queued removal the game's call waits at its own `Lock_Acquire` (key `0x833697`). So the deferral of
+the remove moved the wait by one call and did not remove it. The task's `could yield` word does not help: the call is
+inside the game's native object code.
+
+`0x833680` (thiscall world; obj; `ret 4`; void): `Lock_Acquire(world+0x918)`, the object's lot from its lot component
+(`0x935770`) or its `+0x48 / +0x4C`, then the footprint core `0x8321F0(obj, 1, lot, 0, 0)`, release. The core with "remove
+first" 0 only inserts: after its early outs (`world+0x974`, `0x829A60(obj, 1, 0)`) it builds one `Routing/ObjectFootprint`
+per level offset and inserts it (`0x6376D0`), and for an object with a footprint polygon replaces its private footprint
+key (`0x635700`, a new `Routing/PrivateFootprint`). Its two callers are in `0x946160`, which ignores it and returns 1:
+
+- `0x94630A`: the plain call (component flag 2 clear, or `world+0x97E` 0, or `0x945E40` false);
+- `0x9462D4`: only with flag 2, `world+0x97E` and `0x945E40` (`+0x974`, `+0x975`, `+0x976`: the world's batch mode), for an
+  object whose key is not `StairsHelper` / `PoolHelper` / `PlatformHelper`, inside a bracket: `world+0x978 = 1`, planner
+  `+0x10D = 1` (`0x624620` on `0x829BC0`'s planner), `0x82D280` at `0x9462C9`, then the insert, then both bytes restored.
+
+**The switch.** `DeferObjInsert=1`: on the sim thread, at the plain site, while a job runs, the insert becomes a record
+(`fp2` 3) at the tail of D's FIFO and the call returns. The record is applied by the game's own `0x833680` at the next
+drain point (the first poll with no job, or the forced drain once the oldest record is 250 ms old), under `+0x918`, with
+the object looked up by id as every other record (gone or a reused id: no footprint, vanilla's footprint would have left
+with the object).
+
+Rules:
+
+- **Not deferred, today's call:** no job running; `+0x918` owned by this thread; inside a job callback; during a drain;
+  another world; closing; an object with id 0; the bracketed site; the world's batch mode (`+0x97E` and `+0x976`, kind
+  1's rule: there `+0x978` decides the early outs); queue full.
+- **One insert an object.** A new insert of the object, queued or run at once, marks its queued inserts replaced
+  (`allow = 1`, counted, not applied). Without this a replay could insert twice: insert (lot B), remove (lot B), insert
+  (lot C) applied at one time would put the first insert on lot C too, since the call reads the object's lot at the
+  apply.
+- **Order.** The record sits behind the object's queued removals, so vanilla's remove-then-insert order holds without the
+  flush. Later calls for the object queue behind it (the order rule of the design U and phase 2 hooks) or drain first
+  (the private footprint sites through `Fp2FlushFor`, D's own Add / Remove); the destroy gate (`DiscApplyFor`, D-X)
+  applies the object's removals and drops the insert.
+- `DeferObjInsert=2` counts only (`would defer`, and the time of today's flush and call for calls made in a job).
+
+**Not identical to the game.** The object's routing footprint appears where the object is at the drain, up to a job (at
+most 250 ms plus the forced drain) later. The job that runs meanwhile is not affected: today the sim thread waits for its
+end before it inserts. Sim-thread readers in that window (placement tests, obstacle queries, the read-only clones) and a
+job that starts before the drain see the object's old footprint state: with a queued removal that is the footprint on
+the old lot, which is already the case today for the removal. An insert with no queued removal (the `0x833697` waits)
+leaves the object without a routing footprint on the new position for that window.
+
+**Not verified:** what fires event 9 at the plain site in a storm (lot crossings of Sims, boats and cars are the
+expected source [inferred]; `calls` against `in a job` in the first arm says how often); whether `0x829A60`'s early out
+could answer most calls before the lock; batch mode on at the apply (`applied in batch mode`, expected 0: the game's
+call may then skip the insert).
+
+Counters: exported block `ts3native_objins` (docs/registry.md; runtime switch `native_set objins`). Line, once a
+minute: `object footprint insert: mode M calls N (in a job J): deferred D, same insert queued Q, applied A, replaced by
+a later insert S, object gone G, dropped at its destroy X, oldest T ms, applied in batch mode B; not deferred: pass P,
+batch mode or bracketed site C, queue full F; count only: would defer W; not-deferred calls in a job: K, U ms in the
+flush and the game's call`.
+
+### 27.5 `[RouteAsync] DiscYieldOwn` (`discourage.cpp` `DiscYieldOk`)
+
+docs/640's `DiscYieldForeign` skips a forced drain at START / A10 START / READY when the job that would be waited out
+is a foreign one. In these arms 67 of the 81 READY disc waits (3,602 of 4,531 ms) are behind an own job, which that
+switch refuses (`g_jobOwn`). docs/640 was written for the 300 ms boat replans and names no safety reason for the limit: the park at
+START (`J_PEND`, `dy`), `DyReadyMay` at READY and the 1 s ceiling do not read the kind of the running job.
+`DiscYieldOwn=1` lets the same skip through for an own job; every other rule is `DiscYieldForeign`'s (caller known unseen,
+its task at its root, the oldest record under 1 s, at READY only for the caller's running or done job or a START this
+switch parked). The two switches are independent.
+
+What it does not reach: a READY poll whose own job is still queued behind the running one keeps the wait (the drain is
+what stops the worker from claiming that job past the old records). The totals line counts those polls: `disc yield:
+... ; own mode M: N of the yields behind an own job, READY kept for a queued job K`. If K carries most of the READY
+waits, the next step is a hold on the worker's next claim while a drain is owed, not a wider skip.
+
+### 27.6 Question 2: the worker's hold
+
+The answer of §7.4 and docs/673 §4 stands, and these arms do not change it: the job holds `+0x918` for the whole of the
+game's `Route_PlanLocked` (s294: 27 % of the wall time in jobs of 18 ms on average), and a release between candidates
+or phases is not provable (parked frames keep lot rows, footprint and quadtree pointers; an admitted reader may flush or
+rebuild). What the data adds is that most of what waits there is already answered without the lock by a clone that was
+off (§27.2: 16.1 of 32.7 s), and that the sync plans at `0x760BFF` are refusals with a built answer (§27.3). A sync
+plan cannot be served "without the lock": it is the same `Route_PlanLocked`.
+
+Two log lines added, both always on, no switch:
+
+- `lost removal flush: flushes N, at the bracketed site A (.. ms), at the plain site B (.. ms), task could yield Y (..
+  ms), order misses M` (the v192 `lrs*` counters, which had no line);
+- `lot front door RO: mode M shadow S calls N answered in a job T (max .. us); given back: state, nested QL, no world
+  manager / active lot, QL busy, shape, QL frames lost` (`ltFb`, which had no line): which reason carries key
+  `0x631814` (35 lines / 2.3 s here) decides whether a retry as `[SteerRO] Retry` applies.
+
+### 27.7 Checks run (2026-11-21, no game)
+
+- clang-cl `/Zs /W4` with the xwin headers: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: no error, the
+  warning counts of the base commit (174 / 176 / 221).
+- Selftest, written, **run only by the MSVC CI build**: a block in `TestFp2LostRemoval` (off; a lot move in a job with
+  no wait and vanilla's map after the drain; the same insert twice; two lot moves in one job; an insert that runs at
+  once replaces the queued one; object gone; the destroy gate; the bracketed site, batch mode, `+0x918` held, count
+  only; the block's layout) and one in `TestDiscYield` (own job off / on, the household rule, independence from
+  `DiscYieldForeign`, the queued-job count).
+- `node tools/selftest-all.ts --ci`: pass.
+
+### 27.8 Next storm, on arm
+
+First the keys that exist (§27.1), then the two new ones, one at a time against the same seed:
+
+| arm | `ts3native.ini` | read |
+|---|---|---|
+| A | `[LandCheckRO] Enabled=1`, `[ObstructAtRO] Enabled=1`, `[Blocker2dRO] Enabled=1` (each `Mode=1 Shadow=0`), `[SteerRO] RetryWait=1` | keys `0062FB74` < `00654BE5`, `0062EF7A` < `00655ABE` / `0082E696`, `0085FE10` against 7.1 / 5.1 / 0.6 / 3.3 s per 16 arms |
+| B | A + `[RouteAsync] ForeignKindsUnseen=2`, `SkipRetry=1` | `route phases: sync plan ... Route_PlanLocked (no IC)` and `.../Skipped` lines, key `00760BFF`, `runplan` waits; `route skip retry:` (queued near parked, gave up small) |
+| C | B + `[Discourage] DeferObjInsert=2` | `object footprint insert:` `would defer` against `calls`, and its `ms in the flush and the game's call` against the `lost removal flush:` line |
+| D | B + `[Discourage] DeferObjInsert=1` | no `rtwait ... site lost-removal flush` line, key `00833697` gone, `deferred` = `applied` + `replaced` + `gone` + `dropped at its destroy` at a quiet point, `applied in batch mode 0`; `disc` waits must not rise by what `rtwait` fell (moved waits); no Sim walking through a parked car or boat, no stuck Sim |
+| E | D + `[RouteAsync] DiscYieldOwn=1`, `DiscYieldForeign=1` | `disc ... drain point READY` lines, `disc yield:` totals (`parked capped` near 0, `READY kept for a queued job`) |
