@@ -65,6 +65,7 @@ namespace Ts3Agent
         readonly Dictionary<string, object> mValues;
 
         public Args(Dictionary<string, object> values) { mValues = values; }
+        public ICollection<string> Keys { get { return mValues.Keys; } }  // every argument name, for handlers that pass names through
 
         public bool Has(string key) { return mValues.ContainsKey(key) && mValues[key] != null; }
 

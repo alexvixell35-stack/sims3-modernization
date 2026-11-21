@@ -46,3 +46,5 @@ Result (2026-11-01 23:58, `bp-use-list-gone-check`, PASS in 15.1 min, al11): off
 Part seats (`ContainedSim` of a destroyed Sim) and conversation members that are gone (core build 40's other half,
 `Conversation.mMembers`, which EA's `RemoveSim` cannot take out once the Sim's social component is null) are not in this
 phase; conversations are the next phase.
+
+Built 2026-11-15 (not run): sweep phase 15, own switch `deadrefconvo` (default off, needs `deadrefsweep`). For each live Sim's conversation, gone members leave `mMembers` and the discourage region, `mWhoseTurn` / `mWhoTalkedLast` move to a live member, their `mTopicalSocialsAlreadyUsed` keys go; a remaining single member's own later leave is then EA's empty-conversation exit instead of the one-member exit that takes the gone Sim as partner [verified: `Conversation.RemoveSim`, same in simler90's core]. A conversation with any household, selected or unknown-scope member is skipped (counter 996). Counter 995, repro `conversation-gone-check`. NRaas ErrorTrap's `DerefConversation` drops the same fields at load only (read, not copied).

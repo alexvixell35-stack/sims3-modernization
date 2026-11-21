@@ -1,0 +1,10 @@
+{
+  "_doc": "Recipe for the community baseline saves (docs/23 #1, docs/TESTING.md section 7). Run: node tools/harness/baseline-save.ts --world bp. Saves cannot be shared (EA data), so every contributor rebuilds them. fingerprint is null until measured on a real aged save: --check prints the line to paste. Equivalence is by fingerprint, not bit-identical: docs/27 section 1.2 says a start-up seed alone may not make aging repeat.",
+  "seed": 7,
+  "tolerancePct": 15,
+  "worlds": {
+    "bp": { "save": "Baseline-BP", "worldFile": "Bridgeport.world", "household": "Angelista", "members": 2, "days": 14, "checkpoint": 2, "keepAlive": "-50", "fingerprint": null },
+    "sv": { "save": "Baseline-SV", "worldFile": "Sunset Valley.world", "household": "Keaton", "members": 2, "days": 14, "checkpoint": 2, "keepAlive": "-50", "fingerprint": null },
+    "ip": { "save": "Baseline-IP", "worldFile": "IslaParadiso.world", "household": "Dregg", "members": 2, "days": 14, "checkpoint": 2, "keepAlive": "-50", "fingerprint": null }
+  }
+}

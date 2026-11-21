@@ -1,0 +1,144 @@
+{
+  "note": "PREPARED, NOT RUN (2026-11-12). [EqualsFast] (docs/258 option C, ts3native 0.36.246, counters v186 eq*): ValueType.InternalEquals 0xE7A590 answered from a per-class compare plan for int-only value types (enums), no field walk and no loader lock 0x11F43A8. Runs on the build of branch feature/valuetype-equals-fast (asi tested = the current ts3native build; build it first, nothing is copied by hand). (1) bp-iclock-eqfast-ab: count job, not timing (noiseCheck false): [IcLockCheck] Enabled=1 with [AutShadow] at the repo ini default (Enabled=1 Unseen=1), [EqualsFast] Enabled=1, --ab equalsfast 2-min slices, profile job so /native counters are saved per slice: off arms = vanilla lock traffic + the docs/258 §3 contention answer with the AutShadow worker on (pass: icLockContended / (icLockEntersK*1024) < 0.1% and icLockWaitUs < 0.5 ms/s), on arms = eqHits / eqFtKind / eqFtNew hit rate (docs/258 §6: < 50% = fall back to option B) and fewer icLockEntersK. (2) bp-eqfast-ab / ip-eqfast-ab: TIMING, in-load ABBA (warm-up slice on, then off,on,on,off,off,on,on,off, 1.5-min slices = 4 per arm), light tools only, seed 12345. Read: hitch-ab.ts + arm-ms.ts per job (sim it/s and Mono ms/s per arm); ON by default only with a consistent 3-5 ms/s gain (memory clear-gain-on-by-default) and exactness (native selftest + monohost MONOHOST_EQFAST corpus: 0 mismatches). Est ~12 + 2 x 16 min + load gaps ~55 min. Start: node tools/harness/queue.ts tools/harness/queues/equalsfast-1112.json",
+  "smoke": {
+    "note": "measurement smoke (AGENTS.md): BP 10 min, --ab equalsfast 2-min slices: version line, the equals fast OK line, eqMode read back per slice, both arms in the per-arm split, heavy tools off",
+    "asi": "tested",
+    "minCounters": 912,
+    "save": "Baseline-BP-Spring",
+    "ini": {
+      "EqualsFast.Enabled": 1
+    },
+    "logRequire": {
+      "^ts3native 0\\.36\\.246 ": 1,
+      "^OK   equals fast \\(docs/258 option C\\)": 1
+    },
+    "regexCases": {
+      "^ts3native 0\\.36\\.246 ": {
+        "match": ["ts3native 0.36.246 2026-11-12 21:05:10"],
+        "noMatch": ["ts3native 0.36.243 2026-11-12 18:40:02", "ts3native 0.36.240 2026-11-11 11:35:55", "prior log: ts3native 0.36.246 2026-11-12 21:05:10", "ts3native 0.36.2460 2026-11-12 21:05:10"]
+      },
+      "^OK   equals fast \\(docs/258 option C\\)": {
+        "match": ["OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"],
+        "noMatch": ["equals fast off (Enabled=0)", "SKIP detour ValueType.InternalEquals (equals fast) at 0x00E7A590: prologue differs"]
+      }
+    },
+    "gameArgs": ["-disablestoryprogression"],
+    "noiseCheck": true,
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "minutes": 10,
+        "slice": 2,
+        "ab": "equalsfast"
+      }
+    },
+    "timeoutMin": 24
+  },
+  "jobs": [
+    {
+      "id": "bp-iclock-eqfast-ab",
+      "note": "[est 12 min] COUNT job (not timing: [IcLockCheck] replaces the loader lock wrappers). [IcLockCheck] Enabled=1, [AutShadow] repo default (Unseen=1), [EqualsFast] Enabled=1 flipped per 2-min slice by --ab equalsfast. Read the per-slice native rows: off arms icLockEntersK, icLockContended, icLockWaitUs, icLockMaxWaitUs, icLockOwnerChanges (contention with the AutShadow worker, docs/258 §3); on arms eqHits, eqFtKind, eqFtNew, eqFtType, eqFtBusy, eqPlans, eqRejects and the drop in icLockEntersK. ts3native.log: the 'equals fast: plan' / 'stays on EA's walk' lines name the classes.",
+      "asi": "tested",
+      "minCounters": 912,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "IcLockCheck.Enabled": 1,
+        "EqualsFast.Enabled": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.246 ": 1,
+        "^OK   equals fast \\(docs/258 option C\\)": 1,
+        "^OK   detour mono_loader_unlock \\(ic lock check\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.246 ": {
+          "match": ["ts3native 0.36.246 2026-11-12 21:05:10"],
+          "noMatch": ["ts3native 0.36.243 2026-11-12 18:40:02", "ts3native 0.36.240 2026-11-11 11:35:55", "prior log: ts3native 0.36.246 2026-11-12 21:05:10"]
+        },
+        "^OK   equals fast \\(docs/258 option C\\)": {
+          "match": ["OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"],
+          "noMatch": ["equals fast off (Enabled=0)"]
+        },
+        "^OK   detour mono_loader_unlock \\(ic lock check\\)": {
+          "match": ["OK   detour mono_loader_unlock (ic lock check) at 0x00E85030"],
+          "noMatch": ["OK   detour mono_loader_lock (ic lock check) at 0x00E85020", "SKIP ic lock check: unlock bytes differ"]
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10,
+          "slice": 2,
+          "ab": "equalsfast"
+        }
+      },
+      "timeoutMin": 24
+    },
+    {
+      "id": "bp-eqfast-ab",
+      "note": "[est 16 min] TIMING: [EqualsFast] in-load ABBA on BP (ini Enabled=1 installs the detour; --ab equalsfast flips eqMode +0x5F94, off arm = every call to EA's icall through one extra jmp). Warm-up slice (on), then off,on,on,off,off,on,on,off 1.5-min slices = 4 per arm: timing verdict valid on its own (docs/168 §10). Read: hitch-ab.ts equalsfast-1112-<date>-bp-eqfast-ab + arm-ms.ts (sim it/s, Mono ms/s per arm).",
+      "asi": "tested",
+      "minCounters": 912,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "EqualsFast.Enabled": 1
+      },
+      "logRequire": {
+        "^OK   equals fast \\(docs/258 option C\\)": 1
+      },
+      "regexCases": {
+        "^OK   equals fast \\(docs/258 option C\\)": {
+          "match": ["OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"],
+          "noMatch": ["equals fast off (Enabled=0)"]
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 13.5,
+          "slice": 1.5,
+          "ab": "equalsfast"
+        }
+      },
+      "timeoutMin": 26
+    },
+    {
+      "id": "ip-eqfast-ab",
+      "note": "[est 16 min] TIMING: [EqualsFast] in-load ABBA on IP, as bp-eqfast-ab. Read: hitch-ab.ts equalsfast-1112-<date>-ip-eqfast-ab + arm-ms.ts.",
+      "asi": "tested",
+      "minCounters": 912,
+      "save": "Baseline-IP-Spring",
+      "ini": {
+        "EqualsFast.Enabled": 1
+      },
+      "logRequire": {
+        "^OK   equals fast \\(docs/258 option C\\)": 1
+      },
+      "regexCases": {
+        "^OK   equals fast \\(docs/258 option C\\)": {
+          "match": ["OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"],
+          "noMatch": ["equals fast off (Enabled=0)"]
+        }
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "noiseCheck": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 13.5,
+          "slice": 1.5,
+          "ab": "equalsfast"
+        }
+      },
+      "timeoutMin": 26
+    }
+  ]
+}

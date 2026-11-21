@@ -6,7 +6,7 @@
 // --jobs adds one row per log: sync plans count / sum / max ms, frames >= 300 ms and hitches per minute (profile hitches.jsonl).
 // Set TS3_REPO=<main checkout> when running from a git worktree.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const ROOT = process.env.TS3_REPO ?? join(import.meta.dirname, '..', '..');
 const QUEUE = join(ROOT, 'probe-out', 'queue');
@@ -73,31 +73,34 @@ function jobRow(log: string, plans: Plan[]): string {
   return `| ${tag} | ${plans.length} | ${sum} | ${max} | ${plans.filter(p => p.stack).length} | ${frames} | ${perMin} |`;
 }
 
-if (process.argv.includes('--self-check')) {
-  const t = 'route async: sync plan 731 ms, IC Plan, reason Foreign, entry nojob, route 2519BFE1, caller 3F7D2227\n' +
-    'route async: script stack of route 2519BFE1 (innermost first): ScriptCore.Route.Route_Plan < RouteBackoffHook.Plan < Sims3.SimIFace.Route.PlanToPoint < RunStuckCheckHelper.RunOrig\n' +
-    'route async: sync plan 7361 ms, IC Plan, reason NoStart, entry nojob, route 251EF11F, caller 40AE2227\n';
-  const p = parse(t, 'x-sv-y-0000-ts3native.log');
-  const ok = p.length === 2 && caller(p[0].stack).startsWith('LotManager.RunStuckCheckHelper') && caller(p[1].stack) === '(no stack)' && p[1].ms === 7361;
-  console.log(ok ? 'nostart-report self-check ok' : 'nostart-report self-check FAILED');
-  process.exit(ok ? 0 : 1);
-}
+// main only when run directly, so route-stutter-report.ts can import caller()
+if (import.meta.filename === resolve(process.argv[1] ?? '')) {
+  if (process.argv.includes('--self-check')) {
+    const t = 'route async: sync plan 731 ms, IC Plan, reason Foreign, entry nojob, route 2519BFE1, caller 3F7D2227\n' +
+      'route async: script stack of route 2519BFE1 (innermost first): ScriptCore.Route.Route_Plan < RouteBackoffHook.Plan < Sims3.SimIFace.Route.PlanToPoint < RunStuckCheckHelper.RunOrig\n' +
+      'route async: sync plan 7361 ms, IC Plan, reason NoStart, entry nojob, route 251EF11F, caller 40AE2227\n';
+    const p = parse(t, 'x-sv-y-0000-ts3native.log');
+    const ok = p.length === 2 && caller(p[0].stack).startsWith('LotManager.RunStuckCheckHelper') && caller(p[1].stack) === '(no stack)' && p[1].ms === 7361;
+    console.log(ok ? 'nostart-report self-check ok' : 'nostart-report self-check FAILED');
+    process.exit(ok ? 0 : 1);
+  }
 
-const fi = process.argv.indexOf('--filter');
-const re = new RegExp(fi > 0 ? process.argv[fi + 1] : '.');
-const logs = readdirSync(QUEUE).filter(f => f.endsWith('-ts3native.log') && re.test(f));
-const all: Plan[] = [];
-const rows: string[] = [];
-for (const f of logs) {
-  const p = parse(readFileSync(join(QUEUE, f), 'utf8'), f);
-  if (process.argv.includes('--jobs')) rows.push(jobRow(f, p));
-  all.push(...p);
-}
-const stacked = all.filter(p => p.stack);
-console.log(`${logs.length} logs, ${all.length} sync plans, ${(all.reduce((a, p) => a + p.ms, 0) / 1000).toFixed(1)} s; with a stack ${stacked.length} (${(stacked.reduce((a, p) => a + p.ms, 0) / 1000).toFixed(1)} s); >= 1 s: ${all.filter(p => p.ms >= 1000).length}, with a stack ${all.filter(p => p.ms >= 1000 && p.stack).length}`);
-console.log('\n| caller | count | sum s | iterations >= 300 ms | >= 1000 ms | max ms | worlds | reasons |\n|---|---|---|---|---|---|---|---|');
-for (const r of table(all)) console.log(r);
-if (rows.length) {
-  console.log('\n| job | sync plans | sum ms | max ms | with stack | frames >= 300 ms | hitches/min |\n|---|---|---|---|---|---|---|');
-  for (const r of rows) console.log(r);
+  const fi = process.argv.indexOf('--filter');
+  const re = new RegExp(fi > 0 ? process.argv[fi + 1] : '.');
+  const logs = readdirSync(QUEUE).filter(f => f.endsWith('-ts3native.log') && re.test(f));
+  const all: Plan[] = [];
+  const rows: string[] = [];
+  for (const f of logs) {
+    const p = parse(readFileSync(join(QUEUE, f), 'utf8'), f);
+    if (process.argv.includes('--jobs')) rows.push(jobRow(f, p));
+    all.push(...p);
+  }
+  const stacked = all.filter(p => p.stack);
+  console.log(`${logs.length} logs, ${all.length} sync plans, ${(all.reduce((a, p) => a + p.ms, 0) / 1000).toFixed(1)} s; with a stack ${stacked.length} (${(stacked.reduce((a, p) => a + p.ms, 0) / 1000).toFixed(1)} s); >= 1 s: ${all.filter(p => p.ms >= 1000).length}, with a stack ${all.filter(p => p.ms >= 1000 && p.stack).length}`);
+  console.log('\n| caller | count | sum s | iterations >= 300 ms | >= 1000 ms | max ms | worlds | reasons |\n|---|---|---|---|---|---|---|---|');
+  for (const r of table(all)) console.log(r);
+  if (rows.length) {
+    console.log('\n| job | sync plans | sum ms | max ms | with stack | frames >= 300 ms | hitches/min |\n|---|---|---|---|---|---|---|');
+    for (const r of rows) console.log(r);
+  }
 }

@@ -19,7 +19,7 @@
 // original (today's behaviour: it waits at gate 0). Counters v41 (+0x1524): orMode (+0x1528, --ab obstructedro) and
 // orShadow (+0x152C, --ab obstructedshadow): with no job running, the game's call, then the clone, compared.
 
-static const DWORD OR_IC = 0x00751480;
+static const DWORD OR_IC = TS3A(0x00751480);
 static const u8 kOrPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16 (no relative operand)
 struct OrV3 { float x, y, z; };  // the IC's Vector3, by value at [ebp+0xC]
 typedef u64(__cdecl* OrFn)(DWORD handle, OrV3 p);
@@ -32,12 +32,12 @@ typedef int (*OrQueryFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& 
 static int OrQueryGame(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, float r, const u8* rec) {
     return SrQuery(c, p, lo, hi, pt, true, r, rec);
 }
-static OrRouteFn g_orRoute = (OrRouteFn)(uintptr_t)0x0074B2C0;
-static OrLevelFn g_orLevel = (OrLevelFn)(uintptr_t)0x00ADD860;
+static OrRouteFn g_orRoute = (OrRouteFn)(uintptr_t)TS3A(0x0074B2C0);
+static OrLevelFn g_orLevel = (OrLevelFn)(uintptr_t)TS3A(0x00ADD860);
 static OrQueryFn g_orQuery = OrQueryGame;  // selftest hands in fake footprint lists
-static u8* const* g_orRmSlot = (u8* const*)(uintptr_t)0x011D40C4;  // the route handle table the IC passes to 0x74B2C0
-static const float* g_orRadius = (const float*)(uintptr_t)0x0106E8A8;  // 0.25: query radius and the +0xD4 radius
-static const DWORD OR_SLOT_PT = 0x0080F030;  // slot +0xD4 of the 8 footprint classes whose type comes from +0x35
+static u8* const* g_orRmSlot = (u8* const*)(uintptr_t)TS3A(0x011D40C4);  // the route handle table the IC passes to 0x74B2C0
+static const float* g_orRadius = (const float*)(uintptr_t)TS3A(0x0106E8A8);  // 0.25: query radius and the +0xD4 radius
+static const DWORD OR_SLOT_PT = TS3A(0x0080F030);  // slot +0xD4 of the 8 footprint classes whose type comes from +0x35
 
 enum { OR_OK, OR_FB_STATE, OR_FB_TRY, OR_FB_LOT, OR_FB_CACHE, OR_FB_SHAPE, OR_FB_TRIP };
 static int OrMap(int sr) {  // steerro.cpp reasons -> orFb

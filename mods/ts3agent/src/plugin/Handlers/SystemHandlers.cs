@@ -18,8 +18,24 @@ namespace Ts3Agent
             RegisterPets(); // PetHandlers.cs
             RegisterSocialRound(); // SocialRoundHandlers.cs
             RegisterCareerLadder(); // CareerLadderHandlers.cs
+            RegisterAutCensus(); // AutCensusHandlers.cs, docs/546 row 2
+            RegisterHitchWatch(); RegisterRoutine(); // HitchWatchHandlers.cs, docs/546 §6
+            RegisterAlarmAudit(); // AlarmAuditHandlers.cs, docs/546 row 5
+            RegisterDoors(); // DoorHandlers.cs, docs/546 §8
             RegisterHoldSims(); // HoldSimsHandlers.cs
             RegisterOutfitStress(); // OutfitStressHandlers.cs
+            RegisterThumbCensus(); // ThumbCensusHandlers.cs
+            RegisterBoatGone(); // BoatGoneHandlers.cs
+            RegisterBoatGetOutStress(); // BoatGetOutStressHandlers.cs
+            RegisterBoatNoPathRepro(); // BoatNoPathReproHandlers.cs, docs/642
+            RegisterDishCensus(); // DishCensusHandlers.cs, docs/652
+            RegisterHouseboatLegRepro(); // HouseboatLegReproHandlers.cs, docs/642 §6
+            RegisterBoatRoamRepro(); // BoatRoamReproHandlers.cs, docs/642 §9
+            RegisterPetRepro(); // PetReproHandlers.cs, docs/656 §6
+            RegisterRouteStorm(); // RouteStormHandlers.cs, docs/668
+            RegisterSimHealth(); // SimHealthHandlers.cs: soak health census
+            RegisterInteractionSweep(); // InteractionSweepHandlers.cs, docs/268
+            RegisterTriggerBattery(); // TriggerBatteryHandlers.cs, docs/653
         }
 
         static object Ping(Args a)

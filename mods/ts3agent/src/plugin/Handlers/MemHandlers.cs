@@ -198,5 +198,90 @@ namespace Ts3Agent
             });
             return r;
         }
+
+        // place_cancel_loop {name?: "sleeping bag", n?: 50, mark_every?: 10, dwell_ticks?: 10, sim?} | {result: true}: docs/192 #1
+        // (leak-place-mapview). One catalogue object that is an IPlaceableObject (sleeping bag, tent, fire pit...) is created
+        // into the Sim's inventory (default: the selected Sim, the player's flow; it leaves again at the end). n times the
+        // game's own IPlaceableObject_Place runs from the inventory (RunFromInventory) in a task of its own, the hand tool
+        // opens, and after dwell_ticks UserToolUtils.OnClose() closes it (EA's own Cancel): the item stays in the inventory.
+        // EA's Run adds a GameStateChanging and an OnCameraMapViewEnabledCallback handler each run and never removes them
+        // [verified decompiled]: gsc / mapv before and after (invocation-list lengths) show +n each if the leak is real;
+        // a mark place-mv-r<i> every mark_every rounds carries ts3fixes' memsus gsc / mapv counts.
+        static Dictionary<string, object> sPlaceResult;
+        static object PlaceCancelLoop(Args a)
+        {
+            if (a.Has("result"))
+            {
+                if (sPlaceResult == null) throw new McpException("no place_cancel_loop started");
+                return sPlaceResult;
+            }
+            if (sPlaceResult != null && !(bool)sPlaceResult["done"]) throw new McpException("place_cancel_loop still running");
+            RequireLive();
+            Sims3.Gameplay.Actors.Sim s = a.Has("sim") ? Util.FindSim(a, "sim") : Util.ActiveSim();
+            string want = a.Str("name", "sleeping bag").ToLowerInvariant();
+            GameObject item = null;
+            string pname = null;
+            foreach (BuildBuyProduct p in Catalog())
+            {
+                if ((p.CatalogName ?? "").ToLowerInvariant().IndexOf(want) < 0) continue;
+                GameObject g = null;
+                try { g = Sims3.Gameplay.GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as GameObject; } catch (Exception) { }
+                if (g is IPlaceableObject) { item = g; pname = p.CatalogName; break; }
+                if (g != null) g.Destroy();
+            }
+            if (item == null) throw new McpException("no catalogue product named like '" + want + "' makes an IPlaceableObject");
+            if (!s.Inventory.TryToAdd(item)) { item.Destroy(); throw new McpException(s.FullName + "'s inventory took no " + pname); }
+            int n = Math.Max(1, (int)a.Long("n", 50)), every = Math.Max(1, (int)a.Long("mark_every", 10));
+            uint dwell = (uint)Math.Max(1, a.Long("dwell_ticks", 10));
+            Dictionary<string, object> r = Util.Obj();
+            r["sim"] = s.FullName; r["item"] = pname; r["done"] = false; r["rounds_done"] = 0; r["rounds_stuck"] = 0;
+            r["gsc_before"] = PlaceHandlerCount("gsc"); r["mapv_before"] = PlaceHandlerCount("mapv");
+            sPlaceResult = r;
+            RunAsync("place_cancel_loop", delegate
+            {
+                bool sus;
+                try
+                {
+                    for (int i = 1; i <= n; i++)
+                    {
+                        bool[] ended = { false };
+                        Sims3.Gameplay.Interactions.InteractionInstance ii = IPlaceableObject_Place.Singleton.CreateInstance(item, s,
+                            new Sims3.Gameplay.Interactions.InteractionPriority(Sims3.Gameplay.Interactions.InteractionPriorityLevel.UserDirected), false, true);
+                        RunAsync("place_cancel round " + i, delegate { try { ii.RunInteraction(); } finally { ended[0] = true; } });
+                        Ticks(dwell);
+                        UserToolUtils.OnClose();
+                        for (int w = 0; w < 300 && !ended[0]; w++) { Ticks(1); if (w % 30 == 29) UserToolUtils.OnClose(); }
+                        if (!ended[0]) { r["rounds_stuck"] = (int)r["rounds_stuck"] + 1; r["error"] = "round " + i + " did not end in 300 ticks after OnClose"; return; }
+                        r["rounds_done"] = i;
+                        if (i % every == 0) MemMarkTag("place-mv-r" + i, out sus);
+                    }
+                }
+                catch (Exception e) { r["error"] = DescribeError(e); }
+                finally
+                {
+                    r["gsc_after"] = PlaceHandlerCount("gsc"); r["mapv_after"] = PlaceHandlerCount("mapv");
+                    try { if (s.Inventory != null && s.Inventory.Contains(item)) s.Inventory.TryToRemove(item); item.Destroy(); } catch (Exception) { }
+                    r["done"] = true;
+                }
+            });
+            return r;
+        }
+
+        // invocation-list length of Responder.Instance's GameStateChanging (gsc) or CameraController.OnCameraMapViewEnabledCallback
+        // (mapv), the fields ts3fixes MemSuspects reads; -1 = field not found
+        static int PlaceHandlerCount(string which)
+        {
+            const BindingFlags any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            object owner = which == "gsc" ? (object)Responder.Instance : null;
+            Type t = which == "gsc" ? (owner != null ? owner.GetType() : null) : typeof(CameraController);
+            for (; t != null; t = t.BaseType)
+            {
+                FieldInfo f = t.GetField(which == "gsc" ? "GameStateChanging" : "OnCameraMapViewEnabledCallback", any | (owner != null ? BindingFlags.Instance : BindingFlags.Static));
+                if (f == null) continue;
+                Delegate d = f.GetValue(owner) as Delegate;
+                return d == null ? 0 : d.GetInvocationList().Length;
+            }
+            return -1;
+        }
     }
 }

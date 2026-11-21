@@ -49,4 +49,6 @@ Off arm: EA's `ArgumentException`. On arm: the shared relationship returned and 
 ## 4. What is left
 
 - What makes the tables come apart. A census of pairs where only one side holds the other, over a long session and
-  around NRaas resets, would show how often it happens.
+  around NRaas resets, would show how often it happens. Built 2026-11-15 (not run): agent `rel_onesided` (counts +
+  a named sample) and `nraas_reset_sims` (NRaas ResetSimTask on uncontrolled Sims only), repro `rel-onesided-census`,
+  queue `l10-repros-1115.json`.

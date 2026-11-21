@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseRequire } from './fixes-require.ts';
+import { parseRequire, startupDeltaLint } from './fixes-require.ts';
 import { parseHitchTasks } from './hitch-tasks.ts';
 import { parseRule } from './frame-lead.ts';
 import { counterSwitches, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
@@ -68,7 +68,7 @@ export function reproItems(v: unknown, at = 'run.profile.repros'): ReproItem[] {
     for (const k of Object.keys(x)) if (!ITEM_KEYS.includes(k)) throw new Error(`${w}.${k}: unknown (known: ${ITEM_KEYS.join(', ')})`);
     if (x.minutes !== undefined && !(Number(x.minutes) > 0)) throw new Error(`${w}.minutes must be > 0`);
     if (x.fixesRequire !== undefined) parseRequire(String(x.fixesRequire));
-    if (x.nativeRequire !== undefined) parseRequire(String(x.nativeRequire));
+    if (x.nativeRequire !== undefined) { const lint = startupDeltaLint(String(x.nativeRequire)); if (lint.length) throw new Error(`${w}: ${lint.join('; ')}`); }
     if (x.hitchTasks !== undefined) parseHitchTasks(x.hitchTasks);
     if (x.frameLead !== undefined) parseRule(JSON.stringify(x.frameLead));
     return x as ReproItem;

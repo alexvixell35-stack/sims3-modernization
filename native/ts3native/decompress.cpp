@@ -192,7 +192,7 @@ struct DecompressStats {
 static DecompressStats g_dstat;
 
 typedef int(__cdecl* RefpackFn)(u8*, DWORD, const u8*, DWORD);
-static RefpackFn g_refpackOrig = (RefpackFn)(uintptr_t)0x004EB3B0;
+static RefpackFn g_refpackOrig = (RefpackFn)(uintptr_t)TS3A(0x004EB3B0);
 static LARGE_INTEGER g_dqpf;
 static volatile LONG64 g_dNextLog;
 
@@ -288,7 +288,7 @@ static bool PatchRefpackCall(DWORD site, DWORD callee, void* hook) {
     return true;
 }
 
-static const DWORD REFPACK_CALL = 0x004EC065, REFPACK_CORE = 0x004EB3B0;
+static const DWORD REFPACK_CALL = TS3A(0x004EC065), REFPACK_CORE = TS3A(0x004EB3B0);
 
 // [Decompress]: returns true when the hook is installed (the log must then stay open for the periodic counters).
 static bool ApplyDecompress(const wchar_t* ini) {

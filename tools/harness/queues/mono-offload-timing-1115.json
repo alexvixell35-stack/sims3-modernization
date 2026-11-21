@@ -1,0 +1,200 @@
+{
+  "note": "mono-offload-timing-1115 (PREPARED, NOT RUN; NEEDS QUIET MACHINE: clean-night rules, other CPU < 10%, no clock drop, Spotify/IDE closed, else the job is void and repeated whole). ABBA as in-load A/B in both orders (abOnFirst) of the env + bcast apply under autoffunseen, BP and IP: 4 jobs x ~12.5 min + measurement smoke ~8 min (job 1: per-arm split, switch read-back, pick_scoped rises; stopQueueOnFail) = ~1 h. RUN ONLY after mono-offload-correctness-1115.json passes AND its BP applied is in the hundreds (else park, no timing). Ship rule: ON only at net >= 3 ms/s on both worlds (per-arm ms/s, hitch-ab.ts), correctness PASS, it/s not down > 2%; < 3 ms/s = park (throttles park rule). Run: TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-offload-1115 node tools/harness/queue.ts tools/harness/queues/mono-offload-timing-1115.json",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-offut-smoke",
+      "note": "Measurement smoke, run first as job 1 (queue.ts auto-smoke only covers > 60 timing minutes): 5 min BP, per-arm split in hitch-ab.ts, switch read-back, pick_scoped rises, exc 0. A FAIL stops the queue.",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-offload-1115",
+      "pinReason": "mono-offload-1115 (builds.json ts3fixes.mono-offload-1115, commit 1254832c = master aae8e1d6 + offload-pickup-1114 + docs/208 s12 pick scope) + newest master native pair master-dalexlol-417-1115 (0.36.261-lanes1; native unchanged on master since b9cddf2a). AGENT: run with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-offload-1115 (sha256 d3f7637c...; names autoff_*_pick_scoped 1047-1048 and autoff_env_pick_overdue 985-987); an older agent lacks them and the fixesRequire rules fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 1,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply",
+          "fixesRequire": "autoff_env_pick_scoped>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-offut-ab",
+      "note": "Off-first in-load A/B of autoffenvapply + autoffbcastapply under autoffunseen, 10 min, 2-min slices, light tools (noSamplers).",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-offload-1115",
+      "pinReason": "mono-offload-1115 (builds.json ts3fixes.mono-offload-1115, commit 1254832c = master aae8e1d6 + offload-pickup-1114 + docs/208 s12 pick scope) + newest master native pair master-dalexlol-417-1115 (0.36.261-lanes1; native unchanged on master since b9cddf2a). AGENT: run with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-offload-1115 (sha256 d3f7637c...; names autoff_*_pick_scoped 1047-1048 and autoff_env_pick_overdue 985-987); an older agent lacks them and the fixesRequire rules fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "bp-offut-ba",
+      "note": "On-first in-load A/B of autoffenvapply + autoffbcastapply under autoffunseen, 10 min, 2-min slices, light tools (noSamplers).",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-offload-1115",
+      "pinReason": "mono-offload-1115 (builds.json ts3fixes.mono-offload-1115, commit 1254832c = master aae8e1d6 + offload-pickup-1114 + docs/208 s12 pick scope) + newest master native pair master-dalexlol-417-1115 (0.36.261-lanes1; native unchanged on master since b9cddf2a). AGENT: run with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-offload-1115 (sha256 d3f7637c...; names autoff_*_pick_scoped 1047-1048 and autoff_env_pick_overdue 985-987); an older agent lacks them and the fixesRequire rules fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "ip-offut-ab",
+      "note": "Off-first in-load A/B of autoffenvapply + autoffbcastapply under autoffunseen, 10 min, 2-min slices, light tools (noSamplers).",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-offload-1115",
+      "pinReason": "mono-offload-1115 (builds.json ts3fixes.mono-offload-1115, commit 1254832c = master aae8e1d6 + offload-pickup-1114 + docs/208 s12 pick scope) + newest master native pair master-dalexlol-417-1115 (0.36.261-lanes1; native unchanged on master since b9cddf2a). AGENT: run with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-offload-1115 (sha256 d3f7637c...; names autoff_*_pick_scoped 1047-1048 and autoff_env_pick_overdue 985-987); an older agent lacks them and the fixesRequire rules fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0
+    },
+    {
+      "id": "ip-offut-ba",
+      "note": "On-first in-load A/B of autoffenvapply + autoffbcastapply under autoffunseen, 10 min, 2-min slices, light tools (noSamplers).",
+      "asi": "game-copy/ts3native.asi.master-dalexlol-417-1115",
+      "iniBase": "game-copy/ts3native.ini.master-dalexlol-417-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.mono-offload-1115",
+      "pinReason": "mono-offload-1115 (builds.json ts3fixes.mono-offload-1115, commit 1254832c = master aae8e1d6 + offload-pickup-1114 + docs/208 s12 pick scope) + newest master native pair master-dalexlol-417-1115 (0.36.261-lanes1; native unchanged on master since b9cddf2a). AGENT: run with TS3_AGENT_PACKAGE=game-copy/ts3agent.package.mono-offload-1115 (sha256 d3f7637c...; names autoff_*_pick_scoped 1047-1048 and autoff_env_pick_overdue 985-987); an older agent lacks them and the fixesRequire rules fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 0,
+        "AutShadow.DumpOnMismatch": 0,
+        "AutShadow.ListAudit": 0
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffnoref,autoffunseen",
+          "slice": 2,
+          "noSamplers": true,
+          "ab": "autoffenvapply,autoffbcastapply",
+          "abOnFirst": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "scriptErrorsMax": 0
+    }
+  ]
+}

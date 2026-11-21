@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Utilities;
+using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
@@ -29,7 +30,41 @@ namespace Ts3Fixes
         {
             if (AlarmManager.Global == null) return;
             if (sEtSimsAlarm != AlarmHandle.kInvalidHandle) AlarmManager.Global.RemoveAlarm(sEtSimsAlarm);
-            sEtSimsAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { ErrorTrapSimsPass(); CelebDeadSimPass(); SeasonsDeadSimPass(); GhostReactDeadSimPass(); CasUiHandlersPass(); ErrorTrapLookupPass(); ErrorTrapCtlPass(); DreamNodeDeadSimPass(); OverwatchDeadSimPass(); SimRefsDeadSimPass(); OutfitWaitSavedPass(); DeadSimCountPass(); }, 1f, TimeUnit.Hours, "Ts3Fixes.ErrorTrapSims", AlarmType.NeverPersisted, null);
+            sEtSimsAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, HourlyPasses, 1f, TimeUnit.Hours, "Ts3Fixes.ErrorTrapSims", AlarmType.NeverPersisted, null);
+        }
+
+        // The hourly sweep passes, in their old order. With the alarmtime test switch on, each pass that takes >= 3 ms is
+        // logged with its time (alarmtime itself only sees the whole callback: ~24 ms, max 32 ms an hour, phase-20261114-0032).
+        static readonly AlarmTimerCallback[] sHourlyPasses = { ErrorTrapSimsPass, CelebDeadSimPass, SeasonsDeadSimPass, GhostReactDeadSimPass, CasUiHandlersPass, ErrorTrapLookupPass, ErrorTrapCtlPass, DreamNodeDeadSimPass, DnpSubjectCachePass, OverwatchDeadSimPass, SimRefsDeadSimPass, OutfitWaitSavedPass, DeadSimCountPass, TinyUiEventRegPass, CustomCtlSweepPass, ExitCbSweepPass, DnpRemovalKeysPass, BuffStatePass, StoreWorldEventsPass, CookClickPass };
+        static int sHourlyLogged;
+
+        // Each pass runs in its own try: AlarmManager.Simulate removes a repeating alarm for good when its callback throws
+        // [verified, decompiled: catch (Exception) { if (repeating) InternalRemoveAlarm }], so one throwing pass used to stop
+        // all the sweeps until the game restarts, silently. A throwing pass is now logged once (fix_applied log) and skipped.
+        static Dictionary<string, bool> sHourlyThrew = new Dictionary<string, bool>();
+
+        static void HourlyRun(AlarmTimerCallback pass)
+        {
+            try { pass(); }
+            catch (ResetException) { throw; }
+            catch (Exception e)
+            {
+                string n = pass.Method.Name;
+                if (!sHourlyThrew.ContainsKey(n)) { sHourlyThrew[n] = true; AppliedLog().Add("hourly sweep: " + n + " threw " + e.GetType().Name + ": " + e.Message); }
+            }
+        }
+
+        static void HourlyPasses()
+        {
+            bool timed = ShortcutOn("alarmtime") && sHourlyLogged < 400;
+            foreach (AlarmTimerCallback pass in sHourlyPasses)
+            {
+                if (!timed) { HourlyRun(pass); continue; }
+                DateTime t0 = DateTime.UtcNow;
+                HourlyRun(pass);
+                double ms = (DateTime.UtcNow - t0).TotalMilliseconds;
+                if (ms >= 3) { sHourlyLogged++; HcLine("hourlypass: " + pass.Method.Name + " " + (int)ms + " ms, " + HcSimTime()); }
+            }
         }
 
         static void ErrorTrapSimsPass()
@@ -61,7 +96,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sEtSimsThrew) { sEtSimsThrew = true; AppliedLog().Add("errortrapsims: pass threw " + e.Message); }
+                PassThrewOnce(ref sEtSimsThrew, "errortrapsims", e);
             }
         }
 
@@ -98,7 +133,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sEtLookupThrew) { sEtLookupThrew = true; AppliedLog().Add("errortraplookup: pass threw " + e.Message); }
+                PassThrewOnce(ref sEtLookupThrew, "errortraplookup", e);
             }
         }
 
@@ -164,7 +199,10 @@ namespace Ts3Fixes
                         // a delegate, not MethodInfo.Invoke: swapinvoke flags any Invoke on a method named Clear (RefTable.cs swaps
                         // EA's); bound to the controller's own Clear so no interface dispatch is needed (EaFixes.cs PrefRemoveFn)
                         MethodInfo own = o.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-                        ((EtCtlClearFn)Delegate.CreateDelegate(typeof(EtCtlClearFn), o, own ?? sEtCtlClear))();
+                        // no class method named Clear (an explicit interface implementation): the interface MethodInfo has no
+                        // body, a delegate on it would crash the interpreter (DelegateTarget.cs), so Clear is skipped
+                        MethodInfo clear = own ?? DelegateTarget(o, sEtCtlClear);
+                        if (clear != null && !clear.IsAbstract) ((EtCtlClearFn)Delegate.CreateDelegate(typeof(EtCtlClearFn), o, clear))();
                         l.Clear();  // the base Clear() is only mList.Clear(); DereferenceSimDescription skips it
                     }
                 }
@@ -172,7 +210,7 @@ namespace Ts3Fixes
             }
             catch (Exception e)
             {
-                if (!sEtCtlThrew) { sEtCtlThrew = true; AppliedLog().Add("errortrapctl: pass threw " + e.Message); }
+                PassThrewOnce(ref sEtCtlThrew, "errortrapctl", e);
             }
         }
 

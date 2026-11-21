@@ -1,0 +1,78 @@
+{
+  "note": "rewind-games-smoke-1116-1116c: copy of rewind-games-smoke-1116.json repinned to master-1116c (0.36.267-mc1116), run by probe-out/queue/chain-1116c.sh. Was: Smoke of the run.rewindGames job kind (docs/270 §9.2): many test games from one world load. Bin state apex-rewind: a Bin with the latest Apex Radiance release, the RTX Remix bridge pair built from Apex's bridge source with patches 0015 + 0016 (tools/harness/rewind/bridge-patch) and rewindMode = True in both bridge.conf; set up and put back by the chain, never by queue.ts. Build first: tools\\harness\\rewind\\build.cmd (rewind-spike.exe). Correctness only, no timing. node tools/harness/queue.ts tools/harness/queues/rewind-games-smoke-1116.json --no-smoke",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rewind-games-smoke",
+      "note": "[est 15 min] [natural play, no cheats] Bin state apex-rewind. One load, then 3 games of 2 min from the same snapshot, arms of routefaillog (a logging switch, on in release) in ABBA order: game 1 off (first game after the load), game 2 on (after a rewind), game 3 on (after a second rewind). Pass: every game PASS with its arm read back after the rewind (fixes on/off: routefaillog (verified)); row.games[].rewind code 0 with hashEqual 1. A refused rewind (code 2) or an ended game (code 3) reloads the world and marks that game row reloaded: read the reasons and the bridge logs. Per game: probe-out/profile/<tag>-g<k>-<arm>*, probe-out/queue/<tag>-g<k>-<arm>-counters.json and -ts3native.log; bridge32.log and bridge64.log copied next to them.",
+      "asi": "game-copy/ts3native.asi.master-1116c",
+      "ini": {
+        "Rewind.Park": 1,
+        "Rewind.Offline": 1
+      },
+      "callSites": false,
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "repinned 2026-11-16 to the master-1116c set (merge/master-1116c, 0.36.267-mc1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-1116c.sh). Was: rw1116",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.267-mc1116 ": 1,
+        "^compat: Apex Radiance found ": 1,
+        "^\\[Rewind\\] Park on: ": 1,
+        "^\\[Rewind\\] Offline on: ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.267-mc1116 ": {
+          "match": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.264-mono1 2026-11-16 00:24:10",
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v4.0.1), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        },
+        "^\\[Rewind\\] Park on: ": {
+          "match": [
+            "[Rewind] Park on: the route worker parks in its idle wait when Local\\rewind-park-1234 asks"
+          ],
+          "noMatch": [
+            "FAIL [Rewind] Park: mapping Local\\rewind-park-1234 (err 5)"
+          ]
+        },
+        "^\\[Rewind\\] Offline on: ": {
+          "match": [
+            "[Rewind] Offline on: 18 wininet imports of TS3W.exe turned away, 1 left (InternetCrackUrlA only expected)"
+          ],
+          "noMatch": [
+            "FAIL [Rewind] Offline: no import table"
+          ]
+        }
+      },
+      "run": {
+        "rewindGames": {
+          "n": 3,
+          "profile": {
+            "minutes": 2,
+            "seed": 12345
+          },
+          "ab": "routefaillog"
+        }
+      },
+      "timeoutMin": 40,
+      "iniBase": "game-copy/ts3native.ini.master-1116c"
+    }
+  ]
+}

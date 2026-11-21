@@ -1,0 +1,94 @@
+{
+  "note": "h4-gvunseen (docs/250 §7.3 B2, §14; branch feature/h4-gvunseen, ts3native 0.36.245 + ts3fixes h4gvu1112): NOT RUN. Smoke, the correctness repro ip-gvunseen-defer-loop (gvunseen flips per firing, unseenfbplan + unseenfb on in both arms), then one natural IP A/B with --ab gvunseen. gvattr on everywhere: its v189 rows (gvaNoLater*, gvaWhyWaitUs) are the B1 / A2 decision data of docs/250 §12.3 and §13.3 too. Read: gvuN / gvuNo[4] / gvuKind[4] per arm, gvunseen: lines, hitch-ab.ts --scenario (repro), arm-ms.ts h4-gvunseen and the sum of keyed sim waits per arm (moved waits), gvaScopeWaitUs[0] (household) unchanged between arms.",
+  "smoke": {
+    "asi": "game-copy/ts3native.asi.h4gvu1112",
+    "fixesPackage": "game-copy/ts3fixes.package.h4gvu1112",
+    "pinReason": "h4gvu1112 pair (builds.json): ts3native 0.36.245 (gvunseen v189, gvattr v174 + v189) + ts3fixes h4gvu1112 (GvuDefer in the four plan ICs' sync branches); branch feature/h4-gvunseen",
+    "minCounters": 912,
+    "releaseDefaults": true,
+    "note": "Measurement smoke (AGENTS.md): IP 5 min, --ab gvunseen 1-min slices. Pass: both arms in the per-arm split, gvuMode read back per slice, gvuAsks > 0 in on slices (marked plans asked), the startup line 'goal validation: UnseenDefer=0 UnseenDeferMaxMs=2000', gvattr: lines, heavy tools off.",
+    "save": "Baseline-IP",
+    "ini": {
+      "UnseenFallback.Enabled": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "RouteAsync.LogFallbackMs": 20,
+      "RouteAsync.LogFallbackStack": 16,
+      "HitchAttr.Enabled": 1,
+      "HitchAttr.Holders": 1,
+      "GoalValidRO.Attr": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "minutes": 5,
+        "slice": 1,
+        "ab": "gvunseen",
+        "fixesOn": "unseenfbplan,unseenfbteleport"
+      }
+    },
+    "timeoutMin": 16,
+    "logRequire": {
+      "goal validation: UnseenDefer=": 1,
+      "gvattr:": 1
+    }
+  },
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "ip-gvunseen-defer-loop",
+      "note": "docs/250 §14 repro, correctness: 10 firings per arm (ABBA), household Go Here jobs hold +0x918 while 30 unseen townies plan home. M1Retry=0 so their own STARTs are refused and their plans are sync (the B2 case). Gate: gvuN > 0 on on-firings, no gvunseen line names a household route, household arrives in both arms, no stuck townie at the end.",
+      "asi": "game-copy/ts3native.asi.h4gvu1112",
+      "fixesPackage": "game-copy/ts3fixes.package.h4gvu1112",
+      "pinReason": "h4gvu1112 pair (builds.json): ts3native 0.36.245 (gvunseen v189, gvattr v174 + v189) + ts3fixes h4gvu1112 (GvuDefer in the four plan ICs' sync branches); branch feature/h4-gvunseen",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "ini": {
+        "UnseenFallback.Enabled": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 0,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "GoalValidRO.Attr": 1
+      },
+      "run": {
+        "repro": "ip-gvunseen-defer-loop"
+      },
+      "timeoutMin": 30,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-gvunseen-natural-ab",
+      "note": "docs/250 §14: natural IP 10 min, seed 12345, ABBA 2-min slices, --ab gvunseen; unseenfbplan + unseenfbteleport on in both arms (only the deferral flips). Pass: the sum of keyed sim waits (rtLock total, mwKey*) lower in on arms, gvaScopeWaitUs[2] (unseen) down, gvaScopeWaitUs[0] (household) the same, hitch p99 / p99.9 / max / counts >= 100 / 300 ms no worse (memory hitch-metrics-target), gvuNo[3] (streak cap) small against gvuN.",
+      "asi": "game-copy/ts3native.asi.h4gvu1112",
+      "fixesPackage": "game-copy/ts3fixes.package.h4gvu1112",
+      "pinReason": "h4gvu1112 pair (builds.json): ts3native 0.36.245 (gvunseen v189, gvattr v174 + v189) + ts3fixes h4gvu1112 (GvuDefer in the four plan ICs' sync branches); branch feature/h4-gvunseen",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "ini": {
+        "UnseenFallback.Enabled": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "GoalValidRO.Attr": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10,
+          "slice": 2,
+          "ab": "gvunseen",
+          "fixesOn": "unseenfbplan,unseenfbteleport"
+        }
+      },
+      "timeoutMin": 24
+    }
+  ]
+}

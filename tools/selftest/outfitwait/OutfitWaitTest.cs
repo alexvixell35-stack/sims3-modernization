@@ -62,6 +62,9 @@ static class OutfitWaitTest
         Check(OutfitWaitCore.EndDead(true, false), "issue #40: a destroyed Sim's wait on a task of no Sim ends");
         Check(!OutfitWaitCore.EndDead(true, true), "issue #40: a wait on another Sim's task keeps EA's loop");
         Check(!OutfitWaitCore.EndDead(false, false) && !OutfitWaitCore.EndDead(false, true), "issue #40: a live Sim's wait never ends early");
+        Check(!OutfitWaitCore.PollAllowed(true, true), "docs/580 §15: a live player Sim keeps EA's loop");
+        Check(OutfitWaitCore.PollAllowed(true, false), "docs/580 §15: a live NPC is polled as before");
+        Check(OutfitWaitCore.PollAllowed(false, true) && OutfitWaitCore.PollAllowed(false, false), "docs/580 §15: a gone Sim is polled (issue #40 end)");
         Console.WriteLine(sFails == 0 ? "outfitwait selftest ok" : "outfitwait selftest: " + sFails + " failures");
         Environment.Exit(sFails == 0 ? 0 : 1);
     }
