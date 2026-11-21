@@ -98814,6 +98814,87 @@
     ]
   },
   {
+    "id": "fire-leftover-stuck",
+    "bug": "Firefighter emergency never ends: a rescue (TrappedSims / TrappedRubble) or window-fire task stays pending after nobody is trapped on the lot any more or the window fires went out another way. EA has a leftover check for fire tiles only (15 sim-minutes after the last fire goes out), and Job.OnJobTimeout keeps extending the timeout while the firefighter stands on the lot, so the player waits hours for the failure (player report 2026-11-21: \"trying to find the last person to be rescued, but there's nobody left ... that one took 12h\"; docs/862)",
+    "fix": "ts3fixes FireLeftover.cs: fireleftover (default off), docs/862",
+    "save": "any world (pure check)",
+    "note": "FireLeftoverCheck 'run' puts the reported case (one rescue task, nobody trapped on the lot, for 15 sim-minutes) and a window task with no window fire left through the decisions with controls (read-only), and prints the live emergency if one is on (pending tasks, trapped Sims still on the lot, window fires). End to end: household firefighter, LargeFires emergency with a trapped NPC (debug SpawnJob), firetrapcount off, take the trapped NPC off the lot, keep the firefighter on the lot: off, the job waits for the timeout; on, about 16 sim-minutes later 'result' shows 2178 +1 and the job completes.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2180 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": false
+        }
+      }
+    ]
+  },
+  {
     "id": "fire-trap-count",
     "bug": "Firefighter large fire / earthquake: a trapped Sim who leaves the lot (or is deleted) unfreed keeps its 'free N Sims' task, and on apartment lots trap spots include hidden neighbour units nobody can enter; the count cannot be met and the job times out (docs/570 §5)",
     "fix": "ts3fixes FireTrapCount.cs: firetrapcount (default off), docs/570 §5",

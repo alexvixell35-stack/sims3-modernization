@@ -1060,6 +1060,7 @@ namespace Ts3Fixes
         // [3382-3384] coopeggquality (StoreBatch1Logic.cs, docs/587 store §13.13): egg quality index shifted to the Quality enum.
         // [3953-3955] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
         // [3956-3959] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
+        // [2178-2180] fireleftover (FireLeftover.cs, docs/862): emergency rescue tasks dropped with nobody trapped left / window-fire tasks completed with no window fire left / errors.
         // [3960-3962] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
         // [3963-3966] sneakoutlistener (GenerationsLogic.cs, docs/571 §2): stale sneak-outs skipped / duplicate return-home listeners removed / left-over sneak listeners removed / errors.
         // [3618-3619] promcarpool (GenerationsLogic.cs, docs/571 §3): prom carpools removed / errors.
@@ -2049,6 +2050,7 @@ namespace Ts3Fixes
                 case "spawnoffworld": return Instantiator.kSpawnOffWorld;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
                 case "firegreet": return Instantiator.kFireGreet;
+                case "fireleftover": return Instantiator.kFireLeftover;
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;

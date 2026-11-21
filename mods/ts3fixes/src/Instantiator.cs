@@ -763,6 +763,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kStrayGnomeTns = true;    // straygnometns (docs/587 EP3 §8.14): the stray-wildlife gnome notice names the chosen animal, once
         [Tunable] public static bool kFireTrapCount = true;    // firetrapcount (docs/570 §5): firefighter "free N Sims" counts trapped Sims who left the lot or sit in hidden apartment units
         [Tunable] public static bool kFireActiveJob = true;    // fireactivejob (docs/570 §1): the firefighter's current emergency (a static) survives a world quit; afterwards every new emergency is dropped
+        [Tunable] public static bool kFireLeftover = false;    // fireleftover (docs/862): an emergency whose last rescue / window-fire task nobody can do any more ends instead of waiting out the timeout
         [Tunable] public static bool kFireGreet = false;    // firegreet (docs/681): the firefighter is greeted on the emergency lot again after EA drops the greeting (stepped out) or never gave it
         [Tunable] public static bool kEatOutsideCount = true;    // eatoutsidecount (docs/569 §2): Bistro eat-outside follower counted twice (done, then cancelled)
         [Tunable] public static bool kSpawnFix = true;             // ON (PR #490, 8,357 fan-outs skipped in 17 soak jobs): a spawn or removal refreshes one spawner, not every spawner in the world (SpawnFix.cs, docs/857)

@@ -66,6 +66,7 @@ namespace Ts3Fixes
 
         static void FireGreetTick()
         {
+            FireLeftoverTick();  // fireleftover (FireLeftover.cs) shares this minute alarm; it reads its own switch
             try
             {
                 if (!ShortcutOn("firegreet")) return;
