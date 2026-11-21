@@ -876,6 +876,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00B47579, 0x00000000},
     {0x00B47DDF, 0x00000000},
     {0x00B4821B, 0x00000000},
+    {0x00B499D0, 0x00000000},
     {0x00B57F20, 0x00B565C0},
     {0x00B69840, 0x00B540E0},
     {0x00B745A0, 0x00B73130},
@@ -1637,7 +1638,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x01234360, 0x01235360},
     {0x01234374, 0x01235374},
 };
-constexpr int ts3addr_count = 1632;
+constexpr int ts3addr_count = 1633;
 // unresolved: 0x005A2C00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
 // unresolved: 0x005BF1FB xref-none native/ts3native/vcallsites3.h:5
 // unresolved: 0x0060AA00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
@@ -1671,6 +1672,7 @@ constexpr int ts3addr_count = 1632;
 // unresolved: 0x00B47579 no-retail-1.67-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B47DDF no-retail-1.67-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B4821B no-retail-1.67-address native/ts3native/fglprof.cpp (docs/670, docs/671)
+// unresolved: 0x00B499D0 no-retail-1.67-address native/ts3native/fglprof.cpp (docs/682 §9)
 // unresolved: 0x00B468DD no-retail-1.67-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B46B0D no-retail-1.67-address native/ts3native/fglprof.cpp (docs/670, docs/671)
 // unresolved: 0x00B4677F no-retail-1.67-address native/ts3native/fglprof.cpp (docs/670, docs/671)

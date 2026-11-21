@@ -59,6 +59,7 @@
  "FglProf": ["fglprof.cpp"],
  "FglFacing": ["fglprof.cpp"],
  "FglMemo": ["fglprof.cpp"],
+ "FglInside": ["fglprof.cpp"],
  "EditPathRO": ["epro.cpp"],
  "ConnRoomsRO": ["connro.cpp"],
  "IdleCheckRO": ["idlero.cpp"],

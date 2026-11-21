@@ -113553,6 +113553,109 @@
     ]
   },
   {
+    "id": "fglinbound-check",
+    "bug": "docs/682: GlobalFunctions.FindGoodLocationNearby's lot-wide indoors stage asks its managed check IsInside only for spots that already passed the native placement test, so learning that a lot has no free indoor spot costs a placement test on every tile: a guitar jig placed from a small room on a 64 x 64 lot tests 3344 tiles, 196 spots pass and are refused as outdoors, 230-270 ms; with the outdoors search after it one 350-460 ms sim-thread frame (stall leaf World_FindGoodLocation; s189-type storms 2026-11-20, inferred for s202 / s203)",
+    "fix": "design 3 (docs/682 §9): ts3native [FglInside] Enabled=1 (fglprof.cpp, default 0) + ts3fixes fglinbound (FglInBound.cs, its own FindGoodLocationNearby swap FibNearbyHook, tuning kFglInBound, default off). ts3fixes makes the indoors stage's search itself (EA's call word for word) between two op 48 messages; ts3native answers a facing test of that search 'no' without the call when the tile has no light-blocking room on the search's level or one either side (IsInside would refuse every spot there). Same tiles accepted in the same order. fglinboundhh includes household Sims; shadows: [FglInside] Shadow=1 (tests run, a search ending on such a tile is a mismatch) and kFglInBoundShadow (EA's stage runs too, answers compared, slot 1502)",
+    "save": "needs a loaded world; live: a selected Sim on a lot with rooms; live:big: any world with a built lot (no save change)",
+    "note": "Designs 1 (one radius, s207 / s208) and 2 (cluster searches, s222) gave no gain on lots whose rooms spread over the lot and are removed. Design 3 ran on the contributor's rig: s227 shadow ([FglInside] mismatch 0, live:big 3/3 same, live 3/3 same tile), s228 serve (live:big EA 193-197 ms -> ours 40-41 ms, same answer x3). Job ini: [FglInside] Enabled=1 (Shadow=1 for the first arm), [UserDiag] on. 'run' only asks whether ts3native answers op 48. 'live' / 'live:big' are the real compare and need no guitar: a GuitarJig is created on up to three indoor tiles of the lot (live: the selected Sim's; live:big: the largest lot with indoor tiles), our armed stage search and EA's stage run from each, the answers are compared (slots 1501 / 1502), the jig is destroyed; nothing is placed. They call the paths directly, so they work with the switch on or off. Storm arms: docs/682 §9.8.",
+    "expect": "start: 'OK   fgl inside: Mode=1 Shadow=..'. off: 'verdict: BROKEN'. on: 'verdict: FIXED' (arm True, end True). live / live:big: 'live verdict: ok', every tile '-> same' (never 'DIFFERENT', 'threw' or 'did not answer'); with Shadow=0 ours ms well below EA's where the answer is 'no indoor spot'. Log: one 'fgl inside: search found ..., tiles that reached a facing test: N with no room ... (M facing tests answered 0 ...), K that may be indoors (...)' per armed search, never 'fgl inside: SHADOW MISMATCH'; the minute line ends 'shadow mismatch 0'. result: shadow different 1502=0, 1497=0; no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 3,
+        "note": "the real searches: EA's indoors stage against ours with a GuitarJig on indoor tiles of the selected Sim's lot"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "live:big"
+          ]
+        },
+        "waitS": 2,
+        "note": "the same on the largest lot with indoor tiles (the logged 64 x 64 shape), no Sim needed there"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
