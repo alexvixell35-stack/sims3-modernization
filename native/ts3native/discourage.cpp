@@ -144,6 +144,35 @@ struct PfaProbe { DWORD idLo, idHi, lotLo, lotHi, t; void* obj; };
 static PfaProbe g_pfaProbe[kPfaProbes];
 static int g_pfaProbeN;  // owner thread only
 static const DWORD* g_pfaWm = (const DWORD*)(uintptr_t)TS3A(0x011ECBC4);  // the world manager slot 0x831BA0 tests under its lock
+
+// [Discourage] DeferObjInsert (docs/670 §27). Exported block ts3native_objins: +0x00 mode is the runtime switch (native_set
+// objins): 1 = event 9's footprint insert 0x833680 becomes a record (fp2 = 3) while a job runs; 2 = count only (today's flush
+// and call, timed). Record fields: allow = 1 marks a record a later insert of the object has replaced (not applied).
+struct ObjInsCounters {
+    volatile LONG oiMode;         // +0x00
+    volatile LONG oiReady;        // +0x04 the two call sites are ours (LostRemovalFix installed)
+    volatile LONG oiCalls;        // +0x08 sim-thread calls of the two sites with the switch on
+    volatile LONG oiInJob;        // +0x0C of those, while a job ran
+    volatile LONG oiDeferred;     // +0x10 records made
+    volatile LONG oiDup;          // +0x14 not queued: the object's newest record was this insert already
+    volatile LONG oiApplied;      // +0x18 records applied with the game's 0x833680
+    volatile LONG oiSuperseded;   // +0x1C not applied: a later insert of the object replaced it
+    volatile LONG oiDropped;      // +0x20 the object was gone or its id reused at the apply: no footprint
+    volatile LONG oiDestroyDrop;  // +0x24 dropped by the object's own destroy
+    volatile LONG oiPass;         // +0x28 not deferred: +0x918 held, a job callback, a drain, another world, closing, no id
+    volatile LONG oiBatch;        // +0x2C not deferred: the world's batch mode (+0x97E and +0x976) or EA's bracketed site 0x9462D4
+    volatile LONG oiFull;         // +0x30 not deferred: queue full
+    volatile LONG oiApplyBatch;   // +0x34 applied while the world's batch mode was on (its early out may have skipped the insert)
+    LONG oiAgeMaxMs;              // +0x38 oldest record at its apply
+    volatile LONG oiWould;        // +0x3C mode 2: calls mode 1 would have deferred
+    volatile LONG oiWaitUs;       // +0x40 time in the flush and the game's call for calls made while a job ran and not deferred
+    volatile LONG oiWaitN;        // +0x44 those calls
+};
+extern "C" __declspec(dllexport) ObjInsCounters ts3native_objins = {};
+// 0x833680 and its two call sites in 0x946160 (docs/89 §16, UofSite below)
+static const DWORD UOF_FN = TS3A(0x00833680), UOF_SITE1 = TS3A(0x009462D4), UOF_SITE2 = TS3A(0x0094630A);
+typedef void(__fastcall* UofFn)(void* world, void* edx, void* obj);
+static UofFn g_uof = (UofFn)(uintptr_t)UOF_FN;
 static const int kDiscCap = 256;
 static const DWORD kDiscMaxAgeMs = 250;  // older records are applied even if that means waiting for the running job
 static DiscRec g_disc[kDiscCap];
@@ -162,7 +191,7 @@ static DWORD CeDestroyObj(DWORD idLo, DWORD idHi) {
 }
 // docs/186 §8: our-events ring entry for a queued record
 static void CeDiscQ(const DiscRec& r) {
-    CeRec(CE_FP_QUEUE, (DWORD)(uintptr_t)r.obj, r.idLo, r.usf ? 1 : r.fp2 ? 2 + r.fp2 : r.pfa ? 6 : r.pf ? 5 : r.add ? 0x10 : 0);
+    CeRec(CE_FP_QUEUE, (DWORD)(uintptr_t)r.obj, r.idLo, r.usf ? 1 : r.fp2 == 3 ? 7 : r.fp2 ? 2 + r.fp2 : r.pfa ? 6 : r.pf ? 5 : r.add ? 0x10 : 0);
 }
 static bool DiscWorldOk(void* world) { return world && *((const u8*)world + 0x974) != 0; }
 
@@ -247,6 +276,20 @@ static bool DiscApplyOne(DiscRec& r, void* world) {
                 DiscPfSweep((u8*)world, r.idLo, r.idHi);  // the private key 0x82B551 removes with the object, which is gone here
             }
         }
+    } else if (r.fp2 == 3) {  // docs/670 §27: event 9's insert, the game's call as if made now; gone or reused id: no footprint
+        ObjInsCounters& o = ts3native_objins;
+        Max(&o.oiAgeMaxMs, (LONG)(GetTickCount() - r.t));
+        if (r.allow) {
+            InterlockedIncrement(&o.oiSuperseded);
+        } else if (applied) {
+            if (g_async.state == A_RUNNING) InterlockedIncrement(&k.fp2ApplyInJob);
+            if (*((const u8*)world + 0x97E)) InterlockedIncrement(&o.oiApplyBatch);
+            g_uof(world, NULL, obj);
+            InterlockedIncrement(&o.oiApplied);
+        } else {
+            InterlockedIncrement(&o.oiDropped);
+        }
+        if (obj) g_objRelease(&obj, NULL);
     } else if (r.fp2) {  // phase 2: the game's call as if made now; gone or reused id: dropped (a later call re-does it)
         if (applied) {
             if (g_async.state == A_RUNNING) InterlockedIncrement(&k.fp2ApplyInJob);
@@ -408,29 +451,44 @@ static void DiscPoll(int site) {
 // READY once the records are applied, so it plans on the same footprints as after the wait), READY answers "not yet" or hands over a
 // result the drain could not change (DyReadyMay). The records are applied by the first DiscPoll with no job running. Ceilings: an
 // oldest record >= kDyMaxAgeMs old is drained with the wait as before, whoever asks; a parked START waits at most kDyTicks READY ticks.
-static int g_dyMode;
+//
+// docs/670 §27 [RouteAsync] DiscYieldOwn (default 0; no counter fields; the same lines): the same skip when the running job is an
+// own one (a Sim's Route.Plan job, most of a storm's jobs: s294-s309 have 67 of 81 READY disc waits behind one). Every rule above
+// holds unchanged (known unseen caller at its task root, the 1 s ceiling, DyReadyMay at READY, the park at START); only the kind of
+// the job that is waited out differs, and nothing in the park or in READY reads it. The two switches are independent.
+static int g_dyMode, g_dyOwn;
 static const DWORD kDyMaxAgeMs = 1000;
 static LONG g_dyYield[DS_N], g_dyKept[3], g_dyTicksMax, g_dyCapped, g_dyAgeMaxMs;  // kept: 0 not unseen, 1 cannot yield, 2 age ceiling
+static LONG g_dyOwnYield, g_dyReadyQueued;  // yields behind an own job; READY polls whose own job was queued (DyReadyMay: the wait stays)
 static DWORD g_dyLogMin, g_dyLogLines;
 static DWORD DiscOldestAge() { return g_discCount ? GetTickCount() - g_disc[g_discHead].t : 0; }
 // owner thread, at a START / A10 START / READY point right before its DiscPoll: true = skip the forced drain (the caller yields).
 // unseen: the caller's route is known unseen (scope 2 or an UnseenFallback mark)
 static bool DiscYieldOk(bool unseen, int site) {
-    if (g_dyMode != 1 || !g_discCount || g_discDraining || GetCurrentThreadId() != g_async.owner) return false;
-    if (g_async.state != A_RUNNING || g_jobOwn) return false;  // no wait, or an own job (not this switch's reach)
+    if ((g_dyMode != 1 && g_dyOwn != 1) || !g_discCount || g_discDraining || GetCurrentThreadId() != g_async.owner) return false;
+    if (g_async.state != A_RUNNING) return false;  // no wait
+    const bool own = g_jobOwn != 0;  // read once: the worker clears it at the job's end
+    if (own ? g_dyOwn != 1 : g_dyMode != 1) return false;  // DiscYieldForeign: a foreign job; DiscYieldOwn (docs/670 §27): an own one
     const DWORD age = DiscOldestAge();
     if (age < kDiscMaxAgeMs) return false;  // DiscPoll would not wait either
     // household, selected and unknown scope keep the wait (HhExempt; [Experimental] HouseholdToo=1 lifts it: the same plan, later)
     const int kept = HhExempt(!unseen) ? 0 : !CanYield() ? 1 : age >= kDyMaxAgeMs ? 2 : -1;
     if (kept >= 0) { g_dyKept[kept]++; return false; }
     g_dyYield[site >= 0 && site < DS_N ? site : DS_OTHER]++;
+    if (own) g_dyOwnYield++;
     if ((LONG)age > g_dyAgeMaxMs) g_dyAgeMaxMs = (LONG)age;
     const DWORD now = GetTickCount();
     if (now - g_dyLogMin >= 60000) g_dyLogMin = now, g_dyLogLines = 0;
     if (g_dyLogLines++ < 10)
-        Log("disc yield: %s skipped a forced drain (oldest record %lu ms, %d queued) while foreign job %08lX runs", site == DS_READY ? "READY" :
-            site == DS_A10START ? "A10 START" : "START", age, g_discCount, g_async.handle);
+        Log("disc yield: %s skipped a forced drain (oldest record %lu ms, %d queued) while %s job %08lX runs", site == DS_READY ? "READY" :
+            site == DS_A10START ? "A10 START" : "START", age, g_discCount, own ? "own" : "foreign", g_async.handle);
     return true;
+}
+// READY of a caller whose job is still queued, right before its DiscPoll: counted when that poll will wait out a job a yield
+// switch covers (the drain is what keeps the worker from claiming the queued job past the old records, docs/640 §2)
+static void DiscYieldQueuedNote() {
+    if (!g_discCount || g_discDraining || g_async.state != A_RUNNING || DiscOldestAge() < kDiscMaxAgeMs) return;
+    if (g_jobOwn ? g_dyOwn == 1 : g_dyMode == 1) g_dyReadyQueued++;
 }
 // one READY tick of a START parked by it (DiscPoll ran just before): true = keep waiting (a forced drain is still due)
 static bool DiscYieldWait(LONG ticks) {
@@ -441,10 +499,11 @@ static bool DiscYieldWait(LONG ticks) {
     return false;
 }
 static void DiscYieldLog() {
-    if (g_dyMode || g_dyYield[DS_START] + g_dyYield[DS_A10START] + g_dyYield[DS_READY])
+    if (g_dyMode || g_dyOwn || g_dyYield[DS_START] + g_dyYield[DS_A10START] + g_dyYield[DS_READY])
         Log("disc yield: mode %d yields START %ld A10 START %ld READY %ld, kept not unseen %ld no yield %ld age cap %ld, parked capped %ld "
-            "max ticks %ld, max age %ld ms", g_dyMode, g_dyYield[DS_START], g_dyYield[DS_A10START], g_dyYield[DS_READY], g_dyKept[0],
-            g_dyKept[1], g_dyKept[2], g_dyCapped, g_dyTicksMax, g_dyAgeMaxMs);
+            "max ticks %ld, max age %ld ms; own mode %d: %ld of the yields behind an own job, READY kept for a queued job %ld",
+            g_dyMode, g_dyYield[DS_START], g_dyYield[DS_A10START], g_dyYield[DS_READY], g_dyKept[0], g_dyKept[1], g_dyKept[2], g_dyCapped,
+            g_dyTicksMax, g_dyAgeMaxMs, g_dyOwn, g_dyOwnYield, g_dyReadyQueued);
 }
 
 // RemovalFirst (docs/89 §18, [Discourage] RemovalFirst=1, 0 = off; no counter fields, the hotfix keeps the layout; log line
@@ -527,6 +586,8 @@ static void DiscApplyFor(DWORD idLo, DWORD idHi, int n0, bool destroy) {
         if (r.idLo != idLo || r.idHi != idHi || r.lock != lock || (r.add && !destroy)) {
             if (w != i) { g_disc[(g_discHead + w) % kDiscCap] = r; r.pts = NULL; }
             w++;
+        } else if (r.fp2 == 3 && destroy) {  // docs/670 §27: no insert for an object on its way out (its removes above ran)
+            InterlockedIncrement(&ts3native_objins.oiDestroyDrop);
         } else if (r.usf || r.fp2 || r.pf) {  // design U, phase 2, private remove: applied in order like a Remove
             if (DiscApplyOne(r, world) && r.usf && destroy) InterlockedIncrement(&k.usfDestroyApplied);
         } else if (r.add) {
@@ -748,9 +809,6 @@ static void __fastcall UolHook(u8* world, void*, u8* obj) { Fp2Hook(2, world, ob
 // takes +0x918 next anyway, so the job wait is not new. shortcut: with +0x918 held here or inside a job callback there is no
 // flush (fp2lrOrderMiss, expected 0, and for a queued Add of the object, which stays behind), and the late remove takes this
 // insert; make the record redo the insert if it ever counts.
-static const DWORD UOF_FN = TS3A(0x00833680), UOF_SITE1 = TS3A(0x009462D4), UOF_SITE2 = TS3A(0x0094630A);
-typedef void(__fastcall* UofFn)(void* world, void* edx, void* obj);
-static UofFn g_uof = (UofFn)(uintptr_t)UOF_FN;
 // site (docs/247 §13.4 C, counters v192 lrs*): 0 = the call at UOF_SITE1, 1 = UOF_SITE2 (event 9's 0x946160)
 static void UolFlushFor(u8* world, const u8* obj, int site) {
     Ts3nCounters& k = ts3native_counters;
@@ -779,10 +837,99 @@ static void UolFlushFor(u8* world, const u8* obj, int site) {
     RgOffSimDrop();
     InterlockedIncrement(&k.fp2lrFlush);
 }
+// docs/670 §27 [Discourage] DeferObjInsert. 0x833680 [verified decompile 0x833680, 0x8321F0, 0x829A60, 0x946160]: thiscall(world;
+// obj), void, takes +0x918 (key 0x833697), reads the object's lot and calls the footprint core 0x8321F0 with "remove first" 0: an
+// insert only (one ObjectFootprint per level offset, then the private footprint), after the core's own early outs. Both callers
+// are in 0x946160, which ignores it and returns 1. With a job running the call waits for the job: as the flush above when a
+// removal of the object is queued (`rtwait`, site lost-removal flush), else at the lock. With the switch on such a call becomes a
+// record behind the object's queued ones and is applied by the game's own call at the next drain point: the footprint appears
+// where the object is then, up to a job (at most kDiscMaxAgeMs, then the forced drain) later. The running job would not have
+// seen the insert either: today the sim waits for its end first.
+//   The two sites [verified disassembly 0x946160..0x946330]: 0x94630A is the plain call. 0x9462D4 is reached only with the
+//   component's flag 2, world +0x97E and 0x945E40 (world +0x974, +0x975 and +0x976: the batch mode) and runs inside a bracket
+//   (world +0x978 = 1, planner +0x10D = 1 through 0x624620, 0x82D280 first).
+//   Not deferred: no job, +0x918 held here, a job callback, a drain, another world, closing, an object with no id (today's
+//   call); the bracketed site, and the world's batch mode (+0x97E and +0x976, kind 1's rule: there +0x978 decides the early
+//   outs 0x82A720 / 0x829A60).
+//   One insert an object: a new insert, queued or run at once, replaces the object's queued ones (allow = 1, not applied), so a
+//   replay never inserts twice where the object's lot changed between two of them.
+//   Order: a later call for the object queues behind (Fp2Hook, UsfHook, the private footprint sites), D's own Add / Remove and
+//   the reader flush Fp2FlushFor drain first, the destroy gate applies its removes and drops the insert.
+static int UoiVoidFor(DWORD idLo, DWORD idHi) {
+    int n = 0;
+    for (int i = 0; i < g_discCount; i++) {
+        DiscRec& r = g_disc[(g_discHead + i) % kDiscCap];
+        if (r.fp2 == 3 && !r.allow && r.idLo == idLo && r.idHi == idHi && r.lock == g_rgLock) r.allow = 1, n++;
+    }
+    return n;
+}
+// sim thread, a job runs: true = recorded (or the same insert is queued already), the caller returns
+static bool UoiDefer(u8* world, u8* obj, bool bracketed) {
+    Ts3nCounters& k = ts3native_counters;
+    ObjInsCounters& o = ts3native_objins;
+    const DWORD idLo = *(const DWORD*)(obj + 8), idHi = *(const DWORD*)(obj + 0xC);
+    if (k.rgOwnerTid == (LONG)GetCurrentThreadId() || g_inInvoke || g_discDraining || !DiscWorldOk(world) ||
+        (void*)(world + 0x918) != g_rgLock || k.rtClosing || !(idLo | idHi)) {
+        InterlockedIncrement(&o.oiPass);
+        return false;
+    }
+    if (bracketed || (world[0x97E] && world[0x976])) { InterlockedIncrement(&o.oiBatch); return false; }
+    if (o.oiMode != 1) { InterlockedIncrement(&o.oiWould); return false; }
+    const int last = DiscLastOf(idLo, idHi);
+    if (last >= 0) {  // the same insert again right behind: twice = once
+        const DiscRec& p = g_disc[(g_discHead + last) % kDiscCap];
+        if (p.fp2 == 3 && !p.allow && p.obj == obj) { InterlockedIncrement(&o.oiDup); return true; }
+    }
+    if (g_discCount == kDiscCap) { InterlockedIncrement(&o.oiFull); return false; }
+    UoiVoidFor(idLo, idHi);
+    DiscRec& r = g_disc[(g_discHead + g_discCount) % kDiscCap];
+    r = DiscRec{};
+    r.fp2 = 3;
+    r.idLo = idLo;
+    r.idHi = idHi;
+    r.t = GetTickCount();
+    r.lock = g_rgLock;
+    r.obj = obj;
+    g_discCount++, CeDiscQ(r);
+    InterlockedIncrement(&o.oiDeferred);
+    Max(&k.discPendingMax, g_discCount);
+    return true;
+}
+// site: 0 = UOF_SITE1 (the bracketed call), 1 = UOF_SITE2 (the plain one)
+static void UofCall(u8* world, u8* obj, int site) {
+    ObjInsCounters& o = ts3native_objins;
+    const bool owner = obj && GetCurrentThreadId() == g_async.owner && !t_snapRun;
+    bool timed = false;
+    LARGE_INTEGER t0 = {};
+    if (owner && o.oiMode) {
+        InterlockedIncrement(&o.oiCalls);
+        if (g_async.state == A_RUNNING) {
+            InterlockedIncrement(&o.oiInJob);
+            if (UoiDefer(world, obj, site == 0)) return;
+            timed = true;
+            QueryPerformanceCounter(&t0);
+        }
+    }
+    // the insert runs now: the object's queued inserts are replaced by it (also with the switch off since they were made)
+    if (owner && g_discCount && !g_discDraining) UoiVoidFor(*(const DWORD*)(obj + 8), *(const DWORD*)(obj + 0xC));
+    if (ts3native_counters.fp2lrMode == 1) UolFlushFor(world, obj, site);
+    g_uof(world, NULL, obj);
+    if (timed) InterlockedExchangeAdd(&o.oiWaitUs, UsSince(t0)), InterlockedIncrement(&o.oiWaitN);
+}
 static void __fastcall UofSite(u8* world, void*, u8* obj) {
     // our call replaced EA's `call 0x833680` at UOF_SITE1 / UOF_SITE2, so the return address names the site
-    if (ts3native_counters.fp2lrMode == 1) UolFlushFor(world, obj, (DWORD)(uintptr_t)_ReturnAddress() == UOF_SITE2 + 5 ? 1 : 0);
-    g_uof(world, NULL, obj);
+    UofCall(world, obj, (DWORD)(uintptr_t)_ReturnAddress() == UOF_SITE2 + 5 ? 1 : 0);
+}
+// the 60 s counter line (ts3native.cpp MaybeLogCounters)
+static void UoiLogCounters() {
+    const ObjInsCounters& o = ts3native_objins;
+    if (!o.oiReady || !(o.oiMode || o.oiCalls)) return;
+    Log("object footprint insert: mode %ld calls %ld (in a job %ld): deferred %ld, same insert queued %ld, applied %ld, replaced by a "
+        "later insert %ld, object gone %ld, dropped at its destroy %ld, oldest %ld ms, applied in batch mode %ld; not deferred: pass %ld, "
+        "batch mode or bracketed site %ld, queue full %ld; count only: would defer %ld; not-deferred calls in a job: %ld, %ld ms in the flush "
+        "and the game's call",
+        o.oiMode, o.oiCalls, o.oiInJob, o.oiDeferred, o.oiDup, o.oiApplied, o.oiSuperseded, o.oiDropped, o.oiDestroyDrop, o.oiAgeMaxMs,
+        o.oiApplyBatch, o.oiPass, o.oiBatch, o.oiFull, o.oiWould, o.oiWaitN, o.oiWaitUs / 1000);
 }
 
 // flush before a reader that needs the object's fresh footprints (an IC point: managed code is on the stack); true = flushed.
@@ -1035,6 +1182,13 @@ static void InstallFootprintDefer2(const wchar_t* ini) {
     k.fp2lrReady = 1;
     k.fp2lrMode = 1;
     Log("OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)");
+    // docs/670 §27: the insert of the same two sites as a record. Ready with the sites, so native_set objins can switch it in a load
+    ObjInsCounters& o = ts3native_objins;
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    o.oiMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"DeferObjInsert", 0, ini), 0, 2);
+    o.oiReady = 1;
+    Log("%s object footprint insert deferral (0x833680 at 0x94630A; docs/670 §27; DeferObjInsert=%ld: %s)", o.oiMode ? "OK  " : "off:",
+        o.oiMode, o.oiMode == 1 ? "a record while a job runs" : o.oiMode == 2 ? "count only" : "today's flush and call");
 }
 
 // --- GhostSweep (docs/89 §17): dead object footprints in P's footprint map ---
@@ -1302,7 +1456,9 @@ static void InstallDiscourage(const wchar_t* ini) {
     g_rfMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"RemovalFirst", 1, ini), 0, 1);
     Log("footprint removal first: RemovalFirst=%d (docs/89 §18)", g_rfMode);
     g_dyMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"DiscYieldForeign", 0, ini), 0, 1);
-    Log("disc yield: DiscYieldForeign=%d (docs/640; 1 = an unseen caller parks instead of waiting out a foreign job at a forced drain)", g_dyMode);
+    g_dyOwn = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"DiscYieldOwn", 0, ini), 0, 1);
+    Log("disc yield: DiscYieldForeign=%d (docs/640; 1 = an unseen caller parks instead of waiting out a foreign job at a forced drain), "
+        "DiscYieldOwn=%d (docs/670 §27; the same behind an own job)", g_dyMode, g_dyOwn);
     ts3native_counters.fpgMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"GhostSweep", 1, ini), 0, 2);
     g_fpgTest = GetPrivateProfileIntW(L"Discourage", L"GhostTest", 0, ini) != 0;
     Log("ghost census at world load: GhostSweep=%ld (0 off, 1 count only, 2 remove)%s", ts3native_counters.fpgMode, g_fpgTest ? ", GhostTest ops on" : "");

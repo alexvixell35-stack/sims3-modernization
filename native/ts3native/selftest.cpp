@@ -5898,6 +5898,89 @@ static void TestFp2LostRemoval() {
     DiscPoll();
     assert(g_discCount == 0 && k.fp2ApplyInJob == 0 && k.rgOwnerTid == 0);
 
+    // docs/670 §27 [Discourage] DeferObjInsert: the plain site's insert as a record (fp2 = 3). UofCall's site 1 = 0x94630A
+    {
+    ObjInsCounters& o = ts3native_objins;
+    static_assert(offsetof(ObjInsCounters, oiMode) == 0 && offsetof(ObjInsCounters, oiDeferred) == 0x10 &&
+                      offsetof(ObjInsCounters, oiWould) == 0x3C && sizeof(ObjInsCounters) == 0x48,
+                  "ts3native_objins layout (docs/registry.md)");
+    memset(&o, 0, sizeof(o));
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    auto move2 = [&](DWORD to) {  // event 0xA on the old lot, the lot change, event 9 at the plain site
+        UolHook(world, NULL, A);
+        g_lrLot[0] = to;
+        UofCall(world, A, 1);
+    };
+    // off: today's call (no job here, so nothing waits)
+    place(1);
+    move2(2);
+    assert(g_lrMap[0] == vanillaMove && o.oiCalls == 0 && g_discCount == 0);
+    // on, a job runs: nothing waits and nothing changes until the drain, which gives vanilla's map
+    o.oiMode = 1;
+    const LONG flush0 = k.fp2lrFlush;
+    place(1);
+    g_async.state = A_RUNNING;
+    move2(2);
+    assert(g_lrMap[0] == 1u << 1 && g_discCount == 2 && o.oiDeferred == 1 && o.oiInJob == 1 && k.fp2lrFlush == flush0);
+    assert(g_async.state == A_RUNNING && g_disc[(g_discHead + 1) % kDiscCap].fp2 == 3);
+    UofCall(world, A, 1);  // the same insert again: twice = once
+    assert(o.oiDup == 1 && g_discCount == 2);
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(g_lrMap[0] == vanillaMove && o.oiApplied == 1 && settled());
+    // two lot changes in one job: the first insert is replaced, one insert on the last lot
+    place(1);
+    g_async.state = A_RUNNING;
+    move2(2);
+    move2(3);
+    assert(g_discCount == 4 && o.oiDeferred == 3 && g_disc[(g_discHead + 1) % kDiscCap].allow == 1);
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(g_lrMap[0] == 1u << 3 && o.oiSuperseded == 1 && o.oiApplied == 2 && settled());
+    // an insert that runs at once (the job is over, nothing drained yet) replaces the queued one; its flush applies the removal
+    place(1);
+    g_async.state = A_RUNNING;
+    move2(2);
+    g_async.state = A_IDLE;
+    UofCall(world, A, 1);
+    assert(g_lrMap[0] == 1u << 2 && g_discCount == 0 && o.oiSuperseded == 2 && o.oiApplied == 2 && k.fp2lrFlush == flush0 + 1);
+    // the object goes before the drain: its removal reaches the map, no footprint is inserted
+    place(1);
+    g_async.state = A_RUNNING;
+    move2(2);
+    g_xLive[0] = NULL;
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(g_lrMap[0] == 0 && o.oiDropped == 1 && g_discCount == 0);
+    g_xLive[0] = A;
+    // the destroy gate: the removal is applied, the insert dropped
+    place(1);
+    g_async.state = A_RUNNING;
+    move2(2);
+    g_async.state = A_IDLE;
+    DiscOnDestroy(0xA, 0, true);
+    assert(g_lrMap[0] == 0 && o.oiDestroyDrop == 1 && g_discCount == 0);
+    // not deferred, each today's call: the bracketed site, the batch mode, +0x918 held here, count only
+    const LONG def0 = o.oiDeferred;
+    place(1);
+    g_async.state = A_RUNNING;
+    UofCall(world, A, 0);
+    assert(o.oiBatch == 1 && g_discCount == 0);
+    world[0x97E] = world[0x976] = 1;
+    UofCall(world, A, 1);
+    world[0x97E] = world[0x976] = 0;
+    assert(o.oiBatch == 2 && g_discCount == 0);
+    k.rgOwnerTid = (LONG)me;
+    UofCall(world, A, 1);
+    k.rgOwnerTid = 0;
+    assert(o.oiPass == 1 && g_discCount == 0);
+    o.oiMode = 2;
+    UofCall(world, A, 1);
+    assert(o.oiWould == 1 && o.oiDeferred == def0 && g_discCount == 0 && o.oiWaitN == 4 && g_lrMap[0] == 1u << 1);
+    g_async.state = A_IDLE;
+    memset(&o, 0, sizeof(o));
+    }
+
     // GhostSweep, a fake footprint map holding every kind of entry
     const DWORD G = 0x1D3272D0, GH = 0x38B400F5, L = 0x1D327130, P = 0x1D328EB0;
     assert(k.fp2lrLost == 2);  // with the fix on nothing is lost

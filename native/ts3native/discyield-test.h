@@ -62,6 +62,27 @@ static void TestDiscYield(u8* out) {
     DyRecord(300);
     assert(DiscYieldOk(true, DS_START) && g_dyYield[DS_START] == 1);
     g_dyYield[DS_START] = 0;
+    // docs/670 §27 DiscYieldOwn: an own job is yielded to only with its own switch, a foreign one only with DiscYieldForeign
+    g_jobOwn = 1;
+    assert(!DiscYieldOk(true, DS_START) && g_dyYield[DS_START] == 0 && g_dyOwnYield == 0);
+    g_dyOwn = 1;
+    assert(DiscYieldOk(true, DS_START) && g_dyYield[DS_START] == 1 && g_dyOwnYield == 1);
+    assert(!DiscYieldOk(false, DS_START));  // the household rule is the same
+    g_dyMode = 0;
+    assert(DiscYieldOk(true, DS_START) && g_dyOwnYield == 2);  // independent of DiscYieldForeign
+    g_jobOwn = 0;
+    assert(!DiscYieldOk(true, DS_START) && g_dyOwnYield == 2);  // a foreign job: DiscYieldForeign's, off here
+    DiscYieldQueuedNote();
+    assert(g_dyReadyQueued == 0);  // a foreign job with only DiscYieldOwn on: not counted
+    g_jobOwn = 1;
+    DiscYieldQueuedNote();
+    assert(g_dyReadyQueued == 1);
+    g_jobOwn = 0;
+    g_dyOwn = 0;
+    g_dyMode = 1;
+    g_dyYield[DS_START] = 0;
+    g_dyOwnYield = g_dyReadyQueued = 0;
+    g_dyKept[0] = 1;  // as before this block (one household refusal)
 
     // 2. READY's reach (DyReadyMay): the running job of the caller, a done one, a park of its own with ticks left; never a queued
     // job (the drain keeps the worker from claiming it), another park, or no job
@@ -157,6 +178,8 @@ static void TestDiscYield(u8* out) {
     memset(g_dyYield, 0, sizeof(g_dyYield));
     memset(g_dyKept, 0, sizeof(g_dyKept));
     g_dyTicksMax = g_dyCapped = g_dyAgeMaxMs = 0;
+    g_dyOwn = 0;
+    g_dyOwnYield = g_dyReadyQueued = 0;
     k.fbRetryMode = savedRetry;
     k.fbRetryParked = savedParked, k.fbRetryQueued = savedQueued, k.fbRetryGaveUp = savedGaveUp, k.fbRetryTicksMax = savedTicks;
     *lockLevel = savedLevel;

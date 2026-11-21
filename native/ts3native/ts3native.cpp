@@ -3259,6 +3259,7 @@ static void SwgLogCounters();   // swarmguard.cpp (docs/678)
 static void EpLogCounters();   // epro.cpp (docs/670 §8)
 static void CnLogCounters();   // connro.cpp (docs/670 §15)
 static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
+static void UoiLogCounters();  // discourage.cpp (docs/670 §27)
 static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
 static void B2LogCounters();    // rtoro.cpp (docs/670 §24)
 static void OaLogCounters();    // gvro.cpp (docs/670 §21)
@@ -3366,6 +3367,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     EpLogCounters();   // docs/670 §8 (nothing until [EditPathRO] is installed)
     CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
     PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
+    UoiLogCounters();  // docs/670 §27 (nothing until DeferObjInsert is on or was called)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     OaLogCounters();    // docs/670 §21 (nothing until [ObstructAtRO] is installed)
     B2LogCounters();    // docs/670 §24 (nothing until [Blocker2dRO] is installed)
@@ -5040,6 +5042,7 @@ static bool DiscRfStart();            // discourage.cpp (docs/89 §18 RemovalFir
 static bool DiscRfWait(LONG ticks, LONG cap);
 static bool DiscYieldOk(bool unseen, int site);  // discourage.cpp (docs/640 [RouteAsync] DiscYieldForeign)
 static bool DiscYieldWait(LONG ticks);
+static void DiscYieldQueuedNote();  // discourage.cpp (docs/670 §27)
 static bool DyKnownUnseen(DWORD handle);         // unseenfb.cpp: scope 2 or an UnseenFallback mark for this START
 static bool g_dyArm, g_dyParked;  // sim thread: this START skipped its forced drain (AsyncStartBody parks it) / it was parked
 static DWORD g_swRtKey;           // sim thread: RtWaitJob's site key of the wait in progress (0x02000000 | RT_* kind, 0x40 = lost-removal flush)
@@ -5946,6 +5949,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     bool dy = false;
     if (!(u8)options2) dy = g_dyArm = DiscYieldOk(DyKnownUnseen(handle), DS_START);
     else if (!(optHi & kAsyncCancelHi) && DyReadyMay(j)) dy = DiscYieldOk(j->uf || j->kdScope == 2, DS_READY);
+    else if (!(optHi & kAsyncCancelHi) && j && j->state == J_QUEUED) DiscYieldQueuedNote();  // docs/670 §27: counted, the wait stays
     if (!dy) DiscPoll(!(u8)options2 ? DS_START : (optHi & kAsyncCancelHi) ? DS_CANCEL : DS_READY);  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
     P5cFlush();
     if (!(u8)options2) return DyStartEnd(AsyncStart(handle), DS_START);
