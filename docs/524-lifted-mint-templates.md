@@ -95,3 +95,13 @@ python tools/emu/specs/mint_lift.py --write                      # tools/emu/spe
 ```
 
 Needs `game-copy/bin/TS3W.exe` (1.67) and the Python packages `unicorn` and `capstone`, as docs/221.
+
+## 6. Build decision (mono lane gc, 2026-11-15): not built, kept OFF
+
+Rodney's rule for K_LIFT: build it if it is safe and an easy way to raise JIT coverage (JIT ship rule: host static gain + coverage + correctness).
+
+**Coverage the lift would add [verified, static]:** 63 of the 132 lifted opcodes have no hand template on master (the other 69 are already `kJitTmpl` kinds). `docs/data/jit-opcode-table.csv` (methods of the compile list that hold the opcode): `bgt.i8.s` 1 method, 0.004 ms/s behind; `ldc.i8` 1, 0.000; `starg.i4` 1, 0.000; the other 60: 0 methods. `docs/data/jit-exit-census.csv` has the same three rows (`Autonomy.get_IsSufficientlyOnScreenForHighLODSimulation` bgt.i8.s, static 1 of 144 positions; `Dictionary`2.DoAdd` starg.i4, 1,653 calls; `CASUtils.CASAGSAvailabilityFlagsFromCASAgeGenderFlags` ldc.i8, 24,097 calls); the 2026-11-11 game census (`docs/data/results/2026-11-11-jit-game-census.csv`) has none of the 63 as an exit. So: 3 exit sites in 3 already-compiled methods, 0 newly compilable methods (an uncompiled opcode compiles as an exit, it never refuses a method), at most ~0.004 ms/s.
+
+**Why it is not easy [verified]:** the templates are EA's handler bytes, git-ignored (§1), so a shipped K_LIFT would copy them out of the live TS3W.exe at compile time from a committed recipe (copy ranges, operand slots, `call rel32` targets re-pointed from the new location, the `push ebx` wrap, the `next`/`taken` jumps). That is a runtime relocator for EA code: an edition check per handler (the 1.69 EA exe has other addresses), and the lazy pass keeps the vt cursor on the stack (`B_VT`, monojit.cpp `VtLoad`) where the templates read `[ebp-0xC]`, so the vt templates would need their own lazy form. Guards or the jitsmall lane's paired timing (`Time=1`, branch `feature/mono-jitsmall-1115`) would not change the coverage number.
+
+**Cheaper route if those three sites ever matter:** hand templates (`K_BCS`-style i8 compare-branch, an i8 `K_LDC` form, `K_STINARG`'s shape for `starg.*`), emulated against EA's handlers with the docs/221 harness as the float compares were. Not worth a lane at 0.004 ms/s.

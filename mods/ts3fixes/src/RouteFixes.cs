@@ -68,7 +68,11 @@ namespace Ts3Fixes
                     Simulator.Sleep(uint.MaxValue);
                     return true;
                 }
-                return RunOrig();
+                // vhomewalk (docs/608 §4, WalkStyleLeak77.cs): EA's Run requests SimWalkStyle on the Sim and never takes it back
+                Sim.WalkStyle ws = SimWalkStyle;
+                int wsBefore = ws != Sim.WalkStyle.AutoSelect ? WsCount(Actor, ws) : -1;
+                try { return RunOrig(); }
+                finally { if (wsBefore >= 0) VhRelease(Actor, ws, wsBefore, ShortcutOn("vhomewalk")); }
             }
             public bool RunOrig() { return false; } // receives GoToVirtualHomeInternal.Run's original header
         }
@@ -119,13 +123,41 @@ namespace Ts3Fixes
         struct RouteFails { public Vector3 Pos; public long First; public int Count; }
         static readonly Dictionary<ulong, RouteFails> sRouteFails = new Dictionary<ulong, RouteFails>();
         // per task (the shape of PR #306's flag): this check's plan can sleep on its route job, and another Sim's result must still reach
-        // NotePlanResult. shortcut: one slot, a second check sleeping beside it ends the first's cover early; a list if that ever shows up
-        static bool sOwnCheckOn;
-        static ulong sOwnCheckTask;
+        // NotePlanResult. docs/616: a set of tasks, not one slot: with spotasync several Sims' SafeSpot checks can sleep at once, and
+        // one slot let the second check's end clear the first's cover (its later plans counted as the Sim's own route fails and
+        // lost the spot tag and the async START). Kept small: a task is added for one check and removed in its finally.
+        static readonly System.Collections.Generic.List<ulong> sOwnCheckTasks = new System.Collections.Generic.List<ulong>(4);
+        // docs/250: inside the watchdog's idle check (CheckIdle's SpotVerdict), same per-task rule as sInOwnCheck
+        static bool sWdCheckOn;
+        static ulong sWdCheckTask;
+        static bool sInWdCheck
+        {
+            get { return sWdCheckOn && sWdCheckTask == Simulator.CurrentTask.Value; }
+            set { sWdCheckOn = value; sWdCheckTask = value ? Simulator.CurrentTask.Value : 0; }
+        }
+
+        // docs/250 §7.0: ts3native [GoalValidRO] Attr (switch gvattr) gets each plan's source class and scope (UserDiag op 35;
+        // op 12 at the plan's end is UfPlan's). Off: one ask per sim tick. The game and older ts3native answer false.
+        static long sGvaTick = -1;
+        static bool sGvaOn;
+        static void GvaSend(Sims3.Gameplay.Actors.Sim sim, int why, bool ownCheck)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            if (now != sGvaTick) { sGvaTick = now; sGvaOn = DiagSend(35, 0xFFFF); }
+            if (!sGvaOn) return;
+            ObjectGuid task = Simulator.CurrentTask;
+            int cls = H4Core.SrcClass(sInWdCheck && sInOwnCheck, sStuckIn, ownCheck, sim != null && task == sim.ObjectId, task.IsValid);
+            DiagSend(35, H4Core.Message(cls, H4Core.Scope(why, UnseenFallbackCore.SeenNpc(why))));
+        }
         static bool sInOwnCheck
         {
-            get { return sOwnCheckOn && sOwnCheckTask == Simulator.CurrentTask.Value; }
-            set { sOwnCheckOn = value; sOwnCheckTask = value ? Simulator.CurrentTask.Value : 0; }
+            get { return sOwnCheckTasks.Count > 0 && sOwnCheckTasks.Contains(Simulator.CurrentTask.Value); }
+            set
+            {
+                ulong t = Simulator.CurrentTask.Value;
+                if (!value) { sOwnCheckTasks.Remove(t); return; }
+                if (!sOwnCheckTasks.Contains(t)) { if (sOwnCheckTasks.Count >= 64) sOwnCheckTasks.Clear(); sOwnCheckTasks.Add(t); }  // bounded: a task killed mid-check never removes itself
+            }
         }
         // docs/250 §7.1 A1: the task whose idle check CheckIdle sent as an async job (0 = none); RouteBackoff.cs OwnerTaskSlot 872
         static ulong sWdA1Task;
@@ -173,7 +205,7 @@ namespace Ts3Fixes
         class StuckWatchdog : Task
         {
             struct Seen { public Vector3 Pos; public long Since; }
-            readonly Dictionary<ulong, Seen> mSeen = new Dictionary<ulong, Seen>();
+            Dictionary<ulong, Seen> mSeen = new Dictionary<ulong, Seen>(), mSeenSpare = new Dictionary<ulong, Seen>();
             struct Reset { public long At; public Vector3 Pos; public int Count; }
             readonly Dictionary<ulong, Reset> mLastReset = new Dictionary<ulong, Reset>();
 
@@ -182,8 +214,22 @@ namespace Ts3Fixes
                 uint wait = (uint)SimClock.ConvertToTicks(kWatchMinutes, TimeUnit.Minutes);
                 while (true)
                 {
-                    try { if (ShortcutOn("watchdog")) Check(); } catch (Exception) { mSeen.Clear(); }
-                    try { if (ShortcutOn("watchdog") && ShortcutOn("watchdogidle")) CheckIdle(); } catch (Exception) { mStill.Clear(); }
+                    // docs/622 §4 stuckwatchscan: both passes walk one world scan (Check resets or fades, it destroys nothing, and
+                    // no yield runs between the two; destroyed Sims are skipped in the shared one) and reuse their dictionaries.
+                    bool shared = ShortcutOn("stuckwatchscan");
+                    Sim[] sims = null;
+                    try { if (ShortcutOn("watchdog")) { sims = Sims3.Gameplay.Queries.GetObjects<Sim>(); Check(sims, shared); } } catch (Exception) { mSeen.Clear(); }
+                    try
+                    {
+                        if (ShortcutOn("watchdog") && ShortcutOn("watchdogidle"))
+                        {
+                            bool reuse = shared && sims != null;
+                            CheckIdle(reuse ? sims : Sims3.Gameplay.Queries.GetObjects<Sim>(), reuse, shared);
+                            PatchCounters()[reuse ? 3499 : 3500]++;
+                        }
+                    }
+                    catch (Exception) { mStill.Clear(); }
+                    sims = null;  // no world's Sims held over the sleep
                     Simulator.Sleep(wait);
                 }
             }
@@ -216,8 +262,11 @@ namespace Ts3Fixes
             //       cache (Fixes.SpotVerdict); a cached "not routable" is re-checked before acting. At most one full check
             //       per sim tick (budget shared with SafeSpot), a yield after each, at most kIdleChecksPerPass per pass.
             //  [47] Hidden room: same stillness rule, in a room the lot marks hidden (Lot.IsRoomHidden): no route check.
+            //  Stillness restarts whenever the Sim's interaction changes or its queue empties (an interaction ended), so a
+            //  Sim busy in place is never still; only position plus no activity counts.
             //  [48] Stationary: any non-selectable Sim in the same spot and interaction for a whole sim-day (Overwatch's
-            //       "Stationary"; Sims in a rabbit hole, in a bed, vehicle or other parent are skipped).
+            //       "Stationary"; Sims in a rabbit hole, in a bed, vehicle or other parent are skipped, and a horse on the
+            //       world lot's open terrain: H4Core.WdStationaryResets).
             //  [49] Route plans failing: any Sim but the active household (docs/249; [2066] counts those left alone), whose route plans
             //       failed at least 10 times over more than 30 sim-minutes while it stayed within 1 m (RouteBackoff's plan
             //       hook counts them via NotePlanResult; a successful plan clears the count; our own routability checks do
@@ -229,23 +278,29 @@ namespace Ts3Fixes
             // gets SetToResetAndSendHome (its own spot may count as safe inside the hidden room). Shared daily reset limit.
             const float kIdleMinutes = 60f, kRouteFailMinutes = 30f;
             const int kRouteFailPlans = 10, kIdleChecksPerPass = 16;
-            struct Still { public Vector3 Pos; public InteractionInstance Cur; public long Since, OkAt; }
-            readonly Dictionary<ulong, Still> mStill = new Dictionary<ulong, Still>();
+            // Cur is weak: a strong ref kept the old world's interaction (and through it a Sim) alive after travel until the next pass.
+            struct Still { public Vector3 Pos; public WeakReference Cur; public long Since, OkAt; }
+            static bool SameCur(WeakReference w, InteractionInstance i) { return w == null ? i == null : i != null && object.ReferenceEquals(w.Target, i); }
+            Dictionary<ulong, Still> mStill = new Dictionary<ulong, Still>(), mStillSpare = new Dictionary<ulong, Still>();
+            readonly List<Sim> mQueue = new List<Sim>();
 
-            void CheckIdle()
+            // sims: the round's world scan (reused: shared with Check, destroyed Sims skipped); spare: reuse the dictionaries
+            void CheckIdle(Sim[] sims, bool reused, bool spare)
             {
                 long now = SimClock.CurrentTicks;
                 long idle = SimClock.ConvertToTicks(kIdleMinutes, TimeUnit.Minutes), failSpan = SimClock.ConvertToTicks(kRouteFailMinutes, TimeUnit.Minutes);
                 int[] c = PatchCounters();
-                List<Sim> queue = new List<Sim>();
-                Dictionary<ulong, Still> keep = new Dictionary<ulong, Still>();
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                List<Sim> queue = spare ? mQueue : new List<Sim>();
+                queue.Clear();
+                Dictionary<ulong, Still> keep = spare ? mStillSpare : new Dictionary<ulong, Still>();
+                keep.Clear();
+                foreach (Sim s in sims)
                 {
-                    if (s == null || s.SimDescription == null || !s.InWorld) continue;
+                    if (s == null || (reused && s.HasBeenDestroyed) || s.SimDescription == null || !s.InWorld) continue;
                     if (UfInTransit(s)) continue;  // docs/202 §3.7: a D walk-time hold (unseenfbpre) stands still by design
                     ulong id = s.ObjectId.Value;
                     RouteFails f;
-                    bool household = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;  // unknown = household (as the A1 gate)
+                    bool household = IsPlayerSim(s);  // household rule (PlayerSims.cs), as the A1 gate
                     if (sRouteFails.TryGetValue(id, out f) && f.Count >= kRouteFailPlans && now - f.First > failSpan && f.First <= now
                         && (s.Position - f.Pos).Length() <= 1f)
                     {
@@ -256,19 +311,34 @@ namespace Ts3Fixes
                     if (household || s.Parent != null || s.SimInRabbitHolePosture) continue;
                     InteractionInstance cur = s.CurrentInteraction;
                     Still st;
-                    if (!mStill.TryGetValue(id, out st) || (s.Position - st.Pos).Length() > 1f || st.Cur != cur || st.Since > now)
-                        st = new Still { Pos = s.Position, Cur = cur, Since = now };
+                    if (!mStill.TryGetValue(id, out st) || (s.Position - st.Pos).Length() > 1f || !SameCur(st.Cur, cur) || st.Since > now)
+                        st = new Still { Pos = s.Position, Cur = cur == null ? null : new WeakReference(cur), Since = now };
+                    // An interaction that ended between passes (queue emptied after Since: a pet at its bowl or bed, a Sim at a
+                    // desk) is activity, not stillness: the record restarts there (H4Core.WdStillSince). Without this a Sim seen
+                    // with nothing to do at both passes counted as still however many interactions it finished in place.
+                    long emptied = s.Autonomy == null ? 0 : now - SimClock.ConvertToTicks(s.Autonomy.TimeSinceInteractionQueueBecameEmpty, TimeUnit.Minutes);
+                    st.Since = H4Core.WdStillSince(st.Since, emptied, now);
                     keep[id] = st;
                     long still = now - st.Since;
-                    if (still >= kDayTicks) { if (Act(s, now, 48, "reset (stationary a sim-day)")) keep.Remove(id); continue; }
-                    bool unseen = TownieUnseen(s, null);
                     Lot lot = s.LotCurrent;
+                    if (still >= kDayTicks)
+                    {
+                        // A horse standing on open terrain (the world lot) is grazing, not stuck: the reset's placement would
+                        // move it off the terrain to its home's front door (an apartment floor tile in phase 1335).
+                        if (H4Core.WdStationaryResets(s.IsHorse, lot == null || lot.IsWorldLot) && Act(s, now, 48, "reset (stationary a sim-day)")) keep.Remove(id);
+                        continue;
+                    }
+                    bool unseen = TownieUnseen(s, null, true);  // docs/267 F2: a hidden-room NPC keeps the unseen idle timer (its rescue below)
                     if (still < (unseen ? idle : kDayTicks) || s.IsRouting || lot == null || lot.IsWorldLot) continue;
                     if (lot.IsRoomHidden(s.RoomId)) { if (Act(s, now, 47, "reset (hidden room)")) keep.Remove(id); continue; }
                     if (s.Posture == s.Standing && (st.OkAt == 0 || now - st.OkAt > kDayTicks)) queue.Add(s);
                 }
-                mStill.Clear();
-                foreach (KeyValuePair<ulong, Still> kv in keep) mStill[kv.Key] = kv.Value;
+                if (spare) { mStillSpare = mStill; mStill = keep; mStillSpare.Clear(); }  // same contents as the copy below
+                else
+                {
+                    mStill.Clear();
+                    foreach (KeyValuePair<ulong, Still> kv in keep) mStill[kv.Key] = kv.Value;
+                }
                 if (mLastReset.Count > 1024) mLastReset.Clear();
 
                 // the route checks: one full plan per tick at most, re-validated after every yield
@@ -285,7 +355,7 @@ namespace Ts3Fixes
                     {
                         Still st;
                         if (s.HasBeenDestroyed || !s.InWorld || !mStill.TryGetValue(s.ObjectId.Value, out st) || (s.Position - st.Pos).Length() > 1f
-                            || st.Cur != s.CurrentInteraction || s.IsRouting || s.Posture != s.Standing || s.LotCurrent == null || s.LotCurrent.IsWorldLot) break;
+                            || !SameCur(st.Cur, s.CurrentInteraction) || s.IsRouting || s.Posture != s.Standing || s.LotCurrent == null || s.LotCurrent.IsWorldLot) break;
                         if ((memo || src) && sPlanOk.Covers(s.ObjectId.Value, s.Position.x, s.Position.y, s.Position.z, st.Since, now))
                         {
                             c[233]++;
@@ -307,7 +377,7 @@ namespace Ts3Fixes
                         // hold (same Sim state as checked), else the verdict is dropped (watchdogasync_stale) and the next pass checks again.
                         bool a1On = ShortcutOn("watchdogasync"), lockSkip = ShortcutOn("watchdoglockskip");
                         bool held = !cached && lockSkip && HcWould(sYieldProbe, 8);  // q 8: native selftest jobyield-test.h; only lockskip reads it
-                        bool household = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;  // unknown = household
+                        bool household = IsPlayerSim(s);  // household rule (PlayerSims.cs)
                         bool eligible = !cached && a1On && !household;
                         int route = H4Core.WdRoute(cached, held, a1On, eligible && WdA1Would(), lockSkip, household);
                         if (eligible && route != H4Core.kWdA1) c[874]++;  // watchdogasync_refused
@@ -318,13 +388,14 @@ namespace Ts3Fixes
                         bool? ok;
                         bool stale = false;
                         if (route == H4Core.kWdA1) sWdA1Task = Simulator.CurrentTask.Value;
+                        sInWdCheck = true;  // docs/250 §7.0: gvattr's watchdog class
                         try { ok = SpotVerdict(s, lot, vs, prof, at, true, true, false); }
-                        finally { sWdA1Task = 0; }
+                        finally { sWdA1Task = 0; sInWdCheck = false; }
                         if (route == H4Core.kWdA1)
                         {
                             c[875] += (int)(SimClock.CurrentTicks - t0);  // watchdogasync_ticks (started or not)
                             if (ok.HasValue && ShortcutOn("watchdogasyncshadow")) WdShadow(s, lot, at, ok.Value, c);
-                            bool hh = s.IsSelectable || s.Household == null || s.Household == Household.ActiveHousehold;
+                            bool hh = IsPlayerSim(s);
                             if (ok.HasValue && !H4Core.WdFresh(!s.HasBeenDestroyed && s.InWorld, hh, (s.Position - at).Length(), s.CurrentInteraction == cur0,
                                 s.LotCurrent == lot, s.Posture == s.Standing, s.IsRouting))
                             {
@@ -339,7 +410,7 @@ namespace Ts3Fixes
                             // per-Sim verdict for correctness jobs (bp-idle-unroutable's PASS needs its Sim's line, not any Sim's counter)
                             if (ShortcutOn("watchdogasyncshadow"))
                                 DiagLine("watchdog idle verdict: " + s.FullName + " " + (route == H4Core.kWdA1 ? "A1" : cached ? "cache" : "sync") + " " + ok.Value + (stale ? " stale" : "")
-                                    + " @" + Math.Round(at.x, 2) + "," + Math.Round(at.z, 2) + (lot != null ? " on " + lot.Name : ""));
+                                    + " @" + Math.Round(at.x, 2) + "," + Math.Round(at.z, 2) + " on " + lot.Name);  // lot: s.LotCurrent, non-null (checked above)
                             if (stale) { }
                             else if (ok.Value) { st.OkAt = now; mStill[s.ObjectId.Value] = st; }
                             else if (Act(s, now, 46, "reset (idle on unroutable spot)")) mStill.Remove(s.ObjectId.Value);
@@ -355,7 +426,7 @@ namespace Ts3Fixes
             // A START still refused later (queue full) runs the check sync: c[872] - c[873]. q 9 (ts3native 0.36.239): the check's
             // PlanFromPoint START passes ts3native's kind gate ([RouteAsync] WatchdogKind2 or Kinds bit 2); older ts3native and
             // the game answer false, so A1 is not chosen there (counted watchdogasync_refused) and the check runs sync.
-            static bool WdA1Would()
+            internal static bool WdA1Would()
             {
                 return RouteBackoffHook.ForeignEligible() && HcWould(sYieldProbe, 1) && HcWould(sYieldProbe, 5) && HcWould(sYieldProbe, 7)
                     && HcWould(sYieldProbe, 9);
@@ -394,12 +465,13 @@ namespace Ts3Fixes
                 return true;
             }
 
-            void Check()
+            void Check(Sim[] sims, bool spare)
             {
                 long now = SimClock.CurrentTicks;
                 long goHome = SimClock.ConvertToTicks(kStuckGoHomeMinutes, TimeUnit.Minutes), routing = SimClock.ConvertToTicks(kStuckRoutingMinutes, TimeUnit.Minutes);
-                Dictionary<ulong, Seen> keep = new Dictionary<ulong, Seen>();
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                Dictionary<ulong, Seen> keep = spare ? mSeenSpare : new Dictionary<ulong, Seen>();
+                keep.Clear();
+                foreach (Sim s in sims)
                 {
                     InteractionInstance cur = s.CurrentInteraction;
                     if (cur == null) continue;
@@ -432,8 +504,12 @@ namespace Ts3Fixes
                     }
                     keep[id] = seen;
                 }
-                mSeen.Clear();
-                foreach (KeyValuePair<ulong, Seen> kv in keep) mSeen[kv.Key] = kv.Value;
+                if (spare) { mSeenSpare = mSeen; mSeen = keep; mSeenSpare.Clear(); }  // same contents as the copy below
+                else
+                {
+                    mSeen.Clear();
+                    foreach (KeyValuePair<ulong, Seen> kv in keep) mSeen[kv.Key] = kv.Value;
+                }
                 if (mLastReset.Count > 1024) mLastReset.Clear();
             }
         }

@@ -110,6 +110,7 @@ class Probe:
         self.sample_lock = threading.Lock()
         self.script_errors = []
         self.alive = True
+        self.rewind_out = False  # Frida left the game for a rewind op (frida_detach); serving goes on
 
     def log(self, event):
         with self.lock:
@@ -229,6 +230,32 @@ class Probe:
             threading.Thread(target=self.keep_window_place, daemon=True).start()
         print(f'[ts3probe] attached; serving http://127.0.0.1:{self.args.port}; events in {self.out}', flush=True)
 
+    def frida_detach(self):
+        """docs/270 §24: before a snapshot or rewind of the game. A Frida call in flight across a rewind leaves the agent
+        and its session out of step with this host (toy: the session and even a new attach time out), so the agent
+        leaves the game first; the HTTP server and the probe's own threads stay, game calls fail until frida_attach."""
+        with self.agent_lock:
+            self.rewind_out = True
+            try:
+                self.script.unload()
+            finally:
+                self.session.detach()
+        return {'detached': True}
+
+    def frida_attach(self):
+        """After the op: a new session and agent.js (shortcut: the --profile script is not loaded again)."""
+        with self.agent_lock:
+            self.session = frida.attach(getattr(self, 'game_pid', None) or GAME_EXE)
+            self.session.on('detached', self.on_detached)
+            self.script = self.session.create_script((ROOT / 'tools' / 'probe' / 'agent.js').read_text(encoding='utf-8'))
+            self.script.on('message', self.on_message)
+            self.script.load()
+            self.symbols.script = self.script
+            if self.args.exception_stacks:
+                self.script.exports_sync.enable_exceptions()
+            self.rewind_out = False
+        return {'attached': True}
+
     def on_message(self, message, data):
         if message['type'] == 'send' and message['payload'].get('type') == 'event':
             self.log(message['payload']['event'])
@@ -239,6 +266,8 @@ class Probe:
             self.log({'kind': 'agent-error', 'description': message.get('description'), 'stack': []})
 
     def on_detached(self, reason, crash):
+        if self.rewind_out and reason == 'application-requested':
+            return  # our own frida_detach: the probe keeps serving and attaches again
         info = {'kind': 'detached', 'reason': reason, 'time': time.strftime('%Y-%m-%dT%H:%M:%S')}
         if crash is not None:
             info['crash'] = {'summary': crash.summary, 'report': crash.report}
@@ -501,6 +530,10 @@ class Probe:
 
     def handle(self, path, query):
         q = {k: v[0] for k, v in parse_qs(query).items()}
+        if path == 'fridadetach':
+            return self.frida_detach()
+        if path == 'fridaattach':
+            return self.frida_attach()
         rpc = self.script.exports_sync
         if path == 'status':
             sc = self.state_cmd

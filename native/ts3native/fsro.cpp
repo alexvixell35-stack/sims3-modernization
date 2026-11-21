@@ -19,7 +19,7 @@
 // Counters v901 (+0x5B30, after upstream's v163 block): fsMode (+0x5B34, --ab footstepro).
 #include <math.h>
 
-static const DWORD FS_SITE = 0x00869713, FS_TARGET = 0x00AB9580;
+static const DWORD FS_SITE = TS3A(0x00869713), FS_TARGET = TS3A(0x00AB9580);
 typedef DWORD(__fastcall* FsFn)(u8* world, void* edx, const u8* pt, DWORD flags);  // ret 8
 static FsFn g_fsOrig = (FsFn)(uintptr_t)FS_TARGET;
 struct FsEnt { LONG kx, kz, lv; DWORD flags, val, tick; };

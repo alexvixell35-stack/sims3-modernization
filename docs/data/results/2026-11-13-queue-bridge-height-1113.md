@@ -1,0 +1,10 @@
+# Queue bridge-height-1113 2026-11-13
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/bridge-height-1113-2026-11-13.jsonl`.
+
+## 2026-11-13T16:35 UTC, build d623fee7, jobs ip-bridgeh-off, ip-bridgeh-on
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| ip-bridgeh-off | 16:35 (00:35) | 6.8 | PASS | PASS: profile 5 min, seed 777 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->3, owspread_types_run 0->60, stuckcheckasync_queued 0->232, stuckcheckasync_run 0->232, etspread_passes 1->1, stuckcheck_noplan 0->157, stuckcheck_notstuck 0->2, stuckcheck_rearmed 0->52, stuckcheck_reset 0->23<br>PASS: repro events fired<br>PASS: no forbidden log lines | 0 | 2183.1/1907.9/1558.5 -> 2193.6/2040.2/1412.8 | - | timing: invalid (noise medium); build: asi cdb1ffa3a567 imp1113 ts3native 0.36.253 (log ok); ts3fixes tuning bcab1b64ee6b not in DB (expected build/ts3fixes.package); noise: medium (other apps 8.9% of game CPUs); others on game CPUs 8.9%; clock avg/min 4223/4176 MHz; [est 12 min] off arm: both switches 0. Expect a world-load or play freeze only where the bad bridge exists; otherwise N/A. |
+| ip-bridgeh-on | 16:42 (00:42) | 6.7 | PASS | PASS: profile 5 min, seed 777 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->3, owspread_types_run 0->60, stuckcheckasync_queued 0->223, stuckcheckasync_run 0->222, etspread_passes 1->1, stuckcheck_noplan 0->157, stuckcheck_notstuck 0->1, stuckcheck_rearmed 0->44, stuckcheck_reset 0->20<br>PASS: repro events fired<br>PASS: no forbidden log lines | 0 | 2188.5/1886.7/1576.6 -> 2211.3/1895.6/1558.9 | - | timing: invalid (noise medium); build: asi cdb1ffa3a567 imp1113 ts3native 0.36.253 (log ok); ts3fixes tuning bcab1b64ee6b not in DB (expected build/ts3fixes.package); noise: medium (other apps 10.3% of game CPUs); others on game CPUs 10.3%; clock avg/min 4222/4197 MHz; [est 12 min] on arm: both switches 1 (the shipped ini). Pass: no freeze, no crash; "ea fix: BridgeHeightNaN: the bridge height at" |

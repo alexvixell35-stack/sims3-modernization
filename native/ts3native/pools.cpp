@@ -21,9 +21,9 @@
 // while the other switch is held).
 
 enum { PL_LEAF, PL_INNER, PL_ASTAR, PL_GOAL, PL_CELL, PL_QCELL, PL_N, PL_MAP = PL_N };
-static DWORD g_plPopAt[PL_N] = {0x00667920, 0x00667990, 0x0061AC90, 0x0061AE80, 0x0061EB90, 0x0066BB50};
-static DWORD g_plPushAt[PL_N] = {0x00668962, 0x006679D8, 0x0061AD13, 0x0061B533, 0x0061EBE5, 0x0066BFAE};
-static DWORD g_plGlobal[PL_N] = {0x011CF42C, 0x011CF430, 0x011CEF50, 0x011CEF68, 0x011CEF90, 0x011CF448};  // the tests point them at their own
+static DWORD g_plPopAt[PL_N] = {TS3A(0x00667920), TS3A(0x00667990), TS3A(0x0061AC90), TS3A(0x0061AE80), TS3A(0x0061EB90), TS3A(0x0066BB50)};
+static DWORD g_plPushAt[PL_N] = {TS3A(0x00668962), TS3A(0x006679D8), TS3A(0x0061AD13), TS3A(0x0061B533), TS3A(0x0061EBE5), TS3A(0x0066BFAE)};
+static DWORD g_plGlobal[PL_N] = {TS3A(0x011CF42C), TS3A(0x011CF430), TS3A(0x011CEF50), TS3A(0x011CEF68), TS3A(0x011CEF90), TS3A(0x011CF448)};  // the tests point them at their own
 static const u8 kPlPushReg[PL_N] = {0, 1, 0, 0, 0, 0};  // node register at the push site: 0 esi, 1 ecx
 static const DWORD kPlElem[PL_N + 1] = {0x14, 0x1C, 0, 0, 0, 0, 0x18};  // node size when the live pool object is not there yet
 static volatile LONG g_rpOpTid;    // replay clone work (build, rebase, drain); set inside the +0x918 hold

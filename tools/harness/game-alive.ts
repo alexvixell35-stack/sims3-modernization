@@ -389,8 +389,16 @@ export function lockWaits(file: string, read: typeof analyzeDump = analyzeDump):
   try { const a = read(file); for (const l of a.lines) console.log(`${stamp()} ${l}`); return a.summary; } catch (e) { return `lock waits: not read (${String(e).split('\n')[0]})`; }
 }
 
+// clock-stuck trip that gets a hang capture (pure, covered by --self-check): clock not natively paused and no dialog open
+// (rc1111d bookcarry 2026-11-11: native_paused false, pause_bits 0, one core busy, no stacks). No reply counts as running.
+export const stuckRunning = (cs: { native_paused?: boolean } | null, pd: { open?: boolean } | null) => cs?.native_paused !== true && pd?.open !== true;
+
 if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-check')) {
   const assert = (await import('node:assert')).strict;
+  assert.equal(stuckRunning({ native_paused: false }, { open: false }), true); // 2026-11-11 signature: capture
+  assert.equal(stuckRunning({ native_paused: true }, { open: false }), false); // paused: old behaviour
+  assert.equal(stuckRunning({ native_paused: false }, { open: true }), false); // dialog holds the clock
+  assert.equal(stuckRunning(null, null), true); // no reply: capture
   const st = { last: null as string | null, misses: 0 }, smp = (mark: string, running = true, answering = true) => ({ running, answering, mark });
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // first sample is progress
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // one miss
@@ -499,6 +507,13 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
     const lg = Array.from({ length: 12 }, (_, i) => `t ap click: d${i} -> #1 ok (only button)`).join('\r\n') + '\r\nother\r\nt ap click: (not clicked) -> no safe button, nothing clicked: \'Move?\' buttons: #2 \'move\' score 2\r\n';
     assert.equal(clickLines(lg).length, 10); assert.match(clickLines(lg).at(-1)!, /no safe button/);
     assert.match(noSafeButton(lg), /no safe button, nothing clicked: 'Move\?'/); assert.equal(noSafeButton('t ap click: a -> #1 cancel (safe default)'), '');
+    { // kDialogRules (C#) alien-baby rule: real dialog text matches the fragment, a plain "try for a baby" prompt does not, and the answer is a real button of that dialog
+        const cs = readFileSync(join(import.meta.dirname, '../../mods/ts3agent/src/plugin/Handlers/HarnessHandlers.cs'), 'utf8');
+        const m = /new\[\] \{ new\[\] \{ "(raise the alien baby)" \}, new\[\] \{ "(send to homeworld)" \} \}/.exec(cs); assert.ok(m, 'alien baby rule present');
+        const real = "only marty and the aliens know what happened on that ufo, but whatever it was left marty pregnant! would you like to raise the alien baby or return it to grow up on its homeworld?";
+        assert.ok(real.includes(m![1]!)); assert.ok(!'should we try for a baby?'.includes(m![1]!));
+        assert.ok("#3 'send to homeworld send to homeworld' score 1".includes(m![2]!));
+    }
   }
   { // docs/236 #18: the cycle, save-matrix and repro waits check progress (stallGuard) unless a wait opts out with null
     const src = (f: string) => readFileSync(join(import.meta.dirname, f), 'utf8');

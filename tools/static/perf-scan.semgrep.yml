@@ -1,0 +1,61 @@
+# Perf patterns for managed (C#) hot paths (docs/665 algo sweep). Run:
+#   semgrep --config tools/static/perf-scan.semgrep.yml --json --metrics=off <dir>
+rules:
+  - id: perf-distance-in-loop
+    languages: [csharp]
+    severity: INFO
+    message: sqrt distance compared inside a loop; a squared compare gives the same answer
+    patterns:
+      - pattern-either:
+          - pattern-inside: foreach ($T $X in $C) { ... }
+          - pattern-inside: for (...; ...; ...) { ... }
+          - pattern-inside: while (...) { ... }
+      - pattern-either:
+          - pattern: Vector3.Distance(...) < $R
+          - pattern: Vector3.Distance(...) <= $R
+          - pattern: Vector3.Distance(...) > $R
+          - pattern: Vector3.Distance(...) >= $R
+          - pattern: $A.GetDistanceToObject(...) <= $R
+          - pattern: $A.GetDistanceToObject(...) < $R
+          - pattern: ($A - $B).Length() < $R
+          - pattern: ($A - $B).Length() <= $R
+  - id: perf-list-search-in-loop
+    languages: [csharp]
+    severity: INFO
+    message: linear List.Contains / IndexOf inside a loop (O(n*m))
+    patterns:
+      - pattern-either:
+          - pattern-inside: foreach ($T $X in $C) { ... }
+          - pattern-inside: for (...; ...; ...) { ... }
+      - pattern-either:
+          - pattern: $L.Contains($V)
+          - pattern: $L.IndexOf($V)
+      - metavariable-regex:
+          metavariable: $L
+          regex: (?i)^(?!.*(dict|set|hash|map|keys|index|str|name|text|path|line)).*$
+  - id: perf-world-query-in-loop
+    languages: [csharp]
+    severity: WARNING
+    message: world or lot object query inside a loop (re-run per iteration)
+    patterns:
+      - pattern-either:
+          - pattern-inside: foreach ($T $X in $C) { ... }
+          - pattern-inside: for (...; ...; ...) { ... }
+          - pattern-inside: while (...) { ... }
+      - pattern-either:
+          - pattern: Queries.GetObjects<$U>(...)
+          - pattern: Sims3.Gameplay.Queries.GetObjects<$U>(...)
+          - pattern: $LOT.GetObjects<$U>(...)
+          - pattern: Queries.CountObjects<$U>(...)
+          - pattern: $LOT.GetSims()
+          - pattern: $LOT.GetAllActors()
+  - id: perf-closest-scan
+    languages: [csharp]
+    severity: INFO
+    message: nearest-object scan over a world query (candidate for a squared compare or an index)
+    patterns:
+      - pattern-inside: foreach ($T $X in Queries.GetObjects<$U>(...)) { ... }
+      - pattern-either:
+          - pattern: Vector3.Distance(...)
+          - pattern: $A.GetDistanceToObject(...)
+          - pattern: ($A - $B).Length()

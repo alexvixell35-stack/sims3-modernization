@@ -39,7 +39,7 @@
 //   "float5 watch: WRITER DRk: ..." (value 0x40A00000) or "float5 watch: write DRk: ...". Watches stay until the next rotation.
 // shortcut: outfits are registered at their first save inventory / release check, not at construction (no outfit ctor hook
 // verified yet); a teardown check of modelbuilders, deques and frees has no earlier clean read.
-static const DWORD kF5wF5 = 0x40A00000, kF5wSlotVt = 0x01044320, kF5wPortalVt = 0x00FED048;
+static const DWORD kF5wF5 = 0x40A00000, kF5wSlotVt = TS3A(0x01044320), kF5wPortalVt = TS3A(0x00FED048);
 struct F5wEnt { DWORD obj, vt, okTick, regTick; const char* okSite; LONG okSave, okWorld; DWORD badAt; u8 kind, pad[3]; };  // badAt: the slot last reported (one line per slot)
 static const DWORD kF5wN = 16384;  // power of two
 static F5wEnt* g_f5w;
@@ -130,7 +130,7 @@ static void F5sStep() {  // helper thread: arm once an address is known, keep th
 
 // Portal_Save call site 0x62AF81 (PortalCheck).
 typedef DWORD(__fastcall* F5pSaveFn)(u8* portal, void* edx, void* stream);
-static F5pSaveFn g_f5pSave = (F5pSaveFn)(uintptr_t)0x0064E9A0;  // selftest: a fake
+static F5pSaveFn g_f5pSave = (F5pSaveFn)(uintptr_t)TS3A(0x0064E9A0);  // selftest: a fake
 static volatile LONG g_f5pChecks, g_f5pBad, g_f5pSkip, g_f5pLogs;
 static const char* F5pWhat(const DWORD* v) {  // v = [portal+0x5C], +0x60, +0x64; NULL = fine
     const DWORD b = v[0], e = v[1], c = v[2];
@@ -548,7 +548,7 @@ static bool ApplyFloat5Watch(const wchar_t* ini) {
     if (g_f5wOn && !g_f5w) { Log("FAIL float5 watch: table (err %lu)", GetLastError()), g_f5wOn = false; }
     if (g_f5sOn || g_f5wDr) WpInstall();
     if (g_f5sPortal) {
-        static const CallSite kPortal[] = {{0x0062AF81, 0x0064E9A0, (void*)F5pSaveHook}};
+        static const CallSite kPortal[] = {{TS3A(0x0062AF81), TS3A(0x0064E9A0), (void*)F5pSaveHook}};
         if (!PatchCalls("float5 portal check (Portal_Save call in the portal save list)", kPortal, 1)) g_f5sPortal = g_f5sPortalGuard = false;
     }
     g_f5wWake = CreateEventW(NULL, FALSE, FALSE, NULL);

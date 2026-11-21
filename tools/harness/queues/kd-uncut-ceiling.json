@@ -1,0 +1,42 @@
+{
+  "note": "issue #338 docs/264 §3 forcing repro kd-uncut-ceiling (built 2026-11-15, lane L10, NOT RUN; the natural 1114 queue is kd-uncut-ceiling-1114.json). Forced loop (off,on,on,off x5): kdownplanus test-lowered to 1 ms so an unseen townie's own plans to the 'sealed' goal reach backoff 2 (uncut), the household walks so steering takes +0x918; on arms lower the ceiling to 0.3 s. Needs the ts3agent package of feature/lane-L10-1115 (game-copy/ts3agent.package.lane-L10-1115: go_here/sim_route_to to 'sealed') and native-switches.ts kdownplanus (same branch). Order: IP (big flood), BP (may be N/A), SV natural --ab. Run: node tools/harness/queue.ts tools/harness/queues/kd-uncut-ceiling.json",
+  "jobs": [
+    {
+      "id": "ip-kd-uncut-ceiling",
+      "asi": "tested",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "ini": { "RouteAsync.KdUncutCeilMs": 30000 },
+      "scriptErrorsMax": 0,
+      "run": { "profile": { "minutes": 12, "seed": 12345, "repro": "ip-kd-uncut-ceiling" } },
+      "timeoutMin": 25,
+      "logRequire": { "uncut ceiling hit": 1 },
+      "note": "Pass: every firing's native_check kdBackoff_1>=1 (else setup FAIL: the backoff path was not reached); off arms: a hitch >= 1000 ms with rtLock + 'long job >= 1000 ms ... uncut: backoff'; on arms: 'uncut ceiling hit' lines, kdUncutHit >= 1 per firing, no hitch >= 1 s from that job; kd-arm-cuts.ts --expect-on-zero green (no household cut); 0 script errors. Off plan 3 < 1 s = N/A."
+    },
+    {
+      "id": "bp-kd-uncut-ceiling",
+      "asi": "tested",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "ini": { "RouteAsync.KdUncutCeilMs": 30000 },
+      "scriptErrorsMax": 0,
+      "run": { "profile": { "minutes": 12, "seed": 12345, "repro": "bp-kd-uncut-ceiling" } },
+      "timeoutMin": 25,
+      "note": "Same checks as ip-kd-uncut-ceiling; BP's flood is smaller, so the off arm may stay under 1 s (N/A, not a FAIL)."
+    },
+    {
+      "id": "sv-kd-uncut-natural",
+      "asi": "tested",
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "gameArgs": ["-disablestoryprogression"],
+      "ini": { "RouteAsync.KdUncutCeilMs": 30000 },
+      "scriptErrorsMax": 0,
+      "run": { "profile": { "minutes": 10, "seed": 12345, "ab": "kduncutceil" } },
+      "timeoutMin": 25,
+      "note": "SV 10 min natural, --ab kduncutceil at the default 30 s ceiling (docs/264 §3 third job). Pass: wdJobMaxUs <= 2.5 s in on slices; off slices may show the uncut watchdog lines; kd-arm-cuts.ts --expect-on-zero green; 0 script errors."
+    }
+  ]
+}

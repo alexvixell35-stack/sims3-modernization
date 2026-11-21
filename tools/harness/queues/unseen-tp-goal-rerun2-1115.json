@@ -1,0 +1,28 @@
+{
+ "note": "unseen-tp-goal-rerun2-1115: second rerun of repro unseen-tp-goal-closed (bugfix/tpgoal-repro2-1115). NOT RUN. The 2026-11-15 rerun (unseen-tp-goal-1115-rerun-1115b, 11:24 UTC) FAILed at the first clean: trap put Lenny Shutter in Founders Keep hidden room 28 (in the room, hidden=True, exit=closed), clean ~1 s later answered 'moved 0, left 0', counters 1040-1045 all 0; no step read the NPC in between. The repro now drops the trap's 1 s wait and reads HiddenRoomCheck 'who' right after trap with the cleanup's own filter (mustMatch an 'npc ... exit=closed' line). Needs bugfix/tpgoal-repro2-1115 merged (repros.json, fixes-require.ts) in the checkout that runs the queue. Same game pair as before (master-merge-1115); agent unchanged (build/ts3agent.package as installed by the chain). Pass: every repro step answer matches, fixes counters line PASS (1044/1045 >= 1), switch read back on, 0 script errors, household Sims untouched. If 'who' FAILs, its answer names where the NPC went (trap status line) and the cause is the move, not the cleanup; if 'who' passes and clean still says left 0, the cleanup differs from HrSimsIn and that is a fix bug to triage.",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-unseen-tp-goal-rerun2",
+   "note": "[est 15 min] Correctness (10 min): repro unseen-tp-goal-closed on Baseline-BP, trap lot = hidden (Founders Keep). Read the trap / who / clean / mark / lot answers in <tag>-repro.jsonl and the 'fixes counters' line.",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "pinReason": "same set as unseen-tp-goal-1115-rerun-1115b (master-merge-1115: asi + ini + ts3fixes from one build, master 5d5a581f); only the repro steps changed (no game code change)",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "unseen-tp-goal-closed"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115"
+  }
+ ]
+}

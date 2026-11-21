@@ -25,6 +25,7 @@ const KEYS: Record<string, string> = {
   '0x0082d296': 'UpdateObjectLot', '0x0082a0f6': 'RemovePrivateFootprint', '0x00834890': 'discourage remove',
   '0x008343b9': 'discourage add', '0x02000003': 'destroy (RtWaitJob)', '0x05000000': 'plan waited for the job',
   '0x06000000': 'discourage drain', '0x0080e5b0': 'steering rebuild (P0)',
+  '0x07000000': 'pending lot updates at START (FbApplyPending)',
 };
 export const keyName = (k: string) => KEYS[k] ?? (k.startsWith('0x02') ? 'RtWaitJob drain' : k);
 

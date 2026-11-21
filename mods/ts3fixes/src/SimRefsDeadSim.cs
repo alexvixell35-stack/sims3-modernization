@@ -26,7 +26,7 @@ namespace Ts3Fixes
     //   to the description's current Sim, or null when it has none: the value EA leaves for occult townies that are not in
     //   the world (FixUpOccult runs only on instantiation; Vampire's dereferences the Sim, so EA never calls it without one).
     //   The active household is skipped.
-    // Household rule: household Sims, the selected Sim and Sims of unknown scope (HhScope) are skipped in the actor
+    // Household rule: household Sims, the selected Sim and Sims of unknown scope (IsPlayerSim) are skipped in the actor
     // loop; the occult pass skips the active and played households and the selected Sim; with no active household
     // nothing runs.
     // "Gone" is errortrapsims' rule (destroyed, or its description now names another Sim object). Counters: [2084] last
@@ -63,21 +63,9 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 foreach (Sim s in new List<Sim>(LotManager.Actors))
                 {
-                    if (s == null || s.HasBeenDestroyed || HhScope(s) || s == sel) continue;
-                    Sims3.Gameplay.Socializing.SocialComponent sc = s.SocialComponent;
-                    if (sc != null && sc.LastTalkingTo != null && EtSimGone(sc.LastTalkingTo)) { sc.LastTalkingTo = null; c[2084]++; }
-                    SimRoutingComponent r = s.SimRoutingComponent;
-                    if (r != null && sSrPusher != null && sSrPushReq != null && sSrInPush != null)
-                    {
-                        Sim p = sSrPusher.GetValue(r) as Sim;
-                        if (p != null && EtSimGone(p) && !(bool)sSrPushReq.GetValue(r) && !(bool)sSrInPush.GetValue(r)) { sSrPusher.SetValue(r, null); c[2085]++; }
-                    }
-                    if (sSrCeleb != null && sSrWaiting != null)
-                    {
-                        object cel = sSrCeleb.GetValue(s);
-                        List<Sim> w = cel != null ? sSrWaiting.GetValue(cel) as List<Sim> : null;
-                        if (w != null && w.Count > 0) c[2086] += w.RemoveAll(delegate (Sim x) { return x == null || EtSimGone(x); });
-                    }
+                    if (IsPlayerSim(s)) continue;  // null, destroyed, household, selected or unknown
+                    try { SimRefsDeadSimOne(s, c); }
+                    catch (Exception e) { PassThrewOnce(ref sSrThrew, "simrefsdeadsim", e); }  // one bad Sim skips only itself
                 }
                 if (sSrOccults == null) return;
                 foreach (SimDescription sd in Household.EverySimDescription())
@@ -85,25 +73,51 @@ namespace Ts3Fixes
                     // player households (active or played before) skipped, and the selected Sim's description
                     if (sd == null || sd.OccultManager == null || sd.Household == act || HouseholdPlayed(sd.Household)
                         || (sel != null && sd.CreatedSim == sel)) continue;
-                    List<Sims3.Gameplay.ActorSystems.OccultBaseClass> occ = sSrOccults.GetValue(sd.OccultManager) as List<Sims3.Gameplay.ActorSystems.OccultBaseClass>;
-                    if (occ == null) continue;
-                    foreach (Sims3.Gameplay.ActorSystems.OccultBaseClass o in occ)
-                    {
-                        if (o == null) continue;
-                        FieldInfo f;
-                        Type t = o.GetType();
-                        if (!sSrOwner.TryGetValue(t, out f)) { f = t.GetField("mOwningSim", kInstAll); if (f != null && f.FieldType != typeof(Sim)) f = null; sSrOwner[t] = f; }
-                        Sim ow = f != null ? f.GetValue(o) as Sim : null;
-                        if (ow == null || !EtSimGone(ow)) continue;
-                        Sim cur = sd.CreatedSim;
-                        f.SetValue(o, cur != null && !SimGone(cur) ? cur : null);
-                        c[2087]++;
-                    }
+                    try { SimRefsOccultOne(sd, c); }
+                    catch (Exception e) { PassThrewOnce(ref sSrThrew, "simrefsdeadsim", e); }
                 }
             }
             catch (Exception e)
             {
-                if (!sSrThrew) { sSrThrew = true; AppliedLog().Add("simrefsdeadsim: pass threw " + e.Message); }
+                PassThrewOnce(ref sSrThrew, "simrefsdeadsim", e);
+            }
+        }
+
+        // One non-household Sim: its last talking-to, its router's pusher, its celebrity's waiting list.
+        static void SimRefsDeadSimOne(Sim s, int[] c)
+        {
+            Sims3.Gameplay.Socializing.SocialComponent sc = s.SocialComponent;
+            if (sc != null && sc.LastTalkingTo != null && EtSimGone(sc.LastTalkingTo)) { sc.LastTalkingTo = null; c[2084]++; }
+            SimRoutingComponent r = s.SimRoutingComponent;
+            if (r != null && sSrPusher != null && sSrPushReq != null && sSrInPush != null)
+            {
+                Sim p = sSrPusher.GetValue(r) as Sim;
+                if (p != null && EtSimGone(p) && !(bool)sSrPushReq.GetValue(r) && !(bool)sSrInPush.GetValue(r)) { sSrPusher.SetValue(r, null); c[2085]++; }
+            }
+            if (sSrCeleb != null && sSrWaiting != null)
+            {
+                object cel = sSrCeleb.GetValue(s);
+                List<Sim> w = cel != null ? sSrWaiting.GetValue(cel) as List<Sim> : null;
+                if (w != null && w.Count > 0) c[2086] += w.RemoveAll(sSimGonePred);
+            }
+        }
+
+        // One non-player description: occults whose owner is a gone Sim point at its live Sim (or none).
+        static void SimRefsOccultOne(SimDescription sd, int[] c)
+        {
+            List<Sims3.Gameplay.ActorSystems.OccultBaseClass> occ = sSrOccults.GetValue(sd.OccultManager) as List<Sims3.Gameplay.ActorSystems.OccultBaseClass>;
+            if (occ == null) return;
+            foreach (Sims3.Gameplay.ActorSystems.OccultBaseClass o in occ)
+            {
+                if (o == null) continue;
+                FieldInfo f;
+                Type t = o.GetType();
+                if (!sSrOwner.TryGetValue(t, out f)) { f = t.GetField("mOwningSim", kInstAll); if (f != null && f.FieldType != typeof(Sim)) f = null; sSrOwner[t] = f; }
+                Sim ow = f != null ? f.GetValue(o) as Sim : null;
+                if (ow == null || !EtSimGone(ow)) continue;
+                Sim cur = sd.CreatedSim;
+                f.SetValue(o, cur != null && !SimGone(cur) ? cur : null);
+                c[2087]++;
             }
         }
     }

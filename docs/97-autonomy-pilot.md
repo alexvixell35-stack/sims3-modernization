@@ -164,6 +164,8 @@ Gain caps are averages over steady play; "hitch cap" is what the option can take
 
 **Built 2026-10-30 (docs/122 §14.24):** H4 as ts3fixes `venuememo` (per world pair, read on every call; null answers not kept), together with a typed scan of the venue score's rain/hail list. H1-H3 and H5 are not built. R3 has no exact key (curves linear between points, many inputs), so it stays open.
 
+**Built 2026-11-15 (lane L4, `AutRoomMemo.cs`, NOT RUN):** H1, H2, H3, H5 as `autroommemo` (+ `autroommemoverify`) and `autslicetime` (tunings `kAutonomyRoomMemo`, `kAutonomySliceTime`, off), counters 1024-1037 (the tuning-memo slots of the table above are gone: H4 is `venuememo`). Changes from the spec: H2 lives inside [AutShadow]'s `AutRoomHook` (it already owns the `IsAllowedInRoom` swap); each lookup also checks the segment's tick and task (`CalculateScoreAndAddToCandidates` can reach a yield through virtual calls, swap-stack audit), the key holds the Sim's `mLotCurrent` (`InternalLotCurrent`), and the memo is dropped before and after every `RecalculateAllowedRooms(ulong, int)`, `Lot.RefreshObjectCacheUsers` and `Lot.RefreshObjectCaches` (the writers of what the answer reads), not only at segment change. Repro `autonomy-memo`, queue `lane-l4-1115-memos.json`.
+
 ## 8. Gaps
 
 - Pairs per search, segments per search and lots per meta search are not measured; AM-1's counters give the first two (pairs/segments), lots per search stays inferred.

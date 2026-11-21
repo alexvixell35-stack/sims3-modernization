@@ -27,7 +27,7 @@
       "gameArgs": [
         "-disablestoryprogression"
       ],
-      "timeoutMin": 20
+      "timeoutMin": 75
     },
     {
       "id": "bp-kdhh-noexempt",

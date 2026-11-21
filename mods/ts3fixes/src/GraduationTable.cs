@@ -20,19 +20,24 @@ namespace Ts3Fixes
     // [2030] waiting-loop ticks that found no graduation table.
     public static partial class Fixes
     {
-        public class GraduationTableHook
+        // One hook class per game class (docs/576 §1): a save names a swapped method by its hook class, and swapdelegates
+        // can map a hook class back to its game class only when all its targets live in that one class.
+        public class GraduationCityHallHook
         {
             public void CityHallWaitHook(StateMachineClient smc, InteractionInstance.LoopData loopData)
             {
                 if (GraduationNoTable(this)) return;
                 CityHallWaitOrig(smc, loopData);
             }
+            public void CityHallWaitOrig(StateMachineClient smc, InteractionInstance.LoopData loopData) { }  // School.GraduateInCityHall.WaitingLoopDel
+        }
+        public class GraduationAttendHook
+        {
             public void AttendWaitHook(StateMachineClient smc, InteractionInstance.LoopData loopData)
             {
                 if (GraduationNoTable(this)) return;
                 AttendWaitOrig(smc, loopData);
             }
-            public void CityHallWaitOrig(StateMachineClient smc, InteractionInstance.LoopData loopData) { }  // School.GraduateInCityHall.WaitingLoopDel
             public void AttendWaitOrig(StateMachineClient smc, InteractionInstance.LoopData loopData) { }    // School.AttendGraduation.WaitingLoopDel
         }
         // The check calls the swapped WaitingLoopDel through a delegate: MethodInfo.Invoke fails on a swapped method

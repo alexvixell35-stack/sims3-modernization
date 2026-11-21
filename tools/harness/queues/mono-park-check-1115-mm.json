@@ -1,0 +1,78 @@
+{
+ "note": "mono-park-check-1115-mm: copy of mono-park-check-1115.json, repinned to master-mono-1115 (0.36.264-mono1). mono-park-check-1115 (PREPARED, NOT RUN; correctness only, no timing, noiseCheck false): short unseenpark rerun on master-merge-1115-era code (asi + ini master-merge-1115, ts3fixes.package.mono-park-1115 = master aae8e1d6 + household-scope hold fix + counter unseenpark_household_held (slot 1049, must stay 0; needs game-copy/ts3agent.package.mono-park-1115 installed as build/ts3agent.package, an older agent fails the rule as missing)). Pass per job: no crash, 0 script errors, switch read back (fixes on: unseenpark (verified), unseen_park_held >= 1). Household untouched is a code property (UnseenThrottle.cs AddHook: UfWhy household/selected/gone/not-live/-1 -> HouseholdScope -> never held, never staggered); no per-household counter exists, so the in-game check is the repro job and no stuck household Sim. Run: node tools/harness/queue.ts tools/harness/queues/mono-park-check-1115.json --no-smoke.",
+ "jobs": [
+  {
+   "id": "bp-upark-check-1115",
+   "note": "BP 10 min, unseenpark on, EA story progression on (natural play): held, snap, exempt, arrivals; 0 script errors.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-merge-1115, ts3native.ini.master-merge-1115, ts3fixes.package.mono-park-1115",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "save": "Baseline-BP-Spring",
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "stopQueueOnFail": true,
+   "timeoutMin": 30,
+   "earlyGates": [
+    {
+     "afterSec": 300,
+     "counter": "fixes:unseen_park_held",
+     "op": ">",
+     "value": 0,
+     "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+    }
+   ],
+   "gameArgs": [],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOn": "unseenprobe,unseenpark",
+     "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+     "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1",
+     "minutes": 10
+    }
+   }
+  },
+  {
+   "id": "bp-upark-loop-1115",
+   "note": "STRESS repro unseen-park-loop (camera jumps, pause, scratch save, off half): snap-back and stagger work, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-merge-1115, ts3native.ini.master-merge-1115, ts3fixes.package.mono-park-1115",
+   "releaseDefaults": true,
+   "minCounters": 159,
+   "save": "Baseline-BP-Spring",
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "stopQueueOnFail": true,
+   "timeoutMin": 30,
+   "earlyGates": [
+    {
+     "afterSec": 300,
+     "counter": "fixes:unseen_park_held",
+     "op": ">",
+     "value": 0,
+     "why": "no search held: AutonomyManager.Add hook, switch or UfWhy not working"
+    }
+   ],
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "fixesOn": "unseenprobe",
+     "fixesReport": "unseen_park_,unseen_refresh_,gohome_",
+     "fixesRequire": "unseen_park_held>=1,unseenpark_household_held<1",
+     "minutes": 12,
+     "repro": "unseen-park-loop"
+    }
+   }
+  }
+ ]
+}

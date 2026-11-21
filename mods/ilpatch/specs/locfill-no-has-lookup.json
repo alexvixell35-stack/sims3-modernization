@@ -1,0 +1,52 @@
+{
+  "id": "locfill-no-has-lookup",
+  "switch": "ilp_locnocheck",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Utilities.Localization::FillInTokens(Sims3.Gameplay.Utilities.LocGenderType,string,string,object[])",
+  "builds": {
+    "ea-1.67": {
+      "size": 4920,
+      "sha256": "46c026368d132da80ab3e8e193285a5017fdaf56bc07db292786281095f333c9",
+      "tokens": {},
+      "patchedSha256": "4dde6f8442726e15815366982acbe27d90747411ea2e54f32ae202090a4482ea"
+    },
+    "simler90-242": {
+      "size": 4920,
+      "sha256": "99de0a804223ec73e23ed80c4a27bb0f61004aaecb7d286b72105b33ea69e72a",
+      "tokens": {},
+      "patchedSha256": "68d7825e818fd7062ccd524261b4b70f43012cb28b049fd02518417bd10529ce"
+    }
+  },
+  "edits": [
+    {
+      "at": "0xA5",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "ldarg.1",
+        "ldloc.3",
+        "ldarg.1",
+        "call",
+        "call"
+      ],
+      "maxStack": 0,
+      "il": []
+    },
+    {
+      "at": "0x1327",
+      "mode": "replace",
+      "entry": "incoming",
+      "expect": [
+        "ldarg.1",
+        "ldloc.s",
+        "ldarg.1",
+        "call",
+        "call"
+      ],
+      "maxStack": 0,
+      "il": []
+    }
+  ],
+  "ilHashG6": "d9b2950a8cb617b1"
+}

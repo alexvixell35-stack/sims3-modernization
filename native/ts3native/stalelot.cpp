@@ -21,7 +21,7 @@
 // FPREMOVE, grid removes that find no record), whose routing effects are their nested leaves' own entries. Both per-lot
 // verdicts are counted whenever the ring is on (fplMat); an fp-only verify mismatch turns fpl off for the session.
 
-static const DWORD STL_FIND = 0x00627E00;
+static const DWORD STL_FIND = TS3A(0x00627E00);
 static const u8 kStlFindPro[] = {0x83, 0xEC, 0x08, 0x53, 0x56};  // sub esp,8; push ebx; push esi (no relative operand; no branch
                                                                  // into 0x627E01..04: raw rel8/rel32/jcc scan of .text, 0 hits)
 static void* g_stlFindTramp;

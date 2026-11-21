@@ -19,7 +19,7 @@ import { loadFunctions, lookup, split } from './sample-split.ts';
 import { alignRun, category, rootOf } from './stall-split.ts';
 import { split as budgetSplit, STEER } from './sim-budget-report.ts';
 import { keyName } from './hitch-attr-report.ts';
-import { OG_OTHER_MIN, summarize } from './machine-load.ts';
+import { OG_OTHER_MIN, readLive, summarize } from './machine-load.ts';
 import { isSetup } from './repro-loop.ts';
 
 const ROOT = process.env.TS3_REPO ?? join(import.meta.dirname, '..', '..');
@@ -32,7 +32,7 @@ type H = Record<string, any> & { t: number; wallMs: number };
 type Ev = { at: number; text: string };
 export type Cls = 'harness step' | 'first minute after load' | 'route search' | 'TaskObjects burst' | 'locomotion' | 'ThreadedObjects, no route' | 'mixed route + script' | 'other';
 
-const jsonl = (f: string) => existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } }) : [];
+const jsonl = (f: string) => existsSync(f) ? (readLive(f) ?? '').split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } }) : [];
 const csvRows = (text: string) => { const [head, ...ls] = text.trim().split(/\r?\n/); const c = head.split(','); return ls.map(l => Object.fromEntries(l.split(',').map((v, i) => [c[i], Number(v)]))); };
 const med = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[s.length >> 1] : NaN; };
 const pct = (n: number, d: number) => d ? `${(100 * n / d).toFixed(1)}%` : '-';

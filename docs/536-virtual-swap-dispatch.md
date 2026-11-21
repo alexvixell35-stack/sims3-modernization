@@ -75,6 +75,28 @@ their contents, food sends its event, and Sims run `Sim.Destroy`. Memalive's tra
 override chain reaches `ScriptObject.Destroy` through `base.Destroy()`, not once per call site. An override that does
 not call base is no longer tracked.
 
+### 2.1 Access bits (`KeepAccess`, 2026-11-15)
+
+`SwapMethod` also keeps the original's access bits (`MemberAccessMask`, flags word bits 0-2) for every original, virtual
+or not; the rest of a non-virtual original's flags word stays the hook's.
+
+- **Before [verified, code]:** a hooked private, protected or internal non-virtual EA method took the hook's `Public`
+  bit. Reflection then hid it from a lookup with `NonPublic` and without `Public`, and showed it to a `Public`-only one.
+  A stub took the target's access bits the same way. About 140 of the ~450 swap targets in
+  `docs/data/swap-stack-audit.csv` are not public (decompiled declarations).
+- **Who was hit [checked 2026-11-15]:** none of our lookups (they all pass `Public | NonPublic`), and no NRaas source
+  in `game-copy/nraas-src` looks up a non-public swap target by name. Other mods and EA's own reflection were not
+  audited.
+- **Why calls do not change:** TS3W's Mono 1.2.3 makes no access checks (docs/200 [verified]); vtable setup reads the
+  access bits only for virtual methods [inferred, Mono 1.2 `class.c`], and those keep their whole flags word.
+- **Not covered:** `DeclaringType` of a hooked method still names the hook class (the class word at `+0x08` is the
+  hook's), so a `MethodInfo` from `Delegate.Method` and one from `typeof(EA type).GetMethod` are different objects
+  [inferred]. NRaas Overwatch's `CleanupTimers` compares a trick-or-treat alarm's `callback.Method == info` for
+  `TrickOrTreatSituation.SendNPCTrickOrTreaters`, which `SeasonsLogic.cs` hooks, so that cleanup may never match.
+  The ts3agent's own `PatchHandlers.SwapMethod` (test commands only) still copies the old way.
+- **Check:** `VirtualSwapCheck` hooks a private test method `G` and expects it to read as private (not public) and
+  its caller to reach the hook.
+
 ## 3. The check (`VirtualSwapCheck`, repro `virtual-swap-check`)
 
 - **Test pairs:** two fresh base/derived pairs (`F` returns 1 / 2) are set up, then each base `F` is hooked at check

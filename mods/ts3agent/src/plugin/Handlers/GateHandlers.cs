@@ -56,6 +56,7 @@ namespace Ts3Agent
             Dispatcher.Register("move_object", Gate(kLiveOrBuy, MoveObject));
             Dispatcher.Register("place_object", Gate(kLiveOrBuy, PlaceObject));
             Dispatcher.Register("replace_object", Gate(kLiveOrBuy, ReplaceObject));
+            Dispatcher.Register("weather", Gate(kLiveOnly, WeatherCmd));
         }
     }
 }

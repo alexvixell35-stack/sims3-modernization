@@ -11,7 +11,7 @@
 // with ts3fixes.package; (c) a verdict: no overlap / overlap (feature, switch) / unknown (archive not readable, ASI).
 // Archives: .package directly, .zip read in memory (tools/mts-zip.ts unzip), .rar / .7z = "unpack needed".
 // Game assemblies for the type hierarchy: --asm (default game-copy/assemblies), else the S3SA images of <game>\Game\Bin\*.package.
-import { closeSync, existsSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, extname, join, relative } from 'node:path';
 import { moduleName, mvidOf, readIndex, s3saImages } from './extract-assemblies.ts';
@@ -157,7 +157,7 @@ export function typeFindings(types: ModType[], replaced: string[], patched: Reso
   return out;
 }
 
-type Unit = { mod: string; file: string; kind: Set<string>; asms: { name: string; mvid: string }[]; findings: Finding[]; unknown?: string; keys: Set<string> };
+type Unit = { extras?: string[]; size?: number; mod: string; file: string; kind: Set<string>; asms: { name: string; mvid: string }[]; findings: Finding[]; unknown?: string; keys: Set<string> };
 const keyOf = (e: { type: number; group: number; inst: bigint }) => `${e.type.toString(16).padStart(8, '0')}:${e.group.toString(16).padStart(8, '0')}:${e.inst.toString(16).padStart(16, '0')}`;
 
 /** Index entries of a package from a buffer or from disk (header + index only: some packages are GBs). */
@@ -210,6 +210,26 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
+export type KnownBad = { name?: string; key?: string; status: 'known-bad' | 'outdated'; reason: string; source?: string };
+const GB = 1024 ** 3;
+/** Player-folder extras (docs/23 §8): entries of the known-bad list that match the file name or a resource key, and the package
+ *  size check (same limits as tools/setup/content-health.ts: > 2 GB warns, >= 4 GB is over the package format cap).
+ *  shortcut: size is of the file on disk, a mod inside a zip is not size-checked; upgrade when a zipped merge shows up. */
+export function modExtras(mod: string, size: number, keys: Iterable<string>, list: KnownBad[]): string[] {
+  const out: string[] = [];
+  const ks = new Set(keys);
+  for (const e of list) {
+    let hit = false;
+    if (e.name) { try { hit = new RegExp(e.name, 'i').test(mod); } catch { /* bad pattern in the list: no match */ } }
+    if (!hit && e.key) hit = ks.has(e.key.toLowerCase());
+    if (hit) out.push(`${e.status}: ${e.reason}${e.source ? ` (${e.source})` : ''}`);
+  }
+  if (size >= 4 * GB) out.push(`${(size / GB).toFixed(2)} GB: over the 4 GB package format cap, unreadable`);
+  else if (size > 2 * GB) out.push(`${(size / GB).toFixed(2)} GB: merged package over 2 GB, split it`);
+  return out;
+}
+const loadKnownBad = (f: string): KnownBad[] => { try { return JSON.parse(readFileSync(f, 'utf8')).entries ?? []; } catch { return []; } };
+
 const MATRIX_COLS = ['mod', 'file', 'kind', 'overlap', 'verdict', 'evidence', 'status', 'note'];
 /** The matrix after a scan: scanned rows keep the status and note of their old row (key: file); old rows of files this scan did
  *  not see stay as they are (other scans, e.g. a player's Mods folder).
@@ -251,6 +271,7 @@ function run() {
     }
     const gameMvid = new Map([...gameDlls].map(([n, b]) => [n, (() => { try { return mvidOf(b); } catch { return ''; } })()]));
 
+    const knownBad = loadKnownBad(opt('--known-bad', join(REPO, 'docs', 'data', 'known-bad-mods.json')));
     const units: Unit[] = [];
     const modDlls: { file: string; unit: Unit; name: string }[] = [];
     const addPackage = (u: Unit, src: string | Buffer, tag: string) => {
@@ -293,6 +314,7 @@ function run() {
         } catch (e) { u.unknown = `zip not readable here (${(e as Error).message})`; }
       } else addPackage(u, f, basename(f));
       if (u.kind.has('ours')) continue;
+      u.extras = modExtras(u.mod, statSync(f).size, u.keys, knownBad);
       units.push(u);
     }
 
@@ -326,7 +348,7 @@ function run() {
 
     // ---------- output ----------
     const rows = units.map((u) => ({ mod: u.mod, file: u.file, kind: kindText(u), assemblies: u.asms, overlap: overlapText(u), verdict: verdict(u),
-      evidence: u.unknown ?? evidenceText(u) }));
+      evidence: u.unknown ?? evidenceText(u), extras: u.extras ?? [] }));
     const summary = {
       roots: roots.map((r) => basename(r)), files: rows.length, byVerdict: Object.fromEntries(['no overlap', 'overlap', 'unknown'].map((v) => [v, rows.filter((r) => r.verdict === v).length])),
       patchedMethods: ours.targets.length, resolved: new Set(resolved.map((r) => `${r.full}::${r.method}`)).size, unresolved: unresolved.map((t) => `${t.type}::${t.method}`),
@@ -338,6 +360,8 @@ function run() {
       console.log(`(b,c) ${rows.length} mod files in ${summary.roots.join(', ')}: ${Object.entries(summary.byVerdict).map(([k, v]) => `${k} ${v}`).join(', ')}${modelNote ? `; ${modelNote}` : ''}\n`);
       console.log('| mod | kind | verdict | overlap | evidence |\n|---|---|---|---|---|');
       for (const r of rows.filter((r) => r.verdict !== 'no overlap')) console.log(`| ${r.mod} | ${r.kind} | ${r.verdict} | ${r.overlap || '-'} | ${r.evidence.slice(0, 160)} |`);
+      const flagged = rows.filter((r) => r.extras.length);
+      if (flagged.length) { console.log('\nknown-bad / size:'); for (const r of flagged) console.log(`- ${r.mod}: ${r.extras.join('; ')}`); }
       console.log(`\nno overlap: ${rows.filter((r) => r.verdict === 'no overlap').map((r) => r.mod).join(', ') || '-'}`);
     }
     const matrix = opt('--matrix', '');
@@ -388,6 +412,10 @@ function selfCheck() {
   assert(out[1].join('|') === 'A|a.package|script|X|overlap|new "x"|in our test setup|limit, known', `matrix keeps status and note ${out[1]}`);
   assert(out[2][1] === 'n.package' && out[2][6] === '' && out[3][1] === 'player/p.package', 'matrix new row, rows of other scans kept');
   assert(parseCsv('a,"b ""c"""\n')[0][1] === 'b "c"' && parseCsv(matrixCsv([], ''))[0].length === 8, 'matrix csv quotes / empty old file');
+  const kb: KnownBad[] = [{ name: '^old_?mod', status: 'outdated', reason: 'pre-1.67', source: 'docs/x' }, { key: '0333406c:00000000:0000000000000007', status: 'known-bad', reason: 'breaks saves' }, { name: '(', status: 'known-bad', reason: 'bad regex' }];
+  assert(modExtras('OldMod_v1', 10, [], kb).join() === 'outdated: pre-1.67 (docs/x)', 'known-bad by name');
+  assert(modExtras('fine', 10, ['0333406c:00000000:0000000000000007'], kb).join() === 'known-bad: breaks saves', 'known-bad by key');
+  assert(modExtras('fine', 10, [], kb).length === 0 && modExtras('x', 3 * GB, [], []).join().includes('over 2 GB') && modExtras('x', 4 * GB, [], []).join().includes('unreadable'), 'no match / size limits');
   // package index from disk and from a zip, stored and deflated
   const pkg = writePackage([{ type: 0x0333406c, group: 0, instance: 7n, data: Buffer.from('<x/>') }, { type: TYPE_S3SA, group: 0, instance: fnv64('A'), data: Buffer.from('not an assembly') }]);
   const tmp = mkdtempSync(join(tmpdir(), 'compat-sc-'));

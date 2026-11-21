@@ -58,7 +58,7 @@ namespace Ts3Fixes
             byte[] off = ProbeSerialize();
             if (c[72] != 0 || c[73] != 0) return "cache used while off";
             sCachedReflectionForce = 1;
-            byte[] on = ProbeSerialize();
+            byte[] on = ProbeSerialize();  // the hooks count [72]/[73] while it runs
             if (c[72] == 0 || c[73] == 0) return "cache not used (hits " + c[72] + ", stored " + c[73] + ")";
             if (off.Length != on.Length) return "length " + off.Length + " vs " + on.Length;
             for (int i = 0; i < off.Length; i++) if (off[i] != on[i]) return "bytes differ at " + i + " of " + off.Length;

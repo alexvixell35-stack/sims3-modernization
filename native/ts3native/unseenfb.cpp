@@ -47,8 +47,14 @@ static bool UfOn() {
 
 static u8 UfMsg(DWORD handle, DWORD lo) {
     Ts3nCounters& k = ts3native_counters;
+    if (lo == 4) {  // VIEW? (KdCutCamRecheck=2), asked after CUT? answered 1: the cut came with the Sim in view or no fresh camera
+        const bool v = handle && g_ufCutViewH == handle;
+        g_ufCutViewH = 0;
+        return v ? 1 : 0;
+    }
     if (lo == 2) {  // CUT?
         const bool cut = handle && g_ufCutH == handle;
+        if (!cut) g_ufCutViewH = 0;
         if (g_ufH == handle) g_ufH = 0;
         g_ufCutH = 0;
         if (cut) InterlockedIncrement(&k.ufCutAsks);
@@ -65,11 +71,86 @@ static u8 UfMsg(DWORD handle, DWORD lo) {
     return 1;
 }
 
+// docs/640 DiscYieldForeign, sim thread, before START (nothing taken): this route's next START is known unseen (ts3fixes scope 2 or
+// an UnseenFallback mark, the two AsyncStartBody stores as kdScope / uf); no answer = unknown = household
+static bool DyKnownUnseen(DWORD handle) {
+    return handle && ((g_kdScopeH == handle && g_kdScope == 2) || (g_ufH == handle && UfOn()));
+}
 // sim thread: the mark is good for this route's next START or sync IC only
 static bool UfTake(DWORD handle) {
     if (!handle || g_ufH != handle) return false;
     g_ufH = 0;
     return UfOn();
+}
+
+// docs/250 §7.3 B2, [GoalValidRO] UnseenDefer (runtime gvunseen, counters v189 gvu*): an unseen Sim's sync plan is not run while
+// another route job holds +0x918. Such a plan would wait for the rest of that job at the validator (0x75A64C) and again at the
+// gather, gate 10 and Route_PlanLocked; the pre-search gate (UfLockGate) bounds only the last. ts3fixes asks DEFER? (0x83
+// channel, optLo 3 | IC kind << 8) right before the sync original of every marked plan of all four plan ICs (RouteBackoff.cs:
+// PlanBackoffBody, ReplanAsync, PlanFromPointAsync, ReplanFromPointAsync, after a refused START and StepAside). 1 = deferred: the
+// mark is used up, CUT? answers 1, ts3fixes answers the failure with FailFast (no IC call: what a failed plan leaves, as the
+// unseenfbpre "proven unreachable" answer) and UfPlanBody's cut recovery runs (teleport after travel time, or the no-retry
+// window). 0 = the plan runs as today. Never acts unless all hold, else counted in gvuNo by the first reason that failed:
+//   0 scope: the route carries ts3fixes' unseen MARK (docs/202 §2: live, not selectable, not the active household, unseen,
+//            no pet, no own check) AND its scope message for this plan said unseen (op 11). No answer = unknown = household.
+//   1 no fallback: [UnseenFallback] not on (UfOn), so nothing would answer for the plan.
+//   2 lock free: no job runs, the job is this route's own, or not the sim thread: the plan does not wait, so it runs.
+//   3 streak: this route has been deferred for gvuMaxMs (default 2 s); the plan runs as vanilla and the streak ends.
+// A route's streak ends when its plan runs (reasons 2, 3); a streak whose last deferral is gvuMaxMs old starts again.
+// shortcut: 32 routes, the stalest evicted; a town with more unseen routes deferred at once restarts some streaks early (more
+// deferral for those, still one gvuMaxMs window per streak).
+enum { GVU_SCOPE, GVU_NOFB, GVU_FREE, GVU_STREAK, GVU_SLOTS = 32 };
+struct GvuStreak { DWORD h, t0, last; };
+static GvuStreak g_gvu[GVU_SLOTS];
+static DWORD(WINAPI* g_gvuNow)() = GetTickCount;  // selftest: a fake clock
+static LONG g_gvuLines;
+static u8 GvuNo(int why) { InterlockedIncrement(&ts3native_counters.gvuNo[why]); return 0; }
+static void GvuEnd(DWORD handle) {
+    for (int i = 0; i < GVU_SLOTS; i++)
+        if (g_gvu[i].h == handle) g_gvu[i].h = 0;
+}
+static u8 GvuMsg(DWORD handle, DWORD kind) {
+    Ts3nCounters& k = ts3native_counters;
+    if (k.gvuMode != 1) return 0;
+    InterlockedIncrement(&k.gvuAsks);
+    if (!handle || kind > 3 || g_ufH != handle || g_kdScopeH != handle || g_kdScope != 2) return GvuNo(GVU_SCOPE);
+    if (!UfOn()) return GvuNo(GVU_NOFB);
+    if (GetCurrentThreadId() != g_async.owner || g_async.state != A_RUNNING || !g_async.lock || g_async.handle == handle) {
+        GvuEnd(handle);
+        return GvuNo(GVU_FREE);
+    }
+    const DWORD now = g_gvuNow(), maxMs = (DWORD)Clamp(k.gvuMaxMs, 100, 10000);
+    GvuStreak* e = NULL;
+    for (int i = 0; i < GVU_SLOTS && !e; i++)
+        if (g_gvu[i].h == handle) e = &g_gvu[i];
+    if (e && now - e->last >= maxMs) e->t0 = now;  // an old streak: this is a new one
+    if (e && now - e->t0 >= maxMs) {
+        GvuEnd(handle);
+        if (InterlockedIncrement(&g_gvuLines) <= 40) Log("gvunseen: route %08lX kind %lu deferred %lu ms: runs as vanilla", handle, kind, now - e->t0);
+        return GvuNo(GVU_STREAK);
+    }
+    if (!e) {
+        e = &g_gvu[0];
+        for (int i = 0; i < GVU_SLOTS; i++) {
+            if (!g_gvu[i].h) { e = &g_gvu[i]; break; }
+            if (now - g_gvu[i].last > now - e->last) e = &g_gvu[i];
+        }
+        e->h = handle, e->t0 = now;
+    }
+    e->last = now;
+    if (kind == 1) __try {  // IC_Route_Replan's own `add [route+0x1F4],1` (the replan count), as ReplanDedupe's served repeat
+        const u8* rm = *g_orRmSlot;
+        u8* route = rm ? g_orRoute(rm, NULL, handle) : NULL;
+        if (route) *(DWORD*)(route + 0x1F4) += 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    g_ufH = 0;          // the mark is used up: no IC follows
+    g_ufCutH = handle;  // CUT? answers 1: UfPlanBody's recovery
+    g_ufCutViewH = 0;   // a deferral is not a camera cut
+    InterlockedIncrement(&k.gvuN);
+    InterlockedIncrement(&k.gvuKind[kind]);
+    if (InterlockedIncrement(&g_gvuLines) <= 40)
+        Log("gvunseen: route %08lX kind %lu deferred (job route %08lX holds +0x918)", handle, kind, g_async.handle);
+    return 1;
 }
 
 // docs/202 §3.1.1 strict DeadlineMs (Rodney 2026-10-26): the whole marked plan or job (its pre-search +0x918 wait included)
@@ -155,6 +236,7 @@ static void UfSyncEnd(DWORD handle, const u8* out, LONG us) {
     if (cut) {
         InterlockedIncrement(&k.ufSyncCut);
         g_ufCutH = handle;
+        g_ufCutViewH = t_kdCamView ? handle : 0;
     }
     UfNote(us);
 }
@@ -167,6 +249,7 @@ static void UfJobEnd(AsyncJob* j, bool capped, LONG us, LONG lateUs, unsigned ma
     UfOverNote(1, mask, lateUs);
     const bool cut = capped && *(const DWORD*)j->result != 1;
     j->ufCut = cut ? 1 : 0;
+    j->ufCutView = cut && t_kdCamView ? 1 : 0;
     if (cut) InterlockedIncrement(&k.ufJobCut);
     UfNote(us);
 }
@@ -234,7 +317,7 @@ static u8 UfwMsg(int code, DWORD lo);  // unseenfbc.cpp: codes 7-10, the unseen-
 // A point's colour: every coloured waypoint (colour >= 0; type 0xE = -1 never floods) within kUfColR m in its chunk and the 8
 // around it; -2 = none or no R, -3 = several colours (ambiguous: unknown). Codes after 3 (x) and 5 (z): 11 = store as A
 // (1 = one colour), 12 = B has A's colour (1 = same), 13 = B's colour differs from A's (1 = proven different). Unknown = 0. (7-10 = unseenfbc.cpp list codes.)
-static u8* const* g_ufWorldSlot = (u8* const*)(uintptr_t)0x011D9128;  // selftest: a fake slot
+static u8* const* g_ufWorldSlot = (u8* const*)(uintptr_t)TS3A(0x011D9128);  // selftest: a fake slot
 static const float kUfColR = 12.0f;
 static int g_ufColA = -2;
 static bool g_ufColLogged;

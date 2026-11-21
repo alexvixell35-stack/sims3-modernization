@@ -1,0 +1,51 @@
+{
+  "note": "Lane L10 (2026-11-15, NOT RUN) correctness repros: bouncerskip forced loop (docs/170 §5), inventory-placement leak #1 (docs/192 #1 / docs/191 module 2), one-sided relationship census around NRaas resets (docs/535 §4), EventTracker dispatch-cost probe (docs/545 §5). ts3fixes = game-copy/ts3fixes.package.master-lanes-1115 (master + eventcost, off by default); install game-copy/ts3agent.package.lane-L10-1115. The household is never touched by these actions (velvet_bouncer / nraas_reset_sims refuse household, selected and unknown-scope Sims; place_cancel_loop only opens and closes the hand tool on an item it adds and removes). Run: node tools/harness/queue.ts tools/harness/queues/l10-repros-1115.json",
+  "jobs": [
+    {
+      "id": "bp-bouncerskip-loop",
+      "asi": "tested",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "profile": { "minutes": 14, "seed": 12345, "noSamplers": true, "repro": "bp-bouncerskip-loop" } },
+      "fixesRequire": "routesrc_bouncer_at_slot>=40,bouncerskip_skipped>=1",
+      "timeoutMin": 30,
+      "note": "Pass: >= 20 at-slot loops per arm, bouncerskip_skipped rises only on the on arms (= their at-slot count), velvet_bouncer watching true every firing, patches readback bouncerskip on/off per arm, 0 script errors. velvet_bouncer never watching in 180 s = setup FAIL (no bouncer: read its why / lots)."
+    },
+    {
+      "id": "bp-leak-place-mapview",
+      "asi": "tested",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "ini": { "MemDiag.Enabled": 1 },
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true, "repro": "leak-place-mapview" } },
+      "timeoutMin": 25,
+      "note": "Pass: rounds_done 50, no stuck round, map view on/off OK, 0 script errors. Result: gsc_after - gsc_before and mapv_after - mapv_before (+50 each = docs/192 #1 is real), and the place-mv-r* memsus lines. The selected Sim's inventory ends as it started."
+    },
+    {
+      "id": "bp-rel-onesided-census",
+      "asi": "tested",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "run": { "profile": { "minutes": 32, "seed": 12345, "noSamplers": true, "repro": "rel-onesided-census" } },
+      "timeoutMin": 45,
+      "note": "Census, no pass threshold: one_sided before / after each NRaas reset of 10 uncontrolled Sims (20 firings) and its growth over the session. Needs NRaas (MasterController or Overwatch) in Mods; without it the first reset step fails setup. Script errors from NRaas resets are expected and listed, not a FAIL here."
+    },
+    {
+      "id": "bp-event-cost-probe",
+      "asi": "tested",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": { "profile": { "minutes": 12, "seed": 12345, "noSamplers": true, "repro": "event-cost-probe" } },
+      "timeoutMin": 25,
+      "note": "Pass: event_cost hooked true, on true while measuring, calls > 0, top 25 ids by exclusive us; switch back off; 0 script errors; no crash. hooked false = ProcessEvent was compiled before ts3fixes patched it: no data (report, do not rerun)."
+    }
+  ]
+}

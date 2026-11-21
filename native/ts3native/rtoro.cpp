@@ -28,14 +28,14 @@
 //   cache, unknown slot, tripwire, BlockerCheck2d's physics tail (option 4, no hit), option 0x100000 (slot children), SH off.
 // Counters v93 (+0x3FF0, after v95): rtoMode (+0x3FF4, --ab routetoobjro), rtoShadow (+0x3FF8, --ab routetoobjroshadow).
 
-static const DWORD RTO_ACQ_SITE = 0x00831568, RTO_CALL_SITE = 0x00831633, RTO_REL_SITE = 0x008316FF;
-static const DWORD RTO_LOCK_ACQ = 0x004E16F0, RTO_ROUTE = 0x00830340, RTO_LOCK_REL = 0x004E17B0;
+static const DWORD RTO_ACQ_SITE = TS3A(0x00831568), RTO_CALL_SITE = TS3A(0x00831633), RTO_REL_SITE = TS3A(0x008316FF);
+static const DWORD RTO_LOCK_ACQ = TS3A(0x004E16F0), RTO_ROUTE = TS3A(0x00830340), RTO_LOCK_REL = TS3A(0x004E17B0);
 typedef DWORD*(__fastcall* RtoRouteFn)(u8* world, void* edx, DWORD* out, u8* sim, u8* target, const float* point, u8* opts,
                                       DWORD a6, DWORD a7, DWORD a8, DWORD a9, DWORD a10);  // 0x830340, ret 0x28
 static LockAcquireFn g_rtoAcq = (LockAcquireFn)(uintptr_t)RTO_LOCK_ACQ;  // through the address: LockAcquireHook runs
 static LockReleaseFn g_rtoRel = (LockReleaseFn)(uintptr_t)RTO_LOCK_REL;
 static RtoRouteFn g_rtoRoute = (RtoRouteFn)(uintptr_t)RTO_ROUTE;
-static const DWORD* g_rtoDeadline = (const DWORD*)(uintptr_t)0x01021CF0;  // 0x831530's Lock_Acquire argument
+static const DWORD* g_rtoDeadline = (const DWORD*)(uintptr_t)TS3A(0x01021CF0);  // 0x831530's Lock_Acquire argument
 
 // game helpers (sim-owned reads; selftest points them at fakes)
 typedef u8*(__fastcall* RtoCompFn)(const u8* obj, void* edx, DWORD key);      // 0x935770 / 0x951420, ret 4
@@ -50,25 +50,25 @@ typedef u8(__fastcall* RtoPortalFn)(const u8* portal, void* edx, const u8* rec);
 typedef int (*RtoQueryFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, float r, const u8* rec);
 typedef int (*RtoGatherFn)(SrCtx* c, const u8* p, DWORD lo, DWORD hi, LONG level, const u8* rec, float u0, float v0, float u1,
                            float v1, float r);
-static RtoCompFn g_rtoComp = (RtoCompFn)(uintptr_t)0x00935770;
-static RtoCompFn g_rtoSlotGet = (RtoCompFn)(uintptr_t)0x00951420;
-static RtoMatFn g_rtoPos = (RtoMatFn)(uintptr_t)0x00959000;
-static RtoMatFn g_rtoMat = (RtoMatFn)(uintptr_t)0x00959060;
-static RtoHasSlotFn g_rtoHasSlot = (RtoHasSlotFn)(uintptr_t)0x00B02360;
-static SlFn g_rtoSlPos = (SlFn)(uintptr_t)0x0076F0A0;  // through the address: SH's detour decides the hold
-static RtoObjRecFn g_rtoObjRec = (RtoObjRecFn)(uintptr_t)0x00C8EC50;
-static RtoOptCopyFn g_rtoOptCopy = (RtoOptCopyFn)(uintptr_t)0x0081D3C0;
-static RtoOptSetFn g_rtoOptSet = (RtoOptSetFn)(uintptr_t)0x0081C810;
-static RtoOptFreeFn g_rtoOptFree = (RtoOptFreeFn)(uintptr_t)0x0081CBE0;
-static RtoListFn g_rtoSimList = (RtoListFn)(uintptr_t)0x00B69840;
-static RtoPortalFn g_rtoPortal = (RtoPortalFn)(uintptr_t)0x00946E90;
-static const DWORD* g_rtoKeyTc = (const DWORD*)(uintptr_t)0x011E9158;    // transform component key
-static const DWORD* g_rtoKeySlot = (const DWORD*)(uintptr_t)0x011E9114;  // slot component key
-static u8* const* g_rtoObjTab = (u8* const*)(uintptr_t)0x011ED034;       // object record table (0xB01770, 0xB02360)
-static const float* g_rtoRadius = (const float*)(uintptr_t)0x00FEC6DC;   // obstacle query radius (0.123)
-static const float* g_rtoSegR = (const float*)(uintptr_t)0x0106E8A8;     // BlockerCheck2d segment gather radius
-static const float* g_rtoFar = (const float*)(uintptr_t)0x00FECE14;      // kind 9: shift the goal above this distance (0.9)
-static const float* g_rtoHalf = (const float*)(uintptr_t)0x00F9A5AC;     // kind 9: shift length (0.5)
+static RtoCompFn g_rtoComp = (RtoCompFn)(uintptr_t)TS3A(0x00935770);
+static RtoCompFn g_rtoSlotGet = (RtoCompFn)(uintptr_t)TS3A(0x00951420);
+static RtoMatFn g_rtoPos = (RtoMatFn)(uintptr_t)TS3A(0x00959000);
+static RtoMatFn g_rtoMat = (RtoMatFn)(uintptr_t)TS3A(0x00959060);
+static RtoHasSlotFn g_rtoHasSlot = (RtoHasSlotFn)(uintptr_t)TS3A(0x00B02360);
+static SlFn g_rtoSlPos = (SlFn)(uintptr_t)TS3A(0x0076F0A0);  // through the address: SH's detour decides the hold
+static RtoObjRecFn g_rtoObjRec = (RtoObjRecFn)(uintptr_t)TS3A(0x00C8EC50);
+static RtoOptCopyFn g_rtoOptCopy = (RtoOptCopyFn)(uintptr_t)TS3A(0x0081D3C0);
+static RtoOptSetFn g_rtoOptSet = (RtoOptSetFn)(uintptr_t)TS3A(0x0081C810);
+static RtoOptFreeFn g_rtoOptFree = (RtoOptFreeFn)(uintptr_t)TS3A(0x0081CBE0);
+static RtoListFn g_rtoSimList = (RtoListFn)(uintptr_t)TS3A(0x00B69840);
+static RtoPortalFn g_rtoPortal = (RtoPortalFn)(uintptr_t)TS3A(0x00946E90);
+static const DWORD* g_rtoKeyTc = (const DWORD*)(uintptr_t)TS3A(0x011E9158);    // transform component key
+static const DWORD* g_rtoKeySlot = (const DWORD*)(uintptr_t)TS3A(0x011E9114);  // slot component key
+static u8* const* g_rtoObjTab = (u8* const*)(uintptr_t)TS3A(0x011ED034);       // object record table (0xB01770, 0xB02360)
+static const float* g_rtoRadius = (const float*)(uintptr_t)TS3A(0x00FEC6DC);   // obstacle query radius (0.123)
+static const float* g_rtoSegR = (const float*)(uintptr_t)TS3A(0x0106E8A8);     // BlockerCheck2d segment gather radius
+static const float* g_rtoFar = (const float*)(uintptr_t)TS3A(0x00FECE14);      // kind 9: shift the goal above this distance (0.9)
+static const float* g_rtoHalf = (const float*)(uintptr_t)TS3A(0x00F9A5AC);     // kind 9: shift length (0.5)
 
 static int RtoQueryGame(SrCtx* c, const u8* p, DWORD lo, DWORD hi, const SrPt& pt, float r, const u8* rec) {
     return SrQuery(c, p, lo, hi, pt, true, r, rec, true);  // 0x82EDB0 mode 1 (visitor flag 1)
@@ -135,6 +135,7 @@ static __declspec(align(16)) u8 g_rtoCopy[2][0x100];  // owner thread only (0x82
 static SrCtx g_rtoQ, g_rtoG;                           // owner thread only: the last clone's query and gather sets
 static bool g_rtoTailPend;                             // owner thread only: the first check left the physics tail to phase P
 static float g_rtoTailGoal[2];                         // ... and its goal (x, z)
+static bool g_rtoTailOn;                               // owner thread only: this clone may run the tail (set by RtoRun / B2Run)
 
 static void RtoMerge(DWORD* r, LONG code, DWORD lo, DWORD hi) {  // 0x829250: raise to the higher code, its id
     if (code > (LONG)r[0]) r[0] = code, r[2] = lo, r[3] = hi;
@@ -228,8 +229,8 @@ static int RtoTargetFp(const RtoIn& in, const u8** out) {
             const u8* obj = h ? *(const u8* const*)(h + 8) : NULL;
             if (!obj) continue;
             const DWORD* vt = *(const DWORD* const*)obj;
-            if (g_srCheckSlots && (!SrSlotsOk(obj) || vt[0x14 / 4] != 0x00806FD0 || vt[0x70 / 4] != 0x0080E610 ||
-                                   (vt[0] != 0x00619EF0 && vt[0] != 0x0083F5F0)))
+            if (g_srCheckSlots && (!SrSlotsOk(obj) || vt[0x14 / 4] != TS3A(0x00806FD0) || vt[0x70 / 4] != TS3A(0x0080E610) ||
+                                   (vt[0] != TS3A(0x00619EF0) && vt[0] != TS3A(0x0083F5F0))))
                 return SrShape(SRS_SLOT);
             const unsigned __int64 oid = ((SlotIdFn)(uintptr_t)vt[0x7C / 4])(obj, NULL);
             if (oid != ((unsigned __int64)idHi << 32 | idLo)) continue;
@@ -291,7 +292,7 @@ static int RtoBlock(const RtoIn& in, const u8* entry, DWORD* res, const float* g
         if (ign || g_srOptId(in.opts, NULL, lo, hi)) continue;
         if (in.tSim && in.simList && g_rtoSimList(in.simList, NULL, lo, hi)) continue;
         if (!((SlotBoolFn)(uintptr_t)vt[0xC0 / 4])(fp, NULL)) continue;
-        if (g_srCheckSlots && (vt[0x44 / 4] != 0x00806FC0 || vt[0xD8 / 4] != 0x0080F080 || vt[0x88 / 4] != 0x00F20360))
+        if (g_srCheckSlots && (vt[0x44 / 4] != TS3A(0x00806FC0) || vt[0xD8 / 4] != TS3A(0x0080F080) || vt[0x88 / 4] != TS3A(0x00F20360)))
             return SrShape(SRS_SLOT);
         const float r = ((RtoF44Fn)(uintptr_t)vt[0x44 / 4])(fp, NULL);
         u8 hit = 0;
@@ -335,7 +336,7 @@ static int RtoBlock(const RtoIn& in, const u8* entry, DWORD* res, const float* g
     // the physics samples after a clean footprint pass (0x82EB49..0x82ED0D): with rtoTailMode, RtoTail runs them after QL is
     // released (phase P); else the game's call runs (rtoFb[8])
     if (!res[0] && !b34 && o4) {
-        if (!ts3native_counters.rtoTailMode) return RTO_WHY_TAIL;
+        if (!g_rtoTailOn) return RTO_WHY_TAIL;
         g_rtoTailPend = true, g_rtoTailGoal[0] = goal[0], g_rtoTailGoal[1] = goal[1];
     }
     return SR_OK;
@@ -448,7 +449,7 @@ static int RtoPhaseR(RtoIn& in, DWORD* res) {
     const DWORD* vt = fp ? *(const DWORD* const*)fp : NULL;
     if (fp) {
         if (g_srCheckSlots && (!SrSlotsOk(fp) || (vt[0xB8 / 4] != AV_PT_POLY && vt[0xB8 / 4] != AV_PT_NONE) ||
-                               (vt[3] != 0x00624450 && vt[3] != 0x0070AE20)))
+                               (vt[3] != TS3A(0x00624450) && vt[3] != TS3A(0x0070AE20))))
             return SrShape(SRS_SLOT);
         u8 inside = 0;
         if (!g_srCheckSlots || vt[0xB8 / 4] == AV_PT_POLY) {
@@ -466,7 +467,7 @@ static int RtoPhaseR(RtoIn& in, DWORD* res) {
     if (fp) {
         const int kind = ((SlotIntFn)(uintptr_t)vt[3])(fp, NULL);
         if (kind == 1 || kind == 9) {
-            if (g_srCheckSlots && (vt[0xC4 / 4] != 0x0080E540 || vt[0xBC / 4] != 0x0080E910)) return SrShape(SRS_SLOT);
+            if (g_srCheckSlots && (vt[0xC4 / 4] != TS3A(0x0080E540) || vt[0xBC / 4] != TS3A(0x0080E910))) return SrShape(SRS_SLOT);
             if (!((RtoLvlFn)(uintptr_t)vt[0xC4 / 4])(fp, NULL, 0)) {
                 __declspec(align(16)) float nearPt[4] = {};
                 if ((why = RtoCached(fp, 0, [&]() { ((RtoNearFn)(uintptr_t)vt[0xBC / 4])(fp, NULL, 0, lotPt, nearPt); })) != SR_OK)
@@ -542,15 +543,15 @@ typedef void*(__cdecl* RtoPhysFn)();
 typedef u8(__fastcall* RtoRangeFn)(void* scene, void* edx, const float* pt, float r, DWORD flags, void* vec);  // ret 0x10
 typedef u8(__cdecl* RtoBlockerFn)(DWORD lo, DWORD hi);
 typedef void(__cdecl* RtoMemFreeFn)(void* p);
-static RtoPhysFn g_rtoPhys = (RtoPhysFn)(uintptr_t)0x00686A90;
-static RtoRangeFn g_rtoRange = (RtoRangeFn)(uintptr_t)0x00682590;
-static RtoBlockerFn g_rtoBlocker = (RtoBlockerFn)(uintptr_t)0x0082A780;
-static RtoMemFreeFn g_rtoMemFree = (RtoMemFreeFn)(uintptr_t)0x004E3F70;
-static const char* const RTO_RANGE_NAME = (const char*)(uintptr_t)0x01003D7C;  // "Physics/RangeResult", the vector's allocator name
+static RtoPhysFn g_rtoPhys = (RtoPhysFn)(uintptr_t)TS3A(0x00686A90);
+static RtoRangeFn g_rtoRange = (RtoRangeFn)(uintptr_t)TS3A(0x00682590);
+static RtoBlockerFn g_rtoBlocker = (RtoBlockerFn)(uintptr_t)TS3A(0x0082A780);
+static RtoMemFreeFn g_rtoMemFree = (RtoMemFreeFn)(uintptr_t)TS3A(0x004E3F70);
+static const char* const RTO_RANGE_NAME = (const char*)(uintptr_t)TS3A(0x01003D7C);  // "Physics/RangeResult", the vector's allocator name
 struct RtoVec { DWORD *b, *e, *cap; const char* name; };
-static void RtoTail(const RtoIn& in, DWORD* res) {
+static void RtoTail(const RtoIn& in, DWORD* res, volatile LONG* runs = NULL, volatile LONG* hits = NULL) {
     Ts3nCounters& k = ts3native_counters;
-    InterlockedIncrement(&k.rtoTailRuns);
+    InterlockedIncrement(runs ? runs : &k.rtoTailRuns);  // [Blocker2dRO] counts in its own block
     const u8* phys = (const u8*)g_rtoPhys();
     void* scene = phys ? *(void* const*)(phys + 8) : NULL;
     if (!scene) return;
@@ -574,13 +575,14 @@ static void RtoTail(const RtoIn& in, DWORD* res) {
             }
         }
         if (v.b) g_rtoMemFree(v.b);
-        if (hit) { InterlockedIncrement(&k.rtoTailHits); return; }
+        if (hit) { InterlockedIncrement(hits ? hits : &k.rtoTailHits); return; }
     }
 }
 
 static int RtoRun(bool job, RtoIn& in, DWORD* res) {
     res[0] = res[2] = res[3] = 0;
     g_rtoTailPend = false;
+    g_rtoTailOn = ts3native_counters.rtoTailMode != 0;
     bool done;
     int why = RtoPhase1(job, in, &done);
     if (!why && !done) why = RtoLocked(job, [&]() { return RtoPhaseR(in, res); });
@@ -733,7 +735,7 @@ static DWORD* __fastcall RtoCallStub(u8* world, void* edx, DWORD* out, u8* sim, 
         return out;
     }
     RtoFallback(why);
-    t_rtoKey = 0x0083156D;  // probe P0: the late take keyed as the original site
+    t_rtoKey = TS3A(0x0083156D);  // probe P0: the late take keyed as the original site
     const int uf = g_ufcC3 ? g_ufcC3(world + 0x918) : 0;  // docs/202 C3: an unseen Sim's late take with a deadline
     if (!uf) g_rtoAcq(world + 0x918, NULL, g_rtoDeadline);
     t_rtoKey = 0;
@@ -800,4 +802,229 @@ static void InstallRouteToObjRO(const wchar_t* ini) {
     k.rtoTailMode = Clamp(GetPrivateProfileIntW(L"RouteToObjRO", L"Tail", 0, ini), 0, 1);
     Log("OK   route-to-object RO: sites 0x831568 / 0x831633 / 0x8316FF (ready %ld, Mode=%ld Shadow=%ld Tail=%ld; SH %s)", k.rtoReady,
         k.rtoMode, k.rtoShadow, k.rtoTailMode, k.slReady ? "on" : "OFF: slot targets fall back");
+}
+
+// --- [Blocker2dRO] (docs/670 §24): IC_RouteManager_RoutingBlockerCheck2d's check answered read-only while a route job runs ---
+// The IC body 0x74E110 (cdecl: x0, z0, level, x1, z1, goal word, four option words, the target's id, an ignore id by address,
+// an option word) looks the start's lot up (World_LotLookup on wm [0x11ECBC4]), takes the height, builds the options object
+// on its stack (0x81CB60) and calls RoutingWorld_BlockerCheck2d 0x82E340 at 0x74E261; it returns out[0], the code.
+// 0x82E340 (thiscall world; out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, option word; ret 0x34;
+// [verified disassembly 0x82E340..0x82ED9E, 2026-11-20]) takes no lock itself. It waits twice per call behind a route job:
+// at the lot transform 0x62EF30 (gate 0, return 0x62EF7A; first caller word 0x82E696 = 5 lines / 413 ms in s189, docs/670
+// §21) and inside the segment gather 0x631E20 (pin, flush, references). RtoBlock above is the clone of this function from
+// its two transforms on (a step of RouteToObjectCheck, in the game since 2026-11-04), so the stub at the IC's call site only
+// has to feed it:
+//   phase 1, no lock (sim-owned, the game's own calls): the option tests 0x81C880 (b24 |= T(2), b28 |= T(1), o4 = b2c ||
+//     T(4), T(0x80000), T(0x100000), T(0, 4), T(0, 0x800)), the option copy 0x81D3C0 (+ 0x81C810 bit 4 when o4), the ignore
+//     ids in the game's order (*ign when not 0, the target's, with 0x80000 the target's transform component +0x30's).
+//   phase R, QL shared, try only, RtoLocked's protocol: the lot table hit for gate 0 (a miss would insert: the game),
+//     then RtoBlock (both transforms, the gather, the per-footprint rules, the merge).
+//   phase P, no lock: the physics samples (RtoTail) when the footprint pass found nothing and o4 holds; Tail=0 gives
+//     those calls back instead.
+// Given back to the game (today's wait): the +0x918 owner, a job callback or an open gate frame (AvMayRun), a world that
+// is not the routing world or has no planner, the debug-draw switch [0x11D90B0] (0x814C30 would draw the segment), option
+// 0x100000 with a slot component on the target (the slot children's ids, 0x952E40: not cloned), a lot table miss, and
+// every S2 doubt (QL busy, deferred flush, pin moved, polygon cache, unknown footprint class, tripwire, job end).
+// The answer is the game's own for every Sim (no scope gate). Shadow (no job, no job may start): the game's call, then
+// the clone, out[0] / out[2] / out[3] compared.
+// Exported block ts3native_blocker2dro: +0x00 mode is the runtime switch (native_set blocker2dro); Shadow, Tail ini only.
+struct Blocker2dRoCounters {
+    volatile LONG b2Mode;            // +0x00 runtime switch: 1 = answer while a job runs
+    volatile LONG b2Shadow;          // +0x04 1 = with no job running, the game's call then the clone, compared
+    volatile LONG b2Ready;           // +0x08 the call site is patched
+    volatile LONG b2Tail;            // +0x0C 1 = the clone runs the physics samples itself (0: those calls go to the game)
+    volatile LONG b2Calls;           // +0x10 sim-thread calls seen with mode or shadow on
+    volatile LONG b2Job;             // +0x14 of those, while a job ran
+    volatile LONG b2Taken;           // +0x18 answered without the game's call
+    volatile LONG b2Code[8];         // +0x1C answered calls by code (0 free, 1, 3, 4, 6, 7)
+    volatile LONG b2TailRuns;        // +0x3C physics tails run by answered or shadow clones
+    volatile LONG b2TailHits;        // +0x40 of those, a physics blocker (code 1)
+    volatile LONG b2Us;              // +0x44 time in answered clones, us
+    LONG b2MaxUs;                    // +0x48
+    volatile LONG b2Fb[10];          // +0x4C calls given back to the game: B2_FB_*
+    volatile LONG b2GameUs;          // +0x74 time in the game's call while a job ran (the wait), us
+    LONG b2GameMaxUs;                // +0x78
+    volatile LONG b2ShadowRuns;      // +0x7C
+    volatile LONG b2ShadowMismatch;  // +0x80 must stay 0
+    volatile LONG b2ShadowFb;        // +0x84 shadow runs the clone gave back (not compared)
+};
+extern "C" __declspec(dllexport) Blocker2dRoCounters ts3native_blocker2dro = {};
+static_assert(offsetof(Blocker2dRoCounters, b2Fb) == 0x4C && sizeof(Blocker2dRoCounters) == 0x88, "ts3native_blocker2dro layout (docs/registry.md)");
+
+static const DWORD B2_SITE = TS3A(0x0074E261), B2_TARGET = TS3A(0x0082E340);
+typedef DWORD*(__fastcall* B2Fn)(u8* world, void* edx, DWORD* out, u8* lot, const float* start, const float* goal, u8* opts, u8* target,
+                                 const DWORD* ign, DWORD b24, DWORD b28, DWORD b2c, DWORD b30, DWORD b34, DWORD opt);  // ret 0x34
+static B2Fn g_b2Orig = (B2Fn)(uintptr_t)B2_TARGET;
+static const u8* g_b2DebugDraw = (const u8*)(uintptr_t)TS3A(0x011D90B0);  // 0x814C30's first test: 0 = it draws nothing
+
+enum { B2_FB_STATE, B2_FB_TRY, B2_FB_LOT, B2_FB_SHAPE, B2_FB_CACHE, B2_FB_TRIP, B2_FB_JOBEND, B2_FB_MAYNOT, B2_FB_TAIL, B2_FB_OPT };
+
+// Phase 1 (no lock): RtoIn as RtoBlock reads it (in.sim = the lot object: id +0x48 / +0x4C, Sim list +0x2C0)
+static int B2Phase1(RtoIn& in, u8* world, u8* lot, const float* start, const float* goal, u8* opts, u8* target, const DWORD* ign, bool b24,
+                    bool b2c, DWORD opt) {
+    in.copyA = in.copyB = NULL;
+    in.qlot = in.tc = in.objrec = in.simList = NULL;
+    in.slotMissing = false;
+    in.nIgn = 0;
+    in.world = world, in.sim = lot, in.target = target, in.point = start, in.opts = opts;
+    in.a6 = opt, in.a7 = in.a8 = in.a9 = in.a10 = 0;
+    in.p = NULL;
+    if (!world || !lot || !start || !goal || !opts || !ign || world != g_srWorldGet()) return SrShape(SRS_NOPLANNER);
+    in.p = world[0x974] ? *(const u8* const*)(world + 0x95C) : NULL;  // 0x82E35A
+    if (!in.p) return SrShape(SRS_NOPLANNER);  // the original would fault in the transform
+    if (*g_b2DebugDraw) return RTO_WHY_OPT;    // 0x82E506: the debug segment would be drawn
+    in.a8 = ign[0], in.a9 = ign[1];            // the record's +8 / +0xC and the tail's ignore id (0x82E53D, 0x82ECB6)
+    in.t1 = g_srOptTest(opts, NULL, 1, 0, 0) != 0;
+    in.t2 = b24 || g_srOptTest(opts, NULL, 2, 0, 0) != 0;
+    in.t4 = g_srOptTest(opts, NULL, 4, 0, 0) != 0;
+    in.tSim = g_srOptTest(opts, NULL, 0, 4, 0) != 0;
+    in.t800 = g_srOptTest(opts, NULL, 0, 0x800, 0) != 0;
+    in.simList = *(const u8* const*)(lot + 0x2C0);
+    if (in.a8 | in.a9) in.ign[in.nIgn][0] = in.a8, in.ign[in.nIgn][1] = in.a9, in.nIgn++;  // 0x82E6FD
+    if (target) {
+        in.ign[in.nIgn][0] = *(const DWORD*)(target + 8), in.ign[in.nIgn][1] = *(const DWORD*)(target + 0xC), in.nIgn++;
+        if (g_srOptTest(opts, NULL, 0x80000, 0, 0)) {  // 0x82E776
+            const u8* tc = g_rtoComp(target, NULL, *g_rtoKeyTc);
+            const u8* o = tc ? *(const u8* const*)(tc + 0x30) : NULL;
+            if (o) in.ign[in.nIgn][0] = *(const DWORD*)(o + 8), in.ign[in.nIgn][1] = *(const DWORD*)(o + 0xC), in.nIgn++;
+        }
+        // 0x82E7BF: the slot children's ids (0x952E40 iterator) are not cloned
+        if (g_srOptTest(opts, NULL, 0x100000, 0, 0) && g_rtoComp(target, NULL, *g_rtoKeySlot)) return RTO_WHY_OPT;
+    }
+    u8* c = g_rtoCopy[0];  // 0x82E50B: the copy the gather's record points at
+    g_rtoOptCopy(c, NULL, opts);
+    if (b2c || in.t4) g_rtoOptSet(c, NULL, 4, 0, 1, 0);
+    in.copyA = c;
+    return SR_OK;
+}
+
+static int B2Run(bool job, RtoIn& in, u8* world, u8* lot, const float* start, const float* goal, u8* opts, u8* target, const DWORD* ign,
+                 DWORD b24, DWORD b28, DWORD b2c, DWORD b30, DWORD b34, DWORD opt, DWORD* res) {
+    Blocker2dRoCounters& k = ts3native_blocker2dro;
+    res[0] = res[2] = res[3] = 0;
+    g_rtoTailPend = false;
+    g_rtoTailOn = k.b2Tail != 0;
+    int why = B2Phase1(in, world, lot, start, goal, opts, target, ign, (u8)b24 != 0, (u8)b2c != 0, opt);
+    if (!why)
+        why = RtoLocked(job, [&]() {
+            const u8* entry = NULL;  // gate 0 (0x62EF30 -> LotTable_GetOrInsert): a miss would insert
+            const int w = SrEntry(in.p, *(const DWORD*)(lot + 0x48), *(const DWORD*)(lot + 0x4C), false, &entry);
+            return w ? w : RtoBlock(in, entry, res, goal, (u8)b28 != 0, (u8)b2c != 0, (u8)b30 != 0, (u8)b34 != 0, in.copyA);
+        });
+    if (!why && g_rtoTailPend && !res[0]) RtoTail(in, res, &k.b2TailRuns, &k.b2TailHits);  // phase P, QL released
+    RtoFree(in);
+    if (why) res[0] = res[2] = res[3] = 0;
+    return why;
+}
+
+static void B2Fallback(int why) {
+    int i = B2_FB_STATE;
+    switch (why) {
+    case SR_FB_TRY: i = B2_FB_TRY; break;
+    case SR_FB_DIRTY: case SR_FB_LOTMISS: case SR_FB_DEFERRED: i = B2_FB_LOT; break;
+    case SR_FB_SHAPE: i = B2_FB_SHAPE; break;
+    case SR_FB_CACHE: i = B2_FB_CACHE; break;
+    case SR_FB_TRIP: i = t_rtoPin ? B2_FB_LOT : B2_FB_TRIP; break;  // a moved pin = a flush by another reader
+    case RTO_WHY_TAIL: i = B2_FB_TAIL; break;
+    case RTO_WHY_OPT: i = B2_FB_OPT; break;
+    default: i = t_rtoJobEnd ? B2_FB_JOBEND : B2_FB_STATE; break;
+    }
+    InterlockedIncrement(&ts3native_blocker2dro.b2Fb[i]);
+}
+
+static volatile LONG g_b2Noted;
+static DWORD* __fastcall B2Stub(u8* world, void* edx, DWORD* out, u8* lot, const float* start, const float* goal, u8* opts, u8* target,
+                                const DWORD* ign, DWORD b24, DWORD b28, DWORD b2c, DWORD b30, DWORD b34, DWORD opt) {
+    Blocker2dRoCounters& k = ts3native_blocker2dro;
+    const DWORD tid = GetCurrentThreadId();
+    if ((!k.b2Mode && !k.b2Shadow) || tid != g_async.owner || !out)
+        return g_b2Orig(world, edx, out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt);
+    InterlockedIncrement(&k.b2Calls);
+    static RtoIn in;  // owner thread only
+    DWORD c[4] = {};
+    if (g_async.state != A_RUNNING) {
+        if (!k.b2Shadow) return g_b2Orig(world, edx, out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt);
+        // docs/670 §26 (roshadow-core.h): the game's call as with the switch off, then the clone with job starts held off
+        DWORD* r = NULL;
+        RoShadowEnv env;
+        RoShadow(env, [&] { r = g_b2Orig(world, edx, out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt); }, [&] {
+            const int why = B2Run(false, in, world, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt, c);
+            InterlockedIncrement(&k.b2ShadowRuns);
+            if (why) {
+                InterlockedIncrement(&k.b2ShadowFb);
+                B2Fallback(why);
+            } else if (out[0] != c[0] || out[2] != c[2] || out[3] != c[3]) {
+                InterlockedIncrement(&k.b2ShadowMismatch);
+                if (InterlockedIncrement(&g_b2Noted) <= 16)
+                    Log("blocker check 2d RO: SHADOW MISMATCH (%.2f, %.2f) -> (%.2f, %.2f) level %ld: game %ld %08lX:%08lX, clone %ld "
+                        "%08lX:%08lX (%d footprints gathered)", start[0], start[2], goal[0], goal[1], *(const LONG*)((const u8*)start + 0x24),
+                        out[0], out[3], out[2], c[0], c[3], c[2], g_rtoG.n);
+            }
+        });
+        return r;
+    }
+    InterlockedIncrement(&k.b2Job);
+    if (k.b2Mode) {
+        if (!AvMayRun(tid)) {  // the +0x918 owner (lent or recursive hold), a job callback or an open gate frame: no wait to save
+            InterlockedIncrement(&k.b2Fb[B2_FB_MAYNOT]);
+        } else {
+            LARGE_INTEGER t0;
+            QueryPerformanceCounter(&t0);
+            const int why = B2Run(true, in, world, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt, c);
+            if (!why) {
+                const LONG us = UsSince(t0);
+                InterlockedIncrement(&k.b2Taken);
+                if (c[0] < 8) InterlockedIncrement(&k.b2Code[c[0]]);
+                InterlockedExchangeAdd(&k.b2Us, us);
+                Max(&k.b2MaxUs, us);
+                out[0] = c[0], out[2] = c[2], out[3] = c[3];  // 0x82E352..0x82E357 and 0x829250: out[1] is never written
+                return out;                                   // 0x82ED95
+            }
+            B2Fallback(why);
+        }
+    }
+    LARGE_INTEGER t1;
+    QueryPerformanceCounter(&t1);
+    DWORD* r = g_b2Orig(world, edx, out, lot, start, goal, opts, target, ign, b24, b28, b2c, b30, b34, opt);  // today's wait
+    const LONG us = UsSince(t1);
+    InterlockedExchangeAdd(&k.b2GameUs, us);
+    Max(&k.b2GameMaxUs, us);
+    return r;
+}
+
+static const CallSite kB2Site = {B2_SITE, B2_TARGET, (void*)B2Stub};
+
+// [Blocker2dRO] Enabled=1: needs [RouteGate] Enforce=1 with the async path and the S2 writer set (QL, W1-W6, tripwires)
+static void InstallBlocker2dRO(const wchar_t* ini) {
+    Blocker2dRoCounters& k = ts3native_blocker2dro;
+    if (!GetPrivateProfileIntW(L"Blocker2dRO", L"Enabled", 0, ini)) { Log("blocker check 2d RO off (Enabled=0)"); return; }
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP blocker check 2d RO: no EA 1.69 address, docs/670 §24"); return; }
+#endif
+    if (!ts3native_counters.rgEnforce || !ts3native_counters.asyncReady) {
+        Log("SKIP blocker check 2d RO: needs [RouteGate] Enforce=1 with the async path");
+        return;
+    }
+    if (!InstallSrWriters()) { Log("SKIP blocker check 2d RO: the S2 writer set (W1-W6, W4, tripwires) is not all in place"); return; }
+    if (!PatchCalls("blocker check 2d RO (0x74E110 -> RoutingWorld_BlockerCheck2d)", &kB2Site, 1)) return;
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    k.b2Mode = Clamp(GetPrivateProfileIntW(L"Blocker2dRO", L"Mode", 1, ini), 0, 1);
+    k.b2Shadow = Clamp(GetPrivateProfileIntW(L"Blocker2dRO", L"Shadow", 0, ini), 0, 1);
+    k.b2Tail = Clamp(GetPrivateProfileIntW(L"Blocker2dRO", L"Tail", 1, ini), 0, 1);
+    k.b2Ready = 1;
+    Log("OK   blocker check 2d RO: 0x%08lX + the S2 writer set (Mode=%ld Shadow=%ld Tail=%ld)", B2_SITE, k.b2Mode, k.b2Shadow, k.b2Tail);
+}
+
+// the 60 s counter line (ts3native.cpp MaybeLogCounters)
+static void B2LogCounters() {
+    const Blocker2dRoCounters& k = ts3native_blocker2dro;
+    if (!k.b2Ready) return;
+    Log("blocker check 2d RO: mode %ld shadow %ld tail %ld calls %ld, with a job %ld: answered %ld (code 0 %ld, 1 %ld, 3 %ld, 4 %ld, 6 %ld, "
+        "7 %ld; physics tails %ld, hit %ld; %ld ms, max %ld us), the game's call %ld ms (max %ld us); given back: state %ld, QL busy %ld, "
+        "lot %ld, shape %ld, polygon cache %ld, tripwire %ld, job end %ld, may not %ld, tail %ld, option %ld; shadow runs %ld mismatch %ld "
+        "not compared %ld",
+        k.b2Mode, k.b2Shadow, k.b2Tail, k.b2Calls, k.b2Job, k.b2Taken, k.b2Code[0], k.b2Code[1], k.b2Code[3], k.b2Code[4], k.b2Code[6],
+        k.b2Code[7], k.b2TailRuns, k.b2TailHits, k.b2Us / 1000, k.b2MaxUs, k.b2GameUs / 1000, k.b2GameMaxUs, k.b2Fb[B2_FB_STATE],
+        k.b2Fb[B2_FB_TRY], k.b2Fb[B2_FB_LOT], k.b2Fb[B2_FB_SHAPE], k.b2Fb[B2_FB_CACHE], k.b2Fb[B2_FB_TRIP], k.b2Fb[B2_FB_JOBEND],
+        k.b2Fb[B2_FB_MAYNOT], k.b2Fb[B2_FB_TAIL], k.b2Fb[B2_FB_OPT], k.b2ShadowRuns, k.b2ShadowMismatch, k.b2ShadowFb);
 }

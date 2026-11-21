@@ -408,6 +408,70 @@ static void TestMemDiag() {
             assert(ts3native_counters.rrcRegistry == 2 && ts3native_counters.rrcSampled == 3);
             memset(g_ry, 0, sizeof(g_ry)), g_ryNew = g_ryTaken = g_ryFull = g_ryCensus = 0, g_ryOn = false, g_ryEvery = 32;
         }
+        // RcRefTypes: by-type counts, births (AddRef at 0 refs), deaths (Release returning 0), the locked walk's live
+        // count and histogram by vtable, a key-type entry of another class, top callers; a second line's deltas; exit is silent
+        {
+            static u8 t0[0x24], t1[0x24], t2[0x24], t3[0x24], tn[4][0x1C];
+            static DWORD tb[3];
+            *(DWORD*)t0 = *(DWORD*)t3 = g_rsVt[0], *(DWORD*)t1 = g_rsVt[1], *(DWORD*)t2 = 0x12345678;
+            *(LONG*)(t0 + 4) = 0, *(LONG*)(t1 + 4) = 2 << 8 | 1, *(LONG*)(t2 + 4) = 1 << 8, *(LONG*)(t3 + 4) = 9 << 8;
+            *(DWORD*)(t3 + 0x18) = 1;  // cold
+            memset((void*)g_rqN, 0, sizeof(g_rqN)), g_rqBorn[0] = g_rqBorn[1] = g_rqDied[0] = g_rqDied[1] = 0;
+            g_rqOn = true;
+            const RsFn add0 = (RsFn)(uintptr_t)fv[0][0], rel1 = (RsFn)(uintptr_t)fv[1][1];
+            add0(t0, NULL);              // type 0, a birth
+            *(LONG*)(t0 + 4) = 1 << 8;
+            add0(t0, NULL);              // type 0, refs 1: no birth
+            add0(t1, NULL);              // type 1 (the vtable decides, not the slot)
+            g_mdtRefs = 1, rel1(t1, NULL);  // returns 0: a death of type 1
+            g_mdtRefs = 5, rel1(t1, NULL);  // returns 4: no death
+            void* ro = NULL;
+            assert(((RfFn)(uintptr_t)fc[6])(NULL, NULL, t1, &ro) && ro == t1);  // a find of type 1
+            assert(g_rqBorn[0] == 1 && g_rqBorn[1] == 0 && g_rqDied[1] == 1 && g_rqDied[0] == 0);
+            // the cache: t0 (refs 1), t1 (refs 2), t3 (refs 9, cold) by vtable; t2 is a 0x033A1435 key of another class
+            const u8* rsx[4] = {t0, t1, t2, t3};
+            const DWORD kt[4] = {0x033A1435, 0x0341ACC9, 0x033A1435, 0x033A1435};
+            tb[0] = tb[1] = 0, tb[2] = ~0u;
+            for (int i = 0; i < 4; i++) {
+                memset(tn[i], 0, sizeof(tn[i]));
+                *(DWORD*)(tn[i] + 8) = kt[i], *(DWORD*)(tn[i] + 0x10) = (DWORD)(uintptr_t)rsx[i];
+                *(DWORD*)(tn[i] + 0x18) = tb[i & 1], tb[i & 1] = (DWORD)(uintptr_t)tn[i];
+            }
+            *(DWORD*)(rcC + 0x20) = (DWORD)(uintptr_t)tb, *(DWORD*)(rcC + 0x24) = 2, *(DWORD*)(rcC + 0x28) = 4, rcC[0x7C] = 1;
+            RcRefTypesLine(20, "mark", "cas-close");
+            UdtLog(buf, sizeof(buf), h);
+            const char* rt = strstr(buf, "diag: rc types #1 mark ev=cas-close mem=#20: walk 4 entries in ");
+            assert(rt && strstr(rt, ", wait 0 ms; caller table ok; t="));
+            assert(strstr(rt, "diag: rc types #1 type 0x033A1435 vt 0x") && strstr(rt, " live 2 (+2) cold 1 same key type, other class 1; "
+                              "refs 0:0 1:1 2:0 3:0 4:0 5-8:0 9-16:1 17+:0; births seen 1 (+1), deaths 0 (+0); AddRef 2, finds 0, Release 0"));
+            assert(strstr(rt, " live 1 (+1) cold 0 same key type, other class 0; refs 0:0 1:0 2:1 3:0 4:0 5-8:0 9-16:0 17+:0; "
+                              "births seen 0 (+0), deaths 1 (+1); AddRef 1, finds 1, Release 2"));
+            const char* ta = strstr(rt, "diag: rc types #1 type 0x033A1435 AddRef callers 2, top (+since the last line/total): 0x");
+            assert(ta && strstr(ta, " +1/1, 0x"));  // two call sites, one each
+            assert(strstr(rt, "diag: rc types #1 type 0x033A1435 Release callers 0, top (+since the last line/total): none"));
+            const char* tr = strstr(rt, "diag: rc types #1 type 0x0341ACC9 Release callers 2, top (+since the last line/total): 0x");
+            assert(tr && strstr(rt, "diag: rc types #1 type 0x0341ACC9 find callers 1, top (+since the last line/total): 0x"));
+            add0(t0, NULL);
+            RcRefTypesLine(21, "periodic", NULL);
+            RcRefTypesLine(22, "exit", NULL);
+            UdtLog(buf, sizeof(buf), h);
+            rt = strstr(buf, "diag: rc types #2 periodic mem=#21: walk 4 entries");
+            assert(rt && strstr(rt, " live 2 (+0) cold 1") && strstr(rt, "births seen 1 (+0), deaths 0 (+0); AddRef 3, finds 0, Release 0"));
+            const char* ta2 = strstr(rt, "diag: rc types #2 type 0x033A1435 AddRef callers 3, top (+since the last line/total): 0x");
+            assert(ta2 && strstr(ta2, " +1/1, 0x") && strstr(ta2, " +0/1, 0x") && !strstr(buf, "diag: rc types #3"));
+            // the timer: off without a period, due after one
+            g_rqPeriodMs = 0;
+            assert(RqWorkerPoll() == INFINITE);
+            const LONG worlds = g_udWorlds;
+            g_udWorlds = 1, g_rqPeriodMs = 5000, g_rqLast = (GetTickCount() - 6000) | 1;
+            assert(RqWorkerPoll() == 5000);
+            UdtLog(buf, sizeof(buf), h);
+            assert(strstr(buf, "diag: rc types #3 timer mem=#"));
+            assert(RqWorkerPoll() > 4000);
+            g_udWorlds = worlds, g_rqPeriodMs = 0, g_rqLast = 0, g_rqOn = false, g_rqSeq = 0, rcC[0x7C] = 0;
+            memset((void*)g_rqN, 0, sizeof(g_rqN)), memset(g_rqPrev, 0, sizeof(g_rqPrev)), g_rqBorn[0] = g_rqBorn[1] = g_rqDied[0] = g_rqDied[1] = 0;
+            g_rqPrevBorn[0] = g_rqPrevBorn[1] = g_rqPrevDied[0] = g_rqPrevDied[1] = g_rqPrevLive[0] = g_rqPrevLive[1] = 0;
+        }
         memset((void*)g_rsAt, 0, sizeof(g_rsAt)), memset((void*)g_rsN, 0, sizeof(g_rsN)), memset(g_rsPrev, 0, sizeof(g_rsPrev));
         memset(g_rsPrevNet, 0, sizeof(g_rsPrevNet)), g_rsPrevMs = 0;
         memset(g_rsFs, 0, sizeof(g_rsFs)), memset(g_rfPrev, 0, sizeof(g_rfPrev)), g_rfHits = g_rfPrevHits = 0;

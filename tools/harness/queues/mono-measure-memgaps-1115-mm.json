@@ -1,0 +1,123 @@
+{
+ "note": "mono-measure-memgaps-1115-mm: copy of mono-measure-memgaps-1115.json, repinned to master-mono-1115 (0.36.264-mono1). PREPARED, NOT RUN (2026-11-15, lane mono-measure). D11 = docs/542 §9 gaps. In this queue (unattended): M1 natural BP / SV GC cost (bp-m1-gcnat, sv-m1-gcnat; IP rows already measured, §7.1). Data runs, no timing claim, so no quiet machine needed. Not in this queue: EA 1.69 rows (EA laptop: node tools/memory/gc-build-strings.ts <EA TS3W.exe> for S1; S2 census = the out-of-repo Capstone sweep, docs/542 §10), M2 free lists and M4 bins (read-only attach tools at a time mark: mono-census.py for M2 free blocks, ea-pool-census.py + mem-census.py for M4 EA side; no dlmalloc-bin walker or mimalloc stats reader exists yet; see docs/542 §9 'Prepared 2026-11-15'). Start: node tools/harness/queue.ts tools/harness/queues/mono-measure-memgaps-1115.json --no-smoke",
+ "jobs": [
+  {
+   "id": "bp-m1-gcnat",
+   "note": "[est 16 min] DATA (correctness-grade, not timing): docs/542 §7.1 M1 row 'natural BP': 12 min natural (the 10-min [UserDiag]/[MemDiag] Light sample lands before the end; the earlier BP job quit before it), [GC] SqrtHeapLimit=2 = observe (gcsize line per completed collection with gcMs = per-frame steps + forced collection; heap policy unchanged; walkMs is the observe cost, ~1 ms per GC, reported apart). Read: node tools/memory-report.ts <log> (GC size block: lines, gcMs sum) -> collections per minute, GC ms/s = sum gcMs / play seconds, heap range; frames with a collection from the profile hitches as on IP. Household untouched: diagnostics only.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.l3-convgone-1115",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 137,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "GC.SqrtHeapLimit": 2
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^mem experiments: .*SqrtHeapLimit=2 ": 1,
+    "^gcsize: gc=\\d+ mode=\\d live=[\\d.]+ ": 20
+   },
+   "logForbid": {
+    "^note: SqrtHeapLimit without": 0
+   },
+   "regexCases": {
+    "^mem experiments: .*SqrtHeapLimit=2 ": {
+     "match": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, rank min 100) SqrtHeapLimit=2 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ],
+     "noMatch": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, rank min 100) SqrtHeapLimit=0 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ]
+    },
+    "^gcsize: gc=\\d+ mode=\\d live=[\\d.]+ ": {
+     "match": [
+      "gcsize: gc=216 mode=1 live=14.4 limit=160.0 heap=160.0 alloc=25.36 speed=153 gcMs=102.4 grewMB=0.0 forced=0 wouldFree=0.0 walkMs=1.16"
+     ],
+     "noMatch": [
+      "typegrowth: pass 3 objs 812345 classes 4100"
+     ]
+    },
+    "^note: SqrtHeapLimit without": {
+     "match": [
+      "note: SqrtHeapLimit without the per-frame timing: GC time undercounted"
+     ],
+     "noMatch": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, rank min 100) SqrtHeapLimit=2 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-m1-gcnat",
+   "note": "[est 16 min] DATA (correctness-grade, not timing): docs/542 §7.1 M1 row 'natural SV': 12 min natural (the 10-min [UserDiag]/[MemDiag] Light sample lands before the end; the earlier BP job quit before it), [GC] SqrtHeapLimit=2 = observe (gcsize line per completed collection with gcMs = per-frame steps + forced collection; heap policy unchanged; walkMs is the observe cost, ~1 ms per GC, reported apart). Read: node tools/memory-report.ts <log> (GC size block: lines, gcMs sum) -> collections per minute, GC ms/s = sum gcMs / play seconds, heap range; frames with a collection from the profile hitches as on IP. Household untouched: diagnostics only.",
+   "asi": "game-copy/ts3native.asi.master-mono-1115",
+   "iniBase": "game-copy/ts3native.ini.master-mono-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-mono-1115",
+   "pinReason": "repinned 2026-11-15 to the master-mono-1115 set (merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mono-1115.sh). Was: ts3native.asi.master-dalexlol-417-1115, ts3native.ini.master-dalexlol-417-1115, ts3fixes.package.l3-convgone-1115",
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 137,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "GC.SqrtHeapLimit": 2
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^mem experiments: .*SqrtHeapLimit=2 ": 1,
+    "^gcsize: gc=\\d+ mode=\\d live=[\\d.]+ ": 20
+   },
+   "logForbid": {
+    "^note: SqrtHeapLimit without": 0
+   },
+   "regexCases": {
+    "^mem experiments: .*SqrtHeapLimit=2 ": {
+     "match": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, rank min 100) SqrtHeapLimit=2 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ],
+     "noMatch": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, rank min 100) SqrtHeapLimit=0 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ]
+    },
+    "^gcsize: gc=\\d+ mode=\\d live=[\\d.]+ ": {
+     "match": [
+      "gcsize: gc=216 mode=1 live=14.4 limit=160.0 heap=160.0 alloc=25.36 speed=153 gcMs=102.4 grewMB=0.0 forced=0 wouldFree=0.0 walkMs=1.16"
+     ],
+     "noMatch": [
+      "typegrowth: pass 3 objs 812345 classes 4100"
+     ]
+    },
+    "^note: SqrtHeapLimit without": {
+     "match": [
+      "note: SqrtHeapLimit without the per-frame timing: GC time undercounted"
+     ],
+     "noMatch": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, rank min 100) SqrtHeapLimit=2 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ]
+    }
+   }
+  }
+ ]
+}

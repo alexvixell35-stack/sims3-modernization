@@ -15,6 +15,7 @@ namespace Ts3Fixes
         static void ApplyFewerPlans()
         {
             Patch(typeof(Sim), "IsPointInLotSafelyRoutable", typeof(RoutableCacheHook), "RoutableHook", "RoutableOrig");
+            SemHookWorld();  // docs/636 spotedgememo: drop the per-lot memo on world load / quit and lot add / remove
             Type helper = typeof(LotManager).GetNestedType("RunStuckCheckHelper", BindingFlags.NonPublic);
             if (helper == null) { AppliedLog().Add("LotManager.RunStuckCheckHelper: not found, skipped"); return; }
             Patch(helper, "RunStuckCheck", typeof(StuckCheckBusyHook), "RunHook", "RunOrig");
@@ -30,27 +31,35 @@ namespace Ts3Fixes
         // Sim with a parent (profile not exact). Our own checks (SpotVerdict, sInOwnCheck) pass straight through.
         // Sim has no use for a subclass here, so the hook is a plain class (as BroadcasterPulseHook).
         // Switch "routablecache" (default off). Counters: [65] cache hits, [66] plans run and recorded.
+        // Every EA call below goes through SemRoutable (docs/636 spotedgememo, SpotEdgeMemo.cs; EA's own call when off).
         public class RoutableCacheHook
         {
             public bool RoutableHook(Lot lot, Vector3 pos)
             {
                 bool was = sInRoutableCheck;  // docs/202: unseenfbplan never marks these plans (a cut "false" sends the game to its safe-location logic)
                 sInRoutableCheck = true;
-                try { return RoutableCheck(lot, pos); }
-                finally { sInRoutableCheck = was; }
+                Vector3 rfpPrev;
+                bool rfpHad = RfpEnter(pos, out rfpPrev);  // routefailprobe (docs/627 §2): the spot this check plans from
+                try
+                {
+                    Sim sim = (Sim)(object)this;
+                    if (RsOwnPlan(sim)) return RsAdjust(sim, RoutableOrig(lot, pos), lot, pos);  // residentspawnslot (docs/582 B5 §8)
+                    return RsAdjust(sim, RoutableCheck(lot, pos), lot, pos);  // residentspawnwalk too (docs/582 B8 §8)
+                }
+                finally { sInRoutableCheck = was; RfpLeave(rfpHad, rfpPrev); }
             }
             bool RoutableCheck(Lot lot, Vector3 pos)
             {
                 Sim sim = (Sim)(object)this;
-                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return RoutableOrig(lot, pos);
+                if (sInOwnCheck || lot == null || lot.IsWorldLot || !ShortcutOn("routablecache")) return SemRoutable(this, lot, pos);
                 RouteProfile p = ProfileOf(sim);
-                if (!p.Ok) return RoutableOrig(lot, pos);
+                if (!p.Ok) return SemRoutable(this, lot, pos);
                 SpotVerdicts v = Verdicts(lot);
                 VerdictKey key = KeyOf(p, pos);
                 int[] c = PatchCounters();
                 bool ok;
                 if (v.Cells.TryGetValue(key, out ok)) { c[65]++; return ok; }
-                ok = RoutableOrig(lot, pos);
+                ok = SemRoutable(this, lot, pos);
                 v.Cells[key] = ok;
                 c[66]++;
                 return ok;
@@ -113,9 +122,19 @@ namespace Ts3Fixes
         // a sleeping drain check would mix the outcome counts (never seen: both need the alarm path and the drain at once)
         // §10.1: sStuckRound = mAttempt + 1 (0 = unknown), sent with every stuck-check START as the PROBE tag (RouteBackoff.cs
         // OwnerTaskStart) so ts3native's own long-job and own-job wait lines name the round
-        static bool sStuckIn, sStuckCap, sStuckLast;
+        static bool sStuckOn, sStuckCap, sStuckLast;
         static int sStuckPlans, sStuckOk, sStuckRound;
         static ObjectGuid sStuckRunTask = ObjectGuid.InvalidObjectGuid;
+        // docs/662 §2 stucktaskflag (tuning kStuckTaskFlag, default on): "a stuck check runs" holds only in the task that runs it.
+        // The check's probe plans can sleep on a route job; before, every other Sim's plan in that window read the flag too
+        // (UfPlanBody's ownCheck, UfSrc's "src stuckcheck", UnseenBoat / UnseenBoatLand skips). Counter [4244]: plans of other
+        // tasks inside a check's window (the old flag would have marked them), counted in UfPlanBody.
+        static bool sStuckIn
+        {
+            get { return sStuckOn && StutterSweepCore.StuckInTask(true, sStuckPerTask, sStuckRunTask.Value, Simulator.CurrentTask.Value); }
+        }
+        static bool sStuckPerTask = true;  // ShortcutOn("stucktaskflag"), read once per check in StuckCheckRun
+        static bool StuckLeakHere() { return StutterSweepCore.StuckLeak(sStuckOn, sStuckRunTask.Value, Simulator.CurrentTask.Value); }
 
         static void StuckCheckRun(StuckCheckBusyHook helper, Sim sim)
         {
@@ -130,7 +149,8 @@ namespace Ts3Fixes
             sStuckPlans = sStuckOk = 0;
             sStuckRunTask = Simulator.CurrentTask;
             sStuckCap = !last && ShortcutOn("stuckcheckcap") && ShortcutOn("stuckcheckown");
-            sStuckIn = true;
+            sStuckPerTask = ShortcutOn("stucktaskflag");
+            sStuckOn = true;
             try
             {
                 if (ShortcutOn("stuckchecknear") && StuckCheckNear(helper, sim)) return;
@@ -138,7 +158,7 @@ namespace Ts3Fixes
             }
             finally
             {
-                sStuckIn = sStuckCap = false;
+                sStuckOn = sStuckCap = false;
                 PatchCounters()[NoStartCore.StuckOutcome(sStuckPlans, sStuckOk, last)]++;
                 OwProbeExit(id, task);
             }

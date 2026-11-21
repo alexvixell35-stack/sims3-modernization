@@ -24,8 +24,8 @@
 // reads), so a later world load runs at normal speed. Detect=1 also writes a "pkglock:" counter line each minute.
 // Household rule: not applicable (resource system, no Sim). Results equal vanilla: a busy package closes a pass later.
 
-static const DWORD PK_CLOSE_SLOT = 0x00FFE0E8, PK_CLOSE = 0x007355A0;  // O vtable slot 0x18: close if idle
-static const DWORD PK_BEGIN_SLOT = 0x00FFE0C8, PK_BEGIN = 0x00734710;  // D vtable slot 0x50: begin access (thiscall, no args)
+static const DWORD PK_CLOSE_SLOT = TS3A(0x00FFE0E8), PK_CLOSE = TS3A(0x007355A0);  // O vtable slot 0x18: close if idle
+static const DWORD PK_BEGIN_SLOT = TS3A(0x00FFE0C8), PK_BEGIN = TS3A(0x00734710);  // D vtable slot 0x50: begin access (thiscall, no args)
 // sub esp,8; push ebx; push esi; mov esi,ecx; mov ebx,1; cmp [esi+104h],ebx  (the O+0x104 precheck)
 static const u8 kPkClose[18] = {0x83, 0xEC, 0x08, 0x53, 0x56, 0x8B, 0xF1, 0xBB, 0x01, 0x00, 0x00, 0x00, 0x39, 0x9E, 0x04, 0x01, 0x00, 0x00};
 // push ebx; push ebp; push esi; mov esi,ecx; push edi; lea ebp,[esi+0B8h]  (FL = D+0xB8)
@@ -36,8 +36,8 @@ typedef u8(__fastcall* PkBeginFn)(u8* d, void* edx);
 static PkCloseFn g_pkClose = (PkCloseFn)(uintptr_t)PK_CLOSE;
 static PkBeginFn g_pkBegin = (PkBeginFn)(uintptr_t)PK_BEGIN;
 // through the game entry, so LockAcquireHook (routegate.cpp) still sees DL; selftest swaps in fakes
-static LockAcquireFn g_pkAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;
-static LockReleaseFn g_pkRel = (LockReleaseFn)(uintptr_t)0x004E17B0;
+static LockAcquireFn g_pkAcq = (LockAcquireFn)(uintptr_t)TS3A(0x004E16F0);
+static LockReleaseFn g_pkRel = (LockReleaseFn)(uintptr_t)TS3A(0x004E17B0);
 static LONG g_pkMode, g_pkDetect;
 static DWORD g_pkWidenMs;
 static volatile LONG g_pkWidened;  // widened closes so far; the window ends at kPkWidenMax (menu repro, keeps a later world load fast)

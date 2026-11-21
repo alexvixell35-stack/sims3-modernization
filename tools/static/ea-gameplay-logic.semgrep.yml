@@ -1,0 +1,320 @@
+# Semgrep rules for gameplay logic flaws in decompiled EA script code (docs/558). Our own rules; run on a local
+# decompile only (game-copy/ is git-ignored):
+#   tools/static/gameplay-scan.sh            (runs these rules + ea-script-logic.semgrep.yml, prints a ranked summary)
+# Each rule names the gameplay symptom it hunts. Hits are candidates; confirm each in the decompiled code.
+rules:
+  # RandomUtil.GetInt(max) is INCLUSIVE (min + (max-min+1)*NextDouble) [verified RandomUtil.cs]: indexing with
+  # GetInt(list.Count) reads one past the end in 1 of n+1 calls (ArgumentOutOfRange -> interaction/alarm dies).
+  - id: random-inclusive-index
+    languages: [csharp]
+    severity: ERROR
+    message: RandomUtil.GetInt(max) is inclusive; index GetInt(Count) can be out of range
+    pattern-either:
+      - pattern: $L[RandomUtil.GetInt($L.Count)]
+      - pattern: $L[RandomUtil.GetInt($L.Length)]
+      - pattern: $L[RandomUtil.GetInt(0, $L.Count)]
+      - pattern: $L[RandomUtil.GetInt(0, $L.Length)]
+      - pattern: $L.$M(RandomUtil.GetInt($L.Count))
+      - pattern: $L.$M(RandomUtil.GetInt($L.Length))
+  # Loop bound off by one (reads Count'th element).
+  - id: loop-le-count
+    languages: [csharp]
+    severity: ERROR
+    message: loop runs to i <= Count/Length (one past the end)
+    pattern-either:
+      - pattern: for ($T $I = $S; $I <= $L.Count; $I++) $B
+      - pattern: for ($T $I = $S; $I <= $L.Length; $I++) $B
+  - id: index-count
+    languages: [csharp]
+    severity: ERROR
+    message: indexes [Count] / [Length] (one past the end)
+    pattern-either:
+      - pattern: $L[$L.Count]
+      - pattern: $L[$L.Length]
+  # Null test with the wrong operator: x == null && x.y  /  x != null || x.y  (always throws on the null path).
+  - id: null-wrong-operator
+    languages: [csharp]
+    severity: ERROR
+    message: null test joined with the wrong operator (dereferences on the null path)
+    pattern-either:
+      - pattern: $X == null && $X.$F
+      - pattern: $X == null && $X.$M(...)
+      - pattern: $X != null || $X.$F
+      - pattern: $X != null || $X.$M(...)
+  # Dereference inside the branch that just proved it null (== / != inversion).
+  - id: deref-in-null-branch
+    languages: [csharp]
+    severity: ERROR
+    message: dereferences a value inside the branch where it is null (== vs != inversion?)
+    patterns:
+      - pattern-either:
+          - pattern: if ($X == null) { ... $X.$M(...); ... }
+          - pattern: if ($X == null) { ... $V = $X.$F; ... }
+      - pattern-not: if ($X == null) { ... $X = $Y; ... }
+      - pattern-not: if ($X == null) { ... $X = $Y; ... $X.$M(...); ... }
+      # Tuned 2026-11-15 (docs/561 §1): EA calls that set the field themselves (EnterStateMachine sets
+      # mCurrentStateMachine, object creation callbacks set the slot's object, lazy singletons).
+      - pattern-not: if ($X == null) { ... EnterStateMachine(...); ... }
+      - pattern-not: if ($X == null) { ... GlobalFunctions.$CREATE(...); ... }
+      - pattern-not: if ($X == null) { ... $X.$ADD<$T>(...); ... }
+      - pattern-not-inside: |
+          if ($X == null) { ... $S = new $C(...); ... }
+  # Contains/Add inversion: adds only when already present (or removes only when absent).
+  - id: contains-inverted
+    languages: [csharp]
+    severity: WARNING
+    message: adds an element only when the list already contains it (or removes only when it does not)
+    pattern-either:
+      - pattern: if ($L.Contains($E)) { ... $L.Add($E); ... }
+      - pattern: if (!$L.Contains($E)) { ... $L.Remove($E); ... }
+      - pattern: if ($L.ContainsKey($E)) { ... $L.Add($E, $V); ... }
+  # Actor/target swaps: a relationship or social call with the same Sim on both sides.
+  - id: same-sim-both-sides
+    languages: [csharp]
+    severity: WARNING
+    message: the same Sim is passed as both sides of a pairwise call (actor/target swap?)
+    patterns:
+      - pattern-either:
+          - pattern: $F(Actor, Actor, ...)
+          - pattern: $F(Target, Target, ...)
+          - pattern: $F(base.Actor, base.Actor, ...)
+          - pattern: $F(base.Target, base.Target, ...)
+          - pattern: $F($A.SimDescription, $A.SimDescription, ...)
+          - pattern: $O.$F(Actor, Actor, ...)
+          - pattern: $O.$F(Target, Target, ...)
+          - pattern: $O.$F(base.Actor, base.Actor, ...)
+          - pattern: $O.$F(base.Target, base.Target, ...)
+          - pattern: $O.$F($A.SimDescription, $A.SimDescription, ...)
+      # self-targeted interactions and self-use objects are by design (pushes, drinks, makeovers, jigs)
+      - pattern-not: $O.CreateInstance(...)
+      - pattern-not: CreateInstance(...)
+      - pattern-not: $O.CreateInstanceWithCallbacks(...)
+      - pattern-not: CreateInstanceWithCallbacks(...)
+      - pattern-not: $O.ForcedCreateInstance(...)
+      - pattern-not: ForcedCreateInstance(...)
+      - pattern-not: $O.Create(...)
+      - pattern-not: Create(...)
+      - pattern-not: $O.RegisterParticipants(...)
+      - pattern-not: RegisterParticipants(...)
+      - pattern-not: $O.DoDrinkBehavior(...)
+      - pattern-not: DoDrinkBehavior(...)
+      - pattern-not: $O.CallConsumptionEffectCallback(...)
+      - pattern-not: CallConsumptionEffectCallback(...)
+      - pattern-not: $O.PreMakeover(...)
+      - pattern-not: PreMakeover(...)
+      - pattern-not: $O.PostMakeover(...)
+      - pattern-not: PostMakeover(...)
+      - pattern-not: $O.TryDeductFunds(...)
+      - pattern-not: TryDeductFunds(...)
+      - pattern-not: $O.GetChanceOfFailure(...)
+      - pattern-not: GetChanceOfFailure(...)
+      - pattern-not: $O.CreatePrepareFoodInteraction(...)
+      - pattern-not: CreatePrepareFoodInteraction(...)
+      - pattern-not: $O.ForceSituationSpecificInteraction(...)
+      - pattern-not: ForceSituationSpecificInteraction(...)
+      - pattern-not: $O.CanSimConsumeAlchemyRecipe(...)
+      - pattern-not: CanSimConsumeAlchemyRecipe(...)
+      - pattern-not: $O.ChooseAndDoRandomExperimentalDrugResult(...)
+      - pattern-not: ChooseAndDoRandomExperimentalDrugResult(...)
+      - pattern-not: $O.MakeDescendant(...)
+      - pattern-not: MakeDescendant(...)
+  # Duplicated operand inside an && / || chain (copy-paste: the second test was meant to check something else).
+  - id: duplicate-chain-operand
+    languages: [csharp]
+    severity: WARNING
+    message: the same condition appears twice in one && / || chain
+    pattern-either:
+      - pattern: $A && $B && $A
+      - pattern: $A || $B || $A
+      - pattern: $A && $B && $C && $A
+      - pattern: $A || $B || $C || $A
+  # Interaction Run(): a flag set to true, then an early `return false` before the flag is cleared (state left set on
+  # a cancel/exit path -> object or Sim stays "in use").
+  - id: flag-left-set-on-exit
+    languages: [csharp]
+    severity: WARNING
+    message: flag set true then Run() returns false before clearing it (state left on the exit path)
+    patterns:
+      - pattern-inside: |
+          $R Run() { ... }
+      - pattern: |
+          $X = true;
+          ...
+          return false;
+      - pattern-inside: |
+          $R Run() { ... $X = false; ... }
+      - pattern-not-inside: try { ... } finally { ... }
+      - metavariable-regex:
+          metavariable: $X
+          regex: ^(?!flag\b|result\b|succeeded\b|success\b|ok\b|bool\d*\b|b\b|done\b|.*\b(flag|result|succeeded|success)\d*$).*
+  # Listener added in Run(), then `return false` before any RemoveListener (listener leaks / fires on a dead
+  # interaction).
+  - id: listener-left-on-exit
+    languages: [csharp]
+    severity: WARNING
+    message: listener added in Run() but an early return false skips its removal
+    patterns:
+      - pattern-inside: |
+          $R Run() { ... }
+      - pattern-either:
+          - pattern: |
+              $L = EventTracker.AddListener(...);
+              ...
+              return false;
+          - pattern: |
+              $L = AlarmManager.Global.AddAlarm(...);
+              ...
+              return false;
+          - pattern: |
+              $L = $O.AddAlarm(...);
+              ...
+              return false;
+      - pattern-not-inside: |
+          $L = $ADD;
+          ...
+          $REMOVE($L);
+          ...
+          return false;
+      - pattern-not-inside: |
+          $L = $ADD;
+          ...
+          $O2.$REMOVE(...);
+          ...
+          return false;
+      - pattern-not-inside: try { ... } finally { ... }
+  # Unbounded retry: while(!Route...) / while(true) with a route call and no counter.
+  - id: unbounded-route-retry
+    languages: [csharp]
+    severity: WARNING
+    message: retries a route without a bound (Sim can loop forever when the target is unroutable)
+    patterns:
+      - pattern-either:
+          - pattern: while (!$S.$M(...)) { ... }
+          - pattern: |
+              while (true) { ... if ($S.$M(...)) { ... break; } ... }
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^(RouteTo\w*|DoRoute|GetIn\w*|TryLand\w*)$
+  # Age gates written with bit flags compared by order on a combined mask (off-by-one on age).
+  - id: age-flag-order-compare
+    languages: [csharp]
+    severity: INFO
+    message: ordered comparison on CASAgeGenderFlags (check the gate boundary)
+    pattern-either:
+      - pattern: $X.Age < CASAgeGenderFlags.$A
+      - pattern: $X.Age > CASAgeGenderFlags.$A
+  # Skill / level gates: GetSkillLevel(...) > N vs >= N mismatch hunts need context; flag strict > on max levels.
+  - id: level-gt-max
+    languages: [csharp]
+    severity: INFO
+    message: strict > on a max level (never true?)
+    pattern-either:
+      - pattern: $X.SkillLevel > $X.MaxSkillLevel
+      - pattern: $X.CareerLevel > $X.HighestLevel
+      - pattern: $X.Level > $X.MaxLevel
+  # ---------- routing / travel flow (docs/560) ----------
+  # A Sim (or a carried child / vehicle) hidden or faded out, then an early `return false` before it is shown again:
+  # the Sim stays invisible (hidden Sim after a cancelled car / elevator / portal trip).
+  - id: hidden-left-on-exit
+    languages: [csharp]
+    severity: WARNING
+    message: object hidden / faded out, then `return false` before it is shown again
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $S.SetHiddenFlags($H);
+              ...
+              return false;
+          - pattern: |
+              $S.SetOpacity(0f, $T);
+              ...
+              return false;
+          - pattern: |
+              $S.FadeOut(...);
+              ...
+              return false;
+      - pattern-not-inside: |
+          $S.SetHiddenFlags($H);
+          ...
+          $S.SetHiddenFlags($H2);
+          ...
+          return false;
+      - pattern-not-inside: |
+          $S.SetOpacity(0f, $T);
+          ...
+          $S.SetOpacity(1f, $T2);
+          ...
+          return false;
+      - pattern-not-inside: |
+          $S.FadeOut(...);
+          ...
+          $S.FadeIn(...);
+          ...
+          return false;
+      - pattern-not-inside: try { ... } finally { ... }
+  # A reservation (parking space, seat, slot, portal) taken, then `return false` before it is released.
+  - id: reservation-left-on-exit
+    languages: [csharp]
+    severity: WARNING
+    message: reservation taken, then `return false` before its release (vehicle / spot left reserved)
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $X.$RES(...);
+              ...
+              return false;
+      - metavariable-regex:
+          metavariable: $RES
+          regex: ^(Reserve\w*|SetReserved\w*|Claim\w*|AddToUseList|ReserveSlot|ReservePortal)$
+      - pattern-not-inside: |
+          $X.$RES(...);
+          ...
+          $X.$UN(...);
+          ...
+          return false;
+      - pattern-not-inside: try { ... } finally { ... }
+  # Route failed, then the Sim is moved by SetPosition / teleport into the target spot: the fallback can put it in an
+  # unroutable place (cf. hidden rooms, docs/552).
+  - id: teleport-on-route-fail
+    languages: [csharp]
+    severity: INFO
+    message: route failure falls back to SetPosition / teleport (check the spot is routable)
+    pattern-either:
+      - pattern: |
+          if (!$S.$ROUTE(...)) { ... $S.SetPosition(...); ... }
+      - pattern: |
+          if (!$S.DoRoute(...)) { ... $S.SetPosition(...); ... }
+  # Route / get-in result ignored inside Run: the interaction carries on as if the Sim arrived.
+  - id: route-result-ignored
+    languages: [csharp]
+    severity: INFO
+    message: route result ignored; the code carries on as if the Sim arrived
+    patterns:
+      - pattern-inside: |
+          $R Run() { ... }
+      - pattern-either:
+          - pattern: $S.RouteToSlot(...);
+          - pattern: $S.RouteToObjectRadius(...);
+          - pattern: $S.RouteToPointRadius(...);
+          - pattern: $S.RouteToLot(...);
+          - pattern: $S.DoRoute(...);
+          - pattern: $V.GetIn(...);
+  # ---------- commit before the fee test (docs/561 §2, photo booth) ----------
+  # The Sim is already entered / faded out / listed in the object, then a funds test returns false with no exit path.
+  - id: fee-test-after-enter
+    languages: [csharp]
+    severity: WARNING
+    message: funds tested after the Sim entered the object; the early `return false` leaves it inside (no exit / fade-in)
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              $O.$ENTER(...);
+              ...
+          - pattern-inside: |
+              if (!$O.$ENTER(...)) { ... }
+              ...
+      - pattern: |
+          if ($S.FamilyFunds < $C) { ... return false; }
+      - metavariable-regex:
+          metavariable: $ENTER
+          regex: ^(RouteToAndEnter\w*|Enter\w*|FadeOut|AddToUseList|ParentToSlot|SetHiddenFlags)$

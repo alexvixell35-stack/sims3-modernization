@@ -6,14 +6,14 @@ static void TestMintFuse() {
     memset(len, 1, sizeof(len));
     len[B] = 2;   // one operand word
     len[SW] = 0;  // switch: variable length
-    static const unsigned short kSeq[3][3] = {{A, B, 0}, {B, C, 0}, {A, B, C}};
-    static const unsigned short kN[3] = {2, 2, 3};
-    for (int j = 0; j < 3; j++) {
+    static const unsigned short kSeq[4][3] = {{A, B, 0}, {B, C, 0}, {A, B, C}, {B, D, D}};
+    static const unsigned short kN[4] = {2, 2, 3, 3};
+    for (int j = 0; j < 4; j++) {
         u8* e = desc + MF_DESC_SIZE * (j + 1);
         *(unsigned short*)(e + 4) = kN[j];
         memcpy(e + 6, kSeq[j], 2 * kN[j]);
     }
-    const unsigned short S1 = MF_SUPER + 1, S2 = MF_SUPER + 2, S3 = MF_SUPER + 3;
+    const unsigned short S1 = MF_SUPER + 1, S2 = MF_SUPER + 2, S3 = MF_SUPER + 3, S4 = MF_SUPER + 4;
     unsigned short out;
     const auto run = [&](const unsigned short* w, int n, unsigned short* c) { out = 0; MfFuse(w, n, &out, c, len, desc); };
     MF_CTR.mfRuns = MF_CTR.mfWhole = MF_CTR.mfInner = 0;
@@ -34,6 +34,12 @@ static void TestMintFuse() {
         unsigned short c[] = {A, B, 1, B, 2, C, D};
         run(w, 5, c);
         assert(out == 0 && c[0] == S1 && c[3] == S2);
+    }
+    {   // fewest dispatches, not leftmost: A + (B D D) is 2, (A B) + D + D was 3 (brfalse.i4.s, ldloc.i4, add1.i4, stloc.i4 in JitBench case 10)
+        const unsigned short w[] = {A, B, D, D};
+        unsigned short c[] = {A, B, 1, D, D};
+        run(w, 4, c);
+        assert(out == 0 && c[0] == A && c[1] == S4 && c[2] == 1 && c[3] == D);
     }
     {   // a nop inside a descriptor is a barrier; between two is not
         const unsigned short w[] = {A, B, D};
