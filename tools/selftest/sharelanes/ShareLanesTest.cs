@@ -147,6 +147,7 @@ static class ShareLanesTest
         Check(ShareLanesCore.Pass(true, true, 1, 0, true, true, out kept) == N && kept, "a Sim at the route's end: the game's wait");
         Check(ShareLanesCore.Pass(false, true, 1, 0, true, false, out kept) == W, "off counts");
         Check(ShareLanesCore.Pass(true, false, 1, 0, true, false, out kept) == X && ShareLanesCore.Pass(true, true, 1, 0, false, false, out kept) == X, "walker or a Sim in the way out of scope: exempt");
+        Timing();
         Check(ShareLanesCore.AngleStairs(true, true, true, true, false, 3) == G && ShareLanesCore.AngleStairs(false, true, true, true, false, 3) == W
             && ShareLanesCore.AngleStairs(true, false, true, true, false, 3) == X, "stairs approach: on, off, exempt");
         Check(ShareLanesCore.AngleStairs(true, true, true, false, false, 3) == N && ShareLanesCore.AngleStairs(true, true, true, true, true, 3) == N
@@ -158,6 +159,38 @@ static class ShareLanesTest
         Check(ShareLanesCore.Tenths(0f) == 0 && ShareLanesCore.Tenths(-3f) == 0 && ShareLanesCore.Tenths(float.NaN) == 0 && ShareLanesCore.Tenths(1.24f) == 12
             && ShareLanesCore.Tenths(20f) == 200 && ShareLanesCore.Tenths(1e9f) == 6000, "wait counter: tenths, never negative, capped");
         Check(ShareLanesCore.kKindNames.Length == 6 && ShareLanesCore.kKindNames[ShareLanesCore.kSpiral] == "spiral", "a name per portal kind (spiral stairs: switch spiralshare)");
+    }
+
+    // docs/686 §8.8: at once only near a portal, elsewhere after the shared grace; the near-portal test
+    static void Timing()
+    {
+        const int D = ShareLanesCore.kDefer;
+        Check(ShareLanesCore.Timed(G, true, 0f, 2.5f) == G, "near a portal: at once");
+        Check(ShareLanesCore.Timed(G, false, 0f, 2.5f) == D && ShareLanesCore.Timed(G, false, 2.4f, 2.5f) == D, "open space before the grace: left to the wait");
+        Check(ShareLanesCore.Timed(G, false, 2.5f, 2.5f) == G && ShareLanesCore.Timed(G, false, 30f, 2.5f) == G, "open space from the grace on: walk through");
+        Check(ShareLanesCore.Timed(W, false, 0f, 2.5f) == D && ShareLanesCore.Timed(X, false, 0f, 2.5f) == D, "would and exempt are not counted before the grace either");
+        Check(ShareLanesCore.Timed(W, true, 0f, 2.5f) == W && ShareLanesCore.Timed(X, false, 3f, 2.5f) == X, "would and exempt keep their answer when due");
+        Check(ShareLanesCore.Timed(N, false, 0f, 2.5f) == N && ShareLanesCore.Timed(N, true, 9f, 2.5f) == N, "nothing to do stays nothing");
+        Check(ShareLanesCore.Timed(G, false, 0f, 0f) == G && ShareLanesCore.Timed(G, false, 0f, -1f) == G && ShareLanesCore.Timed(G, false, 0f, float.NaN) == G, "grace 0, negative or NaN: at once everywhere");
+        Check(ShareLanesCore.Timed(G, false, float.NaN, 2.5f) == D, "a broken clock never shortens the grace");
+        Check(ShareLanesCore.GraceDue(2.5f, 2.5f) && !ShareLanesCore.GraceDue(2.49f, 2.5f), "grace: due from the tunable on");
+        // a door lane: front (0,0,0) to rear (0,0,2)
+        Check(ShareLanesCore.NearLane(0f, 0f, -1.4f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "1.4 m in front of a door's lane end: near");
+        Check(!ShareLanesCore.NearLane(0f, 0f, -1.6f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "1.6 m in front: not near");
+        Check(ShareLanesCore.NearLane(1.4f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f) && !ShareLanesCore.NearLane(1.6f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "beside the doorway: by the distance to the lane");
+        Check(ShareLanesCore.NearLane(0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "in the doorway: near");
+        Check(!ShareLanesCore.NearLane(0f, 3f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "the floor above the door: not near");
+        // a stair lane: foot (0,0,0) to top (0,3,4)
+        Check(ShareLanesCore.NearLane(0.3f, 1.5f, 2f, 0f, 0f, 0f, 0f, 3f, 4f, 1.5f), "on the stairs, halfway up: near");
+        Check(ShareLanesCore.NearLane(0f, 3f, 5f, 0f, 0f, 0f, 0f, 3f, 4f, 1.5f) && !ShareLanesCore.NearLane(0f, 3f, 6f, 0f, 0f, 0f, 0f, 3f, 4f, 1.5f), "at the stair top: 1 m near, 2 m not");
+        Check(!ShareLanesCore.NearLane(3f, 0f, 2f, 0f, 0f, 0f, 0f, 3f, 4f, 1.5f), "3 m beside the stairs: not near");
+        Check(ShareLanesCore.NearLane(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1.5f) && !ShareLanesCore.NearLane(2f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 1.5f), "a lane whose ends are one point: the distance to it");
+        Check(!ShareLanesCore.NearLane(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 2f, 0f) && !ShareLanesCore.NearLane(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 2f, float.NaN), "near 0 or NaN: never (the grace everywhere)");
+        Check(!ShareLanesCore.NearLane(float.NaN, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "a broken position is not near");
+        // simpass with the timing: two Sims meet in a hallway and at a door
+        bool kept;
+        int pass = ShareLanesCore.Pass(true, true, 1, 0, true, false, out kept);
+        Check(ShareLanesCore.Timed(pass, false, 0f, 2.5f) == D && ShareLanesCore.Timed(pass, true, 0f, 2.5f) == G && ShareLanesCore.Timed(pass, false, 2.5f, 2.5f) == G, "simpass: hallway waits the grace, door at once");
     }
 
     static int Main()

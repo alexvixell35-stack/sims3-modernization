@@ -388,6 +388,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kSimPass = false;  // simpass (docs/686 §8): a walking Sim that meets only Sims (none of them at the route's end) starts the game's ignore-obstacles timer and walks through them instead of running the obstacle stand-and-wait
         [Tunable] public static bool kSimPassHousehold = false;  // simpasshh: simpass for household and selected Sims too, as the walker and as a Sim walked through
         [Tunable] public static float kSimPassMinutes = 3f;  // simpass: sim-minutes the ignore-obstacles timer runs per start (the game's own value after a portal is 5)
+        [Tunable] public static float kClipGraceMinutes = 2.5f;  // simpass (docs/686 §8.8): sim-minutes a Sim stands in the game's wait before it walks through a Sim away from a portal (2.5 = about 2-3 seconds at normal speed)
+        [Tunable] public static float kClipPortalNear = 1.5f;  // simpass: metres from a door, gate, stair, ladder or elevator lane within which the walk-through needs no grace (0 = the grace everywhere)
         [Tunable] public static bool kAngleEntry = false;  // angleentry (docs/686 §8): the approach to stairs, and to a ladder climbed from below, is a plan to the lane's start point without facing; the stair walk and the climb set the Sim's facing themselves
         [Tunable] public static bool kAngleEntryHousehold = false;  // angleentryhh: angleentry for household and selected Sims too
         [Tunable] public static bool kLaneWaitLog = false;  // lanewaitlog (docs/686 §8): one "lanewait:" line per wait for a portal lane (who, which portal, how long, who held it); test runs

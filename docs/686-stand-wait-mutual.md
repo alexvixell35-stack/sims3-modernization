@@ -226,7 +226,7 @@ succeeds, so standing Sims were the lock. Failed-plan lines in the 316 logs: `De
 | same | A blocked stand-and-wait cycle whose plan says `DestinationPortalLocked` plans without "blocked by people" on the first such cycle (then every 3rd); success = only people closed it, the Sim walks on with the ignore-obstacles timer. Failure = a real lock, the wait goes on (counter 4377). Not with a Sim other than the partner at the route's end. | the pass step of `standwaitfix` (§3 rule 2), without waiting for cycle 2 and without that switch |
 | `laddershare` (`laddersharehh`) | `SimQueue.WaitForTurn` answers "your turn" for a `PortalClimb` on its ladder's own line; the Sim is not entered in the line. | none: this drops a wait the game has. Own switch because of the state machine question above. |
 | `spiralshare` (`spiralsharehh`) | Spiral stairs (`StaircaseSpiralPortalComponent`, exact type): the `sharelanes` search for its one lane, and `SimQueue.WaitForTurn` answers "your turn" for the staircase's walk (`UseInternal`) on its own line. Both are needed: the Sims in the line hold the lane from their end, so the Sim coming the other way waits for the whole line (7.2 and 12.0 sim-min in s465 / s469, the only lane waits left with the other pairs on). The railing slide keeps its line. Counters 4390-4397. | `GetFreeRoutingLane`'s own order and checks; the line: none, a wait the game has is dropped |
-| `simpass` (`simpasshh`) | At the obstacle event: only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. A wait that still starts (forced replan) returns `ContinueAndFollowPath` at once under the same test. | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
+| `simpass` (`simpasshh`) | Only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. **At once** (at the obstacle event, or `ContinueAndFollowPath` at a wait that still starts) only near a portal; anywhere else the wait begins and its first cycle after `kClipGraceMinutes` ends it the same way (§8.8). | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
 | `angleentry` (`angleentryhh`) | Stairs: when the Sim got its planned lane, the first sub-path is replaced by `GetPathToLane` (kept when that plan fails). Ladder climbed from below: `GetPathToLane` gets the lane without `PlanToSlotNotPosition`, so the game takes its point plan. Climb down: unchanged. | the game's own replacement approach for a lane that was not the planned one |
 | `lanewaitlog` | `lanewait: <Sim> <scope>, <interaction>: <Type> 0x<id> (<kind>), X sim-min from the refusal, got a lane / gave up, held then by: ..., at x,y,z` | log only |
 
@@ -324,3 +324,27 @@ skipped about 12 times. Earlier batches s444-s473 (after the fix for a ladder wi
 the line hook): errors 0. Not watched by eye yet: how two Sims crossing on stairs, a door or a ladder look, and the
 angled stair and ladder entry.
 
+### 8.8 The timing rule: at once only at portals (2026-11-22, built, NOT RUN)
+
+A player's rule: "doors and shower and stairs etc can be almost always but other things should have at least that
+2 or 3 second wait". Clipping is not the standard. It binds `simpass`:
+
+| Where | What walks through at once | What waits first |
+|---|---|---|
+| Portals: doors, gates, stairs, ladders, spiral stairs, elevator lanes (`sharelanes`, `laddershare`, `spiralshare`, `angleentry`) | lane sharing as built; `simpass` when the walker or a Sim in its way is within `kClipPortalNear` (1.5 m) of a portal lane, on the stairs included | nothing |
+| Anywhere else: open space, hallways, rooms | nothing | the game's stand-and-wait runs `kClipGraceMinutes` (2.5 sim-minutes, 2-3 seconds at normal speed), with its own replans and pushes; then `simpass` ends it |
+
+- **Near a portal** (`ShareLanesCore.NearLane`): the distance in three dimensions from a Sim to the line between a
+  lane's two ends is under `kClipPortalNear`. So a Sim anywhere on the stairs, in a doorway or within 1.5 m of a
+  lane end is near; a Sim on the floor above a door is not. The lanes of a lot are read once per 30 sim-minutes
+  (`ShlLanesOf`); the world lot has none. `kClipPortalNear = 0` = the grace everywhere; `kClipGraceMinutes = 0` =
+  at once everywhere (the behaviour before this rule).
+- **The grace path** is simpass's own: `SpsObstacleCycle` in the obstacle wait's cycle hook (plan intact, only
+  Sims in the way, none at the route's end) ends the wait with the game's own "continue and follow the path".
+- Counters: no free slot in the block. `ShareLanesCheck result` shows, per session, the waits begun away from a
+  portal and left to the grace, and the walks after it. 4381 now counts only walks near a portal; 4382 the waits
+  ended at their begin (near a portal) or after the grace.
+- Selftest: `sharelanes` (`Timing`: the rule, the near-lane test on a door and a stair lane).
+- §8.2 and §8.7: the lane waits, lane shares and line skips are at doors, stairs and ladders and are not touched.
+  The `simpass` count of §8.7 (about 55 acts per storm) was taken before this rule; away from portals those walks
+  now come after the grace.
