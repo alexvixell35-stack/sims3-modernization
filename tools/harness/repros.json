@@ -122807,8 +122807,8 @@
     "bug": "A toilet whose routing slot is covered by an end table: the Sim's plan to the slot fails, EA plays the route-fail balloon and the interaction ends (docs/686 §10; storm logs: 403 of 6,622 failed object-use plans name furniture as blocker)",
     "fix": "ts3fixes BlockedUse.cs: blockeduse + blockedusehh (default off), docs/686 §10",
     "save": "Baseline-BP-Spring (any save with a vacant lot; the household is made by the repro)",
-    "note": "UNVERIFIED (2026-11-22, never run). A one-Sim household on an empty lot, a room built with the real tools (build_layout): a toilet facing +z and an end table on the tile in front of it. Per arm ('mem: blockeduse-<arm>' in ts3native.log) the active Sim is ordered to use the toilet. 'BlockedUseCheck lot' before each arm must list the toilet with a closed slot; if it does not (the table's footprint misses the slot, or the catalog has no product with 'end table' in its name), change the legend's n product and say so. The walk away is a Go Here to the house's door (optional step: any next order of the Sim does the same). A wall arm (bed side at a wall) is not in this layout: the map tool builds walls on tile edges and its multi-tile rules were not checked.",
-    "expect": "off arm: 'routefail: ... UseToilet target Toilet..., ... FailedBecause(NoPathToDestination|NoDestinationSpecified)', counter 4414 (tries) and 4415 (would) up, the Sim does not sit. on arm: one 'blockeduse: selected <Sim> -> Toilet... : clip N m to slot ...' (or 'snap in ... from ...') line, the Sim uses the toilet, 4418 or 4419 up; afterwards 'blockeduse: ... snap out from ... to ... (the spot it came from)' (4420) or 4421 (walked out); 4426 (errors) 0, no 'blockeduse: error at' line.",
+    "note": "VERIFIED 2026-11-22 (Deck, Sunset Valley new game): automated run bu-r11 (exit 0) and by hand in session bu-m1. A two-Sim household on an empty lot, a room built with the real tools (build_layout, margin_top 0: a toilet is only placed at a wall), a toilet facing +z and a fridge put on the tile in front of it (put_in_front: the Buy tool refuses that tile; an end table there leaves the slot open). Per arm ('mem: blockeduse-<arm>' in ts3native.log) the active Sim is ordered to use the toilet. 'BlockedUseCheck lot' before each arm must list the toilet with a closed slot.",
+    "expect": "off arm: 'routefail: ... UseToilet target Toilet..., ... FailedBecauseNoPathToDestination blocker Object ... Fridge', 'off: would' up by 2, the Sim does not sit. on arm: 'blockeduse: selected <Sim> -> Toilet... : clip 1.0 m to slot ..., walked up first' (walked up 1, clip 2: the interaction routes to the slot twice), the Sim uses the toilet, afterwards 'walked out 1' (or snap out); errors 0.",
     "steps": [
       {
         "cmd": "make_household",
@@ -122823,14 +122823,25 @@
               "age": "YoungAdult",
               "gender": "Female",
               "traits": [
-                "Neat",
-                "Bookworm"
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Blocked",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
               ]
             }
           ]
         },
         "waitS": 5,
-        "note": "Edit Town: one-Sim household on a vacant empty lot"
+        "note": "Edit Town: two-Sim household on a vacant empty lot (make_household takes 2..8 Sims)"
       },
       {
         "cmd": "switch_household",
@@ -122860,15 +122871,24 @@
         "note": "nothing but the orders moves the Sim"
       },
       {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1 before the build: its Go Here to X needs a running clock (the Deck runner's idle phase is paused)"
+      },
+      {
         "cmd": "build_layout",
         "args": {
           "map": [
+            "E E E t E",
+            "E X E E E",
             "E E E E E",
-            "E X E t E",
-            "E E E n E",
-            "E E E E E"
+            "n E E E E"
           ],
           "house": true,
+          "margin_top": 0,
           "origin": [
             6,
             6
@@ -122881,9 +122901,13 @@
               "facing": "S"
             },
             "n": {
-              "name": "end table"
+              "name": "fridge",
+              "class": "Fridge",
+              "facing": "S",
+              "loose": true
             }
-          }
+          },
+          "sim_timeout_s": 120
         },
         "waitS": 3,
         "until": {
@@ -122901,7 +122925,18 @@
           "everyS": 3,
           "maxS": 300
         },
-        "note": "room 5x4: toilet facing +z, an end table on the tile in front of it (its routing slot)"
+        "note": "room 5x4, top row at the top wall (a toilet needs a wall behind it): toilet facing +z, a fridge in a corner"
+      },
+      {
+        "cmd": "put_in_front",
+        "args": {
+          "target": "@type:Fridge",
+          "of": "@type:Toilet",
+          "forward": 1
+        },
+        "note": "the fridge onto the tile in front of the toilet (its routing slot); the Buy tool refuses that place, a player gets there with moveobjects",
+        "max": 400,
+        "waitS": 2
       },
       {
         "cmd": "set_speed",
@@ -122934,7 +122969,8 @@
             "active"
           ],
           "teleport": false,
-          "autonomy": false
+          "autonomy": false,
+          "near": "@type:Door"
         },
         "note": "off queue cancelled, autonomy off",
         "max": 400,
@@ -123031,7 +123067,8 @@
             "active"
           ],
           "teleport": false,
-          "autonomy": false
+          "autonomy": false,
+          "near": "@type:Door"
         },
         "note": "on queue cancelled, autonomy off",
         "max": 400,
@@ -123112,6 +123149,706 @@
         "args": {
           "blockeduse": false,
           "blockedusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "reachuse-force",
+    "bug": "A puddle on a tile enclosed by furniture: Terrain.Mopping.RouteToPuddle's plan (a ring from 1 m in the puddle's room) fails, the game plays the route-fail balloon and the puddle stays (docs/686 §12)",
+    "fix": "ts3fixes ReachUse.cs: reachuse + reachusehh (default off), docs/686 §12",
+    "save": "any world with a vacant empty lot of 16 x 16 tiles (Sunset Valley new game; the household is made by the repro)",
+    "note": "NOT A REPRO YET (run ru-r1, 2026-11-22, Sunset Valley): the room and the block build (build_layout passed in 46 s) and add_puddle wets the tile, but 'ReachUseCheck lot' says 'targets 1, closed to the game's plan 0': the game's mop plan succeeds (its ring starts at 1 m and has no outer limit, so any free place of the room serves; end tables may also leave gaps), and the terrain menu at the enclosed tile offers no Mop ('no interaction matching mop'; on open floor the same step queued 'Mop Up Puddle' and the puddle was mopped). A forced case needs a puddle whose whole room is closed to the Sim, or a pile (RouteToObjectRadius) instead. A two-Sim household on an empty lot, a room built with the real tools (build_layout): a 3 x 3 block, seven end tables and a fridge round one free tile. Per arm ('mem: reachuse-<arm>' in ts3native.log) add_puddle (the game's PuddleManager.AddPuddle) wets the free tile and the active Sim is ordered to mop it through the terrain's menu. The nearest free tile is 2 m from the puddle (reach for mopping: 2.5 m).",
+    "expect": "off arm: 'routefail: ... MopPuddle', counters 4446 (tries) and would up, the puddle stays ('ReachUseCheck lot' targets 1). on arm: 'reachuse: ... from N m', the Sim mops from outside the block, targets 0, no error line.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Reach",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Reach",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Reach",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: two-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Reach"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "nothing but the orders moves the Sims"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1 before the build: its Go Here to X needs a running clock (the Deck runner's idle phase is paused)"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E",
+            "E n n n E E",
+            "E n E n E E",
+            "E n a n E X",
+            "E E E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "n": {
+              "name": "end table"
+            },
+            "a": {
+              "name": "fridge",
+              "class": "Fridge",
+              "facing": "S"
+            }
+          },
+          "sim_timeout_s": 120
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "room 6x5: seven end tables and a fridge round one free tile"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": false,
+          "reachusehh": false
+        },
+        "note": "arm off: reachuse + reachusehh off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reachuse-off"
+        },
+        "note": "log marker reachuse-off"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "teleport": false,
+          "autonomy": false,
+          "near": "@type:Door"
+        },
+        "note": "off queue cancelled, autonomy off",
+        "max": 400,
+        "waitS": 4,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Fridge",
+          "forward": -1
+        },
+        "note": "off: a puddle on the tile behind the fridge, enclosed by seven end tables and the fridge",
+        "max": 600,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off before: the puddle must be a target the game cannot plan to, with a place in reach",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Fridge",
+          "forward": -1,
+          "no_add": true,
+          "order": "mop"
+        },
+        "note": "off order: Mop (the terrain's pie menu at the puddle)",
+        "max": 900,
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 30 s: off = tries and would up; on = 'reachuse: ... from N m'",
+        "max": 1500,
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off at 45 s: 'targets 0' = the puddle is mopped, 'targets 1' = it stayed",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "target": "@type:Door"
+        },
+        "note": "off walk away",
+        "max": 300,
+        "waitS": 10,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": true,
+          "reachusehh": true
+        },
+        "note": "arm on: reachuse + reachusehh on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reachuse-on"
+        },
+        "note": "log marker reachuse-on"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "teleport": false,
+          "autonomy": false,
+          "near": "@type:Door"
+        },
+        "note": "on queue cancelled, autonomy off",
+        "max": 400,
+        "waitS": 4,
+        "optional": true
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Fridge",
+          "forward": -1
+        },
+        "note": "on: a puddle on the tile behind the fridge, enclosed by seven end tables and the fridge",
+        "max": 600,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on before: the puddle must be a target the game cannot plan to, with a place in reach",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "add_puddle",
+        "args": {
+          "near": "@type:Fridge",
+          "forward": -1,
+          "no_add": true,
+          "order": "mop"
+        },
+        "note": "on order: Mop (the terrain's pie menu at the puddle)",
+        "max": 900,
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on at 30 s: off = tries and would up; on = 'reachuse: ... from N m'",
+        "max": 1500,
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on at 45 s: 'targets 0' = the puddle is mopped, 'targets 1' = it stayed",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "target": "@type:Door"
+        },
+        "note": "on walk away",
+        "max": 300,
+        "waitS": 10,
+        "optional": true
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": false,
+          "reachusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "makebedboth-force",
+    "bug": "A double bed with one long side closed (a wall or furniture): that half is unmade, its routing slot cannot be reached, Make Bed's walk (or its continuation's walk) fails and the bed stays half made (docs/686 §13)",
+    "fix": "ts3fixes MakeBedBoth.cs: makebedboth + makebedbothhh (default off), docs/686 §13",
+    "save": "any world with a vacant empty lot of 16 x 16 tiles (Sunset Valley new game; the household is made by the repro)",
+    "note": "VERIFIED 2026-11-22 (Deck, Sunset Valley new game): automated run mb-r2 (this entry, fridge on the Left slot: exit 0), and by hand in session bu-m1 with a double bed whose Right side lay at the house wall (bed put there with move_object): off = Left made, Right stays unmade, routefail BedMakeBed, 'would be made from the Left side'; on = 'Right half closed: made from the Left side (second half)', both halves made. The Buy tool placed no bed lengthwise at the wall (run mb-r1: 'the tool placed nothing' with margin_top 0 and a nudged cursor), so this entry builds the bed in the middle of the room and bed_setup closes one side with a fridge on its routing slot. Per arm ('mem: makebedboth-<arm>') bed_setup flags both halves unmade (flags only: the look is the model's last pose, so the bed looks made before the order) and the active Sim is ordered Make Bed.",
+    "expect": "off arm: the open half is made, the continuation's walk to the half at the wall fails ('routefail: ... BedMakeBed'), bed_setup shows that half made=false, counters 4462 (tries) and the 'would be made from the ... side' line. on arm: 'makebedboth: ... made from the <area> side', both halves made=true, no error line.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Bedside",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Bedside",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Bedside",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: two-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Bedside"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "nothing but the orders moves the Sims"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1 before the build: its Go Here to X needs a running clock (the Deck runner's idle phase is paused)"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E",
+            "E E E E E E E",
+            "E E E B E E E",
+            "E E E E E E E",
+            "E E E E E E E",
+            "E X E E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "B": {
+              "name": "bed",
+              "class": "BedDouble",
+              "facing": "E",
+              "loose": true
+            }
+          },
+          "sim_timeout_s": 120
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "room 7x6: a double bed in the middle"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": false,
+          "makebedbothhh": false
+        },
+        "note": "arm off: makebedboth + makebedbothhh off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "makebedboth-off"
+        },
+        "note": "log marker makebedboth-off"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "teleport": false,
+          "autonomy": false,
+          "near": "@type:Door"
+        },
+        "note": "off queue cancelled, autonomy off",
+        "max": 400,
+        "waitS": 4,
+        "optional": true
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble",
+          "unmake": "all",
+          "close": "fridge"
+        },
+        "note": "off: both halves flagged unmade; if both can be reached, a fridge goes on one side's routing slot (closed_with)",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off before: the bed with its unmade halves and the plans",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:BedDouble",
+          "interaction": "make bed"
+        },
+        "note": "off order: Make Bed",
+        "waitS": 45
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble"
+        },
+        "note": "off at 45 s: made flags per half (off: the closed half stays unmade; on: both made)",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 45 s: counters and the last makebedboth: line",
+        "max": 1500,
+        "waitS": 15
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble"
+        },
+        "note": "off at 60 s: made flags per half",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "target": "@type:Door"
+        },
+        "note": "off walk away (clears the view of the bed)",
+        "max": 300,
+        "waitS": 10,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": true,
+          "makebedbothhh": true
+        },
+        "note": "arm on: makebedboth + makebedbothhh on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "makebedboth-on"
+        },
+        "note": "log marker makebedboth-on"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "teleport": false,
+          "autonomy": false,
+          "near": "@type:Door"
+        },
+        "note": "on queue cancelled, autonomy off",
+        "max": 400,
+        "waitS": 4,
+        "optional": true
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble",
+          "unmake": "all",
+          "close": "fridge"
+        },
+        "note": "on: both halves flagged unmade; if both can be reached, a fridge goes on one side's routing slot (closed_with)",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on before: the bed with its unmade halves and the plans",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:BedDouble",
+          "interaction": "make bed"
+        },
+        "note": "on order: Make Bed",
+        "waitS": 45
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble"
+        },
+        "note": "on at 45 s: made flags per half (off: the closed half stays unmade; on: both made)",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on at 45 s: counters and the last makebedboth: line",
+        "max": 1500,
+        "waitS": 15
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble"
+        },
+        "note": "on at 60 s: made flags per half",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "target": "@type:Door"
+        },
+        "note": "on walk away (clears the view of the bed)",
+        "max": 300,
+        "waitS": 10,
+        "optional": true
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "home"
+        },
+        "note": "camera on the lot for the runner's screenshots (SHOTS=1)",
+        "waitS": 20,
+        "optional": true
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": false,
+          "makebedbothhh": false
         },
         "note": "default off again",
         "waitS": 1
