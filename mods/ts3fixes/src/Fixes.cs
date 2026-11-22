@@ -1361,7 +1361,11 @@ namespace Ts3Fixes
         // or disliked / kept: a teen or child / kept: other (several Sims, not showering, a third Sim) / exits held for the partner's; errors;
         // showerpee: bladders refilled in a shower / showers queued at the last warning / failures replaced by a shower / kept: no usable shower /
         // would / exempt / given back to the game (the shower never began); showertogether: joined in an all-in-one bathroom.
-        const int kCounterSlots = 4510;
+        // [4510-4525] viewlenient (ViewLenient.cs, docs/686 §16): failed plans of a view-kind interaction in DoRoute / would handle, off / exempt (household
+        // without viewlenienthh) / handled, by kind: contemplate / art (ViewObjects) / performer / tv / stars / by outcome: stayed in place / walked to the
+        // nearest place with a view / quiet ends (no balloon) / kept as the game has it (aborted plan, slot route, a route with no balloon, pet, another
+        // walk) / walk stopped or ended with no view / errors / quiet ends while cooling down / tries after a walk (failed replan).
+        const int kCounterSlots = 4526;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1684,6 +1688,9 @@ namespace Ts3Fixes
                 case "showerpee": return Instantiator.kShowerPee;  // ShowerShare.cs (docs/686 §15): an NPC that has to pee with no usable toilet on the lot takes a shower that refills its bladder, off
                 case "showerpeehh": return Instantiator.kShowerPeeHousehold;  // ShowerShare.cs: the same for household and selected Sims, off
                 case "showersharelog": return Instantiator.kShowerShareLog;  // ShowerShare.cs: one line per showertogether / showerpee act, off
+                case "viewlenient": return Instantiator.kViewLenient;  // ViewLenient.cs (docs/686 §16): an NPC whose route to contemplate, view or watch fails looks from where it stands or the nearest place with a view, no balloon, off
+                case "viewlenienthh": return Instantiator.kViewLenientHousehold;  // ViewLenient.cs: the same for household and selected Sims (stands alone), off
+                case "viewlenientlog": return Instantiator.kViewLenientLog;  // ViewLenient.cs (docs/686 §16): one line per act, off
                 case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
                 case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off
                 case "rhsharehh": return Instantiator.kRhShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
