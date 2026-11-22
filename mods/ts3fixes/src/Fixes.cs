@@ -545,6 +545,7 @@ namespace Ts3Fixes
             ApplyUnseenLoopSkipStep();   // docs/632 option (a), after WakePark: its WaitForExitReason hook chains under ours
             ApplyAutLiveB14();
             ApplyHitchCause();
+            ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse / blockedusehh, off by default (counts either way)
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1586,7 +1587,11 @@ namespace Ts3Fixes
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4200;
+        // [4414-4429] blockeduse (BlockedUse.cs, docs/686 §10): failed plans to an object's slots in DoRoute / would handle, off / exempt (household without
+        // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
+        // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
+        // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        const int kCounterSlots = 4430;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2054,6 +2059,8 @@ namespace Ts3Fixes
                 case "firegreet": return Instantiator.kFireGreet;
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
+                case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
+                case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;

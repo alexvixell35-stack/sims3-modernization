@@ -775,6 +775,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFglInBound value="False" />
     <kFglInBoundHousehold value="False" />
     <kFglInBoundShadow value="False" />
+    <kBlockedUse value="False" />
+    <kBlockedUseHousehold value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />
