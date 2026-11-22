@@ -45,6 +45,7 @@ namespace Ts3Fixes
                 case "birthdayagerecord": return EpLive(typeof(BapAgeHook), 1);
                 case "birthdayagers": return EpJoin(EpLive(typeof(BirthdayAgeHook), 0), EpLive(typeof(BirthdayCleanHook), 0, "sBaListeners", sBaListeners, null));
                 case "birthroute": return EpJoin(EpLive(typeof(BrHospitalHook), 0), EpLive(typeof(BrPregnancyHook), 0));
+                case "blanktns": return EpLive(typeof(BtnHook), 1);
                 case "blogorphan": return EpLive(typeof(WlNode), 0, "sWlListener", sWlListener, null);
                 case "boardingschoolmoney": return EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BDbBubbleHook), 1), EpLive(typeof(BDbFogHook), 1)), EpLive(typeof(BDbJunkHook), 1)), EpLive(typeof(BDbPetBedHook), 1)), EpLive(typeof(BDbRegisterHook), 1));
                 case "boatgetoutdiag": return EpLive(typeof(BoatGetOutDiagHook), 1);

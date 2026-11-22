@@ -298,6 +298,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMenuMaven value="True" />
     <kDanceFloorListGuard value="True" />
     <kSwapInvokeDiag value="False" />
+    <kBlankTns value="False" />
     <kBoatGetOutDiag value="False" />
     <kBoatGetOutGuard value="False" />
     <kUnseenOutfitDefer value="True" />

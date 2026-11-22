@@ -114643,6 +114643,91 @@
     ]
   },
   {
+    "id": "blank-tns",
+    "bug": "A notification shown with empty text (its string key has no text in the loaded string tables: StringTable.GetLocalizedString answers string.Empty) gives the player an empty box and no hint which mod or EA path sent it (docs/869)",
+    "fix": "ts3fixes BlankTns.cs: blanktns (diagnostic, default off, on in betas), docs/869",
+    "save": "any world",
+    "note": "BlankTnsCheck 'run' shows one blank kSystemMessage notice and one with text (two notices appear in game) and reads back the text EA kept. 'result' lists counters 2362-2365 and the last 3 senders.",
+    "expect": "off: 'verdict: BROKEN' (the notice stays blank, 2363 counts it). on: 'verdict: FIXED' (the notice reads '[blank notice] sent by Ts3Fixes.Fixes.BlankTnsCheck < ...', 2362 counts it, a 'blanktns:' and a 'blanktns stack:' line in ts3native.log).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the blank notice names its sender",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

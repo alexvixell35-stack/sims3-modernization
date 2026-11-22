@@ -46,6 +46,8 @@
 # PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
+# diagnostic: a notification with empty text names its sender (docs/869, 2026-11-22), default off (on in betas), NOT RUN:
+#   blanktns
 # built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:

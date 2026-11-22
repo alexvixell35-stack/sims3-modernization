@@ -105,6 +105,7 @@ namespace Ts3Fixes
             ApplyPortalAdaptorLeak();
             ApplyCasGrid();
             ApplySwapInvokeDiag();  // SwapInvokeDiag.cs, docs/312 (load-time tuning kSwapInvokeDiag)
+            ApplyBlankTns();        // BlankTns.cs, docs/869 (blanktns: names the sender of a blank notice; counts only while off)
             ApplySpatialCache();
             ApplyFewerPlans();
             ApplyCandidateLoops();
@@ -787,6 +788,7 @@ namespace Ts3Fixes
         // [2080] overwatchdeadsim (DeadSimHolders.cs): NRaas Overwatch stuck-check entries removed whose last interaction's Sim object is gone.
         // [934-935] dreamnodedeadsim / overwatchdeadsim (DeadSimHolders.cs): listeners / entries kept by the household rule (owner household, selected or unknown scope).
         // [1496-1499] swapinvokediag (SwapInvokeDiag.cs, docs/312): TargetException out of MethodInfo.Invoke on a method we swapped / other exception from one / TargetException from a method we did not swap / lines not written.
+        // [2362-2365] blanktns (BlankTns.cs, docs/869): blank notices renamed with their sender / blank notices seen with the switch off / blank notices not logged (session cap or log channel) / errors.
         // [945-947] boatgetoutdiag (BoatGetOutDiag.cs, docs/257 §7): Boat.GetOut calls watched / SittingInBoat replaced by another task during the fade / NullReferenceException out of a watched GetOut (rethrown).
         // [953-954] boatgetoutguard (BoatGetOutDiag.cs, docs/257 §9): stale-posture NullReferenceExceptions out of Boat.GetOut swallowed for NPCs (Sim reset) / kept by the household rule (household, selected or unknown scope; EA's error stays).
         // [937] boatparkgone (BoatParkGone.cs, docs/257): BoatOwnable.Park calls skipped because the boat was already destroyed (no RoutingComponent; EA would throw).
@@ -2550,6 +2552,7 @@ namespace Ts3Fixes
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
                 case "swapinvokediag": return Instantiator.kSwapInvokeDiag;  // diagnostics only, off (SwapInvokeDiag.cs, docs/312)
+                case "blanktns": return Instantiator.kBlankTns;  // diagnostics only, off (on in betas): a blank notice names its sender (BlankTns.cs, docs/869)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
                 case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
                 case "unseenoutfitnospin": return Instantiator.kUnseenOutfitNoSpin;
