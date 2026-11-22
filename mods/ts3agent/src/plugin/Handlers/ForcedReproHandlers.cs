@@ -14,7 +14,8 @@ using Sims3.SimIFace.BuildBuy;
 
 namespace Ts3Agent
 {
-    // Set-up steps of the forced repros of docs/686 §11-§13 (petrelax-force, reachuse-force, makebedboth-force). Test set-up only:
+    // Set-up steps of the forced repros of docs/686 §11-§19 (petrelax-force, reachuse-force, makebedboth-force, the share
+    // repros, viewlenient-force, socialreach-force, unstuck-force). Test set-up only:
     // the orders themselves stay the player's (do_interaction).
     public static partial class Handlers
     {
@@ -28,6 +29,9 @@ namespace Ts3Agent
             Dispatcher.Register("pet_jigs", PetJigs);
             Dispatcher.Register("go_at", GoAt);
             Dispatcher.Register("add_platter", AddPlatter);
+            Dispatcher.Register("contemplate", Contemplate);
+            Dispatcher.Register("route_points", RoutePoints);
+            Dispatcher.Register("box_in", BoxIn);
         }
 
         // The place `forward` metres along the target's facing (negative = behind) and `right` metres to its right.
@@ -224,6 +228,107 @@ namespace Ts3Agent
             r["platters"] = rows;
             r["plates"] = plates;
             r["plate_count"] = plates.Count;
+            return r;
+        }
+
+        // contemplate {sim?: as OrderSim, user?: false}: the Genius trait's Contemplate, queued as the game's own
+        //   ContemplateSomethingAutonomous does (the pie menu has no entry for it: a Sim only starts it by itself):
+        //   Terrain.Contemplate at the Sim's own place, autonomous unless user: true. The answer lists the objects the game
+        //   can pick (within TraitTuning.GeniusTraitContemplateDistance, repossessable, no jig) with their rooms. The Sim must
+        //   not have the Fascinated moodlet (the game's test; setup_sims moodlets: true takes it off).
+        static object Contemplate(Args a)
+        {
+            RequireLive();
+            Sim sim = OrderSim(a);
+            bool user = a.Bool("user", false);
+            Terrain.Contemplate c = Terrain.Contemplate.Singleton.CreateInstance(Terrain.Singleton, sim,
+                new InteractionPriority(user ? InteractionPriorityLevel.UserDirected : InteractionPriorityLevel.Autonomous), !user, true) as Terrain.Contemplate;
+            if (c == null) throw new McpException("the game made no Contemplate");
+            c.SetDestination(sim.Position);
+            List<object> picks = new List<object>();
+            int near = 0;
+            foreach (GameObject o in Sims3.Gameplay.Queries.GetObjects<GameObject>(sim.Position, Sims3.Gameplay.TuningValues.TraitTuning.GeniusTraitContemplateDistance))
+            {
+                near++;
+                if (o.CanBeRepossessed(false) && !(o is Jig)) picks.Add(o.GetType().Name + " room " + o.RoomId);
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["actor"] = sim.FullName;
+            r["at"] = Pos(sim.Position);
+            r["room"] = sim.RoomId;
+            r["picks"] = picks;
+            r["objects_near"] = near;
+            r["queued"] = sim.InteractionQueue.Add(c);
+            r["queue"] = QueueList(sim);
+            return r;
+        }
+
+        // route_points {step?: 0.25}: the points of the last sim_route_to plan ("@route"), one every `step` metres along
+        //   its way (x,z pairs), and its length: where a plan passes a row of furniture.
+        static object RoutePoints(Args a)
+        {
+            if (sLastRoute == null || sLastRoute.RouteHandle == 0) throw new McpException("no live route: run sim_route_to first");
+            float len = sLastRoute.GetRouteLength(), step = (float)a.Double("step", 0.25);
+            if (step < 0.05f) step = 0.05f;
+            List<object> pts = new List<object>();
+            for (float d = 0f; d <= len && pts.Count < 400; d += step)
+            {
+                Vector3 tangent = Vector3.Zero;
+                int node = 0;
+                Vector3 p = sLastRoute.GetPointAtDistanceOnPathway(d, ref tangent, ref node);
+                pts.Add(p.x.ToString("0.00") + "," + p.z.ToString("0.00"));
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["length"] = len;
+            r["points"] = pts;
+            return r;
+        }
+
+        // box_in {sim?: as OrderSim, type?: "Fridge", x?, z?}: eight objects of that class bought (buy_object type) and put on the
+        //   eight tiles round the Sim, each with its back to the Sim. A fridge's footprint is flush at its back and sides and
+        //   short at its front: a ring with a front towards the Sim or towards a neighbour leaves a slit the planner walks
+        //   through (session p4-m1, 2026-11-22: rings of counters and of fridges all facing one way did not hold a Sim).
+        //   x, z: where the Sim must stand (within 0.5 m), else nothing is bought (run sr-r2: the Sim was still on a community
+        //   lot when the step came, and the fridges went there). The answer has that Sim's plan to a place 6-8 m away
+        //   (boxed: it fails).
+        static object BoxIn(Args a)
+        {
+            RequireLive();
+            Sim sim = OrderSim(a);
+            Vector3 c = sim.Position;
+            if (a.Has("x") && a.Has("z"))
+            {
+                float dx = c.x - (float)a.Double("x"), dz = c.z - (float)a.Double("z");
+                if (dx * dx + dz * dz > 0.25f) throw new McpException("box_in: " + sim.FullName + " stands at " + c.x.ToString("0.0") + ", " + c.z.ToString("0.0") + ", not at the place");
+            }
+            string type = a.Str("type", "Fridge");
+            // dx, dz, facing (degrees, 0 = +z): the three tiles on +z face +z, the three on -z face -z, the two beside face away
+            int[] ring = { -1, 1, 0, 0, 1, 0, 1, 1, 0, -1, -1, 180, 0, -1, 180, 1, -1, 180, -1, 0, 270, 1, 0, 90 };
+            List<object> put = new List<object>();
+            for (int i = 0; i < ring.Length; i += 3)
+            {
+                Vector3 p = new Vector3(c.x + ring[i], c.y, c.z + ring[i + 1]);
+                Dictionary<string, object> q = new Dictionary<string, object>();
+                q["type"] = type;
+                q["x"] = (double)p.x; q["y"] = (double)p.y; q["z"] = (double)p.z;
+                Dictionary<string, object> bought = BuyOfType(new Args(q)) as Dictionary<string, object>;
+                if (bought == null || (string)bought["where"] != "placed") throw new McpException("box_in: object " + (i / 3) + " was not placed");
+                Dictionary<string, object> t = new Dictionary<string, object>();
+                t["target"] = bought["id"];
+                GameObject g = FindTarget(new Args(t), "target");
+                g.SetPosition(p);
+                g.SetForward(FacingVector(ring[i + 2]));
+                put.Add(Pos(g.Position));
+            }
+            Route probe = sim.CreateRoute();
+            probe.DoRouteFail = false;
+            probe.PlanToPointRadialRange(c, 6f, 8f, RouteDistancePreference.PreferNearestToRouteOrigin, RouteOrientationPreference.NoPreference, 0UL, null);
+            Dictionary<string, object> r = Util.Obj();
+            r["sim"] = sim.FullName;
+            r["centre"] = Pos(c);
+            r["objects"] = put;
+            r["plan_out"] = probe.PlanResult.mType.ToString();
+            r["boxed"] = !probe.PlanResult.Succeeded();
             return r;
         }
 
