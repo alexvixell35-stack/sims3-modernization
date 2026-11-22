@@ -60,6 +60,7 @@ namespace Ts3Fixes
 
         static readonly Dictionary<ulong, CpElev> sCpElev = new Dictionary<ulong, CpElev>();  // a Sim's wait at an elevator, by Sim
         static readonly Dictionary<ulong, CpExit> sCpExit = new Dictionary<ulong, CpExit>();  // NPCs in the exit wait, by rabbit hole
+        static readonly Dictionary<ulong, long> sCpSet = new Dictionary<ulong, long>();  // ticks at which a Sim was last set on an enter slot, by Sim
         static readonly LineCapCore sCpCap = new LineCapCore(30, 60000, 600);
         static readonly string[] kCpSites = { "elevator line", "rabbit hole in", "rabbit hole teleport", "rabbit hole out", "other line" };
         static readonly int[] sCpSiteErrors = new int[5];
@@ -195,7 +196,10 @@ namespace Ts3Fixes
                 foreach (ObjectGuid g in list) if (g != s.ObjectId && g != holder) there++;
             Sim h = holder == ObjectGuid.InvalidObjectGuid ? null : GameObject.GetObject(holder) as Sim;
             bool known = h != null && !h.HasBeenDestroyed, plain = OjsRhPlain(s);
-            bool near = (rh.GetPositionOfSlot(slot) - s.Position).Length() <= CrowdPortCore.kRhMaxDistance;
+            Vector3 at = rh.GetPositionOfSlot(slot);
+            long set;
+            bool near = (at - s.Position).Length() <= CrowdPortCore.kRhMaxDistance
+                && CrowdPortCore.RhClear(known ? (at - h.Position).Length() : 0f, sCpSet.TryGetValue(s.ObjectId.Value, out set) ? OjsMinutes(set) : -1f);
             int d = CrowdPortCore.RhIn(ShortcutOn("crowdport"), held, CpScope(s), plain, known, known && CpScope(h) && OjsRhPlain(h), near, there, CpMin(), waited, Instantiator.kCrowdPortWait);
             if (!count) return d;
             int[] c = PatchCounters();
@@ -225,6 +229,8 @@ namespace Ts3Fixes
                 try { s.FadeIn(); } catch (ResetException) { throw; } catch (Exception) { }
                 return false;
             }
+            if (sCpSet.Count > 256) sCpSet.Clear();  // bounded; an entry only matters for kRhAgain sim-minutes
+            sCpSet[s.ObjectId.Value] = SimClock.CurrentTicks;
             bool station = CpStation(rh);
             PatchCounters()[station ? kCpStation : kCpRhIn]++;
             CpLine((station ? "station in: " : "rabbit hole in: ") + s.FullName + " " + ShlWho(s) + " is set on enter slot " + slot + " of " + rh.GetType().Name + ", " + there + " Sims there, waited "
@@ -238,7 +244,12 @@ namespace Ts3Fixes
         static int CpRhIn(RabbitHole rh, Slot slot, Sim s, OjsRhWait w)
         {
             int d, there = 0;
-            try { d = CpRhDecide(rh, slot, s, 0f, true, out there); }
+            try
+            {
+                d = CpRhDecide(rh, slot, s, 0f, true, out there);
+                ObjectGuid h;
+                w.CpOpen = d == CrowdPortCore.kNone && !ShortcutOn("crowdport") && OjsRhPlain(s) && OjsRhHeld(rh, slot, s, out h);
+            }
             catch (ResetException) { throw; }
             catch (Exception ex) { CpError(1, ex); return ObjShareCore.kGotTurn; }
             if (d != CrowdPortCore.kGo && d != CrowdPortCore.kWait) return ObjShareCore.kGotTurn;
@@ -268,6 +279,12 @@ namespace Ts3Fixes
             OjsRhList(rh, slot);  // the caller's cleanup reads the slot's list
             if (!CpRhTeleport(rh, slot, s, there, OjsMinutes(w.Start))) return ObjShareCore.kGotTurn;
             return ObjShareCore.kShared;
+        }
+
+        // After the game's wait with the switch off: the wait behind one Sim that lasted kCrowdPortWait counts as "would".
+        static void CpRhLate(OjsRhWait w)
+        {
+            if (w.CpOpen && CrowdPortCore.WouldLate(ShortcutOn("crowdport"), true, OjsMinutes(w.Start), Instantiator.kCrowdPortWait)) PatchCounters()[kCpWould]++;
         }
 
         // ---- rabbit hole, coming out ------------------------------------------------------------------------------------
@@ -349,7 +366,7 @@ namespace Ts3Fixes
             foreach (CpExit x in sCpExit.Values) pending += x.Pending;
             return "crowdport: elevator skips " + c[kCpElevator] + ", rabbit hole in " + c[kCpRhIn] + ", rabbit hole out " + c[kCpRhOut] + ", station " + c[kCpStation]
                 + ", other lines with a crowd (kept) " + c[kCpOther] + "; kept " + c[kCpKept] + ", would " + c[kCpWould] + ", exempt " + c[kCpExempt] + ", horse / rider / carrier / toddler " + c[kCpNotPlain]
-                + "; elevator: timeouts cut " + c[kCpElevShort] + ", no skip now " + c[kCpElevNoSkip] + "; rabbit hole in: holder out of scope or far " + c[kCpRhHolderKept]
+                + "; elevator: timeouts cut " + c[kCpElevShort] + ", no skip now " + c[kCpElevNoSkip] + "; rabbit hole in: holder out of scope, at the door or far " + c[kCpRhHolderKept]
                 + ", short wait ended by a free slot or a cancel " + c[kCpRhEnded] + "; rabbit hole out: NPC exit waits " + c[kCpOutWaits] + ", ended by the game's pacing " + c[kCpOutPaced]
                 + ", waiting now " + pending + "; min " + CpMin() + ", wait " + CrowdPortCore.Wait(Instantiator.kCrowdPortWait).ToString("0.0")
                 + "; errors " + c[kCpErrors] + (sites.Length > 0 ? " (" + sites + "; last: " + sCpLastError + ")" : "") + "; " + GlMembers(sCpMissing)
