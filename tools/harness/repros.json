@@ -114841,6 +114841,432 @@
     ]
   },
   {
+    "id": "standwait-check",
+    "bug": "EA's obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) answers 'keep waiting' as soon as its replan fails, before its own tests for a push request or cancel and before it pushes the Sims in the way; two Sims standing in each other's footprint at a stair top or doorway wait the full 50 sim-min (docs/686)",
+    "fix": "ts3fixes StandWait.cs: standwaitfix (+ standwaitfixhh for household and selected Sims), default off, docs/686",
+    "save": "any world (pure check)",
+    "note": "StandWaitCheck 'run' evaluates the blocked-cycle rules with controls (read-only); 'result' shows the counters 4300-4319, the members found and the last wait's line.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": true,
+          "standwaitfixhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "sharelanes-check",
+    "bug": "Sims wait for a portal another Sim uses: PortalComponent.GetFreeRoutingLane gives a lane held from the same end and refuses one held from the other, so a Sim coming the other way through a one-lane door (or meeting two Sims on both stair lanes) walks to a waiting spot and asks again for up to 20 sim-minutes; the ladder lets one Sim climb at a time (PortalClimb waits in Ladder.Line); a walking Sim that meets Sims runs the obstacle stand-and-wait (docs/686 §8)",
+    "fix": "ts3fixes ShareLanes.cs: sharelanes, laddershare, simpass, angleentry (each with an hh switch for household and selected Sims), default off, docs/686 §8",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-21, offline only, never run). ShareLanesCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4364-4389 and the last lanewait: line; 'lot' lists the portal objects of the selected Sim's lot whose lane table holds a Sim now. The behaviour itself is shown by storms (docs/686 §8.6): lane waits 4370-4374 off against on.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's table",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "portal tables of the lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": true,
+          "sharelaneshh": true,
+          "laddershare": true,
+          "laddersharehh": true,
+          "simpass": true,
+          "simpasshh": true,
+          "angleentry": true,
+          "angleentryhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "objshare-check",
+    "bug": "Sims wait at objects other Sims use: a rabbit hole enter slot is held by one Sim until its walk to it ends and the others idle in a loop that ignores exit reasons (RabbitHole.WaitForEnterSlot); Grab a Serving queues in the platter's line and gives up when the platter is in use (ServingContainerGroup.RunBodyForGrabAServing) (docs/686 §14)",
+    "fix": "ts3fixes ObjShare.cs: rhshare, servingshare (each with an hh switch for household and selected Sims), linewaitlog, default off, docs/686 §14",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ObjShareCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4470-4493, the last linewait: line and the last share line; 'lot' lists the lines with Sims in them and the platters of the selected Sim's lot, and the rabbit holes of the world with a reserved enter slot.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": false,
+          "rhsharehh": false,
+          "servingshare": false,
+          "servingsharehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "lines, platters, reserved enter slots",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": true,
+          "rhsharehh": true,
+          "servingshare": true,
+          "servingsharehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": false,
+          "rhsharehh": false,
+          "servingshare": false,
+          "servingsharehh": false,
+          "linewaitlog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "showershare-check",
+    "bug": "A Sim that wants the shower its romantic partner is in queues at the door (Shower.TakeShower: line, then 'in use'), and a Sim whose bladder fails on a lot with no usable toilet wets itself although a shower is free (Motive.MotiveDistress -> Sim.BladderFailure) (docs/686 §15)",
+    "fix": "ts3fixes ShowerShare.cs: showertogether, showerpee (each with an hh switch for household and selected Sims), showersharelog, default off, docs/686 §15",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot with a toilet or shower",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ShowerShareCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4494-4509 and the last showertogether: / showerpee: line; 'lot' lists the toilets, showers and all-in-one bathrooms of the selected Sim's lot, who uses them, and what both rules would do for that Sim now. Forced repros (two partners and one shower; a Sim that has to pee on a lot with a shower and no toilet) are outlined in docs/686 §15.4, not built as entries yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "showertogether": false,
+          "showertogetherhh": false,
+          "showerpee": false,
+          "showerpeehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "toilets and showers of the selected Sim's lot",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "showertogether": true,
+          "showertogetherhh": true,
+          "showerpee": true,
+          "showerpeehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "showertogether": false,
+          "showertogetherhh": false,
+          "showerpee": false,
+          "showerpeehh": false,
+          "showersharelog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
