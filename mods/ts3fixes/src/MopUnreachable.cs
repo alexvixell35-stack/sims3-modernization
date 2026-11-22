@@ -213,7 +213,8 @@ namespace Ts3Fixes
                 World.GetLotLocationAtFloor(pos, ref location);
                 GameObject blocker;
                 if (!RouteToPuddle(lotId, pos, true)) return 1;
-                if (!PuddleManager.CanMopPuddle(lotId, location, out blocker, false)) { if (blocker != null) lastBlocker = blocker; return 2; }
+                if (!PuddleManager.CanMopPuddle(lotId, location, out blocker, false) && !RuMopCovered(Actor, blocker))  // reachuse (ReachUse.cs, docs/686 §12): a tile covered by an object is mopped
+                { if (blocker != null) lastBlocker = blocker; return 2; }
                 if (World.IsOnPlatform(pos)) pos.y += 0.1875f;
                 jig.SetPosition(pos);
                 jig.SetForward(pos - Actor.Position);

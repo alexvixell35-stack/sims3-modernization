@@ -25,6 +25,7 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  reachuselog: 'log only (one reachuse: line per case, docs/686 §12): on in the forced repro reachuse-force (docs/686 §12.7), which needs agent steps that are not upstream yet',
   unseenoutfitdefer: 'speed change with no bug to trigger (issue #451, docs/586): counters 2570-2588 per game, natural-play compositor and frame times on 4 worlds; the next test is the in-load --ab unseenoutfitdefer on BP',
   cutonwait: 'no forced repro yet: the waits need many townies routing behind each other (DiscDrain, event-9 flush, +0x918); judged by the native selftest (11b, jobyield step 5) and the Isla Paradiso in-load --ab cutonwait pairs, both orders (docs/850 §4)',
   boundcall: 'exact speedup, no hitch to repro (docs/537 §22): the same EA String bodies run, judged by the native selftest, the monohost corpus + c3g replays (MONOHOST_JITBIND=1 MONOHOST_JITBOUNDCALL=3, 0 differ) and boundcall.json (BP/IP correctness, --ab boundcall timing)',

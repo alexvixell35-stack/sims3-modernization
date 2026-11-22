@@ -30,6 +30,7 @@
 #   firegreet
 #   fglinbound fglinboundhh
 #   blockeduse blockedusehh
+#   reachuse reachusehh reachuselog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep

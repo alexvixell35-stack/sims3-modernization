@@ -44,6 +44,8 @@ namespace Ts3Fixes
     // object. Point routes (Go Here) have no slot destination and never come here. A case that kept the game's
     // behaviour is not tried again for kBuCooldownMinutes.
     // Off = compare mode: counted, nothing done. Counters 4414-4429. Check: BlockedUseCheck.
+    // reachuse (ReachUse.cs, docs/686 §12) shares the DoRoute hook: failed plans without slot destinations go to its
+    // rules, and its switches turn these rules on for chores at their target's own slots.
     // A plan that fails during the walk (a replan; the walk answers false, no exit reason on the Sim)
     // gets the same rules as a failed first plan, minus the game's route-fail behaviour, which the walk has had.
     public static partial class Fixes
@@ -198,6 +200,13 @@ namespace Ts3Fixes
             return s;
         }
 
+        // Does the route hold slot destinations (the last plan was a plan to routing slots)?
+        static bool BuIsSlotRoute(Route r)
+        {
+            BuRec rec;
+            return sBuRecs.TryGetValue(r.Handle, out rec) && rec.N > 0;
+        }
+
         // ---- a failed plan in DoRoute ----
 
         static bool BuSimOk(Sim sim)
@@ -235,6 +244,7 @@ namespace Ts3Fixes
             bool blockerSim = pr.mBlockerType == RouteBlockerType.Sim || (pr.mBlockerObjectId != 0 && GameObject.GetObject(new ObjectGuid(pr.mBlockerObjectId)) is Sim);
             bool kind = BlockedUseCore.Kind((int)pr.mType, blockerSim) && BuSimOk(sim) && BuObjOk(obj);
             int d = BlockedUseCore.Decide(kind, IsPlayerSim(sim), ShortcutOn("blockeduse"), ShortcutOn("blockedusehh"));
+            if (kind && d != BlockedUseCore.kGo && RuSlotCase(sim, obj)) d = BlockedUseCore.kGo;  // reachuse (ReachUse.cs, docs/686 §12): a chore at its target's own slots
             if (d == BlockedUseCore.kNone) { c[kBuNotKind]++; return null; }
             if (d == BlockedUseCore.kWould) { c[kBuWould]++; return null; }
             if (d == BlockedUseCore.kExempt) { c[kBuExempt]++; return null; }
@@ -387,7 +397,7 @@ namespace Ts3Fixes
                 try { k = BuBegin(sim, r); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { BuError(0, e); }
-                if (k == null) return Keep(r, afterWalk);
+                if (k == null) return RouteReach(sim, r, afterWalk);
                 if (k.Near != null && !RouteOrig(k.Near))
                 {
                     PatchCounters()[kBuNearStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
@@ -414,6 +424,27 @@ namespace Ts3Fixes
                 catch (ResetException) { throw; }
                 catch (Exception e) { BuError(4, e); }
                 return walked;
+            }
+
+            // reachuse (ReachUse.cs, docs/686 §12): a failed plan that blockeduse left alone. A chore whose route has no
+            // slot destination is done from within reach of its target; anything else gets the game's answer.
+            bool RouteReach(Sim sim, Route r, bool afterWalk)
+            {
+                RuCase q = null;
+                try { q = RuBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { RuError(0, e); }
+                if (q == null) return Keep(r, afterWalk);
+                if (q.Near != null && !RouteOrig(q.Near))
+                {
+                    PatchCounters()[kRuStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
+                    return Keep(r, afterWalk);
+                }
+                bool arrived = false;
+                try { arrived = RuArrive(sim, r, q); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { RuError(1, e); }
+                return arrived || Keep(r, afterWalk);
             }
         }
 
