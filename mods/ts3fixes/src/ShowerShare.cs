@@ -62,6 +62,7 @@ namespace Ts3Fixes
             kShsAioJoins = 4509;
         const uint kShsExitFootprint = 824351308u;  // the shower's exit footprint (Shower.WaitToLeaveShower)
         const int kShsShower = 1, kShsAio = 2;
+        const float kShsStepAwayMinutes = 2f;  // after a partner left: time for it to step off the slot before the next walk
         const int kShpPending = 0, kShpFilling = 1, kShpFailed = 2;
         const float kShpCoolMinutes = 60f;
 
@@ -261,6 +262,43 @@ namespace Ts3Fixes
             catch (Exception e) { ShsError(1, e); return false; }
         }
 
+        // The walk to the shower failed for a Sim of a pair. A partner that leaves shuts the shower's exit footprint over
+        // the slot, and the Sim skipped the line that would have held it until the partner is out (run sh-m1, 2026-11-22:
+        // the joining Sim's Take Shower ended with a route fail). The Sim waits here until the partner no longer uses the
+        // shower (cap kExitCapMinutes). True = the partner is out and only the failed walk stands against the order:
+        // that exit reason is taken off and the caller walks again.
+        static bool ShsWaitPartnerOut(Sim s, IGameObject destObj)
+        {
+            try
+            {
+                ShsPair p = ShsMember(s, destObj);
+                if (p == null) return false;
+                Sim other = p.A == s ? p.B : p.A;
+                const ExitReason kOthers = ExitReason.Default & ~ExitReason.RouteFailed;
+                long start = SimClock.CurrentTicks;
+                while (other != null && !other.HasBeenDestroyed && p.Obj.IsActorUsingMe(other))
+                {
+                    if (s.HasExitReason(kOthers) || OjsMinutes(start) >= ShowerShareCore.kExitCapMinutes) return false;
+                    s.LoopIdle();
+                    Simulator.Sleep(10u);
+                }
+                long clear = SimClock.CurrentTicks;  // the partner steps off the slot
+                while (OjsMinutes(clear) < kShsStepAwayMinutes)
+                {
+                    if (s.HasExitReason(kOthers)) return false;
+                    s.LoopIdle();
+                    Simulator.Sleep(10u);
+                }
+                if (s.HasExitReason(kOthers)) return false;
+                s.RemoveExitReason(ExitReason.RouteFailed);
+                ShsActLine("showertogether", s.FullName + " " + ShlWho(s) + ": the walk failed while " + (other != null ? other.FullName : "the partner") + " left " + p.Obj.GetType().Name
+                    + ", waited " + OjsMinutes(start).ToString("0.0") + " sim-min, walks again");
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { ShsError(1, e); return false; }
+        }
+
         // An all-in-one bathroom shuts a footprint while a Sim is inside. A partner walking to it has it opened (its own
         // run shuts it again); shut = put it back after a walk that failed.
         static bool ShsAioDoor(Sim s, IGameObject destObj, bool shut)
@@ -338,8 +376,16 @@ namespace Ts3Fixes
                 bool opened = sShsArmed > 0 && ShsAioDoor(OwnerSim, destObj, false);
                 if (!RouteToSlot(destObj, slotName, ignorePetFaceCheck))
                 {
-                    if (opened) ShsAioDoor(OwnerSim, destObj, true);
-                    return false;
+                    // the partner was on its way out: wait as the line would have, then walk again (the Sim that just
+                    // left may still stand on the slot for a moment: up to three walks)
+                    bool there = false;
+                    for (int tries = 0; tries < 3 && !there && sShsArmed > 0 && ShsWaitPartnerOut(OwnerSim, destObj); tries++)
+                        there = RouteToSlot(destObj, slotName, ignorePetFaceCheck);
+                    if (!there)
+                    {
+                        if (opened) ShsAioDoor(OwnerSim, destObj, true);
+                        return false;
+                    }
                 }
                 if (destObj.InUse && !(sShsArmed > 0 && ShsUseOk(OwnerSim, destObj)))
                 {
