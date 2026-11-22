@@ -195,6 +195,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMakeBedBoth value="False" />
     <kMakeBedBothHousehold value="False" />
     <kMakeBedBothLog value="False" />
+    <kLineWaitLog value="False" />
+    <kRhShare value="False" />
+    <kRhShareHousehold value="False" />
+    <kServingShare value="False" />
+    <kServingShareHousehold value="False" />
     <kPetRelax value="False" />
     <kPetRelaxHousehold value="False" />
     <kPetRelaxMinutes value="3" />

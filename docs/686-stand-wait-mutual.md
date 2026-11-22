@@ -917,3 +917,90 @@ stands alone. Off = counted (`would`), nothing changed. `makebedbothlog` writes 
   4464 up, `makebedboth: ... made from the ... side`, 4467 = 0, no `makebedboth: error at` line, the bed no
   longer offered. `MakeBedBothCheck lot` lists the lot's beds with an unmade half and the plan to each part.
   By eye: the far half's look after the run (13.3).
+
+## 14. Sims share rabbit hole doors and serving platters; line waits logged (`rhshare`, `servingshare`, `linewaitlog`; 2026-11-22, `feat/objshare-1122`, built, default off, NOT RUN)
+
+A player's wish: Sims share more things, clipping is fine. Privacy objects (toilet, shower, bath, bed) are not
+touched. Source `ObjShare.cs`, rules `ObjShareCore.cs`, counters 4470-4493, `kCounterSlots` 4494, check
+`ObjShareCheck`, selftest `tools/selftest/objshare`, repros `objshare-check`, `rhshare-rush`, `servingshare-buffet`.
+
+### 14.1 Where Sims queue at objects [verified, decompiled `Sims3.Gameplay` unless marked]
+
+- `SimQueue.WaitForTurn` is the one line of the game: 58 classes own one. A Sim is entered, walks behind the Sim
+  before it, and its place is looked at once per check period; after the timeout it gets `ObjectInUse` + `TimedOut`
+  and the route-fail balloon. After the line most objects test `InUse` again.
+- `RabbitHole.AnimateEnterRabbitHole` calls `WaitForEnterSlot` before each walk to its enter slot. One Sim holds
+  the slot (`ReservedEnterSlots`, `ReservedEnterSlotsPerPerson`) until that walk has ended; the caller's `finally`
+  takes the reservation off and names the nearest Sim of `WaitingToEnterSims` as the next holder. The waiting loop
+  sleeps 10 ticks a turn, never looks at exit reasons (a cancelled Sim stays), and breaks a reservation only after
+  15 sim-minutes with the same holder. The caller's retry path takes the slot's reservation off without asking
+  whose it is. Riders and horses come through the same call.
+- `ServingContainerGroup.RunBodyForGrabAServing` (platters, buffet food, pizza through its override's base call):
+  a walk near the platter, the platter's line (`servings - 1` long, 10 sim-minutes), the surface slot's walk (which
+  waits in the surface's line when it has one), then `InUse` -> `ObjectInUse`, `HasFoodLeft`, `StandardEntry`, the
+  state machine `TakeAServing` (actors: the Sim and its own plate) and `DecrementServings` after the take. Food on
+  an `IBuffetTable` is never decremented. Nothing but the line and the use list keeps two Sims from both passing
+  `HasFoodLeft` on the last serving.
+
+### 14.2 What is built
+
+- `linewaitlog` (log only). `LdsQueueHook.WaitHook` (sharelanes' swap of `WaitForTurn`, no second swap) times the
+  game's body: from half a sim-minute one line and counters 4470-4473; shorter ones 4493, a refusal at once at a
+  line with Sims in it 4492. The enter-slot hook below does the same for every wait at a held slot (4474-4477).
+  `linewait: <Sim> npc|household|selected, <interaction>: <TargetType> line|rhdoor, waited N sim-min, line length L, outcome got turn|timed out|cancelled|shared, at x,y,z`.
+  Line: `timed out` = refused after the whole timeout, `cancelled` = refused earlier. rhdoor: `timed out` = the
+  wait lasted the 15 sim-minutes after which a reservation is broken, `shared` = rhshare let the Sim walk.
+  The counters run with the switch off. With `linewaitlog` on rhshare and servingshare write one line per act too.
+- `rhshare` / `rhsharehh`: swap of `RabbitHole.WaitForEnterSlot` (yields, stub `WaitOrig`). When another Sim
+  holds the slot:
+  - holder in scope and a plain walker: the Sim returns at once and walks to the slot. It takes no reservation and
+    is not in the waiting list, so the holder's `finally` and the hand-over are what they were (4479).
+  - the reservation names no living Sim: it is removed, the game's code reserves for this Sim (4484).
+  - holder out of scope, or a horse / rider / carrier: the Sim waits in our loop, entered in the waiting list. It
+    is the game's loop with three more exits: an exit reason on the Sim (4483; the caller's walk then fails and it
+    ends), the holder changing to one it may share with, and a dead holder. After 15 sim-minutes with one holder
+    the reservation is removed as the game does. Then the game's own code runs (free slot or handed over).
+  - horses, riders, Sims carrying a child and toddlers keep the game's wait (4482 with the kept holders).
+- `servingshare` / `servingsharehh`: swap of `ServingContainerGroup.RunBodyForGrabAServing` (yields, stub
+  `GrabOrig`) opens a run for a Sim in scope when every Sim in the platter's line and use list is in scope; the
+  game's own body runs inside it.
+  - `WaitForTurn` for a Sim whose run has not begun its take answers true without entering the Sim, for the
+    platter's line and the surface's, while the Sims in that line are in scope (4486 when somebody was there).
+  - `ServingContainerGroup.HasFoodLeft` (swap, no yield; one integer test while no run is open): the run's first
+    call is the test before the take. Servings that other runs are taking now count as gone; with none left it
+    answers false and the game's run ends as at an empty platter (4491). Otherwise the serving is spoken for. The
+    run's second call is the game's test after `DecrementServings`, which ends the reservation. Buffets always
+    have food. Other callers get the game's answer.
+  - `StateMachineClient.SetActor` (actdelay's swap, one integer test while no run is open): the first call for a
+    Sim that has passed the food test is its take; the Sim leaves the platter's use list there, before the first
+    yield, so the next Sim's `InUse` test passes (4487 counts takes that began while another was running).
+
+### 14.3 Limits [inferred unless marked]
+
+- Scope is not exact at the platter: a Sim out of scope that arrives while a Sim in scope takes finds the line
+  empty and the platter free, so it does not wait either.
+- While a Sim takes (a few seconds) the platter is not in use for other interactions (pick up, clean up, drag).
+  A platter destroyed in those seconds would make the game's `DecrementServings` run on a dead object.
+- A Sim that leaves the enter-slot wait on a cancel is handed to the caller's walk, which has to fail on the exit
+  reason. If a route ignores it the Sim walks to the slot and enters.
+- A sharing Sim whose walk fails runs the game's retry path, which takes the holder's reservation off; the next
+  waiting Sim is then named while the holder still walks. The tables stay consistent, Sims overlap.
+- Sims walking to one slot stand in each other's footprint at the door: the obstacle wait there is `clipwait` /
+  `simpass`' business (§8, §9).
+- `LdsQueueHook.WaitHook` changed: Sims saved in a line by an older build are reset once at the first load
+  (docs/242 §2).
+- A serving run's identity is the Sim's task: a `HasFoodLeft` call on the same platter from that task before the
+  game's own test would be taken for it (none found in the walk).
+
+### 14.4 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/objshare/run.ts`: 29 checks. `build-fixes.ts` builds; selftests `sharelanes`, `clipwait`,
+  `standwait` pass; `swap-stack-audit` has the three new rows.
+- Live: `objshare-check` once (off `BROKEN`, on `FIXED`, one switch on `MIXED`). Then a storm with the switches
+  off and `linewaitlog` on to rank the lines by 4470-4477, before any on arm.
+- `rhshare-rush`: a town at 08:00-09:00 on a weekday (school and work), or a festival / showtime venue. Off arm:
+  4474 / 4475 and `rhdoor` lines; on arm `rhshare rhsharehh`: 4479 up, 4475 near zero, no `objshare: error at`.
+  Cancel a household Sim that waits behind a held slot (hh off): 4483.
+- `servingshare-buffet`: a party or a community lot with a buffet table / a platter on a counter and 4+ hungry
+  Sims. Off arm: `ServingContainerGroup... line` waits; on arm: 4486 / 4487 up; a platter with 2 servings and 3
+  Sims: 4491 once, servings never below 0 (`ObjShareCheck lot`).

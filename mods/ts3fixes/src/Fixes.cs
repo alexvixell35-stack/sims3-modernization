@@ -530,6 +530,7 @@ namespace Ts3Fixes
             ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth / makebedbothhh, off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
+            ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
             ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
@@ -1351,7 +1352,11 @@ namespace Ts3Fixes
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4470;
+        // [4470-4493] objshare (ObjShare.cs, docs/686 §14): linewait: line waits from half a sim-minute / tenths of sim-minutes / timed out / cancelled;
+        // rabbit hole enter-slot waits / tenths / timed out (15 sim-min) / cancelled; errors; rhshare: walked to a held slot / would (off) / exempt / kept
+        // (holder out of scope, horse, rider, carrier) / left the wait on a cancel / dead reservations removed; servingshare: runs at a busy platter / lines
+        // skipped / took with another Sim / would / exempt / kept (a Sim out of scope there) / last serving refused; linewait: line full / shorter waits.
+        const int kCounterSlots = 4494;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1669,6 +1674,11 @@ namespace Ts3Fixes
                 case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off
                 case "makebedbothhh": return Instantiator.kMakeBedBothHousehold;  // MakeBedBoth.cs: the same for household and selected Sims (stands alone), off
                 case "makebedbothlog": return Instantiator.kMakeBedBothLog;  // MakeBedBoth.cs (docs/686 §13): one line per act, off
+                case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
+                case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off
+                case "rhsharehh": return Instantiator.kRhShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
+                case "servingshare": return Instantiator.kServingShare;  // ObjShare.cs (docs/686 §14): NPCs grab servings from one platter at once, no line, last serving taken once, off
+                case "servingsharehh": return Instantiator.kServingShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
                 case "petrelax": return Instantiator.kPetRelax;  // PetRelax.cs (docs/686 §11): small pets and the Sims around them walk through each other at once, lying pets are not obstacles, no lie-down on a lane end, off
                 case "petrelaxhh": return Instantiator.kPetRelaxHousehold;  // PetRelax.cs: petrelax for household and selected Sims and pets too, off
                 case "petrelaxlog": return Instantiator.kPetRelaxLog;  // PetRelax.cs (docs/686 §11): one line per act, off
