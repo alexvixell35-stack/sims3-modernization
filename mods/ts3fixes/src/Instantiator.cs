@@ -372,6 +372,25 @@ namespace Ts3Fixes
         [Tunable] public static bool kFglInBound = false;  // fglinbound (docs/682 §9): FindGoodLocationNearby's lot-wide indoors search is made by ts3fixes and announced to ts3native, whose [FglInside] skips the placement tests on tiles without a room (EA's answer); needs ts3native [FglInside] Enabled=1; NPC task Sims; off until the maintainer's run
         [Tunable] public static bool kFglInBoundHousehold = false;  // fglinboundhh: fglinbound for household and selected Sims too (EA's answer; own switch until the shadow counts are in)
         [Tunable] public static bool kFglInBoundShadow = false;  // fglinbound: also run EA's indoors stage, return its answer and count / log a difference (costs EA's full time; for the first runs only)
+        [Tunable] public static bool kStandWaitFix = false;  // standwaitfix (docs/686): in a blocked cycle of the obstacle stand-and-wait (replan failed) a Sim obeys a push or cancel, pushes the Sims in its way and, when only people block, walks on with the game's ignore-obstacles timer
+        [Tunable] public static bool kStandWaitFixHousehold = false;  // standwaitfixhh: standwaitfix for household and selected Sims too (their result differs from EA's 50-minute wait)
+        [Tunable] public static bool kStandWaitLog = false;  // standwaitlog: one ts3native.log line per stand-and-wait that had blocked cycles (either switch state)
+        [Tunable] public static int kStandWaitPassCycle = 2;  // blocked cycle from which the route is planned once without people (0 = never)
+        [Tunable] public static int kStandWaitPassEvery = 3;  // blocked cycles between two such plans
+        [Tunable] public static float kStandWaitPassMinutes = 5f;  // sim-minutes of the game's ignore-obstacles timer after a pass
+        [Tunable] public static int kStandWaitLogLines = 300;  // standwaitlog lines per session
+        [Tunable] public static bool kShareLanes = false;  // sharelanes (docs/686 §8): a lane of stairs, a door, a gate or a ladder that another Sim holds from the other end is given to the arriving Sim as well (the game shares a lane only in one direction and sends the Sim to a waiting spot for up to 20 sim-minutes); a stand-and-wait whose plan calls a portal locked plans without people at once
+        [Tunable] public static bool kShareLanesHousehold = false;  // sharelaneshh: sharelanes for household and selected Sims too, as the arriving Sim and as a Sim that holds the lane
+        [Tunable] public static bool kLadderShare = false;  // laddershare (docs/686 §8): a ladder climb does not wait for its turn in the ladder's one-climber line; Sims climb at the same time and through each other
+        [Tunable] public static bool kLadderShareHousehold = false;  // laddersharehh: laddershare for household and selected Sims too
+        [Tunable] public static bool kSpiralShare = false;  // spiralshare (docs/686 §8): a spiral staircase's one lane is given to a Sim coming the other way too, and the walk does not wait for its turn in the staircase's line; Sims walk it at the same time and through each other
+        [Tunable] public static bool kSpiralShareHousehold = false;  // spiralsharehh: spiralshare for household and selected Sims too
+        [Tunable] public static bool kSimPass = false;  // simpass (docs/686 §8): a walking Sim that meets only Sims (none of them at the route's end) starts the game's ignore-obstacles timer and walks through them instead of running the obstacle stand-and-wait
+        [Tunable] public static bool kSimPassHousehold = false;  // simpasshh: simpass for household and selected Sims too, as the walker and as a Sim walked through
+        [Tunable] public static float kSimPassMinutes = 3f;  // simpass: sim-minutes the ignore-obstacles timer runs per start (the game's own value after a portal is 5)
+        [Tunable] public static bool kAngleEntry = false;  // angleentry (docs/686 §8): the approach to stairs, and to a ladder climbed from below, is a plan to the lane's start point without facing; the stair walk and the climb set the Sim's facing themselves
+        [Tunable] public static bool kAngleEntryHousehold = false;  // angleentryhh: angleentry for household and selected Sims too
+        [Tunable] public static bool kLaneWaitLog = false;  // lanewaitlog (docs/686 §8): one "lanewait:" line per wait for a portal lane (who, which portal, how long, who held it); test runs
         [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kInitStackTrace = true;    // initstacktrace (docs/594 §1): InteractionInstance.Init / OnAddedToQueue without the dead O(depth^2) StackTrace walks (fields only read by compiled-out debug code; exact)

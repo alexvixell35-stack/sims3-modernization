@@ -545,6 +545,8 @@ namespace Ts3Fixes
             ApplyUnseenLoopSkipStep();   // docs/632 option (a), after WakePark: its WaitForExitReason hook chains under ours
             ApplyAutLiveB14();
             ApplyHitchCause();
+            ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
+            ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1586,7 +1588,18 @@ namespace Ts3Fixes
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4200;
+        // [4300-4319] standwaitfix (StandWait.cs, docs/686; 4290-4299 left for a parallel branch): obstacle stand-and-waits / blocked cycles (replan failed, the game's
+        // early return) / waits with blocked cycles / of them ran to the game's timeout / yields (on) / would yield (off) / push cycles / Sims pushed / would push (off) /
+        // mutual cycles / pushes withheld (outranked) / plans without people / passes / would pass (off) / exempt cycles (household without standwaitfixhh) /
+        // waits resolved by the fix / their timeout cycles left (upper bound of cycles saved) / errors / longest blocked run (gauge) / lines written.
+        // [4364-4389] sharelanes / laddershare / simpass / angleentry (ShareLanes.cs, docs/686 §8): lane locks the game refused on stairs, doors, gates and ladders / of them
+        // by the direction test only / shared / errors (all four) / would share, off / exempt (household without its switch) / lane waits begun / of them household /
+        // tenths of sim-minutes waited / of them household / waits given up / stand-and-wait at a portal closed by standing Sims: passed / would / locked without
+        // people too / ladder line skipped / would / exempt / simpass at the obstacle event / at the wait / would / exempt / kept (an object, or a Sim at the route's
+        // end) / angleentry stairs / ladder / would / kept (exempt, or the approach plan failed).
+        // [4390-4397] spiralshare (ShareLanes.cs, docs/686 §8): lane locks the game refused on spiral stairs / of them by the direction test only / shared / would
+        // share, off / exempt (household without its switch) / the staircase's line skipped / would (somebody in the line), off / exempt.
+        const int kCounterSlots = 4398;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2054,6 +2067,20 @@ namespace Ts3Fixes
                 case "firegreet": return Instantiator.kFireGreet;
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
+                case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
+                case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
+                case "sharelanes": return Instantiator.kShareLanes;  // ShareLanes.cs (docs/686 §8): a stair, door, gate or ladder lane held from the other end is shared; a portal closed by standing Sims is tried without people at once, off
+                case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off
+                case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
+                case "laddersharehh": return Instantiator.kLadderShareHousehold;  // ShareLanes.cs: laddershare for household and selected Sims too, off
+                case "spiralshare": return Instantiator.kSpiralShare;  // ShareLanes.cs (docs/686 §8): a spiral staircase's one lane is shared in both directions and its walk does not wait for its turn in the staircase's line, off
+                case "spiralsharehh": return Instantiator.kSpiralShareHousehold;  // ShareLanes.cs: spiralshare for household and selected Sims too, off
+                case "simpass": return Instantiator.kSimPass;  // ShareLanes.cs (docs/686 §8): a walking Sim with only Sims in its way walks through them (the game's ignore-obstacles timer) instead of the stand-and-wait, off
+                case "simpasshh": return Instantiator.kSimPassHousehold;  // ShareLanes.cs: simpass for household and selected Sims too (as walker and as the Sim walked through), off
+                case "angleentry": return Instantiator.kAngleEntry;  // ShareLanes.cs (docs/686 §8): stairs and ladders climbed from below are approached by a point plan without facing, off
+                case "angleentryhh": return Instantiator.kAngleEntryHousehold;  // ShareLanes.cs: angleentry for household and selected Sims too, off
+                case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
+                case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;

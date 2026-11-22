@@ -114643,6 +114643,220 @@
     ]
   },
   {
+    "id": "standwait-check",
+    "bug": "EA's obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) answers 'keep waiting' as soon as its replan fails, before its own tests for a push request or cancel and before it pushes the Sims in the way; two Sims standing in each other's footprint at a stair top or doorway wait the full 50 sim-min (docs/686)",
+    "fix": "ts3fixes StandWait.cs: standwaitfix (+ standwaitfixhh for household and selected Sims), default off, docs/686",
+    "save": "any world (pure check)",
+    "note": "StandWaitCheck 'run' evaluates the blocked-cycle rules with controls (read-only); 'result' shows the counters 4300-4319, the members found and the last wait's line.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": true,
+          "standwaitfixhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "sharelanes-check",
+    "bug": "Sims wait for a portal another Sim uses: PortalComponent.GetFreeRoutingLane gives a lane held from the same end and refuses one held from the other, so a Sim coming the other way through a one-lane door (or meeting two Sims on both stair lanes) walks to a waiting spot and asks again for up to 20 sim-minutes; the ladder lets one Sim climb at a time (PortalClimb waits in Ladder.Line); a walking Sim that meets Sims runs the obstacle stand-and-wait (docs/686 §8)",
+    "fix": "ts3fixes ShareLanes.cs: sharelanes, laddershare, simpass, angleentry (each with an hh switch for household and selected Sims), default off, docs/686 §8",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-21, offline only, never run). ShareLanesCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4364-4389 and the last lanewait: line; 'lot' lists the portal objects of the selected Sim's lot whose lane table holds a Sim now. The behaviour itself is shown by storms (docs/686 §8.6): lane waits 4370-4374 off against on.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's table",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "portal tables of the lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": true,
+          "sharelaneshh": true,
+          "laddershare": true,
+          "laddersharehh": true,
+          "simpass": true,
+          "simpasshh": true,
+          "angleentry": true,
+          "angleentryhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
