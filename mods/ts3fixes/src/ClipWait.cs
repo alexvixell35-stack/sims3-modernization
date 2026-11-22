@@ -134,7 +134,7 @@ namespace Ts3Fixes
                 Case.Sims++;
                 if (!atDest) Case.SimsOnWay++;
                 if (!ShlScope(b, scopeAll)) Case.AllInScope = false;
-                if (NameCount++ < 3) Names += (Names.Length > 0 ? ", " : "") + b.FullName;
+                if (NameCount++ < 3) Names += (Names.Length > 0 ? ", " : "") + b.FullName + " (" + SwfIa(b) + ")";
                 return true;
             }
         }
