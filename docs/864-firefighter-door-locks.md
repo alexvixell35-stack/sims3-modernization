@@ -35,8 +35,9 @@ So:
    doors and the builder's Nobody doors. A one-way door the job locked comes back as a plain door (no one-way room).
 2. A trapped-Sim lock from any other job id stays Nobody, axe effect included, for good: only LargeFires unlocks.
    `SetupTasks` prepares trap spots (`FindPossiblePositions`) only for LargeFires, Earthquake and EarthquakeSubJob; which ids
-   actually roll TrappedSims tasks is job data (`FireDoorKeepCheck jobs` lists it) [inferred: earthquakes, if their data has
-   them].
+   actually roll TrappedSims tasks is job data. [verified in game, `FireDoorKeepCheck jobs` on Isla Paradiso with all packs]
+   EA's data gives TrappedSims only to LargeFires (2-4; Earthquake and EarthquakeSubJob roll TrappedRubble, GasLeak and
+   Fires). So case 2 needs a mod or tuning that adds TrappedSims to another job; with stock data only case 1 happens.
 
 Jobs are saved with the game (`Job` is `[Persistable]`); nothing below is.
 
@@ -84,12 +85,12 @@ bounds; `result` the counters and the current record. Repro `fire-door-keep` (pu
 
 End to end (not done): a LargeFires job (testingcheatsenabled, debug Spawn Job) on a lot with a locked door (the household's
 home with a household lock, or a resort VIP room); after the job, off: 2189 up and the door unlocked; on: 2187 up and the lock
-kept. For (2): an Earthquake job with a trapped Sim, if `jobs` shows one.
+kept. (2) does not occur with EA's job data (§2).
 
 ## 6. Not done / next
 
-- No game run. First: `FireDoorKeepCheck jobs` in any world with Ambitions (which job ids trap Sims), then the end-to-end
-  large fire.
+- In game (contributor beta v0.3.2-exp.20261122d, Isla Paradiso): repro `fire-door-keep` off `verdict: BROKEN`, on
+  `verdict: FIXED`, 2190 = 0; `jobs` table in §2. Still to do: the end-to-end large fire.
 - Window-fire door locks (`SetupTasks`, LargeFires): a one-way door locked there loses its one-way room through
   `UnlockEntrances` before `CleanUpJob`; not covered.
 - A VIP room checked out during the job gets its old owner back [inferred rare: a resort fire with a checked-in VIP room].
