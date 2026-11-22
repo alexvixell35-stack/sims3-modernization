@@ -526,6 +526,7 @@ namespace Ts3Fixes
             ApplyCasTintReset();       // docs/658 §6.6 (CasTintReset.cs), off by default, unconfirmed
             ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, and §7 standwaitlocked / standwaitlockedhh (StandWaitLocked.cs), off by default (counts either way)
+            ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse / blockedusehh, off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
             // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
@@ -1327,7 +1328,11 @@ namespace Ts3Fixes
         // end) / angleentry stairs / ladder / would / kept (exempt, or the approach plan failed).
         // [4390-4397] spiralshare (ShareLanes.cs, docs/686 §8): lane locks the game refused on spiral stairs / of them by the direction test only / shared / would
         // share, off / exempt (household without its switch) / the staircase's line skipped / would (somebody in the line), off / exempt.
-        const int kCounterSlots = 4398;
+        // [4414-4429] blockeduse (BlockedUse.cs, docs/686 §10): failed plans to an object's slots in DoRoute / would handle, off / exempt (household without
+        // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
+        // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
+        // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        const int kCounterSlots = 4430;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1624,6 +1629,8 @@ namespace Ts3Fixes
                 case "standwaitlockedhh": return Instantiator.kStandWaitLockedHousehold;  // StandWaitLocked.cs (docs/686 §7): standwaitlocked for household and selected Sims too, off
                 case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
                 case "ladderfootshoohh": return Instantiator.kLadderFootShooHousehold;  // LadderFoot.cs (docs/183 §9): ladderfootshoo for household and selected Sims too (as planner and as the Sim asked), off
+                case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
+                case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
                 case "sharelanes": return Instantiator.kShareLanes;  // ShareLanes.cs (docs/686 §8): a stair, door, gate or ladder lane held from the other end is shared; a portal closed by standing Sims is tried without people at once, off
                 case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off
                 case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
