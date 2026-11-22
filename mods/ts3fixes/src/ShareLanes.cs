@@ -69,6 +69,30 @@ namespace Ts3Fixes
         static string sShlMissing = "", sShlLast = "";
         static readonly LineCapCore sShlCap = new LineCapCore(20, 60000, 200);
 
+        // One catch site each: which hook threw, how often, and the first few as lines.
+        static readonly string[] kShlSites = { "lane", "ladder approach", "wait begin", "wait end", "ladder line", "pass", "obstacle event", "pass at the wait", "stairs approach" };
+        static readonly int[] sShlSiteErrors = new int[9];
+        const int kShlErrorLines = 3;  // lines per site
+        static string sShlLastError = "";
+
+        static void ShlError(int site, Exception e)
+        {
+            PatchCounters()[kShlErrors]++;
+            string where = "";
+            try { string st = e.StackTrace; if (st != null) { where = st.Trim(); int nl = where.IndexOf('\n'); if (nl > 0) where = where.Substring(0, nl).Trim(); if (where.Length > 160) where = where.Substring(0, 160); } }
+            catch (Exception) { }
+            sShlLastError = "sharelanes: error at " + kShlSites[site] + ": " + e.GetType().Name + ": " + e.Message + (where.Length > 0 ? " [" + where + "]" : "");
+            if (sShlSiteErrors[site]++ < kShlErrorLines) DiagLine(sShlLastError);
+        }
+
+        static string ShlErrorSites()
+        {
+            string r = "";
+            for (int i = 0; i < sShlSiteErrors.Length; i++)
+                if (sShlSiteErrors[i] > 0) r += (r.Length > 0 ? ", " : "") + kShlSites[i] + " " + sShlSiteErrors[i];
+            return r.Length > 0 ? " (" + r + "; last: " + sShlLastError + ")" : "";
+        }
+
         class ShlWait { public long Start; public string Holders; public int Kind; }
         static readonly Dictionary<ulong, ShlWait> sShlWaitOf = new Dictionary<ulong, ShlWait>();
 
@@ -201,7 +225,7 @@ namespace Ts3Fixes
                     }
                 }
                 catch (ResetException) { throw; }
-                catch (Exception) { c[kShlErrors]++; }
+                catch (Exception e) { ShlError(0, e); }
                 return false;
             }
             public bool FreeLaneOrig(Sim s, Vector3 preferredPos, bool checkForSims, Route.RouteOption routeOptions, out LaneInfo laneInfo, out bool preferredLaneSelected)
@@ -221,7 +245,7 @@ namespace Ts3Fixes
                 bool swap = false;
                 try { swap = AneLadder(this, sim, ref laneInfo); }
                 catch (ResetException) { throw; }
-                catch (Exception) { PatchCounters()[kShlErrors]++; }
+                catch (Exception e) { ShlError(1, e); }
                 if (!swap) return PathToLaneOrig(sim, ref laneInfo);
                 LaneInfo li = laneInfo;
                 li.mLaneFlags &= ~LaneInfoFlags.PlanToSlotNotPosition;
@@ -247,7 +271,7 @@ namespace Ts3Fixes
                 sShlWaitOf[s.ObjectId.Value] = w;
             }
             catch (ResetException) { throw; }
-            catch (Exception) { c[kShlErrors]++; }
+            catch (Exception e) { ShlError(2, e); }
         }
 
         static void ShlWaitEnd(Sim s, GameObject portal, bool got)
@@ -270,7 +294,7 @@ namespace Ts3Fixes
                 if (ShortcutOn("lanewaitlog") && sShlCap.Take(System.Environment.TickCount)) DiagLine(sShlLast);
             }
             catch (ResetException) { throw; }
-            catch (Exception) { c[kShlErrors]++; }
+            catch (Exception e) { ShlError(3, e); }
         }
 
         // `this` is the game's private AcquireLaneRouteAction: the wait at the waiting spot, until a lane is given or 20 sim-minutes are over.
@@ -312,7 +336,9 @@ namespace Ts3Fixes
                     {
                         bool on = ShortcutOn("laddershare"), hhOn = ShortcutOn("laddersharehh");
                         bool others = true;
-                        foreach (Sim o in SimsInQueue) if (o != null && o != a && !ShlScope(o, hhOn)) others = false;
+                        List<Sim> line = SimsInQueue;  // null while nobody is in the line
+                        if (line != null)
+                            foreach (Sim o in line) if (o != null && o != a && !ShlScope(o, hhOn)) others = false;
                         int d = ShareLanesCore.LadderLine(on, true, ShlScope(a, hhOn), others);
                         if (d == ShareLanesCore.kGo) { c[kLdsSkips]++; return true; }  // not entered in the line: the game's cleanup finds nothing to remove
                         if (d == ShareLanesCore.kWould && MemberCount() > 0) c[kLdsWould]++;  // off: a climb that finds somebody in the line
@@ -320,7 +346,7 @@ namespace Ts3Fixes
                     }
                 }
                 catch (ResetException) { throw; }
-                catch (Exception) { c[kShlErrors]++; }
+                catch (Exception e) { ShlError(4, e); }
                 return WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body
@@ -362,7 +388,7 @@ namespace Ts3Fixes
                 return true;
             }
             catch (ResetException) { throw; }
-            catch (Exception) { c[kShlErrors]++; return false; }
+            catch (Exception e) { ShlError(5, e); return false; }
         }
 
         // `this` is the game's SimSteeringAdaptor. With the timer running the game's handler skips every Sim in the list.
@@ -380,7 +406,7 @@ namespace Ts3Fixes
                     }
                 }
                 catch (ResetException) { throw; }
-                catch (Exception) { PatchCounters()[kShlErrors]++; }
+                catch (Exception e) { ShlError(6, e); }
                 return ObstOrig(context, ref obstacles, bForceReplan);
             }
             public bool ObstOrig(RouteContext context, ref List<ObjectGuid> obstacles, bool bForceReplan) { return false; }  // receives HandleEventEncounteredObstacles' original body
@@ -396,7 +422,7 @@ namespace Ts3Fixes
                 return obstacles != null && SpsPass(sim, path, obstacles, true);
             }
             catch (ResetException) { throw; }
-            catch (Exception) { PatchCounters()[kShlErrors]++; return false; }
+            catch (Exception e) { ShlError(7, e); return false; }
         }
 
         // ---- angleentry -------------------------------------------------------------------------------------------------
@@ -427,7 +453,7 @@ namespace Ts3Fixes
                 c[kAneStairs]++;
             }
             catch (ResetException) { throw; }
-            catch (Exception) { c[kShlErrors]++; }
+            catch (Exception e) { ShlError(8, e); }
         }
 
         // The ladder's lower slots (its lanes are {top, bottom} pairs: RoutingSlot_1/_4 left, _2/_5 right).
@@ -457,7 +483,7 @@ namespace Ts3Fixes
                 + "; laddershare: line skipped " + c[kLdsSkips] + ", would " + c[kLdsWould] + ", exempt " + c[kLdsExempt]
                 + "; simpass: at the obstacle event " + c[kSpsEvents] + ", at the wait " + c[kSpsActions] + ", would " + c[kSpsWould] + ", exempt " + c[kSpsExempt] + ", kept (object or Sim at the route's end) " + c[kSpsKept]
                 + "; angleentry: stairs " + c[kAneStairs] + ", ladder " + c[kAneLadder] + ", would " + c[kAneWould] + ", kept " + c[kAneKept]
-                + "; errors " + c[kShlErrors] + ", open waits " + sShlWaitOf.Count + "; " + GlMembers(sShlMissing) + (sShlLast.Length > 0 ? "; last: " + sShlLast : "");
+                + "; errors " + c[kShlErrors] + ShlErrorSites() + ", open waits " + sShlWaitOf.Count + "; " + GlMembers(sShlMissing) + (sShlLast.Length > 0 ? "; last: " + sShlLast : "");
         }
 
         // ShareLanesCheck run: the rules with controls (read-only). Bug case: a Sim wants lane 0 of a one-lane door from the
