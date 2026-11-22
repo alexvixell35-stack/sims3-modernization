@@ -60,7 +60,7 @@ namespace Ts3Fixes
             kLwLineFull = 4492, kLwShort = 4493;
         const int kOjsArmed = 0, kOjsReserved = 1, kOjsTaking = 2, kOjsDone = 3;  // a serving run's steps
 
-        sealed class OjsRhWait { public long Start; public int Length, Decision; public ObjectGuid Holder; }
+        sealed class OjsRhWait { public long Start; public int Length, Decision; public ObjectGuid Holder; public bool CpOpen; }  // CpOpen: crowdport off, held, not counted at the first look
         sealed class OjsServe { public Sim Sim; public ServingContainerGroup Target; public ulong Task; public int State; }
 
         static readonly Dictionary<ulong, OjsServe> sOjsServe = new Dictionary<ulong, OjsServe>();  // serving runs in scope, by Sim
@@ -270,7 +270,7 @@ namespace Ts3Fixes
                     outcome = CpRhIn(rh, slotChosen, s, w);  // docs/686 §19 (CrowdPort.cs): a crowd at the slot, or a short wait, then the Sim is set on it
                     if (outcome == ObjShareCore.kGotTurn && w.Decision == ObjShareCore.kKeep) outcome = OjsRhWaitLoop(rh, slotChosen, s, w);
                 }
-                if (outcome == ObjShareCore.kGotTurn) WaitOrig(slotChosen, s);
+                if (outcome == ObjShareCore.kGotTurn) { WaitOrig(slotChosen, s); CpRhLate(w); }
                 OjsRhEnd(rh, s, w, outcome);
             }
             public void WaitOrig(Slot slotChosen, Sim s) { }  // receives WaitForEnterSlot's original body

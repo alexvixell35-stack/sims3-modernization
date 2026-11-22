@@ -31,6 +31,8 @@ static class CrowdPortTest
         Check(!CrowdPortCore.Trigger(2, N, 0.9f, W) && CrowdPortCore.Trigger(2, N, 1f, W), "behind one Sim: after the short wait");
         Check(CrowdPortCore.Trigger(3, N, 0f, W), "a crowd triggers at once");
         Check(CrowdPortCore.Trigger(2, N, 0f, 0f), "wait 0: behind one Sim at once");
+        Check(!CrowdPortCore.WouldLate(false, true, 0.9f, W) && CrowdPortCore.WouldLate(false, true, 2.2f, W), "off: a wait behind one Sim counts as would once it lasted the short wait");
+        Check(!CrowdPortCore.WouldLate(true, true, 5f, W) && !CrowdPortCore.WouldLate(false, false, 5f, W), "off: not with the switch on, not when the first look counted or the Sim is out of the rule");
 
         // elevator
         Check(CrowdPortCore.Elevator(true, true, true, 3, N, 0f, W, true) == Go, "crowd, skip possible: the game's skip now");
@@ -62,6 +64,9 @@ static class CrowdPortTest
         Check(CrowdPortCore.RhIn(true, true, true, true, false, false, true, 3, N, 0f, W) == None, "dead reservation: left to rhshare or the game");
         Check(CrowdPortCore.RhIn(true, true, true, true, true, false, true, 3, N, 0f, W) == Keep, "holder out of scope: the game's wait");
         Check(CrowdPortCore.RhIn(true, true, true, true, true, true, false, 3, N, 0f, W) == Keep, "far from the slot: the game's wait");
+        Check(CrowdPortCore.RhClear(8f, -1f) && CrowdPortCore.RhClear(CrowdPortCore.kRhHolderClear, 20f), "holder still far from its slot, Sim not set lately: clear");
+        Check(!CrowdPortCore.RhClear(2f, -1f) && !CrowdPortCore.RhClear(0f, -1f), "holder at the door (cp-r1, cp-r3: 2 m): not set on the slot");
+        Check(!CrowdPortCore.RhClear(8f, 1.2f) && !CrowdPortCore.RhClear(8f, 14.9f), "a Sim set on a slot comes back after a failed route: not set again");
         Check(CrowdPortCore.RhIn(false, true, true, true, true, true, true, 3, N, 0f, W) == Would, "off: would");
         Check(CrowdPortCore.RhIn(false, true, true, true, true, true, true, 2, N, 0f, W) == None, "off, no crowd: nothing");
 
