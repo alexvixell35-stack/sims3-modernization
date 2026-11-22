@@ -37,8 +37,8 @@ namespace Ts3Fixes
         const float kHsPassMinutes = 10f;
         static readonly FieldInfo sHsQueue = typeof(HorseshoeCourt).GetField("mPlayerQueue", kInstAll);
         static readonly MethodInfo sHsRemove = typeof(HorseshoeCourt).GetMethod("RemoveSimFromQueue", kInstAll, null, new Type[] { typeof(Sim) }, null);
-        static readonly Type sHsTurn = typeof(HorseshoeCourt).GetNestedType("TakeTurn", BindingFlags.NonPublic);
-        static readonly Type sHsWait = typeof(HorseshoeCourt).GetNestedType("WaitToThrow", BindingFlags.NonPublic);
+        static readonly Type sHsTurn = typeof(HorseshoeCourt).GetNestedType("TakeTurn", BindingFlags.Public | BindingFlags.NonPublic);
+        static readonly Type sHsWait = typeof(HorseshoeCourt).GetNestedType("WaitToThrow", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly Dictionary<Sim, float> sHsSoloSince = new Dictionary<Sim, float>();  // sim-clock hour first seen playing alone
         static List<Sim> sHsIdle = new List<Sim>();  // queued Sims not playing at the last pass
         static AlarmHandle sHsAlarm = AlarmHandle.kInvalidHandle;
@@ -103,7 +103,8 @@ namespace Ts3Fixes
                 sHsRemove.Invoke(court, new object[] { s });
                 c[2192]++;
             }
-            if (q.Count != 1) return;
+            q = sHsQueue.GetValue(court) as Queue<Sim>;  // RemoveSimFromQueue may have put a new queue in the field
+            if (q == null || q.Count != 1) return;
             Sim p = q.Peek();
             if (SimGone(p) || !HsPlaying(p, court)) return;
             solo.Add(p);
