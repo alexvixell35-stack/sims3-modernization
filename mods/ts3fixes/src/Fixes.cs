@@ -547,6 +547,8 @@ namespace Ts3Fixes
             ApplyHitchCause();
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
+            ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
+            ApplySmcSetActor();        // SmcSetActor.cs: StateMachineClient.SetActor for servingshare (docs/686 §14), a one-int test while nothing is armed
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1599,7 +1601,11 @@ namespace Ts3Fixes
         // end) / angleentry stairs / ladder / would / kept (exempt, or the approach plan failed).
         // [4390-4397] spiralshare (ShareLanes.cs, docs/686 §8): lane locks the game refused on spiral stairs / of them by the direction test only / shared / would
         // share, off / exempt (household without its switch) / the staircase's line skipped / would (somebody in the line), off / exempt.
-        const int kCounterSlots = 4398;
+        // [4470-4493] objshare (ObjShare.cs, docs/686 §14): linewait: line waits from half a sim-minute / tenths of sim-minutes / timed out / cancelled;
+        // rabbit hole enter-slot waits / tenths / timed out (15 sim-min) / cancelled; errors; rhshare: walked to a held slot / would (off) / exempt / kept
+        // (holder out of scope, horse, rider, carrier) / left the wait on a cancel / dead reservations removed; servingshare: runs at a busy platter / lines
+        // skipped / took with another Sim / would / exempt / kept (a Sim out of scope there) / last serving refused; linewait: line full / shorter waits.
+        const int kCounterSlots = 4494;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2080,6 +2086,11 @@ namespace Ts3Fixes
                 case "angleentry": return Instantiator.kAngleEntry;  // ShareLanes.cs (docs/686 §8): stairs and ladders climbed from below are approached by a point plan without facing, off
                 case "angleentryhh": return Instantiator.kAngleEntryHousehold;  // ShareLanes.cs: angleentry for household and selected Sims too, off
                 case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
+                case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
+                case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off
+                case "rhsharehh": return Instantiator.kRhShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
+                case "servingshare": return Instantiator.kServingShare;  // ObjShare.cs (docs/686 §14): NPCs grab servings from one platter at once, no line, last serving taken once, off
+                case "servingsharehh": return Instantiator.kServingShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;

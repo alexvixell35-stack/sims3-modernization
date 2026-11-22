@@ -25,6 +25,7 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  linewaitlog: 'log only (one linewait: line per wait in an object line or at a rabbit hole enter slot, docs/686 §14): on in the forced repros servingshare-force and rhshare-force (docs/686 §14.5), whose agent steps are not upstream yet',
   spiralshare: 'no forced repro yet: judged by the route storms of docs/686 §8.7 (spiral stair waits of 7-12 sim-min gone); its hooks are the ones sharelanes-check reads',
   spiralsharehh: 'as spiralshare (household scope of the same hooks)',
   lanewaitlog: 'log only (one lanewait: line per wait for a portal lane, docs/686 §8): on in both arms of the route storms of docs/686 §8.7 (storm runner, not a repro)',

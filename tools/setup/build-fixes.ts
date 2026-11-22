@@ -796,6 +796,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kAngleEntry value="False" />
     <kAngleEntryHousehold value="False" />
     <kLaneWaitLog value="False" />
+    <kLineWaitLog value="False" />
+    <kRhShare value="False" />
+    <kRhShareHousehold value="False" />
+    <kServingShare value="False" />
+    <kServingShareHousehold value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />

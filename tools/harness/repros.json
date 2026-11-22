@@ -114857,6 +114857,112 @@
     ]
   },
   {
+    "id": "objshare-check",
+    "bug": "Sims wait at objects other Sims use: a rabbit hole enter slot is held by one Sim until its walk to it ends and the others idle in a loop that ignores exit reasons (RabbitHole.WaitForEnterSlot); Grab a Serving queues in the platter's line and gives up when the platter is in use (ServingContainerGroup.RunBodyForGrabAServing) (docs/686 §14)",
+    "fix": "ts3fixes ObjShare.cs: rhshare, servingshare (each with an hh switch for household and selected Sims), linewaitlog, default off, docs/686 §14",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ObjShareCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4470-4493, the last linewait: line and the last share line; 'lot' lists the lines with Sims in them and the platters of the selected Sim's lot, and the rabbit holes of the world with a reserved enter slot.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": false,
+          "rhsharehh": false,
+          "servingshare": false,
+          "servingsharehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "lines, platters, reserved enter slots",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": true,
+          "rhsharehh": true,
+          "servingshare": true,
+          "servingsharehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": false,
+          "rhsharehh": false,
+          "servingshare": false,
+          "servingsharehh": false,
+          "linewaitlog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
