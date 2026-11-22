@@ -118,6 +118,14 @@ static class PetRelaxTest
         Check(ShareLanesCore.Timed(PetRelaxCore.Pass(true, C(false, true, 0, 1, 0, 0), out kept), true, 9f, 2.5f) == N && kept == PetRelaxCore.kKeptHorse, "a horse stays kept at a portal and after the grace");
         Check(PetRelaxCore.kNone == ShareLanesCore.kNone && PetRelaxCore.kWould == ShareLanesCore.kWould && PetRelaxCore.kExempt == ShareLanesCore.kExempt && PetRelaxCore.kGo == ShareLanesCore.kGo,
             "the two rule files share their answer codes");
+        // a plan that failed on a lying pet: the walker stands the grace, then plans through it
+        int jig = PetRelaxCore.PlanJig(true, true, false, true, true, out kept);
+        Check(jig == G && ShareLanesCore.Timed(jig, false, 0f, 2.5f) == D && ShareLanesCore.Timed(jig, false, 2.5f, 2.5f) == G, "pet across a hallway: not a failed route, the grace and then through");
+        Check(ShareLanesCore.Timed(jig, true, 0f, 2.5f) == G, "pet lying down at a doorway after the route was made: at once");
+        Check(PetRelaxCore.PlanJig(true, false, false, true, true, out kept) == N && kept == 0, "another blocker: not ours");
+        Check(PetRelaxCore.PlanJig(true, true, true, true, true, out kept) == N && kept == PetRelaxCore.kKeptHorse, "a horse does not walk through a lying pet");
+        Check(PetRelaxCore.PlanJig(false, true, false, false, false, out kept) == W && PetRelaxCore.PlanJig(true, true, false, false, true, out kept) == X
+            && PetRelaxCore.PlanJig(true, true, false, true, false, out kept) == X, "failed plan on a pet: off would, walker or pet out of scope exempt");
         // a lying pet's jig is passed by routes only near a portal lane (door lane (0,0,0)-(0,0,2), 1.5 m)
         Check(ShareLanesCore.NearLane(0.5f, 0f, -1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f) && !ShareLanesCore.NearLane(4f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "pet lying at a doorway: passed; in the middle of the room: walked around");
     }

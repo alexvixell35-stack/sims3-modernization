@@ -40,20 +40,24 @@ namespace Ts3Fixes
     //      the lying pets in scope that lie within kClipPortalNear of a portal lane (Route.AddObjectToIgnoreForRoute,
     //      the game's own call for the pet itself). A pet that lies anywhere else is walked around as the game has it.
     //      In the two waits every lying pet's jig counts as its pet instead of as an object, on the timing of 1.
+    //      A plan that fails with such a jig as its blocker (a pet lying across a hallway): the walker stands for
+    //      kClipGraceMinutes where it is, then the route is planned again with the jig ignored and walked (PrxPlanFailed,
+    //      from the DoRoute hook). The pet itself is then passed without a second grace.
     //   3. A pet about to lie down on the floor where it stands, within kPetRelaxPortalClear of a stair, door, gate,
     //      ladder or elevator lane end, first walks to a free spot 2-3 m away (a real route), then the game's lie-down
     //      runs from there. No free spot, or the route fails: the game's lie-down as it was.
     // Scope: petrelax covers pets and Sims the player does not control, as walker and as the one walked through;
     // petrelaxhh adds household and selected Sims and pets. Off = compare mode: the hooks count what the rule would do.
-    // petrelaxlog writes one line per act. Counters 4430-4445. Check: PetRelaxCheck.
+    // petrelaxlog writes one line per act. Counters 4430-4445. Check: PetRelaxCheck. Hooks of its own: the floor lie-down
+    // and SimRoutingComponent.DoRoute (the failed plan of rule 2).
     public static partial class Fixes
     {
         const int kPrxPass = 4430, kPrxPassWait = 4431, kPrxClip = 4432, kPrxClipDest = 4433, kPrxJigRoutes = 4434, kPrxMoved = 4435, kPrxErrors = 4436,
             kPrxWould = 4437, kPrxExempt = 4438, kPrxKeptHorse = 4439, kPrxKeptObject = 4440, kPrxKeptDest = 4441, kPrxKeptNoSpot = 4442,
             kPrxLieDowns = 4443, kPrxLieAtPortal = 4444, kPrxHousehold = 4445;
-        const int kPrxSitePass = 0, kPrxSiteWait = 1, kPrxSiteClip = 2, kPrxSiteRoute = 3, kPrxSiteLie = 4, kPrxSiteLieEnd = 5;
-        static readonly string[] kPrxSites = { "obstacle event", "obstacle wait", "wait cycle", "route create", "lie down", "lie down end" };
-        static readonly int[] sPrxSiteErrors = new int[6];
+        const int kPrxSitePass = 0, kPrxSiteWait = 1, kPrxSiteClip = 2, kPrxSiteRoute = 3, kPrxSiteLie = 4, kPrxSiteLieEnd = 5, kPrxSitePlan = 6;
+        static readonly string[] kPrxSites = { "obstacle event", "obstacle wait", "wait cycle", "route create", "lie down", "lie down end", "failed plan" };
+        static readonly int[] sPrxSiteErrors = new int[7];
         const int kPrxErrorLines = 3;      // lines per site
         const int kPrxMaxJigs = 64;        // lying pets tracked; more are not given the pass
         const int kPrxMaxPlans = 4;        // route plans per lie-down for a free spot
@@ -65,6 +69,11 @@ namespace Ts3Fixes
         static readonly LineCapCore sPrxCap = new LineCapCore(20, 60000, 400);
         static string sPrxMissing = "", sPrxLast = "", sPrxLastError = "";
         static int sPrxDeferred, sPrxGrace;  // this session: waits left to the grace (not near a portal) / waits ended after it
+        static int sPrxPlanWaits, sPrxPlanWalks, sPrxPlanStopped, sPrxPlanStill;  // this session, failed plans on a lying pet: stood the grace / planned through / cancelled meanwhile / failed without the jig too
+        const int kPrxMaxPlanJigs = 3;          // lying pets passed per failed plan
+        const float kPrxServedMinutes = 30f;    // sim-minutes a served grace stands for the pets it was served for
+        class PrxServed { public DateAndTime At; public readonly List<Sim> Pets = new List<Sim>(2); }
+        static readonly Dictionary<ulong, PrxServed> sPrxServed = new Dictionary<ulong, PrxServed>();  // by walker
 
         static void PrxError(int site, Exception e)
         {
@@ -93,6 +102,7 @@ namespace Ts3Fixes
         {
             sPrxMissing = "";
             if (!Patch(typeof(PetSurfacePosture.LayDownHere), "Run", Type.EmptyTypes, typeof(PrxLieHook), "RunHook", "RunOrig")) sPrxMissing = "PetSurfacePosture.LayDownHere.Run";
+            if (!Patch(typeof(SimRoutingComponent), "DoRoute", new Type[] { typeof(Route) }, typeof(PrxRouteHook), "RouteHook", "RouteOrig")) sPrxMissing = (sPrxMissing + " SimRoutingComponent.DoRoute").Trim();
             if (sShlMissing.IndexOf("HandleEventEncounteredObstacles", StringComparison.Ordinal) >= 0 || sSpsSim == null || sSpsAction == null)
                 sPrxMissing = (sPrxMissing + " obstacle event (sharelanes hooks)").Trim();
             if (sClwMissing.Length > 0) sPrxMissing = (sPrxMissing + " waits (clipwait hooks)").Trim();
@@ -227,7 +237,7 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 int kept;
                 int d = PetRelaxCore.Pass(on, s.Case, out kept);
-                if (d != PetRelaxCore.kNone) d = ShareLanesCore.Timed(d, ShlNearPortal(sim, s.Sims), 0f, Instantiator.kClipGraceMinutes);
+                if (d != PetRelaxCore.kNone) d = ShareLanesCore.Timed(d, PrxGraceServed(sim, s.Sims) || ShlNearPortal(sim, s.Sims), 0f, Instantiator.kClipGraceMinutes);
                 if (d == ShareLanesCore.kDefer)
                 {
                     if (action) sPrxDeferred++;
@@ -266,7 +276,7 @@ namespace Ts3Fixes
                 if (d != PetRelaxCore.kNone)
                 {
                     afterGrace = ShareLanesCore.GraceDue(k.ElapsedMin, Instantiator.kClipGraceMinutes);
-                    if (!afterGrace && ShareLanesCore.Timed(d, ShlNearPortal(sim, seen), k.ElapsedMin, Instantiator.kClipGraceMinutes) == ShareLanesCore.kDefer) return false;
+                    if (!afterGrace && ShareLanesCore.Timed(d, PrxGraceServed(sim, seen) || ShlNearPortal(sim, seen), k.ElapsedMin, Instantiator.kClipGraceMinutes) == ShareLanesCore.kDefer) return false;
                 }
                 int[] c = PatchCounters();
                 if (d != PetRelaxCore.kGo)
@@ -320,6 +330,123 @@ namespace Ts3Fixes
             }
             catch (ResetException) { throw; }
             catch (Exception e) { PrxError(kPrxSiteRoute, e); }
+        }
+
+        // ---- 2b. a plan that failed on a lying pet: stand the grace, then plan through it -------------------------------
+
+        // The walker stood its grace for these pets at a failed plan: meeting them on the walk needs no second one.
+        static bool PrxGraceServed(Sim walker, List<Sim> inWay)
+        {
+            PrxServed v;
+            if (sPrxServed.Count == 0 || inWay == null || inWay.Count == 0 || !sPrxServed.TryGetValue(walker.ObjectId.Value, out v)) return false;
+            if (SimClock.ElapsedTime(TimeUnit.Minutes, v.At) > kPrxServedMinutes) { sPrxServed.Remove(walker.ObjectId.Value); return false; }
+            for (int i = 0; i < inWay.Count; i++)
+                if (!v.Pets.Contains(inWay[i])) return false;
+            return true;
+        }
+
+        // The lying pet's floor jig that the failed plan of r names as its blocker, when the rule passes it; else null.
+        static GameObject PrxPlanJig(Sim sim, Route r, GameObject not)
+        {
+            try
+            {
+                if (sim == null || r == null || !ClwIsWalkable(sim)) return null;
+                RoutePlanResult res = r.PlanResult;
+                if (res.Succeeded() || res.mBlockerObjectId == 0) return null;
+                GameObject o = GameObject.GetObject(new ObjectGuid(res.mBlockerObjectId));
+                Sim pet = PrxJigPet(o);
+                if (pet == null || pet == sim || object.ReferenceEquals(o, not)) return null;
+                bool on = ShortcutOn("petrelax"), hhOn = ShortcutOn("petrelaxhh");
+                bool scopeAll = hhOn || !on;
+                int kept;
+                int d = PetRelaxCore.PlanJig(on, true, PrxLarge(sim), PrxScope(sim, scopeAll), PrxScope(pet, scopeAll), out kept);
+                return PrxCount(d, kept, PatchCounters()) ? o : null;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { PrxError(kPrxSitePlan, e); return null; }
+        }
+
+        // The walker stands where it is for the grace. No catch: a reset must unwind the Sim's stack. false = cancelled.
+        static bool PrxPlanWait(Sim sim)
+        {
+            sPrxPlanWaits++;
+            DateAndTime start = SimClock.CurrentTime();
+            float grace = Instantiator.kClipGraceMinutes;
+            uint step = (uint)Math.Max(1L, SimClock.ConvertToTicks(0.5f, TimeUnit.Minutes));
+            while (SimClock.ElapsedTime(TimeUnit.Minutes, start) < grace)
+            {
+                if (sim.HasBeenDestroyed || sim.HasExitReason()) return false;
+                Simulator.Sleep(step);
+            }
+            return !sim.HasBeenDestroyed && !sim.HasExitReason();
+        }
+
+        // The jig leaves the route's plans and the route is planned again. ok = it plans now; else the answer is the next
+        // lying pet the new plan names (null = something else blocks: the game's answer for the failed plan).
+        static GameObject PrxPlanRetry(Sim sim, Route r, GameObject jig, bool waited, out bool ok)
+        {
+            ok = false;
+            try
+            {
+                Sim pet = PrxJigPet(jig);
+                if (!jig.HasBeenDestroyed) r.AddObjectToIgnoreForRoute(jig.ObjectId);
+                ok = r.Replan().Succeeded();
+                if (pet != null)
+                {
+                    PrxServed v;
+                    ulong id = sim.ObjectId.Value;
+                    if (!sPrxServed.TryGetValue(id, out v) || SimClock.ElapsedTime(TimeUnit.Minutes, v.At) > kPrxServedMinutes)
+                    {
+                        if (sPrxServed.Count > kPrxMaxJigs) sPrxServed.Clear();
+                        v = new PrxServed();
+                        sPrxServed[id] = v;
+                    }
+                    v.At = SimClock.CurrentTime();
+                    if (!v.Pets.Contains(pet)) v.Pets.Add(pet);
+                }
+                if (!ok) return PrxPlanJig(sim, r, jig);
+                sPrxPlanWalks++;
+                if (IsPlayerSim(sim) || (pet != null && IsPlayerSim(pet))) PatchCounters()[kPrxHousehold]++;
+                PrxLog("petrelax: " + sim.FullName + " " + ShlWho(sim) + ", " + SwfIa(sim) + ": plan failed on a lying pet, planned through it " + (waited ? "after the grace" : "at once (near a portal)")
+                    + ": " + (pet == null ? "(up again)" : pet.FullName) + ", at " + V(sim.Position));
+                return null;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { PrxError(kPrxSitePlan, e); ok = false; return null; }
+        }
+
+        // The DoRoute hook, for a route whose plan failed: true = the route plans now (walk it). A jig near a portal needs
+        // no grace (routes ignore those from their creation; this is for a pet that lay down after the route was made).
+        static bool PrxPlanFailed(Sim sim, Route r)
+        {
+            GameObject jig = PrxPlanJig(sim, r, null);
+            bool waited = false;
+            for (int n = 0; n < kPrxMaxPlanJigs && jig != null; n++)
+            {
+                if (!waited && ShareLanesCore.Timed(PetRelaxCore.kGo, ShlNearPortal(sim.LotCurrent, jig.Position), 0f, Instantiator.kClipGraceMinutes) == ShareLanesCore.kDefer)
+                {
+                    if (!PrxPlanWait(sim)) { sPrxPlanStopped++; return false; }
+                    waited = true;
+                }
+                bool ok;
+                jig = PrxPlanRetry(sim, r, jig, waited, out ok);
+                if (ok) return true;
+            }
+            if (waited) sPrxPlanStill++;
+            return false;
+        }
+
+        // `this` is the game's SimRoutingComponent. Kept this small on purpose: a Sim saved mid-route has a frame in it,
+        // and a build that changes its IL resets those Sims once at the first load (docs/242 §2). One swap per method:
+        // a branch that brings another DoRoute hook (blockeduse) calls PrxPlanFailed from its failed-plan step instead.
+        public class PrxRouteHook : SimRoutingComponent
+        {
+            public bool RouteHook(Route r)
+            {
+                if (r != null && r.PlanResult.mType != RoutePlanResultType.Succeeded) PrxPlanFailed(OwnerSim, r);
+                return RouteOrig(r);
+            }
+            public bool RouteOrig(Route r) { return false; }  // receives DoRoute's original body
         }
 
         // ---- 3. not on a lane end ---------------------------------------------------------------------------------------
@@ -444,6 +571,8 @@ namespace Ts3Fixes
             return "petrelax: walked through at the obstacle event " + c[kPrxPass] + ", at the obstacle wait " + c[kPrxPassWait] + " (both near a portal), waits ended " + c[kPrxClip]
                 + ", destination accepted " + c[kPrxClipDest] + " (this session: of both after the grace " + sPrxGrace + ", waits begun away from a portal and left to the grace " + sPrxDeferred
                 + "), routes given the pass through pets lying near a portal " + c[kPrxJigRoutes]
+                + ", this session, plans failed on a lying pet: stood the grace " + sPrxPlanWaits + ", planned through " + sPrxPlanWalks + ", cancelled meanwhile " + sPrxPlanStopped
+                + ", failed without the pet too " + sPrxPlanStill
                 + "; floor lie-downs (autonomous, where the pet stands or its own spot) " + c[kPrxLieDowns] + ", of them at a lane end " + c[kPrxLieAtPortal] + ", walked off it " + c[kPrxMoved]
                 + ", kept: no free spot " + c[kPrxKeptNoSpot]
                 + "; would " + c[kPrxWould] + ", exempt " + c[kPrxExempt] + "; kept: horse, foal or deer " + c[kPrxKeptHorse] + ", object in the way " + c[kPrxKeptObject]
@@ -488,6 +617,7 @@ namespace Ts3Fixes
             float grace = Instantiator.kClipGraceMinutes;
             bool ctlTimed = ShareLanesCore.Timed(PetRelaxCore.kGo, true, 0f, 2.5f) == PetRelaxCore.kGo && ShareLanesCore.Timed(PetRelaxCore.kGo, false, 1f, 2.5f) == ShareLanesCore.kDefer
                 && ShareLanesCore.Timed(PetRelaxCore.kGo, false, 2.5f, 2.5f) == PetRelaxCore.kGo;
+            ctlTimed = ctlTimed && PetRelaxCore.PlanJig(true, true, false, true, true, out kept) == PetRelaxCore.kGo && PetRelaxCore.PlanJig(true, false, false, true, true, out kept) == PetRelaxCore.kNone;
             bool controls = ctlPetWalker && ctlNoPet && ctlMixed && ctlHorse && ctlHorseWalker && ctlObject && ctlScope && ctlLie && ctlSpot && ctlTimed;
             return "petrelax check (switch " + (on ? "on" : "off") + ", household " + (ShortcutOn("petrelaxhh") ? "on" : "off") + ", timer " + Instantiator.kPetRelaxMinutes.ToString("0.0")
                 + " sim-min, lane end clearance " + Instantiator.kPetRelaxPortalClear.ToString("0.00") + " m, grace " + grace.ToString("0.0") + " sim-min away from a portal, near = "

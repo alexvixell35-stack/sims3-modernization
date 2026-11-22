@@ -456,6 +456,7 @@ PfOutcomeHook.GuestHook,HouseParty,GetPartyOutcomeForSim,PartyFixes.cs,GuestOrig
 PfRemoveHook.RemoveHook,HouseParty,RemoveGuest,PartyFixes.cs,RemoveOrig,yes,HouseParty::RemoveGuest > HostedSituation::RemoveGuest > .. 6 .. > Simulator::Sleep,PartyFixes,"keep, stub remap (SavedStacks.cs)"
 PetFirePlanHook.PlanHook,FireSource.ReactToFire,PlanToNearestFire,PetFirePlan.cs,PlanOrig,no,no path to a yield in 1 overload(s),petfireplan (docs/546 §10): animals skip the route plan EA throws away,keep: no yield
 PrxLieHook.RunHook,PetSurfacePosture.LayDownHere,Run,PetRelax.cs,RunOrig,yes,PetSurfacePosture+LayDownHere::Run > BoxStall+AtBoxStallGatePosture::Idle > StateMachineClient::RequestState,`this` is the game's,"keep, stub remap (SavedStacks.cs)"
+PrxRouteHook.RouteHook,SimRoutingComponent,DoRoute,PetRelax.cs,RouteOrig,yes,SimRoutingComponent::DoRoute > SimRoutingComponent::DoSingleRoute > Simulator::Sleep,`this` is the game's SimRoutingComponent. Kept this small on purpose: a Sim saved mid-route has a frame in,"keep, stub remap (SavedStacks.cs)"
 HorseTraitHook.TraitsHook,EquestrianCenter.EnterEquestrianCompetition,AddScoreForTraits,PetsLogic.cs,TraitsOrig,no,no path to a yield in 1 overload(s),PetsLogic,keep
 WildHorseGenderHook.GenderHook,WildHorseCreator,DecideGender,PetsLogic.cs,GenderOrig,yes,WildHorseCreator::DecideGender > WildHorsePool::GetLeadHorse > .. 10 .. > Simulator::Sleep,PetsLogic,"keep, stub remap (SavedStacks.cs)"
 LitterCapHook.CapHook,PetAdoption,CanAddPetInHouse,PetsLogic.cs,CapOrig,no,no path to a yield in 2 overload(s),PetsLogic,keep
