@@ -68,3 +68,5 @@
 #   doorshare
 # perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
 #   commodmapfast commodmapshadow
+# EA bug fix: firefighter emergency NREs (pregnant firefighter at setup, thank-you pick out of the career; docs/867, 2026-11-22), default off, NOT RUN:
+#   firenre

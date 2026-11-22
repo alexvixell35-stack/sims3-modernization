@@ -114643,6 +114643,91 @@
     ]
   },
   {
+    "id": "fire-nre",
+    "bug": "Firefighter emergencies: a visibly pregnant active firefighter on the lot at setup makes FirefighterAddedToLot call RestartTimer on a null CurrentJob (the emergency setup aborts, the responder is reset, the emergency runs without its situation); FireFightingJob.OnCompletion hands the thank-you call to a listed Sim who left the fire career and throws on its 60% roll (the job's shut-down and clean-up are skipped, the owner's task listener is dropped) (docs/867)",
+    "fix": "ts3fixes FireNre.cs: firenre (default off), docs/867",
+    "save": "any world (pure check)",
+    "note": "FireNreCheck 'run' evaluates the null-case decisions with controls (read-only). End to end (not run): testingcheatsenabled, a visibly pregnant household firefighter visiting a lot, debug Spawn Job on that lot, respond with another firefighter; 'result' shows 2354 (2356 with the switch off).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
