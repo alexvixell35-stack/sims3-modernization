@@ -195,6 +195,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMakeBedBoth value="False" />
     <kMakeBedBothHousehold value="False" />
     <kMakeBedBothLog value="False" />
+    <kShowerTogether value="False" />
+    <kShowerTogetherHousehold value="False" />
+    <kShowerPee value="False" />
+    <kShowerPeeHousehold value="False" />
+    <kShowerShareLog value="False" />
     <kLineWaitLog value="False" />
     <kRhShare value="False" />
     <kRhShareHousehold value="False" />
