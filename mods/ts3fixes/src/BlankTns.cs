@@ -15,17 +15,19 @@ namespace Ts3Fixes
     // StyledNotification.Show (the only newobj of the class), which hands it straight to NotificationManager.Add with the
     // sender still on the stack; the 1-, 2- and 3-argument overloads, NotificationSystem.Show and the Sim.ShowTNS* helpers all
     // end there. The text is first read when the queue displays the notice (instance Show(): mTextArea.Caption = mFormat.mText);
-    // neither the constructor nor Add/ShouldAddNotification reads it. BtnHook swaps NotificationManager.Add, not Show: in game
-    // (pass 13, 2026-11-22) Show was already compiled when ts3fixes loaded (some startup code calls it while there is no
-    // NotificationManager), so a Show swap is refused; Add only runs once a world's HUD exists. Add also sees a mod that
-    // calls the public constructor and Add itself.
+    // neither the constructor nor Add/ShouldAddNotification reads it. BtnHook swaps NotificationManager.ShouldAddNotification,
+    // the first call inside Add, so the sender is still on the stack. In game both earlier targets were refused as already
+    // compiled when ts3fixes loaded: Show (pass 13, 2026-11-22) and then Add (pass 14). [inferred] Some startup code calls
+    // Show while there is no NotificationManager, and compiling Show marks the methods it calls (Add, the constructor) too;
+    // Add itself never ran, so the methods Add calls stay unmarked. The hook also sees a mod that calls the public
+    // constructor and Add itself.
     // Switch on and the main text (mFormat.mText) null, empty or whitespace: the text becomes "[blank notice] sent by A < B < C",
     // the first 3 frames outside the notification plumbing (BtnCore.IsPlumbing), full type names; the same line plus the style
     // and up to 8 frames with their assemblies go to ts3native.log ([UserDiag] channel, DiagLine), for the first kBtnLogCases
     // blank notices of a session. A notice with text is untouched. Format is a struct: the hook reads a boxed copy of mFormat,
     // changes its text and stores it back before EA queues the notice. A null text with a timeout still throws in EA's Show
     // before Add (unchanged; such a notice never shows). Switch off: EA's path, and a count of blank notices seen (no stack
-    // read). The hook never throws: an error is counted and EA's Add runs with the notice as it was.
+    // read). The hook never throws: an error is counted and EA's ShouldAddNotification runs with the notice as it was.
     // Household notices are included on purpose: only a blank notice's text changes, nothing in the game state.
     // Not done on purpose: no hook on StringTable (a hot path), so the missing string key itself is not reported.
     // Counters: [2362] blank notices renamed (switch on), [2363] blank notices seen with the switch off, [2364] blank notices not
@@ -45,12 +47,12 @@ namespace Ts3Fixes
             if (sBtnHooked) return;
             sBtnHooked = true;
             if (sBtnFormat == null) { AppliedLog().Add("blanktns: not found: StyledNotification.mFormat"); return; }
-            Patch(typeof(NotificationManager), "Add", kBtnArgs, typeof(BtnHook), "AddHook", "AddOrig");
+            Patch(typeof(NotificationManager), "ShouldAddNotification", kBtnArgs, typeof(BtnHook), "ShouldHook", "ShouldOrig");
         }
 
         public class BtnHook
         {
-            public void AddHook(Notification notification, NotificationManager.TNSCategory category)
+            public bool ShouldHook(Notification notification, NotificationManager.TNSCategory category)
             {
                 try
                 {
@@ -66,9 +68,9 @@ namespace Ts3Fixes
                     }
                 }
                 catch (Exception) { PatchCounters()[2365]++; }
-                AddOrig(notification, category);
+                return ShouldOrig(notification, category);
             }
-            public void AddOrig(Notification notification, NotificationManager.TNSCategory category) { }  // receives EA's NotificationManager.Add
+            public bool ShouldOrig(Notification notification, NotificationManager.TNSCategory category) { return true; }  // receives EA's NotificationManager.ShouldAddNotification
         }
 
         // The sender's text for a blank notice; logs it with the style and a fuller stack.

@@ -1,8 +1,8 @@
 # 869: Blank notification sender, `blanktns`
 
 2026-11-22 (UTC), static (EA code read in a local decompile and the managed call graph, not committed). Diagnostic built,
-default off, offline selftest passes. The first in-game run found the `Show` swap refused (§2); the `Add` hook is NOT RUN in
-game yet.
+default off, offline selftest passes. In game the `Show` swap (pass 13) and the `Add` swap (pass 14) were refused (§2); the
+`ShouldAddNotification` hook is NOT RUN in game yet.
 
 ## 1. Question
 
@@ -32,8 +32,13 @@ empty box. The text alone cannot name the sender, so the notice must name it.
 
 The first build swapped the 5-argument static `Show`. In game (pass 13, 2026-11-22, repro `blank-tns`) that swap was refused:
 `StyledNotification.Show: already compiled`, live path `BtnHook swaps 0/1`. Some code that runs at startup calls `Show` before
-ts3fixes loads, while there is no `NotificationManager`. The hook therefore swaps `NotificationManager.Add`. It runs only once a
-world's HUD exists, and it also sees a mod that calls the public constructor and `Add` itself.
+ts3fixes loads, while there is no `NotificationManager`. The second build swapped `NotificationManager.Add`. In game (pass 14)
+that swap was refused too: `NotificationManager.Add: already compiled`. [inferred] Compiling `Show` marks the methods it calls
+(`Add`, the constructor) as compiled, although `Add` never ran. The hook therefore swaps
+`NotificationManager.ShouldAddNotification(Notification, TNSCategory)`, the first call inside `Add`, which is not reached by
+compiling `Show` alone. The sender is still on the stack there, and it also sees a mod that calls the public constructor and
+`Add` itself. If this swap is refused too, a notification was really added before ts3fixes loaded, and the swap approach cannot
+name the sender.
 
 ## 3. The diagnostic
 
@@ -62,8 +67,8 @@ runtime switch `blanktns`. Default off. It goes on in beta builds only. The hook
   otherwise be empty. It changes no game state, no Sim and no save data (AGENTS.md household rule: nothing to exempt).
 - Not done on purpose: no hook on `StringTable` (a hot path), so the missing string key itself is not reported.
 
-Swap-stack audit: `BtnHook.AddHook` has the stub `AddOrig`. `NotificationManager.Add` can reach a yield (SACS acquire), so a
-saved frame there is remapped by SavedStacks.cs like every stubbed swap. The hook body itself does not yield before EA's body.
+Swap-stack audit: `BtnHook.ShouldHook` has the stub `ShouldOrig`. `ShouldAddNotification` reads a device option and the
+notification lists and has no path to a yield [verified, decompiled], so no saved frame can sit in it.
 
 ## 4. Counters (contributor range, reserved by hand)
 
@@ -89,7 +94,7 @@ registry here and in the open contributor branches (after firenre 2354-2357 and 
 
 ## 6. Not done / next
 
-- NOT RUN in game with the `Add` hook: whether `Add` is still uncompiled when ts3fixes loads, whether the frame of the
-  swapped hook reports `NotificationManager` or `BtnHook` as its type (both are filtered), and how deep stacks look in a
-  real mod's notice.
+- NOT RUN in game with the `ShouldAddNotification` hook: whether it is still uncompiled when ts3fixes loads, whether the
+  frame of the swapped hook reports `NotificationManager` or `BtnHook` as its type (both are filtered), and how deep stacks
+  look in a real mod's notice.
 - Run the repro, then turn `kBlankTns` on in the beta kit and ask the tester for a screenshot plus `ts3native.log`.
