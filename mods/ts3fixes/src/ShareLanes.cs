@@ -418,7 +418,8 @@ namespace Ts3Fixes
                     if (sim != null && obstacles != null && obstacles.Count > 0 && sim.SimRoutingComponent != null && !sim.SimRoutingComponent.ShouldIgnoreAllObstacles)
                     {
                         FollowRouteAction fa = sSpsAction.GetValue(this) as FollowRouteAction;
-                        SpsPass(sim, fa == null ? null : fa.RouteToBeFollowed, obstacles, false);
+                        Route route = fa == null ? null : fa.RouteToBeFollowed;
+                        if (!PrxPass(sim, route, obstacles, false)) SpsPass(sim, route, obstacles, false);  // petrelax (PetRelax.cs, §11) first: small pets
                     }
                 }
                 catch (ResetException) { throw; }
@@ -435,7 +436,7 @@ namespace Ts3Fixes
             {
                 if (sim == null || path == null || !path.PlanResult.Succeeded()) return false;
                 ObjectGuid[] obstacles = path.FindObstaclesForSim(sim.Proxy);
-                return obstacles != null && SpsPass(sim, path, obstacles, true);
+                return obstacles != null && (PrxPass(sim, path, obstacles, true) || SpsPass(sim, path, obstacles, true));
             }
             catch (ResetException) { throw; }
             catch (Exception e) { ShlError(7, e); return false; }

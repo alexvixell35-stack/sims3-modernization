@@ -48,7 +48,7 @@ namespace Ts3Fixes
         const int kClwErrorLines = 3;  // lines per site
         const int kClwMaxTable = 64;
 
-        class ClwWait { public object Action; public DateAndTime Start; public bool Counted; }
+        class ClwWait { public object Action; public DateAndTime Start; public bool Counted, PetCounted; }
         class ClwGrant { public Route Route; public DateAndTime Start; }
         static readonly Dictionary<ulong, ClwWait> sClwDob = new Dictionary<ulong, ClwWait>();      // destination waits running, by Sim
         static readonly Dictionary<ulong, ClwGrant> sClwGrant = new Dictionary<ulong, ClwGrant>();  // routes that may end in a Sim's place, by Sim
@@ -126,6 +126,7 @@ namespace Ts3Fixes
             public string Names = "";
             public int NameCount;
             public readonly List<Sim> Sims = new List<Sim>(4);
+            public List<GameObject> Jigs;  // PetRelax.cs: floor jigs of lying pets that count as their pets
 
             public bool Add(Sim sim, Sim b, bool scopeAll, bool atDest)
             {
@@ -174,8 +175,8 @@ namespace Ts3Fixes
             if (obstruction.IsValid)
             {
                 // destination wait: what the game found on the end point is at the route's end whatever its distance
-                Sim b = GameObject.GetObject(obstruction) as Sim;
-                if (!ClwIsWalkable(b)) s.Case.Others++;
+                Sim b = ClwSimOf(s, sim, GameObject.GetObject(obstruction));
+                if (b == null) s.Case.Others++;
                 else
                 {
                     s.Add(sim, b, scopeAll, true);
@@ -203,32 +204,53 @@ namespace Ts3Fixes
         static void ClwAddObstacle(ClwSeen s, Sim sim, GameObject o, bool scopeAll)
         {
             if (o == null || o == sim) return;
-            Sim b = o as Sim;
-            if (ClwIsWalkable(b)) s.Add(sim, b, scopeAll, false);
+            Sim b = ClwSimOf(s, sim, o);
+            if (b != null) s.Add(sim, b, scopeAll, false);
             else s.Case.Others++;
+        }
+
+        // The Sim or pet an obstacle stands for: itself, or the pet lying in a floor jig that petrelax passes (PetRelax.cs,
+        // docs/686 §11; the jig is then ignored by the route when the walk begins). Null = an object.
+        static Sim ClwSimOf(ClwSeen s, Sim sim, GameObject o)
+        {
+            Sim b = o as Sim;
+            if (b != null) return ClwIsWalkable(b) ? b : null;
+            b = PrxJigPetInScope(o, sim);
+            if (b == null) return null;
+            if (s.Jigs == null) s.Jigs = new List<GameObject>(2);
+            s.Jigs.Add(o);
+            return b;
         }
 
         // ---- the rule ---------------------------------------------------------------------------------------------------
 
-        // One cycle of a wait that the game wants to go on. true = keep waiting. wait.Counted keeps the counters per wait.
-        static bool ClwCycle(int site, Sim sim, Route path, float elapsed, ObjectGuid obstruction, ref bool counted, out bool destAccepted)
+        // One cycle of a wait that the game wants to go on. true = keep waiting. counted / petCounted keep the counters of
+        // clipwait and of petrelax (PetRelax.cs, docs/686 §11: small pets, judged before the grace) to one per wait.
+        static bool ClwCycle(int site, Sim sim, Route path, float elapsed, ObjectGuid obstruction, ref bool counted, ref bool petCounted, out bool destAccepted)
         {
             destAccepted = false;
-            if (!ClipWaitCore.Due(elapsed, Instantiator.kClipWaitGraceMinutes) || sim.SimRoutingComponent == null) return true;
+            if (sim.SimRoutingComponent == null) return true;
             int[] c = PatchCounters();
             bool on = ShortcutOn("clipwait"), hhOn = ShortcutOn("clipwaithh");
             ClwSeen s = ClwGather(sim, path, elapsed, obstruction, on, hhOn);
-            int kept;
-            int d = ClipWaitCore.Decide(on, s.Case, out kept, out destAccepted);
-            if (!counted && (d != ClipWaitCore.kNone || kept != ClipWaitCore.kKeptNot))
+            bool petHousehold;
+            bool pet = PrxClip(sim, s.Case, s.Sims, ref petCounted, out destAccepted, out petHousehold);
+            if (!pet)
             {
-                counted = true;
-                c[kClwGrace]++;
-                if (kept != ClipWaitCore.kKeptNot) c[kClwKeptObject + kept - 1]++;
-                else if (d == ClipWaitCore.kWould) c[kClwWould]++;
-                else if (d == ClipWaitCore.kExempt) c[kClwExempt]++;
+                if (!ClipWaitCore.Due(elapsed, Instantiator.kClipWaitGraceMinutes)) return true;
+                int kept;
+                int d = ClipWaitCore.Decide(on, s.Case, out kept, out destAccepted);
+                if (!counted && (d != ClipWaitCore.kNone || kept != ClipWaitCore.kKeptNot))
+                {
+                    counted = true;
+                    c[kClwGrace]++;
+                    if (kept != ClipWaitCore.kKeptNot) c[kClwKeptObject + kept - 1]++;
+                    else if (d == ClipWaitCore.kWould) c[kClwWould]++;
+                    else if (d == ClipWaitCore.kExempt) c[kClwExempt]++;
+                }
+                if (d != ClipWaitCore.kGo) { destAccepted = false; return true; }
             }
-            if (d != ClipWaitCore.kGo) { destAccepted = false; return true; }
+            PrxIgnoreJigs(path, s.Jigs);  // lying pets that count as walked through: their floor jigs leave this route's plans
 
             if (!path.PlanResult.Succeeded())
             {
@@ -247,6 +269,14 @@ namespace Ts3Fixes
                 g.Route = path; g.Start = SimClock.CurrentTime();
                 sClwGrant[sim.ObjectId.Value] = g;
             }
+            if (pet)
+            {
+                c[destAccepted ? kPrxClipDest : kPrxClip]++;
+                if (petHousehold) c[kPrxHousehold]++;
+                PrxLog("petrelax: " + sim.FullName + " " + ShlWho(sim) + ", " + SwfIa(sim) + ": " + (destAccepted ? "destination accepted" : "walked through") + " at the " + kClwSites[site]
+                    + " after " + elapsed.ToString("0.0") + " sim-min, through: " + s.Names + (s.NameCount > 3 ? " +" + (s.NameCount - 3) : "") + ", at " + V(sim.Position));
+                return false;
+            }
             c[destAccepted ? kClwDest : kClwWalked]++;
             if (IsPlayerSim(sim)) c[kClwHousehold]++;
             sClwLast = "clipwait: " + sim.FullName + " " + ShlWho(sim) + ", " + SwfIa(sim) + ": " + (destAccepted ? "destination accepted" : "walked through") + " at the " + kClwSites[site]
@@ -263,7 +293,7 @@ namespace Ts3Fixes
                 if (sim == null || path == null || sSwfMissing.Length > 0) return true;
                 SwfState st = SwfStateOf(sim, action);
                 bool dest;
-                if (ClwCycle(kClwSiteObstacle, sim, path, SimClock.ElapsedTime(TimeUnit.Minutes, st.Start), ObjectGuid.InvalidObjectGuid, ref st.ClwCounted, out dest)) return true;
+                if (ClwCycle(kClwSiteObstacle, sim, path, SimClock.ElapsedTime(TimeUnit.Minutes, st.Start), ObjectGuid.InvalidObjectGuid, ref st.ClwCounted, ref st.PrxCounted, out dest)) return true;
                 sSwfReturn.SetValue(action, RouteAction.ActionResult.ContinueAndFollowPath);
                 sSwfElected.SetValue(action, true);
                 return false;
@@ -284,7 +314,7 @@ namespace Ts3Fixes
                 ObjectGuid obstruction = path.GetObstructionAtPoint(dest);
                 if (!obstruction.IsValid || obstruction == sim.ObjectId) return true;  // the game ends the wait itself next cycle
                 bool accepted;
-                if (ClwCycle(kClwSiteDest, sim, path, SimClock.ElapsedTime(TimeUnit.Minutes, w.Start), obstruction, ref w.Counted, out accepted)) return true;
+                if (ClwCycle(kClwSiteDest, sim, path, SimClock.ElapsedTime(TimeUnit.Minutes, w.Start), obstruction, ref w.Counted, ref w.PetCounted, out accepted)) return true;
                 sClwDobReturn.SetValue(action, RouteAction.ActionResult.ContinueAndFollowPath);
                 sClwDobExiting.SetValue(action, true);
                 return false;

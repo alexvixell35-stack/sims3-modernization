@@ -408,6 +408,11 @@ namespace Ts3Fixes
         [Tunable] public static float kClipWaitGraceMinutes = 2f;  // clipwait: sim-minutes a Sim stands before it walks through (2 = about 2 seconds at normal speed; the game's own push and replan run in the cycles before); judged at the end of a wait cycle
         [Tunable] public static float kClipWaitMinutes = 3f;  // clipwait: sim-minutes the ignore-obstacles timer runs per walk (simpass uses 3, the game 5 after a portal)
         [Tunable] public static bool kClipWaitObjectDest = true;  // clipwait: a route to an object may end in a Sim that stands at its spot without using the object (false = only plain floor spots)
+        [Tunable] public static bool kPetRelax = false;  // petrelax (docs/686 §11): small pets and the Sims around them walk through each other at once (the game's ignore-obstacles timer; horses, foals and deer keep the clipwait grace), routes ignore the floor jigs of lying pets, and a pet about to lie down on a stair, door or ladder lane end first walks to a free spot next to it
+        [Tunable] public static bool kPetRelaxHousehold = false;  // petrelaxhh: petrelax for household and selected Sims and pets too, as the walker and as the one walked through
+        [Tunable] public static float kPetRelaxMinutes = 3f;  // petrelax: sim-minutes the ignore-obstacles timer runs per walk (simpass and clipwait use 3)
+        [Tunable] public static float kPetRelaxPortalClear = 1.25f;  // petrelax: a pet that would lie down within this many metres of a portal lane end walks off it first (0 = never)
+        [Tunable] public static bool kPetRelaxLog = false;  // petrelaxlog: one ts3native.log line per act
         [Tunable] public static bool kClipWaitLog = false;  // clipwaitlog: one ts3native.log line per walk
         [Tunable] public static bool kAngleEntry = false;  // angleentry (docs/686 §8): the approach to stairs, and to a ladder climbed from below, is a plan to the lane's start point without facing; the stair walk and the climb set the Sim's facing themselves
         [Tunable] public static bool kAngleEntryHousehold = false;  // angleentryhh: angleentry for household and selected Sims too

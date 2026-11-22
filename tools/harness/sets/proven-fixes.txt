@@ -447,6 +447,7 @@ worldpondskatetest
 #   sharelanes sharelaneshh laddershare laddersharehh simpass simpasshh angleentry angleentryhh lanewaitlog
 #   spiralshare spiralsharehh (2026-11-22: a spiral staircase's one lane in both directions, its line skipped; 2 storms s478 / s479, no errors, not proven)
 #   clipwait clipwaithh (2026-11-22: a Sim that waited 2 sim-minutes for Sims or pets in its way walks through them; never run, not proven)
+#   petrelax petrelaxhh (2026-11-22, docs/686 §11: small pets and the Sims around them walk through each other at once, lying pets' floor jigs are not obstacles, no lie-down on a lane end; never run, not proven)
 # built 2026-11-21 (fix/boatwp-1121, docs/642 §10), default off, not run in the game (an unseen NPC boat's failed plan skips EA's route-fail path):
 #   failreplanboat
 # built 2026-11-20 (feat/act-delay-1120, docs/684), default off, not run in the game (read-only probe, test runs only):

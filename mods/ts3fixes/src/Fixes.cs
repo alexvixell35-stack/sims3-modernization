@@ -528,6 +528,7 @@ namespace Ts3Fixes
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, and §7 standwaitlocked / standwaitlockedhh (StandWaitLocked.cs), off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
+            ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
             // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
             ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off)
@@ -1332,7 +1333,11 @@ namespace Ts3Fixes
         // spot, or an object's spot taken by a Sim not using it) / errors / would, off / exempt (household without its switch) / kept: object in the way / Sim at the
         // object in use / social / player Go Here / plan fails without people too / destination-obstructed waits begun / tenths of sim-minutes stood in them / of
         // them ended as route failed / destination events let through after a walk / walks by household or selected Sims.
-        const int kCounterSlots = 4414;
+        // [4430-4445] petrelax (PetRelax.cs, docs/686 §11): walked through at the obstacle event / at the obstacle wait / stand-and-waits ended before the clipwait
+        // grace / destination accepted / routes given the pass through lying pets' floor jigs / pets walked off a lane end before lying down / errors / would,
+        // off / exempt (household without its switch) / kept: horse, foal or deer / object in the way / route's end (in use, social, player Go Here) / no free
+        // spot for the lie-down / autonomous floor lie-downs seen / of them at a portal lane end / acts with a household Sim or pet.
+        const int kCounterSlots = 4446;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1642,6 +1647,9 @@ namespace Ts3Fixes
                 case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
                 case "clipwait": return Instantiator.kClipWait;  // ClipWait.cs (docs/686 §9): a Sim that stood past the grace with only Sims or pets in its way walks through them, off
                 case "clipwaithh": return Instantiator.kClipWaitHousehold;  // ClipWait.cs: clipwait for household and selected Sims too (as walker and as the Sim walked through), off
+                case "petrelax": return Instantiator.kPetRelax;  // PetRelax.cs (docs/686 §11): small pets and the Sims around them walk through each other at once, lying pets are not obstacles, no lie-down on a lane end, off
+                case "petrelaxhh": return Instantiator.kPetRelaxHousehold;  // PetRelax.cs: petrelax for household and selected Sims and pets too, off
+                case "petrelaxlog": return Instantiator.kPetRelaxLog;  // PetRelax.cs (docs/686 §11): one line per act, off
                 case "clipwaitlog": return Instantiator.kClipWaitLog;  // ClipWait.cs (docs/686 §9): one line per walk, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
