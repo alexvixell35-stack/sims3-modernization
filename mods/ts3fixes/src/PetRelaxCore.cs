@@ -38,6 +38,17 @@ namespace Ts3Fixes
             return k.WalkerInScope && k.AllInScope ? kGo : kExempt;
         }
 
+        // A route's plan failed and names its blocker. A lying pet's floor jig as the blocker is passed (when: Timed, so
+        // away from a portal the walker first stands for the grace); any other blocker is not ours.
+        public static int PlanJig(bool on, bool blockerIsPetJig, bool walkerLarge, bool walkerInScope, bool petInScope, out int kept)
+        {
+            kept = kKeptNot;
+            if (!blockerIsPetJig) return kNone;
+            if (walkerLarge) { kept = kKeptHorse; return kNone; }
+            if (!on) return kWould;
+            return walkerInScope && petInScope ? kGo : kExempt;
+        }
+
         // A pet about to lie down where it stands, with a portal lane end within the clearance.
         public static int LieDown(bool on, bool petInScope, bool atLaneEnd)
         {

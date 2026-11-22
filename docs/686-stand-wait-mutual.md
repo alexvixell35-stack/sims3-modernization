@@ -672,7 +672,11 @@ every Sim and pet walks its own route. `PetRelax.cs`, rules in `PetRelaxCore.cs`
 2. **A pet lying near a portal is not an object.** `SimRoutingComponent.SetRouteOptions` (every route a Sim
    creates) adds the floor jigs of the lying pets on the walker's lot that lie within `kClipPortalNear` of a portal
    lane (read once, when the pet lay down) to the route's ignore list (`AddObjectToIgnoreForRoute`, the call the
-   game makes for the pet itself). A pet that lies anywhere else is walked around as the game has it (§8.7). The
+   game makes for the pet itself). A pet that lies anywhere else is walked around as the game has it (§8.7); when
+   there is no way around (the plan fails and names the pet's jig as its blocker, a pet across a hallway), the
+   walker stands where it is for `kClipGraceMinutes`, then the route is planned again with the jig ignored and
+   walked (`PrxPlanFailed`, from the `DoRoute` hook; up to 3 lying pets per plan; a cancelled Sim or a plan that
+   fails without the pet too gets the game's answer). The pet itself is then passed without a second grace. The
    jigs are listed when `LayDownHere.Run` returns and leave the list when the pet is up. In the obstacle event and
    the two waits every floor jig counts as its pet (rule 1 and its timing), and the route ignores it once the walk
    through begins.
@@ -690,9 +694,8 @@ the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the li
 
 - **Pushable pet idles** (an `IBePushedCanCancel` answer for naps and sits): with rules 1 and 2 nobody waits for
   the pet, and a push would wake a sleeping pet (energy, moodlets): a change of EA's design, not wanted.
-- **One-tile hallways** as lie-down chokepoints: no cheap test for "hallway" in script. Since §8.7 rule 2 passes
-  only pets lying near a portal, so a pet lying across a hallway away from every door closes it as in the game
-  (the plan fails on the jig; a wait that names the jig ends after the grace by rule 1).
+- **One-tile hallways** as lie-down chokepoints: no cheap test for "hallway" in script. A pet lying across a
+  hallway away from every door costs the walker the grace, not the route (rule 2, the failed plan).
 - **Favourite and "next to my owner" sleeping spots** on a lane end: the player's or EA's choice of spot; rule 2
   covers the passing Sims.
 - **Horse naps** (`HorseNap`, own jig, outdoors) and horses at house doors: large bodies, EA's door rule.
@@ -708,6 +711,8 @@ the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the li
 - The walker cannot be pushed while its timer runs (as `simpass`).
 - Rule 3 reads the lot's object list once per autonomous floor lie-down.
 - Before the grace every stand-and-wait cycle gathers who is in the way (the cycles of 2.5 sim-minutes per wait).
+- The stand at a failed plan is a plain wait in `DoRoute` (half sim-minute steps, ended by any exit reason); the
+  Sim plays no animation in it.
 - §8.7: "near a portal" is read where the pet lay down; a door built next to a lying pet counts from its next nap.
 
 ### 11.5 Checks (2026-11-22, no game) and run plan
@@ -743,7 +748,9 @@ and ordered to lie in the corridor with the player's own order (`Lay Down Here` 
 - Not a case: a doorway without depth (a gap in a wall line). The game's `FindGoodLocationNearby` puts the jig
   beside it and the Sim walks through in both arms.
 - This run was before the timing rule of §8.7. With it the dog in this corridor is passed at once only when it
-  lies within 1.5 m of a portal lane; otherwise the off column's failed plan stays. NOT RUN with §8.7.
+  lies within 1.5 m of a portal lane; otherwise the Sim stands the grace at the failed plan and then walks
+  through. NOT RUN with §8.7. [inferred: `Route.Replan` on a route whose first plan failed plans it again from
+  where the Sim stands, as it does inside the stand-and-wait.]
 - Open: rule 3 (no lie-down on a lane end) and a walking pet behind Sims did not run; a dog standing idle is pushed by
   the game itself.
 

@@ -393,6 +393,8 @@ namespace Ts3Fixes
             bool RouteBlocked(Route r, bool afterWalk)
             {
                 Sim sim = OwnerSim;
+                // petrelax (PetRelax.cs, docs/686 §11.2 rule 2): the plan failed on a lying pet = stand the grace, plan through it
+                if (PrxPlanFailed(sim, r)) return RouteOrig(r);
                 BuCase k = null;
                 try { k = BuBegin(sim, r); }
                 catch (ResetException) { throw; }
