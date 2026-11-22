@@ -127509,5 +127509,1455 @@
         "waitS": 1
       }
     ]
+  },
+  {
+    "id": "viewlenient-force",
+    "bug": "A Genius Sim that contemplates its surroundings plans to a ring 0.3-1 m round its own place, limited to the room of the object the game picked: an object behind a wall (another room) leaves the ring empty, the plan fails with 'no destination', the Sim plays the route-fail balloon and the interaction ends (Terrain.Contemplate, docs/686 §16.1)",
+    "fix": "ts3fixes ViewLenient.cs: viewlenient + viewlenienthh (default off), viewlenientlog, docs/686 §16",
+    "save": "any world with a vacant empty lot of 20 x 30 tiles (Sunset Valley new game: 18 Maywood Lane; the places are that lot's)",
+    "note": "RUN 2026-11-22 (Deck, Sunset Valley new game), by hand in session p4-m1 (phase-20261122-1903) and as this entry (docs/686 §16.5). A Genius young adult (and a second Sim: a household has two at least), a room 6x4 without roof, a chair inside at the west wall (buy_object, then set_transform: the buy places nothing within 1.5 m of a wall), Ann outside that wall. Contemplate has no pie menu entry: agent step contemplate queues Terrain.Contemplate at the Sim's place as the game's ContemplateSomethingAutonomous does. What the hand session found: the game's object query for Contemplate reaches about 3 m (not the tuned 5: a shower 3.2 m away was not picked), it picks through a wall, and a Sim within 1 m of the wall is no repro (the ring reaches into the room and she walks round through the door). The mailbox and the outdoor trash can are pickable: the place is on the far side of the house from them. 'would' (4511) is counted for every Sim in town.",
+    "expect": "viewlenient-off: 'routefail: Ann View ..., Contemplate target Terrain, Plan async FailedBecauseNoDestinationSpecified', the route-fail balloon, no Contemplate in her queue at 18 s, would (4511) up, no Fascinated. viewlenient-on: the same routefail line (it is written at the plan), then 'viewlenient: selected Ann View, Contemplate -> Terrain at ... (contemplate, FailedBecauseNoDestinationSpecified): stays in place, 0.0 m at ...', contemplate (4513) 1, stayed in place (4518) 1, the thought balloon shows the chair, Fascinated at the end, errors 0.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "View",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Ann",
+              "last": "View",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Genius",
+                "Artistic"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bea",
+              "last": "View",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: young adults on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "View"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "note": "daylight",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1 (the Deck runner's idle phase is paused)",
+        "waitS": 2
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E",
+            "E E E E E E",
+            "E E E E E E",
+            "E E E X E E"
+          ],
+          "house": true,
+          "margin_top": 0,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "sim_timeout_s": 120
+        },
+        "note": "a room 6x4 with a door, no roof (walls x 1188.3 / 1196.3, z 1191.1 / 1196.1 on 18 Maywood Lane)",
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "name": "King of the Basement Living Chair",
+          "x": 1190.8,
+          "y": 49.1,
+          "z": 1193.6
+        },
+        "note": "a chair in the room",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_transform",
+        "args": {
+          "target": "@type:ChairLivingCrates",
+          "x": 1188.8,
+          "z": 1194.6
+        },
+        "note": "the chair on the tile at the west wall (as with moveobjects)",
+        "max": 300,
+        "mustMatch": "\"room\":[1-9]",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "viewlenientlog": true,
+          "routefaillog": true
+        },
+        "note": "log lines on",
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1182,
+            "y": 53,
+            "z": 1198
+          },
+          "target": {
+            "x": 1187.4,
+            "y": 50,
+            "z": 1194.6
+          }
+        },
+        "note": "camera on Ann, the wall and the chair",
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ann View"
+          ],
+          "x": 1186.4,
+          "z": 1194.7,
+          "autonomy": false,
+          "motives": true,
+          "moodlets": true
+        },
+        "note": "off: Ann outside the west wall, 1.9 m from it and 2.4 m from the chair behind it; moodlets off (Fascinated refuses Contemplate)",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "viewlenient": false,
+          "viewlenienthh": false
+        },
+        "note": "arm off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "viewlenient-off"
+        },
+        "note": "log marker viewlenient-off"
+      },
+      {
+        "cmd": "contemplate",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "off order: Contemplate where she stands (the game's own start of it); the only object it can pick is the chair in room 1",
+        "max": 500,
+        "mustMatch": "\"picks\":\\[\"ChairLivingCrates room [1-9]\\d*\"\\].*\"queued\":true",
+        "waitS": 18
+      },
+      {
+        "cmd": "queues",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "off at 18 s: the interaction is over (route-fail balloon, then bored)",
+        "max": 400,
+        "mustMatch": "^(?!.*Terrain\\+Contemplate)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ViewLenientCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: would (4511) up, nothing handled",
+        "max": 1800,
+        "mustMatch": "contemplate 0, .*stayed in place 0.*off: would [1-9]",
+        "waitS": 1
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "off: no Fascinated moodlet",
+        "max": 500,
+        "mustMatch": "^(?!.*Fascinated)",
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "off: she stands where she stood",
+        "max": 200,
+        "mustMatch": "\"x\":1186\\.[0-9]+.*\"z\":1194\\.[0-9]+",
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ann View"
+          ],
+          "x": 1186.4,
+          "z": 1194.7,
+          "autonomy": false,
+          "motives": true,
+          "moodlets": true
+        },
+        "note": "on: Ann outside the west wall, 1.9 m from it and 2.4 m from the chair behind it; moodlets off (Fascinated refuses Contemplate)",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "viewlenient": true,
+          "viewlenienthh": true
+        },
+        "note": "arm on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "viewlenient-on"
+        },
+        "note": "log marker viewlenient-on"
+      },
+      {
+        "cmd": "contemplate",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "on order: Contemplate where she stands (the game's own start of it); the only object it can pick is the chair in room 1",
+        "max": 500,
+        "mustMatch": "\"picks\":\\[\"ChairLivingCrates room [1-9]\\d*\"\\].*\"queued\":true",
+        "waitS": 5
+      },
+      {
+        "cmd": "queues",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "on at 5 s: Contemplate runs",
+        "max": 400,
+        "mustMatch": "Terrain\\+Contemplate",
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ViewLenientCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: contemplate (4513) and stayed in place (4518) up, 'last: ... stays in place', errors 0",
+        "max": 1800,
+        "mustMatch": "contemplate [1-9]\\d*, .*stayed in place [1-9].*errors 0.*last: .*Ann View, Contemplate -> Terrain.*stays in place",
+        "waitS": 1
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "on at 30 s: Fascinated = the 20 sim-minutes of Contemplate ran to their end",
+        "max": 500,
+        "mustMatch": "Fascinated",
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Ann View"
+        },
+        "note": "on: she stands where she stood",
+        "max": 200,
+        "mustMatch": "\"x\":1186\\.[0-9]+.*\"z\":1194\\.[0-9]+",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "socialreach-force",
+    "bug": "Two household Sims 2.3 m apart with furniture between them and no way round: Chat's placement (SetupTwoPersonSocial: a ring at the social's distance round the partner, then the placement jig) finds no route, the starter plays the route-fail balloon and nobody talks (docs/686 §17.1)",
+    "fix": "ts3fixes SocialReach.cs: socialreach + socialreachhh (default off), socialreachlog, docs/686 §17",
+    "save": "any world with a vacant empty lot (Sunset Valley new game: 18 Maywood Lane; the places are that lot's)",
+    "note": "RUN 2026-11-22 (Deck, Sunset Valley new game), by hand in session p4-m1 (phase-20261122-1903) and as this entry (docs/686 §17.6). Bo stands on a lawn tile ringed by eight fridges (agent step box_in), Cy on the tile beyond the ring, 2.3 m from Bo. No walls, so the light-blocking wall test passes. Control: Heat of the Moment Kiss (a two-person jig) keeps the game's failure. Seen in the hand session and not in this entry: High Five has no jig in the social data and is done from where they stand as well.",
+    "expect": "socialreach-off: 'routefail: Cy Talk ..., SocialInteractionA target Sim, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeCheap', tries (4526) and would (4527) up, nobody talks at 20 s. socialreach-on: 'socialreach: household Cy Talk, SocialInteractionA Chat -> Bo Talk (placement): placed where they stand, 2.3 m apart', placement (4532) 1, from where they stand (4533) 1, at 8 s Cy runs SocialInteractionA 'Chat' and Bo SocialInteractionB 'Be Chatted To' and they talk across the fridges, errors 0. socialreach-control: the kiss adds 1 to 'paired or jig socials left alone' (4529) and fails as in the game.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Talk",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Talk",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Cy",
+              "last": "Talk",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: young adults on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Talk"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "note": "daylight",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1 (the Deck runner's idle phase is paused)",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Talk",
+            "Cy Talk"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "everybody at the home mailbox, queues empty (a Sim may have left the lot on its own in the 30 s before autonomy went off)",
+        "max": 300,
+        "waitS": 10
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Talk"
+          ],
+          "x": 1190.8,
+          "z": 1183.6,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bo on a lawn tile of the back yard",
+        "max": 300,
+        "waitS": 10
+      },
+      {
+        "cmd": "box_in",
+        "args": {
+          "sim": "Bo Talk",
+          "x": 1190.8,
+          "z": 1183.6
+        },
+        "note": "eight fridges on the eight tiles round him, backs to him (no walls); his plan to a place 6 m away fails",
+        "max": 900,
+        "mustMatch": "\"boxed\":true",
+        "waitS": 2
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1190.8,
+            "y": 63,
+            "z": 1188.4
+          },
+          "target": {
+            "x": 1190.8,
+            "y": 49,
+            "z": 1185.4
+          }
+        },
+        "note": "camera above the box (from the side the fridges hide the Sim)",
+        "waitS": 1
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cy Talk",
+          "x": 1190.8,
+          "z": 1185.9
+        },
+        "note": "Cy on the tile north of the ring, 2.3 m from Bo",
+        "max": 200,
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "socialreachlog": true,
+          "routefaillog": true,
+          "unstuck": false,
+          "unstuckhh": false
+        },
+        "note": "log lines on",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "socialreach": false,
+          "socialreachhh": false
+        },
+        "note": "arm off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "socialreach-off"
+        },
+        "note": "log marker socialreach-off"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cy Talk",
+          "target": "Bo Talk",
+          "interaction": "Friendly... / Chat"
+        },
+        "note": "off order: Cy, Chat with Bo",
+        "max": 300,
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SocialReachCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 20 s: tries (4526) and would (4527) up, nothing placed",
+        "max": 1800,
+        "mustMatch": "placement 0; by outcome: from where they stand 0, .*off: would [1-9]",
+        "waitS": 1
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off at 20 s: nobody talks",
+        "max": 600,
+        "mustMatch": "^(?!.*SocialInteraction)",
+        "waitS": 1
+      },
+      {
+        "cmd": "relationships",
+        "args": {
+          "sim": "Cy Talk"
+        },
+        "note": "off: liking with Bo (0, or -3 for the failed social: run sr-r4)",
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cy Talk"
+        },
+        "note": "Cy's queue empty",
+        "max": 60,
+        "optional": true,
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "socialreach": true,
+          "socialreachhh": true
+        },
+        "note": "arm on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "socialreach-on"
+        },
+        "note": "log marker socialreach-on"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cy Talk",
+          "target": "Bo Talk",
+          "interaction": "Friendly... / Chat"
+        },
+        "note": "on order: Cy, Chat with Bo",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on at 8 s: both sides of the chat run (SocialInteractionA on Cy, SocialInteractionB on Bo)",
+        "max": 600,
+        "mustMatch": "SocialInteraction[AB].*SocialInteraction[AB]",
+        "waitS": 26
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SocialReachCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on at 34 s: 'placed where they stand' (4532 + 4533) or 'talks from where it stands' (4530 + 4533), errors 0",
+        "max": 1800,
+        "mustMatch": "from where they stand [1-9].*errors 0",
+        "waitS": 1
+      },
+      {
+        "cmd": "relationships",
+        "args": {
+          "sim": "Cy Talk"
+        },
+        "note": "on: liking with Bo (11.7 after 25 s in the hand session, still 0 after 35 s in runs sr-r1 and sr-r3: no test)",
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Cy Talk"
+        },
+        "note": "on: Cy stands where he stood",
+        "max": 200,
+        "mustMatch": "\"z\":1185\\.[0-9]+",
+        "waitS": 6
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Cy Talk"
+        },
+        "note": "Cy's queue empty",
+        "max": 60,
+        "optional": true,
+        "waitS": 3
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "socialreach-control"
+        },
+        "note": "log marker socialreach-control"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cy Talk",
+          "target": "Bo Talk",
+          "interaction": "Romantic... / Heat of the Moment Kiss"
+        },
+        "note": "control order: a kiss (two-person jig) across the fridges",
+        "max": 300,
+        "optional": true,
+        "waitS": 14
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SocialReachCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "control: 'paired or jig socials left alone' (4529) up, no new placement (no test of the count: the kiss is not always on the menu)",
+        "max": 1800,
+        "mustMatch": "errors 0",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "unstuck-force",
+    "bug": "A household Sim ringed by furniture on its own lot fails every route (the game's stuck check skips the active household's lot, docs/686 §18.1): each Go Here ends in the route-fail balloon and the Sim stays",
+    "fix": "ts3fixes Unstuck.cs: unstuck + unstuckhh (default off), unstucklog, docs/686 §18",
+    "save": "any world with a vacant empty lot (Sunset Valley new game: 18 Maywood Lane; the places are that lot's)",
+    "note": "RUN 2026-11-22 (Deck, Sunset Valley new game), by hand in session p4-m1 (phase-20261122-1903) and as this entry (docs/686 §18.6). Bo stands on a lawn tile ringed by eight fridges (agent step box_in: backs to the Sim). What the hand session found: a ring of counters or of fridges that all face one way does not hold a Sim (a fridge's footprint is short at its front and the planner walks through the slit between two of them), and four objects on the four sides leave the corners open. The off arm's signal starts the 30 sim-minute cooldown for Bo as well: 45 s at speed 1 lie between the arms.",
+    "expect": "unstuck-off: three 'routefail: Bo Stuck ..., GoHere target Terrain, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeCheap', stuck signals (4539) and would look (4541) up by 1, Bo on his tile. unstuck-on: the same three lines (they are written at the plan), and at the third order 'unstuck: selected Bo Stuck at 1190.8,49.1,1183.6 (3 failed plans, last FailedBecauseNoPathToDestination): walked out through objects, 2.6 m to 1190.8,49.1,1181.0 (ring 0.75 m), its route planned again: ok', walked out (4546) 1, planned again ok (4548) 1, Bo walks round the box to the place, errors 0.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Stuck",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Stuck",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Cy",
+              "last": "Stuck",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: young adults on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Stuck"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "note": "daylight",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1 (the Deck runner's idle phase is paused)",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Stuck",
+            "Cy Stuck"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "everybody at the home mailbox, queues empty (a Sim may have left the lot on its own in the 30 s before autonomy went off)",
+        "max": 300,
+        "waitS": 10
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Stuck"
+          ],
+          "x": 1190.8,
+          "z": 1183.6,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bo on a lawn tile of the back yard",
+        "max": 300,
+        "waitS": 10
+      },
+      {
+        "cmd": "box_in",
+        "args": {
+          "sim": "Bo Stuck",
+          "x": 1190.8,
+          "z": 1183.6
+        },
+        "note": "eight fridges on the eight tiles round him, backs to him (no walls); his plan to a place 6 m away fails",
+        "max": 900,
+        "mustMatch": "\"boxed\":true",
+        "waitS": 2
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1190.8,
+            "y": 63,
+            "z": 1188.4
+          },
+          "target": {
+            "x": 1190.8,
+            "y": 49,
+            "z": 1185.4
+          }
+        },
+        "note": "camera above the box (from the side the fridges hide the Sim)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unstucklog": true,
+          "routefaillog": true,
+          "socialreach": false,
+          "socialreachhh": false
+        },
+        "note": "log lines on",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unstuck": false,
+          "unstuckhh": false
+        },
+        "note": "arm off",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnstuckCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "before: 'Bo Stuck at ...: boxed in, a way out through objects of 2.6 m'",
+        "max": 1800,
+        "mustMatch": "Bo Stuck at [^;]*: boxed in, a way out through objects",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "unstuck-off"
+        },
+        "note": "log marker unstuck-off"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Bo Stuck",
+          "x": 1190.8,
+          "z": 1189.6
+        },
+        "note": "off order 1: Go Here, 6 m north of the box",
+        "max": 200,
+        "waitS": 6
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Bo Stuck",
+          "x": 1190.8,
+          "z": 1189.6
+        },
+        "note": "off order 2: Go Here, 6 m north of the box",
+        "max": 200,
+        "waitS": 6
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Bo Stuck",
+          "x": 1190.8,
+          "z": 1189.6
+        },
+        "note": "off order 3: Go Here, 6 m north of the box",
+        "max": 200,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnstuckCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: stuck signals (4539) and would look (4541) up, nothing walked",
+        "max": 1800,
+        "mustMatch": "walked out through objects 0 .*off: would look [1-9]",
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Stuck"
+        },
+        "note": "off: Bo still on his tile",
+        "max": 200,
+        "mustMatch": "\"x\":1190\\.[0-9]+.*\"z\":1183\\.[0-9]+",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "unstuck-off-end"
+        },
+        "note": "log marker unstuck-off-end",
+        "waitS": 45
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unstuck": true,
+          "unstuckhh": true
+        },
+        "note": "arm on (the 30 sim-minute cooldown of the off signal is over)",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "unstuck-on"
+        },
+        "note": "log marker unstuck-on"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Bo Stuck",
+          "x": 1190.8,
+          "z": 1189.6
+        },
+        "note": "on order 1: Go Here, 6 m north of the box",
+        "max": 200,
+        "waitS": 6
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Bo Stuck",
+          "x": 1190.8,
+          "z": 1189.6
+        },
+        "note": "on order 2: Go Here, 6 m north of the box",
+        "max": 200,
+        "waitS": 6
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Bo Stuck",
+          "x": 1190.8,
+          "z": 1189.6
+        },
+        "note": "on order 3: Go Here, 6 m north of the box",
+        "max": 200,
+        "waitS": 14
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnstuckCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: walked out through objects (4546) 1, planned again ok (4548) 1, errors 0",
+        "max": 1800,
+        "mustMatch": "walked out through objects [1-9]\\d* \\(their route then planned again: ok [1-9].*errors 0.*last: .*Bo Stuck.*walked out through objects",
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Stuck"
+        },
+        "note": "on: Bo is out of the box, north of it",
+        "max": 200,
+        "mustMatch": "\"z\":11(8[6-9]|9[0-9])\\.",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "crowdport-force",
+    "bug": "Household Sims sent into one rabbit hole at one time wait at its door while another Sim holds the enter slot for its walk to it (RabbitHole.WaitForEnterSlot, docs/686 §19.1). crowdport set the waiting Sim on the held slot; at City Hall that made things worse (below)",
+    "fix": "ts3fixes CrowdPort.cs: crowdport + crowdporthh (default off), crowdportlog, docs/686 §19; CrowdPortCore.RhClear (the holder must be 6 m from its slot, one set per Sim and 15 sim-minutes), CrowdPortCore.WouldLate",
+    "save": "Sunset Valley new game (the start place x 1043.5 z 1065 is 12 m before City Hall there; the household is made by the repro)",
+    "note": "RUN 2026-11-22 (Deck, Sunset Valley new game), by hand in session p4-m1 (phase-20261122-1903) and as this entry (docs/686 §19.6). Five young adults are put on the City Hall lot at one place and ordered 'Tour City Hall' (no dialog, no fee), rhshare off. City Hall has two enter slots; a Sim takes its slot 2 m before it and holds it for about 2 sim-minutes. Runs cp-r1 to cp-r3 (rule as first built): 'crowdport: rabbit hole in: <Sim> is set on enter slot ..., 2 Sims there, waited 1.2 sim-min' (4551 up), and then the holder's walk failed on the Sim standing on the slot ('routefail: ... blocker Object ... Sim at 1049.0,45.1,1065.5'), or the Sim's own route failed on the holder's door jig ('blocker Object ... RabbitHoleDoorJig'), the game's loop asked for the slot again and the Sim was set on it again (Ann: three times in cp-r3). Fixed: a Sim is set on a slot only while its holder is 6 m from it, once per 15 sim-minutes; at City Hall that is never, so the on arm now shows the game's wait and 4562. No elevator on a Sunset Valley lot: the elevator rule is not run. Last steps (optional): rhexitunseen off, clock to 16:00 and speed x3 with the camera on the Business tower, for the NPC exit waits at closing time (4564, 4552, 4565).",
+    "expect": "crowdport-off: 'linewait: <Sim> household, VisitRabbitHole target CityHall: CityHall rhdoor, waited 1-8 sim-min, line length 1, outcome got turn', rhdoor waits (4474) up, rabbit hole in (4551) 0, would (4557) up by the waits of 1 sim-minute or more. crowdport-on: the same linewait lines, no 'crowdport: rabbit hole in:' line, rabbit hole in (4551) 0, 'holder out of scope, at the door or far' (4562) up, no routefail line of a household Sim with blocker RabbitHoleDoorJig or Sim, errors 0.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Crowd",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Ann",
+              "last": "Crowd",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Crowd",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Cy",
+              "last": "Crowd",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "d",
+              "first": "Di",
+              "last": "Crowd",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "e",
+              "first": "Ed",
+              "last": "Crowd",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: young adults on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Crowd"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "note": "daylight",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1 (the Deck runner's idle phase is paused)",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "linewaitlog": true,
+          "routefaillog": true,
+          "crowdportlog": true,
+          "rhshare": false,
+          "rhsharehh": false
+        },
+        "note": "log lines on, rhshare off",
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ann Crowd",
+            "Bo Crowd",
+            "Cy Crowd",
+            "Di Crowd",
+            "Ed Crowd"
+          ],
+          "x": 1043.5,
+          "z": 1065,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "off: all five on the City Hall lot, 4 m before the place where the game hands out the door slots (Sunset Valley)",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1026,
+            "y": 54,
+            "z": 1072
+          },
+          "target": {
+            "x": 1046,
+            "y": 45,
+            "z": 1065
+          }
+        },
+        "note": "camera on City Hall's doors",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": false,
+          "crowdporthh": false
+        },
+        "note": "arm off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "crowdport-off"
+        },
+        "note": "log marker crowdport-off"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ann Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "off order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bo Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "off order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cy Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "off order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Di Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "off order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ed Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "off order: Tour City Hall",
+        "max": 160,
+        "waitS": 28
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 28 s: rhdoor waits (4474) up",
+        "max": 1800,
+        "mustMatch": "rhdoor waits [1-9]",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: rabbit hole in (4551) 0; would (4557) up for each wait of 1 sim-minute or more behind another Sim",
+        "max": 1800,
+        "mustMatch": "rabbit hole in 0, ",
+        "waitS": 1
+      },
+      {
+        "cmd": "sims_activity",
+        "args": {},
+        "note": "off: where the Sims are",
+        "max": 10,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Ann Crowd",
+            "Bo Crowd",
+            "Cy Crowd",
+            "Di Crowd",
+            "Ed Crowd"
+          ],
+          "x": 1043.5,
+          "z": 1065,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "on: all five on the City Hall lot, 4 m before the place where the game hands out the door slots (Sunset Valley)",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": true,
+          "crowdporthh": true
+        },
+        "note": "arm on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "crowdport-on"
+        },
+        "note": "log marker crowdport-on"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ann Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "on order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bo Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "on order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Cy Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "on order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Di Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "on order: Tour City Hall",
+        "max": 160
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Ed Crowd",
+          "target": "@type:CityHall",
+          "interaction": "Tour City Hall"
+        },
+        "note": "on order: Tour City Hall",
+        "max": 160,
+        "waitS": 28
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on at 28 s: nobody is set on a slot (4551 0): the holder is at the door (4562 up), the game's wait; errors 0",
+        "max": 1800,
+        "mustMatch": "rabbit hole in 0, .*holder out of scope, at the door or far [1-9].*errors 0",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on: reserved enter slots left",
+        "max": 1800,
+        "waitS": 1
+      },
+      {
+        "cmd": "sims_activity",
+        "args": {},
+        "note": "on: where the Sims are",
+        "max": 10,
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "crowdport-exits"
+        },
+        "note": "log marker crowdport-exits"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhexitunseen": false
+        },
+        "note": "exits: unseen NPCs keep the exit pacing too",
+        "optional": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1040.5,
+            "y": 60,
+            "z": 985
+          },
+          "target": {
+            "x": 1040.5,
+            "y": 44,
+            "z": 962
+          }
+        },
+        "note": "exits: camera on the Business tower",
+        "optional": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 16
+        },
+        "note": "exits: 16:00",
+        "optional": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "note": "exits: speed x3 through closing time",
+        "optional": true,
+        "waitS": 50
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "exits: speed x1",
+        "optional": true,
+        "waitS": 2
+      },
+      {
+        "cmd": "time",
+        "args": {},
+        "note": "exits: the clock",
+        "optional": true,
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "exits: NPC exit waits (4564), left with a crowd (4552), ended by the pacing (4565), errors 0",
+        "max": 1800,
+        "mustMatch": "errors 0",
+        "waitS": 1
+      }
+    ]
   }
 ]

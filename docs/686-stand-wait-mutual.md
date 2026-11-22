@@ -1267,7 +1267,7 @@ Bo partners, a room without roof, one shower, later an all-in-one bathroom.
 - Harness: profile-world's `keep_alive` fills every household motive below -50 each 30 s and hid the bladder
   failure in three runs; a repro entry with `"noKeepAlive": true` runs without it.
 
-## 16. No route-fail balloon for looking at things (`viewlenient`; 2026-11-22, `feat/viewlenient-1122`, built, default off, NOT RUN)
+## 16. No route-fail balloon for looking at things (`viewlenient`; 2026-11-22, `feat/viewlenient-1122`, built, default off, contemplate run §16.5)
 
 A player's remark: "Routing errors contemplating surroundings or viewing something makes no sense." A Sim that
 only looks at something needs no exact spot; a failed plan to the chosen spot should not end in the route-fail
@@ -1359,7 +1359,26 @@ place 4519, quiet ends 4520; kept as the game has it 4521, walk stopped or ended
   with `viewlenient` on 4513 and 4518 rise together (contemplate in place), `routefail:` lines for Contemplate /
   Watch / WatchTV stay (they are written at the plan) but no balloon follows; 4523 must stay 0.
 
-## 17. Talk socials from a distance (`socialreach`; 2026-11-22, `feat/socialreach-1122`, built, default off, NOT RUN)
+### 16.5 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Repro `viewlenient-force` (run `vl-r1`, exit 0, `phase-20261122-1951`; by hand in session `p4-m1`,
+`phase-20261122-1903`): a Genius Sim outside a room 6x4, 1.9 m from its west wall, a chair inside at
+that wall 2.4 m from her, nothing else near. Contemplate has no pie menu entry (a Sim starts it by itself):
+agent step `contemplate` queues `Terrain.Contemplate` at the Sim's place as `ContemplateSomethingAutonomous` does.
+
+| | off | on (`viewlenient` + `viewlenienthh`) |
+|---|---|---|
+| Contemplate, the only pickable object in another room | `routefail: Ann View ..., Contemplate target Terrain, Plan async FailedBecauseNoDestinationSpecified blocker None, goal 1186.4,49.1,1194.7, at 1186.4,49.1,1194.7`, the route-fail balloon, the interaction is over within 18 s, no Fascinated moodlet; would (4511) +1 | the same `routefail:` line, then `viewlenient: selected Ann View, Contemplate -> Terrain at 1186.4,49.1,1194.7 (contemplate, FailedBecauseNoDestinationSpecified): stays in place, 0.0 m at 1186.4,49.1,1194.7`; contemplate (4513) 1, stayed in place (4518) 1; she turns to the wall, the thought balloon shows the chair, Fascinated after the 20 sim-minutes; errors 0 |
+
+- The game's object query for Contemplate picks through a wall but reached only about 3 m here, not the tuned
+  5 (`GeniusTraitContemplateDistance`): a shower 3.2 m, a chair 3.3 m and one 3.5 m away were not picked, objects
+  2.4-3.0 m away were [measured in `p4-m1`, cause not looked for].
+- A Sim within 1 m of the wall is no repro: the 0.3-1 m ring reaches into the other room and she walks round
+  through the door (25 s) and contemplates there. The mailbox and the outdoor trash can are pickable.
+- would (4511) and tries (4510) rise for every Sim in town (5 before the first order in `p4-m1`).
+- Not run: art, performer, tv, stars, a sitting Sim (4519), the quiet end (4520).
+
+## 17. Talk socials from a distance (`socialreach`; 2026-11-22, `feat/socialreach-1122`, built, default off, run §17.6)
 
 A player's wish, after Sims 4: Sims should be able to chat at a distance (across a counter, a fence, a crowded
 room) instead of ending the social with the route-fail balloon. No clipping: every walk is a normal plan.
@@ -1475,7 +1494,7 @@ to the placement jig, cooling down), walk stopped or ended out of reach 4536, er
 - Repro `socialreach-check` (any save): `SocialReachCheck run` off -> `verdict: BROKEN`, on -> `verdict: FIXED`,
   `controls ok=True`, `members found=True`; `result` = counters, kept reasons, the last line; `lot` = the Sims on
   the selected Sim's lot the game's placement ring cannot reach and what the rule finds.
-- Forced repro, not built as an entry: a lot with a counter row (or a fence) across a room, Sim A on one side,
+- Forced repro as planned (built otherwise, §17.6): a lot with a counter row (or a fence) across a room, Sim A on one side,
   Sim B on the other, 2 m apart, no way round within the room; `socialreachhh` and `socialreachlog` on; A:
   Chat with B. Off: balloon, `routefail:` line for SocialInteractionA or B, 4526 and 4527 rise. On: the two
   talk across the counter, 4532 + 4533 (or 4530 + 4533) rise, one `socialreach: ... placed where they stand`
@@ -1484,7 +1503,27 @@ to the placement jig, cooling down), walk stopped or ended out of reach 4536, er
   most of it (2,797 of 3,331 lines are within 3 m), 4537 must stay 0, and the `SocialInteractionA/B` route-fail
   lines stay (they are written at the plan) while the balloons go.
 
-## 18. Boxed-in Sims walk out through objects (`unstuck`; 2026-11-22, `feat/socialreach-1122`, built, default off, NOT RUN)
+### 17.6 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Repro `socialreach-force` (run `sr-r5`, exit 0, `phase-20261122-2020`; by hand in session `p4-m1`): Bo on a lawn
+tile ringed by eight fridges (§18.6, no walls), Cy on the tile beyond the ring, 2.3 m from Bo. Cy: Chat with Bo.
+
+| | off | on (`socialreach` + `socialreachhh`) |
+|---|---|---|
+| Chat | `routefail: Cy Talk ..., SocialInteractionA target Sim, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeCheap at 1190.8,49.1,1182.6, goal 1190.8,49.1,1183.6, at 1190.8,49.1,1185.9`, the route-fail balloon, nobody talks at 20 s; tries (4526) 1, would (4527) 1 (4 and 4 in `sr-r4`) | `socialreach: household Cy Talk, SocialInteractionA Chat -> Bo Talk (placement): placed where they stand, 2.3 m apart`; placement (4532) 1, from where they stand (4533) 1; at 8 s Cy runs `SocialInteractionA` "Chat" and Bo `SocialInteractionB` "Be Chatted To", both turn to each other and talk across the fridges (still talking at 35 s); errors 0 |
+| Heat of the Moment Kiss (two-person jig), switch on | | paired or jig socials left alone (4529) 1, the game's `routefail:` line and balloon, no `socialreach:` line |
+
+- The failed plan in the off arm is the starter's walk to the placement ring (its first `routefail:` line is
+  written before the switch is looked at, so the on arm has it too); the on arm acts one step later, in
+  `SetupTwoPersonSocial` (the "placement" case). 4530 / 4531 (a route answered "arrived") did not occur.
+- **High Five is done from where they stand as well** (`p4-m1`: `socialreach: household Cy Probe,
+  SocialInteractionA High Five -> Bo Probe (placement): placed where they stand, 2.3 m apart`): its social data
+  has no jig, so §17.4's "not checked per social" case is real. The hands do not meet. Not changed here.
+- Liking is no test of a chat: after the off arm it was 0, -3 (`sr-r4`) and 9 (`sr-r5`).
+- Not run: the walk to the nearest place (4534), a counter row or a fence in a room, a wall between (kept), NPC
+  pairs (`socialreach` alone).
+
+## 18. Boxed-in Sims walk out through objects (`unstuck`; 2026-11-22, `feat/socialreach-1122`, built, default off, run §18.6)
 
 A player's wish: a Sim or pet that is trapped (furniture put round it, a spot it was reset or snapped to) should
 walk out instead of failing every route. This is the one rule here that clips on purpose, so it waits: at least
@@ -1559,7 +1598,7 @@ stopped 4547, the failed route planned again after the walk out: ok 4548, errors
 
 ### 18.5 Run plan
 
-- Forced repro, not built as an entry: in buy mode put four pieces of furniture (counters or bookcases, no
+- Forced repro as planned (built otherwise, §18.6): in buy mode put four pieces of furniture (counters or bookcases, no
   seats) round a standing household Sim in the middle of a room; `unstuckhh` and `unstucklog` on;
   `UnstuckCheck lot` must name it "boxed in, a way out through objects". Order Go Here three times across the
   room, 2.5 sim-minutes or more from the first to the third. Off: three balloons, 4539 and 4541 rise by one. On:
@@ -1570,7 +1609,33 @@ stopped 4547, the failed route planned again after the walk out: ok 4548, errors
 - Storms: off, 4538 against 4539 says how often the signal fires; on (`unstuck`), 4544 is expected to carry
   nearly all of it and 4546 to be rare; 4549 must stay 0.
 
-## 19. Crowded transport portals are skipped (`crowdport`; 2026-11-22, `feat/portalcrowd-1122`, built, default off, NOT RUN)
+### 18.6 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Repro `unstuck-force` (runs `un-r2`, `phase-20261122-1937`, and `un-r3`, `phase-20261122-2026`, exit 0; by hand in session
+`p4-m1`): Bo on a lawn tile, eight fridges on the eight tiles round him (agent step `box_in`), no walls. Three
+Go Here orders to a place 6 m away, 6 s apart; 45 s between the arms (the off arm's signal starts Bo's 30
+sim-minute cooldown too).
+
+| | off | on (`unstuck` + `unstuckhh`) |
+|---|---|---|
+| before | `unstuck lot: Bo Stuck at 1190.8,49.1,1183.6: boxed in, a way out through objects of 2.6 m to 1190.8,49.1,1181.0` | |
+| three Go Here | three `routefail: Bo Stuck ..., GoHere target Terrain, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeCheap at 1190.8,49.1,1184.6`, three balloons, Bo on his tile; stuck signals (4539) 1, would look (4541) 1 | the same three lines (they are written at the plan), and at the third order `unstuck: selected Bo Stuck at 1190.8,49.1,1183.6 (3 failed plans, last FailedBecauseNoPathToDestination): walked out through objects, 2.6 m to 1190.8,49.1,1181.0 (ring 0.75 m), its route planned again: ok`; walked out (4546) 1, planned again ok (4548) 1; he walks through the fridge behind him, round the ring and to the place; errors 0 |
+
+- **What holds a Sim** [measured in `p4-m1` with plans and their way points, agent step `route_points`]: a
+  fridge's footprint is flush at its back and sides and short at its front, and the planner walks through the
+  slit between a front and the next object. Rings of eight or twelve counters, and of fridges that all face one
+  way, round a 1x1 and a 2x2 hole did not hold a Sim (plans in and out succeeded, the Sim walked out). Four
+  objects on the four sides leave the corners open. The ring that holds: every fridge with its back to the Sim.
+  So "boxed in by furniture" is rarer in play than §18.5 assumed; objects set with `SetPosition` / `SetForward`
+  do update their footprints.
+- The walk out goes through the model of a fridge (the one rule that clips, as designed) and ends 2.6 m away;
+  the replanned Go Here then walks round the ring.
+- `unstuck lot` counts a Sim that had just been set on the lot as "sitting, lying, swimming, riding or carried"
+  (its exit reason is in that group).
+- Not run: the controls (seated 4543, walled in 4545, free Sim 4544), a pet, an NPC (`unstuck` alone), the
+  game's stuck check as the signal (4540).
+
+## 19. Crowded transport portals are skipped (`crowdport`; 2026-11-22, `feat/portalcrowd-1122`, built, default off, rabbit hole rules run §19.6)
 
 A player's wish: at elevators, rabbit holes, the subway and the like a Sim may be teleported when too many Sims
 are going in. These count as portals for the timing rule (§8.7), so they may act almost at once: a crowd is
@@ -1600,7 +1665,7 @@ Switches `crowdport` (Sims the player does not control), `crowdporthh` (househol
 | Kind | Where | What happens |
 |---|---|---|
 | Elevator | `SimQueue.WaitForTurn` hook (sharelanes' `LdsQueueHook.WaitHook`), doors' own line only | Crowd or long wait, and the skip's own conditions hold (doors open, car free, same direction, no exit reason on the Sim): the wait is answered false with `TimedOut`, exactly what the game's line returns after 15 sim-minutes, so `WaitInLine` runs `TryTeleportSkip` itself. Else the Sim stands in the game's line with the timeout cut to `kCrowdPortWait` (or what is left of it), after which the game tries its skip. |
-| Rabbit hole, in | `RabbitHole.WaitForEnterSlot` hook (objshare's), a slot held by another Sim, when `rhshare` does not already walk the Sim there | Our wait (at most `kCrowdPortWait`; a cancel, a free slot or the game's hand-over ends it; the Sim is in `WaitingToEnterSims` meanwhile). On a crowd or at the end of it: fade out, `SetPosition` on the enter slot, fade in (the sequence of the game's elevator skip). No reservation is taken; the game's route to the slot (now zero long), door, walk-in animation, use list, posture and events follow unchanged, and its cleanup finds the tables as with `rhshare`. Holder out of scope or the Sim over 40 m away: the game's wait. |
+| Rabbit hole, in | `RabbitHole.WaitForEnterSlot` hook (objshare's), a slot held by another Sim, when `rhshare` does not already walk the Sim there | Our wait (at most `kCrowdPortWait`; a cancel, a free slot or the game's hand-over ends it; the Sim is in `WaitingToEnterSims` meanwhile). On a crowd or at the end of it: fade out, `SetPosition` on the enter slot, fade in (the sequence of the game's elevator skip). No reservation is taken; the game's route to the slot (now zero long), door, walk-in animation, use list, posture and events follow unchanged, and its cleanup finds the tables as with `rhshare`. Holder out of scope, holder within 6 m of its slot, the Sim set on a slot in the last 15 sim-minutes (both since §19.6) or the Sim over 40 m away: the game's wait. |
 | Rabbit hole, out | new swap `RabbitHole.AnimateExitRabbitHole` (5 arguments; with the switch off the game's body alone) | An NPC's pacing wait is ours: the game's loop, plus a burst: when `kCrowdPortMin` NPCs wait at one rabbit hole, every one waiting at that moment goes on (the game's body is called with `skipWait`). `GetExitSlot` still gives one Sim per exit slot, so the door paces them. `CanSimSkipExitWait` is asked once, as before. |
 | Station | the two rabbit hole rows (a `Subway` or `HoverTrainStation` counts as "station") | Going in by the portal has no line (§19.1). Arriving riders leave with the crowd. |
 | Other | the line hook | A crowd in a tube elevator's or firefighter pole's line is counted and logged; the game's line is kept (its animation uses the object as an actor). |
@@ -1611,7 +1676,7 @@ does not put household Sims in scope, only `crowdporthh` does.
 
 ### 19.3 Limits [inferred unless marked]
 
-- Not run in the game.
+- Run in the game: rabbit hole going in and the NPC exit wait (§19.6). Not run: elevator, station, the exit burst.
 - Rabbit hole, in: the brief asked for no door animation. The game has no path that puts a walking Sim inside
   without `AnimateEnterRabbitHole`; its tail (door, walk-in, fade) is kept so every piece of bookkeeping is the
   game's. Seen: the Sim fades where it stands, appears on the slot and walks in, overlapping others there.
@@ -1634,7 +1699,7 @@ does not put household Sims in scope, only `crowdporthh` does.
 
 ### 19.5 Run plan
 
-Forced repros, not built as entries; `crowdporthh` and `crowdportlog` on, each off then on:
+Forced repros as planned (the rabbit hole one is entry `crowdport-force`, §19.6); `crowdporthh` and `crowdportlog` on, each off then on:
 
 - Elevator: a high-rise lot, 5 household Sims on the ground floor, all ordered Go Here to an upper floor at
   once. Off: `linewait:` lines for `ElevatorDoors`, Sims stand up to 15 sim-minutes. On: `crowdport: elevator:
@@ -1648,3 +1713,36 @@ Forced repros, not built as entries; `crowdporthh` and `crowdportlog` on, each o
   (the hook asks nothing), NPCs come out 15 sim-minutes apart. On: 4564 counts the waits, 4552 the Sims that
   left with a crowd, 4565 those the game's pacing let out.
 - In every arm 4556 must stay 0 and no `crowdport: error at` line may appear.
+
+### 19.6 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Repro `crowdport-force` (runs `cp-r1` to `cp-r4`, `phase-20261122-2008`, `-2035`, `-2040`, `-2051`; by hand in
+session `p4-m1`): five household Sims set 12 m before City Hall and ordered "Tour City Hall" at once, `rhshare` off.
+City Hall has two enter slots; a Sim takes its slot 2 m before it and holds it for about 2 sim-minutes.
+
+| | off | on (`crowdport` + `crowdporthh`) |
+|---|---|---|
+| rabbit hole, going in, rule as first built (`cp-r1`, `cp-r3`) | `linewait: Bo Crowd household, VisitRabbitHole target CityHall: CityHall rhdoor, waited 2.2 sim-min, line length 1, outcome got turn`, Ann 4.8; rabbit hole in (4551) 0 | `crowdport: rabbit hole in: Di Crowd household is set on enter slot 1212927037 of CityHall, 2 Sims there, waited 1.3 sim-min, from 1047.1,45.1,1066.3`, `linewait: ... waited 2.1 sim-min, line length 1, outcome shared`; rabbit hole in (4551) 2 in `cp-r1`, 9 in the three rounds of `cp-r3`, 0 in `cp-r2` (both waits ended by a free slot after 0.6 and 0.7 sim-minutes, 4563) |
+| the same, with the fix below (`cp-r4`) | waits of 0.6, 0.6, 1.5 and 3.3 sim-minutes, `outcome got turn`; would (4557) 2, rabbit hole in 0 | no `crowdport: rabbit hole in:` line; waits of 0.6, 2.2, 3.3 and 4.2 sim-minutes, `outcome got turn` (the game's wait); rabbit hole in (4551) 0, holder out of scope, at the door or far (4562) 4; no `routefail:` line of a household Sim at the door; all five inside; errors 0 |
+| NPC exits, 16:40-23:20 at speed 3, `rhexitunseen` off | not run (the hook asks nothing) | NPC exit waits (4564) 44, ended by the game's pacing (4565) 43, 1 waiting at the end, left with a crowd (4552) 0; errors 0 (`cp-r1`; 35 and 35 in `cp-r3`) |
+
+- **Bug found and fixed: a Sim set on a held slot collides with the holder.** The slot is where the holder's
+  walk ends, 2 m and 2 sim-minutes after it took the slot. `cp-r1`: after `Di Crowd ... is set on enter slot`
+  the holder's walk failed, `routefail: Ed Crowd ..., VisitRabbitHole target CityHall, Replan async
+  FailedBecauseNoPathToDestination blocker Object ... Sim at 1049.0,45.1,1065.5`. `cp-r3`, round 1: the Sim's
+  own route failed on the holder's door jig (`routefail: Ann Crowd ... blocker Object ... RabbitHoleDoorJig at
+  1048.9,45.1,1065.5`), the game's loop (`kRouteAttemptsToEnterRabbitHole` 3) asked for the slot again, our wait
+  ran again and she was set on the slot again: three times (`waited 1.2`, `1.3`, `1.2 sim-min`), three failed
+  routes, the last with the balloon; Bo twice, Di twice. A failed try also makes the game clear the slot's
+  reservation, which was the holder's. Fix (`CrowdPortCore.RhClear`, in `CpRhDecide`): a Sim is set on a slot
+  only while the holder is still 6 m (`kRhHolderClear`) from it, and once per Sim and 15 sim-minutes
+  (`kRhAgain`); else the game's wait, counted as "holder out of scope, at the door or far" (4562). At City Hall
+  the holder is never 6 m away, so the rule stands down there: the rabbit hole rule as designed (§19.2) has no
+  case left at a rabbit hole whose slot is taken at the door [inferred for other rabbit holes: not measured].
+- **Fixed here: "would" with the switch off.** The first look counted only a crowd, so the two waits of 2.2
+  and 4.8 sim-minutes in `cp-r1`'s off arm left would (4557) at 0. Now a wait behind one Sim that lasted
+  `kCrowdPortWait` is counted when the game's wait ends (`CrowdPortCore.WouldLate`, `CpRhLate`): 4 after the off
+  arm of `cp-r2` (waits of 2.7, 3.6, 7.9 sim-minutes and an NPC's 1.5) and of `cp-r3`.
+- rhshare (§14) walks a Sim to a held slot and may meet the holder there in the same way [not looked at here].
+- Not run: the elevator rule (no elevator on a Sunset Valley lot, and the agent's buy places none), stations,
+  the exit burst (4552: three NPCs never waited at one rabbit hole).
