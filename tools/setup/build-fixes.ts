@@ -172,6 +172,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLadderFootShooHousehold value="False" />
     <kLadderFootWaitMinutes value="5" />
     <kLadderFootCooldownMinutes value="2" />
+    <kBlockedUse value="False" />
+    <kBlockedUseHousehold value="False" />
     <kShareLanes value="False" />
     <kShareLanesHousehold value="False" />
     <kLadderShare value="False" />

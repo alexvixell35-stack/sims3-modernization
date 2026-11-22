@@ -122622,5 +122622,420 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "blockeduse-check",
+    "bug": "A Sim whose route to an object's routing slot fails because furniture or a wall closes the slot or the last stretch (a dresser in front of the tub, a bed side at a wall) gives up with the route-fail balloon: SimRoutingComponent.DoRoute answers a failed plan with the route-fail behaviour and false (docs/686 §10)",
+    "fix": "ts3fixes BlockedUse.cs: blockeduse (Sims the player does not control), blockedusehh (household and selected Sims), default off, docs/686 §10",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). BlockedUseCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4414-4429 and the last blockeduse: line; 'lot' plans the selected Sim to every routing slot of the tubs, showers, toilets, sinks, beds, chairs and sofas of its lot and lists the objects with a closed slot (read-only plans, up to 60 objects).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": false,
+          "blockedusehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "objects with a closed slot",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": true,
+          "blockedusehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": false,
+          "blockedusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "blockeduse-force",
+    "bug": "A toilet whose routing slot is covered by an end table: the Sim's plan to the slot fails, EA plays the route-fail balloon and the interaction ends (docs/686 §10; storm logs: 403 of 6,622 failed object-use plans name furniture as blocker)",
+    "fix": "ts3fixes BlockedUse.cs: blockeduse + blockedusehh (default off), docs/686 §10",
+    "save": "Baseline-BP-Spring (any save with a vacant lot; the household is made by the repro)",
+    "note": "UNVERIFIED (2026-11-22, never run). A one-Sim household on an empty lot, a room built with the real tools (build_layout): a toilet facing +z and an end table on the tile in front of it. Per arm ('mem: blockeduse-<arm>' in ts3native.log) the active Sim is ordered to use the toilet. 'BlockedUseCheck lot' before each arm must list the toilet with a closed slot; if it does not (the table's footprint misses the slot, or the catalog has no product with 'end table' in its name), change the legend's n product and say so. The walk away is a Go Here to the house's door (optional step: any next order of the Sim does the same). A wall arm (bed side at a wall) is not in this layout: the map tool builds walls on tile edges and its multi-tile rules were not checked.",
+    "expect": "off arm: 'routefail: ... UseToilet target Toilet..., ... FailedBecause(NoPathToDestination|NoDestinationSpecified)', counter 4414 (tries) and 4415 (would) up, the Sim does not sit. on arm: one 'blockeduse: selected <Sim> -> Toilet... : clip N m to slot ...' (or 'snap in ... from ...') line, the Sim uses the toilet, 4418 or 4419 up; afterwards 'blockeduse: ... snap out from ... to ... (the spot it came from)' (4420) or 4421 (walked out); 4426 (errors) 0, no 'blockeduse: error at' line.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Blocked",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Blocked",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Neat",
+                "Bookworm"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: one-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Blocked"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "nothing but the orders moves the Sim"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E",
+            "E X E t E",
+            "E E E n E",
+            "E E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "t": {
+              "name": "toilet",
+              "facing": "S"
+            },
+            "n": {
+              "name": "end table"
+            }
+          }
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "room 5x4: toilet facing +z, an end table on the tile in front of it (its routing slot)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": false,
+          "blockedusehh": false
+        },
+        "note": "arm off: blockeduse + blockedusehh off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "blockeduse-off"
+        },
+        "note": "log marker blockeduse-off"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "off queue cancelled, autonomy off",
+        "max": 400,
+        "waitS": 4,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "off before: the toilet must show a closed slot (else the layout is no repro)",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:Toilet",
+          "interaction": "use"
+        },
+        "note": "off order: use the toilet",
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 25 s: off = tries up, would up; on = clip or snap in",
+        "max": 1500,
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 45 s",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "target": "@type:Door"
+        },
+        "note": "off walk away from the slot: on = 'snap out' when the Sim cannot walk, else 'walked out'",
+        "max": 300,
+        "waitS": 12,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off after",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": true,
+          "blockedusehh": true
+        },
+        "note": "arm on: blockeduse + blockedusehh on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "blockeduse-on"
+        },
+        "note": "log marker blockeduse-on"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "active"
+          ],
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "on queue cancelled, autonomy off",
+        "max": 400,
+        "waitS": 4,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "on before: the toilet must show a closed slot (else the layout is no repro)",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:Toilet",
+          "interaction": "use"
+        },
+        "note": "on order: use the toilet",
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on at 25 s: off = tries up, would up; on = clip or snap in",
+        "max": 1500,
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on at 45 s",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "target": "@type:Door"
+        },
+        "note": "on walk away from the slot: on = 'snap out' when the Sim cannot walk, else 'walked out'",
+        "max": 300,
+        "waitS": 12,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on after",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": false,
+          "blockedusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]
