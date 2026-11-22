@@ -44,6 +44,10 @@ namespace Ts3Fixes
     // object. Point routes (Go Here) have no slot destination and never come here. A case that kept the game's
     // behaviour is not tried again for kBuCooldownMinutes.
     // Off = compare mode: counted, nothing done. Counters 4414-4429. Check: BlockedUseCheck.
+    // reachuse (ReachUse.cs, docs/686 §12) shares the DoRoute hook: failed plans without slot destinations go to its
+    // rules, and its switches turn these rules on for chores at their target's own slots.
+    // Since 2026-11-22 a plan that fails during the walk (a replan; the walk answers false, no exit reason on the Sim)
+    // gets the same rules as a failed first plan, minus the game's route-fail behaviour, which the walk has had.
     public static partial class Fixes
     {
         const int kBuTries = 4414, kBuWould = 4415, kBuExempt = 4416, kBuNear = 4417, kBuClip = 4418, kBuSnapIn = 4419, kBuSnapOut = 4420,
@@ -196,6 +200,13 @@ namespace Ts3Fixes
             return s;
         }
 
+        // Does the route hold slot destinations (the last plan was a plan to routing slots)?
+        static bool BuIsSlotRoute(Route r)
+        {
+            BuRec rec;
+            return sBuRecs.TryGetValue(r.Handle, out rec) && rec.N > 0;
+        }
+
         // ---- a failed plan in DoRoute ----
 
         static bool BuSimOk(Sim sim)
@@ -233,6 +244,7 @@ namespace Ts3Fixes
             bool blockerSim = pr.mBlockerType == RouteBlockerType.Sim || (pr.mBlockerObjectId != 0 && GameObject.GetObject(new ObjectGuid(pr.mBlockerObjectId)) is Sim);
             bool kind = BlockedUseCore.Kind((int)pr.mType, blockerSim) && BuSimOk(sim) && BuObjOk(obj);
             int d = BlockedUseCore.Decide(kind, IsPlayerSim(sim), ShortcutOn("blockeduse"), ShortcutOn("blockedusehh"));
+            if (kind && d != BlockedUseCore.kGo && RuSlotCase(sim, obj)) d = BlockedUseCore.kGo;  // reachuse (ReachUse.cs, docs/686 §12): a chore at its target's own slots
             if (d == BlockedUseCore.kNone) { c[kBuNotKind]++; return null; }
             if (d == BlockedUseCore.kWould) { c[kBuWould]++; return null; }
             if (d == BlockedUseCore.kExempt) { c[kBuExempt]++; return null; }
@@ -351,30 +363,45 @@ namespace Ts3Fixes
         }
 
         // `this` is the game's SimRoutingComponent. RouteHook stays this small on purpose: a Sim saved mid-route has a
-        // frame in it, and a build that changes its IL resets those Sims once at the first load (docs/242 §2).
+        // frame in it, and a build that changes its IL resets those Sims once at the first load (docs/242 §2). Changed
+        // once, 2026-11-22 (reachuse, before any run of blockeduse): a walk that ends on a failed replan goes to
+        // RouteEnded. New rules belong in RouteBlocked / RouteEnded and what they call.
         public class BuRouteHook : SimRoutingComponent
         {
             public bool RouteHook(Route r)
             {
-                if (r == null || r.PlanResult.mType == RoutePlanResultType.Succeeded) return RouteOrig(r);
-                return RouteBlocked(r);
+                if (r == null) return RouteOrig(r);
+                if (r.PlanResult.mType != RoutePlanResultType.Succeeded) return RouteBlocked(r, false);
+                return RouteOrig(r) || RouteEnded(r);
             }
 
             public bool RouteOrig(Route r) { return false; }  // receives DoRoute's original body
 
+            // The walk answered false. A plan that failed on the way (a replan) with no exit reason on the Sim gets the
+            // rules of a failed first plan; a walk that was cancelled or interrupted keeps its answer.
+            bool RouteEnded(Route r)
+            {
+                Sim sim = OwnerSim;
+                if (r.PlanResult.mType == RoutePlanResultType.Succeeded || sim == null || sim.HasBeenDestroyed || sim.HasExitReason()) return false;
+                return RouteBlocked(r, true);
+            }
+
+            // The game's answer for a failed plan: before a walk its route-fail behaviour, after a walk (which has had it) false.
+            bool Keep(Route r, bool afterWalk) { return afterWalk ? false : RouteOrig(r); }
+
             // No catch round a walk: a reset must unwind the Sim's stack.
-            bool RouteBlocked(Route r)
+            bool RouteBlocked(Route r, bool afterWalk)
             {
                 Sim sim = OwnerSim;
                 BuCase k = null;
                 try { k = BuBegin(sim, r); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { BuError(0, e); }
-                if (k == null) return RouteOrig(r);
+                if (k == null) return RouteReach(sim, r, afterWalk);
                 if (k.Near != null && !RouteOrig(k.Near))
                 {
                     PatchCounters()[kBuNearStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
-                    return RouteOrig(r);
+                    return Keep(r, afterWalk);
                 }
                 int step = BlockedUseCore.kKeep;
                 try { step = BuApproach(sim, r, k); }
@@ -385,7 +412,7 @@ namespace Ts3Fixes
                     try { BuRestoreOptions(r, k); r.PlanResult = k.Saved; } catch (Exception) { }
                 }
                 if (step == BlockedUseCore.kSnap) return true;
-                if (step != BlockedUseCore.kClip) return RouteOrig(r);
+                if (step != BlockedUseCore.kClip) return Keep(r, afterWalk);
                 bool walked;
                 try { walked = RouteOrig(r); }
                 finally { BuRestoreOptions(r, k); }
@@ -397,6 +424,27 @@ namespace Ts3Fixes
                 catch (ResetException) { throw; }
                 catch (Exception e) { BuError(4, e); }
                 return walked;
+            }
+
+            // reachuse (ReachUse.cs, docs/686 §12): a failed plan that blockeduse left alone. A chore whose route has no
+            // slot destination is done from within reach of its target; anything else gets the game's answer.
+            bool RouteReach(Sim sim, Route r, bool afterWalk)
+            {
+                RuCase q = null;
+                try { q = RuBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { RuError(0, e); }
+                if (q == null) return Keep(r, afterWalk);
+                if (q.Near != null && !RouteOrig(q.Near))
+                {
+                    PatchCounters()[kRuStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
+                    return Keep(r, afterWalk);
+                }
+                bool arrived = false;
+                try { arrived = RuArrive(sim, r, q); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { RuError(1, e); }
+                return arrived || Keep(r, afterWalk);
             }
         }
 

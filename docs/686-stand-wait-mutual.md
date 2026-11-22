@@ -687,3 +687,142 @@ the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the li
   down, 4436 = 0, no `petrelax: error at` line. `PetRelaxCheck lot` lists the pets and each lying pet's distance to
   a lane end. By eye: a cat napping in a doorway (Sims pass through it), a dog following its Sim through a door, a
   pet lying down at a stair foot (walks off first).
+
+## 12. A chore whose spot is closed is done from within reach (`reachuse`, `reachusehh`; 2026-11-22, `feat/reachuse-1122`, built, default off, NOT RUN)
+
+A player's wish: a firefighter, a maid or a Sim cleaning should do the job from a step further away when the place
+is blocked, not give up. `ReachUse.cs`, rules in `ReachUseCore.cs`, counters 4446-4461, check
+`ReachUseCheck run | result | lot`, selftest `tools/selftest/reachuse`, repro `reachuse-check`.
+
+### 12.1 How the chores walk [verified, decompiled `Sims3.Gameplay` unless marked]
+
+- Every route below ends in `SimRoutingComponent.DoRoute`, whose first test is the plan result: a failed plan runs
+  the route-fail behaviour, adds the exit reason `RouteFailed` and returns false (§10.1). A replan that fails during
+  the walk ends the same way after the walk.
+- Mop (`Terrain.Mopping`: `MopPuddle`, `MopBurnt`): `RouteToPuddle` plans a ring from 1 m round the puddle,
+  restricted to the puddle's room and one level; a second plan drops the footprint test near the goal. After the
+  walk `PuddleManager.CanMopPuddle` refuses a tile covered by an object or a Sim.
+- Fire (`ExtinguishBase.RemoveFire`, pushed for household Sims and by the firefighter's situation as
+  `Fire.Extinguish`): `Fire.PlanRouteToExtinguish` plans 0.5-2.5 m in the fire's room, then 0-2.5 m. The caller
+  tests the plan before `DoRoute`: a fire whose plan failed is passed over for the next one, and with none left
+  nothing is walked. A burning Sim (`Sim.ExtinguishSim`) is a 2 m ring round the Sim, straight into `DoRoute`.
+- Pick up, clean away (`CarrySystem.PickUp`, trash and ash piles): `RouteToObjectRadius` in the object's room when
+  the thing lies on the floor; a thing on a surface is reached by the surface's routing slots.
+- Plants (`Plant.DoPlantRoute`): a ring from 0.7 m round the soil, in its room.
+- Wash up at a sink, clean a toilet / tub / stove / counter, repair, fill a pet bowl: routing slots of the object
+  (§10's case).
+- Picking up a baby or toddler (`PickUpChild`) is a social interaction with its own jig: not a chore route.
+
+### 12.2 Measured (storm logs `phase-*`, `routefail:` lines, read-only)
+
+57,664 failed plans (spot probes left out). "Near" = the goal within 4 m of the Sim on its level. The logs hold no
+`standwait: ... near:` lines.
+
+| interaction | failed | near | how it fails near |
+|---|---|---|---|
+| MopPuddle | 3,614 | 2,296 | no path 743, no destination 1,027, portal locked 512 |
+| UseToilet | 2,960 | 1,656 | §10 |
+| socials (A, B) | 3,884 | 2,779 | a Sim as target: out of scope |
+| WashDishes | 1,253 | 1,146 | sink slots: no destination 841, no path 183, portal locked 96 |
+| Fridge / serving (eat) | 1,646 | 1,271 | object use, §10 |
+| Clean (toilet, counter, sink) | 468 | 331 | slots |
+| PutAwayLeftovers | 172 | 153 | plate: no destination 99, no path 31 |
+| ServingContainer_CleanUp | 852 | 112 | plate / bowl |
+| PutDownHeldObject | 101 | 92 | the walk to a surface, not to the target |
+| CleanSink / CleanBathtub / Stove_Clean | 235 | 171 | slots |
+| Snack_CleanUp | 74 | 68 | no path |
+| RecycleNewspaper | 133 | 55 | |
+| GetHomework | 47 | 47 | no path 35 |
+| RepairShower | 68 | 37 | slots |
+| PutCarriedChildInCrib | 72 | 55 | crib slots, §10 |
+| FillBowl / UseLitterBox / CleanLitterBox / DisposeTrash | 66 | 39 | |
+| ReactToFire | 3,206 | 10 | fleeing, not a chore |
+| Extinguish | 8 | 0 | the fire's plan is tested before the route: failures do not reach the log |
+
+Gardening interactions do not appear (the storm lots have no gardens).
+
+### 12.3 What is built
+
+1. Point routes in `DoRoute` (the hook of §10): a failed plan with no slot destination, either the first plan or
+   a replan that ended the walk (the walk answers false, the plan is failed, no exit reason on the Sim; a cancelled
+   or interrupted walk keeps its answer). Plan results taken: no path, no destination, obstructed, destination
+   blocked by a Sim (the chore is done from beside it); "portal locked" and aborted plans keep the game's
+   behaviour. The Sim's running interaction gives the kind and the reach:
+
+   | kind | interactions | reach | why |
+   |---|---|---|---|
+   | fire | `ExtinguishBase`, `ExtinguishSim` | 4 m, not nearer than 0.5 m | the game's own ring ends at 2.5 m; the spray is drawn from the Sim to the fire |
+   | floor | `Terrain.Mopping` | 2.5 m | the game mops from 1 m; a tile and a half more |
+   | small | targets `TrashPile`, `AshPile`, `Newspaper`, `Homework`, `LitterPile`, `FoodScrap`, `ToyScraps`; names with `CleanUp`, `PutAwayLeftovers`, `Recycle`, `PickUp`, `ThrowAway`, `DisposeTrash`, `PutInInventory` | 2 m | the game picks up from about 0.5 m; an arm and a tile more |
+   | plant | any interaction on an object of `Sims3.Gameplay.Objects.Gardening` | 2 m | the game tends from 0.7 m |
+
+   The route must be the one to the interaction's target (its goal within 1.5 m of the target; a terrain target's
+   goal is the place). A Sim that stands within reach, on the target's level (1.5 m in height), with no wall between
+   (`World.WallExistsBetweenPoints`, light-blocking walls, the test of the game's own line-of-sight helper) and
+   sits or lies in nothing turns to the target and the route answers "arrived". Otherwise a normal plan to the
+   nearest point within reach is made, in the target's room first, then in any room; its end must pass the same
+   test; the Sim walks it and the route answers "arrived". The interaction then runs where the Sim stands.
+2. Fires: `Fire.PlanRouteToExtinguish` (new swap, plans only) answers a failed plan with the plan of rule 1 (a
+   plan to where the Sim stands when it is in reach already), so the fire is not passed over.
+3. Slot chores (kind chore: names with `Clean`, `WashDishes`, `Repair`, `Unclog`, `FillBowl`, `EmptyTrash`,
+   `TakeOutTrash`, `MakeBed`; and the kinds of rule 1 when the route goes to slots): a failed plan to the slots of
+   the interaction's target, or of the surface the target lies on, gets §10's rules (walk up, clip, snap onto the
+   slot, out again) with `reachuse` / `reachusehh` standing in for `blockeduse` / `blockedusehh`. The animations
+   there need the slot.
+4. A puddle tile covered by an object (not a Sim) is mopped when `mopunreachable`'s run is in use
+   (`MopUnreachable.cs`, its copy of the game's tile step); the game's own run keeps refusing it.
+
+Scope: `reachuse` = Sims the player does not control (townies, service Sims, firefighters, maids, repairmen),
+`reachusehh` = household and selected Sims; each stands alone. Humans, not riding, not in a vehicle. Go Here and
+every other interaction are untouched. A case that kept the game's behaviour is not tried again for 30 sim-minutes
+(per Sim and goal tile). Off = compare mode. `reachuselog` writes one `reachuse:` line per act (capped).
+
+Counters: 4446 failed point plans of a reach kind / 4447 would, off / 4448 exempt (household without `reachusehh`)
+/ 4449 fire / 4450 floor / 4451 small / 4452 plant done from range / 4453 of them without a walk / 4454 slot chores
+given to §10's rules / 4455 kept: nothing in reach / 4456 kept: other level or lot / 4457 kept: wall between /
+4458 walk stopped / 4459 errors (`reachuse: error at <site>`) / 4460 kept: cooling down / 4461 other failed point
+plans.
+
+### 12.4 Not built, and why
+
+- `DestinationPortalLocked` (512 of MopPuddle's near failures): a privacy-locked room, §7's subject.
+- Walking through objects to a point (clip) for point routes: the Sim would end inside furniture with no slot to
+  come out of. Slot routes have it (§10).
+- Picking up a baby or toddler: a social with a two-person jig; a Sim as target is only taken for a Sim on fire.
+- `PutDownHeldObject`, the walk of a clean-up to the dishwasher, sink or trash can: slots of another object than
+  the target; `blockeduse` covers them.
+- Burning windows (`Windows.PlanRouteToExtinguish`, a cone in front of the window), pets, the world lot.
+
+### 12.5 Limits [inferred unless marked]
+
+- The interaction's animation plays where the Sim stands: a mop or a pick-up 2 m from the thing shows a gap, a
+  picked-up thing jumps into the hand. The mop jig is put on the puddle as the game does [verified].
+- `WallExistsBetweenPoints` is read as "a wall crosses the straight line"; a doorway in that wall still counts as
+  a wall, so a target seen through a door is kept.
+- `GetApproximateOriginalDestination` of a failed plan is taken as the ring's centre; when it is not valid the
+  target's place is used.
+- The fire plan for a Sim in reach is a plan to its own place; `DoRoute` is expected to answer true for it.
+- Replans are most of the failures (MopPuddle near: first plan 434, replan 1,091, plan from a point 765; WashDishes
+  near: first plan 10, replan 945), so the hook's entry method `RouteHook` was changed once to pass a walk that
+  ended on a failed plan to the rules (`RouteEnded`). [verified, docs/242 §2] A save made by a build with §10's
+  hook (2026-11-22 builds only, never released) resets the Sims that were mid-route once at its first load. §10's
+  slot rules get such walks too, and their counters 4414-4429 now include them.
+- After a failed replan the game may have played its route-fail reaction inside the walk before the chore is done
+  from where the Sim stands.
+- Which plan a `PlanFromPoint` failure belongs to is not known from the logs; one that does not end in `DoRoute`
+  is not covered.
+
+### 12.6 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/reachuse/run.ts`: 53 checks (plan results, kinds, reach per kind, the goal test, the place test, the slot
+  rule, the covered tile, scope). `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftests
+  `blockeduse`, `clipwait`, `petrelax`, `standwait`, `sharelanes` pass; `swap-stack-audit` has the new row
+  (`Fire.PlanRouteToExtinguish`, stub `PlanOrig`).
+- Live: `reachuse-check` once (off `BROKEN`, on `FIXED`, `members found=True`; `fix_applied`
+  `Fire.PlanRouteToExtinguish: ok`). A storm save, off / on interleaved with `reachuselog routefaillog`: off arm
+  4446 and 4447 up; on arm `reachuse reachusehh` (with `mopunreachable` for rule 4): 4450 > 0, `routefail:` lines
+  of MopPuddle with `Plan ... FailedBecauseNo(Path|Destination)` down, 4459 = 0, no `reachuse: error at` line.
+  Before the arms: save with a Sim mid-route and load it (the `DoRoute` hook's entry changed).
+  `ReachUseCheck lot` lists the puddles, burnt tiles, fires, piles and plants the game's plan cannot reach and
+  whether a place in reach exists. By eye: a puddle in a nook behind a chair (mopped from the open side), a
+  kitchen fire behind a counter with the firefighter called.

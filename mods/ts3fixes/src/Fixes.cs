@@ -527,6 +527,7 @@ namespace Ts3Fixes
             ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, and §7 standwaitlocked / standwaitlockedhh (StandWaitLocked.cs), off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse / blockedusehh, off by default (counts either way)
+            ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
             ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
@@ -1342,7 +1343,11 @@ namespace Ts3Fixes
         // grace / destination accepted / routes given the pass through lying pets' floor jigs / pets walked off a lane end before lying down / errors / would,
         // off / exempt (household without its switch) / kept: horse, foal or deer / object in the way / route's end (in use, social, player Go Here) / no free
         // spot for the lie-down / autonomous floor lie-downs seen / of them at a portal lane end / acts with a household Sim or pet.
-        const int kCounterSlots = 4446;
+        // [4446-4461] reachuse (ReachUse.cs, docs/686 §12): failed point plans of a reach-kind interaction in DoRoute / would handle, off / exempt (household
+        // without reachusehh) / done from range: fire / floor (puddle, burnt tile) / small thing picked up or cleaned away / plant / of them without a walk /
+        // slot chores given to blockeduse's rules / kept: nothing in reach / kept: other level or lot / kept: wall between / walk stopped / errors / kept:
+        // cooling down / other failed point plans (not a reach kind, not to the target, a Sim blocks, portal locked, pet).
+        const int kCounterSlots = 4462;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1654,6 +1659,9 @@ namespace Ts3Fixes
                 case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
                 case "clipwait": return Instantiator.kClipWait;  // ClipWait.cs (docs/686 §9): a Sim that stood past the grace with only Sims or pets in its way walks through them, off
                 case "clipwaithh": return Instantiator.kClipWaitHousehold;  // ClipWait.cs: clipwait for household and selected Sims too (as walker and as the Sim walked through), off
+                case "reachuse": return Instantiator.kReachUse;  // ReachUse.cs (docs/686 §12): an NPC's chore (fire, mop, pick up, plant) whose spot is closed is done from within reach; chores at a slot get blockeduse's rules, off
+                case "reachusehh": return Instantiator.kReachUseHousehold;  // ReachUse.cs: the same for household and selected Sims (stands alone), off
+                case "reachuselog": return Instantiator.kReachUseLog;  // ReachUse.cs (docs/686 §12): one line per act, off
                 case "petrelax": return Instantiator.kPetRelax;  // PetRelax.cs (docs/686 §11): small pets and the Sims around them walk through each other at once, lying pets are not obstacles, no lie-down on a lane end, off
                 case "petrelaxhh": return Instantiator.kPetRelaxHousehold;  // PetRelax.cs: petrelax for household and selected Sims and pets too, off
                 case "petrelaxlog": return Instantiator.kPetRelaxLog;  // PetRelax.cs (docs/686 §11): one line per act, off

@@ -123117,5 +123117,104 @@
         "waitS": 1
       }
     ]
+  },
+  {
+    "id": "reachuse-check",
+    "bug": "A chore whose spot is closed (a puddle in a nook, a fire behind a counter, a trash pile between chairs) ends with the route-fail balloon, and a fire whose plan fails is passed over, although the Sim could stand a step away and do it from there: the plan to the game's ring fails and SimRoutingComponent.DoRoute answers false (docs/686 §12)",
+    "fix": "ts3fixes ReachUse.cs: reachuse (Sims the player does not control), reachusehh (household and selected Sims), default off, docs/686 §12",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot (puddles, burnt tiles, fires, piles or plants make it say more)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ReachUseCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4446-4461 and the last reachuse: line; 'lot' plans the selected Sim to the puddles, burnt tiles, fires, trash and ash piles and plants of its lot as the game does and, for those that fail, to the nearest place within reach (read-only plans, up to 40 targets). No forced arm: the agent has no step that makes a puddle or a fire in a closed spot.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": false,
+          "reachusehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "targets the game cannot plan to, and whether a place in reach exists",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": true,
+          "reachusehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": false,
+          "reachusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]

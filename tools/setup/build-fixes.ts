@@ -189,6 +189,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kClipWaitMinutes value="3" />
     <kClipWaitObjectDest value="True" />
     <kClipWaitLog value="False" />
+    <kReachUse value="False" />
+    <kReachUseHousehold value="False" />
+    <kReachUseLog value="False" />
     <kPetRelax value="False" />
     <kPetRelaxHousehold value="False" />
     <kPetRelaxMinutes value="3" />
