@@ -93,3 +93,14 @@ after, controls).
 - Whether an Allow-tuned interaction is also filtered before `CheckAvailability` (e.g. at menu build) was not read.
 - [inferred] EA's interaction tunings are loaded before the first world load finishes (the caller of
   `AutonomyTuning.LoadAllInteractions` was not read); the check's `run` re-syncs in any case.
+
+## In game, first run (2026-11-22, pass-15 contributor build, repro `simbot-world`, Bridgeport)
+
+- [verified, in game] `GameUtils.GetCurrentWorld()` is `NewDowntownWorld` and `GetCurrentWorldType()` is `Downtown` in Bridgeport.
+- The live MakeFrankensim record was not EA's shape: `Disallow`, empty lists. The fix left it alone (2367 counted it).
+  The test install has a mod package that overrides this ITUN with `<World RestrictionType="Disallow" Types="Vacation" />`,
+  the same change as the MTS Bridgeport workbench fix. So the option already worked there, and the live test proved nothing.
+- The check therefore also runs a simulated test when another mod changed the record. It sets EA's shipped shape on the live
+  record, runs EA's world test, widens it as the fix does when on, and puts the record's own values back in a `finally`. All
+  of this happens inside one call with no yield, so no other code sees the simulated shape. Off: `verdict: BROKEN`. On:
+  `verdict: FIXED`. The verdict on the live record stays as before when the record is EA's own.

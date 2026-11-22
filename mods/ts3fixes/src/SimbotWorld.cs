@@ -111,9 +111,41 @@ namespace Ts3Fixes
             bool blocked = SbwBlocks(t.Availability, wt, wn), ctlBlocked = SbwBlocks(ctl.Availability, wt, wn);
             bool bugWorld = Array.IndexOf(kSbwAdd, wt) >= 0;
             string v = !bugWorld ? "N/A" : ctlBlocked ? "UNEXPECTED" : on ? (blocked ? "UNEXPECTED" : "FIXED") : (blocked ? "BROKEN" : "UNEXPECTED");
-            return head + "; MakeFrankensim " + SbwShape(t.Availability) + " added by us [" + SbwList(sSbwAdded) + "]: EA's world test "
+            string live = "; MakeFrankensim " + SbwShape(t.Availability) + " added by us [" + SbwList(sSbwAdded) + "]: EA's world test "
                 + (blocked ? "refuses it here" : "allows it here") + "; control MakeInvention " + SbwShape(ctl.Availability) + " "
-                + (ctlBlocked ? "refused" : "allowed") + "; verdict: " + v + "; " + counters;
+                + (ctlBlocked ? "refused" : "allowed");
+            // Another mod already changed the tuning (e.g. the MTS Bridgeport workbench fix, seen in game 2026-11-22): the live
+            // test proves nothing, so run the same test on EA's shipped shape set on the live record and put the record back.
+            if (sSbwAdded == null && bugWorld && !ctlBlocked)
+                return head + live + "; " + SbwSimulated(t.Availability, on, wt, wn, out v) + "; verdict: " + v + "; " + counters;
+            return head + live + "; verdict: " + v + "; " + counters;
+        }
+
+        // EA's shipped shape (Allow, types {Base}, no names) set on the live record for the length of this call (no yield, so no
+        // other code sees it), EA's world test run on it, widened as the fix would when on, then the record's own values put back.
+        static string SbwSimulated(Availability a, bool on, WorldType wt, WorldName wn, out string verdict)
+        {
+            WorldRestrictionType oldType = a.WorldRestrictionType;
+            List<WorldType> oldTypes = a.WorldRestrictionWorldTypes;
+            List<WorldName> oldNames = a.WorldRestrictionWorldNames;
+            try
+            {
+                a.WorldRestrictionType = WorldRestrictionType.Allow;
+                a.WorldRestrictionWorldTypes = new List<WorldType> { WorldType.Base };
+                a.WorldRestrictionWorldNames = new List<WorldName>();
+                bool eaBlocks = SbwBlocks(a, wt, wn);
+                if (on) SbwCore.Widen(a.WorldRestrictionWorldTypes, kSbwAdd);
+                bool after = SbwBlocks(a, wt, wn);
+                verdict = !eaBlocks ? "UNEXPECTED" : on ? (after ? "UNEXPECTED" : "FIXED") : "BROKEN";
+                return "simulated EA tuning (live record changed by another mod): EA's shape " + (eaBlocks ? "refuses" : "allows")
+                    + " it here, " + (on ? "after the fix " + (after ? "refuses" : "allows") : "switch off, not widened");
+            }
+            finally
+            {
+                a.WorldRestrictionType = oldType;
+                a.WorldRestrictionWorldTypes = oldTypes;
+                a.WorldRestrictionWorldNames = oldNames;
+            }
         }
     }
 }
