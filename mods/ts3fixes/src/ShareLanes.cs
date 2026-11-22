@@ -376,6 +376,8 @@ namespace Ts3Fixes
                 }
                 catch (ResetException) { throw; }
                 catch (Exception e) { ShlError(4, e); }
+                // docs/686 §15 (ShowerShare.cs): a partner is let into a shower or an all-in-one bathroom without the line
+                if (interaction != null && ShsLine(interaction, this, behavior != WaitBehavior.NeverWait)) return true;
                 // docs/686 §14 (ObjShare.cs): servingshare skips a platter's and its surface's line; linewaitlog times the rest
                 if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
                 long start = SimClock.CurrentTicks;

@@ -801,6 +801,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kRhShareHousehold value="False" />
     <kServingShare value="False" />
     <kServingShareHousehold value="False" />
+    <kShowerTogether value="False" />
+    <kShowerTogetherHousehold value="False" />
+    <kShowerPee value="False" />
+    <kShowerPeeHousehold value="False" />
+    <kShowerShareLog value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />

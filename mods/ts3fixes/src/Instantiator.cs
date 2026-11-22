@@ -398,6 +398,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kRhShareHousehold = false;  // rhsharehh: rhshare for household and selected Sims too, as the one who walks and as the holder
         [Tunable] public static bool kServingShare = false;  // servingshare (docs/686 §14): Sims the player does not control grab servings from one platter or buffet at the same time (no line, no in-use refusal, Sims overlap); the last serving is taken once
         [Tunable] public static bool kServingShareHousehold = false;  // servingsharehh: servingshare for household and selected Sims too
+        [Tunable] public static bool kShowerTogether = false;  // showertogether (docs/686 §15): a Sim the player does not control that wants a shower (or all-in-one bathroom) its romantic partner is in joins it instead of queueing: both young adults or older, not disliking each other; they overlap and step out one at a time
+        [Tunable] public static bool kShowerTogetherHousehold = false;  // showertogetherhh: showertogether for household and selected Sims too (both Sims must be in scope)
+        [Tunable] public static bool kShowerPee = false;  // showerpee (docs/686 §15): a Sim the player does not control that has to pee on a lot with no usable toilet (none, broken, in use, queued for) takes the game's own shower instead of the bladder failure; that shower refills its bladder
+        [Tunable] public static bool kShowerPeeHousehold = false;  // showerpeehh: showerpee for household and selected Sims too
+        [Tunable] public static bool kShowerShareLog = false;  // showersharelog: one ts3native.log line per showertogether join and per showerpee shower
         [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kInitStackTrace = true;    // initstacktrace (docs/594 §1): InteractionInstance.Init / OnAddedToQueue without the dead O(depth^2) StackTrace walks (fields only read by compiled-out debug code; exact)
