@@ -172,7 +172,7 @@ namespace Ts3Fixes
                 h[n].Elevator = li.ElevatorDoor;
                 h[n].InScope = !o.HasBeenDestroyed && o.SimDescription != null && ShlScope(o, hhOn);
                 n++;
-                if (names.Length < 80) names += (names.Length > 0 ? ", " : "") + (o.HasBeenDestroyed ? "(gone)" : o.FullName) + " lane " + li.mLaneIndex;
+                if (names.Length < 200) names += (names.Length > 0 ? ", " : "") + (o.HasBeenDestroyed ? "(gone)" : o.FullName + " (" + SwfIa(o) + ")") + " lane " + li.mLaneIndex;
             }
             return h;
         }

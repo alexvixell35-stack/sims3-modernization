@@ -64,6 +64,8 @@ namespace Ts3Fixes
             public readonly ulong[] Named = new ulong[kSwfMaxBlockers];
             public int NamedN;
             public string Plan = "", Mutual = "";
+            // what the Sims near the waiter were doing (standwaitlog: which interactions clog the way)
+            public string Who = "";
         }
 
         static readonly Dictionary<ulong, SwfState> sSwf = new Dictionary<ulong, SwfState>();
@@ -243,6 +245,12 @@ namespace Ts3Fixes
 
                 int n = SwfBlockers(sim, path, res, hhOn || !fixOn);  // compare mode counts what both switches would do
                 st.NamedN = n;
+                for (int i = 0; i < n && st.Who.Length < 160; i++)
+                {
+                    string w = sSwfCand[i].FullName;
+                    if (st.Who.IndexOf(w, StringComparison.Ordinal) >= 0) continue;
+                    st.Who += (st.Who.Length > 0 ? "; " : "") + w + " (" + SwfIa(sSwfCand[i]) + (sSwfBlk[i].Pushable ? "" : ", unpushable") + ")";
+                }
                 for (int i = 0; i < n; i++) st.Named[i] = sSwfBlk[i].Id;
                 StandWaitCore.Decision d = StandWaitCore.Decide(sim.HasExitReason(ExitReason.MidRoutePushRequested), sim.HasExitReason(ExitReason.CancelExternal),
                     SwfRank(sim), sim.ObjectId.Value, sSwfBlk, n, sSwfPush);
@@ -352,7 +360,8 @@ namespace Ts3Fixes
                     + ", fix " + (st.On ? "on" : st.Exempt ? "exempt" : "off")
                     + (st.On ? ": yield cycle " + st.YieldCycle + ", pushed " + st.Pushed + " in " + st.PushCycles + " cycles, pass cycle " + st.PassCycle + " (" + st.Probes + " plans)"
                              : ": would yield cycle " + st.WouldYield + ", push " + st.WouldPush + ", pass cycle " + st.WouldPass)
-                    + ", timeout cycles left " + left + SwlEnd(st, kind, left, c);
+                    + ", timeout cycles left " + left + SwlEnd(st, kind, left, c)
+                    + ", near: " + (st.Who.Length > 0 ? st.Who : "nobody");
                 if (ShortcutOn("standwaitlog") && c[kSwfLines] < Instantiator.kStandWaitLogLines && DiagLine(sSwfLast)) c[kSwfLines]++;
             }
             catch (ResetException) { throw; }
