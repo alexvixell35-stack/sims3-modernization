@@ -315,6 +315,64 @@ All GitHub facts come from the GitHub REST API and raw READMEs/docs read on 2026
 | 48 | 459967 | https://modthesims.info/d/459967/gardener-service-v2-3-4th-may-2014.html | Gardener Service - v2.3 (4th May 2014) | douglasveiga | updated 5th May 2014 at 7:07am |
 | 86 | 529671 | https://modthesims.info/d/529671/interaction-on-sloped-terrain-enabler.html | Interaction on sloped terrain enabler | nikel23 | 29th Jul 2014 at 10:47pm |
 
+## Added 2026-11-22 (compat matrix: the other 51 of the MTS top-100 Game Mods)
+- Source: https://modthesims.info/downloads/ts3/414/page/1/?csort=7 (Most Downloaded, pages 1-5, fetched 2026-11-22 through the MTS helper in Rodney's own Chrome: `mts.ts top-mods --pages 5`, then `download-list` for the 51 ids not in `game-copy/compat-mods/`). The ranks below are the 2026-11-22 ranks; the 49 mods of the 2026-11-05 table above are still in the top 100 (ranks moved). With these, all 100 are scanned [verified: every id has a folder].
+- Files under `game-copy/compat-mods/<id>-<slug>/` (ignored), .rar / .7z unpacked next to them (`<archive>.unpacked/`, Windows tar.exe), analysed statically only (compat-scan, docs/COMPATIBILITY.md). License: none stated on the listings; MTS uploads default to creator terms, so reference and static analysis only, no redistribution (reported, not verified per page). Version = the title or the listing date.
+
+| rank | MTS id | URL | title / version | creator | listed date | files |
+|---|---|---|---|---|---|---|
+| 49 | 479364 | https://modthesims.info/d/479364/updated-11-01-toddler-interactions.html | *Updated 11/01* Toddler Interactions | Cherry92 | updated 24th Jun 2012 at 12:20pm | 2 file(s) |
+| 50 | 434510 | https://modthesims.info/d/434510/zoom-in-cas-camera-1-38-pets.html | Zoom-In CaS Camera 1.38 Pets | Shimrod101 | updated 3rd Sep 2012 at 4:47am | 3 file(s) |
+| 51 | 552227 | https://modthesims.info/d/552227/new-update-16-07-v3-msc-mod-more-sims-in-clubs.html | [NEW UPDATE 16/07] [v3] MSC! Mod - More Sims in Clubs | Danieu | updated 17th Jul 2015 at 3:00am | 3 file(s) |
+| 52 | 501241 | https://modthesims.info/d/501241/romantic-socials-tyae-same-sex-revised.html | Romantic Socials TYAE - Same Sex - Revised | mikey | 19th Apr 2013 at 10:23am | 3 file(s) |
+| 53 | 683612 | https://modthesims.info/d/683612/fix-sims-need-less-space.html | Fix: Sims need less Space | OhRudi | updated 13th Oct 2024 at 6:33pm | 1 file(s) |
+| 54 | 422974 | https://modthesims.info/d/422974/scribbling-pad.html | Scribbling Pad | Buzzler | updated 12th Jan 2015 at 1:48am | 1 file(s) |
+| 55 | 425824 | https://modthesims.info/d/425824/shoni-s-vampire-overhaul-island-paradise-update-please-redownload-new-functionalities-added.html | sHoNi's Vampire Overhaul - [Island Paradise Update! Please redownload! New functionalities added!] | shoni89P | updated 24th Jun 2013 at 8:30pm | 14 file(s) |
+| 56 | 523004 | https://modthesims.info/d/523004/update-24-mar-2017-cook-with-any-ingredient-wood-fire-oven-sauna-teppanyaki-grill-baker-s-station-compatible.html | (UPDATE: 24-MAR-2017) Cook With Any Ingredient (Wood Fire Oven/Sauna/Teppanyaki Grill/Baker's Station compatible) | icarus_allsorts | updated 27th Mar 2017 at 3:00am | 6 file(s) |
+| 57 | 387543 | https://modthesims.info/d/387543/auto-testingcheatsenabled-true.html | Auto TestingCheatsEnabled True | treeag | 22nd Jan 2010 at 2:39am | 1 file(s) |
+| 58 | 617216 | https://modthesims.info/d/617216/biggest-little-mod-for-toddlers-2024-01-06.html | Biggest Little Mod for Toddlers [2024/01/06] | TheSweetSimmer | updated 7th Jan 2024 at 5:43am | 5 file(s) |
+| 59 | 345987 | https://modthesims.info/d/345987/no-drift-lower-level-free-cam-camera-mod-updated-for-island-paradise-patch-1-55.html | No Drift/Lower Level Free Cam Camera Mod - Updated For Island Paradise/Patch 1.55 | aikea guinea | updated 27th Jun 2013 at 6:58am | 2 file(s) |
+| 60 | 498188 | https://modthesims.info/d/498188/death-note.html | Death Note | desecrate | 12th Mar 2013 at 7:35pm | 2 file(s) |
+| 61 | 470349 | https://modthesims.info/d/470349/2x-weight-and-fitness-integration-core-mod-by-consort.html | 2x Weight and Fitness Integration core-mod by Consort | Consort | updated 17th Apr 2016 at 9:18am | 48 file(s) |
+| 62 | 383086 | https://modthesims.info/d/383086/simtransformer-for-ts3-updated-03-19-2014.html | SimTransformer for TS3 *UPDATED 03/19/2014* | treeag | 24th Dec 2009 at 11:29pm | 1 file(s) |
+| 63 | 593159 | https://modthesims.info/d/593159/napping-mat.html | Napping Mat | Arsil | updated 11th May 2017 at 11:53pm | 1 file(s) |
+| 64 | 541726 | https://modthesims.info/d/541726/castable-rabbithole-replacements.html | CaSTable RabbitHole Replacements | AussomeDays | updated 15th Dec 2015 at 3:39am | 26 file(s) |
+| 65 | 493140 | https://modthesims.info/d/493140/more-alchemy-potions-potions-for-pets.html | More Alchemy Potions + Potions for Pets | Sims MX | updated 27th Jul 2013 at 11:41am | 5 file(s) |
+| 66 | 367164 | https://modthesims.info/d/367164/outdoor-lighting-tweaks-v2-2.html | Outdoor Lighting Tweaks v2.2 | dDefinder | updated 18th Nov 2012 at 11:18pm | 2 file(s) |
+| 67 | 667060 | https://modthesims.info/d/667060/spring-cleaning-an-assortment-of-vaguely-spring-related-tweaks-updated-23-may-2022.html | Spring Cleaning -- An Assortment of Vaguely Spring-Related Tweaks (UPDATED: 23 May 2022) | gamefreak130 | updated 24th May 2022 at 4:51am | 4 file(s) |
+| 68 | 350207 | https://modthesims.info/d/350207/faster-novel-writing-for-sims-3-supernatural-9-18-12.html | Faster Novel Writing For Sims 3 Supernatural: 9-18-12 | Chaavik | updated 4th Dec 2009 at 7:42pm | 5 file(s) |
+| 69 | 478708 | https://modthesims.info/d/478708/updated-6-30-12-butler-amp-maid-will-feed-pets-amp-clean-all-pets.html | *Updated* (6-30-12) Butler & Maid will Feed Pets & Clean All Pets. | CyberBob78 | updated 21st Jun 2012 at 2:18am | 9 file(s) |
+| 70 | 399992 | https://modthesims.info/d/399992/drinks-for-your-sims-updated-for-patch-1-63-1-67.html | Drinks For Your Sims - updated for patch 1.63/1.67 | ani_ | updated 20th Oct 2013 at 4:29am | 10 file(s) |
+| 71 | 498857 | https://modthesims.info/d/498857/ts3-apartment-mod-updated-for-patch-1-55-1-63-1-67.html | TS3 Apartment mod - Updated for patch 1.55 - 1.63/1.67 | ani_ | updated 21st Jun 2013 at 3:37pm | 3 file(s) |
+| 72 | 682936 | https://modthesims.info/d/682936/growing-pains-updated-9-5-25-optional-eps.html | Growing Pains (Updated 9/5/25) - Optional EPs | Twinsimming | updated 14th Nov 2026 at 1:20pm | 2 file(s) |
+| 73 | 522594 | https://modthesims.info/d/522594/the-sims-3-awkward-moments-amp-humiliations-quot-immediate-interactions-quot.html | The Sims 3 Awkward moments & Humiliations "Immediate Interactions" | Dramatic-Gamer | 26th Mar 2014 at 3:40am | 1 file(s) |
+| 74 | 521931 | https://modthesims.info/d/521931/the-sims-3-disasters-amp-blessings-quot-immediate-interactions-quot.html | The Sims 3 Disasters & Blessings "Immediate Interactions" | Dramatic-Gamer | 13th Mar 2014 at 3:32am | 1 file(s) |
+| 75 | 535651 | https://modthesims.info/d/535651/update-5-jul-2016-set-the-table-amp-call-to-meal.html | (UPDATE: 5-JUL-2016) Set The Table & Call To Meal | icarus_allsorts | updated 5th Jul 2016 at 3:29am | 1 file(s) |
+| 76 | 491612 | https://modthesims.info/d/491612/no-mutated-hair-eye-colour.html | No Mutated Hair/Eye Colour | KittyCarey | 25th Nov 2012 at 10:22pm | 1 file(s) |
+| 77 | 410544 | https://modthesims.info/d/410544/add-more-traits-to-your-sims-gen-compatible.html | Add More Traits to Your Sims! (GEN Compatible) | Rainbow_Brite | updated 7th Jul 2010 at 9:48am | 4 file(s) |
+| 78 | 478271 | https://modthesims.info/d/478271/study-skills-online-v37-november-19th-2014.html | Study Skills Online V37 (November 19th, 2014) | JunJayMdM | updated 19th Nov 2014 at 1:57pm | 3 file(s) |
+| 79 | 501959 | https://modthesims.info/d/501959/curfew-disabler.html | Curfew Disabler | Sniper296 | updated 31st Oct 2013 at 1:52am | 6 file(s) |
+| 80 | 668421 | https://modthesims.info/d/668421/outdoor-activities-for-toddlers.html | Outdoor Activities for Toddlers | TheSweetSimmer | 19th Jun 2022 at 9:08am | 1 file(s) |
+| 81 | 428755 | https://modthesims.info/d/428755/muscle-slider-fix-for-naked-teens-and-elders-updated-09-01.html | Muscle Slider Fix for Naked Teens and Elders - Updated 09/01 | Nysha | updated 9th Jan 2011 at 10:20pm | 2 file(s) |
+| 82 | 413311 | https://modthesims.info/d/413311/buy-takeout-and-order-food-at-restaurants.html | Buy Takeout And Order Food At Restaurants | Buzzler | updated 12th Jan 2015 at 1:44am | 1 file(s) |
+| 83 | 387793 | https://modthesims.info/d/387793/statue-of-life-updated-11-22-10.html | Statue of Life: Updated 11/22/10 | Kolipoki | updated 23rd Nov 2010 at 12:36am | 4 file(s) |
+| 85 | 654393 | https://modthesims.info/d/654393/improved-environmental-shadows.html | Improved Environmental Shadows | simsi45 | 31st Mar 2021 at 6:13am | 2 file(s) |
+| 86 | 411634 | https://modthesims.info/d/411634/housecleaning-for-all-sims.html | Housecleaning For All Sims | Buzzler | 13th Jul 2010 at 7:59am | 1 file(s) |
+| 87 | 565380 | https://modthesims.info/d/565380/change-at-home-after-work.html | Change At Home After Work | mmsbludhound | 5th Oct 2015 at 8:34pm | 1 file(s) |
+| 88 | 533906 | https://modthesims.info/d/533906/update-5-jan-2016-user-directed-scolding-other-punishment-tweaks.html | (UPDATE: 5-JAN-2016) User-Directed Scolding + Other Punishment Tweaks | icarus_allsorts | updated 5th Jan 2016 at 4:03pm | 1 file(s) |
+| 89 | 552325 | https://modthesims.info/d/552325/spring-harvest-and-cookbook-update-13th-may.html | Spring Harvest And CookBook (update:13th May) | icemunmun | updated 14th May 2015 at 12:43am | 2 file(s) |
+| 90 | 493905 | https://modthesims.info/d/493905/default-replacement-for-monarch-ferns-wisps-and-dragonfly-fairy-wings.html | Default Replacement for Monarch, Ferns, Wisps and Dragonfly Fairy Wings | Merkaba | updated 15th May 2013 at 2:17am | 5 file(s) |
+| 91 | 392100 | https://modthesims.info/d/392100/no-mosaic-updated-for-1-19-2-14-3-1-4-7-5-5-6-2-7-0.html | No Mosaic - Updated for 1.19/2.14/3.1/4.7/5.5/6.2/7.0 | ridoo | updated 2nd Feb 2011 at 8:01pm | 1 file(s) |
+| 92 | 574882 | https://modthesims.info/d/574882/hot-chili-plants-ingredients-and-recipes-updated-18-5-2016.html | Hot Chili Plants, Ingredients and Recipes (Updated 18.5.2016) | icemunmun | updated 19th May 2016 at 1:23am | 10 file(s) |
+| 93 | 625595 | https://modthesims.info/d/625595/the-third-person-mod.html | The Third Person Mod | QuackGames | updated 8th Aug 2019 at 9:54pm | 2 file(s) |
+| 94 | 508084 | https://modthesims.info/d/508084/no-more-base-game-clothes-female.html | No More Base Game Clothes!-Female | hgirl2k | updated 21st Jul 2013 at 6:22am | 9 file(s) |
+| 95 | 665907 | https://modthesims.info/d/665907/reduce-remove-lag-caused-by-houseboats.html | Reduce/Remove Lag caused by Houseboats | marydehoyos | updated 31st Mar 2022 at 1:04am | 1 file(s) |
+| 96 | 531560 | https://modthesims.info/d/531560/the-sims-3-demonic-powers.html | The Sims 3 Demonic Powers | Dramatic-Gamer | 26th Aug 2014 at 2:49pm | 1 file(s) |
+| 97 | 653514 | https://modthesims.info/d/653514/reworked-amp-improved-ea-lights.html | Reworked & Improved EA Lights | simsi45 | 7th Mar 2021 at 9:09pm | 1 file(s) |
+| 98 | 683992 | https://modthesims.info/d/683992/sims-can-hand-over-babies-amp-toddlers.html | Sims Can Hand Over Babies & Toddlers | TheSweetSimmer | updated 21st Mar 2026 at 5:52am | 2 file(s) |
+| 99 | 415450 | https://modthesims.info/d/415450/the-box-of-seeds.html | The Box Of Seeds | Buzzler | 7th Aug 2010 at 7:45am | 2 file(s) |
+| 100 | 438835 | https://modthesims.info/d/438835/non-core-global-online-banking-mod-v1-18-48180-1022-works-with-patch-1-67-2.html | Non-Core Global Online Banking Mod - v1.18.48180.1022 (works with patch 1.67.2) | Digitalchaos | updated 19th Feb 2016 at 5:59pm | 1 file(s) |
+
 ## Saved stacks through swapped methods (2026-11-06, docs/242)
 
 Web search and the NRaas source found no mod that keeps a saved frame across a method swap: nothing online on the task-stack checksum; `game-copy/nraas-src` touches `TaskStateCollection` only in its compiler stub project. EA forum threads describe the symptom only (a Sim rebuilt by ResetSim, e.g. https://forums.ea.com/discussions/the-sims-3-technical-issues-en/sims-interaction-seemingly-disabled/8324681).

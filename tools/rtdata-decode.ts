@@ -174,11 +174,12 @@ export function rtChecksum(d: RTData, keep = 0x7f): { sum: number; wps: number; 
 // The loader's in-memory form (= a version-2 resource body after the 12-byte header): u32 offset per chunk relative to the
 // record area, then per chunk u16 count + u16 record offsets + 5-byte-head records. Surface byte: the stored one, else the
 // 0x66CB90 rule for the fixed types and 0 for the rest (shortcut: the loader samples terrain there; no cost mode reads it).
-export function memoryImage(d: RTData): { offsets: Buffer; raw: Buffer } {
+// version 1 writes the file form without the surface byte (world-gen.ts keeps a version-1 template version 1).
+export function memoryImage(d: RTData, version = 2): { offsets: Buffer; raw: Buffer } {
   const offsets = Buffer.alloc(4 * d.chunks.length), parts: Buffer[] = [];
   let at = 0;
   d.chunks.forEach((ch, c) => {
-    const recs = ch.map(wp => Buffer.from([wp.edges, wp.flags, wp.surface ?? FIXED_SURFACE[wp.type] ?? 0, wp.bx, wp.bz,
+    const recs = ch.map(wp => Buffer.from([wp.edges, wp.flags, ...(version >= 2 ? [wp.surface ?? FIXED_SURFACE[wp.type] ?? 0] : []), wp.bx, wp.bz,
       ...wp.refs.flatMap(r => [r & 0xff, r >> 8]), ...(wp.edgeBytes ? wp.edgeByte : [])]));
     const head = Buffer.alloc(2 + 2 * ch.length); head.writeUInt16LE(ch.length, 0);
     let o = head.length; recs.forEach((r, i) => { head.writeUInt16LE(o, 2 + 2 * i); o += r.length; });

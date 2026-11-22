@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.298-m1121b"  // m1121b: master set m1121b (merge/kit3-1121): adk1 + tester kit A/B (KitArm, docs/314) + kit benchmark agent (docs/315) (2026-11-21); was adk1: m1121 + [AdaptDiag] adaptive diag kit (docs/316, off) + ModTime pass-through hook label (docs/298 §5.1) (2026-11-21); was m1121: master set m1121 (merge/agents-1121): d1121 + VbFreeDelayMs ON / VbGuard (docs/67 §44) + core-mod kits k1-k3 ([MonoJit] CoreModMatch, JIT foreign-fault fix, JIT table ceiling 16384 methods / 24 MB; docs/537) (2026-11-21); was vbg1121c: d1121 + [EaCrashFixes] VbFreeDelayMs (off) + [CrashForensics] VbGuard (docs/67 §44, off; 2026-11-21); was d1121: master set d1121: m1120u + Dalexlol 1121 imports (#605 NeighbourMemo + route profiler, #613 route lock RO switches, #617 DoorShare + DeferPrivateFpAdd; all off) (2026-11-21); was m1120u: master set m1120u: m1120t + .ooa host gate (EA kit asi 0.36.297-eaooa1) + [HostMapIterFix] ON in the release ini (2026-11-20); m1120t: 0.36.295-tsk1 (master with [Diag] TaskSeam) + doormemox-privacy, pccheck, keep-options-gpu, stbl-index (next-week merges 2026-11-20)
+#define TS3NATIVE_VERSION "0.36.299-e1122"  // master set e1122: m1121b + Dalexlol 1122 imports (#632 JobYield records held across a step-aside, #622 [WorldPrecompute] SmoothCut off, #623 [FglInside] off) (2026-11-22); was m1121b: m1121b: master set m1121b (merge/kit3-1121): adk1 + tester kit A/B (KitArm, docs/314) + kit benchmark agent (docs/315) (2026-11-21); was adk1: m1121 + [AdaptDiag] adaptive diag kit (docs/316, off) + ModTime pass-through hook label (docs/298 §5.1) (2026-11-21); was m1121: master set m1121 (merge/agents-1121): d1121 + VbFreeDelayMs ON / VbGuard (docs/67 §44) + core-mod kits k1-k3 ([MonoJit] CoreModMatch, JIT foreign-fault fix, JIT table ceiling 16384 methods / 24 MB; docs/537) (2026-11-21); was vbg1121c: d1121 + [EaCrashFixes] VbFreeDelayMs (off) + [CrashForensics] VbGuard (docs/67 §44, off; 2026-11-21); was d1121: master set d1121: m1120u + Dalexlol 1121 imports (#605 NeighbourMemo + route profiler, #613 route lock RO switches, #617 DoorShare + DeferPrivateFpAdd; all off) (2026-11-21); was m1120u: master set m1120u: m1120t + .ooa host gate (EA kit asi 0.36.297-eaooa1) + [HostMapIterFix] ON in the release ini (2026-11-20); m1120t: 0.36.295-tsk1 (master with [Diag] TaskSeam) + doormemox-privacy, pccheck, keep-options-gpu, stbl-index (next-week merges 2026-11-20)
 // was "0.36.297-m1120n" (the same merges on 0.36.295-mdt1, before TaskSeam)
 // was "0.36.295-tsk1"  // feature/mod-seam-budget-1120: [Diag] TaskSeam (docs/308, off) on 0.36.295-mdt1; feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
 // was "0.36.295-mdt1"  // feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
@@ -3434,8 +3434,12 @@ static void CnLogCounters();   // connro.cpp (docs/670 §15)
 static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
 static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
+static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
+// docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
+static LONG g_jyFollowed;
+static LONG g_jyParkedN, g_jyBackN, g_jyDropN, g_jyLostN, g_jyActiveN;  // records parked / put back / dropped / expired or no slot; asks on a followed route
 static void MaybeLogCounters(ULONGLONG now) {
     LONG64 next = g_nextLog;
     if ((LONG64)now < next || InterlockedCompareExchange64(&g_nextLog, (LONG64)now + 60000, next) != next) return;
@@ -3493,12 +3497,14 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.ufcReady) UfcLogCounters();  // docs/202 §3.4
     DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
+    ScLogCounters();   // docs/676 §15 (nothing until [WorldPrecompute] SmoothCut is installed)
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
         Log("route jobs sim waits: runplan %ld/%ld/%ld rtwait %ld/%ld/%ld disc %ld/%ld/%ld collect %ld/%ld/%ld drop %ld/%ld/%ld "
-            "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
+            "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld, records parked %ld back %ld dropped %ld lost %ld, "
+            "followed routes not yielded %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
             c.swN[1], c.swUs[1] / 1000, c.swYieldable[1], c.swN[2], c.swUs[2] / 1000, c.swYieldable[2], c.swN[3],
             c.swUs[3] / 1000, c.swYieldable[3], c.swN[4], c.swUs[4] / 1000, c.swYieldable[4], c.swN[5], c.swUs[5] / 1000,
-            c.swYieldable[5], c.swMaxUs / 1000, c.jyMode, c.jyAsks, c.jyBusy);
+            c.swYieldable[5], c.swMaxUs / 1000, c.jyMode, c.jyAsks, c.jyBusy, g_jyParkedN, g_jyBackN, g_jyDropN, g_jyLostN, g_jyActiveN);
     if (c.avReady)  // docs/137
         Log("avoid RO: mode %ld shadow %ld hit %ld miss %ld (site %ld) B %ld fallbacks %ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld T-AV %ld "
             "shadow %ld (mismatch %ld B %ld query %ld order %ld simscan %ld) writeInRo %ld", c.avMode, c.avShadow, c.avTakenHit,
@@ -5183,19 +5189,13 @@ static void SwNote(int site, LONG us, bool yieldable, DWORD handle, bool own) {
         own ? "own" : "foreign", yieldable ? "yes" : "no");
 }
 
-// docs/183 JOBBUSY (ts3fixes RouteBackoff.cs StepAside, GetOption2 with optHi 0x85000000 on any route; bit 63 has no name, so
-// the game and older builds answer false and the plan goes on as before): true = a job runs that this plan would wait for
-// here, and the caller may sleep a tick instead. Serves one pending managed call of the job, as READY does.
+// docs/183 JOBBUSY (ts3fixes RouteBackoff.cs StepAside, GetOption2 with optHi 0x85000000; bit 63 has no name, so the game and
+// older builds answer false and the plan goes on as before): jobyield.cpp. op 0 = poll (true = a job runs that this plan
+// would wait for here, and the caller may sleep a tick instead), 1 = the caller stops stepping aside and plans now, 2 = the
+// caller left its sleep by an exception.
 static const DWORD kJobBusyHi = 0x85000000;
-static u8 JyBusy() {
-    Ts3nCounters& k = ts3native_counters;
-    if (k.jyMode != 1) return 0;
-    InterlockedIncrement(&k.jyAsks);
-    if (GetCurrentThreadId() != g_async.owner || g_inInvoke || g_async.state != A_RUNNING || !CanYield()) return 0;
-    if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-    InterlockedIncrement(&k.jyBusy);
-    return 1;
-}
+static u8 JyBusy(DWORD handle, DWORD op);
+static void JyDrop(DWORD handle);
 
 // Owner side: runs the running job's managed calls until no job runs (2 s watchdog: log and keep waiting, as RunPlan does).
 static void WaitAsyncDone(int site) {
@@ -5663,6 +5663,7 @@ static u8 AsyncStart(DWORD handle, int kind = 0, const float* pt = NULL, bool fo
 }
 static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) {
     g_collect = 0;
+    JyDrop(handle);  // docs/183 §7: a new START of a route whose task stepped aside: the parked records are not this plan's
     const LONG probe = handle && g_scProbeH == handle && !kind && !foreign ? 1 : 0;  // a mark is good for one START only
     // docs/250 §7.1 (0.36.239): the watchdog tag labels an own PlanFromPoint job too (WatchdogKind2), so its time lands in wdJob*
     const LONG sc = handle && g_scTagH == handle && !foreign && (!kind || (kind == 2 && (g_scTag & 0x400))) ? g_scTag : 0;
@@ -5930,7 +5931,7 @@ static bool ArOwnGateOk(DWORD handle) {
 }
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
-    if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
+    if ((u8)options2 && optHi == kJobBusyHi && optLo <= 2) return JyBusy(handle, optLo);  // docs/183
     if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2 || optLo == 4)) return UfMsg(handle, optLo);  // docs/202; 4 = VIEW? (KdCutCamRecheck=2)
     if ((u8)options2 && optHi == 0x83000000 && (optLo & 0xFFFF00FF) == 3) return GvuMsg(handle, optLo >> 8 & 0xFF);  // docs/250 §7.3 B2 DEFER?
     if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x83000000 && (optHi >> 16 & 0xFF) >= 3) return UfCamMsg(optLo, optHi);  // docs/202 §2.1
@@ -6619,6 +6620,7 @@ static void RewindPoolParkInit(const wchar_t* ini) {
 #include "earlyout.cpp"
 #include "plandeadline.cpp"  // docs/164 §7: [RouteAsync] PlanDeadlineMs / FailMemo (routephases.cpp takes its trampolines)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
+#include "jobyield.cpp"      // docs/183 §7: JOBBUSY and the records of a sleeping plan (after plandeadline.cpp: g_kdScope*; unseenfb.cpp)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
 #include "ghost.cpp"         // docs/202 §3.9.5: [UnseenGhost] (after unseenfbc.cpp: agent site, 0x833560 layers)
 #include "unseenanim.cpp"    // docs/144 §3.4: [UnseenAnim] U-A1 (after unseen.cpp: classifier, household table)
@@ -6636,6 +6638,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "syncphases.cpp"  // docs/164: [RouteJobPhases] SyncPlans (needs routephases.cpp)
 #include "cellmemo.cpp"
 #include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plandeadline.cpp: t_pd.scope)
+#include "smoothcut.cpp"   // docs/676 §15: [WorldPrecompute] SmoothCut (no dependencies beyond the helpers above)
 #include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
@@ -6908,6 +6911,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyHitchSum(ini) || keepLog;        // docs/666 §5: after [RouteJobPhases] (SyncPlans) and [HitchAttr] Holders (log only, off)
         keepLog = ApplyAdaptDiag(ini) || keepLog;       // docs/316: after hitch summary / stall watch / ModTime / PcCheck (turns their thresholds; off)
         InstallRouteSpeed(ini);  // docs/663: after [RouteSnap] (tree-write sequence) and [RouteGate] (the Q table clear stub)
+        InstallSmoothCut(ini);   // docs/676 §15: one call site of its own (0x6676CE), nobody else's
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install

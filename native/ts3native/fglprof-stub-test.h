@@ -45,6 +45,16 @@ static void FtCall() {
         popad
     }
 }
+// a callee that leaves a frame below itself, as an unwound and caught inner call would; answers its 2nd argument
+static DWORD __cdecl FtFakeStale(DWORD, DWORD b) {
+    volatile DWORD here = 0;
+    FglFrame& f = g_fgl.frames[g_fgl.depth++];
+    f.slot = (DWORD*)&here;
+    f.ret = 0xDEAD0000;
+    f.site = FGL_S_CORE;
+    f.t0.QuadPart = 0;
+    return b + here;
+}
 static bool FtTransparent(DWORD eax, DWORD popped) {
     return g_ftOut[0] == eax && g_ftOut[1] == 0x11111111 && g_ftOut[2] == 0x22222222 && g_ftOut[3] == 0xB1B1B1B1 && g_ftOut[4] == 0x51515151 &&
            g_ftOut[5] == 0xE1E1E1E1 && g_ftCarry == 1 && g_ftSeen[0] == 0xC1C1C1C1 && g_ftSeen[1] == 0xD1D1D1D1 && g_ftSeen[2] == 0xB1B1B1B1 &&
@@ -120,6 +130,15 @@ static void TestFglProfStubs() {
     g_ftArg0 = (DWORD)(uintptr_t)rec;
     FtCall();
     assert(FtTransparent(1, 0) && g_fgl.depth == 1 && g_fglk.stale == stale + 1);
+    // a frame left deeper than a timed call by an unwind caught inside it (no later call dropped it): the call's own return
+    // must reach its caller, not the dead frame's address
+    g_fglTarget[FGL_S_CORE] = (void*)FtFakeStale;
+    g_ftCall = (void*)kFglStubs[FGL_S_CORE];
+    g_ftArg1 = 0x5677;
+    FtCall();
+    assert(g_ftOut[0] == 0x5677 && g_ftOut[3] == 0xB1B1B1B1 && g_ftOut[5] == 0xE1E1E1E1 && g_ftEsp1 == g_ftEsp0 - 8 && g_fgl.depth == 1 &&
+           g_fglk.stale == stale + 2);
+    g_fglTarget[FGL_S_CORE] = (void*)FtFakeCdecl2;
 
     // the search site: takes the profile, tallies, gives it back
     g_fgl.owner = 0;
@@ -171,6 +190,11 @@ static DWORD __cdecl FfFoot(u8* rec, DWORD) {
     g_ffFootR2 = e - b == 16 ? (b[0] - pos[0]) * (b[0] - pos[0]) + (b[1] - pos[1]) * (b[1] - pos[1]) : -1;
     return g_ffFootAns;
 }
+// the placement delegate searching again: one facing test of the nested search, through the real facing stub
+static DWORD __cdecl FfNested(u8* rec, DWORD) {
+    typedef DWORD(__cdecl* TestFn)(u8*, DWORD);
+    return ((TestFn)(void*)kFglStubs[FGL_S_FACING])(rec, 0);
+}
 static void TestFglFacing() {
     void* savedTarget[FGL_SITES];
     memcpy(savedTarget, g_fglTarget, sizeof(savedTarget));
@@ -204,6 +228,7 @@ static void TestFglFacing() {
     g_fgl.frames[0].site = FGL_S_SEARCH;
     g_fgl.depth = 1;
     g_fgl.proof.on = false;
+    g_fgl.spoiled = false;
     FglLearnReset(&g_fgl.learn);
     FglTallyReset(&g_fgl.t);
     memset(&g_fglf, 0, sizeof(g_fglf));
@@ -279,6 +304,24 @@ static void TestFglFacing() {
     place(13.5f, 3.5f, 0);
     for (int i = 0; i < 4; i++) poly[2 * i] += 5.0f;
     assert((u8)facing(rec, 0) == 0 && g_fglf.noDisc == 1 && g_fglf.proven == 4);
+    // a search nested in this one (the placement delegate searching again): neither it nor the rest of the outer search
+    // answers from the outer's proof or learns into its table
+    {
+        const TestFn search = (TestFn)(void*)kFglStubs[FGL_S_SEARCH];
+        g_fglTarget[FGL_S_SEARCH] = (void*)FfNested;
+        FglLearnReset(&g_fgl.learn);
+        place(14.5f, 3.5f, 0);
+        assert((u8)facing(rec, 0) == 0 && g_fglf.proven == 5);   // proven: facing 0 would now be answered
+        const LONG sk = g_fglf.skipped;
+        const int tn = g_ffTests;
+        assert((u8)search(rec, 0) == 0 && g_ffTests == tn + 1 && g_fglf.skipped == sk && g_fgl.depth == 1 && g_fgl.spoiled);
+        place(14.5f, 3.5f, 0);
+        assert((u8)facing(rec, 0) == 0 && g_ffTests == tn + 2 && g_fglf.skipped == sk);
+        place(15.5f, 3.5f, 2);
+        assert((u8)facing(rec, 0) == 0 && g_ffTests == tn + 3 && g_fglf.proven == 5 && g_fgl.learn.seen[0][0] && !g_fgl.learn.seen[2][0]);
+        g_fglTarget[FGL_S_SEARCH] = savedTarget[FGL_S_SEARCH];
+        g_fgl.spoiled = false;
+    }
 
     // [FglMemo]: the failed tests of one search answer the same tests of the next search of the same run
     FglLearnReset(&g_fgl.learn);
@@ -301,6 +344,18 @@ static void TestFglFacing() {
     g_ffTestAns = 1;
     place(21.5f, 3.5f, 0);
     assert((u8)facing(rec, 0) == 1 && (u8)facing(rec, 0) == 1 && g_ffTests == t0 + 3 && g_fglm.stored == 1);   // passes are not kept
+    {   // a nested search (another object) is not answered from this search's memo and stores nothing in it
+        const TestFn search = (TestFn)(void*)kFglStubs[FGL_S_SEARCH];
+        g_fglTarget[FGL_S_SEARCH] = (void*)FfNested;
+        g_ffTestAns = 0;
+        place(20.5f, 3.5f, 0);
+        assert((u8)search(rec, 0) == 0 && g_ffTests == t0 + 4 && g_fglm.hits == 1 && g_fglm.stored == 1);
+        place(22.5f, 3.5f, 0);
+        assert((u8)search(rec, 0) == 0 && g_ffTests == t0 + 5 && g_fglm.stored == 1);
+        g_fglTarget[FGL_S_SEARCH] = savedTarget[FGL_S_SEARCH];
+        g_ffTestAns = 1;
+        g_ffTests -= 2;   // the counts below are those of the searches without this block
+    }
     g_fglm.lastEnd = GetTickCount();
     FglSearchBegin(srec);                      // search 2, same key, right after: carried
     place(20.5f, 3.5f, 0);
@@ -319,6 +374,49 @@ static void TestFglFacing() {
     g_ffTestAns = 1;
     assert((u8)facing(rec, 0) == 1 && g_fglm.shadowTests == 1 && g_fglm.shadowMismatch == 1 && g_ffTests == t0 + 7);
 
+    // [FglInside]: an armed search's facing tests on tiles without a room are answered 0 through the facing stub
+    {
+        static u8 savedI[sizeof(g_fgli)];
+        memcpy(savedI, &g_fgli, sizeof(g_fgli));
+        memset(&g_fgli, 0, sizeof(g_fgli));
+        g_fgli.ready = 1; g_fgli.mode = 1; g_fgli.lines = 216;   // no log line
+        g_fglm.ready = 0; g_fglm.live = false;
+        g_fglRoomTest = [](void*, int tx, int tz, int level) -> int { return tx == 30 && tz == 3 && level == 1 ? 7 : tx > 100 ? 0xFFFF : 0; };
+        srec[0x2D] = 0;
+        *(DWORD*)(srec + 0x28) = 1;                // the record has a managed check
+        assert(FglInsideOp(1) == 1 && (DWORD)g_fgli.armTid == GetCurrentThreadId());
+        g_fgl.depth = 1;
+        FglSearchBegin(srec);
+        assert(g_fgl.ins.on && g_fgli.armTid == 0 && g_fgli.searches == 1);
+        const int t1 = g_ffTests;
+        g_ffTestAns = 1;
+        place(31.5f, 3.5f, 0);                     // no room on levels -1, 0, 1: answered, the fake test does not run
+        assert((u8)facing(rec, 0) == 0 && (u8)facing(rec, 0) == 0 && g_ffTests == t1 && g_fgl.ins.answered == 2 && g_fgl.ins.tilesOut == 1);
+        place(30.5f, 3.5f, 0);                     // a room one level up: runs
+        assert((u8)facing(rec, 0) == 1 && g_ffTests == t1 + 1 && g_fgl.ins.tilesIn == 1 && g_fgl.ins.passIn == 1);
+        FglSearchEnd(true, 0);
+        assert(g_fgli.found == 1 && g_fgli.mismatch == 0 && g_fgli.answered == 2 && !g_fgl.ins.on);
+        FglSearchBegin(srec);                      // not armed: nothing answered
+        place(31.5f, 3.5f, 0);
+        assert(!g_fgl.ins.on && (u8)facing(rec, 0) == 1 && g_ffTests == t1 + 2);
+        g_fgli.shadow = 1;                         // Shadow: the test runs; found on such a tile = mismatch
+        FglInsideOp(1);
+        FglSearchBegin(srec);
+        assert((u8)facing(rec, 0) == 1 && g_ffTests == t1 + 3 && g_fgl.ins.ranOut == 1 && g_fgl.ins.passOut == 1);
+        FglSearchEnd(true, 0);
+        assert(g_fgli.mismatch == 1);
+        FglInsideOp(1);                            // armed, but the record has no managed check: not the stage
+        *(DWORD*)(srec + 0x28) = 0;
+        FglSearchBegin(srec);
+        assert(!g_fgl.ins.on && g_fgli.notStage == 1 && g_fgli.armTid == 0);
+        FglInsideOp(1);
+        assert(FglInsideOp(0) == 1 && g_fgli.armTid == 0);
+        g_fgli.ready = 0;
+        assert(FglInsideOp(1) == 0 && g_fgli.armTid == 0);
+        g_fglRoomTest = NULL;
+        memcpy(&g_fgli, savedI, sizeof(g_fgli));
+    }
+
     g_fglm.ready = savedM;
     g_fglMemoHhTest = false;
     g_fglm.live = false;
@@ -330,9 +428,10 @@ static void TestFglFacing() {
     g_fgl.proof.on = false;
     g_fgl.testRec = NULL;
     g_fgl.inFacing = false;
+    g_fgl.spoiled = false;
     FglTallyReset(&g_fgl.t);
     memcpy(g_fglTarget, savedTarget, sizeof(savedTarget));
     g_fglk = savedK;
     g_fglf = savedF;
-    printf("ok FglFacing, FglMemo\n");
+    printf("ok FglFacing, FglMemo, FglInside\n");
 }

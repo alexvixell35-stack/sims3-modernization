@@ -1,15 +1,18 @@
 // Compatibility scan (PLAN.md "Compatibility track" step 1): what other mods touch that our mods also touch. Read-only.
 //   node tools/compat-scan.ts [<folder>...] [--json] [--matrix docs/data/compat-matrix.csv]
 //        [--game "<Steam>\The Sims 3"] [--asm game-copy/assemblies] [--ts3fixes build/ts3fixes.package]
+//        [--ini game-copy/ts3native.ini.hf031] [--ea-ini game-copy/ts3native-ea169.ini.hf031]   (release inis: native gates, IniUnseen)
 //   node tools/compat-scan.ts --self-check
 // Folders: a Mods folder or a folder of mod archives / packages, scanned recursively (default game-copy/compat-mods and
 // <Documents>\Electronic Arts\The Sims 3\Mods\Packages; env TS3_USER / TS3_GAME as in offload-override-scan.ts).
 // Lists (a) every game method our ts3fixes patches (static scan of mods/ts3fixes/src Patch(...) calls, with the feature =
-// source file and the ShortcutOn switches in it) and every ts3native hook address (tools/hook-sites.ts scan of
-// native/ts3native/*.cpp; both only when the repo sources are there); (b) per mod file: script assemblies (name, MVID),
+// source file and the ShortcutOn switches in it; AutShadow's Hook(failed, ...) swaps too), each marked live or off with the
+// release defaults (switchDefaults: Fixes.SwDefault -> Instantiator / build-fixes.ts TUNING_XML / ini), and every ts3native hook address (tools/hook-sites.ts scan of
+// native/ts3native/*.cpp, with its module's gate in the Steam and EA release inis; both only when the repo sources are there); (b) per mod file: script assemblies (name, MVID),
 // mod types that derive from a patched type or override a patched method, replaced game modules, resource keys shared
-// with ts3fixes.package; (c) a verdict: no overlap / overlap (feature, switch) / unknown (archive not readable, ASI).
-// Archives: .package directly, .zip read in memory (tools/mts-zip.ts unzip), .rar / .7z = "unpack needed".
+// with ts3fixes.package; (c) a verdict: no overlap / overlap (a live feature, switch) / overlap, off by default (only features
+// whose switches are off) / unknown (archive not readable, ASI).
+// Archives: .package directly, .zip read in memory (tools/mts-zip.ts unzip), .rar / .7z = "unpack needed" unless <archive>.unpacked/ sits next to it.
 // Game assemblies for the type hierarchy: --asm (default game-copy/assemblies), else the S3SA images of <game>\Game\Bin\*.package.
 import { closeSync, existsSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -28,7 +31,7 @@ const OURS = /^(ts3fixes|ts3agent)$/i; // our own assemblies / packages are not 
 const TUNING = new Set([0x0333406c, 0x03b33ddf]); // _XML, ITUN
 
 // ---------- (a) what we patch ----------
-export type Target = { type: string; method: string; feature: string; switches: string[]; where: string; hook?: string };
+export type Target = { type: string; method: string; feature: string; switches: string[]; where: string; hook?: string; on?: boolean }; // on: live with the release defaults
 
 /** First argument of a call: text up to the top-level comma. */
 function firstArg(s: string, at: number): [string, number] {
@@ -49,7 +52,7 @@ export function typeExpr(e: string, src: string, depth = 0): string | null {
   let m = /^typeof\(([\w.]+)\)\.GetNestedType\("(\w+)"/.exec(e);
   if (m) return `${m[1]}+${m[2]}`;
   if ((m = /^typeof\([\w.]+\)\.Assembly\.GetType\("([\w.+]+)"/.exec(e))) return m[1];
-  if ((m = /^typeof\(([\w.]+)\)$/.exec(e))) return m[1];
+  if ((m = /^typeof\(([\w.]+)\)$/.exec(e))) return new RegExp(`^using\\s+${m[1]}\\s*=\\s*([\\w.]+)\\s*;`, 'm').exec(src)?.[1] ?? m[1]; // using alias
   if (/^\w+$/.test(e) && depth < 3) { // local: Type x = <expr>;
     const d = new RegExp(`\\b${e}\\s*=\\s*([^;]+);`).exec(src);
     if (d) return typeExpr(d[1].trim(), src, depth + 1);
@@ -57,15 +60,21 @@ export function typeExpr(e: string, src: string, depth = 0): string | null {
   return null;
 }
 
-/** Patch(<type>, "<method>", ...) calls of one ts3fixes source file. */
+/** Patch(<type>, "<method>", ...) calls of one ts3fixes source file, and AutShadow's Hook(<failed list>, <type>, "<method>", ...). */
 export function patchCalls(src: string, feature: string): { targets: Target[]; dynamic: number } {
   const code = src.replace(/\/\/.*$/gm, '');
   const switches = [...new Set([...code.matchAll(/ShortcutOn\("(\w+)"\)/g)].map((x) => x[1]))].sort();
   const targets: Target[] = [];
   let dynamic = 0;
-  for (const m of code.matchAll(/\bPatch\(/g)) {
+  for (const m of code.matchAll(/\b(Patch|Hook)\(/g)) {
     if (/\bbool\s+$|\bstatic\s+\w+\s+$/.test(code.slice(Math.max(0, m.index - 30), m.index))) continue; // the helper's own definition
-    const [a1, end] = firstArg(code, m.index + 6);
+    let at = m.index + m[1].length + 1;
+    if (m[1] === 'Hook') { // Hook(failed, typeof(T), "M", ...): other Hook(...) calls (e.g. Career hooks) are not swaps
+      const [lst, e] = firstArg(code, at);
+      if (!/^\w+$/.test(lst) || code[e] !== ',' || !/^\s*(typeof\(|\w+\s*,\s*")/.test(code.slice(e + 1))) continue;
+      at = e + 1;
+    }
+    const [a1, end] = firstArg(code, at);
     const meth = /^\s*,\s*"(\w+)"/.exec(code.slice(end));
     const type = typeExpr(a1, code);
     if (!meth || !type) { dynamic++; continue; }
@@ -79,7 +88,7 @@ export function patchCalls(src: string, feature: string): { targets: Target[]; d
 
 export function ourPatches(dir = join(REPO, 'mods', 'ts3fixes', 'src')) {
   const all = { targets: [] as Target[], dynamic: 0, usings: new Map<string, string[]>(), named: [] as Target[] };
-  if (!existsSync(dir)) return all;
+  if (!existsSync(dir)) return { ...all, defaults: new Map<string, boolean>() };
   const srcs = readdirSync(dir).filter((n) => n.endsWith('.cs')).sort().map((f) => [f.replace(/\.cs$/, ''), readFileSync(join(dir, f), 'utf8')]);
   for (const [feat, src] of srcs) {
     const r = patchCalls(src, feat);
@@ -88,8 +97,58 @@ export function ourPatches(dir = join(REPO, 'mods', 'ts3fixes', 'src')) {
     all.named.push(...namedTypes(src, feat));
   }
   hookSwitches(all.targets, srcs.map(([, s]) => s).join('\n'));
-  return all;
+  const get = (n: string) => srcs.find(([f]) => f === n)?.[1] ?? '';
+  const tuning = existsSync(BUILD_FIXES) ? readFileSync(BUILD_FIXES, 'utf8') : '';
+  const iniText = existsSync(INI) ? readFileSync(INI, 'utf8') : '';
+  const defs = switchDefaults(get('Fixes'), get('Instantiator'), tuning, iniText);
+  for (const t of [...all.targets, ...all.named]) t.on = featureOn(t.switches, defs);
+  return { ...all, defaults: defs };
 }
+
+const BUILD_FIXES = join(REPO, 'tools', 'setup', 'build-fixes.ts');
+const INI = opt('--ini', join(REPO, 'game-copy', 'ts3native.ini.hf031'));        // v0.3.1 Steam release ini
+const EA_INI = opt('--ea-ini', join(REPO, 'game-copy', 'ts3native-ea169.ini.hf031')); // v0.3.1 EA app 1.69 ini
+
+/** ini text -> "section.key" (lower case) -> value; `;` comments dropped. */
+export function parseIni(text: string): Map<string, string> {
+  const out = new Map<string, string>();
+  let sec = '';
+  for (const raw of text.split(/\r?\n/)) {
+    const l = raw.replace(/\s*;.*$/, '').trim();
+    const s = /^\[([^\]]+)\]$/.exec(l);
+    if (s) { sec = s[1].trim().toLowerCase(); continue; }
+    const kv = /^([^=]+?)\s*=\s*(.*)$/.exec(l);
+    if (kv) out.set(`${sec}.${kv[1].toLowerCase()}`, kv[2]);
+  }
+  return out;
+}
+
+/** Release default of every ts3fixes switch name, derived the way ShortcutOn answers with no test override: Fixes.SwDefault's
+ *  case -> return expression (true / false / Instantiator.kX / IniUnseen(), joined by ||), kX = its initializer in
+ *  Instantiator.cs unless build-fixes.ts TUNING_XML sets it, IniUnseen() = ts3native ini [AutShadow] Unseen=1.
+ *  A name with no case is off (SwDefault's default). */
+export function switchDefaults(fixesSrc: string, instSrc: string, buildFixesSrc: string, iniText: string): Map<string, boolean> {
+  const tun = new Map<string, boolean>();
+  for (const m of instSrc.matchAll(/static\s+bool\s+(k\w+)\s*=\s*(true|false)\s*;/g)) tun.set(m[1], m[2] === 'true');
+  const xml = /const TUNING_XML = `([\s\S]*?)`;/.exec(buildFixesSrc)?.[1] ?? '';
+  for (const m of xml.matchAll(/<(k\w+)\s+value="(True|False)"/g)) tun.set(m[1], m[2] === 'True');
+  const unseen = parseIni(iniText).get('autshadow.unseen') === '1';
+  const body = /static bool SwDefault\(string name\)[\s\S]*?default:\s*return false;/.exec(fixesSrc)?.[0] ?? '';
+  const term = (t: string) => t === 'true' ? true : t === 'false' ? false : t === 'IniUnseen()' ? unseen
+    : /^Instantiator\.(k\w+)$/.test(t) ? tun.get(t.slice(13)) ?? false : false; // unknown term: off (conservative for "default on")
+  const out = new Map<string, boolean>();
+  let names: string[] = [];
+  for (const m of body.replace(/\/\/.*$/gm, '').matchAll(/case\s+"(\w+)"\s*:|return\s+([^;]+);/g)) {
+    if (m[1]) { names.push(m[1]); continue; }
+    const v = m[2].split('||').some((t) => term(t.trim()));
+    for (const n of names) out.set(n, v);
+    names = [];
+  }
+  return out;
+}
+
+/** A patch is live by default when its feature has no switch (always on) or any of its switches is on by default. */
+export const featureOn = (switches: string[], defs: Map<string, boolean>) => !switches.length || switches.some((s) => defs.get(s) === true);
 
 /** Other mods' types ts3fixes looks up by name (GetType("NRaas.Overwatch") ...): its run-time patches and stand-downs on them.
  *  Game namespaces are left out (Patch calls cover those). */
@@ -113,18 +172,32 @@ export function hookSwitches(targets: Target[], allSrc: string) {
   }
 }
 
-export function nativeHooks(dir = join(REPO, 'native', 'ts3native')) {
+export type Gate = 'on' | 'off' | 'ungated';
+/** Whether a ts3native module installs with an ini: its own reads of an `Enabled` or `Mode` key (ini value, else the read's
+ *  default) decide; a module that reads neither is gated by a caller or always on ('ungated').
+ *  shortcut: inferred from the module's own ini reads, not from the install order; upgrade if a module's gate lives elsewhere. */
+export function moduleGate(cpp: string, ini: Map<string, string>): Gate {
+  const reads = [...cpp.replace(/\/\/.*$/gm, '').matchAll(/GetPrivateProfileIntW\(L"([^"]+)",\s*L"(Enabled|Mode)",\s*([^,]+),/g)];
+  if (!reads.length) return 'ungated';
+  return reads.some((r) => (parseInt(ini.get(`${r[1].toLowerCase()}.${r[2].toLowerCase()}`) ?? r[3], 10) || 0) !== 0) ? 'on' : 'off';
+}
+
+export function nativeHooks(dir = join(REPO, 'native', 'ts3native'), iniText = '') {
   if (!existsSync(dir)) return [];
-  const hits = readdirSync(dir).filter((f) => f.endsWith('.cpp') && !/test/.test(f))
-    .flatMap((f) => hookScan(readFileSync(join(dir, f), 'utf8'), f.replace(/\.cpp$/, '')));
-  return [...new Map(hits.map((h) => [h.addr, h])).values()].sort((a, b) => a.addr - b.addr)
-    .map((h) => ({ addr: `0x${h.addr.toString(16).toUpperCase().padStart(8, '0')}`, module: h.module, label: h.label }));
+  const ini = parseIni(iniText);
+  const hits = readdirSync(dir).filter((f) => f.endsWith('.cpp') && !/test/.test(f)).flatMap((f) => {
+    const text = readFileSync(join(dir, f), 'utf8'), gate = moduleGate(text, ini);
+    return hookScan(text, f.replace(/\.cpp$/, '')).map((h) => ({ ...h, gate }));
+  });
+  return [...new Map(hits.sort((a, b) => +(a.gate === 'on') - +(b.gate === 'on')).map((h) => [h.addr, h])).values()] // an 'on' module wins a shared address
+   .sort((a, b) => a.addr - b.addr)
+    .map((h) => ({ addr: `0x${h.addr.toString(16).toUpperCase().padStart(8, '0')}`, module: h.module, label: h.label, gate: h.gate }));
 }
 
 // ---------- (b) per mod file ----------
 export type ModType = { asm: string; full: string; chain: string[]; virtuals: string[] }; // chain = base types, nearest first
 export type Resolved = Target & { full: string; module: string; virtual: boolean };
-type Finding = { kind: 'replaces' | 'named' | 'overrides' | 'derives' | 'key'; text: string; feature?: string; switches?: string[] };
+type Finding = { kind: 'replaces' | 'named' | 'overrides' | 'derives' | 'key'; text: string; feature?: string; switches?: string[]; on?: boolean };
 
 /** Short / dotted / nested names from Patch calls -> game types (full name, module, virtual method), using the file's usings. */
 export function resolveTargets(targets: Target[], usings: Map<string, string[]>,
@@ -146,13 +219,13 @@ export function resolveTargets(targets: Target[], usings: Map<string, string[]>,
 export function typeFindings(types: ModType[], replaced: string[], patched: Resolved[], named: Target[] = []): Finding[] {
   const out: Finding[] = [];
   for (const t of types) for (const n of named.filter((x) => x.type === t.full))
-    out.push({ kind: 'named', text: `ts3fixes ${n.feature} looks up ${t.full} by name (hook or stand-down)`, feature: n.feature, switches: n.switches });
+    out.push({ kind: 'named', text: `ts3fixes ${n.feature} looks up ${t.full} by name (hook or stand-down)`, feature: n.feature, switches: n.switches, on: n.on });
   for (const mod of replaced) for (const p of patched.filter((x) => x.module === mod))
-    out.push({ kind: 'replaces', text: `replaces ${mod} (patched ${p.full}::${p.method})`, feature: p.feature, switches: p.switches });
+    out.push({ kind: 'replaces', text: `replaces ${mod} (patched ${p.full}::${p.method})`, feature: p.feature, switches: p.switches, on: p.on });
   for (const t of types) for (const p of patched) {
     if (!t.chain.includes(p.full)) continue;
-    if (p.virtual && t.virtuals.includes(p.method)) out.push({ kind: 'overrides', text: `${t.full} overrides ${p.full}::${p.method}`, feature: p.feature, switches: p.switches });
-    else out.push({ kind: 'derives', text: `${t.full} derives ${p.full} (patched ${p.method})`, feature: p.feature, switches: p.switches });
+    if (p.virtual && t.virtuals.includes(p.method)) out.push({ kind: 'overrides', text: `${t.full} overrides ${p.full}::${p.method}`, feature: p.feature, switches: p.switches, on: p.on });
+    else out.push({ kind: 'derives', text: `${t.full} derives ${p.full} (patched ${p.method})`, feature: p.feature, switches: p.switches, on: p.on });
   }
   return out;
 }
@@ -180,11 +253,20 @@ function packageIndex(file: string | Buffer) {
 }
 
 // derives only = no overlap: the subclass inherits the patched method, so our hook runs for it too (kept as evidence)
-export const verdict = (u: Pick<Unit, 'findings' | 'unknown'>) => u.unknown ? 'unknown' : u.findings.some((f) => f.kind !== 'derives') ? 'overlap' : 'no overlap';
+// overlap = touches a feature that is live with the release defaults; 'overlap, off by default' = only features whose switches are off
+export const verdict = (u: Pick<Unit, 'findings' | 'unknown'>) => {
+  if (u.unknown) return 'unknown';
+  const f = u.findings.filter((x) => x.kind !== 'derives');
+  return f.some((x) => x.on !== false) ? 'overlap' : f.length ? 'overlap, off by default' : 'no overlap';
+};
+export const VERDICTS = ['no overlap', 'overlap', 'overlap, off by default', 'unknown'];
 const overlapText = (u: Unit) => {
-  const by = new Map<string, Set<string>>();
-  for (const f of u.findings.filter((f) => f.kind !== 'derives')) { const s = by.get(f.feature ?? 'resource') ?? new Set(); f.switches?.forEach((x) => s.add(x)); by.set(f.feature ?? 'resource', s); }
-  return [...by].map(([k, s]) => `${k}${s.size ? ` (${[...s].sort().join('/')})` : ''}`).join('; ');
+  const by = new Map<string, Set<string>>(), live = new Set<string>();
+  for (const f of u.findings.filter((f) => f.kind !== 'derives')) {
+    const k = f.feature ?? 'resource', s = by.get(k) ?? new Set();
+    f.switches?.forEach((x) => s.add(x)); by.set(k, s); if (f.on !== false) live.add(k);
+  }
+  return [...by].map(([k, s]) => `${k}${s.size ? ` (${[...s].sort().join('/')})` : ''}${live.has(k) ? '' : ' [off by default]'}`).join('; ');
 };
 const RANK = { replaces: 0, named: 1, key: 2, overrides: 3, derives: 4 };
 const evidenceText = (u: Unit) => {
@@ -215,7 +297,7 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-export type KnownBad = { name?: string; key?: string; status: 'known-bad' | 'outdated'; reason: string; source?: string };
+export type KnownBad = { name?: string; key?: string; status: 'known-bad' | 'outdated' | 'hang-seen'; reason: string; source?: string };
 const GB = 1024 ** 3;
 /** Player-folder extras (docs/23 §8): entries of the known-bad list that match the file name or a resource key, and the package
  *  size check (same limits as tools/setup/content-health.ts: > 2 GB warns, >= 4 GB is over the package format cap).
@@ -257,16 +339,22 @@ const loadKnownBad = (f: string): KnownBad[] => { try { return JSON.parse(readFi
 
 const MATRIX_COLS = ['mod', 'file', 'kind', 'overlap', 'verdict', 'evidence', 'status', 'note'];
 /** The matrix after a scan: scanned rows keep the status and note of their old row (key: file); old rows of files this scan did
- *  not see stay as they are (other scans, e.g. a player's Mods folder).
- *  shortcut: a mod file deleted for good stays in the matrix, drop its row by hand when that matters. */
-export function matrixCsv(rows: { mod: string; file: string; kind: string; overlap: string; verdict: string; evidence: string }[], old: string): string {
+ *  not see stay as they are (other scans, e.g. a player's Mods folder), except rows under a root this scan read whole
+ *  (`<root label>/...`): those files are gone or now left out (CC without overlap), so their rows go. */
+export function matrixCsv(rows: { mod: string; file: string; kind: string; overlap: string; verdict: string; evidence: string }[], old: string, roots: string[] = []): string {
   const [head, ...oldRows] = parseCsv(old);
   const at = (r: string[], c: string) => r[head.indexOf(c)] ?? '';
   const scanned = new Set(rows.map((r) => r.file)), byFile = new Map(oldRows.map((r) => [at(r, 'file'), r]));
   const line = (r: string[]) => r.map((v) => JSON.stringify(v)).join(',');
   const fresh = rows.map((r) => { const o = byFile.get(r.file); return line([r.mod, r.file, r.kind, r.overlap, r.verdict, r.evidence, o ? at(o, 'status') : '', o ? at(o, 'note') : '']); });
-  const kept = oldRows.filter((r) => !scanned.has(at(r, 'file'))).map((r) => line(MATRIX_COLS.map((c) => at(r, c))));
+  const kept = oldRows.filter((r) => !scanned.has(at(r, 'file')) && !roots.some((x) => at(r, 'file').startsWith(`${x}/`))).map((r) => line(MATRIX_COLS.map((c) => at(r, c))));
   return `${MATRIX_COLS.join(',')}\n${[...fresh, ...kept].join('\n')}\n`;
+}
+
+/** Files of a zip, one nested zip level opened in place (`outer.zip!inner.zip/x.package`); folder entries ("x.zip/") skipped. */
+export function zipEntries(buf: Buffer): [string, Buffer][] {
+  return [...unzip(buf)].filter(([n]) => !n.endsWith('/')).flatMap(([n, b]): [string, Buffer][] =>
+    /\.zip$/i.test(n) ? [...unzip(b)].filter(([m]) => !m.endsWith('/')).map(([m, c]) => [`${n}!${m}`, c]) : [[n, b]]);
 }
 
 function walk(dir: string): string[] {
@@ -279,7 +367,10 @@ function run() {
   const pos = argv.filter((a, i) => !a.startsWith('--') && !(i && argv[i - 1].startsWith('--') && !['--json', '--self-check'].includes(argv[i - 1])));
   const roots = (pos.length ? pos : [join(REPO, 'game-copy', 'compat-mods'), join(USER, 'Mods', 'Packages')]).filter(existsSync);
   const label = (root: string, f: string) => `${basename(root)}/${relative(root, f).split('\\').join('/')}`;
-  const ours = ourPatches(), hooks = nativeHooks();
+  const ours = ourPatches();
+  const readOr = (f: string) => existsSync(f) ? readFileSync(f, 'utf8') : '';
+  const hooks = nativeHooks(undefined, readOr(INI)), eaHooks = nativeHooks(undefined, readOr(EA_INI));
+  const gates = (h: { gate: Gate }[]) => Object.fromEntries((['on', 'ungated', 'off'] as Gate[]).map((g) => [g, h.filter((x) => x.gate === g).length]));
 
   // ts3fixes.package resource keys
   const fixPkg = opt('--ts3fixes', join(REPO, 'build', 'ts3fixes.package'));
@@ -326,23 +417,24 @@ function run() {
       if (!['.package', '.zip', '.rar', '.7z', '.asi', '.dbc'].includes(ext)) continue;
       const u: Unit = { mod: basename(f, extname(f)), file: label(root, f), kind: new Set(), asms: [], findings: [], keys: new Set() };
       if (OURS.test(u.mod)) continue;
-      if (ext === '.rar' || ext === '.7z') { u.unknown = `${ext.slice(1)} archive: unpack needed`; }
+      if ((ext === '.rar' || ext === '.7z') && existsSync(`${f}.unpacked`)) continue; // its unpacked copy (<archive>.unpacked/) is scanned instead
+      if (ext === '.rar' || ext === '.7z') { u.unknown = `${ext.slice(1)} archive: unpack needed (tar -xf <archive> -C <archive>.unpacked)`; }
       else if (ext === '.asi') {
         u.kind.add('asi');
         const k = asiFinding(f);
-        if (k) u.findings.push(k); else u.unknown = 'ASI: native hooks, compare its sites with node tools/hook-sites.ts and docs/68';
+        if (k) u.findings.push(k); else u.unknown = 'ASI: native hooks, check it with the Apex Radiance mod conflict scan (hook table) or node tools/hook-sites.ts and docs/68';
       }
       else if (ext === '.zip') {
         try {
-          for (const [n, b] of unzip(readFileSync(f))) {
+          for (const [n, b] of zipEntries(readFileSync(f))) {
             const e = extname(n).toLowerCase();
             if (e === '.package') addPackage(u, b, n);
             else if (e === '.asi') {
               u.kind.add('asi');
               const k = asiFinding(n);
-              if (k) u.findings.push(k); else u.unknown = 'ASI inside: native hooks, compare with hook-sites.ts / docs/68';
+              if (k) u.findings.push(k); else u.unknown = 'ASI inside: native hooks, check it with the Apex Radiance mod conflict scan (hook table) or hook-sites.ts / docs/68';
             }
-            else if (e === '.rar' || e === '.7z' || e === '.zip') u.unknown = `nested ${e.slice(1)} (${n}): unpack needed`;
+            else if (e === '.rar' || e === '.7z') u.unknown = `nested ${e.slice(1)} (${n}): unpack needed`;
           }
         } catch (e) { u.unknown = `zip not readable here (${(e as Error).message})`; }
       } else addPackage(u, f, basename(f));
@@ -394,13 +486,17 @@ function run() {
     const rows = units.map((u) => ({ mod: u.mod, file: u.file, kind: kindText(u), assemblies: u.asms, overlap: overlapText(u), verdict: verdict(u),
       evidence: u.unknown ?? evidenceText(u), extras: u.extras ?? [] }));
     const summary = {
-      roots: roots.map((r) => basename(r)), files: rows.length, byVerdict: Object.fromEntries(['no overlap', 'overlap', 'unknown'].map((v) => [v, rows.filter((r) => r.verdict === v).length])),
+      roots: roots.map((r) => basename(r)), files: rows.length, byVerdict: Object.fromEntries(VERDICTS.map((v) => [v, rows.filter((r) => r.verdict === v).length])),
       patchedMethods: ours.targets.length, resolved: new Set(resolved.map((r) => `${r.full}::${r.method}`)).size, unresolved: unresolved.map((t) => `${t.type}::${t.method}`),
-      dynamicPatchCalls: ours.dynamic, nativeHookAddresses: hooks.length, ts3fixesKeys: fixKeys.size, note: modelNote,
+      dynamicPatchCalls: ours.dynamic, nativeHookAddresses: hooks.length, nativeGateSteam: { ini: existsSync(INI) ? basename(INI) : 'none', ...gates(hooks) },
+      nativeGateEa: { ini: existsSync(EA_INI) ? basename(EA_INI) : 'none', ...gates(eaHooks) },
+      liveTargets: new Set(resolved.filter((r) => r.on).map((r) => `${r.full}::${r.method}`)).size,
+      switchesOn: [...ours.defaults.values()].filter(Boolean).length, switchesKnown: ours.defaults.size, ts3fixesKeys: fixKeys.size, note: modelNote,
     };
-    if (argv.includes('--json')) console.log(JSON.stringify({ summary, patched: resolved.map(({ full, method, feature, switches, where }) => ({ type: full, method, feature, switches, where })), nativeHooks: hooks, mods: rows }, null, 1));
+    if (argv.includes('--json')) console.log(JSON.stringify({ summary, patched: resolved.map(({ full, method, feature, switches, where, on }) => ({ type: full, method, feature, switches, where, on })), nativeHooks: hooks, mods: rows }, null, 1));
     else {
-      console.log(`(a) ts3fixes patches ${summary.resolved} game methods (${ours.targets.length} Patch calls, ${ours.dynamic} built at run time, ${unresolved.length} unresolved); ts3native names ${hooks.length} hook addresses (node tools/hook-sites.ts)`);
+      console.log(`(a) ts3fixes patches ${summary.resolved} game methods (${summary.liveTargets} live with the release defaults; ${ours.targets.length} Patch/Hook calls, ${ours.dynamic} built at run time, ${unresolved.length} unresolved; switches on by default ${summary.switchesOn} of ${summary.switchesKnown})`);
+      console.log(`    ts3native names ${hooks.length} hook addresses (node tools/hook-sites.ts); by module gate, ${summary.nativeGateSteam.ini}: on ${summary.nativeGateSteam.on}, ungated ${summary.nativeGateSteam.ungated}, off ${summary.nativeGateSteam.off}; ${summary.nativeGateEa.ini}: on ${summary.nativeGateEa.on}, ungated ${summary.nativeGateEa.ungated}, off ${summary.nativeGateEa.off}`);
       console.log(`(b,c) ${rows.length} mod files in ${summary.roots.join(', ')}: ${Object.entries(summary.byVerdict).map(([k, v]) => `${k} ${v}`).join(', ')}${modelNote ? `; ${modelNote}` : ''}\n`);
       console.log('| mod | kind | verdict | overlap | evidence |\n|---|---|---|---|---|');
       for (const r of rows.filter((r) => r.verdict !== 'no overlap')) console.log(`| ${r.mod} | ${r.kind} | ${r.verdict} | ${r.overlap || '-'} | ${r.evidence.slice(0, 160)} |`);
@@ -410,7 +506,7 @@ function run() {
     }
     const matrix = opt('--matrix', '');
     // CC-only packages without overlap stay out of the matrix: nothing to check, and a player's CC list is personal
-    if (matrix) writeFileSync(matrix, matrixCsv(rows.filter((r) => r.kind !== 'cc' || r.verdict !== 'no overlap'), existsSync(matrix) ? readFileSync(matrix, 'utf8') : ''));
+    if (matrix) writeFileSync(matrix, matrixCsv(rows.filter((r) => r.kind !== 'cc' || r.verdict !== 'no overlap'), existsSync(matrix) ? readFileSync(matrix, 'utf8') : '', roots.map((r) => basename(r))));
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
@@ -450,17 +546,45 @@ function selfCheck() {
   assert(typeFindings([{ asm: 'N', full: 'NRaas.Overwatch', chain: [], virtuals: [] }], [], [], nm)[0]?.kind === 'named', 'named finding');
   assert(f.filter((x) => x.kind === 'overrides').length === 1 && f.filter((x) => x.kind === 'derives').length === 1 && f.filter((x) => x.kind === 'replaces').length === 3, `findings ${f.map((x) => x.kind)}`);
   assert(verdict({ findings: [] }) === 'no overlap' && verdict({ findings: f.filter((x) => x.kind === 'derives') }) === 'no overlap' && verdict({ findings: f }) === 'overlap' && verdict({ findings: [], unknown: 'x' }) === 'unknown', 'verdicts');
+  // off-by-default features: overlap only with live ones
+  const offF = [{ kind: 'overrides' as const, text: 'x', feature: 'Off', on: false }], onF = [{ kind: 'replaces' as const, text: 'y', feature: 'On', on: true }];
+  assert(verdict({ findings: offF }) === 'overlap, off by default' && verdict({ findings: [...offF, ...onF] }) === 'overlap'
+    && verdict({ findings: [{ kind: 'key', text: 'k' }] }) === 'overlap' && verdict({ findings: [{ kind: 'derives', text: 'd', on: true }] }) === 'no overlap', 'verdict by default state');
+  // AutShadow's Hook(failed, typeof(T), "M", ...) is a swap; other Hook(...) calls and the helper definition are not
+  assert(typeExpr('typeof(AutonomyT)', 'using AutonomyT = Sims3.Gameplay.Autonomy.Autonomy;') === 'Sims3.Gameplay.Autonomy.Autonomy' && typeExpr('typeof(Lot)', 'using X = Y;') === 'Lot', 'using alias');
+  const hk = patchCalls('static bool Hook(List<string> failed, Type target, string method) { }\n ok &= Hook(failed, typeof(SimUpdate), "Calc", null, typeof(EH), "A", "B");\n TakeARisk.Hook(c);\n x.Hook(failed, sType, "Run");\n Type sType = typeof(Lot);', 'AutOffload');
+  assert(hk.targets.map((t) => `${t.type}::${t.method}`).join() === 'SimUpdate::Calc,Lot::Run' && hk.dynamic === 0, `Hook calls ${JSON.stringify(hk)}`);
+  // switch defaults: SwDefault case -> Instantiator initializer, TUNING_XML wins, IniUnseen = [AutShadow] Unseen
+  const fx = 'static bool SwDefault(string name) { switch (name) {\n case "a": return Instantiator.kA;\n case "b": case "b2": return Instantiator.kB; // "c" in a comment\n case "v": return false;\n case "u": return IniUnseen();\n case "w": return Instantiator.kW || IniUnseen();\n case "t": return true;\n default: return false; } }';
+  const inst = '[Tunable] public static bool kA = true;\n[Tunable] public static bool kB = false;\n[Tunable] public static bool kW = false;';
+  const d0 = switchDefaults(fx, inst, 'const TUNING_XML = `<base>\n<kA value="False" />\n<kB value="True" />\n</base>`;', '[AutShadow]\nUnseen=0 ; off\n');
+  assert([...d0].map(([k, v]) => `${k}=${+v}`).join() === 'a=0,b=1,b2=1,v=0,u=0,w=0,t=1', `switch defaults ${[...d0]}`);
+  const d1 = switchDefaults(fx, inst, '', '[autshadow]\nUnseen = 1\n');
+  assert(d1.get('a') === true && d1.get('b') === false && d1.get('u') === true && d1.get('w') === true && !d1.has('c'), 'switch defaults: initializers, ini Unseen=1');
+  assert(featureOn([], d0) && featureOn(['v', 'b'], d0) && !featureOn(['v', 'a'], d0) && !featureOn(['nosuch'], d0), 'featureOn');
+  // ts3native module gates: Enabled / Mode reads, ini value else the read's default
+  const ini = parseIni('[Alloc]\nEnabled=1\n[CasTrim]\nMode=0\n');
+  assert(moduleGate('x = GetPrivateProfileIntW(L"Alloc", L"Enabled", 0, ini);', ini) === 'on' && moduleGate('GetPrivateProfileIntW(L"CasTrim", L"Mode", 1, ini)', ini) === 'off'
+    && moduleGate('GetPrivateProfileIntW(L"Other", L"Enabled", 1, ini)', ini) === 'on' && moduleGate('GetPrivateProfileIntW(L"Other", L"Log", 1, ini)', ini) === 'ungated'
+    && moduleGate('// GetPrivateProfileIntW(L"Alloc", L"Enabled", 0, ini)', ini) === 'ungated', 'module gates');
   const oldCsv = 'mod,file,kind,overlap,verdict,evidence,status,note\n"A","a.package","script","","overlap","say \\"hi\\", ok","in our test setup","limit, known"\n"P","player/p.package","script","","no overlap","e","",""\n';
   const out = parseCsv(matrixCsv([{ mod: 'A', file: 'a.package', kind: 'script', overlap: 'X', verdict: 'overlap', evidence: 'new "x"' }, { mod: 'N', file: 'n.package', kind: 'script', overlap: '', verdict: 'no overlap', evidence: '' }], oldCsv));
   assert(out[0].length === 8 && out.length === 4, `matrix shape ${JSON.stringify(out)}`);
   assert(out[1].join('|') === 'A|a.package|script|X|overlap|new "x"|in our test setup|limit, known', `matrix keeps status and note ${out[1]}`);
   assert(out[2][1] === 'n.package' && out[2][6] === '' && out[3][1] === 'player/p.package', 'matrix new row, rows of other scans kept');
+  const dropped = parseCsv(matrixCsv([{ mod: 'A', file: 'a.package', kind: 'script', overlap: '', verdict: 'no overlap', evidence: '' }],
+    'mod,file,kind,overlap,verdict,evidence,status,note\n"G","compat-mods/gone.package","script","","overlap","","",""\n"K","player/p.package","script","","overlap","","",""\n', ['compat-mods']));
+  assert(dropped.length === 3 && dropped[2][1] === 'player/p.package', `matrix drops rows of a scanned root ${JSON.stringify(dropped)}`);
   assert(parseCsv('a,"b ""c"""\n')[0][1] === 'b "c"' && parseCsv(matrixCsv([], ''))[0].length === 8, 'matrix csv quotes / empty old file');
   const kb: KnownBad[] = [{ name: '^old_?mod', status: 'outdated', reason: 'pre-1.67', source: 'docs/x' }, { key: '0333406c:00000000:0000000000000007', status: 'known-bad', reason: 'breaks saves' }, { name: '(', status: 'known-bad', reason: 'bad regex' }];
   assert(modExtras('OldMod_v1', 10, [], kb).join() === 'outdated: pre-1.67 (docs/x)', 'known-bad by name');
   assert(modExtras('fine', 10, ['0333406c:00000000:0000000000000007'], kb).join() === 'known-bad: breaks saves', 'known-bad by key');
   assert(modExtras('fine', 10, [], kb).length === 0 && modExtras('x', 3 * GB, [], []).join().includes('over 2 GB') && modExtras('x', 4 * GB, [], []).join().includes('unreadable'), 'no match / size limits');
   assert(asiFinding('Bin/Sims3MonoModder.asi')?.feature === 'S3mmStandDown' && asiFinding('sims3monomodder.ASI') && !asiFinding('Sims3MonoModder.asi.bak') && !asiFinding('xSims3MonoModder.asi'), 'known ASI by name');
+  // the shipped list: the two hangs seen on our setup match their package names only
+  const real = loadKnownBad(join(REPO, 'docs', 'data', 'known-bad-mods.json'));
+  assert(modExtras('EnhancedWitches', 10, [], real)[0]?.startsWith('hang-seen: ') && modExtras('velocitygrass_AddAnyLotSize', 10, [], real).length === 1
+    && !modExtras('EnhancedWitches (flavor 2)', 10, [], real).length && !modExtras('velocitygrass_AddAnyLotSize103', 10, [], real).length, 'known-bad list: hang-seen names');
   // CC String Merge output names (docs/304): regex cases, match and non-match
   for (const m of ['CCStringMerge_Strings', 'ccstringmerge_strings', 'CCStringMerge_Merged_001', 'CCStringMerge_Merged_123']) assert(CCSM_RE.test(m) && ccStringMergeNote(m), `ccsm match ${m}`);
   for (const m of ['CCStringMerge_Strings_old', 'MyCCStringMerge_Strings', 'CCStringMerge_Merged_1', 'CCStringMerge_Merged_0001', 'CCStringMerge', 'Strings']) assert(!CCSM_RE.test(m) && !ccStringMergeNote(m), `ccsm non-match ${m}`);
@@ -475,6 +599,8 @@ function selfCheck() {
     writeFileSync(join(tmp, 'a.package'), pkg);
     assert(packageIndex(join(tmp, 'a.package')).map(keyOf).includes('0333406c:00000000:0000000000000007'), 'index from disk');
     const z = unzip(zip([['Mods/a.package', pkg]]));
+    const nz = zipEntries(zip([['x.zip/', Buffer.alloc(0)], ['in.zip', zip([['b.package', pkg]])], ['c.package', pkg]]));
+    assert(nz.map(([n]) => n).sort().join() === 'c.package,in.zip!b.package' && packageIndex(nz.find(([n]) => n.includes('!'))![1]).length === 2, `nested zip ${nz.map(([n]) => n)}`);
     assert(packageIndex(z.get('Mods/a.package')!).length === 2, 'index from zip');
     const gameStbl = new Set(packageIndex(gamePkg).filter((e) => e.type === TYPE_STBL).map(keyOf));
     const hits = stblOverrides(packageIndex(cc).map(keyOf), gameStbl);
@@ -485,6 +611,9 @@ function selfCheck() {
   // the repo's own sources, when present
   const o = ourPatches();
   if (existsSync(join(REPO, 'mods', 'ts3fixes', 'src'))) assert(o.targets.some((t) => t.type === 'GoHome' && t.method === 'Run' && t.feature === 'Fixes'), 'ts3fixes GoHome::Run');
+  // shipped defaults: gohome on, a verify switch off; AutShadow Hook() swaps found; some patches live, some off
+  if (existsSync(join(REPO, 'mods', 'ts3fixes', 'src'))) assert(o.defaults.get('gohome') === true && o.defaults.get('venuememoverify') === false && o.defaults.size > 500
+    && o.targets.some((t) => t.feature === 'AutOffload' && t.method === 'CalculateSimEnvironmentScore') && o.targets.some((t) => t.on) && o.targets.some((t) => t.on === false), 'ts3fixes switch defaults / Hook swaps');
   if (existsSync(join(REPO, 'native', 'ts3native'))) assert(nativeHooks().length > 50, 'ts3native hook addresses');
   console.log('compat-scan self-check ok');
 }

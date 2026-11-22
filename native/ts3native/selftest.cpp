@@ -13354,6 +13354,7 @@ static void TestP5() {
 #include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
 #include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
+#include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
@@ -14950,6 +14951,7 @@ int main(int argc, char** argv) {
     TestEditPathRO();  // docs/670 §8
     TestConnRoomsRO();  // docs/670 §15
     TestDoorShare();   // docs/674
+    TestSmoothCut();   // docs/676 §15
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

@@ -85,6 +85,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/asyncjigsync/run.ts': CSC,
   'tools/selftest/commodmapfast/run.ts': CSC,
   'tools/selftest/kitarm/run.ts': CSC,
+  'tools/selftest/stepaside/run.ts': CSC,
   'tools/selftest/photosession/run.ts': CSC,
   'tools/selftest/rabbitholedoor/run.ts': CSC,
   'tools/selftest/jazzparam/run.ts': CSC,

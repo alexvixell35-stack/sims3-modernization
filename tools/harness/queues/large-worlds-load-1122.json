@@ -1,0 +1,128 @@
+{
+  "note": "large-worlds-load-1122 (PREPARED, NOT RUN; correctness/discovery, no timing, needs a quiet machine only for the load-time number): docs/320 §1.5 first proof. Bin state apex (tools/turbo-compat.ts snapshot -> state apex -> restore). PREP (once, game closed): node tools/world-gen.ts grow \"<Steam>/The Sims 3/GameData/Shared/NonPackaged/Worlds/Sunset Valley.world\" <out>/LwSV2048.world --size 2048; same with --size 4096 -> LwSV4096.world; --size 4096 --cells none -> LwSV4096n.world; then node tools/world-gen.ts install <out>/<each>.world (copies to <Documents>Electronic ArtsThe Sims 3InstalledWorlds; that the game lists a bare .world there is [inferred]: if load_world answers \"unknown world file\", fall back to GameData/Shared/NonPackaged/Worlds of the base game and say so). AFTER: node tools/world-gen.ts install <each> --uninstall. Each job: new game up to the family picker (PlayFlow, map view: no active household, nothing saved, no save overwritten), repro lw-load-* (memory: true = largest free per step, camera poses incl. the grown quadrants), [ProbeValues] read-back of WM bounds (origin/max as float bits: 2048.0 = 0x45000000, 4096.0 = 0x45800000) and the water grid G cell count ((size/4+1)*(size/4)). Load time = the load_world step time in the repro log. Fail-fast: load until maxS 600, timeoutMin 25, crash = FAIL with the EA xcpt / [Crash] fault for triage (docs/320 §1.2 sites: physics quadtree 0..4096 reject, scene quadtree 2048 default, WTXT null lookups). Job 1 is the control (every resource identical to Sunset Valley): a FAIL there is the install path or harness, not size. Jobs 2-3 run even when 2 fails (stopQueueOnFail false). Household: no Sim behaviour change, no code under test. Run: node tools/harness/queue.ts tools/harness/queues/large-worlds-load-1122.json --no-smoke",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.299-e1122 ": {
+      "match": [
+        "ts3native 0.36.299-e1122 2026-11-22 06:15:57"
+      ],
+      "noMatch": [
+        "ts3native 0.36.298-m1121b 2026-11-21 06:15:59"
+      ]
+    },
+    "^values world [0-9A-F]+: origin 0x00000000 0x00000000 max 0x45000000 0x45000000,": {
+      "match": [
+        "values world 198C8980: origin 0x00000000 0x00000000 max 0x45000000 0x45000000, guards 0x0 0x0 0x0, R sum 0x2E522F2F / 0xBC04C598, 43942 waypoints, 0 blocked"
+      ],
+      "noMatch": [
+        "values world 198C8980: origin 0x00000000 0x00000000 max 0x45800000 0x45800000, guards 0x0 0x0 0x0, R sum 0x2E522F2F / 0xBC04C598, 43942 waypoints, 0 blocked"
+      ]
+    },
+    "^values world [0-9A-F]+: origin 0x00000000 0x00000000 max 0x45800000 0x45800000,": {
+      "match": [
+        "values world 198C8980: origin 0x00000000 0x00000000 max 0x45800000 0x45800000, guards 0x0 0x0 0x0, R sum 0x2E522F2F / 0xBC04C598, 43942 waypoints, 0 blocked"
+      ],
+      "noMatch": [
+        "values world 198C8980: origin 0x00000000 0x00000000 max 0x45000000 0x45000000, guards 0x0 0x0 0x0, R sum 0x2E522F2F / 0xBC04C598, 43942 waypoints, 0 blocked"
+      ]
+    },
+    "^values G built \\d+ cells 262656 ": {
+      "match": [
+        "values G built 1 cells 262656 water 189851 bodies 18 blocked 325"
+      ],
+      "noMatch": [
+        "values G built 1 cells 1049600 water 189851 bodies 18 blocked 325",
+        "values G built 0 cells 0 water 0 bodies 0 blocked 0"
+      ]
+    },
+    "^values G built \\d+ cells 1049600 ": {
+      "match": [
+        "values G built 1 cells 1049600 water 189851 bodies 18 blocked 325"
+      ],
+      "noMatch": [
+        "values G built 1 cells 262656 water 189851 bodies 18 blocked 325"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "lw-2048-control",
+      "note": "[est 10 min] Control: Sunset Valley through world-gen.ts at its own size (all 6,766 resources identical in content, checked offline). Pass: family picker up, bounds 2048, G 262,656 cells, game alive after the camera poses, scriptErrorsMax 0. Load time and largest free = the reference for job 2.",
+      "asi": "game-copy/ts3native.asi.e1122",
+      "iniBase": "game-copy/ts3native.ini.e1122",
+      "fixesPackage": "game-copy/ts3fixes.package.e1122",
+      "pinReason": "master set e1122 (0.36.299-e1122, d9d192582), newest registered master set; no code change in this lane. AGENT: game-copy/ts3agent.package.e1122",
+      "save": "menu",
+      "ini": {
+        "ProbeValues.Enabled": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "run": {
+        "repro": "lw-load-2048-control"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-e1122 ": 1,
+        "^values world [0-9A-F]+: origin 0x00000000 0x00000000 max 0x45000000 0x45000000,": 1,
+        "^values G built \\d+ cells 262656 ": 1
+      }
+    },
+    {
+      "id": "lw-4096",
+      "note": "[est 12 min] 4096 m: SV in the 0..2048 quadrant, flat median terrain elsewhere, R 128x128 chunks (new chunks empty), WTXT / layer / desc / 0x044735DD grown, per-cell 0x033B2B66 / 0xAE39399F cloned. Pass: as job 1 with bounds 4096 and G 1,049,600 cells; report load time and largest free vs job 1, and what the far-corner camera shows (screenshot if the agent takes one). A crash: fault address -> docs/320 §1.2 site.",
+      "asi": "game-copy/ts3native.asi.e1122",
+      "iniBase": "game-copy/ts3native.ini.e1122",
+      "fixesPackage": "game-copy/ts3fixes.package.e1122",
+      "pinReason": "master set e1122 (0.36.299-e1122, d9d192582), newest registered master set; no code change in this lane. AGENT: game-copy/ts3agent.package.e1122",
+      "save": "menu",
+      "ini": {
+        "ProbeValues.Enabled": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "run": {
+        "repro": "lw-load-4096"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-e1122 ": 1,
+        "^values world [0-9A-F]+: origin 0x00000000 0x00000000 max 0x45800000 0x45800000,": 1,
+        "^values G built \\d+ cells 1049600 ": 1
+      }
+    },
+    {
+      "id": "lw-4096-nocells",
+      "note": "[est 12 min] As job 2 without cloned per-cell terrain resources (--cells none): tells whether the cloned cells or their absence is the problem when job 2 fails; informative when job 2 passes.",
+      "asi": "game-copy/ts3native.asi.e1122",
+      "iniBase": "game-copy/ts3native.ini.e1122",
+      "fixesPackage": "game-copy/ts3fixes.package.e1122",
+      "pinReason": "master set e1122 (0.36.299-e1122, d9d192582), newest registered master set; no code change in this lane. AGENT: game-copy/ts3agent.package.e1122",
+      "save": "menu",
+      "ini": {
+        "ProbeValues.Enabled": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 25,
+      "run": {
+        "repro": "lw-load-4096-nocells"
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-e1122 ": 1,
+        "^values world [0-9A-F]+: origin 0x00000000 0x00000000 max 0x45800000 0x45800000,": 1,
+        "^values G built \\d+ cells 1049600 ": 1
+      }
+    }
+  ]
+}

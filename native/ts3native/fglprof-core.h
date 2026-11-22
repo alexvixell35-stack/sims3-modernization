@@ -242,3 +242,61 @@ inline bool FglMemoPut(FglMemo* m, const unsigned key[3], unsigned ang) {
     }
     return false;
 }
+
+// ---- [FglInside] (docs/682 §9): the lot-wide "indoors" stage of GlobalFunctions.FindGoodLocationNearby ----------------------
+// The managed check of that stage, IsInside, accepts a spot iff the light-blocking room id of its tile is above 0, and the
+// search asks it only after a facing of the tile passed the placement test. A tile it must refuse needs no placement test.
+// room(ctx, tx, tz, level) = the id the managed check reads for that tile (the game's lookup with the tile's integer
+// coordinates, as World.GetRoomId passes them); <= 0 = no room or off the grid.
+typedef int (*FglRoomAt)(void* ctx, int tx, int tz, int level);
+
+struct FglIns {
+    bool on;                 // this search is the stage (armed by ts3fixes, record has a managed check)
+    bool have, out;          // the tile under test, and: the check refuses every spot on it
+    unsigned key[3];
+    bool lastOut, lastPass;  // the last facing test that ran: on such a tile / passed
+    long tilesOut, tilesIn;  // tiles that reached a facing test: surely refused / maybe indoors
+    long answered;           // facing tests answered 0 without the call
+    long ranOut, passOut;    // Shadow: facing tests run on surely-refused tiles, and how many passed (each then refused by the check)
+    long ranIn, passIn;      // facing tests run on the other tiles / passed (the check is asked for each)
+};
+
+inline int FglFloor(float v) {
+    const int i = (int)v;
+    return (float)i > v ? i - 1 : i;
+}
+
+// The search hands its check the world position of the tile's centre on the tile's level; the check maps it back to a
+// tile and a level by height. Same tile for sure (the centre is half a tile from every edge); the level is taken to be
+// the search's or one either side, so a tile is "surely refused" only when none of the three has a room.
+inline bool FglInsSurelyOut(FglRoomAt room, void* ctx, int tx, int tz, int level) {
+    for (int d = -1; d <= 1; d++)
+        if ((short)room(ctx, tx, tz, level + d) > 0) return false;
+    return true;
+}
+
+// a facing test begins on the tile with this key (float bits of x + 0.5 and z + 0.5 in lot tile space, the level)
+inline bool FglInsTile(FglIns* s, const unsigned key[3], FglRoomAt room, void* ctx) {
+    if (s->have && s->key[0] == key[0] && s->key[1] == key[1] && s->key[2] == key[2]) return s->out;
+    float x = 0, z = 0;
+    memcpy(&x, &key[0], sizeof(x));
+    memcpy(&z, &key[1], sizeof(z));
+    s->key[0] = key[0]; s->key[1] = key[1]; s->key[2] = key[2];
+    s->have = true;
+    s->out = FglInsSurelyOut(room, ctx, FglFloor(x), FglFloor(z), (int)key[2]);
+    if (s->out) s->tilesOut++; else s->tilesIn++;
+    return s->out;
+}
+
+// a facing test that ran has returned
+inline void FglInsRan(FglIns* s, bool pass) {
+    s->lastOut = s->have && s->out;
+    s->lastPass = pass;
+    if (s->lastOut) { s->ranOut++; if (pass) s->passOut++; }
+    else { s->ranIn++; if (pass) s->passIn++; }
+}
+
+// The search returns on the first spot that passes and that the check accepts, so that spot's test is the last one run.
+// Found, and that test was on a surely-refused tile: the premise is wrong (Shadow; with answers on no such test runs).
+inline bool FglInsMismatch(const FglIns& s, bool searchOk) { return searchOk && s.lastOut && s.lastPass; }
+

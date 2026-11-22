@@ -6,6 +6,10 @@ Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs,
 
 **Just want to play with the fixes?** Download the latest [release](https://github.com/rodneypantonial/sims3-modernization/releases) and follow [docs/PLAYERS.md](docs/PLAYERS.md): what's switched on, and how to install it in a few steps.
 
+**Save safety:** nothing of ours is stored in your saves (anything a feature must remember per save goes in a separate small text file); you can remove the mods any time and your saves keep loading (save portability test of v0.3.0); every fix has its own switch (`ts3native.ini` sections, one `ts3fixes` tuning value per fix). A few on-by-default EA bug fixes do clean the game's own leftovers, such as references to Sims who are gone, and the game saves that cleaner state as usual; the bigger save clean-ups are off. Details: [docs/PLAYERS.md, Save safety](docs/PLAYERS.md#save-safety).
+
+**Questions?** [docs/FAQ.md](docs/FAQ.md): save safety, what the switches change, NRaas / S3SS / S3PP overlap, Apex Radiance, how we measure, antivirus flags and known mod conflicts.
+
 **Status:** research project. Latest release: **v0.3.1** (2026-11-21), Steam and the EA app 1.69.47, a hotfix: Buy <-> Build mode switching no longer leaves the game paused (by Dalexlol), a fix for a rare EA crash while objects come and go, an EA app start-up fix, and the script compiler stays on with Apex Radiance. Before it, **v0.3.0** (2026-11-20), Steam and the EA app 1.69.47: the game's busiest script methods run as compiled code (script compiler, gain modelled offline, not timed in game), over 400 fixes for the game's own bugs are on (most by Dalexlol), and new crash and freeze guards for routing, quitting and Isla Paradiso bridges; checked for crashes and save compatibility, no new overall speed numbers. Before it, **v0.2.12** (2026-11-13), Steam and the EA app 1.69.47: fixes the rare crash on the second thread from v0.2.11 (#352), the background thread stops cleanly when you leave a world, and on the EA app townies you can't see now also choose on the second thread; checked for crashes, no new overall speed numbers. Before it, **v0.2.11** (2026-11-12), Steam and (since 2026-11-13) the EA app 1.69.47: townies you can't see choose their next action on a second thread (6-12 ms less main-thread work per second), car and boat trips plan in the background, crash fixes (S3SS 1.6.3 world changes, loading screens, outfits) and a dozen fixes for game errors; checked for crashes, no new overall timing. Before it, **v0.2.10** (2026-11-07), Steam and the EA app 1.69.47: stoves and fridges no longer become unusable. Before it, **v0.2.9** (2026-11-07), Steam and the EA app 1.69.47: Sims you play or see no longer fail routes on a time limit, your household stays out of route resets and animation skips, and a crash after running out of script memory is fixed; checked for crashes, not timed. Before it, **v0.2.8** (2026-11-06): one release for Steam and the EA app 1.69.47, with crash fixes (Error 12 on every save of an Isla Paradiso world, Sim thumbnail render, a Sim texture that cannot be created) and the newer routing changes switched on; checked for crashes, not timed. Before it, **v0.2.7** (2026-11-05): EA app 1.69.47 version, Steam files unchanged. Before it, **v0.2.6** (2026-11-05): hotfix for the freeze and crash on the fifth Power Cell and for skipped object cleanup, not run in the game yet. Before it, **v0.2.5** (2026-11-05): cheaper animation for Sims you cannot see, a cheaper held-action check, a fix for a rare memory runaway at game start, crash fixes for custom-content meshes without a material and for Isla Paradiso routing, fixes for paired socials, rabbit hole doors and saves with a removed service, and EA app 1.69.47 support. Results are measured on one laptop (i7-11800H, 32 GB, RTX 3070 Laptop GPU). They are not yet confirmed on other machines; that is one of the things contributors can help with.
 
 **Recommended setup (since 2026-11-13):** [Apex Radiance](https://github.com/loinyx/Sims3-ApexRadiance) with its RTX Remix bridge, which moves rendering into a separate 64-bit process, plus our release. Plain DXVK still works but is legacy and best effort: v0.3.0 and v0.3.1 had no DXVK test run.
@@ -29,6 +33,26 @@ Measured with the harness (`tools/harness/profile-world.ts`), 10 minutes of play
 | Largest free address space after 10 minutes, MB | 1711 -> **1586** | 1753 -> **1531** | 1790 -> **1676** |
 
 Same machine and saves, runs alternated (off, on, on, off per town), other programs used 4-6% of the CPU on average and 0.2-0.7% of the game's cores in each run's noise check. Build: the v0.3.1 ts3native.asi and ts3native.ini with the v0.3.0 ts3fixes.package (v0.3.1 only adds the Buy/Build mode fix there). Our mods cost about 115-220 MB of address space (Isla Paradiso varied: 1359 and 1704 MB in its two runs). Older numbers (v0.2.7 on the earlier DXVK setup) are in this README's git history.
+
+**The same runs as charts** (drawn from the run data by `node tools/harness/proof-chart.ts`, no new game run).
+
+![Steps of 300 ms or longer and sim steps per second, Baseline vs v0.3.1](docs/img/proof-summary.svg)
+
+The table's two rows, mean of the two runs per side: steps of 300 ms or longer per run 5.5 -> 0.5 (Bridgeport), 151 -> 18 (Isla Paradiso), 10 -> 0.5 (Sunset Valley); sim steps per second 42.6 -> 54.5, 41.9 -> 48.0, 59.4 -> 67.0.
+
+Below, one Baseline run and one v0.3.1 run per town, plotted over the run. Each town shows its run 2 pair: the pair whose change is closest to the table's average change, not the pair with the biggest gain. Each mark is the slowest sim step in a 0.7 s slice; the dashed line is 300 ms.
+
+![Bridgeport: sim step time over the run, Baseline vs v0.3.1](docs/img/proof-bp.svg)
+
+Bridgeport, run 2 per side: 5 -> 1 steps of 300 ms or longer, worst step 583 -> 314 ms, 44.7 -> 50.7 sim steps per second.
+
+![Isla Paradiso: sim step time over the run, Baseline vs v0.3.1](docs/img/proof-ip.svg)
+
+Isla Paradiso, run 2 per side: 188 -> 15 steps of 300 ms or longer, worst step 795 -> 528 ms, 39.0 -> 45.9 sim steps per second.
+
+![Sunset Valley: sim step time over the run, Baseline vs v0.3.1](docs/img/proof-sv.svg)
+
+Sunset Valley, run 2 per side: 11 -> 0 steps of 300 ms or longer, worst step 1443 -> 298 ms (this Baseline run had both of the town's 1 s steps), 60.8 -> 64.6 sim steps per second.
 
 **Other results:**
 
@@ -94,7 +118,7 @@ All numbers come from one machine and one set of saves. Treat percentages as "th
 
 Just want our fixes? Download them from the [releases](https://github.com/rodneypantonial/sims3-modernization/releases) page and follow **[docs/PLAYERS.md](docs/PLAYERS.md)** (copy the script mod into `Mods\Packages`, the native plugin into `Game\Bin`; about five minutes). Every release lists everything that is switched on.
 
-Using other mods? See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the static compatibility scan of 49 popular mods.
+Using other mods? See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the static compatibility scan of all 100 of MTS's most downloaded TS3 mods against ours. To check your own Mods folder for mods that clash, use Apex Radiance's [mod conflict scan](https://github.com/loinyx/Sims3-ApexRadiance/blob/main/tools/mod_conflicts/README.md).
 
 Using Sims 3 Settings Setter (S3SS) 1.6.3 with `LotStreamingOptimizations` on? Its camera speed threshold setting writes into freed game memory after you travel or change worlds, which can crash the game. `ts3native` sends that write to the right place (on the EA app it drops the write) for S3SS 1.6.3 only: the official build and a re-stamped copy with the same code (`[S3SSCompat] StaleWriteGuard`, on). It leaves every other S3SS version alone. Without `ts3native`, set `streamingSettings = false` under `[patches.LotStreamingOptimizations]` in `S3SS.toml`.
 

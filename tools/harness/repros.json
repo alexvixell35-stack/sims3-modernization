@@ -114074,6 +114074,575 @@
     ]
   },
   {
+   "id": "ip-jobyield-strand-storm",
+   "bug": "docs/183 §7: in 3 of 24 Isla Paradiso route storms with [RouteAsync] JobYield=1 (s229, s241, s265) every Collins household Sim that reaches the third floor of Colonial Casa (y 61, room 11) gets NoPathToDestination, blocker None, to every goal on the two floors below, async jobs and the stuck check's sync plans alike, until the end of the run and past the storm's stop; 0 of about 90 storms with JobYield=0 (7 of them with the same other keys). Associated with JobYield, cause not shown by a log line.",
+   "fix": "ts3native jobyield.cpp + ts3fixes StepAside (docs/183 §7.3): the refused START's records are held while the task sleeps and put back for its plan, no step-aside with a pending social jig or on a followed route ([RouteAsync] JobYieldFollowed=1 = old behaviour), every sleep closed exactly once.",
+   "save": "IslaParadiso.world fresh start, largest household (Collins) active: the storm-ab.sh load (the Linux rig's runner, not in the repo)",
+   "note": "UNVERIFIED in the game (2026-11-21: host test + C# selftest + clang-cl syntax check; MSVC selftest step 5 written for the CI build). Decision repro, one load per arm (the ini keys of s265: KindsUnseen=7, the BASE RO set, TaskServe=1, SmoothCut=1, PlayerFirst=0): fix arm JobYield=1, control arm JobYield=0, ts3fixes jobyield on in both; 8 fix and 4 control loads interleaved (fix, fix, control). The steps below are one arm's storm.",
+   "expect": "Per load: no two household Sims with 3 or more 'ts3fixes: routefail:' lines from y 61 to a goal below y 60 (scan: strand=0); 'route jobs sim waits:' line with records lost 0 and back + dropped = parked; 'ts3fixes: jobyield:' lines present in the fix arm (asides > 0), none in the control arm. A stuck load: the jobyield lines before its first y 61 routefail name the plan that stepped aside.",
+   "steps": [
+    {
+     "cmd": "set_speed",
+     "args": {
+      "speed": "normal"
+     },
+     "waitS": 2
+    },
+    {
+     "cmd": "route_storm",
+     "args": {
+      "count": 80,
+      "repeatS": 10,
+      "seed": 152
+     },
+     "waitS": 120,
+     "note": "the s265 storm: 80 forced routes every 10 s for 2 min"
+    },
+    {
+     "cmd": "route_storm",
+     "args": {
+      "stop": true
+     },
+     "waitS": 60,
+     "note": "calm tail: a stuck household keeps failing here"
+    }
+   ]
+  },
+  {
+    "id": "ip-smoothcut-storm",
+    "bug": "docs/676 §15: the path smoothing pass 0x64DD40 (post pass 3) is about 2.5 ms a call under the routing lock. Its anchor moves one sample at a time and asks two failing segment tests per stop where the path cannot be pulled straight (121 tests a pass, s195); on a lot each test walks every quadtree cell the segment crosses, because the walk's callback 0x662D30 never stops the walk",
+    "fix": "ts3native [WorldPrecompute] SmoothCut (1 serve, 2 shadow; default 0): the segment query 0x667350 called at 0x6676CE ends at the first cell above both end multipliers and first tries the last blocking cells of the tree; identical answers (docs/676 §15)",
+    "save": "Baseline-IP-Spring",
+    "note": "Shadow and serve runs on Isla Paradiso 2-min storms (contributor rig, every proven fix on): s216 shadow 218,969 queries, mismatch 0; s217 / s222 serve, no hitch frame. Job ini: [WorldPrecompute] SmoothCut=2 (the hook installs only with a non-zero ini value). Arm 1 is off (mode 0: the game's query), arm 2 shadow (ours and the game's on every query: the mismatch count and the two times in the line are the result), arm 3 serves.",
+    "expect": "'OK   world precompute smooth cut: SmoothCut=2' with ready 0x1. After arm 2: 'world precompute: smooth cut mode 2' with shadow checks > 0, mismatch 0, no 'SMOOTH CUT MISMATCH' line, and '(N ms)' of our walk below 'the game's queries N ms'. After arm 3 (mode 1): 'blocked by a remembered cell' and 'blocked at a cell in the walk' > 0. No crash, plans / fails in 'route plans:' as in the off arm",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 0
+        },
+        "waitS": 1,
+        "note": "arm 1: off (the game's query)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-worldpre-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 2
+        },
+        "waitS": 1,
+        "note": "arm 2: shadow"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm, every query run both ways and compared; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 1
+        },
+        "waitS": 1,
+        "note": "arm 3: our walk answers (every router: the answers are the game's)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with the cut serving; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "smoothcut": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
+    "id": "fglinbound-check",
+    "bug": "docs/682: GlobalFunctions.FindGoodLocationNearby's lot-wide indoors stage asks its managed check IsInside only for spots that already passed the native placement test, so learning that a lot has no free indoor spot costs a placement test on every tile: a guitar jig placed from a small room on a 64 x 64 lot tests 3344 tiles, 196 spots pass and are refused as outdoors, 230-270 ms; with the outdoors search after it one 350-460 ms sim-thread frame (stall leaf World_FindGoodLocation; s189-type storms 2026-11-20, inferred for s202 / s203)",
+    "fix": "design 3 (docs/682 §9): ts3native [FglInside] Enabled=1 (fglprof.cpp, default 0) + ts3fixes fglinbound (FglInBound.cs, its own FindGoodLocationNearby swap FibNearbyHook, tuning kFglInBound, default off). ts3fixes makes the indoors stage's search itself (EA's call word for word) between two op 48 messages; ts3native answers a facing test of that search 'no' without the call when the tile has no light-blocking room on the search's level or one either side (IsInside would refuse every spot there). Same tiles accepted in the same order. fglinboundhh includes household Sims; shadows: [FglInside] Shadow=1 (tests run, a search ending on such a tile is a mismatch) and kFglInBoundShadow (EA's stage runs too, answers compared, slot 1502)",
+    "save": "needs a loaded world; live: a selected Sim on a lot with rooms; live:big: any world with a built lot (no save change)",
+    "note": "Designs 1 (one radius, s207 / s208) and 2 (cluster searches, s222) gave no gain on lots whose rooms spread over the lot and are removed. Design 3 ran on the contributor's rig: s227 shadow ([FglInside] mismatch 0, live:big 3/3 same, live 3/3 same tile), s228 serve (live:big EA 193-197 ms -> ours 40-41 ms, same answer x3). Job ini: [FglInside] Enabled=1 (Shadow=1 for the first arm), [UserDiag] on. 'run' only asks whether ts3native answers op 48. 'live' / 'live:big' are the real compare and need no guitar: a GuitarJig is created on up to three indoor tiles of the lot (live: the selected Sim's; live:big: the largest lot with indoor tiles), our armed stage search and EA's stage run from each, the answers are compared (slots 1501 / 1502), the jig is destroyed; nothing is placed. They call the paths directly, so they work with the switch on or off. Storm arms: docs/682 §9.8.",
+    "expect": "start: 'OK   fgl inside: Mode=1 Shadow=..'. off: 'verdict: BROKEN'. on: 'verdict: FIXED' (arm True, end True). live / live:big: 'live verdict: ok', every tile '-> same' (never 'DIFFERENT', 'threw' or 'did not answer'); with Shadow=0 ours ms well below EA's where the answer is 'no indoor spot'. Log: one 'fgl inside: search found ..., tiles that reached a facing test: N with no room ... (M facing tests answered 0 ...), K that may be indoors (...)' per armed search, never 'fgl inside: SHADOW MISMATCH'; the minute line ends 'shadow mismatch 0'. result: shadow different 1502=0, 1497=0; no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "live"
+          ]
+        },
+        "waitS": 3,
+        "note": "the real searches: EA's indoors stage against ours with a GuitarJig on indoor tiles of the selected Sim's lot"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "live:big"
+          ]
+        },
+        "waitS": 2,
+        "note": "the same on the largest lot with indoor tiles (the logged 64 x 64 shape), no Sim needed there"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglInBoundCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglinbound": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "lw-load-2048-control",
+    "memory": true,
+    "bug": "Large worlds (docs/320 §1.5): first load of a 2048 m world grown by tools/world-gen.ts from Sunset Valley (control: same size, every resource identical to the template); which size site breaks",
+    "fix": "none under test: research load, no code change (vanilla behaviour on the e1122 set)",
+    "save": "menu",
+    "note": "UNVERIFIED (static only, 2026-11-22): never run. Needs LwSV2048.world in <Documents>\\Electronic Arts\\The Sims 3\\InstalledWorlds (node tools/world-gen.ts grow ... then install, see queue large-worlds-load-1122). New game up to the family picker (PlayFlow, map view): no active household, nothing saved. memory: true logs largest free per step; [ProbeValues] logs the world bounds and the water grid size.",
+    "expect": "family picker up within 10 min; camera poses over the template quadrant and the corners with the game still alive; ts3native.log \"values world ...: origin 0x00000000 0x00000000 max 0x45000000 0x45000000\"",
+    "steps": [
+      {
+        "cmd": "load_world",
+        "args": {
+          "file": "LwSV2048.world",
+          "state": "PlayFlow"
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "controller",
+              "equals": true
+            },
+            {
+              "path": "model_ready",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "new game in the generated world up to the family picker (world loaded, map view); the step time is the load time"
+      },
+      {
+        "cmd": "camera",
+        "args": {},
+        "note": "start pose"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 0,
+            "y": 600,
+            "z": 0
+          },
+          "target": {
+            "x": 1024,
+            "y": 0,
+            "z": 1024
+          }
+        },
+        "waitS": 30,
+        "note": "template quadrant (Sunset Valley)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 2048,
+            "y": 600,
+            "z": 2048
+          },
+          "target": {
+            "x": 1536,
+            "y": 0,
+            "z": 1536
+          }
+        },
+        "waitS": 30,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 2048,
+            "y": 600,
+            "z": 0
+          },
+          "target": {
+            "x": 1536,
+            "y": 0,
+            "z": 512
+          }
+        },
+        "waitS": 30,
+        "note": "grown x edge"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 0,
+            "y": 600,
+            "z": 2048
+          },
+          "target": {
+            "x": 512,
+            "y": 0,
+            "z": 1536
+          }
+        },
+        "waitS": 30,
+        "note": "grown z edge"
+      }
+    ]
+  },
+  {
+    "id": "lw-load-4096",
+    "memory": true,
+    "bug": "Large worlds (docs/320 §1.5): first load of a 4096 m world grown by tools/world-gen.ts from Sunset Valley (default: --cells clone --wtxt size); which size site breaks",
+    "fix": "none under test: research load, no code change (vanilla behaviour on the e1122 set)",
+    "save": "menu",
+    "note": "UNVERIFIED (static only, 2026-11-22): never run. Needs LwSV4096.world in <Documents>\\Electronic Arts\\The Sims 3\\InstalledWorlds (node tools/world-gen.ts grow ... then install, see queue large-worlds-load-1122). New game up to the family picker (PlayFlow, map view): no active household, nothing saved. memory: true logs largest free per step; [ProbeValues] logs the world bounds and the water grid size.",
+    "expect": "family picker up within 10 min; camera poses over the template quadrant and the grown quadrants with the game still alive; ts3native.log \"values world ...: origin 0x00000000 0x00000000 max 0x45800000 0x45800000\"",
+    "steps": [
+      {
+        "cmd": "load_world",
+        "args": {
+          "file": "LwSV4096.world",
+          "state": "PlayFlow"
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "controller",
+              "equals": true
+            },
+            {
+              "path": "model_ready",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "new game in the generated world up to the family picker (world loaded, map view); the step time is the load time"
+      },
+      {
+        "cmd": "camera",
+        "args": {},
+        "note": "start pose"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 0,
+            "y": 600,
+            "z": 0
+          },
+          "target": {
+            "x": 1024,
+            "y": 0,
+            "z": 1024
+          }
+        },
+        "waitS": 30,
+        "note": "template quadrant (Sunset Valley)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 4096,
+            "y": 600,
+            "z": 4096
+          },
+          "target": {
+            "x": 3584,
+            "y": 0,
+            "z": 3584
+          }
+        },
+        "waitS": 30,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 4096,
+            "y": 600,
+            "z": 0
+          },
+          "target": {
+            "x": 3584,
+            "y": 0,
+            "z": 512
+          }
+        },
+        "waitS": 30,
+        "note": "grown x edge"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 0,
+            "y": 600,
+            "z": 4096
+          },
+          "target": {
+            "x": 512,
+            "y": 0,
+            "z": 3584
+          }
+        },
+        "waitS": 30,
+        "note": "grown z edge"
+      }
+    ]
+  },
+  {
+    "id": "lw-load-4096-nocells",
+    "memory": true,
+    "bug": "Large worlds (docs/320 §1.5): first load of a 4096 m world grown by tools/world-gen.ts from Sunset Valley (--cells none: no per-cell terrain resources past 2048 m); which size site breaks",
+    "fix": "none under test: research load, no code change (vanilla behaviour on the e1122 set)",
+    "save": "menu",
+    "note": "UNVERIFIED (static only, 2026-11-22): never run. Needs LwSV4096n.world in <Documents>\\Electronic Arts\\The Sims 3\\InstalledWorlds (node tools/world-gen.ts grow ... then install, see queue large-worlds-load-1122). New game up to the family picker (PlayFlow, map view): no active household, nothing saved. memory: true logs largest free per step; [ProbeValues] logs the world bounds and the water grid size.",
+    "expect": "family picker up within 10 min; camera poses over the template quadrant and the grown quadrants with the game still alive; ts3native.log \"values world ...: origin 0x00000000 0x00000000 max 0x45800000 0x45800000\"",
+    "steps": [
+      {
+        "cmd": "load_world",
+        "args": {
+          "file": "LwSV4096n.world",
+          "state": "PlayFlow"
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "controller",
+              "equals": true
+            },
+            {
+              "path": "model_ready",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 600
+        },
+        "note": "new game in the generated world up to the family picker (world loaded, map view); the step time is the load time"
+      },
+      {
+        "cmd": "camera",
+        "args": {},
+        "note": "start pose"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 0,
+            "y": 600,
+            "z": 0
+          },
+          "target": {
+            "x": 1024,
+            "y": 0,
+            "z": 1024
+          }
+        },
+        "waitS": 30,
+        "note": "template quadrant (Sunset Valley)"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 4096,
+            "y": 600,
+            "z": 4096
+          },
+          "target": {
+            "x": 3584,
+            "y": 0,
+            "z": 3584
+          }
+        },
+        "waitS": 30,
+        "note": "far corner"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 4096,
+            "y": 600,
+            "z": 0
+          },
+          "target": {
+            "x": 3584,
+            "y": 0,
+            "z": 512
+          }
+        },
+        "waitS": 30,
+        "note": "grown x edge"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 0,
+            "y": 600,
+            "z": 4096
+          },
+          "target": {
+            "x": 512,
+            "y": 0,
+            "z": 3584
+          }
+        },
+        "waitS": 30,
+        "note": "grown z edge"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

@@ -369,6 +369,9 @@ namespace Ts3Fixes
         [Tunable] public static string kKitArmNotice = "";    // the kit arm notice text (kKitArm set)
         [Tunable] public static string kKitArmSwitches = "";  // switch names the kit lines read back, space separated (kKitArm set)
         [Tunable] public static bool kDoorGen = true;    // doorgen (docs/585, by Dalexlol, PR #430): bump ts3native's door generation for DoorMemoX=3; memo answers only unseen / seen-NPC jobs (docs/585 §5)
+        [Tunable] public static bool kFglInBound = false;  // fglinbound (docs/682 §9): FindGoodLocationNearby's lot-wide indoors search is made by ts3fixes and announced to ts3native, whose [FglInside] skips the placement tests on tiles without a room (EA's answer); needs ts3native [FglInside] Enabled=1; NPC task Sims; off until the maintainer's run
+        [Tunable] public static bool kFglInBoundHousehold = false;  // fglinboundhh: fglinbound for household and selected Sims too (EA's answer; own switch until the shadow counts are in)
+        [Tunable] public static bool kFglInBoundShadow = false;  // fglinbound: also run EA's indoors stage, return its answer and count / log a difference (costs EA's full time; for the first runs only)
         [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kInitStackTrace = true;    // initstacktrace (docs/594 §1): InteractionInstance.Init / OnAddedToQueue without the dead O(depth^2) StackTrace walks (fields only read by compiled-out debug code; exact)

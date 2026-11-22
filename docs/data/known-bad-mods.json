@@ -1,4 +1,17 @@
 {
-  "_about": "Known-bad or outdated mods for tools/compat-scan.ts. Each entry: name (regex, case-insensitive, matched against the file name without extension), optional key (resource key type:group:instance as compat-scan prints it, 8:8:16 hex digits), status (known-bad | outdated), reason, source (doc, issue or URL a human can check). Add an entry only with a source; no guessed entries.",
-  "entries": []
+  "_about": "Known-bad or outdated mods for tools/compat-scan.ts. Each entry: name (regex, case-insensitive, matched against the file name without extension), optional key (resource key type:group:instance as compat-scan prints it, 8:8:16 hex digits), status (known-bad | outdated | hang-seen: a hang seen on our setup with none of our mods, not proven for every setup), reason, source (doc, issue or URL a human can check). Add an entry only with a source; no guessed entries.",
+  "entries": [
+    {
+      "name": "^EnhancedWitches$",
+      "status": "hang-seen",
+      "reason": "the game hung before the main menu with this package alone, twice, none of our mods installed (Steam 1.67 + Apex Radiance bridge; sha256 684514e4...11bb). Seen on our setup, not ours, not proven for every setup",
+      "source": "docs/314-kit-ab-mode.md (bisect 2026-11-21)"
+    },
+    {
+      "name": "^velocitygrass_AddAnyLotSize$",
+      "status": "hang-seen",
+      "reason": "the world load never finished with this package alone, twice, none of our mods installed (Steam 1.67 + Apex Radiance bridge; sha256 316f12dc...2bad); a tester on the EA app 1.69.47 loads fine with it. Seen on our setup, not ours, not proven for every setup",
+      "source": "docs/314-kit-ab-mode.md (bisect 2026-11-22)"
+    }
+  ]
 }

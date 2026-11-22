@@ -96,6 +96,7 @@ namespace Ts3Fixes
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
             ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyDoorShare();     // DoorShare.cs (docs/674): Sim class and shareable door answers for ts3native DoorShare (switch doorshare, off)
+            ApplyFglInBound();    // FglInBound.cs (docs/682 §9): FindGoodLocationNearby swap, the indoors stage announced to ts3native [FglInside] (switch fglinbound, off)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
@@ -1579,6 +1580,8 @@ namespace Ts3Fixes
         // [1456-1470] unseenlanesnap (LaneSnap.cs, docs/807): see the list there; [1471-1475] unseenlegsnap (RouteSources.cs LegSnap)
         // [1441-1455] rabbitholedirect [1441-1452] and rhoutside [1453-1455] (RabbitHoleDirect.cs, docs/806): see the lists there
         // [1476-1481] SafeSpot repeat-search counters and safespotdedupe (Fixes.cs SafeSpot, docs/808)
+        // [1508-1517] fglinbound (FglInBound.cs, docs/682 §9): indoors stages by our path / ts3native [FglInside] not answering / found / no indoor spot /
+        // household or unknown Sim / shadow compares / shadow different (must stay 0) / errors / our ms / EA's stage ms in shadow.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, then
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
@@ -2049,6 +2052,8 @@ namespace Ts3Fixes
                 case "spawnoffworld": return Instantiator.kSpawnOffWorld;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
                 case "firegreet": return Instantiator.kFireGreet;
+                case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
+                case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;

@@ -1,0 +1,240 @@
+{
+ "_doc": "Set compat-overlap-1122 (docs/COMPATIBILITY.md, queue compat-overlap-1122): the MTS top-100 mods whose 2026-11-22 static scan overlaps a default-on feature of ours and that are not in our test install, newest Steam build of each. Build: node tools/mod-set.ts build docs/data/compat-overlap-1122.json -> game-copy/mod-sets/compat-overlap-1122 (git-ignored). Sources local only (game-copy/compat-mods, MTS downloads, docs/24), never re-hosted.",
+ "set": "compat-overlap-1122",
+ "out": "game-copy/mod-sets/compat-overlap-1122",
+ "sources": {
+  "compat": "game-copy/compat-mods"
+ },
+ "mods": [
+  {
+   "name": "Weapons System",
+   "page": "https://modthesims.info/d/402950/weapons-system.html",
+   "version": "updated 11th Sep 2010 at 3:59am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "402950-weapons-system/Desecrate_WeaponsLib.zip"
+   ]
+  },
+  {
+   "name": "Housecleaning For All Sims",
+   "page": "https://modthesims.info/d/411634/housecleaning-for-all-sims.html",
+   "version": "13th Jul 2010 at 7:59am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "411634-housecleaning-for-all-sims/Buzz_CleanHouseForEveryone.zip"
+   ]
+  },
+  {
+   "name": "Buy Takeout And Order Food At Restaurants",
+   "page": "https://modthesims.info/d/413311/buy-takeout-and-order-food-at-restaurants.html",
+   "version": "updated 12th Jan 2015 at 1:44am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "413311-buy-takeout-and-order-food-at-restaurants/Buzz_TakeHomeFoods.zip"
+   ]
+  },
+  {
+   "name": "Scribbling Pad",
+   "page": "https://modthesims.info/d/422974/scribbling-pad.html",
+   "version": "updated 12th Jan 2015 at 1:48am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "422974-scribbling-pad/Buzz_ScribblingPad.zip"
+   ]
+  },
+  {
+   "name": "XCAS core mod: more tattoo locations, edit naked outfit, slider hack, body hair, more - update 5/23/16 Steam version added.",
+   "page": "https://modthesims.info/d/434270/xcas-core-mod-more-tattoo-locations-edit-naked-outfit-slider-hack-body-hair-more-update-5-23-16-steam-version-added.html",
+   "version": "updated 23rd May 2016 at 11:42pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "434270-xcas-core-mod-more-tattoo-locations-edit-naked-out/cmar_XCASfullSteam1.67.zip"
+   ]
+  },
+  {
+   "name": "Moar Interactions",
+   "page": "https://modthesims.info/d/437344/moar-interactions.html",
+   "version": "updated 26th Jan 2015 at 12:18am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "437344-moar-interactions/Buzz_MoarInteractions.zip"
+   ]
+  },
+  {
+   "name": "Non-Core Global Online Banking Mod - v1.18.48180.1022 (works with patch 1.67.2)",
+   "page": "https://modthesims.info/d/438835/non-core-global-online-banking-mod-v1-18-48180-1022-works-with-patch-1-67-2.html",
+   "version": "updated 19th Feb 2016 at 5:59pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "438835-non-core-global-online-banking-mod-v1-18-48180-102/NeoH4x0rGlobalOnlineBankingMod.zip"
+   ]
+  },
+  {
+   "name": "Gardener Service - v2.3 (4th May 2014)",
+   "page": "https://modthesims.info/d/459967/gardener-service-v2-3-4th-may-2014.html",
+   "version": "updated 5th May 2014 at 7:07am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "459967-gardener-service-v2-3-4th-may-2014/Gardener_service_NPC_v2.3.rar.unpacked/douglasveiga_Gardener_service_NPC_v2.3.package"
+   ]
+  },
+  {
+   "name": "Study Skills Online V37 (November 19th, 2014)",
+   "page": "https://modthesims.info/d/478271/study-skills-online-v37-november-19th-2014.html",
+   "version": "updated 19th Nov 2014 at 1:57pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "478271-study-skills-online-v37-november-19th-2014/JunJayMdM.StudySkillsOnline.zip"
+   ]
+  },
+  {
+   "name": "*Updated 11/01* Toddler Interactions",
+   "page": "https://modthesims.info/d/479364/updated-11-01-toddler-interactions.html",
+   "version": "updated 24th Jun 2012 at 12:20pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "479364-updated-11-01-toddler-interactions/CherryTS3_ToddlerInteractions.7z.unpacked/CherryTS3_ToddlerInteractions.package"
+   ]
+  },
+  {
+   "name": "More Alchemy Potions + Potions for Pets",
+   "page": "https://modthesims.info/d/493140/more-alchemy-potions-potions-for-pets.html",
+   "version": "updated 27th Jul 2013 at 11:41am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "493140-more-alchemy-potions-potions-for-pets/SimsMxMoreAlchemyRecipes.zip"
+   ]
+  },
+  {
+   "name": "Death Note",
+   "page": "https://modthesims.info/d/498188/death-note.html",
+   "version": "12th Mar 2013 at 7:35pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "498188-death-note/Desecrate_DeathNote.zip"
+   ]
+  },
+  {
+   "name": "(UPDATE: 24-MAR-2017) Cook With Any Ingredient (Wood Fire Oven/Sauna/Teppanyaki Grill/Baker's Station compatible)",
+   "page": "https://modthesims.info/d/523004/update-24-mar-2017-cook-with-any-ingredient-wood-fire-oven-sauna-teppanyaki-grill-baker-s-station-compatible.html",
+   "version": "updated 27th Mar 2017 at 3:00am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "523004-update-24-mar-2017-cook-with-any-ingredient-wood-f/icarusallsorts.CookWithAnyIngredient_WoodFireOven.rar.unpacked/icarusallsorts.CookWithAnyIngredient_WoodFireOven.package"
+   ]
+  },
+  {
+   "name": "The Sims 3 Passion And Romance",
+   "page": "https://modthesims.info/d/524468/the-sims-3-passion-and-romance.html",
+   "version": "3rd May 2014 at 1:28pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "524468-the-sims-3-passion-and-romance/The Sims 3 Passion And Romance.rar.unpacked/The Sims 3 Passion And Romance  [MOD].package"
+   ]
+  },
+  {
+   "name": "CaSTable RabbitHole Replacements",
+   "page": "https://modthesims.info/d/541726/castable-rabbithole-replacements.html",
+   "version": "updated 15th Dec 2015 at 3:39am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "541726-castable-rabbithole-replacements/MainAssemblyScript.rar.unpacked/MainAssemblyScript.package"
+   ]
+  },
+  {
+   "name": "Napping Mat",
+   "page": "https://modthesims.info/d/593159/napping-mat.html",
+   "version": "updated 11th May 2017 at 11:53pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "593159-napping-mat/Arsil_NappingMat.zip"
+   ]
+  },
+  {
+   "name": "Children can care for their lil' siblings",
+   "page": "https://modthesims.info/d/616566/children-can-care-for-their-lil-siblings.html",
+   "version": "19th Aug 2018 at 9:20pm",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "616566-children-can-care-for-their-lil-siblings/TST_ChildrenCareForToddlers.rar.unpacked/TST_ChildrenCanCarryToddlers.package"
+   ]
+  },
+  {
+   "name": "More Baby Interactions",
+   "page": "https://modthesims.info/d/671632/more-baby-interactions.html",
+   "version": "updated 21st Mar 2026 at 5:50am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "671632-more-baby-interactions/TSS_MoreBabyInteractions_V1.3.rar.unpacked/TSS_MoreBabyInteractions.package"
+   ]
+  },
+  {
+   "name": "More Toddler Interactions V3",
+   "page": "https://modthesims.info/d/677256/more-toddler-interactions-v3.html",
+   "version": "updated 15th Mar 2024 at 6:15am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "677256-more-toddler-interactions-v3/TSS_MoreToddlerInteractions_V3.1.rar.unpacked/TSS_MoreToddlerInteractions.package"
+   ]
+  },
+  {
+   "name": "More Pregnancy Interactions V2",
+   "page": "https://modthesims.info/d/681572/more-pregnancy-interactions-v2.html",
+   "version": "updated 9th Apr 2024 at 6:54am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "681572-more-pregnancy-interactions-v2/TSS_MorePregnancyInteractions_V2.rar.unpacked/TSS_MorePregnancyInteractions.package"
+   ]
+  },
+  {
+   "name": "More Romantic Interactions V2",
+   "page": "https://modthesims.info/d/691427/more-romantic-interactions-v2.html",
+   "version": "updated 23rd Oct 2025 at 10:46am",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "691427-more-romantic-interactions-v2/TSS_MoreRomanticInteractions_V2.rar.unpacked/TSS_MoreRomanticInteractions.package"
+   ]
+  },
+  {
+   "name": "Enhanced Witches",
+   "page": "https://modthesims.info/d/608185",
+   "version": "update 16-11-23",
+   "status": "excluded",
+   "why": "hang-seen: hangs before the main menu on its own, none of our mods (docs/314)"
+  },
+  {
+   "name": "2x Weight and Fitness Integration Core Mod (Consort)",
+   "page": "https://modthesims.info/d/470349",
+   "version": "1.67 build",
+   "status": "excluded",
+   "why": "second core mod (own Sims3GameplaySystems): cannot load together with simler90 core in the test install; needs its own job"
+  },
+  {
+   "name": "simler90 Gameplay Core Mod",
+   "page": "https://modthesims.info/d/659969",
+   "version": "UPDATE242 Steam",
+   "status": "in-test-install"
+  }
+ ]
+}

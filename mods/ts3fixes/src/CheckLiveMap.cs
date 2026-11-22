@@ -169,6 +169,7 @@ namespace Ts3Fixes
                 case "farthestsorted": return EpLive(typeof(FarthestLotHook), 1);
                 case "fastreftable": return EpLive(typeof(RefTableHook), 0);
                 case "fearfaintundo": return EpLive(typeof(B12FfHook), 1, "sFfJig", sFfJig, null);
+                case "fglinbound": return EpLive(typeof(FibNearbyHook), 0);
                 case "fieldtripadult": return EpLive(typeof(FtaHook), 2, "sFtaSchoolLot", sFtaSchoolLot, null, "sFtaFailed", sFtaFailed, null, "sFtaCarpool", sFtaCarpool, typeof(bool), "sFtaCarpool", sFtaCarpool, null);
                 case "fightbroadcastend": return EpLive(typeof(BFbHook), 1);
                 case "fightstaycap": return EpLive(typeof(FightStayCapHook), 1);
