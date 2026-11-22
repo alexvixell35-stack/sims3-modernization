@@ -192,6 +192,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kReachUse value="False" />
     <kReachUseHousehold value="False" />
     <kReachUseLog value="False" />
+    <kMakeBedBoth value="False" />
+    <kMakeBedBothHousehold value="False" />
+    <kMakeBedBothLog value="False" />
     <kPetRelax value="False" />
     <kPetRelaxHousehold value="False" />
     <kPetRelaxMinutes value="3" />

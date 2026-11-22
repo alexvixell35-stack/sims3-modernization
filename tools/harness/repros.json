@@ -123216,5 +123216,104 @@
         "waitS": 1
       }
     ]
+  },
+  {
+    "id": "makebedboth-check",
+    "bug": "A bed half whose routing slot is closed (a side at a wall or behind furniture) is never made: BedMakeBed.Run walks only to slots of unmade parts, the walk or the continuation's walk fails, the bed stays half made, the definition's Test keeps passing and autonomy keeps trying (docs/686 §13)",
+    "fix": "ts3fixes MakeBedBoth.cs: makebedboth (Sims the player does not control), makebedbothhh (household and selected Sims), default off, docs/686 §13",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot with beds (a bed with an unmade half makes it say more)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). MakeBedBothCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4462-4469 and the last makebedboth: line; 'lot' lists the beds of the selected Sim's lot that have an unmade half and whether a plan to each part's slots exists (read-only plans, up to 20 beds). No forced arm: the agent has no step that closes one side of a bed. The far half's look after the run is checked by eye.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": false,
+          "makebedbothhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "beds with an unmade half and the plans to their parts",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": true,
+          "makebedbothhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": false,
+          "makebedbothhh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]
