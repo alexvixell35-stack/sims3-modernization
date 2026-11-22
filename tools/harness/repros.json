@@ -114857,6 +114857,166 @@
     ]
   },
   {
+    "id": "clipwait-check",
+    "bug": "A Sim waits because another Sim or a pet is in its way outside portals: the obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) and the destination wait (DestinationObstructedRouteInterruptAction) stand for up to 20 sim-minutes while the game pushes and replans; a Sim in an interaction or a conversation cannot be pushed, so the walker stands until it leaves or the route fails (docs/686 §9)",
+    "fix": "ts3fixes ClipWait.cs: clipwait (clipwaithh for household and selected Sims), default off, docs/686 §9",
+    "save": "any world (pure check)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ClipWaitCheck 'run' evaluates the rule with controls (read-only); 'result' shows the counters 4398-4413 and the last clipwait: line. The behaviour itself is shown by storms (docs/686 §9.5): destination waits 4409-4411 and 'would' 4402 off against walks 4399 / 4400 on.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's wait",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": true,
+          "clipwaithh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "petrelax-check",
+    "bug": "Pets block Sims and get blocked: a pet in an interaction (nap, sit, beg, follow) cannot be pushed, so a Sim or pet that meets it stands in the obstacle or destination stand-and-wait; a pet lying on the floor is an object for every other Sim's plan (its floor jig's locked footprint), and it lies down where it stands, doorways and stair feet included (docs/686 §11)",
+    "fix": "ts3fixes PetRelax.cs: petrelax (petrelaxhh for household and selected Sims and pets), default off, docs/686 §11",
+    "save": "any world (pure check)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). PetRelaxCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4430-4445 and the last petrelax: line; 'lot' lists the active lot's pets and each lying pet's distance to a lane end. The behaviour itself is shown by runs on a pet household (docs/686 §11.5).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's wait for a pet",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": true,
+          "petrelaxhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

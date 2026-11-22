@@ -65,7 +65,7 @@ namespace Ts3Fixes
     //   is approached by that point plan instead of the plan to the slot with its facing. The climb down keeps the slot.
     //
     // Off = compare mode: the hooks count what each switch would do, and the lane waits (how many, how long) either way.
-    // lanewaitlog writes one line per lane wait. Counters 4364-4397. Check: ShareLanesCheck.
+    // lanewaitlog writes one line per lane wait. Counters 4364-4397. Check: ShareLanesCheck. The waits that still begin: ClipWait.cs (clipwait).
     public static partial class Fixes
     {
         const int kShlFails = 4364, kShlSharable = 4365, kShlShared = 4366, kShlErrors = 4367, kShlWould = 4368, kShlExempt = 4369,
@@ -499,7 +499,7 @@ namespace Ts3Fixes
                         FollowRouteAction fa = sSpsAction.GetValue(this) as FollowRouteAction;
                         Route route = fa == null ? null : fa.RouteToBeFollowed;
                         bool counted = false;
-                        SpsPass(sim, route, obstacles, kSpsAtEvent, ref counted);
+                        if (!PrxPass(sim, route, obstacles, false)) SpsPass(sim, route, obstacles, kSpsAtEvent, ref counted);  // petrelax (PetRelax.cs, §11) first: small pets
                     }
                 }
                 catch (ResetException) { throw; }
@@ -518,7 +518,7 @@ namespace Ts3Fixes
                 if (sim == null || path == null || !path.PlanResult.Succeeded()) return false;
                 ObjectGuid[] obstacles = path.FindObstaclesForSim(sim.Proxy);
                 bool counted = false;
-                return obstacles != null && SpsPass(sim, path, obstacles, kSpsAtBegin, ref counted);
+                return obstacles != null && (PrxPass(sim, path, obstacles, true) || SpsPass(sim, path, obstacles, kSpsAtBegin, ref counted));
             }
             catch (ResetException) { throw; }
             catch (Exception e) { ShlError(7, e); return false; }

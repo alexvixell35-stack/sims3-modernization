@@ -3,7 +3,7 @@
 2026-11-21, branch `fix/stand-wait-1121`. Storm logs s141-s291 (Isla Paradiso, Collins household, 2-minute route storms) +
 decompiled C#. Built, default off, **NOT RUN**. Switches `standwaitfix`, `standwaitfixhh`, `standwaitlog`; counters
 4300-4319; `StandWait.cs`, `StandWaitCore.cs`; repro `standwait-check`.
-§7 (waits at a privacy-locked room, `standwaitlocked`) and §9-§13 stay on the contributor's combo branch for now; §8 is
+§7 (waits at a privacy-locked room, `standwaitlocked`), §10 and §12-§13 stay on the contributor's combo branch for now; §8, §9 and §11 are
 in this file. **Correction to §1-§2:** the wait in the tuning XML is 20 sim-minutes, not 50; "50" below is the default
 in the code.
 
@@ -348,3 +348,182 @@ A player's rule: "doors and shower and stairs etc can be almost always but other
 - §8.2 and §8.7: the lane waits, lane shares and line skips are at doors, stairs and ladders and are not touched.
   The `simpass` count of §8.7 (about 55 acts per storm) was taken before this rule; away from portals those walks
   now come after the grace.
+
+## 9. Sims walk through a Sim or pet that keeps them waiting (`clipwait`, `clipwaithh`; 2026-11-22, `feat/clipwait-1122`, built, default off, NOT RUN; here as the waits' plumbing for §11)
+
+A player's wish: a Sim busy at a mirror, standing, or chatting in a hallway should not keep a passing Sim waiting;
+after a moment the walker clips through, as in other games. No teleport, the Sim walks its own route. Two Sims at
+one object are not wanted. `ClipWait.cs`, rules in `ClipWaitCore.cs`, counters 4398-4413, check
+`ClipWaitCheck run | result`, selftest `tools/selftest/clipwait`, repro `clipwait-check`.
+
+### 9.1 Where a Sim waits for a Sim outside portals [verified, decompiled `Sims3.Gameplay` unless marked]
+
+| Case | The game's code | Cost | How often |
+|---|---|---|---|
+| A Sim or pet in the route's way | `SimSteeringAdaptor.HandleEventEncounteredObstacles` -> `ObstacleEncounteredRouteInterruptAction`: stand-and-wait, each cycle a replan with "blocked by people" and a push of the pushable Sims | up to `kDefaultStandAndWaitDuration` (50 sim-min in code, 20 in tuning), then route failed | every meeting of two Sims on a route; 374 storm logs of 11-20/22: 422 failed plans with a Sim as blocker (`NoPathToDestination`), 9 `standwait:` lines with a Sim blocker (3 ran to the timeout). Waits whose plan succeeds (the walker stands while the other Sim is pushed or leaves) had no counter |
+| A Sim that cannot be pushed | `RoutingComponent.PushSimsStatic`: a Sim in a conversation is skipped, a Sim in an interaction only moves when the interaction is an `IBePushedCanCancel` that allows it | the wait above runs until that Sim is done | the mirror, sink, fridge and hallway-chat cases; not measured |
+| A Sim on the route's end point | `HandleEventDestinationObstructed` -> `DestinationObstructedRouteInterruptAction`: stand-and-wait, pushes Sims within 0.6 m of the end every cycle, replans every few | same duration; ends with the "Sim in the way" balloon (`PlayRouteFailureIfAppropriate`) | not measured before (1 stall-watch stack in the logs); counters 4409-4411 now |
+| Arrived inside a Sim | `SimRoutingComponent.DoRoute`, only for routes with `CheckForFootprintsNearGoals` (dance floor, stereo, karaoke, jukebox, DJ booth, some spawners): push, replan around people, else an emergency walk 0.6-2.5 m away and route failed | one short walk + the failed interaction | rare, those objects only |
+| Pushed out of the way | `PushSimsStatic` with `waitForPushes` (doors, gates, footprints of objects being placed, pet landing spots): the pusher idles up to `TotalSimMinutesToWaitForSimsToBePushed` | short | doors: §8; else rare |
+| A pet lying in the path | a pet is a `Sim` for all of the above (`ToddlerOrAbove`); a running pet does not stop for Sims | as rows 1-3 | not measured |
+| Car, bike, bed side | route ends at an object's slot: row 3 | | |
+
+Not a routing wait and not touched: an object in use (`InUse`, lines such as `SimQueue`) is the game's rule for
+one user at a time.
+
+### 9.2 What is built
+
+After `kClipWaitGraceMinutes` (2 sim-minutes, about 2 seconds at normal speed) of either stand-and-wait that the
+game wants to continue, `ClipWaitCore.Decide`:
+
+- **Walk through.** Only Sims and pets in the way (toddler or older; anything else in the way keeps the wait): when
+  the route's plan had failed it is planned once without "blocked by people" (still failed = a real block, the wait
+  goes on, 4408); then `StartIgnoringObstacles(kClipWaitMinutes = 3)` and the wait ends with the game's own
+  "continue and follow the path". This is the exit the game takes itself after a wait in a crowd.
+- **The route's end.** A Sim within the game's 0.6 m of the end is walked into only when the route ends on a plain
+  floor spot, or at an object that Sim is not using (its interaction, transition, posture and parent are not that
+  object; `kClipWaitObjectDest = false` limits it to floor spots). Never when the walker's interaction targets a Sim
+  or the route goes to a Sim (social placement), never on a Go Here the player gave to a household Sim, never when
+  the Sim at the end uses the object. The route's next destination-obstructed event then starts no new wait
+  (4412). When the end may not be walked into but other Sims block the way, the walker passes those and the game's
+  own handling of the end runs when it arrives.
+- **Why a grace and not at once.** The first cycles are the game's own answer: a replan around the Sim and a push
+  of a Sim that can step aside. Both look better than clipping and take under one cycle when they work. The rule is
+  judged at the end of a wait cycle, so the real wait is one or two cycles.
+
+`simpass` (§8) acts earlier where it applies (at the obstacle event, no grace, nobody at the route's end); `clipwait`
+is the rule for the waits that still begin, with or without `simpass`. Lanes and lines (`sharelanes`,
+`laddershare`, `spiralshare`) are other code paths. `standwaitfix` runs first in a blocked cycle.
+
+**Scope.** `clipwait`: walker and every Sim walked through are Sims the player does not control. `clipwaithh`:
+household and selected Sims too. Off = compare mode: the waits are counted and what the rule would do (4402).
+
+### 9.3 Not built
+
+- **Arrival inside a Sim** (`DoRoute`, `CheckForFootprintsNearGoals`): the game's replan there finds another spot
+  around the object, which is the better answer; only its fallback fails. Rare objects.
+- **Two Sims at one object's slot in use**: not wanted.
+- **Babies** on the floor stay obstacles (the game treats them as objects).
+- **The native planner's endpoint test**: needs a native build; the script side covers the waits.
+
+### 9.4 Limits [inferred unless marked]
+
+- That the walk goes on to an occupied end point when the destination event starts no wait is taken from the
+  game's own cases with that handler off (ghosts, portal crossings); not run.
+- The walker cannot be pushed while its timer runs (the game's rule for an ignoring Sim), 3 sim-minutes per walk.
+- A failed plan names one blocker; the Sims within 0.5 m of the waiter are the second guess. A plan that fails
+  because of Sims farther away (a portal closed by standing Sims) is `sharelanes`' case, not this one.
+
+### 9.5 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/clipwait/run.ts`: the rule's cases and a sweep of every input combination (go only on, Sims
+  only, past the grace, in scope; a walk ends in a Sim only where allowed).
+- `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftests `standwait` and `sharelanes` pass.
+- Live: `clipwait-check` once (off `BROKEN`, on `FIXED`, `members found=True`). Storms off / on interleaved with
+  `clipwaitlog standwaitlog routefaillog`: off arm gives the first numbers (4398 waits past the grace, 4402 would,
+  4409-4411 destination waits, their sim-minutes and failures); on arm `clipwait clipwaithh`: 4399 / 4400 > 0, 4411
+  and the `standwait:` timeouts with a Sim blocker down, 4401 = 0, no `clipwait: error at` line. By eye: a Sim at a
+  sink or mirror in a corridor, a chatting pair in a doorway, a dog lying in a hallway.
+
+## 11. Pets block less and get blocked less (`petrelax`, `petrelaxhh`; 2026-11-22, `feat/petrelax-1122`, built, default off, rule 1 and 2 run §11.6)
+
+A player's wish: pets block Sims and get blocked a lot, be less strict with them; clipping is fine. No teleport,
+every Sim and pet walks its own route. `PetRelax.cs`, rules in `PetRelaxCore.cs`, counters 4430-4445, check
+`PetRelaxCheck run | result | lot`, selftest `tools/selftest/petrelax`, repro `petrelax-check`.
+
+### 11.1 How pets block and get blocked [verified, decompiled `Sims3.Gameplay` unless marked]
+
+| Case | The game's code | Cost | How often |
+|---|---|---|---|
+| A pet that cannot be pushed | `RoutingComponent.PushSimsStatic`: a Sim with a running or transition interaction is pushed only when that interaction is an `IBePushedCanCancel` (three classes in the game, none a pet's). A pet that naps, sits, begs, follows, watches or scratches stays. Only a pet with no interaction is pushed (`BePushed`, with larger distances for dogs, foals and horses) | the walker's obstacle or destination stand-and-wait of §9.1 runs until the pet is done or the route fails | pets are in such interactions most of the time; not measured (no pet lot ran with `standwaitlog`) |
+| A pet lying on the floor | `PetSurfacePosture.LayDownHere` (lie down, nap, sleep): autonomous = the pet's own position (favourite spot by chance, "next to my sleeping mother / mate / owner" on the home lot), then `FindGoodLocationNearby` for a `PetSurfaceFloorJig`. `SocialJig.OnStartup` locks the jig's routing footprint (`RoutingFootprintLocking`, `MustHaveKey` = the jig), and only the pet's own route ignores it | the lying pet is an **object** for every other Sim's plan: a doorway, stair foot or hallway it lies in is closed (`NoPathToDestination`, blocker Object), and `simpass` / `clipwait` keep a wait with an object in it | every floor nap; where = where the pet stood, so often next to its Sim, in doorways and at stair feet. Not measured |
+| A pet on a lane end | door: `DoAdditionalLaneChecks` pushes standing Sims (a busy pet stays; the crossing then runs with avoidance off, so the Sim walks through it), and refuses the lane when a lane slot is blocked by an object (the floor jig); stairs and ladders: a standing Sim closes the portal in a plan with "blocked by people" (§8.1) | lane refused or fallback lane; `DestinationPortalLocked` in the stand-and-wait | part of the rows below |
+| A pet behind Sims | a walking pet gets the same obstacle event and stand-and-wait as a Sim. Only a running pet (`PetRun`, gallop) skips every Sim in `HandleEventEncounteredObstacles` and cannot be pushed: the game itself clips running pets through Sims | §9.1 rows 1-3 | 65 run logs with pet interactions in their `routefail:` lines, 1,084 failed plans of pets: 68 `NoPathToDestination` with a Sim as blocker (42 of them `Replan` = inside a stand-and-wait; litter box 25, scratching 17, begging 12), 250 with an object as blocker |
+| Following, greeting, begging | `PetFollowSimAround`, `PetInitateSocial`, `PetBegForFood`: routes to a Sim; the pet then stands next to it, unpushable | the Sim's next route starts with the pet in its way: row 1 | `PetFollowSimAround` 240 failed plans, the most of any pet interaction |
+| Horses | no door (`CommonDoor`: only a large gate), so `DestinationPortalLocked` on every plan into a house: 448 of the 1,084 failed plans, 387 of them two horses of one household | EA's design, not a wait | not touched |
+| Bowls, beds, litter boxes | one user at a time (`InUse`), the game's rule | | not touched |
+
+### 11.2 What is built
+
+1. **Walk through at once** (`PetRelaxCore.Pass`). At the obstacle event (before `simpass`) and at an obstacle
+   wait that still begins: a small pet (cat, dog, puppy, kitten, raccoon) walks through the Sims and small pets in
+   its way; a Sim walks through small pets when nothing else is in its way. `StartIgnoringObstacles(kPetRelaxMinutes
+   = 3)`, the game's own timer; a Sim that also has a Sim in its way is left to `simpass` / `clipwait` (the timer
+   ignores everything). In the two stand-and-waits the same rule ends the wait in its first cycle instead of after
+   the clipwait grace; where the walk may end is `ClipWaitCore.Decide` unchanged (never into a Sim or pet that uses
+   the object the walker goes to, never for a social, never at the end of a player's Go Here).
+   **Horses, foals, deer** and Sims riding or leading a horse, as walker or in the way: kept (4439); they get the
+   `clipwait` grace as any Sim.
+2. **A lying pet is not an object.** `SimRoutingComponent.SetRouteOptions` (every route a Sim creates) adds the
+   floor jigs of the lying pets on the walker's lot to the route's ignore list (`AddObjectToIgnoreForRoute`, the
+   call the game makes for the pet itself). The jigs are listed when `LayDownHere.Run` returns and leave the list
+   when the pet is up. In the obstacle event and the two waits a floor jig counts as its pet, and the route ignores
+   it from then on. The pet itself is then a Sim in the way: rule 1.
+3. **Not on a lane end.** Before the game's autonomous floor lie-down at the pet's own position: when a stair, door,
+   gate, ladder, spiral stair or elevator lane end of the lot is within `kPetRelaxPortalClear` (1.25 m, same floor),
+   the pet walks to a spot 2 or 3 m away (16 candidates, the direction away from the lane end first, none near any
+   lane end, at most 4 plans), then the game's lie-down runs from where it stands. No spot or a failed walk: the
+   game's lie-down as it was (4442). Not on the world lot, not for a spot the player chose.
+
+**Scope.** `petrelax`: walker and everyone walked through are Sims and pets the player does not control (townies'
+pets, strays, service pets); `petrelaxhh` adds household and selected Sims and pets. Rule 2 needs the walker and
+the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the lie-downs).
+
+### 11.3 Not built, and why
+
+- **Pushable pet idles** (an `IBePushedCanCancel` answer for naps and sits): with rules 1 and 2 nobody waits for
+  the pet, and a push would wake a sleeping pet (energy, moodlets): a change of EA's design, not wanted.
+- **One-tile hallways** as lie-down chokepoints: no cheap test for "hallway" in script; rule 2 lets Sims through
+  wherever the pet lies.
+- **Favourite and "next to my owner" sleeping spots** on a lane end: the player's or EA's choice of spot; rule 2
+  covers the passing Sims.
+- **Horse naps** (`HorseNap`, own jig, outdoors) and horses at house doors: large bodies, EA's door rule.
+- **Bowls, beds, litter boxes in use**: the game's one-user rule.
+- **The door's lane test with a floor jig on a lane slot** (`IsRoutingSlotObstructed` is native and does not read
+  the route's ignore list): the door hands out its fallback lane; rule 3 keeps new jigs off lane ends.
+
+### 11.4 Limits [inferred unless marked]
+
+- That a route with the jig on its ignore list plans and walks through the jig's footprint is taken from the
+  game's own use for the lying pet; not run for other Sims.
+- A route may now end where a pet lies; the destination-obstructed event then runs rule 1.
+- The walker cannot be pushed while its timer runs (as `simpass`).
+- Rule 3 reads the lot's object list once per autonomous floor lie-down.
+- Before the clipwait grace every stand-and-wait cycle now gathers who is in the way (one or two cycles per wait).
+
+### 11.5 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/petrelax/run.ts`: the rule's cases, a sweep of every input combination (go only with a small
+  pet in the case, no large body, no object, on and in scope), the lie-down rule, distance test and candidates.
+- `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftests `clipwait` and `sharelanes` pass.
+- Live: `petrelax-check` once (off `BROKEN`, on `FIXED`, `members found=True`; `fix_applied`
+  `PetSurfacePosture.LayDownHere.Run: ok`). A pet household (the storms' cat and horse lots), off / on interleaved
+  with `petrelaxlog standwaitlog routefaillog`: off arm 4437 would, 4443 / 4444 lie-downs; on arm `petrelax
+  petrelaxhh`: 4430-4435 > 0, pets' `NoPathToDestination` with a Sim blocker and `standwait:` lines naming a pet
+  down, 4436 = 0, no `petrelax: error at` line. `PetRelaxCheck lot` lists the pets and each lying pet's distance to
+  a lane end. By eye: a cat napping in a doorway (Sims pass through it), a dog following its Sim through a door, a
+  pet lying down at a stair foot (walks off first).
+
+### 11.6 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Repro `petrelax-force` (run `pr-r1`, and by hand in session `fr-m1`): a house built with the real tools, a corridor
+one tile wide and two long between two closed cells, a household dog adopted out of EA's pool (`pet_adopt {active}`)
+and ordered to lie in the corridor with the player's own order (`Lay Down Here` on the floor, the dog selected).
+
+| | off | on (`petrelax petrelaxhh`) |
+|---|---|---|
+| Go Here past the dog | `Plan ... FailedBecauseNoPathToDestination, blocker Object ... PetSurfaceFloorJig`; the game's Go Here then walks to 1.0 m before the dog and stops | `Plan ... Succeeded, path 3.6 m`, `petrelax: ... walked through at the obstacle event: <dog> (none)`, arrived 0.0 m from the goal after 5.4 s |
+| Back again | a Sim behind the dog cannot leave (same failed plan, by hand) | `path 2.4 m`, walked through, arrived after 3.7 s |
+| Counters | would (4437) up | 4430 = 2, 4434 = 4, errors 0 |
+
+- Rule 2 (the jig on the route's ignore list) is what lets the plan through; the jig stays locked with its own key
+  (`RoutingFootprintLocking`, read back by `pet_jigs`), and the plan succeeds all the same. §11.4's first limit is
+  settled. Rule 1 then passes the dog itself at the obstacle event.
+- After the walk the game queued its own `Move Away` for the Sim standing next to the dog (`RouteAway`,
+  `destination accepted`), which is the game's push and no part of the rule.
+- Not a case: a doorway without depth (a gap in a wall line). The game's `FindGoodLocationNearby` puts the jig
+  beside it and the Sim walks through in both arms.
+- The forced repro `petrelax-force` stays on the contributor's combo branch: it needs the agent steps `order_at`,
+  `go_at`, `pet_adopt {active}` and `pet_jigs`, which are not upstream yet. `petrelax-check` is included.
+- Open: rule 3 (no lie-down on a lane end) and a walking pet behind Sims did not run; a dog standing idle is pushed by
+  the game itself.

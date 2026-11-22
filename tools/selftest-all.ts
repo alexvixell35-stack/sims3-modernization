@@ -133,6 +133,8 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/wakepark/run.ts': CSC,
   'tools/selftest/standwait/run.ts': CSC,
   'tools/selftest/sharelanes/run.ts': CSC,
+  'tools/selftest/clipwait/run.ts': CSC,
+  'tools/selftest/petrelax/run.ts': CSC,
 };
 
 // No self-check, on purpose (the gap stays visible here). A new script needs a self-check or an entry with its reason.
