@@ -138,14 +138,42 @@ namespace Ts3Fixes
             sRuCool[RuCoolKey(sim, goal)] = SimClock.CurrentTicks;
         }
 
+        // The game's own line-of-sight test (GameObject's helper): a light-blocking wall between two points of a lot.
+        static bool RuWall(ulong lotId, Vector3 a, Vector3 b) { return World.WallExistsBetweenPoints(lotId, a, b, eRoomDefinition.LightBlocking); }
+
         // kStandOk when `at` is a place to do the chore from; counts nothing.
         static int RuStand(Vector3 at, RuCase q, float slack)
         {
             float flat = BuFlat(at, q.Goal), dy = at.y - q.Goal.y;
             int st = ReachUseCore.Stand(flat, dy, false, q.Reach + slack, kRuMaxDy);
-            if (st != ReachUseCore.kStandOk) return st;
-            // the test is the game's own (GameObject's line-of-sight helper): light-blocking walls between two points
-            return ReachUseCore.Stand(flat, dy, World.WallExistsBetweenPoints(q.LotId, at, q.Goal, eRoomDefinition.LightBlocking), q.Reach + slack, kRuMaxDy);
+            return st != ReachUseCore.kStandOk ? st : ReachUseCore.Stand(flat, dy, RuWall(q.LotId, at, q.Goal), q.Reach + slack, kRuMaxDy);
+        }
+
+        delegate int RuStandAt(Vector3 at);  // ReachUseCore.kStand* for a place
+
+        // A normal plan to the nearest place min..max metres from `goal` whose end passes `test`: the goal's room on
+        // lot `lotId` first, then any room. Null: no such place, `stand` = the first reason found. Plans only; shared
+        // with viewlenient (ViewLenient.cs).
+        static Route RuNearPlan(Sim sim, Vector3 goal, float min, float max, ulong lotId, bool safeFromNonSimTask, RouteOrientationPreference facing, RuStandAt test, out int stand)
+        {
+            LotLocation loc = default(LotLocation);
+            World.GetLotLocationAtFloor(goal, ref loc);
+            stand = ReachUseCore.kStandFar;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                if (pass == 0 && lotId == 0UL) continue;  // no lot: no room to try first
+                Route near = sim.CreateRoute();
+                near.DoRouteFail = false;
+                near.ExecutionFromNonSimTaskIsSafe = safeFromNonSimTask;
+                near.SetOption(Route.RouteOption.DoLineOfSightCheckUserOverride, true);
+                RoutePlanResult np = near.PlanToPointRadialRange(goal, min, max, RouteDistancePreference.PreferNearestToRouteDestination, facing,
+                    pass == 0 ? lotId : 0UL, pass == 0 ? new int[] { loc.mRoom } : null);
+                if (!np.Succeeded() || !BuValid(np.mDestination)) continue;
+                int st = test(np.mDestination);
+                if (st == ReachUseCore.kStandOk) return near;
+                if (stand == ReachUseCore.kStandFar) stand = st;
+            }
+            return null;
         }
 
         static void RuKept(Sim sim, RuCase q, int stand, string why)
@@ -209,22 +237,10 @@ namespace Ts3Fixes
             q.LotId = lot.LotId;
             if (!RuInPosture(sim) && RuStand(sim.Position, q, 0f) == ReachUseCore.kStandOk) return true;
 
-            LotLocation loc = default(LotLocation);
-            World.GetLotLocationAtFloor(q.Goal, ref loc);
-            int stand = ReachUseCore.kStandFar;
-            for (int pass = 0; pass < 2; pass++)
-            {
-                Route near = sim.CreateRoute();
-                near.DoRouteFail = false;
-                near.ExecutionFromNonSimTaskIsSafe = safeFromNonSimTask;
-                near.SetOption(Route.RouteOption.DoLineOfSightCheckUserOverride, true);
-                RoutePlanResult np = near.PlanToPointRadialRange(q.Goal, ReachUseCore.MinDist(q.Kind), q.Reach, RouteDistancePreference.PreferNearestToRouteDestination,
-                    RouteOrientationPreference.TowardsObject, pass == 0 ? q.LotId : 0UL, pass == 0 ? new int[] { loc.mRoom } : null);
-                if (!np.Succeeded() || !BuValid(np.mDestination)) continue;
-                int st = RuStand(np.mDestination, q, kRuArriveSlack);
-                if (st == ReachUseCore.kStandOk) { q.Near = near; return true; }
-                if (stand == ReachUseCore.kStandFar) stand = st;  // the first reason found is the one reported
-            }
+            int stand;
+            q.Near = RuNearPlan(sim, q.Goal, ReachUseCore.MinDist(q.Kind), q.Reach, q.LotId, safeFromNonSimTask, RouteOrientationPreference.TowardsObject,
+                delegate(Vector3 at) { return RuStand(at, q, kRuArriveSlack); }, out stand);
+            if (q.Near != null) return true;
             RuKept(sim, q, stand, stand == ReachUseCore.kStandLevel ? "the nearest place is on another level" : stand == ReachUseCore.kStandSight ? "a wall between the nearest place and the target"
                 : "no place within " + q.Reach.ToString("0.0") + " m can be walked to");
             return false;

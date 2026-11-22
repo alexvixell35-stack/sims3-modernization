@@ -434,7 +434,7 @@ namespace Ts3Fixes
                 try { q = RuBegin(sim, r, afterWalk); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { RuError(0, e); }
-                if (q == null) return Keep(r, afterWalk);
+                if (q == null) return RouteView(sim, r, afterWalk);
                 if (q.Near != null && !RouteOrig(q.Near))
                 {
                     PatchCounters()[kRuStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
@@ -445,6 +445,36 @@ namespace Ts3Fixes
                 catch (ResetException) { throw; }
                 catch (Exception e) { RuError(1, e); }
                 return arrived || Keep(r, afterWalk);
+            }
+
+            // viewlenient (ViewLenient.cs, docs/686 §16): a failed plan that blockeduse and reachuse left alone. A Sim that
+            // only looks at something (contemplate, view, watch) looks from where it stands or from the nearest place
+            // with a view; with no such place the interaction ends without the route-fail balloon.
+            bool RouteView(Sim sim, Route r, bool afterWalk)
+            {
+                VlCase v = null;
+                try { v = VlBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { VlError(0, e); }
+                if (v == null) return Keep(r, afterWalk);
+                bool arrived = false;
+                if (!v.Quiet && (v.Near == null || RouteOrig(v.Near)))
+                {
+                    try { arrived = VlArrive(sim, r, v); }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { VlError(1, e); }
+                }
+                else if (!v.Quiet) PatchCounters()[kVlStopped]++;  // cancelled or stopped on the way
+                if (arrived) return true;
+                try { VlQuietEnd(sim, v, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { VlError(2, e); }
+                if (afterWalk) return false;
+                // the game's own answer for a failed plan (exit reason RouteFailed, false), its balloon switched off
+                bool show = r.DoRouteFail;
+                r.DoRouteFail = false;
+                try { return RouteOrig(r); }
+                finally { r.DoRouteFail = show; }
             }
         }
 

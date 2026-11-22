@@ -780,6 +780,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kReachUse value="False" />
     <kReachUseHousehold value="False" />
     <kReachUseLog value="False" />
+    <kViewLenient value="False" />
+    <kViewLenientHousehold value="False" />
+    <kViewLenientLog value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />

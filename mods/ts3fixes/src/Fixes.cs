@@ -1596,7 +1596,11 @@ namespace Ts3Fixes
         // without reachusehh) / done from range: fire / floor (puddle, burnt tile) / small thing picked up or cleaned away / plant / of them without a walk /
         // slot chores given to blockeduse's rules / kept: nothing in reach / kept: other level or lot / kept: wall between / walk stopped / errors / kept:
         // cooling down / other failed point plans (not a reach kind, not to the target, a Sim blocks, portal locked, pet).
-        const int kCounterSlots = 4462;
+        // [4510-4525] viewlenient (ViewLenient.cs, docs/686 §16): failed plans of a view-kind interaction in DoRoute / would handle, off / exempt (household
+        // without viewlenienthh) / handled, by kind: contemplate / art (ViewObjects) / performer / tv / stars / by outcome: stayed in place / walked to the
+        // nearest place with a view / quiet ends (no balloon) / kept as the game has it (aborted plan, slot route, a route with no balloon, pet, another
+        // walk) / walk stopped or ended with no view / errors / quiet ends while cooling down / tries after a walk (failed replan).
+        const int kCounterSlots = 4526;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2069,6 +2073,9 @@ namespace Ts3Fixes
                 case "reachuse": return Instantiator.kReachUse;  // ReachUse.cs (docs/686 §12): an NPC's chore (fire, mop, pick up, plant) whose spot is closed is done from within reach; chores at a slot get blockeduse's rules, off
                 case "reachusehh": return Instantiator.kReachUseHousehold;  // ReachUse.cs: the same for household and selected Sims (stands alone), off
                 case "reachuselog": return Instantiator.kReachUseLog;  // ReachUse.cs (docs/686 §12): one line per act, off
+                case "viewlenient": return Instantiator.kViewLenient;  // ViewLenient.cs (docs/686 §16): an NPC whose route to contemplate, view or watch fails looks from where it stands or the nearest place with a view, no balloon, off
+                case "viewlenienthh": return Instantiator.kViewLenientHousehold;  // ViewLenient.cs: the same for household and selected Sims (stands alone), off
+                case "viewlenientlog": return Instantiator.kViewLenientLog;  // ViewLenient.cs (docs/686 §16): one line per act, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;
