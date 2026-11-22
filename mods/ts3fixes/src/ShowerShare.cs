@@ -415,6 +415,8 @@ namespace Ts3Fixes
                     if (gate == 1) { blockedStatus = BlockedStatus.BlockedBySim; return true; }
                     if (gate == 2) { blockedStatus = BlockedStatus.Unobstructed; return false; }
                 }
+                // blockeduse / woohoosnap (BlockedUse.cs, WooHooSnap.cs): a Sim that was let onto a closed slot of this object
+                if (sBuExits.Count != 0 && s != null && !isExitSlot && BuLetOn(this, s)) { blockedStatus = BlockedStatus.Unobstructed; return false; }
                 return ObstructedOrig(s, slotName, objectToIgnore, checkForSims, routeOptions, agsFlags, isExitSlot, out blockedStatus);
             }
             public bool ObstructedOrig(Sim s, Slot slotName, GameObject objectToIgnore, bool checkForSims, Route.RouteOption routeOptions, CASAgeGenderFlags agsFlags, bool isExitSlot, out BlockedStatus blockedStatus)

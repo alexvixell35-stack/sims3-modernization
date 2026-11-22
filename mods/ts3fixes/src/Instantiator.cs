@@ -433,6 +433,12 @@ namespace Ts3Fixes
         [Tunable] public static bool kUnstuckLog = false;  // unstucklog: one ts3native.log line per act
         [Tunable] public static bool kCrowdPort = false;  // crowdport (docs/686 §19): a Sim the player does not control at a crowded elevator or rabbit hole door (kCrowdPortMin Sims there, or kCrowdPortWait sim-minutes behind another Sim) skips the queue: the game's elevator teleport skip at once, set on the rabbit hole's enter slot; NPCs waiting to leave a rabbit hole or station go together. Horses, riders, carriers and toddlers keep the game's wait
         [Tunable] public static bool kCrowdPortHousehold = false;  // crowdporthh: crowdport for household and selected Sims too
+        [Tunable] public static bool kWooHooSnap = false;  // woohoosnap (docs/686 §20): a Sim the player does not control whose route to its WooHoo spot (bed side, shower, wardrobe, any WooHoo object on the lot) fails is put on the slot and the WooHoo goes on; the game's own tests stay
+        [Tunable] public static bool kWooHooSnapHousehold = false;  // woohoosnaphh: woohoosnap for pairs with a household or selected Sim (stands alone)
+        [Tunable] public static bool kWooHooSnapLog = false;  // woohoosnaplog: one ts3native.log line per act
+        [Tunable] public static bool kPairSnap = false;  // pairsnap (docs/686 §20): a paired social (kiss, hug) of two Sims the player does not control, within 3 m on one level, whose placement or route fails is lined up by a short snap
+        [Tunable] public static bool kPairSnapHousehold = false;  // pairsnaphh: pairsnap for pairs with a household or selected Sim (stands alone)
+        [Tunable] public static bool kPairSnapLog = false;  // pairsnaplog: one ts3native.log line per act
         [Tunable] public static bool kCrowdPortLog = false;  // crowdportlog: one ts3native.log line per act
         [Tunable] public static int kCrowdPortMin = 3;  // crowdport: Sims waiting for or using the portal, this one included, that make a crowd (2 at least)
         [Tunable] public static float kCrowdPortWait = 1f;  // crowdport: sim-minutes a Sim waits behind another Sim before it skips without a crowd (0-15)

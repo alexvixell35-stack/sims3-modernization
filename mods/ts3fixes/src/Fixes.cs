@@ -532,6 +532,7 @@ namespace Ts3Fixes
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth / makebedbothhh, off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
+            ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
@@ -1382,7 +1383,12 @@ namespace Ts3Fixes
         // horse, rider, carrier, toddler / elevator: line timeouts cut / elevator: no skip now (doors closed, car in use, other direction) / rabbit
         // hole in: holder out of scope or Sim far away / in: short wait ended by a free slot or a cancel / out: NPC exit waits (switch on) / out: ended
         // by the game's pacing.
-        const int kCounterSlots = 4566;
+        // [4566-4581] woohoosnap, pairsnap (WooHooSnap.cs, docs/686 §20): failed plans of WooHoo partners / would, off / exempt (household without
+        // woohoosnaphh) / snaps at a bed / at a shower, tub, all-in-one bathroom or sauna / at another object / kept (other lot, not a route failure, no
+        // spot, pet or rider, a social's own route, walk up cancelled) / snaps after a walk up / snap outs (both rules) / errors; paired socials:
+        // failed placements, plans and walks / would, off / exempt (household without pairsnaphh) / placed (snap, turn, jig slot, plan through
+        // objects) / kept (too far, other level, sitting, still walking, no spot) / errors.
+        const int kCounterSlots = 4582;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1716,6 +1722,12 @@ namespace Ts3Fixes
                 case "unstucklog": return Instantiator.kUnstuckLog;  // Unstuck.cs (docs/686 §18): one line per act, off
                 case "crowdport": return Instantiator.kCrowdPort;  // CrowdPort.cs (docs/686 §19): an NPC at a crowded elevator, rabbit hole door or station skips the queue by the game's own teleport paths; NPC exits leave together, off
                 case "crowdporthh": return Instantiator.kCrowdPortHousehold;  // CrowdPort.cs: the same for household and selected Sims, off
+                case "woohoosnap": return Instantiator.kWooHooSnap;  // WooHooSnap.cs (docs/686 §20): a WooHoo partner (NPC pairs) whose route to the bed, shower or other object fails is put on its spot, off
+                case "woohoosnaphh": return Instantiator.kWooHooSnapHousehold;  // WooHooSnap.cs: the same for pairs with a household or selected Sim, off
+                case "woohoosnaplog": return Instantiator.kWooHooSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
+                case "pairsnap": return Instantiator.kPairSnap;  // WooHooSnap.cs (docs/686 §20): a paired social (kiss, hug) of two NPCs within 3 m whose placement or route fails is lined up by a snap, off
+                case "pairsnaphh": return Instantiator.kPairSnapHousehold;  // WooHooSnap.cs: the same for pairs with a household or selected Sim, off
+                case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
                 case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
                 case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
                 case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off

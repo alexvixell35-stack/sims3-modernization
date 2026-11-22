@@ -270,8 +270,11 @@ namespace Ts3Fixes
             if (simA.HasExitReason() || simB.HasExitReason() || socialA.Cancelled || b.Cancelled) return false;  // cancelled or timed out: not a placement failure
             int[] c = PatchCounters();
             int cover = SrCover(b, socialA, socialA, simA, simB);
-            if (cover == SocialReachCore.kOther) return false;
-            if (cover == SocialReachCore.kContact) { c[kSrContact]++; return false; }
+            if (cover != SocialReachCore.kTalk)
+            {
+                if (cover == SocialReachCore.kContact) c[kSrContact]++;
+                return PrsPlace(b, simA, simB, socialA);  // pairsnap (WooHooSnap.cs, docs/686 §20): a paired social within 3 m is lined up by a snap
+            }
             c[kSrTries]++;
             int d = SocialReachCore.Decide(IsPlayerSim(simA), IsPlayerSim(simB), ShortcutOn("socialreach"), ShortcutOn("socialreachhh"));
             if (d == BlockedUseCore.kWould) { c[kSrWould]++; return false; }
@@ -300,13 +303,7 @@ namespace Ts3Fixes
                 SrLine(head + ": kept, " + kSrWhy[why] + ", " + BuFlat(pa, pb).ToString("0.0") + " m");
                 return false;
             }
-            // the game's placement jig of the failed tries stands somewhere near: gone, as the game's Cleanup removes it
-            SocialJig jig = b.SocialJig;
-            if (jig != null && socialA.SocialJig == null)
-            {
-                b.SocialJig = null;
-                jig.Destroy();
-            }
+            SrDropPlacementJig(b, socialA);
             sSrRoute.SetValue(b, null);
             sSrRoute.SetValue(socialA, near);
             c[kSrPlace]++;
@@ -314,6 +311,15 @@ namespace Ts3Fixes
             SrLine(head + ": " + (near != null ? "the starter walks to the nearest place at " + BuAt(near.PlanResult.mDestination) : "placed where they stand" + (moving ? " (the end of the starter's walk)" : ""))
                 + ", " + BuFlat(pa, pb).ToString("0.0") + " m apart");
             return true;
+        }
+
+        // The game's placement jig of the failed tries stands somewhere near: gone, as the game's Cleanup removes it.
+        static void SrDropPlacementJig(SocialInteraction b, SocialInteraction socialA)
+        {
+            SocialJig jig = b.SocialJig;
+            if (jig == null || socialA.SocialJig != null) return;
+            b.SocialJig = null;
+            jig.Destroy();
         }
 
         // ---- check ----

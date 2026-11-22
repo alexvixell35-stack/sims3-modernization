@@ -213,6 +213,12 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCrowdPort value="False" />
     <kCrowdPortHousehold value="False" />
     <kCrowdPortLog value="False" />
+    <kWooHooSnap value="False" />
+    <kWooHooSnapHousehold value="False" />
+    <kWooHooSnapLog value="False" />
+    <kPairSnap value="False" />
+    <kPairSnapHousehold value="False" />
+    <kPairSnapLog value="False" />
     <kCrowdPortMin value="3" />
     <kCrowdPortWait value="1" />
     <kLineWaitLog value="False" />

@@ -1648,3 +1648,110 @@ Forced repros, not built as entries; `crowdporthh` and `crowdportlog` on, each o
   (the hook asks nothing), NPCs come out 15 sim-minutes apart. On: 4564 counts the waits, 4552 the Sims that
   left with a crowd, 4565 those the game's pacing let out.
 - In every arm 4556 must stay 0 and no `crowdport: error at` line may appear.
+
+## 20. WooHoo partners and paired socials are snapped onto their spots (`woohoosnap`, `pairsnap`; 2026-11-22, `feat/woohoosnap-1122`, built, default off, NOT RUN)
+
+A player's wish: "WooHoo. If they get to kissing and just can't reach the bed, one of them, or the shower or wherever
+they are woohooing, you can teleport them, that's a big issue a lot of times." `WooHooSnap.cs`, rules in
+`WooHooSnapCore.cs`. The game's tests (age, relationship, privacy, object in use) are untouched; only the walk is
+replaced.
+
+### 20.1 How the game routes the two partners [verified, decompiled `Sims3GameplayObjects`, `Sims3GameplaySystems`, `Sims3StoreObjects`]
+
+The social's callback (`SocialCallback.OnWooHoo` / `OnTryForBaby`) asks the object's own social
+(`IWooHooSocialInteraction.PushWooHoo`) or, without one, the nearest bed. Each partner then walks by itself; every
+walk ends in `SimRoutingComponent.DoRoute`, and a failed one ends the WooHoo for both (a plain `return false`, the
+other side times out after 30 s or sees the missing partner).
+
+| object | starter | partner | after the walk |
+|---|---|---|---|
+| bed, tent, igloo | `EnterRelaxing`: `RouteToUnusedPart`; then `Beds.WooHoo` (the only `IIsWooHoo`) from the queue | `EnterRelaxing`: `RouteToUnusedPart` | `PartData.IsRoutingSlotObstructed` ends Relax on a closed slot |
+| shower, shower tub | `Shower.WooHoo`: ring 1.5-4 m (result unused), then `RouteToSlot` slot 0 | `TakeShower` (`HavingWooHoo`): `RouteToSlotAndCheckInUse`; linked to the starter's | exit waits while slot 0 is obstructed (no time limit) |
+| all-in-one bathroom | `WoohooInAllInOneBathroom`: `RouteToSlotAndCheckInUse` slot 1 | `...B`: `RouteToSlot` slot 2 | 30 s wait for the partner |
+| wardrobe | `WooHooInWardrobeA`: radius 1.5 m, then a slot 0 route | `WooHooInWardrobeB` goes first: `RouteToSlotAndCheckInUse` slot 0 | each watches the other's interaction |
+| leaf pile, hay stack | `WoohooInPileOrStack`: `RouteToSlotListAndCheckInUse` | `...B`: cone 1-2 m, then a slot route | `CanWooHooIn`, 30 s wait |
+| sarcophagus, time machine, bot station, box of mystery | `<Object>+WooHoo`: `RouteToSlotAndCheckInUse`; the partner's interaction is made after it | the same class: a slot route that ignores the starter | `ActorsUsingMe` |
+| actor trailer, photo booth | `<Object>+WooHoo`: slot 0 | the same class, linked | `HasSpaceFor` |
+| elevator | `ElevatorDoors+WooHoo`: ring at the doors, then slot 0 of the car | the same, slot 1 | three 30 s sync waits |
+| underwater cave | `WoohooInCave`: slot 0 | the same, after the starter | sync |
+| gypsy caravan, resort tower | rabbit hole entry (`RouteNearEntranceAndEnterRabbitHole`) | the same | |
+| hot tub, sauna, treehouse, fairy house, hot air balloon | no walk in the WooHoo: both are in the object already (`GetIn` earlier, an ordinary slot route) | | |
+| rabbit holes (`WooHooInRabbitHoleWith`) | no walk: both are inside | | |
+
+Paired socials (kiss, hug: `ActionData.SocialJig` other than one-person): §17.1's three steps, then
+`SocialInteractionA.VerifyPositionAndAlignment` refuses to play unless the two face each other (dot product -1
+within 0.001), stand at the social's distance within 2 mm and at one height within 0.133 m. A social with its own
+jig (`ForceCreateJig`) places it with `SocialJigTwoPerson.PlaceJig` and plans `RouteToJigA` / `RouteToJigB` (slot
+routes on the jig); a failed plan there ends the social before any walk.
+
+### 20.2 What is built
+
+`woohoosnap`, first step of the `DoRoute` hook's chain (BlockedUse.cs), for a failed plan (no destination, no free
+slot, places obstructed, no path, a Sim on the place, the start closed) of a human whose running interaction is a
+WooHoo step: a class named `WooHoo` / `Woohoo` / `TryForBaby` (with the class it is nested in), an interaction
+linked to one (the shower's `TakeShower`), or a bed's `EnterRelaxing` while a bed WooHoo of the pair waits in a
+queue. Sim, partner and object must stand on one lot (not the world lot).
+
+1. Walk up: unless the Sim stands in the object's room within 3 m, the game's "near the object" plan (1-3 m) is
+   walked when there is one. With none the Sim is moved from where it stands (another level, a closed room).
+2. Snap: onto the nearest wanted slot of the route (parts in use are never wanted), facing as the slot does; the
+   route answers "arrived" with that slot. A route without slots (the ring round a shower, wardrobe or elevator):
+   onto a free place the game's placement search finds at the route's goal.
+3. The Sim is remembered for blockeduse's way out (§10.3 step 4), counted in 4574 when it is used.
+4. `GameObject.IsRoutingSlotObstructed` (ShowerShare.cs's hook) answers "free" for a Sim that was let onto a closed
+   slot of that object, by this rule or by blockeduse. Before, a bed's Relax ended right after blockeduse's snap
+   and a shower's exit would have waited for the closed slot without limit.
+
+`pairsnap`, for paired socials of two humans (no baby, nobody riding, swimming or sitting) within 3 m on one level
+(height within 0.133 m):
+
+- a. `SetupTwoPersonSocial` answered false (SocialReach.cs's hook; its talk rule looks first): the partner (the
+  hook's own Sim) is put at the social's distance from the starter, or from the end of the starter's walk: the
+  first of eight ring places (towards where it stood, then 45, 90, 135 degrees to either side, then behind) with
+  no wall between that is routable, else the first without a wall. Both face each other; no routes.
+- b. In `DoRoute`: a failed plan or walk of either Sim in such a social: onto its jig slot (within 4 m) when the
+  route leads to a jig, else onto a ring place round the other; while the other still walks the Sim only turns.
+- c. `SocialJigTwoPerson.PlanRouteToJigA` / `RouteToJigB` answered a failed plan: planned again with "pass through
+  objects" and "no slot obstruction test" (walls count); a plan of at most 6 m is kept and walked.
+
+Scope: `woohoosnap` / `pairsnap` = pairs without a Sim the player controls, `...hh` = pairs with one; each alone.
+Off = compare mode (4567 / 4577). Counters 4566-4581 (`kCounterSlots` 4582, table in docs/registry.md). Lines with
+`woohoosnaplog` / `pairsnaplog`: `woohoosnap: <who> <Sim>, <Interaction> with <Partner> -> <Object> (...): snap <m>
+to slot ... | kept, <why>`, `pairsnap: ... the partner snaps ... | snap ... onto the jig slot | planned through
+objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoosnap: error at <site>`,
+`pairsnap: error at <site>`.
+
+### 20.3 Not built, and why
+
+- Hot tub, sauna, treehouse and fairy house: the walk is an ordinary `GetIn` long before the WooHoo; blockeduse's case.
+- Rabbit hole WooHoo: no walk. Hover train WooHoo: a group walk (`RouteOutside` with a follower).
+- A social's jig that cannot be placed at all (`PlaceJig` false) and a starter's approach from beyond 5 m.
+- Horses and pets (box stall, pet house).
+
+### 20.4 Limits [inferred unless marked]
+
+- A snap is a visible jump, for WooHoo of any length on the lot. The Sim then stands in or behind what closed the slot.
+- The partner is read from the interaction's target, its linked interaction or a Sim field; when none is set yet
+  (the starter of a sarcophagus WooHoo before the partner's interaction exists) scope is decided by the Sim alone.
+- Rule a moves the partner from its own task and sets the starter's facing from there; a starter still walking is
+  left to the game's facing step, and the game's alignment test then decides (2 mm).
+- A ring place that is not routable leaves the Sim in furniture until its next plan (blockeduse's way out).
+- Rule 4 changes blockeduse too (default off): a Sim it let onto a slot is no longer refused at that object.
+- `RouteBlocked` gained one step: Sims saved while they walk a "near" or clip route of the hook are reset once at
+  the first load with this build (docs/242 §2). Two new swaps (plans only, with stubs).
+
+### 20.5 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/woohoosnap/run.ts`: 56 checks. `WooHooSnapCheck run | result | lot`, `PairSnapCheck run |
+  result | lot`. Repros `woohoosnap-check`, `pairsnap-check` (rules, counters, lot lists). Not run.
+- Forced repro `woohoosnap-force` (outline): `make_household` two young adult partners (romantic interest set) on an
+  empty lot, `build_layout` a room with a double bed in the middle, `bed_setup` closes one side with a fridge on its
+  routing slot (as `makebedboth-force`), autonomy off; order WooHoo on the bed. Off: the second Sim's
+  `routefail: ... EnterRelaxing`, 4566 and 4567 count. On (`woohoosnap`, `woohoosnaphh`, log): `woohoosnap: ... snap
+  ... to slot`, 4569 = 1, both Sims in the bed, the WooHoo plays; afterwards 4574 or blockeduse's "walked out".
+  Second arm: the same with a shower whose slot a dresser covers (4570).
+- Forced repro `pairsnap-force` (outline): the same household, a room cut by a row of counters with one Sim on each
+  side 1.5 m apart (`move_sim`), order Kiss. Off: route-fail balloon, 4576 / 4577. On: `pairsnap: ... the partner
+  snaps`, 4579 = 1, the kiss plays, no `kept` line.
+- Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
+  the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
