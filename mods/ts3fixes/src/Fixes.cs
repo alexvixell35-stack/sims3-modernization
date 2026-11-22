@@ -532,6 +532,7 @@ namespace Ts3Fixes
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth / makebedbothhh, off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
+            ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
             ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
@@ -1375,7 +1376,13 @@ namespace Ts3Fixes
         // spot over 2.5 sim-minutes, or the game's stuck check) / Sims the game's stuck check found no way for / would look, off / exempt (household
         // without unstuckhh) / kept: sitting, lying, swimming, riding, carried, cancelled / kept: can walk 3 m away / kept: walled in (no way through
         // objects either) / walked out through objects / walk out stopped / the failed route planned again after the walk out: ok / errors.
-        const int kCounterSlots = 4550;
+        // [4550-4565] crowdport (CrowdPort.cs, docs/686 §19): elevator skips (the game's teleport skip, early) / rabbit hole in (set on the enter slot) /
+        // rabbit hole out (NPC exits released with the crowd) / station (subway, hover train: in or out) / other lines with a crowd (tube elevator,
+        // firefighter pole; kept) / kept (switched off or holder changed during our wait) / errors / would, off / exempt (household without crowdporthh) /
+        // horse, rider, carrier, toddler / elevator: line timeouts cut / elevator: no skip now (doors closed, car in use, other direction) / rabbit
+        // hole in: holder out of scope or Sim far away / in: short wait ended by a free slot or a cancel / out: NPC exit waits (switch on) / out: ended
+        // by the game's pacing.
+        const int kCounterSlots = 4566;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1707,6 +1714,9 @@ namespace Ts3Fixes
                 case "unstuck": return Instantiator.kUnstuck;  // Unstuck.cs (docs/686 §18): an NPC or pet that fails 3 plans from one spot over 2.5 sim-minutes and has no normal way out walks out through the objects (walls count), off
                 case "unstuckhh": return Instantiator.kUnstuckHousehold;  // Unstuck.cs: the same for household and selected Sims and pets (stands alone), off
                 case "unstucklog": return Instantiator.kUnstuckLog;  // Unstuck.cs (docs/686 §18): one line per act, off
+                case "crowdport": return Instantiator.kCrowdPort;  // CrowdPort.cs (docs/686 §19): an NPC at a crowded elevator, rabbit hole door or station skips the queue by the game's own teleport paths; NPC exits leave together, off
+                case "crowdporthh": return Instantiator.kCrowdPortHousehold;  // CrowdPort.cs: the same for household and selected Sims, off
+                case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
                 case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
                 case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off
                 case "rhsharehh": return Instantiator.kRhShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off

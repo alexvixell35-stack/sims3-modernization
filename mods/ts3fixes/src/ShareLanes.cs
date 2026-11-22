@@ -380,6 +380,8 @@ namespace Ts3Fixes
                 // docs/686 §15 (ShowerShare.cs): a partner is let into a shower or an all-in-one bathroom without the line
                 if (interaction != null && ShsLine(interaction, this, behavior != WaitBehavior.NeverWait)) return true;
                 if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
+                // docs/686 §19 (CrowdPort.cs): a crowded elevator's line is answered "timed out" (the game's teleport skip follows) or gets a short timeout
+                if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
                 bool got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);

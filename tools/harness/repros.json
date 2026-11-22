@@ -125101,5 +125101,105 @@
           "waitS": 1
         }
       ]
-    }
+    },
+  {
+    "id": "crowdport-check",
+    "bug": "Sims queue at transport portals: an elevator's line (12 long, 15 sim-minutes before the game's own teleport skip), a rabbit hole enter slot held by one Sim for its whole walk (15 sim-minutes per holder), NPCs leaving a rabbit hole or station one per 15 sim-minutes (docs/686 §19)",
+    "fix": "ts3fixes CrowdPort.cs: crowdport (NPCs), crowdporthh (household and selected Sims), crowdportlog, default off, docs/686 §19",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot (elevator lines there, busy rabbit holes in the town)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). CrowdPortCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4550-4565 and the last crowdport: line; 'lot' lists elevator doors with a line on the selected Sim's lot and rabbit holes with reserved enter slots or NPCs in the exit wait. Forced repros (5 household Sims sent into one elevator / one rabbit hole / a subway at once, crowdporthh on; an NPC crowd leaving work at 17:00) are outlined in docs/686 §19.5, not built as entries yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both. No 'crowdport: error at' line.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": false,
+          "crowdporthh": false,
+          "crowdportlog": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "elevators and rabbit holes now",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": true,
+          "crowdporthh": true,
+          "crowdportlog": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": false,
+          "crowdporthh": false,
+          "crowdportlog": false
+        },
+        "note": "switches back off",
+        "waitS": 1
+      }
+    ]
+  }
 ]
