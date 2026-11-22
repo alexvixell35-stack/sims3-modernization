@@ -1,7 +1,7 @@
 # 865: Horseshoes played alone never end, `horseshoesolo`
 
-2026-11-22 (UTC), static (EA code read in a local decompile, not committed) plus our test logs. Fix built, default off,
-NOT RUN.
+2026-11-22 (UTC), static (EA code read in a local decompile, not committed) plus our test logs. Fix built, default off.
+Decision check passed in game (pass-11 contributor beta); no live solo game yet.
 
 ## 1. Question
 
@@ -88,5 +88,7 @@ the NPC routes away. Gone player: two Sims queued, delete the one throwing; on: 
 
 ## 6. Not done / next
 
-- Not run in game: queue repro `horseshoe-solo`, then the end-to-end festival case.
+- In game (contributor beta pass 11, Isla Paradiso): repro `horseshoe-solo` off `verdict: BROKEN`, on `verdict: FIXED`,
+  controls kept, 2194 = 0, every reflected member found; `scan`: no horseshoe court in that world. Still to do: the
+  end-to-end festival case.
 - A two-player game where one player keeps getting skipped is not covered (not seen).
