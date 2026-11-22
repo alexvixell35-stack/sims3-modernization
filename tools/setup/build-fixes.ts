@@ -204,6 +204,12 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kViewLenient value="False" />
     <kViewLenientHousehold value="False" />
     <kViewLenientLog value="False" />
+    <kSocialReach value="False" />
+    <kSocialReachHousehold value="False" />
+    <kSocialReachLog value="False" />
+    <kUnstuck value="False" />
+    <kUnstuckHousehold value="False" />
+    <kUnstuckLog value="False" />
     <kLineWaitLog value="False" />
     <kRhShare value="False" />
     <kRhShareHousehold value="False" />

@@ -124467,6 +124467,206 @@
       ]
     },
     {
+      "id": "socialreach-check",
+      "bug": "A talk social (chat, joke, gossip) ends with the route-fail balloon when the starter's walk to the partner or the pair's placement has no plan (a counter, a fence, furniture or a third Sim in the way), although the two stand within talking distance: SocialInteraction.SocialRouteA / SetupTwoPersonSocial answer false and SocialInteractionB.Run adds RouteFailed (docs/686 §17)",
+      "fix": "ts3fixes SocialReach.cs: socialreach (pairs of NPCs), socialreachhh (pairs with a household or selected Sim), socialreachlog, default off, docs/686 §17",
+      "save": "any world (pure check); lot arm: a selected Sim on a lot with other Sims",
+      "note": "UNVERIFIED (2026-11-22, offline only, never run). SocialReachCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4526-4537, the reasons for kept cases and the last socialreach: line; 'lot' lists the Sims on the selected Sim's lot the game's placement ring has no plan for, and whether the rule lets the two talk from where they stand or finds a place to walk to. Forced repro (two Sims on either side of a counter or fence) outlined in docs/686 §17.5, not built as an entry yet.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "socialreach": false,
+            "socialreachhh": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SocialReachCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "note": "off: the game's answer",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SocialReachCheck",
+            "args": [
+              "result"
+            ]
+          },
+          "note": "off: counters",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SocialReachCheck",
+            "args": [
+              "lot"
+            ]
+          },
+          "note": "the Sims on the selected Sim's lot the game's placement cannot reach",
+          "max": 4000,
+          "waitS": 2
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "socialreach": true,
+            "socialreachhh": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SocialReachCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "note": "on: the fix",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.SocialReachCheck",
+            "args": [
+              "result"
+            ]
+          },
+          "note": "on: counters",
+          "max": 2500,
+          "waitS": 2
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "socialreach": false,
+            "socialreachhh": false,
+            "socialreachlog": false
+          },
+          "note": "default off again",
+          "waitS": 1
+        }
+      ]
+    },
+    {
+      "id": "unstuck-check",
+      "bug": "A Sim or pet boxed in by furniture fails every route from its spot (SimRoutingComponent.DoRoute's failure branch each time); the game's own stuck check (LotManager.RunStuckCheckHelper) looks once a night, never on the active household's lot, and answers with a reset after three rounds (docs/686 §18)",
+      "fix": "ts3fixes Unstuck.cs: unstuck (NPCs and their pets), unstuckhh (household and selected Sims and pets), unstucklog, default off, docs/686 §18",
+      "save": "any world (pure check); lot arm: a selected Sim on a lot",
+      "note": "UNVERIFIED (2026-11-22, offline only, never run). UnstuckCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4538-4549 and the last unstuck: line; 'lot' runs the probe (read-only plans) for the selected Sim and up to 12 other Sims and pets on its lot: free, boxed in with a way out through objects, or walled in. Forced repro (a Sim boxed in by four pieces of furniture in buy mode) outlined in docs/686 §18.5, not built as an entry yet.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unstuck": false,
+            "unstuckhh": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnstuckCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "note": "off: the game's answer",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnstuckCheck",
+            "args": [
+              "result"
+            ]
+          },
+          "note": "off: counters",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnstuckCheck",
+            "args": [
+              "lot"
+            ]
+          },
+          "note": "the probe for the Sims and pets on the selected Sim's lot",
+          "max": 4000,
+          "waitS": 2
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "unstuck": true,
+            "unstuckhh": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnstuckCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "note": "on: the fix",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.UnstuckCheck",
+            "args": [
+              "result"
+            ]
+          },
+          "note": "on: counters",
+          "max": 2500,
+          "waitS": 2
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "unstuck": false,
+            "unstuckhh": false,
+            "unstucklog": false
+          },
+          "note": "default off again",
+          "waitS": 1
+        }
+      ]
+    },
+    {
       "id": "showershare-check",
       "bug": "A Sim that wants the shower its romantic partner is in queues at the door (Shower.TakeShower: line, then 'in use'), and a Sim whose bladder fails on a lot with no usable toilet wets itself although a shower is free (Motive.MotiveDistress -> Sim.BladderFailure) (docs/686 §15)",
       "fix": "ts3fixes ShowerShare.cs: showertogether, showerpee (each with an hh switch for household and selected Sims), showersharelog, default off, docs/686 §15",

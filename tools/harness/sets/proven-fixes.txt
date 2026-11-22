@@ -455,6 +455,8 @@ worldpondskatetest
 #   rhshare rhsharehh servingshare servingsharehh (2026-11-22, docs/686 §14: a held rabbit hole enter slot is walked to, servings grabbed at once without the line; linewaitlog is the log; never run, not proven)
 #   showertogether showertogetherhh showerpee showerpeehh (2026-11-22, docs/686 §15: a Sim joins its romantic partner in a shower, a Sim with no usable toilet takes a shower that refills its bladder; showersharelog is the log; never run, not proven)
 #   viewlenient viewlenienthh (2026-11-22, docs/686 §16: a failed route to contemplate, view art, watch a performer or the TV is answered from where the Sim stands or the nearest place with a view, no route-fail balloon; viewlenientlog is the log; never run, not proven)
+#   socialreach socialreachhh (2026-11-22, docs/686 §17: a talk social whose route or placement fails is done from where the two Sims stand or after a walk to the nearest place; paired and jig socials untouched; socialreachlog is the log; never run, not proven)
+#   unstuck unstuckhh (2026-11-22, docs/686 §18: a boxed-in Sim or pet walks out through objects after 3 failed plans over 2.5 sim-minutes, never through walls; unstucklog is the log; never run, not proven)
 # built 2026-11-21 (fix/boatwp-1121, docs/642 §10), default off, not run in the game (an unseen NPC boat's failed plan skips EA's route-fail path):
 #   failreplanboat
 # built 2026-11-20 (feat/act-delay-1120, docs/684), default off, not run in the game (read-only probe, test runs only):

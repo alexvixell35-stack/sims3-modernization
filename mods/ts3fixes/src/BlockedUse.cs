@@ -48,6 +48,8 @@ namespace Ts3Fixes
     // rules, and its switches turn these rules on for chores at their target's own slots.
     // Since 2026-11-22 a plan that fails during the walk (a replan; the walk answers false, no exit reason on the Sim)
     // gets the same rules as a failed first plan, minus the game's route-fail behaviour, which the walk has had.
+    // socialreach (SocialReach.cs, docs/686 §17) is the fourth step of the hook's chain, unstuck (Unstuck.cs, §18) the
+    // last: every failed plan the steps before it leave to the game passes its count.
     public static partial class Fixes
     {
         const int kBuTries = 4414, kBuWould = 4415, kBuExempt = 4416, kBuNear = 4417, kBuClip = 4418, kBuSnapIn = 4419, kBuSnapOut = 4420,
@@ -386,8 +388,11 @@ namespace Ts3Fixes
                 return RouteBlocked(r, true);
             }
 
+            // A failed plan the rules above leave to the game: unstuck's look first (Unstuck.cs), then the game's answer.
+            bool Keep(Route r, bool afterWalk) { return RouteStuck(r, afterWalk); }
+
             // The game's answer for a failed plan: before a walk its route-fail behaviour, after a walk (which has had it) false.
-            bool Keep(Route r, bool afterWalk) { return afterWalk ? false : RouteOrig(r); }
+            bool KeepEa(Route r, bool afterWalk) { return afterWalk ? false : RouteOrig(r); }
 
             // No catch round a walk: a reset must unwind the Sim's stack.
             bool RouteBlocked(Route r, bool afterWalk)
@@ -458,7 +463,7 @@ namespace Ts3Fixes
                 try { v = VlBegin(sim, r, afterWalk); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { VlError(0, e); }
-                if (v == null) return Keep(r, afterWalk);
+                if (v == null) return RouteSocial(sim, r, afterWalk);
                 bool arrived = false;
                 if (!v.Quiet && (v.Near == null || RouteOrig(v.Near)))
                 {
@@ -478,12 +483,55 @@ namespace Ts3Fixes
                 try { return RouteOrig(r); }
                 finally { r.DoRouteFail = show; }
             }
+
+            // socialreach (SocialReach.cs, docs/686 §17): a failed plan of a Sim in a talk social that the rules above
+            // left alone. Within reach of the partner the Sim talks from where it stands; the starter otherwise walks
+            // to the nearest place near the partner.
+            bool RouteSocial(Sim sim, Route r, bool afterWalk)
+            {
+                SrCase s = null;
+                try { s = SrBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { SrError(0, e); }
+                if (s == null) return Keep(r, afterWalk);
+                if (s.Near != null && !RouteOrig(s.Near))
+                {
+                    PatchCounters()[kSrStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
+                    return KeepEa(r, afterWalk);
+                }
+                bool arrived = false;
+                try { arrived = SrArrive(sim, r, s); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { SrError(1, e); }
+                return arrived || KeepEa(r, afterWalk);
+            }
+
+            // unstuck (Unstuck.cs, docs/686 §18): every failed plan the rules above leave to the game is counted per
+            // Sim and spot. A Sim found boxed in walks out through the objects (a real walk, walls count), its route is
+            // planned again and walked when it now has a plan; anything else gets the game's answer.
+            bool RouteStuck(Route r, bool afterWalk)
+            {
+                Sim sim = OwnerSim;
+                UnCase k = null;
+                try { k = UnBegin(sim, r); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { UnError(0, e); }
+                if (k == null) return KeepEa(r, afterWalk);
+                bool walked = RouteOrig(k.Out);
+                bool again = false;
+                try { again = UnAfter(sim, r, k, walked); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { UnError(1, e); }
+                if (again) return RouteOrig(r);
+                return KeepEa(r, afterWalk);
+            }
         }
 
         // ---- out again: called after every Plan / Replan (RouteBackoff.cs); one count test when nobody is remembered ----
 
         internal static RoutePlanResult BuAfterPlan(ScriptCore.Route route, int kind, RoutePlanResult r)
         {
+            if (sUnRecs.Count != 0) UnPlanSeen(route, kind, r);  // unstuck (Unstuck.cs, docs/686 §18): a plan that leads away clears the Sim's count
             if (sBuExits.Count == 0 || sBuBusy) return r;
             try
             {
