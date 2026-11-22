@@ -1,7 +1,8 @@
 # 869: Blank notification sender, `blanktns`
 
 2026-11-22 (UTC), static (EA code read in a local decompile and the managed call graph, not committed). Diagnostic built,
-default off, offline selftest passes, NOT RUN in game.
+default off, offline selftest passes. The first in-game run found the `Show` swap refused (§2); the `Add` hook is NOT RUN in
+game yet.
 
 ## 1. Question
 
@@ -24,10 +25,15 @@ empty box. The text alone cannot name the sender, so the notice must name it.
 - It returns null while the tutorial runs or with no `NotificationManager`. With `mTimeout > 0` it reads `mText.Length`
   first, so a null text throws a NullReferenceException in EA's code.
 - `StyledNotification.Format` is a struct, passed by value.
-- The instance `Show()` runs later from the notification queue. It does not have the sender on its stack.
+- With a manager, it builds the notice and passes it straight to `NotificationManager.Add(Notification, TNSCategory)`, so the
+  sender is still on the stack there. Neither the constructor nor `Add` / `ShouldAddNotification` reads the text.
+- The instance `Show()` runs later from the notification queue (`mTextArea.Caption = mFormat.mText`). It does not have the
+  sender on its stack.
 
-The hook therefore swaps the 5-argument static `Show`. A mod that calls the public constructor and
-`NotificationManager.Add` itself is not seen [inferred: no such mod known].
+The first build swapped the 5-argument static `Show`. In game (pass 13, 2026-11-22, repro `blank-tns`) that swap was refused:
+`StyledNotification.Show: already compiled`, live path `BtnHook swaps 0/1`. Some code that runs at startup calls `Show` before
+ts3fixes loads, while there is no `NotificationManager`. The hook therefore swaps `NotificationManager.Add`. It runs only once a
+world's HUD exists, and it also sees a mod that calls the public constructor and `Add` itself.
 
 ## 3. The diagnostic
 
@@ -38,9 +44,9 @@ runtime switch `blanktns`. Default off. It goes on in beta builds only. The hook
   `[blank notice] sent by <Type.Method> < <Type.Method> < <Type.Method>`. These are the first 3 managed frames outside
   the notification plumbing, innermost first, with full type names, so a mod's namespace shows. The stack comes from
   `new System.Diagnostics.StackTrace(1, false)`, as in `PlayTrace.cs` and `OutfitWait.cs` (verified in game by those
-  fixes). The hook changes its own copy of the struct and hands it to EA's body before EA reads `mText.Length`. With the
-  switch on, a null text gets the sender text instead of EA's NullReferenceException.
-- Plumbing (`BtnCore.IsPlumbing`): `Sims3.UI.StyledNotification` and its nested types,
+  fixes). `Format` is a struct: the hook reads a boxed copy of `mFormat`, sets its text and stores it back before EA queues
+  the notice. A null text with a timeout still throws in EA's static `Show` before `Add` (unchanged; that notice never shows).
+- Plumbing (`BtnCore.IsPlumbing`): `Sims3.UI.StyledNotification` and its nested types, `Sims3.UI.NotificationManager`,
   `Sims3.Gameplay.Utilities.NotificationSystem`, `Sims3.Gameplay.Actors.Sim` methods named `ShowTNS*`, our
   `Ts3Fixes.Fixes+BtnHook` and the `Fixes.Btn*` helpers. Frames with no type are skipped too. Other `Sim` methods and every
   other type count as senders.
@@ -49,16 +55,15 @@ runtime switch `blanktns`. Default off. It goes on in beta builds only. The hook
   `whitespace text` and the case number. One or more `blanktns stack:` lines hold up to 8 frames outside the plumbing as
   `Assembly:Type.Method`. The assembly names the mod's DLL.
 - A notice with text is untouched. The only cost is the blank test.
-- Switch off: EA's path unchanged (also its NullReferenceException for a null text), plus counter 2363. No stack is read.
-- The hook never throws. An error is counted (2365) and EA's body runs with the text as it was. A failed log write still
+- Switch off: EA's path unchanged, plus counter 2363. No stack is read.
+- The hook never throws. An error is counted (2365) and EA's `Add` runs with the notice as it was. A failed log write still
   leaves the notice its sender text.
 - Household notices are included on purpose. This is a diagnostic that changes only the text of a notice that would
   otherwise be empty. It changes no game state, no Sim and no save data (AGENTS.md household rule: nothing to exempt).
 - Not done on purpose: no hook on `StringTable` (a hot path), so the missing string key itself is not reported.
 
-Swap-stack audit: `BtnHook.ShowHook` has the stub `ShowOrig`. The 5-argument `Show` can reach a yield through
-`NotificationManager.Add` (SACS acquire), so a saved frame there is remapped by SavedStacks.cs like every stubbed swap.
-The hook body itself does not yield before EA's body.
+Swap-stack audit: `BtnHook.AddHook` has the stub `AddOrig`. `NotificationManager.Add` can reach a yield (SACS acquire), so a
+saved frame there is remapped by SavedStacks.cs like every stubbed swap. The hook body itself does not yield before EA's body.
 
 ## 4. Counters (contributor range, reserved by hand)
 
@@ -84,6 +89,7 @@ registry here and in the open contributor branches (after firenre 2354-2357 and 
 
 ## 6. Not done / next
 
-- NOT RUN in game: whether the frame of the swapped hook reports `StyledNotification` or `BtnHook` as its type (both are
-  filtered), and how deep stacks look in a real mod's notice.
+- NOT RUN in game with the `Add` hook: whether `Add` is still uncompiled when ts3fixes loads, whether the frame of the
+  swapped hook reports `NotificationManager` or `BtnHook` as its type (both are filtered), and how deep stacks look in a
+  real mod's notice.
 - Run the repro, then turn `kBlankTns` on in the beta kit and ask the tester for a screenshot plus `ts3native.log`.

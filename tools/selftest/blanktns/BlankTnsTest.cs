@@ -17,10 +17,10 @@ static class BlankTnsTest
         Check(!BtnCore.IsBlank(" x "), "text with spaces is not blank");
 
         // a mod's notice through Sim.ShowTNSIfSelectable, innermost first (our hook frame as either type the swap may report)
-        string[] types = { "Ts3Fixes.Fixes+BtnHook", "Sims3.UI.StyledNotification", "Sims3.UI.StyledNotification", "Sims3.UI.StyledNotification",
+        string[] types = { "Ts3Fixes.Fixes+BtnHook", "Sims3.UI.NotificationManager", "Sims3.UI.StyledNotification", "Sims3.UI.StyledNotification",
             "Sims3.Gameplay.Actors.Sim", "Sims3.Gameplay.Utilities.NotificationSystem", null, "NRaas.StoryProgressionSpace.Scenarios+Foo",
             "Sims3.Gameplay.Actors.Sim", "Sims3.Gameplay.Interactions.InteractionInstance", "Sims3.Gameplay.Interactions.Later" };
-        string[] methods = { "ShowHook", "Show", "Show", "Show", "ShowTNSIfSelectable", "Show", "Lost", "Run", "Reset", "RunInteraction", "Never" };
+        string[] methods = { "AddHook", "Add", "Show", "Show", "ShowTNSIfSelectable", "Show", "Lost", "Run", "Reset", "RunInteraction", "Never" };
         string[] asms = { "Ts3Fixes", "UI", "UI", "UI", "Sims3GameplaySystems", "Sims3GameplaySystems", "?", "NRaasStoryProgression",
             "Sims3GameplaySystems", "Sims3GameplaySystems", "Sims3GameplaySystems" };
         Check(BtnCore.Text(BtnCore.Pick(types, methods, null, 3)) == "[blank notice] sent by NRaas.StoryProgressionSpace.Scenarios+Foo.Run < Sims3.Gameplay.Actors.Sim.Reset < Sims3.Gameplay.Interactions.InteractionInstance.RunInteraction",
@@ -30,6 +30,7 @@ static class BlankTnsTest
 
         Check(BtnCore.IsPlumbing("Sims3.UI.StyledNotification+Format", ".ctor"), "StyledNotification nested types are plumbing");
         Check(!BtnCore.IsPlumbing("Sims3.UI.StyledNotificationFake", "Show"), "a type that only starts with the name is not");
+        Check(BtnCore.IsPlumbing("Sims3.UI.NotificationManager", "Add") && !BtnCore.IsPlumbing("Sims3.UI.NotificationManagerX", "Add"), "NotificationManager (the hooked Add) is plumbing");
         Check(BtnCore.IsPlumbing("Sims3.Gameplay.Actors.Sim", "ShowTNSAndPlayStingIfSelectable"), "Sim.ShowTNS* helpers are plumbing");
         Check(!BtnCore.IsPlumbing("Sims3.Gameplay.Actors.Sim", "ShowBalloon"), "other Sim methods are senders");
         Check(BtnCore.IsPlumbing("Ts3Fixes.Fixes", "BtnNote") && !BtnCore.IsPlumbing("Ts3Fixes.Fixes", "BlankTnsCheck"), "our Btn* helpers are plumbing, the check is a sender");

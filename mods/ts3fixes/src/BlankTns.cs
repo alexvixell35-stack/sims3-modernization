@@ -12,15 +12,20 @@ namespace Ts3Fixes
     // say which mod or EA path sent it.
     //
     // [verified, decompiled + call graph] Every StyledNotification EA's script code builds is made in the 5-argument static
-    // StyledNotification.Show (the only newobj of the class); the 1-, 2- and 3-argument overloads, NotificationSystem.Show and
-    // the Sim.ShowTNS* helpers all end there. BtnHook swaps that overload. A mod that calls the public constructor and
-    // NotificationManager.Add itself is not seen.
-    // Switch on and the main text (Format.mText) null, empty or whitespace: the text becomes "[blank notice] sent by A < B < C",
+    // StyledNotification.Show (the only newobj of the class), which hands it straight to NotificationManager.Add with the
+    // sender still on the stack; the 1-, 2- and 3-argument overloads, NotificationSystem.Show and the Sim.ShowTNS* helpers all
+    // end there. The text is first read when the queue displays the notice (instance Show(): mTextArea.Caption = mFormat.mText);
+    // neither the constructor nor Add/ShouldAddNotification reads it. BtnHook swaps NotificationManager.Add, not Show: in game
+    // (pass 13, 2026-11-22) Show was already compiled when ts3fixes loaded (some startup code calls it while there is no
+    // NotificationManager), so a Show swap is refused; Add only runs once a world's HUD exists. Add also sees a mod that
+    // calls the public constructor and Add itself.
+    // Switch on and the main text (mFormat.mText) null, empty or whitespace: the text becomes "[blank notice] sent by A < B < C",
     // the first 3 frames outside the notification plumbing (BtnCore.IsPlumbing), full type names; the same line plus the style
     // and up to 8 frames with their assemblies go to ts3native.log ([UserDiag] channel, DiagLine), for the first kBtnLogCases
-    // blank notices of a session. A notice with text is untouched. Format is a struct: the hook changes its own copy and hands
-    // that to EA's body, before EA reads mText.Length (a null text with a timeout throws there in EA's code; with the switch on
-    // it gets the sender text instead). Switch off: EA's path, and a count of blank notices seen (no stack read). The hook never throws: an error is counted and EA's path runs with the text as it was.
+    // blank notices of a session. A notice with text is untouched. Format is a struct: the hook reads a boxed copy of mFormat,
+    // changes its text and stores it back before EA queues the notice. A null text with a timeout still throws in EA's Show
+    // before Add (unchanged; such a notice never shows). Switch off: EA's path, and a count of blank notices seen (no stack
+    // read). The hook never throws: an error is counted and EA's Add runs with the notice as it was.
     // Household notices are included on purpose: only a blank notice's text changes, nothing in the game state.
     // Not done on purpose: no hook on StringTable (a hot path), so the missing string key itself is not reported.
     // Counters: [2362] blank notices renamed (switch on), [2363] blank notices seen with the switch off, [2364] blank notices not
@@ -29,8 +34,8 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         const int kBtnFrames = 3, kBtnLogFrames = 8, kBtnLogCases = 20;
-        static readonly Type[] kBtnArgs = { typeof(StyledNotification.Format), typeof(string), typeof(string), typeof(ProductVersion), typeof(ProductVersion) };
-        static readonly FieldInfo sBtnFormat = typeof(StyledNotification).GetField("mFormat", kInstAll);  // the text EA kept, for the check
+        static readonly Type[] kBtnArgs = { typeof(Notification), typeof(NotificationManager.TNSCategory) };
+        static readonly FieldInfo sBtnFormat = typeof(StyledNotification).GetField("mFormat", kInstAll);  // the notice's Format (its text)
         static readonly List<string> sBtnLast = new List<string>();  // the last 3 senders, newest last
         static int sBtnLogged;
         static bool sBtnHooked;
@@ -39,27 +44,31 @@ namespace Ts3Fixes
         {
             if (sBtnHooked) return;
             sBtnHooked = true;
-            Patch(typeof(StyledNotification), "Show", kBtnArgs, typeof(BtnHook), "ShowHook", "ShowOrig");
+            if (sBtnFormat == null) { AppliedLog().Add("blanktns: not found: StyledNotification.mFormat"); return; }
+            Patch(typeof(NotificationManager), "Add", kBtnArgs, typeof(BtnHook), "AddHook", "AddOrig");
         }
 
         public class BtnHook
         {
-            public static StyledNotification ShowHook(StyledNotification.Format format, string overrideThumbnailPngName, string overrideTargetThumbnailPngName,
-                ProductVersion versionThumbnail, ProductVersion versionTargetThumbnail)
+            public void AddHook(Notification notification, NotificationManager.TNSCategory category)
             {
                 try
                 {
-                    if (BtnCore.IsBlank(format.mText))
+                    StyledNotification sn = notification as StyledNotification;
+                    if (sn != null)
                     {
-                        if (ShortcutOn("blanktns")) format.mText = BtnNote(format);
-                        else PatchCounters()[2363]++;
+                        StyledNotification.Format f = (StyledNotification.Format)sBtnFormat.GetValue(sn);
+                        if (BtnCore.IsBlank(f.mText))
+                        {
+                            if (ShortcutOn("blanktns")) { f.mText = BtnNote(f); sBtnFormat.SetValue(sn, f); }
+                            else PatchCounters()[2363]++;
+                        }
                     }
                 }
                 catch (Exception) { PatchCounters()[2365]++; }
-                return ShowOrig(format, overrideThumbnailPngName, overrideTargetThumbnailPngName, versionThumbnail, versionTargetThumbnail);
+                AddOrig(notification, category);
             }
-            public static StyledNotification ShowOrig(StyledNotification.Format format, string overrideThumbnailPngName, string overrideTargetThumbnailPngName,
-                ProductVersion versionThumbnail, ProductVersion versionTargetThumbnail) { return null; }  // receives EA's 5-argument Show
+            public void AddOrig(Notification notification, NotificationManager.TNSCategory category) { }  // receives EA's NotificationManager.Add
         }
 
         // The sender's text for a blank notice; logs it with the style and a fuller stack.

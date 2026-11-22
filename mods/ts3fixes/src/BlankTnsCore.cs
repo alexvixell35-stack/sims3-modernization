@@ -15,12 +15,13 @@ namespace Ts3Fixes
         }
 
         // Notification and UI plumbing between the sender and the notice: StyledNotification (its Show overloads and nested
-        // types), NotificationSystem, the Sim.ShowTNS* helpers, our own hook and its Btn* helpers. A frame with no type names
-        // nothing and is skipped too.
+        // types), NotificationManager (the hooked Add), NotificationSystem, the Sim.ShowTNS* helpers, our own hook and its Btn*
+        // helpers. A frame with no type names nothing and is skipped too.
         public static bool IsPlumbing(string type, string method)
         {
             if (type == null) return true;
-            if (Is(type, "Sims3.UI.StyledNotification") || Is(type, "Sims3.Gameplay.Utilities.NotificationSystem")) return true;
+            if (Is(type, "Sims3.UI.StyledNotification") || Is(type, "Sims3.UI.NotificationManager")
+                || Is(type, "Sims3.Gameplay.Utilities.NotificationSystem")) return true;
             if (type == "Sims3.Gameplay.Actors.Sim") return method != null && method.StartsWith("ShowTNS");
             return Is(type, "Ts3Fixes.Fixes+BtnHook") || (type == "Ts3Fixes.Fixes" && method != null && method.StartsWith("Btn"));
         }
