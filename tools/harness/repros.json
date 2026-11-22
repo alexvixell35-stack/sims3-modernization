@@ -114643,6 +114643,93 @@
     ]
   },
   {
+    "id": "horseshoe-solo",
+    "bug": "Horseshoes played alone never end: HorseshoeCourt+TakeTurn.DoEndOfTurnChecks returns while mPlayerQueue holds one Sim (no score, mGameOver never set) and a Finished-only exit queues the Sim again and pushes the next TakeTurn ahead of its queue, so a solo NPC throws for good (festival NPCs 17-53 game hours, Go Home queued behind); TakeTurn.Cleanup also leaves a reset or deleted Sim in mPlayerQueue, so later players wait in WaitToThrow forever (docs/865)",
+    "fix": "ts3fixes HorseshoeSolo.cs: horseshoesolo (default off, kHorseshoeSoloHours 2), docs/865",
+    "save": "any world (pure check); scan: a lot with a horseshoe court (festival lot)",
+    "note": "HorseshoeSoloCheck 'run' puts the reported layouts and controls through HsCore (read-only); 'scan' lists every court's queue (household, GONE, NOT PLAYING) and the solo hours tracked. End to end: setup_sims an NPC at a court (autonomy: false), push Join (Practice); on: within 2 h 10 min 2191 rises and the NPC routes away; two Sims queued, delete the thrower: on, 2192 rises and the other throws.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2194 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "live courts and queues",
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

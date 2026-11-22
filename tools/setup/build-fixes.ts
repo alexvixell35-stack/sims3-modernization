@@ -629,6 +629,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCoopEggQuality value="True" />
     <kFireActiveJob value="True" />
     <kFireTrapCount value="True" />
+    <kHorseshoeSolo value="False" />
+    <kHorseshoeSoloHours value="2" />
     <kBirthdayAgers value="True" />
     <kSneakOutListener value="True" />
     <kPromCarpool value="True" />

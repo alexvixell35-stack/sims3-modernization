@@ -68,3 +68,5 @@
 #   doorshare
 # perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
 #   commodmapfast commodmapshadow
+# EA bug fix: horseshoes played alone never end; lost players leave a court's queue (docs/865, 2026-11-22), default off, NOT RUN:
+#   horseshoesolo
