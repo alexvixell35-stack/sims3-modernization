@@ -32,6 +32,8 @@
 #   blockeduse blockedusehh
 #   reachuse reachusehh reachuselog
 #   viewlenient viewlenienthh viewlenientlog
+#   socialreach socialreachhh socialreachlog
+#   unstuck unstuckhh unstucklog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep

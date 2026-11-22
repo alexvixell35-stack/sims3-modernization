@@ -1,7 +1,7 @@
 # 686: Sims waiting on each other and on blocked spots (route waits)
 
 Contributor doc, 2026-11-21/22. On the contributor's combo branch this file has §1-§13 (obstacle stand-and-wait,
-portal lanes, pets, chores, beds); this copy carries §10, §12 and §16. The section numbers are kept
+portal lanes, pets, chores, beds); this copy carries §10, §12, §16, §17 and §18. The section numbers are kept
 so the code comments (`docs/686 §10`, `§12`) match. Built with `node tools/setup/build-fixes.ts`; nothing here needs ts3native.
 
 ## 10. A slot closed by furniture or a wall is used anyway (`blockeduse`, `blockedusehh`; 2026-11-22, `feat/blockeduse-1122`, built, default off; forced repro run, §10.6)
@@ -383,3 +383,221 @@ place 4519, quiet ends 4520; kept as the game has it 4521, walk stopped or ended
 Ten route storms s520-s529 (5 on, 5 off, the switches of §16-§18 together): no contemplate route failure happened
 in either arm, so the storms did not exercise this rule. Errors 0, crashes 0. **Not run in the game yet**: a forced
 repro (a sculpture or a view spot whose view slot cannot be reached) is pending.
+
+## 17. Talk socials from a distance (`socialreach`; 2026-11-22, `feat/socialreach-1122`, built, default off, NOT RUN)
+
+A player's wish, after Sims 4: Sims should be able to chat at a distance (across a counter, a fence, a crowded
+room) instead of ending the social with the route-fail balloon. No clipping: every walk is a normal plan.
+
+### 17.1 How the game places a social [verified, decompiled `Sims3.Gameplay.Socializing.SocialInteraction`]
+
+`SocialInteractionA` runs on the starter, `SocialInteractionB` on the partner; both are `SocialInteraction`.
+
+| step | method (task) | route | on a failure |
+|---|---|---|---|
+| 1 approach | `BeginSocialInteraction` -> `SocialRouteA` (starter) | other level, or farther than 5 m (`kSocialRouteMinDist`) from a partner that is not walking: two ring destinations round the partner, the social's distance .. 3 m (`kSocialRouteRadiusMax`), valid room = the partner's. Else a turn (`PlanRouteTurnToFace`). `DoRoute` | result code `PathPlanToToSocialTargetFailed`, the starter's `Run` leaves the conversation, adds `RouteFailed`, and with a group walks away 3 m |
+| 2 placement | `ReceiveSocialInteraction` -> `SetupTwoPersonSocial` (partner) | `RouteSimsToSocial`: the starter's walk to a ring at exactly the social's distance in the partner's room, facing it, planned from the end of the starter's current walk; a turn for the partner. Roles swapped when the starter is outside and not at home and the partner at home. Partner too close to a wall or object (`Route.IsOkToIdleAtCurrentLocation`): a step aside (`Wander` 0.35-0.5 m), then the ring again. Still too close, or in a doorway: `SocialJigTwoPerson` placed at the partner, at the starter, then near the mailbox or in an adjacent room (within 6 m), both walk to its slots | no plan: false. `SocialInteractionB.Run` adds `RouteFailed`, copies it to the starter and waits for the starter's social to end |
+| 3 walk and face | both `DoRoute` the routes of step 2; then, when they do not stand exactly face to face at the social's distance (`SimsAreFacing`), the partner and the starter each `RouteTurnToFace` the other | the partner's failed route or turn: step 2's failure. The starter's: its own failure as in step 1 |
+
+Conversations of three or more use `SetupGroupSocial` (positions from `SocialGroupInteractionSituation`); a
+baby uses `SetupTwoPersonSocialWithBaby`. Neither is touched.
+
+How the game marks socials whose Sims touch [verified]:
+
+- `ActionData.SocialJig` (the `jig` attribute of the social's data). `SocialJigOnePerson` (the default) = each
+  Sim plays its own animation. Any other value (`SocialJigTwoPerson`, `_1Unit`, `_1_25Unit`, `_1_68Unit`,
+  `_0_35Unit`, `_Dog_GrowlJig`, `UnderwaterSocial_Jig`) makes `SocialInteractionA.Run` set `mbPairedSocial`,
+  and a paired social is refused unless the pair stands aligned at the social's distance
+  (`VerifyPositionAndAlignment`).
+- `ActionData.ForceCreateJig`, a horse or an adult full-size dog on either side: the social creates its own jig
+  (`GetSocialDistanceAndSetupJig`), and both walk to its slots.
+- Socials with steps of their own are subclasses or other classes: `PillowFight`, `PlayTagInteraction`,
+  `PlayCatchSocialInteraction`, `DanceTogetherA`, `Pool.PoolSocialInteractionB`, `WatchTheStars`, ...
+
+### 17.2 The failures in the storm logs [verified, `ts3fixes: routefail:` lines, all phases]
+
+3,331 lines name `SocialInteractionA` (1,139) or `SocialInteractionB` (2,192), on 1,534 routes (a route that
+replans writes one line per failed replan); the biggest group of all 19,338 route-fail lines. The lines do not
+name the social (the action key), so the share of talk socials is not known [not measured].
+
+| | A (starter) | B (partner) |
+|---|---|---|
+| no path | 547 | 1,831 |
+| portal locked | 405 | 70 |
+| no destination | 187 | 206 |
+| planner aborted | 0 | 85 |
+| first plan / from a point / replan / replan from a point | 148 / 338 / 619 / 34 | 523 / 283 / 1,363 / 23 |
+| goal within 1 m of the Sim / 1-3 m / 3-6 m / farther / another level | 305 / 529 / 89 / 64 / 152 | 1,610 / 353 / 72 / 6 / 151 |
+| blocker: a Sim / the placement jig / another object / none named | 206 / 20 / 111 / 802 | 757 / 29 / 667 / 739 |
+
+2,797 lines have their goal within 3 m on the Sim's level. Named blockers besides Sims: beds 271, crib 117,
+bathtub 107, sink 65, dresser 56, the two-person jig 45 (small rooms; toddlers are frequent). The partner's
+1,610 lines within 1 m are the short moves of step 2 (the step aside, the jig slot, the turn) failing next to a
+Sim or a piece of furniture.
+
+### 17.3 What is built
+
+`SocialReach.cs` / `SocialReachCore.cs`. Covered: the plain classes `SocialInteractionA` / `SocialInteractionB`
+(no subclass) whose data says `SocialJigOnePerson`, that made no jig of their own, between two humans, no baby,
+nobody riding, ridden, swimming or diving (`SocialReachCore.Cover`). Failed plans that count: no path, no
+destination, all places obstructed, a Sim on the place; a locked door and an aborted plan keep the game's
+answer and are not counted (`PlanKind`).
+
+a. In `DoRoute` (blockeduse's hook, fourth step: `RouteBlocked` -> `RouteReach` -> `RouteView` ->
+   `RouteSocial`), a failed plan (the first, or a replan that ended the walk with no exit reason) of a Sim whose
+   running interaction is a covered social:
+   - within 3 m of the partner (flat), on its level (1.5 m), no light-blocking wall of either Sim's lot between:
+     the Sim turns to the partner and the route answers "arrived";
+   - else, the starter only, standing, not for a failed turn: a normal plan to the nearest place 0.7-2 m from the
+     partner with no wall between (reachuse's `RuNearPlan`: the partner's room first, then any room) is walked;
+     it answers "arrived" when the walk ends within 3 m with no wall;
+   - the partner never walks; its walk to the game's placement jig is left to the game (it has more tries).
+b. `SetupTwoPersonSocial` (swap `SrSetupHook`, with a stub) answered false with no exit reason on either Sim
+   and neither social cancelled: with the starter (or the end of its current walk) within 3 m, same level, no
+   wall, the pair is placed where it stands: both routes none, and step 3's facing turns both with the game's
+   own turn. Else, with a standing starter that is not walking, the starter's route becomes the plan of (a)'s
+   second case. The placement jig of the game's failed tries is destroyed (the game's `Cleanup` would do it at
+   the social's end).
+
+After either, the game's flow goes on unchanged: sync levels, the conversation, the animation, the outcome.
+Scope: `socialreach` = pairs with no Sim the player controls, `socialreachhh` = pairs with a household or
+selected Sim; each stands alone. Off = compare mode (counted as "would"). `socialreachlog` = one `socialreach:`
+line per act and per kept case. A walk search that found no place is not repeated for that pair for 30
+sim-minutes.
+
+Counters 4526-4537 (`kCounterSlots` 4550): tries 4526, would 4527, exempt 4528, paired or jig socials left alone
+4529; handled by kind: the starter's route 4530, the partner's route 4531, the placement 4532; by outcome: from
+where they stand 4533, walked to the nearest place 4534; kept as the game has it 4535 (reasons in
+`SocialReachCheck result`: too far, other level, wall between, sitting or lying, starter still walking, a walk
+to the placement jig, cooling down), walk stopped or ended out of reach 4536, errors 4537
+(`socialreach: error at <site>`, sites: begin, arrive, placement, lot).
+
+### 17.4 Limits [inferred unless marked]
+
+- Excluded, the game's behaviour stays: every paired or jig social (hug, kiss, slap, fight, handshake, woohoo,
+  carry, anything the data gives a two-person jig), every social with a pet, a horse or a baby, every subclass
+  (pillow fight, tag, catch, dance, pool socials), conversations placed as a group, another level, a wall
+  between, a locked door.
+- The talk animations are played where the Sims stand, up to 3 m apart; an animation that hands something over
+  or points at the partner is not known from the data and is not excluded when its jig is "one person"
+  [not checked per social].
+- A Sim that stays in place after a failed route turns at once (`SetForward`); in the placement case the game's
+  own turn is played.
+- Across a counter or fence the test is the game's light-blocking wall test: a fence is no wall; a half wall or
+  window wall is [not checked].
+- The partner's failed step aside (`Wander`, no balloon) is answered "arrived" too when the starter is within
+  3 m; the game then goes on to its jig tries as after a successful step.
+- One social can count several tries (its route, then its placement).
+- A turn in place that fails because another Sim overlaps (757 partner lines name a Sim) is the common partner
+  case: the social then runs with the Sims as they stand, overlap included.
+- `RouteView`'s body changed (it calls `RouteSocial`), `Keep` now passes unstuck (§18): a Sim saved inside these
+  helper frames by an older build resets once. `SetupTwoPersonSocial` yields; its swap has a stub
+  (`docs/data/swap-stack-audit.csv`).
+
+### 17.5 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/socialreach/run.ts`: 54 checks ok. Build ok, `swap-stack-audit` ok (one new row).
+- Repro `socialreach-check` (any save): `SocialReachCheck run` off -> `verdict: BROKEN`, on -> `verdict: FIXED`,
+  `controls ok=True`, `members found=True`; `result` = counters, kept reasons, the last line; `lot` = the Sims on
+  the selected Sim's lot the game's placement ring cannot reach and what the rule finds.
+- Forced repro, not built as an entry: a lot with a counter row (or a fence) across a room, Sim A on one side,
+  Sim B on the other, 2 m apart, no way round within the room; `socialreachhh` and `socialreachlog` on; A:
+  Chat with B. Off: balloon, `routefail:` line for SocialInteractionA or B, 4526 and 4527 rise. On: the two
+  talk across the counter, 4532 + 4533 (or 4530 + 4533) rise, one `socialreach: ... placed where they stand`
+  line, no balloon. Control on the same lot: Hug across the counter keeps the balloon, 4529 rises.
+- Storms: off, 4526 / 4527 give the share of talk socials among the 1,534 failed routes; on, 4533 should carry
+  most of it (2,797 of 3,331 lines are within 3 m), 4537 must stay 0, and the `SocialInteractionA/B` route-fail
+  lines stay (they are written at the plan) while the balloons go.
+
+## 18. Boxed-in Sims walk out through objects (`unstuck`; 2026-11-22, `feat/socialreach-1122`, built, default off, NOT RUN)
+
+A player's wish: a Sim or pet that is trapped (furniture put round it, a spot it was reset or snapped to) should
+walk out instead of failing every route. This is the one rule here that clips on purpose, so it waits: at least
+2.5 sim-minutes (2-3 s at normal speed) and three failed plans from one spot, and it never passes a wall.
+
+### 18.1 What the game has [verified, decompiled]
+
+- `LotManager.RunStuckCheckHelper`: armed for every actor at the nightly lot update, it looks 20-60 sim-minutes
+  later at a Sim that stands where it stood, is not on the active household's lot and is in no rabbit hole. On a
+  lot: up to `Sim.kNumberOfPlanAttemptsForStuckSim` (10) plans to random lot points; on the world lot: four
+  plans of 2 m, selectable Sims only. All failed: looked at again 20-60 minutes later, and the third time the
+  Sim is reset (`SetObjectToReset`). `FewerPlans.cs` already wraps it (`StuckCheckRun`, counters 297-301).
+- No `Sim.IsStuck`, no per-Sim counter of failed routes: `SimRoutingComponent.DoRoute` answers each failed plan
+  on its own (route-fail behaviour, exit reason, false).
+- NRaas Overwatch's nightly Stuck Check plans one route per standing Sim and resets as well
+  (`OverwatchStuck.cs`).
+
+So a boxed-in Sim on the played lot is never helped, and elsewhere it is reset after up to three sim-hours.
+
+### 18.2 What is built
+
+`Unstuck.cs` / `UnstuckCore.cs`, no swap of its own: the last step of blockeduse's `DoRoute` hook. `Keep`, the
+hook's one exit for "the game's answer", now passes `RouteStuck` first, so every failed plan that blockeduse,
+reachuse, viewlenient and socialreach leave to the game is seen.
+
+- Signal: failed plans of the kinds no path, no destination, all places obstructed are counted per Sim and spot
+  (0.6 m). Three from one spot, the first at least 2.5 sim-minutes ago, with no successful plan of 3 m or more
+  from the Sim's spot between them (`BuAfterPlan` clears the count, only while Sims are counted). A pause of 120
+  sim-minutes or another spot starts a new count. The game's stuck check stands for count and grace: a Sim it
+  found no way for (`StuckCheckRun`'s outcome, any round) is looked at on its next failed plan.
+- Never: a Sim that sits or lies in something (posture container), swims, dives, rides or is ridden, is carried
+  or moved by a routing parent, a baby, a Sim with an exit reason. A Sim that was looked at is not looked at
+  again for 30 sim-minutes.
+- Probe (plans only): a normal plan to a ring 3-10 m round the Sim succeeds = it can walk, not boxed in (kept).
+  Else a plan with `Route.RouteOption.PassThroughObjects` (walls still block) to the nearest ring, inner radius
+  0.75, 1.5, then 3 m, at most 12 m long, whose end is routable (`IsPointRoutable`) and has a normal plan on to
+  a ring 3-10 m away (the end is no second box). None = walled in (kept; the game's reset remains the answer).
+- Act: the plan through the objects is walked as a real route. Then the failed route is planned again from the
+  new spot and walked when it now succeeds; otherwise the game's answer for the failed plan.
+- Scope: `unstuck` = Sims and pets the player does not control, `unstuckhh` = household and selected ones; each
+  stands alone. Off = compare mode: the signal is counted ("would look"), no probe is made. `unstucklog` = one
+  `unstuck:` line per act and per kept probe.
+
+Counters 4538-4549: failed plans left to the game 4538, stuck signals 4539, Sims the game's stuck check found
+no way for 4540, would look (off) 4541, exempt 4542, kept: sitting, lying, swimming, riding, carried or
+cancelled 4543, kept: can walk 3 m away 4544, kept: walled in 4545, walked out through objects 4546, walk out
+stopped 4547, the failed route planned again after the walk out: ok 4548, errors 4549
+(`unstuck: error at <site>`, sites: begin, after the walk, plan seen, game signal, lot).
+
+### 18.3 Limits [inferred unless marked]
+
+- "Boxed in" means no normal plan to any place 3-10 m away. A Sim shut in a doorless room larger than that, or
+  on an island, is not helped (walled in or "can walk"); a Sim in a pool with no ladder is excluded.
+- A room whose only door is blocked by an object counts as boxed in: the Sim walks out through that object.
+- Whether a pass-through-objects plan may end inside a footprint is not known; the end is tested with
+  `IsPointRoutable` and a normal plan on from it [not run].
+- The signal needs the Sim to try to walk: a Sim that stands idle and never plans is not seen (the game's check
+  and its reset remain).
+- With the switches off the signal count (4539, 4541) includes Sims the probe would call free: three failed
+  plans from one spot over 2.5 minutes is common for a Sim whose targets are closed, not only for a boxed-in
+  one. The probe count is only known with a switch on (4544 against 4546).
+- Every failed plan now costs one table lookup; every plan one count test while Sims are counted (as blockeduse's
+  way-out test).
+- The count table holds 256 Sims; when full, counts older than 30 sim-minutes go.
+
+### 18.4 Checks (2026-11-22, no game)
+
+- `node tools/selftest/unstuck/run.ts`: 50 checks ok. reachuse 53, viewlenient 56, blockeduse 45 ok.
+- Repro `unstuck-check` (any save): `UnstuckCheck run` off -> `verdict: BROKEN`, on -> `verdict: FIXED`,
+  `controls ok=True`; `result` = counters and the last line; `lot` = the probe for the selected Sim and up to
+  12 other Sims and pets on its lot.
+
+### 18.5 Run plan
+
+- Forced repro, not built as an entry: in buy mode put four pieces of furniture (counters or bookcases, no
+  seats) round a standing household Sim in the middle of a room; `unstuckhh` and `unstucklog` on;
+  `UnstuckCheck lot` must name it "boxed in, a way out through objects". Order Go Here three times across the
+  room, 2.5 sim-minutes or more from the first to the third. Off: three balloons, 4539 and 4541 rise by one. On:
+  at the third the Sim walks out through the furniture (4546, one `unstuck: ... walked out through objects`
+  line) and then walks to the clicked point (4548). Controls: the same Sim seated on a chair inside the box is
+  kept (4543); a Sim in a doorless walled room is kept (4545); an unreachable Go Here target for a free Sim is
+  kept (4544).
+- Storms: off, 4538 against 4539 says how often the signal fires; on (`unstuck`), 4544 is expected to carry
+  nearly all of it and 4546 to be rare; 4549 must stay 0.
+
+### 18.6 Storms for §17-§18 (2026-11-22, Deck)
+
+Ten route storms s520-s529 (5 on, 5 off; §16-§18's switches together). `socialreach` acted once: `npc Liliana
+Ichtaca, SocialInteractionB Share Interests -> Edward Dregg (FailedBecauseNoPathToDestination, a turn): talks from
+where it stands`. `unstuck` walked a Sim out once (0.7 m; its route still had no plan afterwards). Errors 0, crashes
+0; hitches per storm 4.8 on vs 5.8 off. **Not run in the game as a forced repro yet** (pending).

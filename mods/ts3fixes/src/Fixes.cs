@@ -546,6 +546,7 @@ namespace Ts3Fixes
             ApplyAutLiveB14();
             ApplyHitchCause();
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse / blockedusehh, off by default (counts either way)
+            ApplySocialReach();        // docs/686 §17 (SocialReach.cs): socialreach / socialreachhh, off by default (counts either way); its DoRoute step is in ApplyBlockedUse's hook, as unstuck's (§18, Unstuck.cs)
             ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
@@ -1600,7 +1601,16 @@ namespace Ts3Fixes
         // without viewlenienthh) / handled, by kind: contemplate / art (ViewObjects) / performer / tv / stars / by outcome: stayed in place / walked to the
         // nearest place with a view / quiet ends (no balloon) / kept as the game has it (aborted plan, slot route, a route with no balloon, pet, another
         // walk) / walk stopped or ended with no view / errors / quiet ends while cooling down / tries after a walk (failed replan).
-        const int kCounterSlots = 4526;
+        // [4526-4537] socialreach (SocialReach.cs, docs/686 §17): failed plans and placements of talk socials (plain SocialInteractionA/B, one-person jig,
+        // two humans) / would handle, off / exempt (a household Sim in the pair without socialreachhh, none without socialreach) / paired or jig socials left
+        // alone / handled, by kind: the starter's route / the partner's route / the pair's placement / by outcome: from where they stand / walked to the
+        // nearest place / kept as the game has it (too far, other level, wall, sitting, still walking, placement jig walk, cooling down) / walk stopped or
+        // ended out of reach / errors.
+        // [4538-4549] unstuck (Unstuck.cs, docs/686 §18): failed plans left to the game (no path, no destination, obstructed) / stuck signals (3 from one
+        // spot over 2.5 sim-minutes, or the game's stuck check) / Sims the game's stuck check found no way for / would look, off / exempt (household
+        // without unstuckhh) / kept: sitting, lying, swimming, riding, carried, cancelled / kept: can walk 3 m away / kept: walled in (no way through
+        // objects either) / walked out through objects / walk out stopped / the failed route planned again after the walk out: ok / errors.
+        const int kCounterSlots = 4550;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2076,6 +2086,12 @@ namespace Ts3Fixes
                 case "viewlenient": return Instantiator.kViewLenient;  // ViewLenient.cs (docs/686 §16): an NPC whose route to contemplate, view or watch fails looks from where it stands or the nearest place with a view, no balloon, off
                 case "viewlenienthh": return Instantiator.kViewLenientHousehold;  // ViewLenient.cs: the same for household and selected Sims (stands alone), off
                 case "viewlenientlog": return Instantiator.kViewLenientLog;  // ViewLenient.cs (docs/686 §16): one line per act, off
+                case "socialreach": return Instantiator.kSocialReach;  // SocialReach.cs (docs/686 §17): a talk social between NPCs whose route or placement fails is done from where the two stand (3 m, same level, no wall) or after a walk to the nearest place, off
+                case "socialreachhh": return Instantiator.kSocialReachHousehold;  // SocialReach.cs: the same for pairs with a household or selected Sim (stands alone), off
+                case "socialreachlog": return Instantiator.kSocialReachLog;  // SocialReach.cs (docs/686 §17): one line per act, off
+                case "unstuck": return Instantiator.kUnstuck;  // Unstuck.cs (docs/686 §18): an NPC or pet that fails 3 plans from one spot over 2.5 sim-minutes and has no normal way out walks out through the objects (walls count), off
+                case "unstuckhh": return Instantiator.kUnstuckHousehold;  // Unstuck.cs: the same for household and selected Sims and pets (stands alone), off
+                case "unstucklog": return Instantiator.kUnstuckLog;  // Unstuck.cs (docs/686 §18): one line per act, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;

@@ -164,6 +164,7 @@ namespace Ts3Fixes
             {
                 sStuckIn = sStuckCap = false;
                 PatchCounters()[NoStartCore.StuckOutcome(sStuckPlans, sStuckOk, last)]++;
+                UnGameSignal(sim, sStuckPlans, sStuckOk);  // unstuck (Unstuck.cs, docs/686 §18): a Sim with no way is looked at on its next failed plan
                 OwProbeExit(id, task);
             }
         }
