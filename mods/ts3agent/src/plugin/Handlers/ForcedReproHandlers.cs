@@ -27,6 +27,7 @@ namespace Ts3Agent
             Dispatcher.Register("add_trash", AddTrash);
             Dispatcher.Register("pet_jigs", PetJigs);
             Dispatcher.Register("go_at", GoAt);
+            Dispatcher.Register("add_platter", AddPlatter);
         }
 
         // The place `forward` metres along the target's facing (negative = behind) and `right` metres to its right.
@@ -153,6 +154,76 @@ namespace Ts3Agent
             r["pos"] = Pos(g.Position);
             r["room"] = g.RoomId;
             r["in_world"] = g.InWorld;
+            return r;
+        }
+
+        // add_platter {near: target, forward?, right?, recipe?: recipe key part (default the first group recipe), servings?: N}
+        //   | {census: true}
+        //   A finished group meal on the floor at that place, made as the game makes one (Recipe.CreateFinishedFood, Group):
+        //   the cooking is skipped, Grab a Serving is the player's order. servings: the platter's count is set to N (the
+        //   last-serving case). census: every platter of the selected Sim's lot with its servings left and users, and the
+        //   single plates of the lot.
+        static object AddPlatter(Args a)
+        {
+            RequireLive();
+            Dictionary<string, object> r = Util.Obj();
+            System.Reflection.FieldInfo left = typeof(Sims3.Gameplay.Objects.CookingObjects.ServingContainerGroup).GetField("mNumServingsLeft",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (!a.Bool("census", false))
+            {
+                Vector3 p = PlaceNear(a);
+                string want = a.Str("recipe", "").ToLowerInvariant();
+                Sims3.Gameplay.Objects.FoodObjects.Recipe recipe = null;
+                foreach (Sims3.Gameplay.Objects.FoodObjects.Recipe c in Sims3.Gameplay.Objects.FoodObjects.Recipe.Recipes)
+                    if (c != null && !string.IsNullOrEmpty(c.GroupServingContainer) && c.SingleServingContainer != "PlateChild"
+                        && !Sims3.Gameplay.Objects.FoodObjects.Recipe.Snacks.Contains(c)
+                        && (c.Key ?? "").ToLowerInvariant().IndexOf(want) >= 0) { recipe = c; break; }
+                if (recipe == null) throw new McpException("no group recipe '" + want + "'");
+                Sims3.Gameplay.Objects.CookingObjects.ServingContainerGroup g = recipe.CreateFinishedFood(
+                    Sims3.Gameplay.Objects.FoodObjects.Recipe.MealQuantity.Group, Sims3.Gameplay.Objects.Quality.Nice)
+                    as Sims3.Gameplay.Objects.CookingObjects.ServingContainerGroup;
+                if (g == null) throw new McpException("recipe " + recipe.Key + " made no group serving");
+                g.SetPosition(p);
+                g.SetForward(Vector3.UnitZ);
+                g.AddToWorld();
+                g.BeingUsedAsServingContainer = true;
+                if (a.Has("servings"))
+                {
+                    if (left == null) throw new McpException("ServingContainerGroup.mNumServingsLeft not found");
+                    left.SetValue(g, (int)a.Long("servings"));
+                }
+                CreatedObjects().Add(g.ObjectId.Value);
+                r["id"] = Util.Id(g.ObjectId.Value);
+                r["type"] = g.GetType().Name;
+                r["recipe"] = recipe.Key;
+                r["pos"] = Pos(g.Position);
+                r["room"] = g.RoomId;
+                r["servings"] = g.NumServingsLeft;
+                return r;
+            }
+            Lot lot = Util.ActiveSim().LotCurrent;
+            List<object> rows = new List<object>(), plates = new List<object>();
+            if (lot != null)
+            {
+                foreach (Sims3.Gameplay.Objects.CookingObjects.ServingContainerGroup g in lot.GetObjects<Sims3.Gameplay.Objects.CookingObjects.ServingContainerGroup>())
+                {
+                    Dictionary<string, object> o = Util.Obj();
+                    o["id"] = Util.Id(g.ObjectId.Value);
+                    o["type"] = g.GetType().Name;
+                    o["servings"] = g.NumServingsLeft;
+                    o["in_use"] = g.InUse;
+                    o["line"] = g.SimLine != null ? g.SimLine.MemberCount() : 0;
+                    rows.Add(o);
+                }
+                foreach (Sims3.Gameplay.Objects.CookingObjects.ServingContainerSingle s in lot.GetObjects<Sims3.Gameplay.Objects.CookingObjects.ServingContainerSingle>())
+                {
+                    Sim holder = s.Parent as Sim;
+                    plates.Add(s.GetType().Name + (holder != null ? " held by " + holder.FullName : s.Parent != null ? " on " + s.Parent.GetType().Name : " loose"));
+                }
+            }
+            r["platters"] = rows;
+            r["plates"] = plates;
+            r["plate_count"] = plates.Count;
             return r;
         }
 
