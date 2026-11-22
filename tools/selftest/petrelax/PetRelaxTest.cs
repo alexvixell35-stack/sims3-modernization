@@ -1,4 +1,4 @@
-// Usage: node tools/selftest/petrelax/run.ts  (compiles this with mods/ts3fixes/src/PetRelaxCore.cs)
+// Usage: node tools/selftest/petrelax/run.ts  (compiles this with mods/ts3fixes/src/PetRelaxCore.cs and ShareLanesCore.cs)
 // Offline self-check of PetRelaxCore.cs (docs/686 §11): who walks through whom, horses and objects kept, switch and
 // scope, the lie-down rule, the lane-end distance test and the candidate spots. Exit code 1 on failure.
 using System;
@@ -103,9 +103,28 @@ static class PetRelaxTest
         }
     }
 
+    // docs/686 §8.8: the walk-through is at once only near a portal, elsewhere after the shared grace
+    static void Timing()
+    {
+        const int D = ShareLanesCore.kDefer;
+        int kept;
+        int cat = PetRelaxCore.Pass(true, C(false, false, 0, 1, 0, 0), out kept);    // Sim, a cat in its way
+        int dog = PetRelaxCore.Pass(true, C(true, false, 1, 0, 0, 0), out kept);     // dog, a Sim in its way
+        Check(ShareLanesCore.Timed(cat, true, 0f, 2.5f) == G && ShareLanesCore.Timed(dog, true, 0f, 2.5f) == G, "cat in a doorway, dog on the stairs: at once");
+        Check(ShareLanesCore.Timed(cat, false, 0f, 2.5f) == D && ShareLanesCore.Timed(dog, false, 1f, 2.5f) == D, "open space or hallway before the grace: the wait goes on");
+        Check(ShareLanesCore.Timed(cat, false, 2.5f, 2.5f) == G && ShareLanesCore.Timed(dog, false, 4f, 2.5f) == G, "from the grace on: walk through");
+        Check(ShareLanesCore.Timed(PetRelaxCore.Pass(false, C(false, false, 0, 1, 0, 0), out kept), false, 0f, 2.5f) == D, "off, before the grace: not counted as would yet");
+        Check(ShareLanesCore.Timed(PetRelaxCore.Pass(false, C(false, false, 0, 1, 0, 0), out kept), false, 3f, 2.5f) == W, "off, after the grace: would");
+        Check(ShareLanesCore.Timed(PetRelaxCore.Pass(true, C(false, true, 0, 1, 0, 0), out kept), true, 9f, 2.5f) == N && kept == PetRelaxCore.kKeptHorse, "a horse stays kept at a portal and after the grace");
+        Check(PetRelaxCore.kNone == ShareLanesCore.kNone && PetRelaxCore.kWould == ShareLanesCore.kWould && PetRelaxCore.kExempt == ShareLanesCore.kExempt && PetRelaxCore.kGo == ShareLanesCore.kGo,
+            "the two rule files share their answer codes");
+        // a lying pet's jig is passed by routes only near a portal lane (door lane (0,0,0)-(0,0,2), 1.5 m)
+        Check(ShareLanesCore.NearLane(0.5f, 0f, -1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f) && !ShareLanesCore.NearLane(4f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f), "pet lying at a doorway: passed; in the middle of the room: walked around");
+    }
+
     static int Main()
     {
-        Rules(); Sweep(); Spots();
+        Rules(); Sweep(); Spots(); Timing();
         Console.WriteLine(sFails == 0 ? "petrelax selftest: all checks passed" : "petrelax selftest: " + sFails + " FAILED");
         return sFails == 0 ? 0 : 1;
     }

@@ -27,14 +27,19 @@ namespace Ts3Fixes
     //   - A running pet (PetRun, gallop) already walks through every Sim in the game's own obstacle handler and cannot
     //     be pushed: the game itself clips pets through Sims.
     // Built:
-    //   1. Walk through at once (PetRelaxCore.Pass): at the obstacle event and at a stand-and-wait that still begins, a
-    //      small pet walks through the Sims and small pets in its way, and a Sim walks through small pets when nothing
-    //      else is in its way: the game's ignore-obstacles timer, as simpass. A destination wait takes the clipwait rule
-    //      with no grace (never into a Sim or pet using the object the walker goes to, never for a social, never at the
-    //      end of a player's Go Here). Horses, foals and deer, as walker or in the way, keep the clipwait grace.
-    //   2. A lying pet's floor jig is not an obstacle: every route a Sim creates ignores the floor jigs of the lying
-    //      pets in scope (Route.AddObjectToIgnoreForRoute, the game's own call for the pet itself), and in the two waits
-    //      the jig counts as its pet instead of as an object.
+    //   1. Walk through (PetRelaxCore.Pass): a small pet walks through the Sims and small pets in its way, and a Sim
+    //      walks through small pets when nothing else is in its way: the game's ignore-obstacles timer, as simpass.
+    //      When (docs/686 §8.8, a player's rule: clipping is for doors and stairs, not the standard): at once, at the
+    //      obstacle event or at a wait that still begins, only when the walker or one of those in its way is within
+    //      kClipPortalNear of a portal lane; anywhere else the game's wait runs and its first cycle after
+    //      kClipGraceMinutes ends it (the clipwait hooks; the clipwait switch is not needed). A destination wait takes
+    //      the clipwait rule on the same timing (never into a Sim or pet using the object the walker goes to, never for
+    //      a social, never at the end of a player's Go Here). Horses, foals and deer, as walker or in the way, are
+    //      clipwait's alone.
+    //   2. A lying pet's floor jig near a portal is not an obstacle: every route a Sim creates ignores the floor jigs of
+    //      the lying pets in scope that lie within kClipPortalNear of a portal lane (Route.AddObjectToIgnoreForRoute,
+    //      the game's own call for the pet itself). A pet that lies anywhere else is walked around as the game has it.
+    //      In the two waits every lying pet's jig counts as its pet instead of as an object, on the timing of 1.
     //   3. A pet about to lie down on the floor where it stands, within kPetRelaxPortalClear of a stair, door, gate,
     //      ladder or elevator lane end, first walks to a free spot 2-3 m away (a real route), then the game's lie-down
     //      runs from there. No free spot, or the route fails: the game's lie-down as it was.
@@ -54,11 +59,12 @@ namespace Ts3Fixes
         const int kPrxMaxPlans = 4;        // route plans per lie-down for a free spot
         const float kPrxEndSearch = 8f;    // lane ends farther than this from the pet are not collected
 
-        class PrxJig { public GameObject Jig; public Sim Pet; }
+        class PrxJig { public GameObject Jig; public Sim Pet; public bool NearPortal; }  // NearPortal: read once when the pet lay down
         static readonly List<PrxJig> sPrxJigs = new List<PrxJig>();
         static readonly List<Vector3> sPrxEnds = new List<Vector3>();
         static readonly LineCapCore sPrxCap = new LineCapCore(20, 60000, 400);
         static string sPrxMissing = "", sPrxLast = "", sPrxLastError = "";
+        static int sPrxDeferred, sPrxGrace;  // this session: waits left to the grace (not near a portal) / waits ended after it
 
         static void PrxError(int site, Exception e)
         {
@@ -133,7 +139,7 @@ namespace Ts3Fixes
             public int NameCount;
             public bool Household;
             public List<GameObject> Jigs;
-            readonly List<Sim> mSims = new List<Sim>(4);
+            public readonly List<Sim> Sims = new List<Sim>(4);
 
             public PrxSeen(Sim walker, bool scopeAll)
             {
@@ -146,8 +152,8 @@ namespace Ts3Fixes
 
             public void AddSim(Sim b, bool scopeAll)
             {
-                if (mSims.Contains(b)) return;  // a lying pet and its jig are one
-                mSims.Add(b);
+                if (Sims.Contains(b)) return;  // a lying pet and its jig are one
+                Sims.Add(b);
                 if (PrxLarge(b)) Case.Large++;
                 else if (PrxSmallPet(b)) Case.SmallPets++;
                 else Case.Humans++;
@@ -203,10 +209,11 @@ namespace Ts3Fixes
             for (int i = 0; i < jigs.Count; i++) route.AddObjectToIgnoreForRoute(jigs[i].ObjectId);
         }
 
-        // ---- 1. walk through at once ------------------------------------------------------------------------------------
+        // ---- 1. walk through: at once near a portal, elsewhere after the grace -------------------------------------------
 
         // ShareLanes.cs, before simpass: the obstacle event (action false) and the obstacle wait that still began (true).
-        // true = the walker's ignore-obstacles timer runs.
+        // true = the walker's ignore-obstacles timer runs. Near a portal only (ShareLanesCore.Timed); elsewhere the wait
+        // begins and PrxClip ends it after the grace.
         static bool PrxPass(Sim sim, Route route, IList<ObjectGuid> obstacles, bool action)
         {
             try
@@ -219,7 +226,14 @@ namespace Ts3Fixes
                 for (int i = 0; i < obstacles.Count; i++) s.Add(sim, GameObject.GetObject(obstacles[i]), scopeAll);
                 int[] c = PatchCounters();
                 int kept;
-                if (!PrxCount(PetRelaxCore.Pass(on, s.Case, out kept), kept, c)) return false;
+                int d = PetRelaxCore.Pass(on, s.Case, out kept);
+                if (d != PetRelaxCore.kNone) d = ShareLanesCore.Timed(d, ShlNearPortal(sim, s.Sims), 0f, Instantiator.kClipGraceMinutes);
+                if (d == ShareLanesCore.kDefer)
+                {
+                    if (action) sPrxDeferred++;
+                    return false;
+                }
+                if (!PrxCount(d, kept, c)) return false;
                 PrxIgnoreJigs(route, s.Jigs);  // a replan of this route passes the lying pets too
                 sim.SimRoutingComponent.StartIgnoringObstacles(Math.Max(0.5f, Instantiator.kPetRelaxMinutes));  // the game's own timer
                 c[action ? kPrxPassWait : kPrxPass]++;
@@ -232,12 +246,13 @@ namespace Ts3Fixes
             catch (Exception e) { PrxError(action ? kPrxSiteWait : kPrxSitePass, e); return false; }
         }
 
-        // ClipWait.cs, each cycle of an obstacle or destination wait the game wants to go on, before the clipwait grace.
+        // ClipWait.cs, each cycle of an obstacle or destination wait the game wants to go on, before clipwait's own rule.
         // seen = what clipwait gathered (jigs of lying pets in scope are in it as their pets). true = the pet rule ends the
-        // wait now; destAccepted as ClipWaitCore.Decide. counted keeps the "kept" and "would" counters to one per wait.
-        static bool PrxClip(Sim sim, ClipWaitCore.Case k, List<Sim> seen, ref bool counted, out bool destAccepted, out bool household)
+        // wait now (near a portal at once, elsewhere from kClipGraceMinutes on); destAccepted as ClipWaitCore.Decide.
+        // counted keeps the "kept" and "would" counters to one per wait. afterGrace = the wait ran its grace.
+        static bool PrxClip(Sim sim, ClipWaitCore.Case k, List<Sim> seen, ref bool counted, out bool destAccepted, out bool household, out bool afterGrace)
         {
-            destAccepted = false; household = false;
+            destAccepted = false; household = false; afterGrace = false;
             try
             {
                 if (seen == null || seen.Count == 0) return false;
@@ -248,13 +263,18 @@ namespace Ts3Fixes
                 s.Case.Others = k.Others;
                 int kept;
                 int d = PetRelaxCore.Pass(on, s.Case, out kept);
+                if (d != PetRelaxCore.kNone)
+                {
+                    afterGrace = ShareLanesCore.GraceDue(k.ElapsedMin, Instantiator.kClipGraceMinutes);
+                    if (!afterGrace && ShareLanesCore.Timed(d, ShlNearPortal(sim, seen), k.ElapsedMin, Instantiator.kClipGraceMinutes) == ShareLanesCore.kDefer) return false;
+                }
                 int[] c = PatchCounters();
                 if (d != PetRelaxCore.kGo)
                 {
                     if (!counted && (d != PetRelaxCore.kNone || kept != PetRelaxCore.kKeptNot)) { counted = true; PrxCount(d, kept, c); }
                     return false;
                 }
-                // where the walk may end: clipwait's rule without its grace, scope already judged
+                // where the walk may end: clipwait's rule, the timing and the scope already judged
                 k.GraceMin = 0f; k.SimInScope = true; k.AllInScope = true;
                 int keptDest;
                 if (ClipWaitCore.Decide(true, k, out keptDest, out destAccepted) != ClipWaitCore.kGo)
@@ -270,10 +290,11 @@ namespace Ts3Fixes
             catch (Exception e) { PrxError(kPrxSiteClip, e); destAccepted = false; return false; }
         }
 
-        // ---- 2. a lying pet's floor jig is not an obstacle --------------------------------------------------------------
+        // ---- 2. a lying pet's floor jig near a portal is not an obstacle ------------------------------------------------
 
         // RouteFixes.cs, SimRoutingComponent.SetRouteOptions (every route a Sim creates). The list is empty unless a pet
-        // lay down on the floor since the world loaded.
+        // lay down on the floor since the world loaded. Only the pets that lie near a portal lane are passed (docs/686
+        // §8.8): the others are walked around, and a Sim they keep waiting walks through them after the grace (PrxClip).
         static void PrxRoute(Sim sim, Route r)
         {
             if (sPrxJigs.Count == 0 || sim == null || r == null) return;
@@ -291,7 +312,7 @@ namespace Ts3Fixes
                         sPrxJigs.RemoveAt(i);  // the pet got up
                         continue;
                     }
-                    if (!pass || j.Pet == sim || !PrxScope(j.Pet, hhOn) || j.Jig.LotCurrent != lot) continue;
+                    if (!pass || !j.NearPortal || j.Pet == sim || !PrxScope(j.Pet, hhOn) || j.Jig.LotCurrent != lot) continue;
                     r.AddObjectToIgnoreForRoute(j.Jig.ObjectId);
                     n++;
                 }
@@ -393,6 +414,7 @@ namespace Ts3Fixes
                 if (sPrxJigs.Count >= kPrxMaxJigs) return;
                 PrxJig j = new PrxJig();
                 j.Jig = jig; j.Pet = pet;
+                j.NearPortal = ShlNearPortal(pet.LotCurrent, pet.Position);
                 sPrxJigs.Add(j);
             }
             catch (ResetException) { throw; }
@@ -419,8 +441,9 @@ namespace Ts3Fixes
         static string PrxCounters()
         {
             int[] c = PatchCounters();
-            return "petrelax: walked through at the obstacle event " + c[kPrxPass] + ", at the obstacle wait " + c[kPrxPassWait] + ", waits ended before the grace " + c[kPrxClip]
-                + ", destination accepted " + c[kPrxClipDest] + ", routes given the pass through lying pets " + c[kPrxJigRoutes]
+            return "petrelax: walked through at the obstacle event " + c[kPrxPass] + ", at the obstacle wait " + c[kPrxPassWait] + " (both near a portal), waits ended " + c[kPrxClip]
+                + ", destination accepted " + c[kPrxClipDest] + " (this session: of both after the grace " + sPrxGrace + ", waits begun away from a portal and left to the grace " + sPrxDeferred
+                + "), routes given the pass through pets lying near a portal " + c[kPrxJigRoutes]
                 + "; floor lie-downs (autonomous, where the pet stands or its own spot) " + c[kPrxLieDowns] + ", of them at a lane end " + c[kPrxLieAtPortal] + ", walked off it " + c[kPrxMoved]
                 + ", kept: no free spot " + c[kPrxKeptNoSpot]
                 + "; would " + c[kPrxWould] + ", exempt " + c[kPrxExempt] + "; kept: horse, foal or deer " + c[kPrxKeptHorse] + ", object in the way " + c[kPrxKeptObject]
@@ -462,12 +485,16 @@ namespace Ts3Fixes
             float cx, cz;
             bool ctlSpot = PetRelaxCore.Candidate(0, 10f, 10f, 9.5f, 10f, out cx, out cz) && Math.Abs(cx - 12f) < 0.01f && Math.Abs(cz - 10f) < 0.01f
                 && !PetRelaxCore.Near(cx, 0f, cz, 9.5f, 0f, 10f, 1.25f) && PetRelaxCore.Near(10f, 0f, 10f, 9.5f, 0f, 10f, 1.25f) && !PetRelaxCore.Near(10f, 3f, 10f, 9.5f, 0f, 10f, 1.25f);
-            bool controls = ctlPetWalker && ctlNoPet && ctlMixed && ctlHorse && ctlHorseWalker && ctlObject && ctlScope && ctlLie && ctlSpot;
+            float grace = Instantiator.kClipGraceMinutes;
+            bool ctlTimed = ShareLanesCore.Timed(PetRelaxCore.kGo, true, 0f, 2.5f) == PetRelaxCore.kGo && ShareLanesCore.Timed(PetRelaxCore.kGo, false, 1f, 2.5f) == ShareLanesCore.kDefer
+                && ShareLanesCore.Timed(PetRelaxCore.kGo, false, 2.5f, 2.5f) == PetRelaxCore.kGo;
+            bool controls = ctlPetWalker && ctlNoPet && ctlMixed && ctlHorse && ctlHorseWalker && ctlObject && ctlScope && ctlLie && ctlSpot && ctlTimed;
             return "petrelax check (switch " + (on ? "on" : "off") + ", household " + (ShortcutOn("petrelaxhh") ? "on" : "off") + ", timer " + Instantiator.kPetRelaxMinutes.ToString("0.0")
-                + " sim-min, lane end clearance " + Instantiator.kPetRelaxPortalClear.ToString("0.00") + " m): a Sim with a napping cat in its way walks through=" + fixedNow
+                + " sim-min, lane end clearance " + Instantiator.kPetRelaxPortalClear.ToString("0.00") + " m, grace " + grace.ToString("0.0") + " sim-min away from a portal, near = "
+                + Instantiator.kClipPortalNear.ToString("0.0") + " m): a Sim with a napping cat in its way walks through=" + fixedNow
                 + "; control: a pet walks through Sims and pets=" + ctlPetWalker + ", no pet in the case left alone=" + ctlNoPet + ", Sim with a pet and a Sim in its way left to simpass=" + ctlMixed
                 + ", horse in the way kept=" + ctlHorse + ", horse walker kept=" + ctlHorseWalker + ", object in the way kept=" + ctlObject + ", out of scope exempt=" + ctlScope
-                + ", lie-down rule=" + ctlLie + ", free spot away from the lane end=" + ctlSpot + "; controls ok=" + controls
+                + ", at once only near a portal, elsewhere after the grace=" + ctlTimed + ", lie-down rule=" + ctlLie + ", free spot away from the lane end=" + ctlSpot + "; controls ok=" + controls
                 + "; verdict: " + GlVerdict(on, fixedNow, controls, sPrxMissing.Length == 0) + "; " + PrxCounters();
         }
 

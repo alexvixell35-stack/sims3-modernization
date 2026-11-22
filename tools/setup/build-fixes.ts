@@ -798,7 +798,6 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLaneWaitLog value="False" />
     <kClipWait value="False" />
     <kClipWaitHousehold value="False" />
-    <kClipWaitGraceMinutes value="2" />
     <kClipWaitMinutes value="3" />
     <kClipWaitObjectDest value="True" />
     <kClipWaitLog value="False" />

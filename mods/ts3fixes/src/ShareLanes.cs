@@ -56,7 +56,7 @@ namespace Ts3Fixes
     //   stairs, not the standard): at once, at the obstacle event or at a wait that still starts, only when the walker
     //   or a Sim in its way is within kClipPortalNear of a portal lane (door, gate, stairs, ladder, elevator; on stairs
     //   counts). Anywhere else the game's wait begins and runs, and its first cycle after kClipGraceMinutes ends it the
-    //   same way.
+    //   same way. petrelax and clipwait keep the same rule with the same two tunables.
     // angleentry / angleentryhh
     //   [verified, decompiled + native] The stair walk sets the Sim's place and facing itself when it starts (0x8555E0:
     //   facing from the lane's two ends); the ladder climb up does the same in script. So neither needs the Sim to arrive
