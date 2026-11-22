@@ -427,16 +427,27 @@ namespace Ts3Fixes
                 World.GetLotLocationAtFloor(p, ref loc);
                 Route t = sel.CreateRoute();
                 t.DoRouteFail = false;
-                // the game's ring per kind: mop from 1 m, fire 0.5-2.5 m, the rest from about 0.7 m; all in the target's room
-                float min = kind == ReachUseCore.kFloor ? 1f : kind == ReachUseCore.kFire ? 0.5f : 0.7f, max = kind == ReachUseCore.kFire ? 2.5f : -1f;
+                // the game's ring per kind: mop and piles from 1 m (TrashPile.CarryRouteToObjectRadius), fire 0.5-2.5 m, plants from 0.7 m; all in the target's room
+                float min = kind == ReachUseCore.kFire ? 0.5f : kind == ReachUseCore.kPlant ? 0.7f : 1f, max = kind == ReachUseCore.kFire ? 2.5f : -1f;
                 if (t.PlanToPointRadialRange(p, min, max, RouteDistancePreference.PreferNearestToRouteDestination, RouteOrientationPreference.TowardsObject, lot.LotId, new int[] { loc.mRoom }).Succeeded()) continue;
                 closed++;
-                Route w = sel.CreateRoute();
-                w.DoRouteFail = false;
-                RoutePlanResult np = w.PlanToPointRadialRange(p, ReachUseCore.MinDist(kind), ReachUseCore.Reach(kind), RouteDistancePreference.PreferNearestToRouteDestination, RouteOrientationPreference.TowardsObject, 0UL, null);
                 RuCase q = new RuCase();
                 q.Goal = p; q.Kind = kind; q.Reach = ReachUseCore.Reach(kind); q.LotId = lot.LotId;
-                int stand = np.Succeeded() && BuValid(np.mDestination) ? RuStand(np.mDestination, q, kRuArriveSlack) : ReachUseCore.kStandFar;
+                // as RuPlace: the target's room first, then any room (run fr-m1, 2026-11-22: a pile in a closet read "wall
+                // between" from the any-room plan alone, while the rule's own first plan is the one into the closet)
+                int stand = ReachUseCore.kStandFar;
+                RoutePlanResult np = default(RoutePlanResult);
+                for (int pass = 0; pass < 2 && stand != ReachUseCore.kStandOk; pass++)
+                {
+                    Route w = sel.CreateRoute();
+                    w.DoRouteFail = false;
+                    w.SetOption(Route.RouteOption.DoLineOfSightCheckUserOverride, true);
+                    RoutePlanResult wp = w.PlanToPointRadialRange(p, ReachUseCore.MinDist(kind), ReachUseCore.Reach(kind), RouteDistancePreference.PreferNearestToRouteDestination,
+                        RouteOrientationPreference.TowardsObject, pass == 0 ? lot.LotId : 0UL, pass == 0 ? new int[] { loc.mRoom } : null);
+                    if (!wp.Succeeded() || !BuValid(wp.mDestination)) continue;
+                    int st = RuStand(wp.mDestination, q, kRuArriveSlack);
+                    if (st == ReachUseCore.kStandOk || stand == ReachUseCore.kStandFar) { stand = st; np = wp; }
+                }
                 if (stand == ReachUseCore.kStandOk) inReach++;
                 if (b.Length < 700) b.Append(" " + names[i] + " (" + RuKindName(kind) + ") at " + BuAt(p) + " room " + loc.mRoom + ": closed, "
                     + (stand == ReachUseCore.kStandOk ? "a place in reach at " + BuAt(np.mDestination) : stand == ReachUseCore.kStandSight ? "wall between" : stand == ReachUseCore.kStandLevel ? "other level" : "nothing in reach") + ";");
