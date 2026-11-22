@@ -133,6 +133,7 @@ namespace Ts3Fixes
             ActionData data = SrData(mine);
             if (data == null && other != null) data = SrData(other);
             bool exact = SrExact(mine) && (other == null || SrExact(other));
+            if (data != null && SocialReachCore.TouchByName(data.Key)) return SocialReachCore.kContact;  // touch with no jig (High Five): seen in sr hand run
             return SocialReachCore.Cover(exact, data != null, data != null ? (int)data.SocialJig : 0, starter != null ? starter.SocialJig != null : mine.SocialJig != null,
                 a.IsHuman && b.IsHuman, a.SimDescription.Baby || b.SimDescription.Baby, SrMounted(a) || SrMounted(b), SrInWater(a) || SrInWater(b));
         }
