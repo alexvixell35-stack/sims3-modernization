@@ -1,7 +1,7 @@
 # 866: The burglar picks loot no Sim can reach on apartment lots, `burglarapt`
 
 2026-11-22 (UTC), static (EA code read in a local decompile of `Sims3GameplaySystems.dll`, not committed). Fix built,
-default off, NOT RUN.
+default off. Decision check passed in game (pass-11 contributor beta); no live burglary yet.
 
 ## 1. Question
 
@@ -104,5 +104,9 @@ first target is in the household's unit.
 
 ## 6. Not done / next
 
-- Not run in game: queue repro `burglar-apt` on a Bridgeport save, then the end-to-end burglary.
-- `scan` numbers per apartment lot are unknown until that run.
+- In game (contributor beta pass 11, Bridgeport apartment save, 28 apartment lots): repro `burglar-apt` off `verdict: BROKEN`,
+  on `verdict: FIXED`, 2198 = 0, live path ok. [verified] `scan`: 0 stealable objects in hidden units on every EA apartment
+  lot of that save; 2-45 in public rooms or outdoors per lot (45 on the active household's home); on 6 of 28 lots EA's most
+  valuable pick is a public-room object (up to 36000). So the case players hit is the public one (each public object ranked
+  above the reachable loot costs a failed insert and a sim-minute); the hidden-unit case needs a player-built apartment.
+- Still to do: the end-to-end burglary on an apartment.
