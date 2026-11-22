@@ -432,3 +432,79 @@ door still meets the one coming out of it as an obstacle.
 - Pass: errors 4367 = 0, no new script errors, no Sim stuck in a portal (`StairWaitEndCheck result` waits asleep 0
   after the storm), door left open with nobody near = fail (use count), no new routefail kinds or `route false`
   beyond the off arms, `gohere end` lines stay `route ok`.
+
+## 9. Sims walk through a Sim or pet that keeps them waiting (`clipwait`, `clipwaithh`; 2026-11-22, `feat/clipwait-1122`, built, default off, NOT RUN)
+
+A player's wish: a Sim busy at a mirror, standing, or chatting in a hallway should not keep a passing Sim waiting;
+after a moment the walker clips through, as in other games. No teleport, the Sim walks its own route. Two Sims at
+one object are not wanted. `ClipWait.cs`, rules in `ClipWaitCore.cs`, counters 4398-4413, check
+`ClipWaitCheck run | result`, selftest `tools/selftest/clipwait`, repro `clipwait-check`.
+
+### 9.1 Where a Sim waits for a Sim outside portals [verified, decompiled `Sims3.Gameplay` unless marked]
+
+| Case | The game's code | Cost | How often |
+|---|---|---|---|
+| A Sim or pet in the route's way | `SimSteeringAdaptor.HandleEventEncounteredObstacles` -> `ObstacleEncounteredRouteInterruptAction`: stand-and-wait, each cycle a replan with "blocked by people" and a push of the pushable Sims | up to `kDefaultStandAndWaitDuration` (50 sim-min in code, 20 in tuning), then route failed | every meeting of two Sims on a route; 374 storm logs of 11-20/22: 422 failed plans with a Sim as blocker (`NoPathToDestination`), 9 `standwait:` lines with a Sim blocker (3 ran to the timeout). Waits whose plan succeeds (the walker stands while the other Sim is pushed or leaves) had no counter |
+| A Sim that cannot be pushed | `RoutingComponent.PushSimsStatic`: a Sim in a conversation is skipped, a Sim in an interaction only moves when the interaction is an `IBePushedCanCancel` that allows it | the wait above runs until that Sim is done | the mirror, sink, fridge and hallway-chat cases; not measured |
+| A Sim on the route's end point | `HandleEventDestinationObstructed` -> `DestinationObstructedRouteInterruptAction`: stand-and-wait, pushes Sims within 0.6 m of the end every cycle, replans every few | same duration; ends with the "Sim in the way" balloon (`PlayRouteFailureIfAppropriate`) | not measured before (1 stall-watch stack in the logs); counters 4409-4411 now |
+| Arrived inside a Sim | `SimRoutingComponent.DoRoute`, only for routes with `CheckForFootprintsNearGoals` (dance floor, stereo, karaoke, jukebox, DJ booth, some spawners): push, replan around people, else an emergency walk 0.6-2.5 m away and route failed | one short walk + the failed interaction | rare, those objects only |
+| Pushed out of the way | `PushSimsStatic` with `waitForPushes` (doors, gates, footprints of objects being placed, pet landing spots): the pusher idles up to `TotalSimMinutesToWaitForSimsToBePushed` | short | doors: §8; else rare |
+| A pet lying in the path | a pet is a `Sim` for all of the above (`ToddlerOrAbove`); a running pet does not stop for Sims | as rows 1-3 | not measured |
+| Car, bike, bed side | route ends at an object's slot: row 3 | | |
+
+Not a routing wait and not touched: an object in use (`InUse`, lines such as `SimQueue`) is the game's rule for
+one user at a time.
+
+### 9.2 What is built
+
+After `kClipWaitGraceMinutes` (2 sim-minutes, about 2 seconds at normal speed) of either stand-and-wait that the
+game wants to continue, `ClipWaitCore.Decide`:
+
+- **Walk through.** Only Sims and pets in the way (toddler or older; anything else in the way keeps the wait): when
+  the route's plan had failed it is planned once without "blocked by people" (still failed = a real block, the wait
+  goes on, 4408); then `StartIgnoringObstacles(kClipWaitMinutes = 3)` and the wait ends with the game's own
+  "continue and follow the path". This is the exit the game takes itself after a wait in a crowd.
+- **The route's end.** A Sim within the game's 0.6 m of the end is walked into only when the route ends on a plain
+  floor spot, or at an object that Sim is not using (its interaction, transition, posture and parent are not that
+  object; `kClipWaitObjectDest = false` limits it to floor spots). Never when the walker's interaction targets a Sim
+  or the route goes to a Sim (social placement), never on a Go Here the player gave to a household Sim, never when
+  the Sim at the end uses the object. The route's next destination-obstructed event then starts no new wait
+  (4412). When the end may not be walked into but other Sims block the way, the walker passes those and the game's
+  own handling of the end runs when it arrives.
+- **Why a grace and not at once.** The first cycles are the game's own answer: a replan around the Sim and a push
+  of a Sim that can step aside. Both look better than clipping and take under one cycle when they work. The rule is
+  judged at the end of a wait cycle, so the real wait is one or two cycles.
+
+`simpass` (§8) acts earlier where it applies (at the obstacle event, no grace, nobody at the route's end); `clipwait`
+is the rule for the waits that still begin, with or without `simpass`. Lanes and lines (`sharelanes`,
+`laddershare`, `spiralshare`) are other code paths. `standwaitfix` runs first in a blocked cycle.
+
+**Scope.** `clipwait`: walker and every Sim walked through are Sims the player does not control. `clipwaithh`:
+household and selected Sims too. Off = compare mode: the waits are counted and what the rule would do (4402).
+
+### 9.3 Not built
+
+- **Arrival inside a Sim** (`DoRoute`, `CheckForFootprintsNearGoals`): the game's replan there finds another spot
+  around the object, which is the better answer; only its fallback fails. Rare objects.
+- **Two Sims at one object's slot in use**: not wanted.
+- **Babies** on the floor stay obstacles (the game treats them as objects).
+- **The native planner's endpoint test**: needs a native build; the script side covers the waits.
+
+### 9.4 Limits [inferred unless marked]
+
+- That the walk goes on to an occupied end point when the destination event starts no wait is taken from the
+  game's own cases with that handler off (ghosts, portal crossings); not run.
+- The walker cannot be pushed while its timer runs (the game's rule for an ignoring Sim), 3 sim-minutes per walk.
+- A failed plan names one blocker; the Sims within 0.5 m of the waiter are the second guess. A plan that fails
+  because of Sims farther away (a portal closed by standing Sims) is `sharelanes`' case, not this one.
+
+### 9.5 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/clipwait/run.ts`: the rule's cases and a sweep of every input combination (go only on, Sims
+  only, past the grace, in scope; a walk ends in a Sim only where allowed).
+- `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftests `standwait` and `sharelanes` pass.
+- Live: `clipwait-check` once (off `BROKEN`, on `FIXED`, `members found=True`). Storms off / on interleaved with
+  `clipwaitlog standwaitlog routefaillog`: off arm gives the first numbers (4398 waits past the grace, 4402 would,
+  4409-4411 destination waits, their sim-minutes and failures); on arm `clipwait clipwaithh`: 4399 / 4400 > 0, 4411
+  and the `standwait:` timeouts with a Sim blocker down, 4401 = 0, no `clipwait: error at` line. By eye: a Sim at a
+  sink or mirror in a corridor, a chatting pair in a doorway, a dog lying in a hallway.

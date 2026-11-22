@@ -116796,6 +116796,86 @@
     ]
   },
   {
+    "id": "clipwait-check",
+    "bug": "A Sim waits because another Sim or a pet is in its way outside portals: the obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) and the destination wait (DestinationObstructedRouteInterruptAction) stand for up to 20 sim-minutes while the game pushes and replans; a Sim in an interaction or a conversation cannot be pushed, so the walker stands until it leaves or the route fails (docs/686 §9)",
+    "fix": "ts3fixes ClipWait.cs: clipwait (clipwaithh for household and selected Sims), default off, docs/686 §9",
+    "save": "any world (pure check)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ClipWaitCheck 'run' evaluates the rule with controls (read-only); 'result' shows the counters 4398-4413 and the last clipwait: line. The behaviour itself is shown by storms (docs/686 §9.5): destination waits 4409-4411 and 'would' 4402 off against walks 4399 / 4400 on.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's wait",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": true,
+          "clipwaithh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "ladderfoot-force",
     "bug": "A Sim that stands on a ladder's lane end closes the ladder: a Sim that walks to it gets 'Replan FailedBecauseDestinationPortalLocked' in EA's stand-and-wait, cycle after cycle (EA's cycle handler returns before it pushes anyone), and gives up; plans that still have to reach the ladder can answer NoPathToDestination (docs/183 §9; Colonial Casa storms, 'routefail strand link: Ladder ... B free (with Sims: sim)').",
     "fix": "ts3fixes LadderFoot.cs: ladderfootshoo + ladderfootshoohh (default off), docs/183 §9",
