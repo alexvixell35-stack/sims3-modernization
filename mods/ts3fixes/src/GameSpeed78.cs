@@ -273,9 +273,17 @@ namespace Ts3Fixes
             public static void EnterHook(Lot lot, bool disableFunds)
             {
                 bool before = Gameflow.GameSpeedLocked;
+                // Build -> Buy (and back) enters again without an exit between (BuildBuyModel.EnterBuildMode / EnterBuyMode
+                // both call this; the state's shutdown skips ExitBuildBuyMode when the other mode follows): the lock the
+                // first enter took is still build/buy's own. Without this the second enter saw "locked before", the exit
+                // skipped its unlock and the game stayed locked at Pause in live mode (run bu-m1, 2026-11-22: 3414=1,
+                // speed Pause, speed_locked true after Build -> Buy -> Live).
+                bool wasOn = false;
+                try { wasOn = sBbOn != null && (bool)sBbOn.GetValue(null); }
+                catch (Exception) { PatchCounters()[3416]++; }
                 sBbExitArmed = false;
                 EnterOrig(lot, disableFunds);
-                try { sBbOwns = BbOwns(before, Gameflow.GameSpeedLocked); }
+                try { if (!wasOn || !sBbOwns) sBbOwns = BbOwns(before, Gameflow.GameSpeedLocked); }
                 catch (Exception) { PatchCounters()[3416]++; }
             }
             public static void EnterOrig(Lot lot, bool disableFunds) { } // receives LotManager.EnterBuildBuyMode
