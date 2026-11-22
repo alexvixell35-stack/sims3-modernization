@@ -224,7 +224,6 @@ namespace Ts3Fixes
                 case "joyridecostume": return EpJoin(EpLive(typeof(JcJoyrideHook), 1), EpLive(typeof(JcRouteHook), 1));
                 case "kegbreakage": return EpLive(typeof(B12KbHook), 1, "sKbChance", sKbChance, 0, "sKbDorm", sKbDorm, typeof(float), "sKbDorm", sKbDorm, "static");
                 case "laddershare": return EpJoin(EpLive(typeof(ShlAcquireHook), 0), EpLive(typeof(ShlLaneHook), 0));
-                case "laddersharehh": return EpJoin(EpLive(typeof(ShlAcquireHook), 0), EpLive(typeof(ShlLaneHook), 0));
                 case "lanewaitlog": return EpJoin(EpLive(typeof(ShlAcquireHook), 0), EpLive(typeof(ShlLaneHook), 0));
                 case "leafburnfail": return EpLive(typeof(B12LbHook), 1, "sLbFlag", sLbFlag, typeof(bool), "sLbFlag", sLbFlag, null);
                 case "leaveconvnull": return EpLive(typeof(B12LvHook), 1);
@@ -424,6 +423,7 @@ namespace Ts3Fixes
                 case "speedskiplevel": return EpLive(typeof(GfSpeedHook), 1);
                 case "speedskipnoactor": return EpLive(typeof(GfSpeedHook), 1);
                 case "spelltargetend": return EpLive(typeof(B12StHook), 1);
+                case "spiralshare": return EpJoin(EpLive(typeof(ShlAcquireHook), 0), EpLive(typeof(ShlLaneHook), 0));
                 case "spjobatwork": return EpLive(typeof(BSpAssignHook), 1);
                 case "splashroof": return EpLive(typeof(SplashRoofRunHook), 1);
                 case "splitpartner": return EpLive(typeof(SplitPartnerHook), 0);

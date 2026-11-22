@@ -30,8 +30,8 @@ namespace Ts3Fixes
     //   two directions on one lane break nothing but looks.
     //   Fix: when the game refuses a lock on stairs, a door, a gate or a ladder only because of that direction test, the
     //   search is made once more with the game's own steps (nearest start slot first, the portal's extra checks, the
-    //   obstruction test, the game's fallback lane) and the lane is shared. Elevators, spiral stairs and the other portal
-    //   kinds keep the game's table.
+    //   obstruction test, the game's fallback lane) and the lane is shared. Elevators and the other portal kinds keep
+    //   the game's table; spiral stairs have their own switch (spiralshare below).
     //   Also: a stand-and-wait cycle whose plan answered "destination portal locked" plans once without "blocked by people"
     //   at once (the game's route search calls a portal locked when a standing Sim's footprint covers a lane end, docs/183
     //   §9); when that plan succeeds the Sim walks on with the game's ignore-obstacles timer.
@@ -39,6 +39,15 @@ namespace Ts3Fixes
     //   [verified, decompiled] The ladder climb is an interaction that first waits its turn in the ladder's own line (one
     //   climber at a time, three Sims at most, the fourth fails with "object in use"); the waiting Sims stand on the lane
     //   ends. Fix: the climb does not wait for its turn.
+    // spiralshare / spiralsharehh
+    //   [verified, decompiled] A spiral staircase has one lane (enter bottom / enter top) and, like the ladder, its own
+    //   line: the walk is an interaction that waits its turn (one Sim at a time, three in the line, the fourth fails with
+    //   "object in use"), and the Sims in the line hold the lane meanwhile, so a Sim coming the other way waits at the
+    //   waiting spot until the line is empty. The walk itself is one state machine per Sim with the Sim as its only
+    //   actor; the staircase keeps no state per walker (its use list and the table are per Sim, the route's end cleans
+    //   both), and on stacked spiral stairs the game itself moves a Sim onto the next staircase without its lane or line.
+    //   Fix: the lane is shared in both directions by the sharelanes search, and the walk does not wait for its turn.
+    //   The railing slide keeps its line.
     // simpass / simpasshh
     //   [verified, decompiled] A walking Sim that meets Sims stops and runs the obstacle stand-and-wait, unless its
     //   "ignore all obstacles" timer runs (the game starts that timer itself after a portal and after a wait in a crowd).
@@ -53,7 +62,7 @@ namespace Ts3Fixes
     //   is approached by that point plan instead of the plan to the slot with its facing. The climb down keeps the slot.
     //
     // Off = compare mode: the hooks count what each switch would do, and the lane waits (how many, how long) either way.
-    // lanewaitlog writes one line per lane wait. Counters 4364-4389. Check: ShareLanesCheck.
+    // lanewaitlog writes one line per lane wait. Counters 4364-4397. Check: ShareLanesCheck.
     public static partial class Fixes
     {
         const int kShlFails = 4364, kShlSharable = 4365, kShlShared = 4366, kShlErrors = 4367, kShlWould = 4368, kShlExempt = 4369,
@@ -61,7 +70,9 @@ namespace Ts3Fixes
             kShlPortalPass = 4375, kShlPortalWould = 4376, kShlPortalStillLocked = 4377,
             kLdsSkips = 4378, kLdsWould = 4379, kLdsExempt = 4380,
             kSpsEvents = 4381, kSpsActions = 4382, kSpsWould = 4383, kSpsExempt = 4384, kSpsKept = 4385,
-            kAneStairs = 4386, kAneLadder = 4387, kAneWould = 4388, kAneKept = 4389;
+            kAneStairs = 4386, kAneLadder = 4387, kAneWould = 4388, kAneKept = 4389,
+            kSpiFails = 4390, kSpiSharable = 4391, kSpiShared = 4392, kSpiWould = 4393, kSpiExempt = 4394,
+            kSpiLineSkips = 4395, kSpiLineWould = 4396, kSpiLineExempt = 4397;
         const int kShlPortalPassEvery = 3;  // blocked cycles between two plans without people (the stand-and-wait's own pass spacing)
         const float kSpsDestRadius = 0.6f;  // the game's radius for Sims at a route's end
 
@@ -140,6 +151,7 @@ namespace Ts3Fixes
             if (t == typeof(Door.DoorPortalComponent)) return ShareLanesCore.kDoor;
             if (t == typeof(NonAnimatedDoor.NonAnimatedDoorPortalComponent)) return ShareLanesCore.kGate;
             if (t == typeof(Ladder.LadderPortalComponent)) return ShareLanesCore.kLadder;
+            if (t == typeof(StaircaseSpiral.StaircaseSpiralPortalComponent)) return ShareLanesCore.kSpiral;
             return ShareLanesCore.kOther;
         }
 
@@ -176,8 +188,9 @@ namespace Ts3Fixes
                 {
                     int kind = s == null || sShlLocked == null ? ShareLanesCore.kOther : ShlKind(this);
                     if (kind == ShareLanesCore.kOther) return false;
-                    c[kShlFails]++;
-                    bool on = ShortcutOn("sharelanes"), hhOn = ShortcutOn("sharelaneshh");
+                    bool spiral = kind == ShareLanesCore.kSpiral;  // own switch pair and counters, same search
+                    c[spiral ? kSpiFails : kShlFails]++;
+                    bool on = ShortcutOn(spiral ? "spiralshare" : "sharelanes"), hhOn = ShortcutOn(spiral ? "spiralsharehh" : "sharelaneshh");
                     int n; string names;
                     ShareLanesCore.Holder[] h = ShlHolders(this, hhOn || !on, out n, out names);  // off: count what both switches would do
                     bool pref = true;
@@ -188,9 +201,9 @@ namespace Ts3Fixes
                             if (st != Slot.None && ShareLanesCore.Lane(h, n, GetLaneIndexFromSlot(st), (uint)st) == ShareLanesCore.kLaneOpposite) { sharable = true; break; }
                     int d = ShareLanesCore.Decide(on, ShlScope(s, hhOn), true, sharable);
                     if (d == ShareLanesCore.kNone) return false;  // refused for another reason (the portal's extra checks, an elevator lane)
-                    c[kShlSharable]++;
-                    if (d == ShareLanesCore.kWould) { c[kShlWould]++; return false; }
-                    if (d == ShareLanesCore.kExempt) { c[kShlExempt]++; return false; }
+                    c[spiral ? kSpiSharable : kShlSharable]++;
+                    if (d == ShareLanesCore.kWould) { c[spiral ? kSpiWould : kShlWould]++; return false; }
+                    if (d == ShareLanesCore.kExempt) { c[spiral ? kSpiExempt : kShlExempt]++; return false; }
 
                     List<Slot> list = new List<Slot>(starts.Count);
                     foreach (Slot st in starts) if (st != Slot.None) list.Add(st);
@@ -211,7 +224,7 @@ namespace Ts3Fixes
                         if (ShareLanesCore.Take(extraOk, free, li.NoLanesAvailableSkipsAdditionalLaneChecks, ref haveFallback, out isFallback))
                         {
                             laneInfo = li; preferredLaneSelected = pref;
-                            c[kShlShared]++;
+                            c[spiral ? kSpiShared : kShlShared]++;
                             return true;
                         }
                         if (isFallback) fallback = li;
@@ -220,7 +233,7 @@ namespace Ts3Fixes
                     if (haveFallback)
                     {
                         laneInfo = fallback; preferredLaneSelected = false;
-                        c[kShlShared]++;
+                        c[spiral ? kSpiShared : kShlShared]++;
                         return true;
                     }
                 }
@@ -320,7 +333,7 @@ namespace Ts3Fixes
             return d == ShareLanesCore.kGo;
         }
 
-        // ---- laddershare ------------------------------------------------------------------------------------------------
+        // ---- laddershare, spiralshare (the line) -----------------------------------------------------------------------
 
         // `this` is the game's SimQueue.
         public class LdsQueueHook : SimQueue
@@ -330,19 +343,22 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 try
                 {
-                    Ladder ladder = interaction == null ? null : interaction.Target as Ladder;
                     Sim a = interaction == null ? null : interaction.InstanceActor;
-                    if (ladder != null && a != null && object.ReferenceEquals(ladder.Line, this) && interaction.GetType().Name == "PortalClimb")
+                    Ladder ladder = a == null ? null : interaction.Target as Ladder;
+                    StaircaseSpiral spiral = a == null || ladder != null ? null : interaction.Target as StaircaseSpiral;
+                    bool isLadder = ladder != null && object.ReferenceEquals(ladder.Line, this) && interaction.GetType().Name == "PortalClimb";
+                    bool isSpiral = spiral != null && object.ReferenceEquals(spiral.SimLine, this) && interaction.GetType().Name == "UseInternal";  // not the railing slide
+                    if (isLadder || isSpiral)
                     {
-                        bool on = ShortcutOn("laddershare"), hhOn = ShortcutOn("laddersharehh");
+                        bool on = ShortcutOn(isSpiral ? "spiralshare" : "laddershare"), hhOn = ShortcutOn(isSpiral ? "spiralsharehh" : "laddersharehh");
                         bool others = true;
                         List<Sim> line = SimsInQueue;  // null while nobody is in the line
                         if (line != null)
                             foreach (Sim o in line) if (o != null && o != a && !ShlScope(o, hhOn)) others = false;
                         int d = ShareLanesCore.LadderLine(on, true, ShlScope(a, hhOn), others);
-                        if (d == ShareLanesCore.kGo) { c[kLdsSkips]++; return true; }  // not entered in the line: the game's cleanup finds nothing to remove
-                        if (d == ShareLanesCore.kWould && MemberCount() > 0) c[kLdsWould]++;  // off: a climb that finds somebody in the line
-                        else if (d == ShareLanesCore.kExempt) c[kLdsExempt]++;
+                        if (d == ShareLanesCore.kGo) { c[isSpiral ? kSpiLineSkips : kLdsSkips]++; return true; }  // not entered in the line: the game's cleanup finds nothing to remove
+                        if (d == ShareLanesCore.kWould && MemberCount() > 0) c[isSpiral ? kSpiLineWould : kLdsWould]++;  // off: a climb that finds somebody in the line
+                        else if (d == ShareLanesCore.kExempt) c[isSpiral ? kSpiLineExempt : kLdsExempt]++;
                     }
                 }
                 catch (ResetException) { throw; }
@@ -481,6 +497,8 @@ namespace Ts3Fixes
                 + (c[kShlWaitTenths] / 10f).ToString("0.0") + " (household " + (c[kShlWaitTenthsHh] / 10f).ToString("0.0") + "), gave up " + c[kShlWaitGaveUp]
                 + "; portal closed by standing Sims: passed " + c[kShlPortalPass] + ", would " + c[kShlPortalWould] + ", locked without people too " + c[kShlPortalStillLocked]
                 + "; laddershare: line skipped " + c[kLdsSkips] + ", would " + c[kLdsWould] + ", exempt " + c[kLdsExempt]
+                + "; spiralshare: locks refused on spiral stairs " + c[kSpiFails] + ", of them by direction only " + c[kSpiSharable] + ", shared " + c[kSpiShared] + ", would share " + c[kSpiWould]
+                + ", exempt " + c[kSpiExempt] + ", line skipped " + c[kSpiLineSkips] + ", would " + c[kSpiLineWould] + ", exempt " + c[kSpiLineExempt]
                 + "; simpass: at the obstacle event " + c[kSpsEvents] + ", at the wait " + c[kSpsActions] + ", would " + c[kSpsWould] + ", exempt " + c[kSpsExempt] + ", kept (object or Sim at the route's end) " + c[kSpsKept]
                 + "; angleentry: stairs " + c[kAneStairs] + ", ladder " + c[kAneLadder] + ", would " + c[kAneWould] + ", kept " + c[kAneKept]
                 + "; errors " + c[kShlErrors] + ShlErrorSites() + ", open waits " + sShlWaitOf.Count + "; " + GlMembers(sShlMissing) + (sShlLast.Length > 0 ? "; last: " + sShlLast : "");
@@ -512,7 +530,7 @@ namespace Ts3Fixes
             bool ctlLadder = ShareLanesCore.AngleLadder(true, true, true, false, true) == ShareLanesCore.kNone && ShareLanesCore.AngleLadder(true, true, true, true, true) == ShareLanesCore.kGo
                 && ShareLanesCore.LadderLine(true, false, true, true) == ShareLanesCore.kNone;
             bool controls = ctlSame && ctlElevator && ctlScope && ctlKind && ctlPass && ctlLadder;
-            return "sharelanes check (switch " + (on ? "on" : "off") + ", household " + (ShortcutOn("sharelaneshh") ? "on" : "off") + ", laddershare " + (ShortcutOn("laddershare") ? "on" : "off")
+            return "sharelanes check (switch " + (on ? "on" : "off") + ", household " + (ShortcutOn("sharelaneshh") ? "on" : "off") + ", laddershare " + (ShortcutOn("laddershare") ? "on" : "off") + ", spiralshare " + (ShortcutOn("spiralshare") ? "on" : "off")
                 + ", simpass " + (ShortcutOn("simpass") ? "on" : "off") + ", angleentry " + (ShortcutOn("angleentry") ? "on" : "off") + "): a lane held from the other end is shared=" + fixedNow
                 + "; control: same end free either way=" + ctlSame + ", elevator lane closed=" + ctlElevator + ", holder out of scope closed=" + ctlScope + ", other portal kinds kept=" + ctlKind
                 + ", walk through Sims only, not at the route's end=" + ctlPass + ", ladder: climb down keeps the slot, other lines kept=" + ctlLadder + "; controls ok=" + controls

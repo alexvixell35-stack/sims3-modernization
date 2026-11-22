@@ -176,6 +176,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kShareLanesHousehold value="False" />
     <kLadderShare value="False" />
     <kLadderShareHousehold value="False" />
+    <kSpiralShare value="False" />
+    <kSpiralShareHousehold value="False" />
     <kSimPass value="False" />
     <kSimPassHousehold value="False" />
     <kSimPassMinutes value="3" />

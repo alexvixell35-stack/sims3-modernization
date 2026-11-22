@@ -10,10 +10,10 @@ namespace Ts3Fixes
     // one-climber line may be skipped and when the approach to a stair or ladder may drop its facing.
     public static class ShareLanesCore
     {
-        // portal kinds the lane sharing covers; anything else keeps the game's table (elevators, spiral stairs, turnstiles,
-        // velvet ropes, pools: their lane hooks keep per-Sim state or play one animation at a time)
-        public const int kOther = 0, kStairs = 1, kDoor = 2, kGate = 3, kLadder = 4;
-        public static readonly string[] kKindNames = { "other", "stairs", "door", "gate", "ladder" };
+        // portal kinds the lane sharing covers; anything else keeps the game's table (elevators, turnstiles, velvet ropes,
+        // pools: their lane hooks keep per-Sim state or play one animation at a time). Spiral stairs: switch spiralshare.
+        public const int kOther = 0, kStairs = 1, kDoor = 2, kGate = 3, kLadder = 4, kSpiral = 5;
+        public static readonly string[] kKindNames = { "other", "stairs", "door", "gate", "ladder", "spiral" };
 
         public const int kNone = 0, kWould = 1, kExempt = 2, kGo = 3;
 
@@ -82,7 +82,7 @@ namespace Ts3Fixes
             return simInScope ? kGo : kExempt;
         }
 
-        // laddershare: the climb's wait for its turn in the ladder's line.
+        // laddershare, spiralshare: the climb's wait for its turn in the ladder's (the spiral staircase's) own line.
         public static int LadderLine(bool on, bool isLadderLine, bool simInScope, bool othersInScope)
         {
             if (!isLadderLine) return kNone;

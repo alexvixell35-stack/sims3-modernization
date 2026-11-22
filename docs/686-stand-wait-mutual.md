@@ -354,6 +354,7 @@ succeeds, so standing Sims were the lock. Failed-plan lines in the 316 logs: `De
 | `sharelanes` (`sharelaneshh`) | A lock the game refused on stairs, a door, a gate or a ladder only by the direction test is searched once more: nearest start slot first, lanes held from the other end count as free, the portal's extra checks and obstruction test run as in the game, its fallback lane is kept. Exact types only (`StairsPortalComponent`, `DoorPortalComponent`, `NonAnimatedDoorPortalComponent`, `LadderPortalComponent`); elevators, spiral stairs, turnstiles, tomb doors, ropes, pools keep the table. | `GetFreeRoutingLane`'s own order and checks; `LockRoutingLane` then enters the Sim as always (door count, use list). |
 | same | A blocked stand-and-wait cycle whose plan says `DestinationPortalLocked` plans without "blocked by people" on the first such cycle (then every 3rd); success = only people closed it, the Sim walks on with the ignore-obstacles timer. Failure = a real lock, the wait goes on (counter 4377). Not with a Sim other than the partner at the route's end. | the pass step of `standwaitfix` (§3 rule 2), without waiting for cycle 2 and without that switch |
 | `laddershare` (`laddersharehh`) | `SimQueue.WaitForTurn` answers "your turn" for a `PortalClimb` on its ladder's own line; the Sim is not entered in the line. | none: this drops a wait the game has. Own switch because of the state machine question above. |
+| `spiralshare` (`spiralsharehh`) | Spiral stairs (`StaircaseSpiralPortalComponent`, exact type): the `sharelanes` search for its one lane, and `SimQueue.WaitForTurn` answers "your turn" for the staircase's walk (`UseInternal`) on its own line. Both are needed: the Sims in the line hold the lane from their end, so the Sim coming the other way waits for the whole line (7.2 and 12.0 sim-min in s465 / s469, the only lane waits left with the other pairs on). The railing slide keeps its line. Counters 4390-4397. | `GetFreeRoutingLane`'s own order and checks; the line: none, a wait the game has is dropped |
 | `simpass` (`simpasshh`) | At the obstacle event: only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. A wait that still starts (forced replan) returns `ContinueAndFollowPath` at once under the same test. | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
 | `angleentry` (`angleentryhh`) | Stairs: when the Sim got its planned lane, the first sub-path is replaced by `GetPathToLane` (kept when that plan fails). Ladder climbed from below: `GetPathToLane` gets the lane without `PlanToSlotNotPosition`, so the game takes its point plan. Climb down: unchanged. | the game's own replacement approach for a lane that was not the planned one |
 | `lanewaitlog` | `lanewait: <Sim> <scope>, <interaction>: <Type> 0x<id> (<kind>), X sim-min from the refusal, got a lane / gave up, held then by: ..., at x,y,z` | log only |
@@ -365,6 +366,19 @@ so test arms need both switches of a pair.
 
 **Off = compare mode.** The hooks are always in: refused locks by cause, lane waits and their length, what each
 switch would have done.
+
+**Why spiral stairs can share [verified, decompiled].** The walk is one interaction per Sim with its own state
+machine and the Sim as the only actor (the slide alone names the staircase as an actor); it places the Sim at its
+animation events and at the end. The staircase keeps nothing per walker but the table and the use list, both per Sim;
+the route's end frees the lane and takes the Sim off the use list whatever the walk did. The lane's extra check only
+pushes Sims that stand on a lane end and are not routing. On stacked spiral stairs the game itself moves a walker
+onto the next staircase without that staircase's lane or line, so two Sims on one spiral staircase in opposite
+directions already happen. What is new is the look: Sims walk through each other on the steps. The line's cap (three
+Sims, the fourth fails with "object in use") goes with the line. Two storms with the pair on next to the other
+four pairs (s478, s479, 2026-11-22; counters read in s479 only): line skipped 15, no spiral lock refused at all (nobody
+stands in the line holding the lane), lane waits 0, errors 0; both runs no crash, no script error, route failures as in the four runs without it
+(138 / 151 against 118-160). Two runs do not show the wait gone (the four runs without it had no lane wait
+either); by eye not checked.
 
 **For seamless doors both `sharelanes` and `simpass` are needed:** the lane is shared, but a Sim walking up to the
 door still meets the one coming out of it as an obstacle.

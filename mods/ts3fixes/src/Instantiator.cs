@@ -398,6 +398,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kShareLanesHousehold = false;  // sharelaneshh: sharelanes for household and selected Sims too, as the arriving Sim and as a Sim that holds the lane
         [Tunable] public static bool kLadderShare = false;  // laddershare (docs/686 §8): a ladder climb does not wait for its turn in the ladder's one-climber line; Sims climb at the same time and through each other
         [Tunable] public static bool kLadderShareHousehold = false;  // laddersharehh: laddershare for household and selected Sims too
+        [Tunable] public static bool kSpiralShare = false;  // spiralshare (docs/686 §8): a spiral staircase's one lane is given to a Sim coming the other way too, and the walk does not wait for its turn in the staircase's line; Sims walk it at the same time and through each other
+        [Tunable] public static bool kSpiralShareHousehold = false;  // spiralsharehh: spiralshare for household and selected Sims too
         [Tunable] public static bool kSimPass = false;  // simpass (docs/686 §8): a walking Sim that meets only Sims (none of them at the route's end) starts the game's ignore-obstacles timer and walks through them instead of running the obstacle stand-and-wait
         [Tunable] public static bool kSimPassHousehold = false;  // simpasshh: simpass for household and selected Sims too, as the walker and as a Sim walked through
         [Tunable] public static float kSimPassMinutes = 3f;  // simpass: sim-minutes the ignore-obstacles timer runs per start (the game's own value after a portal is 5)

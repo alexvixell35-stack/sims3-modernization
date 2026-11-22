@@ -1325,7 +1325,9 @@ namespace Ts3Fixes
         // tenths of sim-minutes waited / of them household / waits given up / stand-and-wait at a portal closed by standing Sims: passed / would / locked without
         // people too / ladder line skipped / would / exempt / simpass at the obstacle event / at the wait / would / exempt / kept (an object, or a Sim at the route's
         // end) / angleentry stairs / ladder / would / kept (exempt, or the approach plan failed).
-        const int kCounterSlots = 4390;
+        // [4390-4397] spiralshare (ShareLanes.cs, docs/686 §8): lane locks the game refused on spiral stairs / of them by the direction test only / shared / would
+        // share, off / exempt (household without its switch) / the staircase's line skipped / would (somebody in the line), off / exempt.
+        const int kCounterSlots = 4398;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1626,6 +1628,8 @@ namespace Ts3Fixes
                 case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off
                 case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
                 case "laddersharehh": return Instantiator.kLadderShareHousehold;  // ShareLanes.cs: laddershare for household and selected Sims too, off
+                case "spiralshare": return Instantiator.kSpiralShare;  // ShareLanes.cs (docs/686 §8): a spiral staircase's one lane is shared in both directions and its walk does not wait for its turn in the staircase's line, off
+                case "spiralsharehh": return Instantiator.kSpiralShareHousehold;  // ShareLanes.cs: spiralshare for household and selected Sims too, off
                 case "simpass": return Instantiator.kSimPass;  // ShareLanes.cs (docs/686 §8): a walking Sim with only Sims in its way walks through them (the game's ignore-obstacles timer) instead of the stand-and-wait, off
                 case "simpasshh": return Instantiator.kSimPassHousehold;  // ShareLanes.cs: simpass for household and selected Sims too (as walker and as the Sim walked through), off
                 case "angleentry": return Instantiator.kAngleEntry;  // ShareLanes.cs (docs/686 §8): stairs and ladders climbed from below are approached by a point plan without facing, off
