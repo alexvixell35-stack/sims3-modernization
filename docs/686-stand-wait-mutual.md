@@ -609,7 +609,7 @@ stopped / snap out to a found spot / kept: cooling down. Lines `blockeduse: <who
 - Pass: 4426 = 0, no `blockeduse: error at` line, no new script errors, the Sim ends on a routable spot after use
   (4420 or 4421 follows every 4418 / 4419), no Sim left standing in a wall, `gohere` lines unchanged.
 
-## 11. Pets block less and get blocked less (`petrelax`, `petrelaxhh`; 2026-11-22, `feat/petrelax-1122`, built, default off, NOT RUN)
+## 11. Pets block less and get blocked less (`petrelax`, `petrelaxhh`; 2026-11-22, `feat/petrelax-1122`, built, default off, rule 1 and 2 run §11.6)
 
 A player's wish: pets block Sims and get blocked a lot, be less strict with them; clipping is fine. No teleport,
 every Sim and pet walks its own route. `PetRelax.cs`, rules in `PetRelaxCore.cs`, counters 4430-4445, check
@@ -688,7 +688,29 @@ the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the li
   a lane end. By eye: a cat napping in a doorway (Sims pass through it), a dog following its Sim through a door, a
   pet lying down at a stair foot (walks off first).
 
-## 12. A chore whose spot is closed is done from within reach (`reachuse`, `reachusehh`; 2026-11-22, `feat/reachuse-1122`, built, default off, NOT RUN)
+### 11.6 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Repro `petrelax-force` (run `pr-r1`, and by hand in session `fr-m1`): a house built with the real tools, a corridor
+one tile wide and two long between two closed cells, a household dog adopted out of EA's pool (`pet_adopt {active}`)
+and ordered to lie in the corridor with the player's own order (`Lay Down Here` on the floor, the dog selected).
+
+| | off | on (`petrelax petrelaxhh`) |
+|---|---|---|
+| Go Here past the dog | `Plan ... FailedBecauseNoPathToDestination, blocker Object ... PetSurfaceFloorJig`; the game's Go Here then walks to 1.0 m before the dog and stops | `Plan ... Succeeded, path 3.6 m`, `petrelax: ... walked through at the obstacle event: <dog> (none)`, arrived 0.0 m from the goal after 5.4 s |
+| Back again | a Sim behind the dog cannot leave (same failed plan, by hand) | `path 2.4 m`, walked through, arrived after 3.7 s |
+| Counters | would (4437) up | 4430 = 2, 4434 = 4, errors 0 |
+
+- Rule 2 (the jig on the route's ignore list) is what lets the plan through; the jig stays locked with its own key
+  (`RoutingFootprintLocking`, read back by `pet_jigs`), and the plan succeeds all the same. §11.4's first limit is
+  settled. Rule 1 then passes the dog itself at the obstacle event.
+- After the walk the game queued its own `Move Away` for the Sim standing next to the dog (`RouteAway`,
+  `destination accepted`), which is the game's push and no part of the rule.
+- Not a case: a doorway without depth (a gap in a wall line). The game's `FindGoodLocationNearby` puts the jig
+  beside it and the Sim walks through in both arms.
+- Open: rule 3 (no lie-down on a lane end) and a walking pet behind Sims did not run; a dog standing idle is pushed by
+  the game itself.
+
+## 12. A chore whose spot is closed is done from within reach (`reachuse`, `reachusehh`; 2026-11-22, `feat/reachuse-1122`, built, default off, rule 1 run for a pile §12.7)
 
 A player's wish: a firefighter, a maid or a Sim cleaning should do the job from a step further away when the place
 is blocked, not give up. `ReachUse.cs`, rules in `ReachUseCore.cs`, counters 4446-4461, check
@@ -826,6 +848,33 @@ plans.
   `ReachUseCheck lot` lists the puddles, burnt tiles, fires, piles and plants the game's plan cannot reach and
   whether a place in reach exists. By eye: a puddle in a nook behind a chair (mopped from the open side), a
   kitchen fire behind a counter with the firefighter called.
+
+### 12.7 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+**When the game fails at all.** Every ring above starts at about 1 m and has no outer limit, so a pile or puddle
+ringed by furniture in a big room is done from any free place of that room, 2 m away or more. The game's plan only
+fails where the target's room has no place 1 m away that can be stood on. By hand (session `fr-m1`): a nook ringed
+by fridges (cleaned from exactly 1.0 m), a closet 1 x 2 with the pile in its middle (cleaned from the far wall,
+exactly 1.0 m), a closet 1 x 1 (cannot be entered, the door is the blocker; the game fails and the rule keeps: "no
+place within 2.0 m can be walked to", the places outside are behind the wall).
+
+**Repro `reachuse-force`** (run `ru-r2`): a closet one tile wide and two deep, a trash pile 1.3 m behind its door.
+
+| | off | on (`reachuse reachusehh`) |
+|---|---|---|
+| Clean Up, Sim at the mailbox | `routefail: ... DisposeTrash target TrashPile, Plan ... FailedBecauseNoPathToDestination blocker Object ... DoorSingleCountry`; the pile stays | the same failed plan, then `reachuse: selected Bea Reach, DisposeTrash -> TrashPile at ... (small, FailedBecauseNoPathToDestination): from 0.0 m at ..., walked up`; the pile is carried to the outdoor can |
+| Counters | tries (4446) 1, would (4447) 1 | small (4451) 1, errors 0 |
+| `ReachUseCheck lot` after | targets 1, closed 1, in reach 1 | targets 0 |
+
+- The Sim walks onto the pile ("from 0.0 m"): the rule's own plan has no least distance for the small kind
+  (`MinDist` 0) and prefers the place nearest the target. The pick-up plays there. Not changed.
+- A puddle on the closet's far tile is mopped by the game itself from the closet's middle: no case.
+- `ReachUseCheck lot` made one plan in any room and read "wall between" for a pile in a closet; it now plans as the
+  rule does, the target's room first, with the game's 1 m ring for piles (fixed, check only).
+- Open [inferred, not run]: for a puddle the rule may end within 0.6 m of the tile's centre, where the game's
+  `PuddleManager.CanMopPuddle(ignoreSims: false)` counts the mopping Sim itself as blocker and plays the route-fail.
+  No layout in these runs produced a failed mop plan with a place in reach, so it is not changed.
+- Not run: fires, plants, slot chores (rule 3), replans that fail during the walk (most of §12.2's failures).
 
 ## 13. A bed half that cannot be reached is made from the other side (`makebedboth`, `makebedbothhh`; 2026-11-22, `feat/makebedboth-1122`, built, default off, NOT RUN)
 

@@ -123157,11 +123157,11 @@
   },
   {
     "id": "reachuse-force",
-    "bug": "A puddle on a tile enclosed by furniture: Terrain.Mopping.RouteToPuddle's plan (a ring from 1 m in the puddle's room) fails, the game plays the route-fail balloon and the puddle stays (docs/686 §12)",
+    "bug": "A trash pile in a closet one tile wide and two deep, 1.3 m behind the door: CarrySystem.PickUp's walk (RouteToObjectRadius, a ring from 1 m round the pile in the pile's room, no outer limit) has no place 1 m away that a Sim can stand on, the plan fails, the game plays the route-fail balloon and the pile stays (docs/686 §12)",
     "fix": "ts3fixes ReachUse.cs: reachuse + reachusehh (default off), docs/686 §12",
     "save": "any world with a vacant empty lot of 16 x 16 tiles (Sunset Valley new game; the household is made by the repro)",
-    "note": "NOT A REPRO YET (run ru-r1, 2026-11-22, Sunset Valley): the room and the block build (build_layout passed in 46 s) and add_puddle wets the tile, but 'ReachUseCheck lot' says 'targets 1, closed to the game's plan 0': the game's mop plan succeeds (its ring starts at 1 m and has no outer limit, so any free place of the room serves; end tables may also leave gaps), and the terrain menu at the enclosed tile offers no Mop ('no interaction matching mop'; on open floor the same step queued 'Mop Up Puddle' and the puddle was mopped). A forced case needs a puddle whose whole room is closed to the Sim, or a pile (RouteToObjectRadius) instead. A two-Sim household on an empty lot, a room built with the real tools (build_layout): a 3 x 3 block, seven end tables and a fridge round one free tile. Per arm ('mem: reachuse-<arm>' in ts3native.log) add_puddle (the game's PuddleManager.AddPuddle) wets the free tile and the active Sim is ordered to mop it through the terrain's menu. The nearest free tile is 2 m from the puddle (reach for mopping: 2.5 m).",
-    "expect": "off arm: 'routefail: ... MopPuddle', counters 4446 (tries) and would up, the puddle stays ('ReachUseCheck lot' targets 1). on arm: 'reachuse: ... from N m', the Sim mops from outside the block, targets 0, no error line.",
+    "note": "VERIFIED 2026-11-22 (Deck, Sunset Valley new game): automated run ru-r2 (exit 0, phase-20261122-1550), docs/686 §12.7. What the first design (ru-r1) missed: every chore ring of the game starts at about 1 m and has no outer limit (RadialRangeDestination.mfMaxRadius -1), in the target's room; a target ringed by furniture in a big room is done from any free place of the room, so the game only fails where the target's room has no place 1 m away. Tried by hand in session fr-m1 (phase-20261122-1451): a nook ringed by fridges (the game cleans from a place exactly 1.0 m away), a closet 1 x 1 (cannot be entered at all, the door is the blocker: the game fails and reachuse keeps, 'no place within 2.0 m can be walked to'), a closet 1 x 2 with the pile in its middle (the game stands at the far wall, exactly 1.0 m away). This entry: a closet 1 x 2 (build_layout map E / E, margin 0, the door on its short wall), the pile 1.3 m behind the door (add_trash, the game's own TrashPileIndoor object): the far wall is 0.7 m from the pile and the places 1 m away lie in the doorway. A puddle on the closet's far tile is no case: the game mops it from the closet's middle (run ru-r2, which had that probe as extra steps). Objects moved with set_transform after buy_object did not close a tile to routing (fr-m1), so layouts are built with build_layout only.",
+    "expect": "off arm: 'routefail: ... DisposeTrash target TrashPile, Plan ... FailedBecauseNoPathToDestination blocker Object ... DoorSingleCountry', counters 4446 (tries) and 4447 (would) up, 'reachuse lot: TrashPile (small) ... closed, a place in reach ...; targets 1' after. on arm: 'reachuse: selected <Sim>, DisposeTrash -> TrashPile at ... (small, FailedBecauseNoPathToDestination): from 0.0 m at ..., walked up', small (4451) up, the Sim carries the pile to the outdoor can, 'targets 0' after, errors 0.",
     "steps": [
       {
         "cmd": "make_household",
@@ -123229,35 +123229,23 @@
           "speed": "normal"
         },
         "waitS": 2,
-        "note": "speed x1 before the build: its Go Here to X needs a running clock (the Deck runner's idle phase is paused)"
+        "note": "speed x1 before the build (the Deck runner's idle phase is paused)"
       },
       {
         "cmd": "build_layout",
         "args": {
           "map": [
-            "E E E E E E",
-            "E n n n E E",
-            "E n E n E E",
-            "E n a n E X",
-            "E E E E E E"
+            "E",
+            "E"
           ],
           "house": true,
+          "margin": 0,
           "origin": [
             6,
             6
           ],
           "roof": false,
           "lights": 0,
-          "legend": {
-            "n": {
-              "name": "end table"
-            },
-            "a": {
-              "name": "fridge",
-              "class": "Fridge",
-              "facing": "S"
-            }
-          },
           "sim_timeout_s": 120
         },
         "waitS": 3,
@@ -123276,7 +123264,16 @@
           "everyS": 3,
           "maxS": 300
         },
-        "note": "room 6x5: seven end tables and a fridge round one free tile"
+        "note": "closet 1x2 with a door on its short wall"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuselog": true,
+          "routefaillog": true
+        },
+        "note": "log lines on",
+        "waitS": 1
       },
       {
         "cmd": "set_speed",
@@ -123285,6 +123282,16 @@
         },
         "waitS": 2,
         "note": "speed x1"
+      },
+      {
+        "cmd": "add_trash",
+        "args": {
+          "near": "@type:Door",
+          "forward": -1.3
+        },
+        "note": "a trash pile 1.3 m behind the door (room must not be 0)",
+        "max": 400,
+        "waitS": 2
       },
       {
         "cmd": "patches",
@@ -123303,29 +123310,14 @@
         "note": "log marker reachuse-off"
       },
       {
-        "cmd": "setup_sims",
+        "cmd": "go_here",
         "args": {
-          "sims": [
-            "active"
-          ],
-          "teleport": false,
-          "autonomy": false,
-          "near": "@type:Door"
+          "target": "@type:Mailbox"
         },
-        "note": "off queue cancelled, autonomy off",
-        "max": 400,
-        "waitS": 4,
+        "note": "off start: the Sim at the mailbox",
+        "max": 200,
+        "waitS": 14,
         "optional": true
-      },
-      {
-        "cmd": "add_puddle",
-        "args": {
-          "near": "@type:Fridge",
-          "forward": -1
-        },
-        "note": "off: a puddle on the tile behind the fridge, enclosed by seven end tables and the fridge",
-        "max": 600,
-        "waitS": 2
       },
       {
         "cmd": "reflect_call",
@@ -123335,21 +123327,19 @@
             "lot"
           ]
         },
-        "note": "off before: the puddle must be a target the game cannot plan to, with a place in reach",
-        "max": 4000,
+        "note": "off before: the pile is a target",
+        "max": 900,
         "waitS": 2
       },
       {
-        "cmd": "add_puddle",
+        "cmd": "do_interaction",
         "args": {
-          "near": "@type:Fridge",
-          "forward": -1,
-          "no_add": true,
-          "order": "mop"
+          "target": "@type:TrashPile",
+          "interaction": "def:DisposeTrash"
         },
-        "note": "off order: Mop (the terrain's pie menu at the puddle)",
-        "max": 900,
-        "waitS": 30
+        "note": "off order: Clean Up (the trash pile's pie menu)",
+        "max": 400,
+        "waitS": 45
       },
       {
         "cmd": "reflect_call",
@@ -123359,9 +123349,9 @@
             "result"
           ]
         },
-        "note": "off at 30 s: off = tries and would up; on = 'reachuse: ... from N m'",
+        "note": "off at 45 s: off = tries and would up; on = 'reachuse: ... from N m ..., walked up' and small up",
         "max": 1500,
-        "waitS": 15
+        "waitS": 2
       },
       {
         "cmd": "reflect_call",
@@ -123371,19 +123361,9 @@
             "lot"
           ]
         },
-        "note": "off at 45 s: 'targets 0' = the puddle is mopped, 'targets 1' = it stayed",
-        "max": 4000,
+        "note": "off after: 'targets 1' = the pile stayed, 'targets 0' = cleaned up",
+        "max": 900,
         "waitS": 2
-      },
-      {
-        "cmd": "go_here",
-        "args": {
-          "target": "@type:Door"
-        },
-        "note": "off walk away",
-        "max": 300,
-        "waitS": 10,
-        "optional": true
       },
       {
         "cmd": "patches",
@@ -123402,29 +123382,14 @@
         "note": "log marker reachuse-on"
       },
       {
-        "cmd": "setup_sims",
+        "cmd": "go_here",
         "args": {
-          "sims": [
-            "active"
-          ],
-          "teleport": false,
-          "autonomy": false,
-          "near": "@type:Door"
+          "target": "@type:Mailbox"
         },
-        "note": "on queue cancelled, autonomy off",
-        "max": 400,
-        "waitS": 4,
+        "note": "on start: the Sim at the mailbox",
+        "max": 200,
+        "waitS": 14,
         "optional": true
-      },
-      {
-        "cmd": "add_puddle",
-        "args": {
-          "near": "@type:Fridge",
-          "forward": -1
-        },
-        "note": "on: a puddle on the tile behind the fridge, enclosed by seven end tables and the fridge",
-        "max": 600,
-        "waitS": 2
       },
       {
         "cmd": "reflect_call",
@@ -123434,21 +123399,19 @@
             "lot"
           ]
         },
-        "note": "on before: the puddle must be a target the game cannot plan to, with a place in reach",
-        "max": 4000,
+        "note": "on before: the pile is a target",
+        "max": 900,
         "waitS": 2
       },
       {
-        "cmd": "add_puddle",
+        "cmd": "do_interaction",
         "args": {
-          "near": "@type:Fridge",
-          "forward": -1,
-          "no_add": true,
-          "order": "mop"
+          "target": "@type:TrashPile",
+          "interaction": "def:DisposeTrash"
         },
-        "note": "on order: Mop (the terrain's pie menu at the puddle)",
-        "max": 900,
-        "waitS": 30
+        "note": "on order: Clean Up (the trash pile's pie menu)",
+        "max": 400,
+        "waitS": 45
       },
       {
         "cmd": "reflect_call",
@@ -123458,9 +123421,9 @@
             "result"
           ]
         },
-        "note": "on at 30 s: off = tries and would up; on = 'reachuse: ... from N m'",
+        "note": "on at 45 s: off = tries and would up; on = 'reachuse: ... from N m ..., walked up' and small up",
         "max": 1500,
-        "waitS": 15
+        "waitS": 2
       },
       {
         "cmd": "reflect_call",
@@ -123470,19 +123433,9 @@
             "lot"
           ]
         },
-        "note": "on at 45 s: 'targets 0' = the puddle is mopped, 'targets 1' = it stayed",
-        "max": 4000,
+        "note": "on after: 'targets 1' = the pile stayed, 'targets 0' = cleaned up",
+        "max": 900,
         "waitS": 2
-      },
-      {
-        "cmd": "go_here",
-        "args": {
-          "target": "@type:Door"
-        },
-        "note": "on walk away",
-        "max": 300,
-        "waitS": 10,
-        "optional": true
       }
     ],
     "cleanup": [
@@ -123491,6 +123444,366 @@
         "args": {
           "reachuse": false,
           "reachusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "petrelax-force",
+    "bug": "A household dog lying in a corridor one tile wide: PetSurfacePosture.LayDownHere puts a PetSurfaceFloorJig under it whose routing footprint only the pet's own route ignores, so the corridor is closed to every other Sim (docs/686 §11.1 row 2)",
+    "fix": "ts3fixes PetRelax.cs: petrelax + petrelaxhh (default off), docs/686 §11",
+    "save": "any world with a vacant empty lot of 16 x 16 tiles and Pets (Sunset Valley new game; household and dog are made by the repro)",
+    "note": "VERIFIED 2026-11-22 (Deck, Sunset Valley new game): automated run pr-r1 (exit 0, phase-20261122-1539) and by hand in session fr-m1 (phase-20261122-1451), docs/686 §11.6. A house 5 x 4 built with the real tools: a door row, a corridor one tile wide and two long between two closed cells, a back row. pet_adopt {active} gives the household a grown dog out of EA's adoption pool; the player's order 'Lay Down Here' on the corridor floor (order_at, the terrain pie menu with the dog selected) makes it lie there. Places are given from the door (go_at / order_at: forward negative = into the house). Off: the Sim's plan fails with the jig as blocker and the game's Go Here walks to 1 m before the dog; a Sim behind the dog cannot get out either. On: the plan succeeds, 'petrelax: ... walked through at the obstacle event: <dog>', the Sim arrives. Not a case: a doorway (a wall gap has no depth, the game puts the jig beside it), and Go Here goals inside the closed cells answer FailedBecauseNoDestinationSpecified in both arms.",
+    "expect": "off arm: 'gohere plan: ... FailedBecauseNoPathToDestination, failed blocker Object ... PetSurfaceFloorJig', 'gohere end: ... 1.0 m from goal', the Sim about 1 m from the door wall side of the dog. on arm: 'gohere plan: ... Succeeded ... path 3.x m', 'petrelax: Bea Petway selected, GoHere target Terrain: walked through at the obstacle event: <dog> (none)', 'gohere end: ... 0.0 m from goal', counters 4430 (walked through at the obstacle event) and 4434 (routes given the pass through lying pets) up, errors 0; the walk back passes the dog again.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Petway",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Petway",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Petway",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "Edit Town: two-Sim household on a vacant empty lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Petway"
+        },
+        "waitS": 30,
+        "note": "Edit Town: Change Active Household"
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1,
+        "note": "daylight"
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "nothing but the orders moves the Sims"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1 before the build (the Deck runner's idle phase is paused)"
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E",
+            "w w w E w w w",
+            "E E w E w E E",
+            "E E w E w E E",
+            "w w w E w w w",
+            "E E E X E E E"
+          ],
+          "house": true,
+          "margin": 0,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "sim_timeout_s": 120
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        },
+        "note": "house 5x4: door row, a corridor one tile wide and two long between two closed cells, back row"
+      },
+      {
+        "cmd": "pet_adopt",
+        "args": {
+          "active": true,
+          "species": "dog"
+        },
+        "note": "the household adopts a grown dog out of EA's pool (a player adopts by phone)",
+        "max": 500,
+        "waitS": 4
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "the dog too: nothing but the orders",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelaxlog": true,
+          "standwaitlog": true,
+          "routefaillog": true
+        },
+        "note": "log lines on",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "speed x1"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "pet"
+        },
+        "note": "the dog's queue empty",
+        "waitS": 3,
+        "optional": true
+      },
+      {
+        "cmd": "order_at",
+        "args": {
+          "near": "@type:Door",
+          "forward": -2.0,
+          "order": "def:LayDownHere+Definition",
+          "sim": "pet"
+        },
+        "note": "the player's order to the dog: Lay Down Here, on the corridor floor",
+        "max": 400,
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "the dog must lie on the floor (else the arms prove nothing)",
+        "max": 900,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
+        },
+        "note": "arm off: petrelax + petrelaxhh off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "petrelax-off"
+        },
+        "note": "log marker petrelax-off"
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "near": "@type:Door",
+          "forward": -0.9,
+          "right": 1.0
+        },
+        "note": "off start: the Sim on the door side of the corridor",
+        "max": 300,
+        "waitS": 9
+      },
+      {
+        "cmd": "pet_jigs",
+        "args": {},
+        "note": "off before: the dog's floor jig in the corridor (locked = the game's state)",
+        "max": 500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "near": "@type:Door",
+          "forward": -3.7
+        },
+        "note": "off order: Go Here to the far end of the corridor, past the lying dog",
+        "max": 300,
+        "waitS": 12
+      },
+      {
+        "cmd": "object_details",
+        "args": {
+          "target": "Bea Petway"
+        },
+        "note": "off at 12 s: where the Sim stands (door wall + 3.7 m = arrived; + 1 m = stopped before the dog)",
+        "max": 260,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off counters: on = 'walked through at the obstacle event' and 'routes given the pass through lying pets' up",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": true,
+          "petrelaxhh": true
+        },
+        "note": "arm on: petrelax + petrelaxhh on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "petrelax-on"
+        },
+        "note": "log marker petrelax-on"
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "near": "@type:Door",
+          "forward": -0.9,
+          "right": 1.0
+        },
+        "note": "on start: the Sim on the door side of the corridor",
+        "max": 300,
+        "waitS": 9
+      },
+      {
+        "cmd": "pet_jigs",
+        "args": {},
+        "note": "on before: the dog's floor jig in the corridor (locked = the game's state)",
+        "max": 500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "near": "@type:Door",
+          "forward": -3.7
+        },
+        "note": "on order: Go Here to the far end of the corridor, past the lying dog",
+        "max": 300,
+        "waitS": 12
+      },
+      {
+        "cmd": "object_details",
+        "args": {
+          "target": "Bea Petway"
+        },
+        "note": "on at 12 s: where the Sim stands (door wall + 3.7 m = arrived; + 1 m = stopped before the dog)",
+        "max": 260,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on counters: on = 'walked through at the obstacle event' and 'routes given the pass through lying pets' up",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "near": "@type:Door",
+          "forward": -0.9,
+          "right": 1.0
+        },
+        "note": "on back: Go Here to the door side again, through the dog",
+        "max": 300,
+        "waitS": 10
+      },
+      {
+        "cmd": "object_details",
+        "args": {
+          "target": "Bea Petway"
+        },
+        "note": "on back at 10 s",
+        "max": 260,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on back counters",
+        "max": 1500,
+        "waitS": 1
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
         },
         "note": "default off again",
         "waitS": 1

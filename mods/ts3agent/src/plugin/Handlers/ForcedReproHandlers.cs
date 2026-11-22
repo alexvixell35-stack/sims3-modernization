@@ -5,6 +5,7 @@ using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Controllers;
 using Sims3.Gameplay.Autonomy;
+using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects.Beds;
@@ -13,7 +14,7 @@ using Sims3.SimIFace.BuildBuy;
 
 namespace Ts3Agent
 {
-    // Set-up steps of the forced repros of docs/686 §12 and §13 (reachuse-force, makebedboth-force). Test set-up only:
+    // Set-up steps of the forced repros of docs/686 §11-§13 (petrelax-force, reachuse-force, makebedboth-force). Test set-up only:
     // the orders themselves stay the player's (do_interaction).
     public static partial class Handlers
     {
@@ -22,14 +23,15 @@ namespace Ts3Agent
             Dispatcher.Register("add_puddle", AddPuddleNear);
             Dispatcher.Register("bed_setup", BedSetup);
             Dispatcher.Register("put_in_front", PutInFront);
+            Dispatcher.Register("order_at", OrderAt);
+            Dispatcher.Register("add_trash", AddTrash);
+            Dispatcher.Register("pet_jigs", PetJigs);
+            Dispatcher.Register("go_at", GoAt);
         }
 
-        // add_puddle {near: target, forward?: metres along the target's facing (negative = behind), right?: metres,
-        //   no_add?: true, order?: "mop"}: the game's own PuddleManager.AddPuddle at that place; order "mop" then orders the selected Sim
-        //   to mop it through the pie menu at that point (do_interaction on the lot's floor).
-        static object AddPuddleNear(Args a)
+        // The place `forward` metres along the target's facing (negative = behind) and `right` metres to its right.
+        static Vector3 PlaceNear(Args a)
         {
-            RequireLive();
             GameObject t = FindTarget(a, "near");
             Vector3 f = t.ForwardVector;
             f.y = 0f;
@@ -37,7 +39,36 @@ namespace Ts3Agent
             if (len < 0.001f) throw new McpException("the target has no facing");
             f = f * (1f / len);
             Vector3 right = new Vector3(-f.z, 0f, f.x);
-            Vector3 p = t.Position + f * (float)a.Double("forward", 0) + right * (float)a.Double("right", 0);
+            return t.Position + f * (float)a.Double("forward", 0) + right * (float)a.Double("right", 0);
+        }
+
+        // The player's click on a lot's floor at p: the terrain's pie menu with a lot-terrain hit (Terrain.MopPuddle's and
+        // the pets' Lie Down Here tests want it), the entry matching `order` queued for the Sim.
+        static void OrderAtPoint(Sim sim, Vector3 p, string order, Dictionary<string, object> r)
+        {
+            Lot lot = LotManager.GetLotAtPoint(p);
+            if (lot == null) throw new McpException("no lot at the place");
+            GameObjectHit hit = new GameObjectHit(GameObjectHitType.LotTerrain);
+            hit.mPoint = p;
+            hit.mId = lot.LotId;
+            MenuEntry e = MatchEntry(BuildMenu(sim, Terrain.Singleton, hit), order);
+            InteractionInstanceParameters ip = new InteractionInstanceParameters(e.Iop, sim,
+                new InteractionPriority(InteractionPriorityLevel.UserDirected), AutonomySearchType.None,
+                InteractionFlags.UserDirected, hit, null, false);
+            InteractionInstance inst = e.Iop.InteractionDefinition.CreateInstanceFromParameters(ref ip);
+            if (inst == null || !sim.InteractionQueue.Add(inst)) throw new McpException("the game refused to queue '" + e.Label + "'");
+            r["queued"] = e.Label;
+            r["actor"] = sim.FullName;
+            r["queue"] = QueueList(sim);
+        }
+
+        // add_puddle {near: target, forward?: metres along the target's facing (negative = behind), right?: metres,
+        //   no_add?: true, order?: "mop"}: the game's own PuddleManager.AddPuddle at that place; order "mop" then orders the selected Sim
+        //   to mop it through the pie menu at that point.
+        static object AddPuddleNear(Args a)
+        {
+            RequireLive();
+            Vector3 p = PlaceNear(a);
             Dictionary<string, object> r = Util.Obj();
             r["pos"] = Pos(p);
             if (!a.Bool("no_add", false))
@@ -45,25 +76,107 @@ namespace Ts3Agent
                 LotLocation loc = PuddleManager.AddPuddle(p);
                 r["added"] = loc != LotLocation.Invalid;
             }
-            Lot lot = LotManager.GetLotAtPoint(p);
             string order = a.Str("order", null);
-            if (order != null)
+            if (order != null) OrderAtPoint(Util.ActiveSim(), p, order, r);
+            return r;
+        }
+
+        // sim: a name or id, "pet" = the active household's first pet in the world (an adopted pet's name is the pool's), default the selected Sim
+        static Sim OrderSim(Args a)
+        {
+            if (!a.Has("sim")) return Util.ActiveSim();
+            if (a.Str("sim").Trim().ToLowerInvariant() != "pet") return Util.FindSim(a, "sim");
+            Household hh = Household.ActiveHousehold;
+            if (hh != null)
+                foreach (Sim s in hh.AllActors)
+                    if (s != null && s.IsPet && s.InWorld) return s;
+            throw new McpException("the active household has no pet in the world");
+        }
+
+        // go_at {near: target, forward?, right?, sim?: as order_at, exact?: true}: go_here to the place given from a target
+        //   (the door of a built layout), the same Go Here order.
+        static object GoAt(Args a)
+        {
+            RequireLive();
+            Vector3 p = PlaceNear(a);
+            Dictionary<string, object> q = new Dictionary<string, object>();
+            q["sim"] = OrderSim(a).FullName;
+            q["x"] = (double)p.x; q["y"] = (double)p.y; q["z"] = (double)p.z;
+            q["exact"] = a.Bool("exact", true);
+            Dictionary<string, object> r = Util.Obj();
+            r["pos"] = Pos(p);
+            r["queue"] = GoHere(new Args(q));
+            return r;
+        }
+
+        // order_at {near: target, forward?, right?, order: menu label part or "def:<class>", sim?: as OrderSim,
+        //   list?: true}: the player's click on the floor at that place and the pie menu entry (a pet's Lie Down Here, Go Here
+        //   is go_here). list: the menu's entries instead of an order.
+        static object OrderAt(Args a)
+        {
+            RequireLive();
+            Vector3 p = PlaceNear(a);
+            Sim sim = OrderSim(a);
+            Dictionary<string, object> r = Util.Obj();
+            r["pos"] = Pos(p);
+            if (a.Bool("list", false))
             {
-                if (lot == null) throw new McpException("no lot at the puddle's place");
-                // the player's click on a lot's floor: the terrain's menu with a lot-terrain hit (Terrain.MopPuddle's Test wants it)
-                Sim sim = Util.ActiveSim();
+                Lot lot = LotManager.GetLotAtPoint(p);
+                if (lot == null) throw new McpException("no lot at the place");
                 GameObjectHit hit = new GameObjectHit(GameObjectHitType.LotTerrain);
                 hit.mPoint = p;
                 hit.mId = lot.LotId;
-                MenuEntry e = MatchEntry(BuildMenu(sim, Terrain.Singleton, hit), order);
-                InteractionInstanceParameters ip = new InteractionInstanceParameters(e.Iop, sim,
-                    new InteractionPriority(InteractionPriorityLevel.UserDirected), AutonomySearchType.None,
-                    InteractionFlags.UserDirected, hit, null, false);
-                InteractionInstance inst = e.Iop.InteractionDefinition.CreateInstanceFromParameters(ref ip);
-                if (inst == null || !sim.InteractionQueue.Add(inst)) throw new McpException("the game refused to queue '" + e.Label + "'");
-                r["queued"] = e.Label;
-                r["queue"] = QueueList(sim);
+                List<object> rows = new List<object>();
+                foreach (MenuEntry e in BuildMenu(sim, Terrain.Singleton, hit))
+                    rows.Add(e.Label + " [" + (e.Iop != null && e.Iop.InteractionDefinition != null ? e.Iop.InteractionDefinition.GetType().FullName : "?") + "]" + (e.Enabled ? "" : " (off)"));
+                r["menu"] = rows;
+                return r;
             }
+            OrderAtPoint(sim, p, a.Str("order"), r);
+            return r;
+        }
+
+        // add_trash {near: target, forward?, right?}: a trash pile on the floor at that place, as the game makes one
+        //   (GlobalFunctions.CreateObject("TrashPileIndoor", ...), TrashPile.CreateFairyTrapTrashPiles' object).
+        static object AddTrash(Args a)
+        {
+            RequireLive();
+            Vector3 p = PlaceNear(a);
+            LotLocation loc = default(LotLocation);
+            World.GetLotLocationAtFloor(p, ref loc);
+            GameObject g = GlobalFunctions.CreateObject("TrashPileIndoor", p, loc.mLevel, Vector3.UnitZ) as GameObject;
+            if (g == null) throw new McpException("the game made no trash pile");
+            CreatedObjects().Add(g.ObjectId.Value);
+            Dictionary<string, object> r = Util.Obj();
+            r["id"] = Util.Id(g.ObjectId.Value);
+            r["type"] = g.GetType().Name;
+            r["pos"] = Pos(g.Position);
+            r["room"] = g.RoomId;
+            r["in_world"] = g.InWorld;
+            return r;
+        }
+
+        // pet_jigs {unlock?: true}: the floor jigs of lying pets on the selected Sim's lot: place, pet, and whether the
+        //   jig's routing footprint is locked with its own id as key (SocialJig.OnStartup). unlock: a probe, not a player
+        //   step: takes that lock off (RoutingFootprintLocking.RemoveLockKey), to see what the lock does to other Sims' plans.
+        static object PetJigs(Args a)
+        {
+            RequireLive();
+            Lot lot = Util.ActiveSim().LotCurrent;
+            List<object> rows = new List<object>();
+            if (lot != null)
+                foreach (Sims3.Gameplay.ActorSystems.PetSurfacePosture.PetSurfaceFloorJig j in lot.GetObjects<Sims3.Gameplay.ActorSystems.PetSurfacePosture.PetSurfaceFloorJig>())
+                {
+                    Dictionary<string, object> o = Util.Obj();
+                    o["id"] = Util.Id(j.ObjectId.Value);
+                    o["at"] = Pos(j.Position);
+                    o["pet"] = j.ContainedSim != null ? j.ContainedSim.FullName : null;
+                    if (a.Bool("unlock", false)) RoutingFootprintLocking.RemoveLockKey(j.ObjectId, RoutingFootprintLocking.LockType.MustHaveKey, j.ObjectId.Value);
+                    o["locked"] = RoutingFootprintLocking.HasLockKey(j.ObjectId, RoutingFootprintLocking.LockType.MustHaveKey, j.ObjectId.Value);
+                    rows.Add(o);
+                }
+            Dictionary<string, object> r = Util.Obj();
+            r["jigs"] = rows;
             return r;
         }
 

@@ -658,7 +658,9 @@ namespace Ts3Agent
         // plans only, nothing walks: what routing now says about each object's slot, from the Sim's tile
         static void LaySlots(Lay l, Dictionary<string, object> r)
         {
-            List<object> objs = r["objects"] as List<object>;
+            // a map without items never went to Buy mode and has no "objects" (1x1 closet, the corridor of petrelax-force, 2026-11-22: KeyNotFoundException)
+            object listed;
+            List<object> objs = r.TryGetValue("objects", out listed) ? listed as List<object> : null;
             if (objs == null) return;
             Sim s = Util.ActiveSim();
             foreach (object x in objs)
