@@ -98982,6 +98982,89 @@
     ]
   },
   {
+    "id": "fire-door-keep",
+    "bug": "Firefighter emergencies and door locks: FireFightingJob.CleanUpJob unlocks only for JobId.LargeFires, and then every locked door of the lot (SetLockType(Anybody) on any lock type), so the household's own locks, resort VIP room doors and the lot's Nobody doors (apartment NPC doors) are lost and a one-way door the job locked loses its room; a trapped-Sim lock (LockDoorsInRoom) from any other job id stays Nobody for good (docs/864, docs/570 §2 row 5)",
+    "fix": "ts3fixes FireDoorKeep.cs: firedoorkeep (default off), docs/864",
+    "save": "any world with Ambitions (pure check)",
+    "note": "FireDoorKeepCheck 'run' puts the reported layouts and controls through FdkCore.Restore (read-only); 'jobs' lists every firefighter job id's task kinds with count bounds (which ids roll TrappedSims tasks and so lock doors). End to end: testingcheatsenabled, a LargeFires job (debug Spawn Job) on a lot with a locked door (the household's home with a household lock, or a resort VIP room); after the job, off: 2189 up and the door unlocked; on: 2187 up and the lock kept.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2190 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "jobs"
+          ]
+        },
+        "waitS": 2,
+        "note": "which job ids trap Sims"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": false
+        }
+      }
+    ]
+  },
+  {
     "id": "fire-trap-count",
     "bug": "Firefighter large fire / earthquake: a trapped Sim who leaves the lot (or is deleted) unfreed keeps its 'free N Sims' task, and on apartment lots trap spots include hidden neighbour units nobody can enter; the count cannot be met and the job times out (docs/570 §5)",
     "fix": "ts3fixes FireTrapCount.cs: firetrapcount (default off), docs/570 §5",

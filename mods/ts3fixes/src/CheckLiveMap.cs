@@ -174,6 +174,7 @@ namespace Ts3Fixes
                 case "fightbroadcastend": return EpLive(typeof(BFbHook), 1);
                 case "fightstaycap": return EpLive(typeof(FightStayCapHook), 1);
                 case "filtergridleak": return EpLive(typeof(FglHook), 0);
+                case "firedoorkeep": return EpLive(typeof(FdkJobHook), 2);
                 case "firefightercount": return EpLive(typeof(B13FcHook), 1, "sFcMax", sFcMax, 0);
                 case "firepitchair": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "fireplaceherb": return EpLive(typeof(FphAddHook), 1);

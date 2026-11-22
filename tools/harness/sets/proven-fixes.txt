@@ -71,3 +71,5 @@
 #   fireleftover
 # EA bug fix: apartment job targets: earthquake gas leak in a hidden unit dropped; ghost-hunter spirit hop never lands in a hidden unit (docs/863, 2026-11-21), default off, NOT RUN:
 #   aptgasleak aptpossess
+# EA bug fix: firefighter jobs keep the lot's door locks (large-fire cleanup) and undo their own locks after other job types (docs/864, 2026-11-22), default off, NOT RUN:
+#   firedoorkeep
