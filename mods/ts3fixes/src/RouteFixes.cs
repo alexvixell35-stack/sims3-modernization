@@ -91,6 +91,7 @@ namespace Ts3Fixes
                     r.SetOption(Route.RouteOption.ReplanToFindObstacleWhenPathPlanFails, false);
                     PatchCounters()[29]++;
                 }
+                PrxRoute(OwnerSim, r);  // petrelax (PetRelax.cs, docs/686 §11), off by default: lying pets' floor jigs are not obstacles
             }
             public void SetRouteOptionsOrig(Route r, uint ageGenderFlags) { } // receives SetRouteOptions' original header
 

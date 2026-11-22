@@ -189,6 +189,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kClipWaitMinutes value="3" />
     <kClipWaitObjectDest value="True" />
     <kClipWaitLog value="False" />
+    <kPetRelax value="False" />
+    <kPetRelaxHousehold value="False" />
+    <kPetRelaxMinutes value="3" />
+    <kPetRelaxPortalClear value="1.25" />
+    <kPetRelaxLog value="False" />
     <kAngleEntry value="False" />
     <kAngleEntryHousehold value="False" />
     <kLaneWaitLog value="False" />

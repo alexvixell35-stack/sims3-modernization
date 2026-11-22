@@ -58,6 +58,7 @@ namespace Ts3Fixes
             public int WouldYield, WouldPush, WouldPass;
             public bool Yielded, Passed, Exempt, On, PushAcceptedLast;
             public bool ClwCounted;  // ClipWait.cs: this wait is in its counters
+            public bool PrxCounted;  // PetRelax.cs: this wait is in its kept / would counters
             // StandWaitLocked.cs: cycles with a locked destination portal / of them a privacy lock / such cycles in a row
             public int Locked, Privacy, LockRun, LockKind, GaveUpCycle, WouldGiveUp, ClearedCycle;
             public bool GaveUp, LockOn, LockExempt;
@@ -113,7 +114,7 @@ namespace Ts3Fixes
 
             public RouteAction.ActionResult PerformHook()
             {
-                // simpass (ShareLanes.cs, docs/686 §8), off by default: only Sims in the way = walk on, no wait
+                // simpass (ShareLanes.cs, docs/686 §8) and petrelax (PetRelax.cs, §11), off by default: only Sims or pets in the way = walk on, no wait
                 if (SpsAction(mRoutingSim, mInterruptedPath)) return RouteAction.ActionResult.ContinueAndFollowPath;
                 SwfBegin(this, mRoutingSim);
                 try { return PerformOrig(); }

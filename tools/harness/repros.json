@@ -116876,6 +116876,86 @@
     ]
   },
   {
+    "id": "petrelax-check",
+    "bug": "Pets block Sims and get blocked: a pet in an interaction (nap, sit, beg, follow) cannot be pushed, so a Sim or pet that meets it stands in the obstacle or destination stand-and-wait; a pet lying on the floor is an object for every other Sim's plan (its floor jig's locked footprint), and it lies down where it stands, doorways and stair feet included (docs/686 §11)",
+    "fix": "ts3fixes PetRelax.cs: petrelax (petrelaxhh for household and selected Sims and pets), default off, docs/686 §11",
+    "save": "any world (pure check)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). PetRelaxCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4430-4445 and the last petrelax: line; 'lot' lists the active lot's pets and each lying pet's distance to a lane end. The behaviour itself is shown by runs on a pet household (docs/686 §11.5).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's wait for a pet",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": true,
+          "petrelaxhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
     "id": "ladderfoot-force",
     "bug": "A Sim that stands on a ladder's lane end closes the ladder: a Sim that walks to it gets 'Replan FailedBecauseDestinationPortalLocked' in EA's stand-and-wait, cycle after cycle (EA's cycle handler returns before it pushes anyone), and gives up; plans that still have to reach the ladder can answer NoPathToDestination (docs/183 §9; Colonial Casa storms, 'routefail strand link: Ladder ... B free (with Sims: sim)').",
     "fix": "ts3fixes LadderFoot.cs: ladderfootshoo + ladderfootshoohh (default off), docs/183 §9",
