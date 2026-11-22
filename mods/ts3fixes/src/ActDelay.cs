@@ -408,6 +408,7 @@ namespace Ts3Fixes
                 sActIn[ActDelayCore.kInSetActor]++;
                 if (sActOn && actor != null) ActAnim(actor);
                 if (sOjsArmed > 0) OjsSetActor(actor);  // docs/686 §14 servingshare (ObjShare.cs): a serving run is open
+                if (sShpArmed > 0) ShpSetActor(actor);  // docs/686 §15 showerpee (ShowerShare.cs): a shower that refills a bladder is open
                 SetActorOrig(actorName, actor);
             }
             public void SetActorOrig(string actorName, IHasScriptProxy actor) { }

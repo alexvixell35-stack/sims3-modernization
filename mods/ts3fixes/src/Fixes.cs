@@ -531,6 +531,7 @@ namespace Ts3Fixes
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth / makebedbothhh, off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
+            ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
             ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
@@ -1356,7 +1357,11 @@ namespace Ts3Fixes
         // rabbit hole enter-slot waits / tenths / timed out (15 sim-min) / cancelled; errors; rhshare: walked to a held slot / would (off) / exempt / kept
         // (holder out of scope, horse, rider, carrier) / left the wait on a cancel / dead reservations removed; servingshare: runs at a busy platter / lines
         // skipped / took with another Sim / would / exempt / kept (a Sim out of scope there) / last serving refused; linewait: line full / shorter waits.
-        const int kCounterSlots = 4494;
+        // [4494-4509] showershare (ShowerShare.cs, docs/686 §15): showertogether: joined a partner in a shower / would (off) / exempt / kept: not romantic
+        // or disliked / kept: a teen or child / kept: other (several Sims, not showering, a third Sim) / exits held for the partner's; errors;
+        // showerpee: bladders refilled in a shower / showers queued at the last warning / failures replaced by a shower / kept: no usable shower /
+        // would / exempt / given back to the game (the shower never began); showertogether: joined in an all-in-one bathroom.
+        const int kCounterSlots = 4510;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1674,6 +1679,11 @@ namespace Ts3Fixes
                 case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off
                 case "makebedbothhh": return Instantiator.kMakeBedBothHousehold;  // MakeBedBoth.cs: the same for household and selected Sims (stands alone), off
                 case "makebedbothlog": return Instantiator.kMakeBedBothLog;  // MakeBedBoth.cs (docs/686 §13): one line per act, off
+                case "showertogether": return Instantiator.kShowerTogether;  // ShowerShare.cs (docs/686 §15): an NPC joins its romantic partner (young adult or older) in a shower or all-in-one bathroom, no line, off
+                case "showertogetherhh": return Instantiator.kShowerTogetherHousehold;  // ShowerShare.cs: the same for household and selected Sims, off
+                case "showerpee": return Instantiator.kShowerPee;  // ShowerShare.cs (docs/686 §15): an NPC that has to pee with no usable toilet on the lot takes a shower that refills its bladder, off
+                case "showerpeehh": return Instantiator.kShowerPeeHousehold;  // ShowerShare.cs: the same for household and selected Sims, off
+                case "showersharelog": return Instantiator.kShowerShareLog;  // ShowerShare.cs: one line per showertogether / showerpee act, off
                 case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
                 case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off
                 case "rhsharehh": return Instantiator.kRhShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off

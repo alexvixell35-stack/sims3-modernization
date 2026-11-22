@@ -1004,3 +1004,112 @@ touched. Source `ObjShare.cs`, rules `ObjShareCore.cs`, counters 4470-4493, `kCo
 - `servingshare-buffet`: a party or a community lot with a buffet table / a platter on a counter and 4+ hungry
   Sims. Off arm: `ServingContainerGroup... line` waits; on arm: 4486 / 4487 up; a platter with 2 servings and 3
   Sims: 4491 once, servings never below 0 (`ObjShareCheck lot`).
+
+## 15. Partners shower together; a Sim with no usable toilet takes a shower (`showertogether`, `showerpee`; 2026-11-22, `feat/showershare-1122`, built, default off, NOT RUN)
+
+A player's wish: romantic Sims shower together (they clip and come out one at a time), also in the all-in-one
+bathroom, and a Sim that has to pee with the toilet busy or no toilet on the lot does it in the shower, as a
+shower: no new interaction. Source `ShowerShare.cs`, rules `ShowerShareCore.cs`, counters 4494-4509,
+`kCounterSlots` 4510, check `ShowerShareCheck`, selftest `tools/selftest/showershare`, repro `showershare-check`.
+
+### 15.1 How the game's shower, all-in-one bathroom and bladder failure work [verified, decompiled `Sims3.Gameplay` unless marked]
+
+- `Shower.TakeShower.Run` (target `IShowerable`: every shower and shower tub): `SimLine.WaitForTurn` (line of 2,
+  waits outside the room's door, evicts after 15 sim-minutes), `RouteToSlotAndCheckInUse(RoutingSlot_0)`, a
+  `ShowerPrivacySituation`, `StandardEntry` (use list), a second walk to the slot, the outfit change, its own
+  "Shower" state machine (actors `x` and `Shower`), `SimInShower = Actor`, the loop until hygiene is full, then
+  `WaitToLeaveShower`, the exit animation and `StandardExit`.
+- `SimRoutingComponent.RouteToSlotAndCheckInUse`: `PreRouteCheckForLine` (asks the line once more, never
+  waiting), `RouteToSlot`, then `InUse` -> exit reason `ObjectInUse`.
+- `WaitToLeaveShower`: `EnableFootprintAndPushSims(824351308, actor)` pushes every other Sim off the exit
+  footprint, then sleeps while `IsRoutingSlotObstructed(actor, RoutingSlot_0)`.
+- Privacy: `ShowerPrivacySituation.OtherSimCanIgnorePrivacy` is true for a Sim in a romantic relationship
+  (`Sim.CanIgnoreNormalPrivacySituationsWith` -> `IsInRomanticRelationshipWith`: the relationship's long-term state
+  is romantic). A partner is neither shooed out nor reacted to; nothing had to change there.
+- The game's own second Sim in a shower is `Shower.WooHoo`: actor `y` on the first Sim's state machine, on
+  `RoutingSlot_0`. There is no "shower with" interaction to unlock, so a partner runs its own Take Shower with
+  its own state machine on the same slot.
+- `AllInOneBathroom.UseAllInOneBathroom`: its line (6, cut ahead of lower priority), the same in-use walk, no
+  privacy situation, a footprint shut while a Sim is inside, the Sim fades out; hygiene and the bladder fill
+  (bladder in 5 sim-minutes). No exit wait.
+- Bladder: `Motive.MotiveDistress(sim, Bladder)` runs when the motive is at its minimum and queues
+  `Sim.BladderFailure` (puddle, embarrassment) unless one is queued. `BuffReallyHasToPee` is added shortly before.
+  Toilets fill the bladder with a motive delta on the interaction (`Motives.LerpToFill`).
+
+### 15.2 What is built
+
+`showertogether` (NPCs) / `showertogetherhh` (household and selected Sims too; both Sims must be in scope):
+
+- Rule (`ShowerShareCore.Join`): exactly one other Sim uses the object or is in its line, it runs the same
+  interaction there (Take Shower, or the all-in-one bathroom's use; not a bath, a repair, a WooHoo), both are
+  humans and no robots, both young adults or older, the game's romantic test holds, and their liking is not
+  below zero.
+- The line: `LdsQueueHook.WaitHook` (sharelanes' swap of `SimQueue.WaitForTurn`) returns at once for such a Sim
+  and notes the two as the object's pair. A third Sim keeps the line.
+- The in-use test: swap of `SimRoutingComponent.RouteToSlotAndCheckInUse` (yields, stub `InUseOrig`). Switch
+  off: the game's body. Switch on: the game's three steps in the hook, with "in use" passing while every Sim
+  using the object is of its pair (so a pair formed during a walk still counts after it). For an all-in-one
+  bathroom the partner's walk first opens the footprint the Sim inside shut.
+- The exit (showers): swap of `GameObject.PushSimsFromFootprint` (yields, stub `PushOrig`) adds the partner to
+  the push's exceptions for footprint 824351308, and swap of `GameObject.IsRoutingSlotObstructed` (8 arguments,
+  no yield, stub `ObstructedOrig`) answers the game's wait for a Sim of a pair: obstructed while the partner
+  plays its exit and is still in the use list (cap 10 sim-minutes), free otherwise. So the partner in the
+  shower does not hold the leaving Sim, and two leaving Sims come out one after the other.
+
+`showerpee` / `showerpeehh`:
+
+- Rule (`ShowerShareCore.Pee`): a human Sim, child or older, no robot, not swimming, on a lot; no toilet, urinal
+  or all-in-one bathroom there that is not broken, not used by another Sim, with nobody else in its line (a
+  urinal only for a male Sim); and a shower that is not broken and free, or held by a partner `showertogether`
+  lets the Sim join.
+- At the last warning (swap of `BuffReallyHasToPee.OnAddition`, stub `AddOrig`): the game's Take Shower is
+  queued next at high priority, unless the Sim is selectable and has orders from the player.
+- At the failure (swap of `Motive.MotiveDistress`, stub `DistressOrig`): the same shower is queued instead of
+  `BladderFailure`, and further distress calls are held back while that shower is queued or runs. A shower that
+  has not begun within 30 sim-minutes, or that left the queue, gives the failure back to the game, and the Sim is
+  not sent again for 60 sim-minutes.
+- The bladder: a Take Shower started by such a Sim (pushed or of its own accord, noted in the line hook) gets a
+  bladder delta when the shower becomes an actor of its state machine (`StateMachineClient.SetActor`, ActDelay's
+  hook; 5 sim-minutes to full), and the bladder is set full when the Sim steps out. Hygiene is the shower's own.
+- An all-in-one bathroom is a toilet for this rule: when it is free the game uses it.
+
+`showersharelog`: one `showertogether:` / `showerpee:` line per act.
+
+### 15.3 Limits [inferred unless marked]
+
+- Not run. Open questions for the first run: whether a walk to `RoutingSlot_0` succeeds while the partner stands
+  on it (the game's own shower WooHoo does exactly that), whether two "Shower" state machines on one shower
+  fight over the door and water effects (they overlap; the first exit closes the door on the second Sim), and
+  whether the all-in-one bathroom's shut footprint covers its routing slot.
+- Autonomy does not offer a shower that is in use, so a join happens for a directed Sim, for a Sim whose shower
+  was queued by `showerpee`, and for a Sim that was already walking there. No autonomy change was made.
+- `SimInShower` is the last Sim that began, and is cleared by the first that ends: "WooHoo in shower" may be
+  missing on the shower until the next shower begins.
+- All-in-one bathroom: no exit wait exists in the game, so both exits may overlap; the second Sim's use starts
+  no second sound, and the first exit stops the sound.
+- A toilet that cannot be reached counts as usable (no route test is made); a toilet on another level too.
+- `showerpee` sends a visitor into the host's shower; the alternative was a puddle.
+- The failure is held back for up to 30 sim-minutes while the Sim walks to the shower; its bladder stays at the
+  minimum for that time.
+- With `showertogether` on, every `RouteToSlotAndCheckInUse` in the game runs through the hook's three steps
+  (the same calls in the same order).
+- `LdsQueueHook.WaitHook` changed: Sims saved in a line by an older build are reset once at the first load
+  (docs/242 §2).
+
+### 15.4 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/showershare/run.ts`: 41 checks. `build-fixes.ts` builds; selftests `objshare`,
+  `sharelanes`, `standwait` pass; `swap-stack-audit` has the five new rows.
+- Live: `showershare-check` once (off `BROKEN`, on `FIXED`, one switch on `MIXED`).
+- Forced repro, partners (outline, existing agent steps): `make_household` with two young adults on an empty
+  lot; `build_layout` one room with a door; `buy_object` one shower (then a shower tub, then an all-in-one
+  bathroom); `modify_relationship` to Partner (and a control pair: friends; a teen); `set_motive` Hygiene -80 for
+  both; `do_interaction` Take Shower for the first, the same for the second once the first is in the use list
+  (`ShowerShareCheck lot`). Off arm: the second waits at the door, 4495 up. On arm (`showertogether`
+  `showertogetherhh` `showersharelog`): a `showertogether: ... joins ...` line, 4494 up, both in the use list,
+  no shoo, 4500 up when both end together, both end standing outside, 4501 = 0.
+- Forced repro, bladder (outline): the same lot without a toilet (or with the toilet in use by the other Sim);
+  `set_motive` Bladder -95 for the active Sim, no orders. Off arm: the puddle, 4506 up. On arm (`showerpee`
+  `showerpeehh`): `showerpee: ... takes a shower ...` and `... bladder fills ...` lines, 4503 or 4504 and 4502
+  up, no puddle, bladder full after the shower. Control: a free toilet on the lot -> the game's way, nothing
+  counted; no shower -> 4505 and the puddle.
