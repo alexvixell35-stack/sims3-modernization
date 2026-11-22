@@ -14,7 +14,7 @@ static class ClipWaitTest
     static ClipWaitCore.Case C(float elapsed, int sims, int others, bool atDest, int destKind, bool inUse)
     {
         ClipWaitCore.Case k = new ClipWaitCore.Case();
-        k.ElapsedMin = elapsed; k.GraceMin = 2f; k.Sims = sims; k.Others = others; k.SimAtDest = atDest; k.DestKind = destKind; k.DestInUse = inUse;
+        k.ElapsedMin = elapsed; k.GraceMin = 2.5f; k.Sims = sims; k.Others = others; k.SimAtDest = atDest; k.DestKind = destKind; k.DestInUse = inUse;
         k.SimsOnWay = atDest ? 0 : sims; k.ObjectDestAllowed = true; k.SimInScope = true; k.AllInScope = true;
         return k;
     }
@@ -26,7 +26,8 @@ static class ClipWaitTest
         int kept; bool dest;
         Check(D(true, C(3f, 1, 0, false, ClipWaitCore.kDestObject, false), out kept, out dest) == G && !dest, "busy Sim in the way of a route to an object: walk through");
         Check(D(true, C(1.9f, 1, 0, false, ClipWaitCore.kDestFloor, false), out kept, out dest) == N && kept == 0, "before the grace: nothing");
-        Check(D(true, C(2f, 1, 0, false, ClipWaitCore.kDestFloor, false), out kept, out dest) == G, "at the grace: go");
+        Check(D(true, C(2.5f, 1, 0, false, ClipWaitCore.kDestFloor, false), out kept, out dest) == G, "at the grace (the shared kClipGraceMinutes, 2.5): go");
+        Check(D(true, C(2f, 1, 0, false, ClipWaitCore.kDestFloor, false), out kept, out dest) == N && kept == ClipWaitCore.kKeptNot, "2 sim-minutes: still the game's wait");
         Check(D(true, C(9f, 0, 0, false, ClipWaitCore.kDestFloor, false), out kept, out dest) == N && kept == 0, "no Sim in the way: nothing");
         Check(D(true, C(9f, 0, 1, false, ClipWaitCore.kDestFloor, false), out kept, out dest) == N && kept == 0, "only an object in the way: not ours, not counted");
         Check(D(true, C(9f, 2, 1, false, ClipWaitCore.kDestFloor, false), out kept, out dest) == N && kept == ClipWaitCore.kKeptObject, "Sims and an object: kept");
@@ -69,7 +70,7 @@ static class ClipWaitTest
             for (int destKind = 0; destKind < 3; destKind++)
             {
                 ClipWaitCore.Case k = new ClipWaitCore.Case();
-                k.ElapsedMin = (m & 1) != 0 ? 5f : 0.5f; k.GraceMin = 2f;
+                k.ElapsedMin = (m & 1) != 0 ? 5f : 0.5f; k.GraceMin = 2.5f;
                 k.Sims = (m & 2) != 0 ? 2 : 0; k.Others = (m & 4) != 0 ? 1 : 0;
                 k.SimAtDest = (m & 8) != 0; k.DestKind = destKind; k.DestInUse = (m & 16) != 0; k.ObjectDestAllowed = (m & 32) != 0;
                 k.Social = (m & 64) != 0; k.PlayerGoHere = (m & 128) != 0; k.SimInScope = (m & 256) != 0; k.AllInScope = (m & 512) != 0;

@@ -6,7 +6,7 @@ namespace Ts3Fixes
     // The game keeps one table per portal object: which Sim holds which lane, entered from which end. A lane held by a Sim
     // that entered from the same end is given to the next Sim as well; a lane held from the other end is refused, and when
     // every lane is refused the Sim walks to a waiting spot and asks again for up to 20 sim-minutes. The rules here say
-    // when such a refusal may be lifted, when a Sim may walk through Sims instead of standing, when the ladder's
+    // when such a refusal may be lifted, when a Sim may walk through Sims instead of standing (and how soon), when the ladder's
     // one-climber line may be skipped and when the approach to a stair or ladder may drop its facing.
     public static class ShareLanesCore
     {
@@ -92,6 +92,7 @@ namespace Ts3Fixes
 
         // simpass: a walking Sim met obstacles. Only Sims in the way, none of them at the route's end (the game's own
         // "destination obstructed" handling stays), everybody in scope: walk through. kept = a case left to the game.
+        // When: Timed below (at once only near a portal).
         public static int Pass(bool on, bool simInScope, int sims, int others, bool allInScope, bool simAtDestination, out bool kept)
         {
             kept = false;
@@ -99,6 +100,39 @@ namespace Ts3Fixes
             if (others > 0 || simAtDestination) { kept = true; return kNone; }
             if (!on) return kWould;
             return simInScope && allInScope ? kGo : kExempt;
+        }
+
+        // The timing rule of every walk-through (simpass here, petrelax and clipwait in their files; docs/686 §8.7): walking
+        // through a Sim or pet at once is for portals only (the walker or one of those in its way is within `near` of a
+        // door, gate, stair, ladder or elevator lane). Anywhere else the game's wait runs first and the walk-through comes
+        // after kClipGraceMinutes of it.
+        public const int kDefer = 4;  // would act, but not here and not yet: left to the wait and its grace
+
+        public static bool GraceDue(float elapsedMin, float graceMin)
+        {
+            if (!(graceMin >= 0f)) graceMin = 0f;
+            return elapsedMin >= graceMin;
+        }
+
+        // d = a rule's answer (kNone .. kGo). An answer that acts or counts becomes kDefer away from a portal before the grace.
+        public static int Timed(int d, bool nearPortal, float elapsedMin, float graceMin)
+        {
+            if (d == kNone || nearPortal || GraceDue(elapsedMin, graceMin)) return d;
+            return kDefer;
+        }
+
+        // Near a portal lane: the distance from p to the line between the lane's two ends (a, b) is below `near`. In three
+        // dimensions, so a Sim on the stairs is near them wherever it is on them, and a Sim on the floor above or below a
+        // door is not near that door.
+        public static bool NearLane(float px, float py, float pz, float ax, float ay, float az, float bx, float by, float bz, float near)
+        {
+            if (!(near > 0f)) return false;
+            float dx = bx - ax, dy = by - ay, dz = bz - az;
+            float len2 = dx * dx + dy * dy + dz * dz;
+            float t = len2 > 1e-6f ? ((px - ax) * dx + (py - ay) * dy + (pz - az) * dz) / len2 : 0f;
+            if (!(t > 0f)) t = 0f; else if (t > 1f) t = 1f;
+            float cx = ax + dx * t - px, cy = ay + dy * t - py, cz = az + dz * t - pz;
+            return cx * cx + cy * cy + cz * cz < near * near;
         }
 
         // angleentry, stairs: the game keeps the planned approach when the Sim got the lane it planned for; only then is

@@ -355,7 +355,7 @@ succeeds, so standing Sims were the lock. Failed-plan lines in the 316 logs: `De
 | same | A blocked stand-and-wait cycle whose plan says `DestinationPortalLocked` plans without "blocked by people" on the first such cycle (then every 3rd); success = only people closed it, the Sim walks on with the ignore-obstacles timer. Failure = a real lock, the wait goes on (counter 4377). Not with a Sim other than the partner at the route's end. | the pass step of `standwaitfix` (§3 rule 2), without waiting for cycle 2 and without that switch |
 | `laddershare` (`laddersharehh`) | `SimQueue.WaitForTurn` answers "your turn" for a `PortalClimb` on its ladder's own line; the Sim is not entered in the line. | none: this drops a wait the game has. Own switch because of the state machine question above. |
 | `spiralshare` (`spiralsharehh`) | Spiral stairs (`StaircaseSpiralPortalComponent`, exact type): the `sharelanes` search for its one lane, and `SimQueue.WaitForTurn` answers "your turn" for the staircase's walk (`UseInternal`) on its own line. Both are needed: the Sims in the line hold the lane from their end, so the Sim coming the other way waits for the whole line (7.2 and 12.0 sim-min in s465 / s469, the only lane waits left with the other pairs on). The railing slide keeps its line. Counters 4390-4397. | `GetFreeRoutingLane`'s own order and checks; the line: none, a wait the game has is dropped |
-| `simpass` (`simpasshh`) | At the obstacle event: only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. A wait that still starts (forced replan) returns `ContinueAndFollowPath` at once under the same test. | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
+| `simpass` (`simpasshh`) | Only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. **At once** (at the obstacle event, or `ContinueAndFollowPath` at a wait that still starts) only near a portal; anywhere else the wait begins and its first cycle after `kClipGraceMinutes` ends it the same way (§8.7). | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
 | `angleentry` (`angleentryhh`) | Stairs: when the Sim got its planned lane, the first sub-path is replaced by `GetPathToLane` (kept when that plan fails). Ladder climbed from below: `GetPathToLane` gets the lane without `PlanToSlotNotPosition`, so the game takes its point plan. Climb down: unchanged. | the game's own replacement approach for a lane that was not the planned one |
 | `lanewaitlog` | `lanewait: <Sim> <scope>, <interaction>: <Type> 0x<id> (<kind>), X sim-min from the refusal, got a lane / gave up, held then by: ..., at x,y,z` | log only |
 
@@ -433,6 +433,34 @@ door still meets the one coming out of it as an obstacle.
   after the storm), door left open with nobody near = fail (use count), no new routefail kinds or `route false`
   beyond the off arms, `gohere end` lines stay `route ok`.
 
+### 8.7 The timing rule: at once only at portals (2026-11-22, built, NOT RUN)
+
+A player's rule: "doors and shower and stairs etc can be almost always but other things should have at least that
+2 or 3 second wait". Clipping is not the standard. It binds `simpass`, `petrelax` (§11) and `clipwait` (§9):
+
+| Where | What walks through at once | What waits first |
+|---|---|---|
+| Portals: doors, gates, stairs, ladders, spiral stairs, elevator lanes (`sharelanes`, `laddershare`, `spiralshare`, `angleentry`), showers (`showertogether`, §15) | lane sharing as built; `simpass` and `petrelax` when the walker or a Sim or pet in its way is within `kClipPortalNear` (1.5 m) of a portal lane, on the stairs included | nothing |
+| Anywhere else: open space, hallways, rooms | nothing | the game's stand-and-wait runs `kClipGraceMinutes` (2.5 sim-minutes, 2-3 seconds at normal speed), with its own replans and pushes; then `simpass`, `petrelax` or `clipwait` end it |
+
+- **One grace.** `kClipGraceMinutes` replaces `kClipWaitGraceMinutes`; all three read it. 0 = at once everywhere
+  (the behaviour before this rule).
+- **Near a portal** (`ShareLanesCore.NearLane`): the distance in three dimensions from a Sim to the line between a
+  lane's two ends is under `kClipPortalNear`. So a Sim anywhere on the stairs, in a doorway or within 1.5 m of a
+  lane end is near; a Sim on the floor above a door is not. The lanes of a lot are read once per 30 sim-minutes
+  (`ShlLanesOf`); the world lot has none. `kClipPortalNear = 0` = the grace everywhere.
+- **Each switch keeps its own grace path.** `simpass`: `SpsObstacleCycle` in the obstacle wait's cycle hook (plan
+  intact, only Sims in the way, none at the route's end). `petrelax`: `PrxClip` in the cycle hooks of both waits.
+  Neither needs the `clipwait` switch; with it on, `clipwait` takes the waits the other two leave (a Sim at the
+  route's end, a plan that failed on people, horses).
+- **Not bound:** `blockeduse`, `reachuse`, `viewlenient`, `makebedboth` act on a plan that failed, not on a wait;
+  the pet's walk off a lane end before it lies down (§11.2 rule 3).
+- Counters: no free slot in the three blocks. `ShareLanesCheck result` and `PetRelaxCheck result` show, per
+  session, the waits begun away from a portal and left to the grace, and the walks after it. 4381 now counts only
+  walks near a portal; 4382 the waits ended at their begin (near a portal) or after the grace.
+- Selftests: `sharelanes` (`Timing`: the rule, the near-lane test on a door and a stair lane), `petrelax`
+  (`Timing`), `clipwait` (2.5). The storm numbers of §8.2 are lane waits at doors and stairs: unaffected.
+
 ## 9. Sims walk through a Sim or pet that keeps them waiting (`clipwait`, `clipwaithh`; 2026-11-22, `feat/clipwait-1122`, built, default off, NOT RUN)
 
 A player's wish: a Sim busy at a mirror, standing, or chatting in a hallway should not keep a passing Sim waiting;
@@ -457,7 +485,8 @@ one user at a time.
 
 ### 9.2 What is built
 
-After `kClipWaitGraceMinutes` (2 sim-minutes, about 2 seconds at normal speed) of either stand-and-wait that the
+After `kClipGraceMinutes` (2.5 sim-minutes, 2-3 seconds at normal speed; the one grace of §8.7, shared with
+`simpass` and `petrelax`; it was `kClipWaitGraceMinutes` = 2) of either stand-and-wait that the
 game wants to continue, `ClipWaitCore.Decide`:
 
 - **Walk through.** Only Sims and pets in the way (toddler or older; anything else in the way keeps the wait): when
@@ -475,7 +504,7 @@ game wants to continue, `ClipWaitCore.Decide`:
   of a Sim that can step aside. Both look better than clipping and take under one cycle when they work. The rule is
   judged at the end of a wait cycle, so the real wait is one or two cycles.
 
-`simpass` (§8) acts earlier where it applies (at the obstacle event, no grace, nobody at the route's end); `clipwait`
+`simpass` (§8) acts first where it applies (at once near a portal, elsewhere at the same grace, §8.7; nobody at the route's end); `clipwait`
 is the rule for the waits that still begin, with or without `simpass`. Lanes and lines (`sharelanes`,
 `laddershare`, `spiralshare`) are other code paths. `standwaitfix` runs first in a blocked cycle.
 
@@ -629,20 +658,24 @@ every Sim and pet walks its own route. `PetRelax.cs`, rules in `PetRelaxCore.cs`
 
 ### 11.2 What is built
 
-1. **Walk through at once** (`PetRelaxCore.Pass`). At the obstacle event (before `simpass`) and at an obstacle
-   wait that still begins: a small pet (cat, dog, puppy, kitten, raccoon) walks through the Sims and small pets in
-   its way; a Sim walks through small pets when nothing else is in its way. `StartIgnoringObstacles(kPetRelaxMinutes
-   = 3)`, the game's own timer; a Sim that also has a Sim in its way is left to `simpass` / `clipwait` (the timer
-   ignores everything). In the two stand-and-waits the same rule ends the wait in its first cycle instead of after
-   the clipwait grace; where the walk may end is `ClipWaitCore.Decide` unchanged (never into a Sim or pet that uses
-   the object the walker goes to, never for a social, never at the end of a player's Go Here).
+1. **Walk through** (`PetRelaxCore.Pass`). A small pet (cat, dog, puppy, kitten, raccoon) walks through the Sims
+   and small pets in its way; a Sim walks through small pets when nothing else is in its way.
+   `StartIgnoringObstacles(kPetRelaxMinutes = 3)`, the game's own timer; a Sim that also has a Sim in its way is
+   left to `simpass` / `clipwait` (the timer ignores everything). **When (§8.7):** at once, at the obstacle event
+   (before `simpass`) or at an obstacle wait that still begins, only when the walker or one of those in its way is
+   within `kClipPortalNear` (1.5 m) of a portal lane; anywhere else the game's wait runs and the rule ends it in
+   the first cycle after `kClipGraceMinutes` (2.5), in both stand-and-waits, with the `clipwait` switch on or off.
+   Where the walk may end is `ClipWaitCore.Decide` unchanged (never into a Sim or pet that uses the object the
+   walker goes to, never for a social, never at the end of a player's Go Here).
    **Horses, foals, deer** and Sims riding or leading a horse, as walker or in the way: kept (4439); they get the
    `clipwait` grace as any Sim.
-2. **A lying pet is not an object.** `SimRoutingComponent.SetRouteOptions` (every route a Sim creates) adds the
-   floor jigs of the lying pets on the walker's lot to the route's ignore list (`AddObjectToIgnoreForRoute`, the
-   call the game makes for the pet itself). The jigs are listed when `LayDownHere.Run` returns and leave the list
-   when the pet is up. In the obstacle event and the two waits a floor jig counts as its pet, and the route ignores
-   it from then on. The pet itself is then a Sim in the way: rule 1.
+2. **A pet lying near a portal is not an object.** `SimRoutingComponent.SetRouteOptions` (every route a Sim
+   creates) adds the floor jigs of the lying pets on the walker's lot that lie within `kClipPortalNear` of a portal
+   lane (read once, when the pet lay down) to the route's ignore list (`AddObjectToIgnoreForRoute`, the call the
+   game makes for the pet itself). A pet that lies anywhere else is walked around as the game has it (§8.7). The
+   jigs are listed when `LayDownHere.Run` returns and leave the list when the pet is up. In the obstacle event and
+   the two waits every floor jig counts as its pet (rule 1 and its timing), and the route ignores it once the walk
+   through begins.
 3. **Not on a lane end.** Before the game's autonomous floor lie-down at the pet's own position: when a stair, door,
    gate, ladder, spiral stair or elevator lane end of the lot is within `kPetRelaxPortalClear` (1.25 m, same floor),
    the pet walks to a spot 2 or 3 m away (16 candidates, the direction away from the lane end first, none near any
@@ -657,8 +690,9 @@ the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the li
 
 - **Pushable pet idles** (an `IBePushedCanCancel` answer for naps and sits): with rules 1 and 2 nobody waits for
   the pet, and a push would wake a sleeping pet (energy, moodlets): a change of EA's design, not wanted.
-- **One-tile hallways** as lie-down chokepoints: no cheap test for "hallway" in script; rule 2 lets Sims through
-  wherever the pet lies.
+- **One-tile hallways** as lie-down chokepoints: no cheap test for "hallway" in script. Since §8.7 rule 2 passes
+  only pets lying near a portal, so a pet lying across a hallway away from every door closes it as in the game
+  (the plan fails on the jig; a wait that names the jig ends after the grace by rule 1).
 - **Favourite and "next to my owner" sleeping spots** on a lane end: the player's or EA's choice of spot; rule 2
   covers the passing Sims.
 - **Horse naps** (`HorseNap`, own jig, outdoors) and horses at house doors: large bodies, EA's door rule.
@@ -673,7 +707,8 @@ the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the li
 - A route may now end where a pet lies; the destination-obstructed event then runs rule 1.
 - The walker cannot be pushed while its timer runs (as `simpass`).
 - Rule 3 reads the lot's object list once per autonomous floor lie-down.
-- Before the clipwait grace every stand-and-wait cycle now gathers who is in the way (one or two cycles per wait).
+- Before the grace every stand-and-wait cycle gathers who is in the way (the cycles of 2.5 sim-minutes per wait).
+- §8.7: "near a portal" is read where the pet lay down; a door built next to a lying pet counts from its next nap.
 
 ### 11.5 Checks (2026-11-22, no game) and run plan
 
@@ -707,6 +742,8 @@ and ordered to lie in the corridor with the player's own order (`Lay Down Here` 
   `destination accepted`), which is the game's push and no part of the rule.
 - Not a case: a doorway without depth (a gap in a wall line). The game's `FindGoodLocationNearby` puts the jig
   beside it and the Sim walks through in both arms.
+- This run was before the timing rule of §8.7. With it the dog in this corridor is passed at once only when it
+  lies within 1.5 m of a portal lane; otherwise the off column's failed plan stays. NOT RUN with §8.7.
 - Open: rule 3 (no lie-down on a lane end) and a walking pet behind Sims did not run; a dog standing idle is pushed by
   the game itself.
 

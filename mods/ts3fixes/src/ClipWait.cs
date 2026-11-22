@@ -23,7 +23,7 @@ namespace Ts3Fixes
     //     runs until that Sim leaves or the time is over (route failed).
     //   - DestinationObstructedRouteInterruptAction (something stands on the route's end point): the same wait, pushing
     //     the Sims within 0.6 m of the end each cycle; at its end the route fails with the "Sim in the way" balloon.
-    // Fix, after kClipWaitGraceMinutes of such a wait (the game's own pushes and replans come first), ClipWaitCore.Decide:
+    // Fix, after kClipGraceMinutes of such a wait (the game's own pushes and replans come first), ClipWaitCore.Decide:
     //   - only Sims and pets in the way (toddler or older; an object in the way keeps the wait): the route is planned
     //     without "blocked by people" when its plan had failed, the game's ignore-obstacles timer is started for
     //     kClipWaitMinutes and the wait ends with the game's own "continue and follow the path";
@@ -32,8 +32,9 @@ namespace Ts3Fixes
     //     Go Here, never when that Sim uses the object the walker goes to. The destination-obstructed event of that route
     //     is then not answered with a new wait. A Sim at the end that may not be walked into does not stop the walker
     //     from passing the Sims on its way there; the game's own handling of the route's end runs when it arrives.
-    // simpass (ShareLanes.cs) acts first where it applies (at the obstacle event, no grace, no Sim at the route's end);
-    // clipwait is the rule for the waits that still begin. Scope: clipwait covers Sims the player does not control, as
+    // The grace is the one tunable simpass and petrelax use too (docs/686 §8.7): simpass (ShareLanes.cs) acts first where
+    // it applies (at once near a portal, elsewhere at the same grace; no Sim at the route's end, plan intact); clipwait
+    // is the rule for the waits that are left: a Sim at the route's end, a plan that failed on people, horses. Scope: clipwait covers Sims the player does not control, as
     // walker and as the Sim walked through; clipwaithh adds household and selected Sims.
     // Off = compare mode: the hooks count the waits and what the rule would do. clipwaitlog writes one line per walk.
     // Counters 4398-4413. Check: ClipWaitCheck.
@@ -146,7 +147,7 @@ namespace Ts3Fixes
             bool scopeAll = hhOn || !on;  // off: count what both switches would do
             ClwSeen s = new ClwSeen();
             s.Case.ElapsedMin = elapsed;
-            s.Case.GraceMin = Instantiator.kClipWaitGraceMinutes;
+            s.Case.GraceMin = Instantiator.kClipGraceMinutes;
             s.Case.ObjectDestAllowed = Instantiator.kClipWaitObjectDest;
             s.Case.SimInScope = ShlScope(sim, scopeAll);
             s.Case.AllInScope = true;
@@ -225,7 +226,7 @@ namespace Ts3Fixes
         // ---- the rule ---------------------------------------------------------------------------------------------------
 
         // One cycle of a wait that the game wants to go on. true = keep waiting. counted / petCounted keep the counters of
-        // clipwait and of petrelax (PetRelax.cs, docs/686 §11: small pets, judged before the grace) to one per wait.
+        // clipwait and of petrelax (PetRelax.cs, docs/686 §11: small pets, at once only near a portal) to one per wait.
         static bool ClwCycle(int site, Sim sim, Route path, float elapsed, ObjectGuid obstruction, ref bool counted, ref bool petCounted, out bool destAccepted)
         {
             destAccepted = false;
@@ -233,11 +234,11 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             bool on = ShortcutOn("clipwait"), hhOn = ShortcutOn("clipwaithh");
             ClwSeen s = ClwGather(sim, path, elapsed, obstruction, on, hhOn);
-            bool petHousehold;
-            bool pet = PrxClip(sim, s.Case, s.Sims, ref petCounted, out destAccepted, out petHousehold);
+            bool petHousehold, petGrace;
+            bool pet = PrxClip(sim, s.Case, s.Sims, ref petCounted, out destAccepted, out petHousehold, out petGrace);
             if (!pet)
             {
-                if (!ClipWaitCore.Due(elapsed, Instantiator.kClipWaitGraceMinutes)) return true;
+                if (!ClipWaitCore.Due(elapsed, Instantiator.kClipGraceMinutes)) return true;
                 int kept;
                 int d = ClipWaitCore.Decide(on, s.Case, out kept, out destAccepted);
                 if (!counted && (d != ClipWaitCore.kNone || kept != ClipWaitCore.kKeptNot))
@@ -273,6 +274,7 @@ namespace Ts3Fixes
             {
                 c[destAccepted ? kPrxClipDest : kPrxClip]++;
                 if (petHousehold) c[kPrxHousehold]++;
+                if (petGrace) sPrxGrace++;
                 PrxLog("petrelax: " + sim.FullName + " " + ShlWho(sim) + ", " + SwfIa(sim) + ": " + (destAccepted ? "destination accepted" : "walked through") + " at the " + kClwSites[site]
                     + " after " + elapsed.ToString("0.0") + " sim-min, through: " + s.Names + (s.NameCount > 3 ? " +" + (s.NameCount - 3) : "") + ", at " + V(sim.Position));
                 return false;
@@ -427,7 +429,7 @@ namespace Ts3Fixes
         static ClipWaitCore.Case ClwCase(float elapsed, int sims, int others, bool atDest, int destKind, bool inUse)
         {
             ClipWaitCore.Case k = new ClipWaitCore.Case();
-            k.ElapsedMin = elapsed; k.GraceMin = 2f; k.Sims = sims; k.Others = others; k.SimAtDest = atDest; k.DestKind = destKind; k.DestInUse = inUse;
+            k.ElapsedMin = elapsed; k.GraceMin = 2.5f; k.Sims = sims; k.Others = others; k.SimAtDest = atDest; k.DestKind = destKind; k.DestInUse = inUse;
             k.SimsOnWay = atDest ? 0 : sims; k.ObjectDestAllowed = true; k.SimInScope = true; k.AllInScope = true;
             return k;
         }
@@ -457,7 +459,7 @@ namespace Ts3Fixes
             bool ctlScope = ClipWaitCore.Decide(true, k, out kept, out dest) == ClipWaitCore.kExempt;
             bool controls = ctlGrace && ctlObject && ctlInUse && ctlFloor && ctlSocial && ctlGoHere && ctlGoHereWay && ctlScope;
             return "clipwait check (switch " + (on ? "on" : "off") + ", household " + (ShortcutOn("clipwaithh") ? "on" : "off") + ", simpass " + (ShortcutOn("simpass") ? "on" : "off")
-                + ", grace " + Instantiator.kClipWaitGraceMinutes.ToString("0.0") + " sim-min, timer " + Instantiator.kClipWaitMinutes.ToString("0.0") + " sim-min): a Sim that waited past the grace for a busy Sim walks through="
+                + ", grace " + Instantiator.kClipGraceMinutes.ToString("0.0") + " sim-min, timer " + Instantiator.kClipWaitMinutes.ToString("0.0") + " sim-min): a Sim that waited past the grace for a busy Sim walks through="
                 + fixedNow + "; control: before the grace kept=" + ctlGrace + ", object in the way kept=" + ctlObject + ", Sim using the object at the route's end kept=" + ctlInUse
                 + ", floor spot taken by a Sim accepted=" + ctlFloor + ", social kept=" + ctlSocial + ", player Go Here: end kept=" + ctlGoHere + ", way walked=" + ctlGoHereWay
                 + ", Sim out of scope exempt=" + ctlScope + "; controls ok=" + controls

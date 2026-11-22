@@ -183,9 +183,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSimPass value="False" />
     <kSimPassHousehold value="False" />
     <kSimPassMinutes value="3" />
+    <kClipGraceMinutes value="2.5" />
+    <kClipPortalNear value="1.5" />
     <kClipWait value="False" />
     <kClipWaitHousehold value="False" />
-    <kClipWaitGraceMinutes value="2" />
     <kClipWaitMinutes value="3" />
     <kClipWaitObjectDest value="True" />
     <kClipWaitLog value="False" />

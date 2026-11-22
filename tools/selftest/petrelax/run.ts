@@ -10,5 +10,6 @@ const out = join(ROOT, 'build', 'selftest');
 mkdirSync(out, { recursive: true });
 const exe = join(out, 'petrelax-test.exe');
 execFileSync(CSC, ['/nologo', '/optimize+', '/platform:x86', '/langversion:5', `/out:${exe}`,
-  join(import.meta.dirname, 'PetRelaxTest.cs'), join(ROOT, 'mods', 'ts3fixes', 'src', 'PetRelaxCore.cs')], { stdio: 'inherit' });
+  join(import.meta.dirname, 'PetRelaxTest.cs'), join(ROOT, 'mods', 'ts3fixes', 'src', 'PetRelaxCore.cs'),
+  join(ROOT, 'mods', 'ts3fixes', 'src', 'ShareLanesCore.cs')], { stdio: 'inherit' });
 execFileSync(exe, [], { stdio: 'inherit' });

@@ -51,9 +51,12 @@ namespace Ts3Fixes
     // simpass / simpasshh
     //   [verified, decompiled] A walking Sim that meets Sims stops and runs the obstacle stand-and-wait, unless its
     //   "ignore all obstacles" timer runs (the game starts that timer itself after a portal and after a wait in a crowd).
-    //   Fix: with only Sims in the way and none of them at the route's end, the timer is started for kSimPassMinutes when
-    //   the obstacle event arrives, so the game's own handler lets the Sim walk on; a wait that still starts ends at once
-    //   the same way.
+    //   Fix: with only Sims in the way and none of them at the route's end, the timer is started for kSimPassMinutes, so
+    //   the game's own handler lets the Sim walk on. When (docs/686 §8.7, a player's rule: clipping is for doors and
+    //   stairs, not the standard): at once, at the obstacle event or at a wait that still starts, only when the walker
+    //   or a Sim in its way is within kClipPortalNear of a portal lane (door, gate, stairs, ladder, elevator; on stairs
+    //   counts). Anywhere else the game's wait begins and runs, and its first cycle after kClipGraceMinutes ends it the
+    //   same way. petrelax and clipwait keep the same rule with the same two tunables.
     // angleentry / angleentryhh
     //   [verified, decompiled + native] The stair walk sets the Sim's place and facing itself when it starts (0x8555E0:
     //   facing from the lane's two ends); the ladder climb up does the same in script. So neither needs the Sim to arrive
@@ -76,13 +79,22 @@ namespace Ts3Fixes
         const int kShlPortalPassEvery = 3;  // blocked cycles between two plans without people (the stand-and-wait's own pass spacing)
         const float kSpsDestRadius = 0.6f;  // the game's radius for Sims at a route's end
 
+        const int kSpsAtEvent = 0, kSpsAtBegin = 1, kSpsAtGrace = 2;  // where simpass judges: obstacle event, wait begin, wait cycle past the grace
+        const float kShlLanesMinutes = 30f;  // sim-minutes a lot's lane list is kept (build mode can move a door)
+        const int kShlLanesMaxLots = 16;
+
         static FieldInfo sShlLocked, sShlAcqSim, sShlAcqPortal, sSpsSim, sSpsAction;
+        class ShlLanes { public DateAndTime Stamp; public float[] Ends; }  // six numbers per lane: its two ends
+        static readonly Dictionary<ulong, ShlLanes> sShlLanes = new Dictionary<ulong, ShlLanes>();
+        static readonly List<float> sShlLaneBuf = new List<float>();
+        static readonly List<Sim> sSpsSeen = new List<Sim>(4);
+        static int sSpsDeferred, sSpsGrace;  // this session: waits left to the grace (not near a portal) / walks after it
         static string sShlMissing = "", sShlLast = "";
         static readonly LineCapCore sShlCap = new LineCapCore(20, 60000, 200);
 
         // One catch site each: which hook threw, how often, and the first few as lines.
-        static readonly string[] kShlSites = { "lane", "ladder approach", "wait begin", "wait end", "ladder line", "pass", "obstacle event", "pass at the wait", "stairs approach" };
-        static readonly int[] sShlSiteErrors = new int[9];
+        static readonly string[] kShlSites = { "lane", "ladder approach", "wait begin", "wait end", "ladder line", "pass", "obstacle event", "pass at the wait", "stairs approach", "pass after the grace" };
+        static readonly int[] sShlSiteErrors = new int[10];
         const int kShlErrorLines = 3;  // lines per site
         static string sShlLastError = "";
 
@@ -379,8 +391,60 @@ namespace Ts3Fixes
 
         // ---- simpass ----------------------------------------------------------------------------------------------------
 
-        // Who is in the way. action = the stand-and-wait already began (its event came with a forced replan).
-        static bool SpsPass(Sim sim, Route route, IList<ObjectGuid> obstacles, bool action)
+        // The lanes of a lot's portals, both ends each. Read from the lot at most every kShlLanesMinutes.
+        static float[] ShlLanesOf(Lot lot)
+        {
+            ShlLanes l;
+            ulong id = lot.LotId;
+            if (sShlLanes.TryGetValue(id, out l) && SimClock.ElapsedTime(TimeUnit.Minutes, l.Stamp) < kShlLanesMinutes) return l.Ends;
+            sShlLaneBuf.Clear();
+            foreach (GameObject o in lot.GetObjects<GameObject>())
+            {
+                PortalComponent pc = o == null ? null : o.PortalComponent;
+                if (pc == null) continue;
+                uint lanes = Math.Min(pc.GetNumLanes(), 8u);
+                for (uint i = 0; i < lanes; i++)
+                {
+                    Slot[] sl = pc.GetSlotsForLaneIndex(i);
+                    if (sl == null || sl.Length < 2) continue;
+                    Vector3 a = o.GetPositionOfSlot(sl[0]), b = o.GetPositionOfSlot(sl[1]);
+                    sShlLaneBuf.Add(a.x); sShlLaneBuf.Add(a.y); sShlLaneBuf.Add(a.z);
+                    sShlLaneBuf.Add(b.x); sShlLaneBuf.Add(b.y); sShlLaneBuf.Add(b.z);
+                }
+            }
+            if (sShlLanes.Count >= kShlLanesMaxLots) sShlLanes.Clear();
+            l = new ShlLanes();
+            l.Stamp = SimClock.CurrentTime(); l.Ends = sShlLaneBuf.ToArray();
+            sShlLanes[id] = l;
+            return l.Ends;
+        }
+
+        // docs/686 §8.7: p is within kClipPortalNear of a portal lane of the lot (ShareLanesCore.NearLane). The world lot
+        // has no portals of its own (its object list is the whole town): never near.
+        static bool ShlNearPortal(Lot lot, Vector3 p)
+        {
+            float near = Instantiator.kClipPortalNear;
+            if (lot == null || lot.IsWorldLot || !(near > 0f)) return false;
+            float[] e = ShlLanesOf(lot);
+            for (int i = 0; i + 5 < e.Length; i += 6)
+                if (ShareLanesCore.NearLane(p.x, p.y, p.z, e[i], e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], near)) return true;
+            return false;
+        }
+
+        // The walker or one of the Sims and pets in its way is near a portal: the walk-through needs no grace there.
+        static bool ShlNearPortal(Sim walker, List<Sim> inWay)
+        {
+            Lot lot = walker.LotCurrent;
+            if (ShlNearPortal(lot, walker.Position)) return true;
+            for (int i = 0; inWay != null && i < inWay.Count; i++)
+                if (ShlNearPortal(lot, inWay[i].Position)) return true;
+            return false;
+        }
+
+        // Who is in the way, and whether the walk-through is due here (ShareLanesCore.Timed). site = kSpsAtEvent (the
+        // obstacle event), kSpsAtBegin (the stand-and-wait is about to begin) or kSpsAtGrace (a wait cycle past the grace;
+        // counted keeps the kept / would / exempt counters to one per wait there).
+        static bool SpsPass(Sim sim, Route route, IList<ObjectGuid> obstacles, int site, ref bool counted)
         {
             int[] c = PatchCounters();
             try
@@ -392,6 +456,7 @@ namespace Ts3Fixes
                 int sims = 0, others = 0;
                 bool all = true, atDest = false;
                 bool scopeAll = hhOn || !on;  // off: count what both switches would do
+                sSpsSeen.Clear();
                 for (int i = 0; i < obstacles.Count; i++)
                 {
                     GameObject o = GameObject.GetObject(obstacles[i]);
@@ -399,17 +464,31 @@ namespace Ts3Fixes
                     Sim b = o as Sim;
                     if (b == null || b.HasBeenDestroyed || b.SimDescription == null || !b.SimDescription.ToddlerOrAbove) { others++; continue; }
                     sims++;
+                    sSpsSeen.Add(b);
                     if (!ShlScope(b, scopeAll)) all = false;
                     if (haveDest && (b.Position - dest).LengthSqr() < kSpsDestRadius * kSpsDestRadius) atDest = true;
                 }
                 bool kept;
                 int d = ShareLanesCore.Pass(on, ShlScope(sim, scopeAll), sims, others, all, atDest, out kept);
-                if (kept) c[kSpsKept]++;
-                if (d == ShareLanesCore.kWould) c[kSpsWould]++;
-                else if (d == ShareLanesCore.kExempt) c[kSpsExempt]++;
+                bool atGrace = site == kSpsAtGrace;
+                if (d != ShareLanesCore.kNone && !atGrace) d = ShareLanesCore.Timed(d, ShlNearPortal(sim, sSpsSeen), 0f, Instantiator.kClipGraceMinutes);
+                sSpsSeen.Clear();
+                if (d == ShareLanesCore.kDefer)
+                {
+                    if (site == kSpsAtBegin) sSpsDeferred++;
+                    return false;
+                }
+                if (!atGrace || !counted)
+                {
+                    if (kept) c[kSpsKept]++;
+                    if (d == ShareLanesCore.kWould) c[kSpsWould]++;
+                    else if (d == ShareLanesCore.kExempt) c[kSpsExempt]++;
+                    if (kept || d != ShareLanesCore.kNone) counted = true;
+                }
                 if (d != ShareLanesCore.kGo) return false;
                 sim.SimRoutingComponent.StartIgnoringObstacles(Math.Max(0.5f, Instantiator.kSimPassMinutes));  // the game's own timer
-                c[action ? kSpsActions : kSpsEvents]++;
+                c[site == kSpsAtEvent ? kSpsEvents : kSpsActions]++;
+                if (atGrace) sSpsGrace++;
                 return true;
             }
             catch (ResetException) { throw; }
@@ -428,7 +507,8 @@ namespace Ts3Fixes
                     {
                         FollowRouteAction fa = sSpsAction.GetValue(this) as FollowRouteAction;
                         Route route = fa == null ? null : fa.RouteToBeFollowed;
-                        if (!PrxPass(sim, route, obstacles, false)) SpsPass(sim, route, obstacles, false);  // petrelax (PetRelax.cs, §11) first: small pets
+                        bool counted = false;
+                        if (!PrxPass(sim, route, obstacles, false)) SpsPass(sim, route, obstacles, kSpsAtEvent, ref counted);  // petrelax (PetRelax.cs, §11) first: small pets
                     }
                 }
                 catch (ResetException) { throw; }
@@ -439,16 +519,39 @@ namespace Ts3Fixes
         }
 
         // StandWait.cs, before the game's stand-and-wait runs: true = walk on (the game's own answer after a wait in a crowd).
+        // Near a portal only; elsewhere the wait begins and SpsObstacleCycle ends it after the grace.
         static bool SpsAction(Sim sim, Route path)
         {
             try
             {
                 if (sim == null || path == null || !path.PlanResult.Succeeded()) return false;
                 ObjectGuid[] obstacles = path.FindObstaclesForSim(sim.Proxy);
-                return obstacles != null && (PrxPass(sim, path, obstacles, true) || SpsPass(sim, path, obstacles, true));
+                bool counted = false;
+                return obstacles != null && (PrxPass(sim, path, obstacles, true) || SpsPass(sim, path, obstacles, kSpsAtBegin, ref counted));
             }
             catch (ResetException) { throw; }
             catch (Exception e) { ShlError(7, e); return false; }
+        }
+
+        // StandWait.cs, after the game's obstacle stand-and-wait cycle (and standwaitfix) answered "keep waiting": the
+        // grace path of simpass (docs/686 §8.7). It needs no other switch: a wait kClipGraceMinutes old with only Sims in
+        // the way, none at the route's end, ends with the game's own "continue and follow the path". true = keep waiting.
+        static bool SpsObstacleCycle(object action, Sim sim, Route path)
+        {
+            try
+            {
+                if (sim == null || path == null || sSwfMissing.Length > 0 || !path.PlanResult.Succeeded()) return true;
+                SwfState st = SwfStateOf(sim, action);
+                if (!ShareLanesCore.GraceDue(SimClock.ElapsedTime(TimeUnit.Minutes, st.Start), Instantiator.kClipGraceMinutes)) return true;
+                if (st.SpsCounted && !ShortcutOn("simpass")) return true;  // compare mode: one judgement per wait
+                ObjectGuid[] obstacles = path.FindObstaclesForSim(sim.Proxy);
+                if (obstacles == null || !SpsPass(sim, path, obstacles, kSpsAtGrace, ref st.SpsCounted)) return true;
+                sSwfReturn.SetValue(action, RouteAction.ActionResult.ContinueAndFollowPath);
+                sSwfElected.SetValue(action, true);
+                return false;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { ShlError(9, e); return true; }
         }
 
         // ---- angleentry -------------------------------------------------------------------------------------------------
@@ -509,7 +612,8 @@ namespace Ts3Fixes
                 + "; laddershare: line skipped " + c[kLdsSkips] + ", would " + c[kLdsWould] + ", exempt " + c[kLdsExempt]
                 + "; spiralshare: locks refused on spiral stairs " + c[kSpiFails] + ", of them by direction only " + c[kSpiSharable] + ", shared " + c[kSpiShared] + ", would share " + c[kSpiWould]
                 + ", exempt " + c[kSpiExempt] + ", line skipped " + c[kSpiLineSkips] + ", would " + c[kSpiLineWould] + ", exempt " + c[kSpiLineExempt]
-                + "; simpass: at the obstacle event " + c[kSpsEvents] + ", at the wait " + c[kSpsActions] + ", would " + c[kSpsWould] + ", exempt " + c[kSpsExempt] + ", kept (object or Sim at the route's end) " + c[kSpsKept]
+                + "; simpass: at the obstacle event (near a portal) " + c[kSpsEvents] + ", at the wait " + c[kSpsActions] + " (this session: after the grace " + sSpsGrace
+                + ", waits begun away from a portal and left to the grace " + sSpsDeferred + "), would " + c[kSpsWould] + ", exempt " + c[kSpsExempt] + ", kept (object or Sim at the route's end) " + c[kSpsKept]
                 + "; angleentry: stairs " + c[kAneStairs] + ", ladder " + c[kAneLadder] + ", would " + c[kAneWould] + ", kept " + c[kAneKept]
                 + "; errors " + c[kShlErrors] + ShlErrorSites() + ", open waits " + sShlWaitOf.Count + "; " + GlMembers(sShlMissing) + (sShlLast.Length > 0 ? "; last: " + sShlLast : "");
         }
@@ -539,11 +643,16 @@ namespace Ts3Fixes
                 && ShareLanesCore.Pass(true, true, 1, 0, true, true, out kept) == ShareLanesCore.kNone && ShareLanesCore.Pass(true, true, 1, 0, false, false, out kept) == ShareLanesCore.kExempt;
             bool ctlLadder = ShareLanesCore.AngleLadder(true, true, true, false, true) == ShareLanesCore.kNone && ShareLanesCore.AngleLadder(true, true, true, true, true) == ShareLanesCore.kGo
                 && ShareLanesCore.LadderLine(true, false, true, true) == ShareLanesCore.kNone;
-            bool controls = ctlSame && ctlElevator && ctlScope && ctlKind && ctlPass && ctlLadder;
+            float grace = Instantiator.kClipGraceMinutes;
+            bool ctlTimed = ShareLanesCore.Timed(ShareLanesCore.kGo, true, 0f, grace) == ShareLanesCore.kGo && ShareLanesCore.Timed(ShareLanesCore.kGo, false, 0f, 2.5f) == ShareLanesCore.kDefer
+                && ShareLanesCore.Timed(ShareLanesCore.kGo, false, 2.5f, 2.5f) == ShareLanesCore.kGo && ShareLanesCore.NearLane(1f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f)
+                && !ShareLanesCore.NearLane(2f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f) && !ShareLanesCore.NearLane(0f, 3f, 1f, 0f, 0f, 0f, 0f, 0f, 2f, 1.5f);
+            bool controls = ctlSame && ctlElevator && ctlScope && ctlKind && ctlPass && ctlLadder && ctlTimed;
             return "sharelanes check (switch " + (on ? "on" : "off") + ", household " + (ShortcutOn("sharelaneshh") ? "on" : "off") + ", laddershare " + (ShortcutOn("laddershare") ? "on" : "off") + ", spiralshare " + (ShortcutOn("spiralshare") ? "on" : "off")
                 + ", simpass " + (ShortcutOn("simpass") ? "on" : "off") + ", angleentry " + (ShortcutOn("angleentry") ? "on" : "off") + "): a lane held from the other end is shared=" + fixedNow
                 + "; control: same end free either way=" + ctlSame + ", elevator lane closed=" + ctlElevator + ", holder out of scope closed=" + ctlScope + ", other portal kinds kept=" + ctlKind
-                + ", walk through Sims only, not at the route's end=" + ctlPass + ", ladder: climb down keeps the slot, other lines kept=" + ctlLadder + "; controls ok=" + controls
+                + ", walk through Sims only, not at the route's end=" + ctlPass
+                + ", at once only near a portal, elsewhere after the grace (" + grace.ToString("0.0") + " sim-min, near = " + Instantiator.kClipPortalNear.ToString("0.0") + " m)=" + ctlTimed + ", ladder: climb down keeps the slot, other lines kept=" + ctlLadder + "; controls ok=" + controls
                 + "; verdict: " + GlVerdict(on, fixedNow, controls, sShlMissing.Length == 0) + "; " + ShlCounters();
         }
 

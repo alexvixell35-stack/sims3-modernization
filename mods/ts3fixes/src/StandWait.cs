@@ -57,6 +57,7 @@ namespace Ts3Fixes
             public int Cycles, Blocked, RunBlocked, PushCycles, Pushed, LastPushCycle, NextPass, Delays, YieldCycle, PassCycle, Probes;
             public int WouldYield, WouldPush, WouldPass;
             public bool Yielded, Passed, Exempt, On, PushAcceptedLast;
+            public bool SpsCounted;  // ShareLanes.cs: simpass judged this wait past the grace
             public bool ClwCounted;  // ClipWait.cs: this wait is in its counters
             public bool PrxCounted;  // PetRelax.cs: this wait is in its kept / would counters
             // StandWaitLocked.cs: cycles with a locked destination portal / of them a privacy lock / such cycles in a row
@@ -107,14 +108,15 @@ namespace Ts3Fixes
             public bool CycleHook(object controller, object userData)
             {
                 bool failedBefore = SwfPlanFailed(mInterruptedPath);
-                // clipwait (ClipWait.cs, docs/686 §9), off by default: a wait that goes on past the grace with only Sims in the way ends
-                return SwfCycle(this, mRoutingSim, mInterruptedPath, failedBefore, CycleOrig(controller, userData)) && ClwObstacleCycle(this, mRoutingSim, mInterruptedPath);
+                // simpass (ShareLanes.cs, docs/686 §8.7) and clipwait (ClipWait.cs, §9), off by default: a wait that goes on past the grace with only Sims in the way ends
+                return SwfCycle(this, mRoutingSim, mInterruptedPath, failedBefore, CycleOrig(controller, userData)) && SpsObstacleCycle(this, mRoutingSim, mInterruptedPath)
+                    && ClwObstacleCycle(this, mRoutingSim, mInterruptedPath);
             }
             public bool CycleOrig(object controller, object userData) { return true; } // receives StandAndWaitCycleHandler's original body
 
             public RouteAction.ActionResult PerformHook()
             {
-                // simpass (ShareLanes.cs, docs/686 §8) and petrelax (PetRelax.cs, §11), off by default: only Sims or pets in the way = walk on, no wait
+                // simpass (ShareLanes.cs, docs/686 §8) and petrelax (PetRelax.cs, §11), off by default: only Sims or pets in the way near a portal = walk on, no wait
                 if (SpsAction(mRoutingSim, mInterruptedPath)) return RouteAction.ActionResult.ContinueAndFollowPath;
                 SwfBegin(this, mRoutingSim);
                 try { return PerformOrig(); }
