@@ -21,10 +21,18 @@ namespace Ts3Fixes
         //   e.g. no trapped Sim or a game loaded mid-job); jobLocked: EA's LockDoorsInRoom changed this door in this job.
         public static FdkState Restore(FdkState pre, FdkState cur, FdkState before, bool jobLocked)
         {
+            return Restore(pre, cur, before, jobLocked, false);
+        }
+
+        //   npcDoor: Door.IsNPCDoor (an apartment neighbour's door, locked bare Nobody by EA): never a job lock, since EA's
+        //   job code skips doors that are already locked, so its lock stays even without a record.
+        public static FdkState Restore(FdkState pre, FdkState cur, FdkState before, bool jobLocked, bool npcDoor)
+        {
             if (!cur.Bare(FdkState.Anybody) && !cur.Bare(FdkState.Nobody)) return null;  // not a state EA's job leaves: someone else's
             if (pre.Type == FdkState.Anybody) return null;  // unlocked before the cleanup: EA does not touch it
             FdkState want;
             if (!pre.Bare(FdkState.Nobody)) want = pre;  // a lock the job never sets (player, resort, owner list, one-way): keep it
+            else if (npcDoor && !jobLocked) want = pre;  // EA's apartment NPC door lock: keep it
             else if (before == null) return null;        // bare Nobody without a record: the job's lock or an older one, unknown
             else if (jobLocked) want = before;           // the job's own lock: back to the state before it (unlocked, one-way room)
             else if (before.Bare(FdkState.Nobody)) want = pre;  // bare Nobody before the job too (lot designer, NPC door): keep it

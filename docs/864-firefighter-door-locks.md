@@ -54,7 +54,9 @@ Jobs are saved with the game (`Job` is `[Persistable]`); nothing below is.
   - a bare Nobody door the job locked goes back to its state before the job (unlocked, with its one-way room; the axe effect
     stopped, as EA's large-fire unlock does);
   - a bare Nobody door that was already so before the job stays locked;
-  - a bare Nobody door without a record (no trapped Sim in this job, or a game loaded mid-job) keeps EA's outcome.
+  - an apartment neighbour's door (`Door.IsNPCDoor`, locked bare Nobody by EA) stays locked even without a record: the
+    job's code skips doors that are already locked, so that lock is never the job's;
+  - any other bare Nobody door without a record (no trapped Sim in this job, or a game loaded mid-job) keeps EA's outcome.
 - The record is per job object and stays until the next job or a world quit, so a second `CleanUpJob` of the same job decides
   the same way. With the switch off the hooks only count (2189).
 - A door a firefighter broke down, or that a Sim unlocked during the job, is Anybody before the cleanup and is never touched.

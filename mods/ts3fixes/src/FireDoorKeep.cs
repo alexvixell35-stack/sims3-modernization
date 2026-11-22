@@ -92,7 +92,7 @@ namespace Ts3Fixes
                 if (d.HasBeenDestroyed) continue;
                 FdkState before = null;
                 if (mine) sFdkBefore.TryGetValue(d, out before);
-                FdkState want = FdkCore.Restore(kv.Value, FdkOf(d), before, mine && sFdkLocked.Contains(d));
+                FdkState want = FdkCore.Restore(kv.Value, FdkOf(d), before, mine && sFdkLocked.Contains(d), d.IsNPCDoor);
                 if (want == null) continue;
                 if (!on) { PatchCounters()[2189]++; continue; }
                 d.SetLockTypeAndOwner((CommonDoor.tLock)want.Type, want.Owner as SimDescription, want.OneWay);

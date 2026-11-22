@@ -41,6 +41,8 @@ static class FireDoorKeepTest
         Check(FdkCore.Restore(bareN, bareA, null, false) == null, "bare Nobody, no record (loaded mid-job): EA's unlock");
         Check(FdkCore.Restore(bareN, bareN, null, true) == null, "bare Nobody, no record, other job: EA's lock stays");
         Check(FdkCore.Restore(bareN, bareA, hh, false) == null, "bare Nobody now, locked otherwise before, not by the job: EA's outcome");
+        Check(FdkCore.Restore(bareN, bareA, null, false, true) == bareN, "large fire, apartment NPC door, no record: kept locked");
+        Check(FdkCore.Restore(bareN, bareN, null, false, true) == null, "other job, apartment NPC door unchanged");
 
         // FdkState.Same / Bare
         Check(bareN.Same(new FdkState(N, null, R)) && !bareN.Same(playerN) && !bareN.Same(null) && !bareA.Same(oneWay), "Same");
