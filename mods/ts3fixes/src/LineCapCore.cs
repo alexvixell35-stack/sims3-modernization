@@ -1,6 +1,6 @@
 namespace Ts3Fixes
 {
-    // Game-independent log cap shared by the docs/658 CAS fixes and elevatorlightrig: at most perWindow lines in each
+    // Game-independent log cap: at most perWindow lines in each
     // window of windowMs (Environment.TickCount), plus a lifetime ceiling so a loop cannot fill the log. Take() is true
     // when a line may be written. A tick count that wraps or goes back starts a new window.
     public sealed class LineCapCore
