@@ -545,6 +545,7 @@ namespace Ts3Fixes
             ApplyUnseenLoopSkipStep();   // docs/632 option (a), after WakePark: its WaitForExitReason hook chains under ours
             ApplyAutLiveB14();
             ApplyHitchCause();
+            ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth / makebedbothhh, off by default (counts either way)
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1586,7 +1587,10 @@ namespace Ts3Fixes
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
         // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4200;
+        // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
+        // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
+        // or household without makebedbothhh) / run ended early, flags put back.
+        const int kCounterSlots = 4470;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2054,6 +2058,9 @@ namespace Ts3Fixes
                 case "firegreet": return Instantiator.kFireGreet;
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
+                case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off
+                case "makebedbothhh": return Instantiator.kMakeBedBothHousehold;  // MakeBedBoth.cs: the same for household and selected Sims (stands alone), off
+                case "makebedbothlog": return Instantiator.kMakeBedBothLog;  // MakeBedBoth.cs (docs/686 §13): one line per act, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;
