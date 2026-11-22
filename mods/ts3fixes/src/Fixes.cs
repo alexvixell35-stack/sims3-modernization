@@ -185,6 +185,7 @@ namespace Ts3Fixes
             ApplyUpgradeFailAlarm();    // docs/567 §1 (UpgradeFailAlarm.cs)
             ApplyRepairTimeCache();    // docs/567 §2 (RepairTimeCache.cs)
             ApplyBurglarIdle();    // docs/568 §1 (BurglarIdle.cs)
+            ApplyBurglarApt();     // docs/866 (BurglarApt.cs)
             ApplyGigWaitLeave();    // docs/568 §2 (GigWaitLeave.cs)
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
@@ -843,6 +844,7 @@ namespace Ts3Fixes
         // [2550-2552] upgradefailalarm (UpgradeFailAlarm.cs, docs/567 §1): pending failed-upgrade cancel alarms removed at booking / at restart / errors.
         // [2553-2555] repairtimecache (RepairTimeCache.cs, docs/567 §2): stale repair times dropped / own time while another Sim repairs / errors.
         // [2556-2558] burglaridle (BurglarIdle.cs, docs/568 §1): burglar leaves with no household / after a fire reaction that did not leave / errors.
+        // [2195-2198] burglarapt (BurglarApt.cs, docs/866): burglar loot answers turned to no in hidden / public apartment rooms / would be with the switch off / spare / errors.
         // [2559-2561] gigwaitleave (GigWaitLeave.cs, docs/568 §2): Stylist / Singer gig wait pulses stopped after their own timeout leave / errors.
         // [2562-2563] sculptpose (SculptPose.cs, docs/568 §3): Sculpt Sim subject poses cancelled after the sculptor failed / errors.
         // [2564-2565] free (released).
@@ -2040,6 +2042,7 @@ namespace Ts3Fixes
                 case "upgradefailalarm": return Instantiator.kUpgradeFailAlarm;
                 case "repairtimecache": return Instantiator.kRepairTimeCache;
                 case "burglaridle": return Instantiator.kBurglarIdle;
+                case "burglarapt": return Instantiator.kBurglarApt;
                 case "gigwaitleave": return Instantiator.kGigWaitLeave;
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "festivalhidden": return Instantiator.kFestivalHidden;

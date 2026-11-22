@@ -114643,6 +114643,93 @@
     ]
   },
   {
+    "id": "burglar-apt",
+    "bug": "Burglar on apartment lots: private BurglarSituation+Stealing.CanBeStolen has no room test, so FindObjectToSteal picks loot in hidden neighbour units (every door refuses every Sim, Steal.Run's route fails) and in public rooms (Steal+Definition.Test refuses them), most valuable first; each costs a Stealing state and a sim-minute on the lot, no cap (docs/866)",
+    "fix": "ts3fixes BurglarApt.cs: burglarapt (default off), docs/866",
+    "save": "any world (pure check); scan: a world with apartment lots (Bridgeport)",
+    "note": "BurglarAptCheck 'run' puts the bug layouts and controls through BaCore (read-only); 'scan' counts per apartment lot the objects EA's CanBeStolen rules accept (own unit / hidden / public) and the room of the most valuable. End to end: household in a Bridgeport apartment, a burglar at night; off: 2196 rises; on: 2195 rises and the first target is in the household's unit.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2198 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "live apartment lots",
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

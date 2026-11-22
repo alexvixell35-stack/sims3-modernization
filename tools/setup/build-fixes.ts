@@ -398,6 +398,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUpgradeFailAlarm value="True" />
     <kRepairTimeCache value="True" />
     <kBurglarIdle value="True" />
+    <kBurglarApt value="False" />
     <kGigWaitLeave value="True" />
     <kSculptPose value="True" />
     <kFestivalHidden value="True" />

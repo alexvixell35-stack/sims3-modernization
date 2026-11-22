@@ -74,6 +74,7 @@ namespace Ts3Fixes
                 case "buffsrcempty": return EpLive(typeof(MdHook), 1, "sMdTarget", sMdTarget, null, "sMdValues", sMdValues, null);
                 case "buffstate": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BsDownHook), 0, "sBsDownAlarm", sBsDownAlarm, null), EpLive(typeof(BsDragonHook), 0)), EpLive(typeof(BsFertHook), 1)), EpLive(typeof(BsHypHook), 2)), EpLive(typeof(BsQueasyHook), 0)), EpLive(typeof(BsVoodooHook), 0));
                 case "buffupdate": return EpLive(typeof(BuffUpdateHook), 1);
+                case "burglarapt": return EpLive(typeof(BaHook), 1);
                 case "burglaridle": return EpLive(typeof(BiHook), 1);
                 case "burnttilefloor": return EpLive(typeof(BurntTileHook), 0);
                 case "buycellrecycle": return EpLive(typeof(BcrHook), 0, "sBcrCatalogGrid", sBcrCatalogGrid, null);

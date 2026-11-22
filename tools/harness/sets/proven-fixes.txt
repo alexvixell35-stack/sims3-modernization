@@ -68,3 +68,5 @@
 #   doorshare
 # perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
 #   commodmapfast commodmapshadow
+# EA bug fix: the burglar never picks loot in hidden neighbour units or public rooms of apartment lots (docs/866, 2026-11-22), default off, NOT RUN:
+#   burglarapt

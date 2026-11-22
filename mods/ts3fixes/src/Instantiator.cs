@@ -360,6 +360,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kUpgradeFailAlarm = true;    // upgradefailalarm (docs/567 §1): a failed upgrade cut short leaves its alarm, which later cancels whatever the Sim is doing
         [Tunable] public static bool kRepairTimeCache = true;    // repairtimecache (docs/567 §2): repair time cached for the last Sim that started (and dropped) a repair is used for the next Sim
         [Tunable] public static bool kBurglarIdle = true;    // burglaridle (docs/568 §1): burglar stands in the house after a fire reaction that did not leave, or when the household is gone
+        [Tunable] public static bool kBurglarApt = false;    // burglarapt (docs/866): on apartment lots the burglar no longer picks loot in hidden neighbour units or public rooms, which no Sim can steal
         [Tunable] public static bool kGigWaitLeave = true;    // gigwaitleave (docs/568 §2): Stylist/Singer gig customer still pushed to wait after the gig timed out
         [Tunable] public static bool kSculptPose = true;    // sculptpose (docs/568 §3): Sculpt Sim failure paths leave the subject posing
         [Tunable] public static bool kFestivalHidden = true;    // ON (PR #501, fired in two Starlight Shores runs: 44 and 40 skips, 0 errors): out-of-season festival objects are not re-advertised to autonomy after a room change (FestivalHidden.cs, docs/856)
