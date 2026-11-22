@@ -1,0 +1,77 @@
+{
+ "note": "watergrid-prof-correct-1122-m1122 (repinned to master set m1122) (PREPARED, NOT RUN; correctness only, noiseCheck false, Bin state apex): [WaterGrid] Prof=1 for 10 min of BP play: probe installs (switch read-back line), one G build line pair at load, no script errors, no crash. Observe only: changes no Sim, so household results equal vanilla by construction (no household check needed beyond scriptErrorsMax 0).",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "bp-wgprof-correct",
+   "note": "[est 15 min] BP 10 min speed 3 with the probe on",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "master set m1122 (0.36.299-m1122 = e1122 + unseen-distance-probe-1122 + world-scale-perf-1122: [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes + ts3agent of set m1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-BP",
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  }
+ ]
+}

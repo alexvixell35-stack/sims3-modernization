@@ -1,0 +1,497 @@
+{
+ "note": "watergrid-prof-runfirst-1122 (RUN FIRST, PREPARED, NOT RUN; measurement, no timing claim, day OK, noiseCheck false): [WaterGrid] Prof=1 (docs/100 §13), Bin state apex (tools/turbo-compat.ts). Decides the water grid G item: (1) the phase split of the ~1 s load-time G build (samples vs objects vs label vs shorelines) and (2) whether two fresh loads of one save, and two saves of one world, give the same G fingerprint. Read per job the two \"water grid build\" lines; docs/100 §13.3 has the decision rules. Every job relaunches (rewind off: a rewind would skip the load the probe measures).",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "bp-wgprof-load-1",
+   "note": "[est 6 min] BP fresh load, 1 min, quit",
+   "asi": "game-copy/ts3native.asi.wsp1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "feature/world-scale-perf-1122 (0.36.299-wgprof1: e1122 + [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes of master set e1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-wgprof1 ": {
+     "match": [
+      "ts3native 0.36.299-wgprof1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-BP",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0.36.299-wgprof1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "bp-wgprof-load-2",
+   "note": "[est 6 min] same save again: the fingerprint must equal bp-wgprof-load-1 for a per-save cache",
+   "asi": "game-copy/ts3native.asi.wsp1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "feature/world-scale-perf-1122 (0.36.299-wgprof1: e1122 + [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes of master set e1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-wgprof1 ": {
+     "match": [
+      "ts3native 0.36.299-wgprof1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-BP",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0.36.299-wgprof1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "bp-wgprof-spring",
+   "note": "[est 6 min] other BP save (other lot layout and objects): equal cells/pass hash = a per-world key may do, different = the key needs lot/object state",
+   "asi": "game-copy/ts3native.asi.wsp1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "feature/world-scale-perf-1122 (0.36.299-wgprof1: e1122 + [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes of master set e1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-wgprof1 ": {
+     "match": [
+      "ts3native 0.36.299-wgprof1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0.36.299-wgprof1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "ip-wgprof-load-1",
+   "note": "[est 6 min] IP (most water, houseboats)",
+   "asi": "game-copy/ts3native.asi.wsp1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "feature/world-scale-perf-1122 (0.36.299-wgprof1: e1122 + [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes of master set e1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-wgprof1 ": {
+     "match": [
+      "ts3native 0.36.299-wgprof1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0.36.299-wgprof1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "ip-wgprof-load-2",
+   "note": "[est 6 min] IP repeat",
+   "asi": "game-copy/ts3native.asi.wsp1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "feature/world-scale-perf-1122 (0.36.299-wgprof1: e1122 + [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes of master set e1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-wgprof1 ": {
+     "match": [
+      "ts3native 0.36.299-wgprof1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0.36.299-wgprof1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "sv-wgprof-load-1",
+   "note": "[est 6 min] SV (largest R): first measured SV G time",
+   "asi": "game-copy/ts3native.asi.wsp1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "feature/world-scale-perf-1122 (0.36.299-wgprof1: e1122 + [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes of master set e1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-wgprof1 ": {
+     "match": [
+      "ts3native 0.36.299-wgprof1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0.36.299-wgprof1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "sv-wgprof-load-2",
+   "note": "[est 6 min] SV repeat",
+   "asi": "game-copy/ts3native.asi.wsp1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "feature/world-scale-perf-1122 (0.36.299-wgprof1: e1122 + [WaterGrid] Prof + LoadProf zeroing fix); ini + ts3fixes of master set e1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0.36.299-wgprof1 ": {
+     "match": [
+      "ts3native 0.36.299-wgprof1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    }
+   },
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0.36.299-wgprof1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1
+   }
+  }
+ ]
+}

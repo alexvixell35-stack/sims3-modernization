@@ -49,6 +49,18 @@ static u8* const* g_unLocoSys = (u8* const*)(uintptr_t)TS3A(0x011D9140);  // Loc
 static void* const* g_unObjMgr = (void* const*)(uintptr_t)TS3A(0x011DC350);
 static const u8* const* g_unRmSlot = (const u8* const*)(uintptr_t)TS3A(0x011D40C4);
 
+// docs/322 [UnseenProbe] Bands (unseenband.cpp, included after this file): distance-band split of the sites below; off unless Bands= set
+enum { UB_EDGES = 6, UB_HH = UB_EDGES + 1, UB_UNK = UB_EDGES + 2, UB_ROWS = UB_EDGES + 3 };
+enum { UB_LOCO, UB_WAIT, UB_FOOT, UB_PLAN, UB_POSE, UB_TASK, UB_AUT, UB_SITES };
+static bool g_ubOn;
+static int UbRow(const float* p);
+static int UbObjRow(void* obj);
+static void UbAdd(int site, int row, LONGLONG ticks);
+static void UbAddUs(int site, int row, LONG us);
+static void UbSimUpd(int row);
+static u8 UbAutMsg(DWORD code, DWORD lo);
+static void ApplyUnseenBands(const wchar_t* ini);
+static __declspec(thread) int t_ubRow;  // 1 + band row of the Sim whose agent update this thread runs (bands on), else 0
 static __declspec(thread) int t_unCls;  // 1 + class while this thread runs an agent update or a footprint update, else 0
 static __declspec(thread) u8* t_unAgent;    // the agent whose update this thread runs ([UnseenThrottle]), else NULL
 static __declspec(thread) float t_unPos[3];  // its owner's position (valid while t_unAgent is set)
@@ -235,6 +247,12 @@ static void UnAgentBody(void* agent, void* edx, float dt) {
         return;
     }
     if (watchFlip) g_utWatch.ran = true;
+    int ubRow = -1;  // docs/322: band row of a Sim's update (household / unknown scope = UB_HH, never an NPC band)
+    if (g_ubOn && kind == 0) {
+        ubRow = AnxHousehold(*(void* const*)((const u8*)agent + 4)) ? UB_HH : UbRow(pos);
+        UbSimUpd(ubRow);
+        t_ubRow = 1 + ubRow;
+    }
     t_utWatchRun = g_utWatch.flipped && g_utWatch.armed && UtWatched(*(void* const*)((const u8*)agent + 4));
     t_unCls = 1 + c;
     t_unAgent = (u8*)agent;
@@ -249,7 +267,9 @@ static void UnAgentBody(void* agent, void* edx, float dt) {
         t_unAgent = NULL;
         t_utWatchRun = false;
         t_unKind = 0, t_unRider = false;
+        t_ubRow = 0;
         const LONGLONG tk = TicksSince(t0);  // docs/286 §3.2: carried sub-us sums
+        if (ubRow >= 0) UbAdd(UB_LOCO, ubRow, tk);
         const LONG us = UsAdd(&k.unAgentUs[c][kind], tk);
         InterlockedIncrement(&k.unAgents[c][kind]);
         Max(&k.unAgentMaxUs[c], us);
@@ -289,6 +309,7 @@ static void UnWait(DWORD key, LONG us) {
     const int c = t_unCls ? t_unCls - 1 : 2, g = UnKeyGroup(key, true);
     InterlockedIncrement(&ts3native_counters.unWaitN[c][g]);
     InterlockedExchangeAdd(&ts3native_counters.unWaitUs[c][g], us);
+    if (t_ubRow) UbAddUs(UB_WAIT, t_ubRow - 1, us);  // docs/322: inside a Sim's agent update (sim thread only)
 }
 
 static void __fastcall UnUsfHook(void* world, void* edx, void* obj, DWORD enable, DWORD force, DWORD arg) {
@@ -297,14 +318,17 @@ static void __fastcall UnUsfHook(void* world, void* edx, void* obj, DWORD enable
     if (c < 0) c = 2;
     const int prev = t_unCls;
     if (c < 2) t_unCls = 1 + c;  // its own +0x918 wait (key 0x833593) lands in the same class
+    const int ubRow = g_ubOn ? UbObjRow(obj) : -1;  // docs/322: Sims only (-1 = not a Sim)
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     __try {
         g_unUsfOrig(world, edx, obj, enable, force, arg);
     } __finally {
         t_unCls = prev;
+        const LONGLONG tk = TicksSince(t0);
         InterlockedIncrement(&ts3native_counters.unFp[c]);
-        InterlockedExchangeAdd(&ts3native_counters.unFpUs[c], UsSince(t0));
+        InterlockedExchangeAdd(&ts3native_counters.unFpUs[c], (LONG)(tk * 1000000 / g_qpf.QuadPart));
+        if (ubRow >= 0) UbAdd(UB_FOOT, ubRow, tk);
     }
 }
 
@@ -332,12 +356,16 @@ static void UnPlanClass(DWORD handle, int* kind, int* cls, void** objOut = NULL)
 static u8* UnPlan(u8* out, DWORD handle, const void* ret) {
     int kind, c;
     if (!g_unCam.ok) UnRefreshCamera();  // plans before the first locomotion pass
-    UnPlanClass(handle, &kind, &c);
+    void* follower = NULL;
+    UnPlanClass(handle, &kind, &c, &follower);
+    const int ubRow = g_ubOn && follower ? UbObjRow(follower) : -1;  // docs/322: Sim followers only
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     u8* r = IcCollect(0, out, handle, NULL, ret);
+    const LONGLONG tk = TicksSince(t0);
     InterlockedIncrement(&ts3native_counters.unPlan[kind][c]);
-    InterlockedExchangeAdd(&ts3native_counters.unPlanUs[kind][c], UsSince(t0));
+    InterlockedExchangeAdd(&ts3native_counters.unPlanUs[kind][c], (LONG)(tk * 1000000 / g_qpf.QuadPart));
+    if (ubRow >= 0) UbAdd(UB_PLAN, ubRow, tk);
     return r;
 }
 
@@ -387,10 +415,11 @@ static float g_utInCur[3];
 static u8 UtViewerMsg(DWORD lo, DWORD hi) {
     Ts3nCounters& k = ts3native_counters;
     const DWORD code = (hi >> 16) & 0xFF;
-    if (code == 25 || code == 26) return UtbReadyMsg(code);  // docs/227 §6 [UnseenTable]: ts3fixes may call UnseenTableNative (unseentable.cpp)
+    if (code == 25 || code == 26) return UtbReadyMsg(code);
+    if (code == 27 || code == 28) return UbAutMsg(code, lo);  // docs/322: the autonomy search's actor (unseenband.cpp)  // docs/227 §6 [UnseenTable]: ts3fixes may call UnseenTableNative (unseentable.cpp)
     // the viewer table also feeds [AutShadow] TierMs, [UnseenAnim], [UnseenTable]; [UnseenAnim] reads the held table too (docs/249: refused
     // here without [UnseenThrottle], so the shipped set, UnseenThrottle off, had an empty table and no household exemption)
-    if (!g_utOn && !((g_asTierMs > 0 || g_aaOn || g_utbOn) && code <= 5) && !(g_aaOn && code >= 12 && code <= 15)) return 0;
+    if (!g_utOn && !((g_asTierMs > 0 || g_aaOn || g_utbOn || g_ubOn) && code <= 5) && !((g_aaOn || g_ubOn) && code >= 12 && code <= 15)) return 0;  // docs/322: bands read both tables
     if (code == 1) { g_utInOpen = true, g_utIn.n = 0, g_utInHave = 0; return 1; }
     // snap-back watch (unseen_snapback): 6 arm with the object id's low half (record cleared), 7 its high half (armed);
     // 8 bit `lo` of the record (0 armed, 1 flipped, 2 ran that same pass, 3 avoidance called, 4 avoidance ran,
@@ -1121,6 +1150,7 @@ static bool ApplyUnseenProbe(const wchar_t* ini) {
         if (g_icPlanOrig) ready |= 4;  // plans are split only through the async plan detour
         if (k.rgEnforce) ready |= 8;   // +0x918 acquires and waits keyed through [RouteGate] Sites / Enforce
         g_unOn = true;
+        ApplyUnseenBands(ini);  // docs/322 (off unless Bands= is set)
     }
     k.unReady = ready;
     if (probe)

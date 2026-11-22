@@ -22,6 +22,7 @@ namespace Ts3Fixes
         internal static void StartViewerPush()
         {
             UtbWorldLoad();  // docs/227 §6: ask ts3native for the unseen table again this load
+            sUbOff = false;  // docs/322: ask ts3native's band split again this load
             int gen = ++sViewerGen;  // a loop left from an earlier load ends at its next wake-up
             Simulator.AddObject(new LoopTask(delegate { ViewerPushLoop(gen); }));
         }
@@ -61,6 +62,23 @@ namespace Ts3Fixes
             ViewerSend(5, n);
             PushHeld();
             return true;
+        }
+
+        // docs/322 [UnseenProbe] Bands (measurement only): the actor of each autonomy search (B7 entry, sim thread), so ts3native
+        // can put the AutonomyManager task's run time in that Sim's distance band. Codes 27 id low, 28 id high (commits). Refused
+        // (bands off, no TaskSeam, no ts3native) = no more sends this load. Reads the id only; changes nothing.
+        static bool sUbOff;
+        internal static void UbAutActor(Sims3.Gameplay.Autonomy.Autonomy a)
+        {
+            if (sUbOff || OnWorker()) return;  // sim thread only (the viewer channel is)
+            try
+            {
+                Sim s = a != null ? a.Actor : null;
+                if (s == null) return;
+                ulong id = s.ObjectId.Value;
+                if (!ViewerSend(27, (uint)id) || !ViewerSend(28, (uint)(id >> 32))) sUbOff = true;
+            }
+            catch (Exception) { sUbOff = true; }
         }
 
         // The active household, ridden horses and their riders, and both sides of a Mount / Dismount / BeingDismounted, held at full rate by

@@ -191,3 +191,38 @@ docs/108 §4 left these three for a recomputation, a Sim on a sailing houseboat 
 ### 12.4 Names added
 
 Appended to the symbols CSV (tag `<docs/100>`): `WaterGrid_FindFootprintRecord 0x66F390`, `FootprintRecordKey_Less 0x66E120`, `FootprintRecordTree_FreeNodes 0xC5E990`, `ByteMapVector_Resize 0x61F550`, `ByteMapVector_EraseTail 0x61F330`, `ByteMapVector_MoveRange 0x61F280`. Ledger rows I-100-11 to I-100-14 in docs/51 §50.
+
+## 13. G build cost at world scale: phase probe and the two exact options (2026-11-22, `[WaterGrid] Prof`, NOT RUN)
+
+Lane `feature/world-scale-perf-1122` (docs/320 §3 item 4). Built offline, ts3native `0.36.299-wgprof1` (`game-copy/ts3native.asi.wsp1122`, sha256 `d31b5b1cc7c55546c752429131b7bd8136e43120873af3fa4286968617a1de5a`), native selftest `TestWaterGrid` ok; no game run. Ledger rows: docs/51 §574.
+
+### 13.1 Why a probe first
+
+The load-time build is 0.92-1.07 s on the sim thread per load (docs/39 §10.1) [measured], but nobody split it. The two ways to take it off the load have different preconditions, and which one is worth building depends on where the second goes:
+
+| Option | Exact when | Gain if | Risk |
+|---|---|---|---|
+| A. **Cache G across loads**, keyed by world and lot/object layout | every input of §3.2 is in the key (bounds, sea height, heightmap, low bridges, world ponds, lot rectangles and corners and the dive-lot type pair, non-lot world object footprints, R's records), the output is replayed in full (cells, 5 passability maps, body table, both shoreline trees, lot-internal tree, the lot-outline 1s OR-ed into the 10 high-cost maps, R's type-bit rewrites) and `highCostFootprints` is freed as the build frees it | the whole build (~1 s) is the input hash plus the replay | a missing key input = a wrong G for every Sim, household included; the trees are EASTL nodes on the game heap (replay through the game's own insert). Needs the input list proven complete in the disassembly of `0x6729D0` and `0x66FD00`/`0x672110` |
+| B. **Parallel sample pass**: the sim thread still waits, the 1 m sample loop (`0x672B34..0x673236`, ~4.2 M samples on a 2,048 m world, §3.2 step 2) runs on N workers by disjoint cell rows, then the rest as today | the per-sample calls (`0xC6BBC0` routable test, `0xC29EE0` heightmap, `0xC60E70` pond, `0xB74D10` low bridge, `0xC68990` lot lookup) only read and are thread-safe, and each cell's OR of its 16 samples is order-free [inferred: the flags are OR-ed, the land rule only clears] | the samples share is most of the build | thread safety of five game functions (locks, caches, TLS) unread; a missed writer = a race at load |
+
+Option "build G concurrently with the rest of the load" is not exact without a gate: footprint inserts after the build write the high-cost maps and `blockedNodeMap` (§5, §6), so any overlap races them.
+
+### 13.2 What was built (observe only, default off)
+
+- `native/ts3native/watergrid.cpp`: eight call-site retargets inside the build (list in the file header and docs/68; each byte-checked E8 to its target, capstone on the Steam 1.67 exe [verified]): clear `0x6714A0`, cells `0x6729D0`, label `0x671580`, shorelines `0x672440` with its two parts `0x66FD00` / `0x672110`, world-object cuts `0x671000` (per root) and the patch cuts `0x670F50`. Each hook times one call and calls the game's function with the same arguments; samples = cells - objects - patches (the inline loop plus the lot-outline loop).
+- Per build (after the shorelines, the message path's last step) two log lines: `water grid build N: T ms = clear + cells (samples, objects, patches) + label + shorelines (map, lot) ms; grid WxH water W bodies B` and `water grid build N hash: cells 0x.. pass 0x.. high 0x.. (cell bytes, maps), R 0x../0x.., trees a/b/c, H us`. Fingerprint parts: header + cell array + body table; the 5 passability maps; the 10 high-cost maps (kept apart: they carry history, §12.1); R's record sums with and without the type bits (`PvRSum`, values.cpp); the three tree sizes (`+0x40`, `+0x5C`, `+0x78`; the third offset [inferred] from the first two's layout).
+- Ini `[WaterGrid] Prof=0`; export `ts3native_watergrid` (`on` runtime switch for the report, `ready`, `builds`, last build's phase us and fingerprint). Steam 1.67 only (no EA 1.69 / retail rows for the inner sites: SKIP line there).
+- Not covered: a `BuildWorldRoutingData` build (`0x834A82`, world save / Edit Town) that skips `0x82A0B0` gets timed rows but no line (shortcut in the file).
+- Found on the way: `[LoadProf]` zeroed **every counter after its block** (v60 to the end of `Ts3nCounters`) at each LoadWorld entry (`memset` to the end of the struct), which cleared later sections' ready flags and counters mid-run whenever `[LoadProf] Enabled=1`. Fixed to its own rows; selftest asserts the next section's first field survives.
+
+### 13.3 Queues (prepared, dry-run ok, NOT RUN)
+
+- **RUN FIRST** `tools/harness/queues/watergrid-prof-runfirst-1122.json`: 7 fresh loads (rewind off), 1 min each, Bin state `apex`: BP twice, BP-Spring once, IP-Spring twice, SV-Spring twice; `logRequire` version, `OK   water grid prof`, one build line and one hash line per job (regexCases tested in the dry run).
+- Correctness `tools/harness/queues/watergrid-prof-correct-1122.json`: BP 10 min with the probe on, `scriptErrorsMax 0`, same read-backs. Observe only, so household Sims equal vanilla by construction.
+- Timing: none for the probe (no gain claimed); the timing queue (ABBA load pairs, per-arm load ms, smoke first, "needs quiet machine") comes with option A or B.
+- Decision rules: samples >= ~70% of the build and the five per-sample callees read-only on review = build B (default off, check: the fingerprint of a B build equals the game's on the same load, every load). Equal cells/pass hashes for two loads of one save and for BP vs BP-Spring, with a short input list = A is viable; any difference between two loads of one save = G depends on load order or history, A drops. Shorelines or labelling dominant = neither option, look at `0x66FD00` (probes of every R waypoint) instead.
+
+### 13.4 On a 4x or streamed world
+
+- The probe reads every size at use (grid width and height, cell and map vector lengths, map counts); nothing is a fixed array, so a 4,096 m world (4x cells, ~17 MB of G, docs/320 §1) is hashed the same way; the selftest runs a 2,048 m and a 4x grid. Hash cost is linear in G (FNV over dwords; [inferred] ~10-40 ms at 4x, on the sim thread, probe only). `PvRSum` refuses R grids over 256 x 256 chunks, so on a larger R the R part prints `(unread)` [verified code].
+- Option A on a streamed world: the key must be per world **and** per region/lot layout, invalidated on every lot or region load/unload (the `0xC61FE0` dirty post already fires on lot create/delete/load, §3.1), sized from the grid at use; a per-region replay (rows under the changed lots) beats whole-world. Option B scales with area by construction (rows split over workers) and is the better fit for unbounded worlds if A's key cannot be made per region.

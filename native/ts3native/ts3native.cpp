@@ -18,7 +18,7 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.299-e1122"  // master set e1122: m1121b + Dalexlol 1122 imports (#632 JobYield records held across a step-aside, #622 [WorldPrecompute] SmoothCut off, #623 [FglInside] off) (2026-11-22); was m1121b: m1121b: master set m1121b (merge/kit3-1121): adk1 + tester kit A/B (KitArm, docs/314) + kit benchmark agent (docs/315) (2026-11-21); was adk1: m1121 + [AdaptDiag] adaptive diag kit (docs/316, off) + ModTime pass-through hook label (docs/298 §5.1) (2026-11-21); was m1121: master set m1121 (merge/agents-1121): d1121 + VbFreeDelayMs ON / VbGuard (docs/67 §44) + core-mod kits k1-k3 ([MonoJit] CoreModMatch, JIT foreign-fault fix, JIT table ceiling 16384 methods / 24 MB; docs/537) (2026-11-21); was vbg1121c: d1121 + [EaCrashFixes] VbFreeDelayMs (off) + [CrashForensics] VbGuard (docs/67 §44, off; 2026-11-21); was d1121: master set d1121: m1120u + Dalexlol 1121 imports (#605 NeighbourMemo + route profiler, #613 route lock RO switches, #617 DoorShare + DeferPrivateFpAdd; all off) (2026-11-21); was m1120u: master set m1120u: m1120t + .ooa host gate (EA kit asi 0.36.297-eaooa1) + [HostMapIterFix] ON in the release ini (2026-11-20); m1120t: 0.36.295-tsk1 (master with [Diag] TaskSeam) + doormemox-privacy, pccheck, keep-options-gpu, stbl-index (next-week merges 2026-11-20)
+#define TS3NATIVE_VERSION "0.36.299-m1122"  // master set m1122: e1122 + unseen-distance-probe-1122 ([UnseenProbe] Bands, TaskSeam 65536/4096, docs/322, off) + world-scale-perf-1122 ([WaterGrid] Prof, LoadProf counter-clear fix, docs/100 §13, off) (2026-11-22); was uband2 / wgprof1 on the branches; e1122: m1121b + Dalexlol 1122 imports
 // was "0.36.297-m1120n" (the same merges on 0.36.295-mdt1, before TaskSeam)
 // was "0.36.295-tsk1"  // feature/mod-seam-budget-1120: [Diag] TaskSeam (docs/308, off) on 0.36.295-mdt1; feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
 // was "0.36.295-mdt1"  // feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
@@ -3435,6 +3435,7 @@ static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
 static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
+static void UbLogCounters();   // unseenband.cpp (docs/322)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 // docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
@@ -3498,6 +3499,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
     ScLogCounters();   // docs/676 §15 (nothing until [WorldPrecompute] SmoothCut is installed)
+    UbLogCounters();   // docs/322 (nothing until [UnseenProbe] Bands is set)
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
         Log("route jobs sim waits: runplan %ld/%ld/%ld rtwait %ld/%ld/%ld disc %ld/%ld/%ld collect %ld/%ld/%ld drop %ld/%ld/%ld "
             "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld, records parked %ld back %ld dropped %ld lost %ld, "
@@ -6509,6 +6511,7 @@ static_assert(offsetof(Ts3nCounters, resV221) == 0x6A38 && offsetof(Ts3nCounters
 #include "idlero.cpp"  // docs/178 §8: [IdleCheckRO] (after fgro.cpp: S2's QL and SrEntry, AvMayRun, PatchCalls)
 #include "connro.cpp"  // docs/670 §15: [ConnRoomsRO] (after idlero.cpp: IkEnter / IkMoved; S2's SrEntry, AvMayRun, PatchCalls)
 #include "loadprof.cpp"
+#include "watergrid.cpp"  // docs/100 §13: [WaterGrid] Prof, G build phase split + hash (after values.cpp: PvRSum; savewrite.cpp: PatchCalls)
 #include "planrepeat.cpp"
 #include "replandedupe.cpp"
 #include "optsinit.cpp"
@@ -6517,6 +6520,7 @@ static_assert(offsetof(Ts3nCounters, resV221) == 0x6A38 && offsetof(Ts3nCounters
 #include "p6wait.cpp"  // docs/189 phase 0: [P6Waits] (after movedwait.cpp)
 #include "unseencost.cpp"    // docs/227: [UnseenCost] probe (before unseen.cpp: its sites use UcTime)
 #include "unseen.cpp"
+#include "unseenband.cpp"  // docs/322: [UnseenProbe] Bands (after unseen.cpp: its hooks, camera, viewer and household tables)
 #include "worldimage.cpp"
 #include "crashreport.cpp"
 // [Rewind] Offline (docs/270 §20, default 0; only the rewind test queues turn it on): EA's online code in TS3W.exe (store,
@@ -6891,6 +6895,7 @@ static void Run(HMODULE self) {
         PcRegister();                               // P4 part B: the replay clone as P4's clone provider
         keepLog = ApplyProbeSnap(ini) || keepLog;
         keepLog = ApplyLoadProf(ini) || keepLog;  // measurement: skips every site another section already hooked
+        keepLog = ApplyWaterGrid(ini) || keepLog;  // docs/100 §13: measurement only (off by default)
         keepLog = ApplyPlanRepeat(ini) || keepLog;  // after [RouteSnap] (its world version) and the plan detour
         keepLog = ApplyOptsInit(ini) || keepLog;    // I-94-322: the planner options' hub references start at 0 (default off)
         keepLog = ApplyHitchAttr(ini) || keepLog;   // docs/96 §9: per-frame sim waits for the route job (observe only)

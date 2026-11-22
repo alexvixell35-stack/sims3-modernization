@@ -9424,7 +9424,10 @@ static void TestLoadProf() {
     assert(k.lpRtUs[1] >= k.lpSite[LP_WORLDINIT][1][1]);
     // a new LoadWorld zeroes the rows and opens a new window
     stk[1] = 0x1111;  // the thunk puts the real return address back; here the test does
+    k.prReady = 0x5A;  // the first field after the lp block: a LoadWorld entry must not zero other sections' counters
     LpEnter(LP_LOADWORLD1, &stk[1]);
+    assert(k.prReady == 0x5A);
+    k.prReady = 0;
     assert(k.lpLoads == 2 && k.lpEv7 == 1 && k.lpSite[LP_QTINS][1][0] == 0 && k.lpRtUs[1] == 0 && g_lpOpen == 1);
     assert(LpLeave(&stk[1]) == 0x1111 && k.lpSite[LP_LOADWORLD1][0][0] == 1);
     g_lpOpen = 0;
@@ -13269,11 +13272,13 @@ static void TestP5() {
 #include "p5b-test.h"  // TestP5b (P5b, docs/94 §22.9)
 #include "hitchattr-test.h"  // TestHitchAttr ([HitchAttr], docs/96 §9)
 #include "unseen-test.h"  // TestUnseen ([UnseenProbe], docs/143)
+#include "unseenband-test.h"  // TestUnseenBand ([UnseenProbe] Bands, docs/322)
 #include "ghost-test.h"   // TestUnseenGhost ([UnseenGhost], docs/202 §3.9.5)
 #include "thumbstall-test.h"  // TestThumbLod ([ThumbStall] Actions 3 and 4, thumbstall.cpp)
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
 #include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
 #include "modtime-test.h"  // TestModTime ([Diag] ModTime, docs/298)
+#include "watergrid-test.h"  // TestWaterGrid ([WaterGrid] Prof, docs/100 §13)
 #include "pccheck-test.h"  // TestPcCheck ([PcCheck], docs/299)
 #include "adaptdiag-test.h"  // TestAdaptDiag ([AdaptDiag], docs/316)
 #include "hitchsum-test.h"    // TestStallWatchDeep, TestHitchSum (docs/666 §5)
@@ -14847,11 +14852,13 @@ int main(int argc, char** argv) {
     TestHitchAttr();
     TestLockFastPath();
     TestUnseen();
+    TestUnseenBand();
     TestUnseenGhost();
     TestUnseenAnim();
     TestAnimPhase();
     TestStallWatch();
     TestModTime();
+    TestWaterGrid();
     TestPcCheck();
     TestAdaptDiag();
     TestStallWatchDeep();

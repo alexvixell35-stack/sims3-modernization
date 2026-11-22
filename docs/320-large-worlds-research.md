@@ -149,7 +149,7 @@ or any world's dimensions in a run, so every 4x number below is [inferred] from 
 
 | # | Cost | Scales with | Today | 4x world [inferred] | Our fix, state |
 |---|---|---|---|---|---|
-| 1 | Failing world A* (floods the whole reachable graph before "no path", no node/time cap, `0x676260`) | area x entry portals tried | SV ~27k waypoints / ~110k edges; worst plans 7,361 / 7,350 ms SV crowd, 4,060 ms BP [verified docs/142; measured] | ~4x per failed call: 15-30 s freezes | `[RouteEarlyOut]` (docs/142): observe-only probe built, off, A/B not run |
+| 1 | Failing world A* (floods the whole reachable graph before "no path", no node/time cap, `0x676260`) | area x entry portals tried | SV ~27k waypoints / ~110k edges; worst plans 7,361 / 7,350 ms SV crowd, 4,060 ms BP [verified docs/142; measured] | ~4x per failed call: 15-30 s freezes | `[RouteEarlyOut]` (docs/142): acting mode built and run 2026-10-22 (docs/142 §10): exact (132 shadows, 0 diff) but ~0 saved, the failed plans' seconds are not in the world A\*; corrected 2026-11-22 (docs/142 §11) |
 | 2 | GC per tick (Boehm full cycles only) | live heap | BP ~120 ms/s, ~1.0 s cycle every ~8.4 s, live 90-100 MB in 356 MB heap [measured, docs/281]; sample share BP 9.9%, SV 17% [measured, docs/28] | 1.5-2.5x GC ms/s; less address space | `[GC] IdleGate=1` (docs/281) no valid verdict; generational GC (docs/290) static; mark helpers (docs/287) need the gate |
 | 3 | Routing clone / snapshot memory | lots, objects | BP 126.7k clone-map entries, IP 122.6k [measured, docs/66]; resync rebase 12.6 ms/s BP [measured, docs/94] | ~4x entries, +tens of MB | per-lot on-demand clone, docs/66 A4: planned, 8-12 h, ~25-35 MB |
 | 4 | Water grid G build at load (sim thread) | area | 688 ms BP, 505 ms IP [verified live, docs/100, docs/112] | ~2-3 s per load | none |
@@ -170,10 +170,10 @@ Rank for a 4x world: 1 (freezes), 2 and 3 (address space), 4 (load time), then 5
 
 | # | Item | Why it scales | Agent time | Game runs |
 |---|---|---|---|---|
-| 1 | `[RouteEarlyOut]` apply mode (docs/142) | failed-plan cost ~ area; biggest freeze today | ~30-60 min build | 2 jobs (BP + SV rare-route, crowd) |
+| 1 | ~~`[RouteEarlyOut]` apply mode (docs/142)~~ built and run 2026-10-22, ~0 gain (docs/142 §10, §11); the multi-second plans belong to docs/164's phase split and `PlanDeadlineMs` | failed-plan cost ~ area; biggest freeze today | ~30-60 min build | 2 jobs (BP + SV rare-route, crowd) |
 | 2 | `[GC] IdleGate=1` clean verdict (docs/281) | GC ~ heap | none (fix SV DoorMemoX self-check first, ~15-30 min) | 3-4 jobs, longer ABBA BP + SV |
 | 3 | Generational GC P0a (docs/290) | mark cost ~ heap; biggest structural GC win | several lanes, ~2-4 h each | ~4 jobs |
-| 4 | Water grid G cache across loads or off the sim thread (docs/100) | ~ area, 0.5-0.7 s per load now, ~2-3 s at 4x | ~1-2 h design + build + offline exactness check | 1-2 load jobs |
+| 4 | Water grid G cache across loads or off the sim thread (docs/100; phase probe `[WaterGrid] Prof` built 2026-11-22, RUN FIRST queue, docs/100 §13) | ~ area, 0.5-0.7 s per load now, ~2-3 s at 4x | ~1-2 h design + build + offline exactness check | 1-2 load jobs |
 | 5 | Per-lot on-demand routing clone (docs/66 A4, docs/194 S3) | memory ~ lots; ~25-35 MB now | ~8-12 h incl. per-lot usage readout | 2-3 jobs |
 | 6 | Own-task `[RouteAsync]` unseen-only (docs/288) + `ForeignKinds=4` boats (docs/176) | routing ~ Sims x trip length | built | 2-4 jobs IP + BP |
 | 7 | D1 park at boundary (docs/243) | ~ unseen population | ~1 h | 2 jobs |
@@ -329,9 +329,9 @@ the "drop data streaming" verdict stands for today's 2048 m worlds only.
 - A1: no 4096 m world loaded yet (queue `large-worlds-load-1122`); camera clamp routine, minimap, native object save path,
   callers of the null terrain-cell lookup, WTXT per-cell paint layout, per-lot resource set (no-lots mode) unread.
 - No run records world dimensions, SV's lot count, heap size or GC ms/s by world or population.
-- RouteEarlyOut probe never run, so world A* time on failed plans is not split from lot legs and portal A*;
+- (corrected 2026-11-22) RouteEarlyOut was run 2026-10-22 (docs/142 §10): the BP 4 s car-only plan spends 0 ms in world A\*; SV/IP slow plans 0-43% A\*, none provable; the split by phase is docs/164 `[RouteJobPhases] SyncPlans`;
   the SV 7.3 s crowd plans have no named cause.
-- Water grid build time on SV not measured; scaling with water area not measured.
+- Water grid build time on SV: 0.97 s (docs/39 §10.1, `[LoadProf]`); its phase split is the RUN FIRST queue of docs/100 §13; scaling with water area not measured.
 - World lot alarm pass (956 ms) has no owner doc.
 - Save time vs object count not measured.
 - Memory: no AllocSites rescan on the bridge, no bridge long session, no big save on the bridge; terrain/routing/lot

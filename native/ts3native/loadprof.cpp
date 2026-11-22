@@ -106,7 +106,8 @@ static void __cdecl LpEnter(int id, DWORD* slot) {
         return;
     }
     if (id == LP_LOADWORLD0 || id == LP_LOADWORLD1) {
-        memset(&k.lpWindowMs, 0, sizeof(Ts3nCounters) - offsetof(Ts3nCounters, lpWindowMs));
+        // only the [LoadProf] rows: the old size (to the end of Ts3nCounters) also zeroed every later section's counters
+        memset(&k.lpWindowMs, 0, offsetof(Ts3nCounters, lpSite) + sizeof(k.lpSite) - offsetof(Ts3nCounters, lpWindowMs));
         g_lpT0 = LpNow();
         InterlockedExchange(&g_lpOpen, 1);
         k.lpLoads++;

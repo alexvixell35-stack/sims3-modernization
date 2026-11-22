@@ -9496,6 +9496,186 @@
       "what": "commodmapfast",
       "at": "2026-11-21T01:26:48.709Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-314",
+      "kind": "doc",
+      "from": 314,
+      "to": 314,
+      "by": "kit-ab-1121",
+      "what": "tester kit A/B mode (kit-ab-1121)",
+      "at": "2026-11-21T03:00:40.333Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-569",
+      "kind": "ledger",
+      "from": 569,
+      "to": 569,
+      "by": "kit-ab-1121",
+      "what": "kit-ab-1121: sim task wakes per update while paused",
+      "at": "2026-11-21T03:00:40.771Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-315",
+      "kind": "doc",
+      "from": 315,
+      "to": 315,
+      "by": "kit-benchmark-1121",
+      "what": "kit-benchmark",
+      "at": "2026-11-21T03:09:28.438Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\kit-benchmark-1121"
+    },
+    {
+      "id": "ledger-570",
+      "kind": "ledger",
+      "from": 570,
+      "to": 570,
+      "by": "kit-benchmark-1121",
+      "what": "kit-benchmark",
+      "at": "2026-11-21T03:09:28.759Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\kit-benchmark-1121"
+    },
+    {
+      "id": "doc-316",
+      "kind": "doc",
+      "from": 316,
+      "to": 316,
+      "by": "adaptive-diag-kit-1121",
+      "what": "adaptive-diag-kit",
+      "at": "2026-11-21T03:10:22.923Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-317",
+      "kind": "doc",
+      "from": 317,
+      "to": 317,
+      "by": "adaptive-diag-kit-1121",
+      "what": "adaptive-diag-benchmark-interface",
+      "at": "2026-11-21T03:10:23.157Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-571",
+      "kind": "ledger",
+      "from": 571,
+      "to": 571,
+      "by": "adaptive-diag-kit-1121",
+      "what": "adaptive-diag-kit",
+      "at": "2026-11-21T03:10:23.385Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-572",
+      "kind": "ledger",
+      "from": 572,
+      "to": 572,
+      "by": "sims-3-modernization",
+      "what": "PcCheck drill-down, GPU check, kit PC sampler (docs/299 §7-§9)",
+      "at": "2026-11-21T12:29:46.480Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1508",
+      "kind": "fixes",
+      "from": 1508,
+      "to": 1517,
+      "by": "import-dalexlol-623",
+      "what": "FglInBound.cs fglinbound (PR #623, docs/682 section 9)",
+      "at": "2026-11-21T22:07:09.392Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\import-dalexlol-623-1122"
+    },
+    {
+      "id": "doc-318",
+      "kind": "doc",
+      "from": 318,
+      "to": 318,
+      "by": "mod-audit-1122",
+      "what": "mod-audit: static audit of other modders' script mods (feature/mod-audit-1122)",
+      "at": "2026-11-22T00:45:57.377Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-mod-audit-1122"
+    },
+    {
+      "id": "doc-319",
+      "kind": "doc",
+      "from": 319,
+      "to": 319,
+      "by": "focus-detect-1121",
+      "what": "focus detection (alt-tab/minimize, bg tags)",
+      "at": "2026-11-22T00:51:23.117Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\focus-detect-1121"
+    },
+    {
+      "id": "ledger-573",
+      "kind": "ledger",
+      "from": 573,
+      "to": 573,
+      "by": "focus-detect-1121",
+      "what": "focus detection",
+      "at": "2026-11-22T00:51:23.360Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\focus-detect-1121"
+    },
+    {
+      "id": "doc-320",
+      "kind": "doc",
+      "from": 320,
+      "to": 320,
+      "by": "s3m-large-worlds",
+      "what": "large-worlds research (4x worlds, memory, fog-of-war streaming)",
+      "at": "2026-11-22T04:43:36.873Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-large-worlds"
+    },
+    {
+      "id": "ledger-574",
+      "kind": "ledger",
+      "from": 574,
+      "to": 574,
+      "by": "world-scale-perf-1122",
+      "what": "water grid G build split and cache exactness (docs/100 §13)",
+      "at": "2026-11-22T04:56:45.030Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\world-scale-perf-1122"
+    },
+    {
+      "id": "ledger-575",
+      "kind": "ledger",
+      "from": 575,
+      "to": 575,
+      "by": "large-worlds-1122",
+      "what": "large worlds caps (docs/320)",
+      "at": "2026-11-22T05:13:21.396Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\large-worlds-1122"
+    },
+    {
+      "id": "doc-321",
+      "kind": "doc",
+      "from": 321,
+      "to": 321,
+      "by": "claude",
+      "what": "unbounded-world-sweep",
+      "at": "2026-11-22T05:19:37.954Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\ts3-wt-unbounded-sweep"
+    },
+    {
+      "id": "doc-322",
+      "kind": "doc",
+      "from": 322,
+      "to": 322,
+      "by": "unseen-distance-probe-1122",
+      "what": "unseen-distance-bands",
+      "at": "2026-11-22T05:23:39.338Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\unseen-distance-probe-1122"
+    },
+    {
+      "id": "ledger-576",
+      "kind": "ledger",
+      "from": 576,
+      "to": 576,
+      "by": "unseen-distance-probe-1122",
+      "what": "unseen-distance-bands",
+      "at": "2026-11-22T05:42:45.469Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\unseen-distance-probe-1122"
     }
   ]
 }

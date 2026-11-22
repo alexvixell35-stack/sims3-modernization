@@ -1,0 +1,261 @@
+{
+ "note": "unseen-bands-1122 (WRITTEN; Rodney approved the run 2026-11-22): docs/322 / docs/320 §5.4 step 1, distance-band split of the existing unseen-Sim cost sites (locomotion + keyed waits, footprint, plans, rig pose, each Sim's script task = interactions, AutonomyManager runs by search actor = autonomy + go-live) by the Sim's distance to the nearest viewer (camera target / position, household Sims: the FarFromViewers points), bands <50, 50-150, 150-400, 400-1000, >=1000 m, plus Sims per band. Correctness + attribution queue, not timing. Job 1 = measurement smoke (BP 2 min, stops the queue on fail), then BP, IP, SV 10 min each, fresh loads, Bin state apex (Apex + RTX Remix bridge via tools/turbo-compat.ts snapshot -> state apex -> restore). noiseCheck on for the 10-min jobs (external-load check: a noisy job reruns once at the end as <id>-rerun). Rewind off: three worlds, three loads. Run from the worktree (its tools/probe/agent.js reads the ts3native_unseenband export): node tools/harness/queue.ts tools/harness/queues/unseen-bands-1122.json --no-smoke. Read: node tools/harness/unseen-band-report.ts <native.json> (ms/s per band and site, Sims per band, bands over 5 ms/s); \"unseen bands\" minute lines in the job ts3native.log; unseen-report.ts for the class split.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-uband2 ": {
+   "match": [
+    "ts3native 0.36.299-uband2 2026-11-22 07:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-e1122 2026-11-22 01:00:00"
+   ]
+  },
+  "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": {
+   "match": [
+    "OK   unseen bands (docs/322): edges 50,150,400,1000 m (5 bands + household + no position), nearest of camera target / position and household Sims; sites locomotion, waits, footprint, plans, pose ([AnimPhase] Split), Sim tasks + autonomy ([Diag] TaskSeam); a minute line each"
+   ],
+   "noMatch": [
+    "OK   unseen bands (docs/322): edges 80,200 m (3 bands + household + no position), nearest",
+    "FAIL unseen bands: [UnseenProbe] Bands=150,50 is not 1-6 ascending whole metres, off"
+   ]
+  },
+  "^unseen bands: ready 0x7[37BF], ": {
+   "match": [
+    "unseen bands: ready 0x7F, passes 9000, Sim agent updates b0 1 b1 2 b2 3 b3 4 b4 5 hh 6 none 0; autonomy actors named 40, runs with none 1, camera-only asks 0",
+    "unseen bands: ready 0x73, passes 1"
+   ],
+   "noMatch": [
+    "unseen bands: ready 0x1F, passes 9000",
+    "unseen bands: ready 0x6B, passes 9000",
+    "unseen bands: ready 0x3, passes 1",
+    "unseen bands loco (n/ms per band, docs/322): b0 1/0"
+   ]
+  },
+  "^OK   task seam \\(\\[Diag\\] TaskSeam=1": {
+   "match": [
+    "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites + 2 invoke sites, per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+   ],
+   "noMatch": [
+    "task seam off ([Diag] TaskSeam=0)"
+   ]
+  },
+  "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": {
+   "match": [
+    "OK   anim split (docs/22 §6.1): anxReady 1007 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
+   ],
+   "noMatch": [
+    "FAIL anim split (docs/22 §6.1): anxReady 1006 (pose sites off, clip sites on)"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": {
+   "match": [
+    "FAIL unseen bands: [UnseenProbe] Bands=150,50 is not 1-6 ascending whole metres, off",
+    "SKIP task seam ([Diag] TaskSeam): no verified addresses for this exe",
+    "SKIP anim phase ([AnimPhase]): no EA 1.69 address, docs/232 §8"
+   ],
+   "noMatch": [
+    "OK   unseen bands (docs/322): edges 50,150,400,1000 m"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-bands-smoke",
+   "note": "[est 8 min] SMOKE (measurement proof, must pass before the 10-min jobs): BP 2 min, release defaults + measurement probes: [UnseenProbe] Enabled=1 Bands=50,150,400,1000, [AnimPhase] Enabled=1 Split=1, [Diag] TaskSeam=1. Measurement only (no Sim, lot or save change; every hook calls EA with the same arguments, so household Sims are untouched by construction; household + selected Sims and unknown scope land in their own row, never a band). Pass: version + bands OK line (switch read-back: edges 50,150,400,1000), task seam + anim split OK lines, minute line with ready bits loco + tasks + autonomy named, Apex + bridge lines, 0 script errors, no SKIP/FAIL line, ub* counters moved. Heavy tools (QPC per pose / task run): ms/s are attribution shares, not a timing verdict. Read: node tools/harness/unseen-band-report.ts <native.json> (ms/s per band and site, Sims per band, bands over 5 ms/s); \"unseen bands\" minute lines in the job ts3native.log; unseen-report.ts for the class split.",
+   "asi": "game-copy/ts3native.asi.unseen-distance-probe-1122b",
+   "iniBase": "game-copy/ts3native.ini.unseen-distance-probe-1122",
+   "fixesPackage": "game-copy/ts3fixes.package.unseen-distance-probe-1122",
+   "pinReason": "feature/unseen-distance-probe-1122 (builds.json ts3native.asi.unseen-distance-probe-1122b sha256 be3972b9feee, 0.36.299-uband2 = master e1122 + [UnseenProbe] Bands + TaskSeam tables 65536 / 4096 (uband1 left 70% of BP task runs unattributed: side table full); ini ts3native.ini.unseen-distance-probe-1122 sha256 375d069df1e4 = the branch ini; ts3fixes.package.unseen-distance-probe-1122 tuning e267e4a28d61 = master + UbAutActor at B7 entry)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 2,
+     "noSamplers": true
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-uband2 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  },
+  {
+   "id": "bp-bands",
+   "note": "[est 15 min] BP 10 min natural play (profile seed 12345, no forced actions), release defaults + measurement probes: [UnseenProbe] Enabled=1 Bands=50,150,400,1000, [AnimPhase] Enabled=1 Split=1, [Diag] TaskSeam=1. Measurement only (no Sim, lot or save change; every hook calls EA with the same arguments, so household Sims are untouched by construction; household + selected Sims and unknown scope land in their own row, never a band). Pass: version + bands OK line (switch read-back: edges 50,150,400,1000), task seam + anim split OK lines, minute line with ready bits loco + tasks + autonomy named, Apex + bridge lines, 0 script errors, no SKIP/FAIL line, ub* counters moved. Heavy tools (QPC per pose / task run): ms/s are attribution shares, not a timing verdict. Read: node tools/harness/unseen-band-report.ts <native.json> (ms/s per band and site, Sims per band, bands over 5 ms/s); \"unseen bands\" minute lines in the job ts3native.log; unseen-report.ts for the class split.",
+   "asi": "game-copy/ts3native.asi.unseen-distance-probe-1122b",
+   "iniBase": "game-copy/ts3native.ini.unseen-distance-probe-1122",
+   "fixesPackage": "game-copy/ts3fixes.package.unseen-distance-probe-1122",
+   "pinReason": "feature/unseen-distance-probe-1122 (builds.json ts3native.asi.unseen-distance-probe-1122b sha256 be3972b9feee, 0.36.299-uband2 = master e1122 + [UnseenProbe] Bands + TaskSeam tables 65536 / 4096 (uband1 left 70% of BP task runs unattributed: side table full); ini ts3native.ini.unseen-distance-probe-1122 sha256 375d069df1e4 = the branch ini; ts3fixes.package.unseen-distance-probe-1122 tuning e267e4a28d61 = master + UbAutActor at B7 entry)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-uband2 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  },
+  {
+   "id": "ip-bands",
+   "note": "[est 15 min] IP 10 min natural play (profile seed 12345, no forced actions), release defaults + measurement probes: [UnseenProbe] Enabled=1 Bands=50,150,400,1000, [AnimPhase] Enabled=1 Split=1, [Diag] TaskSeam=1. Measurement only (no Sim, lot or save change; every hook calls EA with the same arguments, so household Sims are untouched by construction; household + selected Sims and unknown scope land in their own row, never a band). Pass: version + bands OK line (switch read-back: edges 50,150,400,1000), task seam + anim split OK lines, minute line with ready bits loco + tasks + autonomy named, Apex + bridge lines, 0 script errors, no SKIP/FAIL line, ub* counters moved. Heavy tools (QPC per pose / task run): ms/s are attribution shares, not a timing verdict. Read: node tools/harness/unseen-band-report.ts <native.json> (ms/s per band and site, Sims per band, bands over 5 ms/s); \"unseen bands\" minute lines in the job ts3native.log; unseen-report.ts for the class split.",
+   "asi": "game-copy/ts3native.asi.unseen-distance-probe-1122b",
+   "iniBase": "game-copy/ts3native.ini.unseen-distance-probe-1122",
+   "fixesPackage": "game-copy/ts3fixes.package.unseen-distance-probe-1122",
+   "pinReason": "feature/unseen-distance-probe-1122 (builds.json ts3native.asi.unseen-distance-probe-1122b sha256 be3972b9feee, 0.36.299-uband2 = master e1122 + [UnseenProbe] Bands + TaskSeam tables 65536 / 4096 (uband1 left 70% of BP task runs unattributed: side table full); ini ts3native.ini.unseen-distance-probe-1122 sha256 375d069df1e4 = the branch ini; ts3fixes.package.unseen-distance-probe-1122 tuning e267e4a28d61 = master + UbAutActor at B7 entry)",
+   "releaseDefaults": true,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-uband2 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  },
+  {
+   "id": "sv-bands",
+   "note": "[est 15 min] SV 10 min natural play (profile seed 12345, no forced actions), release defaults + measurement probes: [UnseenProbe] Enabled=1 Bands=50,150,400,1000, [AnimPhase] Enabled=1 Split=1, [Diag] TaskSeam=1. Measurement only (no Sim, lot or save change; every hook calls EA with the same arguments, so household Sims are untouched by construction; household + selected Sims and unknown scope land in their own row, never a band). Pass: version + bands OK line (switch read-back: edges 50,150,400,1000), task seam + anim split OK lines, minute line with ready bits loco + tasks + autonomy named, Apex + bridge lines, 0 script errors, no SKIP/FAIL line, ub* counters moved. Heavy tools (QPC per pose / task run): ms/s are attribution shares, not a timing verdict. Read: node tools/harness/unseen-band-report.ts <native.json> (ms/s per band and site, Sims per band, bands over 5 ms/s); \"unseen bands\" minute lines in the job ts3native.log; unseen-report.ts for the class split.",
+   "asi": "game-copy/ts3native.asi.unseen-distance-probe-1122b",
+   "iniBase": "game-copy/ts3native.ini.unseen-distance-probe-1122",
+   "fixesPackage": "game-copy/ts3fixes.package.unseen-distance-probe-1122",
+   "pinReason": "feature/unseen-distance-probe-1122 (builds.json ts3native.asi.unseen-distance-probe-1122b sha256 be3972b9feee, 0.36.299-uband2 = master e1122 + [UnseenProbe] Bands + TaskSeam tables 65536 / 4096 (uband1 left 70% of BP task runs unattributed: side table full); ini ts3native.ini.unseen-distance-probe-1122 sha256 375d069df1e4 = the branch ini; ts3fixes.package.unseen-distance-probe-1122 tuning e267e4a28d61 = master + UbAutActor at B7 entry)",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "UnseenProbe.Enabled": 1,
+    "UnseenProbe.Bands": "50,150,400,1000",
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "Diag.TaskSeam": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "nativeRequire": "@ubEdges>=4,ubAutNamed>=1,ubN_5_7>=1,unPasses>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-uband2 ": 1,
+    "^OK   unseen bands \\(docs/322\\): edges 50,150,400,1000 m \\(5 bands": 1,
+    "^unseen bands: ready 0x7[37BF], ": 1,
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (unseen bands|anim (phase|split)|task seam)": 0
+   }
+  }
+ ]
+}

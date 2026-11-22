@@ -544,6 +544,7 @@ typedef void(__fastcall* AnxPoseFn)(void* actor, void* edx, float dt);
 static AnxPoseFn g_anxPoseOrig = (AnxPoseFn)(uintptr_t)TS3A(0x00940430);
 static AnFn1 g_anxClip = (AnFn1)(uintptr_t)TS3A(0x00568710);
 static LARGE_INTEGER g_anxCamAt;
+static float g_anxPos[3];  // docs/322: the classified NPC's position (sim thread; read by AnxPose right after the class)
 static int AnxClassBody(void* actor) {
     __declspec(align(16)) float pos[4], sphere[4];
     __try {
@@ -553,6 +554,7 @@ static int AnxClassBody(void* actor) {
         const bool sim = g_unComp(owner, NULL, *g_unBitSim) != NULL;
         if (sim && AnxHousehold(owner)) return ANX_HH;
         const float* p = g_unPos(tc, NULL, pos);
+        memcpy(g_anxPos, p, 12);
         sphere[0] = p[0], sphere[1] = p[1] + 1.0f, sphere[2] = p[2], sphere[3] = 1.0f;
         const void* fr = g_unFrustum();
         const bool on = fr && g_unInFrustum(fr, NULL, sphere) != 0;
@@ -566,13 +568,17 @@ static void AnxPose(int kind, void* actor, void* edx, float dt) {
     if ((t0.QuadPart - g_anxCamAt.QuadPart) * 20 > g_qpf.QuadPart) UnRefreshCamera(), g_anxCamAt = t0;  // reach: at most 20 reads/s
     const int prev = g_anxCls, c = g_anxClassOf(actor);
     g_anxCls = c;
+    // docs/322 bands: Sims only; household / unknown scope = UB_HH
+    const int ubRow = !g_ubOn ? -1 : c == ANX_HH ? UB_HH : c >= ANX_NPC_ON && c <= ANX_NPC_UNSEEN ? UbRow(g_anxPos) : -1;
     InterlockedIncrement(&ts3native_counters.anxOwnN[0]);  // docs/286 §5: our camera read + class, outside every EA timer
     UsAdd(&ts3native_counters.anxOwnUs[0], TicksSince(t0));
     QueryPerformanceCounter(&t0);
     __try { g_anxPoseOrig(actor, edx, dt); } __finally {
         g_anxCls = prev;
+        const LONGLONG tk = TicksSince(t0);
         InterlockedIncrement(&ts3native_counters.anxPoseN[kind][c]);
-        UsAdd(&ts3native_counters.anxPoseUs[kind][c], TicksSince(t0));
+        UsAdd(&ts3native_counters.anxPoseUs[kind][c], tk);
+        if (ubRow >= 0) UbAdd(UB_POSE, ubRow, tk);
     }
 }
 static void __fastcall AnxPose0(void* actor, void* edx, float dt) { AnxPose(0, actor, edx, dt); }
