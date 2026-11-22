@@ -789,6 +789,12 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnstuck value="False" />
     <kUnstuckHousehold value="False" />
     <kUnstuckLog value="False" />
+    <kWooHooSnap value="False" />
+    <kWooHooSnapHousehold value="False" />
+    <kWooHooSnapLog value="False" />
+    <kPairSnap value="False" />
+    <kPairSnapHousehold value="False" />
+    <kPairSnapLog value="False" />
     <kStandWaitFix value="False" />
     <kStandWaitFixHousehold value="False" />
     <kStandWaitLog value="False" />

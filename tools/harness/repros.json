@@ -115267,6 +115267,206 @@
     ]
   },
   {
+    "id": "woohoosnap-check",
+    "bug": "A WooHoo or Try for Baby both Sims agreed to ends with the route-fail balloon when one partner's route to its spot has no plan: the free bed side closed by furniture or a wall (EnterRelaxing: RouteToUnusedPart, then IsRoutingSlotObstructed), the shower, wardrobe, leaf pile, sarcophagus or other object's slot closed (docs/686 §20)",
+    "fix": "ts3fixes WooHooSnap.cs: woohoosnap (pairs of NPCs), woohoosnaphh (pairs with a household or selected Sim), woohoosnaplog, default off, docs/686 §20",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). WooHooSnapCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4566-4575, the reasons for kept cases and the last woohoosnap: line; 'lot' lists the beds, showers and objects with a WooHoo interaction on the selected Sim's lot that have a routing slot the selected Sim cannot plan to. Forced repro (two partners, a double bed with one side closed by a fridge or a wall, WooHoo ordered) outlined in docs/686 §20.5, not built as an entry yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": false,
+          "woohoosnaphh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "WooHoo objects on the selected Sim's lot with a closed routing slot",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": true,
+          "woohoosnaphh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": false,
+          "woohoosnaphh": false,
+          "woohoosnaplog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "pairsnap-check",
+    "bug": "A paired social (kiss, hug: ActionData.SocialJig other than one-person) between two Sims standing within 3 m ends with the route-fail balloon when SocialInteraction.SetupTwoPersonSocial finds no ring place or jig place (a counter, furniture or a wall next to them), or when the walk to the place fails (docs/686 §20)",
+    "fix": "ts3fixes WooHooSnap.cs: pairsnap (pairs of NPCs), pairsnaphh (pairs with a household or selected Sim), pairsnaplog, default off, docs/686 §20",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). PairSnapCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4576-4581 (snap outs in 4574), how pairs were placed, the reasons for kept cases and the last pairsnap: line; 'lot' lists the Sims within 3 m of the selected Sim on its level the game's placement ring (0.7 m) has no plan for, and the place the rule would put them on. Forced repro (two Sims on either side of a counter, a kiss ordered) outlined in docs/686 §20.5, not built as an entry yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "Sims within 3 m of the selected Sim the game's placement ring cannot reach",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": true,
+          "pairsnaphh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false,
+          "pairsnaplog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

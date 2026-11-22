@@ -74,7 +74,8 @@ namespace Ts3Fixes
             public RoutePlanResult Saved; public bool OptObjects, OptOverride, OptChecks;
         }
         // a Sim that was let onto a slot
-        sealed class BuExit { public Vector3 Origin, Slot; public WeakReference Ia; public long At; public bool Snap; }
+        // Obj: the object whose slot it is (0 = none). Owner: 0 blockeduse, 1 woohoosnap, 2 pairsnap (WooHooSnap.cs)
+        sealed class BuExit { public Vector3 Origin, Slot; public WeakReference Ia; public long At; public bool Snap; public ulong Obj; public int Owner; }
 
         static readonly Dictionary<uint, BuRec> sBuRecs = new Dictionary<uint, BuRec>();
         static readonly Dictionary<ulong, BuExit> sBuExits = new Dictionary<ulong, BuExit>();  // by Sim object id
@@ -293,7 +294,8 @@ namespace Ts3Fixes
                 x.Origin = k.Origin;  // a Sim let on twice keeps the first spot: that one it walked to
                 sBuExits[id] = x;
             }
-            x.Slot = k.Goal; x.Snap = snap; x.At = SimClock.CurrentTicks;
+            x.Slot = k.Goal; x.Snap = snap; x.At = SimClock.CurrentTicks; x.Owner = 0;
+            x.Obj = k.Obj != null ? k.Obj.ObjectId.Value : 0UL;
             InteractionInstance ia = sim.CurrentInteraction;
             x.Ia = ia != null ? new WeakReference(ia) : null;
         }
@@ -398,6 +400,12 @@ namespace Ts3Fixes
             bool RouteBlocked(Route r, bool afterWalk)
             {
                 Sim sim = OwnerSim;
+                // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20): a WooHoo partner's or a paired social's failed plan
+                WhsCase w = null;
+                try { w = WhsBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { WhsError(false, 0, e); }
+                if (w != null) return RouteSnap(sim, r, w, afterWalk);
                 BuCase k = null;
                 try { k = BuBegin(sim, r); }
                 catch (ResetException) { throw; }
@@ -429,6 +437,22 @@ namespace Ts3Fixes
                 catch (ResetException) { throw; }
                 catch (Exception e) { BuError(4, e); }
                 return walked;
+            }
+
+            // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20): the Sim walks up to the object's room when a normal plan
+            // gets it there, then it is put on its spot. A walk up that was cancelled keeps the game's answer.
+            bool RouteSnap(Sim sim, Route r, WhsCase w, bool afterWalk)
+            {
+                if (w.Near != null && !RouteOrig(w.Near) && (sim.HasBeenDestroyed || sim.HasExitReason()))
+                {
+                    try { WhsKeep(WooHooSnapCore.kWhyStopped, w.Head); } catch (Exception) { }
+                    return KeepEa(r, afterWalk);
+                }
+                bool arrived = false;
+                try { arrived = w.Pair ? PrsArrive(sim, r, w) : WhsArrive(sim, r, w); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { WhsError(w.Pair, 1, e); }
+                return arrived || Keep(r, afterWalk);
             }
 
             // reachuse (ReachUse.cs, docs/686 §12): a failed plan that blockeduse left alone. A chore whose route has no
@@ -568,6 +592,7 @@ namespace Ts3Fixes
                     if (found && BuValid(fwd)) sim.SetForward(fwd);
                     c[kBuSnapOut]++;
                     if (found) c[kBuOutFound]++;
+                    if (x.Owner != 0) WhsOut(sim, x.Owner, from, to);  // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20)
                     BuLine(BuWho(sim) + " " + sim.FullName + ": snap out from " + BuAt(from) + " to " + BuAt(to) + (found ? " (a spot found near the one it came from)" : " (the spot it came from)")
                         + ", came by " + (x.Snap ? "snap" : "clip"));
                     r = kind == 0 ? route.Plan() : route.Replan();

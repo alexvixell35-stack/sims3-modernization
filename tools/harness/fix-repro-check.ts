@@ -25,6 +25,8 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  pairsnaplog: 'built, not run in the game yet: forced repro pending (docs/686 §20)',
+  woohoosnaplog: 'built, not run in the game yet: forced repro pending (docs/686 §20)',
   unstucklog: 'built, not run in the game as a forced repro yet (pending); storms s520-s529 in docs/686 §18.6',
   socialreachlog: 'built, not run in the game as a forced repro yet (pending); storms s520-s529 in docs/686 §18.6',
   unstuckhh: 'built, not run in the game as a forced repro yet (pending); storms s520-s529 in docs/686 §18.6',

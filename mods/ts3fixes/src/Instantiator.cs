@@ -386,6 +386,12 @@ namespace Ts3Fixes
         [Tunable] public static bool kUnstuck = false;  // unstuck (docs/686 §18): a Sim or pet the player does not control that failed 3 plans from one spot over 2.5 sim-minutes (or that the game's nightly stuck check found no way for) and has no normal way to a place 3 m away walks out through the objects to the nearest open place (a real walk, never through walls, at most 12 m); never a Sim that sits, lies, swims, rides or is carried
         [Tunable] public static bool kUnstuckHousehold = false;  // unstuckhh: unstuck for household and selected Sims and pets (stands alone)
         [Tunable] public static bool kUnstuckLog = false;  // unstucklog: one ts3native.log line per act
+        [Tunable] public static bool kWooHooSnap = false;  // woohoosnap (docs/686 §20): a Sim the player does not control whose route to its WooHoo spot (bed side, shower, wardrobe, any WooHoo object on the lot) fails is put on the slot and the WooHoo goes on; the game's own tests stay
+        [Tunable] public static bool kWooHooSnapHousehold = false;  // woohoosnaphh: woohoosnap for pairs with a household or selected Sim (stands alone)
+        [Tunable] public static bool kWooHooSnapLog = false;  // woohoosnaplog: one ts3native.log line per act
+        [Tunable] public static bool kPairSnap = false;  // pairsnap (docs/686 §20): a paired social (kiss, hug) of two Sims the player does not control, within 3 m on one level, whose placement or route fails is lined up by a short snap
+        [Tunable] public static bool kPairSnapHousehold = false;  // pairsnaphh: pairsnap for pairs with a household or selected Sim (stands alone)
+        [Tunable] public static bool kPairSnapLog = false;  // pairsnaplog: one ts3native.log line per act
         [Tunable] public static bool kStandWaitFix = false;  // standwaitfix (docs/686): in a blocked cycle of the obstacle stand-and-wait (replan failed) a Sim obeys a push or cancel, pushes the Sims in its way and, when only people block, walks on with the game's ignore-obstacles timer
         [Tunable] public static bool kStandWaitFixHousehold = false;  // standwaitfixhh: standwaitfix for household and selected Sims too (their result differs from EA's 50-minute wait)
         [Tunable] public static bool kStandWaitLog = false;  // standwaitlog: one ts3native.log line per stand-and-wait that had blocked cycles (either switch state)
