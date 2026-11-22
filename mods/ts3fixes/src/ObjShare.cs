@@ -265,7 +265,11 @@ namespace Ts3Fixes
                 if (w == null) { WaitOrig(slotChosen, s); return; }
                 int outcome = ObjShareCore.kGotTurn;
                 if (w.Decision == ObjShareCore.kGo) outcome = ObjShareCore.kShared;
-                else if (w.Decision == ObjShareCore.kKeep) outcome = OjsRhWaitLoop(rh, slotChosen, s, w);
+                else
+                {
+                    outcome = CpRhIn(rh, slotChosen, s, w);  // docs/686 §19 (CrowdPort.cs): a crowd at the slot, or a short wait, then the Sim is set on it
+                    if (outcome == ObjShareCore.kGotTurn && w.Decision == ObjShareCore.kKeep) outcome = OjsRhWaitLoop(rh, slotChosen, s, w);
+                }
                 if (outcome == ObjShareCore.kGotTurn) WaitOrig(slotChosen, s);
                 OjsRhEnd(rh, s, w, outcome);
             }

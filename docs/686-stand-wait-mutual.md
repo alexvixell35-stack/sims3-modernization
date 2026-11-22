@@ -3,7 +3,7 @@
 2026-11-21, branch `fix/stand-wait-1121`. Storm logs s141-s291 (Isla Paradiso, Collins household, 2-minute route storms) +
 decompiled C#. Built, default off, **NOT RUN**. Switches `standwaitfix`, `standwaitfixhh`, `standwaitlog`; counters
 4300-4319; `StandWait.cs`, `StandWaitCore.cs`; repro `standwait-check`.
-§7 (waits at a privacy-locked room, `standwaitlocked`) and the other sections stay on the contributor's combo branch for now; §8 and §14 are
+§7 (waits at a privacy-locked room, `standwaitlocked`) and the other sections stay on the contributor's combo branch for now; §8, §14 and §19 are
 in this file. **Correction to §1-§2:** the wait in the tuning XML is 20 sim-minutes, not 50; "50" below is the default
 in the code.
 
@@ -471,3 +471,88 @@ once and the fourth 6 s later.
 
 - NPCs shared too in the on arm (`rhshare: Monika Morris npc walks to enter slot ... of Stadium`).
 - Not run: the cancel exit (4483), dead reservations (4484), horses and riders (4482).
+
+## 19. Crowded transport portals are skipped (`crowdport`; 2026-11-22, `feat/portalcrowd-1122`, built, default off, NOT RUN)
+
+A player's wish: at elevators, rabbit holes, the subway and the like a Sim may be teleported when too many Sims
+are going in. These count as portals for the timing rule (§8.7), so they may act almost at once: a crowd is
+`kCrowdPortMin` Sims (3) waiting for or using the portal, this Sim included, or the Sim's own wait behind
+another Sim has passed `kCrowdPortWait` sim-minutes (1). A single Sim with nobody in its way walks as in the
+game. Where the game has a teleport of its own, that path is used.
+
+### 19.1 Transport portals with a line [verified, decompiled `Sims3.Gameplay` / `Sims3GameplayObjects` unless marked]
+
+| Portal | How Sims wait | Timeout | The game's own skip |
+|---|---|---|---|
+| Elevator (`ElevatorDoors`, `ElevatorInterior`) | `PortalComponent.AcquireLaneRouteAction.WaitInLine`: the doors' `SimQueue` (`kMaxSimsInElevatorLine` 12, stay where you are, ordered by distance), asked again every 0.25 sim-min while the lane (1 per door) is not locked | line 15 sim-min (`kElevatorSimQueueWaitBeforeTeleportSkipTime`), lane 30 (`kElevatorGiveupTime`) | `ElevatorDoorsPortalComponent.TryTeleportSkip` after the line timeout or with 2 riders in the car: doors open here, car not in use, same direction, then `OnPortalStart(bAlwaysTeleport)`: fade, set into the car, replan |
+| Rabbit hole, going in (`RabbitHole.AnimateEnterRabbitHole`) | `WaitForEnterSlot`: one Sim holds an enter slot until its walk to it ends; the others sleep 10 ticks a round, blind to cancels | a reservation is broken after 15 sim-min per holder | none for a walking Sim; `doRoute: false` (stations) enters from where the Sim stands |
+| Rabbit hole, coming out (`AnimateExitRabbitHole`) | NPCs sleep 30 ticks a round until `kNpcExitFreq` (15 sim-min) has passed since the last Sim left; then `GetExitSlot` (one Sim per exit slot, 15 sim-min) | one NPC per 15 sim-min, no upper bound | `CanSimSkipExitWait`: selectable Sims, school pupils; `rhexitunseen` adds unseen NPCs (docs/613 §2) |
+| Subway (`Subway.SubwayPortalComponent`), hover train (`HoverTrainStation`) | no line: lane 0 (in) and lane 1 (out) are one-way, and `GetFreeRoutingLane` hands a lane to every Sim that starts at the same slot; `IsLaneUnobstructed` is always true. In: `AnimateEnterRabbitHole(doRoute: false)` at the lane's slot. Out: `AnimateExitRabbitHole`, so arriving NPC riders stand in the exit pacing above | ride `TimeToDestination` + `kTravelExiting` | the entry is already a fade at the slot |
+| Tube elevator (`TubeElevator`, Into the Future), firefighter pole | `SimLine.WaitForTurn` (tube: 3 long, 15 sim-min), then an animation with the object as an actor | 15 sim-min, then the interaction fails | none |
+| Time portal | `RouteToObjectRadialRange` 1.5 m, no line | - | - |
+| Showtime venues, stadium, school, offices | rabbit holes: the two rows above (school pupils skip the exit pacing) | | |
+| Taxi, own car, boat taxi, school bus, carpool [inferred, not read again for this section] | one vehicle per Sim or group; no shared line found in earlier work (docs/642) | | |
+
+### 19.2 What is built
+
+Switches `crowdport` (Sims the player does not control), `crowdporthh` (household and selected Sims too),
+`crowdportlog` (one `crowdport:` line per act); tunables `kCrowdPortMin` (3, never under 2), `kCrowdPortWait`
+(1 sim-minute, 0-15). Rules in `CrowdPortCore.cs`, game side in `CrowdPort.cs`.
+
+| Kind | Where | What happens |
+|---|---|---|
+| Elevator | `SimQueue.WaitForTurn` hook (sharelanes' `LdsQueueHook.WaitHook`), doors' own line only | Crowd or long wait, and the skip's own conditions hold (doors open, car free, same direction, no exit reason on the Sim): the wait is answered false with `TimedOut`, exactly what the game's line returns after 15 sim-minutes, so `WaitInLine` runs `TryTeleportSkip` itself. Else the Sim stands in the game's line with the timeout cut to `kCrowdPortWait` (or what is left of it), after which the game tries its skip. |
+| Rabbit hole, in | `RabbitHole.WaitForEnterSlot` hook (objshare's), a slot held by another Sim, when `rhshare` does not already walk the Sim there | Our wait (at most `kCrowdPortWait`; a cancel, a free slot or the game's hand-over ends it; the Sim is in `WaitingToEnterSims` meanwhile). On a crowd or at the end of it: fade out, `SetPosition` on the enter slot, fade in (the sequence of the game's elevator skip). No reservation is taken; the game's route to the slot (now zero long), door, walk-in animation, use list, posture and events follow unchanged, and its cleanup finds the tables as with `rhshare`. Holder out of scope or the Sim over 40 m away: the game's wait. |
+| Rabbit hole, out | new swap `RabbitHole.AnimateExitRabbitHole` (5 arguments; with the switch off the game's body alone) | An NPC's pacing wait is ours: the game's loop, plus a burst: when `kCrowdPortMin` NPCs wait at one rabbit hole, every one waiting at that moment goes on (the game's body is called with `skipWait`). `GetExitSlot` still gives one Sim per exit slot, so the door paces them. `CanSimSkipExitWait` is asked once, as before. |
+| Station | the two rabbit hole rows (a `Subway` or `HoverTrainStation` counts as "station") | Going in by the portal has no line (§19.1). Arriving riders leave with the crowd. |
+| Other | the line hook | A crowd in a tube elevator's or firefighter pole's line is counted and logged; the game's line is kept (its animation uses the object as an actor). |
+
+Horses, riders, Sims carrying a child and toddlers keep the game's code everywhere, so a carried child is
+never split from its carrier. The scope test is the plain player-Sim test: the experimental `HouseholdToo` flag
+does not put household Sims in scope, only `crowdporthh` does.
+
+### 19.3 Limits [inferred unless marked]
+
+- Not run in the game.
+- Rabbit hole, in: the brief asked for no door animation. The game has no path that puts a walking Sim inside
+  without `AnimateEnterRabbitHole`; its tail (door, walk-in, fade) is kept so every piece of bookkeeping is the
+  game's. Seen: the Sim fades where it stands, appears on the slot and walks in, overlapping others there.
+- Elevator: the skip needs open doors on the Sim's floor. A car that is elsewhere is waited for as before, with
+  the game's skip tried every `kCrowdPortWait` instead of once after 15 sim-minutes. A faked timeout whose skip
+  the game then refuses (`OnApproachingPortalObject` false) lets the Sim try the lane without being in the line.
+  The game clears the Sim's exit reasons after a refused skip, as it does after its own timeout.
+- Rabbit hole, out: a burst resets nothing in the game's clock but its usual stamp, so the next NPC waits 15
+  sim-minutes again unless a new crowd forms. Two waiting NPCs keep the game's pacing.
+- A household holder with `crowdporthh` off keeps every Sim behind it on the game's wait.
+- Tube elevators and firefighter poles are counted only.
+
+### 19.4 Checks (2026-11-22, no game)
+
+- `node tools/selftest/crowdport/run.ts`: 46 checks ok. objshare 29, sharelanes ok.
+- Swap audit: one new row (`CpExitHook.ExitHook`, yields, stub remap).
+- Repro `crowdport-check` (any save): `CrowdPortCheck run` off -> `verdict: BROKEN`, on -> `verdict: FIXED`,
+  `controls ok=True`; `result` = counters 4550-4565 and the last line; `lot` = elevator doors with a line on the
+  selected Sim's lot, rabbit holes with reserved enter slots or NPCs in our exit wait.
+
+### 19.5 Run plan
+
+Forced repros, not built as entries; `crowdporthh` and `crowdportlog` on, each off then on:
+
+- Elevator: a high-rise lot, 5 household Sims on the ground floor, all ordered Go Here to an upper floor at
+  once. Off: `linewait:` lines for `ElevatorDoors`, Sims stand up to 15 sim-minutes. On: `crowdport: elevator:
+  ... skips the line` per Sim from the third on (4550), 4561 while the car is away, no Sim left at the doors.
+- Rabbit hole: the same 5 Sims ordered into one rabbit hole (bookstore, Attend Class) at once, `rhshare` off.
+  Off: `linewait: ... rhdoor` waits. On: `crowdport: rabbit hole in:` lines (4551), every Sim inside, 4563 for
+  slots that came free first. With `rhshare` on as well the Sims walk (4479) and 4551 stays low.
+- Subway (Bridgeport): 5 Sims ordered to a far lot so that they route through one station. Expected in both
+  arms: no lane wait going in; `station out` lines only when NPC riders arrive together.
+- NPC exits: any office tower at closing time with `rhexitunseen` off, camera on the door. Off: 4564 stays 0
+  (the hook asks nothing), NPCs come out 15 sim-minutes apart. On: 4564 counts the waits, 4552 the Sims that
+  left with a crowd, 4565 those the game's pacing let out.
+- In every arm 4556 must stay 0 and no `crowdport: error at` line may appear.
+
+### 19.6 Storms (2026-11-22, Deck)
+
+Route storms s520-s529 with the switch on in half: 3 rabbit-hole-in acts at a busy diner and grocery (`is set on
+enter slot ... 2 Sims there, waited 1.3 sim-min`), 7 NPC exit waits ended by the game's own pacing, errors 0.
+**Not run in the game as a forced repro yet** (pending): crowded elevators, the exit burst and stations did not occur.

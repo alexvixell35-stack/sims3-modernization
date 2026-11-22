@@ -549,6 +549,7 @@ namespace Ts3Fixes
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplySmcSetActor();        // SmcSetActor.cs: StateMachineClient.SetActor for servingshare (docs/686 §14), a one-int test while nothing is armed
+            ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1605,7 +1606,13 @@ namespace Ts3Fixes
         // rabbit hole enter-slot waits / tenths / timed out (15 sim-min) / cancelled; errors; rhshare: walked to a held slot / would (off) / exempt / kept
         // (holder out of scope, horse, rider, carrier) / left the wait on a cancel / dead reservations removed; servingshare: runs at a busy platter / lines
         // skipped / took with another Sim / would / exempt / kept (a Sim out of scope there) / last serving refused; linewait: line full / shorter waits.
-        const int kCounterSlots = 4494;
+        // [4550-4565] crowdport (CrowdPort.cs, docs/686 §19): elevator skips (the game's teleport skip, early) / rabbit hole in (set on the enter slot) /
+        // rabbit hole out (NPC exits released with the crowd) / station (subway, hover train: in or out) / other lines with a crowd (tube elevator,
+        // firefighter pole; kept) / kept (switched off or holder changed during our wait) / errors / would, off / exempt (household without crowdporthh) /
+        // horse, rider, carrier, toddler / elevator: line timeouts cut / elevator: no skip now (doors closed, car in use, other direction) / rabbit
+        // hole in: holder out of scope or Sim far away / in: short wait ended by a free slot or a cancel / out: NPC exit waits (switch on) / out: ended
+        // by the game's pacing.
+        const int kCounterSlots = 4566;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2091,6 +2098,9 @@ namespace Ts3Fixes
                 case "rhsharehh": return Instantiator.kRhShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
                 case "servingshare": return Instantiator.kServingShare;  // ObjShare.cs (docs/686 §14): NPCs grab servings from one platter at once, no line, last serving taken once, off
                 case "servingsharehh": return Instantiator.kServingShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
+                case "crowdport": return Instantiator.kCrowdPort;  // CrowdPort.cs (docs/686 §19): an NPC at a crowded elevator, rabbit hole door or station skips the queue by the game's own teleport paths; NPC exits leave together, off
+                case "crowdporthh": return Instantiator.kCrowdPortHousehold;  // CrowdPort.cs: the same for household and selected Sims, off
+                case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;

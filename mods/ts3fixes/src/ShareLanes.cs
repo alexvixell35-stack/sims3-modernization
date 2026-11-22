@@ -378,6 +378,8 @@ namespace Ts3Fixes
                 catch (Exception e) { ShlError(4, e); }
                 // docs/686 §14 (ObjShare.cs): servingshare skips a platter's and its surface's line; linewaitlog times the rest
                 if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
+                // docs/686 §19 (CrowdPort.cs): a crowded elevator's line is answered "timed out" (the game's teleport skip follows) or gets a short timeout
+                if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
                 bool got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);

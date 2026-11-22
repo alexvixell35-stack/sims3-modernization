@@ -398,6 +398,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kRhShareHousehold = false;  // rhsharehh: rhshare for household and selected Sims too, as the one who walks and as the holder
         [Tunable] public static bool kServingShare = false;  // servingshare (docs/686 §14): Sims the player does not control grab servings from one platter or buffet at the same time (no line, no in-use refusal, Sims overlap); the last serving is taken once
         [Tunable] public static bool kServingShareHousehold = false;  // servingsharehh: servingshare for household and selected Sims too
+        [Tunable] public static bool kCrowdPort = false;  // crowdport (docs/686 §19): a Sim the player does not control at a crowded elevator or rabbit hole door (kCrowdPortMin Sims there, or kCrowdPortWait sim-minutes behind another Sim) skips the queue: the game's elevator teleport skip at once, set on the rabbit hole's enter slot; NPCs waiting to leave a rabbit hole or station go together. Horses, riders, carriers and toddlers keep the game's wait
+        [Tunable] public static bool kCrowdPortHousehold = false;  // crowdporthh: crowdport for household and selected Sims too
+        [Tunable] public static bool kCrowdPortLog = false;  // crowdportlog: one ts3native.log line per act
+        [Tunable] public static int kCrowdPortMin = 3;  // crowdport: Sims waiting for or using the portal, this one included, that make a crowd (2 at least)
+        [Tunable] public static float kCrowdPortWait = 1f;  // crowdport: sim-minutes a Sim waits behind another Sim before it skips without a crowd (0-15)
         [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kInitStackTrace = true;    // initstacktrace (docs/594 §1): InteractionInstance.Init / OnAddedToQueue without the dead O(depth^2) StackTrace walks (fields only read by compiled-out debug code; exact)

@@ -801,6 +801,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kRhShareHousehold value="False" />
     <kServingShare value="False" />
     <kServingShareHousehold value="False" />
+    <kCrowdPort value="False" />
+    <kCrowdPortHousehold value="False" />
+    <kCrowdPortLog value="False" />
+    <kCrowdPortMin value="3" />
+    <kCrowdPortWait value="1" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />

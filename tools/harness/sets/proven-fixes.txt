@@ -32,6 +32,7 @@
 #   standwaitfix standwaitfixhh standwaitlog
 #   sharelanes sharelaneshh laddershare laddersharehh spiralshare spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
 #   linewaitlog rhshare rhsharehh servingshare servingsharehh
+#   crowdport crowdporthh crowdportlog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
