@@ -200,6 +200,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kShowerPee value="False" />
     <kShowerPeeHousehold value="False" />
     <kShowerShareLog value="False" />
+    <kViewLenient value="False" />
+    <kViewLenientHousehold value="False" />
+    <kViewLenientLog value="False" />
     <kLineWaitLog value="False" />
     <kRhShare value="False" />
     <kRhShareHousehold value="False" />

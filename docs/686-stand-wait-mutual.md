@@ -1113,3 +1113,95 @@ shower: no new interaction. Source `ShowerShare.cs`, rules `ShowerShareCore.cs`,
   `showerpeehh`): `showerpee: ... takes a shower ...` and `... bladder fills ...` lines, 4503 or 4504 and 4502
   up, no puddle, bladder full after the shower. Control: a free toilet on the lot -> the game's way, nothing
   counted; no shower -> 4505 and the puddle.
+
+## 16. No route-fail balloon for looking at things (`viewlenient`; 2026-11-22, `feat/viewlenient-1122`, built, default off, NOT RUN)
+
+A player's remark: "Routing errors contemplating surroundings or viewing something makes no sense." A Sim that
+only looks at something needs no exact spot; a failed plan to the chosen spot should not end in the route-fail
+balloon when a place with a view is at hand.
+
+### 16.1 How the game routes a spectator [verified, decompiled `Sims3.Gameplay` / `Sims3GameplayObjects`]
+
+| kind | class | route | on a failed plan |
+|---|---|---|---|
+| contemplate | `Terrain.Contemplate` (Genius trait, autonomous on residential and venue lots) | `PlanToPointRadialRange` 0.3-1 m round the clicked point, valid rooms = the room of one randomly picked object near the Sim | `DoRoute` false: the next object is tried (a balloon each time), with none left "bored" and the interaction ends |
+| art | `ViewObjects` (`IViewable`: paintings, sculptures, photos, altars) | `CreateRouteToObject`: a ring of the viewable's min..max distance, one level; in range with a view only a turn | ends |
+| performer | `MusicalInstrument.WatchBase<T>` (`Guitar+Watch`, `Drums+Watch`, ...) | `DoRouteForWatchOrDance`: a dance floor near the instrument, else a ring 1 m .. 0.9 x the sound radius in the instrument's room (front half, then all round, then platforms allowed) | ends |
+| tv | `TV.WatchTV`, standing | `TV.RouteToCone`: 2-6 m, a 3/8 pi cone in front of the TV, in its room | ends |
+| stars | `Sim.WatchTheStars` (two Sims) | `SocialJigTwoPerson.RouteToJigA/B` to a jig placed by `FindGoodDeltaLevelPosition` | both Sims' interactions end |
+
+All of them hand the plan to `SimRoutingComponent.DoRoute`. A plan that failed before the walk gets
+`DoRouteFailureBehavior` (the balloon, for a locked door the door reaction) when `Route.DoRouteFail` is set, the
+exit reason `RouteFailed` and false. A walk that ends on a failed replan answers false with no balloon of its own
+(the balloon there is only for a Sim standing on the goal or a turn jig).
+
+Route failures in the storm logs (`ts3fixes: routefail:` lines of `ts3native-full.log`, all phases) [verified]:
+
+| interaction | no destination | no path | portal locked | aborted | first plan / from a point / replan |
+|---|---|---|---|---|---|
+| Contemplate (target Terrain) | 296 | 4 | 0 | 0 | 297 / 3 / 0 |
+| Watch (Guitar 61, KeyBoard 24, LaserHarp 18, Drums 5, GrandPiano 4, BassGuitar 1) | 1 | 76 | 36 | 0 | 6 / 59 / 48 |
+| WatchTV | 6 | 55 | 6 | 0 | 43 / 18 / 6 |
+| WatchTheStars (target Sim) | 7 | 25 | 0 | 9 | 35 / 5 / 1 |
+| ViewObjects (paintings 4, altar 2) | 0 | 6 | 0 | 0 | 0 / 6 / 0 |
+
+Contemplate's 296 "no destination" plans are the room filter: the picked object's room is not the room of the
+point, so the ring has no place at all. `ViewText` (6, a phone) has no route of its own and is left out.
+`ListenToGhostStory` (46, a group round a storyteller) and `LookOutWindow` (12, a window's slot) are not in.
+
+### 16.2 What is built
+
+`ViewLenient.cs` / `ViewLenientCore.cs`, no swap of its own: the case is a third step in blockeduse's `DoRoute`
+hook (`BuRouteHook.RouteBlocked` -> `RouteReach` -> `RouteView`), reached for a failed plan (the first plan, or a
+replan that ended the walk with no exit reason) that blockeduse and reachuse left alone.
+
+- Which: the Sim's running interaction is one of the five kinds (class names, `ViewLenientCore.Kind`), the plan
+  failed with no destination, no path, obstructed goal, a Sim on the goal, no free slot or portal locked
+  (`PlanKind`), the route would show the balloon (`DoRouteFail`), the Sim is a human on foot.
+- contemplate: a standing Sim stays where it is and the route answers "arrived" (the game then turns it to the
+  object it picked). A sitting, lying or swimming Sim walks a normal plan to the nearest place within 6 m of the
+  point.
+- art, performer, tv: the failed route must go to the target (goal within range + 1.5 m). The Sim stands within
+  the game's range (the viewable's `MaxDistanceFromObjectToView`; 0.9 x the instrument's `DanceRadius`; 6 m for a
+  TV), on the target's level (1.5 m), no light-blocking wall between it and the target (for a painting or a TV a
+  point 0.3 m in front of it), for a TV on its front side: it turns to the target, "arrived". Otherwise a normal
+  plan to the nearest such place (reachuse's `RuNearPlan`: the target's room first, then any room) is walked and
+  tested again at its end.
+- stars, or no such place (also a walk that was stopped): the game's own answer (exit reason, false) with the
+  route's `DoRouteFail` cleared for that call, so no balloon. A target with no place is not searched again by
+  that Sim for 30 sim-minutes (quiet end at once).
+- Scope: `viewlenient` = Sims the player does not control, `viewlenienthh` = household and selected Sims, each
+  stands alone. Off = compare mode (counted as "would"). `viewlenientlog` = one `viewlenient:` line per act.
+- `ReachUse.cs` lost its copy of the search: `RuPlace` and `ViewLenient.cs` share `RuNearPlan` and `RuWall`.
+
+Counters 4510-4525 (`kCounterSlots` 4526): tries 4510, would 4511, exempt 4512, handled by kind: contemplate
+4513, art 4514, performer 4515, tv 4516, stars 4517; by outcome: stayed in place 4518, walked to the nearest
+place 4519, quiet ends 4520; kept as the game has it 4521, walk stopped or ended with no view 4522, errors 4523
+(`viewlenient: error at <site>`), quiet ends while cooling down 4524, tries after a walk 4525.
+
+### 16.3 Limits [inferred unless marked]
+
+- Not in: socials, Go Here, every interaction not named in §16.1, routes to routing slots (blockeduse), aborted
+  plans (WatchTheStars has 9), pets, riders, Sims in vehicles.
+- Watch the Stars is a pose for two on a jig: only the balloon goes, the interaction ends as before.
+- Contemplate in place may look at an object in another room (the game picks it before the route).
+- A Sim that stays in place turns at once (`SetForward`, as reachuse does), not with a turn animation.
+- A failed route onto a dance floor near an instrument (`RouteOntoDanceFloorAndFaceObject`) is answered the same
+  way when it would show the balloon: the Sim watches from the nearest place and is entered in that dance floor's
+  use list.
+- A TV watched from a place the game's cone would not give (up to 6.5 m, anywhere on the front side): `WatchTV`
+  runs its own facing test after the route.
+- `RouteReach`'s body changed (it calls `RouteView`): a Sim saved in a reachuse walk by an older build resets once.
+- The household switch changes what a player-ordered View / Watch does when its spot is closed (it is done from
+  the nearest place); Go Here is never touched.
+
+### 16.4 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/viewlenient/run.ts`: 56 checks ok. reachuse 53, blockeduse 45, showershare 41 ok.
+  `swap-stack-audit`: no change. Build ok.
+- Repro `viewlenient-check` (any save): `ViewLenientCheck run` off -> `verdict: BROKEN`, on -> `verdict: FIXED`,
+  `controls ok=True`; `result` = counters and the last line; `lot` = the TVs, viewables and instruments of the
+  selected Sim's lot its plan cannot reach as the game does, and what the rule finds.
+- Storms: with the switches off 4510 and 4511 count the cases (Contemplate is common: expect most of 4510 there);
+  with `viewlenient` on 4513 and 4518 rise together (contemplate in place), `routefail:` lines for Contemplate /
+  Watch / WatchTV stay (they are written at the plan) but no balloon follows; 4523 must stay 0.

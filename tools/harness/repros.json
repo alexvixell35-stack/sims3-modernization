@@ -124054,6 +124054,106 @@
     ]
   },
     {
+      "id": "viewlenient-check",
+      "bug": "A Sim that only looks at something plays the route-fail balloon and gives up when the plan to its viewing spot fails: Terrain.Contemplate (ring in a random object's room), ViewObjects, MusicalInstrument.WatchBase, TV.WatchTV, Sim.WatchTheStars all end in SimRoutingComponent.DoRoute's failure branch (docs/686 §16)",
+      "fix": "ts3fixes ViewLenient.cs: viewlenient (NPCs), viewlenienthh (household and selected Sims), viewlenientlog, default off, docs/686 §16",
+      "save": "any world (pure check); lot arm: a selected Sim on a lot with a TV, a painting or an instrument",
+      "note": "UNVERIFIED (2026-11-22, offline only, never run). ViewLenientCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4510-4525 and the last viewlenient: line; 'lot' lists the TVs, viewables and instruments of the selected Sim's lot its plan cannot reach as the game does, and whether the rule finds a place to look from. In storms Contemplate is the common case: off, 4510 and 4511 rise; on, 4513 and 4518.",
+      "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+      "steps": [
+        {
+          "cmd": "patches",
+          "args": {
+            "viewlenient": false,
+            "viewlenienthh": false
+          },
+          "note": "off first",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ViewLenientCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "note": "off: the game's answer",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ViewLenientCheck",
+            "args": [
+              "result"
+            ]
+          },
+          "note": "off: counters",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ViewLenientCheck",
+            "args": [
+              "lot"
+            ]
+          },
+          "note": "TVs, viewables and instruments of the selected Sim's lot",
+          "max": 4000,
+          "waitS": 2
+        },
+        {
+          "cmd": "patches",
+          "args": {
+            "viewlenient": true,
+            "viewlenienthh": true
+          },
+          "note": "on",
+          "waitS": 1
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ViewLenientCheck",
+            "args": [
+              "run"
+            ]
+          },
+          "note": "on: the fix",
+          "max": 2500,
+          "waitS": 2
+        },
+        {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.ViewLenientCheck",
+            "args": [
+              "result"
+            ]
+          },
+          "note": "on: counters",
+          "max": 2500,
+          "waitS": 2
+        }
+      ],
+      "cleanup": [
+        {
+          "cmd": "patches",
+          "args": {
+            "viewlenient": false,
+            "viewlenienthh": false,
+            "viewlenientlog": false
+          },
+          "note": "default off again",
+          "waitS": 1
+        }
+      ]
+    },
+    {
       "id": "showershare-check",
       "bug": "A Sim that wants the shower its romantic partner is in queues at the door (Shower.TakeShower: line, then 'in use'), and a Sim whose bladder fails on a lot with no usable toilet wets itself although a shower is free (Motive.MotiveDistress -> Sim.BladderFailure) (docs/686 §15)",
       "fix": "ts3fixes ShowerShare.cs: showertogether, showerpee (each with an hh switch for household and selected Sims), showersharelog, default off, docs/686 §15",
