@@ -57,6 +57,7 @@ namespace Ts3Fixes
             public int Cycles, Blocked, RunBlocked, PushCycles, Pushed, LastPushCycle, NextPass, Delays, YieldCycle, PassCycle, Probes;
             public int WouldYield, WouldPush, WouldPass;
             public bool Yielded, Passed, Exempt, On, PushAcceptedLast;
+            public bool ClwCounted;  // ClipWait.cs: this wait is in its counters
             // StandWaitLocked.cs: cycles with a locked destination portal / of them a privacy lock / such cycles in a row
             public int Locked, Privacy, LockRun, LockKind, GaveUpCycle, WouldGiveUp, ClearedCycle;
             public bool GaveUp, LockOn, LockExempt;
@@ -103,7 +104,8 @@ namespace Ts3Fixes
             public bool CycleHook(object controller, object userData)
             {
                 bool failedBefore = SwfPlanFailed(mInterruptedPath);
-                return SwfCycle(this, mRoutingSim, mInterruptedPath, failedBefore, CycleOrig(controller, userData));
+                // clipwait (ClipWait.cs, docs/686 §9), off by default: a wait that goes on past the grace with only Sims in the way ends
+                return SwfCycle(this, mRoutingSim, mInterruptedPath, failedBefore, CycleOrig(controller, userData)) && ClwObstacleCycle(this, mRoutingSim, mInterruptedPath);
             }
             public bool CycleOrig(object controller, object userData) { return true; } // receives StandAndWaitCycleHandler's original body
 

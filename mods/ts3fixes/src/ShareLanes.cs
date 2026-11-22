@@ -62,7 +62,7 @@ namespace Ts3Fixes
     //   is approached by that point plan instead of the plan to the slot with its facing. The climb down keeps the slot.
     //
     // Off = compare mode: the hooks count what each switch would do, and the lane waits (how many, how long) either way.
-    // lanewaitlog writes one line per lane wait. Counters 4364-4397. Check: ShareLanesCheck.
+    // lanewaitlog writes one line per lane wait. Counters 4364-4397. Check: ShareLanesCheck. The waits that still begin: ClipWait.cs (clipwait).
     public static partial class Fixes
     {
         const int kShlFails = 4364, kShlSharable = 4365, kShlShared = 4366, kShlErrors = 4367, kShlWould = 4368, kShlExempt = 4369,

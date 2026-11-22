@@ -403,6 +403,12 @@ namespace Ts3Fixes
         [Tunable] public static bool kSimPass = false;  // simpass (docs/686 §8): a walking Sim that meets only Sims (none of them at the route's end) starts the game's ignore-obstacles timer and walks through them instead of running the obstacle stand-and-wait
         [Tunable] public static bool kSimPassHousehold = false;  // simpasshh: simpass for household and selected Sims too, as the walker and as a Sim walked through
         [Tunable] public static float kSimPassMinutes = 3f;  // simpass: sim-minutes the ignore-obstacles timer runs per start (the game's own value after a portal is 5)
+        [Tunable] public static bool kClipWait = false;  // clipwait (docs/686 §9): a Sim that has stood kClipWaitGraceMinutes in the game's obstacle or destination stand-and-wait with only Sims or pets in its way walks through them (the game's ignore-obstacles timer); never through objects, never into a Sim using the object it goes to, not for socials, not at the end of a player's Go Here
+        [Tunable] public static bool kClipWaitHousehold = false;  // clipwaithh: clipwait for household and selected Sims too, as the walker and as a Sim walked through
+        [Tunable] public static float kClipWaitGraceMinutes = 2f;  // clipwait: sim-minutes a Sim stands before it walks through (2 = about 2 seconds at normal speed; the game's own push and replan run in the cycles before); judged at the end of a wait cycle
+        [Tunable] public static float kClipWaitMinutes = 3f;  // clipwait: sim-minutes the ignore-obstacles timer runs per walk (simpass uses 3, the game 5 after a portal)
+        [Tunable] public static bool kClipWaitObjectDest = true;  // clipwait: a route to an object may end in a Sim that stands at its spot without using the object (false = only plain floor spots)
+        [Tunable] public static bool kClipWaitLog = false;  // clipwaitlog: one ts3native.log line per walk
         [Tunable] public static bool kAngleEntry = false;  // angleentry (docs/686 §8): the approach to stairs, and to a ladder climbed from below, is a plan to the lane's start point without facing; the stair walk and the climb set the Sim's facing themselves
         [Tunable] public static bool kAngleEntryHousehold = false;  // angleentryhh: angleentry for household and selected Sims too
         [Tunable] public static bool kLaneWaitLog = false;  // lanewaitlog (docs/686 §8): one "lanewait:" line per wait for a portal lane (who, which portal, how long, who held it); test runs

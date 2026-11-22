@@ -527,6 +527,7 @@ namespace Ts3Fixes
             ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, and §7 standwaitlocked / standwaitlockedhh (StandWaitLocked.cs), off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
+            ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
             // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
             // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
             ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off)
@@ -1327,7 +1328,11 @@ namespace Ts3Fixes
         // end) / angleentry stairs / ladder / would / kept (exempt, or the approach plan failed).
         // [4390-4397] spiralshare (ShareLanes.cs, docs/686 §8): lane locks the game refused on spiral stairs / of them by the direction test only / shared / would
         // share, off / exempt (household without its switch) / the staircase's line skipped / would (somebody in the line), off / exempt.
-        const int kCounterSlots = 4398;
+        // [4398-4413] clipwait (ClipWait.cs, docs/686 §9): waits that reached the grace with a Sim or pet in the way / walked through / destination accepted (a floor
+        // spot, or an object's spot taken by a Sim not using it) / errors / would, off / exempt (household without its switch) / kept: object in the way / Sim at the
+        // object in use / social / player Go Here / plan fails without people too / destination-obstructed waits begun / tenths of sim-minutes stood in them / of
+        // them ended as route failed / destination events let through after a walk / walks by household or selected Sims.
+        const int kCounterSlots = 4414;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1635,6 +1640,9 @@ namespace Ts3Fixes
                 case "angleentry": return Instantiator.kAngleEntry;  // ShareLanes.cs (docs/686 §8): stairs and ladders climbed from below are approached by a point plan without facing, off
                 case "angleentryhh": return Instantiator.kAngleEntryHousehold;  // ShareLanes.cs: angleentry for household and selected Sims too, off
                 case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
+                case "clipwait": return Instantiator.kClipWait;  // ClipWait.cs (docs/686 §9): a Sim that stood past the grace with only Sims or pets in its way walks through them, off
+                case "clipwaithh": return Instantiator.kClipWaitHousehold;  // ClipWait.cs: clipwait for household and selected Sims too (as walker and as the Sim walked through), off
+                case "clipwaitlog": return Instantiator.kClipWaitLog;  // ClipWait.cs (docs/686 §9): one line per walk, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off
