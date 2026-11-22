@@ -1333,6 +1333,7 @@ namespace Ts3Fixes
         // [3908-3910] broomarenachoice (EpBatch2Logic.cs, docs/587 EP2 §7.4): chosen brooms used / dropped with switch off / errors.
         // [3911-3913] fortunetellerscamodds (EpBatch3Logic.cs, docs/587 EP3 §8.1): scam rows rebuilt / shared rows with switch off / errors.
         // [3914-3916] consignmentskillcurve (EpBatch3Logic.cs, docs/587 EP3 §8.2): curves rebuilt / frequency curve with switch off / errors.
+        // [2366-2369] simbotworld (SimbotWorld.cs, docs/870): MakeFrankensim tunings widened to Downtown + Future / tuning not in EA's shape, left alone / widening undone (switch off) / errors.
         // [3917-3919] consignmentstockleak (EpBatch3Logic.cs, docs/587 EP3 §8.3): objects destroyed / leaked with switch off / errors.
         // [3920-3922] herbqualityfloor (EpBatch3Logic.cs, docs/587 EP3 §8.4): decreases floored / below floor with switch off / errors.
         // [3923-3925] snackbowlslobvfx (EpBatch3Logic.cs, docs/587 EP3 §8.5): one-shots fired / leaked with switch off / errors.
@@ -2378,6 +2379,7 @@ namespace Ts3Fixes
                 case "broomarenachoice": return Instantiator.kBroomArenaChoice;
                 case "fortunetellerscamodds": return Instantiator.kFortuneTellerScamOdds;
                 case "consignmentskillcurve": return Instantiator.kConsignmentSkillCurve;
+                case "simbotworld": return Instantiator.kSimbotWorld;
                 case "consignmentstockleak": return Instantiator.kConsignmentStockLeak;
                 case "herbqualityfloor": return Instantiator.kHerbQualityFloor;
                 case "snackbowlslobvfx": return Instantiator.kSnackBowlSlobVfx;

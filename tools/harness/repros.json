@@ -69336,6 +69336,110 @@
     ]
   },
   {
+    "id": "simbot-world",
+    "bug": "Ambitions' Make Simbot (InventionWorkbench+MakeFrankensim) never shows on the inventing workbench in Bridgeport: its ITUN has World RestrictionType Allow, Types Base only, so Autonomy.CheckAvailability refuses it (Tuning_World) in a Downtown world; EA widened its other Allow tunings to Downtown and missed this one (docs/870)",
+    "fix": "ts3fixes SimbotWorld.cs: simbotworld (default off), docs/870",
+    "save": "Baseline-BP-Spring",
+    "note": "Bridgeport (Downtown). SimbotWorldCheck 'run' re-syncs the tuning to the switch, then evaluates EA's world test on the live MakeFrankensim tuning; control: MakeInvention (no world restriction) must be allowed. No Sim, object or save data changes; the switch only edits the tuning in memory. 'result' lists counters 2366-2369.",
+    "expect": "off: 'verdict: BROKEN' (MakeFrankensim Allow types [Base], refused here). on: 'verdict: FIXED' (types [Base,Downtown,Future], added by us [Downtown,Future], allowed here), 2366 +1. back off: 2368 +1, types [Base] again. 2367 and 2369 stay 0 unless another mod changed the tuning (2367). A non-Downtown, non-Future world reads 'verdict: N/A'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's tuning",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: Downtown and Future added",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": false
+        },
+        "note": "back to the default",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off again: the widening is undone (2368)",
+        "max": 4000
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": false
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "combo-rabbithole-check",
     "bug": "Combined rabbit holes (docs/551): each piece of a combo building is out of the world (Position OutOfWorld, LotCurrent the world lot), so (1) CityHall.CreateProtest builds its broadcasters on the piece and the protest draws nobody, and the protest goal is the combo model's missing RoutingSlot_0 (the world origin), (2) Theatre.StartShowSoundBroadcaster puts the TheatreMusic broadcaster on the piece, (3) AutographSessionSituation centres the session on the piece, so the autographer never arrives, (4) Occupation.InitializeBaseJobCreationSpec tests a RabbitHole-destination job's rabbit hole by its own lot (the world lot for a piece), so jobs whose rabbit hole exists only in a combo (Firefighter epic rescues, Medical / Film rabbit-hole jobs) are never offered, (5) EP9's daily NPC protest takes the first ICityHall's lot (the piece's world lot) and the organize-protest picker lists the world lot, (6) an opportunity aimed at a rabbit hole type gets the combo building as its target while the piece's own interactions and events carry the piece: EventListenerInfo listeners (kAteAtRestaurant), kInteractionSuccess steps (Investigator restaurant case steps, Stadium games) and School audition / recital and ScienceLab potion tests never match",
     "fix": "ts3fixes ComboRabbitHole.cs: comboprotest, combovenue, combosituation, combojob, comboprotestlot, comboopp (all default off), docs/551",

@@ -727,6 +727,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBroomArenaChoice value="True" />
     <kFortuneTellerScamOdds value="True" />
     <kConsignmentSkillCurve value="True" />
+    <kSimbotWorld value="False" />
     <kConsignmentStockLeak value="True" />
     <kHerbQualityFloor value="True" />
     <kSnackBowlSlobVfx value="True" />

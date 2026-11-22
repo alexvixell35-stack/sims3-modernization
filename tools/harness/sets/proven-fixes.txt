@@ -64,6 +64,8 @@
 #   unseenhouseboatview
 # Dalexlol PRs #503 / #490 (import 2026-11-20), default off by choice (gohomeshell: apartment arrivals, test with LotLevelPastEnd; spawnoffworld: Rodney call):
 #   gohomeshell spawnoffworld
+# EA bug fix: Make Simbot on the inventing workbench in Downtown / Future worlds (MakeFrankensim tuning world list; docs/870, 2026-11-22), default off, NOT RUN:
+#   simbotworld
 # docs/674 (route worker carve-out 2026-11-20), default off, ran in game on the combo branch only (s163-s166 compare runs):
 #   doorshare
 # perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
