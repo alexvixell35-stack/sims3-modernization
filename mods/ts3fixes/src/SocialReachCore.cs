@@ -44,6 +44,18 @@ namespace Ts3Fixes
             return kTalk;
         }
 
+        // Socials whose hands or bodies meet although their data has no paired jig (seen: High Five played 2.3 m apart,
+        // the hands did not meet; sr hand run 2026-11-22). Matched on the social's key, case-insensitive.
+        static readonly string[] kTouchNames = { "high five", "fist bump", "secret handshake", "tickle", "poke", "noogie",
+            "back rub", "massage", "pat on", "hold hands", "pinch", "nuzzle", "cuddle", "caress", "tackle", "pull finger" };
+        public static bool TouchByName(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return false;
+            string k = key.ToLowerInvariant();
+            for (int i = 0; i < kTouchNames.Length; i++) if (k.IndexOf(kTouchNames[i], System.StringComparison.Ordinal) >= 0) return true;
+            return false;
+        }
+
         public const int kApproach = 1, kReceive = 2, kPlace = 3;  // the starter's own route, the partner's own route, the pair's placement
 
         public const int kKeep = 0, kHere = 1, kWalk = 2;
