@@ -125,7 +125,8 @@ Where the count goes wrong:
   reject such spots unless stairs lead in, so (b) needs a unit reachable by stairs, inferred].
 - Not a cause: `OnSimLotChanged` passers-by join as `ConvincedToRun` victims and add no task. Side effect noted, not
   fixed: a passer-by whose run fails indoors (`InteractionFail`) becomes `TrappedInRoom`, and freeing them completes a
-  `TrappedSims` task that belonged to a really trapped Sim (the count gets easier, not harder).
+  `TrappedSims` task that belonged to a really trapped Sim (the count gets easier, not harder). Fixed by `firecount`
+  (docs/868, default off), with the other count errors found next to it (a freed Sim's death, a second rubble pile).
 
 Fix (`FireTrapCount.cs`, tuning `kFireTrapCount`, counters 3956-3959): (a) a Sim in the job's `mTrappedSims` /
 `mRubbleTrappedSims` that leaves the lot or is deleted (not dead) while still `TrappedInRoom` / `TrappedUnderRubble`

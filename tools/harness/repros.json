@@ -114643,6 +114643,93 @@
     ]
   },
   {
+    "id": "fire-count",
+    "bug": "Firefighter large fire / earthquake: every rescue completes its task with a null target, so freeing a Sim the job never trapped (a passer-by or rescued victim re-trapped by Panic.InteractionFail) or digging a second rubble pile (made by a reset) takes a real victim's 'free N Sims' task; FireFightingJob.SimDied takes a task for a freed Sim's death too and, on the last trapped Sim's death, leaves the job at 0 pending, never completed, until the timeout (docs/868, docs/570 §5)",
+    "fix": "ts3fixes FireCount.cs: firecount (default off), docs/868",
+    "save": "any world with Ambitions (pure check; scan needs a live emergency)",
+    "note": "FireCountCheck 'run' puts the reported layouts and controls through FcCore (read-only); 'scan' compares the live emergency's pending TrappedSims / TrappedRubble tasks with its listed Sims still trapped ('no emergency' without one). End to end (not run): testingcheatsenabled, a LargeFires job (debug Spawn Job) with two trapped Sims, free one, get a passer-by's run outside to fail, free it: off 2360 +1 and scan MISMATCH; on 2358 +1 and scan match.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2361 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's count",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "the live emergency, if any",
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

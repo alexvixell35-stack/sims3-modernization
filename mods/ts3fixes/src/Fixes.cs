@@ -191,6 +191,7 @@ namespace Ts3Fixes
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
             ApplyFireActiveJob();    // docs/570 §1 (FireActiveJob.cs)
             ApplyFireTrapCount();    // docs/570 §5 (FireTrapCount.cs)
+            ApplyFireCount();        // docs/868 (FireCount.cs)
             ApplyGenerationsLogic(); // docs/571 §1-4 (GenerationsLogic.cs)
             ApplySeasonsLogic();     // docs/571 §5-7 (SeasonsLogic.cs)
             ApplySupernaturalLogic(); // docs/571 §8 (SupernaturalLogic.cs)
@@ -1061,6 +1062,7 @@ namespace Ts3Fixes
         // [3382-3384] coopeggquality (StoreBatch1Logic.cs, docs/587 store §13.13): egg quality index shifted to the Quality enum.
         // [3953-3955] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
         // [3956-3959] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
+        // [2358-2361] firecount (FireCount.cs, docs/868): rescues not counted (passer-by, re-trapped, second rubble pile) / deaths handled / cases seen with the switch off / errors.
         // [3960-3962] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
         // [3963-3966] sneakoutlistener (GenerationsLogic.cs, docs/571 §2): stale sneak-outs skipped / duplicate return-home listeners removed / left-over sneak listeners removed / errors.
         // [3618-3619] promcarpool (GenerationsLogic.cs, docs/571 §3): prom carpools removed / errors.
@@ -2055,6 +2057,7 @@ namespace Ts3Fixes
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
+                case "firecount": return Instantiator.kFireCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;
                 case "promcarpool": return Instantiator.kPromCarpool;
