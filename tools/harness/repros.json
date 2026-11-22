@@ -99017,6 +99017,7 @@
           ]
         },
         "waitS": 2,
+        "max": 4000,
         "note": "which job ids trap Sims"
       },
       {
