@@ -376,7 +376,15 @@ namespace Ts3Fixes
             r.PlanResult = k.Saved;
             c[kBuNoSlot]++;
             BuCoolSet(sim, obj);
-            BuLine(head + ": kept, " + (chore ? "no snap for making the bed" : here ? "no slot within " + kBuSnapMax + " m (" + s.N + " wanted)" : "the Sim is not on the object's level"));
+            // why no slot (user 2026-11-23: cribs are never snapped to): each wanted slot's distance, height, weights, a Sim on it
+            string why = "";
+            for (int i = 0; i < s.N && i < 3; i++)
+            {
+                Vector3 sp = s.Pos[i];
+                why += "; slot 0x" + ((uint)s.Name[i]).ToString("X") + (BuValid(sp) ? " " + BuFlat(sp, sim.Position).ToString("0.0") + " m dy " + (sp.y - sim.Position.y).ToString("0.0") : " no place")
+                    + (s.Dist[i] == float.MaxValue ? " weight 0 or off the object" : "") + (BuValid(sp) && BuSimAt(sp, sim, obj.LotCurrent) ? " a Sim on it" : "");
+            }
+            BuLine(head + ": kept, " + (chore ? "no snap for making the bed" : here ? "no slot within " + kBuSnapMax + " m (" + s.N + " wanted)" + why : "the Sim is not on the object's level"));
             return step;
         }
 
