@@ -221,7 +221,8 @@ namespace Ts3Agent
             {
                 int[] fc = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
                 Dictionary<string, object> fx = Util.Obj();
-                if (fc != null) for (int i = 2000; i < fc.Length; i++) if (fc[i] != 0) fx[i.ToString()] = fc[i];
+                // all slots (docs/653: slots below 2000 were never reported, so 380 switches had no run data)
+                if (fc != null) for (int i = 0; i < fc.Length; i++) if (fc[i] != 0) fx[i.ToString()] = fc[i];
                 r["fix_counters"] = fx;
                 r["fix_applied"] = AppDomain.CurrentDomain.GetData("ts3fixes.applied");
             }

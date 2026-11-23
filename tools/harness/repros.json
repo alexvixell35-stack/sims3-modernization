@@ -116353,6 +116353,71 @@
     ]
   },
   {
+    "id": "trigger-battery",
+    "bug": "Fixes with counters that stayed 0 in every valid fixes-ON phase run (docs/653): their live hooks were never reached in play",
+    "fix": "ts3agent TriggerBatteryHandlers.cs trigger_battery: speedrecalc, speedskip, heartbroken, doorlock, inuse, putdown, gohome, elevator, speedlock (docs/653 §3)",
+    "save": "any world in live mode with an active household; elevator needs a non-home lot with an elevator on two levels (Bridgeport); doorlock an all-NPC household of 2+; heartbroken an NPC couple",
+    "note": "Only uncontrolled NPCs (DrNpc), the one farthest from the camera; speed triggers change no Sim; speedlock enters and leaves build mode on the home lot. status lists per trigger result, own-slot deltas and other slots that moved.",
+    "expect": "status rows: fired true for every trigger whose result is ok; skipped rows name the missing precondition",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": true,
+          "speedskiplevel": true,
+          "heartbrokenbcast": true,
+          "doorlockowner": true,
+          "resetinusefree": true,
+          "putdowninuse": true,
+          "gohomewalk": true,
+          "elevatorridertimeout": true,
+          "elevatorresetriders": true,
+          "speedlockowner": true
+        },
+        "note": "on (the battery also sets them)",
+        "waitS": 1
+      },
+      {
+        "cmd": "trigger_battery",
+        "args": {
+          "keep_on": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "trigger_battery",
+        "args": {
+          "status": true
+        },
+        "waitS": 240,
+        "note": "about 4 min with the elevator and put-down waits"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "trigger_battery",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "speedrecalclock": false,
+          "speedskiplevel": false,
+          "heartbrokenbcast": false,
+          "doorlockowner": false,
+          "resetinusefree": false,
+          "putdowninuse": false,
+          "gohomewalk": false,
+          "elevatorridertimeout": false,
+          "elevatorresetriders": false,
+          "speedlockowner": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
