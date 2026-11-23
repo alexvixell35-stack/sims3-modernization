@@ -360,7 +360,7 @@ static int g_slimTestFault;  // selftest only: 1 = an exception in the middle of
 static const char* SlimBackup(SlimJob& j, const wchar_t* path) {
     wchar_t bak[MAX_PATH], parent[MAX_PATH];
     if (!j.bak || !Join(bak, j.bak, Tail(path))) return "no backup path";
-    wcscpy_s(parent, j.bak);
+    WCpy(parent, j.bak);
     CutLast(parent);
     CreateDirectoryW(parent, NULL);  // <TS3 user folder>\SaveSlimBackup (exists after the first save)
     CreateDirectoryW(j.bak, NULL);
@@ -574,18 +574,18 @@ static void SlimNote(const unsigned char* info) {  // SaveInfoHook (sim thread),
     const wchar_t* nhd = (const wchar_t*)(info + kInfoNhdPath);
     if (!Readable(nhd, 520 * sizeof(wchar_t)) || wcsnlen(nhd, 520) >= MAX_PATH || !EndsWithI(nhd, L".nhd")) return;
     wchar_t user[MAX_PATH];
-    wcscpy_s(g_sl.dir, nhd);
+    WCpy(g_sl.dir, nhd);
     CutLast(g_sl.dir);  // <Saves>\<name>.sims3
-    wcscpy_s(user, g_sl.dir);
+    WCpy(user, g_sl.dir);
     CutLast(user);
     if (!EndsWithI(g_sl.dir, L".sims3") || !EndsWithI(user, L"\\Saves")) return;
     CutLast(user);  // the TS3 user folder: same volume as Saves (rename works), not listed as a save
     // backup: <user>\SaveSlimBackup\<name>.preslim (outside Saves: never in a .sims3 folder, not listed as a save)
     wchar_t name[MAX_PATH], sub[MAX_PATH];
-    wcscpy_s(name, Tail(g_sl.dir));
+    WCpy(name, Tail(g_sl.dir));
     name[wcslen(name) - 6] = 0;  // without ".sims3" (checked above)
     g_sl.want = Join(g_sl.tmp, user, L"ts3native-slim.tmp") && Join(sub, user, L"SaveSlimBackup") && Join(g_sl.bak, sub, name) &&
-                wcslen(g_sl.bak) + 8 < MAX_PATH && !wcscat_s(g_sl.bak, L".preslim");
+                wcslen(g_sl.bak) + 8 < MAX_PATH && !WCat(g_sl.bak, L".preslim");
 }
 
 static DWORD WINAPI SlimMain(LPVOID) {

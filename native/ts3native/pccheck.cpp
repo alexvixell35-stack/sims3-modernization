@@ -161,7 +161,7 @@ static void PcTop3(const PcAcc& a, LONG logical, char* out, size_t cap) {
         used[b] = true;
         PcCat(out, cap, "%s%s %.1f%%", k ? ", " : "", a.top[b].name, a.top[b].ms / 10 / (a.wallS * (logical > 0 ? logical : 1)));
     }
-    if (!out[0]) strcpy_s(out, cap, "-");
+    if (!out[0]) SCpy(out, cap, "-");
 }
 
 static LONGLONG PcFt(const FILETIME& f) { return (LONGLONG)((ULONGLONG)f.dwHighDateTime << 32 | f.dwLowDateTime); }
@@ -258,7 +258,7 @@ static void PcStaticFacts() {
             const GUID& g = *scheme;
             const char* known = PcGuidIs(g, 0x381b4222, 0xf694, 0x41f0) ? "Balanced" : PcGuidIs(g, 0x8c5e7fda, 0xe8bf, 0x4a96) ? "High performance"
                               : PcGuidIs(g, 0xa1841308, 0x3541, 0x4fab) ? "Power saver" : PcGuidIs(g, 0xe9a42b02, 0xd5df, 0x448d) ? "Ultimate Performance" : NULL;
-            if (known) strcpy_s(plan, known);
+            if (known) SCpy(plan, known);
             else _snprintf_s(plan, _TRUNCATE, "? (scheme %08lX, error %lu)", g.Data1, planErr);
         }
         if (PcGuidIs(*scheme, 0xa1841308, 0x3541, 0x4fab)) f.powerSaver = true;  // the Power saver scheme
@@ -595,13 +595,13 @@ static u8 PcOp(DWORD lo, DWORD hi) {
 static bool ApplyPcCheck(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"PcCheck", L"Enabled", 1, ini)) { Log("SKIP pccheck ([PcCheck] Enabled=0)"); return false; }
     g_pcNotify = GetPrivateProfileIntW(L"PcCheck", L"Notify", 0, ini) ? 1 : 0;
-    wcscpy_s(g_pcSum, ini);
+    WCpy(g_pcSum, ini);
     wchar_t* slash = wcsrchr(g_pcSum, L'\\');
     if (!slash) return false;
     slash[1] = 0;
-    wcscpy_s(g_pcCsv, g_pcSum);
-    wcscat_s(g_pcSum, L"pccheck-summary.txt");
-    wcscat_s(g_pcCsv, L"pccheck.csv");
+    WCpy(g_pcCsv, g_pcSum);
+    WCat(g_pcSum, L"pccheck-summary.txt");
+    WCat(g_pcCsv, L"pccheck.csv");
     InitializeCriticalSection(&g_pcCs);
     InitializeCriticalSection(&g_pcWr);
     PcStaticFacts();

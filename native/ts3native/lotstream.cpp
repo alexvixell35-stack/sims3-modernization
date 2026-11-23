@@ -84,12 +84,12 @@ static void LsWrite(const LsEvent* e, int n, LONG passUs) {  // passUs < 0: not 
     if (g_lsLog == INVALID_HANDLE_VALUE || n <= 0) return;
     static char buf[64 * 200];  // used under g_lsLogLock only
     char pass[24], objs[16];
-    if (passUs >= 0) sprintf_s(pass, "%.3f", passUs / 1000.0); else strcpy_s(pass, "null");
+    if (passUs >= 0) SFmt(pass, "%.3f", passUs / 1000.0); else SCpy(pass, "null");
     AcquireSRWLockExclusive(&g_lsLogLock);
     int len = 0, done = 0;
     for (; done < n; done++) {
         const LsEvent& x = e[done];
-        if (x.objs >= 0) sprintf_s(objs, "%ld", x.objs); else strcpy_s(objs, "null");
+        if (x.objs >= 0) SFmt(objs, "%ld", x.objs); else SCpy(objs, "null");
         int w = _snprintf_s(buf + len, sizeof(buf) - len, _TRUNCATE,
                             "{\"t\":%llu,\"kind\":\"%s\",\"lot\":\"0x%08X\",\"lotId\":\"0x%08X%08X\",\"objs\":%s,\"ms\":%.3f,\"passMs\":%s",
                             x.t, x.kind, x.lot, x.idHi, x.idLo, objs, x.us / 1000.0, pass);
@@ -253,7 +253,7 @@ static bool ApplyLotStream(const wchar_t* ini) {
     char hex[64];
     for (const Req& r : req)  // all or nothing: a half-hooked path would give numbers that do not add up
         if (!Matches((const void*)(uintptr_t)r.at, r.bytes, r.len)) {
-            if (Readable((const void*)(uintptr_t)r.at, r.len)) Hex((const u8*)(uintptr_t)r.at, r.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+            if (Readable((const void*)(uintptr_t)r.at, r.len)) Hex((const u8*)(uintptr_t)r.at, r.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP lot stream: %s prologue at 0x%08X differs (found %s), nothing hooked", r.name, r.at, hex);
             return false;
         }
@@ -261,10 +261,10 @@ static bool ApplyLotStream(const wchar_t* ini) {
     g_lsObjLogUs = (LONG)GetPrivateProfileIntW(L"LotStream", L"ObjLogMs", 5, ini) * 1000;
     if (GetPrivateProfileIntW(L"LotStream", L"Log", 1, ini)) {
         wchar_t path[MAX_PATH];
-        wcscpy_s(path, ini);
+        WCpy(path, ini);
         wchar_t* dot = wcsrchr(path, L'.');
         if (dot) *dot = 0;
-        wcscat_s(path, L"-lotstream.jsonl");
+        WCat(path, L"-lotstream.jsonl");
         LsOpenLog(path);
     }
     LONG ready = 0;

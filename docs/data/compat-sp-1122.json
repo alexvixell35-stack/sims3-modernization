@@ -1,0 +1,80 @@
+{
+ "_doc": "Set compat-sp-1122 (queue compat-sp-1122, docs/318 NRaas section): NRaas StoryProgression and its modules, the versions listed on nraas.net on 2026-11-22. nraas.net asks for no automated downloads (announcement topic15303): Rodney saves the zips by hand into game-copy/mod-sets/downloads; prefixes carry the version so the core prefix does not pick a module zip. Build: node tools/mod-set.ts build docs/data/compat-sp-1122.json. Never re-hosted.",
+ "set": "compat-sp-1122",
+ "out": "game-copy/mod-sets/compat-sp-1122",
+ "sources": {},
+ "mods": [
+  {
+   "name": "NRaas StoryProgression",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "needs-download",
+   "from": "downloads",
+   "files": [
+    "NRaas_StoryProgression_V269"
+   ]
+  },
+  {
+   "name": "NRaas StoryProgression Career module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "needs-download",
+   "from": "downloads",
+   "files": [
+    "NRaas_StoryProgression_Career_V269"
+   ]
+  },
+  {
+   "name": "NRaas StoryProgression Population module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "needs-download",
+   "from": "downloads",
+   "files": [
+    "NRaas_StoryProgression_Population_V269"
+   ]
+  },
+  {
+   "name": "NRaas StoryProgression Money module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "needs-download",
+   "from": "downloads",
+   "files": [
+    "NRaas_StoryProgression_Money_V269"
+   ]
+  },
+  {
+   "name": "NRaas StoryProgression Relationship module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V267",
+   "status": "needs-download",
+   "from": "downloads",
+   "files": [
+    "NRaas_StoryProgression_Relationship_V267"
+   ]
+  },
+  {
+   "name": "NRaas StoryProgression Skill module",
+   "page": "https://www.nraas.net/community/StoryProgression",
+   "version": "V269",
+   "status": "needs-download",
+   "from": "downloads",
+   "files": [
+    "NRaas_StoryProgression_Skill_V269"
+   ]
+  },
+  {
+   "name": "NRaas ErrorTrap",
+   "page": "https://www.nraas.net/community/ErrorTrap",
+   "version": "P167 V100 (Steam)",
+   "status": "in-test-install"
+  },
+  {
+   "name": "NRaas Overwatch",
+   "page": "https://www.nraas.net/community/Overwatch",
+   "version": "V123",
+   "status": "in-test-install"
+  }
+ ]
+}

@@ -172,7 +172,7 @@ static void __stdcall StCheck(const DWORD* sp, DWORD parent) {
     char d1[200], d2[220], d3[220];
     CfDescribe(node, d1, sizeof(d1));
     CeDescribe(node, d2, sizeof(d2));
-    if (!P5cRelFind(node, d3, sizeof(d3))) strcpy_s(d3, "no");
+    if (!P5cRelFind(node, d3, sizeof(d3))) SCpy(d3, "no");
     Log("crash forensics: SCENE NODE BAD at 0xC5FA60: node 0x%08lX %s vt %08lX, parent 0x%08lX vt %08lX, id %08lX%08lX, thread %lu, "
         "caller 0x%08lX; P5 heap ring: %s; ours: %s; P5c: %s", node, readable ? "" : "UNREADABLE", vt, parent, pvt, sp[3], sp[2],
         GetCurrentThreadId(), sp[0], d1, d2, d3);
@@ -202,7 +202,7 @@ static void CfHeapNb(const CONTEXT* c) {
         __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
         if (!ok) { Log("crash forensics: heap nb %s 0x%08lX: unreadable", g.n, g.v); continue; }
         char line[32 * 12 + 16], *p = line;
-        for (int i = 0; i < 32; i++) p += sprintf_s(p, line + sizeof(line) - p, i == 8 ? " |%08lX%s" : " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
+        for (int i = 0; i < 32; i++) p += SFmt(p, line + sizeof(line) - p, i == 8 ? " |%08lX%s" : " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
         Log("crash forensics: heap nb %s 0x%08lX (from -0x20, v = .rdata):%s", g.n, g.v, line);
     }
 }
@@ -217,7 +217,7 @@ static void CfWords(const char* tag, DWORD a, int n) {
     __except (EXCEPTION_EXECUTE_HANDLER) { ok = false; }
     if (!ok) { Log("crash forensics: %s 0x%08lX: unreadable", tag, a); return; }
     char line[16 * 12 + 8], *p = line;
-    for (int i = 0; i < n; i++) p += sprintf_s(p, line + sizeof(line) - p, " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
+    for (int i = 0; i < n; i++) p += SFmt(p, line + sizeof(line) - p, " %08lX%s", w[i], CfVtOk(w[i]) ? "v" : "");
     Log("crash forensics: %s 0x%08lX (v = .rdata):%s", tag, a, line);
 }
 
@@ -254,7 +254,7 @@ static void CfPureCall(const CONTEXT* c) {
         DWORD ag = 0;
         __try { ag = *(const DWORD*)(uintptr_t)(b + 4 * i); } __except (EXCEPTION_EXECUTE_HANDLER) { break; }
         if (i == 0) g_cfPureAgent0 = ag;
-        sprintf_s(t, "pure call: linked agent %lu", i);
+        SFmt(t, "pure call: linked agent %lu", i);
         CfWords(t, ag, 16);
         CfDescribe(ag, d, sizeof(d));
         Log("crash forensics: pure call: linked agent %lu 0x%08lX: %s", i, ag, d);
@@ -358,7 +358,7 @@ static const char* const kCdSite[4] = {"model part draw 0x6F6250 (call 0x6F6B5B 
 
 // "module+0xoff" for a code address (TS3W.exe or any image), false = not executable image memory
 static bool CdCode(DWORD v, char* out, size_t cap) {
-    if (v >= TS3A(0x00401000) && v < TS3A(0x00F95000)) { sprintf_s(out, cap, "0x%08lX", v); return true; }
+    if (v >= TS3A(0x00401000) && v < TS3A(0x00F95000)) { SFmt(out, cap, "0x%08lX", v); return true; }
     MEMORY_BASIC_INFORMATION m;
     if (v < 0x10000 || !VirtualQuery((void*)(uintptr_t)v, &m, sizeof(m)) || m.Type != MEM_IMAGE ||
         !(m.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)))
@@ -366,7 +366,7 @@ static bool CdCode(DWORD v, char* out, size_t cap) {
     char path[MAX_PATH];
     const DWORD n = GetModuleFileNameA((HMODULE)m.AllocationBase, path, MAX_PATH);
     const char* b = n ? strrchr(path, '\\') : NULL;
-    sprintf_s(out, cap, "%s+0x%lX", b ? b + 1 : n ? path : "?", v - (DWORD)(uintptr_t)m.AllocationBase);
+    SFmt(out, cap, "%s+0x%lX", b ? b + 1 : n ? path : "?", v - (DWORD)(uintptr_t)m.AllocationBase);
     return true;
 }
 // "w0 w1 ..." of n dwords at p, or "unreadable"
@@ -374,8 +374,8 @@ static void CdWords(DWORD p, int n, char* out, size_t cap) {
     size_t o = 0;
     out[0] = 0;
     __try {
-        for (int i = 0; i < n && o + 10 < cap; i++) o += sprintf_s(out + o, cap - o, "%08lX ", ((const DWORD*)(uintptr_t)p)[i]);
-    } __except (EXCEPTION_EXECUTE_HANDLER) { sprintf_s(out + o, cap - o, "unreadable"); }
+        for (int i = 0; i < n && o + 10 < cap; i++) o += SFmt(out + o, cap - o, "%08lX ", ((const DWORD*)(uintptr_t)p)[i]);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { SFmt(out + o, cap - o, "unreadable"); }
 }
 static DWORD CdRead(DWORD p) {
     __try { return *(const DWORD*)(uintptr_t)p; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
@@ -439,7 +439,7 @@ static void __cdecl CdBad(int site, const DWORD* r) {
     __try {
         const DWORD* sp = (const DWORD*)(uintptr_t)r[3];
         for (int i = 0, n = 0; i < 256 && n < 16 && o + 100 < sizeof(st); i++)
-            if (CdCode(sp[i], c, sizeof(c))) o += sprintf_s(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), n++;
+            if (CdCode(sp[i], c, sizeof(c))) o += SFmt(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), n++;
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("crash forensics:   stack code words: %s", st);
 }
@@ -602,15 +602,15 @@ static bool VbExplain(DWORD v, char* out, size_t cap) {
         if (e.seq != s) continue;
         const bool isW = v >= e.w && v < e.w + 0x40, isVb = e.vb && v >= e.vb && v < e.vb + 0x40;
         if (!isW && !isVb) continue;
-        size_t o = (size_t)sprintf_s(out, cap, "%s of VB wrapper 0x%08lX (D3D VB 0x%08lX) released %.1f ms ago, #%ld of %ld, thread %lu, by:",
+        size_t o = (size_t)SFmt(out, cap, "%s of VB wrapper 0x%08lX (D3D VB 0x%08lX) released %.1f ms ago, #%ld of %ld, thread %lu, by:",
                                      isW ? "inside" : "D3D VB", e.w, e.vb, g_cfQpf ? (double)(q.QuadPart - e.qpc) * 1000.0 / (double)g_cfQpf : -1.0,
                                      s, top, e.tid);
         char c[96];
         for (int i = 0; i < 8 && e.code[i] && o + 100 < cap; i++)
-            o += (size_t)sprintf_s(out + o, cap - o, " %s", CdCode(e.code[i], c, sizeof(c)) ? c : "?");
+            o += (size_t)SFmt(out + o, cap - o, " %s", CdCode(e.code[i], c, sizeof(c)) ? c : "?");
         return true;
     }
-    sprintf_s(out, cap, "not in the VB release ring (%ld releases)", top);
+    SFmt(out, cap, "not in the VB release ring (%ld releases)", top);
     return false;
 }
 static void VbBad(const char* why, const u8* dev, DWORD stream, DWORD w, DWORD vt, DWORD vb, DWORD vbvt, const DWORD* sp) {
@@ -622,7 +622,7 @@ static void VbBad(const char* why, const u8* dev, DWORD stream, DWORD w, DWORD v
     char ws[200], d1[400], d2[400], st[440], c[96];
     CdWords(w, 8, ws, sizeof(ws));
     VbExplain(w, d1, sizeof(d1));
-    if (vb) VbExplain(vb, d2, sizeof(d2)); else strcpy_s(d2, "-");
+    if (vb) VbExplain(vb, d2, sizeof(d2)); else SCpy(d2, "-");
     Log("crash forensics: VB BAD #%ld at Device_SetStreamSource 0x60F020: %s; stream %lu, wrapper 0x%08lX vtable 0x%08lX (base 0x%08lX "
         "= destroyed), D3D VB 0x%08lX vtable 0x%08lX (device module 0x%08lX-0x%08lX), device wrapper 0x%08lX, thread %lu; wrapper words: %s",
         n, why, stream, w, vt, kVbVtBase, vb, vbvt, g_vbDevLo, g_vbDevHi, (DWORD)(uintptr_t)dev, GetCurrentThreadId(), ws);
@@ -632,7 +632,7 @@ static void VbBad(const char* why, const u8* dev, DWORD stream, DWORD w, DWORD v
     st[0] = 0;
     __try {
         for (int i = 0, k = 0; i < 256 && k < 16 && o + 100 < sizeof(st); i++)
-            if (CdCode(sp[i], c, sizeof(c))) o += (size_t)sprintf_s(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), k++;
+            if (CdCode(sp[i], c, sizeof(c))) o += (size_t)SFmt(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), k++;
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("crash forensics:   stack code words (the draw callback first): %s", st);
 }
@@ -898,8 +898,8 @@ static void __fastcall FxDrawHook(u8* self, void* edx, DWORD a, DWORD b) {
 
 static void FxLine(const char* pre, const FxEnt& t, const LARGE_INTEGER& now) {
     char c0[96] = "-", c1[96] = "-";
-    if (!CdCode(t.code[0], c0, sizeof(c0))) sprintf_s(c0, "0x%08lX", t.code[0]);
-    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) sprintf_s(c1, "0x%08lX", t.code[1]);
+    if (!CdCode(t.code[0], c0, sizeof(c0))) SFmt(c0, "0x%08lX", t.code[0]);
+    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) SFmt(c1, "0x%08lX", t.code[1]);
     const double ms = g_cfQpf ? (double)(now.QuadPart - t.qpc) * 1000.0 / (double)g_cfQpf : -1.0;
     if (t.tag == FX_ADD || t.tag == FX_REM)
         Log("%s%s index %lu entry 0x%08lX owner 0x%08lX instance 0x%08lX object %08lX%08lX, %.1f ms ago, thread %lu (%s), gather %ld, "
@@ -1092,9 +1092,9 @@ static __declspec(naked) void OrUpdThunk() {
 }
 static void OrLine(const char* pre, const OrEnt& t, const LARGE_INTEGER& now, LONG s) {
     char c0[96] = "-", c1[96] = "", to[24] = "";
-    if (!CdCode(t.code[0], c0, sizeof(c0))) sprintf_s(c0, "0x%08lX", t.code[0]);
-    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) sprintf_s(c1, "0x%08lX", t.code[1]);
-    if (t.tag == OR_SET) sprintf_s(to, " -> 0x%08lX", t.p8after);
+    if (!CdCode(t.code[0], c0, sizeof(c0))) SFmt(c0, "0x%08lX", t.code[0]);
+    if (t.code[1] && !CdCode(t.code[1], c1, sizeof(c1))) SFmt(c1, "0x%08lX", t.code[1]);
+    if (t.tag == OR_SET) SFmt(to, " -> 0x%08lX", t.p8after);
     Log("%s%s handle 0x%08lX (object 0x%08lX): +8 0x%08lX%s, +0 0x%08lX, version %lu, key type %lX, %.1f ms ago, thread %lu (%s), "
         "seq %ld, from %s %s", pre, t.tag < OR_NTAGS ? kOrTag[t.tag] : "?", t.h, t.h - 0x210, t.p8, to, t.p0, t.ver, t.key,
         g_cfQpf ? (double)(now.QuadPart - t.qpc) * 1000.0 / (double)g_cfQpf : -1.0, t.tid, FxThr(t.tid), s, c0, c1);
@@ -1117,7 +1117,7 @@ static void OrExplain(DWORD obj) {
     QueryPerformanceCounter(&now);
     const OrLast& u = g_orUpd[OrSlot(h)];
     char c[96] = "-";
-    if (u.h == h && !CdCode(u.caller, c, sizeof(c))) sprintf_s(c, "0x%08lX", u.caller);
+    if (u.h == h && !CdCode(u.caller, c, sizeof(c))) SFmt(c, "0x%08lX", u.caller);
     if (u.h == h)
         Log("crash forensics:   model handle log: newest node update %.1f ms ago from %s, left +8 0x%08lX, version %lu",
             g_cfQpf ? (double)(now.QuadPart - u.qpc) * 1000.0 / (double)g_cfQpf : -1.0, c, u.p8, u.ver);
@@ -1234,7 +1234,7 @@ static void DiExplain(const char* what, DWORD idx) {
     }
     char d1[220], d2[220];
     CfDescribe(idx, d1, sizeof(d1));
-    if (!P5cRelFind(idx, d2, sizeof(d2))) strcpy_s(d2, "no");
+    if (!P5cRelFind(idx, d2, sizeof(d2))) SCpy(d2, "no");
     Log("crash forensics:   db index log: %s 0x%08lX: %d release events in the ring (%ld total); P5 heap ring: %s; P5c: %s", what, idx, n,
         top, d1, d2);
 }
@@ -1346,7 +1346,7 @@ static int CfRdDiff(HANDLE h, const IMAGE_SECTION_HEADER* s, DWORD base, DWORD d
         if (++*listed <= 12 && *l + 64 < cap) {
             char fr[96];
             CrFrame(m, fr, sizeof(fr));
-            *l += sprintf_s(out + *l, cap - *l, " 0x%08lX %08lX (file %08lX, %s)", va + i, m, f, fr);
+            *l += SFmt(out + *l, cap - *l, " 0x%08lX %08lX (file %08lX, %s)", va + i, m, f, fr);
         }
     }
     return n;
@@ -1356,10 +1356,10 @@ static void CfRdataText(const u8* img, const wchar_t* file, char* out, size_t ca
     const IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
     int i = 0;
     for (; i < nt->FileHeader.NumberOfSections && memcmp(s->Name, ".rdata", 6); i++, s++) {}
-    if (i == nt->FileHeader.NumberOfSections) { sprintf_s(out, cap, "rdata check: no .rdata section"); return; }
+    if (i == nt->FileHeader.NumberOfSections) { SFmt(out, cap, "rdata check: no .rdata section"); return; }
     const DWORD base = (DWORD)(uintptr_t)img, lo = base + s->VirtualAddress, hi = lo + s->Misc.VirtualSize, delta = base - nt->OptionalHeader.ImageBase;
     HANDLE h = CreateFileW(file, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
-    size_t l = (size_t)sprintf_s(out, cap, "rdata check (docs/260 §7): .rdata 0x%08lX-0x%08lX%s; writable:", lo, hi,
+    size_t l = (size_t)SFmt(out, cap, "rdata check (docs/260 §7): .rdata 0x%08lX-0x%08lX%s; writable:", lo, hi,
                                  h == INVALID_HANDLE_VALUE ? " (exe file not readable: no compare)" : "");
     int pages = 0, diffs = 0, listed = 0;
     static char dl[1200];
@@ -1369,15 +1369,15 @@ static void CfRdataText(const u8* img, const wchar_t* file, char* out, size_t ca
     for (DWORD a = lo; a < hi && VirtualQuery((const void*)(uintptr_t)a, &mbi, sizeof(mbi));) {
         const DWORD end = (DWORD)(uintptr_t)mbi.BaseAddress + (DWORD)mbi.RegionSize, e = end < hi ? end : hi;
         if (mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
-            if (l + 48 < cap) l += sprintf_s(out + l, cap - l, " 0x%08lX-0x%08lX (protect %02lX)", a, e, mbi.Protect);
+            if (l + 48 < cap) l += SFmt(out + l, cap - l, " 0x%08lX-0x%08lX (protect %02lX)", a, e, mbi.Protect);
             for (DWORD p = a; p < e; p += 4096) pages++, diffs += CfRdDiff(h, s, base, delta, p, e - p < 4096 ? e - p : 4096, dl, sizeof(dl), &dn, &listed);
         }
         if (end <= a) break;
         a = end;
     }
-    if (!pages && l + 8 < cap) l += sprintf_s(out + l, cap - l, " none");
-    if (l + 64 < cap) l += sprintf_s(out + l, cap - l, " (%d pages); %d dwords differ from the exe file%s%s", pages, diffs, diffs ? ":" : "", dl);
-    if (l + 24 < cap) l += sprintf_s(out + l, cap - l, "; known vtables:");
+    if (!pages && l + 8 < cap) l += SFmt(out + l, cap - l, " none");
+    if (l + 64 < cap) l += SFmt(out + l, cap - l, " (%d pages); %d dwords differ from the exe file%s%s", pages, diffs, diffs ? ":" : "", dl);
+    if (l + 24 < cap) l += SFmt(out + l, cap - l, "; known vtables:");
     for (const DWORD* v = g_cfRdKnown; *v; v++) {
         if (*v < lo || *v + 16 > hi) continue;
         int ignore = 99;  // listed past the cap: count only
@@ -1386,7 +1386,7 @@ static void CfRdataText(const u8* img, const wchar_t* file, char* out, size_t ca
         const int d = CfRdDiff(h, s, base, delta, *v, 16, none, 0, &z, &ignore);
         DWORD m0 = 0;
         __try { m0 = *(const DWORD*)(uintptr_t)*v; } __except (EXCEPTION_EXECUTE_HANDLER) {}
-        if (l + 40 < cap) l += sprintf_s(out + l, cap - l, d ? " 0x%08lX DIFF (slot 0 %08lX)" : " 0x%08lX same", *v, m0);
+        if (l + 40 < cap) l += SFmt(out + l, cap - l, d ? " 0x%08lX DIFF (slot 0 %08lX)" : " 0x%08lX same", *v, m0);
     }
     if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
 }

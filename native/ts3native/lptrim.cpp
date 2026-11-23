@@ -176,7 +176,7 @@ static DWORD WINAPI LpThread(void*) {
         if (due && now - at >= g_lpSettleMs && g_udQuits == quits) {
             due = false;
             char why[32];
-            sprintf_s(why, "world load #%ld", w);
+            SFmt(why, "world load #%ld", w);
             LpRun(why);
         }
     }

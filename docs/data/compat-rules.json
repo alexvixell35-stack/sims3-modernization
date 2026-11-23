@@ -1,0 +1,246 @@
+{
+  "_about": "Compatibility rules (docs/328): when an overlap found by tools/compat-scan.ts actually breaks something. One rule per overlap kind; compat-scan.ts findingRule() / pairRule() decide the id from facts it reads (no game runs), this file gives the outcome and the player wording. outcome: compatible | caveat (works, with the stated limit) | incompatible | not decided (the scan lacks the fact) | flag (own-issues only: shown beside the outcome). evidence: static (read from the files) | in-game proven | community-reported; 'in-game proven' only where a game run with the mod exists. A row's rule column is the worst outcome over its findings; 'own issues' (known-bad list, audit-confirmed crash / hang) is a separate flag, not a compatibility outcome. Mod ids, names and verdicts only: no game or mod code.",
+  "version": 1,
+  "rules": [
+    {
+      "id": "no-overlap", "kind": "none",
+      "condition": "no finding: the mod touches no game method, module, name or resource key that ts3fixes or ts3native uses",
+      "outcome": "compatible",
+      "wording": "No shared game code found. This does not prove that it works with ours, only that our mods and this one do not touch the same code.",
+      "evidence": "static",
+      "counterExamples": ["Enhanced Witches (608185) and Add Any Lot Size (471164): no overlap, but each stopped the game on our setup alone (own issues, docs/314)", "Pool Jobs for Lifeguards (574660) before rule derives-hides: its lifeguard type hides a method we fix (docs/318 on branch feature/compat-top500-1122)"]
+    },
+    {
+      "id": "derives", "kind": "derives",
+      "condition": "finding kind derives: a mod type has a patched game type in its base chain, does not override the patched method and declares no method of the same name",
+      "outcome": "compatible",
+      "wording": "Builds on game code we fix. The mod's version inherits the game's step, so our fix runs for it too.",
+      "evidence": "static",
+      "counterExamples": ["a `new` copy of a non-virtual patched method is rule derives-hides", "Drinks for your Sims (399992): SingShowerSong declares its own non-override Cleanup next to the virtual InteractionInstance.Cleanup we patch; the game's calls still reach ours, so it stays here"]
+    },
+    {
+      "id": "derives-hides", "kind": "derives",
+      "condition": "finding kind derives, the patched method is not virtual, and the mod type declares a non-override method with its name and the params of one of the game's overloads (a `new` copy); a newslot copy of a virtual patched method stays rule derives, because the game's virtual calls still reach the patched base",
+      "outcome": "caveat",
+      "wording": "The mod has its own copy of a game step we fix. Where the mod's own code calls its copy, our fix does not run; where the game calls the step, ours runs. The mod works as its author wrote it.",
+      "evidence": "static",
+      "counterExamples": ["Pool Jobs for Lifeguards (574660): bypasses our lifeguard-quit fix for its lifeguards (docs/318 on branch feature/compat-top500-1122); older matrix rows show it as derives only, because the evidence text predates this check"]
+    },
+    {
+      "id": "static-copy", "kind": "copies",
+      "condition": "a mod type outside the patched type's chain declares a static method with the patched method's name and the params of one of the game's overloads (for an instance method: the declaring type first, then its params): the mod calls its own copy of a step we fix (name and signature match; no IL similarity yet)",
+      "outcome": "caveat",
+      "wording": "The mod has its own copy of a game step we fix and calls it instead of the game's. Where the mod calls its copy, our fix does not run unless we hook the copy too (docs/328 §7). The mod works as its author wrote it.",
+      "evidence": "static",
+      "counterExamples": ["NRaas Overwatch: Helpers/HarvestPlantEx.DoHarvest, a static copy of HarvestPlant.DoHarvest called by its Harvest replacement (also NRaas Common OccultTypeHelper.AddOccultType in 20 NRaas mods); the old scan called Overwatch compatible (named) because nothing derived from the patched type (docs/318 Every other NRaas project, O1)","NRaas Dreamer: DreamerSpace.Helpers.DreamsAndPromisesManagerEx.Update, its copy of DreamsAndPromisesManager.Update run before EA's drain; the V15 binary scan does NOT flag it (the copy calls its own PartialUpdate / node copies, so under half of EA's calls match): found by the source audit, a known miss of the call-graph check"]
+    },
+    {
+      "id": "override-calls-base", "kind": "overrides",
+      "condition": "finding kind overrides and the mod method's IL has a `call` (not callvirt) to the same-named method of a type in its base chain",
+      "outcome": "compatible",
+      "wording": "The mod's version of this game step calls the game's own, so our fix runs inside it.",
+      "evidence": "static",
+      "counterExamples": ["a base call on only some paths still counts here: our fix then runs on those paths only; the interaction mods marked HARMLESS in docs/COMPATIBILITY.md were read by hand, not yet by this check"]
+    },
+    {
+      "id": "override-no-base", "kind": "overrides",
+      "condition": "finding kind overrides and the mod method's IL has no `call` to the same-named method of a type in its base chain",
+      "outcome": "caveat",
+      "wording": "The mod replaces this game step for its own action without calling the game's version, so our fix does not reach that one action. Both mods keep working; that action behaves as the mod's author wrote it.",
+      "evidence": "static",
+      "counterExamples": ["Moar Interactions (437344): its visit interactions replace the Run methods we patch, no base call (docs/318); game check pending (queue compat-top)"]
+    },
+    {
+      "id": "override-unread", "kind": "overrides",
+      "condition": "finding kind overrides and the base-call fact is missing (IL did not decode, or the row comes from an older scan's evidence text)",
+      "outcome": "not decided",
+      "wording": "The mod replaces a game step we fix; whether it still calls the game's version was not read. Rescan with the current compat-scan.ts.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "module-current", "kind": "replaces",
+      "condition": "finding kind replaces, the mod's copy of the game module has every type::method of the game's own (compiler-generated names left out; Steam 1.67 assemblies, the EA 1.69 builds of xCAS and Consort match them too) and the patched method's IL shape equals the game's",
+      "outcome": "compatible",
+      "wording": "This core mod replaces a game file with a build for your game version (1.67 Steam / 1.69 EA app). Our fixes find its copy by name and apply to it; it did not change the steps we fix.",
+      "evidence": "static",
+      "counterExamples": ["xCAS (434270): IL diff found 51 changed UI methods, none patched by a default-on feature (tools/mod-method-diff.ts)"]
+    },
+    {
+      "id": "module-changed", "kind": "replaces",
+      "condition": "finding kind replaces, the module is current (as module-current) and the mod's IL shape of the patched method differs from the game's",
+      "outcome": "caveat",
+      "wording": "This core mod rewrites a game step that we also fix. Our fix wraps the mod's version of that step, not the game's; both run.",
+      "evidence": "static",
+      "counterExamples": ["simler90 Gameplay Core Mod (659969): changes 25 patched methods, the lot and inventory cleanup among them; it is in our test install, so every game test ran with it (status in our test setup)", "NRaas ErrorTrap: its own ScriptCore changes ScriptProxy::OnScriptError (test install)"]
+    },
+    {
+      "id": "module-old", "kind": "replaces",
+      "condition": "finding kind replaces and the mod's copy of the game module lacks at least one type::method of the game's own (compiler-generated names left out); applies whatever our switches are",
+      "outcome": "incompatible",
+      "wording": "Built for an older game patch. It replaces a game file with an old copy that lacks parts the game, your other mods and ours need. Get the author's build for 1.67 (Steam) or 1.69 (EA app), or remove it.",
+      "evidence": "static",
+      "counterExamples": ["Debug Console Command Enabler (343068) and No Shoo Mod (354513): 2009 builds (patch 1.0-1.2), about 7,300 game types missing", "2x Weight and Fitness (470349): its 38 builds for patch 1.63 and older (about 600-3,600 types missing) fall here; its 1.66 / 1.67 / 1.69 builds are module-current"]
+    },
+    {
+      "id": "module-unread", "kind": "replaces",
+      "condition": "finding kind replaces and the module facts are missing (copy did not decode, or the row comes from an older scan's evidence text)",
+      "outcome": "not decided",
+      "wording": "This core mod replaces a game file; whether it was built for your game version was not read. Rescan with the current compat-scan.ts.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "named", "kind": "named",
+      "condition": "finding kind named: ts3fixes looks the mod's type up by name to hook it or to step aside",
+      "outcome": "compatible",
+      "wording": "We know this mod by name and work with it on purpose: our feature hooks it or steps aside for it.",
+      "evidence": "in-game proven",
+      "counterExamples": ["NRaas Overwatch and ErrorTrap: in our test install, every game test ran with them; for other named mods (MasterController, Register: player folder) the evidence is static"]
+    },
+    {
+      "id": "key-same", "kind": "key",
+      "condition": "finding kind key and the mod's resource bytes (RefPack-decompressed) equal ts3fixes.package's for that key; also mod-vs-mod",
+      "outcome": "compatible",
+      "wording": "Both files carry the same resource with the same content, so it does not matter which one loads.",
+      "evidence": "static",
+      "counterExamples": ["no matrix row shares a key with ts3fixes.package today"]
+    },
+    {
+      "id": "key-different", "kind": "key",
+      "condition": "finding kind key, the bytes differ, the resource is neither a script assembly (S3SA) nor tuning (_XML, ITUN); also mod-vs-mod",
+      "outcome": "caveat",
+      "wording": "Both files carry the same resource with different content. The load order picks one; the other file's version of that resource is not used.",
+      "evidence": "static",
+      "counterExamples": ["no matrix row shares a key with ts3fixes.package today; Apex ModConflicts reports these as CONFLICT resource key with the likely winner"]
+    },
+    {
+      "id": "key-script", "kind": "key",
+      "condition": "finding kind key, the bytes differ and the resource type is S3SA (script assembly); also mod-vs-mod",
+      "outcome": "incompatible",
+      "wording": "Both files carry the same script slot with different code. Only one loads, so one mod's scripts are gone.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "tuning-disjoint", "kind": "key",
+      "condition": "finding kind key, tuning type (_XML, ITUN), the bytes differ and no XML field (element path, attribute or text) is changed by both sides (vs the game's version when read, else: no field both set to different values); also mod-vs-mod",
+      "outcome": "caveat",
+      "wording": "Both change the same tuning file, but different values. The game uses one file whole, so the other mod's changes are lost; a merged file with both changes is safe.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "tuning-overlap", "kind": "key",
+      "condition": "finding kind key, tuning type, the bytes differ and at least one field is set to different values by both sides; also mod-vs-mod",
+      "outcome": "incompatible",
+      "wording": "Both set the same tuning values differently. Only one mod's values can apply.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "key-unread", "kind": "key",
+      "condition": "finding kind key and the content was not compared (row from an older scan's evidence text)",
+      "outcome": "not decided",
+      "wording": "Both files carry the same resource; whether the content differs was not read. Rescan with the current compat-scan.ts.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "asi-standdown", "kind": "asi",
+      "condition": "an ASI shares hook addresses with ts3native and one side stands down or chains for it (ts3native's [Compat] S3mmStandDown; Apex hook table: coordinated overlap); also mod-vs-mod",
+      "outcome": "compatible",
+      "wording": "This plugin patches the same game code as ours, and one of the two steps aside on purpose.",
+      "evidence": "static",
+      "counterExamples": ["Sims3MonoModder (S3MM): the stand-down covers [MonoJit], [MonoFast] CallPath and [AutShadow] (docs/291 §9), not its profiler (rule asi-unguarded)"]
+    },
+    {
+      "id": "asi-unguarded", "kind": "asi",
+      "condition": "an ASI hooks an address that ts3native also hooks and neither side stands down; applies whatever our switches are",
+      "outcome": "incompatible",
+      "wording": "This plugin patches the same game code as ours and neither steps aside. Use one of the two.",
+      "evidence": "static",
+      "counterExamples": ["S3MM profiler: always installed, hooks Mono 0xE525C0 / 0xE59FD0 that ts3native hooks too; crash depends on which loads first (docs/291 §4.1, §11). We do not ship or install S3MM."]
+    },
+    {
+      "id": "off-by-default", "kind": "off-by-default",
+      "condition": "the finding's feature has switches and all of them are off with the release defaults (Target.on false); the module-old and asi-unguarded rules win over this one",
+      "outcome": "compatible",
+      "wording": "It only meets features of ours that are off in the release. If you turn one of them on, check again.",
+      "evidence": "static",
+      "counterExamples": ["no matrix row today (verdict 'overlap, off by default' 0 in both matrices); Tiny UI Fix's AutShadow limit is a live feature, not this rule"]
+    },
+    {
+      "id": "unknown", "kind": "unknown",
+      "condition": "verdict unknown: archive not readable, ASI not known by name, script mod without game assemblies to compare",
+      "outcome": "not decided",
+      "wording": "Could not be read here. For a plugin (.asi), run Apex Radiance's mod conflict scan, which has the hook table.",
+      "evidence": "static",
+      "counterExamples": ["wexxamsims Seasons Expanded .rar (player folder, 2026-11-02): not in our copy"]
+    },
+    {
+      "id": "pair-core-same-module", "kind": "pair",
+      "condition": "mod-vs-mod: two mods carry their own copy of the same game module (Apex CONFLICT core mod), both module-current",
+      "outcome": "incompatible",
+      "wording": "Two core mods replace the same game file. Only one copy loads, so the other core mod's changes are gone. Use one, or a combined build its authors made.",
+      "evidence": "community-reported",
+      "counterExamples": ["simler90 core (659969) and 2x Weight and Fitness (470349) both carry Sims3GameplaySystems (docs/COMPATIBILITY.md)"]
+    },
+    {
+      "id": "pair-core-other-module", "kind": "pair",
+      "condition": "mod-vs-mod: two core mods replace different game modules, both module-current (Apex reports CONFLICT core mod for any two)",
+      "outcome": "compatible",
+      "wording": "Two core mods, but they replace different game files, both built for your game version.",
+      "evidence": "static",
+      "counterExamples": ["xCAS (UI) with simler90 core (Sims3GameplaySystems + Sims3GameplayObjects): not run together"]
+    },
+    {
+      "id": "pair-assembly-copies", "kind": "pair",
+      "condition": "mod-vs-mod: one script assembly name in two packages with different builds (Apex CONFLICT assembly)",
+      "outcome": "incompatible",
+      "wording": "Two different builds of one mod are installed. Keep one: the build for your game version.",
+      "evidence": "static",
+      "counterExamples": ["the 47 builds of 2x Weight and Fitness (470349) sit side by side in its download; a player installs one"]
+    },
+    {
+      "id": "pair-identical", "kind": "pair",
+      "condition": "mod-vs-mod: byte-identical copies of one mod (Apex INFO)",
+      "outcome": "compatible",
+      "wording": "The same file is installed twice. Harmless; remove one to keep the folder tidy.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "pair-interaction", "kind": "pair",
+      "condition": "mod-vs-mod: two builds store the same game interaction Singleton field (Apex CONFLICT interaction)",
+      "outcome": "caveat",
+      "wording": "Both mods replace the same game action. The one that loads last wins; the other mod's version of that action is not used, the rest of both mods works.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "pair-hook-conflict", "kind": "pair",
+      "condition": "mod-vs-mod: two ASIs share an exe address on the installed game edition with no coordinated overlap in the hook table (Apex CONFLICT native hook)",
+      "outcome": "incompatible",
+      "wording": "Two plugins patch the same game code and neither steps aside. Use one of the two.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "pair-area-hint", "kind": "pair",
+      "condition": "mod-vs-mod: two mods with write-type calls, event listeners or native strings in one area of the rule table (Apex WARNING)",
+      "outcome": "not decided",
+      "wording": "Two mods work in the same area of the game. That is a hint, not a clash; it needs a game test.",
+      "evidence": "static",
+      "counterExamples": []
+    },
+    {
+      "id": "own-issues", "kind": "own",
+      "condition": "the known-bad list (docs/data/known-bad-mods.json) names the mod: status known-bad, hang-seen (seen on our setup with none of our mods) or audit-confirmed (a crash or hang finding confirmed by the docs/318 second review); shown next to the compatibility outcome, never instead of it",
+      "outcome": "flag",
+      "wording": "This mod has its own issues, with or without ours (see the reason). That is separate from whether it works with our mods.",
+      "evidence": "in-game proven",
+      "counterExamples": ["hang-seen entries are in-game (docs/314); audit-confirmed entries are static (code and player path read, docs/318)"]
+    }
+  ]
+}

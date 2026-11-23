@@ -1823,6 +1823,38 @@ static void TestMonoJit() {
     *(unsigned short**)mX.rm = y;
     const int methN = g_jitMethN;
     assert(JitCompile(mX.rm) != NULL && g_jitMethN == methN && y[0] == JT_BRS);
+    {   // docs/323 L2: every position the tests above compiled stayed under the per-position room the budget check uses
+        printf("monojit: largest position %d bytes (room %u)\n", g_jitPosMaxBytes, (unsigned)kJitPosRoom);
+        assert(g_jitPosMaxBytes > 0 && g_jitPosMaxBytes < (int)kJitPosRoom);
+        // docs/323 L1: 4 switches of 999 cases (3996 fixes, each under the switch's own 4000 check), then 100 br.s: the
+        // pushes past fix[]'s 4064 used to run into wordToPos[]; now the compile is refused and nothing is published
+        static unsigned short big[4 * 2003 + 100 * 2 + 1];
+        int wi = 0;
+        for (int sw = 0; sw < 4; sw++) {
+            big[wi++] = JT_LDCS, big[wi++] = 0, big[wi++] = JT_SWITCH, big[wi++] = 999, big[wi++] = 0;
+            for (int c = 0; c < 999; c++) big[wi++] = 0, big[wi++] = 0;  // every case: the next instruction
+        }
+        for (int q = 0; q < 100; q++) big[wi++] = JT_BRS, big[wi++] = 2;
+        big[wi++] = JT_RET;
+        assert(wi == (int)(sizeof(big) / sizeof(big[0])));
+        static JtMeth mBig;
+        JtInit(mBig, big, wi);
+        const int methB = g_jitMethN;
+        const size_t used0 = g_jitCodeUsed;
+        const char* why = JitCompile(mBig.rm);
+        assert(why && !strcmp(why, "branch fix table full") && g_jitMethN == methB && g_jitCodeUsed == used0 && big[0] == JT_LDCS);
+        // control: the same shape with 60 br.s (4056 fixes, under the table) compiles
+        static unsigned short ok2[4 * 2003 + 60 * 2 + 1];
+        memcpy(ok2, big, 4 * 2003 * sizeof(unsigned short));
+        wi = 4 * 2003;
+        for (int q = 0; q < 60; q++) ok2[wi++] = JT_BRS, ok2[wi++] = 2;
+        ok2[wi++] = JT_RET;
+        static JtMeth mOk2;
+        JtInit(mOk2, ok2, wi);
+        why = JitCompile(mOk2.rm);
+        if (why) printf("monojit: 4056-fix control: %s\n", why);
+        assert(!why && g_jitMethN == methB + 1);
+    }
 
     // the post-pass: the list, the hash, the gates; the header holds the body the game loaded
     BYTE il[8] = {1, 2, 3, 4, 5, 6, 7, 8}, sha[32];

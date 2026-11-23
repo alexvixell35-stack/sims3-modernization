@@ -63,6 +63,25 @@ namespace Ts3Fixes
         // is proven in another flood colour than the Sim (no land path) counts kNvWaterPenaltyM farther
         public const float kNvMinDistM = 40f, kNvWaterPenaltyM = 400f, kNvMinFactor = 0.1f, kNvMaxFactor = 4f;
         public const int kNvGroupMax = 32;
+        // docs/321 H3: which of the n open lots of a venue type form the group: all of them when n <= max (the walk as before),
+        // else the max with the largest weight (the nearest; a tie goes to the earlier lot in the walk), never the first max in
+        // LotManager.AllLots order. keep[i] says whether lot i is in; returns how many are (min(n, max)).
+        public static int KeepNearest(float[] w, int n, int max, bool[] keep)
+        {
+            if (n <= max)
+            {
+                for (int i = 0; i < n; i++) keep[i] = true;
+                return n;
+            }
+            float[] c = new float[n];
+            Array.Copy(w, c, n);
+            Array.Sort(c);
+            float thr = c[n - max];  // the max-th largest weight
+            int kept = 0;
+            for (int i = 0; i < n; i++) { keep[i] = w[i] > thr; if (keep[i]) kept++; }
+            for (int i = 0; i < n && kept < max; i++) if (!keep[i] && w[i] == thr) { keep[i] = true; kept++; }
+            return kept;
+        }
         public static float Weight(float distM, bool water)
         {
             float d = (distM > kNvMinDistM ? distM : kNvMinDistM) + (water ? kNvWaterPenaltyM : 0f);

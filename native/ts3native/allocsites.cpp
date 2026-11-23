@@ -693,7 +693,7 @@ static void AsOwnLine(const char* head, const char* what, const double* mb, cons
     char line[480];
     double tot = 0;
     for (int i = 0; i < n; i++) tot += mb[i];
-    int len = sprintf_s(line, "%s own %s MB=%.1f", head, what, tot);
+    int len = SFmt(line, "%s own %s MB=%.1f", head, what, tot);
     bool used[2 * OW_N] = {};
     double more = 0;
     for (;;) {
@@ -702,11 +702,11 @@ static void AsOwnLine(const char* head, const char* what, const double* mb, cons
         if (best < 0) break;
         used[best] = true;
         char e[48];
-        const int el = sprintf_s(e, " %s=%.1f", names[best], mb[best]);
+        const int el = SFmt(e, " %s=%.1f", names[best], mb[best]);
         if (len + el + 40 >= (int)sizeof(line)) { more += mb[best]; continue; }
         memcpy(line + len, e, el + 1), len += el;
     }
-    if (more > 0) sprintf_s(line + len, sizeof(line) - len, " more=%.1f", more);  // 40 bytes kept free for this and tail
+    if (more > 0) SFmt(line + len, sizeof(line) - len, " more=%.1f", more);  // 40 bytes kept free for this and tail
     Log("%s%s", line, tail);
 }
 
@@ -715,19 +715,19 @@ static SRWLOCK g_asOutLock = SRWLOCK_INIT;
 static DWORD g_asWinLo, g_asWinHi;  // the largest free block at the previous output
 
 static void AsWhere(DWORD a, char* out, size_t cap) {
-    if (!a) { strcpy_s(out, cap, "-"); return; }
+    if (!a) { SCpy(out, cap, "-"); return; }
     MEMORY_BASIC_INFORMATION m;
     wchar_t w[MAX_PATH];
     if (!(a >= g_asTextLo && a < g_asTextHi) && VirtualQuery((void*)(uintptr_t)a, &m, sizeof(m)) && m.Type == MEM_IMAGE &&
         GetModuleFileNameW((HMODULE)m.AllocationBase, w, MAX_PATH)) {
         const wchar_t* s = wcsrchr(w, L'\\');  // file name only (players' logs: docs/188 privacy)
-        sprintf_s(out, cap, "%ls+0x%lX", s ? s + 1 : w, a - (DWORD)(uintptr_t)m.AllocationBase);
-    } else sprintf_s(out, cap, "0x%08lX", a);  // the exe: a VA (tools/memory-report.ts names it from the symbol table)
+        SFmt(out, cap, "%ls+0x%lX", s ? s + 1 : w, a - (DWORD)(uintptr_t)m.AllocationBase);
+    } else SFmt(out, cap, "0x%08lX", a);  // the exe: a VA (tools/memory-report.ts names it from the symbol table)
 }
 static void AsSiteText(int i, char* out, size_t cap) {
     char a[96], b[96];
     AsWhere(g_asSite[i].f0, a, sizeof(a)), AsWhere(g_asSite[i].f1, b, sizeof(b));
-    sprintf_s(out, cap, "k=%s at=%s from=%s", i ? kAsKind[g_asSite[i].kind] : "overflow", a, b);
+    SFmt(out, cap, "k=%s at=%s from=%s", i ? kAsKind[g_asSite[i].kind] : "overflow", a, b);
 }
 static int AsRgnFind(const AsRgn* rc, DWORD base) {  // index of the record at this base in the copy, -1 = untracked
     for (int j = AsRgnHome(base), i = 0; i < kAsRgns && rc[j].base; i++, j = (j + 1) & (kAsRgns - 1))
@@ -737,17 +737,17 @@ static int AsRgnFind(const AsRgn* rc, DWORD base) {  // index of the record at t
 // the allocation next to a free block: a tracked region's site, else the region type (and module for an image)
 static void AsNeighbour(DWORD addr, const AsRgn* rc, char* out, size_t cap) {
     MEMORY_BASIC_INFORMATION m;
-    if (!VirtualQuery((void*)(uintptr_t)addr, &m, sizeof(m)) || m.State == MEM_FREE) { strcpy_s(out, cap, "-"); return; }
+    if (!VirtualQuery((void*)(uintptr_t)addr, &m, sizeof(m)) || m.State == MEM_FREE) { SCpy(out, cap, "-"); return; }
     const DWORD ab = (DWORD)(uintptr_t)m.AllocationBase;
     const int j = AsRgnFind(rc, ab);
     if (j >= 0) {
         char s[220];
         AsSiteText((int)rc[j].site, s, sizeof(s));
-        sprintf_s(out, cap, "{%s}", s);
+        SFmt(out, cap, "{%s}", s);
         return;
     }
-    if (m.Type == MEM_IMAGE) { char s[120]; AsWhere(ab + 0x1000, s, sizeof(s)); sprintf_s(out, cap, "{image %s}", s); return; }
-    sprintf_s(out, cap, "{untracked %s 0x%08lX}", m.Type == MEM_MAPPED ? "map" : "private", ab);
+    if (m.Type == MEM_IMAGE) { char s[120]; AsWhere(ab + 0x1000, s, sizeof(s)); SFmt(out, cap, "{image %s}", s); return; }
+    SFmt(out, cap, "{untracked %s 0x%08lX}", m.Type == MEM_MAPPED ? "map" : "private", ab);
 }
 
 // untracked allocations (docs/201 §14): whole allocations (every region with one AllocationBase) >= 1 MB that no record
@@ -762,21 +762,21 @@ static void AsOwner(const AsUnt& u, const HANDLE* heaps, DWORD nh, char* out, si
         wchar_t w[MAX_PATH];
         if (K32GetMappedFileNameW(GetCurrentProcess(), (void*)(uintptr_t)u.base, w, MAX_PATH)) {
             const wchar_t* f = wcsrchr(w, L'\\');
-            sprintf_s(out, cap, "file:%.60ls", f ? f + 1 : w);
-        } else strcpy_s(out, cap, u.type == MEM_MAPPED ? "pagefile-section" : "?");
+            SFmt(out, cap, "file:%.60ls", f ? f + 1 : w);
+        } else SCpy(out, cap, u.type == MEM_MAPPED ? "pagefile-section" : "?");
         return;
     }
-    if (u.base == g_asMemBase) { strcpy_s(out, cap, "ts3native-allocsites"); return; }
+    if (u.base == g_asMemBase) { SCpy(out, cap, "ts3native-allocsites"); return; }
     for (DWORD i = 0; i < nh; i++)
-        if ((DWORD)(uintptr_t)heaps[i] == u.base) { strcpy_s(out, cap, "ntheap"); return; }  // first segment only
-    strcpy_s(out, cap, u.guard ? "stack?" : "?");  // a guard page: a thread stack [inferred]
+        if ((DWORD)(uintptr_t)heaps[i] == u.base) { SCpy(out, cap, "ntheap"); return; }  // first segment only
+    SCpy(out, cap, u.guard ? "stack?" : "?");  // a guard page: a thread stack [inferred]
 }
 
 static void AsAfterSample(LONG n, const char* tag, const char* ev) {
     if (!g_asOn || !AsEnter()) return;  // the tool's own allocations here are not recorded
     AcquireSRWLockExclusive(&g_asOutLock);
     char head[96], s[240];
-    sprintf_s(head, "allocsites: #%ld %s%s%s", n, tag, ev && *ev ? " ev=" : "", ev && *ev ? ev : "");
+    SFmt(head, "allocsites: #%ld %s%s%s", n, tag, ev && *ev ? " ev=" : "", ev && *ev ? ev : "");
     const double MB = 1.0 / (1 << 20);
     static int idx[kAsSites];
     static bool taken[kAsSites];
@@ -818,7 +818,7 @@ static void AsAfterSample(LONG n, const char* tag, const char* ev) {
             const LONG64 b0 = pass == 2 ? tl[best] : x.prevLive;
             const LONG n0 = pass == 2 ? tc[best] : x.prevN;
             char since[24] = "";
-            if (pass == 2) sprintf_s(since, " since=#%ld", g_asTagN[tg]);
+            if (pass == 2) SFmt(since, " since=#%ld", g_asTagN[tg]);
             AsSiteText(best, s, sizeof(s));
             Log("%s %s r=%d %s MB=%.2f n=%ld dMB=%+.2f dN=%+ld aMB=%.1f fMB=%.1f%s", head, pass == 0 ? "live" : pass == 1 ? "grow" : "cyc", r, s,
                 x.live * MB, x.liveN, (x.live - b0) * MB, x.liveN - n0, x.allocB * MB, x.freeB * MB, since);
@@ -949,7 +949,7 @@ static void AsAfterSample(LONG n, const char* tag, const char* ev) {
         double hMB[OW_N] = {}, vMB[2 * OW_N] = {}, mMB[OW_N] = {};
         static const char* vName[2 * OW_N];
         static char eaName[OW_N][16];
-        for (int i = 0; i < OW_N; i++) vName[i] = kAoName[i], sprintf_s(eaName[i], "ea.%s", kAoName[i]), vName[OW_N + i] = eaName[i];
+        for (int i = 0; i < OW_N; i++) vName[i] = kAoName[i], SFmt(eaName[i], "ea.%s", kAoName[i]), vName[OW_N + i] = eaName[i];
         for (int k = 0; k < ni; k++) {
             const AsSite& x = g_asSite[idx[k]];
             if (!idx[k] || x.live <= 0) continue;  // overflow row: no frames (the sum row's siteFull counts its records)
@@ -963,7 +963,7 @@ static void AsAfterSample(LONG n, const char* tag, const char* ev) {
         double eaMB = 0;
         for (int i = 0; i < OW_N; i++) eaMB += vMB[OW_N + i];
         char tail[40];
-        sprintf_s(tail, " untr=%.1f", untrMB);
+        SFmt(tail, " untr=%.1f", untrMB);
         AsOwnLine(head, "heap", hMB, kAoName, OW_N, "");
         AsOwnLine(head, "virt", vMB, vName, 2 * OW_N, tail);
         AsOwnLine(head, "map", mMB, kAoName, OW_N, "");

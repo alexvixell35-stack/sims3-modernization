@@ -143,8 +143,8 @@ static int __cdecl GwExpand(DWORD blocks, DWORD needed, const DWORD* sp) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     char xml[96] = "none", st[1200];
     if (g_gwXmlTid == tid)
-        sprintf_s(xml, "type 0x%08lX group 0x%08lX instance 0x%08lX%08lX", g_gwXmlGT[1], g_gwXmlGT[0], g_gwXmlKey[0], g_gwXmlKey[1]);
-    if (FbStackText(st, sizeof(st), 16) <= 0) strcpy_s(st, "none");
+        SFmt(xml, "type 0x%08lX group 0x%08lX instance 0x%08lX%08lX", g_gwXmlGT[1], g_gwXmlGT[0], g_gwXmlKey[0], g_gwXmlKey[1]);
+    if (FbStackText(st, sizeof(st), 16) <= 0) SCpy(st, "none");
     GwLines& L = g_gwRing[g_gwRingN++ % 20];
     _snprintf_s(L.head, _TRUNCATE,
                 "gcgrow: #%ld site %d (%s) ask %lu blocks (%lu KB) needed %lu blocks -> %s; heap %lu -> %lu KB; gc_no %lu, allocated since "

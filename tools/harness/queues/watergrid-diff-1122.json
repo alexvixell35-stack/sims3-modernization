@@ -1,0 +1,583 @@
+{
+ "note": "watergrid-diff-1122 (RUN FIRST of this lane, PREPARED, NOT RUN; diagnostic, no timing claim, day OK, noiseCheck false, Bin state apex): [WaterGrid] Prof=1 + Diff (docs/100 §14). Load 1 of each world (Diff=2) writes the G dump sidecar next to the ini, load 2 (Diff=1) diffs against it: read the \"water grid diff\" lines (which header fields, body slots, cell bytes and flag bits differ, and whether the canonical hash is equal). Every job relaunches (rewind off: a rewind skips the build). Decides whether a G cache can be exact (docs/100 §14.3).",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "bp-wgdiff-1",
+   "note": "[est 6 min] BP load 1: dump only",
+   "asi": "game-copy/ts3native.asi.wgnext1122",
+   "iniBase": "game-copy/ts3native.ini.wgnext1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "branch feature/watergrid-next-1122 (ts3native 0.36.299-wgnext1 = master m1122 + [WaterGrid] Diff / Par, docs/100 §14); ini of the same build; ts3fixes + ts3agent of set m1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": {
+     "match": [
+      "ts3native 0.36.299-wgnext1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgnext10 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    },
+    "^OK   water grid diff: ": {
+     "match": [
+      "OK   water grid diff: per-load G dump + diff against the previous load of the same world (Diff=1, docs/100 §14)",
+      "OK   water grid diff: per-load G dump only, no diff (first load) (Diff=2, docs/100 §14)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0); SKIP water grid diff: needs Prof=1",
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ]
+    },
+    "^water grid diff: first load of key [0-9A-F]{8} ": {
+     "match": [
+      "water grid diff: first load of key 66775222 (canon 0x1A2B3C4D), dump written for the next load"
+     ],
+     "noMatch": [
+      "water grid diff vs load of pid 1234: canon 0x1 -> 0x1 (equal)"
+     ]
+    }
+   },
+   "save": "Baseline-BP",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1,
+    "^OK   water grid diff: ": 1,
+    "^water grid diff: first load of key [0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1,
+    "WaterGrid.Diff": 2
+   }
+  },
+  {
+   "id": "bp-wgdiff-2",
+   "note": "[est 6 min] BP load 2: diff against load 1",
+   "asi": "game-copy/ts3native.asi.wgnext1122",
+   "iniBase": "game-copy/ts3native.ini.wgnext1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "branch feature/watergrid-next-1122 (ts3native 0.36.299-wgnext1 = master m1122 + [WaterGrid] Diff / Par, docs/100 §14); ini of the same build; ts3fixes + ts3agent of set m1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": {
+     "match": [
+      "ts3native 0.36.299-wgnext1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgnext10 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    },
+    "^OK   water grid diff: ": {
+     "match": [
+      "OK   water grid diff: per-load G dump + diff against the previous load of the same world (Diff=1, docs/100 §14)",
+      "OK   water grid diff: per-load G dump only, no diff (first load) (Diff=2, docs/100 §14)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0); SKIP water grid diff: needs Prof=1",
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ]
+    },
+    "^water grid diff vs load of pid [0-9]+: canon ": {
+     "match": [
+      "water grid diff vs load of pid 1234: canon 0x1A2B3C4D -> 0x1A2B3C4D (equal)"
+     ],
+     "noMatch": [
+      "water grid diff: first load of key 66775222 (canon 0x1A2B3C4D), dump written for the next load"
+     ]
+    },
+    "^water grid diff: [0-9]+ header fields differ ": {
+     "match": [
+      "water grid diff: 1 header fields differ (0 pointer-only): pad02; body slots 0 (0 unused); cells 0 (low byte only 0, flags only 0, flag bits 0x00)"
+     ],
+     "noMatch": [
+      "water grid diff: dump 66775222 unusable (other size or version), rewritten",
+      "water grid diff cells (x,z) flags|low before->after: (1,2) 0001->0002"
+     ]
+    }
+   },
+   "save": "Baseline-BP",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1,
+    "^OK   water grid diff: ": 1,
+    "^water grid diff vs load of pid [0-9]+: canon ": 1,
+    "^water grid diff: [0-9]+ header fields differ ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1,
+    "WaterGrid.Diff": 1
+   }
+  },
+  {
+   "id": "ip-wgdiff-1",
+   "note": "[est 6 min] IP (most water) load 1: dump only",
+   "asi": "game-copy/ts3native.asi.wgnext1122",
+   "iniBase": "game-copy/ts3native.ini.wgnext1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "branch feature/watergrid-next-1122 (ts3native 0.36.299-wgnext1 = master m1122 + [WaterGrid] Diff / Par, docs/100 §14); ini of the same build; ts3fixes + ts3agent of set m1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": {
+     "match": [
+      "ts3native 0.36.299-wgnext1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgnext10 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    },
+    "^OK   water grid diff: ": {
+     "match": [
+      "OK   water grid diff: per-load G dump + diff against the previous load of the same world (Diff=1, docs/100 §14)",
+      "OK   water grid diff: per-load G dump only, no diff (first load) (Diff=2, docs/100 §14)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0); SKIP water grid diff: needs Prof=1",
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ]
+    },
+    "^water grid diff: first load of key [0-9A-F]{8} ": {
+     "match": [
+      "water grid diff: first load of key 66775222 (canon 0x1A2B3C4D), dump written for the next load"
+     ],
+     "noMatch": [
+      "water grid diff vs load of pid 1234: canon 0x1 -> 0x1 (equal)"
+     ]
+    }
+   },
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1,
+    "^OK   water grid diff: ": 1,
+    "^water grid diff: first load of key [0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1,
+    "WaterGrid.Diff": 2
+   }
+  },
+  {
+   "id": "ip-wgdiff-2",
+   "note": "[est 6 min] IP (most water) load 2: diff against load 1",
+   "asi": "game-copy/ts3native.asi.wgnext1122",
+   "iniBase": "game-copy/ts3native.ini.wgnext1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "branch feature/watergrid-next-1122 (ts3native 0.36.299-wgnext1 = master m1122 + [WaterGrid] Diff / Par, docs/100 §14); ini of the same build; ts3fixes + ts3agent of set m1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": {
+     "match": [
+      "ts3native 0.36.299-wgnext1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgnext10 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    },
+    "^OK   water grid diff: ": {
+     "match": [
+      "OK   water grid diff: per-load G dump + diff against the previous load of the same world (Diff=1, docs/100 §14)",
+      "OK   water grid diff: per-load G dump only, no diff (first load) (Diff=2, docs/100 §14)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0); SKIP water grid diff: needs Prof=1",
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ]
+    },
+    "^water grid diff vs load of pid [0-9]+: canon ": {
+     "match": [
+      "water grid diff vs load of pid 1234: canon 0x1A2B3C4D -> 0x1A2B3C4D (equal)"
+     ],
+     "noMatch": [
+      "water grid diff: first load of key 66775222 (canon 0x1A2B3C4D), dump written for the next load"
+     ]
+    },
+    "^water grid diff: [0-9]+ header fields differ ": {
+     "match": [
+      "water grid diff: 1 header fields differ (0 pointer-only): pad02; body slots 0 (0 unused); cells 0 (low byte only 0, flags only 0, flag bits 0x00)"
+     ],
+     "noMatch": [
+      "water grid diff: dump 66775222 unusable (other size or version), rewritten",
+      "water grid diff cells (x,z) flags|low before->after: (1,2) 0001->0002"
+     ]
+    }
+   },
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1,
+    "^OK   water grid diff: ": 1,
+    "^water grid diff vs load of pid [0-9]+: canon ": 1,
+    "^water grid diff: [0-9]+ header fields differ ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1,
+    "WaterGrid.Diff": 1
+   }
+  },
+  {
+   "id": "sv-wgdiff-1",
+   "note": "[est 6 min] SV (largest R) load 1: dump only",
+   "asi": "game-copy/ts3native.asi.wgnext1122",
+   "iniBase": "game-copy/ts3native.ini.wgnext1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "branch feature/watergrid-next-1122 (ts3native 0.36.299-wgnext1 = master m1122 + [WaterGrid] Diff / Par, docs/100 §14); ini of the same build; ts3fixes + ts3agent of set m1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": {
+     "match": [
+      "ts3native 0.36.299-wgnext1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgnext10 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    },
+    "^OK   water grid diff: ": {
+     "match": [
+      "OK   water grid diff: per-load G dump + diff against the previous load of the same world (Diff=1, docs/100 §14)",
+      "OK   water grid diff: per-load G dump only, no diff (first load) (Diff=2, docs/100 §14)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0); SKIP water grid diff: needs Prof=1",
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ]
+    },
+    "^water grid diff: first load of key [0-9A-F]{8} ": {
+     "match": [
+      "water grid diff: first load of key 66775222 (canon 0x1A2B3C4D), dump written for the next load"
+     ],
+     "noMatch": [
+      "water grid diff vs load of pid 1234: canon 0x1 -> 0x1 (equal)"
+     ]
+    }
+   },
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1,
+    "^OK   water grid diff: ": 1,
+    "^water grid diff: first load of key [0-9A-F]{8} ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1,
+    "WaterGrid.Diff": 2
+   }
+  },
+  {
+   "id": "sv-wgdiff-2",
+   "note": "[est 6 min] SV (largest R) load 2: diff against load 1",
+   "asi": "game-copy/ts3native.asi.wgnext1122",
+   "iniBase": "game-copy/ts3native.ini.wgnext1122",
+   "fixesPackage": "game-copy/ts3fixes.package.m1122",
+   "pinReason": "branch feature/watergrid-next-1122 (ts3native 0.36.299-wgnext1 = master m1122 + [WaterGrid] Diff / Par, docs/100 §14); ini of the same build; ts3fixes + ts3agent of set m1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": {
+     "match": [
+      "ts3native 0.36.299-wgnext1 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgnext10 2026-11-22 12:00:00"
+     ]
+    },
+    "^OK   water grid prof: ": {
+     "match": [
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0)",
+      "SKIP water grid prof: Steam 1.67 only (no EA 1.69 / retail rows for the inner call sites)"
+     ]
+    },
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": {
+     "match": [
+      "water grid build 1: 1012 ms = clear 0 + cells 870 (samples 801, objects 66, patches 0) + label 21 + shorelines 120 (map 98, lot 21) ms; grid 513x512 water 51234 bodies 12"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x1/0x2, trees 1/2/3, 9000 us"
+     ]
+    },
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": {
+     "match": [
+      "water grid build 1 hash: cells 0x1A2B3C4D pass 0x00000001 high 0x00000002 (525312 cell bytes, 5/10 maps), R 0x00000001/0x00000002, trees 1/2/3, 9000 us"
+     ],
+     "noMatch": [
+      "water grid build 1 hash: G at 0x12345678 unreadable",
+      "water grid build 1: 1012 ms = clear 0 + cells 870"
+     ]
+    },
+    "^OK   water grid diff: ": {
+     "match": [
+      "OK   water grid diff: per-load G dump + diff against the previous load of the same world (Diff=1, docs/100 §14)",
+      "OK   water grid diff: per-load G dump only, no diff (first load) (Diff=2, docs/100 §14)"
+     ],
+     "noMatch": [
+      "water grid prof off ([WaterGrid] Prof=0); SKIP water grid diff: needs Prof=1",
+      "OK   water grid prof: G build phase split + output hash per build (Prof=1, docs/100 §13)"
+     ]
+    },
+    "^water grid diff vs load of pid [0-9]+: canon ": {
+     "match": [
+      "water grid diff vs load of pid 1234: canon 0x1A2B3C4D -> 0x1A2B3C4D (equal)"
+     ],
+     "noMatch": [
+      "water grid diff: first load of key 66775222 (canon 0x1A2B3C4D), dump written for the next load"
+     ]
+    },
+    "^water grid diff: [0-9]+ header fields differ ": {
+     "match": [
+      "water grid diff: 1 header fields differ (0 pointer-only): pad02; body slots 0 (0 unused); cells 0 (low byte only 0, flags only 0, flag bits 0x00)"
+     ],
+     "noMatch": [
+      "water grid diff: dump 66775222 unusable (other size or version), rewritten",
+      "water grid diff cells (x,z) flags|low before->after: (1,2) 0001->0002"
+     ]
+    }
+   },
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 15,
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-wgnext1 ": 1,
+    "^OK   water grid prof: ": 1,
+    "^water grid build [0-9]+: [0-9]+ ms = clear ": 1,
+    "^water grid build [0-9]+ hash: cells 0x[0-9A-F]{8} ": 1,
+    "^OK   water grid diff: ": 1,
+    "^water grid diff vs load of pid [0-9]+: canon ": 1,
+    "^water grid diff: [0-9]+ header fields differ ": 1
+   },
+   "run": {
+    "profile": {
+     "minutes": 1,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "WaterGrid.Prof": 1,
+    "Crash.Log": 1,
+    "WaterGrid.Diff": 1
+   }
+  }
+ ]
+}

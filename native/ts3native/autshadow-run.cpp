@@ -926,10 +926,9 @@ static void AsInstallRun(const wchar_t* ini, bool slotStub) {
     g_asPrintUsPerTick = g_asUsPerTick;
     if (g_asWaitUs < 0 || g_asWaitUs > 20000) g_asWaitUs = g_asWaitUs < 0 ? 0 : 20000;  // a test knob: never more than 20 ms per frame
     if (ini) {
-        wcscpy_s(g_asJsonlPath, ini);
+        WCpy(g_asJsonlPath, ini);
         wchar_t* slash = wcsrchr(g_asJsonlPath, L'\\');
-        if (slash) wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - g_asJsonlPath), L"autshadow.jsonl");
-        else g_asJsonlPath[0] = 0;
+        if (!slash || WCpy(slash + 1, MAX_PATH - (slash + 1 - g_asJsonlPath), L"autshadow.jsonl")) g_asJsonlPath[0] = 0;
     }
     g_asMode = slotStub ? (mode < 0 || mode > 3 ? 0 : mode) : -1;
     k.mode = g_asMode;

@@ -198,7 +198,7 @@ static LONG P4PatchSites(const DWORD* at, u8* t1Tramp) {
     for (int i = 0; i < P4_SITES; i++) {
         const u8* p = i == P4_T1 && t1Tramp ? t1Tramp : (const u8*)(uintptr_t)at[i];
         if (Matches(p, kP4Pro[i], kP4Len[i])) continue;
-        if (Readable(p, kP4Len[i])) Hex(p, kP4Len[i], hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, kP4Len[i])) Hex(p, kP4Len[i], hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP P4: site T%d 0x%08lX bytes %s differ%s, nothing patched", i, at[i], hex, i == P4_T1 && t1Tramp ? " (route gate trampoline)" : "");
         return 0;
     }
@@ -1615,10 +1615,10 @@ static bool ApplyP4(const wchar_t* ini) {
     const int dl = P4InstallDl(kDlAt);
     if (dl != 3) Log("P4: display level family (D5): %d of 3 writer stubs installed; the others are not counted", dl);
     wchar_t path[MAX_PATH];
-    wcscpy_s(path, ini);
+    WCpy(path, ini);
     wchar_t* dot = wcsrchr(path, L'.');
     if (dot) *dot = 0;
-    wcscat_s(path, L"-shadow.jsonl");
+    WCat(path, L"-shadow.jsonl");
     g_p4Jsonl = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (g_p4Jsonl == INVALID_HANDLE_VALUE) Log("FAIL route snapshot P4: cannot open %ls (err %lu); records are counted only", path, GetLastError());
     k.snP4Mode = mode;

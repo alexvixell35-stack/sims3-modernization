@@ -74,6 +74,8 @@ export function removeWorktree(main: string, w: { path: string; branch: string }
     if (s.files) { console.log(`REFUSED ${w.path}: game-copy is a real directory with ${s.files} real files (move them out by hand)`); return 'refused'; }
     gcLinks = s.links;
   }
+  // shared build caches linked at the worktree root (Apex/GI vcpkg_installed -> another checkout's) go the same way: link only
+  for (const n of ['vcpkg_installed']) { const p = join(w.path, n); if (lexists(p) && lstatSync(p).isSymbolicLink()) gcLinks.push(p); }
   const unverified = gcLinks.filter(p => !isLink(p));
   if (unverified.length) { console.log(`REFUSED ${w.path}: not a verified reparse point: ${unverified.join(', ')}`); return 'refused'; }
   const other = scan(w.path).links.filter(p => !gcLinks.some(g => norm(g) === norm(p)));
@@ -102,15 +104,16 @@ function selfCheck(): number {
   const quiet = (a: string[]) => { const l = console.log; const out: string[] = []; console.log = (...x) => out.push(x.join(' ')); try { return { rc: run(a, repo), out: out.join('\n') }; } finally { console.log = l; } };
   try {
     mkdirSync(join(target, 'Game'), { recursive: true }); writeFileSync(join(target, 'Game', 'TS3W.exe'), 'keep me');
-    mkdirSync(repo); g(repo, 'init', '-q', '-b', 'master'); writeFileSync(join(repo, 'a.txt'), 'a'); writeFileSync(join(repo, '.gitignore'), 'game-copy\ndocs-link\n'); g(repo, 'add', '-A'); g(repo, 'commit', '-qm', 'base');
+    mkdirSync(repo); g(repo, 'init', '-q', '-b', 'master'); writeFileSync(join(repo, 'a.txt'), 'a'); writeFileSync(join(repo, '.gitignore'), 'game-copy\ndocs-link\nvcpkg_installed\n'); g(repo, 'add', '-A'); g(repo, 'commit', '-qm', 'base');
     const wt = (n: string) => join(repo, '.claude', 'worktrees', n);
-    for (const n of ['merged', 'unmerged', 'realdir', 'otherlink', 'dirty', 'linkdir']) g(repo, 'worktree', 'add', '-q', wt(n), '-b', n);
+    for (const n of ['merged', 'unmerged', 'realdir', 'otherlink', 'dirty', 'linkdir', 'vcpkg']) g(repo, 'worktree', 'add', '-q', wt(n), '-b', n);
     writeFileSync(join(wt('dirty'), 'wip.txt'), 'uncommitted');
     writeFileSync(join(wt('unmerged'), 'b.txt'), 'b'); g(wt('unmerged'), 'add', '-A'); g(wt('unmerged'), 'commit', '-qm', 'not in master');
-    for (const n of ['merged', 'unmerged', 'otherlink']) symlinkSync(target, join(wt(n), 'game-copy'), 'junction');
+    for (const n of ['merged', 'unmerged', 'otherlink', 'vcpkg']) symlinkSync(target, join(wt(n), 'game-copy'), 'junction');
     mkdirSync(join(wt('realdir'), 'game-copy')); writeFileSync(join(wt('realdir'), 'game-copy', 'x'), 'x');
     mkdirSync(join(wt('linkdir'), 'game-copy')); symlinkSync(join(target, 'Game'), join(wt('linkdir'), 'game-copy', 'assemblies'), 'junction');
     symlinkSync(target, join(wt('otherlink'), 'docs-link'), 'junction');
+    symlinkSync(join(target, 'Game'), join(wt('vcpkg'), 'vcpkg_installed'), 'junction');
     const dry = quiet(['--all-merged']);
     ok(dry.out.includes('would unlink') && existsSync(wt('merged')) && existsSync(join(wt('merged'), 'game-copy')), 'dry run changes nothing');
     const r = quiet(['--all-merged', '--yes']);
@@ -119,6 +122,7 @@ function selfCheck(): number {
     ok(existsSync(wt('unmerged')), '--all-merged keeps the unmerged worktree');
     ok(existsSync(join(wt('realdir'), 'game-copy', 'x')) && /REFUSED .*realdir.*real directory/.test(r.out), 'real game-copy directory refused');
     ok(!existsSync(wt('linkdir')) && existsSync(join(target, 'Game', 'TS3W.exe')), 'game-copy dir holding only a junction: link unlinked, worktree removed, target kept');
+    ok(!existsSync(wt('vcpkg')) && existsSync(join(target, 'Game', 'TS3W.exe')), 'vcpkg_installed junction at the root: unlinked, worktree removed, target kept');
     ok(existsSync(wt('otherlink')) && /REFUSED .*otherlink.*other links/.test(r.out) && r.rc === 1, 'worktree with another link refused');
     ok(existsSync(join(wt('dirty'), 'wip.txt')) && /skip .*dirty.*uncommitted/.test(r.out), '--all-merged skips a worktree with uncommitted changes');
     const one = quiet([wt('unmerged'), '--yes']);

@@ -42,7 +42,7 @@ static DWORD g_ssStkWords = 2048;
 static bool SsCapture(DWORD tid, char* out, size_t cap, bool* inSim) {
     *inSim = false;
     HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, tid);
-    if (!h) { sprintf_s(out, cap, "not opened (err %lu)", GetLastError()); return false; }
+    if (!h) { SFmt(out, cap, "not opened (err %lu)", GetLastError()); return false; }
     DWORD* const stk = g_ssStk;
     CONTEXT c = {};
     c.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
@@ -62,7 +62,7 @@ static bool SsCapture(DWORD tid, char* out, size_t cap, bool* inSim) {
         ResumeThread(h);
     }
     CloseHandle(h);
-    if (!got) { strcpy_s(out, cap, "no context"); return false; }
+    if (!got) { SCpy(out, cap, "no context"); return false; }
     DWORD f[24];
     int nf = 0;
     for (DWORD i = 0; i < ns; i++) {
@@ -72,7 +72,7 @@ static bool SsCapture(DWORD tid, char* out, size_t cap, bool* inSim) {
     }
     char at[48], fr[24 * 44 + 8];
     CrFrame(c.Eip, at, sizeof(at)), CtFrames(f, nf, fr, sizeof(fr));
-    sprintf_s(out, cap, "eip %s, stack scan (%d):%s", at, nf, fr);
+    SFmt(out, cap, "eip %s, stack scan (%d):%s", at, nf, fr);
     return true;
 }
 
@@ -133,7 +133,7 @@ static bool SsJitAt(DWORD a) { return g_jitCode && a >= (DWORD)(uintptr_t)g_jitC
 // "TS3W+0x25E0F0[PathPlanner_PlanHierarchical+0x20]", "jit+0x1234[Ns.Cls.Meth+0x1A]"; module+rva alone when there is no name
 static void SsFrameText(DWORD a, char* out, size_t cap) {
     if (SsJitAt(a)) {
-        const int w = sprintf_s(out, cap, "jit+0x%lX", a - (DWORD)(uintptr_t)g_jitCode);
+        const int w = SFmt(out, cap, "jit+0x%lX", a - (DWORD)(uintptr_t)g_jitCode);
         const int nMeth = g_jitMethN;
         for (int i = 0; g_ssNames && i < nMeth; i++) {
             const JitMeth& m = g_jitMeth[i];
@@ -242,7 +242,7 @@ static int SsManaged(DWORD teb, DWORD* m, int max) {
 // suspends `tid`, copies its context, stack and (managed > 0) script frames into c and g_ssStk, resumes it
 static bool SsGrab(DWORD tid, SsCap* c, int managed, char* err, size_t cap) {
     HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, tid);
-    if (!h) { sprintf_s(err, cap, "not opened (err %lu)", GetLastError()); return false; }
+    if (!h) { SFmt(err, cap, "not opened (err %lu)", GetLastError()); return false; }
     CONTEXT x = {};
     x.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS;
     bool got = false;
@@ -267,7 +267,7 @@ static bool SsGrab(DWORD tid, SsCap* c, int managed, char* err, size_t cap) {
         ResumeThread(h);
     }
     CloseHandle(h);
-    if (!got) { strcpy_s(err, cap, "no context"); return false; }
+    if (!got) { SCpy(err, cap, "no context"); return false; }
     c->eip = x.Eip, c->esp = x.Esp, c->ebp = x.Ebp;
     return true;
 }
@@ -278,7 +278,7 @@ static void SsText(const char* who, DWORD tid, const SsCap& c, char* out, size_t
     const int want = c.hits < (int)g_ssFrames ? c.hits : (int)g_ssFrames, tail = c.hits > want ? want / 4 : 0, head = want - tail;
     char at[160], sim[32] = "no Simulate hit";
     SsFrameText(c.eip, at, sizeof(at));
-    if (c.simAt >= 0) sprintf_s(sim, "Simulate hit #%d", c.simAt + 1);
+    if (c.simAt >= 0) SFmt(sim, "Simulate hit #%d", c.simAt + 1);
     _snprintf_s(out, cap, _TRUNCATE, "deep %lu KB, %d hits, %d unique, %s: eip %s, stack scan (%d):", (c.words + 255) / 256, c.total, c.hits, sim, at, want);
     char* line = out;
     size_t room = cap, w = strlen(out);
@@ -288,21 +288,21 @@ static void SsText(const char* who, DWORD tid, const SsCap& c, char* out, size_t
         SsFrameText(hit.a, fr, sizeof(fr) - 16);
         size_t n = strlen(fr);
         if (hit.fp) fr[n++] = '^', fr[n] = 0;
-        if (hit.n > 1) n += (size_t)sprintf_s(fr + n, sizeof(fr) - n, "*%d", hit.n);
+        if (hit.n > 1) n += (size_t)SFmt(fr + n, sizeof(fr) - n, "*%d", hit.n);
         if (w + n + 32 >= room) {  // the line is full: go on in a "more frames" line
             if (g_ssMoreN >= SS_MORE) return;
             line = g_ssMore[g_ssMoreN++], room = sizeof(g_ssMore[0]);
-            w = (size_t)sprintf_s(line, room, "stall watch: %s thread %lu more frames (from #%d):", who, tid, i + 1);
+            w = (size_t)SFmt(line, room, "stall watch: %s thread %lu more frames (from #%d):", who, tid, i + 1);
         }
-        if (i == head && tail) w += (size_t)sprintf_s(line + w, room - w, " ...(+%d)", c.hits - want);  // the gap before the outermost quarter
-        w += (size_t)sprintf_s(line + w, room - w, " %s", fr);
+        if (i == head && tail) w += (size_t)SFmt(line + w, room - w, " ...(+%d)", c.hits - want);  // the gap before the outermost quarter
+        w += (size_t)SFmt(line + w, room - w, " %s", fr);
     }
 }
 static void SsManagedLine(const char* who, DWORD tid, const SsCap& c) {
     if (c.nMeth <= 0 || g_ssMoreN >= SS_MORE) return;
     char* const d = g_ssMore[g_ssMoreN++];
     const int room = (int)sizeof(g_ssMore[0]);
-    int n = sprintf_s(d, sizeof(g_ssMore[0]), "stall watch: %s thread %lu script stack (innermost first): ", who, tid);
+    int n = SFmt(d, sizeof(g_ssMore[0]), "stall watch: %s thread %lu script stack (innermost first): ", who, tid);
     for (int i = 0; i < c.nMeth && n < room - 260; i++) {
         if (i) { memcpy(d + n, " < ", 4); n += 3; }
         n += FbName(d + n, room - n, c.meth[i]);

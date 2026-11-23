@@ -67,7 +67,7 @@ static void CrInitNeedles() {
     g_crNeedleN = 0;
     CrAddNeedle(g_crUser, "<TS3User>", 4);
     wchar_t bin[MAX_PATH];
-    wcscpy_s(bin, g_crExe);
+    WCpy(bin, g_crExe);
     if (wchar_t* s = wcsrchr(bin, L'\\')) *s = 0;
     CrAddNeedle(bin, "<Bin>", 4);
     if (GetEnvironmentVariableW(L"USERPROFILE", v, MAX_PATH)) CrAddNeedle(v, "<home>", 4);
@@ -149,7 +149,7 @@ static void CrShaHex(CrSha& s, char out[65]) {
     CrShaAdd(s, &pad, 1);
     while ((s.len & 63) != 56) CrShaAdd(s, &zero, 1);
     for (int i = 7; i >= 0; i--) { const u8 b = (u8)(bits >> (i * 8)); CrShaAdd(s, &b, 1); }
-    for (int i = 0; i < 8; i++) sprintf_s(out + i * 8, 65 - i * 8, "%08lx", s.h[i]);
+    for (int i = 0; i < 8; i++) SFmt(out + i * 8, 65 - i * 8, "%08lx", s.h[i]);
 }
 static bool CrFileSha(const wchar_t* path, char out[65]) {
     HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
@@ -178,7 +178,7 @@ static const char* CrModOf(DWORD a, DWORD* base, bool needExec) {
     CrMod& m = g_crMods[g_crModN < 32 ? g_crModN++ : 31];
     m.base = *base;
     wchar_t w[MAX_PATH];
-    if (!K32GetMappedFileNameW(GetCurrentProcess(), mbi.AllocationBase, w, MAX_PATH)) wcscpy_s(w, L"?");
+    if (!K32GetMappedFileNameW(GetCurrentProcess(), mbi.AllocationBase, w, MAX_PATH)) WCpy(w, L"?");
     const wchar_t* s = wcsrchr(w, L'\\');
     CrUtf8(s ? s + 1 : w, m.name, sizeof(m.name));
     if (char* dot = strrchr(m.name, '.')) *dot = 0;
@@ -188,7 +188,7 @@ static const char* CrModOf(DWORD a, DWORD* base, bool needExec) {
 static void CrFrame(DWORD a, char* out, size_t cap) {
     DWORD base;
     const char* m = CrModOf(a, &base, false);
-    if (m) sprintf_s(out, cap, "%s+0x%lX", m, a - base); else sprintf_s(out, cap, "0x%08lX", a);
+    if (m) SFmt(out, cap, "%s+0x%lX", m, a - base); else SFmt(out, cap, "0x%08lX", a);
 }
 
 // A return address: in executable image code, right after a call (E8 rel32, or FF /2 of 2-7 bytes).
@@ -247,7 +247,7 @@ static size_t CrTailOf(const wchar_t* path, char* out, size_t cap, int lines) {
 
 static void CrPackages(const wchar_t* dir, int depth, int* n) {
     wchar_t pat[MAX_PATH];
-    if (swprintf_s(pat, L"%s\\*", dir) < 0) return;
+    if (!PathFmt(pat, L"%s\\*", dir)) return;
     WIN32_FIND_DATAW f;
     HANDLE h = FindFirstFileExW(pat, FindExInfoBasic, &f, FindExSearchNameMatch, NULL, 0);
     if (h == INVALID_HANDLE_VALUE) return;
@@ -255,7 +255,7 @@ static void CrPackages(const wchar_t* dir, int depth, int* n) {
         if (f.cFileName[0] == L'.') continue;
         if (f.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             wchar_t sub[MAX_PATH];
-            if (depth < 4 && swprintf_s(sub, L"%s\\%s", dir, f.cFileName) > 0) CrPackages(sub, depth + 1, n);
+            if (depth < 4 && PathFmt(sub, L"%s\\%s", dir, f.cFileName)) CrPackages(sub, depth + 1, n);
         } else if (wcsrchr(f.cFileName, L'.') && !_wcsicmp(wcsrchr(f.cFileName, L'.'), L".package") && (*n)++ < 400) {
             char name[MAX_PATH * 3];
             CrUtf8(f.cFileName, name, sizeof(name));
@@ -282,7 +282,7 @@ static void CrSysInit() {
     if (RtlGetVersionFn f = (RtlGetVersionFn)(void*)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion")) f(&os);
     const u8* exe = (const u8*)GetModuleHandleW(NULL);
     const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(exe + ((const IMAGE_DOS_HEADER*)exe)->e_lfanew);
-    sprintf_s(g_crSys, "cpu: %s, %lu logical processors\r\nram: %llu MB\r\nos: Windows %lu.%lu.%lu\r\nlarge address aware: %s\r\n", *b ? b : "?",
+    SFmt(g_crSys, "cpu: %s, %lu logical processors\r\nram: %llu MB\r\nos: Windows %lu.%lu.%lu\r\nlarge address aware: %s\r\n", *b ? b : "?",
               si.dwNumberOfProcessors, ms.ullTotalPhys >> 20, os.dwMajorVersion, os.dwMinorVersion, os.dwBuildNumber,
               nt->FileHeader.Characteristics & IMAGE_FILE_LARGE_ADDRESS_AWARE ? "yes" : "no");
 }
@@ -296,7 +296,7 @@ static void CrSectionsInit(const wchar_t* ini) {
         if (GetPrivateProfileIntW(s, L"Enabled", 0, ini) > 0) {
             char a[128];
             CrUtf8(s, a, sizeof(a));
-            const int w = sprintf_s(g_crSections + l, sizeof(g_crSections) - l, "%s[%s]", l ? " " : "", a);
+            const int w = SFmt(g_crSections + l, sizeof(g_crSections) - l, "%s[%s]", l ? " " : "", a);
             if (w < 0) break;
             l += w;
         }
@@ -320,7 +320,7 @@ static void CrCommonTail(HANDLE h, const char* tail, size_t tailN, const char* t
     CrPut("--- package files (names only) ---\r\n");
     if (g_crUser[0]) {
         wchar_t mods[MAX_PATH];
-        if (swprintf_s(mods, L"%s\\Mods\\Packages", g_crUser) > 0) CrPackages(mods, 0, &n);
+        if (PathFmt(mods, L"%s\\Mods\\Packages", g_crUser)) CrPackages(mods, 0, &n);
     }
     CrPut("packages: %d%s\r\n--- %s ---\r\n", n, n > 400 ? " (first 400 listed)" : "", tailWhat);
     CrFlush(h);
@@ -340,8 +340,8 @@ static HANDLE CrOpenReport(const char* kind) {
     SYSTEMTIME st;
     GetSystemTime(&st);
     wchar_t path[MAX_PATH];
-    if (swprintf_s(path, L"%s\\crash-%04d%02d%02d-%02d%02d%02d-%lu%s.txt", g_crDir, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute,
-                   st.wSecond, GetCurrentProcessId(), *kind == 'h' ? L"-hard" : L"") < 0)
+    if (!PathFmt(path, L"%s\\crash-%04d%02d%02d-%02d%02d%02d-%lu%s.txt", g_crDir, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute,
+                 st.wSecond, GetCurrentProcessId(), *kind == 'h' ? L"-hard" : L""))
         return INVALID_HANDLE_VALUE;
     HANDLE h = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
     g_crLen = 0;
@@ -353,7 +353,7 @@ static HANDLE CrOpenReport(const char* kind) {
 static bool g_crRdata;  // [CrashReport] RdataCheck=1 (docs/260 §7, default off): the .rdata protection + vtable compare line
 static void CfRdataText(const u8* img, const wchar_t* file, char* out, size_t cap);  // crashfx.cpp
 
-static void CrMarkerPath(wchar_t* out) { swprintf_s(out, MAX_PATH, L"%s\\running.txt", g_crDir); }
+static void CrMarkerPath(wchar_t* out) { PathFmt(out, MAX_PATH, L"%s\\running.txt", g_crDir); }  // "" = no marker (no folder)
 
 static void CrReport(const EXCEPTION_POINTERS* e) {
     const EXCEPTION_RECORD* r = e->ExceptionRecord;
@@ -401,7 +401,7 @@ static void CrReport(const EXCEPTION_POINTERS* e) {
     CloseHandle(h);
     wchar_t m[MAX_PATH];
     CrMarkerPath(m);
-    DeleteFileW(m);  // captured: no "hard" report next start
+    if (m[0]) DeleteFileW(m);  // captured: no "hard" report next start
 }
 
 // Apex Radiance (docs/148 §6 #8, §7a) re-sets the kernel32 filter every second through its own import, keeps the one it
@@ -449,7 +449,7 @@ static void CrHardReport(const char* marker) {
     char fault[96] = "hard exit", xtype[128] = "", xaddr[160] = "";
     WIN32_FIND_DATAW f, best = {};
     wchar_t pat[MAX_PATH];
-    if (g_crUser[0] && swprintf_s(pat, L"%s\\xcpt*.txt", g_crUser) > 0) {
+    if (g_crUser[0] && PathFmt(pat, L"%s\\xcpt*.txt", g_crUser)) {
         HANDLE fh = FindFirstFileW(pat, &f);
         if (fh != INVALID_HANDLE_VALUE) {
             do if (CompareFileTime(&f.ftLastWriteTime, &best.ftLastWriteTime) > 0) best = f; while (FindNextFileW(fh, &f));
@@ -459,11 +459,11 @@ static void CrHardReport(const char* marker) {
     wchar_t mp[MAX_PATH];
     CrMarkerPath(mp);
     WIN32_FILE_ATTRIBUTE_DATA ma;
-    if (best.cFileName[0] && GetFileAttributesExW(mp, GetFileExInfoStandard, &ma) && CompareFileTime(&best.ftLastWriteTime, &ma.ftLastWriteTime) > 0) {
+    if (best.cFileName[0] && mp[0] && GetFileAttributesExW(mp, GetFileExInfoStandard, &ma) && CompareFileTime(&best.ftLastWriteTime, &ma.ftLastWriteTime) > 0) {
         wchar_t xp[MAX_PATH];
         static char x[16384];
         x[0] = 0;
-        if (swprintf_s(xp, L"%s\\%s", g_crUser, best.cFileName) > 0) {
+        if (PathFmt(xp, L"%s\\%s", g_crUser, best.cFileName)) {
             HANDLE xh = CreateFileW(xp, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
             DWORD r = 0;
             if (xh != INVALID_HANDLE_VALUE) ReadFile(xh, x, sizeof(x) - 1, &r, NULL), CloseHandle(xh);
@@ -479,7 +479,7 @@ static void CrHardReport(const char* marker) {
                 unsigned long a = 0;
                 const char* q = strrchr(l, '\\');
                 if (sscanf_s(l + 8, " 0x%lx", &a) == 1 && q && !_strnicmp(q + 1, "TS3W.exe", 8) && a >= 0x400000)
-                    sprintf_s(fault, "TS3W+0x%lX", a - 0x400000);  // fixed base 0x400000 (no ASLR)
+                    SFmt(fault, "TS3W+0x%lX", a - 0x400000);  // fixed base 0x400000 (no ASLR)
             }
             l = c ? e + 1 : e;
         }
@@ -507,17 +507,18 @@ static void CrFindDirs() {
     if (GetFileAttributesW(g_crUser) == INVALID_FILE_ATTRIBUTES) {
         // shortcut: localized folder names ("Die Sims 3") are not searched; the reports go next to ts3native.asi instead
         g_crUser[0] = 0;
-        wcscpy_s(g_crDir, g_crLog);
-        if (wchar_t* s = wcsrchr(g_crDir, L'\\')) *s = 0;
-        wcscat_s(g_crDir, L"\\ts3native-crashes");
+        wchar_t bin[MAX_PATH];
+        WCpy(bin, g_crLog);  // g_crLog has the same size
+        if (wchar_t* s = wcsrchr(bin, L'\\')) *s = 0;
+        PathFmt(g_crDir, L"%s\\ts3native-crashes", bin);  // docs/323: "" when too long or bin is "": then no report or marker file opens
     } else {
-        swprintf_s(g_crDir, L"%s\\ts3native-crashes", g_crUser);
+        PathFmt(g_crDir, L"%s\\ts3native-crashes", g_crUser);
     }
 }
 
 static void InstallCrashReport(const wchar_t* ini, const wchar_t* log) {
     if (!GetPrivateProfileIntW(L"CrashReport", L"Enabled", 0, ini)) { Log("crash report off (Enabled=0)"); return; }
-    wcscpy_s(g_crLog, log);
+    WCpy(g_crLog, log);
     GetModuleFileNameW(NULL, g_crExe, MAX_PATH);
     CrFindDirs();
     CrInitNeedles();
@@ -527,7 +528,7 @@ static void InstallCrashReport(const wchar_t* ini, const wchar_t* log) {
     wchar_t mp[MAX_PATH];
     CrMarkerPath(mp);
     char prev[64] = "?";
-    HANDLE mh = CreateFileW(mp, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    HANDLE mh = mp[0] ? CreateFileW(mp, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL) : INVALID_HANDLE_VALUE;
     if (mh != INVALID_HANDLE_VALUE) {
         char t[256] = {};
         DWORD r = 0;
@@ -537,11 +538,11 @@ static void InstallCrashReport(const wchar_t* ini, const wchar_t* log) {
         CrHardReport(prev);
         Log("crash report: the previous session (ts3native %s) ended without a clean exit: hard report written", prev);
     }
-    mh = CreateFileW(mp, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    mh = mp[0] ? CreateFileW(mp, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL) : INVALID_HANDLE_VALUE;
     if (mh != INVALID_HANDLE_VALUE) {
         char t[64];
         DWORD w;
-        WriteFile(mh, t, (DWORD)sprintf_s(t, "ts3native " TS3NATIVE_VERSION "\r\npid %lu\r\n", GetCurrentProcessId()), &w, NULL);
+        WriteFile(mh, t, (DWORD)SFmt(t, "ts3native " TS3NATIVE_VERSION "\r\npid %lu\r\n", GetCurrentProcessId()), &w, NULL);
         CloseHandle(mh);
     }
     g_crRdata = GetPrivateProfileIntW(L"CrashReport", L"RdataCheck", 0, ini) != 0;
@@ -562,5 +563,5 @@ static void CrCleanExit() {
     if (!g_crOn) return;
     wchar_t mp[MAX_PATH];
     CrMarkerPath(mp);
-    DeleteFileW(mp);
+    if (mp[0]) DeleteFileW(mp);
 }
