@@ -3525,6 +3525,8 @@ static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
 static void DsLogCounters();   // doorshare.cpp (docs/674)
 static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
+static void WpsLogCounters();  // wpsnap.cpp (docs/679)
+static void WpgLogCounters();  // wpgather.cpp (docs/679 §5)
 static void UbLogCounters();   // unseenband.cpp (docs/322)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
@@ -3589,6 +3591,8 @@ static void MaybeLogCounters(ULONGLONG now) {
     DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
     PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
     ScLogCounters();   // docs/676 §15 (nothing until [WorldPrecompute] SmoothCut is installed)
+    WpsLogCounters();  // docs/679 (nothing until [WaypointSnap] is installed and the IC was called)
+    WpgLogCounters();  // docs/679 §5 (nothing until [WaypointSnap] Gather is installed and a gather was asked)
     UbLogCounters();   // docs/322 (nothing until [UnseenProbe] Bands is set)
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
         Log("route jobs sim waits: runplan %ld/%ld/%ld rtwait %ld/%ld/%ld disc %ld/%ld/%ld collect %ld/%ld/%ld drop %ld/%ld/%ld "
@@ -6736,6 +6740,8 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "cellmemo.cpp"
 #include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plandeadline.cpp: t_pd.scope)
 #include "smoothcut.cpp"   // docs/676 §15: [WorldPrecompute] SmoothCut (no dependencies beyond the helpers above)
+#include "wpsnap.cpp"        // docs/679: [WaypointSnap] (after routesnap.cpp: g_snWriteSeq, g_snOn)
+#include "wpgather.cpp"      // docs/679 §5: [WaypointSnap] Gather (after wpsnap.cpp: its call-site helpers; routesnap.cpp: g_snGatherSeq)
 #include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
@@ -7013,6 +7019,8 @@ static void Run(HMODULE self) {
         keepLog = ApplyAdaptDiag(ini) || keepLog;       // docs/316: after hitch summary / stall watch / ModTime / PcCheck (turns their thresholds; off)
         InstallRouteSpeed(ini);  // docs/663: after [RouteSnap] (tree-write sequence) and [RouteGate] (the Q table clear stub)
         InstallSmoothCut(ini);   // docs/676 §15: one call site of its own (0x6676CE), nobody else's
+        InstallWpSnap(ini);      // docs/679: after [RouteSnap] (the write sequence); two call sites of its own
+        InstallWpGather(ini);    // docs/679 §5: after InstallWpSnap (chains over its two call sites)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install

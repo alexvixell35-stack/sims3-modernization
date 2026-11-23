@@ -15,6 +15,7 @@
  "CellMemoProbe": ["cellmemo.cpp"],
  "RouteSpeed": ["routesnap.cpp", "routespeed.cpp"],
  "WorldPrecompute": ["smoothcut.cpp"],
+ "WaypointSnap": ["wpgather.cpp", "wpsnap.cpp"],
  "RouteEarlyOut": ["earlyout.cpp"],
  "SaveWrite": ["savewrite.cpp"],
  "Startup": ["dxdiagcache.cpp"],

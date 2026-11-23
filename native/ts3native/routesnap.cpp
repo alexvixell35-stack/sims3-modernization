@@ -155,6 +155,18 @@ static inline bool SnTreeRow(int leaf) {
 // W6b: called on every read, they fill a lazy cache through the other W6 rows, which do count), Footprint_SetEnabled, and
 // (SnIcEnter) every routing IC except the four plan starts.
 static volatile LONG g_snWriteSeq;
+// docs/679 §5 [WaypointSnap] Gather: bumped on every write the closest-waypoint gather 0x654790 can read (the waypoint
+// records' blocked and type bits, the lot table, a lot's graph, the terrain): the lot-structure rows, blocked-bit rows, G
+// builds, the terrain reload, and every routing IC except the plan starts and the twelve that only touch object footprints
+// (lock keys, discourage / private footprints, hidden flags, footprint enable / reset). The footprint, quadtree and water
+// grid rows do not count: the gather reads none of that. g_snGatherMiss = such rows or IC slots that are not hooked.
+static volatile LONG g_snGatherSeq;
+static LONG g_snGatherMiss;
+static inline bool SnGatherRow(int leaf) {
+    return leaf == SL_W3 || leaf == SL_W4 || leaf == SL_W5 || leaf == SL_REMOVELOT || leaf == SL_APPLYLOT || leaf == SL_RESTORE || leaf == SL_GBUILD ||
+           leaf == SL_BLEND;
+}
+static inline bool SnGatherIc(int i) { return i < SN_IC_START && !(i <= 3 || (i >= 18 && i <= 21) || (i >= 25 && i <= 28)); }
 
 // --- per-thread source frames (sim thread) ---
 struct SnFrame { DWORD* slot; DWORD ret; u8 src; u8 idx; };
@@ -535,6 +547,7 @@ static void __cdecl SnEnter(int i, DWORD* slot) {
     const SnSite& s = kSn[i];
     if (SnTreeRow(s.leaf)) InterlockedIncrement(&g_snTreeSeq);  // docs/663: first, so clone and replay writes count too
     if ((s.leaf != SL_SRC && i != SN_W6B && i != SN_W6B - 1) || i == SN_FPEN) InterlockedIncrement(&g_snWriteSeq);  // docs/671: first, so clone and replay writes count too
+    if (SnGatherRow(s.leaf)) InterlockedIncrement(&g_snGatherSeq);  // docs/679 §5: likewise
     if (t_rpReplay) return;  // the replay consumer replaying on its clone (replay.cpp RpDrain)
     if (t_snapRun) {  // P4 clone run (docs/94 §12.4.3): no counting; a writer leaf makes its lot worker-dirty, an event trips
         if (i == SN_WEV) P4Abort(P4_AB_EVENT);
@@ -654,6 +667,7 @@ static void __cdecl SnEnter(int i, DWORD* slot) {
 static void P4VarTrip(DWORD handle);  // p4.cpp
 static void __cdecl SnIcEnter(int i, DWORD* slot) {
     if (i < SN_IC_START) InterlockedIncrement(&g_snWriteSeq);  // docs/671: a routing IC that is not a plan start, any thread
+    if (SnGatherIc(i)) InterlockedIncrement(&g_snGatherSeq);  // docs/679 §5
     if (t_snapRun) return;  // P4 clone run: pass through
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.snIc[i]);
@@ -751,7 +765,8 @@ static bool ApplyRouteSnap(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"RouteSnap", L"Count", 0, ini) && !GetPrivateProfileIntW(L"RouteSnap", L"Enabled", 0, ini) &&
         !GetPrivateProfileIntW(L"PlanRepeat", L"Enabled", 0, ini) && !GetPrivateProfileIntW(L"RouteAsync", L"ReplanDedupe", 0, ini) &&
         !GetPrivateProfileIntW(L"RouteAsync", L"FailMemo", 0, ini) &&  // docs/164 §7 D5 reads them too
-        !GetPrivateProfileIntW(L"RouteSpeed", L"NeighbourMemo", 0, ini)) {  // docs/663: its tree-write sequence
+        !GetPrivateProfileIntW(L"RouteSpeed", L"NeighbourMemo", 0, ini) &&  // docs/663: its tree-write sequence
+        !GetPrivateProfileIntW(L"WaypointSnap", L"Gather", 0, ini)) {  // docs/679 §5: its gather write sequence
         Log("route snapshot counters off (Count=0)");
         return false;
     }
@@ -762,8 +777,12 @@ static bool ApplyRouteSnap(const wchar_t* ini) {
         const int r = SnInstallAt(i, kSn[i].at, kSn[i].target);
         if (r == 1) k.snHooks++; else if (r == 2) k.snShared++; else k.snSkipped++;
         if (r && SnTreeRow(kSn[i].leaf)) g_snTreeRows++;
+        if (!r && SnGatherRow(kSn[i].leaf)) g_snGatherMiss++;
     }
-    for (int i = 0; i < SN_IC_N; i++) if (SnSwapIc(i)) k.snIcSlots++;
+    for (int i = 0; i < SN_IC_N; i++) {
+        if (SnSwapIc(i)) k.snIcSlots++;
+        else if (SnGatherIc(i)) g_snGatherMiss++;
+    }
     g_snOn = 1;
     k.snReady = (k.snHooks + k.snShared ? 1 : 0) | (g_snJmp[SN_WEV] ? 2 : 0) | (k.snIcSlots ? 4 : 0);
     Log("%s route snapshot counters: %ld sites hooked, %ld counted inside another stub, %ld skipped; %ld of %d IC slots",

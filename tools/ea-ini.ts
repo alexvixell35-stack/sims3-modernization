@@ -111,6 +111,7 @@ export const DEPENDS: Record<string, string[]> = {
     GoalValidRO: RG, IdleCheckRO: RG, SlotEnabledRO: RG, Gate0RO: RG, ProbeP1b: RG, LocoWindow: RG, ProbeP10: RG,
     UnseenProbe: ["RouteAsync"], UnseenThrottle: ["RouteAsync"], UnseenFallback: ["RouteAsync"], HitchAttr: ["RouteAsync"],
     CellMemoProbe: ["RouteJobPhases"], SaveFlush: ["SaveWrite"], Compaction: ["UserDiag", "SaveWrite"], MemDiag: ["UserDiag"], AutShadow: ["MonoThread", "RouteSnap"],
+    WaypointSnap: ["RouteSnap"],
 };
 
 export type Row = { section: string; shipped: string; state: "kept" | "zeroed"; reason: string };

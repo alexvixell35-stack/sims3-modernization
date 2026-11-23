@@ -116353,6 +116353,170 @@
     ]
   },
   {
+    "id": "ip-wpsnap-storm",
+    "bug": "docs/679: World.ArePointsConnectedByLand gives sim-thread frames of 322-563 ms (s149, s161, s170, s189; hitch cause sim-cpu). Each call is two closest-waypoint snaps; a snap that misses the game's short area cache gathers every waypoint of 1-36 chunks, and managed loops (GetNearestLot, HasValidStreetParking, EnterHouseboatThroughGangway, simler90's StrayPetInactiveLotCheck) call it once per lot or parking spot. No log says how many calls and gathers one frame holds",
+    "fix": "ts3native [WaypointSnap] Memo (1 answer, 2 shadow: per-thread answers under the exact coordinate words, the routing objects and [RouteSnap]'s write sequence) and Probe=1 (calls, gathers, candidates, burst lines; observe only); both default 0 (docs/679)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the memo against a brute-force reference). Job ini: [WaypointSnap] Memo=2 Probe=1 LogMs=20, [RouteSnap] Enabled=1, the s189 on-arm switches otherwise. Arm 1 is shadow (the game's answer is used; the mismatch count is the result), arm 2 answers from the memo. The storm does not force the callers; a run without a 'waypoint snap burst:' line is N/A, not a pass",
+    "expect": "'OK   waypoint snap: ready 0x3'. After arm 1: a 'waypoint snap: mode 2' line with calls > 0, shadow checks > 0 and mismatch 0, and no 'WAYPOINT SNAP MISMATCH' line; 'waypoint snap burst:' lines next to the hitch frames under ArePointsConnectedByLand. After arm 2 (mode 1): memo hits > 0 and fewer ms per call than arm 1. No crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waypointsnap": 2
+        },
+        "waitS": 1,
+        "note": "arm 1: shadow (the ini value)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-workerhold-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waypointsnap": 1
+        },
+        "waitS": 1,
+        "note": "arm 2: repeat questions answered from the memo"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-workerhold-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waypointsnap": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
+    "id": "ip-wpgather-storm",
+    "bug": "docs/679 §5: a loop over the world's lots calls World.ArePointsConnectedByLand once per lot; each lot is in another chunk, so nearly every snap misses the game's list of ten recent candidate areas and gathers its 1-36 chunks again (0x654790: every waypoint, a link walk each, a lot lookup per lot waypoint). Sim-thread frames of 322-563 ms (s149-s189). [WaypointSnap] Memo only answers the same question twice",
+    "fix": "ts3native [WaypointSnap] Gather (1 serve, 2 shadow; default 0): each chunk's candidate rows are kept per thread and an area's list is built from them at the gather's call site 0x659787, in the game's order through the game's append; dropped by the gather write sequence ([RouteSnap] lot / blocked-bit / G build / terrain rows and non-footprint ICs) and any change of the routing objects (docs/679 §5)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test against a brute-force gather model). Job ini: [WaypointSnap] Gather=2 Probe=1 LogMs=20, the s189 on-arm switches otherwise (Gather turns the [RouteSnap] counters on by itself). Arm 1 is shadow (the game's gather runs and is used; mismatch and stale counts are the result), arm 2 serves. The storm does not force the lot-loop callers; a run whose 'waypoint gather:' line has 0 gathers asked is N/A, not a pass",
+    "expect": "'OK   waypoint gather: ready 0x7'. After arm 1: a 'waypoint gather: mode 2' line with gathers asked > 0, shadow checks > 0, mismatch 0 and stale 0, and no 'WAYPOINT GATHER MISMATCH' line. After arm 2 (mode 1): avoided > 0, chunks from the table > chunks gathered, and less 'hook' ms per gather asked than arm 1's game gather ms per game gather. No crash",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waypointgather": 2
+        },
+        "waitS": 1,
+        "note": "arm 1: shadow (the ini value)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-wpsnap-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waypointgather": 1
+        },
+        "waitS": 1,
+        "note": "arm 2: areas built from stored chunk rows"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-wpsnap-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waypointgather": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
