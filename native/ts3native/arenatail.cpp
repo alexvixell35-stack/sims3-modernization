@@ -31,16 +31,16 @@ static const DWORD AT_ARM_CODE = 0xE0415441;  // RaiseException code our handler
 
 struct AtPatch { DWORD at; u8 len; u8 old[15]; u8 neu[15]; };
 static const AtPatch kAtPatches[6] = {
-    {0x00D718CC, 6, {0x8D, 0x90, 0xFC, 0x07, 0x00, 0x00}, {0x8D, 0x90, 0xBC, 0x07, 0x00, 0x00}},
-    {0x00D71946, 3, {0x8D, 0x4D, 0x0C}, {0x8D, 0x4D, 0x4C}},
+    {TS3A(0x00D718CC), 6, {0x8D, 0x90, 0xFC, 0x07, 0x00, 0x00}, {0x8D, 0x90, 0xBC, 0x07, 0x00, 0x00}},
+    {TS3A(0x00D71946), 3, {0x8D, 0x4D, 0x0C}, {0x8D, 0x4D, 0x4C}},
     // mov edi,eax; add esp,8; lea edx,[edi+0xC]; add esi,edi; mov [edi],edx; mov [edi+4],esi  ->
     // xchg eax,edi; pop ecx; pop ecx; lea edx,[edi+0xC]; mov [edi],edx; lea esi,[esi+edi-0x40]; mov [edi+4],esi
     // (eax and ecx are reloaded at 0xD719F9 / 0xD719FD)
-    {0x00D719EA, 15, {0x8B, 0xF8, 0x83, 0xC4, 0x08, 0x8D, 0x57, 0x0C, 0x03, 0xF7, 0x89, 0x17, 0x89, 0x77, 0x04},
+    {TS3A(0x00D719EA), 15, {0x8B, 0xF8, 0x83, 0xC4, 0x08, 0x8D, 0x57, 0x0C, 0x03, 0xF7, 0x89, 0x17, 0x89, 0x77, 0x04},
      {0x97, 0x59, 0x59, 0x8D, 0x57, 0x0C, 0x89, 0x17, 0x8D, 0x74, 0x3E, 0xC0, 0x89, 0x77, 0x04}},
-    {0x00D71A4E, 6, {0x81, 0xFA, 0xFC, 0x07, 0x00, 0x00}, {0x81, 0xFA, 0xBC, 0x07, 0x00, 0x00}},
-    {0x00D71AEA, 5, {0x3D, 0xFC, 0x07, 0x00, 0x00}, {0x3D, 0xBC, 0x07, 0x00, 0x00}},
-    {0x00D71B88, 6, {0x81, 0xF9, 0xFC, 0x07, 0x00, 0x00}, {0x81, 0xF9, 0xBC, 0x07, 0x00, 0x00}},
+    {TS3A(0x00D71A4E), 6, {0x81, 0xFA, 0xFC, 0x07, 0x00, 0x00}, {0x81, 0xFA, 0xBC, 0x07, 0x00, 0x00}},
+    {TS3A(0x00D71AEA), 5, {0x3D, 0xFC, 0x07, 0x00, 0x00}, {0x3D, 0xBC, 0x07, 0x00, 0x00}},
+    {TS3A(0x00D71B88), 6, {0x81, 0xF9, 0xFC, 0x07, 0x00, 0x00}, {0x81, 0xF9, 0xBC, 0x07, 0x00, 0x00}},
 };
 static int g_atPadOn;
 static DWORD g_atPoolAtPatch;  // EA's pool sentinel when the pad went in (0 = before MonoScriptHost_Init, the normal case)
@@ -63,7 +63,7 @@ static u8* AtGameVa(DWORD va) { return (u8*)(uintptr_t)va; }
 // the size is 12 while the slot is 8: every such initobj zeroes 4 bytes past its slot. [ArenaGuard] InitobjFix=1 retargets
 // that call to AtInitobjSize: the smaller of EA's size and the storage size (equal for value types; never more than EA).
 typedef int(__cdecl* AtSizeFn)(void* klassOrType, int* align);
-static AtSizeFn g_atValueSize = (AtSizeFn)(uintptr_t)0x00E6F5A0, g_atTypeSize = (AtSizeFn)(uintptr_t)0x00E9C3A0;  // selftest swaps them
+static AtSizeFn g_atValueSize = (AtSizeFn)(uintptr_t)TS3A(0x00E6F5A0), g_atTypeSize = (AtSizeFn)(uintptr_t)TS3A(0x00E9C3A0);  // selftest swaps them
 static volatile LONG g_atInitobjClamped;
 static int g_atInitobjOn;
 static int __cdecl AtInitobjSize(void* klass, int* align) {
@@ -90,7 +90,7 @@ static volatile LONG g_atNear, g_atArms, g_atHits, g_atHitLines, g_atHdr, g_atDi
 static DWORD g_atArmChunk, g_atArmAddr, g_atArmRm, g_atArmBase, g_atArmEnd;
 static DWORD g_atLastEip, g_atLastAddr;  // selftest
 static PVOID g_atVeh;
-static DWORD g_atBack = 0x00E563BF, g_atSlow = 0x00E563D5;
+static DWORD g_atBack = TS3A(0x00E563BF), g_atSlow = TS3A(0x00E563D5);
 static const DWORD AT_DR7 = (0xDDu << 16) | 5;  // L0, L1, each R/W 01 (write) LEN 11 (4 bytes)
 static const int AT_DIST = 64;
 struct AtDist { DWORD eip, rm, off; LONG n; };
@@ -100,7 +100,7 @@ static LONG g_atDistN;
 // trap eip (one past the write) of EA's own writes to the next chunk's header: end+4 = its top, end+12 = its link
 static bool AtHeaderWriter(DWORD eip, DWORD off) {
     if (off != 4) return false;
-    return (eip >= 0x00D71900 && eip < 0x00D71C00) || eip == 0x00E563D3 || eip == 0x00E54453;
+    return (eip >= TS3A(0x00D71900) && eip < TS3A(0x00D71C00)) || eip == TS3A(0x00E563D3) || eip == TS3A(0x00E54453);
 }
 
 static void AtArm(DWORD addr) {  // DR0-DR3 = [addr, addr+16) on this thread, 0 = disarm
@@ -125,7 +125,7 @@ static void AtHitLine(const CONTEXT* c, DWORD addr) {
         a[3] = *(const WORD*)(uintptr_t)(rm + 0x3C), a[4] = *(const WORD*)(uintptr_t)(rm + 0x38);
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     DWORD irm = 0;  // inside ves_exec (0xE53EB0, helpers keep ebp): the running RuntimeMethod at [ebp-0x10] (MonoFaultText)
-    if (c->Eip >= 0x00E51000 && c->Eip < 0x00E5A600) {
+    if (c->Eip >= TS3A(0x00E51000) && c->Eip < TS3A(0x00E5A600)) {
         __try {
             irm = *(const DWORD*)(uintptr_t)(c->Ebp - 0x10);
             if (irm) FbName(cur, sizeof(cur), *(const DWORD*)(uintptr_t)(irm + 8));
@@ -214,12 +214,12 @@ static const u8 kAtBumpOld[13] = {0x8B, 0x48, 0x04, 0x0F, 0xB7, 0x57, 0x38, 0x2B
 static bool ApplyArenaTailWatch(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"GcRootCheck", L"Enabled", 0, ini) || !GetPrivateProfileIntW(L"GcRootCheck", L"TailWatch", 0, ini)) return false;
     if (GetPrivateProfileIntW(L"Watchpoint", L"Enabled", 0, ini)) { Log("SKIP arena tail watch: [Watchpoint] owns the debug registers"); return false; }
-    u8* site = (u8*)(uintptr_t)0x00E563B2;
+    u8* site = (u8*)(uintptr_t)TS3A(0x00E563B2);
     if (!Matches(site, kAtBumpOld, sizeof(kAtBumpOld))) { Log("SKIP arena tail watch: 0xE563B2 bytes differ"); return false; }
     if (!(g_atVeh = AddVectoredExceptionHandler(1, AtVeh))) { Log("FAIL arena tail watch: AddVectoredExceptionHandler"); return false; }
     u8 j[13];
     j[0] = 0xE9;
-    *(DWORD*)(j + 1) = (DWORD)(uintptr_t)AtBump - (0x00E563B2 + 5);
+    *(DWORD*)(j + 1) = (DWORD)(uintptr_t)AtBump - (TS3A(0x00E563B2) + 5);
     memset(j + 5, 0x90, 8);
     if (!Write(site, j, sizeof(j))) { Log("FAIL arena tail watch: write 0xE563B2"); return false; }
     Log("OK   arena tail watch: method-entry bump 0xE563B2 -> AtBump; DR0 on end (descriptor), DR1 on end+4 of a chunk whose new frame leaves < 16 "
@@ -230,7 +230,7 @@ static bool ApplyArenaTailWatch(const wchar_t* ini) {
 static bool ApplyArenaTail(const wchar_t* ini) {
     bool any = false;
     if (GetPrivateProfileIntW(L"ArenaGuard", L"TailPad", 0, ini)) {
-        __try { g_atPoolAtPatch = *(const DWORD*)(uintptr_t)0x011EE508; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        __try { g_atPoolAtPatch = *(const DWORD*)(uintptr_t)TS3A(0x011EE508); } __except (EXCEPTION_EXECUTE_HANDLER) {}
         if (AtApplyPad(AtGameVa)) {
             g_atPadOn = 1, any = true;
             Log("OK   arena tail pad: 6 sites, %lu bytes kept free before every frame-arena chunk's descriptor%s", AT_PAD,
@@ -238,7 +238,7 @@ static bool ApplyArenaTail(const wchar_t* ini) {
         } else Log("SKIP arena tail pad: EA arena bytes differ, nothing written");
     } else Log("arena tail pad disabled (TailPad=0)");
     if (GetPrivateProfileIntW(L"ArenaGuard", L"InitobjFix", 0, ini)) {
-        if (AtApplyInitobj((u8*)(uintptr_t)0x00E63427, (const void*)(uintptr_t)0x00E6F5A0)) {
+        if (AtApplyInitobj((u8*)(uintptr_t)TS3A(0x00E63427), (const void*)(uintptr_t)TS3A(0x00E6F5A0))) {
             g_atInitobjOn = 1, any = true;
             Log("OK   initobj size: transform call 0xE63427 -> AtInitobjSize (Int64/UInt64/Double initobj zeroes 8 bytes, not 12)");
         } else Log("SKIP initobj size: 0xE63427 is not call 0xE6F5A0, nothing written");

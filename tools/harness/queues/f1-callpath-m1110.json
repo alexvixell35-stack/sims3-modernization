@@ -1,0 +1,75 @@
+{
+  "note": "F1 CallPath in-load A/B (probe-out/mono-task-audit-2026-11-06.md F1), IP, both orders, --ab mintcall, X4 bench (--fixedwork, docs/244) on. Trimmed 2026-11-06 (Rodney, timing trim): from 9 jobs (ABBA BP + IP cross-run, one BP --ab) to 2. CallPath is a runtime switch once ini CallPath=1 installs the hook: mcSwitch 0 bails every call to EA's handler, so the off arm pays one extra indirect jump against shipped CallPath=0 (mintcall.cpp). Measurement, no ms/s stop rule (docs/207 §8.5). Run x4-smoke.json first, and read this queue only if it passed. Timing: quiet machine, IDE and java closed. Read: fixedwork-report.ts per job, arm-ms.ts f1-callpath. | REPOINTED (contributor, local): every job runs the current master build (origin/main c2bb5ed = local master c28bd38b, ts3native 0.36.239), asi tested + build/ts3fixes.package.",
+  "smoke": {
+    "note": "Measurement smoke (AGENTS.md): BP 10 min, --ab mintcall 2-min slices, fixed-work bench on. Pass: both arms in the per-arm split, mcSwitch read back per slice, heavy tools off, fixed-work report line without PROBLEMS (same-arm spread <= 1%).",
+    "asi": "tested",
+    "minCounters": 163,
+    "releaseDefaults": true,
+    "save": "Baseline-BP",
+    "ini": {
+      "MonoFast.CallPath": 1
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "minutes": 10,
+        "ab": "mintcall",
+        "fixedwork": 8,
+        "slice": 2
+      }
+    },
+    "timeoutMin": 24
+  },
+  "jobs": [
+    {
+      "id": "ip-f1-mintcall-ab",
+      "note": "F1 in-load A/B, IP 10 min, seed 12345, off first: --ab mintcall flips mcSwitch per 2-min slice, ini CallPath=1 so the hook is installed (the repo ini default 0 installs none, check mcReady 3 in the log). Fixed-work bench on, so the report line gives the managed-loop time on vs off.",
+      "asi": "tested",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "ini": {
+        "MonoFast.CallPath": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10,
+          "ab": "mintcall",
+          "fixedwork": 8,
+          "slice": 2
+        }
+      },
+      "timeoutMin": 24
+    },
+    {
+      "id": "ip-f1-mintcall-ab-onfirst",
+      "note": "F1 in-load A/B, IP 10 min, on first. Pool both orders.",
+      "asi": "tested",
+      "minCounters": 163,
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "ini": {
+        "MonoFast.CallPath": 1,
+        "CasTrim.Mode": 0,
+        "CasTrim.Detect": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 10,
+          "ab": "mintcall",
+          "fixedwork": 8,
+          "slice": 2,
+          "abOnFirst": true
+        }
+      },
+      "timeoutMin": 24
+    }
+  ]
+}

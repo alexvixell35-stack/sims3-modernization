@@ -1,0 +1,28 @@
+{
+ "note": "unseen-tp-goal-1115-rerun-1115b: copy of unseen-tp-goal-1115-rerun.json repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). NOT RUN. Rerun of unseen-tp-goal-1115 (2026-11-15 08:15 UTC PASS was hollow: active lot Air Spray has no hidden room, trap N/A, mark 'no trapped NPC', clean moved 0, counters 1040-1045 all 0). Repro unseen-tp-goal-closed now traps, marks, cleans and reads on 'hidden' (first non-active lot with a floor-0 hidden room: Founders Keep in Baseline-BP); every proving step has mustMatch (profile-world.ts FAILs the job on an N/A answer) and the repro's fixesRequire needs unseentp_clean_moved>=1,unseentp_clean_left>=1 (counters 1044/1045, names from ts3agent tpgoal-fix-1115). Needs branch bugfix/tpgoal-repro-1115 merged (repros.json, profile-world.ts, fixes-require.ts) and build/ts3agent.package = game-copy/ts3agent.package.tpgoal-fix-1115 (sha256 ae77f0a6af33...) in the checkout that runs the queue: cycle.ts installs build/. Pass: every repro step answer matches, fixes counters line PASS, switch read back on, 0 script errors, household Sims untouched (trap and cleanup skip IsPlayerSim; Founders Keep's own residents are never the trapped NPC).",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-unseen-tp-goal-rerun",
+   "note": "[est 15 min] Correctness (10 min): repro unseen-tp-goal-closed on Baseline-BP, trap lot = hidden (Founders Keep). Read the UnseenTpCheck / HiddenRoomCheck answers in <tag>-repro.jsonl and the 'fixes counters' line.",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: same pair as unseen-tp-goal-1115 (master-lanes-1115b, ts3fixes unchanged); only the repro, the harness step check and the agent's counter names changed. Agent = build/ts3agent.package (= game-copy/ts3agent.package.tpgoal-fix-1115; cycle.ts installs build/, do not rebuild build/ while this queue runs)",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "unseen-tp-goal-closed"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 25,
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115"
+  }
+ ]
+}

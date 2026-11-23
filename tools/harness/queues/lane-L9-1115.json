@@ -1,0 +1,103 @@
+{
+ "note": "lane-L9-1115 (PREPARED, NOT RUN; correctness only, no timing): the lane L9 native misc switches (branch feature/lane-L9-1115, ts3native 0.36.261-lanes1). 2 x BP 10 min. Job 1 turns on the new logging / exact switches together: [EqualsFast] Enabled=1 SmallEnums=1 (exact compare, docs/258 §8), [AutShadow] SatbTripwire=1 (count + lines, docs/206 §15), [AnimPhase] Enabled=1 (timers, docs/22 §6 G10), [StallWatch] Enabled=1 (stall sampler, docs/67 §25). Job 2: [Verify] Enabled=1 with [MonoThread] (F1 chained behind the verify stub, docs/120 §9.4). Household Sims untouched by construction: no switch here changes what any Sim does (timers, logging, exact equality); a script error or a crash fails the job. Pass: no crash, 0 script errors, switch OK lines read back, counters read back. Run: node tools/harness/queue.ts tools/harness/queues/lane-L9-1115.json",
+ "jobs": [
+  {
+   "id": "bp-l9-diag",
+   "note": "[est 14 min] BP 10 min, correctness only: EqualsFast + SmallEnums, SatbTripwire, AnimPhase, StallWatch on. Pass: no crash, 0 script errors, the four OK lines, anReady / ssReady / eqMode read back, anAdvN > 0 (timers ran); tripwire / stall lines are evidence, not a fail. Not a timing run.",
+   "asi": "game-copy/ts3native.asi.master-lanes-1115",
+   "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+   "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): lane L9 merged, its counters at v201 0x63A4 / v202 0x63E4; repo-default ini (all lane switches off) + ts3fixes rc1111e (as jit-bundle-ab2-1114); only the ini differs per job. Repinned 2026-11-15: lane-L9-1115 asi has a version the build check cannot read",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": ["-disablestoryprogression"],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "EqualsFast.Enabled": 1,
+    "EqualsFast.SmallEnums": 1,
+    "AutShadow.SatbTripwire": 1,
+    "AnimPhase.Enabled": 1,
+    "StallWatch.Enabled": 1
+   },
+   "run": {"profile": {"seed": 12345, "minutes": 10, "noSamplers": true}},
+   "nativeRequire": "@anReady>=1,@ssReady>=1,anAdvN>=1,anEvalN>=1",
+   "logRequire": {
+    "^ts3native 0.36.261-lanes1 ": 1,
+    "^OK   equals fast .*SmallEnums=1": 1,
+    "^OK   anim phase timers in rig pose 0x940430 .*: 4 call sites": 1,
+    "^OK   stall watch \\(docs/67 §25\\): ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (anim phase|stall watch)": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.261-lanes1 ": {
+     "match": ["ts3native 0.36.261-lanes1 2026-11-15 09:44:15"],
+     "noMatch": ["ts3native 0.36.256-jitbundle2 2026-11-14 12:13:00"]
+    },
+    "^OK   equals fast .*SmallEnums=1": {
+     "match": ["OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=1"],
+     "noMatch": ["OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast), SmallEnums=0"]
+    },
+    "^OK   anim phase timers in rig pose 0x940430 .*: 4 call sites": {
+     "match": ["OK   anim phase timers in rig pose 0x940430 (advance, notify, evaluate, publish): 4 call sites"],
+     "noMatch": ["SKIP anim phase timers in rig pose 0x940430 (advance, notify, evaluate, publish): call at 0x0094059E is not a call to 0x00947590, nothing written"]
+    },
+    "^OK   stall watch \\(docs/67 §25\\): ": {
+     "match": ["OK   stall watch (docs/67 §25): sim thread stack logged after 5 s without a finished Simulate iteration, every 10 s, up to 6 lines"],
+     "noMatch": ["SKIP stall watch: no Simulate iteration hook"]
+    },
+    "^(SKIP|FAIL) (anim phase|stall watch)": {
+     "match": ["SKIP anim phase ([AnimPhase]): no EA 1.69 address, docs/232 §8", "FAIL stall watch: thread (err 8)"],
+     "noMatch": ["OK   stall watch (docs/67 §25): sim thread stack logged after 5 s without a finished Simulate iteration, every 10 s, up to 6 lines"]
+    }
+   }
+  },
+  {
+   "id": "bp-l9-f1verify",
+   "note": "[est 14 min] BP 10 min, correctness only: [Verify] Enabled=1 Threads=1 (the nativeToManaged probe is in the Threads group; with 0 probes F1 installs plainly) next to [MonoThread] (release on, N2mPrivate=1). Pass: no crash, 0 script errors, the F1 chained line (F1 rides behind the verify stub instead of skipping), no F1 SKIP. Not a timing run.",
+   "asi": "game-copy/ts3native.asi.master-lanes-1115",
+   "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+   "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+   "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): lane L9 merged, its counters at v201 0x63A4 / v202 0x63E4; repo-default ini (all lane switches off) + ts3fixes rc1111e (as jit-bundle-ab2-1114); only the ini differs per job. Repinned 2026-11-15: lane-L9-1115 asi has a version the build check cannot read",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": ["-disablestoryprogression"],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "Verify.Enabled": 1,
+    "Verify.Threads": 1,
+    "MonoThread.Enabled": 1,
+    "MonoThread.N2mPrivate": 1
+   },
+   "run": {"profile": {"seed": 12345, "minutes": 10, "noSamplers": true}},
+   "logRequire": {
+    "^ts3native 0.36.261-lanes1 ": 1,
+    "^OK   mono thread F1: chained behind \\[Verify\\] ": 1
+   },
+   "logForbid": {
+    "^SKIP mono thread F1": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.261-lanes1 ": {
+     "match": ["ts3native 0.36.261-lanes1 2026-11-15 09:44:15"],
+     "noMatch": ["ts3native 0.36.256-jitbundle2 2026-11-14 12:13:00"]
+    },
+    "^OK   mono thread F1: chained behind \\[Verify\\] ": {
+     "match": ["OK   mono thread F1: chained behind [Verify] nativeToManaged at 0xD8A8E0 -> worker-private call records"],
+     "noMatch": ["SKIP mono thread F1: 0xD8A8E0 differs, nothing written"]
+    },
+    "^SKIP mono thread F1": {
+     "match": ["SKIP mono thread F1: 0xD8A8E0 differs, nothing written"],
+     "noMatch": ["OK   mono thread F1: chained behind [Verify] nativeToManaged at 0xD8A8E0 -> worker-private call records"]
+    }
+   }
+  }
+ ]
+}

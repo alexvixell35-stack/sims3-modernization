@@ -22,9 +22,15 @@ namespace Ts3Fixes
         static Dictionary<uint, RuntimeMethodHandle> sStubBySum;
         static int sStubsSummed;  // trip subclasses patch again at world load
         static WeakReference sSsDone;
+        // TaskStateCollection.mMethodList (List<MethodEntry>) and the private struct's handle/checksum; null = no remap
+        static readonly FieldInfo sSsMethodList = typeof(TaskStateCollection).GetField("mMethodList", BindingFlags.Instance | BindingFlags.NonPublic);
+        static readonly Type sSsEntry = sSsMethodList != null && sSsMethodList.FieldType.IsGenericType ? sSsMethodList.FieldType.GetGenericArguments()[0] : null;
+        static readonly FieldInfo sSsHandle = sSsEntry != null ? sSsEntry.GetField("handle") : null;
+        static readonly FieldInfo sSsSum = sSsEntry != null ? sSsEntry.GetField("checksum") : null;
 
         static void ApplySavedStacks()
         {
+            if (sSsMethodList == null || sSsHandle == null || sSsSum == null) { AppliedLog().Add("savedstacks: TaskStateCollection method list not found, skipped"); return; }
             Patch(typeof(TaskStateCollection), "ReadTask", typeof(SavedStackHook), "ReadTaskHook", "ReadTaskOrig");
         }
 
@@ -71,15 +77,14 @@ namespace Ts3Fixes
                     }
                 }
             }
-            IList list = (IList)typeof(TaskStateCollection).GetField("mMethodList", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ts);
+            IList list = (IList)sSsMethodList.GetValue(ts);
             for (int i = 0; i < list.Count; i++)
             {
-                object e = list[i];
-                FieldInfo hf = e.GetType().GetField("handle");
-                if (((RuntimeMethodHandle)hf.GetValue(e)).Value != IntPtr.Zero) continue;
+                object e = list[i];  // a boxed copy: set its handle, then write it back
+                if (((RuntimeMethodHandle)sSsHandle.GetValue(e)).Value != IntPtr.Zero) continue;
                 RuntimeMethodHandle stub;
-                if (!sStubBySum.TryGetValue((uint)e.GetType().GetField("checksum").GetValue(e), out stub) || stub.Value == IntPtr.Zero) { c[761]++; continue; }
-                hf.SetValue(e, stub);
+                if (!sStubBySum.TryGetValue((uint)sSsSum.GetValue(e), out stub) || stub.Value == IntPtr.Zero) { c[761]++; continue; }
+                sSsHandle.SetValue(e, stub);
                 list[i] = e;
                 c[760]++;
             }

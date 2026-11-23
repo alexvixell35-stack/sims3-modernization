@@ -182,6 +182,8 @@ v2 by basis: import 801, slot signature over 6 targets 265, switch 110, register
 
 So v2 adds no new kind of race: the open set is still load-time singletons, lazy first fills (pre-warm), Boehm-only hooks and the one real shared write `[0x11CB920]` (§5). The pre-warm list grows by the host converter caches and the two static strings, which any sim-thread IC call fills long before a worker exists [inferred, I-131-6].
 
+**Update 2026-11-12 (races R1-R4, R2c):** the mitigation column of `docs/data/mono-glue-races.csv` now carries the docs/data/races-handoff.md text for all 85 open rows (`--remitigate`, the tool's `HANDOFF` table): 82 covered by code behind `[AutShadow] Races` (built, not run), 2 closed statically (`0x11C7E54`, `0x11CB920`), 1 rule (`0x11EE140` stays on the sim thread). A fresh index today drifts from this set (346 rows, two new open rows); see the handoff status log, R2c.
+
 ### 9.4 Tier-2 bodies: write on read (I-126-1 rest)
 
 Depth-6 closure of the 26 docs/126 §4.1 bodies over direct and resolved edges, with markers for the routing and lot writers of docs/102 §2.1, every lock and every global store, plus a store scan of each body and its callees to depth 2 [verified unless marked]:

@@ -2,12 +2,11 @@
 // ErrorTrapSpreadCore.cs, docs/146): upstream marker detection without the static constructor, the yield rule, slices.
 // Windows (.NET Framework csc).
 //   node tools/selftest/errortrapspread/run.ts
-import { execFileSync } from 'node:child_process';
+import { execFileSync, CSC } from '../csc-shim.ts';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..', '..');
-const CSC = 'C:/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe';
 const SRC = join(ROOT, 'mods', 'ts3fixes', 'src');
 const out = join(ROOT, 'build', 'selftest');
 mkdirSync(out, { recursive: true });

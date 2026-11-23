@@ -1,0 +1,345 @@
+{
+ "note": "quitstop-verify-1114 (PREPARED, NOT RUN; correctness only, no timing): verify the static fix [MonoThread] QuitStop=1 (docs/30 §17) for the v0.2.12 quit-to-desktop crash (player twopointjj, AV in run_finalize 0xE78E20 at the Mono domain finalize). 4 jobs, release ini ([MonoThread] Enabled=1, [AutShadow] Satb=2). Each: fresh SV load, play 2 min (autopilot), save under a new name, quit_game, wait for exit. PASS = clean exit + 'OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered' (written at the 0xE534D0 entry, before Mono cleanup) + no WARN/FAIL/SKIP QuitStop line (0 timeouts). quitsGame jobs (queue.ts): a gone game is by design; crashHunt: crashes do not stop the queue. Run: node tools/harness/queue.ts tools/harness/queues/quitstop-verify-1114.json (chain probe-out/queue/chain-quitstop-1114.sh, after chain-tinyui8-r2-1114.sh)",
+ "jobs": [
+  {
+   "id": "sv-quitstop-1",
+   "note": "[est 9 min] SV load, play 2 min, save QuitStop-sv-1, quit to desktop; release ini ([MonoThread] Enabled=1, [AutShadow] Satb=2). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts), the QuitStop line shows the worker stopped and unregistered at the Mono shutdown entry, no WARN/FAIL/SKIP QuitStop (0 timeouts).",
+   "asi": "game-copy/ts3native.asi.quitstop-1114",
+   "iniBase": "game-copy/ts3native.ini.quitstop-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.minihomelot-1114",
+   "pinReason": "quitstop-1114 (builds.json, branch bugfix/quit-stop-mono-workers 45fdd8fa = master 090a2931 + [MonoThread] QuitStop, docs/30 §17): asi 0.36.256-quitstop1; ini = its build ini (master release values, QuitStop=1); package = ts3fixes minihomelot-1114 (master-era ts3fixes)",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.256-quitstop1 ": 1,
+    "^OK   mono thread QuitStop=1: ": 1,
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": 1
+   },
+   "logForbid": {
+    "^(WARN|FAIL) mono thread QuitStop": 0,
+    "^SKIP mono thread QuitStop": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-quitstop1 ": {
+     "match": [
+      "ts3native 0.36.256-quitstop1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-satbguard1 2026-11-14 12:13:00"
+     ]
+    },
+    "^OK   mono thread QuitStop=1: ": {
+     "match": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    },
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": {
+     "match": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker none (0 jobs, job running 0) in 1 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^(WARN|FAIL) mono thread QuitStop": {
+     "match": [
+      "WARN mono thread QuitStop: mono shutdown enter, worker still inside after 2000 ms (state 3, job running 1): left as it was (registered, gate on, hooks kept), quit goes on",
+      "FAIL mono thread QuitStop: exception 0xC0000005, shutdown goes on"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^SKIP mono thread QuitStop": {
+     "match": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitStop-sv-1",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quitstop-2",
+   "note": "[est 9 min] SV load, play 2 min, save QuitStop-sv-2, quit to desktop; release ini ([MonoThread] Enabled=1, [AutShadow] Satb=2). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts), the QuitStop line shows the worker stopped and unregistered at the Mono shutdown entry, no WARN/FAIL/SKIP QuitStop (0 timeouts).",
+   "asi": "game-copy/ts3native.asi.quitstop-1114",
+   "iniBase": "game-copy/ts3native.ini.quitstop-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.minihomelot-1114",
+   "pinReason": "quitstop-1114 (builds.json, branch bugfix/quit-stop-mono-workers 45fdd8fa = master 090a2931 + [MonoThread] QuitStop, docs/30 §17): asi 0.36.256-quitstop1; ini = its build ini (master release values, QuitStop=1); package = ts3fixes minihomelot-1114 (master-era ts3fixes)",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.256-quitstop1 ": 1,
+    "^OK   mono thread QuitStop=1: ": 1,
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": 1
+   },
+   "logForbid": {
+    "^(WARN|FAIL) mono thread QuitStop": 0,
+    "^SKIP mono thread QuitStop": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-quitstop1 ": {
+     "match": [
+      "ts3native 0.36.256-quitstop1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-satbguard1 2026-11-14 12:13:00"
+     ]
+    },
+    "^OK   mono thread QuitStop=1: ": {
+     "match": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    },
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": {
+     "match": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker none (0 jobs, job running 0) in 1 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^(WARN|FAIL) mono thread QuitStop": {
+     "match": [
+      "WARN mono thread QuitStop: mono shutdown enter, worker still inside after 2000 ms (state 3, job running 1): left as it was (registered, gate on, hooks kept), quit goes on",
+      "FAIL mono thread QuitStop: exception 0xC0000005, shutdown goes on"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^SKIP mono thread QuitStop": {
+     "match": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitStop-sv-2",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quitstop-3",
+   "note": "[est 9 min] SV load, play 2 min, save QuitStop-sv-3, quit to desktop; release ini ([MonoThread] Enabled=1, [AutShadow] Satb=2). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts), the QuitStop line shows the worker stopped and unregistered at the Mono shutdown entry, no WARN/FAIL/SKIP QuitStop (0 timeouts).",
+   "asi": "game-copy/ts3native.asi.quitstop-1114",
+   "iniBase": "game-copy/ts3native.ini.quitstop-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.minihomelot-1114",
+   "pinReason": "quitstop-1114 (builds.json, branch bugfix/quit-stop-mono-workers 45fdd8fa = master 090a2931 + [MonoThread] QuitStop, docs/30 §17): asi 0.36.256-quitstop1; ini = its build ini (master release values, QuitStop=1); package = ts3fixes minihomelot-1114 (master-era ts3fixes)",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.256-quitstop1 ": 1,
+    "^OK   mono thread QuitStop=1: ": 1,
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": 1
+   },
+   "logForbid": {
+    "^(WARN|FAIL) mono thread QuitStop": 0,
+    "^SKIP mono thread QuitStop": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-quitstop1 ": {
+     "match": [
+      "ts3native 0.36.256-quitstop1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-satbguard1 2026-11-14 12:13:00"
+     ]
+    },
+    "^OK   mono thread QuitStop=1: ": {
+     "match": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    },
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": {
+     "match": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker none (0 jobs, job running 0) in 1 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^(WARN|FAIL) mono thread QuitStop": {
+     "match": [
+      "WARN mono thread QuitStop: mono shutdown enter, worker still inside after 2000 ms (state 3, job running 1): left as it was (registered, gate on, hooks kept), quit goes on",
+      "FAIL mono thread QuitStop: exception 0xC0000005, shutdown goes on"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^SKIP mono thread QuitStop": {
+     "match": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitStop-sv-3",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quitstop-4",
+   "note": "[est 9 min] SV load, play 2 min, save QuitStop-sv-4, quit to desktop; release ini ([MonoThread] Enabled=1, [AutShadow] Satb=2). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts), the QuitStop line shows the worker stopped and unregistered at the Mono shutdown entry, no WARN/FAIL/SKIP QuitStop (0 timeouts).",
+   "asi": "game-copy/ts3native.asi.quitstop-1114",
+   "iniBase": "game-copy/ts3native.ini.quitstop-1114",
+   "fixesPackage": "game-copy/ts3fixes.package.minihomelot-1114",
+   "pinReason": "quitstop-1114 (builds.json, branch bugfix/quit-stop-mono-workers 45fdd8fa = master 090a2931 + [MonoThread] QuitStop, docs/30 §17): asi 0.36.256-quitstop1; ini = its build ini (master release values, QuitStop=1); package = ts3fixes minihomelot-1114 (master-era ts3fixes)",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.256-quitstop1 ": 1,
+    "^OK   mono thread QuitStop=1: ": 1,
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": 1
+   },
+   "logForbid": {
+    "^(WARN|FAIL) mono thread QuitStop": 0,
+    "^SKIP mono thread QuitStop": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.256-quitstop1 ": {
+     "match": [
+      "ts3native 0.36.256-quitstop1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.256-satbguard1 2026-11-14 12:13:00"
+     ]
+    },
+    "^OK   mono thread QuitStop=1: ": {
+     "match": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    },
+    "^OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered ": {
+     "match": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker none (0 jobs, job running 0) in 1 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^(WARN|FAIL) mono thread QuitStop": {
+     "match": [
+      "WARN mono thread QuitStop: mono shutdown enter, worker still inside after 2000 ms (state 3, job running 1): left as it was (registered, gate on, hooks kept), quit goes on",
+      "FAIL mono thread QuitStop: exception 0xC0000005, shutdown goes on"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop: mono shutdown enter, worker stopped and unregistered (12 jobs, job running 0) in 153 us, gate 0; finalizer pass 0xE4B3F0 back to the game's, root push [0x11949CC] back to the game's"
+     ]
+    },
+    "^SKIP mono thread QuitStop": {
+     "match": [
+      "SKIP mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ],
+     "noMatch": [
+      "OK   mono thread QuitStop=1: worker stop + GC hooks back at the Mono shutdown entry 0xE534D0, QuitWaitMs=2000"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitStop-sv-4",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  }
+ ]
+}

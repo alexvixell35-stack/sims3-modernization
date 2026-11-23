@@ -73,8 +73,9 @@ import { spawn } from 'node:child_process';
 import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { classify } from './shadow-compare-report.ts';
+import { lastLockWaitLineInFile } from './lock-wait-line.ts';
 import { parseArgs } from 'node:util';
-import { checkRequire, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
+import { checkRequire, mustMatchFail, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
 import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
 import { isSetup, runLoop, runSteps, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
@@ -86,7 +87,7 @@ import { leadInCut, sliceFrames } from './session-reuse.ts';
 import { reproSave } from './repro-save.ts';
 import { focusGame, giveFocusBack } from './focus-game.ts';
 import { mayBeStuck } from './stuck-rule.ts';
-import { clockStep, watchGame } from './game-alive.ts';
+import { captureHang, clockStep, hangDir, stuckRunning, watchGame } from './game-alive.ts';
 import { startMachineLoad, summarize } from './machine-load.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
@@ -277,6 +278,8 @@ const clockGuard = (async () => {
     // which modal holds the clock (title, buttons) and whether a world switch is under way (story-smoke 2026-10-23)
     const pd = await ag('pending_dialogs').catch(() => null), gs = await ag('game_state').catch(() => null);
     console.log(`${stamp()} at the trip: dialog ${JSON.stringify(pd?.ok ? pd.result : pd?.error).slice(0, 400)}; sub_state ${gs?.result?.sub_state ?? '?'}, world ${gs?.result?.load_file ?? '?'}`);
+    // not paused and no dialog: the sim thread may be spinning; stacks + Mono frames + dump before the kill
+    if (stuckRunning(cs.ok ? cs.result : null, pd?.ok ? pd.result : null)) console.log(`${stamp()} at the trip: ${await captureHang(join(hangDir(), `clockstuck-${values.tag}`)).catch(e => `hang capture failed: ${e}`)}`);
     // what the autopilot did meanwhile: a dialog answered in a loop shows here (2026-11-03: a wish dialog under the age-up dialog,
     // 210 answers in 60 s, seen only in the upkeep log)
     const ap = await ag('autopilot').catch(() => null), cl: string[] = ap?.result?.cleared ?? [];
@@ -493,7 +496,7 @@ const fwLoop = (async () => {
     if (!sl) continue;
     const r = await ag('fixed_work');
     if (!r.ok || typeof r.result?.usPer100 !== 'number') {
-      if (++fails >= 2) { console.log(`${stamp()} FAIL: fixed_work failed twice in a row: ${String(r.error).split('\n')[0].slice(0, 200)} (agent package without the command?)`); await restoreFixes(); process.exit(1); }
+      if (++fails >= 2) { console.log(`${stamp()} FAIL: fixed_work failed twice in a row: ${String(r.error).split('\n')[0].slice(0, 200)} (${((l) => l ? `sim frozen on the route lock, docs/264: ${l.slice(0, 300)}` : 'agent package without the command?')(lastLockWaitLineInFile(NLOG))})`); await restoreFixes(); process.exit(1); }
       continue;
     }
     fails = 0;
@@ -502,7 +505,7 @@ const fwLoop = (async () => {
 })();
 const reproFail = async (why: string) => {
   console.log(`${stamp()} FAIL: ${why}`);
-  for (const c of reproEntry.cleanup ?? []) { const cr = await ag(c.cmd, c.args); console.log(`${stamp()} cleanup ${c.cmd}: ${cr.ok ? 'ok' : 'ERROR ' + cr.error}`); }
+  for (const c of reproEntry.cleanup ?? []) { const cr = c.cmd === 'native_set' ? await nativeSet(c.args) : await ag(c.cmd, c.args); console.log(`${stamp()} cleanup ${c.cmd}: ${cr.ok ? 'ok' : 'ERROR ' + cr.error}`); } // native_set goes to the native port, not the agent
   process.exit(1);
 };
 // the note goes into the log line: worst-hitches.ts labels the step's window by its arm ("fire off #3" -> reflect_call off)
@@ -510,7 +513,8 @@ const nativeMarks = new Map<string, any>(); // native_mark / native_check window
 const reproStep = async (s: any) => {
   const call = () => s.cmd === 'native_set' ? nativeSet(s.args)
     : s.cmd === 'native_mark' || s.cmd === 'native_check' ? nativeWindowStep(s, () => get('native'), nativeMarks)
-    : ag(s.cmd, s.args, s.timeoutS ? s.timeoutS * 1000 : undefined);
+    // spawn_sims builds N Sims in one sim-thread call: 3-6 s at count 10, 8.1 s under load (bp-hhtoo-off 2026-11-16), past the 8 s default
+    : ag(s.cmd, s.args, s.timeoutS ? s.timeoutS * 1000 : s.cmd === 'spawn_sims' ? 30000 : undefined);
   if (s.pausesClock !== undefined) pauseDeclared = !!s.pausesClock; // the step pauses the clock on purpose until a later step says false
   let r = await call();
   if (s.cmd === 'set_speed') r = await untilUnlocked(call, r, { sleep, now: Date.now, log: l => console.log(`${stamp()} ${l}`),
@@ -522,6 +526,8 @@ const reproStep = async (s: any) => {
   // fail fast, as repro.ts: a failed setup step means the rest of the run measures nothing (2026-10-19 bp-ab-wildflowertask
   // ended PASS after wildflower_drain failed); "optional": true steps may fail. The queue closes the game after the job.
   if (!r.ok && !s.optional) await reproFail(`repro step ${s.cmd} failed: ${String(r.error).split('\n')[0].slice(0, 300)}`);
+  const mm = mustMatchFail(s, r); // "mustMatch": the answer must show the case happened (an "N/A" answer is not a PASS)
+  if (mm) await reproFail(mm);
   return r;
 };
 const reproRun = (async () => {
@@ -578,7 +584,8 @@ const stopLoad = startMachineLoad(`${pre}-machine.jsonl`); // other processes an
 writeFileSync(`${pre}-activity.jsonl`, '');
 const upkeep = (async () => {
   while (!stopped && Date.now() - t0 < secs * 1000) {
-    const k = await ag('keep_alive', { threshold: -50 }); await ag('decline_requests');
+    // "noKeepAlive": true on a repro entry: its arms need a motive at its minimum (showershare-force: a bladder failure), which keep_alive would fill
+    const k = reproEntry?.noKeepAlive ? { ok: true, result: { topped_up: [], repaired: [] } } : await ag('keep_alive', { threshold: -50 }); await ag('decline_requests');
     const ap = await ag('autopilot');
     await checkStuck();
     const cleared: string[] = ap.ok ? ap.result.cleared : [];
@@ -640,7 +647,7 @@ if (window) { samplerSpan('native', nativeT0); console.log(`${stamp()} native sa
 await Promise.all([upkeep, profDone, toggler, fwLoop, reproRun, mainOnlyRun, inroomDone, watchDone, lr2Done, f4bDone, vresDone, framesDone, nlogDone]);
 if (framesOn && framesShared) { await sleep(1000); console.log(`${stamp()} frames: ${sliceFrames(framesShared, `${pre}-${secs}-frames.csv`, t0, Date.now())} rows of the load's frame log copied`); } // drained every 250 ms
 if (values['camera-pan']) await ag('camera_pan', { stop: true });
-stopLoad();
+await stopLoad();
 await restoreFixes();
 console.log(`${stamp()} ${summarize(`${pre}-machine.jsonl`).line}`);
 rng.simMinutes.end = (await ag('time')).result?.minutes_total ?? null;

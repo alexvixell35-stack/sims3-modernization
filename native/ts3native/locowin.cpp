@@ -18,7 +18,7 @@
 //   WaitAsyncDone (RunPlan, RtWaitJob, DiscDrain), gate waits (RgEnter), LockAcquireAsync pump, QL / C-A waits (steerro.cpp):
 //     they wait only for a job in A_RUNNING (or a lock it holds), which a held start never is -> no drop needed.
 // A missed site cannot deadlock: the worker lets go after kG0wMaxHoldUs (G0wHolds, g0wWatchdog).
-static const DWORD LOCO_CALL = 0x00D81C5C, LOCO_UPDATE = 0x0083CED0;
+static const DWORD LOCO_CALL = TS3A(0x00D81C5C), LOCO_UPDATE = TS3A(0x0083CED0);
 static const u8 kLocoCall[] = {0xD9, 0x44, 0x24, 0x58, 0x51, 0xD9, 0x1C, 0x24, 0xE8, 0x6F, 0xB2, 0xAB, 0xFF};  // at 0xD81C54
 typedef void(__fastcall* LocoUpdateFn)(void* self, void* edx, float dt);
 static LocoUpdateFn g_g0wOrig = (LocoUpdateFn)(uintptr_t)LOCO_UPDATE;  // selftest / steerro-test point it at a fake pass
@@ -71,7 +71,7 @@ static void G0wGateWait(DWORD key, LONG us) {
     if (!g_g0wIn || GetCurrentThreadId() != g_g0wTid) return;
     Ts3nCounters& k = ts3native_counters;
     InterlockedIncrement(&k.g0wGateWaits);
-    if (key == 0x0062EF7A) { InterlockedIncrement(&k.g0wGate0Waits); InterlockedExchangeAdd(&k.g0wGate0Us, us); }
+    if (key == TS3A(0x0062EF7A)) { InterlockedIncrement(&k.g0wGate0Waits); InterlockedExchangeAdd(&k.g0wGate0Us, us); }
 }
 
 // v85 (docs/149): +0x918 waits of the sim thread inside the pass, by whether a job was running when the wait began
@@ -97,13 +97,13 @@ static void H2LockWait(bool running, LONG us) {
 // tick reset if hxStale shows up in runs.
 struct HxIc { DWORD slot, fn; const char* name; };
 static const HxIc kHxIc[7] = {
-    {0x01160900, 0x0074C820, "Route_GetDestinationObstruction"},
-    {0x01160908, 0x0074C8E0, "Route_GetObstructionAtPoint"},
-    {0x011608C8, 0x00751480, "Route_IsPointObstructedBySim"},
-    {0x011608D0, 0x00750430, "Route_FindObstaclesForSimAlongRoute"},
-    {0x01160B88, 0x00755600, "Route_SetAGS"},
-    {0x01160988, 0x00758BA0, "Route_InsertRouteSubPathsAtIndex"},
-    {0x01160990, 0x007623A0, "Route_InsertCustomPathAtIndex"},
+    {TS3A(0x01160900), TS3A(0x0074C820), "Route_GetDestinationObstruction"},
+    {TS3A(0x01160908), TS3A(0x0074C8E0), "Route_GetObstructionAtPoint"},
+    {TS3A(0x011608C8), TS3A(0x00751480), "Route_IsPointObstructedBySim"},
+    {TS3A(0x011608D0), TS3A(0x00750430), "Route_FindObstaclesForSimAlongRoute"},
+    {TS3A(0x01160B88), TS3A(0x00755600), "Route_SetAGS"},
+    {TS3A(0x01160988), TS3A(0x00758BA0), "Route_InsertRouteSubPathsAtIndex"},
+    {TS3A(0x01160990), TS3A(0x007623A0), "Route_InsertCustomPathAtIndex"},
 };
 static void* g_hxOrig[7];
 struct HxThread { int n; DWORD* slot[8]; DWORD ret[8]; };

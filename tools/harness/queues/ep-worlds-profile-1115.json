@@ -1,0 +1,301 @@
+{
+  "note": "ep-worlds-profile-1115 (PREPARED, NOT RUN, 2026-11-15; docs/267 §5 step 2; NIGHT run, clean machine): per destination world an OFF arm (README baseline, ourMods false) and an ON arm (release bundle on the pinned master pair), 10 min each, seeded natural play after the trip, light tools only. 10 jobs, ~5 h with the trips. Natural play, no repro: ourMods false jobs refuse profile.repro, and both arms must run the same thing. Run after ep-worlds-correctness-1115 passes. Pins: TODO master-lanes-1115.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "fr-ep-prof-1115-off",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) france OFF: README baseline (ourMods false: community layer, no ts3native / ts3fixes), Baseline-BP, profile.travel france, 10 min seeded natural play in the destination world, light tools only. Read: node tools/harness/arm-ms.ts ep-worlds-profile-1115 (per world pair on - off: script / route / animPose / locomotion / sum ms/s), node tools/harness/hitch-ab.ts. Noise high or timing invalid = rerun as <id>-rerun.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "france"
+        }
+      }
+    },
+    {
+      "id": "fr-ep-prof-1115-on",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) france ON: release bundle (releaseDefaults) on the pinned master pair, same save, trip, seed and tools as the -off arm. Watch KdUnseenForeignCap / KdUncutCeilMs cut lines (scope tags) and AutShadow row aborts on rows no home world has. Read as the -off arm.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "france"
+        }
+      }
+    },
+    {
+      "id": "cn-ep-prof-1115-off",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) china OFF: README baseline (ourMods false: community layer, no ts3native / ts3fixes), Baseline-BP, profile.travel china, 10 min seeded natural play in the destination world, light tools only. Read: node tools/harness/arm-ms.ts ep-worlds-profile-1115 (per world pair on - off: script / route / animPose / locomotion / sum ms/s), node tools/harness/hitch-ab.ts. Noise high or timing invalid = rerun as <id>-rerun.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "china"
+        }
+      }
+    },
+    {
+      "id": "cn-ep-prof-1115-on",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) china ON: release bundle (releaseDefaults) on the pinned master pair, same save, trip, seed and tools as the -off arm. Watch KdUnseenForeignCap / KdUncutCeilMs cut lines (scope tags) and AutShadow row aborts on rows no home world has. Read as the -off arm.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "china"
+        }
+      }
+    },
+    {
+      "id": "eg-ep-prof-1115-off",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) egypt OFF: README baseline (ourMods false: community layer, no ts3native / ts3fixes), Baseline-BP, profile.travel egypt, 10 min seeded natural play in the destination world, light tools only. Read: node tools/harness/arm-ms.ts ep-worlds-profile-1115 (per world pair on - off: script / route / animPose / locomotion / sum ms/s), node tools/harness/hitch-ab.ts. Noise high or timing invalid = rerun as <id>-rerun.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "egypt"
+        }
+      }
+    },
+    {
+      "id": "eg-ep-prof-1115-on",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) egypt ON: release bundle (releaseDefaults) on the pinned master pair, same save, trip, seed and tools as the -off arm. Watch KdUnseenForeignCap / KdUncutCeilMs cut lines (scope tags) and AutShadow row aborts on rows no home world has. Read as the -off arm.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "egypt"
+        }
+      }
+    },
+    {
+      "id": "uni-ep-prof-1115-off",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) university OFF: README baseline (ourMods false: community layer, no ts3native / ts3fixes), Baseline-BP, profile.travel university, 10 min seeded natural play in the destination world, light tools only. Read: node tools/harness/arm-ms.ts ep-worlds-profile-1115 (per world pair on - off: script / route / animPose / locomotion / sum ms/s), node tools/harness/hitch-ab.ts. Noise high or timing invalid = rerun as <id>-rerun.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "university"
+        }
+      }
+    },
+    {
+      "id": "uni-ep-prof-1115-on",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) university ON: release bundle (releaseDefaults) on the pinned master pair, same save, trip, seed and tools as the -off arm. Watch KdUnseenForeignCap / KdUncutCeilMs cut lines (scope tags) and AutShadow row aborts on rows no home world has. Read as the -off arm.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "university"
+        }
+      }
+    },
+    {
+      "id": "fut-ep-prof-1115-off",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) future OFF: README baseline (ourMods false: community layer, no ts3native / ts3fixes), Baseline-BP, profile.travel future, 10 min seeded natural play in the destination world, light tools only. Read: node tools/harness/arm-ms.ts ep-worlds-profile-1115 (per world pair on - off: script / route / animPose / locomotion / sum ms/s), node tools/harness/hitch-ab.ts. Noise high or timing invalid = rerun as <id>-rerun.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "future"
+        }
+      }
+    },
+    {
+      "id": "fut-ep-prof-1115-on",
+      "note": "[est 30 min] TIMING (docs/267 §5 step 2) future ON: release bundle (releaseDefaults) on the pinned master pair, same save, trip, seed and tools as the -off arm. Watch KdUnseenForeignCap / KdUncutCeilMs cut lines (scope tags) and AutShadow row aborts on rows no home world has. Read as the -off arm.",
+      "asi": "game-copy/ts3native.asi.master-lanes-1115",
+      "iniBase": "game-copy/ts3native.ini.master-lanes-1115",
+      "fixesPackage": "game-copy/ts3fixes.package.master-lanes-1115",
+      "pinReason": "master-lanes-1115 (builds.json, master 84ee284f, 0.36.261-lanes1): includes feature/ep-world-runs-1115 (ts3agent with @type: targets, spawn_horse); ts3agent from build/ (game-copy/ts3agent.package.master-lanes-1115 is the same file)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": true,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 50,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logForbid": {
+        "^FAIL\\b": 0
+      },
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234",
+            "route async: FAILED 0 of 12"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "travel": "future"
+        }
+      }
+    }
+  ]
+}

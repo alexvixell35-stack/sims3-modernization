@@ -1,0 +1,479 @@
+{
+  "note": "offload-unseen-apply-1113 (docs/208 s10, P2 of docs/handoff/mono-offthread-next-1113.md): apply correctness for env + bcast apply behind autoffunseen (unseen non-household only), BP and IP. Based on offload3-apply-correctness, repinned to the offpickup1114 pair; counters SAVED by queue.ts (jobFixesCfg adds autoff_; the 11-06 report predates that). Bars: A1-A3 0, exc 0, no crash; dry_eq >= 0.99 (env: autoff_env_apply_dry_eq / autoff_env_applied; bcast: autoff_bcast_dry_eq / autoff_bcast_dry; read from the saved counters, not machine-gated); autoff_*_scope_household > 0 (gated on the household jobs); household Sims behave as with the switches off. Report apply share per world = applied / (applied + apply_none + apply_stale + scope_household + scope_seen + scope_unknown) (counters 482/487, 483/488, 484/489, 957-962). Stop rules (docs/handoff P2): any exception or dry_eq < 0.95: fix before timing; apply share < ~20% on both worlds: park, no timing. Order: smoke, BP env/bcast/household, IP env/bcast/household, BP/IP live (9 jobs). Daytime, one game at a time. Install ts3agent.package.offunseen1113 first (see pinReason). Run: node tools/harness/queue.ts tools/harness/queues/offload-unseen-apply-1113.json. Timing only after this passes: offload-unseen-apply-ab-1113.json.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-off3u-smoke",
+      "note": "Smoke (4 min BP, Mode R config like the 11-06 queue, all apply switches + autoffunseen + autoffdry). PASS = 0 crashes, autoff_env_ready >= 1, autoff_bcast_ready >= 1, autoff_env_dry >= 1 (answers reach Sim updates; applied needs an unseen high-LOD Sim, docs/208 s11), exc 0, autoff_ counters appear in the report (queue.ts adds the autoff_ prefix to the report whenever an autoff switch is on, jobFixesCfg l.1035; the 11-06 report predates that). A FAIL stops the queue.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 4,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_env_ready>=1,autoff_bcast_ready>=1,autoff_env_dry>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3u-env",
+      "note": "docs/208 s8.2 + s10 env apply with autoffunseen, BP, Mode R reference (A1-A3). PASS = 0 crashes, no freeze, A1-A3 0, autoff_env_exc 0, no new ScriptError. Read from the saved autoff_ counters: dry_eq = autoff_env_apply_dry_eq / autoff_env_applied >= 0.99 (I-404-1; not a fixesRequire rule, counters are integers), autoff_env_scope_household > 0 (household Sims update in natural play, gated), apply share = applied / (applied + apply_none + apply_stale + scope_household + scope_seen + scope_unknown) per world. Household Sims untouched: scope_household counts the updates sent to the game's own call.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autoffenv,autoffenvapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_env_applied>=1,autoff_env_scope_household>=1,autoff_env_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3u-bcast",
+      "note": "docs/208 s8.3 + s10 bcast apply with autoffunseen, BP, Mode R. PASS = 0 crashes, no freeze, bcast A1 = A2 = 0, autoff_bcast_exc 0. Read: autoff_bcast_dry_eq / autoff_bcast_dry >= 0.99, dry_order read not gated (I-402-5), apply share = applied / (applied + apply_none + apply_stale + scope_*). The scope_household gate sits on the household job (household Sims near broadcasters on purpose); here scope_household is read, not gated. Watch the bcast seen share: the UfPosUnseen circle may refuse much work (docs/208 s10).",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autoffbcast,autoffbcastapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_bcast_ready>=1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-off3u-household",
+      "note": "Household Sims near broadcasters (repro rare-big-crowd, UNVERIFIED never run: 30 spawned Sims, crowd_go to the active home lot with household:true, then far lot, then home; household Sims stand on the lot next to its broadcasters). Env + bcast apply + autoffunseen together. PASS = no crash, exc 0, autoff_bcast_scope_household >= 1 and autoff_env_scope_household >= 1 (the exemption fires), autoff_env_dry >= 1 (answers reach Sim updates; applied is read, not gated: docs/208 s11). Household Sims' behaviour must equal the off path: no new stuck-Sim or ScriptError line versus the matching -env/-bcast job. If the repro itself fails to run it is a repro bug: fix repros.json, do not drop the gate.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repro": "rare-big-crowd",
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_env_scope_household>=1,autoff_bcast_scope_household>=1,autoff_env_dry>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-off3u-env",
+      "note": "docs/208 s8.2 + s10 env apply with autoffunseen, IP, Mode R reference (A1-A3). PASS = 0 crashes, no freeze, A1-A3 0, autoff_env_exc 0, no new ScriptError. Read from the saved autoff_ counters: dry_eq = autoff_env_apply_dry_eq / autoff_env_applied >= 0.99 (I-404-1; not a fixesRequire rule, counters are integers), autoff_env_scope_household > 0 (household Sims update in natural play, gated), apply share = applied / (applied + apply_none + apply_stale + scope_household + scope_seen + scope_unknown) per world. Household Sims untouched: scope_household counts the updates sent to the game's own call.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autoffenv,autoffenvapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_env_applied>=1,autoff_env_scope_household>=1,autoff_env_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3u-bcast",
+      "note": "docs/208 s8.3 + s10 bcast apply with autoffunseen, IP, Mode R. PASS = 0 crashes, no freeze, bcast A1 = A2 = 0, autoff_bcast_exc 0. Read: autoff_bcast_dry_eq / autoff_bcast_dry >= 0.99, dry_order read not gated (I-402-5), apply share = applied / (applied + apply_none + apply_stale + scope_*). The scope_household gate sits on the household job (household Sims near broadcasters on purpose); here scope_household is read, not gated. Watch the bcast seen share: the UfPosUnseen circle may refuse much work (docs/208 s10).",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autoffbcast,autoffbcastapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_bcast_ready>=1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3u-household",
+      "note": "Household Sims near broadcasters (repro rare-big-crowd, UNVERIFIED never run: 30 spawned Sims, crowd_go to the active home lot with household:true, then far lot, then home; household Sims stand on the lot next to its broadcasters). Env + bcast apply + autoffunseen together. PASS = no crash, exc 0, autoff_bcast_scope_household >= 1 and autoff_env_scope_household >= 1 (the exemption fires), autoff_env_dry >= 1 (answers reach Sim updates; applied is read, not gated: docs/208 s11). Household Sims' behaviour must equal the off path: no new stuck-Sim or ScriptError line versus the matching -env/-bcast job. If the repro itself fails to run it is a repro bug: fix repros.json, do not drop the gate.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "MonoThread.LazyGate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyEarly": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repro": "rare-big-crowd",
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_env_scope_household>=1,autoff_bcast_scope_household>=1,autoff_env_dry>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-off3u-live",
+      "note": "Ship config: release ini (Mode=3 Satb=2 Unseen=1 go-live) + all apply switches + autoffunseen + autoffdry. Proves the apply coexists with go-live before timing. PASS = no crash, exc 0, ready >= 1 on env and bcast, no new ScriptError. If autoff_env_ready stays 0 in Mode 3 the worker does not take the request in go-live: stop and report (the timing queue assumes it does). Read applied / scope_* as in the other jobs.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ListAudit": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_env_ready>=1,autoff_bcast_ready>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-off3u-live",
+      "note": "Ship config: release ini (Mode=3 Satb=2 Unseen=1 go-live) + all apply switches + autoffunseen + autoffdry. Proves the apply coexists with go-live before timing. PASS = no crash, exc 0, ready >= 1 on env and bcast, no new ScriptError. If autoff_env_ready stays 0 in Mode 3 the worker does not take the request in go-live: stop and report (the timing queue assumes it does). Read applied / scope_* as in the other jobs.",
+      "asi": "game-copy/ts3native.asi.imp1113",
+      "iniBase": "game-copy/ts3native.ini.imp1113",
+      "fixesPackage": "game-copy/ts3fixes.package.offpickup1114",
+      "pinReason": "offpickup1114 pair (builds.json): ts3native.asi.imp1113 (0.36.253, 385a111e) + ts3native.ini.imp1113 (release ini, Mode=3 Satb=2 Unseen=1) + ts3fixes.package.offpickup1114 (feature/offload-pickup-1114 8e87fd56, docs/208 s11, counters 957-962 + 985-987; env pickup fix). INSTALL FIRST: game-copy/ts3agent.package.offpickup1114 (sha256 b0a5bbf694afb3fc35511749cb047eb9f6176b0fe9b5bdcd2b88c29202ca8238) as the agent package (cycle.ts --restart installs build/ts3agent.package; the queue does not pin it): an older agent lacks the autoff_*_scope_* names and the fixesRequire rules on them fail as missing",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 90,
+      "noiseCheck": false,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.ListAudit": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "autshadow,autoffenv,autoffbcast,autoffenvapply,autoffbcastapply,autoffdry,autoffunseen",
+          "fixesRequire": "autoff_env_ready>=1,autoff_bcast_ready>=1,autoff_env_exc<1,autoff_bcast_exc<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    }
+  ]
+}

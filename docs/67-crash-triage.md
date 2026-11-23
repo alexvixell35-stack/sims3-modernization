@@ -782,6 +782,8 @@ Static triage of existing run data only (no game run, no build). Ledger: docs/51
 
 **§25 follow-up (2026-10-29 21:15 PHT): `+0x41980` named [verified by a /MAP rebuild of the release source].** The release native source (commit `5a79b7aa`, ts3native 0.36.105) rebuilt with `LINK=/MAP` gives an asi of the same size as `asi.rel020` (1,016,320 bytes; only timestamps differ, as found earlier); its map puts RVA `0x41980` exactly at the start of `P5bLock` (`p5b.cpp`), the detour on the game's `Lock_Acquire` that `LockAcquireAsync` uses. In the release ini both of its users are off (`[RouteSnap] Enabled=0`, `[RouteAsync] TailUnlock=0`), so `P5bLock` is a pass-through: `if (!(g_p5bOn || g_tuOn) || lock != g_rgLock) return g_lockOrig(...)`. Its address in every stack sample only means the stalled EA loop (memory and route-following frames) takes and releases locks through the detour on each pass; it does not show our code looping. Verdict so far: the loop is EA code [inferred from the samples]; whether a ts3native/ts3fixes feature feeds it a state that makes it long (for example a route or footprint our fixes changed) stays open. Next: the full dump `probe-out/dumps/ts3w-42044-20261029T105317.dmp` with cdb (not installed) for the loop's own frames and arguments, and the in-game stall sampler proposed above.
 
+**§25 build note (2026-11-15, lane L9, branch `feature/lane-L9-1115`): stall sampler (a) + (d) built as `[StallWatch]` (`stallwatch.cpp`, default `Enabled=0` until a correctness run; `StallS=5`, `EveryS=10`, `Lines=6`; counters v202 `ssReady`, `ssStalls`, `ssLines`, `ssMaxMs`, `ssOpenMs`).** A `SimLoopAdd` callback stamps the end of each Simulate iteration; a watchdog thread checks once a second and, past `StallS`, suspends the sim thread, copies its context and stack, resumes it and logs `stall watch: sim thread <tid>: no Simulate iteration finished for N s (i/Lines)[, save phase X]: eip ..., stack scan (n): module+rva ...`; a stack without a return address inside `0xD81840`-`0xD82110` (load, travel) logs nothing. `ssOpenMs` (age of the open iteration) is (d): a /native reader sees a stuck iteration instead of a gap; the Frida profiler is unchanged. Not built: (b) the route follower id (needs the frame layouts of `0x8538B0` / `0x84B590`). EA 1.69: SKIP (no row for `0xD82110`). Selftest: fake capture (5 s line, every 10 s up to 6, end line, no line without a Simulate frame) + one real capture of a sleeping thread. Correctness queue `tools/harness/queues/lane-L9-1115.json (job bp-l9-diag)`, not run.
+
 ## 26. Crash V (issue #98, external contributor, v0.2.3 = ts3native 0.36.105 release defaults): the sim thread calls through a freed actor held by a `ConformToRouteController` in the follower's event list, ~2 min after a Free Vacation pickup
 
 Static only (2026-10-30): issue #98 text (treated as data; it holds no instructions aimed at agents), capstone on the Steam exe copy and on the v0.2.3 release zip from the public repo. The zip's `ts3native.ini` is byte-identical to the v0.2.0 release ini at `24c51af3`. Its asi is the CI build (sha256 `897e735e...`), not our local `asi.rel020`. Ledger docs/51 §392. The contributor runs his own patched EA core DLLs, Moonlight Falls, an 8-Sim household, ultra speed and an autopilot.
@@ -1404,3 +1406,181 @@ play. Local queue (the save is the player's).
 - **Guard limit** [verified: code]: it fires only when the streak equals 3. Its 12 KB spacing lasts until the next collection, so later requests in that streak punt too; the repro collects before each round for the same reason.
 
 **Known rare hang, main menu save-list read (2026-11-07).** `world load: nothing moved ... for 60 s` with the main thread and all sim stacks under `TS3W.exe!Lock_Acquire+0x1d`, managed top `ScriptCore.UIManager.UIManager_GetSaveGameMetadataImpl`, 89 threads in `FUN_004dae40+0xbe`: an old ABBA deadlock at the main menu during save-list reads, not ours. Seen in `stove-wall-repeat` (diag2 pair, run r4, dump `ts3w-4012-20261107T104249.dmp`), `mintcall-verify` 10-31 and `unseen-fallback-c` 10-26 [verified 11-08 in all three dumps plus `ts3w-22140-20261108T083745.dmp`: same CS cycle and callers, docs/539 §13.8]. Rerun once; a second hang at the same place in a row stops the chain.
+
+## 36. Isla Paradiso freeze in post pass 16 (three hang captures, 2026-11-06 to 11-12): an infinite path segment is halved forever
+
+**Symptom.** `world load: nothing moved ... for 60 s` (or the same guard in play). The sim thread is busy, not blocked: its top frame moves between `TS3W.exe+0x24CF22`, `+0x24CF33` and `+0x24CF55`, called from post pass `0x64E380` at `0x64E4F2`, under managed `ScriptCore.Route.Route_Replan` or `Route_PlanFromPoint`. Three hang captures, all on Baseline-IP:
+
+| Date (local runs) | Job | Managed top | Top frame (same of 5) |
+|---|---|---|---|
+| 2026-11-06 | `jit-ab-b` (Apex Radiance loaded) | `Route_PlanFromPoint` | `+0x24CF22` (2/5) |
+| 2026-11-10 | houseboat move repro (`hbmove-a`) | `Route_Replan` | `+0x24CF55` (3/5) |
+| 2026-11-12 | `ip-doormemo-onfirst`, during world load | `Route_Replan` | `+0x24CF55` (1/5) |
+
+**Cause** [verified: disassembly, kill dump `ts3w-11860-20261112T095758.dmp`]. Pass 16 (`0x64C7C0`, the node heights pass) splits each path segment into steps of at most 2 m. From the squared length L2 (`[esp+340h]`, all four lanes) it first sends short segments to `0x64D275`, which adds no extra steps: `ja 0x64D275` at `0x64CEBA` when the constant at `0x11CF0C0` is above L2, and a lane test at `0x64CEEE`. Then it takes `s = sqrt(L2)` (`0x64CF02`) and loops at `0x64CF10..0x64CF5E`: `ja 0x64CF55` while `s > 2.0` (`[0x11CF0F0]`), else a lane test, then `s *= 0.5` (`[0x11CF0B0]`) and `jmp 0x64CF10`. In the dump the sim thread sits at `0x64CF55` with `xmm2 = (inf, inf, inf, inf)`, `xmm7 = 0.5`, `xmm4 = 2.0`, `xmm5 = 1.53e-5`, `xmm6 = -1.0`. With `s = inf`, `inf * 0.5 = inf` and the loop never ends. NaN does not hang: every compare in the loop is false for NaN, so the loop leaves at once.
+
+**Where the infinite length comes from** [verified: same dump]. L2 is the 3D squared distance between two of the pass's own height samples: list entries whose x, y, z sit at `+0x10/+0x14/+0x18` (`0x64CCF0`), minus the previous sample. The path being finished has 1,174 nodes, all with finite x and z and y = -100 (heights not applied yet). The pass's list, walked from the current entry, holds 11 samples in a row with **y = 2.26e34** (bits `0x788B85D4`) at x 874.2 to 883.5, z 856.1 to 858.2, followed by the current sample (883.9, 35.7, 858.3). The y gap squared is about 5e68, so L2 = +inf. So a height query returned an absurd value over a stretch of about 10 m. The sample's y is the x87 result of `0xC6A540` (call at `0x64CA57`) or `0xC6A250` (call at `0x64CA80`), the level-aware height queries, taking the node's x, z and level (`[esi]`, `[esi+8]`, `[esi+0xC]`). It is stored at `0x64CA89` and copied into the entry at `0x64CAEF..0x64CAF3` [verified]. Which of the two calls ran for these samples, and which lot or object lies at that spot, is not known yet [open]. Both world-load captures and the houseboat repro are Isla Paradiso, so a lot level with an unset floor height (a houseboat lot during load or a move) is the first suspect [inferred]. The fix's log line prints both endpoints of each skipped segment, so the next hit names the spot.
+
+**Fix: `[EaCrashFixes] HeightsInfLoop`** (`wastar.cpp`, 0.36.253, on in the ini since 2026-11-13, code default off, no counters).
+
+- The 6-byte `ja 0x64D275` at `0x64CEBA` (`0F 87 B5 03 00 00`) becomes `jmp HiStub` plus one `int3`. The loop's tail at `0x64CF55` (`0F 28 C2 0F 59 C7 0F 28 D0 EB B0`) is checked too.
+- `HiStub` takes the game's `ja` as before. Lane 0 of `xmm2` equal to `0x7F800000` (+inf) also goes to `0x64D275`, the game's own path for a segment that needs no extra steps. Every other value goes on at `0x64CEC0`.
+- `xmm0-7` and the general registers are kept around the log call, because the `0x64D275` path reads them. One "ea fix: HeightsInfLoop" line for each of the first 8 segments, with the previous sample (pass 16's copy at `[esp+360h]`, stored at `0x64CE2D`) and the current one (`esi + 0x10`), read under `__try`.
+- Selftest (`wastar-test.h`): patch bytes, then the real stub with its exits pointed at recorders. Short, normal, FLT_MAX and NaN segments keep the game's path; +inf takes the no-split path with `eax`, `ebx`, `edi`, `xmm2` and `xmm7` unchanged.
+- Not run in game yet. Repro: the houseboat move job on Baseline-IP with the switch on; read the "ea fix: HeightsInfLoop" lines and the hang guard.
+
+## 37. Isla Paradiso bridge heights (2026-11-13): one bridge answers NaN, +-inf or 2.26e34, and the height queries keep it
+
+**Symptom** [measured 2026-11-13, Baseline-IP-Spring, agent height grid]. `World.GetTerrainHeight(x, z, considerBridges: true)` is not finite (NaN or +-inf; the agent's JSON writes both as null) at 7 of 21 grid points over x 835..885, z 840..849, among them (835, 840), (845, 840), (845, 849), (855, 849), (865, 849), (875, 849) and (885, 849). At every one of the 21 points `GetTerrainHeight(x, z)` (no bridges) and `GetLevelHeight(x, z, 0)` read normal heights (20-36 m). So one bridge's height data is bad. The 2026-11-12 dump of §36 showed the same spot from the other side: y = 2.26389e34 (`0x788B85D4`) in height samples and path lists over x 829..885, z 839..858. A Sim routed there gets a non-finite y, then a NaN transform. EA's lot search `0xC68B00` (from `FootstepAudio_Surface 0x8693E0` through the floor query `0xD6E0A0`) then loops forever on the NaN point and the game freezes. §36's loop in post pass 16 comes from the same height.
+
+**Cause** [verified: disassembly of TS3W.exe 1.67, the `Game\BinBase` copy].
+
+- The script call. `World_GetTerrainHeightImpl 0x786200` (cdecl x, z, flag) calls `World_GetHeightAt 0xC6A250(x, z, 0, 1, flag, 0, 0, 0, 0)` on the world manager `[0x11ECBC4]`. The script's `considerBridges` is its byte argument `[ebp+18h]` (docs/99 §12.7). `GetTerrainHeight(x, z)` passes 0 there.
+- How `0xC6A250` uses it. Lot floors come first (`0xAB8EE0`, foundations `0xB06A10`). When no lot floor answered and `[ebp+18h]` is set, it asks the bridge list (world manager `+0x5C`): `0xB793F0(x, z, 1, 0, &bridge, &f, 0)` (`ret 1Ch`) finds a bridge under the point, and `0xB745A0(x, z, f)` (thiscall on that bridge, `ret 0Ch`) returns its height in st0. The height is stored as the answer (`fstp [esp+14h]` at `0xC6A46E`) and the "on a bridge" out byte is set. The terrain height (`WorldCellGrid_Raycast 0xC2A570`) replaces it only when the terrain is higher (`fcomi` at `0xC6A49A`, then `jbe 0xC6A4B3` keeps the bridge). For NaN the compare is unordered (CF = ZF = 1), so the `jbe` keeps NaN. +inf and 2.26e34 are above every terrain height. Only -inf is replaced. Nothing else checks the value.
+- `0xB745A0`, the bridge height. It tests the point against the bridge's four corners (`0x7CE4A0`, bridge `+0x40..+0x4C`). Outside, or past the bridge's length (`+0x3C`), it returns `Terrain_GetHeight 0xC6A540` with bridges off. Inside, it evaluates the bridge's curve at t = distance / length (`0xB73F60`, called from nowhere else) and returns that. Why this bridge's curve gives NaN, inf or 2.26e34 is not known [open]: the bridge object (corners, length, curve data) was not dumped.
+- Earlier docs call `0xB793F0` / `0xB745A0` "water" (docs/20 #7, docs/38, docs/94 N14, docs/99 §12.8). They are the bridge source: their only gate is the considerBridges byte. The class of the object `0xB793F0` returns is inferred from the script's argument name, not from RTTI [inferred].
+- Three height queries combine the bridge height this way, each right after its own `call 0xB745A0`: `World_GetHeightAt 0xC6A250` (call at `0xC6A466`), `Terrain_GetHeight 0xC6A540` (call at `0xC6A704`; gate `[ebp+14h]`; the sea height `WM+0x60` is kept when higher) and `0xC61200` (call at `0xC61336`; gate `[ebp+18h]`; unnamed, 6 callers, among them `0x563174`, `0x92755E` and `0xD67088`). The fourth call of `0xB745A0`, at `0x65849D`, only tests whether a point's y is within `[0x106E33C]` of the bridge height (`0x658469..0x6584BF`). A non-finite height fails that test, so the point counts as not on that bridge, the same as with the bridge ignored. No other code calls `0xB745A0`: rel32 call scan of `.text`, no pointer to it in any section.
+
+**Fix: `[EaCrashFixes] BridgeHeightNaN`** (`wastar.cpp`, 0.36.253, on in the ini since 2026-11-13, code default off, counter v918 `bhnHits` at `0x62C8`).
+
+- At each of the three queries, the 7 bytes right after `call 0xB745A0` become `jmp` to its stub plus two `int3`: `0xC6133B` in `0xC61200` (`8B 4E 54 D9 5C 24 14`, `mov ecx,[esi+54h]; fstp [esp+14h]`), `0xC6A46B` in `0xC6A250` (`8B 4B 54 D9 5C 24 14`) and `0xC6A709` in `0xC6A540` (`8B 4E 54 D9 5C 24 20`). The `E8` call to `0xB745A0` before each site is checked as well. Each query is patched on its own: a site with other bytes is logged and left alone.
+- The stub stores st0 as a float and compares its bits, sign cleared, with `0x49742400` (1e6). With the sign cleared, float bits order like magnitudes, and NaN and +-inf are above every finite value. At or below 1e6, the two moved instructions run and the stub goes on at `0xC61342` / `0xC6A472` / `0xC6A710`: the game's answer, bit for bit.
+- Above 1e6, or not finite: the stub pops st0, counts and logs, and goes on at the query's own "no bridge here" path. That is the target of its `je` after `0xB793F0` (`0xC6137B` / `0xC6A4B3` / `0xC6A772`), with the same esp (`0xB793F0` and `0xB745A0` clean their own arguments) and the "on a bridge" out byte still 0. From there each query checks the answer against its "nothing found" value `[0x1078624]` and takes the terrain height `0xC2A570`, exactly as at a point with no bridge (`0xC6A4B9..0xC6A50F`, `0xC6137B..0xC613D7`, `0xC6A777..0xC6A8DE`; in `0xC6A540` the sea height and `0xC61400` checks after it run as usual).
+- -inf already ended as the terrain height in the game (the `fcomi` replaces it). With the switch on it takes the no-bridge path, which gives the same height whenever the world has its terrain grid (`+0x54`).
+- The bad path keeps every general register (`pushad`). It does not keep xmm0-7: the site follows a call, and each skip target writes xmm0-2 before it reads them. x and z for the log line come from the query's own frame (`[ebp+8]`, `[ebp+0Ch]`; all three keep their frame in ebp). [verified 2026-11-13 at import, capstone on the Steam 1.67 exe: `0xC61200`, `0xC6A250` and `0xC6A540` each open with `push ebp; mov ebp,esp; and esp,-16`, no instruction writes ebp between that prologue and the closing `pop ebp`, and each query itself does `fld [ebp+0Ch]` / `fld [ebp+8]` right before its `call 0xB745A0`. The `je` after `0xB793F0` (`0xC61318`, `0xC6A448`, `0xC6A6E2`) lands on the stub's skip target with the same esp. In `0xC6A540` that `je` path skips the sea-height check at `0xC6A74F` too, exactly as at a point with no bridge.] The read is under `__try` anyway (import fix): the line is logged only.
+- One "ea fix: BridgeHeightNaN" line for each of the first 8 hits, with x, z, the bridge height's bits in hex and the query.
+- Selftest (`wastar-test.h`): patch bytes (another stack slot or another call target refused). Then the real stubs with their exits pointed at recorders: 35.7, -100, +0, -0, the smallest denormal and +-1e6 keep the game's path (the moved `fstp` writes the value and `ecx` is the terrain grid). NaN, -NaN, +inf, -inf, +-2.26389e34 and 1e6 + 1 ulp take the no-bridge path, each counted once. On both paths the x87 stack is balanced and `ebx`, `esi`, `edi` are unchanged.
+- Run in game [measured 2026-11-13, run nh2, Baseline-IP-Spring seed 777, HeightsInfLoop and BridgeHeightNaN on; test install with a replaced community `IslaParadiso.world`, see the note below]. Both jobs passed (grid probe 7.5 min, play 11.9 min, no freeze). 8 "ea fix: BridgeHeightNaN" lines, all from `0xC6A250`, all `0xFFC00000` (NaN), on one line from (831.0, 846.9) to (875.0, 856.3): the bridge. At the 7 grid points that were not finite, `GetTerrainHeight(x, z, true)` now returns 27.381319 at six of them and 35.6987 at (885, 849). That is not the bare terrain (20.3-25.8 m there, 35.70 at (885, 849)): the no-bridge path keeps the higher of the terrain and a 27.38 m surface, which is the same value as the world level noted in the 2026-11-12 dump and is most likely the water surface under the bridge [inferred].
+- The test install's `IslaParadiso.world` is a community version (Phantom99's) that adds a bridge. The bad bridge is most likely that one; EA's original world was not checked.
+
+## 38. Startup hang on `bp-jitsmall-b6` (2026-11-16 00:45 UTC): Apex Radiance 4.0.1 deadlocks on two of its own mutexes, main thread in Present
+
+Queue `mono-jitsmall-b6-1115-mm`, job `bp-jitsmall-b6` (Apex 4.0.1 + RTX Remix bridge, master-mono-1115, ts3native 0.36.264-mono1). FAIL text: `world load: nothing moved ... for 60 s (fail-fast guard)`.
+
+| Item | Finding |
+|---|---|
+| When | Before the main menu. No "Mod Scripts Found" dialog in 300 s (other jitsmall jobs on the same set: 15-130 s); the harness sent the load anyway at 00:45:18; the sim thread ran script at ~6% CPU until then, then 0.1% [verified: job log, machine.jsonl]. Bridge server CPU and GPU share 0 for the whole job (passing jobs: 2.5-3.8% CPU, 23-31% GPU), so the bridge never drew a frame [verified: machine.jsonl] |
+| Main thread | `Device_Present 0x611680+0xaa` -> Apex `+0x4683a6` ... `+0x37251d` -> lock helper `+0x560bb4` -> `AcquireSRWLockExclusive` (IAT call at `+0x560c6d`) [verified: hang threadstack + Apex import table] |
+| Deadlock | Kill dump: main (44900) waits std::mutex Apex `+0xC7ECD8` owned by thread 6048 (count 1); thread 6048 (Apex's own thread, start `+0xA02D2`, lock call from `+0x46FAC4`) waits std::recursive_mutex Apex `+0xC7FF28` owned by main (count 1). ABBA lock order inside Apex [verified: owner tid at mutex +40 in the dump, `node tools/dump-locks.ts <dmp>` after the fix below] |
+| Ours? | No ts3native, ts3fixes or JIT frame on either thread; both locks and both lock calls are Apex's. The sim thread only waits afterwards (`FUN_004e2760` = the WaitForSingleObject wait, docs/15) for the main thread. `/native` was readable at the hang: jitOn 2, jitMethods 1764, jitCalls 38.3M, bcOn 3, so the B6 JIT pieces loaded and ran; the verdict's "@jitOn missing" only means no end-of-run read [verified: hang native.json]. Not ours [verified for the lock cycle]; why the race hit this one start is not known (one start in the jitsmall set) [inferred: startup race in Apex] |
+| Other | Frida agent first-chance AV `frida-agent.dll+0x8A550` logged as the last ts3native.log line; thread 61568 is alive in a normal wait in the dump, not on the lock cycle [verified] |
+| Harness | The 60 s fail-fast was right: the process could not move. Before this fix `dump-locks.ts` printed `lock waits: 0 of 129 threads; no cycle` because it read only CRITICAL_SECTION owners; it now also reads MSVC std::mutex owners (`_Mtx_internal_imp_t`: SRW at +8, owner tid +40, count +44) and names the cycle |
+
+Next: rerun `bp-jitsmall-b6` once (a second hang on the same start = report to Apex with the dump offsets above).
+
+## 39. Crash on `bp-seen-smoke` (2026-11-16 01:56:03 UTC): sudden AV exit with no line anywhere; the crash log's 16 slots were spent at start-up
+
+Static only (no game run). Sources: `probe-out/queue/mono-autshadow-seenexact-1115-mm-2026-11-16-bp-seen-smoke{.log,-0143-ts3native.log,-probe.log}`, `probe-out/profile/...-bp-seen-smoke-240-frames.csv`, Apex `ApexRadiance_LOG.old.txt` of that start, `Get-WinEvent` Application log 09:50-10:00 PHT, WER folders. Build master-mono-1115 (ts3native 0.36.264-mono1), Apex 4.0.1 + bridge, AutShadow seen-exact switches on, Frida frames session attached.
+
+| | |
+|---|---|
+| Report | exit 0xC0000005 at 01:56:03 UTC (probe: `process-terminated`), 12.8 min after start; no EA xcpt file, no `[CrashReport]` (off), no WER report, no Application Error event for TS3W.exe [verified] |
+| Last signs of life | frames CSV last frame 01:56:03.093 (26 ms frame, normal); Apex log last line 09:56:03.098 PHT (normal RtOutdoorLamps line); memory.csv 01:56:02 commit 2026 MB, largest free 1544 MB [verified]. Sudden death within ~0.1 s, not a hang and not address space; "the game did not answer at the end" only means it was already gone |
+| Why no line | `XcptLog` logs the first 16 first-chance exceptions. All 16 were used by load time: 6 start-up (spfileq x2, setupapi, frida-agent, 2 C++), then Apex AVs; the 8 other-module dedupe slots filled, so Apex `+0x10AAB5` and `+0x1609BF` took the last slots one hit each. Every passing autshadow-worldindex job on the same build also shows `ex=16` [verified grep] |
+| Where | Unknown. `[CrashForensics]` light was on and dumps the first 4 AVs with eip in TS3W.exe .text before the cap: no `DUMP` line, so if user-mode dispatch ran, the fault eip was outside TS3W .text (Apex, bridge client, Frida, ts3native, JIT code in the heap, a system DLL) [inferred]. No EA xcpt and no WER event fit a fault whose dispatch never reached EA's unhandled filter (corrupt stack/SEH chain, as Crash J §12) [inferred] |
+| Owner | Not proven: ours until proven otherwise. Nothing in the logs points at the seen-exact switches, AutShadow, Apex or the bridge [verified: no error line in any of them] |
+| Fix (logging) | `XcptLateNew` (ts3native.cpp): past the 16-line cap an exception at an eip not yet seen past the cap still gets its lines (registers, AutShadow line, mono fault text), 64 eips at most; earlier rules unchanged. Selftest in selftest.cpp. `player-log-digest.ts` header regex also accepts the longer header text |
+
+Next: rerun `bp-seen-smoke` on a build with this fix; a repeat now names the fault eip.
+
+## 9. Second Swarm sample: 2026-11-17 r71 session (not reproduced)
+
+- **Run:** `phase-20261117-0832` (ts3fixes r71, Bridgeport), CRASH about 1 min after world load, before the first smallfix check ran (no check output in the log).
+- **Fault [verified log]:** `C0000005` at `0x370F8B72` (heap), main thread 232, `edx 370F8B61`, `eax 0`. Stack code refs `0x91AD03` (in `Swarm_FXString_3 0x91AC60`) <- `0x8E9C98`, `0x8FE723`, `0x8E937D`, `0x8EB2B2`, `0x8EB9BA`, `0x92F82B` (all `SwarmManager_UpdateEffectGroup` callees, names from `tools/ghidra/symbols/ts3w-1.67.symbols.csv`, unverified placeholders). Same pattern as crash A (§2): a virtual call through a dead effect object runs heap bytes (no NX).
+- **Not the §2.3 leading cause:** `alloc cache off (Enabled=0)` in that log. Frida's harness agent is loaded in every harness run (20+ clean runs the same day), so it does not single this one out.
+- **Not the new fixes [verified diff + rerun]:** with the switches off, r71's `rhexitunseen` / `tipsnpcend` hooks only read `IsPlayerSim` / unseen state and a counter, and returned EA's answer; no effect or object release. The exact r71 package and settings rerun (`phase-20261117-0923`) ran the whole session clean, both checks off BROKEN / on FIXED. Address space was low in both (largest free block 15 MB at world load).
+- **Exit noise, not crashes:** `C0000005 at 0xF???604F` with an empty stack appears at game close in clean runs too (e.g. `phase-20261117-0857`).
+- **Status:** one-off engine Swarm crash, 1 in 20+ sessions; reopen if a third sample appears (grep `0x91AD0` / `0x91A46E` in run logs).
+- **Reopened 2026-11-20 (docs/678):** two more samples with one stack (`0x92E0DB` <- `0x91BC0F`, `phase-20261111-2105` and `phase-20261120-0347`): a live `cVisualEffect` whose word at `+4` was overwritten by a list link of another object. Writer unknown; `[SwarmGuard]` (default off) guards the call and logs the writer's memory.
+
+## 40. `Sims3SettingsSetter.asi+0x4E313` after every fatal fault (2026-11-23): a second fault in the crash-report path, not a cause
+
+**Signature.** `exception C0000005 at ... (Sims3SettingsSetter.asi+0x4E313) (info 00000000 8BF18B6A)`, stack refs
+`004D7001 004D7140 ... 0058D945`, registers `esi 004D7550 ebx 004D7500 edi 00000001`. The same line as the `eip 0` /
+`0x8BF1` pattern of the table above and docs/539 §12.1, with S3SS 1.6.3 (third party, not ours) loaded.
+
+**It is never the first fault** [verified: logs]. 29 of 29 logs that have it (2026-11-11..11-23, 14 since 11-16) show a
+fatal exception on the same thread first, about `0xD90` higher on the same stack. The primaries differ: `0x6E75D2`,
+`0xEBAB5B`, `0xE6463F`, the `0x59386B` wild call (docs/144), `IC_Route_DestroyRoute` `0x74E4E9` (docs/259 §9), a load
+failure. Triage the exception line before it. The EA `xcpt` file is still written.
+
+**Mechanism** [verified: static, both binaries; register values match]. EA's report writer (`0x4D6E..0x4D701A`, run from
+the filter `0x4D7140`) ends with two virtual calls on the text writer at `[this+0x510]`: slot `+0x14` at `0x4D6FFC`, then
+`+0xC`. S3SS `ExpandedCrashLogs` overwrites the 5 bytes at `0x4D6FFC` with a call to its own wrapper. The wrapper runs its
+section writer, then jumps to the original (saved pointer, else writer vtable `+0x14`). The section writer calls writer
+slot `+0x20` (`0x4D7550`, two stack arguments, `ret 8`; EA pushes two at `0x4D6FE5`) with one argument, twice. The stack
+ends 8 bytes high, so its epilogue pops the wrong saved registers: `edi` = EA's `ebx` (1), `esi` = the slot `+0x20`
+pointer (`0x4D7550`), `ebx` = the slot `+0x18` pointer (`0x4D7500`). The wrapper then reads the "vtable" from `esi`,
+which is code (`56 8B F1 8B`), and faults reading `0x8BF18B56 + 0x14`. EA's last two writer calls never run.
+
+**Config** [verified: `S3SS.toml`, `S3SS_LOG.txt`]. The patch installs with `[patches.ExpandedCrashLogs] enabled = false`
+(log: `[ExpandedCrashLogs] Successfully installed`), so the TOML switch does not avoid it on 1.6.3.
+
+**Our code** [verified: source grep, logs]. ts3native has no detour in `0x4D5000..0x4D7FFF`; `[CrashReport]` chains the
+filter through the IAT slot and is off. No link to the docs/686 clip / share / snap switches: since 11-16, 621 storm
+phases, 74 with any of them on (sharelanes, simpass 74; laddershare, angleentry 70; crowdport, unstuck, socialreach 13;
+clipwait 12; blockeduse, petrelax, reachuse 6; objshare, showershare, woohoosnap, pairsnap 0). The signature is in 1 of
+those 74 (s467, the docs/144 `0x59386B` wild call, also seen 11-16 and 11-17 before the switches existed) and in 13 of
+the 547 others. The 64 `bu-run.sh` forced repros have no crash.
+
+## 41. rs-C4 (2026-11-23): wild call at `0x74E4E9` in `IC_Route_DestroyRoute`, and the 11-20 `0xE6463F` series
+
+### 41.1 rs-C4: route destroy vs the route job
+
+**Signature.** Sim thread, `exception C0000096` (or an AV) at a heap address; `[esp]` = `0x74E4E9`; stack refs
+`0074E4E9 00750424 00D86DAB 00E526C4`; `ecx` = the route interface, its vtable on the heap (not .rdata). Seen once in
+818 phase dirs (`phase-20261123-1347`, rs-C4: Isla Paradiso, seed 152, storm wave 5, asi ci-44920506251 0.36.267-mc1116,
+PlayerFirst=1, JobYield=1, DestroyPark parks, RO set on, doorshare on; `[RouteSnap] FreeLock=0`, so the "P5c park" lines
+are design G DestroyPark). Before rate: 1 crash in 176 loads of that asi, 1 in 12 rs-chain loads, 1 in the 4 C-arm loads.
+No fault inside `0x74E490..0x74E50A` or the route dtor `0x75D640` anywhere else in the phase dirs [verified: grep].
+
+**What faulted** [verified: disassembly TS3W 1.67]. `0x750400` -> `0x74E490`: host lock, handle type test `0x25..0x27`,
+script host `0x7692B0` slot `+0xCC` (handle -> interface), unlock, then `call [[edi]+0]` at `0x74E4E7` (return
+`0x74E4E9`), unregister `0x74E410`, Release. The handle table still named a route whose block had been reused: a route
+freed while still registered.
+
+**The race** [verified: disassembly; inferred: that it happened in rs-C4]. `~Route` is the only caller of
+`Route_DestroyRoute` (ScriptCore Route.cs; `Dispose` has no callers), on the sim thread, with no wait for a route job.
+The worker's `IC_Route_Plan 0x765160` resolves the same handle through `0x74B2C0` (host lock, slot `+0xCC`, unlock, no
+reference), then AddRefs (slot `+0x10`), plans, Releases (slot `+0x14` = `0x8ABE60`). A Route finalized while its job is
+queued or running (its task dropped without the CANCEL `finally`, e.g. a Sim destroyed mid-plan; DestroyPark lines show
+destroys during jobs every storm) either lands between the worker's lookup and AddRef (the route is freed; the worker
+AddRefs, plans on and Releases the freed block: a double free, the block later serves two objects), or after the AddRef
+(the worker's Release is the last and the route destructor runs on the worker thread). The forensics ring has no free of
+the faulting block (light mode); the DestroyPark released ring has no object within 0x400 of any register, so our flush
+did not free it.
+
+**Fix** (`[RouteAsync] DestroyDefer`, default 0, `routedefer.cpp`, selftest `TestRouteDestroyDefer`): on the owner thread a
+destroy of a handle that a QUEUED or RUNNING job names, or the running job's handle, is queued (256) and run on the sim
+once no job holds it (START / READY polls, the next destroy, save / closing / teardown entries; at closing, held ones are
+dropped, never run in the next world). Only the sim moves a job to QUEUED and only the worker moves QUEUED to RUNNING, so a
+handle with no such job cannot be picked up later. Lines `route destroy defer:`. Not with `[Crash2Diag]` (same prologue).
+
+### 41.2 `0xE6463F` (2026-11-20, Bridgeport): ours, fixed the same day
+
+**Signature.** Sim thread, AV reading `0x8` at `0xE6463F` (`cmp word [ecx+8], 0x2710`: `header->max_stack < 10000` in
+Mono's `interpreter/transform.c`, header NULL), stack refs `00E6441B 00E5265D 00E5638C`. Five logs, all Bridgeport,
+all 0.36.267-mc1116 with ts3fixes `unseenservice` on: s142 (`phase-20261120-0000`), s177 / s180 / s181 / s182 on arms
+(`-1402`, `-1421`, `-1426`, `-1431`). None in any other phase dir [verified: grep].
+
+**Cause** [verified on master: docs/51 I-531-1, the no-IL-header log line of 0.36.286-nohdr1 names the method]. ts3fixes
+`UnseenService88.cs` made a delegate on the abstract `BarAdvanced.BarInteraction.RunOrderBehavior`; the game's Mono calls
+that exact method with no virtual dispatch and transforms a method with no body. Bridgeport only, because it needs a
+bar (BarAdvanced) lot served while unseen. No managed frame is in our crash log (no Mono stack dump).
+
+**Fix and stop** [verified: git, run times in GMT]. `7a3d4bbf` (2026-11-20 14:34:44 UTC; on combo as `DelegateTarget`,
+`ccebde90`) calls the instance's own override. Bridgeport with unseenservice on, before: 4 crashes in the 6 on
+arm loads s177..s182 (14:02..14:31; 0 in the 2 off arm loads), after: 0 in 5 (s183..s187, 14:36..14:56). No Bridgeport run since, so the absence after 11-20
+is that fix plus no exposure; Isla Paradiso (no such bar) never had it. Master also carries a native guard for the class,
+`[IlPatch] HeaderGuard=1` (0.36.288, docs/51 I-537-hdr2: a NullReferenceException instead of the AV); combo-1117
+(0.36.267) does not have it and gets it with the next master sync. No new change needed.
+
+**Proof runs (2026-11-23, NOT PROVEN).** `rs-dd.sh` (clone of `rs-chain2.sh`: the C-arm keys, managed set and packages,
+seed 152, 2-minute storms) with the CI asi `ci-45223965879` (fix branch, selftest ok) and `DestroyDefer=1`: 8 loads
+(`phase-20261123-1710` .. `-1745`), switch read back on all 8, 0 fatal faults, Bin pair restored after each. But 0
+`route destroy defer: route` lines: no Route was finalized while a job held its handle in these 8 loads, so the guarded
+path never ran and these runs say nothing about rs-C4 (before: 1 in 176 loads of the same asi; 0 in 8 is expected either
+way). The exit-time AV with `info 00000000 FFFFFFFF` and no stack after `measurement end` is in 74 of 97 baseline loads
+since 11-22 and is not counted. Open: whether the race happens at all in play (a deferral line in a long soak would show
+it), and what else frees a still-registered route; the next step is `[CrashForensics] Enabled=1` (full heap ring) on the
+rs-C storm, or `[Crash2Diag]` (its DestroyRoute ring) without DestroyDefer.

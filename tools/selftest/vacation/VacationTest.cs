@@ -36,6 +36,8 @@ static class VacationTest
 
         Check(!EaVacationCore.ExpiryApplies(0), "tick 0 = no time-based timeout");
         Check(EaVacationCore.ExpiryApplies(1) && EaVacationCore.ExpiryApplies(long.MaxValue), "real deadlines checked");
+        Check(EaVacationCore.PadLength(3, 3) == -1 && EaVacationCore.PadLength(3, 0) == -1, "3 states cover 3 events: no pad");
+        Check(EaVacationCore.PadLength(3, 4) == 4 && EaVacationCore.PadLength(3, 7) == 7, "4+ events: padded to the event count");
 
         for (int m = 0; m < 16; m++)
             for (int teens = 0; teens < 3; teens++)

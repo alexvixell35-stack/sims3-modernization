@@ -1702,7 +1702,27 @@ rpc.exports = {
         'mfReady', 'mfRuns', 'mfWhole', 'mfInner', 'jitOn', 'jitSwitch', 'jitMethods', 'jitRefused', 'jitCalls', 'jitExits', 'jitVerified', 'jitMismatch', 'jitFirstBad', 'jitAbandoned', 'jitLarge', 'jitOtherTid', 'jitFaults', 'jitCodeKB',
         'jitInlined', 'jitInlineNo', 'jitWide', 'jitWideNo', 'ctMode', 'ctOn', 'ctInserts', 'ctScanned', 'ctCand', 'ctErased', 'ctWouldMiss', 'ctMissed', 'ctFull', 'ctOtherThread', 'kdExMode', 'kdExempt', 'kdWouldCut', 'kdExemptMaxUs', 'kdCeilUs', 'kdCeilCut', 'kdScopeN', 'kdRdHeld', 'kdAaHeld', 'kdCutUnk', 'kdCutSeen', 'kdCutUnseen', 'kdNpcCeilUs', 'kdCeilNpc', 'kdCutNpc', 'kdCamMode', 'kdCamChecks', 'kdCamHeld', 'kdCamStale', 'kdCamWould', 'kdAaHeldIn', 'kdAaHeldPar', 'kdAaHeldNoClass', 'kdAaHeldPush', 'kdAaHeldRows', 'kdAaHeldSeen',
         'ctSaves', 'ctLive', 'ctDoomed', 'ctSwept', 'ctKeptHousehold', 'ctKeptNamed', 'ctKeptAsync', 'ctKeptYoung', 'ctRefused', 'ctMarks', 'ctMarksFence', 'ctRegistry', 'ctOutfits', 'ctOutfit0', 'ctDoomedAsync', 'ctKeepKeys', 'ctKeepMissed', 'ctFromBuilder', 'ctFromCtor', 'ctFromParse', 'ctFromDownload', 'ctFbFlag', 'ctFbRebuilt', 'ctCacheOutfit', 'ctGeoKB', 'ctBlendKB',
-        'fp2lrMode', 'fp2lrReady', 'fp2lrApplied', 'fp2lrGone', 'fp2lrGoneHit', 'fp2lrMoved', 'fp2lrFlush', 'fp2lrFlushUs', 'fp2lrOrderMiss', 'fpgMode', 'fpgCensus', 'fpgEntries', 'fpgObjFp', 'fpgGhosts', 'fpgRemoved', 'fp2lrLost', 'fpgKeptRead', 'fpgOther', 'fpgUs', 'fpgHeld', 'ufHlMode', 'ufHlUs', 'rjnMinUs', 'rjnLines', 'rjnDropped', ...n('resv5E4C', 29), 'ctCellSeen', 'ctCellSkip', 'pkMode', 'pkCloseOk', 'pkCloseDefer', 'pkCloseForce', 'pkBeginUnowned', 'pkBeginLocked', 'pkAbbaSeen', 'pkDeferMax', 'mbCalls', 'mbCells', 'mbBad', 'mbSkip', 'lpOn', 'lpTrims', 'lpCoresFreed', 'lpFreedKB', 'lpCoresLeft', 'lpKept', 'lpLastUs', 'lpBad', 'wdJobN', 'wdJobUs', 'wdJobMaxUs', 'wdJobLong', 'osCalls', 'osObjs', 'osBad', 'osFix'); // v178 mb* (0x5EE8), v913 [LotPool] Trim lp* (0x5EF8, docs/541), v179 watchdog-check job time wd* (0x5F18, docs/250 §7.1), v180 outfit save string check os* (0x5F28, docs/539 §15); // v172 [Discourage] LostRemovalFix, GhostSweep (docs/89 §16, §17); v171 [CasTrim] Mode 3 / 4 (docs/539); older 912 builds read past their block: names missing there mean nothing
+        'fp2lrMode', 'fp2lrReady', 'fp2lrApplied', 'fp2lrGone', 'fp2lrGoneHit', 'fp2lrMoved', 'fp2lrFlush', 'fp2lrFlushUs', 'fp2lrOrderMiss', 'fpgMode', 'fpgCensus', 'fpgEntries', 'fpgObjFp', 'fpgGhosts', 'fpgRemoved', 'fp2lrLost', 'fpgKeptRead', 'fpgOther', 'fpgUs', 'fpgHeld', 'ufHlMode', 'ufHlUs', 'rjnMinUs', 'rjnLines', 'rjnDropped', 'gvaMode', ...n('gvaSrcN', 6), ...n('gvaSrcWaitUs', 6), ...n('gvaScopeWaitUs', 3), 'gvaAtStart', 'gvaLaterTakeUs', 'srrMode', ...n('srrN', 2), ...n('srrOk', 2), ...n('srrFb', 2), ...n('srrFbWaitUs', 2), 'srrUs', 'srrMaxUs', 'ctCellSeen', 'ctCellSkip', 'pkMode', 'pkCloseOk', 'pkCloseDefer', 'pkCloseForce', 'pkBeginUnowned', 'pkBeginLocked', 'pkAbbaSeen', 'pkDeferMax', 'mbCalls', 'mbCells', 'mbBad', 'mbSkip', 'lpOn', 'lpTrims', 'lpCoresFreed', 'lpFreedKB', 'lpCoresLeft', 'lpKept', 'lpLastUs', 'lpBad', 'wdJobN', 'wdJobUs', 'wdJobMaxUs', 'wdJobLong', 'osCalls', 'osObjs', 'osBad', 'osFix',
+        'trArms', 'trHits', 'trF5', 'trGone', 'rlCalls', 'rlBad', 'rlFix', 'rlSkip', 'uafHeld', 'uafFreed', 'uafHit', 'uafF5', 'uafPass', 'uafArms', 'msgOn', 'msgSkip', 'msgParamCount', 'msgSpare', 'sbVtGiveUp', 'sbLowHdr', ...n('sbSpare', 2), 'eqOn', 'eqMode', 'eqHits', 'eqPlans', 'eqRejects', 'eqFtNull', 'eqFtType', 'eqFtKind', 'eqFtNew', 'eqFtBusy', 'eqFtFull',
+        'eqRejGeneric', 'eqRejKind', 'eqRejMany', 'eqSmall', ...n('eqSpare', 1),
+        // v187 (0x5FD0, docs/data/races-handoff.md R2c): [AutShadow] Races bit 2 worker drain
+        'r2cOn', 'r2cDrainMs', 'r2cCloses', 'r2cIdle', 'r2cDrainReq', 'r2cDrained', 'r2cAborted', 'r2cSatb', 'r2cWaitUs', 'r2cWaitMaxUs', 'r2cLate', 'r2cGateAborts', 'r2cHeld', 'r2cReopens',
+        // v188 (0x6008, docs/537 §20): [MonoJit] R1 code region, [Binder] TypeHandleDirect
+        'jitFullN', 'jitFullBytes', 'jitRegionKB', 'tdOn',
+        // v189 (0x6018, docs/250 §7.3 B2, §13.3): [GoalValidRO] UnseenDefer gvu*, gvattr diagnostics
+        'gvuMode', 'gvuMaxMs', 'gvuAsks', 'gvuN', ...n('gvuNo', 4), ...n('gvuKind', 4), 'gvaPlansN', 'gvaNoLaterN', 'gvaNoLaterUs', ...n('gvaWhyWaitUs', 20), 'gvuSpare',
+        // v190 (0x60A8, docs/247 §13.1 L): FbApplyPending timing, [RouteAsync] FbApplyLog per-lot split
+        'fbApN', 'fbApUs', 'fbApMaxUs', 'fbApLong', 'fbApLog', 'fbApLots', 'fbApLotMaxUs', 'fbApSpare',
+        // v191 (0x60C8, docs/247 §13.3 R1): ReplanFromPosition STARTs with no job, arRf3_<0 own / 1 foreign>_<RFB_* reason, 19 Kinds off, 20 none>
+        ...n('arRf3', 42, 21), ...n('arRf3Spare', 2),
+        // v192 (0x6178, docs/247 §13.4 C): forced DiscDrain waits by drain point (_i = DS_*: 1 START, 2 A10 START, 3 READY, 4 CANCEL, 5 PlanDrain,
+        // 6 add, 7 remove, 8 Usf, 9 Fp2, 10 Fp2 reader, 11 private fp, 12 census, 13 GhostTest, 14 world, 15 save) and LostRemovalFix flushes by event-9 site
+        ...n('dsN', 16), ...n('dsUs', 16), ...n('dsYield', 16), ...n('lrsN', 2), ...n('lrsUs', 2), 'lrsYieldN', 'lrsYieldUs', ...n('dsSpare', 2),
+        // v193 (0x6258) held for [Crash2Diag]; v194 (0x6278, docs/537 §22): [MonoJit] BoundCall, bcCallee_<kJitBound row>
+        'c2On', 'c2Clears', 'c2ClearBad', 'c2Frees', 'c2FreeLinked', 'c2Destroys', 'c2LinesDropped', 'c2Spare', 'bcOn', 'bcFills', 'bcHits', 'bcExc', 'bcNotAllowed', 'bcVtThis', ...n('bcCallee', 4), ...n('bcSpare', 2), 'clOn', 'clBodies', 'clNotListed', 'clKillWhy', 'clFaults', 'clVerRuns', ...n('clSpare', 2), 'bhnHits', 'jitTableFull', 'jitMethCap', 'rtdOn', 'rtdSites', 'rtdBails', 'rtdVerified', 'rtdMismatch', 'rtdVSkipped', 'rtdFaults', 'rtdKillWhy', 'kdUncutMode', 'kdUncutCeilUs', 'kdUncutHit', 'kdUncutMaxUs', 'adMode', 'adCalls', 'adDups', 'adSkipped', 'ppMode', 'ppResolve', 'ppTagged', 'ppMiss', 'ppRetry', 'ppRetryHit', 'ppMounted', 'ppAdds', 'ppRemoves', 'ppRepos', 'ppOffMain', 'ppOverlap', 'ppRfMoved', 'ppRfGone', 'ppNoMgr', 'ppSpare', 'maOn', 'maRcNs', 'maRdNs', 'maRcGets', 'maRcHits', 'maRdN', 'maRdMB', 'maRdMaxKB', 'maRdFlyMaxKB', 'maLines', 'aoOn', 'aoRows', 'aoRowsVer', 'aoLines', 'aoApexPass', 'aoApexRefused', 'aoHeapKB', 'aoHeapUnkKB', 'aoEaCoreKB', 'aoUntrKB',
+        // v201 (0x63A4 after v200, docs/22 §6): [AnimPhase] G10 timers inside rig pose 0x940430; v202 (0x63E4): [Compat] ap*, [StallWatch] ss*
+        'anReady', 'anAdvN', 'anAdvUs', 'anAdvMaxUs', 'anNotN', 'anNotUs', 'anNotMaxUs', 'anEvalN', 'anEvalUs', 'anEvalMaxUs', 'anPubN', 'anPubUs', 'anPubMaxUs', ...n('anSpare', 3),
+        'apFound', 'apOn', 'apStood', 'apStandDown', 'apLate', ...n('apSpare', 3), 'ssReady', 'ssStalls', 'ssLines', 'ssMaxMs', 'ssOpenMs', ...n('ssSpare', 3), ...n('resV921', 64), 'frOn', 'frRecovered', 'frPassed', 'frTestCalls', 'hhTooLift'); // v203 [MonoJit] FaultRecover fr* (0x6524 after the v921 placeholder, docs/537 §29); // v919 [AudioStateDup] ad* / [PkgProbe] pp* (0x6304, docs/549), v199 [MemDiag] Access ma* (0x6354, docs/190 phase 2), v200 [MemDiag] AllocSitesOwners ao* (0x637C, docs/190 phase 3), v201 [AnimPhase] an* (0x63A4), v202 [Compat] ap* / [StallWatch] ss* (0x63E4); // v197 [MonoJit] RetTeardown rtd* (0x62D4, docs/537 §26), v195 [MonoJit] ClauseLazy guards cl* (0x62A8, docs/537 §24), v918 [EaCrashFixes] BridgeHeightNaN bhnHits (0x62C8, docs/67 §37); // v174 [GoalValidRO] Attr gva* (0x5E4C), v175 [SteerRO] Retry srr* (0x5E94, docs/250 §7.0, §8), v178 mb* (0x5EE8), v913 [LotPool] Trim lp* (0x5EF8, docs/541), v179 watchdog-check job time wd* (0x5F18, docs/250 §7.1), v180 outfit save string check os* (0x5F28, docs/539 §15); // v172 [Discourage] LostRemovalFix, GhostSweep (docs/89 §16, §17); v171 [CasTrim] Mode 3 / 4 (docs/539); older 912 builds read past their block: names missing there mean nothing
     }
     const r = Object.fromEntries(f.map((n, i) => [n, c.add(i * 4).readS32()]));
     if (r.version >= 21) r.vfCostFrameDbConsumed = r.vfCost693780Calls; // the consume count under the I-41-4 key
@@ -1757,6 +1777,8 @@ rpc.exports = {
       if (mp.readS32() >= 4) mf.push('lockOomReleased'); // v4: +0x88 (docs/120 §10.5, GC_oom_fn wrapper)
       if (mp.readS32() >= 5) mf.push('lazyGate', 'lazyOn', 'lazyOff'); // v5: +0x8C..+0x94 (LazyGate=1, docs/30 §15)
       if (mp.readS32() >= 6) mf.push('simLockWaits', 'simLockWaitUs', 'simLockMaxWaitUs', 'lazyEarlyOff'); // v6: +0x98..+0xA4 (docs/30 §16)
+      if (mp.readS32() >= 7) mf.push('quitReady', 'quitStops', 'quitTimeouts', 'quitWaitUs', 'quitRestored'); // v7: +0xA8..+0xB8 (QuitStop, docs/30 §17)
+      if (mp.readS32() >= 8) mf.push('workerAllocs', 'workerAllocsTyped', 'workerAllocMaxJob'); // v8: +0xBC..+0xC4 (D8 sizing, docs/30 §18)
       r.mtprobe = Object.fromEntries(mf.map((n, i) => [n, mp.add(i * 4).readS32()]));
     }
     // autonomy shadow pilot (docs/122 §13-§14): export ts3native_autshadow (docs/registry.md), null when the asi has none
@@ -1880,6 +1902,13 @@ rpc.exports = {
       }
       if (v >= 21) { // v21: +0xC8C..+0xC94 docs/127 H11 shelter answer (rain pairs armed, CreateInstance skipped, armed with no call)
         ['rainArm', 'rainSkip', 'rainMiss'].forEach((n, i) => { a[n] = rd(803 + i); });
+      }
+      if (v >= 22) { // v22: +0xC98..+0xCC4 races R1b pre-warm and R2b/R3a witness ([AutShadow] Races, docs/data/races-handoff.md)
+        ['r1On', 'r1Calls', 'r1Fills', 'r1Guard', 'r1Clear', 'r1Aborts', 'r2Rows', 'r2Bases', 'r2Cuts', 'r2Unexp', 'r2Runtime', 'r2First']
+          .forEach((n, i) => { a[n] = rd(806 + i); });
+      }
+      if (v >= 23) { // v23: +0xCC8..+0xCE4 ListWalk world part from one world-lot index a cut ([AutShadow] WorldIndex, docs/122 §14.29)
+        ['wiOn', 'wiBuilds', 'wiEntries', 'wiUs', 'wiLots', 'wiFall', 'wiChecks', 'wiMis'].forEach((n, i) => { a[n] = rd(818 + i); });
       }
       r.autshadow = a;
     }

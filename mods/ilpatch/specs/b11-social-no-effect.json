@@ -1,0 +1,42 @@
+{
+  "id": "b11-social-no-effect",
+  "switch": "ilp_socialnoeffect",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Socializing.SocialInteractionA::Run()",
+  "edits": [
+    {
+      "at": "0x43B",
+      "mode": "insert",
+      "entry": "fallthrough",
+      "expect": [
+        "ldarg.0"
+      ],
+      "maxStack": 1,
+      "il": [
+        "ldarg.0",
+        "ldfld class Sims3.Gameplay.Socializing.SocialRule Sims3.Gameplay.Socializing.SocialInteractionA::mTargetEffect",
+        "brfalse @0x44F"
+      ]
+    }
+  ],
+  "builds": {
+    "ea-1.67": {
+      "size": 4292,
+      "sha256": "7fdb93d5c93427979070ee1533158901b9be07edf77d9d692cb859a32a4e2730",
+      "tokens": {
+        "class Sims3.Gameplay.Socializing.SocialRule Sims3.Gameplay.Socializing.SocialInteractionA::mTargetEffect": "0x040002e3"
+      },
+      "patchedSha256": "c359e731d01393cd7bcc3ae00607351942502093be9f4a40d41a949e2676d94d"
+    },
+    "simler90-242": {
+      "size": 4292,
+      "sha256": "69fcdf69569d4ac13b1c330b215e2d19ffffed89cecf6aac23aad103ac8c1fe7",
+      "tokens": {
+        "class Sims3.Gameplay.Socializing.SocialRule Sims3.Gameplay.Socializing.SocialInteractionA::mTargetEffect": "0x04000f37"
+      },
+      "patchedSha256": "84e5208b2c8e184908f473c7f5f261c795498a1ae02fb59470de6f064ef3b2a7"
+    }
+  },
+  "ilHashG6": "cfed8e40c3e8da59"
+}

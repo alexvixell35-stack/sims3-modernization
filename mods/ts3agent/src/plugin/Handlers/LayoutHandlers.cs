@@ -18,7 +18,7 @@ using Sims3.UI;
 namespace Ts3Agent
 {
     // build_layout: a text map (LayoutMap.cs: how tiles turn into edge walls) built on the home lot with the player's tools.
-    // {map: [rows] | "rows\n...", legend?: {"f": {name | product, facing?: N|E|S|W}}, origin?: [lx, lz], rotation?: 0|90|180|270,
+    // {map: [rows] | "rows\n...", legend?: {"f": {name | product, facing?: N|E|S|W, class?: object class name, loose?: true (several tiles: the landing tile is not tested), nudge?: [dx, dz] tiles off the tile centre for the cursor}}, origin?: [lx, lz], rotation?: 0|90|180|270,
     //  level?: 0, house?: false, margin?: 1, lights?: 2, clear?: true, sim_timeout_s?: 60} | {result: true}
     //   s = stove, b = trash can built in; facing default: back to the wall (LayoutPlan.AutoDir).
     //   origin omitted: the first free area nearest the lot centre (FindFootprint). house: a real house round the map, margin
@@ -51,6 +51,8 @@ namespace Ts3Agent
             public int hx0, hz0, hx1, hz1;   // footprint in lot vertices, with the margin
             public bool house, clear, roof;
             public Dictionary<char, BuildBuyProduct> prods = new Dictionary<char, BuildBuyProduct>();
+            public Dictionary<char, double[]> nudge = new Dictionary<char, double[]>();   // cursor off the tile centre, in tiles (map x, z): which grid line an even-sized object snaps to
+            public Dictionary<char, bool> loose = new Dictionary<char, bool>();   // an object of several tiles: where it lands is reported, not tested
             public Vector3 c00, ex, ez, camPos, camTarget;
             public double plane;
             public uint dwell = 10;
@@ -74,7 +76,7 @@ namespace Ts3Agent
             l.lot = lot;
             items['s'] = -1;
             items['b'] = -1;
-            Dictionary<char, string> names = new Dictionary<char, string>(), prefer = new Dictionary<char, string>();
+            Dictionary<char, string> names = new Dictionary<char, string>(), prefer = new Dictionary<char, string>(), classes = new Dictionary<char, string>();
             names['s'] = "stove";
             names['b'] = "trash";
             Dictionary<string, object> legend = a.Raw("legend") as Dictionary<string, object>;
@@ -97,6 +99,10 @@ namespace Ts3Agent
                     else if (e.TryGetValue("name", out prod) && prod != null) names[ch] = prod.ToString().ToLowerInvariant();
                     else throw new McpException("legend " + ch + ": name or product required");
                     if (e.TryGetValue("prefer", out prod) && prod != null) prefer[ch] = prod.ToString().ToLowerInvariant();
+                    if (e.TryGetValue("class", out prod) && prod != null) classes[ch] = prod.ToString();
+                    if (e.TryGetValue("loose", out prod) && prod is bool && (bool)prod) l.loose[ch] = true;
+                    IList nudge = e.TryGetValue("nudge", out prod) ? prod as IList : null;
+                    if (nudge != null && nudge.Count == 2) l.nudge[ch] = new double[] { Convert.ToDouble(nudge[0], CultureInfo.InvariantCulture), Convert.ToDouble(nudge[1], CultureInfo.InvariantCulture) };
                 }
             List<string> rows = new List<string>();
             IList listed = a.Raw("map") as IList;
@@ -144,7 +150,7 @@ namespace Ts3Agent
             foreach (LayoutItem it in l.plan.Items)
             {
                 if (!l.prods.ContainsKey(it.Ch))
-                    l.prods[it.Ch] = LayProduct(names[it.Ch], it.Ch == 's' && (!IsLegend(legend, 's') || names[it.Ch] == "stove") ? typeof(Stove) : it.Ch == 'b' && names[it.Ch] == "trash" ? typeof(Trashcan) : typeof(GameObject), prefer.ContainsKey(it.Ch) ? prefer[it.Ch] : null);
+                    l.prods[it.Ch] = LayProduct(names[it.Ch], it.Ch == 's' && (!IsLegend(legend, 's') || names[it.Ch] == "stove") ? typeof(Stove) : it.Ch == 'b' && names[it.Ch] == "trash" ? typeof(Trashcan) : typeof(GameObject), prefer.ContainsKey(it.Ch) ? prefer[it.Ch] : null, classes.ContainsKey(it.Ch) ? classes[it.Ch] : null);
                 cost += (int)l.prods[it.Ch].Price;
             }
             Household hh = Household.ActiveHousehold;
@@ -204,7 +210,8 @@ namespace Ts3Agent
 
         // first catalog product with this name part whose object passes `want`; the object class decides, not the name.
         // prefer: first look for one that also has this word in its name, then settle for any
-        static BuildBuyProduct LayProduct(string name, Type want, string prefer)
+        // cls: the object's class or a base class must have this name (legend "class": "BedDouble")
+        static BuildBuyProduct LayProduct(string name, Type want, string prefer, string cls)
         {
             for (int pass = prefer != null ? 0 : 1; pass < 2; pass++)
                 foreach (BuildBuyProduct p in Catalog())
@@ -213,11 +220,11 @@ namespace Ts3Agent
                     if (n.IndexOf(name) < 0 || (pass == 0 && n.IndexOf(prefer) < 0)) continue;
                     GameObject g = GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as GameObject;
                     if (g == null) continue;
-                    bool ok = want.IsInstanceOfType(g);
+                    bool ok = want.IsInstanceOfType(g) && (cls == null || IsOfTypeName(g.GetType(), cls));
                     g.Destroy();
                     if (ok) return p;
                 }
-            throw new McpException("no catalog product '" + name + "' of class " + want.Name);
+            throw new McpException("no catalog product '" + name + "' of class " + (cls ?? want.Name));
         }
 
         static BuildBuyProduct LayLight()
@@ -537,13 +544,15 @@ namespace Ts3Agent
 
         // the catalogue click (BuyModel.SelectBuyProduct), hover, press on the tile, drag towards the facing, release: the
         // player's rotate-while-placing. dir null: plain click.
-        static GameObject LayPlace(Lay l, BuildBuyProduct p, int[] tile, Vector3? dir)
+        static GameObject LayPlace(Lay l, BuildBuyProduct p, int[] tile, Vector3? dir) { return LayPlace(l, p, tile, dir, 0, 0); }
+
+        static GameObject LayPlace(Lay l, BuildBuyProduct p, int[] tile, Vector3? dir, double nx, double nz)
         {
             List<ulong> before = LayIds(l);
             Responder.Instance.BuyModel.SelectBuyProduct(p, false);
             UIManager.GetSceneWindow().StartForwardingEventsToUserTools();
             Ticks(l.dwell);
-            Vector3 at = LayAt(l, tile[0] + 0.5, tile[1] + 0.5);
+            Vector3 at = LayAt(l, tile[0] + 0.5 + nx, tile[1] + 0.5 + nz);
             double[] px = LayOnScreen(LayPx(at));
             LayHover(px);
             if (dir == null) Click(px, l.dwell);
@@ -566,12 +575,29 @@ namespace Ts3Agent
                 Vector3 fwd = Plus(Plus(Vector3.Zero, l.ex, d[0]), l.ez, d[1]);
                 BuildBuyProduct p = l.prods[it.Ch];
                 string tag = it.Ch + " at tile " + tile[0] + "," + tile[1];
-                GameObject go = LayPlace(l, p, tile, fwd);
-                if (go == null) { miss.Add(tag + ": the tool placed nothing (" + p.CatalogName + ")"); continue; }
+                // nudge: lot axes, rotation 0 only
+                double[] ng = l.nudge.ContainsKey(it.Ch) && l.rot == 0 ? l.nudge[it.Ch] : new double[] { 0, 0 };
+                GameObject go = null;
+                int placeTries = 0;
+                // the Deck's first buy placement after Buy mode opened placed nothing (blockeduse-force, 2026-11-22): up to 3 tries
+                for (; go == null && placeTries < 3; placeTries++) go = LayPlace(l, p, tile, fwd, ng[0], ng[1]);
+                if (placeTries > 1) SwLine("stove-wall: layout item " + tag + " placed after " + placeTries + " tries: " + (go != null));
+                if (go == null)
+                {
+                    string sims = "";
+                    foreach (Sim hs in Household.ActiveHousehold.Sims)
+                    {
+                        LotLocation st = new LotLocation();
+                        World.GetLotLocation(hs.Position, ref st);
+                        sims += " " + hs.FirstName + " " + st.mX + "," + st.mZ;
+                    }
+                    miss.Add(tag + ": the tool placed nothing (" + p.CatalogName + "; Sims on tiles" + sims + ")");
+                    continue;
+                }
                 LotLocation t = new LotLocation();
                 World.GetLotLocation(go.Position, ref t);
                 double turn = Math.Abs(Facing(go.ForwardVector) - Facing(fwd));
-                if (t.mX != tile[0] || t.mZ != tile[1]) miss.Add(tag + ": landed on " + t.mX + "," + t.mZ);
+                if ((t.mX != tile[0] || t.mZ != tile[1]) && !l.loose.ContainsKey(it.Ch)) miss.Add(tag + ": landed on " + t.mX + "," + t.mZ);
                 if (Math.Min(turn, 360 - turn) > 10) miss.Add(tag + ": faces " + Facing(go.ForwardVector) + ", wanted " + Facing(fwd));
                 Dictionary<string, object> o = Placed(go);
                 o["char"] = it.Ch.ToString();
@@ -610,21 +636,31 @@ namespace Ts3Agent
             if (!s.InteractionQueue.Add(ii)) throw new McpException("could not queue Go Here to X");
             int t0 = System.Environment.TickCount;
             float d = (s.Position - at).Length();
+            int unpaused = 0;
             while (d > 0.9f && System.Environment.TickCount - t0 < l.simTimeoutS * 1000)
             {
+                // live mode pauses some ticks after it comes back (run bu-r7: the press on Play in LayRun came too early)
+                if (Sims3.Gameplay.Gameflow.CurrentGameSpeed == Sims3.Gameplay.Gameflow.GameSpeed.Pause)
+                {
+                    Sims3.Gameplay.Gameflow.SetGameSpeed(Sims3.Gameplay.Gameflow.GameSpeed.Normal, Sims3.Gameplay.Gameflow.SetGameSpeedContext.User);
+                    unpaused++;
+                }
                 Ticks(15);
                 d = (s.Position - at).Length();
             }
             r["sim_at"] = Pos(s.Position);
             r["sim_tile"] = tile;
             r["sim_distance_m"] = Math.Round(d, 2);
+            r["sim_unpaused"] = unpaused;
             if (d > 0.9f) throw new McpException("the Sim did not reach X (tile " + tile[0] + "," + tile[1] + "): " + Math.Round(d, 1) + " m away after " + l.simTimeoutS + " s, doing " + (s.CurrentInteraction != null ? s.CurrentInteraction.GetType().Name : "nothing"));
         }
 
         // plans only, nothing walks: what routing now says about each object's slot, from the Sim's tile
         static void LaySlots(Lay l, Dictionary<string, object> r)
         {
-            List<object> objs = r["objects"] as List<object>;
+            // a map without items never went to Buy mode and has no "objects" (1x1 closet, the corridor of petrelax-force, 2026-11-22: KeyNotFoundException)
+            object listed;
+            List<object> objs = r.TryGetValue("objects", out listed) ? listed as List<object> : null;
             if (objs == null) return;
             Sim s = Util.ActiveSim();
             foreach (object x in objs)
@@ -670,7 +706,7 @@ namespace Ts3Agent
             List<object> w = UserToolUtils.GetProductList(UserToolUtils.BuildBuyProductType.Wall);
             BuildBuyProduct wall = w != null && w.Count > 0 ? w[0] as BuildBuyProduct : null;
             if (wall == null) throw new McpException("no wall product");
-            LayWallProbe(l, wall.ProductResourceKey, r);
+            if (l.plan.Runs.Count > 0) LayWallProbe(l, wall.ProductResourceKey, r);  // a map without walls has nothing to probe with (blockeduse-force, 2026-11-22)
             if (l.house) LayHouseShell(l, wall.ProductResourceKey, r);
 
             LayPhase(r, "walls");
@@ -713,6 +749,15 @@ namespace Ts3Agent
             if (!WaitReady(LiveUp, 3000)) throw new McpException("live mode did not come back (state " + SubState() + ")");
             Ticks(30);
             foreach (LightGameObject g in l.lot.GetObjects<LightGameObject>()) g.SwitchLight(true, true);  // a player's light switch: a new room starts dark at night
+            // Build and Buy pause the clock, and on the Deck runner nothing starts it again (blockeduse-force, 2026-11-22:
+            // "sim clock stuck ... speed Pause", the Go Here to X never ran): a player's press on Play
+            if (l.plan.SimX >= 0 && Sims3.Gameplay.Gameflow.CurrentGameSpeed == Sims3.Gameplay.Gameflow.GameSpeed.Pause)
+            {
+                r["speed_locked"] = Sims3.Gameplay.Gameflow.GameSpeedLocked;
+                Sims3.Gameplay.Gameflow.SetGameSpeed(Sims3.Gameplay.Gameflow.GameSpeed.Normal, Sims3.Gameplay.Gameflow.SetGameSpeedContext.User);
+                Ticks(10);
+                r["speed_after_build"] = Sims3.Gameplay.Gameflow.CurrentGameSpeed.ToString();
+            }
             LaySim(l, r);
             LaySlots(l, r);
             if (r.ContainsKey("door_missing")) throw new McpException("door tool placed nothing in " + ((List<object>)r["door_tries"]).Count + " tries (" + r["door_missing"] + "), wall gap " + r["wall_gap"] + "; the rest ran");

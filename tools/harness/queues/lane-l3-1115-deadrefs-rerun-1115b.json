@@ -1,0 +1,105 @@
+{
+ "note": "lane-l3-1115-deadrefs-rerun-1115b: copy of lane-l3-1115-deadrefs-rerun.json repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). rerun of lane-l3-1115-deadrefs (not run): all 3 jobs on the master-lanes-1115 asi+ini pair; the 2026-11-15 run voided (asyncIdle) and crashed in the v0.2.4 asi under the master ini. lane L3 1115 (not run): correctness repros of deadrefcooking (phase 14), deadrefconvo (phase 15) and takeariskguard, off then on in one load each, BP 10 min, switches set and read back by the repro steps, 0 script errors, household untouched (the seeds use townies only; takeariskguard puts the career back). Build ts3fixes.lane-L3-1115 + ts3agent.lane-L3-1115.",
+ "jobs": [
+  {
+   "id": "bp-cooking-handler-gone-check",
+   "note": "Correctness (10 min): repro cooking-handler-gone-check. Pass: its steps pass (expect left: off, both seeded handlers stay; expect cleaned: on, phase 14 removed both and the dead process listener; each throws otherwise); 0 script errors",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 pair (builds.json, master 84ee284f): asi, ini and ts3fixes from one build. The v0.2.4 asi under the master ini (no iniBase) ran AutShadow Enabled=1 Mode=3 (v0.2.4 ships Enabled=0): 2026-11-15 RouteAsync refused every plan (invokeHook 0, void) and crashed in AsStrKey (conversation job); repinned 2026-11-15",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "cooking-handler-gone-check",
+     "fixesRequire": "deadrefcooking_handlers>=2"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 18,
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefcooking_handlers",
+     "op": ">=",
+     "value": 2,
+     "why": "the on arm removed fewer than 2 handlers: phase missing, sweep refused, or the seed failed"
+    }
+   ],
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "rerunOf": "bp-cooking-handler-gone-check"
+  },
+  {
+   "id": "bp-conversation-gone-check",
+   "note": "Correctness (10 min): repro conversation-gone-check. Pass: its steps pass (expect left: off, the gone member stays; expect cleaned: on, phase 15 removed it, one member left); deadrefconvo_household 0; 0 script errors",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 pair (builds.json, master 84ee284f): asi, ini and ts3fixes from one build. The v0.2.4 asi under the master ini (no iniBase) ran AutShadow Enabled=1 Mode=3 (v0.2.4 ships Enabled=0): 2026-11-15 RouteAsync refused every plan (invokeHook 0, void) and crashed in AsStrKey (conversation job); repinned 2026-11-15",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "conversation-gone-check",
+     "fixesRequire": "deadrefconvo_members>=1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 18,
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefconvo_members",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm removed no member: phase missing, sweep refused, or the seed failed"
+    }
+   ],
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "rerunOf": "bp-conversation-gone-check"
+  },
+  {
+   "id": "bp-takeariskguard-check",
+   "note": "Correctness (10 min): repro takeariskguard-check. Pass: expect throws (off) and expect guarded (on) both pass; 0 script errors besides the off arm caught throws",
+   "asi": "game-copy/ts3native.asi.master-merge-1115",
+   "pinReason": "repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). Was: master-lanes-1115 pair (builds.json, master 84ee284f): asi, ini and ts3fixes from one build. The v0.2.4 asi under the master ini (no iniBase) ran AutShadow Enabled=1 Mode=3 (v0.2.4 ships Enabled=0): 2026-11-15 RouteAsync refused every plan (invokeHook 0, void) and crashed in AsStrKey (conversation job); repinned 2026-11-15",
+   "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "takeariskguard-check",
+     "fixesRequire": "takeariskguard_skips>=1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 18,
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:takeariskguard_skips",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm skipped nothing: hook not applied or the check failed"
+    }
+   ],
+   "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+   "rerunOf": "bp-takeariskguard-check"
+  }
+ ],
+ "stopQueueOnFail": false
+}

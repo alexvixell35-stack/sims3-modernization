@@ -13,12 +13,12 @@
 
 #include <intrin.h>  // _ReturnAddress
 
-static const DWORD IL_LOCK = 0x00E85020, IL_UNLOCK = 0x00E85030;
+static const DWORD IL_LOCK = TS3A(0x00E85020), IL_UNLOCK = TS3A(0x00E85030);
 static const u8 kIlLock[11] = {0x68, 0xA8, 0x43, 0x1F, 0x01, 0xFF, 0x15, 0x2C, 0x51, 0xF9, 0x00};    // push 0x11F43A8; call [EnterCriticalSection]
 static const u8 kIlUnlock[11] = {0x68, 0xA8, 0x43, 0x1F, 0x01, 0xFF, 0x15, 0x30, 0x51, 0xF9, 0x00};  // push 0x11F43A8; call [LeaveCriticalSection]
 
-static CRITICAL_SECTION* g_ilCs = (CRITICAL_SECTION*)(uintptr_t)0x011F43A8;  // variables so the selftest can point them at its own
-static const DWORD* g_ilCallbackSlot = (const DWORD*)(uintptr_t)0x011EE6CC;
+static CRITICAL_SECTION* g_ilCs = (CRITICAL_SECTION*)(uintptr_t)TS3A(0x011F43A8);  // variables so the selftest can point them at its own
+static const DWORD* g_ilCallbackSlot = (const DWORD*)(uintptr_t)TS3A(0x011EE6CC);
 static double g_ilUsPerTick;
 static DWORD g_ilEnterLow;    // enters below the next 1024
 static DWORD g_ilCallers[32];  // distinct return addresses of lock callers, logged once each

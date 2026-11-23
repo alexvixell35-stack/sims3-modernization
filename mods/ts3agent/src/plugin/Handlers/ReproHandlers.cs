@@ -442,7 +442,7 @@ namespace Ts3Agent
             return r;
         }
 
-        // setup_sims {sims: [name | id | "picked:N"], lot?, near?: object id or type name on `lot` (e.g. "DanceFloor"), x?, z?, y?,
+        // setup_sims {sims: [name | id | "picked:N"], lot?, near?: object id, a root ("@type:<class>" nearest, "@far" lot) or type name on `lot` (e.g. "DanceFloor"), x?, z?, y?,
         //   teleport?: true, motives?: true, moodlets?: true, autonomy?: true (false: off, tracked as the autonomy command)}: the standard Sim setup for repros (AGENTS.md "Repro Sim setup"; counts as
         //   realistic play, only the waiting is skipped): cancel each Sim's queue, teleport it to the spot unless it already stands
         //   within 2 m on that lot (teleport false when the walk there is what the repro tests), max its shown motives and clear its
@@ -458,11 +458,12 @@ namespace Ts3Agent
                 GameObject near = null;
                 ulong id;
                 if (ulong.TryParse(q, out id)) near = Util.FindObject(a, "near");
+                else if (q.StartsWith("@")) near = FindTarget(a, "near");  // "@type:Sarcophagus", "@far" (docs/267 repros)
                 else if (lot != null)
                     foreach (GameObject o in lot.GetObjects<GameObject>())
                         if (o.GetType().Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) { near = o; break; }
                 if (near == null) throw new McpException("setup_sims: no object " + q + (lot != null ? " on " + lot.Name : " (pass lot to search by type name)"));
-                spot = near.Position;
+                spot = near is Lot ? ((Lot)near).GetCenterPosition() : near.Position;
             }
             else if (a.Has("x")) spot = new Vector3((float)a.Double("x"), 0f, (float)a.Double("z"));
             else throw new McpException("setup_sims: pass near or x/z");
@@ -537,6 +538,8 @@ namespace Ts3Agent
                 if (p == Vector3.Invalid || s.IsPointInLotSafelyRoutable(lot, p)) continue;
                 s.InteractionQueue.CancelAllInteractions();
                 s.SetPosition(p);
+                // a teleport keeps the old posture (sitting): CheckIdle only judges a standing Sim (bp-wdasync-stuck-repro-1111)
+                if (s.Posture != s.Standing) s.Posture = s.Standing;
                 sStrandSpot[s.SimDescription.SimDescriptionId] = p;
                 Dictionary<string, object> r = Util.Obj();
                 r["sim"] = s.FullName;
@@ -551,9 +554,9 @@ namespace Ts3Agent
 
         static readonly Dictionary<ulong, Vector3> sStrandSpot = new Dictionary<ulong, Vector3>();
 
-        // sim_where {sim, maxDist?, notRouting?}: position, lot, current interaction, routing, posture. With maxDist (m) it is a check against
+        // sim_where {sim, maxDist?, notRouting?, requireStanding?}: position, lot, current interaction, routing, posture. With maxDist (m) it is a check against
         // the spot sim_strand last put the Sim on: error when he is farther away (or, with notRouting, routing), so a repro step fails setup
-        // when something (Go Home) moved him before the watchdog could judge the spot.
+        // when something (Go Home) moved him before the watchdog could judge the spot. requireStanding: error when his posture is not standing.
         static object SimWhere(Args a)
         {
             Sim s = Util.FindSim(a, "sim");
@@ -569,6 +572,8 @@ namespace Ts3Agent
             Vector3 spot;
             bool have = sStrandSpot.TryGetValue(s.SimDescription.SimDescriptionId, out spot);
             if (have) r["from_strand"] = Math.Round((s.Position - spot).Length(), 2);
+            if (a.Bool("requireStanding", false) && s.Posture != s.Standing)
+                throw new McpException("sim_where: " + s.FullName + " is not standing (posture " + (s.Posture != null ? s.Posture.GetType().Name : "none") + ")");
             if (a.Has("maxDist"))
             {
                 if (!have) throw new McpException("sim_where: no sim_strand spot recorded for " + s.FullName);
@@ -729,7 +734,7 @@ namespace Ts3Agent
                 GameObject t = FindTarget(a, "target");
                 route.PlanToPointRadius(t, t.Position, (float)a.Double("radius", 1.0));
             }
-            else if (a.Has("to")) route.PlanToPoint(WalkableClick(s, RequireRarePoint(s, a.Str("to"))));  // "pond", "ocean", "far"; a lot centre can be a pond or a building (WalkableClick, ControlHandlers)
+            else if (a.Has("to")) { Vector3 tp = RequireRarePoint(s, a.Str("to")); route.PlanToPoint(IsSealed(a) ? tp : WalkableClick(s, tp)); }  // "pond", "ocean", "far"; a lot centre can be a pond or a building (WalkableClick, ControlHandlers); "sealed" stays unreachable
             else
             {
                 Vector3 p = new Vector3((float)a.Double("x"), 0f, (float)a.Double("z"));

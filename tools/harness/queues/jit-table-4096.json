@@ -1,0 +1,834 @@
+{
+  "note": "jit-table-4096 (docs/537 §26 T4096, prepared 2026-11-13, NOT RUN): correctness gate for the 4096-row method table + 8192 KB region on pair table4096-1113 (ts3native 0.36.254). No timing. Order: bp/ip/sv-jit-t4096-verify (Mode=2 verify, 10 min each; the first stops the queue on FAIL), then bp/ip/sv-jit-t4096-count (Mode=2 Count=1, 10 min each) for the real number of methods compiled and calls/s per world (jitMethods vs 1622-1671 at 4096 KB, jitFullN; Mode=2 bodies are ~2.5 KB so 8192 KB may stop at ~3300 bodies [inferred]). Estimated 6 x ~14 min = ~85 min of game time (load + 10 min play + save each; BoundCall runs of 11-13 took 14.4 min per BP job). Before running: node tools/harness/queue.ts tools/harness/queues/jit-table-4096.json --dry-run; build window, no other queue. Run: node tools/harness/queue.ts tools/harness/queues/jit-table-4096.json --no-smoke. Pass per job: see each note. Read: docs/537 §26 'Open'. After: PLAN.md + docs/537 §26 get the numbers; the model is docs/537 §26 'Model'.",
+  "jobs": [
+    {
+      "id": "bp-jit-t4096-verify",
+      "note": "BP 10 min, c3g bundle on, Mode=2 verify, MaxMethods=4096 CodeKB=8192. Pass: no crash, scriptErrorsMax 0, 0 MISMATCH / 0 'off for the session' / 0 'jit: fault' / no 2048 fallback, jitMethCap=4096 and jitRegionKB=8192 read back (startup counters, after value), jitMismatch 0, jitFaults 0. Read (not gates): jitMethods, jitTableFull (delta), jitFullN, jitFullBytes, jitCodeKB, jitCalls, the 'refusals by reason' lines, largest free MB before -> after in the row.",
+      "asi": "game-copy/ts3native.asi.table4096-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "table4096-1113 pair: feature/monojit-table-4096, ts3native 0.36.254 (0.36.245 + docs/537 §26 T4096: MaxMethods table 4096, ip table 2^17, CodeKB default 8192, counters v196 jitTableFull / jitMethCap), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "fell back to 2048 methods": 0,
+        "jit verify: .* off for the session": 0,
+        "jit: fault": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 8192,
+        "MonoJit.MaxMethods": 4096
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethCap>=4096,@jitRegionKB>=8192,jitMismatch<=0,jitFaults<=0,jitOn>=1",
+      "stopQueueOnFail": true,
+      "regexCases": {
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x3",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Single.IsNaN at word 3"
+          ],
+          "noMatch": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)",
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "fell back to 2048 methods": {
+          "match": [
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+          ]
+        },
+        "jit verify: .* off for the session": {
+          "match": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-jit-t4096-verify",
+      "note": "IP 10 min, c3g bundle on, Mode=2 verify, MaxMethods=4096 CodeKB=8192. Pass: no crash, scriptErrorsMax 0, 0 MISMATCH / 0 'off for the session' / 0 'jit: fault' / no 2048 fallback, jitMethCap=4096 and jitRegionKB=8192 read back (startup counters, after value), jitMismatch 0, jitFaults 0. Read (not gates): jitMethods, jitTableFull (delta), jitFullN, jitFullBytes, jitCodeKB, jitCalls, the 'refusals by reason' lines, largest free MB before -> after in the row.",
+      "asi": "game-copy/ts3native.asi.table4096-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "table4096-1113 pair: feature/monojit-table-4096, ts3native 0.36.254 (0.36.245 + docs/537 §26 T4096: MaxMethods table 4096, ip table 2^17, CodeKB default 8192, counters v196 jitTableFull / jitMethCap), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "fell back to 2048 methods": 0,
+        "jit verify: .* off for the session": 0,
+        "jit: fault": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 8192,
+        "MonoJit.MaxMethods": 4096
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethCap>=4096,@jitRegionKB>=8192,jitMismatch<=0,jitFaults<=0,jitOn>=1",
+      "regexCases": {
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x3",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Single.IsNaN at word 3"
+          ],
+          "noMatch": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)",
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "fell back to 2048 methods": {
+          "match": [
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+          ]
+        },
+        "jit verify: .* off for the session": {
+          "match": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sv-jit-t4096-verify",
+      "note": "SV 10 min, c3g bundle on, Mode=2 verify, MaxMethods=4096 CodeKB=8192. Pass: no crash, scriptErrorsMax 0, 0 MISMATCH / 0 'off for the session' / 0 'jit: fault' / no 2048 fallback, jitMethCap=4096 and jitRegionKB=8192 read back (startup counters, after value), jitMismatch 0, jitFaults 0. Read (not gates): jitMethods, jitTableFull (delta), jitFullN, jitFullBytes, jitCodeKB, jitCalls, the 'refusals by reason' lines, largest free MB before -> after in the row.",
+      "asi": "game-copy/ts3native.asi.table4096-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "table4096-1113 pair: feature/monojit-table-4096, ts3native 0.36.254 (0.36.245 + docs/537 §26 T4096: MaxMethods table 4096, ip table 2^17, CodeKB default 8192, counters v196 jitTableFull / jitMethCap), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "fell back to 2048 methods": 0,
+        "jit verify: .* off for the session": 0,
+        "jit: fault": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 8192,
+        "MonoJit.MaxMethods": 4096
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethCap>=4096,@jitRegionKB>=8192,jitMismatch<=0,jitFaults<=0,jitOn>=1",
+      "regexCases": {
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x3",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Single.IsNaN at word 3"
+          ],
+          "noMatch": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)",
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "fell back to 2048 methods": {
+          "match": [
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+          ]
+        },
+        "jit verify: .* off for the session": {
+          "match": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-jit-t4096-count",
+      "note": "BP 10 min, c3g bundle on, Mode=2 verify + Count=1 (measurement run, not a timing arm; read with node tools/jit-hot.ts --game-count <job ts3native.log> for real methods compiled and calls/s), MaxMethods=4096 CodeKB=8192. Pass: no crash, scriptErrorsMax 0, 0 MISMATCH / 0 'off for the session' / 0 'jit: fault' / no 2048 fallback, jitMethCap=4096 and jitRegionKB=8192 read back (startup counters, after value), jitMismatch 0, jitFaults 0. Read (not gates): jitMethods, jitTableFull (delta), jitFullN, jitFullBytes, jitCodeKB, jitCalls, the 'refusals by reason' lines, largest free MB before -> after in the row.",
+      "asi": "game-copy/ts3native.asi.table4096-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "table4096-1113 pair: feature/monojit-table-4096, ts3native 0.36.254 (0.36.245 + docs/537 §26 T4096: MaxMethods table 4096, ip table 2^17, CodeKB default 8192, counters v196 jitTableFull / jitMethCap), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "fell back to 2048 methods": 0,
+        "jit verify: .* off for the session": 0,
+        "jit: fault": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1,
+        "^jitcount: end ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\).*Count=1, ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 8192,
+        "MonoJit.MaxMethods": 4096,
+        "MonoJit.Count": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethCap>=4096,@jitRegionKB>=8192,jitMismatch<=0,jitFaults<=0,jitOn>=1,jitLazyCalls>=1000",
+      "regexCases": {
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x3",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Single.IsNaN at word 3"
+          ],
+          "noMatch": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)",
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "fell back to 2048 methods": {
+          "match": [
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+          ]
+        },
+        "jit verify: .* off for the session": {
+          "match": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jitcount: end ": {
+          "match": [
+            "jitcount: end save #3, 6000 lines, 561 left out (cap 6000)"
+          ],
+          "noMatch": [
+            "jitcount: begin save #3, 1671 methods, 25228 exit sites, 3196 call sites, 478 mat rows"
+          ]
+        },
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\).*Count=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-jit-t4096-count",
+      "note": "IP 10 min, c3g bundle on, Mode=2 verify + Count=1 (measurement run, not a timing arm; read with node tools/jit-hot.ts --game-count <job ts3native.log> for real methods compiled and calls/s), MaxMethods=4096 CodeKB=8192. Pass: no crash, scriptErrorsMax 0, 0 MISMATCH / 0 'off for the session' / 0 'jit: fault' / no 2048 fallback, jitMethCap=4096 and jitRegionKB=8192 read back (startup counters, after value), jitMismatch 0, jitFaults 0. Read (not gates): jitMethods, jitTableFull (delta), jitFullN, jitFullBytes, jitCodeKB, jitCalls, the 'refusals by reason' lines, largest free MB before -> after in the row.",
+      "asi": "game-copy/ts3native.asi.table4096-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "table4096-1113 pair: feature/monojit-table-4096, ts3native 0.36.254 (0.36.245 + docs/537 §26 T4096: MaxMethods table 4096, ip table 2^17, CodeKB default 8192, counters v196 jitTableFull / jitMethCap), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-IP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "fell back to 2048 methods": 0,
+        "jit verify: .* off for the session": 0,
+        "jit: fault": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1,
+        "^jitcount: end ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\).*Count=1, ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 8192,
+        "MonoJit.MaxMethods": 4096,
+        "MonoJit.Count": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethCap>=4096,@jitRegionKB>=8192,jitMismatch<=0,jitFaults<=0,jitOn>=1,jitLazyCalls>=1000",
+      "regexCases": {
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x3",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Single.IsNaN at word 3"
+          ],
+          "noMatch": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)",
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "fell back to 2048 methods": {
+          "match": [
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+          ]
+        },
+        "jit verify: .* off for the session": {
+          "match": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jitcount: end ": {
+          "match": [
+            "jitcount: end save #3, 6000 lines, 561 left out (cap 6000)"
+          ],
+          "noMatch": [
+            "jitcount: begin save #3, 1671 methods, 25228 exit sites, 3196 call sites, 478 mat rows"
+          ]
+        },
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\).*Count=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sv-jit-t4096-count",
+      "note": "SV 10 min, c3g bundle on, Mode=2 verify + Count=1 (measurement run, not a timing arm; read with node tools/jit-hot.ts --game-count <job ts3native.log> for real methods compiled and calls/s), MaxMethods=4096 CodeKB=8192. Pass: no crash, scriptErrorsMax 0, 0 MISMATCH / 0 'off for the session' / 0 'jit: fault' / no 2048 fallback, jitMethCap=4096 and jitRegionKB=8192 read back (startup counters, after value), jitMismatch 0, jitFaults 0. Read (not gates): jitMethods, jitTableFull (delta), jitFullN, jitFullBytes, jitCodeKB, jitCalls, the 'refusals by reason' lines, largest free MB before -> after in the row.",
+      "asi": "game-copy/ts3native.asi.table4096-1113",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111e",
+      "pinReason": "table4096-1113 pair: feature/monojit-table-4096, ts3native 0.36.254 (0.36.245 + docs/537 §26 T4096: MaxMethods table 4096, ip table 2^17, CodeKB default 8192, counters v196 jitTableFull / jitMethCap), parked from native/ts3native/out; ts3fixes = the Sat 11-14 release package rc1111e",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-SV-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "fell back to 2048 methods": 0,
+        "jit verify: .* off for the session": 0,
+        "jit: fault": 0
+      },
+      "logRequire": {
+        "^jit: compiled ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": 1,
+        "^jit: refusals by reason \\(first tick\\)": 1,
+        "^jitcount: end ": 1,
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\).*Count=1, ": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 8192,
+        "MonoJit.MaxMethods": 4096,
+        "MonoJit.Count": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread"
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethCap>=4096,@jitRegionKB>=8192,jitMismatch<=0,jitFaults<=0,jitOn>=1,jitLazyCalls>=1000",
+      "regexCases": {
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1, BoundCall=0x3",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ]
+        },
+        "^jit: refusals by reason \\(first tick\\)": {
+          "match": [
+            "jit: refusals by reason (first tick): none; code region 28 of 4096 KB, 18 methods, 0 refused \"code region full\" asking 0 KB"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH System.Single.IsNaN at word 3"
+          ],
+          "noMatch": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)",
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "fell back to 2048 methods": {
+          "match": [
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "jit: System.Collections.Generic.List`1.get_Capacity refused: method table full (#1 of this reason)"
+          ]
+        },
+        "jit verify: .* off for the session": {
+          "match": [
+            "jit verify: System.Single.IsNaN off for the session (its ret at word 5, 1 mismatches so far)"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 while compiling System.Single.IsNaN: no more compiles this session"
+          ],
+          "noMatch": [
+            "jit: compiled System.Single.IsNaN: 6 positions, 5 native, 1 exits, 357 bytes, lazy body",
+            "jit: no address space for MaxMethods=4096 with the code region (8192 KB): fell back to 2048 methods and 4096 KB (4096 KB)"
+          ]
+        },
+        "^jitcount: end ": {
+          "match": [
+            "jitcount: end save #3, 6000 lines, 561 left out (cap 6000)"
+          ],
+          "noMatch": [
+            "jitcount: begin save #3, 1671 methods, 25228 exit sites, 3196 call sites, 478 mat rows"
+          ]
+        },
+        "OK   mono jit .*code region 8192 KB \\(CodeKB\\), 4096 methods \\(MaxMethods\\).*Count=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=2 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=1, FastCopy=1, Ldsflda=1, BoundCall=0x0"
+          ]
+        }
+      }
+    }
+  ]
+}

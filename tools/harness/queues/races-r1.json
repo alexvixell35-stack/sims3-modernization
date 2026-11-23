@@ -1,0 +1,127 @@
+{
+  "note": "races-r1: docs/data/races-handoff.md R1b (pre-warm at world event 7 + guard witness + worker abort) and R2b/R3a (witness of 37 R2 + 6 R3 words at every cut), ts3native [AutShadow] Races=3 (default 0), Mode R ([AutShadow] Mode=1). Correctness only, no timing (run with --no-smoke). Not run yet; needs the races-r1-1108 pair (game-copy/ts3native.asi.races-r1-1108 + ts3fixes.package.master1108). Gate: 0 crashes, autshadow A1-A3 == 0, no UNEXPECTED witness line, R1 pre-warm line '0 still clear' after every world load; runtime witness lines are data. Run: node tools/harness/queue.ts tools/harness/queues/races-r1.json --no-smoke",
+  "jobs": [
+    {
+      "id": "bp-races-r1",
+      "note": "Repro races-r1-witness, Races=3, Baseline-BP-Spring, 10 min: PASS = 0 crashes, no freeze, no new ScriptError, autshadow A1-A3 == 0 and autshadow_exceptions == 0; log has the R1 pre-warm line with 0 still clear and the R2 baseline line, no UNEXPECTED witness line. Read autshadow r1Calls/r1Fills (how many fills the game had not done by event 7: the R1 'inferred' becomes measured), r1Aborts (must be 0), r2Cuts > 0, r2Runtime lines (which runtime words move after load). Any UNEXPECTED: the word, class and cut go into the handoff status log before the next job.",
+      "asi": "game-copy/ts3native.asi.races-r1-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "pinReason": "races-r1-1108 pair (builds.json): ts3native 0.36.214 (feature/races-r1-r2b: [AutShadow] Races R1b pre-warm + R2b/R3a witness, default off) + ts3fixes.package.master1108 (ts3fixes unchanged on this branch)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Races": 3
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "OK   autshadow races R1 pre-warm: .* 0 still clear": 1,
+        "autshadow races R2 witness: baseline of 43 rows": 1
+      },
+      "logForbid": {
+        "races R2 witness: UNEXPECTED": 0,
+        "FAIL autshadow races": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "repros": [
+            "races-r1-witness"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-races-travel",
+      "note": "Travel leg (handoff R2 game run: one load, one travel): Races=3, Baseline-BP-Spring, travel to France (--stay) first, then 6 min there: PASS as bp-races-r1, with 2 R1 pre-warm lines and 2 R2 baselines (one per world event 7) and no UNEXPECTED line. The return home is not covered here (profile.travel stays); R2c owns the load/travel guard check.",
+      "asi": "game-copy/ts3native.asi.races-r1-1108",
+      "fixesPackage": "game-copy/ts3fixes.package.master1108",
+      "pinReason": "races-r1-1108 pair (builds.json): ts3native 0.36.214 (feature/races-r1-r2b: [AutShadow] Races R1b pre-warm + R2b/R3a witness, default off) + ts3fixes.package.master1108 (ts3fixes unchanged on this branch)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 90,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Races": 3
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "OK   autshadow races R1 pre-warm: .* 0 still clear": 2,
+        "autshadow races R2 witness: baseline of 43 rows": 2
+      },
+      "logForbid": {
+        "races R2 witness: UNEXPECTED": 0,
+        "FAIL autshadow races": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "travel": "france",
+          "fixesOn": "autshadow",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40
+    }
+  ]
+}

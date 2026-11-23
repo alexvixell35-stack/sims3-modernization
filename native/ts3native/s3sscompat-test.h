@@ -64,6 +64,11 @@ static void TestS3ssCompat() {
     assert(m[callAt + kS3cCallE8] == 0xE8 && (DWORD)(uintptr_t)(m + callAt + kS3cCallE8 + 5) + rel == (DWORD)(uintptr_t)S3cThunk);
     assert(g_s3cOrig == m + fnAt);
     assert(!memcmp(m + callAt, kS3cCall, kS3cCallE8) && !memcmp(m + callAt + kS3cCallE8 + 5, kS3cCall + kS3cCallE8 + 5, 6));
+    // 3b. every listed build (same offsets) installs on the same bytes
+    static_assert(sizeof(kS3cBuggy) / sizeof(kS3cBuggy[0]) == 2, "new kS3cBuggy row: check its offsets here");
+    reset();
+    assert(kS3cBuggy[1].call == kS3cBuggy[0].call && kS3cBuggy[1].fn == kS3cBuggy[0].fn && S3cInstall(m, kS3cBuggy[1].sha));
+    assert(g_s3cOrig == m + fnAt);
 
     // 4. S3cFix / S3cThunk: exe-global, live, other-size targets untouched; stale heap target redirected; no WorldManager = skipped
     const volatile DWORD* slot0 = g_s3cWmSlot;
