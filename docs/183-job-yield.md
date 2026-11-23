@@ -156,6 +156,48 @@ None of the three is shown to be the cause of §7.1. They are what the yield pat
 ### 7.5 Run plan (repro `ip-jobyield-strand-storm`)
 
 Twelve 2-min storms, seed 152, the s265 key set (PlayerFirst 0, no new RO clones), interleaved: fix, fix, control, three more times; fix = this build with `JobYield=1`, control = the same build with `JobYield=0` (ts3fixes `jobyield` on in both). Pass: 0 runs with two or more household Sims failing from y 61 (scan `strand=`), `records lost 0`, `back + dropped = parked` at the end of each run, no new script error. Then read: 0 / 8 with the fix against 3 / 24 before is still only p = 0.34 for "fixed", so a pass means "not seen", and the claim needs about 24 clean fix runs (p < 0.05) or a run of the old build that strands with the new `jobyield:` line just before the first failure. If a fix run strands: its `jobyield:` lines before the first `routefail:` at y 61 name the plan; next arm `JobYield=0` + TaskServe / SmoothCut one at a time (the other two keys every stuck run shared).
+## 8. The strand again after the fix (s321): what the log rules out, and the lines that name the answer next time (2026-11-21)
+
+Branch `fix/strand-1121`. Logging only; ts3fixes built, host self-check passes, native part compiled in CI only, NOT RUN in the game. **No cause named.**
+
+### 8.1 What s321 shows
+
+s321 (2-min Isla Paradiso storm, seed 152, asi of `27a222c8`, ts3fixes with the §7 fix, `LandCheckRO` / `ObstructAtRO` / `Blocker2dRO` serving, `DeferObjInsert`, `DiscYield*`): the same picture as s229 / s241 / s265.
+
+- **Start [verified].** The first fail from y 61 is job seq 988, Cristobel, Use Toilet, about sim hour 16.9; a successful household plan of hers is logged at hour 15.17. The fails before it on this lot are ground-floor ones from room 14 to 934.4 / 55 / 1204.5, which runs without a strand have too (s279, s329, s343).
+- **Shape [verified].** 51 `NoPathToDestination` plans from room 11 to y 58 / y 55, four Sims, to the end of the run. 50 are jobs: `plan` 5-39 ms, `host` above 0 in 46 of them, so the planner got as far as asking script about portals (event 59 is its only managed exit, docs/92 §4). One Sim at 934.1 / 61 / 1204.1 (room 0) gets `NoDestinationSpecified` with `0 plans`, is moved to the kitchen by EA's stuck check and fails from room 11 again 840 log lines later.
+- **Not the cause [verified in the log].** The no-path memo (`recorded 0 served 0`, fuzzy `served 0`). A cut or deadline (every job `uncut (exempt)`, 10 s). A step-aside of a household Sim: 14 in the run, all NPCs, the last before the first fail 278 log lines earlier (line 2004 against 2282) (`jobyield:` lines of §7.4), so the §7 leak is not what happened here. A memo answer for a door ask: `DoorShare` and `DoorMemoX` only ever answer "unlocked" (hostcalls.cpp), so they cannot close a stair.
+- **Not shown to be the cause.** The three RO clones: s265 stranded without them, and 1 of 13 (serving) against 0 of 12 (shadow or off) is no difference (Fisher p = 1.0). JobYield: 4 of about 73 runs with it against 0 of about 90 without is p = 0.04, but §7's fix did not end it and no step-aside is near the start.
+
+### 8.2 What can close a stair for a plan [verified in the code, docs/92 §3]
+
+1. A script lock. For a stair the only vanilla one is `PrivacySituation.OnPortalPathPlan`: a portal into the room **its Sim stands in at that moment** (`SyncTarget.RoomId`, read live, not the room the situation started in) is locked for every Sim with an autonomous interaction up to priority Privacy, or a pushed one below UserDirected, unless the situation lets it ignore privacy (`GenericPrivacySituation`: toddlers only). `Sim.OnPortalPathPlan` handles doors, poles, stalls, jumps, elevators, diving boards and ladders, not stairs. A lock like this fits the log (autonomous plans only, script asked in the failing jobs, lasts as long as the situation's Sim stays in the room below) but nothing in the log names a situation.
+2. Native state: the portal's cost, the Sim's age / species mask, the route's forbidden list (all per plan, none set for stairs by household code), the endpoint cell test of `PortalEdgeCost 0x634500` (something standing on a lane end, or a footprint left there), a missing portal, the room graph.
+
+### 8.3 The lines
+
+- **ts3native, every `routefail job:` text** (also the tail of ts3fixes' `routefail:` lines): `door asks N live L locked K discouraged D native I[, first locked portal <owner id> rooms <from>><to>[ native]]`, before the scope word. Counted in the door stub per job (`JobDoor`, worker only): asks answered by the stub, of those the live script calls, answers "locked" and "discouraged", asks that came in already locked by native rules. Not seen: asks of a synchronous plan, and asks with every door switch off (the stub passes them through).
+- **ts3fixes (`StrandLog.cs`, part of `routefaillog`)**, for a failed plan (`NoPathToDestination` / `NoDestinationSpecified`) of an active-household Sim to another level of the lot it stands on; per Sim the first 3, then every 25th:
+  - `routefail strand:` cached level / room against the live lot location of its position, the goal's, current and transition interaction with autonomous flag and priority, the rooms connected to its room (`World.GetConnectedRooms`);
+  - `routefail strand privacy:` each privacy situation subscribed to the lot's portal event: type, its Sim, where that Sim is (cached and live room), what it is doing, and `portals into room R LOCKED|open for this plan` by EA's rule;
+  - `routefail strand link:` each object with a portal component whose lane ends lie on two levels of the way: class, both ends (position, level, room), per lane EA's slot test at both ends without and with Sims, and what stands within 0.75 m of each end. Then always `routefail strand links:` N on the way, the portal objects on the lot, and every level link on the lot by class and levels.
+  - `routefail strand rooms:` (a Sim's first line) the chain of rooms from its room to the goal's and back, walked over `World.GetConnectedRooms`, and `World.ArePointsConnectedByLand` for the two points.
+
+**Changed 2026-11-21 (branch `fix/strand2-1121`, built, NOT RUN).** The first version listed `Stairs` objects only. s372 showed that is not enough: a household plan from level 1 (room 9) to level 2 (room 11) of Colonial Casa got `no stair between level 1 and 2 (1 on the lot)`, the one `Stairs` being level 0 room 2 to level 1 room 9, while the room graph lists 11 next to 9. So the link the third-floor strands lose is not a `Stairs`. The classes that add a level-to-level portal [verified, every `PortalComponent` subclass and `Route.Add*Portal*` call in the decompile]: `Stairs` (`AddStairPortals`), `StaircaseSpiral` (one `Route.AddPortal` from `RoutingSlot_0` to `RoutingSlot_1`, AnimateThrough, human age mask, cost 2, plus pet variations; removed and re-added by `ValidatePortals` on reset and on leaving build mode), `Ladder`, `FirefighterPole`, `ElevatorDoors` / `ElevatorInterior`, `TubeElevator`. Which of them stands on this lot is **not known yet**: the new lines find links by component, not by class, and name it. EA has no script call for "is there a path between two rooms"; `World.GetConnectedRooms` (neighbours) is the only room-graph call, so the line walks it.
+
+### 8.4 Reading the next strand
+
+| The lines say | Then |
+|---|---|
+| `locked` > 0 with `rooms 11>R`, and a privacy line `portals into room R LOCKED` | EA's privacy lock; the line names the situation's Sim and what it is doing for hours. Next: why that situation does not end (its Sim's interaction) |
+| `locked` > 0, no privacy line locks | another `Lot.PortalPathPlan` handler (a mod) or the rule read wrongly: the first locked portal's owner id names the object |
+| `native` > 0 for the stair's owner id | cost / mask / forbidden list: read the route's options |
+| `door asks` > 0, `locked 0`, a link's lane end not `free` | the endpoint test: the `near` list names the object, or nothing stands there (a footprint left behind: then `[Discourage]` deferral is the suspect) |
+| `door asks 0`, `host 0` | the search never costed a portal: room graph or missing portal; `strand rooms` says whether the graph still has the chain, `strand links` whether the object is still there |
+| cached and live level / room differ | the Sim's room was not updated after its last move |
+
+Checks: `tools/selftest/strandlog` (which plans, how often, the privacy rule, the stair filter), `asklent-test.h` (the stub's counts over live, memo and locked answers), `plandeadline-test.h` (the text, the scope word still last for `unseen-scorecard.ts`).
+
 ## 9. The strand's answer: Sims standing on the ladder's ends (`ladderfootshoo`, 2026-11-21, built, default off, forced case run in game)
 
 §7 (household stuck upstairs in JobYield storms, PR #632) and §8 (the `routefail strand:` log lines that named this cause) live on the

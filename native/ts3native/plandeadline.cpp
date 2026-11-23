@@ -455,6 +455,7 @@ struct RfRec {
     LONG us, planUs, hostUs, capAtUs, tailUs, capUs, wouldUs, nodes, plans, res, kdKind, uf, scope, cutMask, ia;
     const char* why;  // the cut's owner, NULL = uncut
     u64 follower;
+    JobDoor door;     // docs/183 §8: the job's portal lock asks
 };
 static const int kRfN = 64;
 static RfRec g_rfJobs[kRfN];
@@ -482,11 +483,18 @@ static void RfText(const RfRec& r, char* b, size_t n) {
     if (r.why) SFmt(dl, "cut (%s, mask %ld)", r.why, r.cutMask);
     else if (r.wouldUs) SFmt(dl, "uncut (exempt)");
     else SFmt(dl, "uncut");
+    // docs/183 §8: which answer left a household with no way down. "locked" = event 59 answers 1 (a script lock: a privacy
+    // situation is the only vanilla one for a stair), "native" = asks that came in already locked (cost, age / species mask,
+    // the route's forbidden list). The scope word stays last (unseen-scorecard.ts RE_JOB ends on it).
+    char door[96] = "";
+    const JobDoor& d = r.door;
+    if (d.locked) SFmt(door, ", first locked portal %08lX%08lX rooms %lu>%lu%s", d.first[1], d.first[0], d.first[2], d.first[3], d.first[4] ? " native" : "");
     _snprintf_s(b, n, _TRUNCATE, ", job seq %lu %ld ms result %ld, %s, kind %s deadline %ld ms, follower %016I64X, plan %ld host %ld other %ld ms, "
-                "capAt %ld tail %ld ms, nodes %ld in %ld plans, %s", r.seq, r.us / 1000, r.res, dl, r.kdKind ? kKdName[r.kdKind - 1] : "off",
+                "capAt %ld tail %ld ms, nodes %ld in %ld plans, door asks %ld live %ld locked %ld discouraged %ld native %ld%s, %s", r.seq, r.us / 1000,
+                r.res, dl, r.kdKind ? kKdName[r.kdKind - 1] : "off",
                 (r.capUs ? r.capUs : r.wouldUs) / 1000, r.follower, r.planUs / 1000, r.hostUs / 1000, (r.us - r.planUs - r.hostUs) / 1000,
-                r.capAtUs < 0 ? -1 : r.capAtUs / 1000, r.tailUs < 0 ? -1 : r.tailUs / 1000, r.nodes, r.plans,
-                r.uf || r.scope == 2 ? "unseen" : r.scope == 3 ? "seen npc" : r.scope == 1 ? "seen" : "scope unknown");
+                r.capAtUs < 0 ? -1 : r.capAtUs / 1000, r.tailUs < 0 ? -1 : r.tailUs / 1000, r.nodes, r.plans, d.asks, d.live, d.locked, d.discouraged,
+                d.nativeLocked, door, r.uf || r.scope == 2 ? "unseen" : r.scope == 3 ? "seen npc" : r.scope == 1 ? "seen" : "scope unknown");
 }
 // "KD NPC CEILING CUT" lines, 30 a minute; a lost race between the worker and the sim costs a line at most
 static bool KdNpcLineOk() {
@@ -524,13 +532,14 @@ static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s
     r.kdKind = t_kdKind, r.uf = j->uf, r.scope = j->kdScope, r.cutMask = cutMask, r.follower = j->kdId;
     r.why = !capped ? NULL : t_kdExemptUs ? "KdSeenCeilMs" : j->uf ? "UnseenFallback" : t_kdKind ? "KindDeadlines" : j->probe ? "PlanDeadlineMs" : "FbJobCapMs";
     r.ia = j->rfIa;
+    r.door = t_jobDoor;
     char ia[kRfIaLen + 4];
     AcquireSRWLockExclusive(&g_rfLock);
     g_rfJobs[g_rfNext++ % kRfN] = r;
     RfIaText(r.ia, ia, sizeof(ia));
     ReleaseSRWLockExclusive(&g_rfLock);
     const bool unseen = r.uf || r.scope == 2;
-    char t[320];
+    char t[480];
     RfText(r, t, sizeof(t));
     if (t_kdExemptUs) Max(&ts3native_counters.kdExemptMaxUs, us);
     if (t_kdExemptUs && us >= t_kdExemptUs) {

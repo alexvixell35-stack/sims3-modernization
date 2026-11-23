@@ -86,7 +86,7 @@ namespace Ts3Fixes
             nextPass = blockedCycle + (passEvery < 1 ? 1 : passEvery);
         }
 
-        // How a wait with blocked cycles ended. gaveUp: another rule ended the wait early (standwaitlocked on the combo branch; StandWait.cs passes false).
+        // How a wait with blocked cycles ended. gaveUp: StandWaitLocked.cs ended it at a privacy lock (docs/686 §7).
         public static int EndKind(int blockedCycles, bool yielded, bool passed, bool planOkAtEnd, int lastPushCycle, float elapsedMin, float durationMin, bool gaveUp)
         {
             if (blockedCycles <= 0) return kEndNone;

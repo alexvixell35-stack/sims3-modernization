@@ -552,7 +552,7 @@ namespace Ts3Fixes
             ApplyUnseenLoopSkipStep();   // docs/632 option (a), after WakePark: its WaitForExitReason hook chains under ours
             ApplyAutLiveB14();
             ApplyHitchCause();
-            ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
+            ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, and §7 standwaitlocked / standwaitlockedhh (StandWaitLocked.cs), off by default (counts either way)
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
@@ -1634,6 +1634,10 @@ namespace Ts3Fixes
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
+        // [4340-4351] standwaitlocked (StandWaitLocked.cs, docs/686 §7; 4330-4339 left free): blocked stand-and-wait cycles whose plan failed on a
+        // locked destination portal / waits with one / of the cycles privacy-locked for the Sim / waits with one / waits ended by the fix (on) / would end (off) /
+        // exempt waits (household without standwaitlockedhh) / waits at another lock (kept) / timeout cycles left of the ended waits / privacy waits that ran to
+        // the timeout / privacy waits whose lock ended while the Sim waited / errors.
         const int kCounterSlots = 4470;
         static int[] sCountersCache;
         static int[] PatchCounters()
@@ -2113,6 +2117,8 @@ namespace Ts3Fixes
                 case "aptpossess": return Instantiator.kAptPossess;
                 case "firedoorkeep": return Instantiator.kFireDoorKeep;
                 case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
+                case "standwaitlocked": return Instantiator.kStandWaitLocked;  // StandWaitLocked.cs (docs/686 §7): a stand-and-wait at a privacy-locked room ends after kStandWaitLockedCycles cycles, off
+                case "standwaitlockedhh": return Instantiator.kStandWaitLockedHousehold;  // StandWaitLocked.cs (docs/686 §7): standwaitlocked for household and selected Sims too, off
                 case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
                 case "sharelanes": return Instantiator.kShareLanes;  // ShareLanes.cs (docs/686 §8): a stair, door, gate or ladder lane held from the other end is shared; a portal closed by standing Sims is tried without people at once, off
                 case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off

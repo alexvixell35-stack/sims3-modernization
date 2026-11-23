@@ -3747,6 +3747,11 @@ static __declspec(thread) LONG t_fbCapUs, t_fbCapHit;
 // for its world A* nodes), when the cap fired, and the job's Route_PlanLocked / managed-call time. t_jobT0 0 = no foreign job
 static __declspec(thread) LONGLONG t_fbDeadline, t_jobT0, t_jobCapAt;
 static __declspec(thread) LONG t_jobPlanUs, t_jobHostUs, t_jobNodes, t_jobPlans;
+// docs/183 §8: the job's portal lock asks (event 59), counted by the door stub (hostcalls.cpp HcDoorEnter) and printed on the
+// job's "routefail job:" text (plandeadline.cpp RfText). first[] = the first "locked" answer: portal owner id lo / hi, room
+// from, room to, initialLocked. Worker thread only; an ask the stub passes through unanswered (every door switch off) is not seen.
+struct JobDoor { LONG asks, live, locked, discouraged, nativeLocked; DWORD first[5]; };
+static __declspec(thread) JobDoor t_jobDoor;
 // docs/163 §10 (stuckcheckcap): the worker runs a stuck-check probe job, cut at PlanDeadlineMs like a foreign sync plan
 static __declspec(thread) LONG t_scProbe;
 // P6 phase split (docs/94 §24.7, p5.cpp P6JobBegin / P6JobEnd), worker: the armed Route.Plan job running on this thread
@@ -4781,6 +4786,7 @@ static void ServeAsync() {
         t_jobT0 = t0.QuadPart;  // docs/197 §7: every job, routefail logging reads its split (the clock only, nothing branches on it)
         t_jobCapAt = 0;
         t_jobPlanUs = t_jobHostUs = t_jobNodes = t_jobPlans = 0;
+        t_jobDoor = JobDoor();
         t_pcPlans = t_pcCapped = t_pcPlanUs = t_pcHostUs = 0;
         t_ufHostLateQ = 0;
         t_fbCapHit = 0;

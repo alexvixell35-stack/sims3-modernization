@@ -784,9 +784,29 @@ static void TestPlanDeadline() {
         t_kdKind = 1, t_kdExemptUs = 250000;
         RfJobNote(&e, false, 300000, sp, 0, 0);
         assert(!t_kdExemptUs);
-        char rf[320];
+        char rf[480];
         RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
         assert(strstr(rf, "uncut (exempt)") && strstr(rf, "300 ms result 16") && strstr(rf, "deadline 250 ms") && strstr(rf, "scope unknown"));
+        {   // docs/183 §8: the job's portal lock asks on its text; the scope word stays the last field
+            const JobDoor sDoor = t_jobDoor;  // whatever an earlier section's door asks left
+            t_jobDoor = JobDoor();
+            RfJobNote(&e, false, 300000, sp, 0, 0);
+            RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+            assert(strstr(rf, "door asks 0 live 0 locked 0 discouraged 0 native 0, scope unknown"));
+            const JobDoor jd = {5, 3, 2, 1, 1, {0x5429FBA9, 0x374A0055, 11, 6, 0}};
+            t_jobDoor = jd;
+            RfJobNote(&e, false, 300000, sp, 0, 0);
+            RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+            assert(strstr(rf, "door asks 5 live 3 locked 2 discouraged 1 native 1, first locked portal 374A00555429FBA9 rooms 11>6, scope unknown"));
+            const char* const end = rf + strlen(rf);
+            assert(end - rf > 13 && !strcmp(end - 13, "scope unknown"));
+            t_jobDoor.first[4] = 1;
+            RfJobNote(&e, false, 300000, sp, 0, 0);
+            RfAppend("routefail: x, Plan async No, route 25ABCDEF", rf, sizeof(rf));
+            assert(strstr(rf, "rooms 11>6 native, scope unknown"));
+            t_jobDoor = sDoor;
+            RfJobNote(&e, false, 300000, sp, 0, 0);
+        }
         RfAppend("gohere plan: Plan sync No, route 25ABCDEF", rf, sizeof(rf));
         assert(!rf[0]);
         RfAppend("routefail: x, route 25ABCDE0", rf, sizeof(rf));

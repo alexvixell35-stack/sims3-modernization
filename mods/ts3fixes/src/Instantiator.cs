@@ -389,6 +389,9 @@ namespace Ts3Fixes
         [Tunable] public static int kStandWaitPassEvery = 3;  // blocked cycles between two such plans
         [Tunable] public static float kStandWaitPassMinutes = 5f;  // sim-minutes of the game's ignore-obstacles timer after a pass
         [Tunable] public static int kStandWaitLogLines = 300;  // standwaitlog lines per session
+        [Tunable] public static bool kStandWaitLocked = false;  // standwaitlocked (docs/686 §7): a blocked obstacle stand-and-wait whose destination room is privacy-locked for the Sim ends after kStandWaitLockedCycles cycles the way the game's own timeout ends it (route failed), instead of standing out the 20 sim-minutes
+        [Tunable] public static bool kStandWaitLockedHousehold = false;  // standwaitlockedhh: standwaitlocked for household and selected Sims too (never a player's own order: the game does not privacy-lock those)
+        [Tunable] public static int kStandWaitLockedCycles = 2;  // privacy-locked blocked cycles in a row before the wait ends (0 = never; a cycle is about 1.6 sim-minutes)  // standwaitlog lines per session
         [Tunable] public static bool kShareLanes = true;   // sharelanes (docs/686 §8): a lane of stairs, a door, a gate or a ladder that another Sim holds from the other end is given to the arriving Sim as well (the game shares a lane only in one direction and sends the Sim to a waiting spot for up to 20 sim-minutes); a stand-and-wait whose plan calls a portal locked plans without people at once
         [Tunable] public static bool kShareLanesHousehold = false;  // sharelaneshh: sharelanes for household and selected Sims too, as the arriving Sim and as a Sim that holds the lane
         [Tunable] public static bool kLadderShare = true;   // laddershare (docs/686 §8): a ladder climb does not wait for its turn in the ladder's one-climber line; Sims climb at the same time and through each other

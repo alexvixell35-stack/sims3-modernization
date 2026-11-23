@@ -202,11 +202,16 @@ static void TestAskLent() {
     t_hcScope = 2;  // an unseen job: the memo may answer it (household rule cases below)
     LONG c0 = g_hcFakeCalls;
     t_hcJob = 10, g_hcFakeAns = 2;
+    t_jobDoor = JobDoor();  // docs/183 §8: the job's asks for its "routefail job:" text (the worker clears it per job)
     assert(HcAsk(400) == 2 && k.dmxClear == 1 && k.dmxMiss == 1 && g_hcFakeCalls == c0 + 1);  // flip clears, miss, kept
+    assert(t_jobDoor.asks == 1 && t_jobDoor.live == 1 && !t_jobDoor.locked && t_jobDoor.nativeLocked == 1);
     t_hcJob = 11, g_hcFakeAns = 1;
     assert(HcAsk(400) == 2 && HcAsk(400, 0x77770000) == 2 && k.dmxHit == 2 && g_hcFakeCalls == c0 + 1);  // other job: memo
+    assert(t_jobDoor.asks == 3 && t_jobDoor.live == 1 && !t_jobDoor.locked);  // a memo answer is an ask, not a live one
     t_hcJob = 12;
     assert(HcAsk(401) == 1 && k.dmxMiss == 2);  // "locked": asked, not kept
+    assert(t_jobDoor.asks == 4 && t_jobDoor.live == 2 && t_jobDoor.locked == 1 && t_jobDoor.first[0] == 9 && !t_jobDoor.first[1] &&
+           t_jobDoor.first[2] == 3 && t_jobDoor.first[3] == 4 && t_jobDoor.first[4] == 1);  // the first locked: portal 9, rooms 3 > 4
     t_hcJob = 13;
     assert(HcAsk(401) == 1 && k.dmxMiss == 3 && g_hcFakeCalls == c0 + 3);
     k.snIc[14]++;  // SetPortalLockStatus: the row no longer holds

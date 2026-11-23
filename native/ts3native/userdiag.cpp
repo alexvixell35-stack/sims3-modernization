@@ -784,7 +784,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
             if (!strncmp(g_udTxt, "rfia: ", 6)) { g_udTxtN = 0; RfIaName(g_udTxt); return 1; }  // docs/226: a routefail interaction name, not logged
             if (!strncmp(g_udTxt, "routefail", 9) || !strncmp(g_udTxt, "gohere", 6)) {  // docs/197 §7: own cap (disk guard only), the job's fields appended
                 static LONG s_rfLines;
-                char job[320];
+                char job[480];
                 RfAppend(g_udTxt, job, sizeof(job));
                 if (s_rfLines++ < 50000) Log("ts3fixes: %s%s", g_udTxt, job);
                 g_udTxtN = 0;

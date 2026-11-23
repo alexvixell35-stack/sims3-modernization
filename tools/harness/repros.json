@@ -116353,6 +116353,96 @@
     ]
   },
   {
+    "id": "standwaitlocked-check",
+    "bug": "A Sim on its way to a room that goes private (toilet, shower, bath, woohoo) and then meets an obstacle stands outside the door for EA's whole obstacle stand-and-wait (20 sim-min in the tuning): every cycle's replan fails with DestinationPortalLocked and the cycle handler keeps waiting, while a route planned to that room from a standstill fails at once (docs/686 §7; storms s294-s365)",
+    "fix": "ts3fixes StandWaitLocked.cs: standwaitlocked (+ standwaitlockedhh for household and selected Sims), default off, docs/686 §7",
+    "save": "any world (pure check)",
+    "note": "UNVERIFIED (2026-11-21, offline only, never run). StandWaitLockedCheck 'run' evaluates the privacy-lock rules with controls (read-only); 'result' shows the counters 4340-4351 and the last wait's line; 'lot' lists the privacy situations on the selected Sim's lot. No forced repro: the wait needs a room going private while a Sim is on its way and an obstacle on that way; storms with standwaitlog show it (docs/686 §7.5).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitlocked": false,
+          "standwaitlockedhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitLockedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitLockedCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitlocked": true,
+          "standwaitlockedhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitLockedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitLockedCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitlocked": false,
+          "standwaitlockedhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitlocked": false,
+          "standwaitlockedhh": false,
+          "standwaitlog": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
