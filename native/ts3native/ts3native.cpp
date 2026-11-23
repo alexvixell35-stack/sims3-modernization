@@ -3531,6 +3531,7 @@ static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
 static void UbLogCounters();   // unseenband.cpp (docs/322)
 static void PccLogCounters();  // plancand.cpp (docs/644)
+static void FmLogCounters();   // floodmemo.cpp (docs/667)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 // docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
@@ -3623,6 +3624,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     PccLogCounters();  // docs/644 (nothing until a part is on)
+    FmLogCounters();   // docs/667 (nothing until FloodMemo is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
             "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
@@ -4384,7 +4386,9 @@ static void ServeInvoke(int site) {
     SetEvent(g_invDone);
 }
 
-// docs/644 (plancand.cpp PCC_HOST): the candidate split's host frame (the worker's wait in Proxy, or the script itself on the sim thread)
+// docs/667: a managed call ran on this thread (floodmemo.cpp drops its records: the script may have changed routing inputs);
+// the candidate split's host frame (plancand.cpp PCC_HOST: the worker's wait in Proxy, or the script itself on the sim thread)
+static __declspec(thread) LONG t_fmHostSeq;
 static bool PccHostEnter(const void* mark);
 static void PccHostLeave(const void* mark);
 // [RouteJobPhases] (routephases.cpp, docs/150 §7): job and host-wait frames on the worker
@@ -4439,6 +4443,7 @@ static void* Proxy(InvokeJob& v) {
 static void* __cdecl InvokeHook(void* method, void* obj, void** params, void** exc) {
     QlSharedTrip(SLD_MANAGED);
     if (t_snapRun) P4Abort(P4_AB_MANAGED);  // P4 tripwire (§12.4.3): served as without us so the game does not hang
+    t_fmHostSeq++;  // docs/667
     if (!ForCaller()) return g_invokeOrig(method, obj, params, exc);
     InvokeJob v = {{method, obj, params, exc}, NULL, NULL};
     return Proxy(v);
@@ -4448,8 +4453,9 @@ static void* __cdecl InvokeHook(void* method, void* obj, void** params, void** e
 static void* __fastcall HostCallHook(void* self, void* edx, void* out, void* a2, void* a3, void* a4) {
     QlSharedTrip(SLD_MANAGED);
     if (t_snapRun) P4Abort(P4_AB_MANAGED);
+    t_fmHostSeq++;  // docs/667
     const void* const mark = _AddressOfReturnAddress();
-    const bool timed = PccHostEnter(mark);  // docs/644 CandidateSplit: split column "host" (false outside a planner call)
+    const bool timed = PccHostEnter(mark);  // docs/667 §2: split column "host" (false outside a planner call)
     void* r;
     if (!ForCaller()) {
         r = g_hostCallOrig(self, edx, out, a2, a3, a4);
@@ -6790,6 +6796,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plandeadline.cpp: t_pd.scope)
 #include "smoothcut.cpp"   // docs/676 §15: [WorldPrecompute] SmoothCut (no dependencies beyond the helpers above)
 #include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
+#include "floodmemo.cpp"   // docs/667: [RouteSpeed] FloodMemo (after routespeed.cpp: the Q clear stub; nopathmemo.cpp: NpmCmdHandle; plancand.cpp: the cell A* stubs)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
 #include "thumbstall.cpp"  // [ThumbStall]: timeout for state 0x11 of the Sim thumbnail queue (EXPERIMENT, off)
@@ -7071,6 +7078,7 @@ static void Run(HMODULE self) {
         InstallSmoothCut(ini);   // docs/676 §15: one call site of its own (0x6676CE), nobody else's
         InstallWorkerHold(ini);  // docs/673: after InstallPlanCand (g_pccSplit) and [RouteAsync] (g_lockOrig)
         InstallWorldPre(ini);    // docs/676: after ApplyWaterJps (the jump hook), InstallPlanCand and InstallTailUnlock (it chains its sites)
+        InstallFloodMemo(ini);   // docs/667: after InstallPlanCand (cell A* entry hook, loop stub) and InstallRouteSpeed
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install

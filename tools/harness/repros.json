@@ -116582,6 +116582,94 @@
     ]
   },
   {
+    "id": "ip-floodmemo-crowd",
+    "bug": "docs/667 §1, §3: a hierarchical plan that cannot reach its goal runs the in-room cell A* 0x61E500 once or twice per candidate and each search floods the same closed region to an empty open list: failed sync plans of 290-550 ms with cell 290-500 ms over 95-136 searches (Isla Paradiso 2026-11-19: 5 identical plans in the first 23 min of s140, 54 of one houseboat Sim in phase-20261119-2149); failed plans' cell time was 17,477 ms of 27,760 ms on 2026-11-19 (docs/663 §1)",
+    "fix": "ts3native [RouteSpeed] FloodMemo (default 0): a failed flood's closed cells are kept per search context until Q's table clear, a routing write or a managed call; a later search that starts inside them with no goal linked to them leaves through the game's own failure exit at its first pop (docs/667 §4). Also the split's new host column (docs/667 §2)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static + clang syntax check + Linux host test, 2026-11-19): never run. Job ini must have [RouteSpeed] FloodMemo=2 (shadow: hooks installed, every search runs), [RouteAsync] Enabled=1 and [RouteJobPhases] CandidateSplit=1 CandidateSplitLogMs=100 (per-plan cell ms and the host column); [RouteSnap] counting is turned on by the FloodMemo key. Three arms in one load: the first crowd pass runs with floodmemo 0 (off), then the loop alternates shadow (2, its 'off' firings) and serve (1, its 'on' firings) by export (native_set floodmemo). Read per arm: 'route candidate split' lines with code 5 (cell ms and calls per failed plan), the 'route speed: flood memo' line (hits, stores, managed-call resets, checks, mismatch, saved ~ms) and hitches >= 200 ms led by a failed sync plan. The off pass must show failed plans with cell >= 100 ms, else the crowd did not reach a closed region (rerun, or use a houseboat household). Same crowd as ip-neighbourmemo-crowd.",
+    "expect": "shadow arms: fmChecks > 0 and fmMismatch 0, no FLOOD MEMO MISMATCH line. on arms: fmHits > 0, failed plans' cell ms per plan well below the off pass (one or two floods per plan instead of one per candidate), route results (ufplansplit codes, routefail lines, stuck Sims) unchanged; no crash",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "floodmemo": 0
+        },
+        "waitS": 1,
+        "note": "off arm: the memo looks at nothing"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 180,
+        "note": "off pass: 3 counter lines without the memo"
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "floodmemo": "$on:1:2"
+          },
+          "waitS": 1,
+          "note": "arm: on = 1 serve, off = 2 shadow"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 180,
+          "note": "unseen townies route across the island; 3 minutes = 3 counter lines per arm"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "floodmemo": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

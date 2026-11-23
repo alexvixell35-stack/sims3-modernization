@@ -13443,6 +13443,7 @@ static void TestNoPathMemoStub() {
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
 #include "plancand-test.h"  // TestPlanCand ([RouteAsync] CandidateCut / WaterGoalCheck, CandidateSplit, docs/644)
+#include "floodmemo-test.h"   // TestFloodMemo ([RouteSpeed] FloodMemo, docs/667)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
@@ -15055,6 +15056,7 @@ int main(int argc, char** argv) {
     TestDoorShare();   // docs/674
     TestSmoothCut();   // docs/676 §15
     TestPlanCand();   // docs/644
+    TestFloodMemo();   // docs/667
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();
