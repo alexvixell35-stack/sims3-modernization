@@ -3506,6 +3506,7 @@ static volatile LONG64 g_nextLog;
 
 static void PrLog();  // planrepeat.cpp
 static void EoLogCounters();  // earlyout.cpp
+static void NpmLogCounters();  // nopathmemo.cpp (docs/643)
 static void MwLogCounters();  // movedwait.cpp
 static void P6wLogCounters();  // p6wait.cpp
 static void KdLogCounters();   // plandeadline.cpp (docs/197)
@@ -3608,6 +3609,7 @@ static void MaybeLogCounters(ULONGLONG now) {
             c.avFb[7], c.avFb[8], c.avFb[9], c.avTripAv, c.avShadowRuns, c.avShadowMismatch, c.avShadowMismatchB,
             c.avShadowQueryMismatch, c.avShadowOrder, c.avShadowSimScan, c.avSimWriteInRo);
     if (c.eoReady) EoLogCounters();
+    NpmLogCounters();  // docs/643: one line when [RouteAsync] NoPathMemo is on
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
     RsLogCounters();   // docs/663 (nothing until NeighbourMemo is installed)
@@ -5202,10 +5204,15 @@ static void PrEnd(bool on, const PrTok& t, const int* outList, u8 r);
 static void WhPlEnter();              // workerhold.cpp (docs/673 §9): the detour's outermost call on the worker in a job
 static void WhPlLeave();
 static void PelPlanEnd(DWORD ret);    // tailunlock.cpp ([RouteAsync] PlanEndLend, docs/673 §9)
+// docs/643 [RouteAsync] NoPathMemo (nopathmemo.cpp): the return address of this thread's current Route_PlanLocked, and whether
+// the memo answered it (read once by the PlanCommon result stub, NpmPcFix)
+static __declspec(thread) DWORD t_npmRet;
+static __declspec(thread) bool t_npmServed;
 // noinline: P10 reads this frame's own return slot (selftest calls it directly)
 static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx, int* outList, int* starts, int* goals,
                                                          DWORD agent, DWORD doPlan, u8* opts, int* out1, int* out2,
                                                          DWORD guidLo, DWORD guidHi) {
+    t_npmRet = (DWORD)(uintptr_t)_ReturnAddress(), t_npmServed = false;  // docs/643 NoPathMemo: which caller, a fresh answer
     if (t_p6.act) t_p6.plans++;  // P6 split: planner calls per job (count only)
     if (t_kdCam == 1) KdCamPlanArgs(starts, goals);
     t_dsPlDepth++;  // docs/674: door asks by part of the job (counting only)
@@ -6373,6 +6380,7 @@ static const u8 kGetOptionPrologue[] = {0x8B, 0x0D, 0xC4, 0x40, 0x1D, 0x01};    
 static const u8 kLockAcquirePrologue[] = {0x53, 0x55, 0x56, 0x8B, 0xF1, 0x80, 0x7E, 0x24, 0x00};  // push ebx/ebp/esi; mov esi,ecx; cmp byte [esi+24h],0
 
 // [RouteAsync]: returns the start value of the switch, or -1 when off.
+static void ReadNoPathMemo(const wchar_t* ini);  // nopathmemo.cpp (docs/643)
 static int ReadRouteAsync(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"RouteAsync", L"Enabled", 0, ini)) { Log("route async disabled (Enabled=0)"); return -1; }
     g_invokePrologueAtLoad = Readable((const void*)(uintptr_t)g_invokeExpect, sizeof(kInvokePrologue)) &&
@@ -6401,6 +6409,7 @@ static int ReadRouteAsync(const wchar_t* ini) {
     g_rlOn = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ReplanLog", 0, ini), 0, 1);  // docs/261 §6 L1, read by ts3fixes (q 10)
     Log("route async: ReplanLog=%d (docs/261, ts3fixes replanlog lines)", g_rlOn);
     ReadPlanDeadline(ini);  // docs/164 §7 (plandeadline.cpp): PlanDeadlineMs / PlanDeadlineOwnMs / FailMemo
+    ReadNoPathMemo(ini);  // docs/643 (nopathmemo.cpp): NoPathMemo / NoPathMemoMinutes
     return Clamp(GetPrivateProfileIntW(L"RouteAsync", L"Mode", 1, ini), 0, 1);
 }
 
@@ -6759,6 +6768,7 @@ static void RewindPoolParkInit(const wchar_t* ini) {
 #include "plancand.cpp"      // docs/644: [RouteAsync] CandidateCut / WaterGoalCheck, [RouteJobPhases] CandidateSplit (after plandeadline.cpp)
 #include "workerhold.cpp"    // docs/673: [RouteJobPhases] HoldProbe (after plancand.cpp: PCC_*, g_pccSplit)
 #include "worldpre.cpp"      // docs/676: [WorldPrecompute] (after waterjps.cpp: WjCtx, WJ_CALL; plancand.cpp: PccScopeNow, g_pccSplit)
+#include "nopathmemo.cpp"    // docs/643: [RouteAsync] NoPathMemo (after earlyout.cpp: CallPlanEo; after plandeadline.cpp: g_kdScope*)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
 #include "jobyield.cpp"      // docs/183 §7: JOBBUSY and the records of a sleeping plan (after plandeadline.cpp: g_kdScope*; unseenfb.cpp)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
@@ -6923,7 +6933,8 @@ static void Run(HMODULE self) {
         // [PlanRepeat] (planrepeat.cpp) counts inside this detour
         const bool budget = CostStubsWanted(ApplyRouteBudget(ini), asyncMode);
         const bool earlyOut = ReadEarlyOut(ini);  // docs/142: its request scope lives in this detour
-        keepLog = InstallPlanDetour(cache, worker, budget, gate || earlyOut || GetPrivateProfileIntW(L"PlanRepeat", L"Enabled", 0, ini));
+        keepLog = InstallPlanDetour(cache, worker, budget, gate || earlyOut || GetPrivateProfileIntW(L"PlanRepeat", L"Enabled", 0, ini) ||
+                                    g_npmOn);  // docs/643: NoPathMemo sits in CallPlan
         if (earlyOut) InstallEarlyOut(keepLog);
         if ((ts3native_counters.fbCapUs || ts3native_counters.fbjcCapUs) && !ts3native_counters.budgetReady)
             Log("FAIL route async: SyncCapMs / FbJobCapMs need the cost-function stubs, no cap");

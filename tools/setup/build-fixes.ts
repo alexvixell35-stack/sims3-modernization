@@ -825,6 +825,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kRhEntryRelax value="True" />
     <kRhEntryRelaxNear value="True" />
     <kPlayerFirst value="True" />
+    <kNpmFuzzy value="False" />
+    <kNpmHousehold value="False" />
     <kZoomTier value="True" />
     <kAutMetaRows value="True" />
     <kBuffRemoveMerge value="True" />

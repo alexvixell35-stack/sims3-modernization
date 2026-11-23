@@ -583,8 +583,8 @@ static void EoLogCounters() {
 }
 
 // Route_PlanLocked on this thread (RunPlan, the worker): the request scope around the budget wrapper
-static u8 CallPlan(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
-                   int* out1, int* out2, DWORD guidLo, DWORD guidHi) {
+static u8 CallPlanEo(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
+                     int* out1, int* out2, DWORD guidLo, DWORD guidHi) {
     if (!ts3native_counters.eoReady || !ts3native_counters.eoMode)
         return CallPlanBudget(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     EoReq saved;
@@ -592,4 +592,15 @@ static u8 CallPlan(void* world, void* edx, int* outList, int* starts, int* goals
     const u8 r = CallPlanBudget(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     EoEnd(saved, r);
     return r;
+}
+
+// docs/643 [RouteAsync] NoPathMemo (nopathmemo.cpp, included later): an NPC's repeat of a failed no-path plan is answered
+// from its memo before the early-out scope; every other plan goes straight to CallPlanEo
+static volatile LONG g_npmOn;
+static u8 NpmPlan(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
+                  int* out1, int* out2, DWORD guidLo, DWORD guidHi);
+static u8 CallPlan(void* world, void* edx, int* outList, int* starts, int* goals, DWORD agent, DWORD doPlan, u8* opts,
+                   int* out1, int* out2, DWORD guidLo, DWORD guidHi) {
+    if (g_npmOn) return NpmPlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    return CallPlanEo(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
 }

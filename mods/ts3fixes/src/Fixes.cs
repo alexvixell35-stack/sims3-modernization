@@ -1616,6 +1616,7 @@ namespace Ts3Fixes
         // or household without its switch) / waits of the planner / second plan succeeded / gave up (timeout, cancel, nobody askable, second plan failed) / asked but
         // not waited for (not the Sim's own task) / a later plan of such a Sim succeeded within 60 sim-minutes / errors. Same slots as the contributor's combo branch
         // (4200-4351 left free; the contributor ranges up to 4089 are full).
+        // [4240-4243] npmfuzzy / npmhousehold (NoPathMemoSwitches.cs, docs/643 §7): op 38 honoured / not honoured / player commands marked / errors. [4244-4249] spare.
         // [4300-4319] standwaitfix (StandWait.cs, docs/686; 4290-4299 left for a parallel branch): obstacle stand-and-waits / blocked cycles (replan failed, the game's
         // early return) / waits with blocked cycles / of them ran to the game's timeout / yields (on) / would yield (off) / push cycles / Sims pushed / would push (off) /
         // mutual cycles / pushes withheld (outranked) / plans without people / passes / would pass (off) / exempt cycles (household without standwaitfixhh) /
@@ -2217,6 +2218,8 @@ namespace Ts3Fixes
                 case "rhentryrelax": return Instantiator.kRhEntryRelax;  // docs/627 §4 (RhEntry627.cs), unseen NPC relaxed rabbit hole entry, off
                 case "rhentryrelaxnear": return Instantiator.kRhEntryRelaxNear;  // docs/627 §4 (RhEntry627.cs), middle tier sub-key, off
                 case "playerfirst": return Instantiator.kPlayerFirst;  // docs/631 §2 (Responsive631.cs), player-ordered routes and replays first, off
+                case "npmfuzzy": return Instantiator.kNpmFuzzy;  // docs/643 §7 (NoPathMemoSwitches.cs), ts3native fuzzy no-path answers, off
+                case "npmhousehold": return Instantiator.kNpmHousehold;  // docs/643 §7 (NoPathMemoSwitches.cs), no-path memo for household scope too, off
                 case "zoomtier": return Instantiator.kZoomTier;  // docs/631 §3 (Responsive631.cs), on-screen but too small counts as off screen for tier 2, off
                 case "tipsnpcend": return Instantiator.kTipsNpcEnd;  // docs/613 §3 (StuckJobs83.cs), EA bug fix, off
                 case "barputdownwait": return Instantiator.kBarPutDownWait;  // docs/614 §1 (Scan84.cs), EA bug fix, off
