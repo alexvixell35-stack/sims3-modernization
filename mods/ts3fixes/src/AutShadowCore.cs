@@ -8,6 +8,14 @@ namespace Ts3Fixes
     // offline self-test (tools/selftest/autshadow) compiles them alone.
     public static class AutShadowCore
     {
+        // docs/321 H1: room for one more meta object / pair in a request (used < cap); a request that met the cap is marked
+        // capped (it then covers a subset of what the game scores: a go-live search runs the game's own instead)
+        public static bool CapRoom(int used, int cap, ref bool capped)
+        {
+            if (used < cap) return true;
+            capped = true;
+            return false;
+        }
         // Result codes per (meta object, ad): docs/122 §4.2. Filtered = the game's commodity filter drops the ad (not scored
         // by the game either, so never compared or counted).
         public const int kPass = 0, kTestFailed = 1, kSkip = 2, kAbort = 3, kFiltered = -1;

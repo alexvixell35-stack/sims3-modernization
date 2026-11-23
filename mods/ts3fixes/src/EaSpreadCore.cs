@@ -65,6 +65,10 @@ namespace Ts3Fixes
 
         public static bool SliceFull(int items, long elapsedUs, int maxItems, long maxUs) { return items >= maxItems || elapsedUs >= maxUs; }
 
+        // SlicedPass.RunSliceEvery (docs/330): the clock is read after every `every`-th item (never before the first), so a
+        // slice runs at most every - 1 items past maxUs.
+        public static bool ClockDue(int itemsDone, int every) { return every <= 1 || itemsDone % every == 0; }
+
         // The pet pool keeps one alarm handle. EA's callback clears it without removing a pending alarm, so a fire while the
         // stored alarm is still due later comes from a second chain; running it would keep both chains alive (docs/147 §3.1).
         public static bool ExtraPoolFire(float storedAlarmMinutesLeft) { return storedAlarmMinutesLeft > 0f; }
@@ -169,6 +173,20 @@ namespace Ts3Fixes
             int n = 0;
             while (mNext < mItems.Count && (n == 0 || !EaSpreadCore.SliceFull(n, elapsedUs(), maxItems, maxUs)))
             {
+                work(mItems[mNext++]);
+                n++;
+            }
+            return n;
+        }
+
+        // RunSlice that reads the clock only every `every` items (docs/330: one StopWatch call per item was a fifth of
+        // deadrefsweep's samples); the same items in the same order, a slice at most every - 1 items longer.
+        public int RunSliceEvery(Action<T> work, int maxItems, long maxUs, ElapsedUs elapsedUs, int every)
+        {
+            int n = 0;
+            while (mNext < mItems.Count && (n == 0 || !EaSpreadCore.ClockDue(n, every) || !EaSpreadCore.SliceFull(n, elapsedUs(), maxItems, maxUs)))
+            {
+                if (n >= maxItems) break;
                 work(mItems[mNext++]);
                 n++;
             }

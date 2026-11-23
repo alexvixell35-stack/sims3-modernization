@@ -329,6 +329,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0066BFAE, 0x0066D40E},
     {0x0066D110, 0x0066E570},
     {0x0066DC50, 0x0066F0B0},
+    {0x0066E040, 0x00000000},
     {0x0066F6D0, 0x00670BD0},
     {0x0066FB40, 0x00671040},
     {0x0066FD00, 0x00000000},
@@ -344,6 +345,10 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0067244E, 0x00000000},
     {0x0067245A, 0x00000000},
     {0x006729D0, 0x00000000},
+    {0x00672B75, 0x00000000},
+    {0x00672B7D, 0x00000000},
+    {0x00672F5A, 0x00000000},
+    {0x00672F60, 0x00000000},
     {0x00673316, 0x00000000},
     {0x00673330, 0x00000000},
     {0x006733C0, 0x00674930},
@@ -872,18 +877,24 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00B4821B, 0x00000000},
     {0x00B499D0, 0x00000000},
     {0x00B57F20, 0x00B56760},
+    {0x00B5FAB0, 0x00000000},
+    {0x00B5FC5B, 0x00000000},
+    {0x00B5FC60, 0x00000000},
     {0x00B69840, 0x00B680D0},
     {0x00B745A0, 0x00000000},
+    {0x00B74D10, 0x00000000},
     {0x00BFB320, 0x00A8B240},
     {0x00C08C30, 0x00C07080},
     {0x00C094E0, 0x00C07930},
     {0x00C0FD60, 0x00EC0CD0},
     {0x00C0FFEE, 0x00C0FFEE},
+    {0x00C29EE0, 0x00000000},
     {0x00C2A570, 0x00C28AC0},
     {0x00C2A840, 0x00C28D90},
     {0x00C2A896, 0x00C28DE6},
     {0x00C5FA60, 0x00C5EE70},
     {0x00C60D30, 0x00C60100},
+    {0x00C60E70, 0x00000000},
     {0x00C6133B, 0x00000000},
     {0x00C61342, 0x00000000},
     {0x00C6137B, 0x00000000},
@@ -906,6 +917,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00C6A710, 0x00000000},
     {0x00C6A772, 0x00000000},
     {0x00C6AEB0, 0x00C6A230},
+    {0x00C6BBC0, 0x00000000},
     {0x00C6BE53, 0x00C6B1D3},
     {0x00C6C290, 0x00C6B610},
     {0x00C6CD02, 0x00C6C082},
@@ -1449,6 +1461,8 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x01162C88, 0x011B8A78},
     {0x01162D60, 0x011B8B50},
     {0x01162D68, 0x011B8B58},
+    {0x01183538, 0x00000000},
+    {0x0118353C, 0x00000000},
     {0x011835D4, 0x00000000},
     {0x01192324, 0x011E8204},
     {0x011947E4, 0x011EA6C4},
@@ -1777,7 +1791,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1602;
+constexpr int ts3addr_count = 1616;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)
@@ -1898,3 +1912,17 @@ constexpr int ts3addr_count = 1602;
 // unresolved: 0x006734B9 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only probe, docs/100 §13)
 // unresolved: 0x006734C4 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only probe, docs/100 §13)
 // unresolved: 0x0082A0B0 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only probe, docs/100 §13)
+// unresolved: 0x0066E040 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00672B75 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00672B7D no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00672F5A no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00672F60 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00B5FAB0 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00B5FC5B no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00B5FC60 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00B74D10 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00C29EE0 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00C60E70 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00C6BBC0 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x01183538 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x0118353C no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)

@@ -1,0 +1,105 @@
+{
+  "_doc": "Per-mod settings an installer could change so a mod's conflicting part stands aside (docs/328 §7.4). For Apex's setup installer (Apex owns it): the installer shows the player each change and lets them decline it, and changes settings only, never mod files. settings = verified player-controlled options (NRaas setting, ini or tuning option the mod exposes) with mod, build, setting, value, reason, evidence; when = the ts3native / ts3fixes switch state the change applies under (absent = always); kind = recommended (offer it) or optional (offer it only on the stated sign). keep = settings checked and left at their default, with the reason (the installer changes nothing, it may show them). notices = no setting exists; the installer can only tell the player. candidatesChecked = rows where a setting was looked for and none fits. No mod code or data is copied here: names, ids, builds and verdicts only.",
+  "version": 1,
+  "date": "2026-11-22",
+  "settings": [
+    {
+      "mod": "NRaas Overwatch",
+      "builds": "any (setting in its Settings menu, persisted per save)",
+      "setting": "mRecoverMissingSims (Overwatch > Settings > Recover Missing Sims)",
+      "value": false,
+      "default": true,
+      "kind": "recommended",
+      "when": {
+        "switch": "farsimt4",
+        "on": true
+      },
+      "reason": "with far-Sim promotion (farsimt4) on, a Sim our promotion builds can also be rebuilt by Overwatch's missing-Sim recovery (its menu run ignores EA placeholders); off is a second layer behind our placeholder guard. With farsimt4 off: no change.",
+      "evidence": "static, from source (docs/318 Every other NRaas project, Overwatch O5; branch feature/nraas-full-audit-1122)"
+    },
+    {
+      "mod": "NRaas Cupcake",
+      "builds": "any",
+      "setting": "mAutoRestock (Cupcake > Settings > Auto Restock)",
+      "value": false,
+      "default": true,
+      "kind": "optional",
+      "when": {
+        "sign": "a 05:00 sim-time hitch in our hitch numbers on a world with many bakery displays"
+      },
+      "reason": "a daily 05:00 alarm restocks every bakery display in town in one task; size not measured (minor, bounded by display count). Informational: offer only if the hitch shows; the player loses automatic restocking.",
+      "evidence": "static, from source (docs/318 Cupcake row); not measured"
+    }
+  ],
+  "keep": [
+    {
+      "mod": "NRaas Overwatch",
+      "setting": "mStuckCheckV2 (source name; Stuck Check in the menu)",
+      "value": true,
+      "why": "keep on: our hooks already handle its stuck check (docs/318 Every other NRaas project, settings list)"
+    },
+    {
+      "mod": "NRaas Overwatch",
+      "setting": "mStuckCheckReset",
+      "value": true,
+      "why": "keep on: same as Stuck Check"
+    },
+    {
+      "mod": "NRaas Overwatch",
+      "setting": "mInstantationCheck",
+      "value": true,
+      "why": "keep on: our hooks already handle it; it destroys only Sims that EA rules count as away, and the far-Sim promotion design (docs/324) must skip those Sims (docs/318 Overwatch O4)"
+    }
+  ],
+  "notices": [
+    {
+      "mod": "2x Weight and Fitness Integration (Consort)",
+      "mts": 470349,
+      "builds": "the 38 builds for patch 1.63 and older (and the three unnumbered ones), all editions",
+      "rule": "module-old",
+      "text": "This build of 2x Weight and Fitness replaces the game's Sims3GameplaySystems with a copy made for an older patch; game code and other mods that need the 1.67 types break. Install the mod's own 1.66, 1.67 or 1.69 build for your game edition instead.",
+      "reason": "the copy lacks about 600-3,600 of the 11,087 Sims3GameplaySystems types of Steam 1.67; the 1.66 / 1.67 / 1.69 builds lack none (module-current)",
+      "evidence": "static (docs/328 §2 member-set check); in-game check: queue compat-rules-proof-1122 job ip-rules-d-old-consort-off"
+    },
+    {
+      "mod": "Debug Console Command Enabler",
+      "mts": 343068,
+      "builds": "debugenabler 1.2.7 (2009) and its sibling file",
+      "rule": "module-old",
+      "text": "This mod replaces the game's Sims3GameplaySystems with a 2009 copy; most of today's game code is missing from it. Remove it.",
+      "reason": "the copy lacks about 7,300 of the 11,087 Sims3GameplaySystems types of Steam 1.67",
+      "evidence": "static (docs/328 §2); in-game check: job ip-rules-d-old-debug-off"
+    },
+    {
+      "mod": "No Shoo Mod",
+      "mts": 354513,
+      "builds": "NoShooMod_BASEGAME and IndieStone0.5a_PLUSnoShooMod",
+      "rule": "module-old",
+      "text": "This mod replaces the game's Sims3GameplaySystems with a 2009 copy; most of today's game code is missing from it. Remove it.",
+      "reason": "the copy lacks about 7,300 of the 11,087 Sims3GameplaySystems types of Steam 1.67",
+      "evidence": "static (docs/328 §2); in-game check: job ip-rules-d-old-noshoo-off"
+    }
+  ],
+  "candidatesChecked": [
+    {
+      "mod": "Buy Takeout and Order Food at Restaurants",
+      "mts": 413311,
+      "why": "no player setting turns its delivery situation off; the conflict is harmless (docs/328 §7.2)"
+    },
+    {
+      "mod": "Moar Interactions",
+      "mts": 437344,
+      "why": "no verified setting for the visit-with and upgrade situations; their visits are player-directed (household Sims, which our visit fixes leave alone anyway)"
+    },
+    {
+      "mod": "simler90 Gameplay Core Mod",
+      "mts": 659969,
+      "why": "its TuningExtras values live in its own package (a mod-file change, out of scope); our hooks already wrap its 25 changed methods"
+    },
+    {
+      "mod": "University Student Union / Library shell overrides (More Shell Entries)",
+      "mts": 611709,
+      "why": "no setting; its visit Run is the mod's feature"
+    }
+  ]
+}

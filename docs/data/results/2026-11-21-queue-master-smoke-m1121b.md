@@ -1,0 +1,10 @@
+# Queue master-smoke-m1121b 2026-11-21
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/master-smoke-m1121b-2026-11-21.jsonl`.
+
+## 2026-11-21T07:49 UTC, build c36f9f608, jobs bp-m1121-smoke
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-m1121-smoke | 07:49 (15:49) | 3 | **N/A** | N/A: retry: EA package-lock deadlock (docs/539 §13.8), rerun queued as bp-m1121-smoke-retry<br>first attempt (hung): error: cycle.ts --save exit 1<br>first attempt (hung): PASS: repro events fired<br>first attempt (hung): PASS: 0 new script errors (max 0) | - | ? -> ? | - | timing: invalid (job FAIL: exit code ?; noise medium); build: asi 830639419e49 ts3native.asi.m1121b ts3native 0.36.298-m1121b; ts3fixes tuning 33ae3f04e973 ts3fixes.package.m1121b (expected game-copy/ts3fixes.package.m1121b); noise: medium (other apps 19.2% of game CPUs); others on game CPUs 19.2%; clock avg/min 4078/3973 MHz; hang capture: 5 sim stacks [cut: full row in the jsonl] |
+| bp-m1121-smoke-retry | 07:52 (15:52) | 7.1 | PASS | PASS: profile 5 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->2, owspread_types_run 0->40, stuckcheckasync_queued 0->152, stuckcheckasync_run 0->152, etspread_passes 0->1, stuckcheck_noplan 0->117, stuckcheck_notstuck 0->10, stuckcheck_rearmed 0->20, stuckcheck_reset 0->8<br>PASS: repro events fired<br>PASS: 0 new script errors (max 0) | 0 | 1788.8/1705.8/1789.9 -> 2074.1/1990.1/1537.9 | - | timing: invalid (noise medium); build: asi 830639419e49 ts3native.asi.m1121b ts3native 0.36.298-m1121b (log ok); ts3fixes tuning 33ae3f04e973 ts3fixes.package.m1121b (expected game-copy/ts3fixes.package.m1121b); noise: medium (other apps 19.2% of game CPUs); others on game CPUs 19.2%; clock avg/min 3856/3469 MHz; retry: EA package-lock deadlock (docs/539 §13.8) in bp-m1121-smoke [cut: full row in the jsonl]<br>sim ms/s 155.6; p99 73 ms, p99.9 149, max 212, >=300 0, >=1000 0 (2.7 min) |

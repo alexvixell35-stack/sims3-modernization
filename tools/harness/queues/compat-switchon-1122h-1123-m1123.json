@@ -1,0 +1,213 @@
+{
+ "note": "compat-switchon-1122h-1123-m1123 (2026-11-23): compat-switchon-1122h-1123 repinned to master set m1123 (0.36.299-m1123; asi + ini + ts3fixes from game-copy/*.m1123, agent installed by probe-out/queue/chain-m1123.sh). [previous] compat-switchon-1122h-1123 (2026-11-23): compat-switchon-1122g-1123 repinned to build compat-resolve-1122h after the 1122f proof FAIL (store lines). [previous] compat-switchon-1122h-1123 (2026-11-23, Rodney approved): switch-on tests for unseenfbgohere and modquitguard (both default off until these pass; docs/328 §7.5). ts3fixes compat-resolve-1122g, ts3native + ini m1122, mod set compat-resolve-1122f, Bin state apex. Runs after eh-birth-repro-1122f-1123 in chain-compat-resolve-1122f-followups. Correctness only (no timing claim): ON qualification by the rare-fix rule (seen + repro + fix works), not clear-gain.",
+ "jobs": [
+  {
+   "id": "bp-gohere-ab",
+   "note": "[est 18-22 min] unseenfbgohere switch-on test (docs/328 §7.5, Rodney 11-23): BP 10 min play, NRaas GoHere V46 in the set, --ab unseenfbgohere in one load (2-min slices: warm-up on, then off,on,on,off). Pass: 0 script errors, the GoHere eligibility line (only the on side can write it), GoHere precedence lines ok, no refused line; read per side: route fails, unseenfbpre_shortcuts / _no_spot, household route fails / resets (household untouched: TownieUnseen gate, by hand from the row) vs off.",
+   "save": "Baseline-BP",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.compat-resolve-1122h",
+   "releaseDefaults": true,
+   "modSet": "game-copy/mod-sets/compat-resolve-1122f",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 35,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "ab": "unseenfbgohere",
+     "slice": 2,
+     "noSamplers": true,
+     "fixesReport": "unseenfbpre_,unseenfb_"
+    }
+   },
+   "logRequire": {
+    "^ts3fixes: unseenfbgohere: NRaas\\.GoHereSpace\\.Interactions\\.Visit(Community)?LotEx eligible \\(pre\\)$": 1,
+    "^ts3fixes: compat precedence: visit on NRaas\\.GoHereSpace\\.Interactions\\.VisitCommunityLotEx\\.Run \\(NRaasGoHere \\w+\\): ok$": 1,
+    "^ts3fixes: compat precedence: failreplan on NRaas\\.CommonSpace\\.Helpers\\.SimRoutingComponentEx\\.SetRouteOptions \\(NRaasGoHere \\w+\\): ok$": 1
+   },
+   "logForbid": {
+    "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+   },
+   "regexCases": {
+    "^ts3fixes: unseenfbgohere: NRaas\\.GoHereSpace\\.Interactions\\.Visit(Community)?LotEx eligible \\(pre\\)$": {
+     "match": [
+      "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.VisitCommunityLotEx eligible (pre)",
+      "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.VisitLotEx eligible (pre)"
+     ],
+     "noMatch": [
+      "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.VisitCommunityLotEx eligible (finish)",
+      "ts3fixes: unseenfbgohere: NRaas.GoHereSpace.Interactions.GoHereEx eligible (pre)"
+     ]
+    },
+    "^ts3fixes: compat precedence: visit on NRaas\\.GoHereSpace\\.Interactions\\.VisitCommunityLotEx\\.Run \\(NRaasGoHere \\w+\\): ok$": {
+     "match": [
+      "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotEx.Run (NRaasGoHere 1a2b3c4d): ok"
+     ],
+     "noMatch": [
+      "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotEx.Run (NRaasGoHere 1a2b3c4d): refused: already compiled",
+      "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotExX.Run (NRaasGoHere 1a2b3c4d): ok"
+     ]
+    },
+    "^ts3fixes: compat precedence: failreplan on NRaas\\.CommonSpace\\.Helpers\\.SimRoutingComponentEx\\.SetRouteOptions \\(NRaasGoHere \\w+\\): ok$": {
+     "match": [
+      "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentEx.SetRouteOptions (NRaasGoHere 1a2b3c4d): ok"
+     ],
+     "noMatch": [
+      "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentEx.SetRouteOptions (NRaasGoHere 1a2b3c4d): refused: already compiled",
+      "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentExX.SetRouteOptions (NRaasGoHere 1a2b3c4d): ok"
+     ]
+    },
+    "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": {
+     "match": [
+      "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): refused: already compiled"
+     ],
+     "noMatch": [
+      "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): ok"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-modquitguard-on",
+   "note": "[est 6-10 min] modquitguard switch-on test (docs/328 §7.5): repro modquitguard-quit, switch on, Quit to Main Menu with Functional Sewing Table installed. Pass: main menu reached, the caught line (TypeInitializationException, N handlers after it run), 0 script errors.",
+   "save": "Baseline-BP",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.compat-resolve-1122h",
+   "releaseDefaults": true,
+   "modSet": "game-copy/mod-sets/compat-resolve-1122f",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 20,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "repro": "modquitguard-quit"
+   },
+   "logRequire": {
+    "^ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, (\\d+|\\?) quit handler\\(s\\) after it run$": 1,
+    "^ts3fixes: compat precedence: modquitguard on Lyralei\\.GlobalOptionsSewingTable\\.OnWorldQuit \\(GlobalOptionsSewingTable \\w+\\): ok$": 1
+   },
+   "logForbid": {
+    "^ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown$": 0,
+    "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+   },
+   "regexCases": {
+    "^ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, (\\d+|\\?) quit handler\\(s\\) after it run$": {
+     "match": [
+      "ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, 7 quit handler(s) after it run",
+      "ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, ? quit handler(s) after it run"
+     ],
+     "noMatch": [
+      "ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown",
+      "ts3fixes: modquitguard: caught NullReferenceException in a mod quit handler, 7 quit handler(s) after it run"
+     ]
+    },
+    "^ts3fixes: compat precedence: modquitguard on Lyralei\\.GlobalOptionsSewingTable\\.OnWorldQuit \\(GlobalOptionsSewingTable \\w+\\): ok$": {
+     "match": [
+      "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTable.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): ok"
+     ],
+     "noMatch": [
+      "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTable.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): refused: already compiled",
+      "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTableX.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): ok"
+     ]
+    },
+    "^ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown$": {
+     "match": [
+      "ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown"
+     ],
+     "noMatch": [
+      "ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, 7 quit handler(s) after it run",
+      "ts3fixes: modquitguard off: mod quit handler threw NullReferenceException, rethrown"
+     ]
+    },
+    "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": {
+     "match": [
+      "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): refused: already compiled"
+     ],
+     "noMatch": [
+      "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): ok"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-modquitguard-off",
+   "note": "[est 6-10 min] modquitguard control arm: repro modquitguard-quit-off, switch off. Pass (shows the bug): main menu reached, the rethrown line, no caught line; script errors allowed (the mod's exception is expected to write one; count read by hand).",
+   "save": "Baseline-BP",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.compat-resolve-1122h",
+   "releaseDefaults": true,
+   "modSet": "game-copy/mod-sets/compat-resolve-1122f",
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 20,
+   "timeoutMin": 20,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "repro": "modquitguard-quit-off"
+   },
+   "logRequire": {
+    "^ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown$": 1,
+    "^ts3fixes: compat precedence: modquitguard on Lyralei\\.GlobalOptionsSewingTable\\.OnWorldQuit \\(GlobalOptionsSewingTable \\w+\\): ok$": 1
+   },
+   "logForbid": {
+    "^ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, (\\d+|\\?) quit handler\\(s\\) after it run$": 0,
+    "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+   },
+   "regexCases": {
+    "^ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown$": {
+     "match": [
+      "ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown"
+     ],
+     "noMatch": [
+      "ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, 7 quit handler(s) after it run",
+      "ts3fixes: modquitguard off: mod quit handler threw NullReferenceException, rethrown"
+     ]
+    },
+    "^ts3fixes: compat precedence: modquitguard on Lyralei\\.GlobalOptionsSewingTable\\.OnWorldQuit \\(GlobalOptionsSewingTable \\w+\\): ok$": {
+     "match": [
+      "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTable.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): ok"
+     ],
+     "noMatch": [
+      "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTable.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): refused: already compiled",
+      "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTableX.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): ok"
+     ]
+    },
+    "^ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, (\\d+|\\?) quit handler\\(s\\) after it run$": {
+     "match": [
+      "ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, 7 quit handler(s) after it run",
+      "ts3fixes: modquitguard: caught TypeInitializationException in a mod quit handler, ? quit handler(s) after it run"
+     ],
+     "noMatch": [
+      "ts3fixes: modquitguard off: mod quit handler threw TypeInitializationException, rethrown",
+      "ts3fixes: modquitguard: caught NullReferenceException in a mod quit handler, 7 quit handler(s) after it run"
+     ]
+    },
+    "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": {
+     "match": [
+      "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): refused: already compiled"
+     ],
+     "noMatch": [
+      "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): ok"
+     ]
+    }
+   }
+  }
+ ]
+}

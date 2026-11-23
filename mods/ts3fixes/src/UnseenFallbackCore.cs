@@ -335,6 +335,7 @@ namespace Ts3Fixes
         // assemblies scanned for mod subclasses of the trip interactions: not the game's, not the runtime's, not ours
         static readonly string[] kGameAssemblies = { "mscorlib", "System", "System.Xml", "ScriptCore", "SimIFace", "Sims3GameplaySystems",
             "Sims3GameplayObjects", "Sims3StoreObjects", "Sims3Metadata", "UI" };
+        public static bool GameAssembly(string name) { return System.Array.IndexOf(kGameAssemblies, name) >= 0; }
         public static bool TripScanAssembly(string name, string ours)
         {
             if (name == null || name == ours) return false;
@@ -346,6 +347,15 @@ namespace Ts3Fixes
         // Definition classes included); every NRaas interaction too (GoHere's own walks, Overwatch/ErrorTrap helpers).
         static readonly string[] kDeny = { "Jog", "Walk", "GoHere", "Stroll", "Sightsee", "Sneak", "Haunt", "Parade", "Chase", "Follow",
             "Wander", "Leash", "Patrol", "Tour", "Explore", "Flee", "Swim", "Dive", "Trick", "Mount", "Ride", "Carry", "Stalk" };
+        // docs/328 §7.5 (switch unseenfbgohere, off): NRaas GoHere's plain trips, exact names only (kDeny's "GoHere" matches its
+        // namespace): VisitLotEx runs EA's VisitLot.Run after its teleport check; VisitCommunityLotEx is a near copy of EA's Run whose
+        // route still ends in EA's DoSingleRouteEx [verified source + V46; safe for D / the finish: inferred]
+        public static readonly string[] kGoHereTrips = { "NRaas.GoHereSpace.Interactions.VisitLotEx", "NRaas.GoHereSpace.Interactions.VisitCommunityLotEx" };
+        public static bool Denied(string fullTypeName, bool goHereTrips)
+        {
+            if (goHereTrips && System.Array.IndexOf(kGoHereTrips, fullTypeName) >= 0) return false;
+            return Denied(fullTypeName);
+        }
         public static bool Denied(string fullTypeName)
         {
             if (fullTypeName == null || fullTypeName.StartsWith("NRaas")) return true;
@@ -585,6 +595,7 @@ namespace Ts3Fixes
         // GoHere stay denied (groups, its own walks)
         public const string kTerrainGoHere = "Sims3.Gameplay.Core.Terrain+GoHere";
         public static bool Denied(string fullTypeName) { return fullTypeName != kTerrainGoHere && UfPreCore.Denied(fullTypeName); }
+        public static bool Denied(string fullTypeName, bool goHereTrips) { return fullTypeName != kTerrainGoHere && UfPreCore.Denied(fullTypeName, goHereTrips); }
 
         // a claimed hold at a check: 0 keep holding, 1 finish now, 2 give up (the Sim walks on from where it stood)
         public const int kKeep = 0, kFinish = 1, kGiveUp = 2;
@@ -651,7 +662,8 @@ namespace Ts3Fixes
         // that route [verified, decompiled]; UbAlone reads its private followers, the goal verdict stays in UbGate.
         static readonly string[] kFollowers = { "Sims3.Gameplay.Core.GoHome.Run", "Sims3.Gameplay.Core.GoToLot.Run", "Sims3.Gameplay.Core.GoToCommunityLot.Run",
             "Sims3.Gameplay.Core.VisitCommunityLot.Run", "Sims3.Gameplay.Core.VisitLot.Run", "Sims3.Gameplay.Abstracts.RabbitHole.RouteOutside", "Ts3Fixes.Fixes+GoHomeHook.Run", "Ts3Fixes.Fixes+GoToLotHook.Run",
-            "Ts3Fixes.Fixes+GoToCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitLotHook.Run", "Ts3Fixes.Fixes+VclSubHook0.Run", "Ts3Fixes.Fixes+VclSubHook1.Run", "Ts3Fixes.Fixes+VclSubHook2.Run" };
+            "Ts3Fixes.Fixes+GoToCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitLotHook.Run", "Ts3Fixes.Fixes+VclSubHook0.Run", "Ts3Fixes.Fixes+VclSubHook1.Run", "Ts3Fixes.Fixes+VclSubHook2.Run",
+            "Ts3Fixes.Fixes+VclSubHook3.Run", "Ts3Fixes.Fixes+VclSubHook4.Run", "Ts3Fixes.Fixes+VclSubHook5.Run" };
         // Lot helpers between a trip's Run and the plan; each plans once [verified, decompiled]. No proof alone: RouteToDoor with doRoute
         // false only hands the route back, so the frame above them decides
         static readonly string[] kLotHelpers = { "PlanToLot", "PlanToLotEx", "PlanRouteIntoLot", "RouteToDoor", "RouteToFrontDoor", "RouteToFrontDoorOrMailbox", "RouteToMailbox", "PlanToMailbox" };

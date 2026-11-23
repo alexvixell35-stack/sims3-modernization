@@ -43,9 +43,9 @@ one, save, load, wait for the next call (off: none comes; on: 2570 or 2571 +1 an
 | 1 | `RespondToEmegency.Run` | the driver waits for passengers with `while (any passenger still has GetInCar queued) Sleep(0)`, no timeout, and the driver is `CancellableByPlayer = false` | [inferred] could hang if a passenger's current interaction never yields; no run-log evidence; a fix means rewriting EA's whole Run. Lead only |
 | 2 | `RespondToEmegency.Run` | `if (!(Actor.Occupation is ActiveFireFighter))` is always false there (cast earlier), so the car-route fallback always runs | harmless |
 | 3 | `FirefighterEmergencySituation.OnSimLotChanged` | last firefighter leaving calls `ActiveFireFighter.sActiveJob.RestartTimer` (static, may be null) instead of `Job.RestartTimer` | [verified] NRE only if the situation outlives `sActiveJob`; with §1 that happens only after a load; covered by §1 |
-| 4 | `FirefighterEmergencySituation.FirefighterAddedToLot` | `Occupation?.CurrentJob.RestartTimer`: `CurrentJob` is null for a visually pregnant firefighter; the constructor (unlike `OnSimLotChanged`) does not exclude pregnancy | [verified] NRE aborts the situation's constructor (emergency setup fails) when a pregnant household firefighter is on the lot at setup; rare. Lead |
-| 5 | `FireFightingJob.CleanUpJob` (LargeFires) | sets every locked non-front door on the lot to Anybody, not only the doors the job locked (`LockDoorsInRoom` skips doors already locked) | [verified] player lock settings on the victim's home are lost; NPC lots only. Lead |
-| 6 | `FireFightingJob.OnCompletion` | `(sim.Occupation as ActiveFireFighter).StartGratefulSimAlarm` with a Sim that left the career mid-call | NRE, rare; lead |
+| 4 | `FirefighterEmergencySituation.FirefighterAddedToLot` | `Occupation?.CurrentJob.RestartTimer`: `CurrentJob` is null for a visually pregnant firefighter; the constructor (unlike `OnSimLotChanged`) does not exclude pregnancy | [verified] NRE aborts the situation's constructor (emergency setup fails) when a pregnant household firefighter is on the lot at setup; rare. Fixed by `firenre` (docs/867), off by default |
+| 5 | `FireFightingJob.CleanUpJob` (LargeFires) | sets every locked non-front door on the lot to Anybody, not only the doors the job locked (`LockDoorsInRoom` skips doors already locked) | [verified] player lock settings on the victim's home are lost; NPC lots only. Fixed, `firedoorkeep` (docs/864, default off) |
+| 6 | `FireFightingJob.OnCompletion` | `(sim.Occupation as ActiveFireFighter).StartGratefulSimAlarm` with a Sim that left the career mid-call | [verified] NRE on the 60% thank-you roll when the pick has no fire career; [inferred] rare. Fixed by `firenre` (docs/867), off by default |
 | 7 | `Firefighter.NeedsAssignment` / `FirefighterSituation.CleanUp` | `HasBeenRequestedOnce` is reset only by `ChargeForService`; a service firefighter who exits another way (fired, reset, route failure) leaves it set, and `num2 == 0` keeps the lot "needing" one | [verified] one extra (phantom) firefighter visit to a lot with no fire; it then charges if the request was not valid. Minor; lead |
 | 8 | `ActiveFireFighter.OnSetupWorkDayAlarms` | tests `mRegularWorkDayEndHandle` before removing the two-hour handle | base always sets the end alarm: redundant, not a leak |
 | 9 | `ActiveFireFighter` return-to-station / respond / grateful alarms | added on the Sim or `Global` with owner; all removed in `CleanUpFirefighterAlarmHandles` / `LeaveJobNow` | ruled out |
@@ -125,7 +125,8 @@ Where the count goes wrong:
   reject such spots unless stairs lead in, so (b) needs a unit reachable by stairs, inferred].
 - Not a cause: `OnSimLotChanged` passers-by join as `ConvincedToRun` victims and add no task. Side effect noted, not
   fixed: a passer-by whose run fails indoors (`InteractionFail`) becomes `TrappedInRoom`, and freeing them completes a
-  `TrappedSims` task that belonged to a really trapped Sim (the count gets easier, not harder).
+  `TrappedSims` task that belonged to a really trapped Sim (the count gets easier, not harder). Fixed by `firecount`
+  (docs/868, default off), with the other count errors found next to it (a freed Sim's death, a second rubble pile).
 
 Fix (`FireTrapCount.cs`, tuning `kFireTrapCount`, counters 3956-3959): (a) a Sim in the job's `mTrappedSims` /
 `mRubbleTrappedSims` that leaves the lot or is deleted (not dead) while still `TrappedInRoom` / `TrappedUnderRubble`

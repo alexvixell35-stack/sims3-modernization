@@ -35,7 +35,7 @@ static int FgPatch(u8* const at[2]) {
     for (int i = 0; i < 2; i++) {
         const FgSite& s = kFgSites[i];
         if (!Matches(at[i], s.orig, s.len)) {
-            if (Readable(at[i], s.len)) Hex(at[i], s.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+            if (Readable(at[i], s.len)) Hex(at[i], s.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP foreground render: %s at 0x%08X differs (found %s)", s.what, s.addr, hex);
             continue;
         }

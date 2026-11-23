@@ -198,7 +198,7 @@ static const LONG kG10cLogMs = 100, kG10cLogLines = 20;
 static bool RgUseG10Common(const u8* at) {
     if (!Matches(at, kRgSites[10].pro, kRgSites[10].len)) {
         char hex[64];
-        if (Readable(at, 10)) Hex(at, 10, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(at, 10)) Hex(at, 10, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP G10-C: Route_PlanCommon 0x%08X bytes %s differ, gate site 10 stays on the goal step", (DWORD)(uintptr_t)at, hex);
         return false;
     }
@@ -414,7 +414,7 @@ static bool ReadRouteGate(const wchar_t* ini) {
     for (int i = 0; i < RG_SITES; i++) {
         const u8* p = (const u8*)(uintptr_t)kRgSites[i].addr;
         if (Matches(p, kRgSites[i].pro, kRgSites[i].len)) continue;
-        if (Readable(p, 10)) Hex(p, 10, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, 10)) Hex(p, 10, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP route gate: %s 0x%08X bytes %s differ, nothing hooked", kRgSites[i].name, kRgSites[i].addr, hex);
         return false;
     }

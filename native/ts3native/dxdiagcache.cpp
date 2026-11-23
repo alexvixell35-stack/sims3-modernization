@@ -64,9 +64,9 @@ static bool ApplyDxDiagCache(const wchar_t* ini) {
 #endif
     u8* fn = (u8*)(uintptr_t)TS3A(0x00612640);
     if (!Matches(fn, kDdcPrologue, sizeof(kDdcPrologue))) { Log("SKIP DxDiag cache: VRAM_DxDiag 0x612640 bytes differ, nothing written"); return false; }
-    wcscpy_s(g_ddcPath, ini);
+    WCpy(g_ddcPath, ini);
     wchar_t* slash = wcsrchr(g_ddcPath, L'\\');
-    wcscpy_s(slash ? slash + 1 : g_ddcPath, MAX_PATH - (slash ? slash + 1 - g_ddcPath : 0), L"ts3native-vram.ini");
+    if (WCpy(slash ? slash + 1 : g_ddcPath, MAX_PATH - (slash ? slash + 1 - g_ddcPath : 0), L"ts3native-vram.ini")) g_ddcPath[0] = 0;  // docs/323: no cut name
     g_ddcMode = mode;
     u8 jmp[5] = {0xE9};
     const LONG rel = (LONG)((uintptr_t)DdcHook - ((uintptr_t)fn + 5));

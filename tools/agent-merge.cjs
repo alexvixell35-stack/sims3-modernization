@@ -142,7 +142,9 @@ function finish(b,cwd=process.cwd()){
   try{execFileSync('git',['merge-base','--is-ancestor',b,'HEAD'],{cwd,stdio:'ignore',timeout:300000})}catch{console.error(`finish: ${b} is not merged into HEAD (${g('rev-parse','--abbrev-ref','HEAD')})`);return 1}
   const r=require('child_process').spawnSync(process.execPath,[path.join(__dirname,'harness','cleanup.ts'),'worktrees','--apply','--branch',b,'--target',g('rev-parse','HEAD')],{cwd,stdio:'inherit',timeout:1800000});
   if(r.status!==0){console.error(`finish: worktree cleanup for ${b} failed (exit ${r.status ?? r.signal}): see the keep/REFUSED line above; fix it, then rerun finish`);return 1}
-  console.log(`finish: ${b} merged, worktree cleaned`);return 0
+  // the lane's own game-copy build copies (superseded by the merge rebuild; hashes stay in builds.json); a keep line is not a failure
+  const l=require('child_process').spawnSync(process.execPath,[path.join(__dirname,'harness','cleanup.ts'),'lane','--apply','--branch',b],{cwd,stdio:'inherit',timeout:600000});
+  console.log(`finish: ${b} merged, worktree cleaned${l.status===0?'':`; lane build cleanup exit ${l.status ?? l.signal} (see above)`}`);return 0
 }
 if(process.argv[2]==='finish')process.exit(finish(process.argv[3]));
 else process.argv.includes('--self-check')?selfCheck():main();

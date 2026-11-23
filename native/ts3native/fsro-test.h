@@ -68,6 +68,17 @@ static void TestFootstepRO() {
     assert(call() == 20 && calls == 9 && k.fsLast == 2);
     g_async.state = A_IDLE, ret = 22, at(30.7f, 40.2f, 0);  // no job: the neighbour (20) checked against the game (22)
     assert(call() == 22 && calls == 10 && k.fsNearChk == 2 && k.fsNearDiff == 2);
+    // docs/323 L6: age -1 (same tick step) and up to MaxAgeMs young; older than 24.8 days stale (the signed age read it young)
+    FsEnt t = {};
+    t.tick = 1001;
+    assert(FsYoung(&t, 1000) && FsYoung(&t, 1001 + 60000) && !FsYoung(&t, 1001 + 60001) && !FsYoung(&t, 1001 + 0x80000010u));
+    // docs/323 L6: another world object: the old entries never answer (here the hit of 30.7 / 40.2 above), the game does
+    static u8 world2[16];
+    g_async.state = A_RUNNING, ret = 33;
+    assert(call() == 22 && calls == 10);  // same world: the cache
+    assert(FsStub(world2, NULL, pt, 0x27) == 33 && calls == 11 && g_fsHaveLast && g_fsWorld == world2);
+    assert(call() == 33 && calls == 12);  // back to the first world: cleared again, the game
+    g_fsWorld = NULL;
     printf("TestFootstepRO: owner + job only, cell / level keys, miss, stale, MissNear, MissLast, NaN -> game, answer checks\n");
     g_fsOrig = savedOrig, g_async = savedAsync, g_fsMissLast = false, g_fsMissNear = false, g_fsHaveLast = false;
     memset(g_fsc, 0, sizeof(g_fsc));
