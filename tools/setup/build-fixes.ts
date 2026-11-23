@@ -425,6 +425,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFlowersInUse value="True" />
     <kUseListPrune value="True" />
     <kChestUseList value="True" />
+    <kDollHouseSlots value="False" />
+    <kBusyFlagReset value="False" />
     <kResetInUseFree value="True" />
     <kPutDownInUse value="True" />
     <kAutonomyInUseBlock value="True" />
