@@ -443,6 +443,9 @@ static void** RjpOwner(int i) {
         if (void** o = RtOwnerAt(at)) return o;
         return at == TS3A(0x0063D2F0) && g_lpJmp[LP_ROOMFIRST] ? &g_lpJmp[LP_ROOMFIRST] : NULL;
     }
+    // docs/644 §8 CandidateSplit (plancand.cpp): cell A* (own detour, or after the plan deadline stub, RJS_CELL below) and LotPlan
+    if (i == RJS_CELL || i == RJS_LOTLEG)
+        if (void** o = PccOwnerAt(kRjpSites[i].at)) return o;
     switch (i) {
         case RJS_PLAN: return (void**)&g_planOrig;
         case RJS_LOCK: return (void**)&g_lockOrig;
@@ -450,7 +453,8 @@ static void** RjpOwner(int i) {
         case RJS_LOTGRAPH: return g_rgTramp[3] ? &g_rgTramp[3] : &g_lpJmp[LP_LOTGRAPH];
         case RJS_PENDING: return RtOwnerAt(kRjpSites[RJS_PENDING].at);
         case RJS_CELL: return &g_pdOrig[0];  // docs/164 §7 [RouteAsync] PlanDeadlineMs entry stubs (plandeadline.cpp)
-        case RJS_WATER: return &g_pdOrig[1];
+        case RJS_WATER: return g_pdOrig[1] || !WgcOwner() ? &g_pdOrig[1] : WgcOwner();  // docs/644: WaterGoalCheck's own detour
+        case RJS_CAND: case RJS_LOTSEARCH: return PccOwnerAt(kRjpSites[i].at);         // docs/644 CandidateSplit (plancand.cpp)
         case RJS_GSTEP: return g_rgTramp[10] ? &g_rgTramp[10] : NULL;  // [RouteGate] goal step (coarse) entry stub
         case RJS_GEDIT: return g_avTwTramp[1] ? &g_avTwTramp[1] : NULL;  // [AvoidRO] T-AV wrapper
         default: return NULL;

@@ -13355,6 +13355,8 @@ static void TestP5() {
 #include "taskseam-test.h"  // TestTaskSeam ([Diag] TaskSeam, docs/308)
 #include "nonsim-test.h"    // TestNonSimSplit ([Diag] NonSimSplit, docs/329)
 #include "routespeed-test.h"  // TestRouteSpeed ([RouteSpeed] NeighbourMemo, docs/663)
+#include "workerhold-test.h"  // TestWorkerHold ([RouteJobPhases] HoldProbe, docs/673)
+#include "worldpre-test.h"    // TestWorldPre ([WorldPrecompute], docs/676)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
 #include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
 #include "fglprof-stub-test.h"   // TestFglProfStubs: the trampolines against cdecl and ret-4 fakes
@@ -13362,6 +13364,7 @@ static void TestP5() {
 #include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
+#include "plancand-test.h"  // TestPlanCand ([RouteAsync] CandidateCut / WaterGoalCheck, CandidateSplit, docs/644)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
@@ -14958,6 +14961,8 @@ int main(int argc, char** argv) {
     TestTaskSeam();   // docs/308
     TestNonSimSplit();  // docs/329
     TestRouteSpeed();  // docs/663
+    TestWorkerHold();  // docs/673
+    TestWorldPre();    // docs/676
     TestPlaceCore();   // docs/670
     TestPlaceTestRO();
     TestFglProfCore();   // docs/671
@@ -14967,6 +14972,7 @@ int main(int argc, char** argv) {
     TestConnRoomsRO();  // docs/670 §15
     TestDoorShare();   // docs/674
     TestSmoothCut();   // docs/676 §15
+    TestPlanCand();   // docs/644
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

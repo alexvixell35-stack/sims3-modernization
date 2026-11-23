@@ -116353,6 +116353,172 @@
     ]
   },
   {
+    "id": "ip-workerhold-storm",
+    "bug": "docs/673: in the s151 / s153 / s155 storms (Isla Paradiso, 2 min) the route worker held +0x918 for 36-52 s of job time in 1548-2239 jobs and the sim thread waited on it 167-244 times (5.6-7.0 s). The logs give no job length distribution, no plan count per candidate count, and cannot say where in a job the sim starts to wait",
+    "fix": "none (measurement): ts3native [RouteJobPhases] HoldProbe=1 (default 0, observe only; docs/673)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test). Job ini: [RouteJobPhases] HoldProbe=1 CandidateSplit=1 CandidateSplitLogMs=100, the s155 on-arm switches otherwise. Nothing changes a plan: one arm is enough",
+    "expect": "'OK   worker hold probe:' with 'plans by candidates'. After the storm: a 'worker hold:' line with jobs in the buckets, a 'worker hold plans by candidates' line, a 'worker hold boundaries' line with boundaries reached > 0. No crash, the 'route async: mode' job count as in s155 (about 2000)",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-holdoutside-storm",
+    "bug": "docs/673 §9: in the s159 storm (Isla Paradiso, 2 min) 12.4 s of the route worker's 33.7 s of job time (+0x918 hold) is outside PlanHierarchical, and no log says what it is: the goal step and its door asks before the plan, our Route_PlanLocked wrappers, the EditPath tail, our job end. The sim thread's wait pump tries +0x918 once a millisecond, so a TailUnlock window shorter than that is missed, and the job's tail after its plan is held although the search is over",
+    "fix": "ts3native [RouteJobPhases] HoldProbe=1 (the 'worker hold parts' line, observe only), [RouteAsync] PlanEndLend=1 (the job's +0x918 lent to a waiting sim taker when the plan has returned, worker parked) and LendWake=1 (a TailUnlock window wakes the sim's wait pump); all default 0 (docs/673 §9)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the probe; the selftest of the lend is single-threaded and was not run). Off arm: the s159 on-arm ini with [RouteJobPhases] HoldProbe=1 CandidateSplit=1 HostSplit=1 and [RouteAsync] PlanEndLend=2 (count only). On arm: PlanEndLend=1 LendWake=1 on top. Compare 'hitch totals' +0x918 waits and the 'route lock wait' lines",
+    "expect": "'OK   plan end lend: PlanEndLend=1' and 'OK   worker hold probe:'. After the storm: a 'worker hold parts' line whose parts sum to the job time of 'route async:', a 'plan end lend:' line with plan ends about the job count, windows > 0, 'closed while parked 0', and no 'TailUnlock: worker waited' line. Off arm: windows 0, the same plan ends. No crash, no stuck Sim, the same plans and fails as the off arm within storm noise",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-worldpre-storm",
+    "bug": "docs/676: in the s160-s168 storms (Isla Paradiso, 2 min) the water plan is 5.3-8.1 s of planner time in 218-316 searches (22-30 ms each), the world A* 4.0-7.0 s in 1001-1203 searches and the post pass 4.8-6.0 s. The water search walks straight rays over two byte grids that change only when a footprint or the water grid is written; no log says how often a world or water query repeats, nor which of the post pass's 19 node passes carry its time",
+    "fix": "ts3native [WorldPrecompute] WaterScanTable (1 use, 2 shadow: per map pair a table of every straight ray's run, compared with the live grids at each search; identical results) and Probe=1 (repeat counts of water and world searches, the post pass by node pass; observe only); both default 0 (docs/676)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the table, its updates, the slot manager and the probe counts). Job ini: [WorldPrecompute] WaterScanTable=2 WaterScanAll=1 Probe=1, [WaterJps] Enabled=1, [RouteJobPhases] CandidateSplit=1 CandidateSplitLogMs=100, the s168 on-arm switches otherwise. Arm 1 is shadow (every jump runs both ways: the water time rises, the mismatch count is the result), arm 2 serves",
+    "expect": "'OK   world precompute: ready 0xF' (0x7 without the post pass sites). After arm 1: a 'world precompute: water scan table mode 2' line with searches > 0, 'with a table' > 0, shadow checks > 0 and mismatch 0, and no 'WATER SCAN TABLE MISMATCH' line; 'world precompute probe water / world / post passes' lines with searches > 0. After arm 2 (mode 1): 'straight rays from it' > 0, and in 'route candidate split totals' the water ms per call below arm 1's and below the s160-s168 on arms (22-30 ms a call). No crash, plans / failed in 'route plans:' as in s168",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waterscantable": 2
+        },
+        "waitS": 1,
+        "note": "arm 1: shadow (the ini value)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-workerhold-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waterscantable": 1
+        },
+        "waitS": 1,
+        "note": "arm 2: the jump's straight rays come from the table"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with the table serving; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waterscantable": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
