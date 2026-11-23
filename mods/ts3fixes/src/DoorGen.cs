@@ -71,6 +71,10 @@ namespace Ts3Fixes
             Patch(typeof(Role), "CreateRole", new Type[] { typeof(RoleData), typeof(SimDescription), typeof(IRoleGiver) }, typeof(DoorGenRoleHook), "CreateHook", "CreateOrig");
             Patch(typeof(Role), "RemoveSimFromRole", Type.EmptyTypes, typeof(DoorGenRoleHook), "RemoveHook", "RemoveOrig");
             Patch(typeof(RoleManagerTask), "FillInWorldRole", new Type[] { typeof(Role.RoleType), typeof(IRoleGiver), typeof(List<SimDescription>), typeof(List<SimDescription>) }, typeof(DoorGenRoleTaskHook), "FillHook", "FillOrig");
+            // service workers: CommonDoor.IsAllowedThrough lets a Sim with a Service through some locks (issue #438, aptbig mismatch)
+            Patch(typeof(Sim), "set_Service", new Type[] { typeof(Sims3.Gameplay.Services.Service) }, typeof(DoorGenServiceHook), "SetHook", "SetOrig");
+            Patch(typeof(Sims3.Gameplay.Services.Service), "EndService", new Type[] { typeof(SimDescription) }, typeof(DoorGenServiceHook), "EndHook", "EndOrig");
+            Patch(typeof(Sims3.Gameplay.Services.Service), "CreateNpcSim", new Type[] { typeof(SimDescription), typeof(Vector3) }, typeof(DoorGenServiceHook), "NpcHook", "NpcOrig");
             // resort VIP data and closing
             Patch(typeof(ResortManager), "set_Closed", new Type[] { typeof(bool) }, typeof(DoorGenResortHook), "ClosedHook", "ClosedOrig");
             Patch(typeof(ResortManager), "DoUpdate", Type.EmptyTypes, typeof(DoorGenResortHook), "UpdateHook", "UpdateOrig");
@@ -224,6 +228,37 @@ namespace Ts3Fixes
             public static Role CreateOrig(RoleData d, SimDescription s, IRoleGiver g) { return null; }
             public void RemoveHook() { RemoveOrig(); DoorGenBump(DoorShareCore.kSrcRole, 0); }
             public void RemoveOrig() { }
+        }
+
+        // SimDescription.Service is a field, so these three cover its writers: Sim.Service's setter (most sites), and the
+        // two Service methods that write the field. shortcut: Service.CheckIfSimsShouldBeRemovedFromPool and the two
+        // TimeTravelerSituation writes are not covered; hook them if #438 mismatches come back with a service Sim.
+        public class DoorGenServiceHook
+        {
+            public void SetHook(Sims3.Gameplay.Services.Service v)
+            {
+                Sim s = (Sim)(object)this;
+                bool before = s.SimDescription != null && s.SimDescription.Service != null;
+                SetOrig(v);
+                if (before != (v != null)) DoorGenBump(DoorShareCore.kSrcRole, 0);
+            }
+            public void SetOrig(Sims3.Gameplay.Services.Service v) { }
+            public bool EndHook(SimDescription d)
+            {
+                bool before = d != null && d.Service != null;
+                bool r = EndOrig(d);
+                if (before && d.Service == null) DoorGenBump(DoorShareCore.kSrcRole, 0);
+                return r;
+            }
+            public bool EndOrig(SimDescription d) { return false; }
+            public Sim NpcHook(SimDescription d, Vector3 pos)
+            {
+                Sims3.Gameplay.Services.Service before = d != null ? d.Service : null;
+                Sim r = NpcOrig(d, pos);
+                if (d != null && d.Service != before) DoorGenBump(DoorShareCore.kSrcRole, 0);
+                return r;
+            }
+            public Sim NpcOrig(SimDescription d, Vector3 pos) { return null; }
         }
 
         public class DoorGenRoleTaskHook
