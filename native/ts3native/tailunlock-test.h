@@ -128,6 +128,7 @@ static void TestTailUnlock() {
     // docs/673 §9 PlanEndLend, on this thread as the worker of a running job (one +0x918 level, as ServeAsync holds it at the
     // plan's end): switch off, another caller, no sim wait, count only, a window nobody takes (the hold back after
     // PlanEndLendWaitUs), no job
+    #pragma warning(suppress : 4127)  // the address is a constant in this build
     if (kPelPlanRet) {
         PlanEndLendCounters& pc = ts3native_planendlend;
         static PlanEndLendCounters pelSaved;
