@@ -22,6 +22,7 @@ namespace Ts3Agent
     //   nopath   Terrain.GoHere at NonCriticalNPCBehavior to a spot nobody can reach (a sealed spot, else open sea);
     //   elevator residents of elevator lots go home (Bridgeport high-rises), others visit an elevator lot;
     //   pets     GoToLot at NonCriticalNPCBehavior, autonomous, to a far lot (WildHorsePool's own push).
+    // Opt-in kinds for fixes the seven never reach (RouteStormKinds2.cs): taxi, jam, laptop, putdown, follow, stray.
     // A refused visit falls back to GoToLot (fewer Test gates). Deterministic: candidates and lots are sorted by id, then
     // shuffled with Random(seed, wave). repeatS > 0 re-issues a wave every repeatS wall-clock seconds from a game task until
     // {stop: true}, which cancels the interactions the storm pushed that are still queued (cancel: false keeps them).
@@ -32,12 +33,14 @@ namespace Ts3Agent
     {
         static void RegisterRouteStorm() { Dispatcher.Register("route_storm", RouteStorm); }
 
-        static readonly string[] kStormKinds = { "lot", "home", "boat", "meet", "nopath", "elevator", "pets" };
+        static readonly string[] kStormKinds = { "lot", "home", "boat", "meet", "nopath", "elevator", "pets", "taxi", "jam", "laptop", "putdown", "follow", "stray" };
+        // the default when kinds is not given: the first seven (older runs keep their storm design)
+        static readonly string[] kStormDefault = { "lot", "home", "boat", "meet", "nopath", "elevator", "pets" };
         static int sStormGen, sStormWaves, sStormSeen, sStormUnseen, sStormCancelled;
         static bool sStormRunning;
         static string sStormError, sStormSeenBy;
-        static readonly Dictionary<string, int> sStormPushed = new Dictionary<string, int>(), sStormFailed = new Dictionary<string, int>();
-        static readonly List<string> sStormFailures = new List<string>();
+        static readonly Dictionary<string, int> sStormPushed = new Dictionary<string, int>(), sStormFailed = new Dictionary<string, int>(), sStormSkipped = new Dictionary<string, int>();
+        static readonly List<string> sStormFailures = new List<string>(), sStormSkips = new List<string>();
         static readonly List<KeyValuePair<Sim, InteractionInstance>> sStormInst = new List<KeyValuePair<Sim, InteractionInstance>>();
         // world targets, found once per world (lot ids are stable within a world)
         static string sStormWorld;
@@ -53,7 +56,8 @@ namespace Ts3Agent
                 sStormGen++;
                 sStormRunning = false;
                 int n = a.Bool("cancel", true) ? StormCancel() : 0;
-                DiagLine("route_storm: stop after " + sStormWaves + " waves, cancelled " + n);
+                int cleaned = StormCleanup(true);
+                DiagLine("route_storm: stop after " + sStormWaves + " waves, cancelled " + n + ", objects removed " + cleaned + ", left to a cleanup task " + sStormObjs.Count);
                 StormTotals(r);
                 r["stopped"] = true;
                 r["cancelled_now"] = n;
@@ -66,8 +70,10 @@ namespace Ts3Agent
             bool hh = a.Bool("household", false);
             List<string> kinds = StormKinds(a);
             int gen = ++sStormGen;
+            sStormCleanGen++;  // a stop's cleanup task ends: it would destroy this storm's new objects before their pushes run
             sStormWaves = sStormSeen = sStormUnseen = sStormCancelled = 0;
-            sStormPushed.Clear(); sStormFailed.Clear(); sStormFailures.Clear(); sStormError = null;
+            sStormPushed.Clear(); sStormFailed.Clear(); sStormFailures.Clear(); sStormSkipped.Clear(); sStormSkips.Clear(); sStormError = null;
+            sStormMade = sStormCleaned = 0;
             sStormInst.Clear();
             StormTargets(false);
             Dictionary<string, object> wave = StormWave(kinds, count, seed, hh);
@@ -116,7 +122,7 @@ namespace Ts3Agent
                     kinds.Add(k);  // a kind may repeat: ["boat","boat","lot"] gives boat 2 of every 3 pushes
                 }
             }
-            if (kinds.Count == 0) kinds.AddRange(kStormKinds);
+            if (kinds.Count == 0) kinds.AddRange(kStormDefault);
             return kinds;
         }
 
@@ -126,6 +132,9 @@ namespace Ts3Agent
             r["waves"] = sStormWaves;
             r["pushed"] = StormCopy(sStormPushed);
             r["failed"] = StormCopy(sStormFailed);
+            r["skipped"] = StormCopy(sStormSkipped);
+            r["skips"] = new List<object>(sStormSkips.ConvertAll(s => (object)s));
+            r["objects_made"] = sStormMade; r["objects_removed"] = sStormCleaned; r["objects_left"] = sStormObjs.Count;
             r["seen"] = sStormSeen; r["unseen"] = sStormUnseen; r["seen_by"] = sStormSeenBy;
             r["cancelled"] = sStormCancelled;
             r["failures"] = new List<object>(sStormFailures.ConvertAll(s => (object)s));
@@ -173,10 +182,13 @@ namespace Ts3Agent
             foreach (Lot l in LotManager.AllLots) if (l != null && !l.IsWorldLot) all.Add(l);
             all.Sort(delegate(Lot x, Lot y) { return x.LotId.CompareTo(y.LotId); });
             sStormCommunity = new List<Lot>(); sStormBoat = new List<Lot>(); sStormElevator = new List<Lot>(); sStormNoPath = new List<Vector3>();
+            sStormNoParking = new List<Lot>(); sStormStrayMod = null;
             foreach (Lot l in all)
             {
                 if (l.IsCommunityLot) sStormCommunity.Add(l);
                 CommercialLotSubType t = l.CommercialLotSubType;
+                // taxi targets: InitCarForLotRoute asks GetNearestLot(..., requireStreetParking: true) only for these
+                if (l.IsHouseboatLot() || !l.HasValidStreetParking()) sStormNoParking.Add(l);
                 if (l.IsHouseboatLot() || t == CommercialLotSubType.kEP10_Diving || t == CommercialLotSubType.kEP10_Resort || t == CommercialLotSubType.kEP10_Port) sStormBoat.Add(l);
                 try { if (l.GetObjects<ElevatorDoors>().Length > 0) sStormElevator.Add(l); }
                 catch (ResetException) { throw; }
@@ -253,21 +265,43 @@ namespace Ts3Agent
             int wave = ++sStormWaves;
             Random rng = new Random(seed * 7919 + wave);
             StormTargets(false);
+            StormCleanup(false);
             Dictionary<Sim, bool> busy = StormPrune();
             List<Sim> humans = StormCandidates(false, hh), pets = kinds.Contains("pets") ? StormCandidates(true, hh) : new List<Sim>();
             StormShuffle(humans, rng); StormShuffle(pets, rng);
             ShLookUp();
             sStormSeenBy = sShUfWhy != null ? "UfWhy" : "camera";
-            Dictionary<string, int> pushed = new Dictionary<string, int>(), failed = new Dictionary<string, int>();
-            List<object> used = new List<object>(), fails = new List<object>();
+            Dictionary<string, int> pushed = new Dictionary<string, int>(), failed = new Dictionary<string, int>(), skipped = new Dictionary<string, int>();
+            List<object> used = new List<object>(), fails = new List<object>(), skips = new List<object>();
             Dictionary<Sim, bool> taken = new Dictionary<Sim, bool>();
+            sStormTaken = taken; sStormBusy = busy; sStormPool = humans; sStormHhOn = hh;
+            bool strayDone = false;
             int hi = 0, pi = 0, seen = 0, unseen = 0, misses = 0;
             for (int n = 0; n < count && misses < kinds.Count * 3; n++)
             {
                 string kind = kinds[n % kinds.Count];
+                if (kind == "stray")  // a world helper, no Sim of ours: at most one call per wave
+                {
+                    if (strayDone) continue;
+                    strayDone = true;
+                    string sw = null;
+                    try { sw = StormStray(hh); }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { sw = "threw " + e.GetType().Name + ": " + e.Message; }
+                    if (sw == null) { StormAdd(pushed, kind); StormAdd(sStormPushed, kind); used.Add("StrayPets.StrayPetHelper (stray)"); }
+                    else StormNote(kind, sw, "world", failed, fails, skipped, skips);
+                    continue;
+                }
                 List<Sim> pool = kind == "pets" ? pets : humans;
                 Sim s = null;
-                while (true)
+                if (StormNeedsFit(kind))  // kinds that need a fitting Sim scan the pool without using up other kinds' Sims
+                {
+                    for (int pass = 0; pass < 2 && s == null; pass++)
+                        foreach (Sim c in pool)
+                            if (!taken.ContainsKey(c) && !busy.ContainsKey(c) && StormFits(kind, c, n, pass == 0)) { s = c; break; }
+                    if (s == null) { misses++; StormNote(kind, StormNoFitWhy(kind), null, failed, fails, skipped, skips); continue; }
+                }
+                else while (true)
                 {
                     int i = kind == "pets" ? pi++ : hi++;
                     if (i >= pool.Count) break;
@@ -282,7 +316,7 @@ namespace Ts3Agent
                 try { why = StormPush(kind, s, humans, rng); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { why = "threw " + e.GetType().Name + ": " + e.Message; }
-                if (why != null) { StormAdd(failed, kind); StormAdd(sStormFailed, kind); string f = s.FullName + " " + kind + ": " + why; fails.Add(f); if (sStormFailures.Count < 40) sStormFailures.Add(f); continue; }
+                if (why != null) { StormNote(kind, why, s.FullName, failed, fails, skipped, skips); continue; }
                 foreach (InteractionInstance ii in s.InteractionQueue.InteractionList)
                     if (!before.Contains(ii)) sStormInst.Add(new KeyValuePair<Sim, InteractionInstance>(s, ii));
                 StormAdd(pushed, kind); StormAdd(sStormPushed, kind);
@@ -294,12 +328,18 @@ namespace Ts3Agent
             r["wave"] = wave;
             r["pushed"] = StormCopy(pushed);
             r["failed"] = StormCopy(failed);
+            r["skipped"] = StormCopy(skipped);
+            r["skips"] = skips;
+            r["no_parking_lots"] = sStormNoParking.Count;
             r["seen"] = seen; r["unseen"] = unseen; r["seen_by"] = sStormSeenBy;
             r["candidates"] = humans.Count; r["pet_candidates"] = pets.Count;
             r["sims"] = used;
             r["failures"] = fails;
             int tot = 0; foreach (int v in pushed.Values) tot += v;
-            DiagLine("route_storm: wave " + wave + " pushed " + tot + " (" + seen + " seen, " + unseen + " unseen), failed " + fails.Count);
+            List<string> per = new List<string>();
+            foreach (KeyValuePair<string, int> kv in pushed) per.Add(kv.Key + " " + kv.Value);
+            DiagLine("route_storm: wave " + wave + " pushed " + tot + " (" + seen + " seen, " + unseen + " unseen), failed " + fails.Count
+                + ", skipped " + skips.Count + (per.Count > 0 ? "; kinds " + string.Join(", ", per.ToArray()) : ""));
             return r;
         }
 
@@ -330,6 +370,8 @@ namespace Ts3Agent
             InteractionPriority npc = new InteractionPriority(InteractionPriorityLevel.NonCriticalNPCBehavior);
             switch (kind)
             {
+                case "taxi": case "jam": case "laptop": case "putdown": case "follow":
+                    return StormPush2(kind, s, rng);
                 case "lot":
                 {
                     Lot l = StormPick(sStormCommunity, s, rng, true);

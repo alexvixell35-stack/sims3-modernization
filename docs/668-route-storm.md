@@ -1,6 +1,6 @@
 # 668: route storm, short forced-routing test arms
 
-Date: 2026-11-19, results 2026-11-20. Status: built, run in game (s141-s147, §3).
+Date: 2026-11-19, results 2026-11-20. Status: built, run in game (s141-s147, §3). 2026-11-20: six opt-in kinds (§1.1), built, not run yet.
 
 Idle play at 1x shows only ~460-540 route plans per minute in Isla Paradiso (s140 IP, 2 x 15 min) and 1-10 game hitches per
 15 min. That is too few to compare a fix's off and on arms in under 12-15 min each. A route storm forces routing hard with the
@@ -19,7 +19,8 @@ still queued. Start needs Live mode; stop and status work in any mode.
 - Each Sim gets one push per wave. A Sim is skipped while an earlier push of the storm is still in its queue.
 
 **Kinds.** A push is only ever the game's own interaction at a non-user priority, as autonomy or a situation queues it
-[verified against the decompiled callers]. A kind may repeat in `kinds` to weight it. The default is all seven kinds.
+[verified against the decompiled callers]. A kind may repeat in `kinds` to weight it. The default is the seven kinds in
+this table; the opt-in kinds of §1.1 run only when named.
 
 | kind | interaction | EA precedent |
 |---|---|---|
@@ -34,8 +35,8 @@ still queued. Start needs Live mode; stop and status work in any mode.
 A refused visit, for example one blocked by a `Lot.CommonVisitTest` gate (hours, greeted, visit frequency), falls back to
 `GoToLot` at NonCriticalNPCBehavior, which has fewer gates. Houseboat lots always use `GoToLot`.
 
-`FollowerMeetUpAtPoint` was not used. It needs a leader's `GoHereWithSituation` route, so `meet` uses converging lot visits
-instead.
+`meet` does not drive `FollowerMeetUpAtPoint`: it sends Sims one by one to the same lot, with no leader and no follower
+[verified: no followers in `StormVisit`]. The opt-in kind `follow` (§1.1) does.
 
 **Waves.** With `repeatS > 0` (at least 5 s), a `OneShotFunctionTask` runs a wave every `repeatS` wall-clock seconds until
 stop. It skips waves outside Live mode. Each wave writes `route_storm: wave N pushed P (S seen, U unseen), failed F` to
@@ -44,6 +45,42 @@ ts3native.log, and start and stop write their own lines.
 **Results.** Pushes and failures per kind, the first 40 failures with their reasons, and the Sims used. Each Sim is marked
 seen or unseen, by ts3fixes `UfWhy` (0 = unseen) when that is reachable, else by camera distance over 60 m (`seen_by` says
 which).
+
+## 1.1 Opt-in kinds for fixes the seven never reach (RouteStormKinds2.cs)
+
+These push EA's own calls on NPCs only, like the seven. The status and wave replies have `pushed`, `failed` and `skipped`
+per kind. `skips` / `failures` give the reasons. A skip means a precondition is missing: no fitting Sim, no expansion pack, no
+strays, or the other mod is absent. `objects_made`, `objects_removed` and `objects_left` count the cars, guitars and laptops
+the storm made. The wave log line adds `skipped K; kinds taxi 3, jam 2, ...`.
+
+| kind | what it pushes [verified in the decompiled source] | fix it exercises | log lines that prove it ran |
+|---|---|---|---|
+| `taxi` | `CarNpcManager.CreateServiceCar(ServiceType.None)` (a sedan) + `DriveToLotInServiceCar.Definition(car, startOffscreen: false, routeToFrontDoor, getOut, forceCar: true)` at NonCriticalNPCBehavior. The Sim walks to the car, drives and gets out. The target is a far lot from those without valid street parking, or a houseboat lot (`no_parking_lots` in the wave reply); else a far community lot. `DriveToLotInServiceCarWithinTime` -> `InitCarForLotRoute` -> `LotManager.GetNearestLot(pos, null, requireStreetParking: true)`, which EA calls only for such lots | `nearestlotlazy` (docs/677) | `ts3fixes: nearestlot:` (EA's loop >= 50 ms with the switch off; ours >= 20 ms, or shadow `same` / `DIFFERENT`), and `reflect_call Ts3Fixes.Fixes.NearestLotLazyCheck ["result"]` for the session call counts |
+| `jam` | `Guitar.Play` (private, its `Singleton` read by reflection), Autonomous, else NonCriticalNPCBehavior, on a guitar in the Sim's inventory. If it has none, the storm makes one with `CreateObjectOutOfWorld("musicalInstrumentGuitar")` + `Inventory.TryToAdd`, as BoardingSchool does. Path: `ReadyToPlay` -> `RouteBeforePlaying` -> `BandInstrument.MoveJigToGoodSpot` -> `GlobalFunctions.FindGoodLocationNearby`. Only Sims on a real lot (the world lot takes `FindGoodLocation`). The first pass alternates indoors Sims (little free space) and outdoors Sims | `[FglFacing]`, `[FglMemo]`, ts3fixes `fglnonescan` (docs/671 §11, docs/675) | `fgl prof: search N ms ...` (ts3native, `[FglProf] Enabled=1`, searches >= `LogMs`, 50 ms), `ts3fixes: fglnonescan:` |
+| `laptop` | `Sim.UseLaptopHere` on a laptop in inventory, made the same way if needed (`ComputerLaptop`, as GameDeveloperCareer does). Skipped without University (the jig is EP9) | same staged `FindGoodLocationNearby` | same |
+| `putdown` | `PickUpChild` on a toddler of the Sim's household on the same lot. A task waits until the Sim carries it (~60 s), then pushes `PutDownChild` at NonCriticalNPCBehavior. Skipped when no NPC teen or older has a toddler with it | same staged search (`PutDownChild`) | same |
+| `follow` | `GoToLot` to a far community lot with `Followers = [an NPC within 30 m on the same lot]` (its own household first). Path: `DoRouteWithFollowers` -> `LeaderGoHereWith` -> `GoHereWithSituation` -> `FollowerMeetUpAtPoint` (a `GoHereWithHoldingInteraction`) on the follower | follower meet-up fixes | the follower's `FollowerMeetUpAtPoint` in `sim_info` / interaction queue; the route lines of both Sims |
+| `stray` | `StrayPets.StrayPetHelper` (the hourly alarm's body), at most once per wave, by `MethodInfo.Invoke` (no delegate). Unless `household` is set, `sLastActiveHouseholdVisit` is set to now for the call, which holds off the "active household not visited for too long" branch. It is restored afterwards unless the helper set it itself. Skipped without Pets (EP5), without strays, or when no loaded type has `StrayPetInactiveLotCheck` (the other modder's core, docs/data/mod-method-diff.csv) | the stray-pet lot loop (`ArePointsConnectedByLand` per lot, 322 ms frames) | `route_storm: stray helper called (N strays, Type.StrayPetInactiveLotCheck)`, then the hitch lines of that frame |
+
+Not driven: the City Hall award ceremony. The existing checks are the right vehicle, and a storm kind would add nothing.
+`EventCeremonyCheck` books a real ceremony with a real crowd, and `AwardKeepCheck` tests the lost-award path. For
+`ceremonyspot`'s older-save repair (commit 58936df3, a ceremony booked before the switch was on), run it by hand:
+
+    ag patches '{"ceremonyspot":false,"awardkeep":false}'        # book it the old way: EA leaves the jig at the origin
+    ag reflect_call '{"path":"Ts3Fixes.Fixes.EventCeremonyCheck","args":["start 8"]}'
+    ag patches '{"ceremonyspot":true,"awardkeep":true}'          # at once, before the honoree reaches City Hall
+    ag reflect_call '{"path":"Ts3Fixes.Fixes.EventCeremonyCheck","args":["result"]}'   # every 10 s until not OPEN
+
+The repair worked when `result` shows `spot 2333=` one higher than before, and the ceremony ends `GIVEN` or `PICKUP`, not
+`LOST`. This proves the repair only in a world whose City Hall EA really puts at the origin (combo rabbit holes, e.g.
+Appaloosa Plains, docs/551). Elsewhere 2333 stays put, because the jig is not near the origin.
+
+Cleanup: when a push is over, `stop` and each later wave remove the objects the storm made: a car with no occupants, a guitar
+or laptop not in use (taken out of the inventory first). On `stop`, objects still in use go to a task that retries for up to
+60 s. A Sim's own guitar or laptop is used as it is and never removed.
+
+Run them, e.g. `STORM_KINDS="taxi jam laptop putdown follow stray" STORM_COUNT=24`. Isla Paradiso has the most lots without
+street parking (taxi). Pets plus the other modder's core are needed for `stray`.
 
 ## 2. Harness
 
@@ -58,7 +95,9 @@ which).
   - plans and fails per minute, from the cumulative `route plans` lines;
   - storm waves and pushes, and `hitch: frame` causes;
   - `host ms`: the sum of the `host N/M` column of the `route candidate split` lines, which is the managed door asks under
-    the planner (combo docs/667 §2; `[RouteJobPhases] CandidateSplit` is not in this tree, so the column stays empty here);
+    the planner (combo docs/667 §2; `[RouteJobPhases] CandidateSplit` is in PR #681, without it the column stays empty);
+  - `skip` (skipped pushes of the opt-in kinds) and `nl/fgl/fgln/s`: the per-phase counts of `ts3fixes: nearestlot:`,
+    `fgl prof: search`, `ts3fixes: fglnonescan:` and `route_storm: stray helper called` lines (§1.1);
   - `mism n/f/l`: the NeighbourMemo and FloodMemo shadow mismatches (the largest `mismatch N` of the minute lines), plus the
     count of `MEMO MISMATCH` lines. All three must be 0 before a memo serves. (FloodMemo is combo-only work.)
 
