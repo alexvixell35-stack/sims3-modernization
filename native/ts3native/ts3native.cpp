@@ -3532,6 +3532,7 @@ static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
 static void UbLogCounters();   // unseenband.cpp (docs/322)
 static void PccLogCounters();  // plancand.cpp (docs/644)
 static void FmLogCounters();   // floodmemo.cpp (docs/667)
+static void CsLogCounters();   // cellspeed.cpp (docs/669 §8-§10)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 // docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
@@ -3625,6 +3626,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     PccLogCounters();  // docs/644 (nothing until a part is on)
     FmLogCounters();   // docs/667 (nothing until FloodMemo is installed)
+    CsLogCounters();   // docs/669 §8-§10 (nothing until ClassMemo / OpenHint is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
             "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
@@ -4386,8 +4388,8 @@ static void ServeInvoke(int site) {
     SetEvent(g_invDone);
 }
 
-// docs/667: a managed call ran on this thread (floodmemo.cpp drops its records: the script may have changed routing inputs);
-// the candidate split's host frame (plancand.cpp PCC_HOST: the worker's wait in Proxy, or the script itself on the sim thread)
+// docs/667 / docs/669 §8: a managed call ran on this thread (FloodMemo, #687, and ClassMemo drop their records: the script
+// may have changed routing inputs); the candidate split's host frame (plancand.cpp PCC_HOST: the worker's wait in Proxy, or the script itself on the sim thread)
 static __declspec(thread) LONG t_fmHostSeq;
 static bool PccHostEnter(const void* mark);
 static void PccHostLeave(const void* mark);
@@ -6794,6 +6796,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "syncphases.cpp"  // docs/164: [RouteJobPhases] SyncPlans (needs routephases.cpp)
 #include "cellmemo.cpp"
 #include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plandeadline.cpp: t_pd.scope)
+#include "cellspeed.cpp"   // docs/669 §8-§10: [RouteSpeed] ClassMemo / OpenHint (after routespeed.cpp: the Q clear stub; routesnap.cpp: g_snWriteSeq; plancand.cpp: PccScopeNow)
 #include "smoothcut.cpp"   // docs/676 §15: [WorldPrecompute] SmoothCut (no dependencies beyond the helpers above)
 #include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "floodmemo.cpp"   // docs/667: [RouteSpeed] FloodMemo (after routespeed.cpp: the Q clear stub; nopathmemo.cpp: NpmCmdHandle; plancand.cpp: the cell A* stubs)
@@ -7075,6 +7078,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyHitchSum(ini) || keepLog;        // docs/666 §5: after [RouteJobPhases] (SyncPlans) and [HitchAttr] Holders (log only, off)
         keepLog = ApplyAdaptDiag(ini) || keepLog;       // docs/316: after hitch summary / stall watch / ModTime / PcCheck (turns their thresholds; off)
         InstallRouteSpeed(ini);  // docs/663: after [RouteSnap] (tree-write sequence) and [RouteGate] (the Q table clear stub)
+        InstallCellSpeed(ini);   // docs/669 §8-§10: after InstallRouteSpeed (the Q table clear stub) and [RouteSnap] (the write sequence)
         InstallSmoothCut(ini);   // docs/676 §15: one call site of its own (0x6676CE), nobody else's
         InstallWorkerHold(ini);  // docs/673: after InstallPlanCand (g_pccSplit) and [RouteAsync] (g_lockOrig)
         InstallWorldPre(ini);    // docs/676: after ApplyWaterJps (the jump hook), InstallPlanCand and InstallTailUnlock (it chains its sites)
