@@ -326,6 +326,9 @@ namespace Ts3Fixes
             else if (obj != null) RuFace(sim, obj.Position);
             r.PlanResult = ok;
             WhsRemember(sim, obj is Sim ? null : obj, from, pos, 1);
+            // The shower's interactions route to the slot twice (run ws-m1: a second plan from the slot itself failed
+            // as the first did): the Sim is on its spot already, the answer is the same, nothing is counted or written.
+            if (w.Near == null && BuFlat(from, pos) < 0.02f) return true;
             int g = WhsGroup(obj);
             c[g == WooHooSnapCore.kBed ? kWhsBed : g == WooHooSnapCore.kPlumbing ? kWhsPlumbing : kWhsOther]++;
             if (w.Near != null) c[kWhsNear]++;
