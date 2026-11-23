@@ -1939,3 +1939,91 @@ boat is chance (1 run in 26), so read the counters first: `failreplanboat: ... w
 number of plans the switch would have spared; on arm: no `route candidate split` line with `closestWps` over 500 ms for a
 boat follower, `failreplanboat_off` > 0, no `ufplansplit ... src Boat... FailedBecauseNoPathToDestination` line of 1 s or
 more with `scope unseen`.
+
+## 29. The RO clone set against the third-floor strand: gain, shadow, A/B (2026-11-23, work/combo-1117, 12 loads)
+
+The set: `[LandCheckRO]`, `[ObstructAtRO]`, `[Blocker2dRO]` serving and `[SteerRO] RetryWait=1`. Question: is it safe, what
+does it save, and does it cause the strand of docs/631 §5 (household Sims on level 2 of Colonial Casa with
+`NoPathToDestination` to every lower goal)?
+
+### 29.1 What it saves [measured, `route lock wait:` lines >= 20 ms in the play window, 2-min Isla Paradiso storms]
+
+| group | runs | waits / ms | key `0x62FB74` < `0x654BE5` | key `0x62EF7A` | key `0x85FE10` | other keys | hitch frames >= 150 ms: n / ms / lock ms in them |
+|---|---|---|---|---|---|---|---|
+| s2xx, set off, JobYield 1 | 11 | 35 / 1,918 | 328 | 453 | 237 | 899 | 10 / 2,240 / 655 |
+| s2xx, set on, JobYield 1 | 7 | 18 / 1,074 | 0 | 102 | 0 | 973 | 8 / 2,020 / 382 |
+| s500-s529, set on | 30 | 18 / 1,045 | 4 | 79 | 0 | 962 | 7 / 1,697 / 359 |
+| today, set off (rs-B1..B3) | 3 | 30 / 1,587 | 254 | 422 | 141 | 770 | 8 / 1,801 / 471 |
+| today, set in shadow (rs-S1, S2) | 2 | 36 / 1,966 | 278 | 764 | 207 | 718 | 11 / 2,537 / 714 |
+| today, set on (rs-A1..A3) | 3 | 17 / 1,025 | 0 | 54 | 0 | 971 | 7 / 1,806 / 291 |
+
+The three keys the set answers fall by about 90%; the sim thread's lock waits of 20 ms and more fall by 35-45% (0.6-0.9 s
+of a 2-min storm). The total of the frames of 150 ms and more does not move outside the spread: those are `sim-cpu`
+frames. So the gain is in the short waits (20-150 ms), which is where it was seen.
+
+### 29.2 Shadow [measured, rs-S1 / rs-S2: `Mode=0 Shadow=1` for the three, `[SteerRO] Shadow=1`, `[ConnRoomsRO] Shadow=1`, `PlayerFirst=1`]
+
+| clone | compares | mismatch |
+|---|---|---|
+| `[LandCheckRO]` | 840 + 839 (3 not compared) | 0 |
+| `[ObstructAtRO]` | 79 + 78 | 0 |
+| `[Blocker2dRO]` | 32 + 17 | 0 |
+| `[ConnRoomsRO]` (first shadow run of it) | 83 + 62 | 0 |
+| `[SteerRO]` | 33,778 + 38,299 | 0 |
+
+With s332-s342 (six storms after §26's fix): about 5,900 land check, 600 obstruction and 120 blocker compares, 0 mismatch.
+Shadow compares with no job running; it does not exercise the serving path beside a job.
+
+### 29.3 The strand does not follow the set [verified, a count over every storm log s200-s529 + the 12 loads]
+
+Strand = 10 or more household `NoPathToDestination` plans from y 61 to a lower goal, two or more Sims.
+
+| group (storms) | runs | strands |
+|---|---|---|
+| set off, JobYield 0 | 30 | 0 |
+| set off, JobYield 1 | 92 | 1 (s265) |
+| set on, JobYield 1, `PlayerFirst=0` | 184 | 4 (s321, s365, s434, s452) |
+| set on, JobYield 1, `PlayerFirst=1` | 7 + 7 today | 2 (s229, s241) |
+| set in shadow | 7 + 2 today | 0 |
+
+"2 of 3 against 0 of 9" (docs/631 §5.2) was the first three runs of the last row. Set on against set off, both with
+JobYield 1: 6 of 198 against 1 of 95 with today's three (Fisher p = 0.43). The 12 loads of today (table below): no strand in any arm.
+s434 and s452 stranded with `ladderfootshoo` / `laddershare` on, and their strand lines say: both ladder lanes free at both
+ends with and without Sims, nothing within 0.75 m, room graph `11>9` intact, `door asks` 42-118 with `locked 0`. So
+those two are not docs/183 §9's "Sims on the lane ends" and their cause is **not found**.
+
+What the logs do show about it: the ladder is two one-way portals per lane (`Ladder.AddPortals`, `OneWayPortal`), the
+way up keeps working, so the closed edge is the down portal, whose entry end is the top end (927.3 / 61.0 / 1205.2).
+Untested hypothesis: a footprint left on that end (a climber's own, or the impassable discourage footprint EA adds while
+a Sim stands and waits, `DynamicSimFootprint`), which the script slot test does not see. The deferrals of
+`[Discourage]` are the code to read first if the probe below says so.
+
+- **`ReplanDedupe`**: not the cause [verified]. It answers only `Replan` / `ReplanFromPosition` repeats within 500 ms; the
+  strand's plans are `Plan` / `PlanFromPoint` (sync ones too) with 5-39 ms of planning and their own door asks.
+- **`[ConnRoomsRO]`**: not the cause [verified]. It answers the script's `World.GetConnectedRooms` per call and keeps
+  nothing; the failing plans are worker jobs that do not pass it; s452's strand lines show the graph intact; shadow 0 of 145.
+
+### 29.4 `strandprobe` (ts3fixes, default off, diagnostic)
+
+For the next strand: on a household Sim's second failed plan to another level of its lot, `routefail strand probe:`
+lines with `Route.IsPointRoutable` for the Sim, the goal and every lane end of the links on the way, a test plan, then
+up to three resets with a test plan after each (discourage footprints of Sims whose dynamic footprint is off removed;
+standing Sims on the lot re-inserted with `SetPosition`; the link's portals removed and added), stopping at the first
+plan that succeeds. Four probes a session. It changes game state, so it is a test switch, not a fix. First run:
+rs-S2, one probe on an ordinary failed tag route (`as found: test plan SUCCEEDS`, every end routable).
+
+### 29.5 The loads (seed 152, ts3native of CI run 44920506251, `PlayerFirst=1`, `JobYield=1`)
+
+| arm | what | phase dirs | waves | strand | waits ms |
+|---|---|---|---|---|---|
+| S1, S2 | today's keys, set in shadow | phase-20261123-1301, -1342 | 12, 12 | no | 2,172 / 1,760 |
+| C1-C4 | s229's keys and fix set (no ladder / unstuck fixes), set on | -1306, -1311, -1327, -1347 | 12, 12, 12, 5 | no | 863 / 1,559 / 910 / (616) |
+| A1-A3 | today's keys and fixes, set on | -1316, -1332, -1352 | 12 | no | 1,219 / 945 / 911 |
+| B1-B3 | A with the set off | -1322, -1337, -1357 | 12 | no | 1,646 / 1,840 / 1,275 |
+
+C4 crashed 1 min into the storm (`RESULT: CRASH`, first-chance AV at `Sims3SettingsSetter.asi+0x4E313` on the sim
+thread). The same signature is in 12 logs since 2026-11-16, 9 of them without the set (s145, s150, s177, s180-s182,
+s194, s260): not attributed to the set, cause unknown. Each run's `.out` has its `Bin pair restored` line.
+
+**Verdict.** Kept. No wrong answer found, no strand in 7 serving loads, and the count over 300 storms does not separate
+set on from set off. Not proven harmless either: the strand is a 1-3% event and its cause is open.

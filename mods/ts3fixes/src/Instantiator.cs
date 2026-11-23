@@ -453,6 +453,7 @@ namespace Ts3Fixes
         [Tunable] public static float kPetRelaxPortalClear = 1.25f;  // petrelax: a pet that would lie down within this many metres of a portal lane end walks off it first (0 = never)
         [Tunable] public static bool kPetRelaxLog = false;  // petrelaxlog: one ts3native.log line per act
         [Tunable] public static bool kClipWaitLog = false;  // clipwaitlog: one ts3native.log line per walk
+        [Tunable] public static bool kStrandProbe = false;  // strandprobe (docs/670 §29): diagnostic for a household Sim with no path to another level of its lot: what the planner says about each lane end, then three resets (discourage footprints, Sim footprints, the link's portals) with a test plan after each; off
         [Tunable] public static bool kAngleEntry = false;  // angleentry (docs/686 §8): the approach to stairs, and to a ladder climbed from below, is a plan to the lane's start point without facing; the stair walk and the climb set the Sim's facing themselves
         [Tunable] public static bool kAngleEntryHousehold = false;  // angleentryhh: angleentry for household and selected Sims too
         [Tunable] public static bool kLaneWaitLog = false;  // lanewaitlog (docs/686 §8): one "lanewait:" line per wait for a portal lane (who, which portal, how long, who held it); test runs

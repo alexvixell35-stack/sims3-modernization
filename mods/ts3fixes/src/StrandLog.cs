@@ -85,8 +85,103 @@ namespace Ts3Fixes
                 StrandPrivacy(sim, lot, ruled);
                 StrandLinks(sim, lot, sim.Level, gl.mLevel);
                 if (n == 1) StrandRooms(sim, lot, sim.RoomId, sim.Level, gl.mRoom, gl.mLevel, at, goal);
+                if (n == 2 && res.mType == RoutePlanResultType.FailedBecauseNoPathToDestination && ShortcutOn("strandprobe")) StrandProbe(sim, lot, goal, sim.Level, gl.mLevel);
             }
             catch (Exception) { }
+        }
+
+        // strandprobe (docs/670 §29; diagnostic, default off, no counter): a household Sim's second failed plan to another level
+        // of its lot. Lines "routefail strand probe:". What the planner says about the Sim's spot, the goal and each lane end of
+        // the links on the way (Route.IsPointRoutable), a test plan, then up to three resets with a test plan after each; it
+        // stops at the first test plan that succeeds, so the line names the state that closed the way:
+        //   1. Route.RemoveDiscourageFootprint for every Sim whose dynamic footprint is off (EA adds one while a Sim stands and
+        //      waits, DynamicSimFootprint; none should exist for these Sims);
+        //   2. SetPosition(Position) for the Sims on the lot that are not routing (their routing footprints are re-inserted);
+        //   3. the link's portals removed and added again (Route.RemovePortals, the component's AddPortals).
+        // At most kStrandProbes a session. The resets change game state: a test tool, not a fix.
+        const int kStrandProbes = 4;
+        static int sStrandProbes;
+        static bool sStrandProbeBusy;
+
+        static string StrandProbeEnds(Route p, Sim sim, Vector3 goal, List<LevelLink> way)
+        {
+            StringBuilder b = new StringBuilder();
+            try
+            {
+                b.Append("routable: Sim ").Append(p.IsPointRoutable(sim.Position) ? "yes" : "NO").Append(", goal ").Append(p.IsPointRoutable(goal) ? "yes" : "NO");
+                foreach (LevelLink k in way)
+                {
+                    b.Append(", ").Append(k.Type);
+                    for (uint i = 0; k.Ends && i < k.Lanes && i < 3; i++)
+                    {
+                        Slot[] s = LevelLinkLane(k, i);
+                        if (s == null) continue;
+                        b.Append(" [").Append(i).Append(": A ").Append(p.IsPointRoutable(k.Obj.GetSlotPosition(s[0])) ? "yes" : "NO")
+                            .Append(", B ").Append(p.IsPointRoutable(k.Obj.GetSlotPosition(s[1])) ? "yes" : "NO").Append(']');
+                    }
+                }
+            }
+            catch (Exception x) { b.Append(" threw ").Append(x.GetType().Name); }
+            return b.ToString();
+        }
+
+        static bool StrandProbePlan(Sim sim, Vector3 goal, List<LevelLink> way, string stage)
+        {
+            Route p = sim.CreateRoute();
+            p.DoRouteFail = false;
+            p.ExecutionFromNonSimTaskIsSafe = true;
+            RoutePlanResult res = p.PlanToPoint(goal);
+            bool ok = res.Succeeded();
+            DiagLine("routefail strand probe: for " + sim.FullName + ": " + stage + ": test plan " + (ok ? "SUCCEEDS" : "fails " + res.mType) + "; " + StrandProbeEnds(p, sim, goal, way));
+            return ok;
+        }
+
+        static void StrandProbe(Sim sim, Lot lot, Vector3 goal, int simLevel, int goalLevel)
+        {
+            if (sStrandProbeBusy || sStrandProbes >= kStrandProbes) return;
+            sStrandProbeBusy = true;
+            try
+            {
+                sStrandProbes++;
+                int portals;
+                List<LevelLink> way = new List<LevelLink>();
+                foreach (LevelLink k in LevelLinks(lot, out portals)) if (LevelLinkOnWay(k, simLevel, goalLevel)) way.Add(k);
+                if (StrandProbePlan(sim, goal, way, "as found")) return;
+
+                int swept = 0, on = 0;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    if (s == null || s.HasBeenDestroyed || s.SimRoutingComponent == null) continue;
+                    if (s.SimRoutingComponent.IsDynamicFootprintEnabled()) { on++; continue; }
+                    Sims3.SimIFace.Route.RemoveDiscourageFootprint(s.ObjectId.Value);
+                    swept++;
+                }
+                if (StrandProbePlan(sim, goal, way, "1 discourage footprints removed for " + swept + " Sims (" + on + " have theirs on)")) return;
+
+                int moved = 0;
+                StringBuilder who = new StringBuilder();
+                foreach (Sim s in lot.GetSims())
+                {
+                    if (s == null || s.HasBeenDestroyed || (s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting)) continue;
+                    s.SetPosition(s.Position);
+                    moved++;
+                    if (moved <= 8) who.Append(' ').Append(s.FullName).Append('@').Append(V(s.Position));
+                }
+                if (StrandProbePlan(sim, goal, way, "2 footprints of " + moved + " standing Sims on the lot re-inserted (" + who.ToString().Trim() + ")")) return;
+
+                int redone = 0;
+                foreach (LevelLink k in way)
+                {
+                    MethodInfo add = k.Pc.GetType().GetMethod("AddPortals", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+                    if (add == null) continue;
+                    Sims3.SimIFace.Route.RemovePortals(k.Obj.ObjectId);
+                    add.Invoke(k.Pc, null);
+                    redone++;
+                }
+                StrandProbePlan(sim, goal, way, "3 portals of " + redone + " links removed and added again");
+            }
+            catch (Exception x) { DiagLine("routefail strand probe: for " + sim.FullName + ": threw " + x.GetType().Name + " " + x.Message); }
+            finally { sStrandProbeBusy = false; }
         }
 
         static string StrandIa(InteractionInstance ia)

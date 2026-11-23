@@ -1737,6 +1737,7 @@ namespace Ts3Fixes
                 case "petrelax": return Instantiator.kPetRelax;  // PetRelax.cs (docs/686 §11): small pets and the Sims around them walk through each other at once, lying pets are not obstacles, no lie-down on a lane end, off
                 case "petrelaxhh": return Instantiator.kPetRelaxHousehold;  // PetRelax.cs: petrelax for household and selected Sims and pets too, off
                 case "petrelaxlog": return Instantiator.kPetRelaxLog;  // PetRelax.cs (docs/686 §11): one line per act, off
+                case "strandprobe": return Instantiator.kStrandProbe;  // StrandLog.cs (docs/670 §29): diagnostic resets with test plans on a household strand, off
                 case "clipwaitlog": return Instantiator.kClipWaitLog;  // ClipWait.cs (docs/686 §9): one line per walk, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
