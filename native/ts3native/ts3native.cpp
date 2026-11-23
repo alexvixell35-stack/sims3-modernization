@@ -3963,7 +3963,7 @@ static u8* CallIcRaw(int kind, u8* out, DWORD handle, const float* pt) {
     return ((IcPointFn)g_arOrig[kind])(out, handle, pt[0], pt[1], pt[2]);
 }
 // [RouteAsync] ReplanDedupe (replandedupe.cpp, docs/150 §13): Replan / ReplanFromPosition through its repeat check
-static volatile LONG g_rddOn;
+static volatile LONG g_rdOn;
 static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, u8* (*inner)(int, u8*, DWORD, const float*));
 // [RouteAsync] FailMemo (plandeadline.cpp, docs/164 §7 D5): the same check on the sim's sync Plan IC (SyncIc sets t_fmSync for
 // its own call; a worker job's Plan never goes through it)
@@ -3972,7 +3972,7 @@ static __declspec(thread) bool t_fmSync;
 static u8* CallIc(int kind, u8* out, DWORD handle, const float* pt) {
     const bool fm = t_fmSync;
     t_fmSync = false;  // a Plan nested in a managed call of this one comes back through SyncIc, which sets it again
-    if (g_rddOn && (kind == 1 || kind == 3)) return RdRun(kind, out, handle, pt, CallIcRaw);
+    if (g_rdOn && (kind == 1 || kind == 3)) return RdRun(kind, out, handle, pt, CallIcRaw);
     if (fm && !kind && g_fmOn) return RdRun(0, out, handle, pt, CallIcRaw);
     return CallIcRaw(kind, out, handle, pt);
 }
