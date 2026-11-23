@@ -748,6 +748,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 62: return PcOp(lo, hi);  // docs/299 [PcCheck]: problem flag lo set? / sim hour ended / world quit (62: same op as the docs/298 diag branch)
         case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
         case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
+        case 42: return DmxKeyOp(lo, hi & 0xFFFF);     // hostcalls.cpp: the last door memo x mismatch for ts3fixes to name (DoorGen.cs)
         case 40: return DsClassOp(lo, hi);  // docs/674 doorshare.cpp: route lo's Sim class (hi 0-15), before its START; 1 = DoorShare on
         case 48: return FglInsideOp(lo);    // docs/682 §9: lo 1 = this thread's next FindGoodLocation search is the indoors stage, 0 = over; 1 = [FglInside] installed
         case 49: return LhOp(hi & 0xFFFF);  // docs/321 §9 (lotstream.cpp): ts3fixes LotHub.cs lot event queue (pop / id bit / kind / ready)

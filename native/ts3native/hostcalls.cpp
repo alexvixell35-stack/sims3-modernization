@@ -120,6 +120,8 @@ static int g_dmxMax = 4096;  // 4096 rows = 240 KB (a test lowers it)
 static LONG g_dmxLast;               // the mode the table was filled under
 static LONGLONG g_dmxTicks;          // DoorMemoXMs in QPC ticks
 static const DWORD* g_dmxDelegate;   // the event 59 delegate slot (0x11D72C4; NULL in tests)
+static volatile LONG g_dmxKeyWait;  // 1 = g_dmxKeyOut holds a mismatch ts3fixes has not read yet (DmxKeyOp)
+static DWORD g_dmxKeyOut[11];       // key[9], live answer, memo answer
 static volatile LONG g_dmxMismatchLog, g_dmxSelf;  // g_dmxSelf: mode-1 hits, every 8th asked anyway (self-check)
 // mode 3 (DoorGen.cs, op 36): the script-side generation and the armed flag; own export, counters layout unchanged
 // Lots with an extra PortalPathPlan handler (EA: PrivacySituation, plus mods): its answer reads the asking Sim's current or
@@ -231,6 +233,20 @@ static void DmxShadow(const DmxRow* row, DWORD r, const DWORD* key) {  // mode 2
         Log("door memo x shadow: answer %lu, other job's %lu (%ld ms before), key %08lX %08lX %08lX %08lX %08lX %08lX %04lX %04lX %02lX",
             r, row->ans, (LONG)((HcNow() - row->t) * 1000 / g_qpf.QuadPart), key[0], key[1], key[2], key[3], key[4], key[5], key[6],
             key[7], key[8]);
+    if (!g_dmxKeyWait) {  // for ts3fixes to name the lot, Sim and door (op 42); a mismatch while one waits is not kept
+        memcpy(g_dmxKeyOut, key, sizeof(DWORD) * 9);
+        g_dmxKeyOut[9] = r, g_dmxKeyOut[10] = row->ans;
+        InterlockedExchange(&g_dmxKeyWait, 1);
+    }
+}
+// UserDiag op 42 (sim thread, ts3fixes DoorGen.cs): the last door memo x mismatch, read one bit per call (DiagSend returns a
+// bool). sub 0: 1 = one waits; sub 1: bit lo (0-351) of key[9] (lot, Sim, portal owner ids, rooms, initialLocked), the live
+// answer and the memo's; sub 2: read, the next mismatch may take the slot. An older ts3native answers 0 to every op 42 call.
+static u8 DmxKeyOp(DWORD lo, DWORD sub) {
+    if (sub == 0) return (u8)(g_dmxKeyWait != 0);
+    if (sub == 1) return lo < 352 ? (u8)((g_dmxKeyOut[lo >> 5] >> (lo & 31)) & 1) : 0;
+    if (sub == 2) InterlockedExchange(&g_dmxKeyWait, 0);
+    return 1;
 }
 
 static void HcCross(const DWORD* key, DWORD ans, LONGLONG now) {

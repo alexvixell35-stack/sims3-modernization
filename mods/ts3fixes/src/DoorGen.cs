@@ -10,6 +10,7 @@ using Sims3.Gameplay.Objects;
 using Sims3.Gameplay.Roles;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Core;
+using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 using Sims3.SimIFace.CAS;
 using Sims3.UI.Hud;
@@ -97,6 +98,51 @@ namespace Ts3Fixes
             if (!sDoorGenOn) return;
             DoorGenSend(1);
             foreach (Lot lot in LotManager.AllLots) DoorGenHold(lot);  // privacy situations restored before the switch was read
+            AlarmManager.Global.AddAlarmRepeating(10f, TimeUnit.Minutes, DoorGenPoll, 10f, TimeUnit.Minutes, "ts3fixes doorgen mismatch names", AlarmType.NeverPersisted, null);
+        }
+
+        // ts3native keeps the last door memo x mismatch (op 42, hostcalls.cpp DmxKeyOp) until read: every 10 sim minutes this
+        // names its lot, Sim and door while they likely still exist, to find the input DoorGen misses (issue #438). One bit per
+        // DiagSend (it returns a bool): 352 calls per mismatch; native keeps one waiting at most, an older one answers 0.
+        const int kDoorKeyOp = 42;
+        static void DoorGenPoll()
+        {
+            try
+            {
+                if (!DiagSend(kDoorKeyOp, 0, 0)) return;
+                uint[] w = new uint[11];
+                for (uint b = 0; b < 352; b++) if (DiagSend(kDoorKeyOp, b, 1)) w[b >> 5] |= 1u << (int)(b & 31);
+                DiagSend(kDoorKeyOp, 0, 2);
+                DiagLine("doorgen mismatch: live answer " + w[9] + ", memo " + w[10] + ", lot " + DgName(w[0], w[1]) + ", Sim " + DgName(w[2], w[3])
+                    + ", door " + DgName(w[4], w[5]) + ", rooms " + w[6] + " " + w[7] + ", initialLocked " + w[8]);
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { }
+        }
+
+        static string DgName(uint lo, uint hi)
+        {
+            ulong id = (ulong)hi << 32 | lo;
+            string s = id.ToString("X16");
+            try
+            {
+                object o = GameObject.GetObject(new ObjectGuid(id));
+                Sim sim = o as Sim;
+                if (sim != null)
+                    return s + " " + sim.FullName + " (" + (sim.Household != null ? "household " + sim.Household.Name : "no household")
+                        + (sim.Service != null ? ", service " + sim.Service.GetType().Name : "")
+                        + (sim.SimDescription.AssignedRole != null ? ", role " + sim.SimDescription.AssignedRole.Type : "")
+                        + (sim.SimDescription.IsStray ? ", stray" : "") + ")";
+                CommonDoor d = o as CommonDoor;
+                if (d != null) return s + " " + d.GetType().Name + " (lock " + d.LockType + ")";
+                Lot l = o as Lot;
+                if (l == null && o == null) l = LotManager.GetLot(id);
+                if (l != null) return s + " lot '" + l.Name + "'" + (l.IsResidentialLot ? " (residential)" : "");
+                if (o != null) return s + " " + o.GetType().Name;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { }
+            return s + " (not found)";
         }
 
         // A lot's PortalPathPlan handlers beyond EA's Sim.OnPortalPathPlan (PrivacySituation, mods) answer from the asking Sim's

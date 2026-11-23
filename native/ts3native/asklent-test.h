@@ -242,6 +242,9 @@ static void TestAskLent() {
     assert(HcAsk(500) == 2 && k.dmxClear == 2 && g_hcFakeCalls == c0 + 1);
     t_hcJob = 21, g_hcFakeAns = 1;
     assert(HcAsk(500) == 1 && k.dmxShadow == 1 && k.dmxMismatch == 1 && g_hcFakeCalls == c0 + 2);
+    // op 42: the mismatch waits for ts3fixes, bit by bit (live answer 1 at bits 288+, memo answer 2 at 320+), then frees the slot
+    assert(DmxKeyOp(0, 0) == 1 && DmxKeyOp(288, 1) == 1 && DmxKeyOp(289, 1) == 0 && DmxKeyOp(320, 1) == 0 && DmxKeyOp(321, 1) == 1);
+    assert(DmxKeyOp(352, 1) == 0 && DmxKeyOp(0, 2) == 1 && DmxKeyOp(0, 0) == 0);
     // back to 1: rows from shadow mode are dropped; off: straight through, nothing counted
     k.dmxMode = 1, g_hcFakeAns = 2;
     t_hcJob = 22;
