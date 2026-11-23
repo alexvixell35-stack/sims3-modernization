@@ -121,7 +121,18 @@ namespace Ts3Fixes
         // turned down (car stays parked), [200] asks seen (car or spot in view, or within reach of the household).
         public class ParkingSpotHook
         {
+            // streetparkinglisten (StreetParkingListen.cs, docs/651 §4) wraps the whole call: one stored listener per car
             public bool SpotHook(Car car, ref Matrix44 mat)
+            {
+                System.Collections.Generic.Dictionary<ObjectGuid, EventListener> d = null;
+                EventListener old = null;
+                bool had = SplTake((object)this, car, out d, out old), done = false, r = false;
+                try { r = SpotInner(car, ref mat); done = true; }
+                finally { if (had) SplSettle(d, car, old, done, r); }
+                return r;
+            }
+
+            public bool SpotInner(Car car, ref Matrix44 mat)
             {
                 // unseentraffic (UnseenTraffic.cs, docs/855) shares this hook: its teleport leg is decided first; a leg it
                 // leaves to EA still gets unseencars' turn-down below when both are on

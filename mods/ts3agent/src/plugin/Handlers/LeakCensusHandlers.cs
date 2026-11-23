@@ -528,7 +528,7 @@ namespace Ts3Agent
         {
             Dictionary<string, object> r = Util.Obj();
             Dictionary<string, int> byType = new Dictionary<string, int>(), goneTypes = new Dictionary<string, int>(), exitedTypes = new Dictionary<string, int>();
-            int total = 0, noSims = 0, onlyGone = 0, exited = 0, interactions = 0, fieldErrors = 0;
+            int total = 0, noSims = 0, onlyGone = 0, exited = 0, interactions = 0, fieldErrors = 0, picnicDone = 0;
             foreach (Situation sit in new List<Situation>(Situation.sAllSituations))
             {
                 if (sit == null) continue;
@@ -536,6 +536,7 @@ namespace Ts3Agent
                 string tn = sit.GetType().Name;
                 LcBump(byType, tn);
                 if (sit.SituationExited) { exited++; LcBump(exitedTypes, tn); }
+                if (tn == "PicnicBasketSituation" && sit.Child != null && sit.Child.GetType().Name == "CleanUpPicnic") picnicDone++;  // docs/645 §1 picnicexit
                 interactions += LcCount(LcGet(sit, "mInteractions"));
                 List<object> sims = new List<object>();
                 try
@@ -559,6 +560,7 @@ namespace Ts3Agent
             }
             r["total"] = total; r["no_sims"] = noSims; r["only_gone_or_out_sims"] = onlyGone; r["exited_still_listed"] = exited;
             r["interactions_held"] = interactions;
+            r["picnic_finished"] = picnicDone;  // finished picnics still listed (EA never exits them; picnicexit does)
             if (fieldErrors > 0) r["field_errors"] = fieldErrors;
             r["by_type"] = LcTop(byType, top);
             r["only_gone_by_type"] = LcTop(goneTypes, top);
@@ -992,7 +994,9 @@ namespace Ts3Agent
                 withSims += LcCount(LcGet(sd, "mBroadcastersWithSims"));
                 if (rx == null || rx.Count == 0) continue;
                 lots++;
-                if (rx.Count > maxLot) maxLot = rx.Count;
+                // docs/652: name the biggest lot and the active household's home, so a pile is placed without a second census
+                if (rx.Count > maxLot) { maxLot = rx.Count; r["max_lot"] = (l.Name ?? "?") + " 0x" + l.LotId.ToString("X") + (l == Household.ActiveHouseholdLot ? " (active home)" : ""); }
+                if (l == Household.ActiveHouseholdLot) r["active_home"] = rx.Count;
                 foreach (ReactionBroadcaster b in rx)
                 {
                     if (b == null) continue;

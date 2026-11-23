@@ -433,17 +433,24 @@ namespace Ts3Fixes
                     sLotTask = Simulator.AddObject(new LoopTask(delegate { LotCleanupTask(active, before); }));
                     return;
                 }
-                if (!verify) { CleanOrig(); return; }
+                if (!verify) { CleanGuarded(); return; }
                 int[] n = new int[7];
                 Sim a = Sim.ActiveActor;
                 foreach (Lot lot in AllLots()) n[LotKind(lot, a)]++;
                 int b = LotsToClean();
-                CleanOrig();
+                CleanGuarded();
                 PatchCounters()[182] = LotsToClean();
                 EaLog("venue cleanup (game's): lots per kind: cleaned " + n[0] + ", virtual-slot lots " + n[1] + ", season only " + n[2]
                     + ", Sims " + LotManager.Actors.Count + "; verify: to clean before " + b + ", after " + PatchCounters()[182]);
             }
             public static void CleanOrig() { } // receives LotManager.CleanUpLotsAndInventories' original header
+            // daily alarm (docs/651 §1): a throw in EA's body would drop it for good
+            static void CleanGuarded()
+            {
+                try { CleanOrig(); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { EaAlarmThrew("LotManager.CleanUpLotsAndInventories", 4111, e); }
+            }
         }
 
         // ---- pet pool alarm -----------------------------------------------------------------------------------------------
@@ -713,7 +720,9 @@ namespace Ts3Fixes
                 {
                     if (sDecay.Running && TaskAlive(sDecayTask)) { sDecay.Finish(); PatchCounters()[195]++; } // switched off mid-pass
                     int before = verify ? Relationships() : -1, due = verify ? DropsDue(SimClock.CurrentTime()) : -1;
-                    RunOrig();
+                    try { RunOrig(); }  // daily alarm (docs/651 §1)
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { EaAlarmThrew("SocialComponent.RelationshipDecay", 4111, e); }
                     if (verify) EaLog("relationship decay (game's): verify: drops due at start " + due + "; " + DecayCensus("before", before));
                     return;
                 }

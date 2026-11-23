@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Sims3.Gameplay;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Core;
@@ -40,6 +41,7 @@ namespace Ts3Fixes
     // Counters: [3550] enum comparers installed, [3551] restored, [3552] errors, [3553] answer mismatches in the Check;
     //           [3554] AlarmHandle comparer installed, [3555] restored, [3556] mTimers swapped in place, [3557] errors,
     //           [3558] answer mismatches in the Check.
+    //           docs/651 §3: [4115] rehomes put off (switch changed with no world loaded), [4116] mTimers swapped at world load.
     public static partial class Fixes
     {
         // ---- the comparers ------------------------------------------------------------------------------------------------
@@ -142,12 +144,33 @@ namespace Ts3Fixes
                 try
                 {
                     sA87Alarm.Set(on);
+                    // docs/651 §3: the flag follows the Set at once. It used to be set after the rehome, which throws with no
+                    // world (earlyfix at app startup): the flag stayed false, every later Sync retried and failed, and the switch
+                    // turned off never put EA's comparer back.
                     sA87AlarmOn = on;
                     c[on ? 3554 : 3555]++;
-                    c[3556] += A87Rehome(on);
                 }
+                catch (Exception) { c[3557]++; return; }
+                if (!OwnBugsCore.A87RehomeNow(A87WorldUp())) { c[4115]++; return; }   // Alloc87WorldLoad rehomes
+                try { c[3556] += A87Rehome(on); }
                 catch (Exception) { c[3557]++; }
             }
+        }
+
+        static bool A87WorldUp()
+        {
+            try { return GameStates.IsInWorld() && !GameStates.IsWorldShuttingDown && AlarmManager.Global != null; }
+            catch (Exception) { return false; }
+        }
+
+        // World load finished (Instantiator): managers built before the switch changed (or the Global one from app startup)
+        // get the comparer of the switch's current state; A87Rehome swaps only EA's / ours to the other, so it is exact.
+        public static void Alloc87WorldLoad()
+        {
+            if (sA87Alarm == null || sA87AlarmMissing.Length > 0) return;
+            int[] c = PatchCounters();
+            try { int n = A87Rehome(sA87AlarmOn); c[3556] += n; c[4116] += n; }
+            catch (Exception) { c[3557]++; }
         }
 
         // Swaps `hcp` of the live AlarmManagers' mTimers between EA's comparer and ours (only those two: anything else is

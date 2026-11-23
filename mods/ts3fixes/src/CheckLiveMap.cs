@@ -307,6 +307,7 @@ namespace Ts3Fixes
                 case "npcdriverpool": return EpLive(typeof(NpcDriverPoolHook), 1);
                 case "npcseasonalparty": return EpLive(typeof(SeasonalPartyHook), 1);
                 case "npcshowstuck": return EpLive(typeof(NpcShowHook), 1);
+                case "npcstallend": return EpLive(typeof(OutfitWaitHook), 1, "sSohSim", sSohSim, null, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohAborted", sSohAborted, null);
                 case "nullservice": return EpLive(typeof(NullServiceHook), 2);
                 case "nullsituation": return EpLive(typeof(B13NsHook), 2);
                 case "observatorymsg": return EpLive(typeof(ObsHook), 1);
@@ -318,14 +319,16 @@ namespace Ts3Fixes
                 case "outerwearautoloop": return EpLive(typeof(OwTestHook), 3);
                 case "outerwearrestore": return EpLive(typeof(OwRunHook), 1);
                 case "outfitmissing": return EpLive(typeof(OutfitMissingHook), 1, "sSohNoChange", sSohNoChange, null);
-                case "outfitwaitend": return EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null);
-                case "outfitwaitpoll": return EpJoin(EpLive(typeof(OutfitWaitHook), 1, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohSim", sSohSim, null, "sSohAborted", sSohAborted, null), EpLive(typeof(SwapCbHook), 1));
+                case "outfitwaitend": return EpLive(typeof(OutfitWaitHook), 1, "sSohSim", sSohSim, null, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohAborted", sSohAborted, null);
+                case "outfitwaitpoll": return EpJoin(EpLive(typeof(OutfitWaitHook), 1, "sSohSim", sSohSim, null, "sSohDisposed", sSohDisposed, typeof(bool), "sSohStarted", sSohStarted, typeof(bool), "sSohNoChange", sSohNoChange, typeof(bool), "sSohReady", sSohReady, typeof(bool), "sSohAborted", sSohAborted, null), EpLive(typeof(SwapCbHook), 1));
                 case "overwatchresetgone": return EpLive(typeof(OverwatchResetGoneHook), 1);
                 case "owresettime": return EpJoin(EpLive(typeof(HcInstHook), 0), EpLive(typeof(HcTailHook), 0));
+                case "paparazzicooldown": return EpLive(typeof(PpcHook), 2);
                 case "partycleanupnull": return EpLive(typeof(BPcHapHook), 1, "sPcMotives", sPcMotives, null);
                 case "partylotlistener": return EpJoin(EpLive(typeof(BPlHappenHook), 1), EpLive(typeof(BPlWaitHook), 1));
                 case "partymotive": return EpLive(typeof(PfRemoveHook), 1, "sPfMotives", sPfMotives, null);
                 case "partyoutcome": return EpLive(typeof(PfOutcomeHook), 2);
+                case "perfjobmissedlistener": return EpLive(typeof(PjmHook), 1);
                 case "permamemo": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(PermaMemoHook), 0));
                 case "permazombiemoon": return EpLive(typeof(PermaZombieHook), 1);
                 case "petdreamtimer": return EpLive(typeof(B12PdHook), 1, "sPdTimer", sPdTimer, typeof(float), "sPdTimer", sPdTimer, null, "sPdFreq", sPdFreq, typeof(float), "sPdFreq", sPdFreq, "static");
@@ -345,10 +348,12 @@ namespace Ts3Fixes
                 case "photosubjectstars": return EpLive(typeof(BPsHook), 1);
                 case "picnicants": return EpLive(typeof(B12PaHook), 3, "sPaFx", sPaFx, null);
                 case "picniccamera": return EpLive(typeof(PcHook), 1);
+                case "picnicexit": return EpLive(typeof(PicnicExitHook), 1);
                 case "plantdormantflip": return EpLive(typeof(B13PfHook), 1, "sPfLeafless", sPfLeafless, 0, "sPfFrost", sPfFrost, typeof(float), "sPfFrost", sPfFrost, "static", "sPfLeaves", sPfLeaves, typeof(float), "sPfLeaves", sPfLeaves, "static", "sPfDormant", sPfDormant, typeof(bool), "sPfDormant", sPfDormant, null, "sPfFrosted", sPfFrosted, 0, "sPfDelete", sPfDelete, 0);
                 case "plantdormanttime": return EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null);
                 case "plumbotfacelistener": return EpLive(typeof(PlumbotFaceHook), 0, "sPfOwner", sPfOwner, null);
                 case "pondclearscan": return EpLive(typeof(PcsHook), 1);
+                case "poolfailmemo": return EpLive(typeof(PoolFailMemoHook), 1);
                 case "poolnolane": return EpLive(typeof(PoolNoLaneHook), 0);
                 case "portaladaptorleak": return EpLive(typeof(PortalAdaptorHook), 1);
                 case "portasknohome": return EpLive(typeof(BPtHook), 1);
@@ -429,6 +434,7 @@ namespace Ts3Fixes
                 case "showstagethrowables": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatParkGoneHook), 1), EpLive(typeof(BookHandPutDownHook), 1)), EpLive(typeof(BookHandQueueHook), 1, "sBhActor", sBhActor, null)), EpLive(typeof(BribeHook), 1, "sBribeTable", sBribeTable, null)), EpLive(typeof(CarryHook), 1)), EpLive(typeof(ConvTurnHook), 1)), EpLive(typeof(FireworksFizzleHook), 0)), EpLive(typeof(GraduationAttendHook), 1)), EpLive(typeof(GraduationCityHallHook), 1)), EpLive(typeof(OutfitClearHook), 2)), EpLive(typeof(SwAbuseHook), 1)), EpLive(typeof(SwAdoptHook), 1)), EpLive(typeof(SwPetAdoptHook), 1)), EpLive(typeof(SwPutUpHook), 1)), EpLive(typeof(ThrowHook), 3)), EpLive(typeof(TopicHook), 4));
                 case "shroomslots": return EpLive(typeof(B13SsHook), 1, "sSsShrooms", sSsShrooms, typeof(int), "sSsHelped", sSsHelped, null, "sSsPost", sSsPost, 1, "sSsYielded", sSsYielded, null, "sSsYielded", sSsYielded, typeof(int), "sSsTimeout", sSsTimeout, 2);
                 case "shuffleboardbcast": return EpLive(typeof(SbHook), 2);
+                case "shuffleboardnpccap": return EpJoin(EpLive(typeof(SncJoinHook), 1), EpLive(typeof(SncPlayHook), 1));
                 case "simdisposelink": return EpLive(typeof(SdlDisposeHook), 1);
                 case "simfestkeep": return EpLive(typeof(SimFestKeepHook), 1);
                 case "simpass": return EpJoin(EpJoin(EpLive(typeof(LdsQueueHook), 0), EpLive(typeof(ShlAcquireHook), 0)), EpLive(typeof(ShlLaneHook), 0));
@@ -479,6 +485,7 @@ namespace Ts3Fixes
                 case "stcsocialscheck": return EpLive(typeof(SocialStcHook), 1);
                 case "steadygigmiss": return EpLive(typeof(SteadyGigHook), 1, "sFtcSpec", sFtcSpec, null);
                 case "stereoupgrade": return EpJoin(EpJoin(EpLive(typeof(BSuDanceHook), 1), EpLive(typeof(BSuSpeakerHook), 1)), EpLive(typeof(BSuUpHook), 1));
+                case "streetparkinglisten": return EpLive(typeof(SplDelHook), 1);
                 case "stuckcheckasync": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckown": return EpLive(typeof(RouteBackoffHook), 4);
@@ -499,6 +506,7 @@ namespace Ts3Fixes
                 case "trainsimgone": return EpLive(typeof(BTgHook), 1);
                 case "traiticondislike": return EpLive(typeof(B12TiHook), 1);
                 case "traitlistenerremove": return EpLive(typeof(BTlHook), 1);
+                case "trashoutsidefallback": return EpJoin(EpLive(typeof(TofPutHook), 1), EpLive(typeof(TofTestHook), 1));
                 case "trashpileimport": return EpLive(typeof(BTpHook), 1, "sTpAlarm", sTpAlarm, null, "sTpBroad", sTpBroad, null);
                 case "trickortreatalarm": return EpLive(typeof(TrickOrTreatHook), 1);
                 case "tricksocials": return EpLive(typeof(B12MtHook), 1);

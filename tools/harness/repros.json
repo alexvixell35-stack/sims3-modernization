@@ -116353,6 +116353,176 @@
     ]
   },
   {
+    "id": "dish-pile-census",
+    "bug": "docs/652: dirty Plate/Bowl servings pile up on one lot in Isla Paradiso night runs (91-179 dirty broadcasters, one lot 203)",
+    "fix": "ts3fixes dishpilecap (DishPileCap.cs): above kDishPileCapPerLot dirty dishes on an unseen lot with no household tie get EA's nightly throw-away early (Lot.DoesObjectNeedCleaning + ThrowAwayImmediately), counters 4130-4139; the active household's home is never touched",
+    "save": "Baseline-IP",
+    "area": "objects",
+    "note": "UNVERIFIED (static only, 2026-11-19): never run. Measurement first: dish_census names the pile lot and whether EA's 3 AM cleanup skips it (nightly_cleanup). Natural play needs sim-days to pile; run it after an IP night queue's idle phase or call it per snapshot.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "dishpilecap": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "dish_census",
+        "args": {
+          "top": 8
+        },
+        "note": "per-lot dishes, nightly_cleanup verdict, history"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 600,
+        "note": "a few sim-hours: hourly passes"
+      },
+      {
+        "cmd": "dish_census",
+        "args": {
+          "top": 8
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "counters 4130-4139"
+      }
+    ],
+    "expect": "OFF: dishpilecap_removed 0, the biggest pile is the active home (nightly_cleanup 'skipped: active Sim's home'), other lots <= cap after a 3 AM; ON: same on the home lot (never touched), lots over the cap elsewhere drop to the cap when unseen"
+  },
+  {
+    "id": "owelevidle-check",
+    "bug": "NRaas Overwatch's nightly CleanupElevators destroys and re-makes at home every Sim in an elevator's assigned list, also NPCs whose entry outlived their ride (asleep at home at 05:00); ~10 resets a night, 50-85 ms each (docs/655)",
+    "fix": "ts3fixes OwElevIdle.cs: owelevidle (default off), docs/655",
+    "save": "Bridgeport after at least one sim-day of play (elevator towers; NRaas Overwatch installed)",
+    "note": "census is read-only; run calls Overwatch's own CleanupElevators.PerformAlarm (our pass first). Turn owresettime on to see the owreset Perform lines of the Sims Overwatch still resets.",
+    "expect": "census before: idle > 0. on + run: dropped == that idle count, owreset Perform lines only for riding or exempt Sims; census after: idle 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "census"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: idle entries Overwatch would reset"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: Overwatch's cleanup with idle entries dropped first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "census"
+          ]
+        },
+        "waitS": 2,
+        "note": "after: idle 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.OwElevIdleCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "owelevidle": false
+        },
+        "note": "cleanup",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "npcloops-natural",
+    "bug": "NPC loops, stalls, listener leaks and no-path retries in natural play (docs/645-651, 654): these fixes act on natural NPC traffic, so the repro is a natural off/on arm",
+    "fix": "ts3fixes perfjobmissedlistener, socialunlinkend, objfailmemo, paparazzicooldown, shuffleboardnpccap, picnicexit, poolfailmemo, trashoutsidefallback, npcstallend, streetparkinglisten",
+    "save": "Baseline-BP",
+    "note": "natural play: both arms run the same steps, only the patches value differs; read each switch's counters from leak_census fix_counters / patches at the end. NOT RUN in this form (the combo branch's combo-1119-natural, which also turned on switches from other PRs, has no recorded verdict).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "perfjobmissedlistener": "$on",
+          "socialunlinkend": "$on",
+          "objfailmemo": "$on",
+          "paparazzicooldown": "$on",
+          "shuffleboardnpccap": "$on",
+          "picnicexit": "$on",
+          "poolfailmemo": "$on",
+          "trashoutsidefallback": "$on",
+          "npcstallend": "$on",
+          "streetparkinglisten": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 600,
+        "note": "about 10 min of natural NPC traffic"
+      },
+      {
+        "cmd": "leak_census",
+        "args": {},
+        "note": "fix_counters per switch"
+      }
+    ],
+    "expect": "each switch's fix_counters rise only in the ON arm where its case occurs in natural traffic; no new exceptions, no crash, no new hitches >= 300 ms from the switches"
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

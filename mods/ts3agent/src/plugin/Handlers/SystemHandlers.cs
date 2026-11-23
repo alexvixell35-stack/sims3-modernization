@@ -36,6 +36,7 @@ namespace Ts3Agent
             RegisterFightOrphan(); // FightOrphanHandlers.cs, repro ip-fight-orphan
             RegisterHouseboatLegRepro(); // HouseboatLegReproHandlers.cs, docs/853 §2-§3
             RegisterBoatRoamRepro(); // BoatRoamReproHandlers.cs, docs/853 §4
+            RegisterDishCensus(); // DishCensusHandlers.cs, docs/652
         }
 
         static object Ping(Args a)

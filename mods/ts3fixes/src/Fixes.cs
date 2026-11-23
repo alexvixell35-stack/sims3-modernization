@@ -101,6 +101,7 @@ namespace Ts3Fixes
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
             ApplyOverwatchProbe(false);
+            ApplyOwElevIdle(false);   // docs/655 (OwElevIdle.cs)
             ApplyErrorTrapSpread(false);
             ApplyPortalAdaptorLeak();
             ApplyCasGrid();
@@ -201,6 +202,7 @@ namespace Ts3Fixes
             ApplySeasonsLogic();     // docs/571 §5-7 (SeasonsLogic.cs)
             ApplySupernaturalLogic(); // docs/571 §8 (SupernaturalLogic.cs)
             ApplyShowtimeLogic();    // docs/571 §9-11 (ShowtimeLogic.cs)
+            ApplyPerfJobMissedListener();  // docs/654 §1 (PerfJobMissedListener.cs)
             ApplyUniversityLogic();  // docs/572 §4-5 (UniversityLogic.cs)
             ApplyIslandParadiseLogic(); // docs/572 §6-7 (IslandParadiseLogic.cs)
             ApplyFutureLogic();      // docs/572 §9-12 (FutureLogic.cs)
@@ -237,6 +239,9 @@ namespace Ts3Fixes
             ApplyRouteCauseLog();   // docs/580 (RouteCauseLog.cs), logging only
             ApplyScarePriority();   // docs/580 §14 (ScarePriority.cs)
             ApplyGroupChatPriority();   // docs/638 §3 (GroupChatPriority.cs)
+            ApplyTrashOutsideFallback();   // docs/646 §2 (TrashOutsideFallback.cs)
+            ApplyShuffleboardNpcCap();   // docs/647 (ShuffleboardNpcCap.cs)
+            ApplyPaparazziCooldown();   // docs/648 (PaparazziCooldown.cs)
             ApplySandwichAlarm();   // docs/580 §16 (SandwichAlarm.cs)
             ApplyDreamCleanup();   // docs/580 §18 (DreamCleanup.cs), memory only
             ApplyVehicleFxHelper();   // docs/582 §1 (Batch582Logic.cs)
@@ -516,6 +521,7 @@ namespace Ts3Fixes
             ApplyAutOffload();
             ApplyReplanDefer();
             ApplyUnseenThrottle();
+            ApplyStreetParkingListen();   // docs/651 §4 (StreetParkingListen.cs; its spot part rides on UnseenThrottle's hook)
             ApplyEaSpread();
             ApplySeasonMarkerCache();
             ApplyRouteSources();
@@ -534,6 +540,8 @@ namespace Ts3Fixes
             ApplyCasTrimKeep();  // docs/539: hooks only with [CasTrim] save hooks in native
             ApplyUnseenOutfitDefer();  // issue #451, ON by default (UnseenOutfitDefer.cs)
             ApplyTagUnseen();          // docs/60 §3 (TagUnseen.cs), off by default
+            ApplyPicnicExit();         // docs/645 §1 (PicnicExit.cs), off by default
+            ApplyPoolFailMemo();       // docs/645 §2 (PoolFailMemo.cs), off by default
             ApplyUnseenOutfitNoSpin();  // docs/809, ON 2026-11-20, needs unseenoutfitdefer (UnseenOutfitNoSpin.cs)
         }
 
@@ -1634,7 +1642,21 @@ namespace Ts3Fixes
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4470;
+        // [4600-4609] docs/645 (npc loops; built as 4070-4079 on the contributor's combo branch, moved because main uses 4070-4089): [4600-4601] picnicexit (PicnicExit.cs, §1): finished picnics exited / skipped (Sims present or cleanup pending); [4602-4603] poolfailmemo (PoolFailMemo.cs, §2): NPC GetInPool no-path / no-destination fails recorded / autonomous GetInPool tests refused; [4604-4607] held for docs/645 §3-§4 (petstartleskip, petlonghome: pets PR); [4608] exempt (household, selected, unknown scope) and [4609] errors are shared by picnicexit and poolfailmemo.
+        // [4610-4614] trashoutsidefallback (TrashOutsideFallback.cs, docs/646 §2; built as 4080-4084, moved): NPC DisposeOutside on a lot whose outdoor can had no path: EA's non-forced disposal / bags put down (EA's failure remembered, or nothing else takes it) / EmptyTrash picks refused / exempt (household, selected, unknown scope) / errors (and bags put down after a call).
+        // [4090-4093] shuffleboardnpccap (ShuffleboardNpcCap.cs, docs/647): NPC shuffleboard Plays ended at a capped round start / round starts left to EA for an exempt player / errors / autonomous re-joins refused during the cooldown.
+        // [4094-4097] paparazzicooldown (PaparazziCooldown.cs, docs/648): NPC paparazzo loop callbacks skipped while both Sims are unseen (stretched route checks) / follows refused by the re-follow cooldown / follows left to EA for an exempt paparazzo or celebrity / errors. [4098-4099] free.
+        // [4120-4129] objfailmemo (ObjFailMemo.cs, docs/650; 4110-4119 belong to another branch): NPC (Sim, object) route failures counted / pairs blocked / autonomous candidates refused / exempt (household, selected, unknown scope) / errors / failures left to other switches (Sim, Terrain, Lot targets, GetInPool, DisposeOutside, EmptyTrash) / 4126-4129 spare
+        // [4140-4142] socialunlinkend (SocialUnlinkEnd.cs, docs/650 §3; 4130-4139 belong to another branch): NPC receiver sync waits ended at once (B unlinked, starter gone) / exempt receivers left to EA (household, selected, unknown scope) / errors; 4143-4149 spare.
+        // [4150-4155] owelevidle (OwElevIdle.cs, docs/655): idle elevator entries dropped before Overwatch's CleanupElevators (reset avoided) / riding entries left to Overwatch / exempt idle entries left to Overwatch / idle entries seen with the switch off / errors / passes; 4156-4159 spare.
+        // [4130-4139] dishpilecap (DishPileCap.cs, docs/652; 4110-4129 left to other agent blocks): dirty dishes removed with EA's nightly throw-away / lots capped / over-cap lots left alone (household home or venue, household Sim there, in view) / dishes skipped (used, held, not needing cleaning) / dishes near a viewer / errors / passes / dirty dishes on the biggest lot / dirty dishes in the world / lots over the cap (last three: last pass, any switch state).
+        // [4160-4163] perfjobmissedlistener (PerfJobMissedListener.cs, docs/654 §1; 4150-4159 and 4170-4179 belong to other branches): stale PerformanceCareer.OnJobMissed listeners removed / stale listeners seen with the switch off (per sweep) / errors / sweeps; 4164-4169 spare.
+        // [4100-4109] npcstallend (NpcStallEnd.cs, docs/649; 4090-4099 left to feat/npcloops-c): NPC stalls ended with EA's cancel / exempt (household, selected, unknown scope) / skipped (allowed kind or busy) / errors / cancels that did not take / left to outfitwaitend (outfit wait) / cleared outfit waits ended (OutfitWait.cs) / passes; 4108-4109 spare.
+        // [4110-4111] eaalarmguard (EaAlarmGuard.cs, docs/651 §1): EA bodies under our hooks on repeating alarms that threw, caught so the alarm stays: NPC show (NPCShowManager.CreateNPCShow) / others (plant growth, venue cleanup, relationship decay, consignment magic hour, Elvis gnome).
+        // [4112-4114] unseenservice cleanup (UnseenService88.cs, docs/651 §2): made glasses / plates destroyed after a failed service / commodity updates ended after a throw / failed services logged by step.
+        // [4115-4116] alarmcmpnobox start (Alloc87Comparers.cs, docs/651 §3): rehomes put off with no world loaded / mTimers swapped at world load.
+        // [4117-4119] streetparkinglisten (StreetParkingListen.cs, docs/651 §4): duplicate CarDeletedEventDelegate listeners not kept (repeat grants) / spots freed for a deleted car that is not a CarNpc / errors.
+        const int kCounterSlots = 4615;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2020,6 +2042,18 @@ namespace Ts3Fixes
                 case "vehprotestcar": return Instantiator.kVehProtestCar;
                 case "buyiconleak": return Instantiator.kBuyIconLeak;
                 case "unseentraffic": return Instantiator.kUnseenTraffic;
+                case "trashoutsidefallback": return Instantiator.kTrashOutsideFallback;  // off (TrashOutsideFallback.cs, docs/646 §2)
+                case "shuffleboardnpccap": return Instantiator.kShuffleboardNpcCap;  // off (ShuffleboardNpcCap.cs, docs/647)
+                case "paparazzicooldown": return Instantiator.kPaparazziCooldown;  // off (PaparazziCooldown.cs, docs/648)
+                case "npcstallend": return Instantiator.kNpcStallEnd;  // off (NpcStallEnd.cs, docs/649)
+                case "streetparkinglisten": return Instantiator.kStreetParkingListen;  // off (StreetParkingListen.cs, docs/651 §4)
+                case "dishpilecap": return Instantiator.kDishPileCap;  // off (DishPileCap.cs, docs/652)
+                case "picnicexit": return Instantiator.kPicnicExit;  // off (PicnicExit.cs, docs/645 §1)
+                case "poolfailmemo": return Instantiator.kPoolFailMemo;  // off (PoolFailMemo.cs, docs/645 §2)
+                case "objfailmemo": return Instantiator.kObjFailMemo;  // off (ObjFailMemo.cs, docs/650)
+                case "owelevidle": return Instantiator.kOwElevIdle;  // off (OwElevIdle.cs, docs/655)
+                case "socialunlinkend": return Instantiator.kSocialUnlinkEnd;  // off (SocialUnlinkEnd.cs, docs/650 §3)
+                case "perfjobmissedlistener": return Instantiator.kPerfJobMissedListener;  // off (PerfJobMissedListener.cs, docs/654 §1)
                 case "npccarexit": return Instantiator.kNpcCarExit;
                 case "casrowleak": return Instantiator.kCasRowLeak;
                 case "compositorleak": return Instantiator.kCompositorLeak;

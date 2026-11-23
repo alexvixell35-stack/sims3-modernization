@@ -72,11 +72,16 @@ namespace Ts3Fixes
             {
                 object h = this; // `this` is really a Sim.SwitchOutfitHelper
                 if (sSohReady == null || sSohStarted == null || sSohDisposed == null || sSohNoChange == null || sSohSim == null
-                    || (!ShortcutOn("outfitwaitpoll") && !ShortcutOn("outfitwaitend")))
+                    || (!ShortcutOn("outfitwaitpoll") && !ShortcutOn("outfitwaitend") && !ShortcutOn("npcstallend")))
                 {
                     WaitOrig(idleIfNecessary);
                     return;
                 }
+                // npcstallend (NpcStallEnd.cs, docs/649): while this task is inside the wait, the stall pass leaves its Sim alone
+                Sim nseSim = sSohSim.GetValue(h) as Sim;
+                NseOutfitWait(nseSim, true);
+                try
+                {
                 // EA's Wait up to its loop, in EA's order
                 if ((bool)sSohDisposed.GetValue(h)) return;
                 if (!(bool)sSohStarted.GetValue(h)) ((Sim.SwitchOutfitHelper)h).Start();
@@ -132,6 +137,8 @@ namespace Ts3Fixes
                         if (sOwLines.Count < 30) sOwLines.Add(line);
                     }
                 }
+                }
+                finally { NseOutfitWait(nseSim, false); }
             }
             public void WaitOrig(bool idleIfNecessary) { } // receives Sim.SwitchOutfitHelper.Wait's original header
         }
@@ -259,13 +266,18 @@ namespace Ts3Fixes
                 bool npc = live && !IsPlayerSim(s);  // household rule (PlayerSims.cs): unknown scope counts as household
                 bool onScreen = live && World.IsObjectOnScreen(s.ObjectId);
                 int cause = npc ? OutfitWaitCauseCode(h, s) : -1;
-                bool inChange = npc && cause == OutfitWaitCore.kCauseOwn && OutfitWaitInChangeOutfit();
-                if (!OutfitWaitCore.EndNow(true, waited, endAfter, npc, onScreen, cause, inChange))
+                bool inChange = npc && (cause == OutfitWaitCore.kCauseOwn || cause == OutfitWaitCore.kCauseCleared) && OutfitWaitInChangeOutfit();
+                bool own = OutfitWaitCore.EndNow(true, waited, endAfter, npc, onScreen, cause, inChange);
+                // npcstallend (docs/649 §3): with that switch on, a cleared-cause wait (no pending outfit, the ready callback never
+                // came) ends the same way; with it off such a wait is kept, as before
+                bool cleared = !own && ShortcutOn("npcstallend")
+                    && NpcStallEndCore.EndClearedWait(true, waited, endAfter, npc, onScreen, cause, OutfitWaitCore.kCauseCleared, inChange);
+                if (!own && !cleared)
                 {
                     if (!kept) { kept = true; c[2126]++; }
                     return false;
                 }
-                if (!ShortcutOn("outfitwaitend"))
+                if (own && !ShortcutOn("outfitwaitend"))
                 {
                     if (!seenOff) { seenOff = true; c[2125]++; }
                     return false;
@@ -283,10 +295,11 @@ namespace Ts3Fixes
                     if (sSimToddlerSpin != null) sSimToddlerSpin.Invoke(s, new object[] { helper.Reason, true });
                 }
                 c[2124]++;
+                if (cleared) c[4106]++;
                 if (sOeLines++ < 10)
                 {
                     string line = "outfitwaitend: " + s.FullName + " outfit wait ended after " + SimClock.ConvertFromTicks(waited, TimeUnit.Minutes).ToString("0")
-                        + " sim-minutes with EA's instant switch to " + cat + "/" + idx + " (switched " + switched + "); task " + OutfitWaitCaller();
+                        + " sim-minutes" + (cleared ? " (cleared cause, npcstallend)" : "") + " with EA's instant switch to " + cat + "/" + idx + " (switched " + switched + "); task " + OutfitWaitCaller();
                     ShortcutLog(line);
                     if (sOwLines.Count < 30) sOwLines.Add(line);
                 }

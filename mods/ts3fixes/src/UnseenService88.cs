@@ -55,6 +55,8 @@ namespace Ts3Fixes
         // Counters: [3600-3602] tier 1 conversation / drink / food, [3603-3605] tier 2 the same, [3606] out of scope (seen,
         // player, owned, high LOD), [3607] precondition kept EA's hand-off, [3608] tier 2 refused at the on-screen re-check,
         // [3609] RunBehavior false after an instant service (payment refused), [3610] errors, [3611] Check live mismatches.
+        // docs/651 §2: [4112] made glasses / plates destroyed in the finally after a failed service, [4113] commodity updates
+        // ended there after a throw, [4114] failed services logged by step (SvcErrLog).
         const int kSvcNone = 0, kSvcConv = 1, kSvcDrink = 2, kSvcFood = 3;
         static readonly FieldInfo sSvcBartender = typeof(BarAdvanced).GetField("mBartender", kInstAll);
         static readonly FieldInfo sSvcQueue = typeof(BarAdvanced).GetField("mInteractions", kInstAll);
@@ -258,28 +260,36 @@ namespace Ts3Fixes
             }
             InteractionInstance mk = ia.CreateBartenderInteractionInstance(b);   // EA's Enqueue: the server's instance, linked
             mk.LinkedInteractionInstance = ia;
-            bool res;
+            bool res = false;
+            // docs/651 §2: every step is named for the error log; a throw anywhere ends the commodity updates begun and
+            // destroys a made object that never reached the destination slot.
+            int step = OwnBugsCore.kSvcStepStart;
+            bool iaBegun = false, mkBegun = false, placed = false;
+            GameObject made = null;
             try
             {
                 if (kind == kSvcConv)
                 {
-                    ia.BeginCommodityUpdates();   // OrderConversation.RunOrderBehavior without its DoTimedLoop
-                    ia.EndCommodityUpdates(true);
-                    mk.BeginCommodityUpdates();   // BartenderInteraction.Run around MakeConversation.RunMakeBehavior (true)
-                    mk.EndCommodityUpdates(true);
+                    step = OwnBugsCore.kSvcStepCommodity;
+                    ia.BeginCommodityUpdates(); iaBegun = true;   // OrderConversation.RunOrderBehavior without its DoTimedLoop
+                    ia.EndCommodityUpdates(true); iaBegun = false;
+                    mk.BeginCommodityUpdates(); mkBegun = true;   // BartenderInteraction.Run around MakeConversation.RunMakeBehavior (true)
+                    mk.EndCommodityUpdates(true); mkBegun = false;
                 }
                 else
                 {
+                    step = OwnBugsCore.kSvcStepOrder;
                     MethodInfo runOrder = SvcRunOrderOf(ia.GetType());
                     if (runOrder == null) throw new InvalidOperationException("no RunOrderBehavior body on " + ia.GetType().Name);
                     ((SvcRunOrderFn)Fixes.Bind(typeof(SvcRunOrderFn), ia, runOrder))();   // EA: hands description / recipe to the server's instance (a delegate: barorderlog swaps RunOrderBehavior, see PrefRemoveFn)
-                    mk.BeginCommodityUpdates();
-                    GameObject made;
+                    step = OwnBugsCore.kSvcStepCommodity;
+                    mk.BeginCommodityUpdates(); mkBegun = true;
+                    TransformParentingReturnCode rc = TransformParentingReturnCode.Unknown;
                     if (kind == kSvcDrink)
                     {
                         Bartending sk = (Bartending)b.SkillManager.AddElement(SkillNames.Bartending);
                         Bartending.DrinkDescription d = (Bartending.DrinkDescription)sSvcMakeDesc.GetValue(mk);
-                        if (ia.Autonomous && sk != null)   // MakeDrink.RunMakeBehavior's unique-drink pick
+                        if (ia.Autonomous && sk != null && sk.UniqueDrinks != null)   // MakeDrink.RunMakeBehavior's unique-drink pick
                         {
                             Sims3.Gameplay.Objects.Quality q = Bartending.GetRequiredQualityForVenue(bar.LotCurrent.GetMetaAutonomyType);
                             foreach (Bartending.CustomDrinkData u in sk.UniqueDrinks)
@@ -293,33 +303,83 @@ namespace Ts3Fixes
                             }
                         }
                         // CreateDrinksAndSetActors, one glass, without the state machine actor
+                        step = OwnBugsCore.kSvcStepCreate;
                         object ingr = (d.Data == null && d.CustomDrinkData == null && d.Mood == Bartending.DrinkMood.None)
                             ? Activator.CreateInstance(sSvcCreateDrink.GetParameters()[4].ParameterType) : sSvcUseIngr.Invoke(bar, new object[] { b });
                         Glass g = (Glass)sSvcCreateDrink.Invoke(bar, new object[] { b, d.Data, d.CustomDrinkData, d.Mood, ingr });
+                        made = g;
                         g.IsPoolbarDrink = bar is PoolBar;
-                        g.OnPoured();   // the anim event 600 handler; EA's CreateRoundsOfDrinks calls it directly
-                        mk.EndCommodityUpdates(true);
-                        bool flame = sk != null && sk.ShouldMakeFlamingDrink(g.ContainedDrink);   // PutDownCarriedObject
-                        if (!g.ParentToSlot(dest.Object, dest.PlacementSlot)) { g.Destroy(); made = null; }
-                        else { if (flame) g.SetOnFire(); made = g; }
+                        // EA's order (CreateRoundsOfDrinks, PutDownCarriedObjectHelper): the glass is placed in the world first and
+                        // poured there. The old code poured it while still out of world (CreateObjectOutOfWorld), which EA never does.
+                        step = OwnBugsCore.kSvcStepPlace;
+                        placed = g.ParentToSlot(dest.Object, dest.PlacementSlot, ref rc);
+                        if (placed)
+                        {
+                            step = OwnBugsCore.kSvcStepPour;
+                            g.OnPoured();   // the anim event 600 handler; EA's CreateRoundsOfDrinks calls it directly
+                            if (sk != null && sk.ShouldMakeFlamingDrink(g.ContainedDrink)) g.SetOnFire();   // PutDownCarriedObject
+                        }
+                        step = OwnBugsCore.kSvcStepCommodity;
+                        mk.EndCommodityUpdates(true); mkBegun = false;
                     }
                     else
                     {
+                        step = OwnBugsCore.kSvcStepCreate;
                         IFoodContainer f = (IFoodContainer)sSvcCreateFood.Invoke(mk, null);
-                        if (f is ServingContainer) ((ServingContainer)f).StartAutoDestroyAlarm();
-                        mk.EndCommodityUpdates(f != null);
                         made = f as GameObject;
-                        if (made != null && !made.ParentToSlot(dest.Object, dest.PlacementSlot)) { made.Destroy(); made = null; }
+                        if (f is ServingContainer) ((ServingContainer)f).StartAutoDestroyAlarm();
+                        step = OwnBugsCore.kSvcStepCommodity;
+                        mk.EndCommodityUpdates(f != null); mkBegun = false;
+                        step = OwnBugsCore.kSvcStepPlace;
+                        placed = made != null && made.ParentToSlot(dest.Object, dest.PlacementSlot, ref rc);
                     }
-                    if (made == null) { PatchCounters()[3610]++; sSvcDone[ia] = false; return true; }   // EA: the order fails
+                    if (!placed)   // EA: the order fails
+                    {
+                        SvcErrLog(kind, made == null ? OwnBugsCore.kSvcStepCreate : OwnBugsCore.kSvcStepPlace, made == null ? "nothing made" : "ParentToSlot " + rc, null);
+                        sSvcDone[ia] = false;
+                        return true;
+                    }
                 }
+                step = OwnBugsCore.kSvcStepBehavior;
                 res = SvcRunBehavior(ia);
+                step = OwnBugsCore.kSvcStepDone;
             }
-            finally { ia.LinkedInteractionInstance = null; }   // the server's instance never ran
+            catch (ResetException) { throw; }
+            catch (Exception e)
+            {
+                // EA's hand-off follows (the caller counts [3610]); nothing of ours is left half done
+                SvcErrLog(kind, step, null, e);
+                sSvcLogged = e;
+                throw;
+            }
+            finally
+            {
+                if (OwnBugsCore.SvcEndUpdates(iaBegun)) { try { ia.EndCommodityUpdates(false); PatchCounters()[4113]++; } catch (Exception) { } }
+                if (OwnBugsCore.SvcEndUpdates(mkBegun)) { try { mk.EndCommodityUpdates(false); PatchCounters()[4113]++; } catch (Exception) { } }
+                if (OwnBugsCore.SvcDestroyMade(made != null, placed, step))
+                {
+                    try { if (!made.HasBeenDestroyed) made.Destroy(); PatchCounters()[4112]++; } catch (Exception) { }
+                }
+                ia.LinkedInteractionInstance = null;   // the server's instance never ran
+            }
             sSvcDone[ia] = res;
             if (!res) PatchCounters()[3609]++;
             PatchCounters()[(tier == 2 ? 3603 : 3600) + kind - 1]++;
             return true;
+        }
+
+        // docs/651 §2: the step and type of the first errors ([3610] alone never said which), capped.
+        static int sSvcErrLines;
+        static Exception sSvcLogged;   // already logged by SvcServe, rethrown to the caller
+        static void SvcErrLog(int kind, int step, string what, Exception e)
+        {
+            if (e == null) PatchCounters()[3610]++;   // the caller's catch counts a throw
+            PatchCounters()[4114]++;
+            if (!OwnBugsCore.LogMore(sSvcErrLines, 16)) return;
+            sSvcErrLines++;
+            Exception inner = e != null && e.InnerException != null ? e.InnerException : e;   // reflection wraps EA's throw
+            AppliedLog().Add("unseenservice: " + (kind == kSvcConv ? "conversation" : kind == kSvcDrink ? "drink" : "food") + " failed at "
+                + OwnBugsCore.SvcStepName(step) + ": " + (inner != null ? OwnBugsCore.Brief(inner.GetType().Name, inner.StackTrace) : what));
         }
 
         public class SvcEnqHook
@@ -358,7 +418,7 @@ namespace Ts3Fixes
                                 else hold = SvcWaitHere(b, q, tier, ref waited, t0);   // docs/635: server between orders
                             }
                             catch (ResetException) { throw; }
-                            catch (Exception) { PatchCounters()[3610]++; }
+                            catch (Exception e) { PatchCounters()[3610]++; if (e != sSvcLogged) SvcErrLog(kind, OwnBugsCore.kSvcStepScope, null, e); }
                             finally { sSvcQuiet = false; }
                             if (!hold)
                             {

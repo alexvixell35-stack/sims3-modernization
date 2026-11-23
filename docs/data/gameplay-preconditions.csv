@@ -1,4 +1,5 @@
 command,handler,states,player_action,realism,preconditions,source,gate
+dish_census,DishCensusHandlers,Live,none (read: serving containers counted per lot; docs/652),harness,,handler,live
 ping,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
 commands,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
 notify,SystemHandlers,Any,none (harness: kit benchmark notice in the corner; docs/315),harness,,handler,none

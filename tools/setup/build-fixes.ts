@@ -645,6 +645,17 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFireDoorKeep value="True" />
     <kHorseshoeSolo value="True" />
     <kHorseshoeSoloHours value="2" />
+    <kTrashOutsideFallback value="False" />
+    <kTrashOutsideFallbackHours value="4" />
+    <kDishPileCap value="False" />
+    <kDishPileCapPerLot value="10" />
+    <kDishPileCapBudget value="20" />
+    <kNpcStallEnd value="False" />
+    <kNpcStallEndHours value="3" />
+    <kStreetParkingListen value="False" />
+    <kOwElevIdle value="False" />
+    <kSocialUnlinkEnd value="False" />
+    <kPerfJobMissedListener value="False" />
     <kFireNre value="True" />
     <kFireCount value="True" />
     <kBirthdayAgers value="True" />
