@@ -1566,6 +1566,17 @@ static void TestFallback() {
         assert(PfTake(kH1 + 1) == 0 && PfTake(kH1) == 0);  // used up by any START, its own or not
         PfSet(kH1);
         assert(PfTake(kH1) == 1 && PfTake(kH1) == 0);
+        // docs/631 §5 (playerfirst-core.h; the order cases are playerfirst-host-test.cpp): the bound and the repeat rule
+        assert(PfFirst(1, 0, kPfMaxPassed - 1) == 0 && PfFirst(1, 0, kPfMaxPassed) == 1 && PfFirst(2, 0, kPfMaxPassed) == 0 && PfFirst(0, 1, 0) == 0);
+        {
+            PfRetryTab t = {};
+            assert(!PfRepeat<PfAtomic>(t, 1, 1, kH1));
+            PfRetryNote<PfAtomic>(t, kH1, true);
+            assert(PfRepeat<PfAtomic>(t, 1, 1, kH1) && PfRepeat<PfAtomic>(t, 1, 3, kH1) && !PfRepeat<PfAtomic>(t, 1, 0, kH1) && !PfRepeat<PfAtomic>(t, 1, 2, kH1));
+            assert(!PfRepeat<PfAtomic>(t, 2, 1, kH1) && !PfRepeat<PfAtomic>(t, 1, 1, kH1 + 1));
+            PfRetryNote<PfAtomic>(t, kH1, false);
+            assert(!PfRepeat<PfAtomic>(t, 1, 1, kH1));
+        }
         // J_PEND audit: household and unknown scope park, known unseen queues; CANCEL frees; a world closing and a Plan without READY plan here
         g_discDraining = true;
         rec = DiscRec{};

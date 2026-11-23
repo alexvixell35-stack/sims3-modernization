@@ -745,7 +745,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 35: return GvaSrcMsg(lo);  // docs/250 §7.0 (gvro.cpp): the next plan's source class and scope, or "gvattr on?"
         case 63: return AdOp(lo, hi);  // docs/316 [AdaptDiag]: activity tag / install check missing / world quit / swapinvokediag wanted
         case 62: return PcOp(lo, hi);  // docs/299 [PcCheck]: problem flag lo set? / sim hour ended / world quit (62: same op as the docs/298 diag branch)
-        case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
+        case 37: PfSet(lo); return g_pfMode ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
         case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 40: return DsClassOp(lo, hi);  // docs/674 doorshare.cpp: route lo's Sim class (hi 0-15), before its START; 1 = DoorShare on
         case 48: return FglInsideOp(lo);    // docs/682 §9: lo 1 = this thread's next FindGoodLocation search is the indoors stage, 0 = over; 1 = [FglInside] installed

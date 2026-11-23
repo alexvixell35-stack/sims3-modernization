@@ -256,8 +256,9 @@ static void ReadKindDeadlines(const wchar_t* ini) {
     k.kdCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenCeilMs", 10000, ini), 1000, 60000) * 1000;
     k.kdNpcCeilUs = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdSeenNpcCeilMs", 2000, ini), 1000, 60000) * 1000;
     k.kdCamMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdCutCamRecheck", 0, ini), 0, 2);
-    g_pfMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"PlayerFirst", 0, ini), 0, 1);  // docs/631
-    if (g_pfMode) Log("route async: PlayerFirst=1: queued jobs of player-ordered routes (ts3fixes playerfirst) run first (docs/631)");
+    g_pfMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"PlayerFirst", 0, ini), 0, 2);  // docs/631
+    if (g_pfMode) Log("route async: PlayerFirst=%ld: queued jobs of player-ordered routes (ts3fixes playerfirst) run first (docs/631)%s", g_pfMode,
+                      g_pfMode == 1 ? "; an unmarked job is passed at most 8 times, a replan after a failed job keeps START order (docs/631 §5)" : "; no limits");
     g_kdUfCap = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"KdUnseenForeignCap", 0, ini), 0, 2);
     if (g_kdUfCap) Log("route async: KdUnseenForeignCap=%d: %s jobs of unseen followers keep the doubled deadline at backoff level 2 (docs/197 §7)",
                        g_kdUfCap, g_kdUfCap == 2 ? "foreign and own" : "foreign");

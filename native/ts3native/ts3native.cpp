@@ -3531,6 +3531,7 @@ static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 // docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
 static LONG g_jyFollowed;
 static LONG g_jyParkedN, g_jyBackN, g_jyDropN, g_jyLostN, g_jyActiveN;  // records parked / put back / dropped / expired or no slot; asks on a followed route
+static void PfLog();      // docs/631 §5 (below)
 static void MaybeLogCounters(ULONGLONG now) {
     LONG64 next = g_nextLog;
     if ((LONG64)now < next || InterlockedCompareExchange64(&g_nextLog, (LONG64)now + 60000, next) != next) return;
@@ -3557,6 +3558,7 @@ static void MaybeLogCounters(ULONGLONG now) {
             c.fp2Mode, c.fp2Deferred[0], c.fp2Deferred[1], c.fp2Applied[0], c.fp2Applied[1], c.fp2Dropped[0], c.fp2Dropped[1],
             c.fp2Dup, c.fp2Pass, c.fp2Forced, c.fp2FullPass, c.fp2AgeMaxMs, c.fp2ApplyInJob);
     DiscRfLog();  // docs/89 §18
+    PfLog();      // docs/631 §5
     if (c.pfReady)  // docs/89 §14 private footprint remove
         Log("private footprint defer: mode %ld calls %ld inJob %ld deferred %ld applied %ld swept %ld dropped %ld dup %ld pass %ld addFlush %ld fullPass %ld applyInJob %ld",
             c.pfMode, c.pfCalls, c.pfInJob, c.pfDeferred, c.pfApplied, c.pfSwept, c.pfDropped, c.pfDup, c.pfPass, c.pfAddFlush,
@@ -4032,6 +4034,8 @@ struct AsyncJob {
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
     LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
     LONG pf;          // docs/631 [RouteAsync] PlayerFirst: 1 = a route the player ordered (ts3fixes playerfirst, UserDiag op 37)
+    LONG pfDem;       // docs/631 §5: marked, but a replan of a route whose last job failed: START order (pf = 0)
+    LONG pfPassed;    // docs/631 §5: marked jobs the worker ran ahead of this queued one (worker; 0 at JobQueue)
     LONG dsBits;      // docs/674 [RouteSnap] DoorShare: the route's Sim class from ts3fixes doorshare (UserDiag op 40), 0 = none
 };
 #include "caps.h"  // docs/321 lane 0: high water of our fixed-size tables (CapSee / CapFull, `caps:` log line)
@@ -4043,22 +4047,29 @@ static AsyncJob g_jobs[kJobs];
 static DWORD g_jobSeq;  // sim thread only
 // docs/631 [RouteAsync] PlayerFirst (default 0): the worker runs a queued job marked by ts3fixes playerfirst (a household or
 // selected Sim's route, or one of a user-directed interaction: UserDiag op 37 right before its START) before older unmarked
-// ones; among marked and among unmarked jobs it stays oldest first. Each job is the same IC call on the same START snapshot
-// (its world lock, its RtQuietWorld check at claim), so only the order of the worker's jobs changes, never a job's answer.
-// No starvation: a household has at most 8 Sims and a route has one job at a time, so an unmarked job waits at most 8 more jobs.
-static LONG g_pfMode;                   // the ini switch
+// ones; among marked and among unmarked jobs it stays oldest first. Each job is the same IC call (its world lock, its
+// RtQuietWorld check at claim), so only the order of the worker's jobs changes. The pick and its two limits (an unmarked job
+// is passed at most kPfMaxPassed times; a replan of a route whose last job failed keeps START order) are playerfirst-core.h
+// (docs/631 §5); 2 = the order without the limits, for comparison runs.
+#include "playerfirst-core.h"
+static LONG g_pfMode;                   // the ini switch: 0 off, 1 on, 2 on without the limits
 static DWORD g_pfH;                     // sim thread: route of the last op 37, good for its next START only
 static volatile LONG g_pfJumps, g_pfAhead;  // worker: marked jobs run ahead of an older unmarked one / unmarked jobs passed
+static volatile LONG g_pfAged, g_pfRepeats;  // worker: unmarked jobs run by the bound / sim: marks of repeat replans not honoured
+static PfRetryTab g_pfRetry;
+struct PfAtomic {
+    static long Cas(volatile long* p, long expect, long set) { return InterlockedCompareExchange(p, set, expect); }
+};
 static void PfSet(DWORD handle) { g_pfH = handle; }
 static LONG PfTake(DWORD handle) {
     const LONG r = handle && g_pfH == handle ? 1 : 0;
     g_pfH = 0;
     return r;
 }
-// does queued job a run before queued job b? (EA order and PlayerFirst=0: oldest START first)
-static bool PfBefore(LONG mode, LONG aPf, DWORD aSeq, LONG bPf, DWORD bSeq) {
-    if (mode == 1 && aPf != bPf) return aPf != 0;
-    return (LONG)(aSeq - bSeq) < 0;
+static void PfLog() {
+    if (g_pfMode)
+        Log("route async: PlayerFirst: mode %ld, jumps %ld, jobs passed %ld, unmarked jobs run by the bound (%ld passes) %ld, repeat replans in "
+            "START order %ld", g_pfMode, g_pfJumps, g_pfAhead, kPfMaxPassed, g_pfAged, g_pfRepeats);
 }
 #include "crashev.h"  // docs/186 §8: [CrashForensics] OurEvents ring (CeRec), recorded by the feature files below
 // routegate.cpp / rtsites.cpp: guarded routing calls open now on threads other than the worker (gate leaves, quadtree
@@ -4676,19 +4687,24 @@ static void ServeAsync() {
     Ts3nCounters& k = ts3native_counters;
     static const DWORD kInfinite = 0xFFFFFFFF;
     for (;;) {
-        AsyncJob* j = NULL;
         const LONG pfMode = g_pfMode;
-        int passed = 0;  // PlayerFirst: unmarked queued jobs older than the marked one picked
-        for (int i = 0; i < kJobs; i++)
-            if (g_jobs[i].state == J_QUEUED && (!j || PfBefore(pfMode, g_jobs[i].pf, g_jobs[i].seq, j->pf, j->seq))) j = &g_jobs[i];
-        if (j && pfMode == 1 && j->pf)
-            for (int i = 0; i < kJobs; i++)
-                passed += g_jobs[i].state == J_QUEUED && !g_jobs[i].pf && (LONG)(g_jobs[i].seq - j->seq) < 0;
-        if (passed) {
+        struct PfQueue {  // playerfirst-core.h's view of the slots
+            int Count() { return kJobs; }
+            bool Queued(int i) { return g_jobs[i].state == J_QUEUED; }
+            long Pf(int i) { return g_jobs[i].pf; }
+            long Passed(int i) { return g_jobs[i].pfPassed; }
+            unsigned long Seq(int i) { return g_jobs[i].seq; }
+            void Pass(int i) { g_jobs[i].pfPassed++; }
+        } pfq;
+        const PfPicked pick = PfPick(pfq, pfMode);
+        AsyncJob* j = pick.at < 0 ? NULL : &g_jobs[pick.at];
+        if (pick.aged) InterlockedIncrement(&g_pfAged);
+        if (pick.passed) {
             const LONG n = InterlockedIncrement(&g_pfJumps);
-            InterlockedExchangeAdd(&g_pfAhead, passed);
-            if ((n & (n - 1)) == 0)  // 1, 2, 4, ...: a trail, not a line per job
-                Log("route async: PlayerFirst: job %08lX ran ahead of %d older queued job(s); jumps %ld, jobs passed %ld", j->handle, passed, n, g_pfAhead);
+            InterlockedExchangeAdd(&g_pfAhead, pick.passed);
+            if (n <= 64 || (n & (n - 1)) == 0)  // the first 64 one by one (a run's incidents are read against them), then a trail
+                Log("route async: PlayerFirst: job %08lX ran ahead of %d older queued job(s); jumps %ld, jobs passed %ld; seq %lu kind %d, "
+                    "oldest passed seq %lu", j->handle, pick.passed, n, g_pfAhead, j->seq, j->kind, pick.oldest);
         }
         if (!j) {
             g_p4Phase = 2;
@@ -4799,6 +4815,7 @@ static void ServeAsync() {
         t_p6wArm = P6wArmNow();                            // [P6Waits]: the arm at the job's start
         UafTagScope uafTag(UT_ROUTE_JOB, (const void*)&ServeAsync);  // [UafCheck] frees during the worker job and its end
         CallIc(j->kind, j->result, j->handle, j->pt);
+        if (j->pf || j->pfDem) PfRetryNote<PfAtomic>(g_pfRetry, j->handle, *(const DWORD*)j->result != 1);  // docs/631 §5: type 1 = succeeded
         t_hcJob = 0, t_hcScope = 0, t_dsBits = 0;
         LendBackstop();  // CE-4 (docs/154): a lend window an unwind left open is closed before the release below
         P5EarlyEnd();    // P6EarlyCopy (docs/94 §24.14): an early clone the IC never planned with (no Route_PlanLocked)
@@ -5813,6 +5830,8 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
     j->pf = PfTake(handle);  // docs/631: before J_QUEUED, the worker reads it to pick
+    j->pfDem = j->pf && PfRepeat<PfAtomic>(g_pfRetry, g_pfMode, kind, handle) ? 1 : 0;  // docs/631 §5: a blocked Sim's wait cycle
+    if (j->pfDem) j->pf = 0, InterlockedIncrement(&g_pfRepeats);
     j->dsBits = DsClassTake(handle);  // docs/674: the class is good for this START only
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
     j->ufCut = j->ufCutView = 0;
@@ -5845,6 +5864,7 @@ static bool JobQueue(AsyncJob* j, DWORD handle, int kind, const float* pt, bool 
     g_async.owner = GetCurrentThreadId();
     j->handle = handle;
     j->seq = ++g_jobSeq;
+    j->pfPassed = 0;
     j->x87 = GetX87();
     j->mxcsr = _mm_getcsr();
     j->lock = lock;
