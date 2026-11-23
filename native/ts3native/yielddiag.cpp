@@ -26,7 +26,7 @@ static DWORD g_ydPair[48];        // distinct (word 4 back, word 2 back) pairs s
 
 static bool YdName(const BYTE* rm, char* b, int n) {
     b[0] = 0;
-    __try { JitMethodName(rm, b, n); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(b, n, "?"); }
+    __try { JitMethodName(rm, b, n); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(b, n, "?"); }
     return strstr(b, "RabbitHole") != NULL;
 }
 
@@ -67,8 +67,8 @@ static void YdResume(const BYTE* state) {
         if (suspect ? InterlockedIncrement(&g_ydSuspect) > 60 : !newPair && (!watched || InterlockedIncrement(&g_ydWatch) > 80)) continue;
         if (watched && idx >= 0 && idx <= words && InterlockedIncrement(&g_ydDump) <= 30) {  // round 4: the code up to the resume ip
             char b[900];
-            int n = sprintf_s(b, "yielddiag code: state %08lX frame %ld %s rm %08lX flags %08lX:", (DWORD)(uintptr_t)state, d, name, (DWORD)(uintptr_t)rm, *(const DWORD*)(rm + 0x44));
-            for (LONG i = idx > 130 ? idx - 130 : 0; i < idx + 6 && i < words && n < 880; i++) n += sprintf_s(b + n, sizeof(b) - n, i == idx ? " |%04X" : " %04X", code[i]);
+            int n = SFmt(b, "yielddiag code: state %08lX frame %ld %s rm %08lX flags %08lX:", (DWORD)(uintptr_t)state, d, name, (DWORD)(uintptr_t)rm, *(const DWORD*)(rm + 0x44));
+            for (LONG i = idx > 130 ? idx - 130 : 0; i < idx + 6 && i < words && n < 880; i++) n += SFmt(b + n, sizeof(b) - n, i == idx ? " |%04X" : " %04X", code[i]);
             Log("%s", b);
         }
         Log("yielddiag resume: state %08lX resume #%ld frame %ld of %ld %s: ip word %ld of %ld, stack %ld, vt off %ld, words %04X %04X %04X %04X | %04X %04X, ForceJIT byte %02X%s%s",

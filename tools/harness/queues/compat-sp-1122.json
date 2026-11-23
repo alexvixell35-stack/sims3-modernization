@@ -1,0 +1,96 @@
+{
+  "note": "compat-sp-1122 (WRITTEN, NOT STARTED; needs Rodney's hand download of the set, docs/data/compat-sp-1122.json): NRaas StoryProgression V269 + modules with our v0.3.1 Steam release pair, release defaults, Apex + bridge (Bin state apex). Why: the 2026-11-22 static audit (docs/318, NRaas section) found SP sends many more NPC trips through our unseen routing hooks (VisitCommunityLot / GoHome / GoToLot, RouteBackoff, UnseenFallbackFinish), spawns Sims through its own Instantiate copy so our UnseenOutfitDefer / AgeUpDupInst / ResidentSpawnSlot hooks never run for them, makes our EA story-progression fixes idle, and slices its own work up to 100 ms per frame every 10 sim-minutes. Job 1 smoke; job 2 = 15 min IP play, ours ON, 0 script errors, no hang (household Sims get SP work/school pushes vanilla never makes, so household-equals-vanilla checks do not apply here); job 3 = control, ours OFF, same set. PASS 2 + 3 = SP moves to 'in our test setup'. First watch in job 2: off-screen SP-spawned townies (outfit when seen), unseenfbtrip [341], failreplan [29]/[30], visit counters [7]/[8]. Run: node tools/harness/queue.ts tools/harness/queues/compat-sp-1122.json --no-smoke. Est 3 jobs x 12-25 min.",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasStoryProgression\\b": {
+      "match": [
+        "ts3fixes: script assemblies (402): Ts3Fixes, NRaasStoryProgression, NRaasErrorTrap",
+        "ts3fixes: script assemblies (405): Ts3Fixes, NRaasOverwatch, NRaasStoryProgression"
+      ],
+      "noMatch": [
+        "ts3fixes: script assemblies (402): Ts3Fixes, NRaasStoryProgressionCareer, NRaasErrorTrap",
+        "ts3fixes: script assemblies (386): Ts3Fixes, Ts3Agent"
+      ]
+    },
+    "^ts3native 0\\.36\\.295a ": {
+      "match": [
+        "ts3native 0.36.295a 2026-11-20 15:24:38"
+      ],
+      "noMatch": [
+        "ts3native 0.36.295 2026-11-19 09:00:00",
+        "ts3native 0.36.299-e1122 2026-11-22 06:15:57"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "ip-compat-sp-smoke",
+      "note": "[est 8-12 min] smoke: SP set moves in, world loads with our release mods ON, NRaasStoryProgression in the script assemblies line, release version read back, 0 script errors in 1 min.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "v0.3.1 Steam release pair (rel031 = hf031 asi/ini + hf031b ts3fixes, same sha256): what MTS players install",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/compat-sp-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "run": {
+        "profile": {
+          "minutes": 1,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasStoryProgression\\b": 1,
+        "^ts3native 0\\.36\\.295a ": 1
+      }
+    },
+    {
+      "id": "ip-compat-sp-play",
+      "note": "[est 22-28 min] correctness: 15 min at speed 3 with SP and our release mods ON (SP runs its first actions within ~10 sim-minutes). PASS = world loaded, 0 script errors, no crash or hang.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "v0.3.1 Steam release pair (rel031 = hf031 asi/ini + hf031b ts3fixes, same sha256): what MTS players install",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/compat-sp-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 40,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295a ": 1
+      }
+    },
+    {
+      "id": "ip-compat-sp-control",
+      "note": "[est 20-25 min] control: same set, 15 min, our mods OFF (asi none). Script errors here belong to SP or EA; job 2 is judged against this one.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/compat-sp-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      }
+    }
+  ]
+}

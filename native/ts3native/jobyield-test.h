@@ -43,6 +43,23 @@ static void TestJobYield() {
     // 2. on: busy while the job runs, only at the task's root interpreter state; the step-aside loop ends with the job
     k.jyMode = 1;
     assert(JyAsk() == 1 && k.jyAsks == 1 && k.jyBusy == 1);
+    {   // docs/323 M2: a full park table answers not busy (the task does not sleep), the slots stay, counted in jyLostN
+        const JyPark save = g_jyPark;
+        for (int i = 0; i < JYP_SLOTS; i++) g_jyPark.r[i].handle = 0x27000000u + i, g_jyPark.r[i].tick = GetTickCount(), g_jyPark.r[i].has = JYP_WHY;
+        const LONG full0 = g_jyPark.full, busy0 = k.jyBusy, lost0 = g_jyLostN, asks0 = k.jyAsks;
+        const RouteIsActiveFn act0 = g_routeIsActive;
+        g_routeIsActive = JyFakeActive, g_jyTestActive = 0;  // no game code here: the route is not followed
+        const u8 r = JyAskH(0x27100000u, 0);
+        if (g_async.state == A_RUNNING)  // the 60 ms job may have ended in between: then nothing is busy anyway
+            assert(r == 0 && g_jyPark.full == full0 + 1 && g_jyLostN == lost0 + 1 && k.jyBusy == busy0 && JypLive(g_jyPark) == JYP_SLOTS);
+        g_jyPark.r[JYP_SLOTS - 1].handle = 0;  // control: one free slot, the same ask is busy again (it sleeps)
+        const u8 r2 = JyAskH(0x27100000u, 0);
+        if (g_async.state == A_RUNNING) assert(r2 == 1 && k.jyBusy == busy0 + 1);
+        g_routeIsActive = act0;
+        g_jyPark = save;
+        JyCounts();
+        k.jyBusy = busy0, k.jyAsks = asks0;  // the cases below count from here
+    }
     FakeTask(kNested, 7);  // a native->managed call during the task may not yield: not busy, the plan waits as before
     assert(JyAsk() == 0 && k.jyBusy == 1);
     FakeTask(kRoot, 7);

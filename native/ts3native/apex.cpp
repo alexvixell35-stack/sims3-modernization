@@ -39,10 +39,22 @@ static void UserSims3Dir(wchar_t* out) {
     DWORD sz = sizeof(docs);
     if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders", L"Personal",
                      RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ, NULL, docs, &sz) != ERROR_SUCCESS) {
-        if (!GetEnvironmentVariableW(L"USERPROFILE", docs, MAX_PATH)) docs[0] = 0;
-        wcscat_s(docs, MAX_PATH, L"\\Documents");
+        // docs/323 L9 refuted [measured, TestOverflowSmall]: these flags succeed on Windows 11 and return the expanded folder
+        wchar_t prof[MAX_PATH];
+        const DWORD n = GetEnvironmentVariableW(L"USERPROFILE", prof, MAX_PATH);
+        if (!n || n >= MAX_PATH) prof[0] = 0;
+        if (!prof[0]) docs[0] = 0;  // no profile: "" below, never a drive-root path
+        else PathFmt(docs, L"%s\\Documents", prof);  // docs/323: was wcscat_s, a kill past MAX_PATH
     }
-    swprintf_s(out, MAX_PATH, L"%s\\Electronic Arts\\The Sims 3", docs);
+    PathFmt(out, MAX_PATH, L"%s\\Electronic Arts\\The Sims 3", docs);  // "" when too long
+}
+// g_apexToml = <user>\Apex Radiance\ApexRadiance.toml; "" when missing or too long (docs/323 L4: was wcscat_s, a kill)
+static void ApexTomlPath() {
+    wchar_t user[MAX_PATH];
+    UserSims3Dir(user);
+    if (!user[0] || !PathFmt(g_apexToml, L"%s\\Apex Radiance\\ApexRadiance.toml", user) ||
+        GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES)
+        g_apexToml[0] = 0;
 }
 
 static int ApexProbe() {
@@ -50,7 +62,7 @@ static int ApexProbe() {
     for (int i = 0; i < 2; i++)
         if (GetModuleHandleW(g_apexModules[i])) f |= 1 << i;
     wchar_t m[64];
-    swprintf_s(m, L"Local\\ApexRadiance.%lu", GetCurrentProcessId());
+    PathFmt(m, L"Local\\ApexRadiance.%lu", GetCurrentProcessId());
     if (HANDLE h = OpenMutexW(SYNCHRONIZE, FALSE, m)) { CloseHandle(h); f |= 4; }
     return f;
 }
@@ -70,7 +82,7 @@ static int ApexSwitchesOn(const char* t) {
             cur = -1;
             for (int i = 0; i < n; i++) {
                 char h[64];
-                const int hl = sprintf_s(h, "[patches.%s]", kApexSwitch[i].name);
+                const int hl = SFmt(h, "[patches.%s]", kApexSwitch[i].name);
                 if (e - s >= hl && !strncmp(s, h, hl)) cur = i;
             }
         } else if (cur >= 0 && !strncmp(s, "enabled", 7)) {
@@ -105,7 +117,7 @@ static int ApexReadToml() {
 static void ApexLogFound(const char* when) {
     char names[256] = "";
     for (const ApexSwitch& s : kApexSwitch)
-        if ((g_apexOn & s.bit) && strlen(names) + strlen(s.name) + 2 < sizeof(names)) strcat_s(names, " "), strcat_s(names, s.name);
+        if ((g_apexOn & s.bit) && strlen(names) + strlen(s.name) + 2 < sizeof(names)) SCat(names, " "), SCat(names, s.name);
     Log("compat: Apex Radiance found %s (%s%s%s), %s, owned switches on:%s; ApexStandDown=%d", when,
         (g_apexFound & 1) ? "ApexRadiance.asi " : "", (g_apexFound & 2) ? "zzApexRadiance.asi " : "",
         (g_apexFound & 4) ? "mutex" : "", g_apexToml[0] ? "ApexRadiance.toml read" : "no ApexRadiance.toml: defaults", names[0] ? names : " none",
@@ -118,9 +130,7 @@ static void ApexDetect(const wchar_t* ini) {
     g_apexFound = ApexProbe();
     ApexCounters(false);
     if (!g_apexFound) { Log("compat: Apex Radiance not loaded at start"); return; }
-    UserSims3Dir(g_apexToml);
-    wcscat_s(g_apexToml, L"\\Apex Radiance\\ApexRadiance.toml");
-    if (GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES) g_apexToml[0] = 0;
+    ApexTomlPath();
     g_apexOn = ApexReadToml();
     ApexCounters(false);
     ApexLogFound("at start");
@@ -159,9 +169,7 @@ static DWORD WINAPI ApexLateThread(LPVOID) {
     for (int i = 0; i < 300; i++) {  // 100 ms steps, 30 s
         Sleep(100);
         if (!(g_apexFound = ApexProbe())) continue;
-        UserSims3Dir(g_apexToml);
-        wcscat_s(g_apexToml, L"\\Apex Radiance\\ApexRadiance.toml");
-        if (GetFileAttributesW(g_apexToml) == INVALID_FILE_ATTRIBUTES) g_apexToml[0] = 0;
+        ApexTomlPath();
         g_apexOn = ApexReadToml();
         ApexCounters(true);
         ApexLogFound("after our start");

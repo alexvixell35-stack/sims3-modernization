@@ -1,0 +1,10 @@
+# Queue release-verify-rc1119b-rerun1-1120 2026-11-19
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/release-verify-rc1119b-rerun1-1120-2026-11-19.jsonl`.
+
+## 2026-11-19T23:40 UTC, build 3b01060ff, jobs bp-lptrim-memtravel-x3-rc1119-r1, bp-apex403-s3ss-travel-mem-x3-rc1119-r1
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-lptrim-memtravel-x3-rc1119-r1 | 23:40 (07:40) | 0.1 | **FAIL** | FAIL: UNKNOWN: no ts3native.log copy, log rules not checked<br>FAIL: events not fired: log /^diag: mem #\d+ load ev=(travel,)?world-switch / 0 lines (want >= 6); log /^diag: mem #\d+ save-start ev=travel-save / 0 lines (want >= 3); log /^diag: mem #\d+ mark ev=base / 0 lines (want >= 1); log /^diag: mem #\d+ mark ev=away / 0 lines (want >= 3) [cut: full row in the jsonl] | - | ? -> ? | - | timing: invalid (job FAIL: FAIL: UNKNOWN: no ts3native.log copy, log rules not checked; FAIL: events not fired: log /^diag: mem #\d+ load ev=(trave; noise unknown; correctness-only tool ProbeSnap.CallSites) [cut: full row in the jsonl] |
+| bp-apex403-s3ss-travel-mem-x3-rc1119-r1 | 23:41 (07:41) | 0.1 | **FAIL** | FAIL: UNKNOWN: no ts3native.log copy, log rules not checked<br>FAIL: events not fired: log /^ts3native 0\.36\.295-rc1119b / 0 lines (want >= 1); log /^compat: Apex Radiance found at start \(ApexRadiance\.asi (zzApexRadiance\.asi )?mutex\).*; ApexStandDown=1/ 0 lines (want >= 1); log /^s3ss compat: stale write guard on \(S3SS 1\.6\.3/ 0 lines (want >= 1); log /^diag: world load #\d+ [cut: full row in the jsonl] | - | ? -> ? | - | timing: invalid (job FAIL: FAIL: UNKNOWN: no ts3native.log copy, log rules not checked; FAIL: events not fired: log /^ts3native 0\.36\.295-rc1119b ; noise unknown; correctness-only tool ProbeSnap.CallSites); [release-verify-rc1119b-rerun1-1120: rerun of the VOID in chain-release-verify-rc1119b step 5 (Apex lock cycle on fork a69a1bbc [cut: full row in the jsonl] |

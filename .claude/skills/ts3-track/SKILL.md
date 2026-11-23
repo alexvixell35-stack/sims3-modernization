@@ -17,4 +17,4 @@ node tools/harness/track.ts build-window <reason>          # hold "build-window:
 node tools/harness/track.ts build-done                     # release the hold, only if it is a build-window hold
 ```
 
-Prefer `--after-job` while a job runs (no lost run). After a hard `stop` that killed TS3W.exe, check the Game\Bin pair before the next run. `build-done` leaves other holds (Rodney's) alone; `stop` releases any hold, so read `status` first. Report the output as is.
+Prefer `--after-job` while a job runs (no lost run). After a hard `stop` that killed TS3W.exe, check the Game\Bin pair before the next run. `build-done` leaves other holds (Rodney's) alone; `stop` kills only chains/queues/job/game owned by the calling checkout (others and unknown-owner ones are listed; `--all` kills them) and releases any hold it may, so read `status` first. hold, job-running and main.lock are always the main checkout's (also from a worktree); from a worktree `stop`/`build-done`/`hold.ts off` release only a hold that worktree set, else `--force-hold` (`hold.ts off --force`). Report the output as is.

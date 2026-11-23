@@ -136,7 +136,7 @@ static LONG CALLBACK WpVeh(EXCEPTION_POINTERS* e) {
         const DWORD tid = GetCurrentThreadId();
         char who[80] = "";  // the child now in the block (+0x14 / +0x18 id, +0xC parent): a reused block shows another child
         if (s.obj && Readable((const void*)(uintptr_t)s.obj, 0x1C))
-            sprintf_s(who, ", child id 0x%08lX%08lX parent 0x%08lX", *(const DWORD*)(uintptr_t)(s.obj + 0x18), *(const DWORD*)(uintptr_t)(s.obj + 0x14),
+            SFmt(who, ", child id 0x%08lX%08lX parent 0x%08lX", *(const DWORD*)(uintptr_t)(s.obj + 0x18), *(const DWORD*)(uintptr_t)(s.obj + 0x14),
                       *(const DWORD*)(uintptr_t)(s.obj + 0xC));
         Log("watchpoint DR%d hit %ld: 0x%08lX len %lu %s by eip 0x%08lX (value now 0x%08lX)%s, thread %lu%s, job %d, stack (%d) %08lX %08lX %08lX %08lX %08lX %08lX",
             i, n, s.addr, s.len, s.write ? "written" : "accessed", c->Eip, v, who, tid, g_workerTid && tid == g_workerTid ? " (route worker)" : "",

@@ -1,0 +1,234 @@
+{
+ "note": "overflow-fixes-correct-1122 (PREPARED, NOT RUN; correctness only, no timing, noiseCheck false, Bin state apex via tools/turbo-compat.ts snapshot -> state apex -> restore): docs/323 §5 fixes on ts3native 0.36.299-ovf1122b + ts3fixes overflow-fixes-1122 (all ON, no new switch; ovf1122b = ovf1122 + the rule-review fixes: empty directory refused by PathFmt) with the m1122 ini. 1) bp-ovf-smoke: BP 5 min, version read-back, no path-overflow line on a normal install, no script errors. 2) bp-ovf-savereload: save-reload.ts on BP (save through [SaveWrite] Mode=1, quit to main menu = the lane D world-quit clears, load again, play): two or more save result lines, no crash, no script errors. 3) bp-ovf-longpath: the set game-copy/cc-synth/longpath-1122 (one copy of a ccgen object package under a 215-char name, made 2026-11-22; README in the set) moves into Mods/Packages/cc-synth, so its full path passes MAX_PATH (the H1 trigger: the old build is killed at start by [UserDiag]); the kit's walkers on too ([CrashReport], [AdaptDiag], [Diag] ModTime): the game starts and plays, at least one 'path: longer than' line, no crash. 4) ip-ovf-jobyield: IP 6 min, repro ip-jobyield-strand-storm with [RouteAsync] JobYield=1 (lane C full-table answer), no crash, no script errors. Household: none of these fixes changes what a Sim does (paths, text buffers, the JobYield full-table answer is the pre-JobYield plan, JIT refusals run EA's interpreter), so household results equal vanilla by construction; scriptErrorsMax 0 on every job. ts3fixes: fixesPackage game-copy/ts3fixes.package.ovf1122 (ts3fixes.package.overflow-fixes-1122, installed after each restart) on the three profile jobs; bp-ovf-savereload (fixesPackage refused on saveReload) runs the build/ts3fixes.package cycle.ts rebuilds from this worktree before each start (same lane D source, default tuning c7b6325019fc; a fixesBuild pin of the tagged build refused every job in the 21:26 run).",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "bp-ovf-smoke",
+   "note": "[est 12 min] BP 5 min speed 3, release defaults of m1122 on the ovf1122 pair",
+   "asi": "game-copy/ts3native.asi.ovf1122b",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.ovf1122",
+   "pinReason": "bugfix/overflow-fixes-1122 (0.36.299-ovf1122b = m1122 + docs/323 lanes A-F + rule-review fixes; ts3fixes overflow-fixes-1122 = m1122 + lane D); ini of master set m1122",
+   "save": "Baseline-BP",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-ovf1122b ": 1
+   },
+   "logForbid": {
+    "^path: longer than [0-9]+ chars, skipped": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-ovf1122b ": {
+     "match": [
+      "ts3native 0.36.299-ovf1122b 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-ovf1121 2026-11-22 12:00:00"
+     ]
+    },
+    "^path: longer than [0-9]+ chars, skipped": {
+     "match": [
+      "path: longer than 259 chars, skipped (1 so far; docs/323)"
+     ],
+     "noMatch": [
+      "diag: packages (first 200 names): a.package",
+      "path longer than 259 chars"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 5,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "bp-ovf-savereload",
+   "note": "[est 20 min] save-reload.ts BP: 3 min play, save as SaveReload-BP (never the Baseline), main menu, load it again, 2 min play",
+   "asi": "game-copy/ts3native.asi.ovf1122b",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "pinReason": "bugfix/overflow-fixes-1122 (0.36.299-ovf1122b = m1122 + docs/323 lanes A-F + rule-review fixes; ts3fixes overflow-fixes-1122 = m1122 + lane D); ini of master set m1122",
+   "save": "Baseline-BP",
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 45,
+   "logRequire": {
+    "^ts3native 0.36.299-ovf1122b ": 1,
+    "^save: result [0-9]+ travel ": 2
+   },
+   "logForbid": {
+    "^path: longer than [0-9]+ chars, skipped": 0
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-ovf1122b ": {
+     "match": [
+      "ts3native 0.36.299-ovf1122b 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ]
+    },
+    "^save: result [0-9]+ travel ": {
+     "match": [
+      "save: result 0 travel 0/0 total 2310 ms: info 12, write 1800, backup 300 (worker, worker 280, wait 0), copy 0, final 40 ms, flushes deferred 1"
+     ],
+     "noMatch": [
+      "save backup: worker copy not used (ok 0, same folder 1), game copies",
+      "save flush: 3 calls, 120 files flushed on the worker, 0 fails, 80 ms"
+     ]
+    },
+    "^path: longer than [0-9]+ chars, skipped": {
+     "match": [
+      "path: longer than 259 chars, skipped (1 so far; docs/323)"
+     ],
+     "noMatch": [
+      "save: result 0 travel 0/0 total 2310 ms"
+     ]
+    }
+   },
+   "run": {
+    "saveReload": [
+     "--world",
+     "BP",
+     "--play",
+     "3",
+     "--after",
+     "2",
+     "--no-direct"
+    ]
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "MemDiag.Enabled": 1
+   }
+  },
+  {
+   "id": "bp-ovf-longpath",
+   "note": "[est 15 min] BP 5 min with a 215-char package name under Mods/Packages/cc-synth (full path > MAX_PATH) and the kit's walkers on",
+   "asi": "game-copy/ts3native.asi.ovf1122b",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.ovf1122",
+   "pinReason": "bugfix/overflow-fixes-1122 (0.36.299-ovf1122b = m1122 + docs/323 lanes A-F + rule-review fixes; ts3fixes overflow-fixes-1122 = m1122 + lane D); ini of master set m1122",
+   "save": "Baseline-BP",
+   "ccSet": "game-copy/cc-synth/longpath-1122",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 30,
+   "logRequire": {
+    "^ts3native 0.36.299-ovf1122b ": 1,
+    "^path: longer than [0-9]+ chars, skipped": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-ovf1122b ": {
+     "match": [
+      "ts3native 0.36.299-ovf1122b 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ]
+    },
+    "^path: longer than [0-9]+ chars, skipped": {
+     "match": [
+      "path: longer than 259 chars, skipped (1 so far; docs/323)"
+     ],
+     "noMatch": [
+      "diag: packages (first 200 names): a.package",
+      "path longer than 259 chars"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 5,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "UserDiag.Enabled": 1,
+    "CrashReport.Enabled": 1,
+    "Diag.ModTime": 1
+   }
+  },
+  {
+   "id": "ip-ovf-jobyield",
+   "note": "[est 15 min] IP 6 min, repro ip-jobyield-strand-storm, [RouteAsync] JobYield=1 (the release value) on the lane C build; read-back route async JobYield=1 and the sim-waits summary with asks and busy above 0 (the step-aside ran)",
+   "asi": "game-copy/ts3native.asi.ovf1122b",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.ovf1122",
+   "pinReason": "bugfix/overflow-fixes-1122 (0.36.299-ovf1122b = m1122 + docs/323 lanes A-F + rule-review fixes; ts3fixes overflow-fixes-1122 = m1122 + lane D); ini of master set m1122",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 35,
+   "logRequire": {
+    "^ts3native 0.36.299-ovf1122b ": 1,
+    "^route async: .* JobYield=1 WorkerWait=": 1,
+    "; job yield mode 1 asks [1-9][0-9]* busy [1-9][0-9]*,": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-ovf1122b ": {
+     "match": [
+      "ts3native 0.36.299-ovf1122b 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ]
+    },
+    "^route async: .* JobYield=1 WorkerWait=": {
+     "match": [
+      "route async: PlanDeadlineMs=0 PlanDeadlineOwnMs=0 FailMemo=1 FbJobDeadline=1 OwnJobWait=0 JobYield=1 WorkerWait=1 JobYieldFollowed=0"
+     ],
+     "noMatch": [
+      "route async: PlanDeadlineMs=0 PlanDeadlineOwnMs=0 FailMemo=1 FbJobDeadline=1 OwnJobWait=0 JobYield=0 WorkerWait=1 JobYieldFollowed=0"
+     ]
+    },
+    "; job yield mode 1 asks [1-9][0-9]* busy [1-9][0-9]*,": {
+     "match": [
+      "route jobs sim waits: runplan 12/40/12 rtwait 3/9/3 disc 0/0/0 collect 5/20/5 drop 1/2/0 other 0/0/0, max 31 ms; job yield mode 1 asks 220 busy 37, records parked 30 back 28 dropped 2 lost 0, followed routes not yielded 4"
+     ],
+     "noMatch": [
+      "route jobs sim waits: runplan 12/40/12 rtwait 3/9/3 disc 0/0/0 collect 5/20/5 drop 1/2/0 other 0/0/0, max 31 ms; job yield mode 1 asks 0 busy 0, records parked 0 back 0 dropped 0 lost 0, followed routes not yielded 0"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 6,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "ip-jobyield-strand-storm",
+     "fixesOn": "jobyield"
+    }
+   },
+   "ini": {
+    "RouteAsync.JobYield": 1,
+    "RouteAsync.JobYieldFollowed": 0,
+    "Crash.Log": 1
+   }
+  }
+ ]
+}

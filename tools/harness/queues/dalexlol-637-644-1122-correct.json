@@ -1,0 +1,259 @@
+{
+ "note": "dalexlol-637-644-1122-correct (PREPARED, NOT RUN; correctness, no timing, noiseCheck false, no smoke needed): one job per repro of Dalexlol's PRs #637 #638 #639 #640 #643 #644, with the seven imported switches ON in the ts3fixes package (ladderfootshoohh off). Each repro prints verdict BROKEN with its switch off and FIXED with it on; read the counters named in each job. Judge only: verdicts, 0 script errors, 0 error counters, no crash; a repro whose live part finds nothing to do (no court, no apartment hidden stove) is N/A for that part, not FAIL. Run only between game runs (harness files merge only then): needs the repros.json of branch import/dalexlol-637-644-1122 in the checkout that runs it. Start with: node tools/harness/queue.ts tools/harness/queues/dalexlol-637-644-1122-correct.json --no-smoke",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "c-fire-leftover-stuck",
+   "note": "[est 8 min] Baseline-IP-Spring 3 min, repro fire-leftover-stuck (#638 fireleftover): off verdict BROKEN, on verdict FIXED, counters 2178-2180 (rescue tasks dropped, window-fire tasks completed, errors 2180 = 0). Package default has the switch ON; the repro's own steps switch it off then on.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.import-dalexlol-1122",
+   "pinReason": "ts3native + ini of master set m1122 (ts3native untouched by the import); ts3fixes = import/dalexlol-637-644-1122 (343cab6ab, tuning digest 35d485845b50, the 7 switches ON); run with TS3_AGENT_PACKAGE = game-copy/ts3agent.package.import-dalexlol-1122",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 3,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "fire-leftover-stuck"
+    }
+   },
+   "ini": {
+    "UserDiag.Enabled": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "c-apt-job-targets",
+   "note": "[est 8 min] Baseline-BP 3 min, repro apt-job-targets (#639 aptgasleak + aptpossess): off verdict BROKEN, on verdict FIXED, counters 2181-2186 (errors 2183 and 2186 = 0); scan lists the hidden-room stoves of BP's apartment lots. Package default has the switch ON; the repro's own steps switch it off then on.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.import-dalexlol-1122",
+   "pinReason": "ts3native + ini of master set m1122 (ts3native untouched by the import); ts3fixes = import/dalexlol-637-644-1122 (343cab6ab, tuning digest 35d485845b50, the 7 switches ON); run with TS3_AGENT_PACKAGE = game-copy/ts3agent.package.import-dalexlol-1122",
+   "save": "Baseline-BP",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 3,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "apt-job-targets"
+    }
+   },
+   "ini": {
+    "UserDiag.Enabled": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "c-fire-door-keep",
+   "note": "[est 8 min] Baseline-IP-Spring 3 min, repro fire-door-keep (#640 firedoorkeep): off verdict BROKEN, on verdict FIXED, counters 2187-2190 (errors 2190 = 0); jobs table. Package default has the switch ON; the repro's own steps switch it off then on.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.import-dalexlol-1122",
+   "pinReason": "ts3native + ini of master set m1122 (ts3native untouched by the import); ts3fixes = import/dalexlol-637-644-1122 (343cab6ab, tuning digest 35d485845b50, the 7 switches ON); run with TS3_AGENT_PACKAGE = game-copy/ts3agent.package.import-dalexlol-1122",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 3,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "fire-door-keep"
+    }
+   },
+   "ini": {
+    "UserDiag.Enabled": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "c-horseshoe-solo",
+   "note": "[est 8 min] Baseline-IP-Spring 3 min, repro horseshoe-solo (#643 horseshoesolo): off verdict BROKEN, on verdict FIXED, counters 2191-2194 (errors 2194 = 0); scan only finds a court on a festival lot, so the live cut stays unproven here. Package default has the switch ON; the repro's own steps switch it off then on.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.import-dalexlol-1122",
+   "pinReason": "ts3native + ini of master set m1122 (ts3native untouched by the import); ts3fixes = import/dalexlol-637-644-1122 (343cab6ab, tuning digest 35d485845b50, the 7 switches ON); run with TS3_AGENT_PACKAGE = game-copy/ts3agent.package.import-dalexlol-1122",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 3,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "horseshoe-solo"
+    }
+   },
+   "ini": {
+    "UserDiag.Enabled": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "c-burglar-apt",
+   "note": "[est 8 min] Baseline-BP 3 min, repro burglar-apt (#644 burglarapt): off verdict BROKEN, on verdict FIXED, counters 2195-2198 (errors 2198 = 0); scan counts per apartment lot. Package default has the switch ON; the repro's own steps switch it off then on.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.import-dalexlol-1122",
+   "pinReason": "ts3native + ini of master set m1122 (ts3native untouched by the import); ts3fixes = import/dalexlol-637-644-1122 (343cab6ab, tuning digest 35d485845b50, the 7 switches ON); run with TS3_AGENT_PACKAGE = game-copy/ts3agent.package.import-dalexlol-1122",
+   "save": "Baseline-BP",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 3,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "burglar-apt"
+    }
+   },
+   "ini": {
+    "UserDiag.Enabled": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "c-ladderfootshoo-check",
+   "note": "[est 8 min] Baseline-IP-Spring 3 min, repro ladderfootshoo-check (#637 ladderfootshoo): off verdict BROKEN, on verdict FIXED, counters 4352-4363 (errors 4363 = 0); members found=True in both arms; ladderfootshoohh stays off. Package default has the switch ON; the repro's own steps switch it off then on.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.import-dalexlol-1122",
+   "pinReason": "ts3native + ini of master set m1122 (ts3native untouched by the import); ts3fixes = import/dalexlol-637-644-1122 (343cab6ab, tuning digest 35d485845b50, the 7 switches ON); run with TS3_AGENT_PACKAGE = game-copy/ts3agent.package.import-dalexlol-1122",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-m1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00",
+      "ts3native 0.36.299-wgprof0 2026-11-22 12:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 3,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "ladderfootshoo-check"
+    }
+   },
+   "ini": {
+    "UserDiag.Enabled": 1,
+    "Crash.Log": 1
+   }
+  }
+ ]
+}

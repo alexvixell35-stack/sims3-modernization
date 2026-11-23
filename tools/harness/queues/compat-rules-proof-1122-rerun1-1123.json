@@ -1,0 +1,531 @@
+{
+  "stopQueueOnFail": true,
+  "note": "compat-rules-proof-1122-rerun1-1123 (2026-11-23): rerun 1 of ip-rules-r-resolve-on (FAIL on build 1122f: 4 store cleanupvfx lines missing, store assemblies not loaded) on build compat-resolve-1122h. [source note] compat-rules-proof-1122 (docs/328 §5; started by probe-out/compat-wait-1122.sh after chain-sp-instantiate-guard-1122): in-game proof of the compatibility rules on 2-3 sample mods per rule group, in one queue; it also runs the compat-overlap-1122 set (jobs 8-9), so it replaces queue compat-overlap-1122. master set m1122 (ts3native 0.36.299-m1122 + ini + ts3fixes + agent, the sources the rule scan read), release defaults, Apex + bridge (Bin state apex via tools/turbo-compat.ts), save Baseline-IP. Build the sets first: node tools/mod-set.ts build docs/data/compat-rules-{base,nobase,core,own,old-debug,old-noshoo,old-consort}-1122.json and docs/data/compat-overlap-1122.json. Group R (docs/328 §7): runtime precedence build compat-resolve-1122. Groups: A compatible (override-calls-base, derives), B caveat (override-no-base, derives-hides), C module-current next to the test install's module-changed simler90 core (pair-core-other-module), overlap set, E own-issues, D module-old (incompatible). PASS per rule: A/B/C/overlap = the ON job loads the set, plays 10 min with 0 script errors and no crash or hang, judged against its OFF control (a script error that also shows with our mods OFF belongs to the mod); B also = the mod's own actions keep working (its caveat is only that our fix skips them). E = the OFF job reports the Builder Stuff error (REPORT line, counted apart): the flag is the mod's own. D = the OFF job fails (world load error, script errors or hang) with our mods OFF: the incompatibility is the old build's, not ours; these rows are expected FAIL and are judged by hand (docs/328 §5). D caveat: the test install's simler90 core also replaces Sims3GameplaySystems; if its copy wins, the old build never loads and the D job proves nothing (INCONCLUSIVE: rerun with simler90 moved out of the test Mods). Groups with no sample in our data stay static (named = NRaas in every run; key / tuning / asi / off-by-default: no row). Run: node tools/harness/queue.ts tools/harness/queues/compat-rules-proof-1122.json --no-smoke (job 1 is the smoke). Est 13 jobs x 12-22 min, about 3.5-4 h.",
+  "jobs": [
+    {
+      "id": "ip-rules-r-resolve-on",
+      "note": "Rerun 1 (2026-11-23): the 1122f run FAILed only on the 4 store cleanupvfx lines (WoodFireOven WOBake, TeppanyakiGrill TGCook / JuggleEggTrick / OnionVolcano): the Store Updates repacks are installed but store script assemblies load on demand (30 of 106 package assemblies loaded), so those 2 were not loaded in Baseline-IP; 29 other lines ok, none refused. Build 1122h logs \"not loaded\" for such store targets; the 4 expectations take ok or not loaded. [previous] [est 20-25 min] group R (docs/328 §7.3 / §7.5 runtime precedence): ts3fixes compat-resolve-1122f with set compat-resolve-1122f (set compat-resolve-1122 plus University More Shell Entries, Modern Elevators 1.48, Break Into House ArrestAndAlarm, Functional Sewing Table BETA V2.0.0, NRaas GoHere V46, Woohooer V130, MasterController V135 from game-copy/compat-mods and game-copy/mod-sets/downloads/nraas-1122); the Store Updates repacks and NRaas Overwatch are in the test install. 10 min ON. PASS = one \"compat precedence: ... ok\" line per target (33: the 17 of 1122e without the Bistro Set, whose inlined empty Cleanup Patch refuses (docs/293; the eh-birth jobs failed on it), plus 16 new: visit on the LynMods and GoHere visit Runs, elevatorresetriders, privateeyecase Run + Cleanup, modquitguard, failreplan on GoHere's SetRouteOptions, woohootywait, casrowleak x2, doorgen add / remove on GoHere, Woohooer and MasterController), none refused, the assemblies load, 0 script errors, no crash or hang. unseenfbgohere and modquitguard are off in release defaults: their lines prove the hooks go on; effects are self-test only (no quit or WooHooty text in this run).",
+      "asi": "game-copy/ts3native.asi.m1122",
+      "iniBase": "game-copy/ts3native.ini.m1122",
+      "fixesPackage": "game-copy/ts3fixes.package.compat-resolve-1122h",
+      "pinReason": "compat-resolve-1122h (builds.json ts3fixes.package.compat-resolve-1122h: 1122f + switch-on diagnostics (1122g) + \"not loaded\" lines for store targets whose assembly is not loaded at world load) with ts3native + ini m1122, release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/compat-resolve-1122f",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.WoodFireOven\\+WOBake\\.Cleanup \\(StoreObjectsWoodFireOven (\\w+|-)\\): (ok|not loaded)$": 1,
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.TeppanyakiGrill\\+TGCook\\.Cleanup \\(StoreObjectsTeppanyakiGrill (\\w+|-)\\): (ok|not loaded)$": 1,
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.TeppanyakiGrill\\+JuggleEggTrick\\.Cleanup \\(StoreObjectsTeppanyakiGrill (\\w+|-)\\): (ok|not loaded)$": 1,
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.TeppanyakiGrill\\+OnionVolcano\\.Cleanup \\(StoreObjectsTeppanyakiGrill (\\w+|-)\\): (ok|not loaded)$": 1,
+        "^ts3fixes: compat precedence: lifeguardquit on Sims3\\.Gameplay\\.ActiveCareer\\.ActiveCareers\\.icarusallsorts\\.SurveyBeach\\.SurveyLot \\(icarusallsorts\\.PoolLifeguard \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: stairwaitend on Sims3\\.Gameplay\\.Core\\.lizcandor\\.ToddlerIndependence\\.lizcandorStairs\\+StairsPortalComponent\\.OnPortalStart \\(lizcandorToddlerIndependence \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: harvestextras on NRaas\\.OverwatchSpace\\.Helpers\\.HarvestPlantEx\\.DoHarvest \\(NRaasOverwatch \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: wishupdatelost on NRaas\\.DreamerSpace\\.Helpers\\.DreamsAndPromisesManagerEx\\.Update \\(NRaasDreamer \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasOverwatch \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasOverwatch \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasErrorTrap \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasErrorTrap \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: boatroamcap on Sims3\\.Gameplay\\.Objects\\.Vehicles\\.icarusallsorts\\.BoatAround\\.Run \\(icarusallsorts\\.AutonomousFunInTheSun \\w+\\): ok$": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bicarusallsorts\\.PoolLifeguard\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\blizcandorToddlerIndependence\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bani_BistroSet\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasOverwatch\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasDreamer\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bicarusallsorts\\.AutonomousFunInTheSun\\b": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBaby\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBabySurrogate\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospitalDonor\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospital\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bPuddingFace_EnhancedHospital\\b": 1,
+        "^ts3native 0\\.36\\.299-m1122 ": 1,
+        "^ts3fixes: compat precedence: visit on Sims3\\.Gameplay\\.Objects\\.LynMods\\.StudentUnionLibrary\\.VisitCommunityLotLabLecture\\.Run \\(StudentUnionLibrary \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: visit on NRaas\\.GoHereSpace\\.Interactions\\.VisitCommunityLotEx\\.Run \\(NRaasGoHere \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: elevatorresetriders on Sims3\\.Diriel\\.Elevator\\.ModernElevatorInterior\\+ElevatorPortalComponent\\.OnReset \\(Sims3\\.Diriel\\.Elevator \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: privateeyecase on Jadaytime\\.BreakIntoHouse\\.Run \\(_b_BreakIntoHouse \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: privateeyecase on Jadaytime\\.BreakIntoHouse\\.Cleanup \\(_b_BreakIntoHouse \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: modquitguard on Lyralei\\.GlobalOptionsSewingTable\\.OnWorldQuit \\(GlobalOptionsSewingTable \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: failreplan on NRaas\\.CommonSpace\\.Helpers\\.SimRoutingComponentEx\\.SetRouteOptions \\(NRaasGoHere \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: woohootywait on NRaas\\.WoohooerSpace\\.Interactions\\.SendWooHootyTextEx\\.GoToLotSuccessEx \\(NRaasWoohooer \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: casrowleak on NRaas\\.MasterControllerSpace\\.CAS\\.CASClothingCategoryEx\\.AddGridItem \\(NRaasMasterController \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: casrowleak on NRaas\\.MasterControllerSpace\\.CAS\\.CASClothingRowEx\\.CreateGridItems \\(NRaasMasterController \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasGoHere \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasGoHere \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasWoohooer \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasWoohooer \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasMasterController \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasMasterController \\w+\\): ok$": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bStudentUnionLibrary\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bSims3\\.Diriel\\.Elevator\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\b_b_BreakIntoHouse\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bGlobalOptionsSewingTable\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasGoHere\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasWoohooer\\b": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasMasterController\\b": 1
+      },
+      "logForbid": {
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+      },
+      "regexCases": {
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.WoodFireOven\\+WOBake\\.Cleanup \\(StoreObjectsWoodFireOven (\\w+|-)\\): (ok|not loaded)$": {
+          "match": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.WoodFireOven+WOBake.Cleanup (StoreObjectsWoodFireOven 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.WoodFireOven+WOBake.Cleanup (StoreObjectsWoodFireOven -): not loaded"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.WoodFireOven+WOBake.Cleanup (StoreObjectsWoodFireOven 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.WoodFireOven+WOBakeX.Cleanup (StoreObjectsWoodFireOven 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.WoodFireOven+WOBake.Cleanup (StoreObjectsWoodFireOven 1a2b3c4d): type not in this build, left alone"
+          ]
+        },
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.TeppanyakiGrill\\+TGCook\\.Cleanup \\(StoreObjectsTeppanyakiGrill (\\w+|-)\\): (ok|not loaded)$": {
+          "match": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+TGCook.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+TGCook.Cleanup (StoreObjectsTeppanyakiGrill -): not loaded"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+TGCook.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+TGCookX.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+TGCook.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): type not in this build, left alone"
+          ]
+        },
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.TeppanyakiGrill\\+JuggleEggTrick\\.Cleanup \\(StoreObjectsTeppanyakiGrill (\\w+|-)\\): (ok|not loaded)$": {
+          "match": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+JuggleEggTrick.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+JuggleEggTrick.Cleanup (StoreObjectsTeppanyakiGrill -): not loaded"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+JuggleEggTrick.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+JuggleEggTrickX.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+JuggleEggTrick.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): type not in this build, left alone"
+          ]
+        },
+        "^ts3fixes: compat precedence: cleanupvfx on Sims3\\.Store\\.Objects\\.TeppanyakiGrill\\+OnionVolcano\\.Cleanup \\(StoreObjectsTeppanyakiGrill (\\w+|-)\\): (ok|not loaded)$": {
+          "match": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+OnionVolcano.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+OnionVolcano.Cleanup (StoreObjectsTeppanyakiGrill -): not loaded"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+OnionVolcano.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+OnionVolcanoX.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): ok",
+            "ts3fixes: compat precedence: cleanupvfx on Sims3.Store.Objects.TeppanyakiGrill+OnionVolcano.Cleanup (StoreObjectsTeppanyakiGrill 1a2b3c4d): type not in this build, left alone"
+          ]
+        },
+        "^ts3fixes: compat precedence: lifeguardquit on Sims3\\.Gameplay\\.ActiveCareer\\.ActiveCareers\\.icarusallsorts\\.SurveyBeach\\.SurveyLot \\(icarusallsorts\\.PoolLifeguard \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: lifeguardquit on Sims3.Gameplay.ActiveCareer.ActiveCareers.icarusallsorts.SurveyBeach.SurveyLot (icarusallsorts.PoolLifeguard 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: lifeguardquit on Sims3.Gameplay.ActiveCareer.ActiveCareers.icarusallsorts.SurveyBeach.SurveyLot (icarusallsorts.PoolLifeguard 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: lifeguardquit on Sims3.Gameplay.ActiveCareer.ActiveCareers.icarusallsorts.SurveyBeachX.SurveyLot (icarusallsorts.PoolLifeguard 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: stairwaitend on Sims3\\.Gameplay\\.Core\\.lizcandor\\.ToddlerIndependence\\.lizcandorStairs\\+StairsPortalComponent\\.OnPortalStart \\(lizcandorToddlerIndependence \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: stairwaitend on Sims3.Gameplay.Core.lizcandor.ToddlerIndependence.lizcandorStairs+StairsPortalComponent.OnPortalStart (lizcandorToddlerIndependence 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: stairwaitend on Sims3.Gameplay.Core.lizcandor.ToddlerIndependence.lizcandorStairs+StairsPortalComponent.OnPortalStart (lizcandorToddlerIndependence 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: stairwaitend on Sims3.Gameplay.Core.lizcandor.ToddlerIndependence.lizcandorStairs+StairsPortalComponentX.OnPortalStart (lizcandorToddlerIndependence 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: harvestextras on NRaas\\.OverwatchSpace\\.Helpers\\.HarvestPlantEx\\.DoHarvest \\(NRaasOverwatch \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: harvestextras on NRaas.OverwatchSpace.Helpers.HarvestPlantEx.DoHarvest (NRaasOverwatch 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: harvestextras on NRaas.OverwatchSpace.Helpers.HarvestPlantEx.DoHarvest (NRaasOverwatch 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: harvestextras on NRaas.OverwatchSpace.Helpers.HarvestPlantEx2.DoHarvest (NRaasOverwatch 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: wishupdatelost on NRaas\\.DreamerSpace\\.Helpers\\.DreamsAndPromisesManagerEx\\.Update \\(NRaasDreamer \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: wishupdatelost on NRaas.DreamerSpace.Helpers.DreamsAndPromisesManagerEx.Update (NRaasDreamer 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: wishupdatelost on NRaas.DreamerSpace.Helpers.DreamsAndPromisesManagerEx.Update (NRaasDreamer 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: wishupdatelost on NRaas.DreamerSpace.Helpers.DreamsAndPromisesManagerEx.PartialUpdate (NRaasDreamer 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasOverwatch \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasOverwatch 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasOverwatch 1a2b3c4d): method not declared with the expected parameters, left alone",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasOverwatchX 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasOverwatch \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasOverwatch 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasOverwatch 1a2b3c4d): method not declared with the expected parameters, left alone",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasOverwatchX 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasErrorTrap \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasErrorTrap 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasErrorTrap 1a2b3c4d): method not declared with the expected parameters, left alone",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasErrorTrapX 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasErrorTrap \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasErrorTrap 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasErrorTrap 1a2b3c4d): method not declared with the expected parameters, left alone",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasErrorTrapX 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: boatroamcap on Sims3\\.Gameplay\\.Objects\\.Vehicles\\.icarusallsorts\\.BoatAround\\.Run \\(icarusallsorts\\.AutonomousFunInTheSun \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: boatroamcap on Sims3.Gameplay.Objects.Vehicles.icarusallsorts.BoatAround.Run (icarusallsorts.AutonomousFunInTheSun 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: boatroamcap on Sims3.Gameplay.Objects.Vehicles.icarusallsorts.BoatAround.Run (icarusallsorts.AutonomousFunInTheSun 1a2b3c4d): not a BoatAround subclass, left alone",
+            "ts3fixes: compat precedence: boatroamcap on Sims3.Gameplay.Objects.Vehicles.icarusallsorts.BoatAround2.Run (icarusallsorts.AutonomousFunInTheSun 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bicarusallsorts\\.PoolLifeguard\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, icarusallsorts.PoolLifeguard 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678",
+            "ts3fixes: world: icarusallsorts.PoolLifeguard"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\blizcandorToddlerIndependence\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, lizcandorToddlerIndependence 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678",
+            "ts3fixes: world: lizcandorToddlerIndependence"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bani_BistroSet\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, ani_BistroSet 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678",
+            "ts3fixes: world: ani_BistroSet"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasOverwatch\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, NRaasOverwatch 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, NRaasOverwatchExpanded 1.0.0.0 0badf00d"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasDreamer\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, NRaasDreamer 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, NRaasDreamerX 1.0.0.0 0badf00d"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bicarusallsorts\\.AutonomousFunInTheSun\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, icarusallsorts.AutonomousFunInTheSun 1.0.0.0 0badf00d"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, icarusallsorts.PoolLifeguard 1.0.0.0 0badf00d"
+          ]
+        },
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBaby\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBaby.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBaby.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBaby.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabyX.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBabySurrogate\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogate.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogate.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogate.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogateX.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospitalDonor\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonor.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonor.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonor.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonorX.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospital\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospital.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospital.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospital.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+            "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalX.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bPuddingFace_EnhancedHospital\\b": {
+          "match": [
+            "ts3fixes: script assemblies (32): NRaasErrorTrap 1.0.0.0 1a2b3c4d, PuddingFace_EnhancedHospital 1.0.0.0 0badf00d"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (32): NRaasErrorTrap 1.0.0.0 1a2b3c4d, PuddingFace_EnhancedVampires 1.0.0.0 0badf00d"
+          ]
+        },
+        "^ts3native 0\\.36\\.299-m1122 ": {
+          "match": [
+            "ts3native 0.36.299-m1122 2026-11-22 15:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295a 2026-11-20 15:24:38",
+            "ts3native 0.36.299-e1122 2026-11-22 06:15:57"
+          ]
+        },
+        "^ts3fixes: compat precedence: visit on Sims3\\.Gameplay\\.Objects\\.LynMods\\.StudentUnionLibrary\\.VisitCommunityLotLabLecture\\.Run \\(StudentUnionLibrary \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: visit on Sims3.Gameplay.Objects.LynMods.StudentUnionLibrary.VisitCommunityLotLabLecture.Run (StudentUnionLibrary 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: visit on Sims3.Gameplay.Objects.LynMods.StudentUnionLibrary.VisitCommunityLotLabLecture.Run (StudentUnionLibrary 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: visit on Sims3.Gameplay.Objects.LynMods.StudentUnionLibrary.VisitCommunityLotLabLectureX.Run (StudentUnionLibrary 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: visit on NRaas\\.GoHereSpace\\.Interactions\\.VisitCommunityLotEx\\.Run \\(NRaasGoHere \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotEx.Run (NRaasGoHere 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotEx.Run (NRaasGoHere 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: visit on NRaas.GoHereSpace.Interactions.VisitCommunityLotExX.Run (NRaasGoHere 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: elevatorresetriders on Sims3\\.Diriel\\.Elevator\\.ModernElevatorInterior\\+ElevatorPortalComponent\\.OnReset \\(Sims3\\.Diriel\\.Elevator \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: elevatorresetriders on Sims3.Diriel.Elevator.ModernElevatorInterior+ElevatorPortalComponent.OnReset (Sims3.Diriel.Elevator 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: elevatorresetriders on Sims3.Diriel.Elevator.ModernElevatorInterior+ElevatorPortalComponent.OnReset (Sims3.Diriel.Elevator 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: elevatorresetriders on Sims3.Diriel.Elevator.ModernElevatorInterior+ElevatorPortalComponentX.OnReset (Sims3.Diriel.Elevator 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: privateeyecase on Jadaytime\\.BreakIntoHouse\\.Run \\(_b_BreakIntoHouse \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: privateeyecase on Jadaytime.BreakIntoHouse.Run (_b_BreakIntoHouse 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: privateeyecase on Jadaytime.BreakIntoHouse.Run (_b_BreakIntoHouse 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: privateeyecase on Jadaytime.BreakIntoHouseX.Run (_b_BreakIntoHouse 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: privateeyecase on Jadaytime\\.BreakIntoHouse\\.Cleanup \\(_b_BreakIntoHouse \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: privateeyecase on Jadaytime.BreakIntoHouse.Cleanup (_b_BreakIntoHouse 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: privateeyecase on Jadaytime.BreakIntoHouse.Cleanup (_b_BreakIntoHouse 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: privateeyecase on Jadaytime.BreakIntoHouseX.Cleanup (_b_BreakIntoHouse 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: modquitguard on Lyralei\\.GlobalOptionsSewingTable\\.OnWorldQuit \\(GlobalOptionsSewingTable \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTable.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTable.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: modquitguard on Lyralei.GlobalOptionsSewingTableX.OnWorldQuit (GlobalOptionsSewingTable 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: failreplan on NRaas\\.CommonSpace\\.Helpers\\.SimRoutingComponentEx\\.SetRouteOptions \\(NRaasGoHere \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentEx.SetRouteOptions (NRaasGoHere 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentEx.SetRouteOptions (NRaasGoHere 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: failreplan on NRaas.CommonSpace.Helpers.SimRoutingComponentExX.SetRouteOptions (NRaasGoHere 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: woohootywait on NRaas\\.WoohooerSpace\\.Interactions\\.SendWooHootyTextEx\\.GoToLotSuccessEx \\(NRaasWoohooer \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: woohootywait on NRaas.WoohooerSpace.Interactions.SendWooHootyTextEx.GoToLotSuccessEx (NRaasWoohooer 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: woohootywait on NRaas.WoohooerSpace.Interactions.SendWooHootyTextEx.GoToLotSuccessEx (NRaasWoohooer 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: woohootywait on NRaas.WoohooerSpace.Interactions.SendWooHootyTextExX.GoToLotSuccessEx (NRaasWoohooer 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: casrowleak on NRaas\\.MasterControllerSpace\\.CAS\\.CASClothingCategoryEx\\.AddGridItem \\(NRaasMasterController \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: casrowleak on NRaas.MasterControllerSpace.CAS.CASClothingCategoryEx.AddGridItem (NRaasMasterController 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: casrowleak on NRaas.MasterControllerSpace.CAS.CASClothingCategoryEx.AddGridItem (NRaasMasterController 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: casrowleak on NRaas.MasterControllerSpace.CAS.CASClothingCategoryExX.AddGridItem (NRaasMasterController 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: casrowleak on NRaas\\.MasterControllerSpace\\.CAS\\.CASClothingRowEx\\.CreateGridItems \\(NRaasMasterController \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: casrowleak on NRaas.MasterControllerSpace.CAS.CASClothingRowEx.CreateGridItems (NRaasMasterController 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: casrowleak on NRaas.MasterControllerSpace.CAS.CASClothingRowEx.CreateGridItems (NRaasMasterController 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: casrowleak on NRaas.MasterControllerSpace.CAS.CASClothingRowExX.CreateGridItems (NRaasMasterController 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasGoHere \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasGoHere 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasGoHere 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelperX.AddOccultType (NRaasGoHere 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasGoHere \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasGoHere 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasGoHere 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelperX.Remove (NRaasGoHere 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasWoohooer \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasWoohooer 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasWoohooer 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelperX.AddOccultType (NRaasWoohooer 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasWoohooer \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasWoohooer 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasWoohooer 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelperX.Remove (NRaasWoohooer 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.AddOccultType \\(NRaasMasterController \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasMasterController 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.AddOccultType (NRaasMasterController 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelperX.AddOccultType (NRaasMasterController 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: compat precedence: doorgen on NRaas\\.CommonSpace\\.Helpers\\.OccultTypeHelper\\.Remove \\(NRaasMasterController \\w+\\): ok$": {
+          "match": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasMasterController 1a2b3c4d): ok"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelper.Remove (NRaasMasterController 1a2b3c4d): refused: already compiled",
+            "ts3fixes: compat precedence: doorgen on NRaas.CommonSpace.Helpers.OccultTypeHelperX.Remove (NRaasMasterController 1a2b3c4d): ok"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bStudentUnionLibrary\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, StudentUnionLibrary 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d",
+            "ts3fixes: world: StudentUnionLibrary"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bSims3\\.Diriel\\.Elevator\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Sims3.Diriel.Elevator 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d",
+            "ts3fixes: world: Sims3.Diriel.Elevator"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\b_b_BreakIntoHouse\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, _b_BreakIntoHouse 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d",
+            "ts3fixes: world: _b_BreakIntoHouse"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bGlobalOptionsSewingTable\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, GlobalOptionsSewingTable 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d",
+            "ts3fixes: world: GlobalOptionsSewingTable"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasGoHere\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, NRaasGoHere 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d",
+            "ts3fixes: world: NRaasGoHere"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasWoohooer\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, NRaasWoohooer 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d",
+            "ts3fixes: world: NRaasWoohooer"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bNRaasMasterController\\b": {
+          "match": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, NRaasMasterController 1.0.0.0 0badf00d, ts3agent 1.0.0.0 12345678"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (31): NRaasErrorTrap 1.0.0.0 1a2b3c4d, Other.Mod 1.0.0.0 0badf00d",
+            "ts3fixes: world: NRaasMasterController"
+          ]
+        },
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": {
+          "match": [
+            "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): refused: already compiled"
+          ],
+          "noMatch": [
+            "ts3fixes: compat precedence: cleanupvfx on A.B.Cleanup (M 1234abcd): ok"
+          ]
+        }
+      }
+    }
+  ]
+}

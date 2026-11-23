@@ -617,7 +617,7 @@ static void __cdecl McVCheck(DWORD* regs) {
                 const DWORD m = v.rg[i].n - w < 4 ? v.rg[i].n - w : 4;
                 memcpy(&fw, fast + w, m), memcpy(&ew, now + w, m);
                 char what[32];
-                sprintf_s(what, "range %d +0x%lX", i, w);
+                SFmt(what, "range %d +0x%lX", i, w);
                 McVLog(v, what, (DWORD)(uintptr_t)(now + w), fw, ew);
                 bad = true;
                 break;

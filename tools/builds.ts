@@ -69,6 +69,12 @@ export const tuningXmlOf = (src: string) => { const m = /const TUNING_XML = `([^
 const git = (...a: string[]) => execFileSync('git', ['-C', ROOT, ...a], { maxBuffer: 64 << 20 }).toString();
 export const srcDigestAt = (commit: string) => sha256(git('ls-tree', '-r', commit, '--', 'mods/ts3fixes/src'));
 
+// queue.ts asi "tested" = the newest master build set asi (ts3native.asi.m<mmdd>[letter], copied to game-copy/ by the merger),
+// so "tested" moves with master; the old pinned native/ts3native/out/ts3native.asi sat at 0.10.1 and every job warned STALE
+export const MASTER_ASI_RE = /^ts3native\.asi\.m\d{4}[a-z]?$/;
+export const testedBuild = (db: Build[]) =>
+  db.filter((b): b is AsiBuild => b.kind === 'asi' && MASTER_ASI_RE.test(b.name)).sort((a, b) => a.created.localeCompare(b.created)).pop();
+
 // ---- checks used by queue.ts: '' = ok, else why
 export function asiCheck(db: Build[], jobAsi: Buffer, jobAsiName: string, binAsi: Buffer): { fails: string[]; sha: string; names: string[]; version?: string } {
   const sha = sha256(jobAsi), fails: string[] = [];
@@ -121,7 +127,14 @@ if (process.argv[1]?.endsWith('builds.ts')) {
     const xml = tuningXmlOf(readFileSync(join(ROOT, 'tools', 'setup', 'build-fixes.ts'), 'utf8'));
     const pkg = (x: string) => writePackage([{ type: 0x073faa07, group: 0, instance: fnv64('Ts3Fixes'), data: Buffer.from('MZ asm') },
       { type: TYPE_XML, group: 0, instance: TUNING_INST, data: Buffer.from(x, 'utf8') }]);
+    // a key twice (merge residue, kFireNre/kFireCount 2026-11-23) leaves the game's value to parser order
+    const keys = [...xml.matchAll(/<(k\w+) value=/g)].map(m => m[1]);
+    assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), [], 'tuning key listed twice in build-fixes.ts');
     const p1 = pkg(xml), t1 = packageTuning(p1);
+    const ab = (name: string, created: string) => ({ name, kind: 'asi' as const, sha256: '0', version: '0', created });
+    assert.equal(testedBuild([ab('ts3native.asi.m1120u', '2026-11-20T13:20'), ab('ts3native.asi.m1121b', '2026-11-21T06:15'), ab('ts3native.asi.mkit2-1121', '2026-11-21T09:00'),
+      ab('ts3native.asi.m1121', '2026-11-21T02:32'), ab('ts3native.asi.lane-1122', '2026-11-22T00:00')])?.name, 'ts3native.asi.m1121b', 'tested = newest master set, lane and kit builds skipped');
+    assert.equal(testedBuild([ab('ts3native.asi.mcname1-1119', '2026-11-19')]), undefined);
     assert.equal(t1.digest, sha256(Buffer.from(xml, 'utf8')), 'tuning digest = sha256 of the XML build-fixes.ts writes');
     assert.equal(t1.tuning.kInstantiator, true); assert.equal(typeof t1.tuning.kUnseenThrottleEvery, 'number');
     assert.deepEqual(tuningMap('<kA value="True" /><kB value="False" /><kC value="4" />'), { kA: true, kB: false, kC: 4 });

@@ -38,8 +38,8 @@ static bool EdRd(DWORD addr, DWORD* v) {
 // at most cap-1 chars of a game C string, every byte checked, non-printable as '?'
 static void EdStr(DWORD p, char* out, size_t cap) {
     size_t i = 0;
-    if (!p) { strcpy_s(out, cap, "<null>"); return; }
-    if (!Readable((const void*)(uintptr_t)p, 1)) { strcpy_s(out, cap, "<unreadable>"); return; }
+    if (!p) { SCpy(out, cap, "<null>"); return; }
+    if (!Readable((const void*)(uintptr_t)p, 1)) { SCpy(out, cap, "<unreadable>"); return; }
     for (; i + 1 < cap; i++) {
         const u8* c = (const u8*)(uintptr_t)(p + i);
         if (!Readable(c, 1) || !*c) break;
@@ -257,7 +257,7 @@ static LONG g_edRegLines;
 // at most cap-1 chars of a wide string (p..end, or NUL-terminated when end is 0), every word checked, non-ASCII as '?'
 static void EdWStr(DWORD p, DWORD end, char* out, size_t cap) {
     size_t i = 0;
-    if (!p) { strcpy_s(out, cap, "<null>"); return; }
+    if (!p) { SCpy(out, cap, "<null>"); return; }
     for (; i + 1 < cap && (!end || p + 2 * i + 2 <= end); i++) {
         const WORD* c = (const WORD*)(uintptr_t)(p + 2 * i);
         if (!Readable(c, 2) || !*c) break;
@@ -291,7 +291,7 @@ static void __cdecl EdRegCall(DWORD req, DWORD wstr, DWORD found) {
     DWORD b = 0, e = 0;
     char dir[65];
     if (EdRd(wstr, &b) && EdRd(wstr + 4, &e) && e >= b) EdWStr(b, e, dir, sizeof(dir));
-    else strcpy_s(dir, sizeof(dir), "<unreadable>");
+    else SCpy(dir, sizeof(dir), "<unreadable>");
     if (InterlockedIncrement(&g_edRegLines) <= 600)
         Log("eadiag: regprobe result req %lu -> found %lu, Install Dir \"%s\"", req, found, dir);
 }

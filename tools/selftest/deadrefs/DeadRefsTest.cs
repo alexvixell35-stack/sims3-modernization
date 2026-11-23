@@ -54,7 +54,29 @@ static class DeadRefsTest
         Check(DeadRefsCore.LooksLikeLoad(60, 100), "most gone = load signature");
         Check(!DeadRefsCore.LooksLikeLoad(50, 100), "half gone is still acted on");
         Check(!DeadRefsCore.LooksLikeLoad(7, 103), "real leftovers acted on");
-
+        // conversation-gone-check per-sample verdicts (expectLeft, on, gone, members, removedHere, hostLeft)
+        Check(DeadRefsCore.ConvSampleVerdict(true, false, 1, 2, 0, false) == "pass", "left: gone member kept");
+        Check(DeadRefsCore.ConvSampleVerdict(true, false, 1, 2, 0, true) == "pass", "left: kept, host threw out (#166)");
+        Check(DeadRefsCore.ConvSampleVerdict(true, false, 0, 0, 0, true) == "na", "left: host left before the check = n/a");
+        Check(DeadRefsCore.ConvSampleVerdict(true, false, 0, 1, 0, false) == "fail", "left: removed with the host still there");
+        Check(DeadRefsCore.ConvSampleVerdict(true, true, 1, 2, 0, false) == "fail", "left: switches on is not the off arm");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 0, 1, 1, false) == "pass", "cleaned: host still listed");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 0, 0, 1, true) == "pass", "cleaned: phase removed it, host left afterwards");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 0, 0, 0, true) == "na", "cleaned: EA's exit ran before the phase = n/a");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 0, 0, 0, false) == "fail", "cleaned: emptied, host still in it, no phase");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 1, 2, 0, false) == "fail", "cleaned: dead member never removed fails");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 1, 1, 1, false) == "fail", "cleaned: gone member still listed after a removal");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 1, 2, 0, true) == "na", "cleaned: host left with the gone member = n/a");
+        Check(DeadRefsCore.ConvSampleVerdict(false, false, 0, 1, 1, false) == "fail", "cleaned: switches off fails");
+        Check(DeadRefsCore.ConvSampleVerdict(false, true, 0, 2, 1, false) == "fail", "cleaned: two live members is not this seed");
+        Check(DeadRefsCore.ConvSeedCleanGate(true, null) == null, "seed clean: runs with the sweep on and a safe state");
+        Check(DeadRefsCore.ConvSeedCleanGate(false, null) == "deadrefsweep off", "seed clean: never with the sweep off");
+        Check(DeadRefsCore.ConvSeedCleanGate(true, "saving") == "saving", "seed clean: the pass's unsafe state refuses it too");
+        Check(DeadRefsCore.ConvSeedCleanGate(false, "saving") == "deadrefsweep off", "seed clean: switch first");
+        Check(DeadRefsCore.ConvArmVerdict(5, 0, 0) == "pass", "arm: all pass");
+        Check(DeadRefsCore.ConvArmVerdict(3, 0, 2) == "pass", "arm: 3 conclusive + 2 n/a");
+        Check(DeadRefsCore.ConvArmVerdict(2, 0, 3) == "inconclusive", "arm: 2 conclusive");
+        Check(DeadRefsCore.ConvArmVerdict(4, 1, 0) == "fail", "arm: one fail fails the arm");
         Console.WriteLine(sFails == 0 ? "deadrefs selftest: PASS" : "deadrefs selftest: FAIL " + sFails);
         Environment.Exit(sFails == 0 ? 0 : 1);
     }

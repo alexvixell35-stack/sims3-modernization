@@ -53,6 +53,12 @@ static const u8* const* g_unRmSlot = (const u8* const*)(uintptr_t)TS3A(0x011D40C
 enum { UB_EDGES = 6, UB_HH = UB_EDGES + 1, UB_UNK = UB_EDGES + 2, UB_ROWS = UB_EDGES + 3 };
 enum { UB_LOCO, UB_WAIT, UB_FOOT, UB_PLAN, UB_POSE, UB_TASK, UB_AUT, UB_SITES };
 static bool g_ubOn;
+// docs/329 [Diag] NonSimSplit (nonsim.cpp, after taskseam.cpp): g_tskInRun = 0 outside a task run, 1 a non-Sim run, 2 a Sim's own
+// run, 3 an AutonomyManager run (taskseam.cpp TskRunHook); footprint / plan time of Sims inside a non-Sim run, per band (UbAdd)
+static bool g_nsOn;
+static u8 g_tskInRun;
+static LONGLONG g_nsOutTk[2][UB_ROWS + 1];
+static u8 NsLotMsg(DWORD code, DWORD v);
 static int UbRow(const float* p);
 static int UbObjRow(void* obj);
 static void UbAdd(int site, int row, LONGLONG ticks);
@@ -416,7 +422,8 @@ static u8 UtViewerMsg(DWORD lo, DWORD hi) {
     Ts3nCounters& k = ts3native_counters;
     const DWORD code = (hi >> 16) & 0xFF;
     if (code == 25 || code == 26) return UtbReadyMsg(code);
-    if (code == 27 || code == 28) return UbAutMsg(code, lo);  // docs/322: the autonomy search's actor (unseenband.cpp)  // docs/227 §6 [UnseenTable]: ts3fixes may call UnseenTableNative (unseentable.cpp)
+    if (code == 27 || code == 28) return UbAutMsg(code, lo);
+    if (code >= 29 && code <= 37) return NsLotMsg(code, lo);  // docs/329: the lot table (nonsim.cpp)  // docs/322: the autonomy search's actor (unseenband.cpp)  // docs/227 §6 [UnseenTable]: ts3fixes may call UnseenTableNative (unseentable.cpp)
     // the viewer table also feeds [AutShadow] TierMs, [UnseenAnim], [UnseenTable]; [UnseenAnim] reads the held table too (docs/249: refused
     // here without [UnseenThrottle], so the shipped set, UnseenThrottle off, had an empty table and no household exemption)
     if (!g_utOn && !((g_asTierMs > 0 || g_aaOn || g_utbOn || g_ubOn) && code <= 5) && !((g_aaOn || g_ubOn) && code >= 12 && code <= 15)) return 0;  // docs/322: bands read both tables

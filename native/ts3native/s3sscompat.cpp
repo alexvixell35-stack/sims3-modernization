@@ -58,7 +58,7 @@ static DWORD __cdecl S3cFix(DWORD addr, const u8* data, DWORD size) {
     InterlockedIncrement(to ? &g_s3cRedir : &g_s3cSkip);
     if (g_s3cLog && (n <= 20 || n % 100 == 0)) {
         char dst[16] = "skipped";
-        if (to) sprintf_s(dst, "0x%08lX", to);
+        if (to) SFmt(dst, "0x%08lX", to);
         Log("s3ss compat: stale maintained write 0x%08lX -> %s (value 0x%08lX, size %lu); WorldManager 0x%08lX; world load #%ld; stale %ld "
             "(redirected %ld, skipped %ld), calls %ld", addr, dst, v, size, wm, g_udWorlds, n, g_s3cRedir, g_s3cSkip, g_s3cCalls);
     }
