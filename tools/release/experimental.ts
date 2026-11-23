@@ -1,8 +1,8 @@
 // Daily experimental pre-release for testers (docs/279): latest master, every switch whose correctness gate PASSED on.
 //   node tools/release/experimental.ts [--dry-run] [--ref master] [--switches <json>] [--ignore-busy] [--force] [--keep 7]
 //   node tools/release/experimental.ts --self-check
-// Steps: skip when a chain / queue / job / the game runs (track.ts status; the scheduled task retries hourly) unless
-// --ignore-busy; skip when the last experimental pre-release was built from the same commit and switch list (unless --force)
+// Steps: while a chain / queue / job / the game runs (track.ts status), skip only when the running job is a timing job
+// (queue.ts isTimingJob; the scheduled task retries hourly) unless --ignore-busy; skip when the last experimental pre-release was built from the same commit and switch list (unless --force)
 // or today's tag exists; build in a detached worktree (probe-out/experimental/wt, never the main checkout's build/ or Bin/):
 // selftest-all, native build.cmd (asi + selftest.exe), ts3fixes package; apply docs/data/verified-switches.json (verified ->
 // on values, blocked -> off values, unverified -> master default) to the ini and the package tuning; scan the files for personal
@@ -12,8 +12,8 @@
 // Windows only for the build (MSVC, csc); the pure parts (switch apply, tags, prune) are platform-free and self-checked.
 // gh uses PERSONAL_GITHUB_TOKEN (else GH_TOKEN); the token is never printed.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
@@ -105,6 +105,37 @@ export function busy(status: string): string {
   return b.map(([k, v]) => `${k} ${v}`).join('; ');
 }
 
+// The running job, when it is a timing job by queue.ts's own rule (isTimingJob: a profile with the noise check on);
+// a build next to it would trip that job's noise stop. Rerun / known-cause / measurement-smoke ids map back to their base job.
+export type QueueFile = { name: string; jobs?: { id: string; run?: { profile?: unknown }; noiseCheck?: boolean }[] };
+export const baseJob = (id: string) => id.replace(/(-(rerun\d*|kc|smoke))+$/, '');
+export function timingJob(jobId: string, queues: QueueFile[]): string {
+  const base = baseJob(jobId);
+  for (const q of queues) for (const j of q.jobs ?? []) if ((j.id === jobId || j.id === base) && j.run?.profile && j.noiseCheck !== false) return `${q.name}: ${jobId}`;
+  return '';
+}
+
+// The timing job running anywhere ('' = none). queue.ts writes <its checkout>/probe-out/queue/job-running ("<id> <pid>"),
+// so every checkout (git worktree list) is searched. The job's queue file is read from the same checkout. A live marker
+// whose job is in no queue file there counts as timing (wait, never guess).
+export function runningTiming(): string {
+  const pids = new Set(run('powershell', ['-NoProfile', '-Command', '(Get-Process).Id'], { timeout: 60_000 }).split(/\s+/).filter(Boolean).map(Number));
+  const kids = (d: string) => { try { return readdirSync(d).map(n => join(d, n)); } catch { return []; } };
+  const roots = run('git', ['worktree', 'list', '--porcelain'], { cwd: ROOT }).split(/\r?\n/).filter(l => l.startsWith('worktree ')).map(l => resolve(l.slice(9)));
+  for (const r of roots) {
+    const m = join(r, 'probe-out', 'queue', 'job-running');
+    if (!existsSync(m)) continue;
+    const [id, pid] = readFileSync(m, 'utf8').trim().split(/\s+/);
+    if (!id || !pids.has(Number(pid))) continue;
+    const qs: QueueFile[] = [];
+    for (const d of [join(r, 'tools', 'harness', 'queues'), join(r, 'probe-out', 'queue')])
+      for (const f of kids(d).filter(p => p.endsWith('.json'))) { try { qs.push({ name: basename(f), ...JSON.parse(readFileSync(f, 'utf8')) }); } catch { /* not a queue */ } }
+    const t = timingJob(id, qs) || (qs.some(q => q.jobs?.some(j => j.id === id || j.id === baseJob(id))) ? '' : `${id} in ${r}: queue file not found`);
+    if (t) return t; // a non-timing marker elsewhere (or a reused pid) must not hide a timing job in a later checkout
+  }
+  return '';
+}
+
 // personal names / home paths (publish-public scrub list) in any file, emails in text files
 export function personal(name: string, b: Buffer, text: boolean): string[] {
   const s = b.toString('latin1');
@@ -180,8 +211,12 @@ function main() {
 
   const st = run(process.execPath, [join(ROOT, 'tools/harness/track.ts'), 'status'], { cwd: ROOT, timeout: 60_000 });
   const b = busy(st);
-  if (b && !a['ignore-busy']) { log(`skip: busy (${b}); the scheduled task tries again next hour`); return; }
-  if (b) log(`busy but --ignore-busy: ${b}`);
+  // Rodney 2026-11-23: build while chains run; only a running timing job (or one we cannot classify) waits.
+  if (b && !a['ignore-busy']) {
+    const t = runningTiming();
+    if (t) { log(`skip: timing job running (${t}); the scheduled task tries again next hour`); return; }
+    log(`busy, no timing job running, building anyway: ${b}`);
+  } else if (b) log(`busy but --ignore-busy: ${b}`);
 
   const sha = run('git', ['rev-parse', a.ref!], { cwd: ROOT });
   const rels: Rel[] = JSON.parse(gh(['release', 'list', '-R', a.repo!, '-L', '100', '--json', 'tagName,isPrerelease,isDraft,createdAt']));
@@ -285,6 +320,14 @@ function selfCheck() {
   assert.equal(readSource('no marker'), null);
   assert.equal(busy('hold:        -\njob:         -\ngame:        -\nchains:      -\nqueues:      -\nmain.lock:   -'), '');
   assert.match(busy('hold:        -\njob:         -\ngame:        TS3W.exe 1\nchains:      chain-a.sh pid 2 since x\nqueues:      -'), /^game TS3W\.exe 1; chains chain-a\.sh/);
+  const qf: QueueFile[] = [{ name: 'q.json', jobs: [{ id: 'bp-time', run: { profile: { minutes: 10 } } }, { id: 'bp-repro', run: {} }, { id: 'bp-nc', run: { profile: {} }, noiseCheck: false }] }];
+  assert.equal(timingJob('bp-time', qf), 'q.json: bp-time');
+  assert.equal(timingJob('bp-time-rerun', qf), 'q.json: bp-time-rerun', 'rerun maps to its base job');
+  assert.equal(timingJob('bp-time-kc', qf), 'q.json: bp-time-kc', 'known-cause relaunch maps to its base job');
+  assert.equal(timingJob('bp-time-smoke', qf), 'q.json: bp-time-smoke', 'measurement smoke maps to its base job');
+  assert.equal(timingJob('bp-repro', qf), '', 'no profile: not timing');
+  assert.equal(timingJob('bp-nc', qf), '', 'noise check off: not timing');
+  assert.equal(timingJob('other', qf), '');
   const home = ['C:', 'Users', 'som' + 'eone', 'x'].join('\\');
   assert.equal(personal('a', Buffer.from(home), false).length, 1, 'home path');
   assert.equal(personal('a', Buffer.from('mail: a.b' + '@example.com'), true).length, 1, 'email');

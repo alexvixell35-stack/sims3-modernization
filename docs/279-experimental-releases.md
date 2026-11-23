@@ -20,7 +20,7 @@ Agents update an entry in the same commit as the result page when a correctness 
 
 GitHub Actions cannot build `ts3fixes.package` (EA assemblies are never in git or CI), so it runs on the maintainer's Windows machine: scheduled task "TS3 Experimental Release" (`tools/release/register-experimental-task.ps1`), daily 12:30 PHT (after the 12:00 tools update) and then hourly for 10 h. A run:
 
-1. skips while `track.ts status` shows a job, chain, queue, hold or the game (builds must not load the machine during game runs); the next hourly repeat tries again;
+1. while `track.ts status` shows a job, chain, queue, hold or the game, it builds anyway (Rodney 2026-11-23) unless a timing job runs: a live `probe-out/queue/job-running` marker in any checkout (`git worktree list`) whose job is a profile job with its noise check on (queue.ts `isTimingJob`; `-rerun` / `-kc` / `-smoke` ids map to the base job), or a live marker whose job is in no queue file of that checkout. Then it skips and the next hourly repeat tries again (a build would trip the job's noise stop);
 2. skips when the newest experimental release was built from the same master commit and switch list (marker comment in its notes), or today's tag exists;
 3. builds in its own detached worktree `probe-out/experimental/wt` (never the main checkout's `build/` or `Bin/`): gates `node tools/selftest-all.ts`, `native/ts3native/build.cmd` (asi + `selftest.exe`), then `tools/setup/build-fixes.ts` against `game-copy/assemblies`;
 4. applies the switch list, vets the files (`tools/mts-zip.ts`), scans asi / ini / package / notes for personal names, home paths and emails (publish-public scrub list);
