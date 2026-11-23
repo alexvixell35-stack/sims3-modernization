@@ -1576,3 +1576,65 @@ Static triage of six kill dumps, then a stress repro (Apex only, our pair as Bin
 - **Harness:** no signature change (cycle modules `ApexRadiance.asi` only); known-causes `apex-401-present-lock-cycle` owner/testInstall text updated. Stress builds with PDBs kept in `game-copy/apex-4.0.13-lock-1123/`.
 
 Next: when #144 merges, move Bin to the Apex release that has it (always-latest-Apex rule) and update `tools/turbo-compat.ts` FORK if the fork asi stays in use; until then the marker keeps VOID + relaunching these hangs.
+
+## 46. rs-C4 (2026-11-23): wild call at `0x74E4E9` in `IC_Route_DestroyRoute`, and the 11-20 `0xE6463F` series
+
+### 46.1 rs-C4: route destroy vs the route job
+
+**Signature.** Sim thread, `exception C0000096` (or an AV) at a heap address; `[esp]` = `0x74E4E9`; stack refs
+`0074E4E9 00750424 00D86DAB 00E526C4`; `ecx` = the route interface, its vtable on the heap (not .rdata). Seen once in
+818 phase dirs (`phase-20261123-1347`, rs-C4: Isla Paradiso, seed 152, storm wave 5, asi ci-44920506251 0.36.267-mc1116,
+PlayerFirst=1, JobYield=1, DestroyPark parks, RO set on, doorshare on; `[RouteSnap] FreeLock=0`, so the "P5c park" lines
+are design G DestroyPark). Before rate: 1 crash in 176 loads of that asi, 1 in 12 rs-chain loads, 1 in the 4 C-arm loads.
+No fault inside `0x74E490..0x74E50A` or the route dtor `0x75D640` anywhere else in the phase dirs [verified: grep].
+
+**What faulted** [verified: disassembly TS3W 1.67]. `0x750400` -> `0x74E490`: host lock, handle type test `0x25..0x27`,
+script host `0x7692B0` slot `+0xCC` (handle -> interface), unlock, then `call [[edi]+0]` at `0x74E4E7` (return
+`0x74E4E9`), unregister `0x74E410`, Release. The handle table still named a route whose block had been reused: a route
+freed while still registered.
+
+**The race** [verified: disassembly; inferred: that it happened in rs-C4]. `~Route` is the only caller of
+`Route_DestroyRoute` (ScriptCore Route.cs; `Dispose` has no callers), on the sim thread, with no wait for a route job.
+The worker's `IC_Route_Plan 0x765160` resolves the same handle through `0x74B2C0` (host lock, slot `+0xCC`, unlock, no
+reference), then AddRefs (slot `+0x10`), plans, Releases (slot `+0x14` = `0x8ABE60`). A Route finalized while its job is
+queued or running (its task dropped without the CANCEL `finally`, e.g. a Sim destroyed mid-plan; DestroyPark lines show
+destroys during jobs every storm) either lands between the worker's lookup and AddRef (the route is freed; the worker
+AddRefs, plans on and Releases the freed block: a double free, the block later serves two objects), or after the AddRef
+(the worker's Release is the last and the route destructor runs on the worker thread). The forensics ring has no free of
+the faulting block (light mode); the DestroyPark released ring has no object within 0x400 of any register, so our flush
+did not free it.
+
+**Fix** (`[RouteAsync] DestroyDefer`, default 0, `routedefer.cpp`, selftest `TestRouteDestroyDefer`): on the owner thread a
+destroy of a handle that a QUEUED or RUNNING job names, or the running job's handle, is queued (256) and run on the sim
+once no job holds it (START / READY polls, the next destroy, save / closing / teardown entries; at closing, held ones are
+dropped, never run in the next world). Only the sim moves a job to QUEUED and only the worker moves QUEUED to RUNNING, so a
+handle with no such job cannot be picked up later. Lines `route destroy defer:`. Not with `[Crash2Diag]` (same prologue).
+
+### 46.2 `0xE6463F` (2026-11-20, Bridgeport): ours, fixed the same day
+
+**Signature.** Sim thread, AV reading `0x8` at `0xE6463F` (`cmp word [ecx+8], 0x2710`: `header->max_stack < 10000` in
+Mono's `interpreter/transform.c`, header NULL), stack refs `00E6441B 00E5265D 00E5638C`. Five logs, all Bridgeport,
+all 0.36.267-mc1116 with ts3fixes `unseenservice` on: s142 (`phase-20261120-0000`), s177 / s180 / s181 / s182 on arms
+(`-1402`, `-1421`, `-1426`, `-1431`). None in any other phase dir [verified: grep].
+
+**Cause** [verified on master: docs/51 I-531-1, the no-IL-header log line of 0.36.286-nohdr1 names the method]. ts3fixes
+`UnseenService88.cs` made a delegate on the abstract `BarAdvanced.BarInteraction.RunOrderBehavior`; the game's Mono calls
+that exact method with no virtual dispatch and transforms a method with no body. Bridgeport only, because it needs a
+bar (BarAdvanced) lot served while unseen. No managed frame is in our crash log (no Mono stack dump).
+
+**Fix and stop** [verified: git, run times in GMT]. `7a3d4bbf` (2026-11-20 14:34:44 UTC; on combo as `DelegateTarget`,
+`ccebde90`) calls the instance's own override. Bridgeport with unseenservice on, before: 4 crashes in the 6 on
+arm loads s177..s182 (14:02..14:31; 0 in the 2 off arm loads), after: 0 in 5 (s183..s187, 14:36..14:56). No Bridgeport run since, so the absence after 11-20
+is that fix plus no exposure; Isla Paradiso (no such bar) never had it. Master also carries a native guard for the class,
+`[IlPatch] HeaderGuard=1` (0.36.288, docs/51 I-537-hdr2: a NullReferenceException instead of the AV); combo-1117
+(0.36.267) does not have it and gets it with the next master sync. No new change needed.
+
+**Proof runs (2026-11-23, NOT PROVEN).** `rs-dd.sh` (clone of `rs-chain2.sh`: the C-arm keys, managed set and packages,
+seed 152, 2-minute storms) with the CI asi `ci-45223965879` (fix branch, selftest ok) and `DestroyDefer=1`: 8 loads
+(`phase-20261123-1710` .. `-1745`), switch read back on all 8, 0 fatal faults, Bin pair restored after each. But 0
+`route destroy defer: route` lines: no Route was finalized while a job held its handle in these 8 loads, so the guarded
+path never ran and these runs say nothing about rs-C4 (before: 1 in 176 loads of the same asi; 0 in 8 is expected either
+way). The exit-time AV with `info 00000000 FFFFFFFF` and no stack after `measurement end` is in 74 of 97 baseline loads
+since 11-22 and is not counted. Open: whether the race happens at all in play (a deferral line in a long soak would show
+it), and what else frees a still-registered route; the next step is `[CrashForensics] Enabled=1` (full heap ring) on the
+rs-C storm, or `[Crash2Diag]` (its DestroyRoute ring) without DestroyDefer.

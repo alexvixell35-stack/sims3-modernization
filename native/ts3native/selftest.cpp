@@ -13327,6 +13327,7 @@ static void TestP5() {
 #include "float5free-test.h"  // TestFloat5Free ([Float5Free], docs/539 §19)
 #include "f5watch-test.h"  // TestFloat5Watch ([Float5Sticky], [Float5Watch], [UafCheck] TravelHold, docs/539 §21)
 #include "c2diag-test.h"      // TestCrash2Diag ([Crash2Diag], docs/259 §9)
+#include "routedefer-test.h"  // TestRouteDestroyDefer ([RouteAsync] DestroyDefer, docs/67 §46)
 #include "monosig-test.h"     // TestMonoSigGuard ([MonoSigGuard], docs/539 §20)
 #include "hostmapiter-test.h"  // TestHostMapIterFix ([HostMapIterFix], docs/67 §43)
 #include "bindertd-test.h"    // TestBinderTypeHandle ([Binder] TypeHandleDirect, docs/537 §20.3)
@@ -14926,6 +14927,7 @@ int main(int argc, char** argv) {
     TestFloat5Free();  // docs/539 §19
     TestFloat5Watch();  // docs/539 §21
     TestCrash2Diag();  // docs/259 §9
+    TestRouteDestroyDefer();  // docs/67 §46
     TestMonoSigGuard();  // docs/539 §20
     TestHostMapIterFix();  // docs/67 §43
     TestBinderTypeHandle();  // docs/537 §20.3 E1

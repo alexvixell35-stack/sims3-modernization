@@ -289,7 +289,10 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
     // mid-update (locomotion 0x84CE30 and its follow family); a parked object's destructor run there can free what that
     // caller still holds (crash I, docs/67 §11, 0.36.19: inferred cause; p5c.cpp's released ring tells it apart)
     if (!worker && ((s.kind == RT_DESTROY && k.rtClosing) || s.kind == RT_SAVE || s.kind == RT_CLOSING || s.kind == RT_TEARDOWN))
+    {
         P5cFlush();
+        RddFlush(s.kind == RT_CLOSING || s.kind == RT_TEARDOWN);  // closing: a job's leftovers dropped, never run in the next world
+    }
     if (note) RgNoteAs(32 + i, s.name, s.addr, note, VfRealRet(slot), (LONG)tid);
     return 0;
 }

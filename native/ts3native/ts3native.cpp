@@ -481,6 +481,7 @@ static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
               miss ? ", callvirt of " : "", miss ? callee : "", obj, vt, kl, st);
     return true;
 }
+static void RddFlush(bool closing);  // routedefer.cpp: [RouteAsync] DestroyDefer, deferred route destroys (docs/67 §46)
 static DWORD P5cRelMatch(const CONTEXT* c);  // p5c.cpp: registers in an object our graveyard flush released (crash I)
 static void CfOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] dump (off unless Enabled=1)
 static void VbOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] VbGuard=1 register lookup (docs/67 §44)
@@ -6085,6 +6086,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         if (ts3native_counters.asyncMode != 1) DropAllJobs();
         DiscPoll(DS_A10START);  // a script-IC point, as Route.Plan's START (docs/84 §2.4)
         P5cFlush();  // P5c: parked destroy references, when no job runs (docs/88 §5.1 flush points)
+        RddFlush(false);  // [RouteAsync] DestroyDefer: deferred route destroys, when no job runs
         const bool ptOk = idx == 1 || g_arPtSet == 7;  // kinds 2-3: all three components since the last START
         g_arPtSet = 0;
         // docs/134 foreign START (ts3fixes 0.36.7+, kind 0 on this channel; older builds answered 0 here): Route.Plan from a
@@ -6128,6 +6130,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     if (ts3native_counters.asyncMode != 1) DropAllJobs();  // switched off mid-job: READY then says "done", Route.Plan plans inline
     DiscPoll(!(u8)options2 ? DS_START : (optHi & kAsyncCancelHi) ? DS_CANCEL : DS_READY);  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
     P5cFlush();
+    RddFlush(false);
     if (!(u8)options2) return AsyncStart(handle);
     AsyncJob* j = GetCurrentThreadId() == g_async.owner ? JobFor(handle) : NULL;
     if (optHi & kAsyncCancelHi) {  // the caller gives up (finally, Sim reset): its job must not outlive it
@@ -6804,6 +6807,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "hitchsum.cpp"    // docs/666 §5: [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (needs stallwatch.cpp, hitchattr.cpp, syncphases.cpp, memexp.cpp)
 #include "adaptdiag.cpp"   // docs/316: [AdaptDiag] adaptive diag kit (off; needs hitchsum.cpp, modtime.cpp, pccheck.cpp, stallwatch.cpp, userdiag.cpp, apex.cpp)
 #include "c2diag.cpp"      // docs/259 §9: [Crash2Diag] route destination list lifetime detector, CRASH-TRIAGE (after autshadow.cpp: g_arGate; values.cpp: PvSwClass)
+#include "routedefer.cpp"   // docs/67 §46: [RouteAsync] DestroyDefer (after c2diag.cpp: shares IC_Route_DestroyRoute)
 #include "monosig.cpp"     // docs/539 §20: [MonoSigGuard] EA bug, delegate signature param_count before params[0] at 0xD70F90 (release ini on)
 #include "hostmapiter.cpp"  // docs/67 §43: [HostMapIterFix] EA bug, ProcessTaskState host id map iterator stale after a rehash in 0xD80460 (off)
 #include "bindertd.cpp"    // docs/537 §20.3 E1: [Binder] TypeHandleDirect, GetTypeFromHandle's EA body reads the handle (no n2m call)
@@ -6996,6 +7000,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyFloat5Free(ini) || keepLog;  // docs/539 §19 (off): after [UafCheck] (shares its EA Free detour)
         keepLog = ApplyFloat5Watch(ini) || keepLog;  // docs/539 §21 (off): [Float5Sticky], [Float5Watch]
         keepLog = ApplyCrash2Diag(ini) || keepLog;  // docs/259 §9 (off): route destination detours, before the game runs
+        keepLog = ApplyRouteDestroyDefer(ini) || keepLog;  // docs/67 §46 (off): after [Crash2Diag] (same prologue)
         keepLog = ApplyMonoSigGuard(ini) || keepLog;  // docs/539 §20 (EA bug fix, default on): before Mono starts
         keepLog = ApplyHostMapIterFix(ini) || keepLog;  // docs/67 §43 (EA bug fix + detector, default off): before the sim thread runs
         keepLog = ApplyBinderTypeHandle(ini) || keepLog;  // docs/537 §20.3 E1 (default 0): before Mono starts
