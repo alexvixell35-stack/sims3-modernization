@@ -1,0 +1,10 @@
+# Queue hhtoo-local-cov-1117 2026-11-17
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/hhtoo-local-cov-1117-2026-11-17.jsonl`.
+
+## 2026-11-17T13:09 UTC, build 6ecc237b4, jobs sv-hhlcov, bp-hhlcov
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| sv-hhlcov | 13:09 (21:09) | 1.7 | **FAIL** | FAIL: profile 12 min, seed 12345 (rng-compare.ts)<br>FAIL: exit 3221226505 with no verdict line (child stopped from outside or died before its summary); last output: Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94<br>FAIL: UNKNOWN: [RouteAsync] on but /native did not answer: run void [cut: full row in the jsonl] | 3221226505 | 1644.6/1551.9/1833.9 -> ? | - | timing: invalid (job VOID: FAIL: UNKNOWN: [RouteAsync] on but /native did not answer: run void; FAIL: UNKNOWN: [RouteGate] Enforce on but rgEntries; noise high); build: asi 25a09ec77e35 ts3native.asi.master-1117c ts3native 0.36.271-mc1117 (log ok); ts3fixes tuning a80f8e16d888 ts3fixes.package.hhtoo-local-1117 (expected game-copy/ts3fixes.package.hhtoo-local-1117) [cut: full row in the jsonl] |
+| bp-hhlcov | 13:11 (21:11) | 1.9 | **FAIL** | FAIL: profile 12 min, seed 12345 (rng-compare.ts)<br>FAIL: exit 3221226505 with no verdict line (child stopped from outside or died before its summary); last output: Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94<br>FAIL: UNKNOWN: [RouteAsync] on but /native did not answer: run void [cut: full row in the jsonl] | 3221226505 | 1717.6/1631.2/1815.9 -> ? | - | timing: invalid (job VOID: FAIL: UNKNOWN: [RouteAsync] on but /native did not answer: run void; FAIL: UNKNOWN: [RouteGate] Enforce on but rgEntries; noise high); build: asi 25a09ec77e35 ts3native.asi.master-1117c ts3native 0.36.271-mc1117 (log ok); ts3fixes tuning a80f8e16d888 ts3fixes.package.hhtoo-local-1117 (expected game-copy/ts3fixes.package.hhtoo-local-1117) [cut: full row in the jsonl] |

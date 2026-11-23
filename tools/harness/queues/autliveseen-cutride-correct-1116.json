@@ -1,0 +1,326 @@
+{
+ "note": "autliveseen-cutride-correct-1116 (lane autliveseen-cutride-1116, PREPARED, NOT RUN; correctness, dry-run checked): docs/124 §17.13 / docs/276 §4.3 B11 cut-riding: switch autliveseenride (default off) lets a seen NPC post on the exact go-live path only into a batch another request already opened this frame; the guard charges a rider no cut words. Needs the branch agent: TS3_AGENT_PACKAGE=game-copy/ts3agent.package.autliveseen-cutride-1116 (switch autliveseenride, counters autliveseenride_*, autliveseen_cost_us / _saved_us). Gates: dry crowds autliveseen_dry_*_mis all 0 (exact path unchanged, I-492-3); act crowds autliveseenride_rode >= 50, verify A1-A3 0, 0 script errors. Read per act crowd (stop rule, docs/276 §4.2): seen per mille = autliveseen_cost_us x 1000 / autliveseen_saved_us and autliveguard_ratio_pm; riding share = rode / (rode + skipped + refused); > 1000 per mille on both worlds = drop B11 (no timing). Household untouched: autliveseen_hh_post 0 (fixesRequire + earlyGate), autliveseen_hh_resume reported (drops back to the game), and node tools/harness/gate2-report.ts autliveseen-cutride-correct-1116 prints G8 household-scope worker direct picks = 0 PASS. A dry miss stops the queue. Run: TS3_AGENT_PACKAGE=game-copy/ts3agent.package.autliveseen-cutride-1116 node tools/harness/queue.ts tools/harness/queues/autliveseen-cutride-correct-1116.json",
+ "rewind": "auto",
+ "stopQueueOnFail": true,
+ "regexCases": {
+  "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": {
+   "match": [
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0 (docs/124 §17)"
+   ],
+   "noMatch": [
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=1 (docs/124 §17)"
+   ]
+  },
+  "autshadow satb: Satb=2 -> mode 2 ": {
+   "match": [
+    "OK   autshadow satb: Satb=2 -> mode 2 (act: concurrent worker, read redirect), 51 runtime icall entries wrapped"
+   ],
+   "noMatch": [
+    "OK   autshadow satb: Satb=1 -> mode 1 (shadow)"
+   ]
+  },
+  "OK   sim loop: .* runs at the end of every Simulate iteration": {
+   "match": [
+    "OK   sim loop: mono thread tick runs at the end of every Simulate iteration"
+   ],
+   "noMatch": [
+    "OK   sim loop: je at 0x00D81FFF -> SlpThunk, then 0x00D818C0 (every Simulate iteration)"
+   ]
+  },
+  "OK   mono thread P4": {
+   "match": [
+    "OK   mono thread P4: frame globals -> TLS 15/17 (fs:0xE4C/0xE54), blocks 0xF of 0xF"
+   ],
+   "noMatch": [
+    "OK   mono thread P3: sites 19"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-ride-smoke",
+   "note": "0/4 smoke 4 min, dry + riding: read-backs (fixesOn autliveseen, autliveseenride, autliveseendry, autseengame true), autliveseenride_rode > 0 by 200 s, hh_post 0. A FAIL stops the queue.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.autliveseen-cutride-1116",
+   "pinReason": "autliveseen-cutride-1116 (builds.json): branch ts3fixes (autliveseenride, fixes-1085..1090) on the master-1116c asi + ini (0.36.267-mc1116; native code unchanged by the branch); agent TS3_AGENT_PACKAGE=game-copy/ts3agent.package.autliveseen-cutride-1116",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 159,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseenride_rode",
+     "op": ">",
+     "value": 0,
+     "why": "no seen NPC rode an open batch: switch, package, or no unseen request in the same frame"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseen_hh_post",
+     "op": "==",
+     "value": 0,
+     "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+    }
+   ],
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 60,
+   "run": {
+    "profile": {
+     "minutes": 4,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "aut-live-crowd-view",
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit,autliveseen,autliveseenride,autliveseendry",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "autliveseen_,autliveseenride_,autliveguard_,g8_,autunseen_",
+     "fixesRequire": "autliveseenride_rode>=50,autliveseen_dry>=50,autliveseen_hh_post<1,autliveseen_dry_top10_mis<1,autliveseen_dry_top1_mis<1,autliveseen_dry_sim_mis<1,autunseen_exc<1"
+    }
+   }
+  },
+  {
+   "id": "bp-ride-dry-crowd",
+   "note": "1/4 BP crowd in view 10 min (aut-live-crowd-view), dry + riding: 0 dry misses. Household untouched: autliveseen_hh_post 0 (fixesRequire + earlyGate), autliveseen_hh_resume reported (drops back to the game), and node tools/harness/gate2-report.ts autliveseen-cutride-correct-1116 prints G8 household-scope worker direct picks = 0 PASS.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.autliveseen-cutride-1116",
+   "pinReason": "autliveseen-cutride-1116 (builds.json): branch ts3fixes (autliveseenride, fixes-1085..1090) on the master-1116c asi + ini (0.36.267-mc1116; native code unchanged by the branch); agent TS3_AGENT_PACKAGE=game-copy/ts3agent.package.autliveseen-cutride-1116",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 159,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseenride_rode",
+     "op": ">",
+     "value": 0,
+     "why": "no seen NPC rode an open batch: switch, package, or no unseen request in the same frame"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseen_hh_post",
+     "op": "==",
+     "value": 0,
+     "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+    }
+   ],
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 60,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "aut-live-crowd-view",
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit,autliveseen,autliveseenride,autliveseendry",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "autliveseen_,autliveseenride_,autliveguard_,g8_,autunseen_",
+     "fixesRequire": "autliveseenride_rode>=50,autliveseen_dry>=50,autliveseen_hh_post<1,autliveseen_dry_top10_mis<1,autliveseen_dry_top1_mis<1,autliveseen_dry_sim_mis<1,autunseen_exc<1"
+    }
+   }
+  },
+  {
+   "id": "ip-ride-dry-crowd",
+   "note": "2/4 IP crowd in view 10 min, dry + riding: 0 dry misses. Household untouched: autliveseen_hh_post 0 (fixesRequire + earlyGate), autliveseen_hh_resume reported (drops back to the game), and node tools/harness/gate2-report.ts autliveseen-cutride-correct-1116 prints G8 household-scope worker direct picks = 0 PASS.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.autliveseen-cutride-1116",
+   "pinReason": "autliveseen-cutride-1116 (builds.json): branch ts3fixes (autliveseenride, fixes-1085..1090) on the master-1116c asi + ini (0.36.267-mc1116; native code unchanged by the branch); agent TS3_AGENT_PACKAGE=game-copy/ts3agent.package.autliveseen-cutride-1116",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 159,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseenride_rode",
+     "op": ">",
+     "value": 0,
+     "why": "no seen NPC rode an open batch: switch, package, or no unseen request in the same frame"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseen_hh_post",
+     "op": "==",
+     "value": 0,
+     "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+    }
+   ],
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 60,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "aut-live-crowd-view",
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit,autliveseen,autliveseenride,autliveseendry",
+     "fixesOff": "autunseencmp",
+     "fixesReport": "autliveseen_,autliveseenride_,autliveguard_,g8_,autunseen_",
+     "fixesRequire": "autliveseenride_rode>=50,autliveseen_dry>=50,autliveseen_hh_post<1,autliveseen_dry_top10_mis<1,autliveseen_dry_top1_mis<1,autliveseen_dry_sim_mis<1,autunseen_exc<1"
+    }
+   }
+  },
+  {
+   "id": "bp-ride-act-crowd",
+   "note": "3/4 BP crowd in view 10 min, acting + riding (autliveseendry off). Stop rule input: seen per mille and guard gauge. Household untouched: autliveseen_hh_post 0 (fixesRequire + earlyGate), autliveseen_hh_resume reported (drops back to the game), and node tools/harness/gate2-report.ts autliveseen-cutride-correct-1116 prints G8 household-scope worker direct picks = 0 PASS.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.autliveseen-cutride-1116",
+   "pinReason": "autliveseen-cutride-1116 (builds.json): branch ts3fixes (autliveseenride, fixes-1085..1090) on the master-1116c asi + ini (0.36.267-mc1116; native code unchanged by the branch); agent TS3_AGENT_PACKAGE=game-copy/ts3agent.package.autliveseen-cutride-1116",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 159,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseenride_rode",
+     "op": ">",
+     "value": 0,
+     "why": "no seen NPC rode an open batch: switch, package, or no unseen request in the same frame"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseen_hh_post",
+     "op": "==",
+     "value": 0,
+     "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+    }
+   ],
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 60,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "aut-live-crowd-view",
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit,autliveseen,autliveseenride",
+     "fixesOff": "autunseencmp,autliveseendry",
+     "fixesReport": "autliveseen_,autliveseenride_,autliveguard_,g8_,autunseen_",
+     "fixesRequire": "autliveseenride_rode>=50,autliveseen_dry<1,autliveseen_hh_post<1,autunseen_exc<1,g8_unseen_pushes>=1"
+    }
+   }
+  },
+  {
+   "id": "ip-ride-act-crowd",
+   "note": "4/4 IP crowd in view 10 min, acting + riding. Stop rule input: seen per mille and guard gauge. Household untouched: autliveseen_hh_post 0 (fixesRequire + earlyGate), autliveseen_hh_resume reported (drops back to the game), and node tools/harness/gate2-report.ts autliveseen-cutride-correct-1116 prints G8 household-scope worker direct picks = 0 PASS.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.autliveseen-cutride-1116",
+   "pinReason": "autliveseen-cutride-1116 (builds.json): branch ts3fixes (autliveseenride, fixes-1085..1090) on the master-1116c asi + ini (0.36.267-mc1116; native code unchanged by the branch); agent TS3_AGENT_PACKAGE=game-copy/ts3agent.package.autliveseen-cutride-1116",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 159,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "earlyGates": [
+    {
+     "afterSec": 150,
+     "counter": "autshadow.req",
+     "op": ">",
+     "value": 0,
+     "why": "worker never posted (no [AutShadow] request)"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseenride_rode",
+     "op": ">",
+     "value": 0,
+     "why": "no seen NPC rode an open batch: switch, package, or no unseen request in the same frame"
+    },
+    {
+     "afterSec": 200,
+     "counter": "fixes:autliveseen_hh_post",
+     "op": "==",
+     "value": 0,
+     "why": "household-scope actor on the seen-exact path (household rule): stop and triage"
+    }
+   ],
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "OK   mono thread P4": 1,
+    "autshadow go-live: Mode=3 TopN=10 Bands=3 Margin=0/1000 MaxWait=3 VerifyEvery=50 Dry=0": 1,
+    "autshadow satb: Satb=2 -> mode 2 ": 1
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 60,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "aut-live-crowd-view",
+     "fixesOn": "autshadow,autlive,autunseen,autunseenpace,autunseenrh,autseengame,autunseenpacecredit,autliveseen,autliveseenride",
+     "fixesOff": "autunseencmp,autliveseendry",
+     "fixesReport": "autliveseen_,autliveseenride_,autliveguard_,g8_,autunseen_",
+     "fixesRequire": "autliveseenride_rode>=50,autliveseen_dry<1,autliveseen_hh_post<1,autunseen_exc<1,g8_unseen_pushes>=1"
+    }
+   }
+  }
+ ]
+}

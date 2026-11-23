@@ -155,7 +155,7 @@ static void HsLockText(char* b, size_t n, bool mainWaiter, LONG us, DWORD key, b
         _snprintf_s(job, sizeof(job), _TRUNCATE, "no job ended in the wait, now: %s", run);
     char hold[64];
     if (holder) _snprintf_s(hold, sizeof(hold), _TRUNCATE, "%s %lu", kHoRoleName[role], holder);
-    else strcpy_s(hold, "nobody at the start (lent window or a race)");
+    else SCpy(hold, "nobody at the start (lent window or a race)");
     _snprintf_s(b, n, _TRUNCATE, "route lock wait: %s waited %ld ms on +0x918 (key %08lX, %s), held by %s; %s, at %lu ms", mainWaiter ? "main" : "sim",
                 us / 1000, key, pump ? "job pump" : "plain", hold, job, now);
 }
@@ -249,10 +249,10 @@ static int HsLine(char* d, size_t room, const HsView& v, LONG seq, DWORD now) {
     int sub = 0;
     const int cause = HsClassify(v, &unk, &sub);
     char cs[40];
-    if (cause == HSC_SYNC) sprintf_s(cs, "%s/%s", kHsCause[cause], kHsPhase[sub]);
-    else strcpy_s(cs, kHsCause[cause]);
+    if (cause == HSC_SYNC) SFmt(cs, "%s/%s", kHsCause[cause], kHsPhase[sub]);
+    else SCpy(cs, kHsCause[cause]);
     int n = _snprintf_s(d, room, _TRUNCATE, "hitch: frame %ld ms (#%ld), cause %s: sync %ld (n=%ld", v.frameUs / 1000, seq, cs, f.syncUs / 1000, f.syncN);
-    for (int p = 0; p < HSP_N && n > 0 && n < (int)room - 24; p++) n += sprintf_s(d + n, room - n, " %s=%ld", kHsPhase[p], f.syncPh[p] / 1000);
+    for (int p = 0; p < HSP_N && n > 0 && n < (int)room - 24; p++) n += SFmt(d + n, room - n, " %s=%ld", kHsPhase[p], f.syncPh[p] / 1000);
     if (n > 0 && n < (int)room - 330)
         _snprintf_s(d + n, room - n, _TRUNCATE, "), jobwait %ld (n=%ld max=%ld at %s route %08lX insync=%ld), lock918 %ld (n=%ld max=%ld key %08lX holder %s %lu "
                     "job250=%ld insync=%ld), otherlock %ld (n=%ld insync=%ld), gc %ld (+%ld), limiter %ld, cpu %ld, unknown %ld, at %lu ms",
@@ -268,7 +268,7 @@ static int HsLine(char* d, size_t room, const HsView& v, LONG seq, DWORD now) {
 static void HsTotalsText(char* b, size_t n, const HsTotals& z, LONG noSim, LONG mainLines, DWORD now) {
     int w = _snprintf_s(b, n, _TRUNCATE, "hitch totals: frames %ld, hitches %ld (%ld ms) by cause", z.frames, z.hitches, z.hitchMs);
     for (int c = 0; c < HSC_N && w > 0 && w < (int)n - 40; c++)
-        if (z.causeN[c]) w += sprintf_s(b + w, n - w, " %s=%ld/%ld", kHsCause[c], z.causeN[c], z.causeMs[c]);
+        if (z.causeN[c]) w += SFmt(b + w, n - w, " %s=%ld/%ld", kHsCause[c], z.causeN[c], z.causeMs[c]);
     if (w > 0 && w < (int)n - 400)
         _snprintf_s(b + w, n - w, _TRUNCATE, "; +0x918 waits >= 1 ms n=%ld ms=%ld max=%ld (main thread n=%ld ms=%ld): behind the route worker n=%ld ms=%ld, "
                     "its job ended in the wait n=%ld ms=%ld, that job >= 250 ms n=%ld ms=%ld, other holder n=%ld ms=%ld; hitches >= 50%% on +0x918 behind "

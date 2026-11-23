@@ -9676,6 +9676,496 @@
       "what": "unseen-distance-bands",
       "at": "2026-11-22T05:42:45.469Z",
       "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\unseen-distance-probe-1122"
+    },
+    {
+      "id": "fixes-2178",
+      "kind": "fixes",
+      "from": 2178,
+      "to": 2190,
+      "by": "import-dalexlol-637-644-1122",
+      "what": "fireleftover 2178-2180, aptgasleak/aptpossess 2181-2186, firedoorkeep 2187-2190 (PRs 638-640, contributor, hand-reserved by him)",
+      "at": "2026-11-22T13:53:46.344Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-637-644-1122"
+    },
+    {
+      "id": "fixes-2191",
+      "kind": "fixes",
+      "from": 2191,
+      "to": 2198,
+      "by": "import-dalexlol-637-644-1122",
+      "what": "horseshoesolo 2191-2194, burglarapt 2195-2198 (PRs 643-644)",
+      "at": "2026-11-22T13:53:46.344Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-637-644-1122"
+    },
+    {
+      "id": "fixes-4352",
+      "kind": "fixes",
+      "from": 4352,
+      "to": 4363,
+      "by": "import-dalexlol-637-644-1122",
+      "what": "ladderfootshoo, ladderfootshoohh (PR 637; kCounterSlots 4364)",
+      "at": "2026-11-22T13:53:46.344Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-637-644-1122"
+    },
+    {
+      "id": "doc-862",
+      "kind": "doc",
+      "from": 862,
+      "to": 866,
+      "by": "import-dalexlol-637-644-1122",
+      "what": "docs 862-866 (PRs 638-644)",
+      "at": "2026-11-22T13:53:46.344Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-637-644-1122"
+    },
+    {
+      "id": "fixes-2354",
+      "kind": "fixes",
+      "from": 2354,
+      "to": 2369,
+      "by": "import-dalexlol-645-653-1123",
+      "what": "firenre 2354-2357, firecount 2358-2361, blanktns 2362-2365, simbotworld 2366-2369 (PRs 645-647, 653; contributor, hand-reserved by him)",
+      "at": "2026-11-23T01:21:27.561Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-645-653-1123"
+    },
+    {
+      "id": "fixes-4300",
+      "kind": "fixes",
+      "from": 4300,
+      "to": 4319,
+      "by": "import-dalexlol-645-653-1123",
+      "what": "standwaitfix block (PR 648, contributor; 4290-4299 left to him)",
+      "at": "2026-11-23T01:21:27.561Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-645-653-1123"
+    },
+    {
+      "id": "fixes-4364",
+      "kind": "fixes",
+      "from": 4364,
+      "to": 4397,
+      "by": "import-dalexlol-645-653-1123",
+      "what": "sharelanes / laddershare / simpass / angleentry / spiralshare (PR 648)",
+      "at": "2026-11-23T01:21:27.561Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-645-653-1123"
+    },
+    {
+      "id": "fixes-4414",
+      "kind": "fixes",
+      "from": 4414,
+      "to": 4429,
+      "by": "import-dalexlol-645-653-1123",
+      "what": "blockeduse (PR 649; 4398-4413 clipwait and 4430-4461 are PRs 651-652, not imported)",
+      "at": "2026-11-23T01:21:27.561Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-645-653-1123"
+    },
+    {
+      "id": "fixes-4462",
+      "kind": "fixes",
+      "from": 4462,
+      "to": 4469,
+      "by": "import-dalexlol-645-653-1123",
+      "what": "makebedboth (PR 650; kCounterSlots 4470)",
+      "at": "2026-11-23T01:21:27.561Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-645-653-1123"
+    },
+    {
+      "id": "doc-686",
+      "kind": "doc",
+      "from": 686,
+      "to": 686,
+      "by": "import-dalexlol-645-653-1123",
+      "what": "doc 686 stand-wait / route waits (PRs 648-650)",
+      "at": "2026-11-23T01:21:27.561Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-645-653-1123"
+    },
+    {
+      "id": "doc-867",
+      "kind": "doc",
+      "from": 867,
+      "to": 870,
+      "by": "import-dalexlol-645-653-1123",
+      "what": "docs 867-870 (PRs 645, 646, 647, 653)",
+      "at": "2026-11-23T01:21:27.561Z",
+      "worktree": "C:Users<user>IdeaProjectssims-3-modernization.claudeworktreesimportdalexlol-645-653-1123"
+    },
+    {
+      "id": "doc-323",
+      "kind": "doc",
+      "from": 323,
+      "to": 323,
+      "by": "overflow-audit-1122",
+      "what": "overflow-audit",
+      "at": "2026-11-22T10:19:38.047Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1518",
+      "kind": "fixes",
+      "from": 1518,
+      "to": 1529,
+      "by": "unbounded-caps-1122",
+      "what": "docs/321 lane 0/B: AutShadow request cap (abort, hw objs/pairs), NearVenue group hw/over cap, L14 table hw/clears",
+      "at": "2026-11-22T10:24:33.430Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\unbounded-caps-1122"
+    },
+    {
+      "id": "doc-324",
+      "kind": "doc",
+      "from": 324,
+      "to": 324,
+      "by": "far-sim-model-1122",
+      "what": "far-Sim model design",
+      "at": "2026-11-22T10:31:23.814Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1530",
+      "kind": "fixes",
+      "from": 1530,
+      "to": 1535,
+      "by": "inst-probe-1122",
+      "what": "instprobe: Sim instantiate/destroy cost probe (events, destroys, first-frame, log lines dropped, errors, native ini on)",
+      "at": "2026-11-22T10:32:25.930Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-325",
+      "kind": "doc",
+      "from": 325,
+      "to": 325,
+      "by": "inst-probe-1122",
+      "what": "inst-probe: Sim instantiate cost by part",
+      "at": "2026-11-22T10:32:26.335Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-326",
+      "kind": "doc",
+      "from": 326,
+      "to": 326,
+      "by": "unbounded-sim-research-1122",
+      "what": "unbounded-sim-research",
+      "at": "2026-11-22T10:35:06.361Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-unbounded-sim-research-1122"
+    },
+    {
+      "id": "ledger-577",
+      "kind": "ledger",
+      "from": 577,
+      "to": 577,
+      "by": "inst-probe-1122",
+      "what": "instprobe: Sim instantiate cost inferences",
+      "at": "2026-11-22T10:52:46.582Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\inst-probe-1122"
+    },
+    {
+      "id": "fixes-1536",
+      "kind": "fixes",
+      "from": 1536,
+      "to": 1539,
+      "by": "sp-instantiate-guard-1122",
+      "what": "SimCreated.cs: every-Sim-creation hook (Sim.OnCreation), outfit-fresh arming for non-EA builders, duplicate-build count",
+      "at": "2026-11-22T11:38:20.844Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sp-instantiate-guard-1122"
+    },
+    {
+      "id": "doc-327",
+      "kind": "doc",
+      "from": 327,
+      "to": 327,
+      "by": "sp-instantiate-guard-1122",
+      "what": "sp-instantiate-guard: every-Sim-creation hook, guards for NRaas-created Sims",
+      "at": "2026-11-22T11:38:21.126Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sp-instantiate-guard-1122"
+    },
+    {
+      "id": "ledger-578",
+      "kind": "ledger",
+      "from": 578,
+      "to": 578,
+      "by": "sp-instantiate-guard-1122",
+      "what": "sp-instantiate-guard: Sim.OnCreation covers every creation route",
+      "at": "2026-11-22T11:38:21.414Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sp-instantiate-guard-1122"
+    },
+    {
+      "id": "ledger-579",
+      "kind": "ledger",
+      "from": 579,
+      "to": 579,
+      "by": "watergrid-next-1122",
+      "what": "water grid next: G diff diag + parallel sample pass (docs/100 §14)",
+      "at": "2026-11-22T11:39:36.135Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\watergrid-next-1122"
+    },
+    {
+      "id": "ledger-580",
+      "kind": "ledger",
+      "from": 580,
+      "to": 580,
+      "by": "sim-budget-m1122",
+      "what": "sim-budget m1122 whole-thread split",
+      "at": "2026-11-22T11:40:15.371Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sim-budget-m1122"
+    },
+    {
+      "id": "ledger-581",
+      "kind": "ledger",
+      "from": 581,
+      "to": 581,
+      "by": "bugfix/overflow-fixes-1122",
+      "what": "docs/323 overflow fixes: L2 JIT room, L6 world object, L9 refuted",
+      "at": "2026-11-22T11:44:33.070Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\overflow-fixes-1122"
+    },
+    {
+      "id": "doc-328",
+      "kind": "doc",
+      "from": 328,
+      "to": 328,
+      "by": "compat-rules-1122",
+      "what": "compatibility rules (compat-rules-1122)",
+      "at": "2026-11-22T11:44:37.494Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-compat-rules-1122"
+    },
+    {
+      "id": "doc-329",
+      "kind": "doc",
+      "from": 329,
+      "to": 329,
+      "by": "nonsim-split-1122",
+      "what": "non-Sim sim-thread split for a far-lot model (nonsim-split-1122)",
+      "at": "2026-11-22T11:58:17.267Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-582",
+      "kind": "ledger",
+      "from": 582,
+      "to": 582,
+      "by": "nonsim-split-1122",
+      "what": "non-Sim split (nonsim-split-1122)",
+      "at": "2026-11-22T11:58:17.597Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1540",
+      "kind": "fixes",
+      "from": 1540,
+      "to": 1542,
+      "by": "sp-instantiate-guard-1122",
+      "what": "SimCreated.cs simcreateonce: non-EA builds refused during an EA age-up wait / race seen with switch off / live-Sim duplicate builds seen before create",
+      "at": "2026-11-22T12:02:45.175Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\sp-instantiate-guard-1122"
+    },
+    {
+      "id": "fixes-1543",
+      "kind": "fixes",
+      "from": 1543,
+      "to": 1584,
+      "by": "ts3fixes-loop-cost-1122",
+      "what": "deadrefsweep per-phase ms/items, cadence gates, snapshot; viewer push timers and delta sends (docs/NNN)",
+      "at": "2026-11-22T12:37:04.877Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ts3fixes-loop-cost-1122"
+    },
+    {
+      "id": "doc-330",
+      "kind": "doc",
+      "from": 330,
+      "to": 330,
+      "by": "ts3fixes-loop-cost-1122",
+      "what": "ts3fixes loop cost",
+      "at": "2026-11-22T12:37:05.123Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ts3fixes-loop-cost-1122"
+    },
+    {
+      "id": "ledger-583",
+      "kind": "ledger",
+      "from": 583,
+      "to": 583,
+      "by": "ts3fixes-loop-cost-1122",
+      "what": "ts3fixes loop cost",
+      "at": "2026-11-22T12:37:05.358Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\ts3fixes-loop-cost-1122"
+    },
+    {
+      "id": "ledger-584",
+      "kind": "ledger",
+      "from": 584,
+      "to": 584,
+      "by": "unbounded-caps-1122",
+      "what": "docs/321 lane C (actor address bits, DoorMemoX live rows)",
+      "at": "2026-11-22T13:48:35.700Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\unbounded-caps-1122"
+    },
+    {
+      "id": "doc-331",
+      "kind": "doc",
+      "from": 331,
+      "to": 331,
+      "by": "far-object-model-1123",
+      "what": "far-object model (non-Sim deterministic state machine)",
+      "at": "2026-11-22T22:11:02.025Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-585",
+      "kind": "ledger",
+      "from": 585,
+      "to": 585,
+      "by": "far-object-model-1123",
+      "what": "far-object model inferences",
+      "at": "2026-11-22T22:11:02.237Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1585",
+      "kind": "fixes",
+      "from": 1585,
+      "to": 1586,
+      "by": "compat-resolve-1122",
+      "what": "modquitguard (CompatResolve.cs, docs/328 §7): mod world-quit handler exceptions caught / seen with the switch off",
+      "at": "2026-11-22T23:30:34.680Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-compat-resolve-1122"
+    },
+    {
+      "id": "doc-332",
+      "kind": "doc",
+      "from": 332,
+      "to": 332,
+      "by": "unbounded-packages-1123",
+      "what": "unbounded work packages",
+      "at": "2026-11-22T23:33:26.471Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-586",
+      "kind": "ledger",
+      "from": 586,
+      "to": 586,
+      "by": "compat-resolve-1122",
+      "what": "compat-resolve-1122f GoHere trip safety + Sewing quit-chain order",
+      "at": "2026-11-22T23:48:08.046Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-compat-resolve-1122"
+    },
+    {
+      "id": "fixes-1587",
+      "kind": "fixes",
+      "from": 1587,
+      "to": 1588,
+      "by": "compat-resolve-1122",
+      "what": "unseenfbgohere GoHere trip eligibility pre/finish (1587-1588)",
+      "at": "2026-11-22T23:59:55.671Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-compat-resolve-1122"
+    },
+    {
+      "id": "fixes-1589",
+      "kind": "fixes",
+      "from": 1589,
+      "to": 1589,
+      "by": "compat-resolve-1122",
+      "what": "compat precedence: store-content target not loaded at world load (1589)",
+      "at": "2026-11-23T00:34:42.723Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\s3m-compat-resolve-1122"
+    },
+    {
+      "id": "doc-333",
+      "kind": "doc",
+      "from": 333,
+      "to": 333,
+      "by": "agent",
+      "what": "loop-cost-scaling",
+      "at": "2026-11-23T03:03:54.752Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\docs-loop-cost-scaling-1123"
+    },
+    {
+      "id": "ledger-587",
+      "kind": "ledger",
+      "from": 587,
+      "to": 587,
+      "by": "agent",
+      "what": "loop-cost-scaling",
+      "at": "2026-11-23T03:03:54.987Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\docs-loop-cost-scaling-1123"
+    },
+    {
+      "id": "fixes-1590",
+      "kind": "fixes",
+      "from": 1590,
+      "to": 1657,
+      "by": "loopcost-measure-1123",
+      "what": "docs/333 M-1 loop measurement counters lcm_*",
+      "at": "2026-11-23T03:28:57.870Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\loopcost-measure-1123"
+    },
+    {
+      "id": "fixes-1658",
+      "kind": "fixes",
+      "from": 1658,
+      "to": 1661,
+      "by": "lc1-exact-cuts-1123",
+      "what": "DeadRefs.cs deadrefexact (docs/333 LC-1): partitions, partition objects, shared event reads, event re-reads",
+      "at": "2026-11-23T04:26:52.384Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lc1-exact-cuts-1123"
+    },
+    {
+      "id": "doc-334",
+      "kind": "doc",
+      "from": 334,
+      "to": 334,
+      "by": "lc1-exact-cuts-1123",
+      "what": "LC-1 deadrefsweep exact cuts",
+      "at": "2026-11-23T04:26:58.585Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lc1-exact-cuts-1123"
+    },
+    {
+      "id": "ledger-588",
+      "kind": "ledger",
+      "from": 588,
+      "to": 588,
+      "by": "lc1-exact-cuts-1123",
+      "what": "LC-1 exact cuts",
+      "at": "2026-11-23T04:26:58.965Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lc1-exact-cuts-1123"
+    },
+    {
+      "id": "fixes-1662",
+      "kind": "fixes",
+      "from": 1662,
+      "to": 1668,
+      "by": "lc4-viewer-push-1123",
+      "what": "UnseenViewers.cs viewerridehooks (docs/333 LC-4): hook adds, set wakes, set Sims tested, floor walks, floor misses, shadow wakes, shadow mismatches",
+      "at": "2026-11-23T04:28:18.008Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "doc-335",
+      "kind": "doc",
+      "from": 335,
+      "to": 335,
+      "by": "lc4-viewer-push-1123",
+      "what": "LC-4 viewer push without Actors walks",
+      "at": "2026-11-23T04:28:18.363Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "ledger-589",
+      "kind": "ledger",
+      "from": 589,
+      "to": 589,
+      "by": "lc4-viewer-push-1123",
+      "what": "LC-4 viewer ride hooks",
+      "at": "2026-11-23T04:28:18.753Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization"
+    },
+    {
+      "id": "fixes-1669",
+      "kind": "fixes",
+      "from": 1669,
+      "to": 1670,
+      "by": "lc1-exact-cuts-1123",
+      "what": "DeadRefs.cs deadrefexactverify (docs/334): partition lists compared, mismatches",
+      "at": "2026-11-23T04:33:00.983Z",
+      "worktree": "C:\\Users\\<user>\\IdeaProjects\\sims-3-modernization\\.claude\\worktrees\\lc1-exact-cuts-1123"
     }
   ]
 }

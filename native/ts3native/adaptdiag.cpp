@@ -49,7 +49,7 @@ static bool AdSplitEntry(const char* e, char* sec, size_t sc, char* key, size_t 
     if ((size_t)(dot - e) >= sc || (size_t)(eq - dot - 1) >= kc || strlen(eq + 1) >= vc) return false;
     memcpy(sec, e, dot - e), sec[dot - e] = 0;
     memcpy(key, dot + 1, eq - dot - 1), key[eq - dot - 1] = 0;
-    strcpy_s(val, vc, eq + 1);
+    SCpy(val, vc, eq + 1);
     return true;
 }
 // noise grade of one minute: C = discounted in summaries (other programs >= 10% CPU, clock < 85% of the session's best,
@@ -124,13 +124,13 @@ static DWORD g_adSession;
 static int g_adMaxActive = 3, g_adTtlMin = 15;
 static LONG g_adBudgetUs = 5000, g_adLineCapKB = 4096, g_adLogCapMB = 200;
 
-static void AdPath(wchar_t* out, const wchar_t* name) { swprintf_s(out, MAX_PATH, L"%s%s", g_adBin, name); }
+static void AdPath(wchar_t* out, const wchar_t* name) { PathFmt(out, MAX_PATH, L"%s%s", g_adBin, name); }
 
 static void AdLoadLists();
 // Before CrPreLog: overrides from the state file into a copy of the ini (ini is MAX_PATH and changes to the copy).
 static void AdOverlay(wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"AdaptDiag", L"Enabled", 0, ini)) return;
-    wcscpy_s(g_adBin, ini);
+    WCpy(g_adBin, ini);
     wchar_t* slash = wcsrchr(g_adBin, L'\\');
     if (!slash) return;
     slash[1] = 0;
@@ -146,9 +146,9 @@ static void AdOverlay(wchar_t* ini) {
         char a[96];
         WideCharToMultiByte(CP_ACP, 0, p, -1, a, sizeof(a), NULL, NULL);
         if (!_strnicmp(a, "Rule=", 5)) continue;
-        strcpy_s(ent[ne++], a);
+        SCpy(ent[ne++], a);
     }
-    if (g_adPrevUnclean && ne < 22) strcpy_s(ent[ne++], "CrashForensics.Enabled=1"), strcpy_s(ent[ne++], "CrashForensics.VbGuard=1");
+    if (g_adPrevUnclean && ne < 22) SCpy(ent[ne++], "CrashForensics.Enabled=1"), SCpy(ent[ne++], "CrashForensics.VbGuard=1");
     if (!ne) return;
     wchar_t copy[MAX_PATH];
     AdPath(copy, L"ts3native.adapt.ini");
@@ -166,13 +166,17 @@ static void AdOverlay(wchar_t* ini) {
         MultiByteToWideChar(CP_ACP, 0, s, -1, ws, 32), MultiByteToWideChar(CP_ACP, 0, k, -1, wk, 40), MultiByteToWideChar(CP_ACP, 0, v, -1, wv, 24);
         WritePrivateProfileStringW(ws, wk, wv, copy);
         strncat_s(g_adStartNote, " ", _TRUNCATE), strncat_s(g_adStartNote, ent[i], _TRUNCATE);
-        an += swprintf_s(applied + an, 2048 - an, L"%hs", ent[i]) + 1;  // double-NUL list for WritePrivateProfileSectionW
+        // double-NUL list for WritePrivateProfileSectionW; docs/323 lane B: _TRUNCATE (an entry is up to ~100 chars past
+        // an >= 2040 - 100, where swprintf_s killed the game) and room kept for the closing NUL
+        const int w = _snwprintf_s(applied + an, 2047 - an, _TRUNCATE, L"%hs", ent[i]);
+        if (w < 0) { applied[an] = 0; break; }
+        an += w + 1;
         if (an >= 2040) break;
     }
     applied[an] = 0;
     WritePrivateProfileStringW(L"Escalate", NULL, NULL, g_adState);  // consumed: one session each
     WritePrivateProfileSectionW(L"Applied", applied, g_adState);
-    wcscpy_s(ini, MAX_PATH, copy);
+    WCpy(ini, MAX_PATH, copy);
 }
 
 // ---- level 0 inputs ----
@@ -273,11 +277,11 @@ static void AdTap(const char* line) {
 // expected-install list (kit files next to the asi), then the log tap.
 static void AdLoadLists() {
 #if defined(TS3A_TABLE) && defined(TS3A_RETAIL)
-    strcpy_s(g_adEdition, "retail");
+    SCpy(g_adEdition, "retail");
 #elif defined(TS3A_TABLE)
-    strcpy_s(g_adEdition, "ea");
+    SCpy(g_adEdition, "ea");
 #else
-    strcpy_s(g_adEdition, "steam");
+    SCpy(g_adEdition, "steam");
 #endif
     static char buf[131072];
     wchar_t p[MAX_PATH];
@@ -306,7 +310,7 @@ static FILETIME g_adStartFt;
 static LONG AdScriptErrors(char* head, size_t cap) {
     if (!g_adUser[0]) return 0;
     wchar_t pat[MAX_PATH], best[MAX_PATH] = L"";
-    swprintf_s(pat, L"%s\\ScriptError*.xml", g_adUser);
+    PathFmt(pat, L"%s\\ScriptError*.xml", g_adUser);
     WIN32_FIND_DATAW f;
     FILETIME newest = g_adStartFt;
     LONG n = 0;
@@ -314,7 +318,7 @@ static LONG AdScriptErrors(char* head, size_t cap) {
     for (BOOL ok = h != INVALID_HANDLE_VALUE; ok; ok = FindNextFileW(h, &f)) {
         if (CompareFileTime(&f.ftLastWriteTime, &g_adStartFt) <= 0) continue;
         n++;
-        if (CompareFileTime(&f.ftLastWriteTime, &newest) > 0) newest = f.ftLastWriteTime, swprintf_s(best, L"%s\\%s", g_adUser, f.cFileName);
+        if (CompareFileTime(&f.ftLastWriteTime, &newest) > 0) newest = f.ftLastWriteTime, PathFmt(best, L"%s\\%s", g_adUser, f.cFileName);
     }
     if (h != INVALID_HANDLE_VALUE) FindClose(h);
     if (head && best[0]) {
@@ -333,11 +337,11 @@ static bool AdOwnFile(const wchar_t* n) {
 // mod set (Mods\Packages names + sizes + times) and mod config (content of small config files) hashes
 static void AdHashTree(const wchar_t* dir, int depth, bool content, const wchar_t* const* exts, unsigned long long* h, LONG* files) {
     wchar_t pat[MAX_PATH], p[MAX_PATH];
-    if (swprintf_s(pat, L"%s\\*", dir) < 0) return;
+    if (!PathFmt(pat, L"%s\\*", dir)) return;
     WIN32_FIND_DATAW f;
     HANDLE fh = FindFirstFileExW(pat, FindExInfoBasic, &f, FindExSearchNameMatch, NULL, 0);
     for (BOOL ok = fh != INVALID_HANDLE_VALUE; ok; ok = FindNextFileW(fh, &f)) {
-        if (f.cFileName[0] == L'.' || swprintf_s(p, L"%s\\%s", dir, f.cFileName) < 0) continue;
+        if (f.cFileName[0] == L'.' || !PathFmt(p, L"%s\\%s", dir, f.cFileName)) continue;
         if (f.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) { if (depth < 6) AdHashTree(p, depth + 1, content, exts, h, files); continue; }
         const wchar_t* ext = wcsrchr(f.cFileName, L'.');
         bool want = false;
@@ -345,7 +349,7 @@ static void AdHashTree(const wchar_t* dir, int depth, bool content, const wchar_
         // our own files are what an A/B arm changes (asi, ini, ts3fixes.package) and our outputs change every session: not hashed
         if (!want || AdOwnFile(f.cFileName)) continue;
         wchar_t lower[MAX_PATH];
-        wcscpy_s(lower, f.cFileName), _wcslwr_s(lower);
+        WCpy(lower, f.cFileName), _wcslwr_s(lower);
         *h = AdFnv(*h, lower, wcslen(lower) * 2);
         (*files)++;
         if (!content) { *h = AdFnv(*h, &f.nFileSizeLow, 4), *h = AdFnv(*h, &f.ftLastWriteTime, 8); continue; }
@@ -364,9 +368,9 @@ static void AdHashMods() {
     static const wchar_t* const kCfg[] = {L".cfg", L".ini", L".toml", L".xml", L".json", L".conf", NULL};  // not .txt: logs and summaries
     unsigned long long m = kAdFnv0, c = kAdFnv0;
     wchar_t d[MAX_PATH];
-    if (g_adUser[0] && swprintf_s(d, L"%s\\Mods\\Packages", g_adUser) > 0) AdHashTree(d, 0, false, kPkg, &m, &g_adModFiles);
-    if (g_adUser[0] && swprintf_s(d, L"%s\\Mods", g_adUser) > 0) AdHashTree(d, 5, true, kCfg, &c, &g_adConfFiles);  // depth 5: Mods top + one level
-    wcscpy_s(d, g_adBin);
+    if (g_adUser[0] && PathFmt(d, L"%s\\Mods\\Packages", g_adUser)) AdHashTree(d, 0, false, kPkg, &m, &g_adModFiles);
+    if (g_adUser[0] && PathFmt(d, L"%s\\Mods", g_adUser)) AdHashTree(d, 5, true, kCfg, &c, &g_adConfFiles);  // depth 5: Mods top + one level
+    WCpy(d, g_adBin);
     d[wcslen(d) - 1] = 0;
     AdHashTree(d, 5, true, kCfg, &c, &g_adConfFiles);  // Game\Bin (ts3native.ini, S3SS, Apex configs) + one level
     g_adModSet = m, g_adConfig = c;
@@ -472,7 +476,7 @@ static void AdWriteNext(int d, const char* why) {
     if (s.nextWritten || !kAdDrill[d].next[0]) return;
     s.nextWritten = true;
     char buf[400];
-    strcpy_s(buf, kAdDrill[d].next);
+    SCpy(buf, kAdDrill[d].next);
     char* tk = NULL;
     for (char* t = strtok_s(buf, " ", &tk); t; t = strtok_s(NULL, " ", &tk)) {
         char sec[32], key[40], val[24];
@@ -548,15 +552,15 @@ static bool AdLastFault(char* out, size_t cap) {
     if (!g_crDir[0]) return false;
     wchar_t pat[MAX_PATH], best[MAX_PATH] = L"";
     FILETIME bt = {};
-    if (swprintf_s(pat, L"%s\\crash-*.txt", g_crDir) < 0) return false;
+    if (!PathFmt(pat, L"%s\\crash-*.txt", g_crDir)) return false;
     WIN32_FIND_DATAW f;
     HANDLE h = FindFirstFileW(pat, &f);
     if (h == INVALID_HANDLE_VALUE) return false;
-    do if (CompareFileTime(&f.ftLastWriteTime, &bt) > 0) bt = f.ftLastWriteTime, wcscpy_s(best, f.cFileName); while (FindNextFileW(h, &f));
+    do if (CompareFileTime(&f.ftLastWriteTime, &bt) > 0) bt = f.ftLastWriteTime, WCpy(best, f.cFileName); while (FindNextFileW(h, &f));
     FindClose(h);
     wchar_t p[MAX_PATH];
     static char buf[8192];
-    if (swprintf_s(p, L"%s\\%s", g_crDir, best) < 0 || AdReadLines(p, buf, sizeof(buf)) <= 0) return false;
+    if (!PathFmt(p, L"%s\\%s", g_crDir, best) || AdReadLines(p, buf, sizeof(buf)) <= 0) return false;
     const char* s = strstr(buf, "fault: ");
     if (!s) return false;
     size_t n = strcspn(s, "\r\n");
@@ -587,7 +591,7 @@ static void AdInstallCheck() {
     else if (g_adFixFailN > 0) {
         char f[400];
         EnterCriticalSection(&g_adCs);
-        strcpy_s(f, g_adFixFail);
+        SCpy(f, g_adFixFail);
         LeaveCriticalSection(&g_adCs);
         miss += AdFixMissing(f, g_adAllow, g_adAllowN, g_adInstall, sizeof(g_adInstall));
     }
@@ -619,7 +623,7 @@ static void AdRules() {
     static LONG routeRun;
     routeRun = routeLines ? routeRun + routeLines : 0;
     AdIssue* s = g_adIss;
-    auto want = [&](int d, LONG sev, LONG freq, const char* why) { s[d].sev = sev, s[d].freq = freq, s[d].rank = sev * freq; strcpy_s(s[d].why, why); };
+    auto want = [&](int d, LONG sev, LONG freq, const char* why) { s[d].sev = sev, s[d].freq = freq, s[d].rank = sev * freq; SCpy(s[d].why, why); };
     for (int d = 0; d < AD_DRILLS; d++) if (!s[d].active) s[d].rank = 0;
     if (h1000 >= 2) want(AD_HITCHSTACK, 3, h1000, "repeated >= 1 s hitches");
     else if (h250 >= 10) want(AD_HITCHSTACK, 2, h250, "stutter (>= 250 ms)");
@@ -631,7 +635,7 @@ static void AdRules() {
     // known issues: evidence -> signature -> no slot
     char ev[600];
     EnterCriticalSection(&g_adCs);
-    strcpy_s(ev, g_adLastHitch);
+    SCpy(ev, g_adLastHitch);
     LeaveCriticalSection(&g_adCs);
     for (int d = 0; d < AD_DRILLS; d++) {
         if (!s[d].rank || s[d].known[0]) continue;
@@ -751,7 +755,7 @@ static void AdReport(const char* why) {
     float hot = 0;
     for (LONG i = 0; i < rows; i++) if (g_adRows[i].temp > hot) hot = g_adRows[i].temp;
     char hotS[40];
-    if (hot > 0) sprintf_s(hotS, "%.0f C", hot); else strcpy_s(hotS, "not readable without admin on this PC");
+    if (hot > 0) SFmt(hotS, "%.0f C", hot); else SCpy(hotS, "not readable without admin on this PC");
     for (LONG i = 0; i < rows; i++) gr[g_adRows[i].noise == 'A' ? 0 : g_adRows[i].noise == 'B' ? 1 : g_adRows[i].noise == 'C' ? 2 : 3]++;
     const char grade = gr[2] * 4 > rows ? 'C' : gr[2] + gr[1] > rows / 2 ? 'B' : rows && gr[3] == rows ? '?' : 'A';
     PcCat(o, cap, "\r\n## noise\r\nsession grade %c: %ld clean (A), %ld some noise (B), %ld noisy (C, left out of the summaries), %ld no PcCheck data; "
@@ -809,7 +813,7 @@ static void AdAbCheck() {
     char sess[16], arm[20], ms[20], cf[20];
     if (sscanf_s(other, "%15[^,],%19[^,],%19[^,],%19s", sess, (unsigned)sizeof(sess), arm, (unsigned)sizeof(arm), ms, (unsigned)sizeof(ms), cf, (unsigned)sizeof(cf)) != 4) return;
     char mine[20], minec[20];
-    sprintf_s(mine, "%016llx", g_adModSet), sprintf_s(minec, "%016llx", g_adConfig);
+    SFmt(mine, "%016llx", g_adModSet), SFmt(minec, "%016llx", g_adConfig);
     const bool same = !_stricmp(ms, mine) && !_stricmp(cf, minec);
     _snprintf_s(g_adAbNote, _TRUNCATE, "arm %s vs arm %s (session %s): %s", g_adArm, arm, sess,
                 same ? "same mod set and mod config: valid" : "INVALID: the mod set or a mod config changed between the arms");
@@ -819,10 +823,10 @@ static void AdAbCheck() {
 static DWORD WINAPI AdMain(LPVOID) {
     AdHashMods();
     char hx[64];
-    sprintf_s(hx, "%016llx", g_adModSet);
+    SFmt(hx, "%016llx", g_adModSet);
     wchar_t w[64];
     MultiByteToWideChar(CP_ACP, 0, hx, -1, w, 64), WritePrivateProfileStringW(L"Live", L"ModSet", w, g_adState);
-    sprintf_s(hx, "%016llx", g_adConfig);
+    SFmt(hx, "%016llx", g_adConfig);
     MultiByteToWideChar(CP_ACP, 0, hx, -1, w, 64), WritePrivateProfileStringW(L"Live", L"Config", w, g_adState);
     Log("adaptdiag: mod set %016llx (%ld packages in Mods\\Packages), mod config %016llx (%ld config files in Mods and Bin)", g_adModSet, g_adModFiles, g_adConfig, g_adConfFiles);
     AdAbCheck();
@@ -897,7 +901,7 @@ static bool ApplyAdaptDiag(const wchar_t* ini) {
     GetLocalTime(&st);
     GetSystemTimeAsFileTime(&g_adStartFt);
     g_adSession = (DWORD)st.wMonth * 1000000 + st.wDay * 10000 + st.wHour * 100 + st.wMinute;
-    swprintf_s(t, L"%08lu", g_adSession);
+    PathFmt(t, L"%08lu", g_adSession);
     WritePrivateProfileStringW(L"Live", L"Session", t, g_adState);
     WritePrivateProfileStringW(L"Live", L"Clean", L"0", g_adState);
     MultiByteToWideChar(CP_ACP, 0, g_adArm, -1, t, 20), WritePrivateProfileStringW(L"Live", L"Arm", t, g_adState);
@@ -912,7 +916,7 @@ static bool ApplyAdaptDiag(const wchar_t* ini) {
         "%d known-issue signatures, %d expected install parts, edition %s, arm %s, benchmark %ld%s%s",
         g_adOn ? "OK  " : "FAIL", g_adMaxActive, g_adTtlMin, g_adBudgetUs, g_adLineCapKB, g_adLogCapMB, g_adSigN, g_adExpN, g_adEdition, g_adArm[0] ? g_adArm : "-", g_adBench,
         g_adDeferred ? " (deferred: runtime turn-ons go to the next session)" : "", iter ? "" : "; no Simulate iteration hook: no iteration times");
-    if (g_adPrevUnclean) { g_adIss[AD_CRASH].deferred = true; strcpy_s(g_adIss[AD_CRASH].why, "last session ended without a clean exit"); 
+    if (g_adPrevUnclean) { g_adIss[AD_CRASH].deferred = true; SCpy(g_adIss[AD_CRASH].why, "last session ended without a clean exit"); 
         if (AdLastFault(g_adIss[AD_CRASH].evidence, sizeof(g_adIss[AD_CRASH].evidence)) && AdKnown("crash", g_adIss[AD_CRASH].evidence, g_adIss[AD_CRASH].known, sizeof(g_adIss[AD_CRASH].known)))
             Log("adaptdiag: last crash matches a known issue: %s (%s)", g_adIss[AD_CRASH].known, g_adIss[AD_CRASH].evidence);
     }

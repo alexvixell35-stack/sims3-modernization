@@ -90,7 +90,7 @@ static double CeAgeMs(LONGLONG qpc) {
 // one line: "<tag> a 0x... (+off) x y, N ms ago, thread T, job J, seq S" or "not in our-events ring"
 static void CeDescribe(DWORD a, char* out, size_t cap) {
     CeEnt e;
-    if (!CeFind(a, &e)) { sprintf_s(out, cap, "not in our-events ring (last %lu events)", kCeRing); return; }
-    sprintf_s(out, cap, "%s a 0x%08lX (+0x%lX) x 0x%lX y 0x%lX, %.1f ms ago, thread %lu, job %s, seq %ld",
+    if (!CeFind(a, &e)) { SFmt(out, cap, "not in our-events ring (last %lu events)", kCeRing); return; }
+    SFmt(out, cap, "%s a 0x%08lX (+0x%lX) x 0x%lX y 0x%lX, %.1f ms ago, thread %lu, job %s, seq %ld",
               e.tag < CE_NTAGS ? kCeTag[e.tag] : "?", e.a, a - e.a, e.x, e.y, CeAgeMs(e.qpc), e.tid, e.job ? "running" : "idle", e.seq);
 }

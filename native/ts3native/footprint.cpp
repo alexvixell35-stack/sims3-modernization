@@ -249,9 +249,9 @@ static void __cdecl FpSaveEnd(DWORD us) {
     g_fpGen++;  // drop the index: the next save rebuilds
     g_fs.saveUs = us;
     char v[48];
-    if (!g_fpVerify || ts3native_footprintMode != 1) sprintf_s(v, "off");
-    else if (g_fs.mismatches) sprintf_s(v, "mismatches %ld", g_fs.mismatches);
-    else sprintf_s(v, "ok");
+    if (!g_fpVerify || ts3native_footprintMode != 1) SFmt(v, "off");
+    else if (g_fs.mismatches) SFmt(v, "mismatches %ld", g_fs.mismatches);
+    else SFmt(v, "ok");
     Log("footprint: levels %ld entries %ld matched %ld calls %ld ms %lld verify %s (mode %ld fallbacks %ld worldSave ms %lld)",
         g_fs.levels, g_fs.entries, g_fs.matched, g_fs.builds, g_fs.us / 1000, v, ts3native_footprintMode, g_fs.fallbacks,
         g_fs.saveUs / 1000);

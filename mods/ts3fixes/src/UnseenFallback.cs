@@ -537,7 +537,7 @@ namespace Ts3Fixes
             Sims3.Gameplay.Situations.GroupingSituation g = s.GetSituationOfType<Sims3.Gameplay.Situations.GroupingSituation>();
             if (g != null && !(relaxed && UfGroupOk(s, g))) { if (relaxed) PatchCounters()[650]++; return false; }
             Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
-            return cur != null && !(cur is Sims3.Gameplay.Socializing.SocialInteraction) && !UfPreCore.Denied(cur.GetType().FullName);
+            return cur != null && !(cur is Sims3.Gameplay.Socializing.SocialInteraction) && UfTripOk(cur, false);
         }
 
         static bool UfGroupOk(Sim s, Sims3.Gameplay.Situations.GroupingSituation g)

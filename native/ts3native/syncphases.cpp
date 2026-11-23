@@ -83,13 +83,13 @@ static void Add(LONG* a, const LONG* v, int n) { for (int i = 0; i < n; i++) if 
 // "route phases: sync plan N ms failed, ..."; returns the length (selftest reads it)
 static int SypLine(char* d, int room, const SypPlan& p, LONG ms, int res) {
     static const char* const kRes[3] = {"succeeded", "failed", "no-plan"};
-    int n = sprintf_s(d, room, "route phases: sync plan %ld ms %s, entry %s, route %08lX, planlocked %ld; loops entry=%ld/%ld "
+    int n = SFmt(d, room, "route phases: sync plan %ld ms %s, entry %s, route %08lX, planlocked %ld; loops entry=%ld/%ld "
                                "ground=%ld/%ld prepass=%ld/%ld othercaller=%ld/%ld; ms",
                       ms, kRes[res], p.ent, p.handle, p.planN, p.loopN[0], p.loopUs[0] / 1000, p.loopN[1], p.loopUs[1] / 1000,
                       p.loopN[2], p.loopUs[2] / 1000, p.loopN[3], p.loopUs[3] / 1000);
     for (int i = 0; i < RJP_N && n > 0 && n < room - 24; i++)
-        if (i != RJP_HOST) n += sprintf_s(d + n, room - n, " %s=%ld", kSypPhase[i], p.us[i] / 1000);
-    if (p.us[RJP_WATER] && g_wjLastH && n > 0 && n < room - 24) n += sprintf_s(d + n, room - n, " grid=%lux%lu", g_wjLastW, g_wjLastH);  // needs [WaterJps]
+        if (i != RJP_HOST) n += SFmt(d + n, room - n, " %s=%ld", kSypPhase[i], p.us[i] / 1000);
+    if (p.us[RJP_WATER] && g_wjLastH && n > 0 && n < room - 24) n += SFmt(d + n, room - n, " grid=%lux%lu", g_wjLastW, g_wjLastH);  // needs [WaterJps]
     return n;
 }
 
@@ -182,7 +182,7 @@ static u8* SypIcRun(int kind, u8* out, DWORD handle, const float* pt, int why, c
     const bool mine = !t_syp.open && SypBegin(SYP_IC, &here);
     char ent[64];
     if (mine) {
-        sprintf_s(ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
+        SFmt(ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
         t_syp.ent = ent;
         t_syp.handle = handle;
     }

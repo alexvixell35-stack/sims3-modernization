@@ -107,7 +107,7 @@ static LONG g_tsHits, g_tsAborts, g_tsForced;
 static void TsWords(char* out, size_t cap, const DWORD* w, int n) {
     size_t at = 0;
     out[0] = 0;
-    for (int i = 0; i < n && at + 10 < cap; i++) at += (size_t)sprintf_s(out + at, cap - at, i ? " %08lX" : "%08lX", w[i]);
+    for (int i = 0; i < n && at + 10 < cap; i++) at += (size_t)SFmt(out + at, cap - at, i ? " %08lX" : "%08lX", w[i]);
 }
 
 // ---- The SimService LOD builds (2026-11-12, see "Where the LOD waits" above). Plain reads under __try. ----
@@ -122,10 +122,10 @@ struct TsLod {
 static void TsLodRead(const u8* prov, TsLod* o) {
     memset(o, 0, sizeof(*o));
     o->inuse = o->limit = o->cached = o->minLod = -1;
-    strcpy_s(o->job, "none");
+    SCpy(o->job, "none");
     __try {
         const u8* const svc = *(const u8* const*)(uintptr_t)g_tsSvcAt;
-        if (!svc || !Readable(svc, 0x70) || *(const DWORD*)svc != TS_SVC_VT) { strcpy_s(o->job, "no service"); return; }
+        if (!svc || !Readable(svc, 0x70) || *(const DWORD*)svc != TS_SVC_VT) { SCpy(o->job, "no service"); return; }
         o->minLod = *(const long*)(svc + 0x30), o->limit = *(const long*)(svc + 0x40);
         o->inuse = *(const long*)(svc + 0x4C), o->cached = *(const long*)(svc + 0x50);
         for (int l = 0; l < 2; l++) {  // job nodes (0x198 bytes): +0 next, +8 LOD, +0xC requests, +0x18 provider, +0x190 state
@@ -133,7 +133,7 @@ static void TsLodRead(const u8* prov, TsLod* o) {
             int pos = 0;
             for (const u8* n = *(const u8* const*)head; n && n != head && pos < 4096; n = *(const u8* const*)n, pos++)
                 if (prov && *(const u8* const*)(n + 0x18) == prov && !strcmp(o->job, "none"))
-                    sprintf_s(o->job, "%s #%d lod %ld requests %ld state %ld", l ? "ready" : "loading", pos,
+                    SFmt(o->job, "%s #%d lod %ld requests %ld state %ld", l ? "ready" : "loading", pos,
                               *(const long*)(n + 8), *(const long*)(n + 0xC), *(const long*)(n + 0x190));
             if (l) o->ready = pos;
             else o->jobs = pos;
@@ -141,16 +141,16 @@ static void TsLodRead(const u8* prov, TsLod* o) {
         const u8* const cur = *(const u8* const*)(svc + 0x68);
         o->current = cur != 0;
         if (cur && prov && *(const u8* const*)(cur + 0x18) == prov)
-            sprintf_s(o->job, "current lod %ld requests %ld state %ld", *(const long*)(cur + 8), *(const long*)(cur + 0xC),
+            SFmt(o->job, "current lod %ld requests %ld state %ld", *(const long*)(cur + 8), *(const long*)(cur + 0xC),
                       *(const long*)(cur + 0x190));
-    } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(o->job, "fault"); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(o->job, "fault"); }
 }
 static DWORD TsVt(DWORD p) { return p && (p & 3) == 0 && Readable((const void*)(uintptr_t)p, 4) ? *(const DWORD*)(uintptr_t)p : 0; }
 // the blocker's handle LOD words: current index +0x14, wanted index +0x18, min / max LOD bytes +0x22 / +0x23
 static void TsLodIdx(const u8* blk, char* out, size_t cap) {
-    if (!blk || !Readable(blk + 0x210, 0x40)) { strcpy_s(out, cap, "n/a"); return; }
+    if (!blk || !Readable(blk + 0x210, 0x40)) { SCpy(out, cap, "n/a"); return; }
     const u8* const h = blk + 0x210;
-    sprintf_s(out, cap, "cur %ld wanted %ld min %u max %u", *(const long*)(h + 0x14), *(const long*)(h + 0x18), h[0x22], h[0x23]);
+    SFmt(out, cap, "cur %ld wanted %ld min %u max %u", *(const long*)(h + 0x14), *(const long*)(h + 0x18), h[0x22], h[0x23]);
 }
 static void TsLodLog(const u8* blk) {
     DWORD prov = 0, h38 = 0;
@@ -233,7 +233,7 @@ static void TsFbEnd(int how, DWORD state, bool blkLive) {
     else g_tsFbOther++;
     char idx[64];
     if (blkLive) TsLodIdx(g_tsFbBlk, idx, sizeof(idx));
-    else strcpy_s(idx, "n/a (request gone)");
+    else SCpy(idx, "n/a (request gone)");
     Log("thumbstall: fallback #%ld %s after %lu ms (state %02lX): key %s; lod %s; its job %s %d "
         "(fallback_rendered %ld, fallback_aborted %ld, fallback_other %ld) kept %d",
         g_tsFbN, how == 0 ? "rendered" : how == 1 ? "aborted" : "other", g_tsNow() - g_tsFbSince, state, g_tsFbKey, idx,
@@ -520,7 +520,7 @@ static void TcRc(DWORD* held, DWORD* n) {
 static void __cdecl TcSeen(int which, const DWORD* sp) {
     const DWORD ret = sp[0];
     char st[300];
-    if (FbStackText(st, sizeof(st), 6) <= 0) strcpy_s(st, "(no script frames)");
+    if (FbStackText(st, sizeof(st), 6) <= 0) SCpy(st, "(no script frames)");
     DWORD h = 2166136261u ^ (DWORD)which;
     if (which < 2) h = (h ^ ret) * 16777619u;  // an IC's own return address is the interpreter: not part of the key
     for (const char* c = st; *c; c++) h = (h ^ (u8)*c) * 16777619u;
@@ -540,7 +540,7 @@ static void __cdecl TcSeen(int which, const DWORD* sp) {
         else if (!g_tcRows[i].hash) {
             at = i, isNew = true;
             g_tcRows[i].hash = h;
-            sprintf_s(g_tcRows[i].text, "%s ret %08lX: %s", kTcName[which & 3], ret, st);
+            SFmt(g_tcRows[i].text, "%s ret %08lX: %s", kTcName[which & 3], ret, st);
         }
     }
     LONG n = 0;

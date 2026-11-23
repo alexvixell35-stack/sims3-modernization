@@ -24,6 +24,7 @@ typedef DWORD(__fastcall* FsFn)(u8* world, void* edx, const u8* pt, DWORD flags)
 static FsFn g_fsOrig = (FsFn)(uintptr_t)FS_TARGET;
 struct FsEnt { LONG kx, kz, lv; DWORD flags, val, tick; };
 static FsEnt g_fsc[4096];  // owner thread only
+static const u8* g_fsWorld;  // the world object the entries belong to (docs/323 L6)
 static DWORD g_fsMaxAgeMs = 60000, g_fsLastVal;
 static bool g_fsMissLast, g_fsMissNear, g_fsHaveLast;
 
@@ -31,9 +32,10 @@ static FsEnt* FsSlot(LONG kx, LONG kz, LONG lv, DWORD fl) {
     const DWORD h = (DWORD)kx * 73856093u ^ (DWORD)kz * 19349663u ^ (DWORD)lv * 83492791u ^ fl * 2654435761u;
     return &g_fsc[(h ^ (h >> 13)) & 4095];
 }
-// signed age: an entry stored in the same GetTickCount step has tick = now | 1, one past an even now (unsigned, that read as
-// ~49 days old: stale for up to one 16 ms step; the selftest caught it 2026-11-03)
-static bool FsYoung(const FsEnt* e, DWORD now) { return (LONG)(now - e->tick) <= (LONG)g_fsMaxAgeMs; }
+// an entry stored in the same GetTickCount step has tick = now | 1, one past an even now: age -1 is young (unsigned, that
+// read as ~49 days old: stale for up to one 16 ms step; the selftest caught it 2026-11-03). docs/323 L6: unsigned age, so an
+// entry older than 24.8 days no longer reads as young (the signed compare wrapped there)
+static bool FsYoung(const FsEnt* e, DWORD now) { const DWORD age = now - e->tick; return age <= g_fsMaxAgeMs || age == 0xFFFFFFFFu; }
 static bool FsFresh(const FsEnt* e, LONG kx, LONG kz, LONG lv, DWORD fl, DWORD now) {
     return e->tick && e->kx == kx && e->kz == kz && e->lv == lv && e->flags == fl && FsYoung(e, now);
 }
@@ -60,6 +62,10 @@ static DWORD __fastcall FsStub(u8* world, void* edx, const u8* pt, DWORD flags) 
     const float x = *(const float*)pt, z = *(const float*)(pt + 4);
     if (!(fabsf(x) < 1e6f) || !(fabsf(z) < 1e6f)) return g_fsOrig(world, edx, pt, flags);  // NaN or far out: no key
     const LONG kx = (LONG)floorf(x * 2.0f), kz = (LONG)floorf(z * 2.0f), lv = (LONG)(signed char)pt[8];
+    if (world != g_fsWorld) {  // docs/323 L6: another world object, so entries of the old world never answer [inferred: a new world, a new object]
+        if (g_fsWorld) memset(g_fsc, 0, sizeof(g_fsc)), g_fsHaveLast = false;
+        g_fsWorld = world;
+    }
     FsEnt* e = FsSlot(kx, kz, lv, flags);
     const DWORD now = GetTickCount();
     const bool same = e->tick && e->kx == kx && e->kz == kz && e->lv == lv && e->flags == flags;

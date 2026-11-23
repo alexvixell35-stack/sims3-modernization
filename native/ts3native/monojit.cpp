@@ -423,6 +423,10 @@ static int g_jitRefWhyN;
 static LONG g_jitRefSave = -1, g_jitRefLogged;  // JitTick: saveCount and jitRefused at the last summary
 struct JitMeth { u8* rm; unsigned short* code; int words; int pos0, posN; char name[96]; int nativeOps, exitOps, bytes; u8* native0; bool verifyOk, dead; DWORD tick; };
 struct JitFix { u8* rel; int targetW; bool abs; };  // abs: a switch table slot takes the label itself
+// docs/323 L2: the most one position may emit, checked before each one against what is left of the method's reserve
+// ([inferred]: the per-position budget below is 256, the largest template the selftest measures stays under it)
+static const size_t kJitPosRoom = 256;
+static int g_jitPosMaxBytes;  // the largest position emitted so far (switch tables included; selftest)
 // posReal: an EA instruction start (dispatch can land there), not a superop's inner position
 struct JitScratch { int posW[JIT_MAX_POS + 64]; unsigned short posOp[JIT_MAX_POS + 64]; bool posReal[JIT_MAX_POS + 64], posCold[JIT_MAX_POS + 64], posProt[JIT_MAX_POS + 64]; u8* label[JIT_MAX_POS + 64]; JitFix fix[JIT_MAX_POS + 64]; int wordToPos[JIT_MAX_WORDS]; };
 static JitEnt* g_jitTab;                 // JIT_TAB_N entries + a 4096-entry overflow tail (no wrap in the probe loop)
@@ -603,7 +607,7 @@ static int JcnReportTo(const char* why, JcnOut out) {
     char line[640], cn[128];
     int lines = 0, cut = 0;
     auto put = [&]() { if (lines < JCN_LINES) out(line), lines++; else cut++; };
-    sprintf_s(line, "jitcount: begin %s #%d, %d methods, %d exit sites, %d call sites, %d mat rows", why, t->reports + 1, g_jitMethN, t->siteN, t->bailN, t->matN);
+    SFmt(line, "jitcount: begin %s #%d, %d methods, %d exit sites, %d call sites, %d mat rows", why, t->reports + 1, g_jitMethN, t->siteN, t->bailN, t->matN);
     out(line);
     for (int i = 0; i < t->bailN; i++) {
         const JcnBail& S = t->bail[i];
@@ -612,7 +616,7 @@ static int JcnReportTo(const char* why, JcnOut out) {
         rs[0] = 0;
         for (int r = 0; r < 12; r++) if (S.r[r]) o += _snprintf_s(rs + o, sizeof(rs) - o, _TRUNCATE, " %s=%ld", kJcnBail[r], S.r[r]);
         if (!o) continue;
-        sprintf_s(line, "jitbail %s %d %X %s %s%s", JitMethodName(S.callerRm, cn, sizeof(cn)), (int)(S.ip - *(const unsigned short* const*)S.callerRm),
+        SFmt(line, "jitbail %s %d %X %s %s%s", JitMethodName(S.callerRm, cn, sizeof(cn)), (int)(S.ip - *(const unsigned short* const*)S.callerRm),
                   S.op, S.lazy ? "lazy" : "normal", S.guard ? "guard" : "direct", rs);
         put();
     }
@@ -622,7 +626,7 @@ static int JcnReportTo(const char* why, JcnOut out) {
         const JcnBail& S = t->bail[i];
         if (!S.gs) continue;
         if (S.gs->tOther) {  // targets past the named rows: native flag unknown
-            sprintf_s(line, "jitcallee %s %d %X %s (other) native=? bound=0 nolazy=%ld", JitMethodName(S.callerRm, cn, sizeof(cn)),
+            SFmt(line, "jitcallee %s %d %X %s (other) native=? bound=0 nolazy=%ld", JitMethodName(S.callerRm, cn, sizeof(cn)),
                       (int)(S.ip - *(const unsigned short* const*)S.callerRm), S.op, S.lazy ? "lazy" : "normal", S.gs->tOther);
             put();
         }
@@ -630,7 +634,7 @@ static int JcnReportTo(const char* why, JcnOut out) {
             if (!S.gs->tNoLazy[k]) continue;
             const u8* r = S.gs->tRm[k];
             char tn[128];
-            sprintf_s(line, "jitcallee %s %d %X %s %s native=%d bound=%d nolazy=%ld", JitMethodName(S.callerRm, cn, sizeof(cn)),
+            SFmt(line, "jitcallee %s %d %X %s %s native=%d bound=%d nolazy=%ld", JitMethodName(S.callerRm, cn, sizeof(cn)),
                       (int)(S.ip - *(const unsigned short* const*)S.callerRm), S.op, S.lazy ? "lazy" : "normal", r ? JitMethodName(r, tn, sizeof(tn)) : "(none)",
                       r && *(const DWORD*)(r + 0x24) ? 1 : 0, r == S.gs->rm ? S.gs->bound : 0, S.gs->tNoLazy[k]);
             put();
@@ -647,24 +651,24 @@ static int JcnReportTo(const char* why, JcnOut out) {
         if (!k) continue;
         const bool vt = k[0xA6] == 0x11 ? !(k[0x14] & 0x10)
                       : k[0xA6] == 0x15 && (*(const DWORD*)(*(const u8* const*)(*(const u8* const*)(k + 0xA0) + 4) + 0x14) >> 3 & 1);
-        sprintf_s(line, "jitnew %d %d %ld %d %X %s", S.meth, (int)(S.ip - *(const unsigned short* const*)rm), S.n, vt, *(const DWORD*)(k + 0x14), JitMethodName(c, cn, sizeof(cn)));
+        SFmt(line, "jitnew %d %d %ld %d %X %s", S.meth, (int)(S.ip - *(const unsigned short* const*)rm), S.n, vt, *(const DWORD*)(k + 0x14), JitMethodName(c, cn, sizeof(cn)));
         put();
     }
     for (int i = 0; i < t->matN; i++) {
         const JcnMat& S = t->mat[i];
-        sprintf_s(line, "jitmat %ld %s %d %s", S.n, JcnOpName(S.op), (int)((const unsigned short*)(uintptr_t)S.ip - *(const unsigned short* const*)S.rm),
+        SFmt(line, "jitmat %ld %s %d %s", S.n, JcnOpName(S.op), (int)((const unsigned short*)(uintptr_t)S.ip - *(const unsigned short* const*)S.rm),
                   JitMethodName(S.rm, cn, sizeof(cn)));
         put();
     }
     for (int m = 0; m < g_jitMethN; m++)
         if (t->calls[m] || t->posRun[m]) {
-            sprintf_s(line, "jitcalls %d %ld %ld %d %s", m, t->calls[m], t->posRun[m], g_jitMeth[m].posN - g_jitMeth[m].pos0, g_jitMeth[m].name);
+            SFmt(line, "jitcalls %d %ld %ld %d %s", m, t->calls[m], t->posRun[m], g_jitMeth[m].posN - g_jitMeth[m].pos0, g_jitMeth[m].name);
             put();
         }
     for (int s = 0; s < t->siteN; s++) {
         const JcnSite& S = t->site[s];
         if (!S.n || S.meth >= g_jitMethN) continue;
-        sprintf_s(line, "jitexit %d %X %s %s %ld", S.meth, S.op, JcnOpName(S.op), S.slow ? "slow" : "op", S.n);
+        SFmt(line, "jitexit %d %X %s %s %ld", S.meth, S.op, JcnOpName(S.op), S.slow ? "slow" : "op", S.n);
         put();
     }
     // docs/537 §31 (M2 gate): one uncapped line per YRows method (the capped jitexit rows of ~5k methods can leave them out):
@@ -684,11 +688,11 @@ static int JcnReportTo(const char* why, JcnOut out) {
             exits += S.n;
             if ((S.op >= 0xEA && S.op <= 0xED) || S.op == 0xF4) callTaken++;
         }
-        sprintf_s(line, "jitcount yrow %s: entries %ld, ret exits %ld, other exits %ld, exit sites taken %d, call-exit sites taken %d",
+        SFmt(line, "jitcount yrow %s: entries %ld, ret exits %ld, other exits %ld, exit sites taken %d, call-exit sites taken %d",
                   g_jitMeth[m].name, t->calls[m], rets, exits, taken, callTaken);
         out(line);
     }
-    sprintf_s(line, "jitcount: end %s #%d, %d lines, %d left out (cap %d)", why, ++t->reports, lines, cut, JCN_LINES);
+    SFmt(line, "jitcount: end %s #%d, %d lines, %d left out (cap %d)", why, ++t->reports, lines, cut, JCN_LINES);
     out(line);
     return lines;
 }
@@ -1460,6 +1464,10 @@ static const char* JitCompile(u8* rm) {
     }
     for (int k = 0; k < n; k++) {
         label[k] = e.p;
+        if (k && e.p - label[k - 1] > g_jitPosMaxBytes) g_jitPosMaxBytes = (int)(e.p - label[k - 1]);  // selftest reads it (L2)
+        // docs/323 L1 / L2: never past fix[] or the code reserved above; the method stays on EA's interpreter
+        if (nf >= JIT_MAX_POS + 64 - 1) { why = "branch fix table full"; break; }
+        if ((size_t)(start + need - e.p) < kJitPosRoom) { why = "code budget passed"; break; }
         if (g_jcn) {  // count mode: positions run; entering the normal body at word 0 is a call
             // shortcut: a branch back to word 0 counts as a call too (rare: M.verifyOk names those methods), fine for a census
             if (!k && !g_jitLazyPass) e.incAbs(&g_jcn->calls[g_jitMethN]);
@@ -1710,7 +1718,8 @@ static const char* JitCompile(u8* rm) {
             e.fld8(ESI, -16); e.fld8(ESI, -8); e.b(0xE8); e.d(g_jitFmod - ((DWORD)(uintptr_t)e.p + 4)); e.fstp8(ESI, -16); e.addEsi(-8); break;
         case K_SWITCH: {  // value [esi-8]; u32 n at ip+1, then n i32 word offsets from the end of the instruction (EA's 0xE558B1);
             const int cnt = *(const int*)(ip + 1);  // out of range falls through
-            if (cnt < 0 || cnt > 1024 || nf + cnt > 4000) { EmitExit(e, ip, op, false); ex++; continue; }
+            // docs/323 L2: its table (4 bytes a case) must fit in what is left as well, or the switch exits to EA
+            if (cnt < 0 || cnt > 1024 || nf + cnt > 4000 || (size_t)(start + need - e.p) < kJitPosRoom + 4 * (size_t)cnt) { EmitExit(e, ip, op, false); ex++; continue; }
             e.op(0x8B, EAX, ESI, -8); e.addEsi(-8);
             e.b(0x3D); e.d((DWORD)cnt);  // cmp eax, n
             u8* over = e.jcc(0x83);  // jae: next instruction
@@ -1972,7 +1981,7 @@ static LONG CALLBACK JitClauseVeh(EXCEPTION_POINTERS* x) {
     if ((code & 0xF0000000) != 0xC0000000 || !JitClauseHit(x->ContextRecord->Eip)) return EXCEPTION_CONTINUE_SEARCH;
     InterlockedIncrement(&ts3native_counters.clFaults);
     char what[96];
-    sprintf_s(what, "fault 0x%08lX at eip %08lX", code, x->ContextRecord->Eip);
+    SFmt(what, "fault 0x%08lX at eip %08lX", code, x->ContextRecord->Eip);
     JitClauseKill(2, what);
     return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -2098,7 +2107,7 @@ static bool JitFrRetAddr(const JitMeth& m, const u8* w) {  // w follows a call: 
 }
 static void JitFrBan(JitMeth& m) {
     if (!m.dead) m.dead = true, JitPatchMeth(m, false), JitLazyOff(m.rm);
-    if (!JitFrBanned(m.name) && g_jitFrBadN < 32) strcpy_s(g_jitFrBad[g_jitFrBadN++], m.name);
+    if (!JitFrBanned(m.name) && g_jitFrBadN < 32) SCpy(g_jitFrBad[g_jitFrBadN++], m.name);
 }
 // The images whose faults can be a compiled body's helper: TS3W.exe (EA's helpers), MSVCR80, this module (JitFrInstall). A
 // first-chance fault in any other module, such as ApexRadiance.asi, which probes pointers and catches its own AVs (thousands per
@@ -2470,7 +2479,7 @@ static bool JitSameBytes(const u8* x, const u8* y, DWORD n, DWORD* at) {
             const DWORD* yb = GcBase((void*)(uintptr_t)b) == (u8*)(uintptr_t)b ? (const DWORD*)(uintptr_t)b : NULL;
             DWORD fk = 0;
             if (xa && yb) while (fk < g_jn->o[k].n / 4 && xa[fk] == yb[fk]) fk++;
-            sprintf_s(g_jvWhat, "compiled %08lX interpreted %08lX; kept %d size %lu/%lu words %08lX %08lX %08lX %08lX / %08lX %08lX %08lX %08lX; "
+            SFmt(g_jvWhat, "compiled %08lX interpreted %08lX; kept %d size %lu/%lu words %08lX %08lX %08lX %08lX / %08lX %08lX %08lX %08lX; "
                       "first differing word %lu: %08lX / %08lX; compiled word in entry snapshot %d, kept n %d used %lu over %d", a, b,
                       k, k >= 0 ? g_jn->o[k].n : 0, yb ? GcSize((const u8*)yb) : 0, xa ? xa[0] : 0, xa ? xa[1] : 0, xa ? xa[2] : 0, xa ? xa[3] : 0,
                       yb ? yb[0] : 0, yb ? yb[1] : 0, yb ? yb[2] : 0, yb ? yb[3] : 0, fk, xa && yb ? xa[fk] : 0, xa && yb ? yb[fk] : 0, g_jvS0 && g_jvS0->Contains(a), g_jn ? g_jn->n : -1, g_jn ? g_jn->used : 0, g_jn ? g_jn->over : 0);
@@ -2897,7 +2906,7 @@ static void* JitVerifyStep(JitRegs* r, JitEnt* e, int fromExit) {
                         const u8* kl = *(const u8* const*)(uintptr_t)*(const DWORD*)ra;
                         if (kl) cls = *(const char* const*)(kl + 0x34);
                     }
-                    sprintf_s(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls ? cls : "?");
+                    SFmt(what, "region %d (%lu bytes, class %.60s)", i, v.s0->r[i].n, cls ? cls : "?");
                     JitVLog(v, what, at);
                 }
             // a collection during pass 2: no retry (its restore could write into reclaimed cells) and no mismatch (the cells the
@@ -3013,7 +3022,7 @@ static const char* JitOne(BYTE* rm, void* ctx, char* name, int nameN, char* note
     if (!JitHashKnown(name, *(const char* const*)(mm + 0x18), size, sha)) {
         if (!JitNormKnown(name, mm, code, size)) {
             char hex[17];
-            sprintf_s(note, noteN, " (%lu bytes, sha256 %s...)", size, IlpHex(sha, 8, hex));
+            SFmt(note, noteN, " (%lu bytes, sha256 %s...)", size, IlpHex(sha, 8, hex));
             return "the IL hash is not a known one";
         }
         if (++g_jitNormHits <= JIT_REF_NAMES) Log("jit: %s matched by the token-normalized IL hash (%lu bytes, CoreModMatch, docs/537 §34)", name, size);
@@ -3040,7 +3049,7 @@ static int JitRefSlot(const char* why) {
 static const char* JitNormNote() {  // docs/537 §34: the summary's tail with CoreModMatch=1 (empty without, so old regexes still match)
     static char s[64];
     if (!g_jitCoreMod) return "";
-    sprintf_s(s, "; %ld matched by the normalized hash", g_jitNormHits);
+    SFmt(s, "; %ld matched by the normalized hash", g_jitNormHits);
     return s;
 }
 // one line: every reason with its count, the region and the "code region full" bound; under g_jitCs
@@ -3141,7 +3150,7 @@ static bool JitFaultName(DWORD eip, char* out, int n) {
         const JitMeth& m = g_jitMeth[i];
         if (eip < (DWORD)(uintptr_t)m.native0 || eip >= (DWORD)(uintptr_t)m.native0 + (DWORD)m.bytes) continue;
         ts3native_counters.jitFaults++;
-        sprintf_s(out, n, "%s +0x%lX", m.name, eip - (DWORD)(uintptr_t)m.native0);
+        SFmt(out, n, "%s +0x%lX", m.name, eip - (DWORD)(uintptr_t)m.native0);
         return true;
     }
     return false;

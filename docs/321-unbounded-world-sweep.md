@@ -1,6 +1,6 @@
 # 321. Unbounded-world sweep: code that assumes today's world (2026-11-22)
 
-Status: static sweep only. Read `native/ts3native` (*.cpp/*.h), `mods/ts3fixes/src` (*.cs) and `tools/harness`; no build,
+Status: static sweep; lanes 0 and B built 2026-11-22 on `feature/unbounded-caps-1122` (§7; correctness queue PASS on BP / IP / SV, fill in §7.3). Sweep: Read `native/ts3native` (*.cpp/*.h), `mods/ts3fixes/src` (*.cs) and `tools/harness`; no build,
 no game run, no code change. Follows the AGENTS.md rule "Build for unbounded worlds" and docs/320 (4x-area worlds,
 streaming). Branch `docs/unbounded-sweep-1122`.
 
@@ -169,3 +169,99 @@ Today, on a 4x world: no crash found in our ON code from world size alone; H1-H3
 let an EA crash back in, and the Med items lose most of their gain or add sim-thread cost roughly in proportion to lots
 or Sims. On a streamed world: everything in lane A goes stale or fills because nothing listens to lot unload; lane A
 is the prerequisite for any streaming work (docs/320 §5).
+
+## 7. Lanes 0, B and C built (2026-11-22, branch `feature/unbounded-caps-1122`, 0.36.299-ucap1 correctness PASS; lane C 0.36.299-ucap2)
+
+Builds (docs/data/builds.json): `ts3native.asi.unbounded-caps-1122` (sha256 `672d3c2002ec`, 0.36.299-ucap1 = m1122 + this
+lane), `ts3native.ini.unbounded-caps-1122` (= m1122 ini, no new keys), `ts3fixes.package.unbounded-caps-1122` (tuning
+`7474070e74fe`), `ts3agent.package.unbounded-caps-1122` (names the new slots). No new switch: the four items were already ON
+and stay ON; each fix changes only what happens past its cap. Native selftest and the tripstage / autshadow managed
+self-checks pass. Queue: `tools/harness/queues/unbounded-caps-correct-1122.json` (correctness + fill, not timing).
+
+### 7.1 Lane 0: fill counters (always on, measurement only)
+
+- **Native:** new export block `ts3native_caps` (`native/ts3native/caps.h`, docs/registry.md): per table `cap`, `hw` (most
+  rows at once) and `full` (an add refused, a live row evicted or a fallback taken). Rows: SlaveUnlink pairs (H4), KindDeadlines
+  rows cut in the last 30 s (H2), the fullest AutShadow `AsSet` and `simIds` (M1), object-lot map (M2), Sim and lot tiers (M3,
+  M4), UnseenTable rows and walk (M6), route jobs (M7), ReplanDedupe (M8), snap door lots and image MB (M9, M10), DoorMemoX ring
+  and held lots (M11), UnseenAnim slots (L4), deferred unseen routes (L5). ReplanDedupe, DoorMemoX and UnseenAnim are
+  set-associative or direct-mapped: they report `full` (a live row lost) but no high water. One line
+  `caps (minute, docs/321 lane 0: name hw/cap full): slave .. kd .. ...` goes to ts3native.log at most once a minute and only
+  after a change (checked at every route START and every `full`) [verified: code].
+- **Managed:** ts3fixes slots 1518-1529 (`Caps.cs`): AutShadow requests capped (by objects, by pairs) and the most objects /
+  pairs in one request (H1); NearVenue groups over 32 and the most open lots of one venue type (H3); spawnerskip, backoff and
+  cookclicklistener high water and clears (L14). One `ts3fixes: caps (docs/321 lane 0: hw/cap): ...` line through the UserDiag
+  text channel, at most once a minute after a change, sim thread only.
+- Not covered: M5, M13-M16 and the L-items other than L4, L5, L14 (cost items, not tables), the OFF items.
+
+### 7.2 Lane B: the four High items
+
+| # | change | at or under the cap | past the cap, 4x / streamed world | self-test | V/I |
+|---|---|---|---|---|---|
+| H1 | `AddObj` marks the request `CapObjs` / `CapPairs` (`AutShadowCore.CapRoom`) instead of dropping silently; a go-live search whose request was capped is dropped to the game's own search (`LiveAbandon` + `kSDropOther`) right after the post, as a worker that never answered. Counters 1518-1522. | Unchanged: every object and pair is added as before, `Capped` stays false, no drop. | Exact: the game scores the whole set (vanilla) for that search; the go-live gain is lost only for capped requests, and fixes-1518 says how often. Not done: sizing the arrays per request (the docs/321 "then" step). The arrays are shared with the worker (`Result` arrays written there) and the units encode `o << 16 \| pair` with local units at `0x40000000` (AutShadowLocal.cs), so growth needs a worker-side review; lane 0 tells first whether any world gets near 1024 / 8192. | autshadow selftest: 1024 adds pass uncapped, the 1025th object and a pair past 8192 refused and capped | V |
+| H2 | `KdFind(add)` takes a free row, else the row cut longest ago **if that cut is older than kKdStuckMs (30 s)**, else doubles the table (heap, under `g_kdLock` exclusive) up to 4,096 rows; only at that ceiling a live row is evicted (`CAP_KD` full). | Unchanged: a free row is taken exactly as before; with all rows stale the same victim is picked. | Every follower cut in the last 30 s keeps its backoff (doubled, then uncut) up to 4,096 such followers (64 times today's table). Keyed by follower id only: no lot or world dependence, so streaming changes nothing. | native selftest: stale 64 rows evict the oldest as before; 64 live rows grow to 128 and every row keeps its level; at the ceiling the oldest live row goes and counts full | V |
+| H3 | `NvGroupOf` collects every open lot of the venue type, then keeps the nearest `kNvGroupMax` (32) by weight (`TripStageCore.KeepNearest`, ties to the earlier lot in the walk). Counters 1523-1524. | Unchanged: with 32 or fewer open lots every lot is kept, in walk order, with the same weights and sum. | The nearest 32 get the gravity weighting; lots past them keep EA's score, as before, but they are now the far ones instead of whatever came after the 32nd in `LotManager.AllLots`, so a streamed world that reorders `AllLots` no longer changes the pick. Cost: the walk no longer stops at the 32nd lot (one more `SharedVisitVenueTests` per extra open lot); M13 (cache per type) still applies. | tripstage selftest: 20 lots all kept; exactly 32 all kept; 100 lots in far-to-near order keep the last 32; ties keep the first 32 | V |
+| H4 | SlaveUnlink pairs start at 64 in the image and double on the heap (under `g_slBusy`, copy then free) when every pair is live, up to 65,536 pairs (2.3 MB); `overflow` only at that ceiling. `ts3native_slavelink` gains `cap`, `hw`, `grows`; each grow logs `ea fix: SlaveUnlink: N live master/slave pairs, table grown to M`. | Unchanged: free or stale pairs are reused exactly as before. | Every live slave list is recorded and guarded, so the purecall crash at `0x58D996` cannot come back through a full table on a world with more boats, strollers and led horses. All Sims (a crash guard, no household change). | native selftest: stale pairs reused without growth; 64 live pairs grow to 128, old pairs keep their slots, the pair past the old cap unlinks; at the ceiling overflow as before | V |
+
+Household: no household or selected-Sim code path changed. H1 only adds a drop to the game's search; H2 rows are only
+written for cut jobs (KdExemptSeen exempts seen and unknown scope as before); H3 keeps `NvOutOfScope` (player, no household,
+role, situation) untouched; H4 is the existing crash guard for all Sims.
+
+### 7.3 Fill on today's worlds (`unbounded-caps-correct-1122`, run 2026-11-22 20:37-21:23 PHT)
+
+Run on Apex + bridge, set unbounded-caps-1122, chain `chain-unbounded-caps-1122`: **all 4 jobs PASS** (bp-caps-smoke 4.7 min,
+bp-caps 13.4, ip-caps 12.9, sv-caps 12.6; 0 script errors, household checks `autliveseen_hh_post<1`, `householdtoo_lift<1` and
+`watchdogs<=0` held, both caps lines present, SlaveUnlink / KindDeadlines / kNearVenue read back). Timing VOID (noisy machine;
+not a timing queue). No SlaveUnlink grow line in any log. Results: `docs/data/results/2026-11-22-queue-unbounded-caps-correct-1122.md`.
+Values are the last minute line of each 10 min job, high water / cap (a table that never filled or was never used shows
+`0/0`: its cap is recorded only once it is touched or full) [verified: measured].
+
+| table | BP | IP | SV | full (BP / IP / SV) | verdict |
+|---|---|---|---|---|---|
+| slave (H4) | 0 / - | 7 / 64 | 0 / - | 0 | fine; IP boats use 11% at most |
+| kd (H2) | never full | never full | never full | 0 | fine (under 64 rows cut in 30 s) |
+| asSet (M1, fullest set) | 566 / 3072 | 368 / 3072 | 423 / 3072 | 0 | fine |
+| asSimIds (M1) | 314 / 3072 | 256 / 3072 | 290 / 3072 | 0 | fine per session; grows with Sim churn and world switches (lane A) |
+| asOl (M2) | 26,954 / 49,152 | **35,644 / 49,152 (73%)** | 23,084 / 49,152 | 0 | **closest to its cap**: IP at 73% after 10 min; a 4x world fills it (lane C first) |
+| asTier (M3) | 314 / 1024 | 256 / 1024 | 290 / 1024 | 0 | fine today; ~3x headroom (lane A clear) |
+| asLotTier (M4) | 29 / 512 | 21 / 512 | 28 / 512 | 0 | fine |
+| utb / utbWalk (M6) | 111 / 230 | 76 / 155 | 91 / 141 | 0 | fine |
+| jobs (M7) | 9 / 32 | 8 / 32 | 7 / 32 | 0 | fine |
+| rd (M8) | - | - | - | 1 / 0 / 0 | rare live evictions |
+| spDoor (M9) | not used | not used | not used | 0 | door channel saw no lot in these runs |
+| spMB (M10) | 6 / 64 | 6 / 64 | 6 / 64 | 0 | fine (~10% of CapMB) |
+| dmx (M11 ring) | - | - | - | **368 / 30 / 111** | **live rows overwritten every run**: the 256-row ring is already too small on BP (lane C) |
+| dmxHold (M11) | 1 / 32 | 1 / 32 | 1 / 32 | 0 | fine |
+| aa (L4) | - | - | - | **16,909 / 8,891 / 1,182** | **collision holds every run** (counted per pass, so one colliding pair counts many times); the direct-mapped table already costs gain today (lane C) |
+| gvu (L5) | not used | not used | not used | 0 | GvuMsg off or idle in these runs |
+| AutShadow objs / pairs (H1) | 55 / 1024, 87 / 8192 | 74 / 1024, 126 / 8192 | 60 / 1024, 91 / 8192 | capped 0 | far from the cap (7% / 1.5%): H1 array growth not needed for today's worlds |
+| NearVenue group (H3) | 6 / 32 | 3 / 32 | 11 / 32 | over 0 | fine |
+| spawnerskip (L14) | 184 / 4096 | 269 / 4096 | 353 / 4096 | clears 0 | fine |
+| backoff (L14) | 39 / 2048 | 25 / 2048 | 14 / 2048 | clears 0 | fine |
+| cookclick (L14) | 5 / 4096 | 3 / 4096 | 2 / 4096 | - | fine |
+
+Today no cap is hit in the four High items (H1-H4). The caps already touched on today's worlds: the DoorMemoX ring (M11,
+live rows overwritten), the UnseenAnim direct-mapped slots (L4, collision holds) and the AutShadow object-lot map (M2, 73%
+on IP). Those three go first in lane C. Bin restore after the chain reported 4 sha changes, all logs written during the run
+(pccheck-summary.txt, pccheck.csv, rtx-remix bridge32/64.log), every managed file read back.
+
+### 7.4 Lane C: the three tables today's worlds already hit (0.36.299-ucap2, built 2026-11-22)
+
+All three are fixes to default-ON items: they stay ON, no new switch. Under the old cap each table behaves as before. Native only
+(ts3fixes, ini and agent unchanged from ucap1). Build `ts3native.asi.unbounded-caps-1122c` (sha256 eb590e1ce5ea). Self-tests
+cover the overflow case and under-cap equality for each item.
+
+| item | was | now | under the cap | 4x / streamed world |
+|---|---|---|---|---|
+| M2 AutShadow object-lot map | 65,536-row table, 49,152 usable, then refused (resync cuts) | the table doubles at a cut once it passes the old compaction mark (45,056), and while seeding at the old seed headroom; ceiling 262,144 rows (196,608 usable, 10 MB); log line `autonomy shadow: object-lot map grown to N rows` | same 65,536 table, same probe order; compaction still runs first, in place (same layout as before) | IP x4 is ~143k rows: fits under the ceiling; at the ceiling the old full path (resync) |
+| M11 DoorMemoX table | 256-row ring: each put overwrote the next row, live or not | a put reuses the key's own row, else the oldest dead row (empty or past DoorMemoXMs) in ring order, else doubles the table (worker only) up to 4096 rows (240 KB); only at the ceiling does the ring evict a live row (`dmx` full) | every answer is the newest put of its key, as before (one row per key is that row); only the miss split counters can differ (a row past its age is reused, so a later miss counts as cold, not age) | live rows scale with door asks per DoorMemoXMs, not with world size; 4096 is 11x BP's need [inferred: BP lost 368 live rows in 10 min, i.e. more than 256 alive at once at peaks] |
+| L4 UnseenAnim slots | `(actor >> 4) & 4095`, direct-mapped; a home slot another actor owed in held the call (AAH_SLOT) | Fibonacci hash of the address and a 16-slot probe chain: the actor's own slot anywhere in the chain first, else the first slot nobody owes in, else the home slot (a hold, as before); new caps row `aaDisp` = distinct actors whose home another actor owed in (the "real contention" count asked for) | an actor whose home is free or its own gets the slot the old table gave; skip phase and debt rules unchanged; a stale debt in the chain is dropped as before (the actor's own next lookup would drop it too) | ~4x actors still fit 4096 slots at 16-slot chains; `aa` full counts only a fully owed chain |
+
+The ucap1 collision count (16,909 / 8,891 / 1,182 holds) was per call; `aaDisp` gives the distinct-actor count for the next
+run. [inferred: the address bits 4-15 of actor objects repeat because they come from a few allocator size classes]: the rerun's
+`aaDisp` with `aa` full 0 settles it either way.
+
+Queue `unbounded-caps-correct-1122c` (smoke BP 2 min, then BP / IP / SV 10 min; Apex + bridge; same checks as §7.3 plus: the native
+caps line has the lane C rows, and no caps line may show `asOl`, `dmx` or `aa` full > 0). Waiter
+`probe-out/queue/wait-unbounded-caps-1122c.sh` (not `chain-*`): waits for `probe-out/queue/ovf-rerun-1122.done` and no chain listed.
+Results: (pending, filled after the run).
