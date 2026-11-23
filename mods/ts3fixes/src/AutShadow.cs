@@ -117,6 +117,10 @@ namespace Ts3Fixes
         public sealed class Request
         {
             public int Id = -1, Mode, Objs, Pairs;
+            // docs/321 H1: an object or pair past kMaxObjs / kMaxPairs was left out, so the worker would score a subset of what
+            // the game scores; a go-live search drops such a request to the game's own search (AutLive.cs LiveMeta)
+            public bool CapObjs, CapPairs;
+            public bool Capped { get { return CapObjs || CapPairs; } }
             public Sim Actor;
             public bool Hh = true;  // household, selected or unknown actor (sim thread, at the post): the P6 row's gate
             public AutonomyT Aut;
@@ -949,7 +953,7 @@ namespace Ts3Fixes
             q.Live = L; q.Local = false;
             q.Id = ++sNextId; q.Mode = mode; q.Actor = actor; q.Aut = a; q.C = c; q.Hh = HouseholdExempt(actor);  // docs/271: IsPlayerSim unless [Experimental] HouseholdToo=1
             q.SearchType = a.CurrentSearchType; q.Flags = a.GetInteractionFlagsForCurrentSearch(); q.Hours = SimClock.HoursPassedOfDay;
-            q.Objs = q.Pairs = 0;
+            q.Objs = q.Pairs = 0; q.CapObjs = q.CapPairs = false;
             sRefs[at].Id = sWorks[at].Id = -1;
             q.PairIndex.Clear(); q.Lots.Clear(); q.BakeSales.Clear();
             Array.Clear(q.GameHas, 0, q.GameHas.Length);
@@ -985,6 +989,8 @@ namespace Ts3Fixes
             ClassifyListTypes();
             ClassifyObjects();
             q.Start[q.Objs] = q.Pairs;
+            CapHw(kCCapObjsHw, q.Objs); CapHw(kCCapPairsHw, q.Pairs);  // docs/321 lane 0
+            if (q.Capped) { cnt[kCCapAny]++; if (q.CapObjs) cnt[kCCapObjs]++; if (q.CapPairs) cnt[kCCapPairs]++; }
             ShelterFill(q);
             if (L != null) LiveFill(L, q);
             sPosted = true;
@@ -1045,7 +1051,8 @@ namespace Ts3Fixes
 
         static void AddObj(Request q, IMetaObject m)
         {
-            if (m == null || m.HasBeenDestroyed || q.Objs >= kMaxObjs) return;
+            if (m == null || m.HasBeenDestroyed) return;
+            if (!AutShadowCore.CapRoom(q.Objs, kMaxObjs, ref q.CapObjs)) return;  // docs/321 H1
             int o = q.Objs++;
             q.Obj[o] = m;
             q.Start[o] = q.Pairs;
@@ -1064,10 +1071,11 @@ namespace Ts3Fixes
             ArrayList ads = m.MetaAds;
             if (ads == null) return;
             int[] c = row != null ? PatchCounters() : null;
-            for (int i = 0; i < ads.Count && q.Pairs < kMaxPairs; i++)
+            for (int i = 0; i < ads.Count; i++)
             {
                 InteractionObjectPair iop = ads[i] as InteractionObjectPair;
                 if (iop == null) continue;
+                if (!AutShadowCore.CapRoom(q.Pairs, kMaxPairs, ref q.CapPairs)) break;  // docs/321 H1: the rest of the ads left out
                 int p = q.Pairs++;
                 q.Pair[p] = iop;
                 q.PairObj[p] = o;

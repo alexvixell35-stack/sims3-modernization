@@ -92,7 +92,7 @@ static void P6wLogCounters() {
         char b[400];
         int len = 0;
         for (int s = 0; s < 16 && len < 360; s++)
-            if (c.p6wGateUs[a * 16 + s]) len += sprintf_s(b + len, sizeof(b) - len, " %d %ld", s, c.p6wGateUs[a * 16 + s] / 1000);
+            if (c.p6wGateUs[a * 16 + s]) len += SFmt(b + len, sizeof(b) - len, " %d %ld", s, c.p6wGateUs[a * 16 + s] / 1000);
         b[len] = 0;
         if (len) Log("p6 waits arm %d gates (site ms):%s", a, b);
     }

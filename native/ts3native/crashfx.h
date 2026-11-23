@@ -74,11 +74,11 @@ static bool CfFind(DWORD a, CfEnt* out, LONG before = 0x7FFFFFFF) {
 // one line: "<tag> of 0x... (n bytes) Nms ago thread T phase P job J seq S" or "not in the ring"
 static void CfDescribe(DWORD a, char* out, size_t cap, LONG before = 0x7FFFFFFF) {
     CfEnt e;
-    if (!CfFind(a, &e, before)) { sprintf_s(out, cap, "not in the ring (last %lu P5 heap events)", kCfRing); return; }
+    if (!CfFind(a, &e, before)) { SFmt(out, cap, "not in the ring (last %lu P5 heap events)", kCfRing); return; }
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
     const double ms = g_cfQpf ? (double)(q.QuadPart - e.qpc) * 1000.0 / (double)g_cfQpf : -1;
-    sprintf_s(out, cap, "%s %s of 0x%08lX (+0x%lX, %lu bytes) %.1f ms ago, thread %lu, phase 0x%lX, job %s, seq %ld",
+    SFmt(out, cap, "%s %s of 0x%08lX (+0x%lX, %lu bytes) %.1f ms ago, thread %lu, phase 0x%lX, job %s, seq %ld",
               CfIsFree(e.tag) ? "FREED by" : "allocated by", e.tag < CF_NTAGS ? kCfTag[e.tag] : "?", e.addr, a - e.addr, e.size, ms,
               e.tid, e.phase, e.job ? "running" : "idle", e.seq);
 }

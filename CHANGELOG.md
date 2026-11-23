@@ -4,7 +4,14 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
-Nothing yet: changes after v0.3.1 are listed here once they are built.
+Credit: Dalexlol (PRs #637, #638, #639, #640, #643, #644). New fixes, all on by default except where noted:
+
+- Firefighter emergencies end when their last rescue or window-fire task cannot be done any more (`fireleftover`).
+- Earthquake gas leaks and ghost-hunter spirit hops no longer pick spots inside hidden apartment units (`aptgasleak`, `aptpossess`).
+- A large fire no longer unlocks every door on the lot; door locks the job did not set come back (`firedoorkeep`).
+- Sims playing horseshoes alone are sent on their way after 2 sim-hours, and lost players leave the court's queue (`horseshoesolo`; Sims you control are never cut).
+- Burglars on apartment lots no longer go for loot nobody can reach (`burglarapt`).
+- Sims standing on a ladder's ends are asked to step aside when a plan needs the ladder (`ladderfootshoo`; for household and selected Sims `ladderfootshoohh` stays off).
 
 ## v0.3.1 (2026-11-21, hotfix)
 

@@ -1,0 +1,203 @@
+{
+ "note": "jit-vslot-correct-1120-rerun2 (READY, NOT RUN): rerun of jit-vslot-correct-1120 on 0.36.298-vslot3 = vslot2 + the FaultRecover foreign-fault fix (bugfix/jit-foreign-fault-1120, docs/537 §29a). rerun1 bp-vslot-on FAILED 11-20 22:59 on 64 \"jit: fault passed on ... Dictionary`2.GetSlot: in a helper the body called\": all at ApexRadiance.asi+0x12A054, Apex's own caught first-chance AVs (the coremod run has the same AVs). VSlot fired (505 sites, 18.6 M hits) and skips interface callvirts; the handler wrongly blamed GetSlot. Now such faults are left alone and counted (\"jit: foreign faults left alone: N ... first at <module>+0x<off>\", read it, not required). Same jobs and checks as rerun1. Was: jit-vslot-correct-1120-rerun1 (READY, NOT RUN, dry-run clean): rerun of jit-vslot-correct-1120 on 0.36.298-vslot2. The first run (bp-vslot-on FAIL 11-20 22:27) was hollow: VSlot read back on, the V rows compiled (List`1.Contains, DefaultComparer.Equals, IOP.Equals by the normalized hash), but the hit check read the refusal summary, which is written only at the first tick and after saves, and vslot1 also dropped the VSlot tail from that line (format bug). vslot2 fixes the tail and writes \"jit: vslot N sites, M hits\" every 5 min. [MonoJit] VSlot=1 with CoreModMatch=1 (the harness Mods carry simler90 UPDATE242 + ErrorTrap): guarded callvirt EA-cache misses take the vtable-slot path, kJitVRows compile (List.Contains / IndexOf, DefaultComparer.Equals, InteractionObjectPair.Equals, Object.Equals). Bin state apex (tools/turbo-compat.ts snapshot -> state apex -> restore). Gates: Mode=2 verify on BP and IP (jitMismatch 0, faults 0), 0 script errors, the summary line shows VSlot hits > 0, IOP.Equals compile line read when present (the per-method compile log stops after 256 lines; the simler90 copy matches by the normalized hash offline). Household untouched = exact compiled code (Mode=2 verify: same results as EA for every Sim, household included) + 0 script errors; no Sim decision changes. Coverage read (not gated): bp-vslot-on vs jit-coremod-correct-1120's bp-coremod-on summary (methods, VSlot hits).",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "OK   mono jit \\(docs/527\\): Mode=1, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\), Direct=2 ": {
+   "match": [
+    "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+   ],
+   "noMatch": [
+    "OK   mono jit (docs/527): Mode=2, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+    "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=1 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+   ]
+  },
+  "OK   mono jit \\(docs/527\\): Mode=2, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\), Direct=2 ": {
+   "match": [
+    "OK   mono jit (docs/527): Mode=2, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+   ],
+   "noMatch": [
+    "OK   mono jit (docs/527): Mode=1, 290 templates (Groups=2047), 117 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+   ]
+  },
+  "^OK   mono jit vslot \\(docs/311\\): VSlot=1, 8 rows, Direct=1, DirectLeaf=0$": {
+   "match": [
+    "OK   mono jit vslot (docs/311): VSlot=1, 8 rows, Direct=1, DirectLeaf=0"
+   ],
+   "noMatch": [
+    "OK   mono jit vslot (docs/311): VSlot=1, 8 rows, Direct=0, DirectLeaf=1 (inactive: needs Direct=1, DirectLeaf=0)"
+   ]
+  },
+  "^OK   mono jit core-mod match \\(docs/537 .34\\): CoreModMatch=1, 117 normalized rows \\+ 1 YRows, form jn1$": {
+   "match": [
+    "OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, 117 normalized rows + 1 YRows, form jn1"
+   ],
+   "noMatch": [
+    "OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, 0 normalized rows + 0 YRows, form jn1"
+   ]
+  },
+  "^modtime: world live: load / menu phase so far [0-9]+ samples over [0-9.]+ real s \\([0-9.]+ s sim thread CPU\\)$": {
+   "match": [
+    "modtime: world live: load / menu phase so far 12034 samples over 241.3 real s (198.7 s sim thread CPU)"
+   ],
+   "noMatch": [
+    "modtime: sampling the sim thread (tid 1234) at 50 Hz from its first iteration"
+   ]
+  },
+  "^jit: refusals by reason \\(first tick\\): .*; VSlot [0-9]+ sites, [0-9]+ hits$": {
+   "match": [
+    "jit: refusals by reason (first tick): none; code region 42 of 12288 KB, 23 methods, 0 refused \"code region full\" asking 0 KB; 0 matched by the normalized hash; VSlot 3 sites, 0 hits"
+   ],
+   "noMatch": [
+    "jit: refusals by reason (first tick): none; code region 42 of 12288 KB, 23 methods, 0 refused \"code region full\" asking 0 KB; 0 matched by the normalized hash",
+    "jit: refusals by reason (save): none; code region 42 of 12288 KB, 23 methods, 0 refused \"code region full\" asking 0 KB; VSlot 3 sites, 9 hits"
+   ]
+  },
+  "^jit: vslot [1-9][0-9]* sites, [1-9][0-9]* hits \\(every 5 min, docs/311\\)$": {
+   "match": [
+    "jit: vslot 212 sites, 98113 hits (every 5 min, docs/311)"
+   ],
+   "noMatch": [
+    "jit: vslot 212 sites, 0 hits (every 5 min, docs/311)",
+    "jit: vslot 0 sites, 0 hits (every 5 min, docs/311)"
+   ]
+  },
+  "^ts3native 0\\.36\\.298-vslot3 ": {
+   "match": [
+    "ts3native 0.36.298-vslot3 2026-11-20 22:30:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.298-vslot1 2026-11-20 22:15:33"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-vslot-on",
+   "note": "[rerun2: vslot3 asi] [est 15 min] BP-Spring 10 min, Mode=1, CoreModMatch=1, VSlot=1: rows compile, slot path hits",
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 30,
+   "asi": "game-copy/ts3native.asi.vslot3-1120",
+   "iniBase": "game-copy/ts3native.ini.vslot-1120",
+   "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+   "pinReason": "feature/jit-iopequals-1120: 0.36.298-vslot3 = coremod1 (feature/jit-coremod-1120 543a5b483) + [MonoJit] VSlot (docs/311); asi + ini from the same commit (ini VSlot=0, CodeKB=12288 MaxMethods=8192), ts3fixes = master m1120t (no managed change)",
+   "noiseCheck": false,
+   "stopQueueOnFail": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "scriptErrorsMax": 0,
+   "ini": {
+    "MonoJit.Mode": 1,
+    "MonoJit.CoreModMatch": 1,
+    "MonoJit.VSlot": 1
+   },
+   "nativeRequire": "@jitMismatch<=0,jitFaults<=0,jitMethods>=500",
+   "logRequire": {
+    "OK   mono jit \\(docs/527\\): Mode=1, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\), Direct=2 ": 1,
+    "^OK   mono jit vslot \\(docs/311\\): VSlot=1, 8 rows, Direct=1, DirectLeaf=0$": 1,
+    "^OK   mono jit core-mod match \\(docs/537 .34\\): CoreModMatch=1, 117 normalized rows \\+ 1 YRows, form jn1$": 1,
+    "^jit: refusals by reason \\(first tick\\): .*; VSlot [0-9]+ sites, [0-9]+ hits$": 1,
+    "^jit: vslot [1-9][0-9]* sites, [1-9][0-9]* hits \\(every 5 min, docs/311\\)$": 1,
+    "^ts3native 0\\.36\\.298-vslot3 ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^jit: fault ": 0,
+    "^FAIL mono jit": 0,
+    "^SKIP mono jit": 0
+   }
+  },
+  {
+   "id": "bp-vslot-verify",
+   "note": "[rerun2: vslot3 asi] [est 18 min] BP-Spring 10 min, Mode=2 verify, CoreModMatch=1, VSlot=1",
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 30,
+   "asi": "game-copy/ts3native.asi.vslot3-1120",
+   "iniBase": "game-copy/ts3native.ini.vslot-1120",
+   "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+   "pinReason": "feature/jit-iopequals-1120: 0.36.298-vslot3 = coremod1 (feature/jit-coremod-1120 543a5b483) + [MonoJit] VSlot (docs/311); asi + ini from the same commit (ini VSlot=0, CodeKB=12288 MaxMethods=8192), ts3fixes = master m1120t (no managed change)",
+   "noiseCheck": false,
+   "stopQueueOnFail": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "scriptErrorsMax": 0,
+   "ini": {
+    "MonoJit.Mode": 2,
+    "MonoJit.CoreModMatch": 1,
+    "MonoJit.VSlot": 1
+   },
+   "nativeRequire": "@jitMismatch<=0,jitFaults<=0,jitMethods>=500",
+   "logRequire": {
+    "OK   mono jit \\(docs/527\\): Mode=2, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\), Direct=2 ": 1,
+    "^OK   mono jit vslot \\(docs/311\\): VSlot=1, 8 rows, Direct=1, DirectLeaf=0$": 1,
+    "^jit: refusals by reason \\(first tick\\): .*; VSlot [0-9]+ sites, [0-9]+ hits$": 1,
+    "^jit: vslot [1-9][0-9]* sites, [1-9][0-9]* hits \\(every 5 min, docs/311\\)$": 1,
+    "^ts3native 0\\.36\\.298-vslot3 ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^jit: fault ": 0,
+    "^FAIL mono jit": 0,
+    "^SKIP mono jit": 0
+   }
+  },
+  {
+   "id": "ip-vslot-verify",
+   "note": "[rerun2: vslot3 asi] [est 18 min] IP-Spring 10 min, Mode=2 verify, CoreModMatch=1, VSlot=1",
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 30,
+   "asi": "game-copy/ts3native.asi.vslot3-1120",
+   "iniBase": "game-copy/ts3native.ini.vslot-1120",
+   "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+   "pinReason": "feature/jit-iopequals-1120: 0.36.298-vslot3 = coremod1 (feature/jit-coremod-1120 543a5b483) + [MonoJit] VSlot (docs/311); asi + ini from the same commit (ini VSlot=0, CodeKB=12288 MaxMethods=8192), ts3fixes = master m1120t (no managed change)",
+   "noiseCheck": false,
+   "stopQueueOnFail": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true
+    }
+   },
+   "scriptErrorsMax": 0,
+   "ini": {
+    "MonoJit.Mode": 2,
+    "MonoJit.CoreModMatch": 1,
+    "MonoJit.VSlot": 1
+   },
+   "nativeRequire": "@jitMismatch<=0,jitFaults<=0,jitMethods>=500",
+   "logRequire": {
+    "OK   mono jit \\(docs/527\\): Mode=2, .*code region 12288 KB \\(CodeKB\\), 8192 methods \\(MaxMethods\\), Direct=2 ": 1,
+    "^OK   mono jit vslot \\(docs/311\\): VSlot=1, 8 rows, Direct=1, DirectLeaf=0$": 1,
+    "^jit: refusals by reason \\(first tick\\): .*; VSlot [0-9]+ sites, [0-9]+ hits$": 1,
+    "^jit: vslot [1-9][0-9]* sites, [1-9][0-9]* hits \\(every 5 min, docs/311\\)$": 1,
+    "^ts3native 0\\.36\\.298-vslot3 ": 1
+   },
+   "logForbid": {
+    "jit verify MISMATCH": 0,
+    "^jit: fault ": 0,
+    "^FAIL mono jit": 0,
+    "^SKIP mono jit": 0
+   }
+  }
+ ]
+}

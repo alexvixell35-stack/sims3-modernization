@@ -1,0 +1,224 @@
+{
+  "note": "unbounded-caps-correct-1122 (WRITTEN, NOT RUN; correctness + fill measurement, not timing; any machine): docs/321 lane 0 and lane B. Bin state apex (tools/turbo-compat.ts snapshot -> state apex -> restore). Job 1 = smoke (BP 2 min, stops the queue on fail): the new caps lines appear (native `caps (minute, ...)` and managed `ts3fixes: caps (...)`), version and switch read-back (SlaveUnlink installed, KindDeadlines=1, kNearVenue on), scriptErrorsMax 0, household untouched (autliveseen_hh_post<1, householdtoo_lift<1: no household Sim on a changed path), no route watchdog. Jobs 2-4: BP / IP / SV saves 10 min each, the same checks; READ the last `caps (minute` and `ts3fixes: caps` line of each log into docs/321 §7.3 (hw/cap per table per world: which caps today's worlds already touch). Expected: slave grows 0 and kd full 0 on all three; an autshadow `capped` > 0 or a nearvenue `over` > 0 is a cap hit today that H1 / H3 now handle. Under the caps nothing changes behaviour (results equal m1122). Run: node tools/harness/queue.ts tools/harness/queues/unbounded-caps-correct-1122.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.299-ucap1 ": {
+      "match": [
+        "ts3native 0.36.299-ucap1 2026-11-22 10:40:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.299-m1122 2026-11-22 06:15:57"
+      ]
+    },
+    "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ ": {
+      "match": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 2/64 0 kd 40/64 0 asSet 812/3072 0 asSimIds 400/3072 0"
+      ],
+      "noMatch": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): kd 40/64 0",
+        "ts3fixes: caps (docs/321 lane 0: hw/cap): autshadow objs 300/1024"
+      ]
+    },
+    "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": {
+      "match": [
+        "ts3fixes: caps (docs/321 lane 0: hw/cap): autshadow objs 312/1024 pairs 2210/8192 capped 0 (objs 0, pairs 0); nearvenue group 9/32 over 0; spawnerskip 40/4096 clears 0; backoff 3/2048 clears 0; cookclick 2/4096"
+      ],
+      "noMatch": [
+        "caps (minute, docs/321 lane 0: name hw/cap full): slave 2/64 0 kd 40/64 0"
+      ]
+    },
+    "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": {
+      "match": [
+        "OK   ea fix: SlaveUnlink (docs/143 §8.11): a destroyed slave (a boat's driver, a stroller, a led horse) is taken off its master's slave list before it is freed"
+      ],
+      "noMatch": [
+        "SKIP ea fix: SlaveUnlink: calls at 0x00955809 / 0x00956426 differ: not installed"
+      ]
+    },
+    "^route async: KindDeadlines=1 own Plan ": {
+      "match": [
+        "route async: KindDeadlines=1 own Plan 250 Replan 250 PlanFromPoint 250 ReplanFromPosition 250, A10 foreign 200, foreign Plan 200, probe 180 ms"
+      ],
+      "noMatch": [
+        "route deadline off (PlanDeadlineMs=0, PlanDeadlineOwnMs=0, FbJobDeadline=0, KindDeadlines=0, [UnseenFallback] Enabled=0)"
+      ]
+    },
+    "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": {
+      "match": [
+        "ts3fixes: settings on: kNearVenue",
+        "ts3fixes: settings on: kBookHand, kNearVenue, kVisitArrive"
+      ],
+      "noMatch": [
+        "ts3fixes: settings on: kNearVenueX, kBookHand",
+        "ts3fixes: settings off: kNearVenue"
+      ]
+    },
+    "^(SKIP|FAIL) ea fix: SlaveUnlink": {
+      "match": [
+        "SKIP ea fix: SlaveUnlink: calls at 0x00955809 / 0x00956426 differ: not installed"
+      ],
+      "noMatch": [
+        "OK   ea fix: SlaveUnlink (docs/143 §8.11): a destroyed slave"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-caps-smoke",
+      "note": "[est 8 min] Smoke: the caps lines are written (both sides), switches read back, no script error, household untouched. Stops the queue on fail.",
+      "asi": "game-copy/ts3native.asi.unbounded-caps-1122",
+      "iniBase": "game-copy/ts3native.ini.unbounded-caps-1122",
+      "fixesPackage": "game-copy/ts3fixes.package.unbounded-caps-1122",
+      "pinReason": "feature/unbounded-caps-1122 (builds.json ts3native.asi.unbounded-caps-1122 sha256 672d3c2002ec, 0.36.299-ucap1 = m1122 + docs/321 lane 0 caps export + H2 / H4 tables grow; ini ts3native.ini.unbounded-caps-1122 sha256 5937bbb1266f = the branch ini (= m1122, no new keys); ts3fixes.package.unbounded-caps-1122 tuning 7474070e74fe = m1122 + Caps.cs, H1 AutShadow cap drop, H3 NearVenue nearest 32). AGENT (optional, for the capaut_* / capnearvenue_* patches names): game-copy/ts3agent.package.unbounded-caps-1122",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-ucap1 ": 1,
+        "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ ": 1,
+        "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": 1,
+        "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": 1,
+        "^route async: KindDeadlines=1 own Plan ": 1,
+        "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) ea fix: SlaveUnlink": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "timeoutMin": 20,
+      "stopQueueOnFail": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 2,
+          "noSamplers": true,
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0"
+    },
+    {
+      "id": "bp-caps",
+      "note": "[est 15 min] Bridgeport: fill of every table; the last caps lines go to docs/321 §7.3.",
+      "asi": "game-copy/ts3native.asi.unbounded-caps-1122",
+      "iniBase": "game-copy/ts3native.ini.unbounded-caps-1122",
+      "fixesPackage": "game-copy/ts3fixes.package.unbounded-caps-1122",
+      "pinReason": "feature/unbounded-caps-1122 (builds.json ts3native.asi.unbounded-caps-1122 sha256 672d3c2002ec, 0.36.299-ucap1 = m1122 + docs/321 lane 0 caps export + H2 / H4 tables grow; ini ts3native.ini.unbounded-caps-1122 sha256 5937bbb1266f = the branch ini (= m1122, no new keys); ts3fixes.package.unbounded-caps-1122 tuning 7474070e74fe = m1122 + Caps.cs, H1 AutShadow cap drop, H3 NearVenue nearest 32). AGENT (optional, for the capaut_* / capnearvenue_* patches names): game-copy/ts3agent.package.unbounded-caps-1122",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-ucap1 ": 1,
+        "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ ": 1,
+        "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": 1,
+        "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": 1,
+        "^route async: KindDeadlines=1 own Plan ": 1,
+        "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) ea fix: SlaveUnlink": 0
+      },
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0"
+    },
+    {
+      "id": "ip-caps",
+      "note": "[est 15 min] Isla Paradiso (boats: SlaveUnlink pairs, the H4 crash world): fill; slave hw is the number to read.",
+      "asi": "game-copy/ts3native.asi.unbounded-caps-1122",
+      "iniBase": "game-copy/ts3native.ini.unbounded-caps-1122",
+      "fixesPackage": "game-copy/ts3fixes.package.unbounded-caps-1122",
+      "pinReason": "feature/unbounded-caps-1122 (builds.json ts3native.asi.unbounded-caps-1122 sha256 672d3c2002ec, 0.36.299-ucap1 = m1122 + docs/321 lane 0 caps export + H2 / H4 tables grow; ini ts3native.ini.unbounded-caps-1122 sha256 5937bbb1266f = the branch ini (= m1122, no new keys); ts3fixes.package.unbounded-caps-1122 tuning 7474070e74fe = m1122 + Caps.cs, H1 AutShadow cap drop, H3 NearVenue nearest 32). AGENT (optional, for the capaut_* / capnearvenue_* patches names): game-copy/ts3agent.package.unbounded-caps-1122",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-ucap1 ": 1,
+        "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ ": 1,
+        "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": 1,
+        "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": 1,
+        "^route async: KindDeadlines=1 own Plan ": 1,
+        "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) ea fix: SlaveUnlink": 0
+      },
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0"
+    },
+    {
+      "id": "sv-caps",
+      "note": "[est 15 min] Sunset Valley: fill.",
+      "asi": "game-copy/ts3native.asi.unbounded-caps-1122",
+      "iniBase": "game-copy/ts3native.ini.unbounded-caps-1122",
+      "fixesPackage": "game-copy/ts3fixes.package.unbounded-caps-1122",
+      "pinReason": "feature/unbounded-caps-1122 (builds.json ts3native.asi.unbounded-caps-1122 sha256 672d3c2002ec, 0.36.299-ucap1 = m1122 + docs/321 lane 0 caps export + H2 / H4 tables grow; ini ts3native.ini.unbounded-caps-1122 sha256 5937bbb1266f = the branch ini (= m1122, no new keys); ts3fixes.package.unbounded-caps-1122 tuning 7474070e74fe = m1122 + Caps.cs, H1 AutShadow cap drop, H3 NearVenue nearest 32). AGENT (optional, for the capaut_* / capnearvenue_* patches names): game-copy/ts3agent.package.unbounded-caps-1122",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-ucap1 ": 1,
+        "^caps \\(minute, docs/321 lane 0: name hw/cap full\\): slave \\d+/\\d+ \\d+ kd \\d+/\\d+ \\d+ ": 1,
+        "^ts3fixes: caps \\(docs/321 lane 0: hw/cap\\): autshadow objs \\d+/1024 pairs \\d+/8192 capped \\d+ ": 1,
+        "^OK   ea fix: SlaveUnlink \\(docs/143 §8\\.11\\)": 1,
+        "^route async: KindDeadlines=1 own Plan ": 1,
+        "^ts3fixes: settings on: (.*, )?kNearVenue(, |$)": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) ea fix: SlaveUnlink": 0
+      },
+      "save": "Baseline-SV-Spring",
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0"
+    }
+  ]
+}

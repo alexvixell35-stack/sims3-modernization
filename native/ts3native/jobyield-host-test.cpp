@@ -154,7 +154,7 @@ static void TestJyPark() {
         }
         s.Marks(hNpc, UNSEEN, 1, false, false);
         s.StartRefused(hNpc, QFULL);
-        assert(JypLive(p) == JYP_SLOTS && JypPark(p, s, hNpc, 20, kKeep) == 0 && p.full == 1 && s.kdH == hNpc && s.rfbH == hNpc);
+        assert(JypLive(p) == JYP_SLOTS && JypPark(p, s, hNpc, 20, kKeep) == JYP_FULL && p.full == 1 && s.kdH == hNpc && s.rfbH == hNpc);
         assert(JypPark(p, s, hNpc, 10 + kKeep + 1, kKeep) == (JYP_WHY | JYP_SCOPE) && p.expired >= 1 && JypLive(p) == 1);
     }
 }

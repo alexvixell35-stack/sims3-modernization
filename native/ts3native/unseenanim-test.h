@@ -22,6 +22,7 @@ static void* __fastcall AoFakeComp(void* obj, void* edx, DWORD bit) {
 }
 static u8 __fastcall AoFakeIn(const void*, void*, const float* s) { return s[0] - s[3] < 10 && s[0] + s[3] > -10; }
 
+static AaSlot* AaHome(const void* actor) { return &g_aaSlot[AaHomeIdx(actor)]; }  // the home slot (docs/321 L4)
 // called from TestUnseenAnim with its fakes in place (camera at (0,30,0), fresh far household table, aaMode 1)
 static void TestUnseenAnimObjects() {
     Ts3nCounters& k = ts3native_counters;
@@ -46,7 +47,7 @@ static void TestUnseenAnimObjects() {
     static u8 aFtn[0x30], aBig[0x30];
     *(void**)(aFtn + 4) = &fountain, *(void**)(aBig + 4) = &big;
     const float dt = 0.02f;
-    AaSlot* s = &g_aaSlot[((uintptr_t)aFtn >> 4) & (AA_SLOTS - 1)];
+    AaSlot* s = AaHome(aFtn);
     auto pass = [&](void* actor) { AaPassThunk(NULL, NULL, dt); g_aaFakeN = 0; AaPoseThunk(actor, NULL, dt); return g_aaFakeN; };
     auto runs8 = [&](void* actor) { int r = 0; for (int i = 0; i < 8; i++) r += pass(actor); return r; };
     // an unseen object with nothing near: 2 runs in 8 passes, no time lost
@@ -118,6 +119,46 @@ static void TestUnseenAnimObjects() {
     g_unLocoSys = sysSave, g_aaBitSacs = sacsSave, g_unInFrustum = inSave, g_unComp = UnFakeComp;
 }
 
+// docs/321 L4 lane C: probing slots. A free or own home slot is the slot the direct-mapped table gave; an actor whose home
+// another owes in takes the next free slot of its chain (no AAH_SLOT hold); only a chain of AA_PROBE owed slots holds
+static void TestUnseenAnimSlots() {
+    memset(g_aaSlot, 0, sizeof g_aaSlot), memset(g_aaDisp, 0, sizeof g_aaDisp), g_aaDispN = 0;
+    const DWORD pass0 = g_aaPass;
+    g_aaPass = 100;
+    auto A = [](uintptr_t i) { return (void*)(0x10000000u + (i << 4)); };
+    void* a = A(1);
+    const int h = AaHomeIdx(a);
+    AaSlot* s = AaSlotOf(a, 4);
+    assert(s == &g_aaSlot[h] && !s->actor);  // empty home: the home
+    s->actor = a, s->owed = 0.1f, s->pass = g_aaPass;
+    assert(AaSlotOf(a, 4) == s);  // own
+    void* same[AA_PROBE + 1];
+    int n = 0;
+    for (uintptr_t i = 2; n < AA_PROBE + 1 && i < 4000000; i++) if (AaHomeIdx(A(i)) == h) same[n++] = A(i);
+    assert(n == AA_PROBE + 1);
+    AaSlot* t = AaSlotOf(same[0], 4);  // home owed by a: the next free slot
+    assert(t == &g_aaSlot[(h + 1) & (AA_SLOTS - 1)] && g_aaDispN == 1);
+    AaSlotOf(same[0], 4);
+    assert(g_aaDispN == 1);  // distinct actors only
+    t->actor = same[0], t->owed = 0.1f, t->pass = g_aaPass;
+    s->owed = 0;  // a paid its debt: same[0] finds its own slot further on, a keeps its home
+    assert(AaSlotOf(same[0], 4) == t && AaSlotOf(a, 4) == s);
+    s->owed = 0.1f;
+    for (int i = 1; i < AA_PROBE - 1; i++) {  // a + same[0..14]: the 16 probed slots
+        AaSlot* u = AaSlotOf(same[i], 4);
+        assert(u == &g_aaSlot[(h + 1 + i) & (AA_SLOTS - 1)]);
+        u->actor = same[i], u->owed = 0.1f, u->pass = g_aaPass;
+    }
+    AaSlot* x = AaSlotOf(same[AA_PROBE - 1], 4);  // the whole chain owed: home, held by the caller (AAH_SLOT)
+    assert(x == s && x->actor == a);
+    g_aaPass += 9;  // > 2 x Every passes: stale debts drop, the chain is free again
+    x = AaSlotOf(same[AA_PROBE - 1], 4);
+    assert(x == s && !x->actor);
+    memset(g_aaSlot, 0, sizeof g_aaSlot), memset(g_aaDisp, 0, sizeof g_aaDisp), g_aaDispN = 0;
+    g_aaPass = pass0;
+    printf("UnseenAnim slots (docs/321 L4): empty / own home = direct-mapped slot, owed home -> next free chain slot (no hold), "
+           "distinct collision count, full chain holds, stale chain frees ok\n");
+}
 static void TestUnseenAnim() {
     Ts3nCounters& k = ts3native_counters;
     static Ts3nCounters saved;
@@ -158,11 +199,11 @@ static void TestUnseenAnim() {
     int runs = 0;
     for (int i = 0; i < 8; i++) { if (pass(aFar)) runs++, ran += g_aaFakeDt[0]; }
     assert(runs == 2 && k.aaSkipped >= 6 && k.aaOwedRuns >= 1);  // the first run may come before any skip (ASLR phase)
-    const float owedNow = g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed;
+    const float owedNow = (*AaHome(aFar)).owed;
     assert(ran + owedNow > 8 * dt - 1e-5f && ran + owedNow < 8 * dt + 1e-5f);  // no time lost or added
     // snap-back: the same Sim on screen runs this pass with what it owes
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0) pass(aFar);
-    const float owed = g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed;
+    while ((*AaHome(aFar)).owed == 0) pass(aFar);
+    const float owed = (*AaHome(aFar)).owed;
     const LONG snap0 = k.aaSnap;
     const auto watchSave = g_utWatch;  // unseen_snapback code 24: the watched Sim's owed pose time at its first visible call
     memset(&g_utWatch, 0, sizeof g_utWatch);
@@ -171,7 +212,7 @@ static void TestUnseenAnim() {
     assert(pass(aFar) == 1 && g_aaFakeDt[0] > owed + dt - 1e-5f && k.aaSnap == snap0 + 1);
     assert(g_utWatch.animFlipped && g_utWatch.animOwed == owed);
     g_utWatch = watchSave;
-    assert(g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0);
+    assert((*AaHome(aFar)).owed == 0);
     farSim.pos[0] = 500;
     // holds: near a Sim visible last pass (8 m), parented, household viewer within 80 m, stale table, debt cap
     __declspec(align(16)) static UnFakeObj buddy = {{12, 0, 92, 1}, true};  // unseen: off screen, ~93 m from camera and target
@@ -204,7 +245,7 @@ static void TestUnseenAnim() {
     for (int i = 0; i < 8; i++) { AaPassThunk(NULL, NULL, 0.1f); g_aaFakeN = 0; AaPoseThunk(aFar, NULL, 0.1f); }  // fast speed
     assert(k.aaHold[AAH_CAP] > cap0 && k.aaDebtMaxUs <= 250000);
     // CapPasses=4 (docs/144 §3.5): a 0.3 s pass (over MaxOwedMs alone) still skips; the step stays <= 4 passes and HardCapMs
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed > 0) pass(aFar);
+    while ((*AaHome(aFar)).owed > 0) pass(aFar);
     g_aaCapPasses = 4, g_aaHardCap = 1.5f;
     const LONG skip0 = k.aaSkipped;
     float maxStep = 0;
@@ -219,15 +260,15 @@ static void TestUnseenAnim() {
     g_aaCapPasses = 0;
     assert(AaCap(0.3f) == 0.25f);
     // switch off: the owed time runs at the next call, then every pass
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0) pass(aFar);
+    while ((*AaHome(aFar)).owed == 0) pass(aFar);
     k.aaMode = 0;
     const LONG off0 = k.aaFlushOff;
     assert(pass(aFar) == 1 && k.aaFlushOff == off0 + 1 && pass(aFar) == 1 && pass(aFar) == 1);
     k.aaMode = 1;
     // a reused actor address (another Sim id): the old debt is dropped, not run for the new owner
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0) pass(aFar);
+    while ((*AaHome(aFar)).owed == 0) pass(aFar);
     farSim.pos[2] = 7;  // the id low word at owner +8 changes
-    AaSlot* s = &g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)];
+    AaSlot* s = AaHome(aFar);
     g_aaFakeN = 0;
     AaPassThunk(NULL, NULL, dt);
     AaPoseThunk(aFar, NULL, dt);
@@ -261,6 +302,7 @@ static void TestUnseenAnim() {
         g_utHeld = heldSave, g_utOn = onSave, g_aaOn = aaSave;
     }
     TestUnseenAnimObjects();
+    TestUnseenAnimSlots();
 
     memset(g_aaSlot, 0, sizeof g_aaSlot);
     memset(g_aaVis, 0, sizeof g_aaVis);

@@ -37,7 +37,7 @@ namespace Ts3Fixes
     // object in the way) keeps the game's wait.
     //
     // Scope: standwaitfix covers Sims the player does not control; household and selected Sims (as waiter or as the
-    // pushed Sim) need standwaitfixhh as well (or [Experimental] HouseholdToo). With the switches off the hooks only
+    // pushed Sim) need standwaitfixhh as well. With the switches off the hooks only
     // count: blocked cycles, waits that ran to the timeout, and what the fix would have done (compare mode).
     // standwaitlog writes one line per wait that had blocked cycles. Counters 4300-4319. Check: StandWaitCheck.
     public static partial class Fixes
@@ -152,7 +152,7 @@ namespace Ts3Fixes
             return st;
         }
 
-        static bool SwfInScope(Sim s, bool hhOn) { return hhOn || !HouseholdExempt(s); }
+        static bool SwfInScope(Sim s, bool hhOn) { return hhOn || !IsPlayerSim(s); }  // not HouseholdExempt: HouseholdToo never lifts pass or push
 
         static bool SwfPartner(Sim a, Sim b)
         {

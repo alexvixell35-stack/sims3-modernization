@@ -1,0 +1,20 @@
+{
+ "_doc": "Set compat-rules-old-noshoo-1122 (docs/328 §5, queue compat-rules-proof-1122): group D (module-old), alone. Build: node tools/mod-set.ts build docs/data/compat-rules-old-noshoo-1122.json -> game-copy/mod-sets/compat-rules-old-noshoo-1122 (git-ignored). Sources local only (game-copy/compat-mods, MTS downloads), never re-hosted.",
+ "set": "compat-rules-old-noshoo-1122",
+ "out": "game-copy/mod-sets/compat-rules-old-noshoo-1122",
+ "sources": {
+  "compat": "game-copy/compat-mods"
+ },
+ "mods": [
+  {
+   "name": "No Shoo Mod (base game)",
+   "page": "https://modthesims.info/d/354513/no-shoo-mod-indiestone-friendly-version.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "354513-no-shoo-mod-indiestone-friendly-version/NoShooMod_BASEGAME.zip"
+   ]
+  }
+ ]
+}

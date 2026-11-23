@@ -243,7 +243,7 @@ static int MdtViaHookOf(int mi) {
     while (r < g_mdtModN && (g_mdtMod[r].image || strcmp(g_mdtMod[r].name, lab))) r++;
     if (r == g_mdtModN) {
         if (g_mdtModN == 512) r = 1;
-        else { MdtMod m = {}; strcpy_s(m.name, lab); m.kind = MDT_GAME; g_mdtMod[g_mdtModN] = m; g_mdtModN++; }
+        else { MdtMod m = {}; SCpy(m.name, lab); m.kind = MDT_GAME; g_mdtMod[g_mdtModN] = m; g_mdtModN++; }
     }
     LeaveCriticalSection(&g_mdtCs);
     return r;
@@ -293,8 +293,8 @@ static void MdtTablesInit() {
     if (g_mdtInit) return;
     g_mdtInit = 1;
     InitializeCriticalSection(&g_mdtCs);
-    strcpy_s(g_mdtMod[MDT_ENGINE].name, "engine (no script on the stack)"), g_mdtMod[MDT_ENGINE].kind = MDT_ENGINE;
-    strcpy_s(g_mdtMod[1].name, "(unreadable method)"), g_mdtMod[1].kind = MDT_GAME;
+    SCpy(g_mdtMod[MDT_ENGINE].name, "engine (no script on the stack)"), g_mdtMod[MDT_ENGINE].kind = MDT_ENGINE;
+    SCpy(g_mdtMod[1].name, "(unreadable method)"), g_mdtMod[1].kind = MDT_GAME;
     g_mdtModN = 2;
 }
 // Owner of one MonoMethod* for any caller and thread (e.g. a per-task-run seam): cached per method (8192 methods, 512
@@ -389,7 +389,7 @@ static void MdtIterEnd(MdtIterBuf& b, LONG ms) {
             for (int j = 0; j < k; j++) if (cnt[j] > 0 && (best < 0 || cnt[j] > cnt[best])) best = j;
             if (best < 0) break;
             const int mi = key[best];
-            if (mi < 0) strcpy_s(t.top[r], "engine (no script on the stack)");
+            if (mi < 0) SCpy(t.top[r], "engine (no script on the stack)");
             else _snprintf_s(t.top[r], _TRUNCATE, "%s: %s", g_mdtMod[g_mdtMeth[mi].mod].name, g_mdtMeth[mi].name);
             t.topN[r] = cnt[best];
             cnt[best] = 0;
@@ -558,14 +558,14 @@ static void MdtScanFile(const wchar_t* path, const wchar_t* rel) {
 }
 static void MdtWalk(const wchar_t* dir, const wchar_t* rel, int depth) {
     wchar_t pat[MAX_PATH];
-    if (swprintf_s(pat, L"%s\\*", dir) < 0) return;
+    if (!PathFmt(pat, L"%s\\*", dir)) return;
     WIN32_FIND_DATAW fd;
     HANDLE f = FindFirstFileW(pat, &fd);
     if (f == INVALID_HANDLE_VALUE) return;
     do {
         if (fd.cFileName[0] == L'.') continue;
         wchar_t sub[MAX_PATH], subRel[MAX_PATH];
-        if (swprintf_s(sub, L"%s\\%s", dir, fd.cFileName) < 0 || swprintf_s(subRel, L"%s%s%s", rel, rel[0] ? L"\\" : L"", fd.cFileName) < 0) continue;
+        if (!PathFmt(sub, L"%s\\%s", dir, fd.cFileName) || !PathFmt(subRel, L"%s%s%s", rel, rel[0] ? L"\\" : L"", fd.cFileName)) continue;
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) { if (depth < 6 && !(fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) MdtWalk(sub, subRel, depth + 1); }
         else {
             const size_t l = wcslen(fd.cFileName);
@@ -580,18 +580,18 @@ static DWORD WINAPI MdtScan(LPVOID) {
     if (g_mdtPkg) {
         wchar_t user[MAX_PATH], mods[MAX_PATH];
         UserSims3Dir(user);
-        if (swprintf_s(mods, L"%s\\Mods", user) > 0) MdtWalk(mods, L"", 0);  // the game's own folder first: its match wins
+        if (PathFmt(mods, L"%s\\Mods", user)) MdtWalk(mods, L"", 0);  // the game's own folder first: its match wins
         wchar_t* cut = wcsrchr(user, L'\\');  // <Documents>\Electronic Arts: other language / copy folders
         if (cut) {
             *cut = 0;
             wchar_t pat[MAX_PATH];
             WIN32_FIND_DATAW fd;
-            HANDLE f = swprintf_s(pat, L"%s\\*", user) > 0 ? FindFirstFileW(pat, &fd) : INVALID_HANDLE_VALUE;
+            HANDLE f = PathFmt(pat, L"%s\\*", user) ? FindFirstFileW(pat, &fd) : INVALID_HANDLE_VALUE;
             if (f != INVALID_HANDLE_VALUE) {
                 do {
                     if (fd.cFileName[0] == L'.' || !(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || !_wcsicmp(fd.cFileName, L"The Sims 3")) continue;
                     wchar_t other[MAX_PATH], rel[MAX_PATH];
-                    if (swprintf_s(other, L"%s\\%s\\Mods", user, fd.cFileName) > 0 && swprintf_s(rel, L"(%s)", fd.cFileName) > 0 &&
+                    if (PathFmt(other, L"%s\\%s\\Mods", user, fd.cFileName) && PathFmt(rel, L"(%s)", fd.cFileName) &&
                         GetFileAttributesW(other) != INVALID_FILE_ATTRIBUTES)
                         MdtWalk(other, rel, 0);
                 } while (FindNextFileW(f, &fd));
@@ -613,7 +613,7 @@ static void MdtMatchPackages() {  // caller holds g_mdtCs
                 _snprintf_s(m.pkg, _TRUNCATE, "%s%s", m.kind == MDT_GAME ? "core mod: " : "", g_mdtPkg[j].pkg);
                 break;
             }
-        if (!m.pkg[0]) strcpy_s(m.pkg, m.kind == MDT_GAME ? "(game files)" : "(not found in Mods)");
+        if (!m.pkg[0]) SCpy(m.pkg, m.kind == MDT_GAME ? "(game files)" : "(not found in Mods)");
     }
 }
 
@@ -829,13 +829,13 @@ static bool ApplyModTime(const wchar_t* ini) {
     // checks the site's bytes and stands down on a mismatch
     LONG hz = (LONG)GetPrivateProfileIntW(L"Diag", L"ModTimeHz", 10, ini);
     g_mdtHz = hz < 10 ? 10 : hz > 200 ? 200 : hz;
-    wcscpy_s(g_mdtSum, ini);
+    WCpy(g_mdtSum, ini);
     wchar_t* slash = wcsrchr(g_mdtSum, L'\\');
     if (!slash) return false;
     slash[1] = 0;
-    wcscpy_s(g_mdtCsv, g_mdtSum);
-    wcscat_s(g_mdtSum, L"modtime-summary.txt");
-    wcscat_s(g_mdtCsv, L"modtime.csv");
+    WCpy(g_mdtCsv, g_mdtSum);
+    WCat(g_mdtSum, L"modtime-summary.txt");
+    WCat(g_mdtCsv, L"modtime.csv");
     SYSTEMTIME st;
     GetLocalTime(&st);
     g_mdtSession = (DWORD)st.wMonth * 1000000 + st.wDay * 10000 + st.wHour * 100 + st.wMinute;

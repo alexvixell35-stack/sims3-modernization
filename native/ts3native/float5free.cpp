@@ -69,8 +69,8 @@ static bool F5fFreeCheck(void* heap, DWORD p, const DWORD* ra) {
     char own[128] = "";
     if (caller == kF5fRet727) __try {  // 0x727E10's pushes above EA_Free's argument: ebx, edi, esi = the deque
             const DWORD dq = ra[6], w = dq - 0x2C, vt = *(const volatile DWORD*)(uintptr_t)w;
-            sprintf_s(own, "; deque 0x%08lX (%s 0x%08lX vt 0x%08lX)", dq, vt == kF5fWalkerVt ? "SACS Walker mRequestQueue, Walker" : "not a SACS Walker: base", w, vt);
-        } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(own, "; deque unreadable"); }
+            SFmt(own, "; deque 0x%08lX (%s 0x%08lX vt 0x%08lX)", dq, vt == kF5fWalkerVt ? "SACS Walker mRequestQueue, Walker" : "not a SACS Walker: base", w, vt);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(own, "; deque unreadable"); }
     char fr[10 * 44 + 8];
     int nf;
     F5fStack(ra, fr, sizeof(fr), &nf);
@@ -102,11 +102,11 @@ static int F5dCheck(const DWORD* dq, DWORD ret, const DWORD* sp) {
     if (g_f5fGuard) InterlockedIncrement(&g_f5dSkip);
     UafNearLog(arr, "deque pointer array"), UafNearLog(val, "deque bad value");
     char site[112];  // docs/539 §21
-    sprintf_s(site, "float5 deque (%s): %s", ret == kF5dRetWalker ? "SACS Walker mRequestQueue" : "eastl deque", why);
+    SFmt(site, "float5 deque (%s): %s", ret == kF5dRetWalker ? "SACS Walker mRequestQueue" : "eastl deque", why);
     F5wBad(site, (DWORD)(uintptr_t)dq, at, val);
     if (!F5fLogNow(k)) return 1;
     char own[96] = "";
-    if (ret == kF5dRetWalker) sprintf_s(own, " (SACS Walker 0x%08lX mRequestQueue)", (DWORD)(uintptr_t)dq - 0x2C);
+    if (ret == kF5dRetWalker) SFmt(own, " (SACS Walker 0x%08lX mRequestQueue)", (DWORD)(uintptr_t)dq - 0x2C);
     char fr[10 * 44 + 8];
     int nf;
     F5fStack(sp, fr, sizeof(fr), &nf);

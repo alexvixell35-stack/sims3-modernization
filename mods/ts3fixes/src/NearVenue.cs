@@ -27,7 +27,8 @@ namespace Ts3Fixes
         // aborts the worker (the sim thread scores it): the flood-colour asks and caches here are sim-thread only.
         // Counters 1431 community-lot scores asked (switch on, score > 0), 1432 lowered, 1433 raised, 1434 kept, 1435 Sim out of
         // scope, 1436 lot with no venue type, 1437 group lots across water (penalised), 1438 Sim colour unknown (no water
-        // penalty), 1439 worker aborts, 1440 groups built.
+        // penalty), 1439 worker aborts, 1440 groups built; docs/321 H3: 1523 groups with more than kNvGroupMax open lots (the
+        // nearest kNvGroupMax kept), 1524 most open lots of one venue type seen in a group (high water).
         static void ApplyNearVenue()
         {
             Patch(typeof(Lot), "HowMuchItWantsSimToCome", new Type[] { typeof(Sim), typeof(float) }, typeof(NvLotHook), "WantHook", "WantOrig");
@@ -57,6 +58,11 @@ namespace Ts3Fixes
         const int kNvRing = 4;
         static readonly NvGroup[] sNvRing = new NvGroup[kNvRing];
         static int sNvNext;
+        // the open lots of one group walk (sim thread only), grown at use: a world has as many community lots as it has
+        static ulong[] sNvIds = new ulong[64];
+        static float[] sNvW = new float[64];
+        static bool[] sNvKeep = new bool[64];
+        const int kCNvOverCap = 1523, kCNvGroupHw = 1524;
 
         static float NvFactor(Sim sim, Lot lot)
         {
@@ -121,6 +127,7 @@ namespace Ts3Fixes
             bool colour = UfColourA(at, sim.LotCurrent);  // A = the Sim's colour; a lot proven in another one has no land path
             if (!colour) c[1438]++;
             Lot home = Household.ActiveHouseholdLot;
+            int n = 0;
             foreach (object o in LotManager.AllLots)
             {
                 Lot l = o as Lot;
@@ -130,10 +137,23 @@ namespace Ts3Fixes
                 Vector3 e = l.EntryPoint();
                 bool water = colour && UfColourB(e, l) < 0;
                 if (water) c[1437]++;
-                float w = TripStageCore.Weight((e - at).Length(), water);
-                g.W[l.LotId] = w;
-                g.Sum += w;
-                if (++g.N >= TripStageCore.kNvGroupMax) break;
+                if (n == sNvIds.Length)
+                {
+                    Array.Resize(ref sNvIds, n * 2); Array.Resize(ref sNvW, n * 2); Array.Resize(ref sNvKeep, n * 2);
+                }
+                sNvIds[n] = l.LotId;
+                sNvW[n++] = TripStageCore.Weight((e - at).Length(), water);
+            }
+            // docs/321 H3: the nearest kNvGroupMax, not the first in AllLots order; at or under the cap every open lot, as before
+            if (n > TripStageCore.kNvGroupMax) c[kCNvOverCap]++;
+            CapHw(kCNvGroupHw, n);
+            TripStageCore.KeepNearest(sNvW, n, TripStageCore.kNvGroupMax, sNvKeep);
+            for (int i = 0; i < n; i++)
+            {
+                if (!sNvKeep[i]) continue;
+                g.W[sNvIds[i]] = sNvW[i];
+                g.Sum += sNvW[i];
+                g.N++;
             }
             return g;
         }

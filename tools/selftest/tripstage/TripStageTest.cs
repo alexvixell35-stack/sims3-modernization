@@ -31,6 +31,25 @@ static class TripStageTest
         Check(Near(fn + ff, 2f), "unclamped factors sum to the group size");
         Check(TripStageCore.Weight(300f, true) < TripStageCore.Weight(300f, false), "water costs");
         Check(TripStageCore.Weight(500f, false) > TripStageCore.Weight(300f, true), "a 300 m crossing weighs less than a 500 m walk");
+        // docs/321 H3: the group is every open lot at or under kNvGroupMax (the walk as before), else the nearest kNvGroupMax
+        {
+            int max = TripStageCore.kNvGroupMax;
+            float[] w = new float[100];
+            bool[] keep = new bool[100];
+            for (int i = 0; i < 100; i++) w[i] = TripStageCore.Weight(1000f - 10f * i, false);  // walk order = farthest first
+            Check(TripStageCore.KeepNearest(w, 20, max, keep) == 20, "group: 20 lots all kept");
+            bool all = true;
+            for (int i = 0; i < 20; i++) all &= keep[i];
+            Check(all, "group: under the cap every lot in (walk as before)");
+            Check(TripStageCore.KeepNearest(w, max, max, keep) == max && keep[0] && keep[max - 1], "group: exactly the cap, all kept");
+            Check(TripStageCore.KeepNearest(w, 100, max, keep) == max, "group: 100 lots, cap kept");
+            bool nearest = true;
+            for (int i = 0; i < 100; i++) nearest &= keep[i] == (i >= 100 - max);
+            Check(nearest, "group: the nearest kNvGroupMax kept, not the first in walk order");
+            float[] tie = new float[40];
+            for (int i = 0; i < 40; i++) tie[i] = 1f;
+            Check(TripStageCore.KeepNearest(tie, 40, max, keep) == max && keep[0] && keep[max - 1] && !keep[max], "group: ties go to the earlier lot");
+        }
         Check(Near(TripStageCore.Weight(1f, false), TripStageCore.Weight(TripStageCore.kNvMinDistM, false)), "distance floor");
         Check(TripStageCore.Factor(1f, 1.0001f, 2) <= TripStageCore.kNvMaxFactor, "max clamp");
         Check(TripStageCore.Factor(1e-9f, 1f, 2) >= TripStageCore.kNvMinFactor, "min clamp");

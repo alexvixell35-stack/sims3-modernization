@@ -77,9 +77,10 @@ namespace Ts3Fixes
             SpkState st;
             if (!sSpkState.TryGetValue(key, out st))
             {
-                if (sSpkState.Count >= 4096) sSpkState.Clear();   // spawners of worlds left behind
+                if (sSpkState.Count >= 4096) { sSpkState.Clear(); CapCount(kCSpkClears); }   // spawners of worlds left behind
                 st = new SpkState();
                 sSpkState[key] = st;
+                CapHw(kCSpkHw, sSpkState.Count);  // docs/321 lane 0
             }
             Lot lot = sp.LotCurrent;
             ulong lotId = lot != null ? lot.LotId : 0;
