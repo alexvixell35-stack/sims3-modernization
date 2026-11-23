@@ -170,12 +170,17 @@ namespace Ts3Fixes
             public Vector3[] Pos = new Vector3[16]; public float[] Dist = new float[16], Dy = new float[16]; public bool[] Usable = new bool[16];
         }
 
-        static bool BuSimAt(Vector3 pos, Sim self, Lot lot)
+        static bool BuSimAt(Vector3 pos, Sim self, Lot lot) { return BuSimOn(pos, self, lot) != null; }
+
+        // The Sim that holds a slot's place. Babies and toddlers hold none: one lies in the crib next to the crib's
+        // routing slot (run all-ipbig-33701: every plan to the Collins crib was kept, "a Sim on it") or is carried by the Sim itself.
+        static Sim BuSimOn(Vector3 pos, Sim self, Lot lot)
         {
-            if (lot == null) return false;
+            if (lot == null) return null;
             foreach (Sim o in lot.GetAllActors())
-                if (o != null && o != self && !o.HasBeenDestroyed && BuFlat(o.Position, pos) < kBuSimRadius && Math.Abs(o.Position.y - pos.y) < kBuSnapMaxDy) return true;
-            return false;
+                if (o != null && o != self && !o.HasBeenDestroyed && BuFlat(o.Position, pos) < kBuSimRadius && Math.Abs(o.Position.y - pos.y) < kBuSnapMaxDy
+                    && !(o.SimDescription != null && o.SimDescription.ToddlerOrBelow)) return o;
+            return null;
         }
 
         static BuSlots BuReadSlots(Sim sim, BuRec rec, bool checkSims)
@@ -382,7 +387,7 @@ namespace Ts3Fixes
             {
                 Vector3 sp = s.Pos[i];
                 why += "; slot 0x" + ((uint)s.Name[i]).ToString("X") + (BuValid(sp) ? " " + BuFlat(sp, sim.Position).ToString("0.0") + " m dy " + (sp.y - sim.Position.y).ToString("0.0") : " no place")
-                    + (s.Dist[i] == float.MaxValue ? " weight 0 or off the object" : "") + (BuValid(sp) && BuSimAt(sp, sim, obj.LotCurrent) ? " a Sim on it" : "");
+                    + (s.Dist[i] == float.MaxValue ? " weight 0 or off the object" : "") + (BuValid(sp) && BuSimOn(sp, sim, obj.LotCurrent) != null ? " " + BuSimOn(sp, sim, obj.LotCurrent).FullName + " on it" : "");
             }
             BuLine(head + ": kept, " + (chore ? "no snap for making the bed" : here ? "no slot within " + kBuSnapMax + " m (" + s.N + " wanted)" + why : "the Sim is not on the object's level"));
             return step;
