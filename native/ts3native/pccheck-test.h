@@ -24,11 +24,18 @@ static void TestPcCheck() {
     assert(fl == (PC_POWERSAVER | PC_BATTERY | PC_AFFINITY | PC_EFFICIENCY | PC_PRIORITY | PC_OTHERLOAD | PC_FEWCORES));
     assert(strstr(v, "affinity limits TS3W to 2 of 4 cores") && strstr(v, "other programs used 30% CPU") && strstr(v, "2 threads for 1.5 busy game threads"));
     assert(!strstr(v, "no problem found"));
-    // few cores alone is advice, not a problem
+    // docs/537 §34: 4 cores with 1.5 busy threads is not "few cores" (the old rule fired on every <= 4-core PC)
     PcFacts four = {};
-    four.logical = 4, four.affinityCpus = 4, four.busySamples = 10, four.busyThreads = 1;
+    four.logical = 4, four.affinityCpus = 4, four.busySamples = 10, four.busyThreads = 1.5, four.ourThreads = 6;
     fl = PcVerdict(four, v, sizeof(v));
-    assert(fl == PC_FEWCORES && !(fl & kPcProblems) && strstr(v, "PC: no problem found"));
+    assert(fl == 0 && strstr(v, "PC: no problem found") && !strstr(v, "compete"));
+    // no core left: advice, not a problem; "compete" only when our threads are busy
+    four.busyThreads = 3.2, four.ourBusyThreads = 0.1;
+    fl = PcVerdict(four, v, sizeof(v));
+    assert(fl == PC_FEWCORES && strstr(v, "PC: no problem found") && strstr(v, "no core left over\n") && !strstr(v, "compete"));
+    four.ourBusyThreads = 1.2;
+    fl = PcVerdict(four, v, sizeof(v));
+    assert(fl == PC_FEWCORES && strstr(v, "(1.2 of them ts3native's)") && strstr(v, "our busy worker threads compete with the game"));
     // hint order: battery first, throttle last; none for advice only
     assert(PcHint(PC_THROTTLE | PC_BATTERY) && strstr(PcHint(PC_THROTTLE | PC_BATTERY), "battery"));
     assert(strstr(PcHint(PC_THROTTLE), "slows down") && !PcHint(PC_OTHERLOAD | PC_FEWCORES) && !PcHint(0));

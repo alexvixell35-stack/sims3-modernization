@@ -46,6 +46,7 @@ namespace Ts3Fixes
             public int B7Hook(CommodityKind c, bool metaAutonomy)
             {
                 AutonomyT a = (AutonomyT)(object)this;
+                UbAutActor(a);  // docs/322: names this search's actor for ts3native's band split (stops at once when not asked for)
                 if (!LocalB7Open(a, c)) return B7Probe(c, metaAutonomy);
                 // autt2local (AutShadowLocal.cs): post after B9 (here when the search has no meta phase, else at B13's entry)
                 bool ok = false;

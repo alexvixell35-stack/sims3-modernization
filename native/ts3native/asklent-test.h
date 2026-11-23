@@ -32,6 +32,59 @@ static DWORD WINAPI AuWorker(void*) {
     return 0;
 }
 
+static void DmxReset() {
+    if (g_dmx != g_dmx0) HeapFree(GetProcessHeap(), 0, g_dmx);
+    g_dmx = g_dmx0, g_dmxCap = 256, g_dmxI = 0, g_dmxMax = 4096;
+    memset(g_dmx0, 0, sizeof(g_dmx0));
+}
+// docs/321 M11 lane C: live rows are never evicted below the ceiling; every answer equals the newest put of the key
+static void TestDoorMemoXGrow() {
+    const LONGLONG ticksSave = g_dmxTicks;
+    DmxReset();
+    g_dmxTicks = 1000000;
+    auto key = [](DWORD i, DWORD* k) { for (int j = 0; j < 9; j++) k[j] = i * 31 + j; };
+    DWORD kk[9];
+    bool stale;
+    // under-cap equality: a random put stream over 40 keys answers like a list of every put (newest of the key)
+    struct Put { DWORD id; LONG gen; LONGLONG t; };
+    static Put all[3000];
+    DWORD rng = 12345;
+    for (int i = 0; i < 3000; i++) {
+        rng = rng * 1103515245u + 12345u;
+        all[i] = {(rng >> 8) % 40, (LONG)((rng >> 20) & 3), 1000 + i};
+        key(all[i].id, kk);
+        DmxPut(kk, 2, all[i].gen, 0, all[i].t);
+        for (DWORD q = 0; q < 40; q += 7) {
+            const Put* ref = NULL;
+            for (int j = i; j >= 0 && !ref; j--) if (all[j].id == q) ref = &all[j];
+            key(q, kk);
+            const DmxRow* r = DmxFind(kk, ref ? ref->gen : 0, 0, all[i].t, &stale);
+            assert(ref ? r && r->t == ref->t && !stale : !r && !stale);
+        }
+    }
+    assert(g_dmxCap == 256);  // 40 keys: one row each, no growth
+    // 300 live keys: the table doubles, no live row lost, no cap-full
+    DmxReset();
+    g_dmxTicks = 1000000;
+    const LONG full0 = ts3native_caps.r[CAP_DMX].full;
+    for (DWORD i = 0; i < 300; i++) key(1000 + i, kk), DmxPut(kk, 2, 7, 0, 5000 + i);
+    assert(g_dmxCap == 512 && ts3native_caps.r[CAP_DMX].full == full0);
+    for (DWORD i = 0; i < 300; i++) key(1000 + i, kk), assert(DmxFind(kk, 7, 0, 6000, &stale) && !stale);
+    // a dead row is reused before any growth
+    g_dmxTicks = 100;
+    key(5000, kk), DmxPut(kk, 2, 7, 0, 9000);
+    assert(g_dmxCap == 512 && DmxFind(kk, 7, 0, 9000, &stale));
+    // ceiling: live rows past g_dmxMax evict in ring order (as the old ring did) and count
+    DmxReset();
+    g_dmxTicks = 1000000, g_dmxMax = 512;
+    for (DWORD i = 0; i < 600; i++) key(2000 + i, kk), DmxPut(kk, 2, 7, 0, 5000 + i);
+    assert(g_dmxCap == 512 && ts3native_caps.r[CAP_DMX].full == full0 + 88);
+    key(2599, kk), assert(DmxFind(kk, 7, 0, 6000, &stale));
+    DmxReset();
+    g_dmxTicks = ticksSave;
+    printf("DoorMemoX table (docs/321 M11): under-cap answers = newest put of the key, 300 live keys grow 256 -> 512 (no "
+           "live row lost), dead row reused first, ceiling evicts in ring order + counts ok\n");
+}
 static void TestAskLent() {
     static_assert(offsetof(Ts3nCounters, auMode) == 0x4FFC && offsetof(Ts3nCounters, auStaleAfter) == 0x500C &&
                       offsetof(Ts3nCounters, dmxMode) == 0x5014 && offsetof(Ts3nCounters, dmxMismatch) == 0x5028 &&
@@ -267,7 +320,7 @@ static void TestAskLent() {
     k.dmxMode = 0;
     t_hcJob = 0;
     g_workerTid = sWorker, g_invJob = sInv, k.dmMode = sDm, g_hcOn = sOn, g_hcDoorJmp = sDoorJmp;
-    memset(g_dmx, 0, sizeof(g_dmx));
+    DmxReset();
     g_dmxLast = 0;
     VirtualFree(code, 0, MEM_RELEASE);
     memset((u8*)&k + v126, 0, sizeof(Ts3nCounters) - v126);

@@ -688,7 +688,7 @@ static void RcRefHistory(LONG n) {
         int j = 0;
         while (j < np && (pat[j].refs != refs || strcmp(pat[j].s, s))) j++;
         if (j < np) pat[j].c++;
-        else if (np < 48) strcpy_s(pat[np].s, s), pat[np].c = 1, pat[np].refs = refs, np++;
+        else if (np < 48) SCpy(pat[np].s, s), pat[np].c = 1, pat[np].refs = refs, np++;
         else patFull++;
     }
     g_ryCensus = n;
@@ -842,10 +842,10 @@ static void RcRefTypesLine(LONG n, const char* tag, const char* ev) {
         ms = (b.QuadPart - a.QuadPart) * 1000.0 / f.QuadPart;
     }
     char walk[96];
-    if (!c) strcpy_s(walk, "no ResourceCache");
-    else if (lockOn && !locked) sprintf_s(walk, "skipped, cache lock busy for %lu ms", wait);
-    else if (!ok) sprintf_s(walk, "map not readable (stopped after %lu of %lu)", o.walked, o.mapN);
-    else sprintf_s(walk, "%lu entries in %.1f ms, wait %lu ms%s", o.walked, ms, wait, lockOn ? "" : " (lock off)");
+    if (!c) SCpy(walk, "no ResourceCache");
+    else if (lockOn && !locked) SFmt(walk, "skipped, cache lock busy for %lu ms", wait);
+    else if (!ok) SFmt(walk, "map not readable (stopped after %lu of %lu)", o.walked, o.mapN);
+    else SFmt(walk, "%lu entries in %.1f ms, wait %lu ms%s", o.walked, ms, wait, lockOn ? "" : " (lock off)");
     LONG tot[2][3] = {};
     for (int ty = 0; ty < 2; ty++)
         for (int kind = 0; kind < 3; kind++)
@@ -859,7 +859,7 @@ static void RcRefTypesLine(LONG n, const char* tag, const char* ev) {
                 at += _snprintf_s(h + at, sizeof(h) - at, _TRUNCATE, "%s%s:%lu", b ? " " : "", kRqHist[b], o.hist[ty][b]);
         const LONG born = g_rqBorn[ty], died = g_rqDied[ty];
         char live[48] = "-";
-        if (ok) sprintf_s(live, "%lu (%+ld)", o.live[ty], (LONG)o.live[ty] - g_rqPrevLive[ty]);
+        if (ok) SFmt(live, "%lu (%+ld)", o.live[ty], (LONG)o.live[ty] - g_rqPrevLive[ty]);
         Log("diag: rc types #%ld type 0x%08lX vt 0x%08lX live %s cold %lu same key type, other class %lu; refs %s; births seen %ld (+%ld), "
             "deaths %ld (+%ld); AddRef %ld, finds %ld, Release %ld", s, kRqType[ty], g_rsVt[ty], live, ok ? o.cold[ty] : 0, ok ? o.keyOther[ty] : 0,
             h, born, born - g_rqPrevBorn[ty], died, died - g_rqPrevDied[ty], tot[ty][0], tot[ty][2], tot[ty][1]);
@@ -1074,8 +1074,8 @@ static void MdLegend(const char* why) {
     for (int i = 0; i < MD_N; i++) {
         const char m = MdMarkOf(i);
         char* d = m == '!' ? bad : m == '?' ? un : ok;
-        if (*d) strcat_s(d, sizeof(ok), " ");
-        strcat_s(d, sizeof(ok), kMd[i].key);
+        if (*d) SCat(d, sizeof(ok), " ");
+        SCat(d, sizeof(ok), kMd[i].key);
     }
     Log("diag: mem fields (%s; MB, counts for keys ending in N and gcN; '?' = unvalidated, '!' = failed this session's "
         "self-test, '-' = not readable): validated %s; unvalidated %s%s%s", why, ok[0] ? ok : "none", un[0] ? un : "none",
@@ -1130,8 +1130,8 @@ static void MsLine(const char* line) {  // sim thread, a complete "memsus..." te
         const auto& q = g_msQ[g_msTail++ & 7];
         n = q.n;
         tick = q.tick;
-        strcpy_s(tag, q.tag);
-        strcpy_s(ev, q.ev);
+        SCpy(tag, q.tag);
+        SCpy(ev, q.ev);
     }
     ReleaseSRWLockExclusive(&g_msLock);
     Log("diag: memsus #%ld %s%s%s %s lag=%lu t=%lu", n, n ? tag : "unasked", ev[0] ? " ev=" : "", ev, line + 8, GetTickCount() - tick,
@@ -1177,8 +1177,8 @@ static const char* MdWorldEvent(const char* worldLine) {
         name[n] = 0;
     }
     const bool sw = g_mdWorld[0] && name[0] && strcmp(name, g_mdWorld);
-    if (name[0]) strcpy_s(g_mdWorld, name);
-    sprintf_s(ev, "%s%s%s", g_mdTravel ? "travel" : "", g_mdTravel && sw ? "," : "", sw ? "world-switch" : "");
+    if (name[0]) SCpy(g_mdWorld, name);
+    SFmt(ev, "%s%s%s", g_mdTravel ? "travel" : "", g_mdTravel && sw ? "," : "", sw ? "world-switch" : "");
     g_mdTravel = false;
     return ev[0] ? ev : NULL;
 }
@@ -1192,7 +1192,7 @@ static void MdMark(const char* tag) {
     for (; tag[n] && n < sizeof(t) - 1; n++) t[n] = ((tag[n] | 0x20) >= 'a' && (tag[n] | 0x20) <= 'z') || (tag[n] >= '0' && tag[n] <= '9') || tag[n] == '-' || tag[n] == '_' ? tag[n] : '_';
     t[n] = 0;
     char what[48];
-    sprintf_s(what, "diag: memory at mark #%ld", InterlockedIncrement(&g_mdMarks));
+    SFmt(what, "diag: memory at mark #%ld", InterlockedIncrement(&g_mdMarks));
     UdMemSample(what, n ? t : "unnamed");
 }
 
@@ -1285,7 +1285,7 @@ static DWORD MdStep(const char* name, MdActFn act, const MdWant* w, int n, bool 
     for (int i = 0; i < n; i++) {
         const int f = w[i].field;
         char d[48] = "";
-        if (down) sprintf_s(d, ", back %+.2f", -dn[f]);
+        if (down) SFmt(d, ", back %+.2f", -dn[f]);
         Log("diag: mem selftest %s %s %+.2f%s (want %+.2f +-%.2f) %s, try %d", name, kMd[f].key, up[f], d, w[i].mb, w[i].tol,
             bad & (1u << f) ? "FAIL" : "ok", tries);
     }
@@ -1323,7 +1323,7 @@ static DWORD MdStepMap(double tol) {
         v = MdMapVerdict(vb, vc, want, up, dn, tol, tries >= 3);
     }
     char note[64] = "total moved by other mappings, not compared";
-    if (fabs(up - want * MB) <= tol && fabs(dn - want * MB) <= tol) sprintf_s(note, "total within +-%.2f", tol);
+    if (fabs(up - want * MB) <= tol && fabs(dn - want * MB) <= tol) SFmt(note, "total within +-%.2f", tol);
     Log("diag: mem selftest file mapping 32 MB map view %+.2f, after %.2f (want %+.2f exact); total %+.2f, back %+.2f, other "
         "mappings %+.2f / %+.2f (%s) %s, try %d", vb * MB, vc * MB, want * MB, up, -dn, up - vb * MB, (vb - vc) * MB - dn,
         note, v ? "FAIL" : "ok", tries);
@@ -1381,7 +1381,7 @@ static bool MdSelfTest(bool game) {
     InterlockedOr(&g_mdPass, (LONG)(checked & ~bad));
     char list[200] = "";
     for (int i = 0; i < MD_N; i++)
-        if (bad & (1u << i)) { if (*list) strcat_s(list, " "); strcat_s(list, kMd[i].key); }
+        if (bad & (1u << i)) { if (*list) SCat(list, " "); SCat(list, kMd[i].key); }
     Log(bad ? "diag: mem selftest FAIL: %s" : "diag: mem selftest PASS%s", bad ? list : " (every checked field moved by the injected size)");
     MdLegend("after the self-test");
     return !bad;

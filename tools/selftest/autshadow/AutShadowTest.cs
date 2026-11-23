@@ -84,6 +84,16 @@ static class AutShadowTest
     {
         const int P = AutShadowCore.kPass, F = AutShadowCore.kTestFailed, S = AutShadowCore.kSkip, X = AutShadowCore.kAbort, N = AutShadowCore.kFiltered;
         Check(AutShadowCore.UlpDistance(1f, 1f) == 0, "same float: 0 ULP");
+        // docs/321 H1: under the cap every object / pair goes in and the request stays uncapped (as before); at the cap it is
+        // left out and the request is marked capped (go-live then runs the game's search)
+        {
+            bool capped = false;
+            int added = 0;
+            for (int i = 0; i < 1024; i++) if (AutShadowCore.CapRoom(i, 1024, ref capped)) added++;
+            Check(added == 1024 && !capped, "cap: 1024 objects under kMaxObjs all added, not capped");
+            Check(!AutShadowCore.CapRoom(1024, 1024, ref capped) && capped, "cap: object 1025 refused, request capped");
+            Check(!AutShadowCore.CapRoom(8193, 8192, ref capped) && capped, "cap: past the pair cap stays refused");
+        }
         Check(AutShadowCore.UlpDistance(1f, Next(1f)) == 1, "neighbour: 1 ULP");
         Check(AutShadowCore.UlpDistance(0f, -0f) == 0, "+0 and -0: 0 ULP");
         Check(AutShadowCore.UlpDistance(-float.Epsilon, float.Epsilon) == 2, "across zero: 2 ULP");

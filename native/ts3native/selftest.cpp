@@ -9424,7 +9424,10 @@ static void TestLoadProf() {
     assert(k.lpRtUs[1] >= k.lpSite[LP_WORLDINIT][1][1]);
     // a new LoadWorld zeroes the rows and opens a new window
     stk[1] = 0x1111;  // the thunk puts the real return address back; here the test does
+    k.prReady = 0x5A;  // the first field after the lp block: a LoadWorld entry must not zero other sections' counters
     LpEnter(LP_LOADWORLD1, &stk[1]);
+    assert(k.prReady == 0x5A);
+    k.prReady = 0;
     assert(k.lpLoads == 2 && k.lpEv7 == 1 && k.lpSite[LP_QTINS][1][0] == 0 && k.lpRtUs[1] == 0 && g_lpOpen == 1);
     assert(LpLeave(&stk[1]) == 0x1111 && k.lpSite[LP_LOADWORLD1][0][0] == 1);
     g_lpOpen = 0;
@@ -13269,13 +13272,16 @@ static void TestP5() {
 #include "p5b-test.h"  // TestP5b (P5b, docs/94 §22.9)
 #include "hitchattr-test.h"  // TestHitchAttr ([HitchAttr], docs/96 §9)
 #include "unseen-test.h"  // TestUnseen ([UnseenProbe], docs/143)
+#include "unseenband-test.h"  // TestUnseenBand ([UnseenProbe] Bands, docs/322)
 #include "ghost-test.h"   // TestUnseenGhost ([UnseenGhost], docs/202 §3.9.5)
 #include "thumbstall-test.h"  // TestThumbLod ([ThumbStall] Actions 3 and 4, thumbstall.cpp)
 #include "outfitfirst-test.h"  // TestOutfitFirstCore ([OutfitFirst], docs/684 §9)
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
 #include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
 #include "modtime-test.h"  // TestModTime ([Diag] ModTime, docs/298)
+#include "watergrid-test.h"  // TestWaterGrid ([WaterGrid] Prof, docs/100 §13)
 #include "pccheck-test.h"  // TestPcCheck ([PcCheck], docs/299)
+#include "adaptdiag-test.h"  // TestAdaptDiag ([AdaptDiag], docs/316)
 #include "hitchsum-test.h"    // TestStallWatchDeep, TestHitchSum (docs/666 §5)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
@@ -13288,6 +13294,7 @@ static void TestP5() {
 #include "ilpatch-test.h"  // TestIlPatch ([IlPatch], docs/506 §2, docs/526)
 #include "mintcall-test.h"  // TestMintCall ([MonoFast] CallPath, docs/139 §8)
 #include "monojit-test.h"  // TestMonoJit ([MonoJit], docs/527 step 1)
+#include "monojit-norm-test.h"  // TestJitNorm, the --jitnorm row tool ([MonoJit] CoreModMatch, docs/537 §34)
 #include "mintfuse-test.h"  // TestMintFuse ([MintFuse] Sub, docs/139 §4)
 #include "autshadow-test.h"  // TestAutShadow ([AutShadow] part 1, docs/122 §13: T1, T2, T4)
 #include "autraces-test.h"  // TestAutRaces ([AutShadow] Races: R1b pre-warm, R2b/R3a witness, docs/data/races-handoff.md)
@@ -13309,6 +13316,7 @@ static void TestP5() {
 #include "apex-test.h"  // TestApex ([Compat] ApexStandDown, docs/148 §7)
 #include "saveframes-test.h"  // TestSavedFrames ([EaCrashFixes] SavedFrameGuard, docs/293)
 #include "s3mm-test.h"  // TestS3mm ([Compat] S3mmStandDown, Satb act refusal, docs/291 §6)
+#include "overflow-test.h"  // TestOverflow* (docs/323 overflow audit fixes)
 #include "compaction-test.h"  // TestCompaction ([Compaction], docs/204)
 #include "saveslim-test.h"  // TestSaveSlim ([SaveSlim], docs/15 phase 11)
 #include "rctrim-test.h"  // TestRcTrim ([ResourceCache] TrimAfterCleanup, docs/198 §6)
@@ -13346,6 +13354,7 @@ static void TestP5() {
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
 #include "taskseam-test.h"  // TestTaskSeam ([Diag] TaskSeam, docs/308)
+#include "nonsim-test.h"    // TestNonSimSplit ([Diag] NonSimSplit, docs/329)
 #include "routespeed-test.h"  // TestRouteSpeed ([RouteSpeed] NeighbourMemo, docs/663)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
 #include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
@@ -13353,6 +13362,7 @@ static void TestP5() {
 #include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
 #include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
+#include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
@@ -14732,8 +14742,9 @@ static void TestCombasePattern() {
     assert(PatScan(text, len, want, &at) == 1);
     puts("combase keepalive: applied in this process (both 30000 -> 0xFFFFFFFF), file untouched");
 }
-int main() {
+int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);  // a crash keeps what was printed
+    if (argc > 1 && !strcmp(argv[1], "--jitnorm")) return JnCli(argc, argv);  // docs/537 §34: the CoreModMatch rows (tools/jit-hot.ts)
     SetUnhandledExceptionFilter([](EXCEPTION_POINTERS* e) -> LONG {
         printf("selftest: unhandled exception %08lX at %p\n", e->ExceptionRecord->ExceptionCode, e->ExceptionRecord->ExceptionAddress);
         return EXCEPTION_EXECUTE_HANDLER;
@@ -14844,12 +14855,15 @@ int main() {
     TestHitchAttr();
     TestLockFastPath();
     TestUnseen();
+    TestUnseenBand();
     TestUnseenGhost();
     TestUnseenAnim();
     TestAnimPhase();
     TestStallWatch();
     TestModTime();
+    TestWaterGrid();
     TestPcCheck();
+    TestAdaptDiag();
     TestStallWatchDeep();
     TestHitchSum();
     TestUnseenRootMotion();
@@ -14866,6 +14880,7 @@ int main() {
     TestMintCall();
     TestMintFuse();
     TestAutShadow();
+    TestAsOlGrow();
     TestAutRaces();
     TestAutRacesR2c();
     TestThreadStack();
@@ -14888,6 +14903,9 @@ int main() {
     TestCrashForensicsObjRes();  // docs/186 §10
     TestApex();
     TestS3mm();
+    TestOverflowPaths();  // docs/323 lane A
+    TestOverflowCalls();  // docs/323 lane B
+    TestOverflowSmall();  // docs/323 lane F (L9)
     TestSavedFrames();
     TestCompaction();
     TestRcTrim();
@@ -14921,6 +14939,7 @@ int main() {
     TestWorldAStarRefs();
     TestIlPatch();
     TestMonoJit();
+    TestJitNorm();
     TestEarlyOut();
     TestRouteJobPhases();
     TestGoalGen();
@@ -14930,6 +14949,7 @@ int main() {
     TestForegroundRender();
     TestHostCalls();
     TestAskLent();
+    TestDoorMemoXGrow();
     TestTailUnlock();
     TestCellMemoProbe();
     TestBoatProbe();
@@ -14937,6 +14957,7 @@ int main() {
     TestPlanDeadline();
     TestTaskServe();  // docs/637
     TestTaskSeam();   // docs/308
+    TestNonSimSplit();  // docs/329
     TestRouteSpeed();  // docs/663
     TestPlaceCore();   // docs/670
     TestPlaceTestRO();
@@ -14946,6 +14967,7 @@ int main() {
     TestEditPathRO();  // docs/670 §8
     TestConnRoomsRO();  // docs/670 §15
     TestDoorShare();   // docs/674
+    TestSmoothCut();   // docs/676 §15
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();

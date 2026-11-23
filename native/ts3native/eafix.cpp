@@ -427,7 +427,7 @@ static volatile LONG g_gbBad;
 // a logged key matched a GEOM in the player's packages, docs/67 §28.4]. Printed as type:group:instance, as package tools show it.
 static void GeomKey(char (&out)[40], const u8* geom) {
     const DWORD* f = (const DWORD*)(geom + 8);
-    sprintf_s(out, "%08lX:%08lX:%08lX%08lX", f[2], f[3], f[1], f[0]);
+    SFmt(out, "%08lX:%08lX:%08lX%08lX", f[2], f[3], f[1], f[0]);
 }
 
 static DWORD __fastcall GbGetBone(u8* geom, void*, DWORD i) {
@@ -507,7 +507,7 @@ static DWORD __fastcall LlGroup(u8* lot, void* edx, u8* obj) {
     if (InterlockedIncrement(&g_llHits) <= 16) {
         // the script frames name who re-parents the object; the native caller only says "attach by slot name"
         char st[440];
-        if (FbStackText(st, sizeof(st), 10) <= 0) strcpy_s(st, "(no script frames)");
+        if (FbStackText(st, sizeof(st), 10) <= 0) SCpy(st, "(no script frames)");
         Log("ea fix: LotLevelPastEnd: lot %p id %08lX%08lX has %ld level Group(s) from level %ld, object %p id %08lX%08lX (lot %p) "
             "asks for level %ld (index %ld, caller 0x%08X): answered the top Group 0x%08lX instead of the word past the table; "
             "script stack: %s",
@@ -615,7 +615,7 @@ static void __stdcall MdHit(int rem) {
     InterlockedIncrement(rem ? &ts3native_counters.mdRemMinus1 : &ts3native_counters.mdDivOverflow);
     if (InterlockedIncrement(&g_mdLogged) > 8) return;
     char st[440];
-    if (FbStackText(st, sizeof(st), 8) <= 0) strcpy_s(st, "unreadable");
+    if (FbStackText(st, sizeof(st), 8) <= 0) SCpy(st, "unreadable");
     Log("ea fix: MintDivGuard: %s: %s; script stack: %s", rem ? "rem.i4 INT_MIN % -1" : "div.i4 INT_MIN / -1",
         rem ? "result 0" : "OverflowException", st);
 }
@@ -823,12 +823,17 @@ static SlSetFn g_slSet = (SlSetFn)(uintptr_t)SL_SET;  // selftest swaps the thre
 static SlDtorFn g_slDtor = (SlDtorFn)(uintptr_t)SL_DTOR;
 static SlGetFn g_slGet = (SlGetFn)(uintptr_t)SL_GET;
 // Own export block (counters layout unchanged, docs/registry.md): switches, lists recorded, masters cleared, table full,
-// tripwire hits.
-struct SlaveLinkCounters { volatile LONG unlinkOn, tripOn, sets, unlinks, overflow, tripHits; };
-extern "C" __declspec(dllexport) SlaveLinkCounters ts3native_slavelink = {0, 0, 0, 0, 0, 0};
+// tripwire hits; docs/321 H4 (appended): pairs the table holds now (capacity), most pairs held at once, times it grew.
+struct SlaveLinkCounters { volatile LONG unlinkOn, tripOn, sets, unlinks, overflow, tripHits, cap, hw, grows; };
+extern "C" __declspec(dllexport) SlaveLinkCounters ts3native_slavelink = {0, 0, 0, 0, 0, 0, 64, 0, 0};
 struct SlPair { u8* master; u8* slave; DWORD mPartVt, mLo, mHi, mVt, sLo, sHi, sVt; };
-enum { SL_CAP = 64 };
-static SlPair g_slPairs[SL_CAP];
+// docs/321 H4: 64 pairs to start (in the image), doubled on the heap when every pair is live (a 4x world: more boats, strollers,
+// led horses at once), up to g_slCapMax (65,536 pairs = 2.3 MB). Only past that a list goes unrecorded (overflow) and loses the
+// guard. Every access holds g_slBusy, so a grow (copy, then free the old block) never races a reader.
+enum { SL_CAP0 = 64 };
+static SlPair g_slPairs0[SL_CAP0];
+static SlPair* g_slPairs = g_slPairs0;
+static int g_slCap = SL_CAP0, g_slCapMax = 65536;  // selftest lowers the ceiling
 static volatile LONG g_slBusy;
 
 static void SlOwner(const u8* part, DWORD* lo, DWORD* hi, DWORD* vt) {  // owner = agent+4 = part-4; id at owner+8
@@ -852,8 +857,21 @@ static int SlIndexIn(const u8* master, const u8* slave, DWORD partVt) {  // slav
 static void SlLock() { while (InterlockedCompareExchange(&g_slBusy, 1, 0)) YieldProcessor(); }
 static void SlUnlock() { InterlockedExchange(&g_slBusy, 0); }
 static void SlForget(const u8* master) {
-    for (int i = 0; i < SL_CAP; i++)
+    for (int i = 0; i < g_slCap; i++)
         if (g_slPairs[i].master == master) g_slPairs[i].master = NULL;
+}
+static int SlGrow() {  // g_slBusy held; the first new pair's index, or -1 at the ceiling / out of memory
+    if (g_slCap >= g_slCapMax) return -1;
+    const int cap = g_slCap * 2 > g_slCapMax ? g_slCapMax : g_slCap * 2;
+    SlPair* p = (SlPair*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(SlPair) * cap);
+    if (!p) return -1;
+    memcpy(p, g_slPairs, sizeof(SlPair) * g_slCap);
+    if (g_slPairs != g_slPairs0) HeapFree(GetProcessHeap(), 0, g_slPairs);
+    const int first = g_slCap;
+    g_slPairs = p, g_slCap = cap;
+    ts3native_slavelink.cap = cap, ts3native_slavelink.grows++;
+    Log("ea fix: SlaveUnlink: %d live master/slave pairs, table grown to %d (docs/321 H4)", first, cap);
+    return first;
 }
 
 static void __fastcall SlSetHook(u8* part, void*, u8** arr, DWORD n, DWORD flag) {
@@ -868,15 +886,20 @@ static void __fastcall SlSetHook(u8* part, void*, u8** arr, DWORD n, DWORD flag)
         for (DWORD i = 0; i < n; i++) {
             if (!arr[i]) continue;
             int f = -1;
-            for (int j = 0; j < SL_CAP && f < 0; j++)
+            for (int j = 0; j < g_slCap && f < 0; j++)
                 if (!g_slPairs[j].master) f = j;
-            for (int j = 0; j < SL_CAP && f < 0; j++)  // full: reuse a pair its master no longer lists
+            for (int j = 0; j < g_slCap && f < 0; j++)  // full: reuse a pair its master no longer lists
                 if (SlIndexIn(g_slPairs[j].master, g_slPairs[j].slave, g_slPairs[j].mPartVt) < 0) f = j;
-            if (f < 0) { ts3native_slavelink.overflow++; continue; }
+            if (f < 0) f = SlGrow();  // docs/321 H4: every pair live: grow instead of dropping the list
+            if (f < 0) { ts3native_slavelink.overflow++; CapFull(CAP_SLAVE); continue; }
             SlPair& p = g_slPairs[f];
             p.master = part, p.slave = arr[i], p.mPartVt = partVt, p.mLo = mLo, p.mHi = mHi, p.mVt = mVt;
             SlOwner(arr[i], &p.sLo, &p.sHi, &p.sVt);
         }
+        LONG used = 0;
+        for (int j = 0; j < g_slCap; j++) used += g_slPairs[j].master != NULL;
+        if (used > ts3native_slavelink.hw) ts3native_slavelink.hw = used;
+        CapSee(CAP_SLAVE, used, g_slCap);
     }
     SlUnlock();
 }
@@ -884,7 +907,7 @@ static void __fastcall SlSetHook(u8* part, void*, u8** arr, DWORD n, DWORD flag)
 static void __fastcall SlDtorHook(u8* part, void*) {
     SlLock();
     SlForget(part);  // a master going away: its slaves hold no pointer back
-    for (int i = 0; i < SL_CAP; i++) {
+    for (int i = 0; i < g_slCap; i++) {
         SlPair p = g_slPairs[i];
         if (!p.master || p.slave != part) continue;
         g_slPairs[i].master = NULL;
@@ -902,7 +925,7 @@ static void __fastcall SlDtorHook(u8* part, void*) {
         const LONG k = InterlockedIncrement(&ts3native_slavelink.unlinks);
         if (k <= 16 || (k & (k - 1)) == 0) {
             char st[600];
-            if (FbStackText(st, sizeof(st), 12) <= 0) strcpy_s(st, "none");
+            if (FbStackText(st, sizeof(st), 12) <= 0) SCpy(st, "none");
             Log("ea fix: SlaveUnlink #%ld: entity %p (owner %08lX%08lX vt %08lX) destroyed while slave %d of %ld of master %p "
                 "(owner %08lX%08lX vt %08lX): taken off the master's slave list; script stack: %s",
                 k, part, p.sHi, p.sLo, p.sVt, at, n, p.master, p.mHi, p.mLo, p.mVt, st);
@@ -954,6 +977,67 @@ static bool ApplySlaveLink(const wchar_t* ini) {
     return keep;
 }
 
+// [EaCrashFixes] VbFreeDelayMs (docs/67 §44, default 0 = off, Steam 1.67 only): EA use after free of a vertex buffer wrapper.
+// 0xA85DF0 releases the wrapper at +0x70 of its owner (0xEC17A0, last ref: deleting dtor 0x61A410 / 0x61A340, then free
+// 0x4E3F70) while a queued draw item still runs the draw callback 0xA84D00 with the old pointer (VbGuard caught it 23-894 ms
+// after the release, same thread). Freed memory reused = Device_SetStreamSource 0x60F020 hands garbage to the device (the
+// bridge crashes at d3d9.dll+0x3A91D / +0x2789B). Fix: the two deleting dtors run without their free; the wrapper (base
+// vtable, D3D VB +0x14 = 0, the game's own released state) is freed VbFreeDelayMs later, so a late draw binds a NULL stream,
+// as the not yet reused memory already did in the caught cases. Its refcount is pinned high so a late Release cannot free it twice.
+#ifndef TS3A_TABLE
+static const DWORD kVqDelA = 0x0061A340, kVqDelB = 0x0061A410, kVqFree = 0x004E3F70;
+static const u8 kVqPro[] = {0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x7E, 0x08};  // push esi ; mov esi,ecx ; push edi ; lea edi,[esi+8]
+typedef void*(__fastcall* VqDelFn)(u8* self, void* edx, DWORD flags);
+static VqDelFn g_vqOrig[2];
+static const DWORD kVqCap = 8192;
+static u8* g_vqPtr[kVqCap];
+static DWORD g_vqTick[kVqCap], g_vqHead, g_vqN, g_vqMs;
+static SRWLOCK g_vqLock = SRWLOCK_INIT;
+static volatile LONG g_vqForced;
+static void VqPush(u8* self) {
+    *(volatile LONG*)(self + 4) = 0x40000000;  // refcount (0xEC17A0 left 1): a late Release never reaches 0
+    u8* due[16];
+    int n = 0;
+    const DWORD now = GetTickCount();
+    AcquireSRWLockExclusive(&g_vqLock);
+    while (g_vqN && n < 16 && (now - g_vqTick[g_vqHead] >= g_vqMs || g_vqN == kVqCap)) {
+        if (g_vqN == kVqCap && InterlockedIncrement(&g_vqForced) == 1) Log("ea fix: VbFreeDelay: queue full (%lu), freeing early", kVqCap);
+        due[n++] = g_vqPtr[g_vqHead], g_vqHead = (g_vqHead + 1) % kVqCap, g_vqN--;
+    }
+    const DWORD t = (g_vqHead + g_vqN) % kVqCap;
+    g_vqPtr[t] = self, g_vqTick[t] = now, g_vqN++;
+    ReleaseSRWLockExclusive(&g_vqLock);
+    for (int i = 0; i < n; i++) ((void(__cdecl*)(void*))kVqFree)(due[i]);
+}
+static void* __fastcall VqDelA(u8* self, void* edx, DWORD flags) {
+    void* r = g_vqOrig[0](self, edx, flags & ~1u);
+    if (flags & 1) VqPush(self);
+    return r;
+}
+static void* __fastcall VqDelB(u8* self, void* edx, DWORD flags) {
+    void* r = g_vqOrig[1](self, edx, flags & ~1u);
+    if (flags & 1) VqPush(self);
+    return r;
+}
+static bool ApplyVbFreeDelay(const wchar_t* ini) {
+    g_vqMs = GetPrivateProfileIntW(L"EaCrashFixes", L"VbFreeDelayMs", 0, ini);
+    if (!g_vqMs) return false;
+    if (g_vqMs > 10000) g_vqMs = 10000;
+    g_vqOrig[0] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A340", kVqDelA, kVqPro, sizeof(kVqPro), (void*)VqDelA, &g_vqOrig[0]);
+    g_vqOrig[1] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A410", kVqDelB, kVqPro, sizeof(kVqPro), (void*)VqDelB, &g_vqOrig[1]);
+    const bool ok = g_vqOrig[0] && g_vqOrig[1];
+    Log("%s ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed %lu ms after their destructor (late draw 0xA84D00 binds NULL, "
+        "not reused memory)", ok ? "OK  " : "PARTIAL", g_vqMs);
+    return ok;
+}
+#else
+static bool ApplyVbFreeDelay(const wchar_t* ini) {  // EA 1.69: the VB wrapper dtor sites are unmapped
+    if (GetPrivateProfileIntW(L"EaCrashFixes", L"VbFreeDelayMs", 0, ini))
+        Log("SKIP ea fix: VbFreeDelay (docs/67 §44): Steam 1.67 only, no EA 1.69 rows: not installed");
+    return false;
+}
+#endif
+
 static bool ApplyEaCrashFixes(const wchar_t* ini) {
     bool keep = ApplyConformActor(ini);
     ApplyThumbPose(ini);
@@ -963,6 +1047,7 @@ static bool ApplyEaCrashFixes(const wchar_t* ini) {
     keep = ApplyGeomNoMaterial(ini) || keep;
     keep = ApplyMintDivGuard(ini) || keep;
     keep = ApplySlaveLink(ini) || keep;
+    keep = ApplyVbFreeDelay(ini) || keep;
 #ifdef TS3N_EA_PORT
     keep = ApplySimNoTexture(ini) || keep;
     keep = ApplySimNoTextureAtlas(ini) || keep;

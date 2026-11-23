@@ -150,6 +150,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kJobYieldSpawn value="True" />
     <kJobYieldReady value="True" />
     <kJobYieldFp value="True" />
+    <kLadderFootShoo value="True" />
+    <kLadderFootShooHousehold value="False" />
+    <kLadderFootWaitMinutes value="5" />
+    <kLadderFootCooldownMinutes value="2" />
     <kDriverTaskAsync value="False" />
     <kWatchdogAsync value="True" />
     <kStuckCheckOwn value="False" />
@@ -178,6 +182,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenFallbackArrive value="True" />
     <kUnseenFallbackLeave value="True" />
     <kUnseenFallbackTrip value="False" />
+    <kUnseenFbGoHere value="False" />
+    <kModQuitGuard value="True" />
     <kUnseenFallbackTripHold value="False" />
     <kGoalHouseholdExempt value="True" />
     <kUnseenFallbackLoopDetect value="True" />
@@ -297,12 +303,16 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kSpawnCapCount value="False" />
     <kMenuMaven value="True" />
     <kDanceFloorListGuard value="True" />
+    <kSwapInvokeDiag value="False" />
+    <kBlankTns value="False" />
     <kBoatGetOutDiag value="False" />
     <kBoatGetOutGuard value="False" />
     <kUnseenOutfitDefer value="True" />
     <kUnseenOutfitNoSpin value="True" />
     <kBoatParkGone value="True" />
     <kDeadRefCooking value="True" />
+    <kDeadRefCadence value="True" />
+    <kViewerPushDelta value="True" />
     <kDeadRefConvo value="True" />
     <kTakeARiskGuard value="True" />
     <kMiniHomeLot value="True" />
@@ -397,9 +407,15 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUpgradeFailAlarm value="True" />
     <kRepairTimeCache value="True" />
     <kBurglarIdle value="True" />
+    <kBurglarApt value="True" />
     <kGigWaitLeave value="True" />
     <kSculptPose value="True" />
     <kFestivalHidden value="True" />
+    <kCommodMapFast value="False" />
+    <kCommodMapShadow value="False" />
+    <kKitArm value="" />
+    <kKitArmNotice value="" />
+    <kKitArmSwitches value="" />
     <kTrainBoost value="True" />
     <kEatOutsideCount value="True" />
     <kQueueProximity value="True" />
@@ -623,6 +639,14 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCoopEggQuality value="True" />
     <kFireActiveJob value="True" />
     <kFireTrapCount value="True" />
+    <kFireLeftover value="True" />
+    <kAptGasLeak value="True" />
+    <kAptPossess value="True" />
+    <kFireDoorKeep value="True" />
+    <kHorseshoeSolo value="True" />
+    <kHorseshoeSoloHours value="2" />
+    <kFireNre value="True" />
+    <kFireCount value="True" />
     <kBirthdayAgers value="True" />
     <kSneakOutListener value="True" />
     <kPromCarpool value="True" />
@@ -721,6 +745,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBroomArenaChoice value="True" />
     <kFortuneTellerScamOdds value="True" />
     <kConsignmentSkillCurve value="True" />
+    <kSimbotWorld value="True" />
     <kConsignmentStockLeak value="True" />
     <kHerbQualityFloor value="True" />
     <kSnackBowlSlobVfx value="True" />
@@ -766,6 +791,35 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenLoopSkipStep value="False" />
     <kDoorGen value="True" />
     <kDoorShare value="False" />
+    <kFglInBound value="False" />
+    <kFglInBoundHousehold value="False" />
+    <kFglInBoundShadow value="False" />
+    <kStandWaitFix value="False" />
+    <kStandWaitFixHousehold value="False" />
+    <kStandWaitLog value="False" />
+    <kStandWaitPassCycle value="2" />
+    <kStandWaitPassEvery value="3" />
+    <kStandWaitPassMinutes value="5" />
+    <kStandWaitLogLines value="300" />
+    <kShareLanes value="True" />
+    <kShareLanesHousehold value="False" />
+    <kLadderShare value="True" />
+    <kLadderShareHousehold value="False" />
+    <kSpiralShare value="True" />
+    <kSpiralShareHousehold value="False" />
+    <kSimPass value="False" />
+    <kSimPassHousehold value="False" />
+    <kSimPassMinutes value="3" />
+    <kClipGraceMinutes value="2.5" />
+    <kClipPortalNear value="1.5" />
+    <kAngleEntry value="False" />
+    <kAngleEntryHousehold value="False" />
+    <kLaneWaitLog value="False" />
+    <kBlockedUse value="True" />
+    <kBlockedUseHousehold value="False" />
+    <kMakeBedBoth value="True" />
+    <kMakeBedBothHousehold value="False" />
+    <kMakeBedBothLog value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />
@@ -873,7 +927,8 @@ if (onArg > 0) {
     { type: TYPE_S3SA, group: 0, instance: fnv64(ASSEMBLY), data: s3saEncode(readFileSync(dll)) },
     { type: TYPE_XML, group: 0, instance: fnv64(`${ASSEMBLY}.Instantiator`), data: Buffer.from(xml, 'utf8') },
   ]);
-  const vOut = join(outDir, `ts3fixes-on-${names.join('-')}.package`);
+  // a value may hold ':' (an NTFS stream name on Windows) or spaces: only the tuning names go in the file name
+  const vOut = join(outDir, `ts3fixes-on-${names.map(n => n.split('=')[0]).join('-')}.package`);
   writeFileSync(vOut, variant);
   console.log(`built ${vOut} (${variant.length} bytes, ${names.join(', ')})`);
 }

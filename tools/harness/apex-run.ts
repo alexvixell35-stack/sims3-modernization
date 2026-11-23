@@ -30,6 +30,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { asiVersion, loadDb, type Build } from '../builds.ts';
 import { dumpHungGame } from './game-alive.ts';
+import { clearJob, markJob, waitHold } from './hold.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
 const HERE = resolve(import.meta.dirname, '..', '..');
@@ -148,6 +149,8 @@ async function main(v: Record<string, any>) {
   const rargs = runnerArgs({ bin: BIN, job: v.job, apexAsi: v['apex-asi'] && resolve(v['apex-asi']), variant: v.variant, ab: v.ab, profiler: v.profiler, keepSaves: v['keep-saves'] });
   console.log(`apex ${tag}: ${loads} load(s) ${plan.join(' ')}; our pair for 'with': ${src ? `${src.name} ${src.asi}` : 'the pair Bin has now'}; runner: run.ps1 ${rargs.join(' ')}`);
   if (v['dry-run']) return 0;
+  // the main checkout's build/crash-triage hold and job marker (hold.ts), as queue.ts: a run from a worktree used to ignore them
+  await waitHold(s => console.log(`${new Date().toISOString().slice(0, 19)}Z ${s}`));
   if (existsSync(MARKER)) fail(`an earlier apex run did not restore Bin (${MARKER}): node tools/harness/apex-run.ts --restore`);
   if (existsSync(apexPending)) fail(`Apex restore pending (${apexPending}): close TS3W.exe, then run.ps1 -Restore <its run dir>`);
   if (gameRunning()) fail(`${GAME_EXE} is running: close it first`);
@@ -161,6 +164,7 @@ async function main(v: Record<string, any>) {
     if (!existsSync(agentPkg)) fail(`test agent build wrote no ${agentPkg}`);
   }
 
+  markJob(`apex-${tag}`); // hold.ts wait-job-end / track.ts build-window wait for this; cleared in finish()
   mkdirSync(before, { recursive: true });
   const say = (s: string) => { const l = `${new Date().toISOString().slice(0, 19)}Z ${s}`; console.log(l); appendFileSync(summary, l + '\n'); };
   const files: Record<string, string | null> = {};
@@ -180,6 +184,7 @@ async function main(v: Record<string, any>) {
     if (lights) clearInterval(lights);
     waitGameGone(say);
     const ok = restoreBin(MARKER, say, db);
+    clearJob();
     if (lights) try { execFileSync(AFX, ['setall=0,0,0'], { stdio: 'ignore', timeout: 15000 }); } catch { /* no lights tool */ }
     say(`done${stopWhy ? ` (stopped: ${stopWhy})` : ''}; ${crashes} crash(es); summary ${summary}`);
     return ok;

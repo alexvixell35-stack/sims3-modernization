@@ -60,14 +60,39 @@ static void AaEvAdd(int act, const void* actor, DWORD lo, DWORD hi, float owed, 
     AaEv& e = g_aaEv[g_aaEvN++ & 63];
     e.actor = (void*)actor, e.lo = lo, e.hi = hi, e.pass = g_aaPass, e.owedUs = (LONG)(owed * 1e6f), e.act = (u8)act, e.obj = obj;
 }
+// docs/321 L4: the home slot was (actor >> 4) & 4095, direct-mapped. Actor objects sit at addresses whose bits 4-15 repeat
+// (16,909 / 8,891 / 1,182 collision holds in 10 min on BP / IP / SV with ~480 actors per pass), so the home is now a
+// Fibonacci hash of the address and a lookup probes AA_PROBE slots: the actor's own slot anywhere in the chain first, else
+// the first slot nobody owes in (empty or no debt), else the home slot (a real collision: the caller holds, AAH_SLOT). An
+// actor whose home is free or its own gets exactly what the direct-mapped table gave.
+enum { AA_PROBE = 16 };
+static inline int AaHomeIdx(const void* actor) { return (int)(((DWORD)((uintptr_t)actor >> 4) * 0x9E3779B1u) >> 20); }  // 12 bits
+static void* g_aaDisp[AA_SLOTS];  // distinct actors that found their home slot owed by another (lane 0 count), cleared with the table
+static LONG g_aaDispN;
+static void AaDispNote(void* actor) {
+    for (DWORD h = (DWORD)AaHomeIdx(actor), i = 0; i < AA_SLOTS; i++) {
+        void*& v = g_aaDisp[(h + i) & (AA_SLOTS - 1)];
+        if (v == actor) return;
+        if (!v) { v = actor; CapSee(CAP_AAPROBE, ++g_aaDispN, AA_SLOTS); return; }
+    }
+}
 // slot for this actor; a debt the actor has not touched for > 2 x Every passes is dropped (it left the actor list)
 static AaSlot* AaSlotOf(void* actor, DWORD every) {
-    AaSlot* s = &g_aaSlot[((uintptr_t)actor >> 4) & (AA_SLOTS - 1)];
-    if (s->actor && s->owed > 0 && g_aaPass - s->pass > 2 * every) {  // any holder: a stale debt also blocks the slot (AAH_SLOT)
-        InterlockedIncrement(&ts3native_counters.aaStale);
-        AaEvAdd(AAE_STALE, s->actor, s->lo, s->hi, s->owed, false);
-        s->actor = NULL, s->owed = 0;
+    const int h = AaHomeIdx(actor);
+    AaSlot* own = NULL;
+    AaSlot* avail = NULL;
+    for (int i = 0; i < AA_PROBE && !own; i++) {
+        AaSlot* s = &g_aaSlot[(h + i) & (AA_SLOTS - 1)];
+        if (s->actor && s->owed > 0 && g_aaPass - s->pass > 2 * every) {  // any holder: a stale debt also blocks the slot (AAH_SLOT)
+            InterlockedIncrement(&ts3native_counters.aaStale);
+            AaEvAdd(AAE_STALE, s->actor, s->lo, s->hi, s->owed, false);
+            s->actor = NULL, s->owed = 0;
+        }
+        if (s->actor == actor) own = s;
+        else if (!avail && !(s->actor && s->owed > 0)) avail = s;
+        else if (!avail && i == 0) AaDispNote(actor);  // the old table would have held this actor here
     }
+    AaSlot* s = own ? own : avail ? avail : &g_aaSlot[h];
     if (s->actor == actor) s->pass = g_aaPass;
     return s;
 }
@@ -104,7 +129,7 @@ static int AaHoldWhy(bool parented, const float* pos, const AaSlot* s, bool mine
     if (AaNearVisible(pos)) return AAH_NEARVIS;
     const int vw = UtViewerWhy(pos);
     if (vw >= 0) return vw == UTW_VIEWER ? AAH_VIEWER : AAH_NOVIEW;
-    if (!mine && s->actor && s->owed > 0) return AAH_SLOT;
+    if (!mine && s->actor && s->owed > 0) { CapFull(CAP_AA); return AAH_SLOT; }
     if (owed + dt > AaCap(dt)) return AAH_CAP;
     return -1;
 }
@@ -377,7 +402,7 @@ static void __fastcall AaPassThunk(void* list, void* edx, float dt) {
     g_aaTid = GetCurrentThreadId();
     if (list != g_aaList) {  // a new actor list (world load / unload): no debt carries over
         if (g_aaList) InterlockedIncrement(&k.aaSlotReset), AaEvAdd(AAE_RESET, list, 0, 0, 0, false);
-        memset(g_aaSlot, 0, sizeof g_aaSlot), g_aaList = list;
+        memset(g_aaSlot, 0, sizeof g_aaSlot), memset(g_aaDisp, 0, sizeof g_aaDisp), g_aaDispN = 0, g_aaList = list;
     }
     g_aaPass++;
     InterlockedIncrement(&k.aaPasses);
@@ -446,8 +471,8 @@ static void AaHex(const char* what, DWORD at, int n) {
     int len = 0;
     for (int i = 0; i < n; i++) {
         u8 v;
-        __try { v = *(const u8*)(uintptr_t)(at + i); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(d + len, sizeof d - len, " unreadable"); break; }
-        len += sprintf_s(d + len, sizeof d - len, i % 4 ? "%02X" : " %02X", v);
+        __try { v = *(const u8*)(uintptr_t)(at + i); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(d + len, sizeof d - len, " unreadable"); break; }
+        len += SFmt(d + len, sizeof d - len, i % 4 ? "%02X" : " %02X", v);
     }
     Log("  drain fault: %s 0x%08lX:%s", what, at, d);
 }
@@ -544,6 +569,7 @@ typedef void(__fastcall* AnxPoseFn)(void* actor, void* edx, float dt);
 static AnxPoseFn g_anxPoseOrig = (AnxPoseFn)(uintptr_t)TS3A(0x00940430);
 static AnFn1 g_anxClip = (AnFn1)(uintptr_t)TS3A(0x00568710);
 static LARGE_INTEGER g_anxCamAt;
+static float g_anxPos[3];  // docs/322: the classified NPC's position (sim thread; read by AnxPose right after the class)
 static int AnxClassBody(void* actor) {
     __declspec(align(16)) float pos[4], sphere[4];
     __try {
@@ -553,6 +579,7 @@ static int AnxClassBody(void* actor) {
         const bool sim = g_unComp(owner, NULL, *g_unBitSim) != NULL;
         if (sim && AnxHousehold(owner)) return ANX_HH;
         const float* p = g_unPos(tc, NULL, pos);
+        memcpy(g_anxPos, p, 12);
         sphere[0] = p[0], sphere[1] = p[1] + 1.0f, sphere[2] = p[2], sphere[3] = 1.0f;
         const void* fr = g_unFrustum();
         const bool on = fr && g_unInFrustum(fr, NULL, sphere) != 0;
@@ -566,13 +593,17 @@ static void AnxPose(int kind, void* actor, void* edx, float dt) {
     if ((t0.QuadPart - g_anxCamAt.QuadPart) * 20 > g_qpf.QuadPart) UnRefreshCamera(), g_anxCamAt = t0;  // reach: at most 20 reads/s
     const int prev = g_anxCls, c = g_anxClassOf(actor);
     g_anxCls = c;
+    // docs/322 bands: Sims only; household / unknown scope = UB_HH
+    const int ubRow = !g_ubOn ? -1 : c == ANX_HH ? UB_HH : c >= ANX_NPC_ON && c <= ANX_NPC_UNSEEN ? UbRow(g_anxPos) : -1;
     InterlockedIncrement(&ts3native_counters.anxOwnN[0]);  // docs/286 §5: our camera read + class, outside every EA timer
     UsAdd(&ts3native_counters.anxOwnUs[0], TicksSince(t0));
     QueryPerformanceCounter(&t0);
     __try { g_anxPoseOrig(actor, edx, dt); } __finally {
         g_anxCls = prev;
+        const LONGLONG tk = TicksSince(t0);
         InterlockedIncrement(&ts3native_counters.anxPoseN[kind][c]);
-        UsAdd(&ts3native_counters.anxPoseUs[kind][c], TicksSince(t0));
+        UsAdd(&ts3native_counters.anxPoseUs[kind][c], tk);
+        if (ubRow >= 0) UbAdd(UB_POSE, ubRow, tk);
     }
 }
 static void __fastcall AnxPose0(void* actor, void* edx, float dt) { AnxPose(0, actor, edx, dt); }

@@ -3466,6 +3466,40 @@ static void TestAutShadowLive() {
            k.alStaleQ, k.alStaleHit, k.alWatchResets);
 }
 
+// docs/321 M2 lane C: the object-lot map's own table (the test's rows only, the run's table is put back)
+static void TestAsOlGrow() {
+    assert(AsAlloc());
+    AsOl* const ol0 = g_as->ol;
+    const LONG cap0 = g_as->olCap, n0 = g_as->olN, t0 = g_as->touchN;
+    static int touch0[AS_TOUCH];
+    memcpy(touch0, g_as->touch, sizeof(touch0));
+    g_as->ol = (AsOl*)VirtualAlloc(NULL, sizeof(AsOl) * AS_OL, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    g_as->olCap = AS_OL, g_as->olN = 0, g_as->touchN = 0;
+    const LONG full0 = ts3native_caps.r[CAP_ASOL].full;
+    auto id = [](LONG i) { return (AsU64)i * 0x100000001ull + 77; };
+    // under the cap: the 65,536-row table, 49,152 rows usable, then full (the old path)
+    for (LONG i = 1; i <= 49152; i++) { AsOl* o = AsOlSlot(id(i), true); assert(o); o->lot = (AsU64)i; if (i % 997 == 0) o->touched = 1, g_as->touch[g_as->touchN++] = (int)(o - g_as->ol); }
+    assert(g_as->olCap == AS_OL && !AsOlSlot(id(49153), true) && ts3native_caps.r[CAP_ASOL].full == full0 + 1);
+    // compaction keeps the size: destroyed untouched rows go, touched ones stay with their touch
+    for (LONG i = 1; i <= 1000; i++) AsOlSlot(id(i), false)->gone = 1;
+    AsOlCompact();
+    assert(g_as->olCap == AS_OL && g_as->olN == 49152 - 1000 + 1 && AsOlSlot(id(997), false) && !AsOlSlot(id(998), false));
+    // grow: every row and touch kept, room for more
+    const LONG tn = g_as->touchN;
+    assert(AsOlGrow() && g_as->olCap == 2 * AS_OL && g_as->olN == 48153 && g_as->touchN == tn);
+    for (LONG i = 0; i < g_as->touchN; i++) assert(g_as->ol[g_as->touch[i]].touched && g_as->ol[g_as->touch[i]].lot % 997 == 0);
+    for (LONG i = 1001; i <= 49152; i++) { const AsOl* o = AsOlSlot(id(i), false); assert(o && o->lot == (AsU64)i); }
+    for (LONG i = 49153; i <= 90000; i++) assert(AsOlSlot(id(i), true));
+    // ceiling
+    g_asOlCeil = 2 * AS_OL;
+    assert(!AsOlGrow() && g_as->olCap == 2 * AS_OL);
+    g_asOlCeil = AS_OL_CEIL;
+    VirtualFree(g_as->ol, 0, MEM_RELEASE);
+    g_as->ol = ol0, g_as->olCap = cap0, g_as->olN = n0, g_as->touchN = t0;
+    memcpy(g_as->touch, touch0, sizeof(touch0));
+    printf("AutShadow object-lot map (docs/321 M2): 49,152 rows then full under the 65,536 table, compaction in place, "
+           "grow x2 keeps rows + touches, ceiling ok\n");
+}
 static void TestAutShadow() {
     Ts3nAutShadow& k = ts3native_autshadow;
     assert(offsetof(Ts3nAutShadow, abort) == 0x7C && offsetof(Ts3nAutShadow, mode) == 0xCC && offsetof(Ts3nAutShadow, lgOn) == 0x13C);

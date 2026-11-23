@@ -1,0 +1,16 @@
+{
+  "_about": "Example for tools/harness/quiet-services.ps1 from an Alienware m15 R6 (2026-11-23). Copy to probe-out/quiet-services.json and list your own PC's noisy services. Find them: the top-3 list in noisy rows' 'machine load:' lines (probe-out/queue/*.jsonl), then (Get-CimInstance Win32_Process) parent -> service.",
+  "_evidence": "AWCC.UCSubAgent: busiest other process in ~100 noisy queue jobs, avg 1.7% of the machine, max 17.3%. Killer.exe: in 867 noisy rows, avg 0.3%, max 1.6%. All children of the services below.",
+  "services": [
+    "DellTechHub",
+    "SupportAssistAgent",
+    "Alienware SupportAssist Remediation",
+    "Killer Analytics Service",
+    "Killer Network Service",
+    "Killer Provider Data Helper Service"
+  ],
+  "_services": "DellTechHub hosts AWCC.*, AWPerformance.*, AlienFXSubAgent and the Dell.TechHub.* sub-agents. Killer Network Service runs Killer.exe; Wi-Fi keeps working through the driver.",
+  "processes": "^(AWCC|AWPerformance)\\.|^AlienFXSubAgent$|^Dell\\.(TechHub|Update|UCA|CoreServices)",
+  "apps": ["Spotify", "Slack", "ms-teams", "jetbrains-toolbox"],
+  "_apps": "Closed only by a manual 'quiet -Apps' (never by the watcher, it would close them every minute). Spotify was in 3 of 13 'noisy machine early' stops."
+}

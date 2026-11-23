@@ -378,6 +378,12 @@ static class UnseenFbTest
         Check(!UfFinishCore.RouteShape(true, false, 0, 1, 1348865362u, false), "finish: portal path");
         Check(!UfFinishCore.RouteShape(true, false, 0, 1, UfFinishCore.kSimPath, true), "finish: an action queued after");
         Check(!UfFinishCore.Denied(UfFinishCore.kTerrainGoHere) && UfPreCore.Denied(UfFinishCore.kTerrainGoHere), "finish: a townie's Go Here allowed (D denies it)");
+        // docs/328 §7.5 unseenfbgohere: GoHere's two plain trips by exact name, only with the switch on
+        Check(UfPreCore.Denied("NRaas.GoHereSpace.Interactions.VisitLotEx") && !UfPreCore.Denied("NRaas.GoHereSpace.Interactions.VisitLotEx", true)
+            && !UfFinishCore.Denied("NRaas.GoHereSpace.Interactions.VisitCommunityLotEx", true) && UfFinishCore.Denied("NRaas.GoHereSpace.Interactions.VisitCommunityLotEx", false)
+            && UfPreCore.Denied("NRaas.GoHereSpace.Interactions.VisitCommunityLotWithEx", true) && UfPreCore.Denied("NRaas.GoHereSpace.Interactions.GoHereEx+Definition", true)
+            && UfPreCore.Denied(null, true), "gohere trips: allowed only by exact name with the switch on");
+        Check(UfPreCore.GameAssembly("Sims3GameplayObjects") && !UfPreCore.GameAssembly("ClassLockableDoor"), "game assembly names");
         Check(UfFinishCore.Denied("Sims3.Gameplay.Core.Terrain+GoHereWith") && UfFinishCore.Denied("NRaas.GoHereSpace.Interactions.GoHereEx")
             && UfFinishCore.Denied("Sims3.Gameplay.Actors.Sim+GoJogging") && !UfFinishCore.Denied("Sims3.Gameplay.Objects.Seating.Chair+Sit"), "finish: deny list otherwise D's");
         Check(UfFinishCore.Step(true, true, true, 10, 20) == UfFinishCore.kKeep, "finish: hold until the walk time");

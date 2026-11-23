@@ -29,6 +29,7 @@ namespace Ts3Fixes
         {
             public bool ErrHook(Exception e)
             {
+                SidProxyNote((ScriptCore.ScriptProxy)(object)this, e);  // swapinvokediag (SwapInvokeDiag.cs): a TargetException that reached a task
                 bool rerun = ErrOrig(e);
                 if (!rerun || !ShortcutOn("errortraploop")) return rerun;
                 PatchCounters()[2784]++;

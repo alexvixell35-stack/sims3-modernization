@@ -93,6 +93,51 @@ namespace Ts3Fixes
         static float sDeadRefObjLastH;
         static long sDeadRefObjUs;
 
+        // docs/330 deadrefcadence (default ON, sub-switch of deadrefsweep; off = the pass as before 2026-11-22, for A/B):
+        //  - one world snapshot (GetObjects<GameObject>) per pass feeds every object phase; before, phases 5-9, 13 and 15 each
+        //    ran their own typed world query (Sim three times), each a walk of every world object;
+        //  - phases 10-12 and 14 run as one step per object (one HasBeenDestroyed test, the four holders in order, each in
+        //    its own try); a use list is copied only when it holds a gone Sim;
+        //  - the slice clock is read every kDeadRefClockEvery items (one StopWatch icall per item before);
+        //  - the description-only phases (1-3 relationship keys / aging states / alarm owners, 6 fish) run only when a
+        //    description was disposed since their last start (kSimDescriptionDisposed: SimDescription.Dispose sends it right
+        //    after clearing mIsValidDescription, the only place a live description goes invalid [verified decompiled]), when
+        //    their last run removed something, or every kDeadRefIdleHours sim hours; the other phases the same way, dirtied by
+        //    either event (they test gone Sims and gone descriptions). The pre-save pass is unchanged.
+        // [1543-1557] ms per phase 1-15 (the merged object step counts as phase 10), [1558-1572] items stepped per phase,
+        // [1573] description-group runs skipped, [1574] Sim-group runs skipped, [1575] world snapshots, [1576] objects in the
+        // last snapshot.
+        const float kDeadRefIdleHours = 4f;
+        const int kDeadRefClockEvery = 8;
+        static bool sDrDescDirty = true, sDrSimDirty = true, sDrDescFound, sDrSimFound;
+        static float sDrDescLastH, sDrSimLastH;
+        static readonly long[] sDrPhaseUs = new long[15];
+        static int sDrPhase = -1;
+        // phases array index -> the phase number of the header list (index 12 is phase 14, cooking; 13 is phase 13)
+        static readonly int[] kDrPhaseNo = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 13, 15 };
+
+        static bool DrCadence() { return ShortcutOn("deadrefcadence"); }
+        static bool DrDescPhase(int p) { return p <= 2 || p == 5; }
+
+        // every removal counter of the sweep's phases: a run that moved one found something
+        static int DrRemovedSum(int[] c)
+        {
+            int n = c[994] + c[995];
+            for (int i = 395; i <= 404; i++) n += c[i];
+            for (int i = 2045; i <= 2049; i++) n += c[i];
+            return n;
+        }
+
+        // the agent's "sweep": every group runs on the next pass
+        static void DrAllDue() { sDeadRefObjDue = sDrDescDirty = sDrSimDirty = true; }
+
+        static List<object> DrOfType<T>(List<object> all) where T : class
+        {
+            List<object> l = new List<object>();
+            foreach (object o in all) if (o is T) l.Add(o);
+            return l;
+        }
+
         static void ApplyDeadRefs()
         {
             Patch(typeof(Relationship), "Get", new Type[] { typeof(SimDescription) }, typeof(RelGetHook), "GetHook", "GetOrig");
@@ -145,8 +190,8 @@ namespace Ts3Fixes
             if (sDeadRefDestroyedListener != null) EventTracker.RemoveListener(sDeadRefDestroyedListener);
             if (sDeadRefDisposedListener != null) EventTracker.RemoveListener(sDeadRefDisposedListener);
             sDeadRefDestroyedListener = EventTracker.AddListener(EventTypeId.kSimDestroyed, OnDeadRefObjEvent);
-            sDeadRefDisposedListener = EventTracker.AddListener(EventTypeId.kSimDescriptionDisposed, OnDeadRefObjEvent);
-            sDeadRefObjDue = true;
+            sDeadRefDisposedListener = EventTracker.AddListener(EventTypeId.kSimDescriptionDisposed, OnDeadRefDescEvent);
+            DrAllDue(); // descriptions a load left invalid (no Fixup) sent no event: the first pass runs everything
             sDeadRefAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { DeadRefSweepStart(); }, 1f, TimeUnit.Hours, "Ts3Fixes.DeadRefSweep", AlarmType.NeverPersisted, null);
         }
 
@@ -176,6 +221,14 @@ namespace Ts3Fixes
         static ListenerAction OnDeadRefObjEvent(Sims3.Gameplay.EventSystem.Event e)
         {
             sDeadRefObjDue = true;
+            sDrSimDirty = true;
+            return ListenerAction.Keep;
+        }
+
+        static ListenerAction OnDeadRefDescEvent(Sims3.Gameplay.EventSystem.Event e)
+        {
+            sDeadRefObjDue = true;
+            sDrSimDirty = sDrDescDirty = true;
             return ListenerAction.Keep;
         }
 
@@ -185,27 +238,40 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             if (sDeadRefWatch == null) sDeadRefWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
-            List<object> objs = null;
-            Gather objWalk = delegate { if (objs == null) { objs = Objects<GameObject>(); c[2055]++; } return objs; };
+            bool cad = DrCadence();
+            List<object> objs = null, sims = null;
+            Gather objWalk = delegate { if (objs == null) { objs = Objects<GameObject>(); if (cad) { c[1575]++; c[1576] = objs.Count; } else c[2055]++; } return objs; };
+            Gather simList = delegate { if (!cad) return Objects<Sim>(); if (sims == null) sims = DrOfType<Sim>(objWalk()); return sims; };
             bool objByEvent = sDeadRefObjDue, objOpen = false;
-            bool objRun = objByEvent || SimClock.ElapsedTime(TimeUnit.Hours) - sDeadRefObjLastH >= kDeadRefObjHours;
+            float nowH = SimClock.ElapsedTime(TimeUnit.Hours);
+            bool objRun = objByEvent || nowH - sDeadRefObjLastH >= kDeadRefObjHours;
+            bool descRun = !cad || LoopCostCore.GroupDue(sDrDescDirty, sDrDescFound, nowH - sDrDescLastH, kDeadRefIdleHours);
+            bool simRun = !cad || LoopCostCore.GroupDue(sDrSimDirty, sDrSimFound, nowH - sDrSimLastH, kDeadRefIdleHours);
+            bool descOpen = false, simOpen = false;
+            int descGot = 0, simGot = 0;
+            if (!descRun) c[1573]++;
+            if (!simRun) c[1574]++;
             long objUs0 = 0;
             Gather[] phases = {
                 delegate { return ToObjects(Relationship.sAllRelationships.Keys); },
                 delegate { return AgingStatesToCheck(); },
                 delegate { return AlarmOwnersToCheck(); },
                 delegate { return ToObjects(Household.EverySimDescription()); },
-                delegate { return Objects<Sim>(); },
-                delegate { return Objects<Fish>(); },
-                delegate { List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l; },
-                delegate { return Objects<HorseshoeCourt>(); },
-                delegate { return Objects<Dartboard>(); },
+                simList,
+                delegate { return cad ? DrOfType<Fish>(objWalk()) : Objects<Fish>(); },
+                delegate
+                {
+                    if (cad) { List<object> v = new List<object>(); foreach (object o in objWalk()) if (o is CarOwnable || o is BoatOwnable) v.Add(o); return v; }
+                    List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l;
+                },
+                delegate { return cad ? DrOfType<HorseshoeCourt>(objWalk()) : Objects<HorseshoeCourt>(); },
+                delegate { return cad ? DrOfType<Dartboard>(objWalk()) : Objects<Dartboard>(); },
                 objWalk,
                 objWalk,
                 objWalk,
                 objWalk, // phase 14 (cooking handlers): its own switch is tested per item
-                delegate { return Objects<Sim>(); },
-                delegate { return ShortcutOn("deadrefconvo") ? Objects<Sim>() : new List<object>(); },
+                simList,
+                delegate { return ShortcutOn("deadrefconvo") ? simList() : new List<object>(); },
             };
             try
             {
@@ -214,8 +280,18 @@ namespace Ts3Fixes
                     if (p >= 9 && p <= 12) // phases 10-12 and 14
                     {
                         if (!objRun) continue;
-                        if (p == 9) { sDeadRefObjDue = false; objOpen = true; objUs0 = sDeadRefTotalUs; } // an event from here on asks again
+                        if (cad && p > 9) continue; // run inside phase 10's merged step
+                        if (p == 9) { sDeadRefObjDue = false; objOpen = true; objUs0 = sDeadRefTotalUs; if (cad) c[2055]++; } // an event from here on asks again
                     }
+                    else if (cad)
+                    {
+                        bool desc = DrDescPhase(p);
+                        if (!(desc ? descRun : simRun)) continue;
+                        if (desc && !descOpen) { descOpen = true; sDrDescDirty = false; } // an event from here on asks again
+                        if (!desc && !simOpen) { simOpen = true; sDrSimDirty = false; }
+                    }
+                    int got0 = DrRemovedSum(c);
+                    sDrPhase = p;
                     sDeadRefWatch.Restart();
                     List<object> items = phases[p]();
                     if (p < 3)
@@ -228,17 +304,24 @@ namespace Ts3Fixes
                     if (p == 3) sNoOutfitSeen = 0;
                     SlicedPass<object> pass = new SlicedPass<object>(items);
                     int phase = p;
+                    bool merged = cad && p == 9;
+                    Action<object> step = merged ? (Action<object>)DrObjectStep : delegate(object o) { DeadRefStep(phase, o); };
                     while (true)
                     {
-                        pass.RunSlice(delegate(object o) { DeadRefStep(phase, o); }, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); });
+                        int n = cad ? pass.RunSliceEvery(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); }, kDeadRefClockEvery)
+                                    : pass.RunSlice(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); });
+                        c[1557 + kDrPhaseNo[p]] += n;
                         DeadRefSliceDone(c);
                         if (pass.Done) break;
                         Simulator.Sleep(0);
                         if (DeadRefUnsafe(false) != null) { c[410]++; return; } // re-check before acting again
                         sDeadRefWatch.Restart();
                     }
+                    sDrPhase = -1;
+                    int got = DrRemovedSum(c) - got0;
+                    if (DrDescPhase(p)) descGot += got; else if (p < 9 || p > 12) simGot += got;
                     if (p == 3) c[392] = sNoOutfitSeen; // #100 end state, counted here so the count is spread too
-                    if (p == 12)
+                    if (p == 12 || merged)
                     {
                         objOpen = false;
                         sDeadRefObjLastH = SimClock.ElapsedTime(TimeUnit.Hours);
@@ -250,12 +333,31 @@ namespace Ts3Fixes
                     if (DeadRefUnsafe(false) != null) { c[410]++; return; }
                 }
                 c[405]++;
+                float endH = SimClock.ElapsedTime(TimeUnit.Hours);
+                if (descOpen) { descOpen = false; sDrDescLastH = endH; sDrDescFound = descGot > 0; }
+                if (simOpen) { simOpen = false; sDrSimLastH = endH; sDrSimFound = simGot > 0; }
             }
             finally
             {
                 sDeadRefTask = ObjectGuid.InvalidObjectGuid;
+                sDrPhase = -1;
                 if (objOpen) sDeadRefObjDue = true; // stopped inside phases 10-12 or 14: walk again next pass
+                if (descOpen) sDrDescDirty = true;  // stopped inside a group: it runs again next pass
+                if (simOpen) sDrSimDirty = true;
             }
+        }
+
+        // docs/330: phases 10-12 and 14 of one object in one step (deadrefcadence). The holders act on this object only and
+        // none destroys it, so one HasBeenDestroyed test serves all four; each keeps its own try, as its own phase had.
+        static void DrObjectStep(object x)
+        {
+            GameObject o = x as GameObject;
+            int[] c = PatchCounters();
+            try { if (o == null || o.HasBeenDestroyed) return; } catch (Exception) { c[410]++; return; }
+            try { if (UseListGone(o) > 0) UseListBody(o); } catch (Exception) { c[410]++; } // copies only when a gone Sim is listed
+            try { OwnerBody(o); } catch (Exception) { c[410]++; }
+            try { HandlerBody(o); } catch (Exception) { c[410]++; }
+            try { if (ShortcutOn("deadrefcooking")) CookingBody(o); } catch (Exception) { c[410]++; }
         }
 
         static void DeadRefSliceDone(int[] c)
@@ -264,6 +366,7 @@ namespace Ts3Fixes
             c[406]++;
             if (us > c[407]) c[407] = (int)Math.Min(us, int.MaxValue);
             sDeadRefTotalUs += us;
+            if (sDrPhase >= 0) { sDrPhaseUs[sDrPhase] += us; c[1542 + kDrPhaseNo[sDrPhase]] = (int)(sDrPhaseUs[sDrPhase] / 1000); }
             c[408] = (int)(sDeadRefTotalUs / 1000);
         }
 
@@ -551,6 +654,11 @@ namespace Ts3Fixes
         static void UseListHolders(GameObject o)
         {
             if (o == null || o.HasBeenDestroyed) return;
+            UseListBody(o);
+        }
+
+        static void UseListBody(GameObject o)
+        {
             int[] c = PatchCounters();
             foreach (Sim s in new List<Sim>(o.ActorsUsingMe)) if (SimGone(s)) { o.RemoveFromUseList(s); c[2046]++; }
             foreach (Sim s in new List<Sim>(o.ReferenceList)) if (SimGone(s)) { o.RemoveFromReferenceList(s); c[2046]++; }
@@ -628,7 +736,13 @@ namespace Ts3Fixes
 
         static void OwnerHolders(GameObject o)
         {
-            if (o == null || o.HasBeenDestroyed || sOwnerOwner == null || sOwnerThief == null) return;
+            if (o == null || o.HasBeenDestroyed) return;
+            OwnerBody(o);
+        }
+
+        static void OwnerBody(GameObject o)
+        {
+            if (sOwnerOwner == null || sOwnerThief == null) return;
             ObjectOwnerComponent c = o.ObjectOwnerComponent;
             if (c == null) return;
             Sim owner = sOwnerOwner.GetValue(c) as Sim, thief = sOwnerThief.GetValue(c) as Sim;
@@ -738,7 +852,13 @@ namespace Ts3Fixes
 
         static void HandlerHolders(GameObject o)
         {
-            if (o == null || o.HasBeenDestroyed || sObjDisposed == null || sRelDesc == null) return;
+            if (o == null || o.HasBeenDestroyed) return;
+            HandlerBody(o);
+        }
+
+        static void HandlerBody(GameObject o)
+        {
+            if (sObjDisposed == null || sRelDesc == null) return;
             Delegate ev = sObjDisposed.GetValue(o) as Delegate;
             if (ev == null) return;
             int[] c = PatchCounters(); bool changed = false;
@@ -910,7 +1030,13 @@ namespace Ts3Fixes
 
         static void CookingHandlers(GameObject o)
         {
-            if (o == null || o.HasBeenDestroyed || sObjDisposed == null || !ShortcutOn("deadrefcooking")) return;
+            if (o == null || o.HasBeenDestroyed || !ShortcutOn("deadrefcooking")) return;
+            CookingBody(o);
+        }
+
+        static void CookingBody(GameObject o)
+        {
+            if (sObjDisposed == null) return;
             Delegate ev = sObjDisposed.GetValue(o) as Delegate;
             if (ev == null) return;
             int[] c = PatchCounters();
@@ -1023,6 +1149,7 @@ namespace Ts3Fixes
             {
                 try { if (cv.DiscourageRegion != null) cv.DiscourageRegion.RemoveMember(x); } catch (Exception) { } // a destroyed Sim's id may be cleared already
                 m.Remove(x); c[995]++;
+                CvCount(cv);  // repro conversation-gone-check: removals per seeded conversation
             }
             Sim first = m.Count > 0 ? m[0] : null;
             foreach (FieldInfo f in new FieldInfo[] { sConvTurn, sConvTalked })
@@ -1052,41 +1179,133 @@ namespace Ts3Fixes
         //             description may get a new Sim object meanwhile, which is not in the conversation).
         //   "expect left" (switches off) / "expect cleaned" (deadrefsweep and deadrefconvo on): throws unless the gone member
         //             is still there (left) or gone (cleaned). Either way the conversation is taken off the first townie.
-        public class ConvState { public int gone, members; public bool destroyed; }
-        static Sim sCvHost, sCvVictim; static Conversation sCvConv; static SimDescription sCvDesc; static Vector3 sCvPos;
+        //             Since 2026-11-23: kCvSamples conversations per arm, judged per sample (DeadRefsCore.ConvSampleVerdict:
+        //             an empty list counts as cleaned only with this conversation's own phase-15 removal; a host that left
+        //             before the check is n/a), arm verdict DeadRefsCore.ConvArmVerdict (no fail, >= 3 conclusive).
+        public class ConvState { public int gone, members, samples, goneSamples, pending; public bool destroyed, goneAll; }
+        // one seeded conversation (several per arm since 2026-11-23, Rodney: one bad sample must not decide the run)
+        class CvSample { public Sim host, victim; public Conversation conv; public SimDescription desc; public Vector3 pos; }
+        static List<CvSample> sCvSamples;
+        static Dictionary<Conversation, int> sCvRemoved; // phase 15 removals per seeded conversation (ConversationHolders)
+        const int kCvSamples = 5;
+
+        static int CvRemovedHere(Conversation cv) { int n; return sCvRemoved != null && cv != null && sCvRemoved.TryGetValue(cv, out n) ? n : 0; }
+        static bool CvHostLeft(CvSample x) { return SimGone(x.host) || x.host.SocialComponent == null || x.host.SocialComponent.Conversation != x.conv; }
+        static void CvCount(Conversation cv)
+        {
+            if (sCvRemoved == null || sCvSamples == null) return;
+            foreach (CvSample y in sCvSamples) if (y.conv == cv) { int n; sCvRemoved.TryGetValue(cv, out n); sCvRemoved[cv] = n + 1; return; }
+        }
 
         public static object DeadRefConversationCheck(string what)
         {
             if (sConvMembers == null) throw new InvalidOperationException("conversation check: mMembers not found");
+            if (what == "seed clean")
+            {
+                // Repro-only entry point (docs/330 §8.3 try 4): seed, then run phase 15's per-Sim step over every Sim at once in
+                // this same agent call (one sim-thread call: no host can run an interaction and leave in between). Same
+                // ConversationHolders body the pass runs (switch deadrefconvo checked inside), same unsafe-state refusal; the pass
+                // itself and its cadence are untouched.
+                string seeded = (string)DeadRefConversationCheck("seed");
+                string why = DeadRefsCore.ConvSeedCleanGate(ShortcutOn("deadrefsweep"), DeadRefUnsafe(false));
+                if (why != null) return seeded + "; phase 15 now: not run (" + why + ")";
+                int[] c = PatchCounters(); int r0 = c[995], sims = 0;
+                foreach (Sim x in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    sims++;
+                    try { ConversationHolders(x); } catch (Exception) { c[410]++; }
+                }
+                return seeded + "; phase 15 now: " + sims + " Sims stepped, " + (c[995] - r0) + " members removed";
+            }
             if (what == "seed")
             {
-                Sim host = DrPickTownie(), victim = null;
-                if (host != null && host.SocialComponent != null && host.SocialComponent.Conversation == null) victim = DrPickTownie(host.SimDescription, host);
-                if (victim == null) throw new InvalidOperationException("conversation seed: no two unrelated townies, or the first is talking already");
-                Conversation cv = (Conversation)Activator.CreateInstance(typeof(Conversation), true);
-                List<Sim> m = (List<Sim>)sConvMembers.GetValue(cv);
-                m.Add(host); m.Add(victim);
-                host.SocialComponent.Conversation = cv; // the field only: SetConversation would touch the host's posture and UI
-                sCvHost = host; sCvConv = cv; sCvVictim = victim; sCvDesc = victim.SimDescription; sCvPos = victim.Position;
-                string names = host.FullName + " with " + victim.FullName;
-                victim.Destroy();
-                return "conversation seed: " + names + ", the second Sim object destroyed";
+                // kCvSamples unrelated (host, victim) pairs of distinct townies; hosts not talking already
+                List<Sim> used = new List<Sim>(); List<CvSample> ss = new List<CvSample>();
+                sCvRemoved = new Dictionary<Conversation, int>();
+                for (int tries = 0; ss.Count < kCvSamples && tries < 4 * kCvSamples; tries++)
+                {
+                    Sim host = DrPickTownieNot(used, null);
+                    if (host == null) break;
+                    used.Add(host);
+                    if (host.SocialComponent == null || host.SocialComponent.Conversation != null) continue;
+                    Sim victim = DrPickTownieNot(used, host);
+                    if (victim == null) break;
+                    used.Add(victim);
+                    Conversation cv = (Conversation)Activator.CreateInstance(typeof(Conversation), true);
+                    List<Sim> m = (List<Sim>)sConvMembers.GetValue(cv);
+                    m.Add(host); m.Add(victim);
+                    host.SocialComponent.Conversation = cv; // the field only: SetConversation would touch the host's posture and UI
+                    CvSample x = new CvSample(); x.host = host; x.victim = victim; x.conv = cv; x.desc = victim.SimDescription; x.pos = victim.Position;
+                    ss.Add(x);
+                }
+                if (ss.Count < 3)
+                {
+                    foreach (CvSample x in ss) x.host.SocialComponent.Conversation = null;
+                    throw new InvalidOperationException("conversation seed: only " + ss.Count + " unrelated townie pairs (need 3)");
+                }
+                sCvSamples = ss;
+                List<string> names = new List<string>();
+                foreach (CvSample x in ss) { names.Add(x.host.FullName + " with " + x.victim.FullName); x.victim.Destroy(); }
+                return "conversation seed: " + ss.Count + " samples (" + string.Join("; ", names.ToArray()) + "), the second Sim objects destroyed";
             }
-            Sim h = sCvHost;
-            if (h == null || sCvConv == null) throw new InvalidOperationException("conversation " + what + ": no seed");
-            List<Sim> mm = (List<Sim>)sConvMembers.GetValue(sCvConv);
-            int gone = 0; foreach (Sim x in mm) if (SimGone(x)) gone++;
-            if (what == "state") { ConvState st = new ConvState(); st.gone = gone; st.members = mm.Count; st.destroyed = SimGone(sCvVictim); return st; }
+            if (sCvSamples == null) throw new InvalidOperationException("conversation " + what + ": no seed");
+            if (what == "state")
+            {
+                ConvState st = new ConvState(); st.destroyed = true; st.goneAll = true; st.samples = sCvSamples.Count;
+                foreach (CvSample x in sCvSamples)
+                {
+                    List<Sim> mm = (List<Sim>)sConvMembers.GetValue(x.conv);
+                    int g = 0; foreach (Sim y in mm) if (SimGone(y)) g++;
+                    st.gone += g; st.members += mm.Count;
+                    if (g > 0) st.goneSamples++; else st.goneAll = false;
+                    if (!SimGone(x.victim)) st.destroyed = false;
+                    if (g > 0 && !CvHostLeft(x)) st.pending++;  // not cleaned yet and the host still there to be cleaned
+                }
+                return st;
+            }
             if (what != "expect left" && what != "expect cleaned") return "conversation <seed|state|expect left|expect cleaned>";
             bool on = ShortcutOn("deadrefsweep") && ShortcutOn("deadrefconvo");
-            bool ok = what == "expect left" ? !on && gone == 1 : on && gone == 0 && mm.Count == 1;
-            string line = "gone " + gone + ", members " + mm.Count + " (switches " + on + ")";
-            if (!SimGone(h) && h.SocialComponent != null && h.SocialComponent.Conversation == sCvConv) h.SocialComponent.Conversation = null;
-            mm.Clear();
-            sCvHost = null; sCvVictim = null; sCvConv = null;
-            string back = DrPutBack(sCvDesc, sCvPos);
-            if (!ok) throw new InvalidOperationException("conversation " + what + ": wrong outcome; " + line + "; " + sCvDesc.FullName + " " + back);
-            return "as expected; " + line + "; " + sCvDesc.FullName + " " + back;
+            bool expectLeft = what == "expect left";
+            int pass = 0, fail = 0, na = 0; List<string> lines = new List<string>();
+            foreach (CvSample x in sCvSamples)
+            {
+                List<Sim> mm = (List<Sim>)sConvMembers.GetValue(x.conv);
+                int g = 0; foreach (Sim y in mm) if (SimGone(y)) g++;
+                bool left = CvHostLeft(x); int rh = CvRemovedHere(x.conv);
+                string v = DeadRefsCore.ConvSampleVerdict(expectLeft, on, g, mm.Count, rh, left);
+                if (v == "pass") pass++; else if (v == "fail") fail++; else na++;
+                lines.Add(x.host.FullName + ": " + v + " (gone " + g + ", members " + mm.Count + ", removedHere " + rh + (left ? ", host left" : "") + ")");
+                if (!left && x.host.SocialComponent != null) x.host.SocialComponent.Conversation = null;
+                mm.Clear();
+            }
+            List<string> back = new List<string>();
+            foreach (CvSample x in sCvSamples) back.Add(x.desc.FullName + " " + DrPutBack(x.desc, x.pos));
+            sCvSamples = null; sCvRemoved = null;
+            string verdict = DeadRefsCore.ConvArmVerdict(pass, fail, na);
+            string line = verdict + ": " + pass + " pass, " + fail + " fail, " + na + " n/a (switches " + on + "); " + string.Join("; ", lines.ToArray()) + "; " + string.Join("; ", back.ToArray());
+            if (verdict != "pass") throw new InvalidOperationException("conversation " + what + ": " + line);
+            return "as expected; " + line;
+        }
+
+        // A townie not in `used` (DrPickTownie's rules); unrelatedTo: no relationship to that Sim either, nor to any used Sim
+        // (one Destroy must not reach another sample's conversation through Relationship.RemoveReferencesToSim).
+        static Sim DrPickTownieNot(List<Sim> used, Sim unrelatedTo)
+        {
+            Household active = Household.ActiveHousehold;
+            Lot home = active != null ? active.LotHome : null;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                if (used.Contains(s)) continue;
+                SimDescription d = s.SimDescription;
+                if (IsPlayerSim(s) || s.IsPet || !d.IsValidDescription || !d.TeenOrAbove) continue;  // PlayerSims.cs: d != null after it
+                if ((home != null && s.LotCurrent == home) || d.AssignedRole != null || d.CreatedByService != null) continue;
+                if (unrelatedTo != null && Relationship.Get(unrelatedTo, s, false) != null) continue;
+                bool rel = false;
+                foreach (Sim u in used) if (Relationship.Get(u, s, false) != null) { rel = true; break; }
+                if (rel) continue;
+                return s;
+            }
+            return null;
         }
 
         // A townie for a hard state: not selectable, no pet, teen or older, not of the active household, not on its home
@@ -1168,7 +1387,7 @@ namespace Ts3Fixes
                     // swapped method: a delegate, not MethodInfo.Invoke (see EaFixes PrefRemoveFn)
                     return "aging: valid " + ((AgingValidFn)Fixes.Bind(typeof(AgingValidFn), AgingManager.Singleton, valid))((AgingState)state);
                 }
-                case "sweep": sDeadRefObjDue = true; return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
+                case "sweep": DrAllDue(); return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
                 default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck, cooking handlers: DeadRefCookingCheck, conversations: DeadRefConversationCheck)";
             }

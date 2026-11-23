@@ -103,6 +103,17 @@ static int MdtPick(const int* kinds, int n) {
         for (int i = 0; i < n; i++) if (kinds[i] == want) return i;
     return n > 0 ? 0 : -1;
 }
+// docs/298 §5.1: the inclusive pick is a ts3fixes frame but frame 0 (own) is game: a pass-through hook (FestivalHiddenHook,
+// EcHook, TrafficCreateHook, SpatialCacheHook) running EA's body, so the time is the game's, not ours
+static bool MdtViaHook(const int* kinds, int n, int pick) { return pick > 0 && pick < n && kinds[pick] == MDT_OURS && kinds[0] == MDT_GAME; }
+// "game via ts3fixes hook (<class>)" from the hook frame's "Ns.Class.Method" name
+static void MdtHookLabel(const char* meth, char* out, size_t cap) {
+    char c[96];
+    strncpy_s(c, meth ? meth : "?", _TRUNCATE);
+    if (char* dot = strrchr(c, '.')) *dot = 0;  // drop the method
+    const char* cls = strrchr(c, '.');
+    _snprintf_s(out, cap, _TRUNCATE, "game via ts3fixes hook (%s)", cls ? cls + 1 : c);
+}
 // docs/302 §4.4 notice rule (info only): sim hours in a row at >= 25% of sim CPU
 static int MdtHotStep(int run, double share) { return share >= 0.25 ? run + 1 : 0; }
 // the package's file name without folders, "core mod: " and ".package" (into d)
@@ -223,6 +234,20 @@ static int MdtModOf(DWORD image) {
     g_mdtMod[g_mdtModN] = m;
     return g_mdtModN++;
 }
+// the "game via ts3fixes hook (<class>)" row of hook method row mi (image 0, kind game: no notice-rule weight; 1 = table full)
+static int MdtViaHookOf(int mi) {
+    char lab[64];
+    MdtHookLabel(g_mdtMeth[mi].name, lab, sizeof(lab));
+    EnterCriticalSection(&g_mdtCs);
+    int r = 2;
+    while (r < g_mdtModN && (g_mdtMod[r].image || strcmp(g_mdtMod[r].name, lab))) r++;
+    if (r == g_mdtModN) {
+        if (g_mdtModN == 512) r = 1;
+        else { MdtMod m = {}; SCpy(m.name, lab); m.kind = MDT_GAME; g_mdtMod[g_mdtModN] = m; g_mdtModN++; }
+    }
+    LeaveCriticalSection(&g_mdtCs);
+    return r;
+}
 
 // hash probe: the entry index, or -1 with *slot = the free slot (-1 when the hash is full)
 static int MdtMethFind(DWORD method, int* slot) {
@@ -268,8 +293,8 @@ static void MdtTablesInit() {
     if (g_mdtInit) return;
     g_mdtInit = 1;
     InitializeCriticalSection(&g_mdtCs);
-    strcpy_s(g_mdtMod[MDT_ENGINE].name, "engine (no script on the stack)"), g_mdtMod[MDT_ENGINE].kind = MDT_ENGINE;
-    strcpy_s(g_mdtMod[1].name, "(unreadable method)"), g_mdtMod[1].kind = MDT_GAME;
+    SCpy(g_mdtMod[MDT_ENGINE].name, "engine (no script on the stack)"), g_mdtMod[MDT_ENGINE].kind = MDT_ENGINE;
+    SCpy(g_mdtMod[1].name, "(unreadable method)"), g_mdtMod[1].kind = MDT_GAME;
     g_mdtModN = 2;
 }
 // Owner of one MonoMethod* for any caller and thread (e.g. a per-task-run seam): cached per method (8192 methods, 512
@@ -364,7 +389,7 @@ static void MdtIterEnd(MdtIterBuf& b, LONG ms) {
             for (int j = 0; j < k; j++) if (cnt[j] > 0 && (best < 0 || cnt[j] > cnt[best])) best = j;
             if (best < 0) break;
             const int mi = key[best];
-            if (mi < 0) strcpy_s(t.top[r], "engine (no script on the stack)");
+            if (mi < 0) SCpy(t.top[r], "engine (no script on the stack)");
             else _snprintf_s(t.top[r], _TRUNCATE, "%s: %s", g_mdtMod[g_mdtMeth[mi].mod].name, g_mdtMeth[mi].name);
             t.topN[r] = cnt[best];
             cnt[best] = 0;
@@ -401,9 +426,8 @@ static DWORD WINAPI MdtSampler(LPVOID) {
     LONGLONG lastCpu = GetThreadTimes(h, &tc, &te, &tk, &tu) ? MdtFt(tk) + MdtFt(tu) : 0, lastWall = MdtUs();
     DWORD lastWrite = GetTickCount();
     bool wasLive = false;
-    const DWORD sleepMs = 1000 / g_mdtHz;
     for (;;) {
-        Sleep(sleepMs);
+        Sleep(1000 / g_mdtHz);  // read per sample: [AdaptDiag] (docs/316) raises the rate for a hitch drill-down at run time
         const LONG req = InterlockedExchange(&g_mdtReq, 0);
         if (req & 1) MdtWriteSummary(true, g_mdtReqHour), lastWrite = GetTickCount();
         else if (req & 2 || GetTickCount() - lastWrite >= 600000) MdtWriteSummary(false, -1), lastWrite = GetTickCount();
@@ -442,7 +466,7 @@ static DWORD WINAPI MdtSampler(LPVOID) {
             meths[kk] = mi, kinds[kk++] = g_mdtMod[g_mdtMeth[mi].mod].kind;
         }
         const int pick = MdtPick(kinds, kk);
-        const int mi = pick >= 0 ? meths[pick] : -1, mod = mi >= 0 ? g_mdtMeth[mi].mod : MDT_ENGINE;
+        const int mi = pick >= 0 ? meths[pick] : -1, mod = mi < 0 ? MDT_ENGINE : MdtViaHook(kinds, kk, pick) ? MdtViaHookOf(mi) : g_mdtMeth[mi].mod;
         const int si = kk > 0 ? meths[0] : -1, selfMod = si >= 0 ? g_mdtMeth[si].mod : MDT_ENGINE;
         const bool gc = eip >= MDT_GC_LO && eip < MDT_GC_HI;
         EnterCriticalSection(&g_mdtCs);
@@ -534,14 +558,14 @@ static void MdtScanFile(const wchar_t* path, const wchar_t* rel) {
 }
 static void MdtWalk(const wchar_t* dir, const wchar_t* rel, int depth) {
     wchar_t pat[MAX_PATH];
-    if (swprintf_s(pat, L"%s\\*", dir) < 0) return;
+    if (!PathFmt(pat, L"%s\\*", dir)) return;
     WIN32_FIND_DATAW fd;
     HANDLE f = FindFirstFileW(pat, &fd);
     if (f == INVALID_HANDLE_VALUE) return;
     do {
         if (fd.cFileName[0] == L'.') continue;
         wchar_t sub[MAX_PATH], subRel[MAX_PATH];
-        if (swprintf_s(sub, L"%s\\%s", dir, fd.cFileName) < 0 || swprintf_s(subRel, L"%s%s%s", rel, rel[0] ? L"\\" : L"", fd.cFileName) < 0) continue;
+        if (!PathFmt(sub, L"%s\\%s", dir, fd.cFileName) || !PathFmt(subRel, L"%s%s%s", rel, rel[0] ? L"\\" : L"", fd.cFileName)) continue;
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) { if (depth < 6 && !(fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) MdtWalk(sub, subRel, depth + 1); }
         else {
             const size_t l = wcslen(fd.cFileName);
@@ -556,18 +580,18 @@ static DWORD WINAPI MdtScan(LPVOID) {
     if (g_mdtPkg) {
         wchar_t user[MAX_PATH], mods[MAX_PATH];
         UserSims3Dir(user);
-        if (swprintf_s(mods, L"%s\\Mods", user) > 0) MdtWalk(mods, L"", 0);  // the game's own folder first: its match wins
+        if (PathFmt(mods, L"%s\\Mods", user)) MdtWalk(mods, L"", 0);  // the game's own folder first: its match wins
         wchar_t* cut = wcsrchr(user, L'\\');  // <Documents>\Electronic Arts: other language / copy folders
         if (cut) {
             *cut = 0;
             wchar_t pat[MAX_PATH];
             WIN32_FIND_DATAW fd;
-            HANDLE f = swprintf_s(pat, L"%s\\*", user) > 0 ? FindFirstFileW(pat, &fd) : INVALID_HANDLE_VALUE;
+            HANDLE f = PathFmt(pat, L"%s\\*", user) ? FindFirstFileW(pat, &fd) : INVALID_HANDLE_VALUE;
             if (f != INVALID_HANDLE_VALUE) {
                 do {
                     if (fd.cFileName[0] == L'.' || !(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || !_wcsicmp(fd.cFileName, L"The Sims 3")) continue;
                     wchar_t other[MAX_PATH], rel[MAX_PATH];
-                    if (swprintf_s(other, L"%s\\%s\\Mods", user, fd.cFileName) > 0 && swprintf_s(rel, L"(%s)", fd.cFileName) > 0 &&
+                    if (PathFmt(other, L"%s\\%s\\Mods", user, fd.cFileName) && PathFmt(rel, L"(%s)", fd.cFileName) &&
                         GetFileAttributesW(other) != INVALID_FILE_ATTRIBUTES)
                         MdtWalk(other, rel, 0);
                 } while (FindNextFileW(f, &fd));
@@ -589,7 +613,7 @@ static void MdtMatchPackages() {  // caller holds g_mdtCs
                 _snprintf_s(m.pkg, _TRUNCATE, "%s%s", m.kind == MDT_GAME ? "core mod: " : "", g_mdtPkg[j].pkg);
                 break;
             }
-        if (!m.pkg[0]) strcpy_s(m.pkg, m.kind == MDT_GAME ? "(game files)" : "(not found in Mods)");
+        if (!m.pkg[0]) SCpy(m.pkg, m.kind == MDT_GAME ? "(game files)" : "(not found in Mods)");
     }
 }
 
@@ -805,13 +829,13 @@ static bool ApplyModTime(const wchar_t* ini) {
     // checks the site's bytes and stands down on a mismatch
     LONG hz = (LONG)GetPrivateProfileIntW(L"Diag", L"ModTimeHz", 10, ini);
     g_mdtHz = hz < 10 ? 10 : hz > 200 ? 200 : hz;
-    wcscpy_s(g_mdtSum, ini);
+    WCpy(g_mdtSum, ini);
     wchar_t* slash = wcsrchr(g_mdtSum, L'\\');
     if (!slash) return false;
     slash[1] = 0;
-    wcscpy_s(g_mdtCsv, g_mdtSum);
-    wcscat_s(g_mdtSum, L"modtime-summary.txt");
-    wcscat_s(g_mdtCsv, L"modtime.csv");
+    WCpy(g_mdtCsv, g_mdtSum);
+    WCat(g_mdtSum, L"modtime-summary.txt");
+    WCat(g_mdtCsv, L"modtime.csv");
     SYSTEMTIME st;
     GetLocalTime(&st);
     g_mdtSession = (DWORD)st.wMonth * 1000000 + st.wDay * 10000 + st.wHour * 100 + st.wMinute;

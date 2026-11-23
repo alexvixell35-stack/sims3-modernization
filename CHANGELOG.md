@@ -4,7 +4,14 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
-Nothing yet: changes after v0.3.1 are listed here once they are built.
+Credit: Dalexlol (PRs #637, #638, #639, #640, #643, #644). New fixes, all on by default except where noted:
+
+- Firefighter emergencies end when their last rescue or window-fire task cannot be done any more (`fireleftover`).
+- Earthquake gas leaks and ghost-hunter spirit hops no longer pick spots inside hidden apartment units (`aptgasleak`, `aptpossess`).
+- A large fire no longer unlocks every door on the lot; door locks the job did not set come back (`firedoorkeep`).
+- Sims playing horseshoes alone are sent on their way after 2 sim-hours, and lost players leave the court's queue (`horseshoesolo`; Sims you control are never cut).
+- Burglars on apartment lots no longer go for loot nobody can reach (`burglarapt`).
+- Sims standing on a ladder's ends are asked to step aside when a plan needs the ladder (`ladderfootshoo`; for household and selected Sims `ladderfootshoohh` stays off).
 
 ## v0.3.1 (2026-11-21, hotfix)
 
@@ -36,7 +43,7 @@ Steam 1.67, Apex Radiance 4.0.13 with the RTX Remix bridge, on this exact `ts3na
 
 ## v0.3.0 (2026-11-21)
 
-The biggest release so far. On Steam the game's busiest script methods now run as compiled machine code (the script compiler), and about 500 fixes for the game's own bugs are switched on, most of them by Dalexlol with an in-game before/after test for each. No new overall speed numbers in this release: the compiler's gain is estimated from offline benchmarks, not timed in game.
+The biggest release so far. On Steam the game's busiest script methods now run as compiled machine code (the script compiler), and over 400 fixes for the game's own bugs (about 440) are switched on, most of them by Dalexlol with an in-game before/after test for each. No new overall speed numbers in this release: the compiler's gain is estimated from offline benchmarks, not timed in game.
 
 ### Download
 
@@ -66,7 +73,7 @@ The biggest release so far. On Steam the game's busiest script methods now run a
 - **Isla Paradiso no longer freezes on a broken bridge height (EA bug, `[EaCrashFixes] HeightsInfLoop`, `BridgeHeightNaN`; by Dalexlol, PR #394, issue #384).** A bridge that reports a height that is not a number made a route segment endless and froze the game, sometimes during the world load. The terrain height is used there now.
 - **Sim portraits no longer stall the game's portrait queue (`[ThumbStall] Enabled=1`; by Dalexlol, #371).** A portrait the game waits on forever is given up after 10 s (a travel hang, issue #40).
 - **Fixed a rare crash in `mono_class_init` with background scoring on (`[AutShadow] Satb=2`).** The scorer now waits for the game to finish loading a class first. No change to what Sims do.
-- **About 500 fixes for the game's own bugs in `ts3fixes.package` (most by Dalexlol: PRs #337-#368, #405, #452-#518, #524-#529, #540, #559 and his tested fix list).** Each one fixes one EA bug and was shown broken without it and fixed with it in his in-game tests. Among them:
+- **About 440 fixes for the game's own bugs in `ts3fixes.package` (most by Dalexlol: PRs #337-#368, #405, #452-#518, #524-#529, #540, #559 and his tested fix list).** Each one fixes one EA bug and was shown broken without it and fixed with it in his in-game tests. Among them:
   - Pregnant townies give birth again instead of looping to the hospital; births are no longer lost, duplicated or crashed.
   - Sims no longer stand around for minutes after some socials (Show Videos, Trivia, Interview and others), and stop waiting for partners who already refused.
   - Fewer Sims stuck at activities: bowling, the Space Simulator, band jams, statue lines, fire pits and picnic baskets, the photo booth, sent-home party guests.

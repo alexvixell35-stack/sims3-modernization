@@ -13,6 +13,6 @@ node tools/release/experimental.ts --self-check
 powershell -NoProfile -File tools/release/register-experimental-task.ps1 [-At 12:30] [-Unregister]
 ```
 
-Needs `PERSONAL_GITHUB_TOKEN` (never print it). Skips while a chain / queue / job / the game runs, when master and the switch list match the last experimental release, and when today's tag exists. Never touches the stable release, `latest`, or `docs/data/builds.json`.
+Needs `PERSONAL_GITHUB_TOKEN` (never print it). Builds while chains run but skips while a timing job runs (docs/279 step 1), when master and the switch list match the last experimental release, and when today's tag exists. Never touches the stable release, `latest`, or `docs/data/builds.json`.
 
 Switch list: `docs/data/verified-switches.json`. When a correctness job of a switch passes (or fails), update its entry in the same commit as the result page: `status` verified (its `on` values go in) / blocked (its `off` values are forced) / unverified (master default), `evidence` = repo paths of the result pages, one-line `reason`. Household mismatch, crash or open FAIL = blocked. Keep `knownIssues` current. Log: `probe-out/experimental/experimental.log`.

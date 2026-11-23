@@ -1,0 +1,78 @@
+{
+  "note": "compat-overlap-1122 (WRITTEN, NOT STARTED; docs/COMPATIBILITY.md 2026-11-22): in-game correctness for the overlap rows of the 2026-11-22 static scan that are not 'in our test setup': the 21 MTS top-100 mods of docs/data/compat-overlap-1122.json in one set (game-copy/mod-sets/compat-overlap-1122, 41 packages, built by tools/mod-set.ts; Enhanced Witches (hang-seen) and the Consort weight core mod (second core mod next to simler90) left out). v0.3.1 Steam release pair (asi/ini hf031 = rel031, ts3fixes hf031b = rel031), release defaults, Apex + bridge (Bin state apex via tools/turbo-compat.ts). Job 1 = short smoke (set loads, read back in the script assemblies line, world reached, 0 script errors). Job 2 = 10 min play with our mods ON, 0 script errors. Job 3 = control: same set, our mods OFF, so a script error from a mod itself is not counted against us. PASS jobs 2 + 3 = these rows move to 'in our test setup'. A hang with our mods OFF (job 3) is a mod-set problem: bisect like chain-mmw-1122. Run: node tools/harness/queue.ts tools/harness/queues/compat-overlap-1122.json --no-smoke. Est 3 jobs x 12-20 min.",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions.*Savanita\\.RomanticInteractions|^ts3fixes: script assemblies \\(\\d+\\): .*Savanita\\.RomanticInteractions.*TwoBTech\\.Mods\\.MoarInteractions": {
+      "match": [
+        "ts3fixes: script assemblies (431): Ts3Fixes, TwoBTech.Mods.MoarInteractions, Savanita.RomanticInteractions, NRaasOverwatch",
+        "ts3fixes: script assemblies (431): Ts3Fixes, Savanita.RomanticInteractions, ClassGardenerMaintenance, TwoBTech.Mods.MoarInteractions"
+      ],
+      "noMatch": [
+        "ts3fixes: script assemblies (412): Ts3Fixes, TwoBTech.Mods.MoarInteractions, NRaasMasterController",
+        "ts3fixes: script assemblies (386): Ts3Fixes, Ts3Agent"
+      ]
+    },
+    "^ts3native 0\\.36\\.295a ": {
+      "match": [
+        "ts3native 0.36.295a 2026-11-20 15:24:38"
+      ],
+      "noMatch": [
+        "ts3native 0.36.295 2026-11-19 09:00:00",
+        "ts3native 0.36.299-e1122 2026-11-22 06:15:57"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "ip-compat-overlap-smoke",
+      "note": "[est 8-12 min] smoke: the set moves in, the world loads with our release mods ON, both marker assemblies are in the ts3fixes script assemblies line, release version read back, 0 script errors in a 1 min window.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "v0.3.1 Steam release pair (rel031 = hf031 asi/ini + hf031b ts3fixes, same sha256): what MTS players install",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/compat-overlap-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "run": { "profile": { "minutes": 1, "seed": 12345, "noSamplers": true } },
+      "logRequire": {
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions.*Savanita\\.RomanticInteractions|^ts3fixes: script assemblies \\(\\d+\\): .*Savanita\\.RomanticInteractions.*TwoBTech\\.Mods\\.MoarInteractions": 1,
+        "^ts3native 0\\.36\\.295a ": 1
+      }
+    },
+    {
+      "id": "ip-compat-overlap-play",
+      "note": "[est 18-22 min] correctness: 10 min at speed 3 with the overlap set and our release mods ON. PASS = world loaded, 0 script errors, no crash or hang.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "v0.3.1 Steam release pair (rel031 = hf031 asi/ini + hf031b ts3fixes, same sha256): what MTS players install",
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/compat-overlap-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295a ": 1
+      }
+    },
+    {
+      "id": "ip-compat-overlap-control",
+      "note": "[est 15-20 min] control: the same set and 10 min with our mods OFF (asi none). Script errors here belong to the mods or EA, not to us; job 2 is judged against this one.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-IP",
+      "modSet": "game-copy/mod-sets/compat-overlap-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 30,
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } }
+    }
+  ]
+}

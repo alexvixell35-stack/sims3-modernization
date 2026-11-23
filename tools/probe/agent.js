@@ -1788,6 +1788,17 @@ rpc.exports = {
       if (mp.readS32() >= 8) mf.push('workerAllocs', 'workerAllocsTyped', 'workerAllocMaxJob'); // v8: +0xBC..+0xC4 (D8 sizing, docs/30 §18)
       r.mtprobe = Object.fromEntries(mf.map((n, i) => [n, mp.add(i * 4).readS32()]));
     }
+    // docs/322 [UnseenProbe] Bands: export ts3native_unseenband (v1, 0x260 bytes; docs/registry.md), null when the asi has none.
+    // ubN_/ubUs_<site>_<row>: site 0 loco, 1 waits, 2 footprint, 3 plans, 4 pose, 5 Sim task, 6 autonomy; row 0-6 band, 7 household, 8 no position
+    const ub = m.findExportByName('ts3native_unseenband');
+    if (ub !== null && ub.readS32() >= 1) {
+      const rd = i => ub.add(i * 4).readS32();
+      r.ubReady = rd(1); r.ubEdges = rd(2);
+      for (let i = 0; i < 6; i++) r[`ubEdgeM_${i}`] = rd(3 + i);
+      for (let s = 0; s < 7; s++) for (let w = 0; w < 9; w++) { r[`ubN_${s}_${w}`] = rd(9 + s * 9 + w); r[`ubUs_${s}_${w}`] = rd(72 + s * 9 + w); }
+      for (let w = 0; w < 9; w++) r[`ubSimUpd_${w}`] = rd(135 + w);
+      r.ubAutNamed = rd(144); r.ubAutNone = rd(145); r.ubCamOnly = rd(146);
+    }
     // autonomy shadow pilot (docs/122 §13-§14): export ts3native_autshadow (docs/registry.md), null when the asi has none
     const ap = m.findExportByName('ts3native_autshadow');
     if (ap !== null) {

@@ -23,6 +23,9 @@ typedef DWORD(__cdecl* TskFieldFn)(DWORD klass, const char* name);  // mono_clas
 static const DWORD TSK_RUNTASK = TS3A(0x00D7F000), TSK_INVOKE = TS3A(0x00EA1090), TSK_FIELD = TS3A(0x00E6F720);
 enum { TSK_MAXO = 512 };  // = ModTime's owner rows (g_mdtMod)
 
+static void NsReset(DWORD slot);  // nonsim.cpp (docs/329, included after this file; g_nsOn / g_tskInRun: unseen.cpp)
+static void NsRun(int slot, LONGLONG ticks, DWORD lo, DWORD hi, bool invoke);
+static void NsDump();
 static TsRunTaskFn g_tskNext = (TsRunTaskFn)(uintptr_t)TSK_RUNTASK;  // EA's RunTask or TaskServe's hook
 static TskInvokeFn g_tskInvNext = (TskInvokeFn)(uintptr_t)TSK_INVOKE;
 static int g_tskOn;                // [Diag] TaskSeam in force
@@ -32,13 +35,13 @@ static LARGE_INTEGER g_tskQpf;
 static LONGLONG g_tskStart;        // QPC at the first iteration
 
 // ---- side table: node (or invoke object | 1) -> owner, scope ----
-struct TskEnt { DWORD key, state, obj; short owner; u8 kind, scope; };
-enum { TSK_EN = 8192 };
+struct TskEnt { DWORD key, state, obj; short owner; u8 kind, scope, role; };  // role (docs/322 bands): 1 a Sim's proxy, 2 AutonomyManager
+enum { TSK_EN = 65536, TSK_CN = 4096 };  // docs/322: 8192 nodes / 512 classes filled in BP (957,961 of 1.34M runs unattributed)
 static TskEnt g_tskEnt[TSK_EN];
 static LONG g_tskEntFull;
 // per class: instance offsets of mTarget / mFunction / method_info (-1 none), cached (512 classes)
-struct TskCls { DWORD klass; int target, function, methodInfo; u8 sim; };
-static TskCls g_tskCls[512];
+struct TskCls { DWORD klass; int target, function, methodInfo; u8 sim, aut, lot; int nsSim, nsParent, nsObjId; };  // ns*: docs/329 (NonSimSplit only)
+static TskCls g_tskCls[TSK_CN];  // open addressing by klass (12-bit hash)
 static int g_tskClsN;
 
 static double TskUs(LONGLONG ticks) { return g_tskQpf.QuadPart ? ticks * 1e6 / g_tskQpf.QuadPart : 0; }
@@ -56,12 +59,24 @@ static bool TskClsIs(DWORD klass, const char* ns, const char* name) {
            !strcmp(n, name) && !strcmp(s, ns);
 }
 static const TskCls* TskClass(DWORD klass) {  // sim thread (the field lookup takes Mono's lock: never from another thread)
-    for (int i = 0; i < g_tskClsN; i++) if (g_tskCls[i].klass == klass) return &g_tskCls[i];
-    if (g_tskClsN == 512) return NULL;
-    TskCls c = {klass, TskFieldOff(klass, "mTarget"), TskFieldOff(klass, "mFunction"), TskFieldOff(klass, "method_info"), 0};
+    DWORD h = (klass >> 3) * 2654435761u >> 20;
+    for (int p = 0; p < TSK_CN; p++, h = (h + 1) & (TSK_CN - 1)) {
+        if (g_tskCls[h].klass == klass) return &g_tskCls[h];
+        if (!g_tskCls[h].klass) break;
+    }
+    if (g_tskClsN >= TSK_CN * 3 / 4 || g_tskCls[h].klass) return NULL;
+    TskCls c = {klass, TskFieldOff(klass, "mTarget"), TskFieldOff(klass, "mFunction"), TskFieldOff(klass, "method_info"), 0, 0, 0, -1, -1, -1};
     c.sim = TskClsIs(klass, "Sims3.Gameplay.Actors", "Sim") ? 1 : 0;
-    g_tskCls[g_tskClsN] = c;
-    return &g_tskCls[g_tskClsN++];
+    c.aut = TskClsIs(klass, "Sims3.Gameplay.Autonomy", "AutonomyManager") ? 1 : 0;
+    if (g_nsOn) {  // docs/329: a held Sim (SimUpdate.mSim, mActor), ScriptObject.mParent (its proxy), ScriptProxy.mObjectId (ObjectGuid)
+        c.lot = TskClsIs(klass, "Sims3.Gameplay.Core", "Lot") ? 1 : 0;
+        c.nsSim = TskFieldOff(klass, "mSim");
+        if (c.nsSim < 0) c.nsSim = TskFieldOff(klass, "mActor");
+        c.nsParent = TskFieldOff(klass, "mParent"), c.nsObjId = TskFieldOff(klass, "mObjectId");
+    }
+    g_tskCls[h] = c;
+    g_tskClsN++;
+    return &g_tskCls[h];
 }
 static DWORD TskKlass(DWORD obj) { return obj ? *(const DWORD*)(uintptr_t)(*(const DWORD*)(uintptr_t)obj) : 0; }  // obj->vtable->klass
 
@@ -76,7 +91,7 @@ static void TskOwnerSet(TskEnt& e, const MdtOwner& o) { e.owner = (short)o.idx, 
 // one run's owner and scope (sim thread, SEH by the caller). method = the run's entry method, obj = the task object.
 static void TskResolve(TskEnt& e, DWORD method, DWORD obj, DWORD keyLo, DWORD keyHi, bool proxyKey) {
     MdtOwner o;
-    e.owner = 1, e.kind = MDT_GAME, e.scope = TS_SC_HH;  // unreadable: game, household
+    e.owner = 1, e.kind = MDT_GAME, e.scope = TS_SC_HH, e.role = 0;  // unreadable: game, household
     if (MdtOwnerOf(method, &o)) TskOwnerSet(e, o);
     const DWORD k = TskKlass(obj);
     const TskCls* c = k ? TskClass(k) : NULL;
@@ -87,6 +102,7 @@ static void TskResolve(TskEnt& e, DWORD method, DWORD obj, DWORD keyLo, DWORD ke
         const TskCls* tc = tk ? TskClass(tk) : NULL;
         // the proxy's ObjectGuid (the node key) is the Sim's ObjectId [inferred, docs/51 I-556-1]
         if (tc && tc->sim && proxyKey && !TskHouseholdId(keyLo, keyHi)) e.scope = TS_SC_SIMCAND;
+        if (tc && proxyKey) e.role = tc->sim ? 1 : tc->aut ? 2 : 0;  // docs/322 bands (scope above stays the summary's)
     } else if (c->function > 0) {  // EA OneShotFunctionTask / NRaas FunctionTask: the delegate's method
         const DWORD d = *(const DWORD*)(uintptr_t)(obj + c->function), dk = TskKlass(d);
         const TskCls* dc = dk ? TskClass(dk) : NULL;
@@ -99,13 +115,14 @@ static void TskResolve(TskEnt& e, DWORD method, DWORD obj, DWORD keyLo, DWORD ke
 }
 
 static TskEnt* TskLookup(DWORD key, DWORD state, DWORD obj, DWORD method, DWORD keyLo, DWORD keyHi, bool proxyKey) {
-    DWORD h = (key >> 3) * 2654435761u >> 19;
+    DWORD h = (key >> 3) * 2654435761u >> 16;  // 16 bits = TSK_EN
     for (int p = 0; p < 64; p++, h = (h + 1) & (TSK_EN - 1)) {
         TskEnt& e = g_tskEnt[h];
         if (e.key == key && e.state == state && e.obj == obj) return &e;
         if (e.key == key || !e.key) {  // free, or a reused node (new task): resolve again
             e.key = key, e.state = state, e.obj = obj;
             TskResolve(e, method, obj, keyLo, keyHi, proxyKey);
+            if (g_nsOn) NsReset(h);  // docs/329: a new task on this slot
             return &e;
         }
     }
@@ -134,16 +151,19 @@ static void __fastcall TskRunHook(void* host, void* edx, void* entry, DWORD a, D
     const bool self = (++g_tskSeq & 63) == 0;
     const LONGLONG s0 = self ? TskNow() : 0;
     TskEnt* e = NULL;
+    DWORD keyLo = 0, keyHi = 0;
     __try {
         const DWORD node = *(const DWORD*)entry, state = *(const DWORD*)(uintptr_t)(node + 8);
-        e = TskLookup(node, state, *(const DWORD*)(uintptr_t)(state + 4), *(const DWORD*)(uintptr_t)state, *(const DWORD*)(uintptr_t)node,
-                      *(const DWORD*)(uintptr_t)(node + 4), true);
+        keyLo = *(const DWORD*)(uintptr_t)node, keyHi = *(const DWORD*)(uintptr_t)(node + 4);
+        e = TskLookup(node, state, *(const DWORD*)(uintptr_t)(state + 4), *(const DWORD*)(uintptr_t)state, keyLo, keyHi, true);
     } __except (EXCEPTION_EXECUTE_HANDLER) { e = NULL; }
     const LONGLONG t0 = TskNow();
-    g_tskDepth++;
-    __try { g_tskNext(host, edx, entry, a, b); } __finally { g_tskDepth--; }  // an SEH unwind through the run must not leave the seam off
+    g_tskDepth++, g_tskInRun = e && e->role ? (u8)(e->role + 1) : 1;  // docs/329: 1 = a non-Sim run (unseenband.cpp UbAdd)
+    __try { g_tskNext(host, edx, entry, a, b); } __finally { g_tskDepth--, g_tskInRun = 0; }  // an SEH unwind through the run must not leave the seam off
     const LONGLONG t1 = TskNow();
     TskAccount(e, t1 - t0, false);
+    if (g_ubOn && e && e->role) UbTaskRun(e->role, keyLo, keyHi, t1 - t0);  // docs/322: outside the timed run
+    if (g_nsOn) NsRun(e ? (int)(e - g_tskEnt) : -1, t1 - t0, keyLo, keyHi, false);  // docs/329: outside the timed run
     if (self) g_tskSelfTicks += (t0 - s0) + (TskNow() - t1), g_tskSelfN++;
 }
 
@@ -153,10 +173,12 @@ static DWORD __cdecl TskInvokeHook(DWORD method, DWORD obj, DWORD params, DWORD*
     TskEnt* e = NULL;
     __try { e = TskLookup(obj | 1, method, obj, method, 0, 0, false); } __except (EXCEPTION_EXECUTE_HANDLER) { e = NULL; }  // | 1: own key space
     const LONGLONG t0 = TskNow();
-    g_tskDepth++;
+    g_tskDepth++, g_tskInRun = 1;
     DWORD r = 0;
-    __try { r = g_tskInvNext(method, obj, params, exc); } __finally { g_tskDepth--; }
-    TskAccount(e, TskNow() - t0, true);
+    __try { r = g_tskInvNext(method, obj, params, exc); } __finally { g_tskDepth--, g_tskInRun = 0; }
+    const LONGLONG t1 = TskNow();
+    TskAccount(e, t1 - t0, true);
+    if (g_nsOn) NsRun(e ? (int)(e - g_tskEnt) : -1, t1 - t0, 0, 0, true);  // docs/329
     return r;
 }
 
@@ -225,6 +247,7 @@ static DWORD WINAPI TskWriter(LPVOID) {
     for (LONG n = 0;; n++) {
         Sleep(60000);
         TskWriteSummary();
+        NsDump();  // docs/329 (nothing unless [Diag] NonSimSplit=1)
         if (n < 3 || !(n % 10)) Log("task seam: summary written (%ld runs, %ld invoke runs, %ld owners, self %ld ns per run)", ts3native_counters.tskRuns,
                                     ts3native_counters.tskInvRuns, ts3native_counters.tskOwners, ts3native_counters.tskSelfNs);
     }
@@ -264,8 +287,8 @@ static bool ApplyTaskSeam(const wchar_t* ini) {
     k.tskSites = 1;
     if (PatchCalls("task seam (OneShot / ScriptTick runtime invoke call sites)", kTskInvSites, 2)) k.tskSites |= 2;
     g_tskOn = 1, k.tskOn = 1;
-    wcscpy_s(g_tskSum, ini);
-    if (wchar_t* slash = wcsrchr(g_tskSum, L'\\')) slash[1] = 0, wcscat_s(g_tskSum, L"taskseam-summary.txt");
+    WCpy(g_tskSum, ini);
+    if (wchar_t* slash = wcsrchr(g_tskSum, L'\\')) slash[1] = 0, WCat(g_tskSum, L"taskseam-summary.txt");
     HANDLE t = CreateThread(NULL, 64 * 1024, TskWriter, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL);
     if (t) CloseHandle(t);
     Log("OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites%s%s, per-owner run time, run-length histogram, runs per iteration;"

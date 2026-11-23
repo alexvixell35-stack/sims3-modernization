@@ -718,13 +718,13 @@ static int SnInstallAt(int i, DWORD at, DWORD target) {
     const u8* p = (const u8*)(uintptr_t)at;
     if (!Matches(p, want, s.len)) {
         char hex[64];
-        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP routesnap %s: bytes at 0x%08lX differ (found %s)", s.name, at, hex);
         return 0;
     }
     if (!target) {
         char name[64];
-        sprintf_s(name, "%s (routesnap)", s.name);
+        SFmt(name, "%s (routesnap)", s.name);
         return (g_snJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kSnStubs[i], &g_snJmp[i])) != NULL;
     }
     g_snJmp[i] = (void*)(uintptr_t)target;

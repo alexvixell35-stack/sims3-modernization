@@ -6,37 +6,61 @@ Target: The Sims 3 **Steam** edition, patch 1.67, all expansion and stuff packs,
 
 **Just want to play with the fixes?** Download the latest [release](https://github.com/rodneypantonial/sims3-modernization/releases) and follow [docs/PLAYERS.md](docs/PLAYERS.md): what's switched on, and how to install it in a few steps.
 
-**Status:** research project. Latest release: **v0.3.0** (2026-11-21), Steam (EA app 1.69.47 zip after its test): the game's busiest script methods run as compiled code (script compiler, gain modelled offline, not timed in game), about 500 fixes for the game's own bugs are on (most by Dalexlol), and new crash and freeze guards for routing, quitting and Isla Paradiso bridges; checked for crashes and save compatibility, no new overall speed numbers. Before it, **v0.2.12** (2026-11-13), Steam and the EA app 1.69.47: fixes the rare crash on the second thread from v0.2.11 (#352), the background thread stops cleanly when you leave a world, and on the EA app townies you can't see now also choose on the second thread; checked for crashes, no new overall speed numbers. Before it, **v0.2.11** (2026-11-12), Steam and (since 2026-11-13) the EA app 1.69.47: townies you can't see choose their next action on a second thread (6-12 ms less main-thread work per second), car and boat trips plan in the background, crash fixes (S3SS 1.6.3 world changes, loading screens, outfits) and a dozen fixes for game errors; checked for crashes, no new overall timing. Before it, **v0.2.10** (2026-11-07), Steam and the EA app 1.69.47: stoves and fridges no longer become unusable. Before it, **v0.2.9** (2026-11-07), Steam and the EA app 1.69.47: Sims you play or see no longer fail routes on a time limit, your household stays out of route resets and animation skips, and a crash after running out of script memory is fixed; checked for crashes, not timed. Before it, **v0.2.8** (2026-11-06): one release for Steam and the EA app 1.69.47, with crash fixes (Error 12 on every save of an Isla Paradiso world, Sim thumbnail render, a Sim texture that cannot be created) and the newer routing changes switched on; checked for crashes, not timed. Before it, **v0.2.7** (2026-11-05): EA app 1.69.47 version, Steam files unchanged. Before it, **v0.2.6** (2026-11-05): hotfix for the freeze and crash on the fifth Power Cell and for skipped object cleanup, not run in the game yet. Before it, **v0.2.5** (2026-11-05): cheaper animation for Sims you cannot see, a cheaper held-action check, a fix for a rare memory runaway at game start, crash fixes for custom-content meshes without a material and for Isla Paradiso routing, fixes for paired socials, rabbit hole doors and saves with a removed service, and EA app 1.69.47 support. Results are measured on one laptop (i7-11800H, 32 GB, RTX 3070 Laptop GPU). They are not yet confirmed on other machines; that is one of the things contributors can help with.
+**Save safety:** nothing of ours is stored in your saves (anything a feature must remember per save goes in a separate small text file); you can remove the mods any time and your saves keep loading (save portability test of v0.3.0); every fix has its own switch (`ts3native.ini` sections, one `ts3fixes` tuning value per fix). A few on-by-default EA bug fixes do clean the game's own leftovers, such as references to Sims who are gone, and the game saves that cleaner state as usual; the bigger save clean-ups are off. Details: [docs/PLAYERS.md, Save safety](docs/PLAYERS.md#save-safety).
 
-**Recommended setup (since 2026-11-13):** [Apex Radiance](https://github.com/loinyx/Sims3-ApexRadiance) with its RTX Remix bridge, which moves rendering into a separate 64-bit process, plus our release. Plain DXVK still works but is legacy: each release gets one DXVK smoke test.
+**Questions?** [docs/FAQ.md](docs/FAQ.md): save safety, what the switches change, NRaas / S3SS / S3PP overlap, Apex Radiance, how we measure, antivirus flags and known mod conflicts.
+
+**Status:** research project. Latest release: **v0.3.1** (2026-11-21), Steam and the EA app 1.69.47, a hotfix: Buy <-> Build mode switching no longer leaves the game paused (by Dalexlol), a fix for a rare EA crash while objects come and go, an EA app start-up fix, and the script compiler stays on with Apex Radiance. Before it, **v0.3.0** (2026-11-20), Steam and the EA app 1.69.47: the game's busiest script methods run as compiled code (script compiler, gain modelled offline, not timed in game), over 400 fixes for the game's own bugs are on (most by Dalexlol), and new crash and freeze guards for routing, quitting and Isla Paradiso bridges; checked for crashes and save compatibility, no new overall speed numbers. Before it, **v0.2.12** (2026-11-13), Steam and the EA app 1.69.47: fixes the rare crash on the second thread from v0.2.11 (#352), the background thread stops cleanly when you leave a world, and on the EA app townies you can't see now also choose on the second thread; checked for crashes, no new overall speed numbers. Before it, **v0.2.11** (2026-11-12), Steam and (since 2026-11-13) the EA app 1.69.47: townies you can't see choose their next action on a second thread (6-12 ms less main-thread work per second), car and boat trips plan in the background, crash fixes (S3SS 1.6.3 world changes, loading screens, outfits) and a dozen fixes for game errors; checked for crashes, no new overall timing. Before it, **v0.2.10** (2026-11-07), Steam and the EA app 1.69.47: stoves and fridges no longer become unusable. Before it, **v0.2.9** (2026-11-07), Steam and the EA app 1.69.47: Sims you play or see no longer fail routes on a time limit, your household stays out of route resets and animation skips, and a crash after running out of script memory is fixed; checked for crashes, not timed. Before it, **v0.2.8** (2026-11-06): one release for Steam and the EA app 1.69.47, with crash fixes (Error 12 on every save of an Isla Paradiso world, Sim thumbnail render, a Sim texture that cannot be created) and the newer routing changes switched on; checked for crashes, not timed. Before it, **v0.2.7** (2026-11-05): EA app 1.69.47 version, Steam files unchanged. Before it, **v0.2.6** (2026-11-05): hotfix for the freeze and crash on the fifth Power Cell and for skipped object cleanup, not run in the game yet. Before it, **v0.2.5** (2026-11-05): cheaper animation for Sims you cannot see, a cheaper held-action check, a fix for a rare memory runaway at game start, crash fixes for custom-content meshes without a material and for Isla Paradiso routing, fixes for paired socials, rabbit hole doors and saves with a removed service, and EA app 1.69.47 support. Results are measured on one laptop (i7-11800H, 32 GB, RTX 3070 Laptop GPU). They are not yet confirmed on other machines; that is one of the things contributors can help with.
+
+**Recommended setup (since 2026-11-13):** [Apex Radiance](https://github.com/loinyx/Sims3-ApexRadiance) with its RTX Remix bridge, which moves rendering into a separate 64-bit process, plus our release. Plain DXVK still works but is legacy and best effort: v0.3.0 and v0.3.1 had no DXVK test run.
 
 `PLAN.md` is the source of truth for what is done, what is open and what comes next.
 
 ## Results so far
 
-Measured with the harness (`tools/harness/profile-world.ts`), 10 minutes of play at speed 3, on aged 14-day test saves. **Baseline** = the community fixes layer as it was when these numbers were taken (DXVK, S3SS, NRaas, Smooth Patch, routing fixes, ...; see `tools/setup/fixes.json`) without our mods. The unmodified game cannot reliably load a save on this machine at all: it runs out of address space while loading (docs/05).
+Measured with the harness (`tools/harness/profile-world.ts`), 10 minutes of play at speed 3, on aged 14-day test saves, on the recommended setup: Apex Radiance with its RTX Remix bridge, S3SS, NRaas and the rest of the community fixes layer (see `tools/setup/fixes.json`). **Baseline** = that setup without our mods. The unmodified game cannot reliably load a save on this machine at all: it runs out of address space while loading (docs/05).
 
-**Baseline vs v0.2.7 (Steam), 10 minutes of play, 2 runs per side.** Cells: Baseline -> **v0.2.7**.
+**Baseline vs v0.3.1 (Steam), 10 minutes of play, 2 runs per side (2026-11-21).** Cells: Baseline -> **v0.3.1**.
 
 | | Bridgeport | Isla Paradiso | Sunset Valley |
 |---|---|---|---|
-| Sim steps per second | 48.4 -> **51.2** | 63.9 -> **70.0** | 91.3 -> **89.5** |
-| p99 sim step (99% of steps are shorter), ms | 100.9 -> **79.5** | 201.2 -> **110.7** | 58.1 -> **~51** |
-| p99.9 sim step, ms | 201.4 -> **139.2** | 351.2 -> **245.0** | 141.6 -> **116.2** |
-| Worst sim step, ms | 789 -> **739** | 1954 -> **420** | 1226 -> **506** |
-| Freezes of 300 ms or longer, per run | 8.5 -> **2** | 72.5 -> **15** | 10.5 -> **3** |
-| Freezes of 1 s or longer, per run | 0 -> **0** | 1 -> **0** | 1 -> **0** |
-| Largest free address space after 10 minutes, MB | 1600 -> **1351** | 1827 -> **1575** | 1685 -> **1471** |
+| Sim steps per second | 42.6 -> **54.5** (+28%) | 41.9 -> **48.0** (+15%) | 59.4 -> **67.0** (+13%) |
+| p99 sim step (99% of steps are shorter), ms | 111 -> **78** | 287 -> **129** | 82 -> **55** |
+| p99.9 sim step, ms | 212 -> **134** | 524 -> **287** | 215 -> **120** |
+| Worst sim step, ms | 610 -> **272** | 819 -> **530** | 1006 -> **303** |
+| Steps of 300 ms or longer, per run | 5.5 -> **0.5** | 151 -> **18** | 10 -> **0.5** |
+| Steps of 1 s or longer, per run | 0 -> **0** | 0 -> **0** | 1 -> **0** |
+| Largest free address space after 10 minutes, MB | 1711 -> **1586** | 1753 -> **1531** | 1790 -> **1676** |
 
-Spring baseline saves as used, same machine, the Baselines ran hours earlier, the harness tooling was loaded on both sides, speed varies by town. v0.2.7 uses about 215-250 MB more address space; cause not confirmed: at 10 minutes the v0.2.7 memory log shows EA heaps about 730 MB and the Mono heap 360 MB, and Baseline has no owner log to compare with (inferred).
+Same machine and saves, runs alternated (off, on, on, off per town), other programs used 4-6% of the CPU on average and 0.2-0.7% of the game's cores in each run's noise check. Build: the v0.3.1 ts3native.asi and ts3native.ini with the v0.3.0 ts3fixes.package (v0.3.1 only adds the Buy/Build mode fix there). Our mods cost about 115-220 MB of address space (Isla Paradiso varied: 1359 and 1704 MB in its two runs). Older numbers (v0.2.7 on the earlier DXVK setup) are in this README's git history.
+
+**The same runs as charts** (drawn from the run data by `node tools/harness/proof-chart.ts`, no new game run).
+
+![Steps of 300 ms or longer and sim steps per second, Baseline vs v0.3.1](docs/img/proof-summary.svg)
+
+The table's two rows, mean of the two runs per side: steps of 300 ms or longer per run 5.5 -> 0.5 (Bridgeport), 151 -> 18 (Isla Paradiso), 10 -> 0.5 (Sunset Valley); sim steps per second 42.6 -> 54.5, 41.9 -> 48.0, 59.4 -> 67.0.
+
+Below, one Baseline run and one v0.3.1 run per town, plotted over the run. Each town shows its run 2 pair: the pair whose change is closest to the table's average change, not the pair with the biggest gain. Each mark is the slowest sim step in a 0.7 s slice; the dashed line is 300 ms.
+
+![Bridgeport: sim step time over the run, Baseline vs v0.3.1](docs/img/proof-bp.svg)
+
+Bridgeport, run 2 per side: 5 -> 1 steps of 300 ms or longer, worst step 583 -> 314 ms, 44.7 -> 50.7 sim steps per second.
+
+![Isla Paradiso: sim step time over the run, Baseline vs v0.3.1](docs/img/proof-ip.svg)
+
+Isla Paradiso, run 2 per side: 188 -> 15 steps of 300 ms or longer, worst step 795 -> 528 ms, 39.0 -> 45.9 sim steps per second.
+
+![Sunset Valley: sim step time over the run, Baseline vs v0.3.1](docs/img/proof-sv.svg)
+
+Sunset Valley, run 2 per side: 11 -> 0 steps of 300 ms or longer, worst step 1443 -> 298 ms (this Baseline run had both of the town's 1 s steps), 60.8 -> 64.6 sim steps per second.
 
 **Other results:**
 
-- **Address space (Error 12):** DXVK alone frees about 1.75 GB on a fresh save (vanilla: 176 MB largest free block after load and an out-of-memory crash; DXVK: 1,853 MB) [measured, docs/05]. The Sims 3 Performance Patch (S3PP 2.1) frees another ~70 MB with heavy store content (committed -71 MB, largest free block +64 MB); its string cache broke no labels in our check [measured, docs/17 §8-9].
+- **Address space (Error 12):** DXVK alone frees about 1.75 GB on a fresh save (vanilla: 176 MB largest free block after load and an out-of-memory crash; DXVK: 1,853 MB) [measured, docs/05]. The Sims 3 Performance Patch (S3PP 2.1) frees another ~70 MB with heavy store content (committed -71 MB, largest free block +64 MB); its string cache broke no labels in our check [measured, docs/17 §8-9; label check result in `PLAN.md`].
 - **Stuck Sims:** treated as solved (2026-10-13): many 10-minute runs with 0 real stuck Sims. New cases are only logged (`docs/data/stuck-log.md`).
-- **Save cleanup (opt-in):** on a Bridgeport test save, -266 weak townie relationships and -9 stray other-world Sims, households and Sims unchanged, a second run removes nothing, the save reloads clean (docs/14).
+- **Save cleanup (opt-in):** on a Bridgeport test save, -266 weak townie relationships and -9 stray other-world Sims, households and Sims unchanged, a second run removes nothing, the save reloads clean (method docs/14, result in `PLAN.md`).
 - **Heavy store content:** CC + store repacks add ~29 s to a cold load and ~100 MB address space; load time is the main cost, not stutter (docs/17 §6).
-- **Online features:** with our settings the game makes no network calls while playing (docs/16).
+- **Online features:** with our settings the game makes no network calls while playing (method docs/16, result in `PLAN.md`).
 - **Routing off the sim thread (on by default since v0.1.4):** route planning on a worker thread; details in [docs/84](docs/84-async-wait-sites.md) and `PLAN.md`.
 
 All numbers come from one machine and one set of saves. Treat percentages as "this is what we saw", not as a promise.
@@ -45,12 +69,12 @@ All numbers come from one machine and one set of saves. Treat percentages as "th
 
 | Layer | Path | What it is |
 |---|---|---|
-| Community fixes installer | `tools/setup/install-fixes.ts`, `fixes.json` | Installs the known community fixes from their official sources (never re-hosted), checks SHA-256, backs up every file it replaces, `uninstall` restores. Also `check-conflicts.ts` (clashing mods) and `content-health.ts` (read-only CC check). |
-| `ts3fixes` player mod | `mods/ts3fixes` | C# script mod (one `.package`). Replaces a few game methods at startup: off-screen trip shortcuts, route fixes, stuck watchdog, broadcaster throttle, optional save cleanup and caches. One tuning switch per fix. See `mods/ts3fixes/README.md`. |
-| `ts3native` ASI plugin | `native/ts3native` | 32-bit native plugin loaded by Ultimate ASI Loader. GC heap patches and faster water route search, plus opt-in experiments (route cache, route worker, allocator cache, faster decompression, save write). Every patch checks the original bytes first and skips itself on a different exe. Settings in `ts3native.ini`. |
+| Community fixes installer | `tools/setup/install-fixes.ts`, `fixes.json` | Installs the known community fixes from their official sources (never re-hosted), checks SHA-256 where `fixes.json` pins one, backs up every file it replaces, `uninstall` restores. Also `check-conflicts.ts` (clashing mods) and `content-health.ts` (read-only CC check). |
+| `ts3fixes` player mod | `mods/ts3fixes` | C# script mod (one `.package`). Replaces game methods at startup: off-screen trip shortcuts, route fixes, stuck watchdog, broadcaster throttle, optional save cleanup and caches, and over 400 fixes for EA bugs. One tuning switch per fix. See `mods/ts3fixes/README.md`. |
+| `ts3native` ASI plugin | `native/ts3native` | 32-bit native plugin loaded by Ultimate ASI Loader. GC heap patches, faster water route search, background route planning, faster decompression, save write, the script compiler and crash guards, plus opt-in experiments (route cache, route worker, allocator cache). Every patch checks the original bytes first and skips itself on a different exe. Settings in `ts3native.ini`. |
 | `ts3agent` test agent | `mods/ts3agent` | In-game script mod that lets our tools read and drive the game (load saves, place Sims, trigger routes, switch fixes, count things). Test-only, never for players. Forked from Sims3-MCP (MIT). |
 | Probe and harness | `tools/probe`, `tools/frida`, `tools/harness` | Frida-based probe server (memory, stacks, native counters), stutter profiler, frame-time hook, repro library, profiling and A/B runs, crash and change ledgers. |
-| Research | `docs/01`-`docs/85` | Community fixes compared, reverse-engineering findings (native and C#), designs, measurements. Raw data in `docs/data`. |
+| Research | `docs/01`-`docs/857` | Community fixes compared, reverse-engineering findings (native and C#), designs, measurements. Raw data in `docs/data`. |
 
 ### What we ship vs what is only for setup
 
@@ -72,8 +96,8 @@ All numbers come from one machine and one set of saves. Treat percentages as "th
 | Water route search (`[WaterJps]`) | `ts3native` | **on by default** (stable build, release v0.1.0), verified in game: 5.4M searches compared with the game's own code in Isla Paradiso, 0 mismatches |
 | Allocator cache (`[Alloc]`) | `ts3native` | **experimental**: +19% and +9% in two A/Bs, but worse worst-case iterations and route fails; crash suspect, needs a long stability run |
 | Route worker, synchronous (`[RouteWorker]`) | `ts3native` | **experimental**: stable in game, no speed gain on its own |
-| Async route plan (`[RouteAsync]`, job queue, `[RouteGate]`) | `ts3native` | **on by default since release v0.1.4**: route plans asked by a Sim's own task run on a worker thread; plans for another Sim's task still run on the sim thread (the remaining 1 s+ freezes in Sunset Valley, next release's target) ([docs/84](docs/84-async-wait-sites.md)) |
-| Waits left while routing runs off-thread: discourage footprints (`[Discourage]`, design D), read-only steering (`[SteerRO]`, S2), footprint rebuild race fix (`[FpRebuildLock]`, C-A), read-only lot front door (`[LotFrontDoorRO]`, L1) | `ts3native` | `[Discourage]` on by default (v0.1.4; footprint deferral `DeferFootprint=1` since v0.1.5); the others **built, off by default** (0.13.0-0.14.0): proven offline against the game's own code; live shadow and on runs queued ([docs/84](docs/84-async-wait-sites.md)) |
+| Async route plan (`[RouteAsync]`, job queue, `[RouteGate]`) | `ts3native` | **on by default since release v0.1.4**: route plans asked by a Sim's own task run on a worker thread; since release v0.2.11 car and boat replans asked by another Sim's task and the stuck-Sim check's test routes run there too; other plans for another Sim's task still run on the sim thread ([docs/84](docs/84-async-wait-sites.md)) |
+| Waits left while routing runs off-thread: discourage footprints (`[Discourage]`, design D), read-only steering (`[SteerRO]`, S2), footprint rebuild race fix (`[FpRebuildLock]`, C-A), read-only lot front door (`[LotFrontDoorRO]`, L1) | `ts3native` | `[Discourage]` on by default (v0.1.4; footprint deferral `DeferFootprint=1` since v0.1.5); `[SteerRO]` and `[LotFrontDoorRO]` **on by default since release v0.2.8** (checked for stability, not timed); `[FpRebuildLock]` **built, off by default** ([docs/84](docs/84-async-wait-sites.md)) |
 | Route search budget (`[RouteBudget]`) | `ts3native` | **paused**: stranded Sims (41 stuck vs 0) |
 | Faster RefPack decoder (`[Decompress]`) | `ts3native` | **on by default** (release v0.1.1), verified in game: 0 mismatches over a full load, ~144k decodes in 4 sessions |
 | Save write (`[SaveWrite]`) | `ts3native` | **on by default** (release v0.1.1), verified in game: old-save backup copied by a worker thread, saves reload |
@@ -85,18 +109,18 @@ All numbers come from one machine and one set of saves. Treat percentages as "th
 | Moving Sims and objects no longer wait for background route plans (`[Discourage]` `DeferFootprint=1`) | `ts3native` | **on by default** (release v0.1.5): Isla Paradiso boat exit, one 8.3 s freeze -> none |
 | Fewer short freezes in crowds (`[RouteAsync]` `RefcountGuard=1`) | `ts3native` | **on by default** (release v0.1.5): crowd scenario: fewer freezes of 300 ms or longer (7 -> 2 and 6 -> 5 in two tests) |
 | NRaas Overwatch nightly clean-up in steps (`kOverwatchChain`) | `ts3fixes` | **on by default** (release v0.1.5): worst freeze 0.3 -> 0.1 s |
-| 3 AM stuck-Sim check in its own task (`kStuckCheckAsync`) | `ts3fixes` | **on by default** (release v0.1.5): worst freeze 1.2 -> 0.14 s |
+| 3 AM stuck-Sim check in its own task (`kStuckCheckAsync`) | `ts3fixes` | **on by default** (release v0.1.5): worst freeze 1.2 -> under 0.15 s |
 | NRaas ErrorTrap after-load check spread out (`kErrorTrapSpread`) | `ts3fixes` | **on by default** (release v0.1.5): worst freeze 0.28 -> 0.06 s |
-| Script compiler for the game's busiest script methods (`[MonoJit]`, with `[MonoFast] CallPath`, `[MintFuse] Sub`, `[EqualsFast]`) | `ts3native` | **on by default** (release v0.3.0, Steam 1.67): verify run 0 differences against the interpreter; gain modelled from offline benchmarks, not timed in game |
-| EA bug fixes, about 500 switches (most by Dalexlol) | `ts3fixes` | **on by default** (release v0.3.0): each shown broken off / fixed on in an in-game test; release checks, save bundles and save portability passed |
+| Script compiler for the game's busiest script methods (`[MonoJit]`, with `[MonoFast] CallPath`, `[MintFuse] Sub`, `[EqualsFast]`) | `ts3native` | **on by default** (release v0.3.0, Steam 1.67 and EA app 1.69.47; `[EqualsFast]` Steam only): verify run 0 differences against the interpreter; gain modelled from offline benchmarks, not timed in game |
+| EA bug fixes, over 400 switches (most by Dalexlol) | `ts3fixes` | **on by default** (release v0.3.0): each shown broken off / fixed on in an in-game test; release checks, save bundles and save portability passed |
 
 ## Quick start: players
 
 Just want our fixes? Download them from the [releases](https://github.com/rodneypantonial/sims3-modernization/releases) page and follow **[docs/PLAYERS.md](docs/PLAYERS.md)** (copy the script mod into `Mods\Packages`, the native plugin into `Game\Bin`; about five minutes). Every release lists everything that is switched on.
 
-Using other mods? See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the static compatibility scan of 49 popular mods.
+Using other mods? See [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for the static compatibility scan of all 100 of MTS's most downloaded TS3 mods against ours. To check your own Mods folder for mods that clash, use Apex Radiance's [mod conflict scan](https://github.com/loinyx/Sims3-ApexRadiance/blob/main/tools/mod_conflicts/README.md).
 
-Using Sims 3 Settings Setter (S3SS) 1.6.3 with `LotStreamingOptimizations` on? Its camera speed threshold setting writes into freed game memory after you travel or change worlds, which can crash the game. `ts3native` sends that write to the right place for the official 1.6.3 build only (`[S3SSCompat] StaleWriteGuard`, on) and leaves every other S3SS version alone. Without `ts3native`, set `streamingSettings = false` under `[patches.LotStreamingOptimizations]` in `S3SS.toml`.
+Using Sims 3 Settings Setter (S3SS) 1.6.3 with `LotStreamingOptimizations` on? Its camera speed threshold setting writes into freed game memory after you travel or change worlds, which can crash the game. `ts3native` sends that write to the right place (on the EA app it drops the write) for S3SS 1.6.3 only: the official build and a re-stamped copy with the same code (`[S3SSCompat] StaleWriteGuard`, on). It leaves every other S3SS version alone. Without `ts3native`, set `streamingSettings = false` under `[patches.LotStreamingOptimizations]` in `S3SS.toml`.
 
 ## Quick start: full test install
 
@@ -122,7 +146,7 @@ The steps below set up the full test install (community fixes layer plus `ts3fix
    `stutter-fixes` (our `ts3fixes`) is part of the default set; building it needs the game's script DLLs, see [docs/BUILD.md](docs/BUILD.md).
 5. To undo: `node tools/setup/install-fixes.ts uninstall` (or `--only <id>`). Backups live in `%LOCALAPPDATA%\ts3-fixes`.
 
-Opt-in entries (`native-patches`, `overwatch-no-stuckcheck`, world fixes, ...) are listed by `plan --set all`; install one with `install --only <id>`.
+Opt-in entries (`overwatch-no-stuckcheck`, `houseboat-fix`, world fixes, ...) are listed by `plan --set all`; install one with `install --only <id>`.
 
 ## Quick start: contributors
 
@@ -166,10 +190,11 @@ This work stands on community projects. Thank you to their authors.
 | [House Boat Fix](https://github.com/FoulPlay/houseboatfix) | FoulPlay | Houseboat fixes |
 | Routing fixes on ModTheSims: [sloped terrain](https://modthesims.info/d/529671/interaction-on-sloped-terrain-enabler.html), [Sims need less space](https://modthesims.info/d/683612/fix-sims-need-less-space.html), [toddler routing](https://modthesims.info/d/685924/toddler-routing-fix.html), [pets need less space](https://modthesims.info/d/683307/fix-pets-need-less-space.html), [ocean play](https://modthesims.info/d/686121/autonomous-play-in-the-ocean-fix.html) | their authors | Routing fixes in the default set |
 | World routing fixes | ellacharmed | Optional `.world` fixes (links in `fixes.json`) |
-| [DXVK](https://github.com/doitsujin/dxvk) | doitsujin and contributors | D3D9 on Vulkan: the biggest address-space win of the earlier baseline (legacy since 2026-11-13; works, smoke-tested) |
+| [DXVK](https://github.com/doitsujin/dxvk) | doitsujin and contributors | D3D9 on Vulkan: the biggest address-space win of the earlier baseline (legacy since 2026-11-13; still works, best effort) |
+| [Apex Radiance](https://github.com/loinyx/Sims3-ApexRadiance) | loinyx | Recommended renderer setup: RTX Remix bridge, rendering in a separate 64-bit process |
 | [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) | ThirteenAG | Loads S3SS and `ts3native` |
 | [Tiny UI Fix](https://github.com/just-harry/tiny-ui-fix-for-ts3) | just-harry | Optional UI scaling |
-| [Regul Save Cleaner](https://modthesims.info/d/652440/regul-save-cleaner.html) | Regul | Recommended save cleanup tool |
+| [Regul Save Cleaner](https://modthesims.info/d/652440/regul-save-cleaner.html) | Onebeld | Recommended save cleanup tool |
 | [Sims3-MCP](https://github.com/Critical-Reynolds/Sims3-MCP) | Critical-Reynolds | Base of our test agent `ts3agent` |
 | [Frida](https://frida.re/) | Ole André Vadla Ravnås and contributors | Live probe and profilers |
 | [Ghidra](https://github.com/NationalSecurityAgency/ghidra) | NSA and contributors | Static analysis of TS3W.exe |

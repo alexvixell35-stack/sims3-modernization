@@ -375,13 +375,13 @@ static int PvInstallAt(int id, DWORD at, DWORD target) {
                 return 2;
             }
         char hex[64];
-        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP values %s: bytes at 0x%08lX differ (found %s)", s.name, at, hex);
         return 0;
     }
     if (!target) {
         char name[64];
-        sprintf_s(name, "%s (values)", s.name);
+        SFmt(name, "%s (values)", s.name);
         return (g_pvJmp[id] = InstallDetour(name, at, s.pro, s.len, (void*)kPvStubs[id], &g_pvJmp[id])) != NULL;
     }
     g_pvJmp[id] = (void*)(uintptr_t)target;

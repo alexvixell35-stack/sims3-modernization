@@ -1,6 +1,7 @@
 command,handler,states,player_action,realism,preconditions,source,gate
 ping,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
 commands,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
+notify,SystemHandlers,Any,none (harness: kit benchmark notice in the corner; docs/315),harness,,handler,none
 game_state,HarnessHandlers,Any,none (read),harness,,handler,none
 load_world,HarnessHandlers,MainMenu,New Game > pick a world,natural,not in a world,handler + R-MODE-1,none
 load_save,HarnessHandlers,MainMenu;Live,Load Game (reload: true = quit to the main menu then Load),natural,not in a world unless reload,handler + R-MODE-1,none
@@ -41,6 +42,7 @@ auto_roof,BuildHandlers,Build,Auto Roof tool,natural,in Build mode,handler,none
 cas_open,CasHandlers,Live,Plan Outfit (dresser) / Change Appearance (mirror); Edit in CAS is a cheat,cas,active household Sim Child+; agent opens Edit-in-CAS on a copy,handler + R-CAS-1,live
 cas_category,CasHandlers,CAS,clicking a CAS tab,natural,in CAS,handler,none
 cas_close,CasHandlers,CAS,Done in CAS,natural,in CAS,handler,none
+cas_click,CasHandlers,CAS,clicking a clothing type or design button in CAS,natural,in CAS (clothing panel),handler,none
 cas_state,CasHandlers,Any,none (read),harness,,handler,none
 cas_bench,CasHandlers,CAS,clicking through CAS parts,stress,timed part sweep,handler,none
 buy_open,CasHandlers,Live,Buy button,natural,active household has a home lot; clock stops (R-MODE-2),handler + R-MODE-2,live

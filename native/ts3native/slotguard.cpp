@@ -82,7 +82,7 @@ static int SgCheck(u8* comp, const char* when, DWORD ret, const DWORD* sp) {
         InterlockedIncrement(&g_sgBad);
         if (v == kSgF5) {  // docs/539 §21 [Float5Watch] / [Float5Sticky]
             char site[112];
-            sprintf_s(site, "slot guard %s: +0x%lX %s", when, (DWORD)(0xC + 8 * i), kSgPair[i]);
+            SFmt(site, "slot guard %s: +0x%lX %s", when, (DWORD)(0xC + 8 * i), kSgPair[i]);
             F5wBad(site, c, c + 0xC + 8 * i, v);
         }
         if (g_sgGuard) pair[0] = pair[1] = 0, InterlockedIncrement(&g_sgFixed);
@@ -93,12 +93,12 @@ static int SgCheck(u8* comp, const char* when, DWORD ret, const DWORD* sp) {
         char ob[160] = "not found (no vt 0x1042CA8 within 0x2000 below listing it)";
         if (obj) __try {
                 const DWORD* o = (const DWORD*)(uintptr_t)obj;
-                sprintf_s(ob, "id %08lX%08lX, type key %08lX %08lX %08lX %08lX, refs %ld, comp at Object+0x%lX", o[3], o[2], o[6], o[7], o[8], o[9],
+                SFmt(ob, "id %08lX%08lX, type key %08lX %08lX %08lX %08lX, refs %ld, comp at Object+0x%lX", o[3], o[2], o[6], o[7], o[8], o[9],
                           (LONG)o[1], c - obj);
-            } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(ob, "unreadable"); }
+            } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(ob, "unreadable"); }
         const SgSeen& s = SgSlot(c);
         char seen[64] = "never seen at a load / clone end";
-        if (s.comp == c) sprintf_s(seen, "last checked OK %lu ms ago", GetTickCount() - s.tick);
+        if (s.comp == c) SFmt(seen, "last checked OK %lu ms ago", GetTickCount() - s.tick);
         DWORD f[10] = {};
         const int nf = sp ? CrStack((DWORD)(uintptr_t)sp, f, 10) : 0;
         char fr[10 * 44 + 8];

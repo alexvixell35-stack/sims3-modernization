@@ -11,7 +11,7 @@ int wmain(int argc, wchar_t** argv) {
     if (mode < 0 || mode > 2) { printf("mode must be 0, 1 or 2\n"); return 2; }
     wchar_t tmp[MAX_PATH], bak[MAX_PATH];
     if (!Join(tmp, argv[1], L"..\\ts3native-slim.tmp")) return 2;  // beside the folder: same volume
-    if (wcslen(argv[1]) + 9 > MAX_PATH || swprintf_s(bak, L"%s.preslim", argv[1]) < 0) return 2;  // pre-slim copies beside it too
+    if (wcslen(argv[1]) + 9 > MAX_PATH || !PathFmt(bak, L"%s.preslim", argv[1])) return 2;  // pre-slim copies beside it too
     QueryPerformanceFrequency(&g_qpf);
     g_log = GetStdHandle(STD_OUTPUT_HANDLE);  // Log() lines to the console
     SlimStats s;

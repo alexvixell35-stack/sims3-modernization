@@ -727,7 +727,11 @@ static bool AsSetAdd(AsSet& s, AsU64 id);
 // trans (docs/122 §14.26): created and destroyed since the last cut (Transient=1): the cut drops it without a mark
 struct AsOl { AsU64 id, lot; const void* obj; DWORD room; LONG placedCut; u8 seen : 1, gone : 1, touched : 1, unpl : 1, clsQ : 1, trans : 1; u8 clsN; WORD ev; DWORD cls; };
 // 65,536 rows (2 MB): the seeded rows of every list lot (docs/122 §14.19) come on top of mono-cost10 BP's 17,655 touched rows
-static const int AS_OL = 65536, AS_OL_MAX = 49152, AS_TOUCH = 4096;
+// docs/321 M2 (lane C): IP reached 35,644 of the 49,152 rows usable (3/4 of the table), so the table now doubles at a cut (and
+// while seeding) once it passes the old compaction mark, up to AS_OL_CEIL rows (10 MB): a 4x world fits. Below that mark the
+// table, its probe order and its compaction are the 65,536-row ones.
+static const int AS_OL = 65536, AS_OL_CEIL = 262144, AS_TOUCH = 4096;
+static int g_asOlCeil = AS_OL_CEIL;  // a test lowers it
 enum { AS_EV_ADD = 1, AS_EV_GONE = 2 };  // bit i = kAsObjIds[i]
 // dirtying causes (docs/122 §14.19, counters markBy/rowWhy)
 enum { AS_MC_FIRST, AS_MC_NEW, AS_MC_LOT, AS_MC_ROOM, AS_MC_GONE, AS_MC_LOST, AS_MC_LITE, AS_MC_KID, AS_MC_N };
@@ -753,14 +757,23 @@ struct AsMem {
     // Sims on a root non-Sim parent with no event on either; objects whose parent answer is a refreshed 0
     AsSet newIds, simSeat, par0;
     AsSet reqLots;  // 0.36.147 TierReqLots/PreLearn: the batch's scored lots (LotId, AddRow kind 3), cleared at each new batch
-    AsOl ol[AS_OL];
+    AsOl* ol;                // olCap rows (AsAlloc: AS_OL; AsOlRehash doubles it)
+    LONG olCap;
     LONG olN, touchN;        // map rows used; touched rows since the last cut (under g_asDirtyLock)
     int touch[AS_TOUCH];
     bool olOver;             // a touch was lost (touch list or map full): the next cut resyncs
     bool olFull;             // of those, the map was full
 };
 static AsMem* g_as;  // ~3.9 MB (docs/122 §14.14), allocated only with [AutShadow] Enabled=1
-static bool AsAlloc() { return g_as || (g_as = (AsMem*)VirtualAlloc(NULL, sizeof(AsMem), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)) != NULL; }
+static bool AsAlloc() {
+    if (g_as) return true;
+    AsMem* m = (AsMem*)VirtualAlloc(NULL, sizeof(AsMem), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    AsOl* ol = (AsOl*)VirtualAlloc(NULL, sizeof(AsOl) * AS_OL, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!m || !ol) { if (m) VirtualFree(m, 0, MEM_RELEASE); if (ol) VirtualFree(ol, 0, MEM_RELEASE); return false; }
+    m->ol = ol, m->olCap = AS_OL;
+    return (g_as = m) != NULL;
+}
+static inline LONG AsOlMax() { return g_as->olCap - g_as->olCap / 4; }  // rows usable (probe chains stay short)
 static volatile LONG g_asPub = -1, g_asHeld = -1;
 static LONG g_asCut;              // cuts so far (sim)
 static AsU64 g_asActor;           // the current request's actor (TierMs: always tier 1); cleared by Begin
@@ -1129,8 +1142,14 @@ static bool AsSetAdd(AsSet& s, AsU64 id) {
     for (DWORD h = (DWORD)(id ^ id >> 29) * 0x9E3779B1u, i = 0; i < 4096; i++) {
         AsU64& v = s.k[(h + i) & 4095];
         if (v == id) return true;
-        if (!v) { if (s.n >= 3072) return false; v = id; s.at[s.n++] = (WORD)((h + i) & 4095); return true; }
+        if (!v) {
+            if (s.n >= 3072) { CapFull(CAP_ASSET); return false; }
+            v = id, s.at[s.n++] = (WORD)((h + i) & 4095);
+            CapSee(CAP_ASSET, s.n, 3072);  // docs/321 lane 0: the fullest of all sets
+            return true;
+        }
     }
+    CapFull(CAP_ASSET);
     return false;
 }
 static void AsSetClear(AsSet& s) {
@@ -1164,12 +1183,13 @@ static int g_asLean;
 static bool AsObjLotGame(const void* obj, AsU64* lot, DWORD* room);
 static bool (*g_asObjLot)(const void*, AsU64*, DWORD*) = AsObjLotGame;  // selftest: fake objects
 static AsOl* AsOlSlot(AsU64 id, bool add) {
-    for (DWORD h = (DWORD)(id ^ id >> 29) * 0x9E3779B1u, i = 0; i < (DWORD)AS_OL; i++) {
-        AsOl& o = g_as->ol[(h + i) & (AS_OL - 1)];
+    for (DWORD h = (DWORD)(id ^ id >> 29) * 0x9E3779B1u, i = 0, m = (DWORD)g_as->olCap - 1; i <= m; i++) {
+        AsOl& o = g_as->ol[(h + i) & m];
         if (o.id == id) return &o;
         if (!o.id) {
-            if (!add || g_as->olN >= AS_OL_MAX) return NULL;
-            g_as->olN++;
+            if (!add) return NULL;
+            if (g_as->olN >= AsOlMax()) { CapFull(CAP_ASOL); return NULL; }
+            CapSee(CAP_ASOL, ++g_as->olN, (LONG)g_asOlCeil - g_asOlCeil / 4);
             memset(&o, 0, sizeof(o));
             o.id = id;
             return &o;
@@ -1765,7 +1785,7 @@ void AsAddRowKind(AsU64 id, int kind) {
         }
     }
     if (sim) AsSetAdd(g_as->always, id);
-    if (kind) AsSetAdd(g_as->simIds, id);  // docs/122 §14.18: its moves mark the Sim sets
+    if (kind) AsSetAdd(g_as->simIds, id), CapSee(CAP_ASSIMIDS, g_as->simIds.n, 3072);  // docs/122 §14.18: its moves mark the Sim sets
     // the request's first reachable Sim is its actor (ts3fixes adds it first); a shared cut has one per request
     if (sim && (!g_asActor || g_asNextActor)) {
         if (!g_asActor) g_asActor = id, g_asActorN = 0;  // a new batch
@@ -2431,10 +2451,11 @@ static void AsOlPlace(AsOl& o, const void* obj, bool mark) {
 // state the rows hold: no mark unless it moved. An object with no row then was on no list lot, and its first touch marks
 // only its new lot (also exact for the old lot, which the old rule never marked) [inferred: the event coverage of §14.17;
 // an object in a lot's vector has that lot in its component].
+static bool AsOlGrow();
 static void AsSeedObj(const void* obj) {
     const AsU64 id = obj ? AsObjId(obj) : 0;
     if (!id || AsOlSlot(id, false)) return;  // a row: current (every change since came with a touch)
-    if (g_as->olN >= AS_OL_MAX - 1024) { g_as->olFull = true; return; }  // headroom for touches; the lot is counted in part
+    if (g_as->olN >= AsOlMax() - 1024 && !AsOlGrow()) { g_as->olFull = true; return; }  // headroom for touches; the lot is counted in part
     AsOl* o = AsOlSlot(id, true);
     if (!o) return;
     o->obj = obj;
@@ -2561,21 +2582,33 @@ static void AsLotLites() {
     k.liteUs += (LONG)((b.QuadPart - a.QuadPart) * g_asPrintUsPerTick);
 }
 
-// drops destroyed rows no pending touch names (under g_asDirtyLock); a full map otherwise forces resync cuts
-static void AsOlCompact() {
-    AsOl* tmp = (AsOl*)VirtualAlloc(NULL, sizeof(AsOl) * AS_OL, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!tmp) return;
-    int n = 0;
-    for (int i = 0; i < AS_OL; i++) { const AsOl& o = g_as->ol[i]; if (o.id && (!o.gone || o.touched)) tmp[n++] = o; }
-    memset(g_as->ol, 0, sizeof(g_as->ol));
-    g_as->olN = 0, g_as->touchN = 0;
-    for (int i = 0; i < n; i++) {
-        AsOl* o = AsOlSlot(tmp[i].id, true);  // fits: n <= the old row count
-        *o = tmp[i];
+// rows into a fresh table of `cap` rows, in the old table's order (same cap: the old in-place compaction's layout); drop =
+// destroyed rows no pending touch names are left out. Under g_asDirtyLock, sim thread (no AsOl pointer is held across it).
+static bool AsOlRehash(LONG cap, bool drop) {
+    AsOl* nt = (AsOl*)VirtualAlloc(NULL, sizeof(AsOl) * cap, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!nt) return false;
+    AsOl* old = g_as->ol;
+    const LONG oldCap = g_as->olCap;
+    g_as->ol = nt, g_as->olCap = cap, g_as->olN = 0, g_as->touchN = 0;
+    for (LONG i = 0; i < oldCap; i++) {
+        const AsOl& r = old[i];
+        if (!r.id || (drop && r.gone && !r.touched)) continue;
+        AsOl* o = AsOlSlot(r.id, true);  // fits: the row count is at most the old one
+        *o = r;
         if (o->touched) g_as->touch[g_as->touchN++] = (int)(o - g_as->ol);
     }
-    VirtualFree(tmp, 0, MEM_RELEASE);
-    ts3native_autshadow.olCompact++;
+    VirtualFree(old, 0, MEM_RELEASE);
+    return true;
+}
+// drops destroyed rows no pending touch names (under g_asDirtyLock); a full map otherwise forces resync cuts
+static void AsOlCompact() {
+    if (AsOlRehash(g_as->olCap, true)) ts3native_autshadow.olCompact++;
+}
+// docs/321 M2: double the table (under g_asDirtyLock); false at the ceiling or with no memory (the old full path then)
+static bool AsOlGrow() {
+    if (g_as->olCap * 2 > g_asOlCeil || !AsOlRehash(g_as->olCap * 2, false)) return false;
+    Log("autonomy shadow: object-lot map grown to %ld rows (%ld used, docs/321 M2)", g_as->olCap, g_as->olN);
+    return true;
 }
 static void AsOlResolve(bool clear) {
     Ts3nAutShadow& k = ts3native_autshadow;
@@ -2593,9 +2626,12 @@ static void AsOlResolve(bool clear) {
     QueryPerformanceCounter(&a);
     while (InterlockedExchange(&g_asDirtyLock, 1)) YieldProcessor();
     if (clear) {  // epoch: every row is refreshed anyway; the lots are seeded again below
-        memset(g_as->ol, 0, sizeof(g_as->ol)), g_as->olN = 0, g_as->touchN = 0, memset(g_asLite, 0, sizeof(g_asLite));
+        memset(g_as->ol, 0, sizeof(AsOl) * g_as->olCap), g_as->olN = 0, g_as->touchN = 0, memset(g_asLite, 0, sizeof(g_asLite));
         AsSetClear(g_as->seeded), AsSetClear(g_as->suspectW);
-    } else if (g_as->olN > AS_OL_MAX - 4096 && g_asCut - s_compactCut >= 64) AsOlCompact(), s_compactCut = g_asCut;
+    } else if (g_as->olN > AsOlMax() - 4096) {
+        if (g_asCut - s_compactCut >= 64) AsOlCompact(), s_compactCut = g_asCut;
+        if (g_as->olN > AsOlMax() - 4096) AsOlGrow();  // docs/321 M2: compaction left it past the mark (or was not due)
+    }
     const int n = g_as->touchN;
     for (int i = 0; i < n; i++) {
         AsOl& o = g_as->ol[g_as->touch[i]];
@@ -2637,7 +2673,7 @@ static void AsOlResolve(bool clear) {
         k.dirtyUnknown++;
         (mapFull ? k.resyncMap : k.resyncTouch)++;
         memset(g_asLite, 0, sizeof(g_asLite));  // rows refresh by print this cut, no marks: no lot-vector baseline stays valid
-        for (int i = 0; i < AS_OL; i++) {
+        for (LONG i = 0; i < g_as->olCap; i++) {
             AsOl& o = g_as->ol[i];
             if (o.id && !o.gone) AsOlPlace(o, o.obj, false);
         }
@@ -2676,12 +2712,14 @@ static int g_asTierMoveLot;
 // Exact by the same rule as TierMoveLot: a tier gates refreshes, never an answer
 static int g_asTierClassMax, g_asTierClassCut;
 static AsTierEnt g_asTierTab[1024];
+static LONG g_asTierN, g_asLotTierN;  // docs/321 lane 0: slots taken (never cleared, as the tables)
 static AsTierEnt* AsTierSlot(AsU64 id) {
     for (DWORD h = (DWORD)(id ^ id >> 29) * 0x9E3779B1u, i = 0; i < 1024; i++) {
         AsTierEnt& t = g_asTierTab[(h + i) & 1023];
         if (t.id == id) return &t;
-        if (!t.id) { memset(&t, 0, sizeof(t)); t.id = id; return &t; }
+        if (!t.id) { memset(&t, 0, sizeof(t)); t.id = id; CapSee(CAP_ASTIER, ++g_asTierN, 1024); return &t; }
     }
+    CapFull(CAP_ASTIER);
     return NULL;  // full: tier 1
 }
 static void AsT1Lot(AsU64 id) {  // CutLean=2 + TierMs: the lot a tier-1 Sim was last placed on is a tier-1 lot
@@ -2696,8 +2734,9 @@ static AsLotTier* AsLotTierSlot(AsU64 lot) {
     for (DWORD h = (DWORD)(lot ^ lot >> 29) * 0x9E3779B1u, i = 0; i < 512; i++) {
         AsLotTier& t = g_asLotTier[(h + i) & 511];
         if (t.lot == lot) return &t;
-        if (!t.lot) { memset(&t, 0, sizeof(t)); t.lot = lot; return &t; }
+        if (!t.lot) { memset(&t, 0, sizeof(t)); t.lot = lot; CapSee(CAP_ASLOTTIER, ++g_asLotTierN, 512); return &t; }
     }
+    CapFull(CAP_ASLOTTIER);
     return NULL;  // full: tier 1
 }
 static bool AsLotDue(AsU64 lot, DWORD now) {

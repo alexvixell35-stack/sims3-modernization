@@ -36,6 +36,16 @@ static void TestModTime() {
     assert(MdtPick(k3, 3) == 1);
     const int k4[2] = {MDT_GAME, MDT_GAME};
     assert(MdtPick(k4, 2) == 0 && MdtPick(k4, 0) == -1);
+    // docs/298 §5.1 pass-through hook: {GAME, OURS, GAME} -> game via hook; {OURS, GAME} -> ours; a mod pick is never via hook
+    assert(MdtViaHook(k2, 3, MdtPick(k2, 3)));
+    const int k5[2] = {MDT_OURS, MDT_GAME};
+    assert(!MdtViaHook(k5, 2, MdtPick(k5, 2)));
+    assert(!MdtViaHook(k1, 4, MdtPick(k1, 4)) && !MdtViaHook(k4, 2, MdtPick(k4, 2)) && !MdtViaHook(k4, 0, -1));
+    char lab[64];
+    MdtHookLabel("Ts3Fixes.FestivalHiddenHook.UpdateCommodityInteractionMap", lab, sizeof(lab));
+    assert(!strcmp(lab, "game via ts3fixes hook (FestivalHiddenHook)"));
+    MdtHookLabel("EcHook.ProcessEvent", lab, sizeof(lab));
+    assert(!strcmp(lab, "game via ts3fixes hook (EcHook)"));
 
     // ordering: largest first, zeros never listed
     const double w[6] = {1, 0, 5, 3, 5, 0.5};

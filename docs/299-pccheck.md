@@ -46,7 +46,7 @@ Performance" here, so the fixed buffer failed and printed "?"); stock schemes fa
 | efficiency | efficiency mode on TS3W | yes |
 | priority | idle / below-normal priority class | yes |
 | other load | other programs >= 25% of all cores | no (summary line) |
-| few cores | <= 4 usable threads, or busy game threads + other load + 1 > usable threads: "our worker threads (N) compete with the game; expect smaller gains" | no (summary line) |
+| few cores | busy game threads + other load + 1 > usable threads (since docs/537 §34; the "<= 4 usable threads" arm fired on every 4-core PC and blamed idle monitor threads): "no core left over", plus "our busy worker threads compete with the game, expect smaller gains" only when ts3native's threads average >= 0.5 busy | no (summary line) |
 
 Notice: ts3fixes asks op 62 bit by bit at each world load and sim hour and shows ONE notice per game session for the first
 problem in the order battery, power saver, efficiency, affinity, priority, throttle, with a one-sentence fix (opt-in: `Notify=1`;

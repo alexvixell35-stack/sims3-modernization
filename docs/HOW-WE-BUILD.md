@@ -34,7 +34,7 @@ Pushing a tag `v*` runs the `release` job after `native` and `node` pass:
 - Compute the SHA-256 of `ts3native.asi` from the zip (`Get-FileHash ts3native.asi` in PowerShell) and compare it with the value in the release notes; the run link in the same note shows the build log.
 - Read the source: everything is in this repository (code MIT, docs CC BY 4.0, see README "License").
 - Build it yourself: [docs/BUILD.md](BUILD.md). The toolchain version can change the asi bytes; the ini should match exactly (docs/RELEASE.md "Rebuild check").
-- The files are not code-signed, so Windows SmartScreen or an antivirus may warn about an unknown file. Signing and a VirusTotal link per release are planned but need a signing account (PLAN.md, "Player confidence checklist"); until then the hash and the build log are the check.
+- The files are not code-signed, so Windows SmartScreen or an antivirus may warn about an unknown file. Code signing is planned but needs a signing account (PLAN.md, "Player confidence checklist"). Antivirus scans are done from time to time as a reference, not per release, and do not hold a release back ([FAQ](FAQ.md#my-antivirus-flags-the-download-is-it-a-virus)); the hash and the build log are the check.
 
 ## Rules that apply to every build
 

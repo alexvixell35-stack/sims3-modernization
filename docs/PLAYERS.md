@@ -6,6 +6,15 @@ This part is added to every release. It lists **everything that is switched on**
 
 **Works with:** The Sims 3 from **Steam** (patch 1.67) or from the **EA app** (patch 1.69.47), Windows 10 or 11. Any mix of expansion and stuff packs. Each edition has its own `ts3native` download (see [EA app version](#ea-app-version-16947)); `ts3fixes.package` is the same for both. Other versions (Origin, disc, other patches) are **not** supported: the plugin checks the game file and switches itself off, so nothing breaks, it just does nothing.
 
+## Save safety
+
+- **Nothing of ours is stored in your saves.** Neither file adds objects, fields or data of its own to a save file. Where a feature has to remember something per save, it keeps it in a separate small text file under `Documents\Electronic Arts\The Sims 3\ts3native\`, which you can read or delete.
+- **Remove it any time.** Close the game, delete the files (see [Uninstall](#uninstall)) and play on. In the v0.3.0 release tests, a save made with our mods loaded in the unmodded game and with the previous release, and saves made without our mods loaded with it ([CHANGELOG](https://github.com/rodneypantonial/sims3-modernization/blob/HEAD/CHANGELOG.md), v0.3.0 "Tested").
+- **Every fix has its own switch.** Each `ts3native` feature is a section in `ts3native.ini` (`Enabled=0` turns it off, no rebuild needed). Each `ts3fixes.package` fix is one tuning value inside the package (names at the end of this page); there is no in-game menu yet, so turning one off needs a package editor, or you remove the whole package.
+- **What can change inside a save.** A few bug fixes that are on by default clean up the game's own leftovers while you play: references to Sims who died or left, relationship entries that came apart, an old spouse link after a new marriage, objects left in a family inventory, alarms for Sims who are gone (`kDeadRefSweep`, `kDeadRefConvo`, `kDeadRefCooking`, `kRelRemoveSafe`, `kFamilyInvGhost`, `kAttractionAlarm`, `kSpouseUnlink`, `kSarcMummyNpc`, `kGhostReactDeadSim`). The game then saves that cleaner state in its own format, the way it would without the EA bug; the cleanup stays when you remove the mod. These passed the save test bundle before v0.3.0. The bigger clean-ups that remove townie relationships or rewrite save files (`kSaveCleanup`, `kSaveCleanupAggressive`, `[SaveSlim]`) are **off**.
+
+Always keep a backup of `Documents\Electronic Arts\The Sims 3\` anyway: that is good practice with any mod.
+
 ## What's switched on
 
 ### `ts3fixes.package` (script mod)
@@ -43,7 +52,7 @@ Less stutter, mostly by skipping work nobody can see:
 - **Less memory left behind by menus, wishes and townies (EA leak fixes, on; new in v0.3.0).** Buy, Build, Create a Sim, the map view and the HUD no longer leave old windows, icons and event handlers registered for the rest of the session; wish and season listeners of removed Sims and thrown-away wish trees are taken off; hourly passes drop stale route callbacks and wish keys of townies (never your household's) and stale UI entries. A few crash guards for broken family trees and wish updates come with them. Nothing here is written into your save. By Dalexlol. Settings: `kCasRowLeak`, `kCompositorLeak`, `kCompositorGhost`, `kBuyIconLeak`, `kBuyCellRecycle`, `kBuyClearRecycle`, `kBuyGridSweep`, `kSellCursorLeak`, `kFilterGridLeak`, `kCasPuckEvents`, `kCasFilterGrid`, `kFamCursorLeak`, `kCasExitSweep`, `kSeasonListener`, `kDnpDisposeListener`, `kDreamRootOrphan`, `kBlogOrphan`, `kGenealogyCycle`, `kUncleGuard`, `kSeasonDup`, `kDnpUpdateGuard`, `kExitCbSweep`, `kDnpPetKeys`, `kDnpObjKeys`, `kCustomCtlSweep`, `kTinyUiEventReg`, `kMapViewKeep`, `kHudUnsub`, `kDnpSubjectCache`.
 - **"Move In With" wish no longer offered for your own household (EA bug fix, on; new in v0.3.0).** A stale home lot made the game treat two Sims of one household as living apart, so the wish could be offered between them. The lot is synced when a household moves and repaired when the world loads.
 - **"Know every recipe" means every recipe (EA bug fix, on; new in v0.3.0).** The Menu Maven challenge and the Culinary Librarian lifetime wish were done after 28 recipes, a number EA never raised for the expansions, the store or recipe mods. They now need every recipe your install can teach (64 on a full install, more with recipe mods), counted live. Sims who already finished them keep them. By Dalexlol. Setting: `menumaven` (`kMenuMaven`).
-- **About 500 fixes for the game's own bugs (EA bug fixes, on; new in v0.3.0, most by Dalexlol).** Each fixes one EA bug and was shown broken without it and fixed with it in an in-game test: births, socials that never finish, Sims stuck at activities, ceremonies, weddings and graduations, combo rabbit holes, Late Night clubs and apartments, services and visits, leftovers (moodlet state, store objects, menus, effects), and many smaller fixes across the expansions. Townies you can't see also get cheaper service visits, music, shows and loops; your household, the selected Sim and Sims of unknown scope are never changed by those. 24 of these fixes step aside when NRaas StoryProgression, GoHere, Consigner or Woohooer is installed. Setting names: the developer list at the end of this page.
+- **About 440 fixes for the game's own bugs (EA bug fixes, on; new in v0.3.0, most by Dalexlol).** Each fixes one EA bug and was shown broken without it and fixed with it in an in-game test: births, socials that never finish, Sims stuck at activities, ceremonies, weddings and graduations, combo rabbit holes, Late Night clubs and apartments, services and visits, leftovers (moodlet state, store objects, menus, effects), and many smaller fixes across the expansions. Townies you can't see also get cheaper service visits, music, shows and loops; your household, the selected Sim and Sims of unknown scope are never changed by those. 24 of these fixes step aside when NRaas StoryProgression, GoHere, Consigner or Woohooer is installed. Setting names: the developer list at the end of this page.
 
 ### `ts3native` (native plugin: `ts3native.asi` + `ts3native.ini`)
 
@@ -113,7 +122,7 @@ The steps above are the same, with these differences:
 
 ### Uninstall
 
-Close the game and delete what you added: `ts3fixes.package` from `Mods\Packages\`, and `ts3native.asi` and `ts3native.ini` from `Game\Bin` (plus `wininet.dll` if you added it only for this). Your saves are not changed by the install or the removal.
+Close the game and delete what you added: `ts3fixes.package` from `Mods\Packages\`, and `ts3native.asi` and `ts3native.ini` from `Game\Bin` (plus `wininet.dll` if you added it only for this). Installing or removing the files does not change your saves, and your saves keep loading without them (see [Save safety](#save-safety)). The folder `Documents\Electronic Arts\The Sims 3\ts3native\` can be deleted too.
 
 ### Reporting a problem (stuck save, freeze, slowdown): send ts3native.log
 
@@ -153,6 +162,8 @@ This is a **test feature**: it is off in the release and still being tested. Not
 ### Other mods
 
 Which mods overlap with ours (static code scan, not in-game tests): [COMPATIBILITY.md](COMPATIBILITY.md).
+
+**Check your own Mods folder:** for compatibility checks of your own Mods folder, use Apex Radiance's mod conflict scan (`ModConflicts`, by the Apex Radiance project; thanks, loinyx). It only reads your `Mods` folder and `Game\Bin` and lists mods that clash with each other (same resource, two core mods, old and new copies of one script mod, two mods replacing one interaction, two `.asi` plugins on one game address). On Windows with the .NET 8 SDK, in a copy of the [Apex Radiance repository](https://github.com/loinyx/Sims3-ApexRadiance): `dotnet run --project tools/mod_conflicts`. How to read its output: [tools/mod_conflicts/README.md](https://github.com/loinyx/Sims3-ApexRadiance/blob/main/tools/mod_conflicts/README.md).
 
 If you use NRaas Overwatch and notice a half-second freeze about once per game day, turn off City Hall > NRaas > Overwatch > Settings > Clean up Inventory. That nightly job looks up the name of every inventory item; with it off, broken or orphaned inventory items are no longer removed. The setting is saved per save game.
 
