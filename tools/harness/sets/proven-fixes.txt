@@ -37,6 +37,8 @@
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
 #   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# unseen boats (docs/687, docs/851 §7-§8, docs/248 §12): unseenboatland / unseenboatgenboat acted in one-arm runs, no off/on verdict; unseenboatwide no recorded pass; failreplanboat never run:
+#   unseenboatland unseenboatgenboat unseenboatwide failreplanboat
 # combo pieces: first in-game check only, not marked proven (docs/551):
 #   combovenue
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:

@@ -1631,10 +1631,16 @@ namespace Ts3Fixes
         // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        // [4640-4641] unseenboatgenboat (UnseenBoat.cs UbOwnsBoat, docs/851 §7): generated NPC boats in the NPC's own inventory not counted as its own boat / errors. Moved from the combo branch's 4060-4061, which main uses.
+        // [4642-4650] unseenboatland (UnseenBoatLand.cs, docs/687): land plans tried / land kept / boat may be much shorter (EA plan) / land plan failed or swims (EA plan) / refused: not one land component / refused: household, selected, unknown scope, seen, water posture or interaction, owned boat / land plan ms / of it ms followed by EA's plan / errors. Moved from the combo branch's 3845-3853, which main uses (PR #540 items).
+        // [4181-4195] unseenboatwide (UnseenBoatWide.cs, docs/248 §12): gate passes per relaxed rule: household lot visitor / indoor or raised goal / goal with no verdict / group / followers / child with a parent / unknown colours resolved to a crossing; unknown colours resolved to one land area (exact); owned boat left parked; party members placed; parties refused; no street side or mailbox spot; errors; shortcuts with a wide rule (subset of 839); members left (no spot). 4196-4199 spare.
+        // [4320-4327] failreplanboat (FailReplanBoat.cs, docs/851 §8; block 4320-4329): failed plans with a Boat follower / kept (no driver, or the driver or an
+        // occupant is household, selected, unknown scope or seen) / would switch the route-fail behaviour off (switch off) / switched off (DoRouteFail = false) /
+        // DoRouteFail off already (EA's fail-path plan, or the caller's choice) / errors / lines written / flag set back (the cleared route planned again, succeeded).
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4470;
+        const int kCounterSlots = 4660;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1989,6 +1995,10 @@ namespace Ts3Fixes
                 case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
                 case "unseenboat": return Instantiator.kUnseenBoat;
                 case "unseenboatstart": return Instantiator.kUnseenBoatStart;
+                case "failreplanboat": return Instantiator.kFailReplanBoat;  // FailReplanBoat.cs (docs/851 §8): an unseen NPC boat's failed plan skips EA's route-fail behaviour, off
+                case "unseenboatland": return Instantiator.kUnseenBoatLand;
+                case "unseenboatgenboat": return Instantiator.kUnseenBoatGenBoat;
+                case "unseenboatwide": return Instantiator.kUnseenBoatWide;      // off (UnseenBoatWide.cs, docs/248 §12)
                 case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;

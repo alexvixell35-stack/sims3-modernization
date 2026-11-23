@@ -59,6 +59,8 @@ namespace Ts3Fixes
                 IScriptProxy proxy = Follower;
                 Sims3.Gameplay.Actors.Sim sim = proxy != null ? proxy.Target as Sims3.Gameplay.Actors.Sim : null;
                 if (sim != null && ShortcutOn("unseenboat")) UbTrip(sim, marked);  // docs/248: the plan below runs from where it leaves the Sim
+                RoutePlanResult ubl;
+                if (sim != null && ShortcutOn("unseenboatland") && UblLand(sim, out ubl)) return ubl;  // docs/687: land first when no boat trip is much shorter
                 if (ShortcutOn("failrepeat") && sim != null) return PlanFailRepeat(sim);
                 return PlanBackoffBody(sim);
             }

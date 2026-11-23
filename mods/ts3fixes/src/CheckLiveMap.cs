@@ -168,6 +168,7 @@ namespace Ts3Fixes
                 case "facialidleweight": return EpLive(typeof(BFiHook), 1, "sFiSim", sFiSim, null);
                 case "failrepeat": return EpLive(typeof(RouteBackoffHook), 4);
                 case "failreplan": return EpLive(typeof(RouteOptionsHook), 2);
+                case "failreplanboat": return EpLive(typeof(RouteBackoffHook), 4);
                 case "fairyauratimer": return EpLive(typeof(FairyAuraHook), 1);
                 case "famcursorleak": return EpLive(typeof(CplHook), 0, "sCplDashRemove", sCplDashRemove, 1, "sBilDict", sBilDict, null, "sBilDict", sBilDict, "static", "sBilHandle", sBilHandle, "get", "sBilDeregister", sBilDeregister, 1);
                 case "familyinvghost": return EpLive(typeof(FigHook), 1);
@@ -515,7 +516,9 @@ namespace Ts3Fixes
                 case "unigradkeep": return EpJoin(EpLive(typeof(HsGradKeepHook), 0), EpLive(typeof(UniGradKeepHook), 0));
                 case "unitravelflag": return EpLive(typeof(UniTravelFlagHook), 0);
                 case "unseenboat": return EpLive(typeof(RouteBackoffHook), 4);
+                case "unseenboatland": return EpLive(typeof(RouteBackoffHook), 4);
                 case "unseenboatstart": return EpLive(typeof(RouteBackoffHook), 4);
+                case "unseenboatwide": return EpLive(typeof(RouteBackoffHook), 4);
                 case "unseencars": return EpLive(typeof(ParkingSpotHook), 0);
                 case "unseenenv": return EpLive(typeof(EnvScoreHook), 0, "sSimUpdateSim", sSimUpdateSim, null);
                 case "unseenfbarrive": return EpLive(typeof(RouteBackoffHook), 4);

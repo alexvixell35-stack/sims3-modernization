@@ -175,3 +175,50 @@ Rodney: both switches ON in the 11-13 release if tested and safe; `unseenboatsta
 **Static review, two gaps fixed [verified in code].** (1) A houseboat goal returned before `UfRelaxedLotWhy`, so a goal boat under way passed, against §4; now `goal boat moving` (847) at the gate, and a boat under way after the wait goes to the exact plan (840). (2) `TownieUnseen` and `UfWhy` compare `sim.Household` with the active household, so a Sim with no Household passed; unknown scope counts as household: `Sim no household` (842). Household and selected Sims: `UfWhy` kHousehold + `TownieUnseen` at the gate and after the wait, active household lot refused as start and goal, followers refused. Guards: houseboats are never moved (no call moves one), end spot: `IsPointRoutable` after the wait / `PlaceSimAtEntrance` result / street side checked dry and routable, `left_dirty` detector after every leave.
 
 **Queue** `tools/harness/queues/unseenboat-release.json`, pass lines in its note. `verify-shortcut.ts` now fails on `left_dirty` > 0 and has `--soft-tries`; `ip-houseboat-leave-loop` keeps only `left_dirty<=0` in its own `fixesRequire` (the old queue sets its floor of 3 at job level).
+
+
+## 12. Wider skip: switch `unseenboatwide` (2026-11-19, default off; ran in s138 without a recorded pass)
+
+Rodney: unseen NPCs should never take a boat; only Sims the player can see use boats. Off screen a crossing ends with the Sim placed at the goal after the travel time (EA's placement calls, nobody deleted); Sims in view keep EA's exact behaviour.
+
+### 12.1 What still refuses (run `phase-20261119-1837`, IP, ~20 min, `unseenboat` + `unseenboatstart` + `unseenboatgenboat` on) [measured, counters]
+
+`leak-5.json` slots 836-855: candidates 614, shortcuts 85 (houseboat 46), `released_seen` 190, `rj_goal` 123, `rj_sim` 109, `rj_route` 100, `rj_unknown` 19, `rj_owned` 3, `no_spot` 3; houseboat leaves 97 candidates, 5 shortcuts; `unseenboatgenboat` let 84 generated boats through (4640, `unseenboatgenboat`; 4060 on the combo branch), which is why `rj_owned` is 3. All 369 get-in replans were unseen (838). `ts3native-full.log`: 128 `ufplan: kind 3 ... why -1 src Boat*` lines >= 150 ms, 27.0 s (sail 36, speed 31, speed fishing 29, water scooter 23, taxi 7, paddle 3; the private kinds are `GetNpcBoat` boats, docs/687 §2). Top drivers: Aislara Alvarez 11, Tariq Scott 8, Hinni Hashini 7, Doug Rodel 6.
+
+**No refusal sample in this run:** `leak-5.json` has no `fixActivity` list, so `unseenboat_log` was not read out. The split below is the code's sub-rules per counter, ranked with the last run that had `unseenboat_ms` rows (docs/247 §12.1) [inferred for this run].
+
+| Counter | Sub-rules (UbGate / UbGo order) | Last measured rows (docs/247 §12.1, replans) |
+|---|---|---|
+| `rj_goal` 847 | goal household lot; leave: short trip; houseboat goal missing or moving; `UfRelaxedLotWhy(goal)`: apartment, shell, moving houseboat, resort / dive lot, locked door; goal indoors, raised or in the water; goal verdict | indoors/raised/water 68, `goal:resort/diving` 23, verdict 9 |
+| `rj_sim` 842 | `UfPreSim`: pet, under teen, not human, held, group, no interaction, social, `UfPreCore.Denied`; no household; water interaction (`UbCore.Denied`); followers; start lot (`UfRelaxedLotWhy(start)` indoors, or `UbLeaveWhy`); after the wait: houseboat left | `start:resort/diving` 34, group 23, age 14, held 13, followers 6 |
+| `rj_route` 841 | start in a water posture; `EndAsBoat` / `DestinationMustBeInDeepWater`; caller does not follow (`UbCore.Follows`); `MayYield` false; a gate that threw | caller `GoHereWithHoldingInteraction.Run` (Meet Up) 17, then smaller callers |
+| `rj_unknown` 849 | `UfSameComponent` 0: no single flood colour within 12 m of the start or its lot entry, or of the goal or its lot entry | 207 of 223 were houseboat starts before `unseenboatstart` (§10); now 19 |
+| `rj_owned` 844 | `GetOwnedAndUsableBoat` non-null or `disallowedOnlyTemporary`; generated NPC boats pass with `unseenboatgenboat` | owned boat 82 before `unseenboatgenboat` |
+
+[verified, decompiled] `EndAsBoat` / `DestinationMustBeInDeepWater` are set true only by water-purpose code: `BoatHere`, `BoatHereWith`, `SwimHere`, `SwimAroundInOcean`, `Pool`, `MarineLifeSurfaceSpawner` (scuba), `Lifeguard`, the boat's own routes (`Boat`, `BoatRoutingComponent`, `WindSurfboard`, `PositionBoatForAttack`, `Terrain` boat placement) and `EnterHouseboatThroughBoat`'s sub-route. A Sim route that "ends as a boat only because EA picked a boat" does not exist: the vehicle choice is the native multi-mode plan (docs/687 §2), which sets neither option. So that rule stays.
+
+### 12.2 What the switch relaxes (transport trips only; houseboat goals and starts keep §2 / §10)
+
+| Refusal | Relaxed to | Safety |
+|---|---|---|
+| goal household lot (847) | an NPC visiting the active household's lot (not its own home, not a houseboat) is placed at the lot's street side | `UbwLotWhy` (apartment, shell, houseboat, resort, dive, lock); spot dry, outdoor ground, `IsPointRoutable`, `UfGoalUnseen` and `FarFromViewers` (no household Sim within reach); view checks again after the wait |
+| goal indoors or raised (847) | the goal lot's street side: `Lot.EntryPoint` (front door's outdoor routing slot), else the mailbox's routing slot [verified, decompiled `Lot.EntryPoint`]; EA plans the last metres on land | water goals stay (`TerrainType` sea, pond, pool); the spot is never indoors or in water; world-lot goals stay |
+| goal verdict (847), no verdict only | the same street side | a false verdict stays refused |
+| Sim group (842) | the grouping situation's leader moves with its members (1.5 m ring) | members human, child or older, not held, not household / selected / unknown scope, unseen (`UfWhy`, `TownieUnseen`), at most 8; a member's own plan still refuses; checked again after the wait |
+| followers (842) | the followers move with the leader (`GoHome.SimFollowers`, `GoToLot.Followers`, `VisitCommunityLot.mFollowers`, `VisitLot.mFollowers`, `IRabbitHoleFollowers`) | same member rules; an unreadable list keeps the exact path |
+| age (842) | a child with a teen-or-older parent or step-parent in the party (`Genealogy.IsParentOrStepParent`) | a child alone, toddlers and babies stay |
+| `rj_unknown` (849) | probes: the end point and its lot's entry point, each with a ring of 4 at 8 m; the start's first known colour is the anchor, no other start probe may differ, the goal's answers must agree (`UbWideCore.Combine`) | a mix is a shore between components and stays unknown; one land area stays exact (4188) |
+| owned boat (844) | the boat stays where it is | refused: a boat the interaction chose (`ISelectVehicleInteraction`), the reserved boat, `disallowedOnlyTemporary`, an occupied boat. [verified, decompiled] `GetInBoatRouteAction` takes the boat out of the inventory (`RemoveByForce`) or off its mooring post (`UnReserveSpot`) and `PlaceAt`s it on every trip, so a boat left at the start is fetched next time; `BoatOwnable.Park` puts a boat that cannot moor into the driver's inventory, so a boat in the inventory is a state EA makes itself |
+
+**Kept exact:** in view (`UfWhy`, `TownieUnseen`, `UfGoalUnseen`, `UbBoatUnseen`); household, selected and unknown-scope Sims (`IsPlayerSim`, `HouseholdExempt`, no household) for the leader and every member; trips about the boat or the water (`UbCore.Denied`: Boat, Waterski, Surf, Sail, Fish, Scuba; `EndAsBoat` / deep-water goals, which only those set); start swimming; callers that do not follow the route; `MayYield`; resort and dive lots; pets and horses, also as party members: `petlonghome` (docs/645 §4) places their own long trips home, so this switch does not touch animals. Never placed: deep water, a moving houseboat, a locked lot, an apartment or shell, inside a building.
+
+### 12.3 Code, counters, test
+
+`UnseenBoatWide.cs` (game side) and `UnseenBoatWideCore.cs` (`UbWideCore`, pure). `UbTrip` / `UbGate` / `UbGo` carry the rule bits and the party as locals (the wait yields, so no statics), and with the switch off every branch is the old one. Counters [4181-4195] (agent `unseenboatwide_*`): gate passes per rule `hhlot`, `indoor`, `verdict`, `group`, `followers`, `child`, `unknown_cross`; then `unknown_same`, `owned`, `members_placed`, `party_refused`, `no_street`, `errors`, `shortcuts` (subset of 839), `member_left`. Log `unseenboatwide: pass <rules>, <Sim> N m, party N, goal <lot>` (10 a minute); the shortcut line names the rules. Selftest `tools/selftest/unseenboatwide` (ok). Repro `ip-unseen-boat-wide` (Baseline-IP, off/on arm, the `ip-unseen-boat-loop` steps, `unseenboat` on in both arms).
+
+**Not verified:** fires and gain (no run); `Lot.EntryPoint` and the mailbox slot passing `IsPointRoutable` on IP lots [inferred]; party members placed while their own follow route runs, as D's `UfMoveGroup` does [inferred]; that a follower placed next to the leader joins `DoRouteWithFollowers` from there [inferred]. Read the `rj_*` deltas between arms and the `unseenboat_log` rows; `unseenboatstart_left_dirty` and stuck Sims must stay 0.
+
+### 12.4 Run (2026-11-19, s138, `phase-20261119-2149`, Isla Paradiso, phase 1 idle off, phase 2 idle on)
+
+The unseen boat shortcuts (839) went 2 -> 8 over the on phase; no `unseenboatwide:` pass line was written and the leak
+census did not read out slots 4181-4195, so whether a relaxed rule passed is not known. **Not proven.**

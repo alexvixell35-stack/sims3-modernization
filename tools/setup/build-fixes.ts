@@ -194,6 +194,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnseenBoatStart value="True" />
     <kBoatTaxiMemo value="True" />
     <kBoatTaxiMemoHours value="4" />
+    <kUnseenBoatGenBoat value="False" />
+    <kUnseenBoatWide value="False" />
+    <kUnseenBoatLand value="False" />
+    <kUnseenBoatLandRatio value="0.5" />
+    <kFailReplanBoat value="False" />
     <kHouseboatLegMemo value="True" />
     <kHouseboatLegMemoHours value="2" />
     <kHouseboatGangwayRescue value="True" />
