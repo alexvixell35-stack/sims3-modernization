@@ -197,6 +197,16 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kWildLotSkip value="False" />
     <kWildLotSkipHours value="6" />
     <kWildLotSkipWalkHours value="8" />
+    <kPetStartleSkip value="False" />
+    <kPetStartleSkipMinutes value="30" />
+    <kPetLongHome value="False" />
+    <kPetLongHomeMeters value="150" />
+    <kPetLongHomeHours value="2" />
+    <kPetLongHomeNoSpotMinutes value="0" />
+    <kPetLongVisit value="False" />
+    <kPetArrivePoint value="False" />
+    <kStrayLeave value="False" />
+    <kStrayLeaveHours value="3" />
     <kHouseboatLegMemo value="True" />
     <kHouseboatLegMemoHours value="2" />
     <kHouseboatGangwayRescue value="True" />
