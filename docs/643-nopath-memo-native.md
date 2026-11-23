@@ -313,3 +313,61 @@ automatic route, never to a marked player command.
 - In game (to do), the same save, `NoPathMemo=2`, `npmfuzzy` off then on: count hitchwatch >= 500 ms, the `miss ... destination
   differs` lines and `fuzzy served` lines; `fzServed` should grow by ~9 per burst and `fzDropped` by one per follower success.
   `npmhousehold` as a second arm: `hhServed` grows, `cmdExempt` grows with Go Here clicks, no player command in `served` lines.
+
+## 8. Stale answer after furniture moves? Checked, not a bug (2026-11-23) [verified, log + in-game]
+
+Question: session ws-m1 (phase-20261123-0645, `NoPathMemo=1`, fuzzy, household, `HouseholdToo=1`) had a fridge set into a
+bedroom doorway, moved away and sold; later Go Here orders from the back yard into the room failed with `blocker Wall`.
+Was that a memo answer that outlived the fridge?
+
+### 8.1 That session [verified, log]
+
+- Every `route nopath memo:` minute line of the session reads `recorded 0 served 0` and `fuzzy recorded 0 served 0 ...
+  household scope let in N served 0` (last pair: log lines 5996-5997). The memo held no entry and answered nothing.
+- The failed orders are searches that ran: `gohere plan: cmd 22 attempt 1, Plan async FailedBecauseNoPathToDestination,
+  failed blocker Wall ..., candidates 108/108/0, ... plan 6 host 18 other 2 ms, ... nodes 0 in 1 plans, door asks 4 live 2
+  locked 0` (lines 3731-3733; cmd 26 at 4081-4084 the same). A memo answer has no blocker, no plan time and no door asks.
+- They are player commands, which NpmPlan never answers (§7.4, `player commands searched`).
+- Why those searches failed is not known from the log [open]; it is not this memo.
+
+### 8.2 What a furniture change does to the versions [verified, in-game, paused game, npm-m1]
+
+`PrVersions` deltas per action (leaf counters `snLeaf` at `ts3native_counters +0x1A30`, IC sum at `+0x1F08`), game paused,
+3 s of pause alone = no change:
+
+| action | leaves that moved |
+| --- | --- |
+| Live `SetPosition` of a fridge (move_object) | W2 1, W6 1, FPCORE 1, FPREMOVE 1, LOTREMOVEFP 18, GRIDREMOVE 18 |
+| Live `SetPosition` next to a door (put_in_front) | W1 4, W2 1, W3 2, W6 17, FPCORE 2, FPREMOVE 1, LOTREMOVEFP 3, GRIDREMOVE 3 |
+| Live sell (`SellBase` + `Destroy`) | W2 1, W6 19, FPREMOVE 1, LOTREMOVEFP 17, GRIDREMOVE 17 |
+| create + place | W3 1, W6 5, FPCORE 1, LOTREMOVEFP 2, GRIDADD 1, GRIDREMOVE 2, HIGHCOST 1, IC 2 |
+| enter Buy mode | IC 1 |
+| sell in Buy mode | W2 1, W6 17, FPREMOVE 1, LOTREMOVEFP 2, GRIDREMOVE 2 |
+| leave Buy mode | W4 1, APPLYLOT 1, IC 2 |
+
+GRIDREMOVE (`0x62D9F0`), W3, W4, GRIDADD, APPLYLOT and the ICs are in the static sum (`PrIsFootprint` lists only W1, W2,
+FPCORE, PRIVATE, FPREMOVE, LOTREMOVEFP). So every move, sale and placement, with or without Buy mode, moves `sver`, and an
+entry of any follower is dropped at its next look-up (`NPM_INVALID`, fuzzy `stale`). The `dyn` rule (footprint version only
+for BlockedByPeople / BlockedByDynamicFootprints requests) never decides this case.
+
+Side finding: a walking Sim's footprint update takes the same path. 3 s of an unpaused Sunset Valley afternoon moved
+FPCORE 241, LOTREMOVEFP 257, GRIDREMOVE 252, W3 19, IC 26. The static version therefore moves several times a second in a
+live town, and entries rarely live long (npm-m1: fuzzy `recorded 45 ... stale 39 ... live 0`). That limits what the memo
+can save; it cannot make an answer stale.
+
+### 8.3 Forced check [verified, in-game, npm-m1 = phase-20261123-0827]
+
+Sunset Valley new game, one room with one door (build_layout), Bea inside, Bo at the mailbox in the back yard, a fridge
+0.5 m inside the door. Ini `NoPathMemoMinMs=0` (else the 6-30 ms lot plans count as `cheap`), npmfuzzy + npmhousehold on.
+
+- A blocked doorway does not reach the memo: `sim_route_to` answers FailedBecauseDestinationPortalLocked (18) with no
+  Route_PlanLocked call (no memo counter moves); status 18 is never recorded anyway (§2).
+- Mode 1 does not look at a household Sim's land plan at all (no water / boat option): no counter moved.
+- Memo off, mode 1, mode 2: blocked = fails; fridge moved away in Live mode = Succeeded at once, from the yard and from
+  inside; fridge sold in Buy mode = Succeeded at once. Go Here orders after the sale: `gohere end: cmd 11 route ok`
+  (Bo, yard into the room) and `cmd 10 route ok` (Bea, room to the door side). `served 0`, `fuzzy served 0` at the end.
+- A sealed room (door sold) gave real no-path records for Bo (`recorded route ... kind 0 scope 1, 7 ms (+fuzzy)`), but no
+  repeat was answered: each `sim_route_to` is a new Route (`destination differs`, §7.2), and the fuzzy entries of a
+  follower go when EA's find-the-obstacle replan succeeds (`dropped`).
+
+Repro entry: `nopathmemo-stale-force` (repros.json; the by-hand sequence, not yet run as an entry).

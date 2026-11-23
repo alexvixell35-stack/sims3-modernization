@@ -130394,5 +130394,447 @@
         "waitS": 1
       }
     ]
+  },
+  {
+    "id": "nopathmemo-stale-force",
+    "bug": "Suspected (ws-m1, phase-20261123-0645): after a fridge in a bedroom doorway was moved away and sold, plans from the back yard into the room kept failing with 'blocker Wall'; was a stale [RouteAsync] NoPathMemo answer the cause? (docs/643 §8)",
+    "fix": "none needed: NOT a NoPathMemo bug (docs/643 §8). Every object move, sale and placement moves the static world version the memo checks, and a blocked doorway fails before Route_PlanLocked.",
+    "save": "Sunset Valley new game (18 Maywood Lane, the lot make_household picks; the points are that lot's)",
+    "note": "RUN BY HAND 2026-11-23 (Deck, session npm-m1, phase-20261123-0827, ini RouteAsync.NoPathMemoMinMs=0, npmfuzzy + npmhousehold on, HouseholdToo=1); not run as this entry. Memo off, mode 1 and mode 2: the plan into the room fails while the fridge stands inside the door and succeeds at once after the fridge is moved (Live, SetPosition) or sold in Buy mode; served 0 and fuzzy served 0 throughout. Start the run with EXTRA_KEYS=RouteAsync.NoPathMemoMinMs=0 so that cheap failures can record at all.",
+    "expect": "Both arms: every 'after the move' and 'after the sale' sim_route_to answers Succeeded, the final Go Here ends 'route ok'. 'route nopath memo: mode ...' lines: served 0, and no 'route nopath memo: served' / 'fuzzy served' line for a Memo household route. A NoPath answer after the removal on the on arm only = a stale memo (bug).",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Memo",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Memo",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Memo",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Memo"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "note": "daylight",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1 (the Deck runner's idle phase is paused)",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Memo",
+            "Bo Memo"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "both at the home mailbox (the back yard side: the door is on the far wall)",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E",
+            "E X E E E",
+            "E E E E E",
+            "n E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "n": {
+              "name": "fridge",
+              "class": "Fridge",
+              "facing": "S",
+              "loose": true
+            }
+          },
+          "sim_timeout_s": 120
+        },
+        "note": "one room, one door, a fridge; Bea walks to X inside, Bo stays in the yard",
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "npmfuzzy": true,
+          "npmhousehold": true,
+          "routefaillog": true
+        },
+        "note": "the memo's two ts3fixes switches on (they only act while the native mode is on)",
+        "waitS": 1
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "nopathmemo": 0
+        },
+        "note": "arm off: [RouteAsync] NoPathMemo mode 0",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "npmstale-off"
+        },
+        "note": "log marker npmstale-off"
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "off baseline: Succeeded",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "put_in_front",
+        "args": {
+          "target": "@type:Fridge",
+          "of": "@type:Door",
+          "forward": -0.5
+        },
+        "note": "the fridge onto the tile inside the door (SetPosition, as moveobjects)",
+        "max": 400,
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "off blocked: fails (FailedBecauseDestinationPortalLocked)",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "off blocked again",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "move_object",
+        "args": {
+          "target": "@type:Fridge",
+          "x": 1194.9,
+          "y": 49.1,
+          "z": 1194.0
+        },
+        "note": "the fridge back into the room, Live mode (SetPosition)",
+        "max": 400,
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "off after the move: Succeeded on both arms",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bea Memo",
+          "x": 1192.8,
+          "z": 1189.0
+        },
+        "note": "off from inside to the door side: Succeeded",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "nopathmemo": 2
+        },
+        "note": "arm on: [RouteAsync] NoPathMemo mode 2",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "npmstale-on"
+        },
+        "note": "log marker npmstale-on"
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "on baseline: Succeeded",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "put_in_front",
+        "args": {
+          "target": "@type:Fridge",
+          "of": "@type:Door",
+          "forward": -0.5
+        },
+        "note": "the fridge onto the tile inside the door (SetPosition, as moveobjects)",
+        "max": 400,
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "on blocked: fails (FailedBecauseDestinationPortalLocked)",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "on blocked again",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "move_object",
+        "args": {
+          "target": "@type:Fridge",
+          "x": 1194.9,
+          "y": 49.1,
+          "z": 1194.0
+        },
+        "note": "the fridge back into the room, Live mode (SetPosition)",
+        "max": 400,
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "on after the move: Succeeded on both arms",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bea Memo",
+          "x": 1192.8,
+          "z": 1189.0
+        },
+        "note": "on from inside to the door side: Succeeded",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "put_in_front",
+        "args": {
+          "target": "@type:Fridge",
+          "of": "@type:Door",
+          "forward": -0.5
+        },
+        "note": "the fridge onto the tile inside the door (SetPosition, as moveobjects)",
+        "max": 400,
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "on blocked before the sale",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "npmstale-on-sold"
+        },
+        "note": "log marker npmstale-on-sold"
+      },
+      {
+        "cmd": "buy_open",
+        "args": {},
+        "note": "Buy mode",
+        "waitS": 4
+      },
+      {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:Fridge"
+        },
+        "note": "the fridge sold in Buy mode",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_close",
+        "args": {},
+        "note": "back to Live mode",
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_route_to",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "z": 1193.5
+        },
+        "note": "on after the sale: Succeeded",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Bo Memo",
+          "x": 1192.8,
+          "y": 49.1,
+          "z": 1193.5
+        },
+        "note": "on: Go Here from the yard into the room: 'gohere end: ... route ok'",
+        "max": 300,
+        "waitS": 16
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "nopathmemo": 0
+        },
+        "note": "memo off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "npmfuzzy": false,
+          "npmhousehold": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]
