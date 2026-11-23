@@ -1184,6 +1184,7 @@ namespace Ts3Fixes
                 IScriptProxy proxy = Follower;
                 Sim sim = proxy != null ? proxy.Target as Sim : null;
                 bool ownCheck = sStuckIn || sInOwnCheck || sInRoutableCheck || sUfInLeg;
+                if (StuckLeakHere()) PatchCounters()[4244]++;  // docs/662 §2 stucktaskflag: another task's plan inside a stuck check's window
                 Sim who = sim;  // docs/249: a vehicle by its driver, no driver = unseen (traffic, NPC boats); a pet or a stuck check by its Sim
                 if (who == null) { Vehicle v = proxy != null ? proxy.Target as Vehicle : null; who = v != null ? v.Driver : null; }
                 int driverlessWhy = 0;

@@ -96,6 +96,7 @@ namespace Ts3Fixes
             ApplyRouteFailLog();  // docs/226: logging only (routefaillog)
             ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyDoorShare();     // DoorShare.cs (docs/674): Sim class and shareable door answers for ts3native DoorShare (switch doorshare, off)
+            ApplyNearestLot();    // NearestLot.cs (docs/677): nearestlotlazy (off)
             ApplyFglInBound();    // FglInBound.cs (docs/682 §9): FindGoodLocationNearby swap, the indoors stage announced to ts3native [FglInside] (switch fglinbound, off)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
@@ -1631,10 +1632,14 @@ namespace Ts3Fixes
         // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        // [4233-4235] minirelset (AlgoSweep665.cs, docs/665 §3.1): GetMiniRelationships calls answered by the O(n) path / calls to EA's body while on / errors.
+        // [4244-4247] docs/662 stutter sweep (StutterSweep.cs): [4244] stucktaskflag: other tasks' plans inside a stuck check's window (the old flag marked them);
+        //   watchdogbusydefer: [4245] refused A1 STARTs seen, [4246] checks deferred, [4247] deferral cap reached (planned sync as before).
+        // [4660-4661] safespotnospot (Fixes.cs SafeSpotBody, the s152-s189 runs): fresh searches skipped by the no-spot memo / failed fresh searches remembered.
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4470;
+        const int kCounterSlots = 4662;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2107,6 +2112,11 @@ namespace Ts3Fixes
                 case "firegreet": return Instantiator.kFireGreet;
                 case "horseshoesolo": return Instantiator.kHorseshoeSolo;
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
+                case "minirelset": return Instantiator.kMiniRelSet;  // off (AlgoSweep665.cs, docs/665 §3.1), exact speedup
+                case "nearestlotlazy": return Instantiator.kNearestLotLazy;  // NearestLot.cs (docs/677): GetNearestLot tests the nearest lots first, off
+                case "stucktaskflag": return Instantiator.kStuckTaskFlag;  // docs/662 §2: the stuck check's flag per task (FewerPlans.cs), off
+                case "watchdogbusydefer": return Instantiator.kWatchdogBusyDefer;  // docs/662 §3: a refused A1 watchdog START answers no verdict now (StutterSweep.cs), off
+                case "safespotnospot": return Instantiator.kSafeSpotNoSpot;  // Fixes.cs SafeSpotBody (the s152-s189 runs): one failed fresh search ends the call, remembered 30 sim-min, off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
                 case "fireleftover": return Instantiator.kFireLeftover;
                 case "aptgasleak": return Instantiator.kAptGasLeak;
@@ -3015,6 +3025,16 @@ namespace Ts3Fixes
             try { return SafeSpotBody(sim, lot, near, out pos, out fwd); }
             finally { if (had) sSpotCtx[task] = was; else sSpotCtx.Remove(task); }
         }
+        // safespotnospot: the footprint FindGoodLocation(sim, ...) places, species and age flags (0 = unknown)
+        static uint NoSpotKind(Sims3.Gameplay.Actors.Sim sim)
+        {
+            try
+            {
+                Sims3.Gameplay.CAS.SimDescription d = sim == null ? null : sim.SimDescription;
+                return d == null ? 0u : (uint)(d.Species | d.Age);
+            }
+            catch (Exception) { return 0u; }
+        }
         static bool SafeSpotBody(Sims3.Gameplay.Actors.Sim sim, Lot lot, Sims3.SimIFace.Vector3 near, out Sims3.SimIFace.Vector3 pos, out Sims3.SimIFace.Vector3 fwd)
         {
             SpotVerdicts v = Verdicts(lot);
@@ -3031,6 +3051,14 @@ namespace Ts3Fixes
             // [1477] another spot, [1478] none; [1479] a spot after none. With the switch on, such a repeat stops the fresh tries
             // [1480], and the second verified try is skipped when it would start from the same spot [1481].
             bool dedupe = ShortcutOn("safespotdedupe");
+            // safespotnospot (default off; the s152-s189 runs, s152 -> s153): a fresh search that found nothing tested every tile of the lot
+            // in every facing (s152: 15,072 placement tests, 115-145 ms each time), and the same start gives the same answer: the
+            // three fresh tries were three identical failed searches in one call, and every next Sim bound for the lot repeated
+            // them. With the switch on, one failed fresh search ends the call, and its start is remembered for kNoSpotTicks
+            // (30 sim-minutes) per Sim footprint (species and age), so the caller runs the game's trip at once. Counters [4660]
+            // fresh searches skipped by the memo, [4661] failed fresh searches remembered.
+            bool noSpot = ShortcutOn("safespotnospot");
+            uint nsKind = noSpot ? NoSpotKind(sim) : 0u;
             Sims3.SimIFace.Vector3 lastFresh = Sims3.SimIFace.Vector3.Invalid;
             int freshTries = 0;
             bool lastFound = false;
@@ -3059,8 +3087,17 @@ namespace Ts3Fixes
                     }
                     verify = true; // 1 in 8: also search, return the game's answer, count a different spot
                 }
+                long nowNs = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+                if (noSpot && fresh && v.NoSpotSet && v.NoSpotWho == nsKind && nowNs >= v.NoSpotAt && nowNs - v.NoSpotAt < kNoSpotTicks
+                    && (near - v.NoSpotNear).Length() < 0.5f) { c[4660]++; break; }
                 c[91]++;
                 bool found = GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(start), out pos, out fwd);
+                if (noSpot && fresh && !found)
+                {
+                    v.NoSpotSet = true; v.NoSpotAt = nowNs; v.NoSpotNear = near; v.NoSpotWho = nsKind;
+                    c[4661]++;
+                    break;
+                }
                 if (fresh)
                 {
                     bool same = found && lastFound && (pos - lastFresh).Length() < 0.001f;
@@ -3133,6 +3170,10 @@ namespace Ts3Fixes
             public long Created;
             public ulong Household;
             public Sims3.SimIFace.Vector3 LotPos;
+            public bool NoSpotSet;                       // safespotnospot: a fresh FindGoodLocation from NoSpotNear found nothing at NoSpotAt
+            public long NoSpotAt;
+            public Sims3.SimIFace.Vector3 NoSpotNear;
+            public uint NoSpotWho;                       // NoSpotKind of the Sim whose search failed
             public readonly Dictionary<VerdictKey, bool> Cells = new Dictionary<VerdictKey, bool>(new VerdictKeyComparer());
             public readonly List<Sims3.SimIFace.Vector3> Good = new List<Sims3.SimIFace.Vector3>();
             public readonly Dictionary<VerdictKey, bool> PlanOk = new Dictionary<VerdictKey, bool>(new VerdictKeyComparer()); // docs/202 D only: cells a normal plan proved (UfFillNote)
@@ -3141,6 +3182,7 @@ namespace Ts3Fixes
         }
         static readonly Dictionary<ulong, SpotVerdicts> sSpotVerdicts = new Dictionary<ulong, SpotVerdicts>();
         static readonly long kVerdictTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(1f, Sims3.Gameplay.Utilities.TimeUnit.Days);
+        static readonly long kNoSpotTicks = Sims3.Gameplay.Utilities.SimClock.ConvertToTicks(30f, Sims3.Gameplay.Utilities.TimeUnit.Minutes);
         const int kMaxGoodSpots = 8, kMaxSpotChecksPerTick = 1;
         static long sSpotCheckTick = -1;
         static int sSpotChecks;
@@ -3425,7 +3467,9 @@ namespace Ts3Fixes
             SpotCtx sc;
             bool async = sSpotCtx.TryGetValue(task, out sc) && sc.AsyncOk && SpotAsyncWould(sim);
             int t0 = System.Environment.TickCount, starts = 0;
+            bool wdA1 = sWdA1Task != 0 && sWdA1Task == task;  // docs/662 §3: the watchdog's A1 check (its refused START may defer)
             if (async) { sSpotAsyncTasks[task] = 0; sSpotDeferred.Remove(task); sSpotCut.Remove(task); }
+            else if (wdA1) sSpotDeferred.Remove(task);
             sInOwnCheck = true;
             try { ok = sim.IsPointInLotSafelyRoutable(lot, pos); }
             finally
@@ -3433,8 +3477,9 @@ namespace Ts3Fixes
                 sInOwnCheck = false;
                 if (async) { sSpotAsyncTasks.TryGetValue(task, out starts); sSpotAsyncTasks.Remove(task); }
             }
-            bool deferred = async && SpotDeferTake(task);
-            if (deferred) { c[3800]++; return null; }   // docs/635: no verdict, nothing cached; the caller takes EA's own trip
+            bool deferred = (async || wdA1) && SpotDeferTake(task);
+            if (deferred) { c[async ? 3800 : 4246]++; return null; }   // docs/635: no verdict, nothing cached; the caller takes EA's own trip (docs/662 §3: the watchdog retries)
+            if (wdA1) WdDeferDone(sim);
             if (async && SpotCutTake(task)) return null;   // docs/635 spotcut: the job was cut, no verdict, nothing cached
             if (async) SpotAsyncDone(sim, lot, pos, ok, starts, unchecked(System.Environment.TickCount - t0));
             if (p.Ok) v.Cells[key] = ok;

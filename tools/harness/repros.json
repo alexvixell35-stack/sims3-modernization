@@ -116353,6 +116353,447 @@
     ]
   },
   {
+    "id": "minirelset-check",
+    "bug": "docs/665 §3.1: Relationship.GetMiniRelationships dedups its result with List.Contains inside the loop over the Sim's relationships (O(n*n) per call; callcensus 54,109 calls, 12.5-32.8 us mean by run over 699 sim-h)",
+    "fix": "ts3fixes minirelset (AlgoSweep665.cs, default off): one walk with a reference set, same list in the same order; 4233 answered by our path, 4234 to EA's body while on, 4235 errors",
+    "save": "needs a loaded world (no save change)",
+    "note": "Forced. MiniRelSetCheck run compares EA's body with our path for up to 400 Sims (count and object per index), times both, then calls the hooked method once. Exact speedup: 'BROKEN' off only means the O(n*n) path is in use.",
+    "expect": "off: 'verdict: BROKEN' (lists that differ 0). on: 'verdict: FIXED' (lists that differ 0, hooked call via our path=True, 4233 +N); no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MiniRelSetCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "minirelset": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "nearestlotlazy-check",
+    "bug": "docs/677: LotManager.GetNearestLot runs one native object count per lot (uncharted island marker) and up to ten World.ArePointsConnectedByLand calls per lot (street parking) before it compares distances; CarNpcManager.InitCarForLotRoute calls it for NPC cars to lots without valid street parking: 330-560 ms sim-thread frames in Isla Paradiso (s149, s154, s161, s164, s169, s170)",
+    "fix": "ts3fixes nearestlotlazy (NearestLot.cs + NearestLotCore.cs, tuning kNearestLotLazy, default off): distances first, the same tests nearest lot first until one passes; same lot as EA's loop. kNearestLotLazyShadow also runs EA's loop and logs a difference",
+    "save": "needs a loaded world (no save change); Isla Paradiso shows the cost",
+    "note": "UNVERIFIED in the game (2026-11-20: built with Roslyn, core selftest tools/selftest/nearestlot). Forced. NearestLotLazyCheck run asks EA's loop and ours the same up to 8 questions (4 lots, with and without street parking; EA's loop can take 0.5 s each in Isla Paradiso), then calls the hooked method once. Exact speedup: 'BROKEN' off only means EA's loop is in use. With the switch off a call of 50 ms or more logs 'ts3fixes: nearestlot: EA's loop N ms'.",
+    "expect": "off: 'verdict: BROKEN' (answers that differ 0). on: 'verdict: FIXED' (answers that differ 0, hooked call via our path=True, ours far below EA's ms); no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NearestLotLazyCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "nearestlotlazy": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "stucktaskflag-check",
+    "bug": "our stuck-check wrapper (StuckCheckRun) kept a global 'stuck check runs' flag while its probe plans slept on route jobs, so every other Sim's plan in that window counted as a stuck-check probe: no unseen MARK, no goalhhexempt / birthroute scope, 'src stuckcheck' in ufplan lines (29 runs 2026-11-19: 760 such plans, 300 s, 150 >= 300 ms; docs/662 §2)",
+    "fix": "ts3fixes FewerPlans.cs + StutterSweepCore.cs: stucktaskflag (tuning kStuckTaskFlag, default on: bug fix in our own wrapper), docs/662 §2",
+    "save": "pure part needs no save",
+    "note": "StuckTaskFlagCheck run checks the flag decision (off: another task reads the flag; on: only the check's task) with controls (the check's own task keeps its tag, no check = no tag); result shows counter 4244. In play: ufplansplit lines with 'src stuckcheck' must all be in a non-object (drain) or the alarm task.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StuckTaskFlagCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": true
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stucktaskflag": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "watchdogbusydefer-check",
+    "bug": "the watchdog's async idle check (A1, watchdogasync) whose tagged PlanFromPoint START ts3native refuses (the worker runs another job) plans sync on the sim thread and waits on world+0x918 for that job (29 runs 2026-11-19: 7 sync watchdog plans 151-312 ms, 1 hitch; docs/662 §3)",
+    "fix": "ts3fixes StutterSweep.cs + RouteBackoff.cs + Fixes.cs SpotVerdict: watchdogbusydefer (tuning kWatchdogBusyDefer, default on), docs/662 §3",
+    "save": "pure part needs no save",
+    "note": "WatchdogBusyDeferCheck run checks the defer decision (off: sync plan; on: no verdict now, retried later) with controls (accepted STARTs and other plans unchanged, sync again at the cap of 8 deferrals in a row); result shows counters 4245-4247. A1 never picks a household, selected or unknown-scope Sim (H4Core.WdRoute).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: the old path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WatchdogBusyDeferCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": true
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "watchdogbusydefer": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-school-run-safespot-nospot-loop",
+    "bug": "the s152 storm (Isla Paradiso): SafeSpot's three fresh FindGoodLocation tries from the same start were three identical failed whole-lot searches (15,072 placement tests, 115-145 ms each), and every next Sim bound for the lot repeated them",
+    "fix": "ts3fixes safespotnospot (Fixes.cs SafeSpotBody, tuning kSafeSpotNoSpot, default off): one failed fresh search ends the call and is remembered 30 sim-minutes per lot, start (0.5 m) and Sim footprint; the caller runs the game's trip",
+    "save": "Baseline-IP",
+    "note": "NOT RUN as a repro (the rule ran always-on in the contributor's branch: s152 -> s153 repeats within 10 s 133 (966 ms) -> 123 (409 ms)). Same school-run setup as ip-school-run-safespot-loop; the counts are safespotnospot_skipped / _recorded.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rabbithole": true,
+          "safespotreuse": false
+        },
+        "waitS": 1,
+        "note": "the shortcut under test on, reuse off so every try searches"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "age": "child,teen",
+          "count": 4,
+          "school": true,
+          "townies": true
+        },
+        "waitS": 1,
+        "note": "the save's school-age townies, by age (no names)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 5
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "patches",
+          "setup": true,
+          "args": {
+            "safespotnospot": "$on"
+          },
+          "waitS": 1,
+          "note": "arm"
+        },
+        {
+          "cmd": "go_to_work",
+          "setup": false,
+          "args": {
+            "sim": "picked:1",
+            "school": true
+          },
+          "waitS": 1,
+          "optional": true,
+          "note": "fire: school trips queued in the same minute"
+        },
+        {
+          "cmd": "go_to_work",
+          "setup": false,
+          "args": {
+            "sim": "picked:2",
+            "school": true
+          },
+          "waitS": 1,
+          "optional": true
+        },
+        {
+          "cmd": "go_to_work",
+          "setup": false,
+          "args": {
+            "sim": "picked:3",
+            "school": true
+          },
+          "waitS": 1,
+          "optional": true
+        },
+        {
+          "cmd": "go_to_work",
+          "setup": false,
+          "args": {
+            "sim": "picked:4",
+            "school": true
+          },
+          "waitS": 30,
+          "optional": true,
+          "waitUntil": {
+            "quiet": 3000
+          },
+          "minS": 5,
+          "maxS": 30,
+          "count": {
+            "counter": "safespotnospot_recorded"
+          }
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 8
+      },
+      "maxMinutes": 10
+    },
+    "expect": "on arms: safespotnospot_recorded > 0 when a fresh search fails, safespotnospot_skipped > 0 for the next Sims of the same lot; off arms: both 0; no FAIL lines",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "safespotyield": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

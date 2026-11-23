@@ -141,7 +141,9 @@ namespace Ts3Fixes
             public static bool GrillOrig(Lot lot) { return false; } // receives Food.LotHasUsableGrill's original header
             public static float BrushTeeth(Sim actor, InteractionObjectPair iop) { if (!CcOn()) return BrushTeethOrig(actor, iop); CcCount(4); uint t = CcT0(); try { return BrushTeethOrig(actor, iop); } finally { CcTime(4, t); } }
             public static float BrushTeethOrig(Sim actor, InteractionObjectPair iop) { return 0f; } // receives Sink.GetBrushTeethScore's original header
-            public static List<IMiniRelationship> Mini(SimDescription s) { if (!CcOn()) return MiniOrig(s); CcCount(10); uint t = CcT0(); try { return MiniOrig(s); } finally { CcTime(10, t); } }
+            // minirelset (AlgoSweep665.cs, docs/665 §3.1) answers here when on; the census times whichever path ran
+            public static List<IMiniRelationship> Mini(SimDescription s) { if (!CcOn()) return MiniAny(s); CcCount(10); uint t = CcT0(); try { return MiniAny(s); } finally { CcTime(10, t); } }
+            static List<IMiniRelationship> MiniAny(SimDescription s) { List<IMiniRelationship> r = MiniRelSet(s); return r ?? MiniOrig(s); }
             public static List<IMiniRelationship> MiniOrig(SimDescription s) { return null; } // receives Relationship.GetMiniRelationships' original header
             public static bool Suitable(string action, Sim actor, Sim targetSim, Sim accordingTo, float currentLiking, LongTermRelationshipTypes currentLTR, ShortTermContextTypes currentSTC, float targetSimMood, SocialRuleLHS e, ActiveTopic topic)
             {

@@ -208,6 +208,7 @@ namespace Ts3Fixes
                 IActor sel = PlumbBob.SelectedActor;
                 int kept = 0;
                 List<Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase> drop = new List<Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase>();
+                RefSet665 dropped = new RefSet665();  // docs/665 §4: membership of drop in O(1) (nodes compare by reference)
                 foreach (object byKey in byEvent.Values)
                 {
                     IDictionary d = byKey as IDictionary;
@@ -220,7 +221,7 @@ namespace Ts3Fixes
                         {
                             DelegateListener dl = o as DelegateListener;
                             Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase n = dl == null || dl.Delegate == null ? null : dl.Delegate.Target as Sims3.Gameplay.DreamsAndPromises.ActiveNodeBase;
-                            if (n == null || drop.Contains(n)) continue;
+                            if (n == null || dropped.Contains(n)) continue;
                             Sim s = n.Owner;
                             if (s == null || !EtSimGone(s)) continue;
                             if (GoneOwnerHh(s, hh, sel)) { kept++; continue; }
@@ -229,6 +230,7 @@ namespace Ts3Fixes
                             IList act = mgr == null ? null : sDnpActive.GetValue(mgr) as IList;
                             if (act != null && act.Contains(n)) continue;  // a live manager still runs this node
                             drop.Add(n);
+                            dropped.Add(n);
                         }
                     }
                 }

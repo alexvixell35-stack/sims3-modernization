@@ -137,7 +137,17 @@ namespace Ts3Fixes
         // a sleeping drain check would mix the outcome counts (never seen: both need the alarm path and the drain at once)
         // §10.1: sStuckRound = mAttempt + 1 (0 = unknown), sent with every stuck-check START as the PROBE tag (RouteBackoff.cs
         // OwnerTaskStart) so ts3native's own long-job and own-job wait lines name the round
-        static bool sStuckIn, sStuckCap, sStuckLast;
+        static bool sStuckOn, sStuckCap, sStuckLast;
+        // docs/662 §2 stucktaskflag (tuning kStuckTaskFlag, default off): "a stuck check runs" holds only in the task that runs it.
+        // The check's probe plans can sleep on a route job; before, every other Sim's plan in that window read the flag too
+        // (UfPlanBody's ownCheck, UfSrc's "src stuckcheck", UnseenBoat / UnseenBoatLand skips). Counter [4244]: plans of other
+        // tasks inside a check's window (the old flag would have marked them), counted in UfPlanBody.
+        static bool sStuckIn
+        {
+            get { return sStuckOn && StutterSweepCore.StuckInTask(true, sStuckPerTask, sStuckRunTask.Value, Simulator.CurrentTask.Value); }
+        }
+        static bool sStuckPerTask = false;  // ShortcutOn("stucktaskflag"), read once per check in StuckCheckRun
+        static bool StuckLeakHere() { return StutterSweepCore.StuckLeak(sStuckOn, sStuckRunTask.Value, Simulator.CurrentTask.Value); }
         static int sStuckPlans, sStuckOk, sStuckRound;
         static ObjectGuid sStuckRunTask = ObjectGuid.InvalidObjectGuid;
 
@@ -154,7 +164,8 @@ namespace Ts3Fixes
             sStuckPlans = sStuckOk = 0;
             sStuckRunTask = Simulator.CurrentTask;
             sStuckCap = !last && ShortcutOn("stuckcheckcap") && ShortcutOn("stuckcheckown");
-            sStuckIn = true;
+            sStuckPerTask = ShortcutOn("stucktaskflag");
+            sStuckOn = true;
             try
             {
                 if (ShortcutOn("stuckchecknear") && StuckCheckNear(helper, sim)) return;
@@ -162,7 +173,7 @@ namespace Ts3Fixes
             }
             finally
             {
-                sStuckIn = sStuckCap = false;
+                sStuckOn = sStuckCap = false;
                 PatchCounters()[NoStartCore.StuckOutcome(sStuckPlans, sStuckOk, last)]++;
                 OwProbeExit(id, task);
             }

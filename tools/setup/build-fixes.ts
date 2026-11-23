@@ -792,6 +792,12 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDoorGen value="True" />
     <kDoorShare value="False" />
     <kFglInBound value="False" />
+    <kMiniRelSet value="False" />
+    <kNearestLotLazy value="False" />
+    <kNearestLotLazyShadow value="False" />
+    <kStuckTaskFlag value="False" />
+    <kWatchdogBusyDefer value="False" />
+    <kSafeSpotNoSpot value="False" />
     <kFglInBoundHousehold value="False" />
     <kFglInBoundShadow value="False" />
     <kStandWaitFix value="False" />

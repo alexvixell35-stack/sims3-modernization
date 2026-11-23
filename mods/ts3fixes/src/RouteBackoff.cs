@@ -417,7 +417,7 @@ namespace Ts3Fixes
                 {
                     // docs/635 spotbusydefer: a spotasync check whose tagged START was refused (the worker holds the routing lock
                     // for another job) answers "no verdict now" instead of a sync plan that waits on that lock on the sim thread
-                    if (SpotBusyDeferNow()) return FailFast(RoutePlanResultType.FailedBecauseNoPathToDestination);
+                    if (SpotBusyDeferNow() || WdBusyDeferNow()) return FailFast(RoutePlanResultType.FailedBecauseNoPathToDestination);
                     RoutePlanResult d; int ts = UfSyncStart(); if (!GvuDefer(2, out d)) d = PlanFromPointOrig(startPosition); UfSyncEnd(ts); return d;
                 }
                 try
@@ -500,7 +500,7 @@ namespace Ts3Fixes
                 if (wd) { if (a1) PatchCounters()[872]++; GetOption2(kProbe | (Sims3.SimIFace.Route.RouteOption2)0x10400UL); }
                 bool started = GetOption2((Sims3.SimIFace.Route.RouteOption2)((own ? kArStart : kArStart | kArForeign) | (ulong)kind << 56));
                 if (wd && spot) { SpotAsyncStarted(started); if (!started) SpotStartRefused(); }
-                else if (wd) { if (started) PatchCounters()[873]++; }
+                else if (wd) { if (started) PatchCounters()[873]++; else WdStartRefused(proxy); }  // docs/662 §3 watchdogbusydefer
                 else if (!own)
                 {
                     int[] c = PatchCounters();

@@ -40,6 +40,12 @@ namespace Ts3Fixes
         static readonly Dictionary<Type, List<FieldInfo>> sDhFields = new Dictionary<Type, List<FieldInfo>>();
         static int sDhLogged;
 
+        static RefSet665 ActorsSet(ref RefSet665 set, List<Sim> actors)
+        {
+            if (set == null) { set = new RefSet665(actors.Count); set.AddAll(actors); }
+            return set;
+        }
+
         static void DeadSimCountPass()
         {
             try
@@ -60,6 +66,7 @@ namespace Ts3Fixes
                 // entries, not Sims: a destroyed Sim's ObjectId is kBadObjectGuid (ScriptCore ScriptProxy.Dispose), so
                 // sDsSeen[s.ObjectId.Value] threw for every candidate and nothing was hollowed (al372, al374: 0 of 1,303)
                 List<KeyValuePair<ulong, DsEntry>> toHollow = new List<KeyValuePair<ulong, DsEntry>>();
+                RefSet665 actorSet = null;  // docs/665 §4: built on the first old entry, then O(1) per entry (Sims compare by reference)
                 foreach (KeyValuePair<ulong, DsEntry> kv in sDsSeen)
                 {
                     Sim s = kv.Value.Ref.Target as Sim;
@@ -70,7 +77,7 @@ namespace Ts3Fixes
                     alive++;
                     if (now - kv.Value.DeadAt < 6f) continue;
                     old++;
-                    if (hollow && !kv.Value.Hollowed && !actors.Contains(s)) toHollow.Add(kv);
+                    if (hollow && !kv.Value.Hollowed && !ActorsSet(ref actorSet, actors).Contains(s)) toHollow.Add(kv);
                 }
                 // rebuilt, not Remove: al364 read tracked 24 < alive 182 from the Remove version, which cannot be
                 sDsSeen = keep;
