@@ -411,6 +411,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B
         [Tunable] public static bool kTrainBoost = true;    // trainboost (docs/569 §1): a trainer reset during Train Sim leaves the trainee's doubled Athletic / shape gain for good
         [Tunable] public static bool kInitStackTrace = true;    // initstacktrace (docs/594 §1): InteractionInstance.Init / OnAddedToQueue without the dead O(depth^2) StackTrace walks (fields only read by compiled-out debug code; exact)
+        [Tunable] public static bool kActDelay = false;  // actdelay (docs/684): read-only probe, per interaction instance the time from queued to the Sim acting, split into buckets; one log line per instance over kActDelayLogMs and a summary a minute; test runs only
+        [Tunable] public static int kActDelayLogMs = 500;  // actdelay: an instance whose queued -> act time reaches this gets its own log line
+        [Tunable] public static int kActDelayLinesPerMin = 30;  // actdelay: most instance lines a minute of real time
+        [Tunable] public static int kActDelayOutfitLogMs = 200;  // actdelay (docs/684 §8): a wait for the native outfit build this long gets its own log line
         [Tunable] public static bool kWeatherManagerThrow = true;    // weathermanagerthrow (docs/594 §3): RainEvent.PutOutFires skips the null firefighter dictionary (worlds without the service) instead of throwing, which stopped SeasonsManager for the session
         [Tunable] public static bool kRainShelterCheap = true;    // rainsheltercheap (docs/594 §4): the 10-sim-minute rain pass tests on-fire / plant water before the two native shelter tests (same result)
         [Tunable] public static bool kPondClearScan = true;    // pondclearscan (docs/594 §5): PondManager.AllPondsClear tests the world pond and the last pond in use before its world GetObjects scan (same result)

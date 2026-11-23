@@ -52,6 +52,13 @@ namespace Ts3Fixes
             public bool WaitHook(Sim targetSim, Sim.SyncLevel desiredSynchLevel, ExitReason exitReasonInterrupt, float giveupTime, SyncLoopCallbackFunction loopCallback, float notifySimMinutes, bool performSocializeWithTest)
             {
                 Sim me = (Sim)(object)this;
+                // actdelay (ActDelay.cs, docs/684 §8), read-only: the time this Sim's task spends in the wait
+                if (!ActSyncIn(me, ActDelayCore.kInSyncWait)) return WaitFixes(me, targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest);
+                try { return WaitFixes(me, targetSim, desiredSynchLevel, exitReasonInterrupt, giveupTime, loopCallback, notifySimMinutes, performSocializeWithTest); }
+                finally { ActSync(me, false); }
+            }
+            bool WaitFixes(Sim me, Sim targetSim, Sim.SyncLevel desiredSynchLevel, ExitReason exitReasonInterrupt, float giveupTime, SyncLoopCallbackFunction loopCallback, float notifySimMinutes, bool performSocializeWithTest)
+            {
                 if (RfCannotSync(me, targetSim, desiredSynchLevel)) { SwLogEndedEarly(me, targetSim, desiredSynchLevel); return false; }
                 if (NbpCannotStart(me, targetSim, desiredSynchLevel)) return false;  // npcbusypartner (NpcBusyPartner.cs, docs/577 §4)
                 SyncLoopCallbackFunction ppw = PpwCallback(me, targetSim, desiredSynchLevel, loopCallback);  // petputdownwait (PetPutDownWait.cs, docs/578 §2)
@@ -68,6 +75,14 @@ namespace Ts3Fixes
         public class ReceiveHook
         {
             public bool RecvHook()
+            {
+                // actdelay (ActDelay.cs, docs/684 §8), read-only: the receiver's wait for the starter's first route
+                Sim adSim = ((SocialInteraction)(object)this).InstanceActor;
+                if (!ActSyncIn(adSim, ActDelayCore.kInReceive)) return RecvFixes();
+                try { return RecvFixes(); }
+                finally { ActSync(adSim, false); }
+            }
+            bool RecvFixes()
             {
                 SwStep(this, "receive>");
                 bool r = false;

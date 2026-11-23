@@ -37,12 +37,14 @@ namespace Ts3Fixes
                 RouteSrcCall src = RouteSrcBegin(this, 0, Vector3.Invalid); // routesrc: source of this plan (RouteSources.cs, docs/151)
                 RoutePlanResult iam;
                 if (IaAnswer(0, Vector3.Invalid, out iam)) { NotePlanResult(Follower, false, this, true); RouteSrcEnd(this, src, false); return iam; }  // iafailmemo: the detectors still count the failure
+                ActPlanBegin(); // actdelay (ActDelay.cs, docs/684): read-only
                 byte urx = UrxBegin();
                 RoutePlanResult r;
                 try { r = UfPlan(0, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); } // docs/202 unseenfbplan wraps the whole plan (UnseenFallback.cs)
                 if (!UfTakeNotFail()) NotePlanResult(Follower, r.mType == RoutePlanResultType.Succeeded, this); // the stuck watchdog's route-fail count and success memo (RouteFixes.cs); docs/202: not for a cut plan
                 StuckCheckPlanned(r.mType == RoutePlanResultType.Succeeded); // docs/163 §10 stuck-check outcome counters (FewerPlans.cs)
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 0, rflT0, r);
                 if (urx != 0) UrxAfter(urx, 0, Vector3.Invalid, r);
                 if (ShortcutOn("boattrip")) { try { r = BtAfter(0, Vector3.Invalid, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
@@ -278,6 +280,7 @@ namespace Ts3Fixes
                 // scope (same as jobyield's StepAside). Counters [1275] polls skipped, [1276] waits with one.
                 bool jr = ShortcutOn("jobyieldready"), skipped = false;
                 int t0 = System.Environment.TickCount, i = 0;
+                uint adT0 = SrcNowUs(); // actdelay (ActDelay.cs)
                 for (; ; i++)
                 {
                     if (jr && sYieldProbe.GetOption2(kJobBusy)) { c[1275]++; skipped = true; }
@@ -288,6 +291,7 @@ namespace Ts3Fixes
                     c[57]++;
                     Simulator.Sleep(0);
                 }
+                ActJobWaited(adT0);
                 // ufplansplit (log only): this task's entry (other Sims' plans ran during the polls; they keep their own)
                 UfSplit su;
                 if (splitOn && sUfSplits.TryGetValue(splitTask, out su))
@@ -354,10 +358,12 @@ namespace Ts3Fixes
                 RouteSrcCall src = RouteSrcBegin(this, 1, Vector3.Invalid);
                 RoutePlanResult iam;
                 if (IaAnswer(1, Vector3.Invalid, out iam)) { RouteSrcEnd(this, src, false); return iam; }
+                ActPlanBegin();
                 byte urx = UrxBegin();
                 RoutePlanResult r;
                 try { r = UfPlan(1, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); }
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 1, rflT0, r);
                 IaNote(1, Vector3.Invalid, r, rflT0);
                 if (urx != 0) UrxAfter(urx, 1, Vector3.Invalid, r);
@@ -387,10 +393,12 @@ namespace Ts3Fixes
                 RouteSrcCall src = RouteSrcBegin(this, 2, startPosition);
                 RoutePlanResult iam;
                 if (IaAnswer(2, startPosition, out iam)) { RouteSrcEnd(this, src, false); return iam; }
+                ActPlanBegin();
                 byte urx = UrxBegin();
                 RoutePlanResult r;
                 try { r = UfPlan(2, startPosition); } finally { if (urx != 0) UrxEnd(urx); }
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 SemCapture(r);  // docs/636 spotedgememo: which goal EA's full routability plan reached
                 RflPlan(this, 2, rflT0, r);
                 if (urx != 0) UrxAfter(urx, 2, startPosition, r);
@@ -438,10 +446,12 @@ namespace Ts3Fixes
                 RouteSrcCall src = RouteSrcBegin(this, 3, fromPt);
                 RoutePlanResult iam;
                 if (IaAnswer(3, fromPt, out iam)) { RouteSrcEnd(this, src, false); return iam; }
+                ActPlanBegin();
                 byte urx = UrxBegin();
                 RoutePlanResult r;
                 try { r = UfPlan(3, fromPt); } finally { if (urx != 0) UrxEnd(urx); }
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
+                ActPlanEnd(r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 3, rflT0, r);
                 IaNote(3, fromPt, r, rflT0);
                 if (urx != 0) UrxAfter(urx, 3, fromPt, r);

@@ -425,6 +425,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kOutfitWaitEnd value="True" />
     <kOutfitWaitEndMinutes value="30" />
     <kInitStackTrace value="True" />
+    <kActDelay value="False" />
+    <kActDelayLogMs value="500" />
+    <kActDelayOutfitLogMs value="200" />
+    <kActDelayLinesPerMin value="30" />
     <kWeatherStoneListener value="True" />
     <kWeatherManagerThrow value="True" />
     <kRainShelterCheap value="True" />

@@ -556,6 +556,9 @@ namespace Ts3Fixes
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
+            // Last, so its hooks are the outermost of every stacked swap: a hook patched later that answers without calling its
+            // original (initstacktrace's OnAddedToQueue) would cut the probe off (docs/684 §7; tools/probe-swap-order.ts checks)
+            ApplyActDelay();      // ActDelay.cs (docs/684): actdelay probe, pass-through (off)
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1631,6 +1634,10 @@ namespace Ts3Fixes
         // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        // [4270-4279] actdelay (ActDelay.cs, docs/684): instances that acted / of them over kActDelayLogMs / ended without acting /
+        // left the queue before Run / dropped (table full or stale) / errors / lines written / plans inside records / summed queued -> act ms / longest queued -> act ms.
+        // [4280-4289] actdelay overlays (ActDelay.cs, docs/684 §8): outfit waits that slept / their summed ms / longest ms / of them household or selected /
+        // instances with a sync wait / their summed sync ms / instances whose Run began in a vehicle / inside a rabbit hole / long outfit waits with the Sim on screen / long outfit waits.
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
@@ -2194,6 +2201,7 @@ namespace Ts3Fixes
                 case "mopunreachable": return Instantiator.kMopUnreachable;
                 case "petpuddletile": return Instantiator.kPetPuddleTile;
                 case "initstacktrace": return Instantiator.kInitStackTrace;
+                case "actdelay": return Instantiator.kActDelay;  // ActDelay.cs (docs/684): read-only probe of the time from queued to acting, off
                 case "weatherstonelistener": return Instantiator.kWeatherStoneListener;
                 case "weathermanagerthrow": return Instantiator.kWeatherManagerThrow;
                 case "rainsheltercheap": return Instantiator.kRainShelterCheap;

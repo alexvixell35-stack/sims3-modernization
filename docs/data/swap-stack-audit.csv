@@ -1,4 +1,13 @@
 hook,target,method,file,stub,yields,proof,purpose,action
+AdInstHook.AddedHook,InteractionInstance,OnAddedToQueue,ActDelay.cs,AddedOrig,yes,InteractionInstance::OnAddedToQueue > BBallHoop+BBallHoopBall::get_InUse > .. 3 .. > StateMachineClient::RequestState,ActDelay,"keep, stub remap (SavedStacks.cs)"
+AdInstHook.RemovedHook,InteractionInstance,OnRemovedFromQueue,ActDelay.cs,RemovedOrig,yes,InteractionInstance::OnRemovedFromQueue > Gameflow::NotifyOfInteractionRemoval > .. 8 .. > StateMachineClient::RequestState,ActDelay,"keep, stub remap (SavedStacks.cs)"
+AdQueueHook.PushHook,InteractionQueue,PushRunningInteraction,ActDelay.cs,PushOrig,no,no path to a yield in 1 overload(s),ActDelay,keep
+AdQueueHook.PopHook,InteractionQueue,PopRunningInteraction,ActDelay.cs,PopOrig,no,no path to a yield in 1 overload(s),ActDelay,keep
+AdRouteHook.FollowHook,SimRoutingComponent,OnAboutToStartFollowingRoute,ActDelay.cs,FollowOrig,yes,SimRoutingComponent::OnAboutToStartFollowingRoute > Terrain::ModifyRouteForSpecies > GlobalFunctions::FindGoodTurnAroundLocationAlongBoatRoute > Simulator::Sleep,ActDelay,"keep, stub remap (SavedStacks.cs)"
+AdSmcHook.SetActorHook,StateMachineClient,SetActor,ActDelay.cs,SetActorOrig,yes,StateMachineClient::SetActor > Sim::SetSacsDefaultParameters > .. 19 .. > StateMachineClient::RequestState,ActDelay,"keep, stub remap (SavedStacks.cs)"
+AdFglHook.FglHook,GlobalFunctions,FindGoodLocationNearby,ActDelay.cs,FglOrig,no,no path to a yield in 5 overload(s),ActDelay,keep
+AdOutfitHook.WaitHook,Sim.SwitchOutfitHelper,Wait,ActDelay.cs,WaitOrig,yes,Sim+SwitchOutfitHelper::Wait > Simulator::Sleep,ActDelay,"keep, stub remap (SavedStacks.cs)"
+AdStartSyncHook.StartSyncHook,InteractionInstance,StartSync,ActDelay.cs,StartSyncOrig,yes,InteractionInstance::StartSync > InteractionInstance::StartSync > Simulator::Sleep,ActDelay,"keep, stub remap (SavedStacks.cs)"
 AkHook.RemoveHook,AlarmManager,InternalRemoveAlarm,AlarmKillLog.cs,RemoveOrig,no,no path to a yield in 1 overload(s),alarmkilllog (docs/546 row 5): log a repeating alarm removed after its callback threw,"keep: no yield, never on a saved stack"
 AppHook.RangeHook,GhostHunter.GhostHunterJob,GetPossessableObjectInRange,AptJobTargets.cs,RangeOrig,no,no path to a yield in 1 overload(s),AptJobTargets,keep
 AlRoomHook.RoomHook,Sim,RoomChanged,AptLeave.cs,RoomOrig,yes,Sim::RoomChanged > LightGameObject::AutoLightsOn > .. 2 .. > StateMachineClient::RequestState,AptLeave,"keep, stub remap (SavedStacks.cs)"
