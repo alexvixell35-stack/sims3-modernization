@@ -254,6 +254,7 @@ namespace Ts3Fixes
             ApplyMoonDialListener();   // docs/582 B4 §6
             ApplySnubListener();   // docs/582 B4 §7
             ApplyElevatorRiderTimeout();   // docs/582 B4 §3b
+            ApplyElevatorLightRig();   // docs/658 §7.1 (ElevatorLightRig.cs), off by default; after elevatorresetriders (chains on OnReset)
             ApplyRoleNullGuard();   // docs/582 B5 §1
             ApplyHomeworkSkillBonus();   // docs/582 B5 §2
             ApplyHorseRanchChallenge();   // docs/582 B5 §3
@@ -556,6 +557,11 @@ namespace Ts3Fixes
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
+            ApplyCasPropagate();       // docs/658 §6.1-6.2 (CasPropagate.cs), off by default
+            ApplyCasDefaultSkin();     // docs/658 §6.3 (CasDefaultSkin.cs), off by default (logs the pick)
+            ApplyCasOccultLog();       // docs/658 §6.4 (CasOccultLog.cs), off by default
+            ApplyCasTintReset();       // docs/658 §6.6 (CasTintReset.cs), off by default, unconfirmed
+            ApplyOptionsNoopApply();   // docs/658 §7.3 (OptionsNoopApply.cs), off by default (logs no-op sets)
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1632,6 +1638,7 @@ namespace Ts3Fixes
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
+        // [4200-4219] docs/658 (CAS audit fixes): [4200-4203] caspropagateoutfits (CasPropagate.cs, §6.1): outfits EA dropped for age / gender / current index realigned / CareerOutfitIndex realigned / errors; [4204-4206] caspropagateextra (§6.2): outfits rebuilt / left (age / gender) / errors; [4207-4209] casdefaultskin (CasDefaultSkin.cs, §6.3): LoadDB runs / default changed / errors; [4210-4212] casoccultlog (CasOccultLog.cs, §6.4): occult change exceptions / werewolf age rebuilds that threw / errors; [4213-4214] castintreset (CasTintReset.cs, §6.6): stale HighlightIndex cleared / errors; [4215-4217] elevatorlightrig (ElevatorLightRig.cs, §7.1): rigs cleared / seen with the switch off / errors; [4218-4219] optionsnoopapply (OptionsNoopApply.cs, §7.3): no-op graphics sets found (skipped with the switch on) / errors.
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
         const int kCounterSlots = 4470;
@@ -2129,6 +2136,13 @@ namespace Ts3Fixes
                 case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
                 case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
                 case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off
+                case "caspropagateoutfits": return Instantiator.kCasPropagateOutfits;  // off (CasPropagate.cs, docs/658 §6.1)
+                case "caspropagateextra": return Instantiator.kCasPropagateExtra;  // off (CasPropagate.cs, docs/658 §6.2)
+                case "casdefaultskin": return Instantiator.kCasDefaultSkin;  // off (CasDefaultSkin.cs, docs/658 §6.3)
+                case "casoccultlog": return Instantiator.kCasOccultLog;  // off (CasOccultLog.cs, docs/658 §6.4)
+                case "castintreset": return Instantiator.kCasTintReset;  // off (CasTintReset.cs, docs/658 §6.6, UNCONFIRMED)
+                case "elevatorlightrig": return Instantiator.kElevatorLightRig;  // off (ElevatorLightRig.cs, docs/658 §7.1)
+                case "optionsnoopapply": return Instantiator.kOptionsNoopApply;  // off (OptionsNoopApply.cs, docs/658 §7.3)
                 case "makebedbothhh": return Instantiator.kMakeBedBothHousehold;  // MakeBedBoth.cs: the same for household and selected Sims (stands alone), off
                 case "makebedbothlog": return Instantiator.kMakeBedBothLog;  // MakeBedBoth.cs (docs/686 §13): one line per act, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;

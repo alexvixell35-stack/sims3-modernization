@@ -66,6 +66,8 @@
 #   zdemptyout decaymemo burnttilefloor
 # autonomy quality PR #575 (import 2026-11-20): fightorphanwait poolnolane autonomyfailcooldown venuepicktime default ON; still off, no verdict (timing only):
 #   venuepickfast
+# built 2026-11-19 (docs/658 CAS audit, contributor PR), default off, NOT RUN in game (castintreset is an unconfirmed candidate; casoccultlog is log only):
+#   caspropagateoutfits caspropagateextra casdefaultskin casoccultlog castintreset elevatorlightrig optionsnoopapply
 # Dalexlol PR 2026-11-20 (docs/202 §3.10), default off: unseenhouseboatview, a scope-rule change never run in game (unseenfbghost, unseenfbnosync, safespotplanyield are ON by default, natural play only, no off/on verdict):
 #   unseenhouseboatview
 # Dalexlol PRs #503 / #490 (import 2026-11-20), default off by choice (gohomeshell: apartment arrivals, test with LotLevelPastEnd; spawnoffworld: Rodney call):

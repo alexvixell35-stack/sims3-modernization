@@ -45,6 +45,7 @@ cas_close,CasHandlers,CAS,Done in CAS,natural,in CAS,handler,none
 cas_click,CasHandlers,CAS,clicking a clothing type or design button in CAS,natural,in CAS (clothing panel),handler,none
 cas_state,CasHandlers,Any,none (read),harness,,handler,none
 cas_bench,CasHandlers,CAS,clicking through CAS parts,stress,timed part sweep,handler,none
+cas_skin_probe,CasHandlers,CAS,none (read: the CAS builder's skin tone / outfit state; never writes),harness,in CAS,handler,none
 buy_open,CasHandlers,Live,Buy button,natural,active household has a home lot; clock stops (R-MODE-2),handler + R-MODE-2,live
 buy_category,CasHandlers,Buy,clicking a Buy catalog tab,natural,in Buy mode,handler,none
 buy_close,CasHandlers,Buy,Live button,natural,in Buy mode,handler,none

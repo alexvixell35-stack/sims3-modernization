@@ -820,6 +820,13 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMakeBedBoth value="True" />
     <kMakeBedBothHousehold value="False" />
     <kMakeBedBothLog value="False" />
+    <kCasPropagateOutfits value="False" />
+    <kCasPropagateExtra value="False" />
+    <kCasDefaultSkin value="False" />
+    <kCasOccultLog value="False" />
+    <kCasTintReset value="False" />
+    <kElevatorLightRig value="False" />
+    <kOptionsNoopApply value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />

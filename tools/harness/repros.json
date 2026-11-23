@@ -116353,6 +116353,410 @@
     ]
   },
   {
+    "id": "cas-skin-probe",
+    "bug": "In CAS the body skin (neck, shoulders, back) sometimes shows lighter and greyer than the face, seen in swimwear and in the mirror; a hair change or leaving CAS clears it (docs/658 §3)",
+    "fix": "diagnostic first: cas_skin_probe (read only) at each tab. Candidate fix castintreset (CasTintReset.cs, UNCONFIRMED, default off) and casdefaultskin (CasDefaultSkin.cs, default off, logs the picked ramp)",
+    "save": "Baseline-BP",
+    "note": "Each step records CASModel.HighlightIndex / SelectionIndex / HighlightMode, CASLogic's dirty flags, SimSelectionModeEnabled, the pick id decoded to a body type, the builder skin key / index, LoadDB's default ramp and whether the human base ramp is installed, the outfit and its worn body types. A full-resolution spectacle capture needs a shell step the harness does not have; the game's own screenshot (key C) is taken instead. Compare the screenshots by eye for a lighter torso; a non-zero highlight_index whose highlight_body_type is FullBody / UpperBody with highlight_mode Parts while the panel is not the click-on-Sim one names H1.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "castintreset": "$on",
+          "casdefaultskin": "$on",
+          "optionsnoopapply": "$on"
+        },
+        "waitS": 1,
+        "note": "off arm: EA's behaviour, the probe records where a stale index sits; on arm: the unconfirmed candidate clears it"
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "swimwear"
+        },
+        "waitS": 30,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        },
+        "note": "CAS on the active Sim in swimwear"
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: open-swimwear"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-open-swimwear"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "tops"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: clothing-tab"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-clothing-tab"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "body"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: body"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-body"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "swimwear"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: swimwear"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-swimwear"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "everyday"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: everyday"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-everyday"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "basics"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: basics"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-basics"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "hair"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: hair"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-hair"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Sims3.UI.UIManager.ApplyOptions"
+        },
+        "waitS": 3,
+        "note": "player lead (Options menu in CAS, then exit): EA's native options re-apply, as OptionsDialog OK runs it; a lighter torso right after confirms the native re-apply as the trigger"
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1,
+        "note": "probe: after-applyoptions"
+      },
+      {
+        "cmd": "screenshot",
+        "args": {
+          "name": "cas-skin-after-applyoptions"
+        },
+        "waitS": 2,
+        "optional": true,
+        "note": "game screenshot (key C, full game resolution). spectacle -b -n -f -o is not possible: the harness has no shell step"
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1,
+        "note": "castintreset_cleared, casdefaultskin_loads / _changed read back"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "Both arms: every cas_skin_probe answers; ramps > 0; human_base_ramp_installed true on a base-game install; casdefaultskin line in the log naming EA's last-enumerated ramp. Off arm: record highlight_index / selection_index per tab (the trigger is where a non-zero value stays on a body part after the tab changed). On arm: castintreset_cleared >= 0 and highlight_index 0 after each tab switch away from the click-on-Sim panel; no lighter torso in the screenshots. After the ApplyOptions step: compare cas-skin-after-applyoptions with cas-skin-hair (both arms; optionsnoopapply cannot stop a direct ApplyOptions, it only skips no-op sets from the dialog's OK: its 'optionsnoopapply:' lines show up only when the Options dialog is used). No script errors, no crash.",
+    "switches": [
+      "castintreset",
+      "casdefaultskin",
+      "optionsnoopapply"
+    ]
+  },
+  {
+    "id": "cas-propagate",
+    "bug": "PropagatePhysicalProperties: an age / gender mismatched outfit dropped by EA leaves the current outfit index and CareerOutfitIndex stale; the performance-career Career[0] and non-primary categories keep the old skin, morphs and blends; occult and werewolf age exceptions are swallowed (docs/658 §6.1, §6.2, §6.4)",
+    "fix": "ts3fixes CasPropagate.cs (caspropagateoutfits, caspropagateextra) and CasOccultLog.cs (casoccultlog), all default off",
+    "save": "Baseline-BP",
+    "note": "Natural trigger only: every category switch in CAS runs CommitBuilder(bAllCategories) -> PropagatePhysicalProperties. caspropagateextra fires when the Sim has MartialArts / AuxCareer / Makeover / SkinnyDippingTowel / Massage / ChildImagination outfits or a performance career; caspropagateoutfits fires only with a stored outfit of another age or gender (legacy saves). A Sim without them is N/A for that counter, not FAIL; the run still judges side effects.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "caspropagateoutfits": "$on",
+          "caspropagateextra": "$on",
+          "casoccultlog": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "cas_open",
+        "args": {
+          "outfit": "everyday"
+        },
+        "waitS": 30,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "swimwear"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "formal"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_category",
+        "args": {
+          "category": "everyday"
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "cas_skin_probe",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "waitS": 1,
+        "note": "caspropagateoutfits_* / caspropagateextra_* / casoccultlog_* counters"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 20,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "Both arms: outfit_category back to Everyday, stored_outfit_body_types non-empty (the builder was reloaded from a real outfit). On arm: caspropagateoutfits_errors 0, caspropagateextra_errors 0; caspropagateextra_rebuilt > 0 when the Sim has a listed outfit (else N/A); 'caspropagate: rebuilt ...' lines match it; no script errors, no crash.",
+    "switches": [
+      "caspropagateoutfits",
+      "caspropagateextra",
+      "casoccultlog"
+    ]
+  },
+  {
+    "id": "elevatorlightrig-check",
+    "bug": "An elevator rider reset or cut off without OnExitElevator keeps the CAS custom light rig in live mode (docs/658 §7.1)",
+    "fix": "ts3fixes ElevatorLightRig.cs: elevatorlightrig (default off), docs/658 §7.1",
+    "save": "any world (pure check); an elevator lot shows the live counters",
+    "note": "ElevatorLightRigCheck 'run' evaluates the fix's rule with controls and counts the elevators and registered riders (read-only); 'result' shows the counters. A live trigger (reset a rider mid-ride) is the next step: docs/658 §7.1.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevatorLightRigCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevatorlightrig": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

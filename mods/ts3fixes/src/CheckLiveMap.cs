@@ -91,10 +91,15 @@ namespace Ts3Fixes
                 case "careerskillnull": return EpLive(typeof(CareerSkillNullHook), 1);
                 case "carnoroute": return EpLive(typeof(CarNoRouteHook), 1);
                 case "carpoolschoolskip": return EpLive(typeof(BCsHook), 1, "sCsData", sCsData, null);
+                case "casdefaultskin": return EpLive(typeof(CasSkinHook), 1);
                 case "casfiltergrid": return EpLive(typeof(CesHook), 0, "sBilDict", sBilDict, null, "sBilDict", sBilDict, "static", "sCfgSingleton", sCfgSingleton, null, "sCfgSingleton", sCfgSingleton, "static");
                 case "casgrid": return EpJoin(EpLive(typeof(CasHairHook), 1), EpLive(typeof(CasMakeupHook), 1, "sMakeupVisible", sMakeupVisible, 1));
+                case "casoccultlog": return EpJoin(EpLive(typeof(CasOccHook), 3), EpLive(typeof(CasWwHook), 1));
+                case "caspropagateextra": return EpLive(typeof(CasPropHook), 1);
+                case "caspropagateoutfits": return EpLive(typeof(CasPropHook), 1);
                 case "caspuckevents": return EpLive(typeof(CplHook), 0, "sCplDashRemove", sCplDashRemove, 1, "sBilDict", sBilDict, null, "sBilDict", sBilDict, "static", "sBilHandle", sBilHandle, "get", "sBilDeregister", sBilDeregister, 1);
                 case "casrowleak": return EpLive(typeof(CrlCategoryHook), 0);
+                case "castintreset": return EpLive(typeof(CasTintHook), 2);
                 case "catchpreyodds": return EpLive(typeof(B12CpHook), 1, "sCpSkill", sCpSkill, null, "sCpAdjust", sCpAdjust, 2, "sCpChance", sCpChance, null, "sCpChance", sCpChance, "static");
                 case "catgymwatch": return EpLive(typeof(BCgHook), 1);
                 case "catnamecache": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(CatalogNameHook), 0));
@@ -158,6 +163,7 @@ namespace Ts3Fixes
                 case "efficientchip": return EpLive(typeof(EfficientChipHook), 0);
                 case "eggspot": return EpLive(typeof(EggSpotHook), 1);
                 case "elevatorkitten": return EpLive(typeof(BEkHook), 1);
+                case "elevatorlightrig": return EpLive(typeof(ElrHook), 3, "sErAssigned", sErAssigned, null);
                 case "elevatorresetriders": return EpLive(typeof(BErHook), 1);
                 case "elevatorridertimeout": return EpLive(typeof(BE2Hook), 1, "sErAssigned", sErAssigned, null);
                 case "errortraploop": return EpLive(typeof(ErrorTrapLoopHook), 1);
@@ -315,6 +321,7 @@ namespace Ts3Fixes
                 case "oppdeadlisteners": return EpLive(typeof(OdlHook), 1);
                 case "oppfailcharge": return EpLive(typeof(B13OfHook), 1);
                 case "opptrackerrelisten": return EpLive(typeof(BOtHook), 1);
+                case "optionsnoopapply": return EpLive(typeof(OnaHook), 1);
                 case "outerwearautoloop": return EpLive(typeof(OwTestHook), 3);
                 case "outerwearrestore": return EpLive(typeof(OwRunHook), 1);
                 case "outfitmissing": return EpLive(typeof(OutfitMissingHook), 1, "sSohNoChange", sSohNoChange, null);
