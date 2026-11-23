@@ -596,7 +596,8 @@ const stopLoad = startMachineLoad(`${pre}-machine.jsonl`); // other processes an
 writeFileSync(`${pre}-activity.jsonl`, '');
 const upkeep = (async () => {
   while (!stopped && Date.now() - t0 < secs * 1000) {
-    const k = await ag('keep_alive', { threshold: -50 }); await ag('decline_requests');
+    // "noKeepAlive": true on a repro entry: its arms need a motive at its minimum (showershare-force: a bladder failure), which keep_alive would fill
+    const k = reproEntry?.noKeepAlive ? { ok: true, result: { topped_up: [], repaired: [] } } : await ag('keep_alive', { threshold: -50 }); await ag('decline_requests');
     const ap = await ag('autopilot');
     await checkStuck();
     const cleared: string[] = ap.ok ? ap.result.cleared : [];

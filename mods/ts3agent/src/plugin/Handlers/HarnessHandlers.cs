@@ -46,6 +46,7 @@ namespace Ts3Agent
             RegisterDesignedRepros(); // DesignedReproHandlers.cs (lane L10 2026-11-15)
             RegisterStoveWall();
             RegisterLayout();
+            RegisterForcedRepro();
             RegisterPkgAbba();
             RegisterStory();
             RegisterHouseholds();

@@ -426,7 +426,7 @@ namespace Ts3Agent
             return r;
         }
 
-        // camera {lot?, pos?:{x,y,z}, target?:{x,y,z}}: set the camera (CameraController.SetPositionAndTarget, what
+        // camera {lot?, at?: object, offset?:{x,y,z}, pos?:{x,y,z}, target?:{x,y,z}}: set the camera (CameraController.SetPositionAndTarget, what
         // -campos/-camtarget do at load); no args = read only. Returns the current pose.
         // M10: max zoom out (high pos.y) and pan the town, diffing commitMB and the largest free block between poses.
         // lot: onto that lot's centre (FindLotByName: "home", "far" or a name), so a world-neutral repro needs no coordinates.
@@ -437,7 +437,7 @@ namespace Ts3Agent
         {
             RequireLive();
             Dictionary<string, object> r = Util.Obj();
-            if (a.Has("lot") || a.Has("pos") || a.Has("target"))
+            if (a.Has("lot") || a.Has("pos") || a.Has("target") || a.Has("at"))
             {
                 ulong followed = CameraController.GetObjectFollowId();
                 r["followed_id"] = followed;
@@ -452,6 +452,14 @@ namespace Ts3Agent
             {
                 Vector3 c = LotViewPoint(FindLotByName(a.Str("lot")));
                 CameraController.SetPositionAndTarget(new Vector3(c.x, c.y + 30f, c.z - 30f), c);
+            }
+            else if (a.Has("at"))
+            {
+                // at: an object (as FindTarget), seen from `offset` (default -4.7, 7.5, 5.5): the Buy tool does not place an
+                // object on the same tile in every run (ws-r1: a shower 1.4 m from where session ws-m1 had it)
+                Vector3 t = FindTarget(a, "at").Position;
+                Vector3 o = a.Has("offset") ? Vec(a, "offset") : new Vector3(-4.7f, 7.5f, 5.5f);
+                CameraController.SetPositionAndTarget(new Vector3(t.x + o.x, t.y + o.y, t.z + o.z), new Vector3(t.x, t.y + 0.5f, t.z));
             }
             else if (a.Has("pos") || a.Has("target"))
                 CameraController.SetPositionAndTarget(

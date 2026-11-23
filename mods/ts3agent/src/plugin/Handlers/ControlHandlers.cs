@@ -693,7 +693,9 @@ namespace Ts3Agent
             }
             else if (a.Has("to")) pos = RequireRarePoint(s, a.Str("to"));  // "pond", "ocean", "far" (RareHandlers)
             else pos = new Vector3((float)a.Double("x"), (float)a.Double("y", 0), (float)a.Double("z"));
-            if (!IsSealed(a)) pos = WalkableClick(s, pos);  // "sealed" (docs/264 §3) must stay unreachable
+            // "sealed" (docs/264 §3) must stay unreachable; exact: true keeps the given point even when the Sim cannot plan there now
+            // (WalkableClick would swap a goal behind a ladder closed by standing Sims for a random lot point, repro ladderfoot-force)
+            if (!IsSealed(a) && !a.Bool("exact", false)) pos = WalkableClick(s, pos);
             InteractionInstance ii = Terrain.GoHere.GetSingleton(s, pos).CreateInstance(Terrain.Singleton, s,
                 new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
             Terrain.GoHere gh = ii as Terrain.GoHere;

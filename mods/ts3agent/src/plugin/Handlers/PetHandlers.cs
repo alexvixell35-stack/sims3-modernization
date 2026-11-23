@@ -115,6 +115,7 @@ namespace Ts3Agent
         static object PetAdopt(Args a)
         {
             RequireLive();
+            if (a.Bool("active", false)) return PetAdoptActive(a);
             int n = (int)a.Long("count", 3);
             if (n < 1 || n > 10) throw new McpException("count must be 1..10");
             string sp = a.Str("species", "any").ToLowerInvariant();
@@ -152,6 +153,43 @@ namespace Ts3Agent
             r["adopted"] = adopted;
             r["skipped"] = skipped;
             r["pools"] = PetPoolSizes();
+            return r;
+        }
+
+        // pet_adopt {active: true, species?: "dog" | "cat" (default dog), near?: a target (default the selected Sim)}: the
+        // active household adopts one grown pet out of EA's pool, the same steps as above, the pet put next to `near`.
+        // For repros that need a household pet (petrelax-force, docs/686 §11); a player adopts by phone or computer.
+        static object PetAdoptActive(Args a)
+        {
+            Household home = Household.ActiveHousehold;
+            if (home == null) throw new McpException("no active household");
+            string sp = a.Str("species", "dog").ToLowerInvariant();
+            if (sp != "dog" && sp != "cat") throw new McpException("species: dog or cat");
+            PetPoolType t = sp == "dog" ? PetPoolType.AdoptDog : PetPoolType.AdoptCat;
+            List<SimDescription> pool = PetPoolManager.GetPetsByType(t);
+            SimDescription pet = null;
+            if (pool != null)
+                foreach (SimDescription d in pool)
+                    if (d != null && !d.IsPuppy && !d.IsKitten && home.CanAddSpeciesToHousehold(d.Species)) { pet = d; break; }
+            if (pet == null) throw new McpException("no grown " + sp + " in " + t + " the household has room for");
+            Sim adult = a.Has("near") ? FindTarget(a, "near") as Sim : null;
+            Vector3 at = a.Has("near") ? FindTarget(a, "near").Position : Util.ActiveSim().Position;
+            if (adult == null) adult = Util.ActiveSim();
+            if (!PetPoolManager.RemovePet(t, pet, true)) throw new McpException(pet.FullName + ": not removed from " + t);
+            home.Add(pet);
+            pet.IsNeverSelectable = false;
+            pet.WasAdopted = true;
+            Sim ps = pet.Instantiate(at);
+            if (ps != null && adult != null)
+            {
+                Relationship.CheckAddHumanParentFlagOnAdoption(adult, ps);
+                PetAdoption.PetAdoptionEnd(ps, adult, false);
+            }
+            Dictionary<string, object> r = PetRow(pet, home);
+            r["instantiated"] = ps != null;
+            r["sim_id"] = ps != null ? Util.Id(ps.ObjectId.Value) : null;
+            r["at"] = ps != null ? Pos(ps.Position) : null;
+            r["adult"] = adult != null ? adult.FullName : null;
             return r;
         }
 
