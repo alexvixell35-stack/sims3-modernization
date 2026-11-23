@@ -173,7 +173,7 @@ static void MaLine(LONG n, const char* tag) {
     const bool exiting = !strcmp(tag, "exit");
     int ord[MA_CACHES + 1], no = 0;
     for (int i = 0; i < MA_CACHES; i++)
-        if (g_maSelf[i] && (!exiting || !g_maNames[i][0])) strcpy_s(g_maNames[i], exiting ? "c?" : MaName(g_maSelf[i], nm, sizeof(nm)));
+        if (g_maSelf[i] && (!exiting || !g_maNames[i][0])) SCpy(g_maNames[i], exiting ? "c?" : MaName(g_maSelf[i], nm, sizeof(nm)));
     for (const char* want : {"rc", "anim", (const char*)NULL})
         for (int i = 0; i < MA_CACHES; i++) {
             const bool named = !strcmp(g_maNames[i], "rc") || !strcmp(g_maNames[i], "anim");

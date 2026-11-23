@@ -105,6 +105,7 @@ namespace Ts3Fixes
             ApplyPortalAdaptorLeak();
             ApplyCasGrid();
             ApplySwapInvokeDiag();  // SwapInvokeDiag.cs, docs/312 (load-time tuning kSwapInvokeDiag)
+            ApplyBlankTns();        // BlankTns.cs, docs/869 (blanktns: names the sender of a blank notice; counts only while off)
             ApplySpatialCache();
             ApplyFewerPlans();
             ApplyCandidateLoops();
@@ -185,12 +186,17 @@ namespace Ts3Fixes
             ApplyUpgradeFailAlarm();    // docs/567 §1 (UpgradeFailAlarm.cs)
             ApplyRepairTimeCache();    // docs/567 §2 (RepairTimeCache.cs)
             ApplyBurglarIdle();    // docs/568 §1 (BurglarIdle.cs)
+            ApplyBurglarApt();     // docs/866 (BurglarApt.cs)
             ApplyGigWaitLeave();    // docs/568 §2 (GigWaitLeave.cs)
             ApplySculptPose();    // docs/568 §3 (SculptPose.cs)
             ApplyTrainBoost();    // docs/569 §1 (TrainBoost.cs)
             ApplyEatOutsideCount();    // docs/569 §2 (EatOutsideCount.cs)
             ApplyFireActiveJob();    // docs/570 §1 (FireActiveJob.cs)
             ApplyFireTrapCount();    // docs/570 §5 (FireTrapCount.cs)
+            ApplyAptPossess();       // docs/863 (AptJobTargets.cs)
+            ApplyFireDoorKeep();     // docs/864 (FireDoorKeep.cs)
+            ApplyFireNre();          // docs/867 (FireNre.cs)
+            ApplyFireCount();        // docs/868 (FireCount.cs)
             ApplyGenerationsLogic(); // docs/571 §1-4 (GenerationsLogic.cs)
             ApplySeasonsLogic();     // docs/571 §5-7 (SeasonsLogic.cs)
             ApplySupernaturalLogic(); // docs/571 §8 (SupernaturalLogic.cs)
@@ -404,6 +410,7 @@ namespace Ts3Fixes
             ApplyFireplaceHerb();   // docs/611 §3 (LotCallbacks80.cs)
             ApplyRummageBcast();   // docs/611 §4 (LotCallbacks80.cs)
             ApplyStairWaitEnd();   // docs/612 §2 (StairDup82.cs)
+            ApplyCompatPrecedence();   // docs/328 §7 (CompatResolve.cs): our cleanupvfx / lifeguardquit / stairwaitend on mod overrides that skip the game's method
             ApplySimDisposeLink();   // docs/612 §3 (StairDup82.cs)
             ApplyRhExitUnseen();   // docs/613 §2 (StuckJobs83.cs)
             ApplyRhEntryRelax();   // docs/627 §4 (RhEntry627.cs), after RabbitHoleHook (chains)
@@ -545,6 +552,10 @@ namespace Ts3Fixes
             ApplyUnseenLoopSkipStep();   // docs/632 option (a), after WakePark: its WaitForExitReason hook chains under ours
             ApplyAutLiveB14();
             ApplyHitchCause();
+            ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
+            ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
+            ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
+            ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -787,6 +798,7 @@ namespace Ts3Fixes
         // [2080] overwatchdeadsim (DeadSimHolders.cs): NRaas Overwatch stuck-check entries removed whose last interaction's Sim object is gone.
         // [934-935] dreamnodedeadsim / overwatchdeadsim (DeadSimHolders.cs): listeners / entries kept by the household rule (owner household, selected or unknown scope).
         // [1496-1499] swapinvokediag (SwapInvokeDiag.cs, docs/312): TargetException out of MethodInfo.Invoke on a method we swapped / other exception from one / TargetException from a method we did not swap / lines not written.
+        // [2362-2365] blanktns (BlankTns.cs, docs/869): blank notices renamed with their sender / blank notices seen with the switch off / blank notices not logged (session cap or log channel) / errors.
         // [945-947] boatgetoutdiag (BoatGetOutDiag.cs, docs/257 §7): Boat.GetOut calls watched / SittingInBoat replaced by another task during the fade / NullReferenceException out of a watched GetOut (rethrown).
         // [953-954] boatgetoutguard (BoatGetOutDiag.cs, docs/257 §9): stale-posture NullReferenceExceptions out of Boat.GetOut swallowed for NPCs (Sim reset) / kept by the household rule (household, selected or unknown scope; EA's error stays).
         // [937] boatparkgone (BoatParkGone.cs, docs/257): BoatOwnable.Park calls skipped because the boat was already destroyed (no RoutingComponent; EA would throw).
@@ -843,6 +855,7 @@ namespace Ts3Fixes
         // [2550-2552] upgradefailalarm (UpgradeFailAlarm.cs, docs/567 §1): pending failed-upgrade cancel alarms removed at booking / at restart / errors.
         // [2553-2555] repairtimecache (RepairTimeCache.cs, docs/567 §2): stale repair times dropped / own time while another Sim repairs / errors.
         // [2556-2558] burglaridle (BurglarIdle.cs, docs/568 §1): burglar leaves with no household / after a fire reaction that did not leave / errors.
+        // [2195-2198] burglarapt (BurglarApt.cs, docs/866): burglar loot answers turned to no in hidden / public apartment rooms / would be with the switch off / spare / errors.
         // [2559-2561] gigwaitleave (GigWaitLeave.cs, docs/568 §2): Stylist / Singer gig wait pulses stopped after their own timeout leave / errors.
         // [2562-2563] sculptpose (SculptPose.cs, docs/568 §3): Sculpt Sim subject poses cancelled after the sculptor failed / errors.
         // [2564-2565] free (released).
@@ -1061,6 +1074,13 @@ namespace Ts3Fixes
         // [3382-3384] coopeggquality (StoreBatch1Logic.cs, docs/587 store §13.13): egg quality index shifted to the Quality enum.
         // [3953-3955] fireactivejob (FireActiveJob.cs, docs/570 §1): stale ActiveFireFighter.sActiveJob cleared at world quit / dropped at load / errors.
         // [3956-3959] firetrapcount (FireTrapCount.cs, docs/570 §5): trapped-Sim tasks dropped for Sims gone from the lot / hidden apartment trap spots removed / jobs completed by a drop / errors.
+        // [2178-2180] fireleftover (FireLeftover.cs, docs/862): emergency rescue tasks dropped with nobody trapped left / window-fire tasks completed with no window fire left / errors.
+        // [2181-2183] aptgasleak (AptJobTargets.cs, docs/863): earthquake gas leaks in hidden apartment units dropped / seen with the switch off / errors.
+        // [2184-2186] aptpossess (AptJobTargets.cs, docs/863): ghost-hunter spirit hops into hidden apartment units re-picked / seen with the switch off / errors.
+        // [2187-2190] firedoorkeep (FireDoorKeep.cs, docs/864): door locks given back after a large-fire cleanup / job door locks undone after another job type / doors seen with the switch off / errors.
+        // [2191-2194] horseshoesolo (HorseshoeSolo.cs, docs/865): solo horseshoe turns ended / gone or idle players removed from court queues / seen with the switch off / errors.
+        // [2354-2357] firenre (FireNre.cs, docs/867): RestartTimer skipped for a firefighter with no current job / thank-you rolls set to 0 for a pick with no fire career / either seen with the switch off / errors.
+        // [2358-2361] firecount (FireCount.cs, docs/868): rescues not counted (passer-by, re-trapped, second rubble pile) / deaths handled / cases seen with the switch off / errors.
         // [3960-3962] birthdayagers (GenerationsLogic.cs, docs/571 §1): later agers recorded / listeners removed at cleanup / errors.
         // [3963-3966] sneakoutlistener (GenerationsLogic.cs, docs/571 §2): stale sneak-outs skipped / duplicate return-home listeners removed / left-over sneak listeners removed / errors.
         // [3618-3619] promcarpool (GenerationsLogic.cs, docs/571 §3): prom carpools removed / errors.
@@ -1333,6 +1353,7 @@ namespace Ts3Fixes
         // [3908-3910] broomarenachoice (EpBatch2Logic.cs, docs/587 EP2 §7.4): chosen brooms used / dropped with switch off / errors.
         // [3911-3913] fortunetellerscamodds (EpBatch3Logic.cs, docs/587 EP3 §8.1): scam rows rebuilt / shared rows with switch off / errors.
         // [3914-3916] consignmentskillcurve (EpBatch3Logic.cs, docs/587 EP3 §8.2): curves rebuilt / frequency curve with switch off / errors.
+        // [2366-2369] simbotworld (SimbotWorld.cs, docs/870): MakeFrankensim tunings widened to Downtown + Future / tuning not in EA's shape, left alone / widening undone (switch off) / errors.
         // [3917-3919] consignmentstockleak (EpBatch3Logic.cs, docs/587 EP3 §8.3): objects destroyed / leaked with switch off / errors.
         // [3920-3922] herbqualityfloor (EpBatch3Logic.cs, docs/587 EP3 §8.4): decreases floored / below floor with switch off / errors.
         // [3923-3925] snackbowlslobvfx (EpBatch3Logic.cs, docs/587 EP3 §8.5): one-shots fired / leaked with switch off / errors.
@@ -1580,13 +1601,40 @@ namespace Ts3Fixes
         // [1456-1470] unseenlanesnap (LaneSnap.cs, docs/807): see the list there; [1471-1475] unseenlegsnap (RouteSources.cs LegSnap)
         // [1441-1455] rabbitholedirect [1441-1452] and rhoutside [1453-1455] (RabbitHoleDirect.cs, docs/806): see the lists there
         // [1476-1481] SafeSpot repeat-search counters and safespotdedupe (Fixes.cs SafeSpot, docs/808)
+        // [1585-1586] modquitguard (CompatResolve.cs CrQg0, docs/328 §7.5): mod world-quit handler exceptions caught / seen with the switch off.
+        // [1587-1588] unseenfbgohere (UnseenFallbackFinish.cs UfTripOk, docs/328 §7.5): GoHere trip eligible for the unseen fallback, pre / finish.
+        // [1589] compat precedence store targets not loaded at world load (CompatResolve.cs CompatPrecedenceLog, docs/328 §7.5).
         // [1508-1517] fglinbound (FglInBound.cs, docs/682 §9): indoors stages by our path / ts3native [FglInside] not answering / found / no indoor spot /
         // household or unknown Sim / shadow compares / shadow different (must stay 0) / errors / our ms / EA's stage ms in shadow.
+        // [1543-1584] our loop cost (docs/330): deadrefsweep / deadrefcadence (DeadRefs.cs) and viewerpushdelta (UnseenViewers.cs): see the lists there
+        // [1518-1529] docs/321 lane 0 / H1 / H3 table fill (Caps.cs, always on): AutShadow requests capped / by objects / by pairs /
+        // most objects / most pairs; NearVenue groups over 32 / most open lots; spawnerskip hw / clears; backoff hw / clears; cookclick hw.
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, then
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
-        // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, 16 KB,
-        // docs/registry.md), so a new fix never needs the array resized by hand.
-        const int kCounterSlots = 4200;
+        // [4352-4363] ladderfootshoo (LadderFoot.cs, docs/183 §9): scans of a lot's level links for a cross-level no-path plan / plans whose needed link is closed by
+        // standing Sims / would ask them, off / exempt (household planner without ladderfootshoohh) / Sims asked to step away / Sims not asked (the game's push rules,
+        // or household without its switch) / waits of the planner / second plan succeeded / gave up (timeout, cancel, nobody askable, second plan failed) / asked but
+        // not waited for (not the Sim's own task) / a later plan of such a Sim succeeded within 60 sim-minutes / errors. Same slots as the contributor's combo branch
+        // (4200-4351 left free; the contributor ranges up to 4089 are full).
+        // [4300-4319] standwaitfix (StandWait.cs, docs/686; 4290-4299 left for a parallel branch): obstacle stand-and-waits / blocked cycles (replan failed, the game's
+        // early return) / waits with blocked cycles / of them ran to the game's timeout / yields (on) / would yield (off) / push cycles / Sims pushed / would push (off) /
+        // mutual cycles / pushes withheld (outranked) / plans without people / passes / would pass (off) / exempt cycles (household without standwaitfixhh) /
+        // waits resolved by the fix / their timeout cycles left (upper bound of cycles saved) / errors / longest blocked run (gauge) / lines written.
+        // [4364-4389] sharelanes / laddershare / simpass / angleentry (ShareLanes.cs, docs/686 §8): lane locks the game refused on stairs, doors, gates and ladders / of them
+        // by the direction test only / shared / errors (all four) / would share, off / exempt (household without its switch) / lane waits begun / of them household /
+        // tenths of sim-minutes waited / of them household / waits given up / stand-and-wait at a portal closed by standing Sims: passed / would / locked without
+        // people too / ladder line skipped / would / exempt / simpass at the obstacle event / at the wait / would / exempt / kept (an object, or a Sim at the route's
+        // end) / angleentry stairs / ladder / would / kept (exempt, or the approach plan failed).
+        // [4390-4397] spiralshare (ShareLanes.cs, docs/686 §8): lane locks the game refused on spiral stairs / of them by the direction test only / shared / would
+        // share, off / exempt (household without its switch) / the staircase's line skipped / would (somebody in the line), off / exempt.
+        // [4414-4429] blockeduse (BlockedUse.cs, docs/686 §10): failed plans to an object's slots in DoRoute / would handle, off / exempt (household without
+        // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
+        // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
+        // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
+        // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
+        // or household without makebedbothhh) / run ended early, flags put back.
+        const int kCounterSlots = 4470;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1902,6 +1950,8 @@ namespace Ts3Fixes
                 case "stuckchecknear": return Instantiator.kStuckCheckNear;
                 case "failrepeat": return Instantiator.kFailRepeat;
                 case "jobyield": return Instantiator.kJobYield;
+                case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
+                case "ladderfootshoohh": return Instantiator.kLadderFootShooHousehold;  // LadderFoot.cs (docs/183 §9): ladderfootshoo for household and selected Sims too (as planner and as the Sim asked), off
                 case "jobyieldroad": return Instantiator.kJobYieldRoad;
                 case "jobyieldroadow": return Instantiator.kJobYieldRoadOw;
                 case "jobyieldspawn": return Instantiator.kJobYieldSpawn;
@@ -1929,6 +1979,8 @@ namespace Ts3Fixes
                 case "unseenfbarrive": return Instantiator.kUnseenFallbackArrive;
                 case "unseenfbleave": return Instantiator.kUnseenFallbackLeave;
                 case "unseenfbtrip": return Instantiator.kUnseenFallbackTrip;
+                case "unseenfbgohere": return Instantiator.kUnseenFbGoHere;
+                case "modquitguard": return Instantiator.kModQuitGuard;
                 case "unseenfbtriphold": return Instantiator.kUnseenFallbackTripHold;
                 case "unseenfbloopdet": return Instantiator.kUnseenFallbackLoopDetect;
                 case "goalhhexempt": return Instantiator.kGoalHouseholdExempt;
@@ -2040,6 +2092,7 @@ namespace Ts3Fixes
                 case "upgradefailalarm": return Instantiator.kUpgradeFailAlarm;
                 case "repairtimecache": return Instantiator.kRepairTimeCache;
                 case "burglaridle": return Instantiator.kBurglarIdle;
+                case "burglarapt": return Instantiator.kBurglarApt;
                 case "gigwaitleave": return Instantiator.kGigWaitLeave;
                 case "sculptpose": return Instantiator.kSculptPose;
                 case "festivalhidden": return Instantiator.kFestivalHidden;
@@ -2052,9 +2105,35 @@ namespace Ts3Fixes
                 case "spawnoffworld": return Instantiator.kSpawnOffWorld;
                 case "fireactivejob": return Instantiator.kFireActiveJob;
                 case "firegreet": return Instantiator.kFireGreet;
+                case "horseshoesolo": return Instantiator.kHorseshoeSolo;
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
+                case "fireleftover": return Instantiator.kFireLeftover;
+                case "aptgasleak": return Instantiator.kAptGasLeak;
+                case "aptpossess": return Instantiator.kAptPossess;
+                case "firedoorkeep": return Instantiator.kFireDoorKeep;
+                case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
+                case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
+                case "sharelanes": return Instantiator.kShareLanes;  // ShareLanes.cs (docs/686 §8): a stair, door, gate or ladder lane held from the other end is shared; a portal closed by standing Sims is tried without people at once, off
+                case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off
+                case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
+                case "laddersharehh": return Instantiator.kLadderShareHousehold;  // ShareLanes.cs: laddershare for household and selected Sims too, off
+                case "spiralshare": return Instantiator.kSpiralShare;  // ShareLanes.cs (docs/686 §8): a spiral staircase's one lane is shared in both directions and its walk does not wait for its turn in the staircase's line, off
+                case "spiralsharehh": return Instantiator.kSpiralShareHousehold;  // ShareLanes.cs: spiralshare for household and selected Sims too, off
+                case "simpass": return Instantiator.kSimPass;  // ShareLanes.cs (docs/686 §8): a walking Sim with only Sims in its way walks through them (the game's ignore-obstacles timer) instead of the stand-and-wait, off
+                case "simpasshh": return Instantiator.kSimPassHousehold;  // ShareLanes.cs: simpass for household and selected Sims too (as walker and as the Sim walked through), off
+                case "angleentry": return Instantiator.kAngleEntry;  // ShareLanes.cs (docs/686 §8): stairs and ladders climbed from below are approached by a point plan without facing, off
+                case "angleentryhh": return Instantiator.kAngleEntryHousehold;  // ShareLanes.cs: angleentry for household and selected Sims too, off
+                case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
+                case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
+                case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
+                case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
+                case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off
+                case "makebedbothhh": return Instantiator.kMakeBedBothHousehold;  // MakeBedBoth.cs: the same for household and selected Sims (stands alone), off
+                case "makebedbothlog": return Instantiator.kMakeBedBothLog;  // MakeBedBoth.cs (docs/686 §13): one line per act, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
+                case "firenre": return Instantiator.kFireNre;
+                case "firecount": return Instantiator.kFireCount;
                 case "birthdayagers": return Instantiator.kBirthdayAgers;
                 case "sneakoutlistener": return Instantiator.kSneakOutListener;
                 case "promcarpool": return Instantiator.kPromCarpool;
@@ -2378,6 +2457,7 @@ namespace Ts3Fixes
                 case "broomarenachoice": return Instantiator.kBroomArenaChoice;
                 case "fortunetellerscamodds": return Instantiator.kFortuneTellerScamOdds;
                 case "consignmentskillcurve": return Instantiator.kConsignmentSkillCurve;
+                case "simbotworld": return Instantiator.kSimbotWorld;
                 case "consignmentstockleak": return Instantiator.kConsignmentStockLeak;
                 case "herbqualityfloor": return Instantiator.kHerbQualityFloor;
                 case "snackbowlslobvfx": return Instantiator.kSnackBowlSlobVfx;
@@ -2536,6 +2616,8 @@ namespace Ts3Fixes
                 case "ageupswap": return Instantiator.kAgeUpSwap;
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
+                case "deadrefcadence": return Instantiator.kDeadRefCadence;  // docs/330, ON (sub-switch of deadrefsweep: old cadence when off)
+                case "viewerpushdelta": return Instantiator.kViewerPushDelta;  // docs/330, ON (old every-wake push when off)
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
                 case "vacstoreguard": return Instantiator.kVacStoreGuard;
@@ -2550,6 +2632,7 @@ namespace Ts3Fixes
                 case "menumaven": return Instantiator.kMenuMaven;
                 case "dancefloorlistdiag": return false;  // diagnostics only (DanceFloorDiag.cs, docs/253 §7)
                 case "swapinvokediag": return Instantiator.kSwapInvokeDiag;  // diagnostics only, off (SwapInvokeDiag.cs, docs/312)
+                case "blanktns": return Instantiator.kBlankTns;  // diagnostics only, off (on in betas): a blank notice names its sender (BlankTns.cs, docs/869)
                 case "boatgetoutdiag": return Instantiator.kBoatGetOutDiag;  // diagnostics only, off (BoatGetOutDiag.cs, docs/257 §7)
                 case "boatgetoutguard": return Instantiator.kBoatGetOutGuard;  // EA bug fix, off until the boat-getout-stress queue (BoatGetOutDiag.cs, docs/257 §9)
                 case "unseenoutfitnospin": return Instantiator.kUnseenOutfitNoSpin;
@@ -3692,15 +3775,25 @@ namespace Ts3Fixes
             {
                 object d = InteractionDefinition;
                 if (!ReferenceEquals(d, VisitCommunityLot.Singleton) && !ReferenceEquals(d, VisitCommunityLot.NoAdditionalActionsSingleton)) return;
-                if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "unseenfbtrip", 341, true))
+                if (mFollowers != null && mFollowers.Count > 0) return;
+                // docs/328 §7.5: a mod Run that is EA's for the lots the shortcut takes gets the game's visit shortcut ("visit", counters
+                // [7]-[9]) instead of the opt-in unseenfbtrip path (CompatResolveCore.VisitEaShortcut)
+                Type t = GetType();
+                bool ea = CompatResolveCore.VisitEaShortcut(t.Assembly.GetName().Name, t.FullName, GameUtils.IsUniversityWorld(), ShortcutOn("unseenfbgohere"));
+                if (ea ? ShortcutToLot(Actor, Target, "visit", 7) : ShortcutToLot(Actor, Target, "unseenfbtrip", 341, true))
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
             }
         }
         public class VclSubHook0 : VclSubBase { public bool RunHook() { Shortcut(); return RunOrig(); } public bool RunOrig() { return false; } }
         public class VclSubHook1 : VclSubBase { public bool RunHook() { Shortcut(); return RunOrig(); } public bool RunOrig() { return false; } }
         public class VclSubHook2 : VclSubBase { public bool RunHook() { Shortcut(); return RunOrig(); } public bool RunOrig() { return false; } }
-        static readonly Type[] kVclSubHooks = { typeof(VclSubHook0), typeof(VclSubHook1), typeof(VclSubHook2) };
+        // 3-5 (docs/328 §7.5): GoHere (VisitCommunityLotEx, VisitCommunityLotWithEx) and More Shell Entries (two) in one install take 4
+        public class VclSubHook3 : VclSubBase { public bool RunHook() { Shortcut(); return RunOrig(); } public bool RunOrig() { return false; } }
+        public class VclSubHook4 : VclSubBase { public bool RunHook() { Shortcut(); return RunOrig(); } public bool RunOrig() { return false; } }
+        public class VclSubHook5 : VclSubBase { public bool RunHook() { Shortcut(); return RunOrig(); } public bool RunOrig() { return false; } }
+        static readonly Type[] kVclSubHooks = { typeof(VclSubHook0), typeof(VclSubHook1), typeof(VclSubHook2), typeof(VclSubHook3), typeof(VclSubHook4), typeof(VclSubHook5) };
         static readonly List<Type> sVclSubPatched = new List<Type>();
+        static readonly List<Type> sVclSubOk = new List<Type>();  // Patch went in (CompatResolve's VisitRun line reports it)
 
         // at tuning time and again at world load (script mods may load after us); Run must not be compiled yet (Patch checks)
         internal static void ApplyTripSubclasses()
@@ -3718,7 +3811,7 @@ namespace Ts3Fixes
                     sVclSubPatched.Add(t);
                     int slot = sVclSubPatched.Count - 1;
                     if (slot >= kVclSubHooks.Length) { AppliedLog().Add(t.FullName + ".Run: no unseenfbtrip hook slot, left alone"); continue; }
-                    Patch(t, "Run", Type.EmptyTypes, kVclSubHooks[slot], "RunHook", "RunOrig");
+                    if (Patch(t, "Run", Type.EmptyTypes, kVclSubHooks[slot], "RunHook", "RunOrig")) sVclSubOk.Add(t);
                 }
             }
         }

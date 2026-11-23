@@ -29,6 +29,10 @@
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   firegreet
 #   fglinbound fglinboundhh
+#   standwaitfix standwaitfixhh standwaitlog
+#   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
+#   blockedusehh
+#   makebedbothhh makebedbothlog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
@@ -46,6 +50,8 @@
 # PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
+# diagnostic: a notification with empty text names its sender (docs/869, 2026-11-22), default off (on in betas), repro blank-tns ok; Rodney decides ON:
+#   blanktns
 # built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
@@ -68,3 +74,8 @@
 #   doorshare
 # perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
 #   commodmapfast commodmapshadow
+# compat (docs/328 §7.5, 2026-11-23): GoHere trips for the unseen fallback, default off, pending (bp-gohere-ab FAIL on a read-back, rerun); modquitguard is ON by default since 2026-11-23 (both arms PASS), so no longer listed
+#   unseenfbgohere
+# docs/183 §9 (ladder foot 2026-11-21): ladderfootshoo is ON by default since the 2026-11-22 import (forced case in game, retry ok, errors 0). Household and selected Sims as planner / asked Sim stay opt-in, no household run:
+#   ladderfootshoohh
+# EA bug fixes firenre (docs/867) and firecount (docs/868) are ON by default since the 2026-11-23 Dalexlol 645-653 import, so no longer listed

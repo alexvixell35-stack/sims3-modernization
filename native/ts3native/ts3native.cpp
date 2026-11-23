@@ -18,7 +18,8 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.299-m1122"  // master set m1122: e1122 + unseen-distance-probe-1122 ([UnseenProbe] Bands, TaskSeam 65536/4096, docs/322, off) + world-scale-perf-1122 ([WaterGrid] Prof, LoadProf counter-clear fix, docs/100 §13, off) (2026-11-22); was uband2 / wgprof1 on the branches; e1122: m1121b + Dalexlol 1122 imports
+#define TS3NATIVE_VERSION "0.36.299-m1123"  // master set m1123: m1122 + overflow-fixes-1122 (docs/323 lanes A-F) + unbounded-caps-1122 (docs/321 lanes 0, B, C) + watergrid-next-1122 ([WaterGrid] Diff + Par, docs/100 §14, off) + nonsim-split-1122 ([Diag] NonSimSplit, docs/329, off) + compat, Dalexlol 637-653 and loop-cost merges (ts3fixes only)
+// was "0.36.299-m1122"  // master set m1122: e1122 + unseen-distance-probe-1122 ([UnseenProbe] Bands, TaskSeam 65536/4096, docs/322, off) + world-scale-perf-1122 ([WaterGrid] Prof, LoadProf counter-clear fix, docs/100 §13, off) (2026-11-22); was uband2 / wgprof1 on the branches; e1122: m1121b + Dalexlol 1122 imports
 // was "0.36.297-m1120n" (the same merges on 0.36.295-mdt1, before TaskSeam)
 // was "0.36.295-tsk1"  // feature/mod-seam-budget-1120: [Diag] TaskSeam (docs/308, off) on 0.36.295-mdt1; feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
 // was "0.36.295-mdt1"  // feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
@@ -36,7 +37,7 @@ static HANDLE g_log = INVALID_HANDLE_VALUE;
 static void (*volatile g_logTap)(const char*);  // adaptdiag.cpp AdTap ([AdaptDiag], docs/316): each line, before it is written
 
 static void Log(const char* fmt, ...) {
-    char buf[1536];  // docs/67 §22.4: was 512, which cut the "mono fault:" script stack after 6 of 16 frames
+    char buf[2048];  // docs/67 §22.4: was 512, which cut the "mono fault:" script stack after 6 of 16 frames; docs/323 M1: 1536 cut the longest (~1552)
     va_list ap;
     va_start(ap, fmt);
     int n = _vsnprintf_s(buf, sizeof(buf) - 2, _TRUNCATE, fmt, ap);
@@ -49,9 +50,98 @@ static void Log(const char* fmt, ...) {
     if (g_log != INVALID_HANDLE_VALUE) WriteFile(g_log, buf, (DWORD)n, &w, NULL);
 }
 
+// docs/323 lane A: the DLL links the static CRT (/MT) and installs no _set_invalid_parameter_handler, so a swprintf_s /
+// wcscat_s that does not fit kills the game on the spot (its "< 0" return is never seen). Paths are built here instead:
+// false, and out = "" (never a cut path that names another file), when the text does not fit in cap chars, or when a
+// "%s\..." format gets an empty first directory (that path would land in the drive root).
+static volatile LONG g_pathLong;  // paths that did not fit (entry skipped / write not done)
+static void PathLongNote(size_t cap) {
+    const LONG k = InterlockedIncrement(&g_pathLong);
+    if (k <= 4) Log("path: longer than %u chars, skipped (%ld so far; docs/323)", (unsigned)cap - 1, k);  // no folder names (docs/188)
+}
+static bool PathFmtV(wchar_t* out, size_t cap, const wchar_t* fmt, va_list ap) {
+    if (!out || !cap) return false;
+    if (!wcsncmp(fmt, L"%s\\", 3)) {  // "<dir>\..." with dir "" would name the drive root: fail, no file
+        va_list c;
+        va_copy(c, ap);
+        const wchar_t* dir = va_arg(c, const wchar_t*);
+        va_end(c);
+        if (!dir || !dir[0]) { out[0] = 0; return false; }
+    }
+    if (_vsnwprintf_s(out, cap, _TRUNCATE, fmt, ap) >= 0) return true;
+    out[0] = 0;
+    PathLongNote(cap);
+    return false;
+}
+static bool PathFmt(wchar_t* out, size_t cap, const wchar_t* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const bool ok = PathFmtV(out, cap, fmt, ap);
+    va_end(ap);
+    return ok;
+}
+template <size_t N> static bool PathFmt(wchar_t (&out)[N], const wchar_t* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const bool ok = PathFmtV(out, N, fmt, ap);
+    va_end(ap);
+    return ok;
+}
+
+// docs/323 lane B (Rodney 2026-11-22: per call, no module-wide invalid-parameter handler): every sprintf_s / strcpy_s /
+// strcat_s / wcscpy_s / wcscat_s of this module goes through these. When the text fits: the CRT call's text and return.
+// Past the end they never kill the game: SFmt keeps what fits (returns its length, so "n += SFmt(b + n, cap - n, ...)"
+// chains stay inside b); SCpy / SCat keep what fits (STRUNCATE); WCpy / WCat leave "" and return STRUNCATE (wide strings
+// here are paths: never a cut one), and WCat onto "" stays "" (a failed copy before it never turns into a relative path).
+static int SFmtV(char* d, size_t cap, const char* fmt, va_list ap) {
+    if (!d || !cap) return 0;
+    const int n = _vsnprintf_s(d, cap, _TRUNCATE, fmt, ap);
+    return n >= 0 ? n : (int)strlen(d);
+}
+static int SFmt(char* d, size_t cap, const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const int n = SFmtV(d, cap, fmt, ap);
+    va_end(ap);
+    return n;
+}
+template <size_t N> static int SFmt(char (&d)[N], const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const int n = SFmtV(d, N, fmt, ap);
+    va_end(ap);
+    return n;
+}
+static errno_t SCpy(char* d, size_t cap, const char* s) { return d && cap ? strncpy_s(d, cap, s ? s : "", _TRUNCATE) : EINVAL; }
+template <size_t N> static errno_t SCpy(char (&d)[N], const char* s) { return SCpy(d, N, s); }
+static errno_t SCat(char* d, size_t cap, const char* s) {
+    if (!d || !cap) return EINVAL;
+    if (strnlen(d, cap) == cap) d[cap - 1] = 0;  // an unterminated destination is the CRT's kill too
+    return strncat_s(d, cap, s ? s : "", _TRUNCATE);
+}
+template <size_t N> static errno_t SCat(char (&d)[N], const char* s) { return SCat(d, N, s); }
+static errno_t WCpy(wchar_t* d, size_t cap, const wchar_t* s) {
+    if (!d || !cap) return EINVAL;
+    const size_t n = s ? wcslen(s) : 0;
+    if (n >= cap) { d[0] = 0; PathLongNote(cap); return STRUNCATE; }
+    if (n) memmove(d, s, n * sizeof(wchar_t));
+    d[n] = 0;
+    return 0;
+}
+template <size_t N> static errno_t WCpy(wchar_t (&d)[N], const wchar_t* s) { return WCpy(d, N, s); }
+static errno_t WCat(wchar_t* d, size_t cap, const wchar_t* s) {
+    if (!d || !cap) return EINVAL;
+    const size_t dl = wcsnlen(d, cap), n = s ? wcslen(s) : 0;
+    if (!dl || dl + n >= cap) { d[0] = 0; if (dl) PathLongNote(cap); return STRUNCATE; }
+    memmove(d + dl, s, n * sizeof(wchar_t));
+    d[dl + n] = 0;
+    return 0;
+}
+template <size_t N> static errno_t WCat(wchar_t (&d)[N], const wchar_t* s) { return WCat(d, N, s); }
+
 static void Hex(const u8* p, size_t n, char* out, size_t cap) {
     out[0] = 0;
-    for (size_t i = 0; i < n && (i * 3 + 3) < cap; i++) sprintf_s(out + i * 3, cap - i * 3, "%02X ", p[i]);
+    for (size_t i = 0; i < n && (i * 3 + 3) < cap; i++) SFmt(out + i * 3, cap - i * 3, "%02X ", p[i]);
 }
 
 static bool Readable(const void* p, size_t n) {
@@ -133,7 +223,7 @@ static bool PatchImm32(const char* name, const Site* sites, int count, DWORD val
     for (int i = 0; i < count; i++) {
         const u8* p = (const u8*)(uintptr_t)sites[i].addr;
         if (!Matches(p, sites[i].expect, sites[i].len)) {
-            if (Readable(p, sites[i].len)) Hex(p, sites[i].len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+            if (Readable(p, sites[i].len)) Hex(p, sites[i].len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP %s: bytes at 0x%08X differ (found %s), nothing written", name, sites[i].addr, hex);
             return false;
         }
@@ -290,9 +380,9 @@ static bool XcptOtherModule(DWORD a, char* out, int cap) {
     const DWORD base = (DWORD)(uintptr_t)mbi.AllocationBase;
     if (base == 0x00400000 || base == g_selfLo) return false;
     wchar_t w[MAX_PATH];
-    if (!K32GetMappedFileNameW(GetCurrentProcess(), mbi.AllocationBase, w, MAX_PATH)) wcscpy_s(w, L"?");
+    if (!K32GetMappedFileNameW(GetCurrentProcess(), mbi.AllocationBase, w, MAX_PATH)) WCpy(w, L"?");
     const wchar_t* s = wcsrchr(w, L'\\');
-    sprintf_s(out, cap, "%ls+0x%lX", s ? s + 1 : w, a - base);
+    SFmt(out, cap, "%ls+0x%lX", s ? s + 1 : w, a - base);
     return true;
 }
 // up to `max` code addresses (game .text or this module) in the first 512 stack words, as " %08lX" each
@@ -303,7 +393,7 @@ static void XcptRefs(const CONTEXT* c, char* refs, int cap, int max) {
     for (int i = 0; i < 512 && k < max && Readable(sp + i, 4); i++) {
         const DWORD v = sp[i];
         if ((v >= 0x00401000 && v < 0x00F00000) || (v >= g_selfLo && v < g_selfHi)) {
-            len += sprintf_s(refs + len, cap - len, " %08lX", v);
+            len += SFmt(refs + len, cap - len, " %08lX", v);
             k++;
         }
     }
@@ -322,30 +412,30 @@ static void McFaultDump(const CONTEXT* c) {
     char b[700]; int n;
     __try {
         const WORD* ip = (const WORD*)(uintptr_t)c->Edi;
-        n = sprintf_s(b, "mono fault: code before ip:");
-        for (int i = -28; i < 6; i++) n += sprintf_s(b + n, sizeof(b) - n, i == 0 ? " |%04X" : " %04X", ip[i]);
+        n = SFmt(b, "mono fault: code before ip:");
+        for (int i = -28; i < 6; i++) n += SFmt(b + n, sizeof(b) - n, i == 0 ? " |%04X" : " %04X", ip[i]);
         Log("  %s", b);
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: code unreadable"); }
     __try {
         const DWORD* sp = (const DWORD*)(uintptr_t)(c->Ecx - 0x20);
-        n = sprintf_s(b, "mono fault: eval stack from %08lX:", (DWORD)(uintptr_t)sp);
-        for (int i = 0; sp + i < (const DWORD*)(uintptr_t)(c->Esi + 8) && i < 24; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", sp[i]);
+        n = SFmt(b, "mono fault: eval stack from %08lX:", (DWORD)(uintptr_t)sp);
+        for (int i = 0; sp + i < (const DWORD*)(uintptr_t)(c->Esi + 8) && i < 24; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", sp[i]);
         Log("  %s", b);
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: eval stack unreadable"); }
     __try {
         const DWORD* fr = *(const DWORD* const*)(uintptr_t)(c->Ebp - 8);
-        n = sprintf_s(b, "mono fault: frame record %08lX:", (DWORD)(uintptr_t)fr);
-        for (int i = 0; i < 12; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", fr[i]);
+        n = SFmt(b, "mono fault: frame record %08lX:", (DWORD)(uintptr_t)fr);
+        for (int i = 0; i < 12; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", fr[i]);
         const DWORD* par = (const DWORD*)(uintptr_t)fr[0];
-        n += sprintf_s(b + n, sizeof(b) - n, "; parent %08lX:", (DWORD)(uintptr_t)par);
-        for (int i = 0; par && i < 8; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", par[i]);
+        n += SFmt(b + n, sizeof(b) - n, "; parent %08lX:", (DWORD)(uintptr_t)par);
+        for (int i = 0; par && i < 8; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", par[i]);
         Log("  %s", b);
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: frame record unreadable"); }
     __try {
         const DWORD* lo = *(const DWORD* const*)(uintptr_t)(c->Ebp - 0xC);
-        n = sprintf_s(b, "mono fault: locals %08lX:", (DWORD)(uintptr_t)lo);
-        for (int i = 0; i < 16; i++) n += sprintf_s(b + n, sizeof(b) - n, " %08lX", lo[i]);
-        n += sprintf_s(b + n, sizeof(b) - n, "; c-frame [ebp-0x48] %08lX [ebp-0x50] %08lX [ebp-0x54] %08lX [ebp-0x14] %08lX",
+        n = SFmt(b, "mono fault: locals %08lX:", (DWORD)(uintptr_t)lo);
+        for (int i = 0; i < 16; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", lo[i]);
+        n += SFmt(b + n, sizeof(b) - n, "; c-frame [ebp-0x48] %08lX [ebp-0x50] %08lX [ebp-0x54] %08lX [ebp-0x14] %08lX",
                        *(const DWORD*)(uintptr_t)(c->Ebp - 0x48), *(const DWORD*)(uintptr_t)(c->Ebp - 0x50),
                        *(const DWORD*)(uintptr_t)(c->Ebp - 0x54), *(const DWORD*)(uintptr_t)(c->Ebp - 0x14));
         Log("  %s", b);
@@ -363,8 +453,8 @@ static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
             if (rm) { FbName(caller, sizeof(caller), *(const DWORD*)(uintptr_t)(rm + 8)); code = *(const DWORD*)(uintptr_t)rm; }
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
         __try { FbName(callee, sizeof(callee), *(const DWORD*)(uintptr_t)(c->Ebx + 8)); } __except (EXCEPTION_EXECUTE_HANDLER) {}
-        if (FbStackText(st, sizeof(st), 16) <= 0) strcpy_s(st, "unreadable");
-        sprintf_s(d, room, "mono fault: call handler: in %s (rm %08lX, ip +0x%lX of the transformed code), callee %s (rm %08lX; valid for a call, "
+        if (FbStackText(st, sizeof(st), 16) <= 0) SCpy(st, "unreadable");
+        SFmt(d, room, "mono fault: call handler: in %s (rm %08lX, ip +0x%lX of the transformed code), callee %s (rm %08lX; valid for a call, "
                   "a callvirt reads it later), receiver %08lX, first argument at %08lX; script stack: %s",
                   caller, rm, code ? c->Edi - code : 0, callee, c->Ebx, c->Edx, c->Ecx, st);
         McFaultDump(c);
@@ -386,8 +476,8 @@ static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
             kl = vt ? *(const DWORD*)(uintptr_t)vt : 0;
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
     }
-    if (FbStackText(st, sizeof(st), 16) <= 0) strcpy_s(st, "unreadable");
-    sprintf_s(d, room, "mono fault: in %s (rm %08lX)%s%s, receiver %08lX vtable %08lX klass %08lX; script stack: %s", caller, rm,
+    if (FbStackText(st, sizeof(st), 16) <= 0) SCpy(st, "unreadable");
+    SFmt(d, room, "mono fault: in %s (rm %08lX)%s%s, receiver %08lX vtable %08lX klass %08lX; script stack: %s", caller, rm,
               miss ? ", callvirt of " : "", miss ? callee : "", obj, vt, kl, st);
     return true;
 }
@@ -430,7 +520,7 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     if (code == EXCEPTION_ACCESS_VIOLATION && XcptOtherModule(c->Eip, mod, sizeof(mod))) {
         const LONG k = InterlockedIncrement(&g_xcptOtherN);
         if (k <= 8) g_xcptOther[k - 1] = c->Eip;
-        sprintf_s(in, " (%s)", mod);
+        SFmt(in, " (%s)", mod);
     }
     XcptRefs(c, refs, sizeof(refs), 8);
     Log("exception %08lX at 0x%08lX%s (info %08lX %08lX) thread %lu eip %08lX esp %08lX; stack code refs:%s", code,
@@ -442,7 +532,7 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code) || pure) P5cRelMatch(c);
     if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) AsCrashLine();
     if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && (c->Eip < TS3A(0x00401000) || c->Eip >= TS3A(0x00F95000))) AaDrainFaultDump(c);
-    char mono[1500];
+    char mono[2048];  // docs/323 M1: the longest fault text is ~1552 chars (2 x 119 names + 1099 stack text + ~215); SFmt cuts past it
     if (code == EXCEPTION_ACCESS_VIOLATION && MonoFaultText(c, mono, sizeof(mono))) {
         Log("  %s", mono);
         if (GrFaultText(c, mono, sizeof(mono))) Log("  %s", mono);  // docs/67 §22.4: is the task rooted, is the frame scanned
@@ -3556,7 +3646,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     LONG xcptSkip = 0;
     char xcptBy[8 * 24] = "";
     for (int i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8, len = 0; i < n; i++)
-        xcptSkip += g_xcptOtherHits[i], len += sprintf_s(xcptBy + len, sizeof(xcptBy) - len, " %08lX x%ld", g_xcptOther[i], g_xcptOtherHits[i]);
+        xcptSkip += g_xcptOtherHits[i], len += SFmt(xcptBy + len, sizeof(xcptBy) - len, " %08lX x%ld", g_xcptOther[i], g_xcptOtherHits[i]);
     if (xcptSkip != xcptSkipLogged)
         Log("crash log: %ld more AVs at logged addresses in other modules (not logged):%s", xcptSkipLogged = xcptSkip, xcptBy);
 }
@@ -3944,6 +4034,7 @@ struct AsyncJob {
     LONG pf;          // docs/631 [RouteAsync] PlayerFirst: 1 = a route the player ordered (ts3fixes playerfirst, UserDiag op 37)
     LONG dsBits;      // docs/674 [RouteSnap] DoorShare: the route's Sim class from ts3fixes doorshare (UserDiag op 40), 0 = none
 };
+#include "caps.h"  // docs/321 lane 0: high water of our fixed-size tables (CapSee / CapFull, `caps:` log line)
 // docs/134: 32 slots; with [RouteAsync] FallbackAsync off only the first kJobsBase are handed out (QueueFull as before)
 static const int kJobs = 32, kJobsBase = 8;
 static const DWORD kDoneKeepMs = 5000;  // a Sim collects within a tick or two; older results lost their caller (reset)
@@ -4802,7 +4893,7 @@ static DWORD WINAPI RewindKeepAsync(LPVOID);
 static void RewindParkInit(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"Rewind", L"Park", 0, ini)) return;
     wchar_t name[64];
-    swprintf_s(name, L"Local\\rewind-ts3n-%lu", GetCurrentProcessId());
+    PathFmt(name, L"Local\\rewind-ts3n-%lu", GetCurrentProcessId());
     HANDLE m = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(RwPark), name);
     RwPark* p = m ? (RwPark*)MapViewOfFile(m, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(RwPark)) : NULL;
     if (!p) { Log("FAIL [Rewind] Park: mapping %ls (err %lu)", name, GetLastError()); return; }
@@ -5372,8 +5463,8 @@ static bool FbJitName(DWORD a, char* out, int n);  // hitchsum.cpp (after monoji
 static void RfbCallerText(char* d, int room, const void* ret) {
     d[0] = 0;
     if (!g_fbCaller || room < 200) return;
-    int n = sprintf_s(d, room, ", managed caller ");
-    if (FbStackText(d + n, room - n - 120, g_fbCaller) <= 0) strcpy_s(d + n, room - n, "?");
+    int n = SFmt(d, room, ", managed caller ");
+    if (FbStackText(d + n, room - n - 120, g_fbCaller) <= 0) SCpy(d + n, room - n, "?");
     n = (int)strlen(d);
     char jm[112];
     if (ret && FbJitName((DWORD)(uintptr_t)ret, jm, sizeof(jm))) _snprintf_s(d + n, room - n, _TRUNCATE, " [compiled %s]", jm);
@@ -5714,7 +5805,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
             if (g_jobs[i].state == J_DONE) NoteDrop(&g_jobs[i]);
             j = &g_jobs[i];
         }
-    if (!j) { InterlockedIncrement(&k.asyncQueueFull); return AsyncRefuse(handle, RFB_QFULL, kind); }
+    if (!j) { InterlockedIncrement(&k.asyncQueueFull); CapFull(CAP_JOBS); return AsyncRefuse(handle, RFB_QFULL, kind); }
     j->probe = probe;  // before J_PEND / J_QUEUED: the worker reads it once it claims the slot
     j->sc = sc;
     j->kdId = k.kdMode == 1 ? KdFollower(handle) : 0;  // docs/197: the backoff key, read here on the sim thread
@@ -5769,6 +5860,8 @@ static bool JobQueue(AsyncJob* j, DWORD handle, int kind, const float* pt, bool 
     LONG queued = 0;
     for (int i = 0; i < kJobs; i++) queued += g_jobs[i].state == J_QUEUED || g_jobs[i].state == J_RUNNING;
     Max(&k.asyncQueueMax, queued);
+    CapSee(CAP_JOBS, queued, k.fbMode == 1 ? kJobs : kJobsBase);
+    CapLogTick();  // every route START: frequent enough for the minute line
     InterlockedIncrement(&k.asyncStarted);
     if (kind) InterlockedIncrement(&k.arStarted[kind - 1]);
     SetEvent(g_asyncReady);
@@ -6664,6 +6757,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "modtime.cpp"   // docs/298: [Diag] ModTime, sim-thread script sampler per mod (off; needs simloop.cpp, apex.cpp, decompress.cpp, userdiag.cpp)
 #include "pccheck.cpp"     // docs/299: [PcCheck] read-only CPU / power / PC check (on; log, pccheck-summary.txt, UserDiag op 62)
 #include "taskseam.cpp"  // docs/308: [Diag] TaskSeam (off; after modtime.cpp, taskserve.cpp, unseen.cpp)
+#include "nonsim.cpp"    // docs/329: [Diag] NonSimSplit (off; after taskseam.cpp: its seam, side table and writer thread)
 #include "hitchsum.cpp"    // docs/666 §5: [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (needs stallwatch.cpp, hitchattr.cpp, syncphases.cpp, memexp.cpp)
 #include "adaptdiag.cpp"   // docs/316: [AdaptDiag] adaptive diag kit (off; needs hitchsum.cpp, modtime.cpp, pccheck.cpp, stallwatch.cpp, userdiag.cpp, apex.cpp)
 #include "c2diag.cpp"      // docs/259 §9: [Crash2Diag] route destination list lifetime detector, CRASH-TRIAGE (after autshadow.cpp: g_arGate; values.cpp: PvSwClass)
@@ -6725,9 +6819,10 @@ static void Run(HMODULE self) {
     // a TS3W.exe of another build (retail 1.67 moves every address, docs/230): the game's log says so, nothing installs
     const bool wrongBuild = !g_otherHost && !HostBuildOk(base);
 #endif
-    swprintf_s(ini, L"%s.ini", path);
+    PathFmt(ini, L"%s.ini", path);  // fits: path lost its ".asi"
     if (!g_otherHost && !wrongBuild) AdOverlay(ini);  // docs/316: [AdaptDiag] next-session turn-ons (a copy of the ini); before anything reads it
-    swprintf_s(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);  // a launcher start must not truncate the game's log
+    // a launcher start must not truncate the game's log; docs/323 L5: ".launcher.log" can pass MAX_PATH ("" = no log)
+    PathFmt(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);
     if (!g_otherHost) CrPreLog(ini, log);  // [CrashReport]: the previous session's last lines, before the log is truncated
     char priorLog[64] = "";  // the version that wrote the old log: the only trace of the last installed build
     HANDLE oldLog = CreateFileW(log, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -6909,6 +7004,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyModTime(ini) || keepLog;      // docs/298: [Diag] ModTime (off; one more simloop.cpp callback + a sampler thread)
         keepLog = ApplyPcCheck(ini) || keepLog;      // docs/299: [PcCheck] (on, read-only; one 10 s sampler thread)
         keepLog = ApplyTaskSeam(ini) || keepLog;     // docs/308: [Diag] TaskSeam (off; after InstallTaskServe: chains its RunTask sites)
+        keepLog = ApplyNonSimSplit(ini) || keepLog;  // docs/329: [Diag] NonSimSplit (off; needs the task seam just above)
         keepLog = ApplyUnseenRootMotion(ini) || keepLog;   // docs/228: needs [UnseenAnim]'s pass hook (applied just above)
         keepLog = ApplyUnseenTable(ini) || keepLog;  // docs/227 §6: no call sites; a sim-pump callback and the UnObjClass hook
         keepLog = ApplyRouteJobPhases(ini) || keepLog;  // docs/150 §7: after every owner of a phase site (observe only)

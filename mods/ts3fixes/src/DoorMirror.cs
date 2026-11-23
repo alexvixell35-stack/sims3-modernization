@@ -98,6 +98,21 @@ namespace Ts3Fixes
 
             // Every CommonDoor on the lot (Lot.GetObjects, the native lot object query); false on the first door that is
             // gone or whose lock state cannot be mirrored (DoorRecord.Make).
+            // docs/328 §7.5 (Private Room Door 566837: LockableDoor.IsAllowedThrough lets only key holders through, its LockType stays
+            // the default): the record would say open. A door type whose IsAllowedThrough is declared outside the game's assemblies
+            // makes the whole lot fall back to the game (same as a refused read).
+            static readonly Dictionary<Type, bool> sModDoor = new Dictionary<Type, bool>();
+            static bool ModDoorRule(Type t)
+            {
+                bool r;
+                if (sModDoor.TryGetValue(t, out r)) return r;
+                System.Reflection.MethodInfo m = t.GetMethod("IsAllowedThrough", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    null, new Type[] { typeof(int), typeof(int), typeof(Sims3.Gameplay.Actors.Sim) }, null);
+                r = m != null && !UfPreCore.GameAssembly(m.DeclaringType.Assembly.GetName().Name);
+                sModDoor[t] = r;
+                return r;
+            }
+
             static bool ReadLotDoors(ulong lotId, List<DoorRecord> into)
             {
                 Lot lot = LotManager.GetLot(lotId);
@@ -105,6 +120,7 @@ namespace Ts3Fixes
                 foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
                 {
                     if (d == null || d.HasBeenDestroyed) return false;
+                    if (ModDoorRule(d.GetType())) { PatchCounters()[105]++; return false; }
                     SimDescription owner = d.LockOwner;
                     Household h = owner != null ? owner.Household : null;
                     int kind = (d is Door ? DoorRecord.kIsDoor : 0) | (d is IBarnDoor ? DoorRecord.kBarnDoor : 0)

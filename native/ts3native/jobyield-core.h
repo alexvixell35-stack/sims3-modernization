@@ -17,6 +17,7 @@
 
 enum { JYP_SLOTS = 8 };
 enum { JYP_WHY = 1, JYP_SC = 2, JYP_SCOPE = 4, JYP_UF = 8 };
+enum { JYP_FULL = -1 };  // JypPark: no free slot, nothing taken
 
 struct JyRec {
     unsigned handle;  // 0 = free
@@ -54,15 +55,16 @@ static JyRec* JypSlot(JyPark& p, unsigned now, unsigned keepMs) {
 // PutScope(h, scope, ia), PutUf(h).
 
 // Route h's task sleeps: its records leave the slots. Returns the JYP_* bits the record holds now (0 = nothing parked: no
-// handle, or no free slot, and then the slots stay as they are). A second call for a sleeping route adds what was armed
-// since (nothing, in the flows we have) and renews its time.
+// handle, or nothing of this route in the slots), or JYP_FULL when no slot is free: the slots stay as they are and the task
+// must not sleep (docs/323 M2: else the next route's marks overwrite them, or a plan with no handle takes this scope). A
+// second call for a sleeping route adds what was armed since (nothing, in the flows we have) and renews its time.
 template <class Env> static int JypPark(JyPark& p, Env& e, unsigned handle, unsigned now, unsigned keepMs) {
     if (!handle) return 0;
     JyRec* r = JypFind(p, handle);
     if (r && JypOld(*r, now, keepMs)) { JypFree(r); p.expired++; r = 0; }
     const bool fresh = !r;
     if (!r) r = JypSlot(p, now, keepMs);
-    if (!r) { p.full++; return 0; }
+    if (!r) { p.full++; return JYP_FULL; }
     int why = 0;
     long scope = 0, ia = 0;
     int has = 0;

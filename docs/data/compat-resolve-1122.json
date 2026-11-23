@@ -1,0 +1,88 @@
+{
+ "_doc": "Set compat-resolve-1122 (docs/328 §7, queue compat-rules-proof-1122 group R): mods whose override skips one of our EA fixes and gets that fix at run time (CompatResolve.cs). The Store Updates 021-040 / 041-051 repacks and NRaas Overwatch V123 (same bytes as the download) are already in the test install. Build: node tools/mod-set.ts build docs/data/compat-resolve-1122.json -> game-copy/mod-sets/compat-resolve-1122 (git-ignored). Sources local only (game-copy/compat-mods, MTS downloads), never re-hosted.",
+ "set": "compat-resolve-1122",
+ "out": "game-copy/mod-sets/compat-resolve-1122",
+ "sources": {
+  "compat": "game-copy/compat-mods",
+  "nraas": "game-copy/mod-sets/downloads/nraas-1122"
+ },
+ "mods": [
+  {
+   "name": "Pool Jobs for Lifeguards",
+   "page": "https://modthesims.info/d/574660/pool-jobs-for-lifeguards.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "574660-pool-jobs-for-lifeguards/icarusallsorts.PoolLifeguard.package.zip"
+   ]
+  },
+  {
+   "name": "Toddlers Can Use Stairs (Toddler Independence)",
+   "page": "https://modthesims.info/d/655350/toddlers-can-use-stairs.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods (plain build, not the NRaas GoHere one)",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "655350-toddlers-can-use-stairs/lizcandorToddlerIndependence.zip"
+   ]
+  },
+  {
+   "name": "The Business as Unusual Bistro Set",
+   "page": "https://modthesims.info/d/513025/the-business-as-unusual-bistro-set-updated-for-1-6.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods (ToTheUpload build)",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "513025-the-business-as-unusual-bistro-set-updated-for-1-6/ToTheUpload.zip"
+   ]
+  },
+  {
+   "name": "NRaas Dreamer",
+   "page": "https://www.nraas.net (Dreamer)",
+   "version": "V15 (download of 2026-11-22)",
+   "status": "include",
+   "from": "nraas",
+   "files": [
+    "NRaas_Dreamer_V15.zip"
+   ],
+   "why": "wishupdatelost + dreamcleanup precedence on DreamerSpace.Helpers.DreamsAndPromisesManagerEx.Update (V15 binary: static Update(DreamsAndPromisesManager), assembly NRaasDreamer)"
+  },
+  {
+   "name": "NRaas Overwatch",
+   "page": "test install",
+   "version": "V123 (sha256 of the test-install package equals the V123 download)",
+   "status": "in-test-install",
+   "why": "harvestextras precedence on HarvestPlantEx.DoHarvest; the set cannot carry a second copy (queue.ts refuses a set file already under Mods/Packages)"
+  },
+  {
+   "name": "Autonomous Fun in the Sun",
+   "page": "https://modthesims.info/d/530601/",
+   "version": "download of 2026-11-22 in game-copy/compat-mods (update 24 Apr 2017)",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "530601-update-24-apr-2017-autonomous-fun-in-the-sun/icarusallsorts.FunInTheSun.rar.unpacked/icarusallsorts.FunInTheSun.package"
+   ],
+   "why": "boatroamcap precedence on its BoatAround.Run (rowboats / paddleboats roam without the base call)"
+  },
+  {
+   "name": "Sims 3 Store Updates 021-040 and 041-051 (repacks)",
+   "page": "test install",
+   "version": "v1.4",
+   "status": "in-test-install",
+   "why": "cleanupvfx precedence on WOBake, TGCook, JuggleEggTrick, OnionVolcano"
+  },
+  {
+   "name": "Enhanced Hospitals",
+   "page": "https://modthesims.info/d/666384/",
+   "version": "download of 2026-11-22 in game-copy/compat-mods (updated 30th April 24)",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "666384-enhanced-hospitals-updated-30th-april-24/Enhanced Hospitals.7z.unpacked/Enhanced Hospitals.package"
+   ],
+   "why": "birthroute precedence on its donor / surrogate HaveTheBaby and HaveBabyHospital* Cleanup (no base call)"
+  }
+ ]
+}

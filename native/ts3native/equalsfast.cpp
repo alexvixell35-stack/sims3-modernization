@@ -100,9 +100,15 @@ static LONG EqBuild(const u8* klass, EqPlan* p) {
     return hasSmall && n != 1 ? -2 : n;  // a small field only as an enum's sole value__
 }
 
+// docs/323 L3: classes whose plan found no slot in their probe window (direct-mapped, a newer one may evict an older one,
+// which then only costs one more build). Without it each call of such a class took a new pool slot until all 4096 were
+// gone and every later class stayed on EA's walk.
+enum { EQ_NOROOM = 256 };
+static const u8* volatile g_eqNoRoom[EQ_NOROOM];
 static void EqLearn(const u8* klass) {
     auto& k = EQ_CTR;
     if (g_eqLoaderCs->OwningThread == (HANDLE)(uintptr_t)GetCurrentThreadId()) { k.eqFtBusy++; return; }
+    if (g_eqNoRoom[EqHash(klass) & (EQ_NOROOM - 1)] == klass) { k.eqFtFull++; return; }
     if (g_eqPoolN >= EQ_POOL) { k.eqFtFull++; return; }
     const LONG i = InterlockedIncrement(&g_eqPoolN) - 1;
     if (i >= EQ_POOL) { k.eqFtFull++; return; }
@@ -115,7 +121,12 @@ static void EqLearn(const u8* klass) {
         else if (p->n == -2) k.eqRejKind++;
         else k.eqRejMany++;
     }
-    if (!EqPublish(p)) { k.eqFtFull++; return; }
+    if (!EqPublish(p)) {
+        k.eqFtFull++;
+        g_eqNoRoom[EqHash(klass) & (EQ_NOROOM - 1)] = klass;
+        InterlockedCompareExchange(&g_eqPoolN, i, i + 1);  // the slot back unless another thread took one after it
+        return;
+    }
     if (InterlockedIncrement(&g_eqLogN) <= 48) {
         const char* nm = *(const char* const*)(klass + 0x34);
         const char* ns = *(const char* const*)(klass + 0x38);

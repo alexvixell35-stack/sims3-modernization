@@ -101,7 +101,7 @@ static const char* RtDue(DWORD now, LONG worlds) {
     if (g_rtWorldDue && now - g_rtWorldTick >= g_rtSettleMs) {
         g_rtWorldDue = false, g_rtLastTick = now;
         const char* why = !g_rtLastWorld[0] ? "load" : strcmp(g_rtLastWorld, g_mdWorld) ? "world-switch" : "reload";
-        strcpy_s(g_rtLastWorld, g_mdWorld);
+        SCpy(g_rtLastWorld, g_mdWorld);
         return why;
     }
     if (g_rtEveryMs && worlds > 0 && !g_rtWorldDue && now - g_rtLastTick >= g_rtEveryMs) return g_rtLastTick = now, "periodic";

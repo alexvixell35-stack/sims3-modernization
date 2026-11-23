@@ -147,18 +147,24 @@ namespace Ts3Fixes
 
         static void BrBeforeCleanup(Pregnancy.HaveBabyHospital h)
         {
-            Sim mom = h != null ? h.Actor : null;
-            if (mom == null || mom.SimDescription == null) return;
+            if (h != null && BrCleanupStep(h.Actor, h.BabyShouldBeBorn, sBrNewborns.GetValue(h) != null)) h.BabyShouldBeBorn = false;
+        }
+
+        // A birth interaction's Cleanup (EA's HaveBabyHospital, or a mod's copy via CompatResolve CrBirthCleanup): the failed /
+        // completed counts; true = clear its BabyShouldBeBorn (F5: no pregnancy left, so the Cleanup adds no re-have alarm).
+        static bool BrCleanupStep(Sim mom, bool babyShouldBeBorn, bool born)
+        {
+            if (mom == null || mom.SimDescription == null) return false;
             ulong id = mom.SimDescription.SimDescriptionId;
-            if (!h.BabyShouldBeBorn) return;
-            if (sBrNewborns.GetValue(h) != null)
+            if (!babyShouldBeBorn) return false;
+            if (born)
             {
                 int f;
                 if (sBirthFails.TryGetValue(id, out f) && f > 0) PatchCounters()[2476]++;
                 sBirthFails.Remove(id);
                 BrState st;
                 if (sBr.TryGetValue(id, out st)) { if (st.Watch != AlarmHandle.kInvalidHandle) mom.RemoveAlarm(st.Watch); sBr.Remove(id); }
-                return;
+                return false;
             }
             int n;
             sBirthFails.TryGetValue(id, out n);
@@ -166,7 +172,8 @@ namespace Ts3Fixes
             sBirthFails[id] = n + 1;
             PatchCounters()[2439]++;
             // F5: EA's Cleanup reads Actor.SimDescription.Pregnancy.HaveTheBaby; with no pregnancy left there is nothing to birth
-            if (ShortcutOn("birthroute") && mom.SimDescription.Pregnancy == null) { h.BabyShouldBeBorn = false; PatchCounters()[2442]++; }
+            if (ShortcutOn("birthroute") && mom.SimDescription.Pregnancy == null) { PatchCounters()[2442]++; return true; }
+            return false;
         }
 
         // F4 after a hospital birth: EA's tail without the GoHome / GoInsideLot on the null home lot.

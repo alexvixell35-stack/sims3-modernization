@@ -16,14 +16,14 @@ static int g_s3mmStood;                                        // modules that s
 static int S3mmProbe(const wchar_t* bin = NULL) {
     int f = GetModuleHandleW(g_s3mmModule) ? 1 : 0;
     wchar_t dir[MAX_PATH], p[MAX_PATH];
-    if (bin) wcscpy_s(dir, bin);
+    if (bin) WCpy(dir, bin);
     else {
         if (!GetModuleFileNameW(NULL, dir, MAX_PATH)) return f;
         if (wchar_t* s = wcsrchr(dir, L'\\')) s[1] = 0;
     }
     static const wchar_t* const kSub[3] = {L"", L"scripts\\", L"plugins\\"};
     for (const wchar_t* sub : kSub) {
-        swprintf_s(p, L"%s%s%s", dir, sub, g_s3mmModule);
+        PathFmt(p, L"%s%s%s", dir, sub, g_s3mmModule);
         if (GetFileAttributesW(p) != INVALID_FILE_ATTRIBUTES) f |= 2;
     }
     return f;

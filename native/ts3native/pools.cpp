@@ -225,7 +225,7 @@ static bool PlPatch(int first, int last, const char* what) {
             u8 want[5] = {0xA1};
             *(DWORD*)(want + 1) = g_plGlobal[i];
             if (Matches(p, want, 5)) continue;
-            if (Readable(p, 5)) Hex(p, 5, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+            if (Readable(p, 5)) Hex(p, 5, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP private pools (%s): %s site 0x%08lX bytes %s differ, nothing patched", what, s ? "push" : "pop", (DWORD)(uintptr_t)p, hex);
             return false;
         }

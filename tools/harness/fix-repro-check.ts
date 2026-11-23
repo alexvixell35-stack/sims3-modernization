@@ -25,6 +25,12 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  unseenfbgohere: 'docs/328 §7.5 (2026-11-23): natural-play switch, no forced GoHere visit repro; judged by compat-switchon-1122g-1123 bp-gohere-ab (--ab unseenfbgohere, eligibility log line)',
+  spiralshare: 'no forced repro yet: judged by the route storms of docs/686 §8.7 (spiral stair waits of 7-12 sim-min gone); its hooks are the ones sharelanes-check reads',
+  spiralsharehh: 'as spiralshare (household scope of the same hooks)',
+  lanewaitlog: 'log only (one lanewait: line per wait for a portal lane, docs/686 §8): on in both arms of the route storms of docs/686 §8.7 (storm runner, not a repro)',
+  standwaitlog: 'log only (one standwait: line per wait with blocked cycles, docs/686): read in the route storms of docs/686 §8.7; its forced repro standwait-landing-crowd needs agent steps that are not upstream yet',
+  makebedbothlog: 'log only (one makebedboth: line per case, docs/686 §13): its forced repro makebedboth-force needs the agent step bed_setup, not upstream yet (results in docs/686 §13.5)',
   unseenoutfitdefer: 'speed change with no bug to trigger (issue #451, docs/586): counters 2570-2588 per game, natural-play compositor and frame times on 4 worlds; the next test is the in-load --ab unseenoutfitdefer on BP',
   cutonwait: 'no forced repro yet: the waits need many townies routing behind each other (DiscDrain, event-9 flush, +0x918); judged by the native selftest (11b, jobyield step 5) and the Isla Paradiso in-load --ab cutonwait pairs, both orders (docs/850 §4)',
   boundcall: 'exact speedup, no hitch to repro (docs/537 §22): the same EA String bodies run, judged by the native selftest, the monohost corpus + c3g replays (MONOHOST_JITBIND=1 MONOHOST_JITBOUNDCALL=3, 0 differ) and boundcall.json (BP/IP correctness, --ab boundcall timing)',

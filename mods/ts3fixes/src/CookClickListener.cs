@@ -84,6 +84,7 @@ namespace Ts3Fixes
                 e = new CcEntry();
                 e.P = p;
                 sCcNoted.Add(e);
+                CapHw(kCCookHw, sCcNoted.Count);  // docs/321 lane 0
             }
             e.Hooked = hooked;
             e.DeadSince = 0;

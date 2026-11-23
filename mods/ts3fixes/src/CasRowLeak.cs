@@ -80,7 +80,16 @@ namespace Ts3Fixes
                 bool r;
                 try { r = AddOrig(grid, current, itemKey, context); }
                 finally { sCrlDepth--; }
-                WindowBase row = sCrlEmpty; // set by CrlRowHook while AddOrig ran
+                CrlAfterAdd();
+                return r;
+            }
+            public bool AddOrig(ItemGrid grid, object current, ResourceKey itemKey, object context) { return false; } // receives CASClothingCategory.AddGridItem's original header
+        }
+
+        // after an AddGridItem (EA's, or NRaas MasterController's copy: CompatResolve.cs CrCa0): dispose the empty row it left
+        static void CrlAfterAdd()
+        {
+                WindowBase row = sCrlEmpty; // set by CrlRowHook / CrCr0 while the AddGridItem ran
                 sCrlEmpty = null;
                 if (row != null && row.Parent == null)
                 {
@@ -132,9 +141,6 @@ namespace Ts3Fixes
                         }
                     }
                 }
-                return r;
-            }
-            public bool AddOrig(ItemGrid grid, object current, ResourceKey itemKey, object context) { return false; } // receives CASClothingCategory.AddGridItem's original header
         }
     }
 }

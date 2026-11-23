@@ -12,12 +12,14 @@
 // Windows only for the build (MSVC, csc); the pure parts (switch apply, tags, prune) are platform-free and self-checked.
 // gh uses PERSONAL_GITHUB_TOKEN (else GH_TOKEN); the token is never printed.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { zip, unzip, vet } from '../mts-zip.ts';
+import { holdOwner } from '../harness/hold.ts';
 import { leftovers, enabledSections } from '../publish-public.ts';
 import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
@@ -115,22 +117,27 @@ export function timingJob(jobId: string, queues: QueueFile[]): string {
   return '';
 }
 
-// The timing job running anywhere ('' = none). queue.ts writes <its checkout>/probe-out/queue/job-running ("<id> <pid>"),
-// so every checkout (git worktree list) is searched. The job's queue file is read from the same checkout. A live marker
-// whose job is in no queue file there counts as timing (wait, never guess).
+// The timing job running anywhere ('' = none). queue.ts writes job-running ("<id> <pid> owner=<checkout>") in the main
+// checkout's probe-out/queue (hold.ts, 2026-11-23); older markers ("<id> <pid>") sit in <their checkout>/probe-out/queue, so every
+// checkout (git worktree list) is searched. The job's queue file is read from the marker's owner checkout (else the marker's own
+// checkout). A live marker whose job is in no queue file there counts as timing (wait, never guess).
+export function markerTiming(text: string, r: string): string {
+  const [id] = text.trim().split(/\s+/), o = holdOwner(text), root = o && existsSync(o) ? resolve(o) : r;
+  const kids = (d: string) => { try { return readdirSync(d).map(n => join(d, n)); } catch { return []; } };
+  const qs: QueueFile[] = [];
+  for (const d of [join(root, 'tools', 'harness', 'queues'), join(root, 'probe-out', 'queue')])
+    for (const f of kids(d).filter(p => p.endsWith('.json'))) { try { qs.push({ name: basename(f), ...JSON.parse(readFileSync(f, 'utf8')) }); } catch { /* not a queue */ } }
+  return timingJob(id, qs) || (qs.some(q => q.jobs?.some(j => j.id === id || j.id === baseJob(id))) ? '' : `${id} in ${root}: queue file not found`);
+}
 export function runningTiming(): string {
   const pids = new Set(run('powershell', ['-NoProfile', '-Command', '(Get-Process).Id'], { timeout: 60_000 }).split(/\s+/).filter(Boolean).map(Number));
-  const kids = (d: string) => { try { return readdirSync(d).map(n => join(d, n)); } catch { return []; } };
   const roots = run('git', ['worktree', 'list', '--porcelain'], { cwd: ROOT }).split(/\r?\n/).filter(l => l.startsWith('worktree ')).map(l => resolve(l.slice(9)));
   for (const r of roots) {
     const m = join(r, 'probe-out', 'queue', 'job-running');
     if (!existsSync(m)) continue;
-    const [id, pid] = readFileSync(m, 'utf8').trim().split(/\s+/);
+    const text = readFileSync(m, 'utf8').trim(), [id, pid] = text.split(/\s+/);
     if (!id || !pids.has(Number(pid))) continue;
-    const qs: QueueFile[] = [];
-    for (const d of [join(r, 'tools', 'harness', 'queues'), join(r, 'probe-out', 'queue')])
-      for (const f of kids(d).filter(p => p.endsWith('.json'))) { try { qs.push({ name: basename(f), ...JSON.parse(readFileSync(f, 'utf8')) }); } catch { /* not a queue */ } }
-    const t = timingJob(id, qs) || (qs.some(q => q.jobs?.some(j => j.id === id || j.id === baseJob(id))) ? '' : `${id} in ${r}: queue file not found`);
+    const t = markerTiming(text, r);
     if (t) return t; // a non-timing marker elsewhere (or a reused pid) must not hide a timing job in a later checkout
   }
   return '';
@@ -327,6 +334,17 @@ function selfCheck() {
   assert.equal(timingJob('bp-time-smoke', qf), 'q.json: bp-time-smoke', 'measurement smoke maps to its base job');
   assert.equal(timingJob('bp-repro', qf), '', 'no profile: not timing');
   assert.equal(timingJob('bp-nc', qf), '', 'noise check off: not timing');
+  { // marker in the main checkout, queue file in the owner worktree (2026-11-23: read as "queue file not found" = timing)
+    const t = mkdtempSync(join(tmpdir(), 'exp-mk-')), main = join(t, 'main'), wt = join(t, 'main', '.claude', 'worktrees', 'lc a');
+    try {
+      mkdirSync(join(wt, 'tools', 'harness', 'queues'), { recursive: true }); mkdirSync(join(main, 'probe-out', 'queue'), { recursive: true });
+      writeFileSync(join(wt, 'tools', 'harness', 'queues', 'lc.json'), JSON.stringify({ jobs: [{ id: 'lc-repro', run: {} }, { id: 'lc-time', run: { profile: {} } }] }));
+      assert.equal(markerTiming(`lc-repro 42 owner=${wt}`, main), '', 'owner worktree queue: correctness job, not timing');
+      assert.equal(markerTiming(`lc-time-rerun1 42 owner=${wt}`, main), 'lc.json: lc-time-rerun1', 'owner worktree queue: timing');
+      assert.match(markerTiming('lc-repro 42', main), /^lc-repro in .*main: queue file not found$/, 'old marker without owner: its own checkout, unknown = timing (wait)');
+      assert.match(markerTiming(`lc-repro 42 owner=${join(t, 'gone')}`, main), /queue file not found/, 'owner checkout removed: unknown = timing (wait)');
+    } finally { rmSync(t, { recursive: true, force: true }); }
+  }
   assert.equal(timingJob('other', qf), '');
   const home = ['C:', 'Users', 'som' + 'eone', 'x'].join('\\');
   assert.equal(personal('a', Buffer.from(home), false).length, 1, 'home path');

@@ -72,14 +72,20 @@ static int PlParse(const char* txt, size_t len, u64* ids, int cap, int* bad) {
     return n;
 }
 
+static bool PlPathIn(const wchar_t* base, const char* key, wchar_t* out) {  // base: <Documents>\Electronic Arts\The Sims 3
+    wchar_t dir[MAX_PATH];
+    out[0] = 0;
+    if (!base[0]) return false;  // docs/323: "" would put ts3native\played in the drive root
+    if (!PathFmt(dir, L"%s\\ts3native", base)) return false;
+    CreateDirectoryW(dir, NULL);
+    if (!PathFmt(dir, L"%s\\ts3native\\played", base)) return false;
+    CreateDirectoryW(dir, NULL);
+    return PathFmt(out, MAX_PATH, L"%s\\%S.txt", dir, key);
+}
 static bool PlPath(const char* key, wchar_t* out) {
-    wchar_t base[MAX_PATH], dir[MAX_PATH];
-    UserSims3Dir(base);  // apex.cpp: <Documents>\Electronic Arts\The Sims 3
-    if (swprintf_s(dir, L"%s\\ts3native", base) < 0) return false;
-    CreateDirectoryW(dir, NULL);
-    if (swprintf_s(dir, L"%s\\ts3native\\played", base) < 0) return false;
-    CreateDirectoryW(dir, NULL);
-    return swprintf_s(out, MAX_PATH, L"%s\\%S.txt", dir, key) > 0;
+    wchar_t base[MAX_PATH];
+    UserSims3Dir(base);  // apex.cpp
+    return PlPathIn(base, key, out);
 }
 
 static void PlLoad(const char* key) {
@@ -102,21 +108,21 @@ static void PlLoad(const char* key) {
 
 static void PlSave() {
     wchar_t path[MAX_PATH], tmp[MAX_PATH];
-    if (!PlPath(g_plKey, path) || swprintf_s(tmp, L"%s.tmp", path) < 0) { Log("played: %s: no path, not written", g_plKey); return; }
+    if (!PlPath(g_plKey, path) || !PathFmt(tmp, L"%s.tmp", path)) { Log("played: %s: no path, not written", g_plKey); return; }
     HANDLE h = CreateFileW(tmp, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
     if (h == INVALID_HANDLE_VALUE) { Log("played: %s: cannot write (%lu)", g_plKey, GetLastError()); return; }
     SYSTEMTIME st;
     GetSystemTime(&st);
     char line[256];
     DWORD w;
-    int n = sprintf_s(line, "# ts3native played households (ts3fixes save cleanup, docs/14 section 8.6). One household id per line.\r\n"
+    int n = SFmt(line, "# ts3native played households (ts3fixes save cleanup, docs/14 section 8.6). One household id per line.\r\n"
                             "# Not part of the save: deleting this file only forgets which households were played.\r\n");
     BOOL ok = n > 0 && WriteFile(h, line, (DWORD)n, &w, NULL);
-    n = sprintf_s(line, "# save %s\r\n# world %s\r\n# written %04u-%02u-%02u %02u:%02u UTC\r\n", g_plKey, g_plWorld, st.wYear, st.wMonth, st.wDay,
+    n = SFmt(line, "# save %s\r\n# world %s\r\n# written %04u-%02u-%02u %02u:%02u UTC\r\n", g_plKey, g_plWorld, st.wYear, st.wMonth, st.wDay,
                   st.wHour, st.wMinute);
     ok = ok && n > 0 && WriteFile(h, line, (DWORD)n, &w, NULL);
     for (int i = 0; ok && i < g_plN; i++) {
-        n = sprintf_s(line, "%llu\r\n", g_plIds[i]);
+        n = SFmt(line, "%llu\r\n", g_plIds[i]);
         ok = n > 0 && WriteFile(h, line, (DWORD)n, &w, NULL);
     }
     CloseHandle(h);
@@ -131,7 +137,7 @@ static bool PlKeyWorld(const char* arg) {
     if (kn >= sizeof(key)) return false;
     memcpy(key, arg, kn);
     if (!PlKeyOk(key)) return false;
-    strcpy_s(g_plKey, key);
+    SCpy(g_plKey, key);
     strncpy_s(g_plWorld, sp ? sp + 1 : "?", _TRUNCATE);
     return true;
 }
@@ -150,7 +156,7 @@ static void PlLine(const char* s) {
         g_plAnswer = 1;
     } else if (!strncmp(s, "saveas ", 7)) {
         char old[104];
-        strcpy_s(old, g_plKey);
+        SCpy(old, g_plKey);
         if (!PlKeyWorld(s + 7)) { Log("played: bad key in '%s'", s); return; }
         if (!g_plOpen) { PlLoad(g_plKey); g_plOpen = true; }  // nothing open yet: read what the new key already holds
         else { PlSave(); Log("played: %d households copied from %s to %s", g_plN, old, g_plKey); }

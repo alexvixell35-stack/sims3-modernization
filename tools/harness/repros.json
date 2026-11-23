@@ -71443,8 +71443,8 @@
     "bug": "Conversation.mMembers keeps a Sim reset or destroyed mid-talk; EA's RemoveSim cannot take it out and throws later when the last live member leaves (issue #166 core build 40, docs/517 §4)",
     "fix": "ts3fixes DeadRefs.cs: deadrefsweep phase 15, switch deadrefconvo (default off; conversations with a household or selected member are skipped)",
     "save": "Baseline-BP",
-    "note": "Hard state built by the agent check (DeadRefConversationCheck seed): a conversation of two townies with no relationship to each other (no household member; a related pair is cleaned by EA itself on Destroy, SocialComponent.Dispose -> Relationship.RemoveReferencesToSim) reached from the first one; the second one's Sim object is destroyed (put back at the end of each arm). Off arm: the gone member stays. On arm: the sweep pass removes it, one live member left.",
-    "expect": "off: expect left sees gone 1 with the switches off. on: expect cleaned sees gone 0, members 1; deadrefconvo_members >= 1, deadrefconvo_household unchanged.",
+    "note": "Hard state built by the agent check (DeadRefConversationCheck seed): five conversations (2026-11-23: several samples so one bad sample does not decide; at least 3 needed), each of two townies with no relationship to each other or to any other seeded Sim (no household member; a related pair is cleaned by EA itself on Destroy, SocialComponent.Dispose -> Relationship.RemoveReferencesToSim) reached from the first one; the second one's Sim object is destroyed (put back at the end of each arm). Off arm: the gone member stays. On arm: the sweep pass removes it, one live member left.",
+    "expect": "Judged per sample (DeadRefsCore.ConvSampleVerdict; n/a = host left before the check), arm passes with no fail and >= 3 conclusive. Per sample: off: expect left sees gone 1 with the switches off. on: expect cleaned sees gone 0, members 1; deadrefconvo_members >= 1, deadrefconvo_household unchanged.",
     "steps": [
       {
         "cmd": "patches",
@@ -71463,7 +71463,8 @@
             "seed"
           ]
         },
-        "note": "off: the hard state",
+        "note": "off: the hard state (5 samples)",
+        "max": 2000,
         "waitS": 2,
         "until": {
           "cmd": "reflect_call",
@@ -71479,8 +71480,8 @@
               "equals": true
             },
             {
-              "path": "gone",
-              "equals": 1
+              "path": "goneSamples",
+              "atLeast": 3
             }
           ],
           "maxS": 60,
@@ -71506,7 +71507,8 @@
             "expect left"
           ]
         },
-        "note": "off: the stale entries still there; removed by the check"
+        "note": "off: the stale entries still there; removed by the check",
+        "max": 2000
       },
       {
         "cmd": "patches",
@@ -71522,10 +71524,11 @@
         "args": {
           "path": "Ts3Fixes.Fixes.DeadRefConversationCheck",
           "args": [
-            "seed"
+            "seed clean"
           ]
         },
-        "note": "on: the same hard state again",
+        "note": "on: the same hard state again (5 new samples), phase 15 stepped in the same agent call (seed clean: no host can leave before it)",
+        "max": 2000,
         "waitS": 2,
         "until": {
           "cmd": "reflect_call",
@@ -71564,7 +71567,7 @@
             "state"
           ]
         },
-        "note": "on: poll until cleaned",
+        "note": "on: poll until no sample waits (pending 0: every gone member removed, or its host left)",
         "until": {
           "cmd": "reflect_call",
           "args": {
@@ -71575,7 +71578,7 @@
           },
           "all": [
             {
-              "path": "gone",
+              "path": "pending",
               "equals": 0
             }
           ],
@@ -71591,7 +71594,8 @@
             "expect cleaned"
           ]
         },
-        "note": "on: cleaned; deadrefconvo_members +1"
+        "note": "on: cleaned per sample; deadrefconvo_members +3 or more",
+        "max": 2000
       }
     ]
   },
@@ -114639,6 +114643,1712 @@
         },
         "waitS": 30,
         "note": "grown z edge"
+      }
+    ]
+  },
+  {
+    "id": "eh-donor-birth-loop",
+    "bug": "Enhanced Hospitals (666384) donor / surrogate pregnancies run the mod's own HaveTheBaby and HaveBabyHospital* interactions (overrides without a base call), so birthroute's hooks on EA's Pregnancy / HaveBabyHospital never ran for them: a birth that ends with no baby re-haves every sim-minute for ever (the mod's Cleanup keeps EA's uncapped 1-minute re-have alarm)",
+    "fix": "ts3fixes CompatResolve.cs CrBh / CrBc (birthroute precedence on the mod's types, docs/328 §7): NPC re-haves wait 1, 15, then 60 sim-min; household, selected and unknown-scope moms keep EA's 1 minute",
+    "save": "Baseline-IP",
+    "note": "UNVERIFIED (static + self-test, 2026-11-23). Needs mod set compat-resolve-1122 (Enhanced Hospitals) and ts3fixes compat-resolve-1122e or later. No agent op forces a donor birth that fails, so BirthModRepro \"start\" builds it (CompatResolveChecks.cs): one woman gets the mod's donor pregnancy and every birth interaction the mod queues for her is cancelled in the same call, so the mod's Cleanup re-haves. Changes one Sim; the save is never saved.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthroute": true
+        },
+        "waitS": 1,
+        "note": "release default"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "start"
+          ]
+        },
+        "waitS": 2,
+        "note": "an NPC woman, the mod's donor pregnancy, the first birth ended at once",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BirthModRepro",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mom"
+            }
+          ],
+          "maxS": 15,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "180 sim-minutes of re-haves; one attempt per minute (looping) is the bug",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BirthModRepro",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "sim_minutes",
+              "atLeast": 180
+            }
+          ],
+          "maxS": 900,
+          "everyS": 5,
+          "failOn": "looping"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "switch read-back, NPC mom, 3-8 attempts",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BirthModRepro",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "switch_on",
+              "equals": true
+            },
+            {
+              "path": "household",
+              "equals": false
+            },
+            {
+              "path": "verdict",
+              "equals": "FIXED"
+            }
+          ],
+          "maxS": 10,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "stop"
+          ]
+        },
+        "optional": true
+      }
+    ],
+    "expect": "switch on, NPC mom: after >= 180 sim-min 3-8 birth attempts (1, 15, then 60 min apart; deferred > 0), verdict FIXED; no script errors",
+    "switches": [
+      "birthroute"
+    ]
+  },
+  {
+    "id": "eh-donor-birth-loop-off",
+    "bug": "Enhanced Hospitals (666384) donor / surrogate pregnancies run the mod's own HaveTheBaby and HaveBabyHospital* interactions (overrides without a base call), so birthroute's hooks on EA's Pregnancy / HaveBabyHospital never ran for them: a birth that ends with no baby re-haves every sim-minute for ever (the mod's Cleanup keeps EA's uncapped 1-minute re-have alarm)",
+    "fix": "ts3fixes CompatResolve.cs CrBh / CrBc (birthroute precedence on the mod's types, docs/328 §7): NPC re-haves wait 1, 15, then 60 sim-min; household, selected and unknown-scope moms keep EA's 1 minute",
+    "save": "Baseline-IP",
+    "note": "UNVERIFIED (static + self-test, 2026-11-23). Needs mod set compat-resolve-1122 (Enhanced Hospitals) and ts3fixes compat-resolve-1122e or later. No agent op forces a donor birth that fails, so BirthModRepro \"start\" builds it (CompatResolveChecks.cs): one woman gets the mod's donor pregnancy and every birth interaction the mod queues for her is cancelled in the same call, so the mod's Cleanup re-haves. Changes one Sim; the save is never saved. OFF arm: proves the repro shows the bug.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthroute": false
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "start"
+          ]
+        },
+        "waitS": 2,
+        "note": "an NPC woman, the mod's donor pregnancy, the first birth ended at once",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BirthModRepro",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mom"
+            }
+          ],
+          "maxS": 15,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "the mod re-haves every sim-minute: >= 30 attempts",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BirthModRepro",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "looping",
+              "equals": true
+            },
+            {
+              "path": "switch_on",
+              "equals": false
+            }
+          ],
+          "maxS": 900,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "stop"
+          ]
+        },
+        "optional": true
+      }
+    ],
+    "expect": "switch off: the uncapped loop (>= 30 attempts, verdict VANILLA) within 900 s",
+    "switches": [
+      "birthroute"
+    ]
+  },
+  {
+    "id": "eh-donor-birth-loop-hh",
+    "bug": "Enhanced Hospitals (666384) donor / surrogate pregnancies run the mod's own HaveTheBaby and HaveBabyHospital* interactions (overrides without a base call), so birthroute's hooks on EA's Pregnancy / HaveBabyHospital never ran for them: a birth that ends with no baby re-haves every sim-minute for ever (the mod's Cleanup keeps EA's uncapped 1-minute re-have alarm)",
+    "fix": "ts3fixes CompatResolve.cs CrBh / CrBc (birthroute precedence on the mod's types, docs/328 §7): NPC re-haves wait 1, 15, then 60 sim-min; household, selected and unknown-scope moms keep EA's 1 minute",
+    "save": "Baseline-IP",
+    "note": "UNVERIFIED (static + self-test, 2026-11-23). Needs mod set compat-resolve-1122 (Enhanced Hospitals) and ts3fixes compat-resolve-1122e or later. No agent op forces a donor birth that fails, so BirthModRepro \"start\" builds it (CompatResolveChecks.cs): one woman gets the mod's donor pregnancy and every birth interaction the mod queues for her is cancelled in the same call, so the mod's Cleanup re-haves. Changes one Sim; the save is never saved. Household arm: the exemption.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "birthroute": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "start household"
+          ]
+        },
+        "waitS": 2,
+        "note": "a household woman, the mod's donor pregnancy, the first birth ended at once",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BirthModRepro",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "mom"
+            }
+          ],
+          "maxS": 15,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "a household mom keeps EA's 1-minute re-have: >= 30 attempts with the switch on",
+        "until": {
+          "cmd": "reflect_call",
+          "args": {
+            "path": "Ts3Fixes.Fixes.BirthModRepro",
+            "args": [
+              "state"
+            ]
+          },
+          "all": [
+            {
+              "path": "looping",
+              "equals": true
+            },
+            {
+              "path": "switch_on",
+              "equals": true
+            },
+            {
+              "path": "household",
+              "equals": true
+            }
+          ],
+          "maxS": 900,
+          "everyS": 5
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BirthModRepro",
+          "args": [
+            "stop"
+          ]
+        },
+        "optional": true
+      }
+    ],
+    "expect": "switch on, household mom: the vanilla 1-minute re-have (>= 30 attempts, deferred 0, verdict VANILLA) = household untouched",
+    "switches": [
+      "birthroute"
+    ]
+  },
+  {
+    "id": "modquitguard-quit",
+    "bug": "Functional Sewing Table (643837) registers Lyralei.GlobalOptionsSewingTable.OnWorldQuit on World's quit event; it throws TypeInitializationException on every quit (docs/318), and the exception stops the multicast invocation, so every quit handler registered after it (EA's, ours, other mods') is skipped and a script error is written",
+    "fix": "ts3fixes CompatResolve.cs CrQg0 (modquitguard, default off, docs/328 §7.5): the mod's handler body runs inside a catch, so the handlers after it run; [1585] counts caught throws, [1586] the throws seen with the switch off",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static + self-test, 2026-11-23). Needs mod set compat-resolve-1122f (Functional Sewing Table) and ts3fixes compat-resolve-1122g or later (the log lines). Realism: natural (Quit to Main Menu, agent main_menu = EA's leave-world transition without the dialog). The save is never saved. Read: ts3native.log line 'modquitguard: caught <type> in a mod quit handler, N quit handler(s) after it run' (N from World's quit invocation list: the handlers that now run).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "modquitguard": true
+        },
+        "waitS": 1,
+        "note": "switch on"
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "world settled"
+      },
+      {
+        "cmd": "main_menu",
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 600
+        },
+        "note": "world unload to the main menu: World's quit event fires"
+      },
+      {
+        "cmd": "time",
+        "waitS": 20,
+        "optional": true,
+        "note": "menu up; script errors written"
+      }
+    ],
+    "expect": "switch on: the main menu within 600 s, the caught line in ts3native.log, 0 new script errors (verdict FIXED)",
+    "switches": [
+      "modquitguard"
+    ]
+  },
+  {
+    "id": "modquitguard-quit-off",
+    "bug": "Functional Sewing Table (643837) registers Lyralei.GlobalOptionsSewingTable.OnWorldQuit on World's quit event; it throws TypeInitializationException on every quit (docs/318), and the exception stops the multicast invocation, so every quit handler registered after it (EA's, ours, other mods') is skipped and a script error is written",
+    "fix": "ts3fixes CompatResolve.cs CrQg0 (modquitguard, default off, docs/328 §7.5): the mod's handler body runs inside a catch, so the handlers after it run; [1585] counts caught throws, [1586] the throws seen with the switch off",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static + self-test, 2026-11-23). Control arm of modquitguard-quit: switch off, the mod's TypeInitializationException leaves the quit event (log line 'modquitguard off: mod quit handler threw <type>, rethrown' and a new script error expected). OFF arm: proves the repro shows the bug.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "modquitguard": false
+        },
+        "waitS": 1,
+        "note": "switch off"
+      },
+      {
+        "cmd": "time",
+        "waitS": 60,
+        "note": "world settled"
+      },
+      {
+        "cmd": "main_menu",
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": false
+            }
+          ],
+          "everyS": 3,
+          "maxS": 600
+        },
+        "note": "world unload to the main menu: World's quit event fires"
+      },
+      {
+        "cmd": "time",
+        "waitS": 20,
+        "optional": true,
+        "note": "menu up; script errors written"
+      }
+    ],
+    "expect": "switch off: the main menu within 600 s, the rethrown line in ts3native.log, >= 1 new script error (verdict VANILLA)",
+    "switches": [
+      "modquitguard"
+    ]
+  },
+  {
+    "id": "fire-leftover-stuck",
+    "bug": "Firefighter emergency never ends: a rescue (TrappedSims / TrappedRubble) or window-fire task stays pending after nobody is trapped on the lot any more or the window fires went out another way. EA has a leftover check for fire tiles only (15 sim-minutes after the last fire goes out), and Job.OnJobTimeout keeps extending the timeout while the firefighter stands on the lot, so the player waits hours for the failure (player report 2026-11-21: \"trying to find the last person to be rescued, but there's nobody left ... that one took 12h\"; docs/862)",
+    "fix": "ts3fixes FireLeftover.cs: fireleftover (default off), docs/862",
+    "save": "any world (pure check)",
+    "note": "FireLeftoverCheck 'run' puts the reported case (one rescue task, nobody trapped on the lot, for 15 sim-minutes) and a window task with no window fire left through the decisions with controls (read-only), and prints the live emergency if one is on (pending tasks, trapped Sims still on the lot, window fires). End to end: household firefighter, LargeFires emergency with a trapped NPC (debug SpawnJob), firetrapcount off, take the trapped NPC off the lot, keep the firefighter on the lot: off, the job waits for the timeout; on, about 16 sim-minutes later 'result' shows 2178 +1 and the job completes.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2180 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireLeftoverCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fireleftover": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "apt-job-targets",
+    "bug": "Active-career job targets inside hidden apartment units: an earthquake gas leak starts on a stove in a neighbour's hidden unit (FireFightingJob.SetupTask(GasLeak) has no room test), and a ghost-hunter spirit hops after a failed exorcise to any possessable object within 8 m on the same level (GhostHunterJob.GetPossessableObjectInRange has no room or route test). Nobody can enter a hidden unit, so the task can never be done and the job waits out its timeout (docs/863)",
+    "fix": "ts3fixes AptJobTargets.cs: aptgasleak, aptpossess (default off), docs/863",
+    "save": "any world (pure check); scan needs a world with apartment lots (Bridgeport)",
+    "note": "AptJobTargetsCheck 'run' puts both reported layouts through the decisions with controls (read-only); 'scan' lists, per apartment lot, stoves and other unparented objects inside hidden rooms (whether this world can trigger either bug). End to end: a household firefighter with an earthquake job on an apartment lot whose hidden unit holds a stove (2182 off / 2181 on), or a ghost hunter's possessed-objects job on an apartment lot with furnished hidden units next to the possessed object (2185 off / 2184 on).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2183 and 2186 (errors) stay 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": false,
+          "aptpossess": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "can this world trigger it"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": true,
+          "aptpossess": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.AptJobTargetsCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": false,
+          "aptpossess": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "aptgasleak": false,
+          "aptpossess": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fire-door-keep",
+    "bug": "Firefighter emergencies and door locks: FireFightingJob.CleanUpJob unlocks only for JobId.LargeFires, and then every locked door of the lot (SetLockType(Anybody) on any lock type), so the household's own locks, resort VIP room doors and the lot's Nobody doors (apartment NPC doors) are lost and a one-way door the job locked loses its room; a trapped-Sim lock (LockDoorsInRoom) from any other job id stays Nobody for good (docs/864, docs/570 §2 row 5)",
+    "fix": "ts3fixes FireDoorKeep.cs: firedoorkeep (default off), docs/864",
+    "save": "any world with Ambitions (pure check)",
+    "note": "FireDoorKeepCheck 'run' puts the reported layouts and controls through FdkCore.Restore (read-only); 'jobs' lists every firefighter job id's task kinds with count bounds (which ids roll TrappedSims tasks and so lock doors). End to end: testingcheatsenabled, a LargeFires job (debug Spawn Job) on a lot with a locked door (the household's home with a household lock, or a resort VIP room); after the job, off: 2189 up and the door unlocked; on: 2187 up and the lock kept.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2190 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "jobs"
+          ]
+        },
+        "waitS": 2,
+        "max": 4000,
+        "note": "which job ids trap Sims"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireDoorKeepCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firedoorkeep": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "horseshoe-solo",
+    "bug": "Horseshoes played alone never end: HorseshoeCourt+TakeTurn.DoEndOfTurnChecks returns while mPlayerQueue holds one Sim (no score, mGameOver never set) and a Finished-only exit queues the Sim again and pushes the next TakeTurn ahead of its queue, so a solo NPC throws for good (festival NPCs 17-53 game hours, Go Home queued behind); TakeTurn.Cleanup also leaves a reset or deleted Sim in mPlayerQueue, so later players wait in WaitToThrow forever (docs/865)",
+    "fix": "ts3fixes HorseshoeSolo.cs: horseshoesolo (default off, kHorseshoeSoloHours 2), docs/865",
+    "save": "any world (pure check); scan: a lot with a horseshoe court (festival lot)",
+    "note": "HorseshoeSoloCheck 'run' puts the reported layouts and controls through HsCore (read-only); 'scan' lists every court's queue (household, GONE, NOT PLAYING) and the solo hours tracked. End to end: setup_sims an NPC at a court (autonomy: false), push Join (Practice); on: within 2 h 10 min 2191 rises and the NPC routes away; two Sims queued, delete the thrower: on, 2192 rises and the other throws.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2194 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "live courts and queues",
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HorseshoeSoloCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "horseshoesolo": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "ladderfootshoo-check",
+    "bug": "A floor reached only by a ladder is cut off while Sims stand on the ladder's lane ends: the route search's endpoint test (PortalEdgeCost 0x634500 -> 0x6338A0) makes the ladder a wall, the plan answers NoPathToDestination and the route fails at once. Doors and spiral stairs ask such Sims to step away (DoAdditionalLaneChecks -> PushSimsStatic); Ladder has no such step (docs/183 §9; Colonial Casa storms, 'routefail strand link: Ladder ... B free (with Sims: sim)')",
+    "fix": "ts3fixes LadderFoot.cs: ladderfootshoo (+ ladderfootshoohh for household and selected Sims), default off, docs/183 §9",
+    "save": "any world (pure check)",
+    "note": "Pure check (read-only), not a forced case. LadderFootCheck 'run' evaluates the rules with controls; 'result' shows the counters 4352-4363 and the last ladderfoot: line; 'lot' lists the level links of the selected Sim's lot with their lanes by the game's slot test. The forced in-game case (a Sim stood on a ladder end, another sent across) was run on the contributor's rig with harness pieces not in this repo (docs/183 §9.6); the Colonial Casa storms show the strand about 2 times in 12 runs (docs/183 §9.5).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": true,
+          "ladderfootshoohh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LadderFootCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ladderfootshoo": false,
+          "ladderfootshoohh": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "burglar-apt",
+    "bug": "Burglar on apartment lots: private BurglarSituation+Stealing.CanBeStolen has no room test, so FindObjectToSteal picks loot in hidden neighbour units (every door refuses every Sim, Steal.Run's route fails) and in public rooms (Steal+Definition.Test refuses them), most valuable first; each costs a Stealing state and a sim-minute on the lot, no cap (docs/866)",
+    "fix": "ts3fixes BurglarApt.cs: burglarapt (default off), docs/866",
+    "save": "any world (pure check); scan: a world with apartment lots (Bridgeport)",
+    "note": "BurglarAptCheck 'run' puts the bug layouts and controls through BaCore (read-only); 'scan' counts per apartment lot the objects EA's CanBeStolen rules accept (own unit / hidden / public) and the room of the most valuable. End to end: household in a Bridgeport apartment, a burglar at night; off: 2196 rises; on: 2195 rises and the first target is in the household's unit.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2198 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "live apartment lots",
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BurglarAptCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "burglarapt": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "simbot-world",
+    "bug": "Ambitions' Make Simbot (InventionWorkbench+MakeFrankensim) never shows on the inventing workbench in Bridgeport: its ITUN has World RestrictionType Allow, Types Base only, so Autonomy.CheckAvailability refuses it (Tuning_World) in a Downtown world; EA widened its other Allow tunings to Downtown and missed this one (docs/870)",
+    "fix": "ts3fixes SimbotWorld.cs: simbotworld (default off), docs/870",
+    "save": "Baseline-BP-Spring",
+    "note": "Bridgeport (Downtown). SimbotWorldCheck 'run' re-syncs the tuning to the switch, then evaluates EA's world test on the live MakeFrankensim tuning; control: MakeInvention (no world restriction) must be allowed. No Sim, object or save data changes; the switch only edits the tuning in memory. 'result' lists counters 2366-2369.",
+    "expect": "off: 'verdict: BROKEN' (MakeFrankensim Allow types [Base], refused here). on: 'verdict: FIXED' (types [Base,Downtown,Future], added by us [Downtown,Future], allowed here), 2366 +1. back off: 2368 +1, types [Base] again. 2367 and 2369 stay 0 unless another mod changed the tuning (2367). A non-Downtown, non-Future world reads 'verdict: N/A'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's tuning",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: Downtown and Future added",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": false
+        },
+        "note": "back to the default",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off again: the widening is undone (2368)",
+        "max": 4000
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "simbotworld": false
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SimbotWorldCheck",
+          "args": [
+            "run"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "fire-count",
+    "bug": "Firefighter large fire / earthquake: every rescue completes its task with a null target, so freeing a Sim the job never trapped (a passer-by or rescued victim re-trapped by Panic.InteractionFail) or digging a second rubble pile (made by a reset) takes a real victim's 'free N Sims' task; FireFightingJob.SimDied takes a task for a freed Sim's death too and, on the last trapped Sim's death, leaves the job at 0 pending, never completed, until the timeout (docs/868, docs/570 §5)",
+    "fix": "ts3fixes FireCount.cs: firecount (default off), docs/868",
+    "save": "any world with Ambitions (pure check; scan needs a live emergency)",
+    "note": "FireCountCheck 'run' puts the reported layouts and controls through FcCore (read-only); 'scan' compares the live emergency's pending TrappedSims / TrappedRubble tasks with its listed Sims still trapped ('no emergency' without one). End to end (not run): testingcheatsenabled, a LargeFires job (debug Spawn Job) with two trapped Sims, free one, get a passer-by's run outside to fail, free it: off 2360 +1 and scan MISMATCH; on 2358 +1 and scan match.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 2361 (errors) stays 0.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's count",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "scan"
+          ]
+        },
+        "waitS": 2,
+        "note": "the live emergency, if any",
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireCountCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firecount": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "blank-tns",
+    "bug": "A notification shown with empty text (its string key has no text in the loaded string tables: StringTable.GetLocalizedString answers string.Empty) gives the player an empty box and no hint which mod or EA path sent it (docs/869)",
+    "fix": "ts3fixes BlankTns.cs: blanktns (diagnostic, default off, on in betas), docs/869",
+    "save": "any world",
+    "note": "BlankTnsCheck 'run' shows one blank kSystemMessage notice and one with text (two notices appear in game) and reads back the text EA kept. 'result' lists counters 2362-2365 and the last 3 senders.",
+    "expect": "off: 'verdict: BROKEN' (the notice stays blank, 2363 counts it). on: 'verdict: FIXED' (the notice reads '[blank notice] sent by Ts3Fixes.Fixes.BlankTnsCheck < ...', 2362 counts it, a 'blanktns:' and a 'blanktns stack:' line in ts3native.log).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the blank notice names its sender",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlankTnsCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blanktns": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "standwait-check",
+    "bug": "EA's obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) answers 'keep waiting' as soon as its replan fails, before its own tests for a push request or cancel and before it pushes the Sims in the way; two Sims standing in each other's footprint at a stair top or doorway wait the full 50 sim-min (docs/686)",
+    "fix": "ts3fixes StandWait.cs: standwaitfix (+ standwaitfixhh for household and selected Sims), default off, docs/686",
+    "save": "any world (pure check)",
+    "note": "StandWaitCheck 'run' evaluates the blocked-cycle rules with controls (read-only); 'result' shows the counters 4300-4319, the members found and the last wait's line.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": true,
+          "standwaitfixhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StandWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "standwaitlog": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "sharelanes-check",
+    "bug": "Sims wait for a portal another Sim uses: PortalComponent.GetFreeRoutingLane gives a lane held from the same end and refuses one held from the other, so a Sim coming the other way through a one-lane door (or meeting two Sims on both stair lanes) walks to a waiting spot and asks again for up to 20 sim-minutes; the ladder lets one Sim climb at a time (PortalClimb waits in Ladder.Line); a walking Sim that meets Sims runs the obstacle stand-and-wait (docs/686 §8)",
+    "fix": "ts3fixes ShareLanes.cs: sharelanes, laddershare, simpass, angleentry (each with an hh switch for household and selected Sims), default off, docs/686 §8",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-21, offline only, never run). ShareLanesCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4364-4389 and the last lanewait: line; 'lot' lists the portal objects of the selected Sim's lot whose lane table holds a Sim now. The behaviour itself is shown by storms (docs/686 §8.6): lane waits 4370-4374 off against on.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's table",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "portal tables of the lot",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": true,
+          "sharelaneshh": true,
+          "laddershare": true,
+          "laddersharehh": true,
+          "simpass": true,
+          "simpasshh": true,
+          "angleentry": true,
+          "angleentryhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShareLanesCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "sharelanes": false,
+          "sharelaneshh": false,
+          "laddershare": false,
+          "laddersharehh": false,
+          "simpass": false,
+          "simpasshh": false,
+          "angleentry": false,
+          "angleentryhh": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "blockeduse-check",
+    "bug": "A Sim whose route to an object's routing slot fails because furniture or a wall closes the slot or the last stretch (a dresser in front of the tub, a bed side at a wall) gives up with the route-fail balloon: SimRoutingComponent.DoRoute answers a failed plan with the route-fail behaviour and false (docs/686 §10)",
+    "fix": "ts3fixes BlockedUse.cs: blockeduse (Sims the player does not control), blockedusehh (household and selected Sims), default off, docs/686 §10",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). BlockedUseCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4414-4429 and the last blockeduse: line; 'lot' plans the selected Sim to every routing slot of the tubs, showers, toilets, sinks, beds, chairs and sofas of its lot and lists the objects with a closed slot (read-only plans, up to 60 objects).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": false,
+          "blockedusehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "objects with a closed slot",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": true,
+          "blockedusehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BlockedUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "blockeduse": false,
+          "blockedusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "makebedboth-check",
+    "bug": "A bed half whose routing slot is closed (a side at a wall or behind furniture) is never made: BedMakeBed.Run walks only to slots of unmade parts, the walk or the continuation's walk fails, the bed stays half made, the definition's Test keeps passing and autonomy keeps trying (docs/686 §13)",
+    "fix": "ts3fixes MakeBedBoth.cs: makebedboth (Sims the player does not control), makebedbothhh (household and selected Sims), default off, docs/686 §13",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot with beds (a bed with an unmade half makes it say more)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). MakeBedBothCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4462-4469 and the last makebedboth: line; 'lot' lists the beds of the selected Sim's lot that have an unmade half and whether a plan to each part's slots exists (read-only plans, up to 20 beds). No forced arm: the agent has no step that closes one side of a bed. The far half's look after the run is checked by eye.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": false,
+          "makebedbothhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "beds with an unmade half and the plans to their parts",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": true,
+          "makebedbothhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.MakeBedBothCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "makebedboth": false,
+          "makebedbothhh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "fire-nre",
+    "bug": "Firefighter emergencies: a visibly pregnant active firefighter on the lot at setup makes FirefighterAddedToLot call RestartTimer on a null CurrentJob (the emergency setup aborts, the responder is reset, the emergency runs without its situation); FireFightingJob.OnCompletion hands the thank-you call to a listed Sim who left the fire career and throws on its 60% roll (the job's shut-down and clean-up are skipped, the owner's task listener is dropped) (docs/867)",
+    "fix": "ts3fixes FireNre.cs: firenre (default off), docs/867",
+    "save": "any world (pure check)",
+    "note": "FireNreCheck 'run' evaluates the null-case decisions with controls (read-only). End to end (not run): testingcheatsenabled, a visibly pregnant household firefighter visiting a lot, debug Spawn Job on that lot, respond with another firefighter; 'result' shows 2354 (2356 with the switch off).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix",
+        "max": 4000
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FireNreCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 4000
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "firenre": false
+        }
       }
     ]
   },
