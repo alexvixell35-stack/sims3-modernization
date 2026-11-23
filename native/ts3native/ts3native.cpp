@@ -3518,6 +3518,7 @@ static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
 static void RsLogCounters();   // routespeed.cpp (docs/663)
 static void PtLogCounters();   // placero.cpp (docs/670)
 static void FglLogCounters();   // fglprof.cpp (docs/671)
+static void SwgLogCounters();   // swarmguard.cpp (docs/678)
 static void EpLogCounters();   // epro.cpp (docs/670 §8)
 static void SrLogCounters();   // steerro.cpp (docs/670 §7)
 static void CnLogCounters();   // connro.cpp (docs/670 §15)
@@ -3609,6 +3610,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     RsLogCounters();   // docs/663 (nothing until NeighbourMemo is installed)
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
     FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
+    SwgLogCounters();   // docs/678 (nothing until [SwarmGuard] is installed)
     EpLogCounters();   // docs/670 §8 (nothing until [EditPathRO] is installed)
     SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
     CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
@@ -6599,6 +6601,7 @@ static_assert(offsetof(Ts3nCounters, resV221) == 0x6A38 && offsetof(Ts3nCounters
 #include "gvro.cpp"  // docs/178 §7 T6: [GoalValidRO] (after fgro.cpp: same S2 pieces)
 #include "placero.cpp"  // docs/670: [PlaceTestRO] (after gvro.cpp: S2's QL, SrEntry / SrCell / SrVisit, AvMayRun, PatchCalls)
 #include "fglprof.cpp"  // docs/671: [FglProf] FindGoodLocation profile, measurement only (after savewrite.cpp: PatchCalls; FbStackText)
+#include "swarmguard.cpp"  // docs/678: [SwarmGuard] Swarm effect update guard (after savewrite.cpp: PatchCalls)
 #include "epro.cpp"  // docs/670 §8: [EditPathRO] (S2's QL, SrWalk2, SrConsume, AvMayRun, PatchCalls)
 #include "fsro.cpp"  // issue #156: [FootstepRO] footstep surface cache
 #include "idlero.cpp"  // docs/178 §8: [IdleCheckRO] (after fgro.cpp: S2's QL and SrEntry, AvMayRun, PatchCalls)
@@ -6906,6 +6909,7 @@ static void Run(HMODULE self) {
         InstallGoalValidRO(ini);   // docs/178 §7 T6: S2's writer set, like [PlacementRO]
         InstallPlaceTestRO(ini);   // docs/670: S2's writer set, like [PlacementRO]
         InstallFglProf(ini);       // docs/671: measurement only; its sites differ from [PlaceTestRO]'s 0xB462B7
+        InstallSwarmGuard(ini);    // docs/678: one call site in the main thread's Swarm update, default off
         InstallEditPathRO(ini);    // docs/670 §8: S2's writer set, like [PlaceTestRO]
         InstallConnRoomsRO(ini);   // docs/670 §15: gate 11 + the call at 0x792A55
         InstallFootstepRO(ini);    // issue #156: footstep surface cache

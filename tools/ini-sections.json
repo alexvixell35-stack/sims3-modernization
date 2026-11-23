@@ -112,5 +112,6 @@
  "EqualsFast": ["equalsfast.cpp"],
  "ThumbStall": ["thumbstall.cpp"],
  "ThumbCallers": ["thumbstall.cpp"],
- "Experimental": ["ts3native.cpp"]
+ "Experimental": ["ts3native.cpp"],
+ "SwarmGuard": ["swarmguard.cpp"]
 }

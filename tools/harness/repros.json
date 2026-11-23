@@ -116353,6 +116353,48 @@
     ]
   },
   {
+    "id": "swarm-guard-storm",
+    "bug": "docs/678: main-thread crash in the Swarm effect update 0x92E0C0 (stack 0092E0DB 0091BC0F 009162EB 0071E6D2 0059ED59; phase-20261111-2105, phase-20261120-0347): a live cVisualEffect whose interface vtable word +4 holds a heap address (a list link of another object), about 1 in 100 sessions; writer unknown",
+    "fix": "guard only: ts3native [SwarmGuard] Enabled=1 (default 0): call-site retarget 0x91BC0A; an effect with +0 0x1042570 and +8 0x1042520 whose +4 is not 0x1042528 is skipped for the frame (Repair=1: the word is put back); Scan=1 checks the whole group vector; the hit lines dump the memory the bad word points at",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, selftest on fakes). Job ini: [SwarmGuard] Enabled=1 Scan=1 (second arm Repair=1). The crash is rare: one run shows only that the hook is harmless; a hit needs many storm runs",
+    "expect": "'OK   swarm guard: Repair=.. Scan=..' at start; the minute line 'swarm guard: updates N, bad +4 0 ...' with updates rising; effects look as before; on a hit 'swarm guard: update found' or 'scan found' plus the memory line and no crash at 0x92E0DB",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 240,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; one profile arm, 4 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

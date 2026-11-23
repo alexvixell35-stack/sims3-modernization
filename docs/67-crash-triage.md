@@ -1534,6 +1534,7 @@ Next: rerun `bp-seen-smoke` on a build with this fix; a repeat now names the fau
 - **Not the new fixes [verified diff + rerun]:** with the switches off, r71's `rhexitunseen` / `tipsnpcend` hooks only read `IsPlayerSim` / unseen state and a counter, and returned EA's answer; no effect or object release. The exact r71 package and settings rerun (`phase-20261117-0923`) ran the whole session clean, both checks off BROKEN / on FIXED. Address space was low in both (largest free block 15 MB at world load).
 - **Exit noise, not crashes:** `C0000005 at 0xF???604F` with an empty stack appears at game close in clean runs too (e.g. `phase-20261117-0857`).
 - **Status:** one-off engine Swarm crash, 1 in 20+ sessions; reopen if a third sample appears (grep `0x91AD0` / `0x91A46E` in run logs).
+- **Reopened 2026-11-20 (docs/678):** two more samples with one stack (`0x92E0DB` <- `0x91BC0F`, `phase-20261111-2105` and `phase-20261120-0347`): a live `cVisualEffect` whose word at `+4` was overwritten by a list link of another object. Writer unknown; `[SwarmGuard]` (default off) guards the call and logs the writer's memory.
 
 ## 9. Second Swarm sample: 2026-11-17 r71 session (not reproduced)
 
