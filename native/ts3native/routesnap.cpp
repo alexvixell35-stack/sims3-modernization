@@ -751,6 +751,7 @@ static bool ApplyRouteSnap(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"RouteSnap", L"Count", 0, ini) && !GetPrivateProfileIntW(L"RouteSnap", L"Enabled", 0, ini) &&
         !GetPrivateProfileIntW(L"PlanRepeat", L"Enabled", 0, ini) && !GetPrivateProfileIntW(L"RouteAsync", L"ReplanDedupe", 0, ini) &&
         !GetPrivateProfileIntW(L"RouteAsync", L"FailMemo", 0, ini) &&  // docs/164 §7 D5 reads them too
+        !GetPrivateProfileIntW(L"RouteAsync", L"NoPathMemo", 0, ini) &&  // docs/643: its world version
         !GetPrivateProfileIntW(L"RouteSpeed", L"NeighbourMemo", 0, ini)) {  // docs/663: its tree-write sequence
         Log("route snapshot counters off (Count=0)");
         return false;

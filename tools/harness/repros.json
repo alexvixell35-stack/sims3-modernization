@@ -116353,6 +116353,69 @@
     ]
   },
   {
+    "id": "nopathmemo-check",
+    "bug": "An NPC's repeat of a plan EA already failed with no path searches again every time (water and boat plans, FollowerMeetUpAtPoint retries around a moving goal: 10 tries in one tick were a 1 s hitch); docs/643",
+    "fix": "ts3native [RouteAsync] NoPathMemo (nopathmemo.cpp) with ts3fixes npmfuzzy / npmhousehold (NoPathMemoSwitches.cs), all default off, docs/643",
+    "save": "any world (pure check)",
+    "note": "Rule check only (2026-11-23): NpmCheck 'run' checks the op 38 flag encoding and the player-command rule with controls and shows counters 4240-4243. The native memo's own checks are TestNoPathMemo* in selftest.exe. The forced stale-answer sequence of docs/643 §8.3 (nopathmemo-stale-force) needs agent steps that are not upstream (build_layout, put_in_front, move_object) and is not in this entry.",
+    "expect": "'flags ok' and 'player command rule ok' in both arms; with [RouteAsync] NoPathMemo=1 in the ini, 4240 counts up once the switches change.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "npmfuzzy": false,
+          "npmhousehold": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "npmfuzzy": true,
+          "npmhousehold": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.NpmCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "npmfuzzy": false,
+          "npmhousehold": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

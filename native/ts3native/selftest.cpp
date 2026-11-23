@@ -13299,6 +13299,84 @@ static void TestP5() {
 #include "autraces-test.h"  // TestAutRaces ([AutShadow] Races: R1b pre-warm, R2b/R3a witness, docs/data/races-handoff.md)
 #include "threadstack-test.h"  // TestThreadStack ([ThreadStack], docs/66 §6)
 #include "userdiag-test.h"  // TestUserDiag ([UserDiag], docs/188)
+#include "nopathmemo-test.h"  // TestNoPathMemo ([RouteAsync] NoPathMemo table, docs/643)
+// NpmPcStub (nopathmemo.cpp) on a fake Route_PlanCommon frame: the local result at the site's esp + 0x78 reads 16 only after a
+// served answer, every register and esp come back, and the stub goes on to g_npmPcBack
+static volatile DWORD g_npmTOut, g_npmTEsp0, g_npmTEsp1, g_npmTEdi;
+static __declspec(naked) void NpmTBack() {
+    __asm {
+        mov eax, [esp + 0x78]
+        mov g_npmTOut, eax
+        mov g_npmTEdi, edi
+        add esp, 0x100
+        mov g_npmTEsp1, esp
+        ret
+    }
+}
+static __declspec(naked) void NpmTEnter() {
+    __asm {
+        sub esp, 0x100
+        mov dword ptr [esp + 0x78], 2
+        jmp NpmPcStub
+    }
+}
+static __declspec(noinline) void NpmTRun() {
+    __asm {
+        push edi
+        mov g_npmTEsp0, esp
+        mov edi, 0x12345678
+        call NpmTEnter
+        pop edi
+    }
+}
+// NpmScope with a nested plan (docs/643): the outer route's scope survives the inner route's ops 11 / 12 on the one slot
+static u8 g_npmTRoute[2][0x200];
+static u8* __fastcall NpmTOrRoute(const void*, void*, DWORD h) { return h == 0x25000011 ? g_npmTRoute[0] : h == 0x25000012 ? g_npmTRoute[1] : NULL; }
+static void TestNoPathMemoScope() {
+    u8* const* savedSlot = g_orRmSlot;
+    const OrRouteFn savedRoute = g_orRoute;
+    const LONG savedOn = g_npmOn;
+    static u8* rm = g_npmTRoute[0];
+    g_orRmSlot = &rm, g_orRoute = NpmTOrRoute, g_npmOn = 1;
+    for (int i = 0; i < 2; i++) *(DWORD*)(g_npmTRoute[i] + 0x40) = 0x777, *(DWORD*)(g_npmTRoute[i] + 0x44) = 0x1;  // one Sim, two routes
+    const u8* outer = g_npmTRoute[0];
+    DWORD h;
+    int kind;
+    bool via;
+    NpmScopeNote(11, 0x25000011), KdScopeSet(0x25000011, 2);  // outer plan: unseen
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 2 && h == 0x25000011 && !via);
+    NpmScopeNote(10, 0x25000012), KdScopeSet(0x25000012, 1);  // inner plan (another route of the Sim) overwrites the slot
+    assert(NpmScope(0x777, 1, g_npmTRoute[1], &h, &kind, &via) == 1 && !via);
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 2 && h == 0x25000011 && via);  // the slot names the inner route
+    NpmScopeNote(12, 0x25000012), KdScopeClear(0x25000012);  // inner plan over: slot 0
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 2 && via);
+    assert(NpmScope(0x778, 1, outer, &h, &kind, &via) == 0);  // another follower: unknown
+    assert(NpmScope(0x777, 1, g_npmTRoute[1], &h, &kind, &via) == 0);  // the inner route is over: unknown
+    NpmScopeNote(12, 0x25000011);
+    assert(NpmScope(0x777, 1, outer, &h, &kind, &via) == 0);  // outer over: unknown
+    // docs/643 §7 player command marks (op 39): this route and follower only, until the route's op 12
+    assert(!NpmIsCmd(outer, 0x777, 1));
+    NpmScopeNote(39, 0x25000011);
+    assert(NpmIsCmd(outer, 0x777, 1) && !NpmIsCmd(outer, 0x778, 1) && !NpmIsCmd(g_npmTRoute[1], 0x777, 1));
+    NpmScopeNote(39, 0x25000011);  // marked twice: one record, one op 12 ends it
+    NpmScopeNote(12, 0x25000011);
+    assert(!NpmIsCmd(outer, 0x777, 1));
+    g_orRmSlot = savedSlot, g_orRoute = savedRoute, g_npmOn = savedOn;
+    printf("selftest nopathmemo: nested plan scope ok\n");
+}
+static void TestNoPathMemoStub() {
+    g_npmPcBack = (DWORD)(uintptr_t)NpmTBack;
+    t_npmServed = false;
+    NpmTRun();
+    assert(g_npmTOut == 2 && g_npmTEdi == 0x12345678 && g_npmTEsp1 == g_npmTEsp0 - 4);  // not served: Route_PlanCommon's 2
+    t_npmServed = true;
+    NpmTRun();
+    assert(g_npmTOut == 16 && !t_npmServed && g_npmTEdi == 0x12345678 && g_npmTEsp1 == g_npmTEsp0 - 4);
+    NpmTRun();
+    assert(g_npmTOut == 2);  // read once
+    g_npmPcBack = 0;
+    printf("selftest nopathmemo: result stub ok\n");
+}
 #include "played-test.h"    // TestPlayed (played.cpp, docs/14 section 8.6)
 #include "memdiag-test.h"   // TestMemDiag ([MemDiag], docs/190 phase 1, docs/191)
 #include "memaccess-test.h"  // TestMemAccess ([MemDiag] Access, docs/190 phase 2)
@@ -14885,6 +14963,10 @@ int main(int argc, char** argv) {
     TestThreadStack();
     TestCrashReport();
     TestUserDiag();
+    TestNoPathMemo();
+    TestNoPathMemoFuzzy();
+    TestNoPathMemoStub();
+    TestNoPathMemoScope();
     TestPlayed();
     TestMemDiag();
     TestMemAccess();

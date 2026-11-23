@@ -8,7 +8,7 @@
  "AdaptDiag": ["adaptdiag.cpp"],
  "RouteCache": ["ts3native.cpp"],
  "RouteWorker": ["ts3native.cpp"],
- "RouteAsync": ["a10.cpp", "hostcalls.cpp", "locowin.cpp", "plandeadline.cpp", "rcguard.cpp", "replandedupe.cpp", "routesnap.cpp", "tailunlock.cpp", "ts3native.cpp"],
+ "RouteAsync": ["a10.cpp", "hostcalls.cpp", "locowin.cpp", "nopathmemo.cpp", "plandeadline.cpp", "rcguard.cpp", "replandedupe.cpp", "routesnap.cpp", "tailunlock.cpp", "ts3native.cpp"],
  "RouteBudget": ["ts3native.cpp"],
  "RouteJobPhases": ["hostcalls.cpp", "routephases.cpp", "syncphases.cpp"],
  "GoalGen": ["goalgen.cpp"],

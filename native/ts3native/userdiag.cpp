@@ -730,10 +730,14 @@ static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample want
 static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
 static u8 MdtOp(DWORD lo, DWORD hi);   // modtime.cpp: op 61, [Diag] ModTime (docs/298)
 static u8 PcOp(DWORD lo, DWORD hi);  // pccheck.cpp: op 62, [PcCheck] (docs/299)
+static void NpmScopeNote(int op, DWORD handle);  // nopathmemo.cpp: route scopes by handle (docs/643)
+static u8 NpmOptMsg(DWORD lo);  // nopathmemo.cpp: op 38, ts3fixes npmfuzzy / npmhousehold (docs/643 §7)
+static u8 NpmCmdMsg();         // nopathmemo.cpp: op 39, the route is the selected Sim's own command (docs/643 §7)
 static u8 FglInsideOp(DWORD lo);  // fglprof.cpp: op 48, ts3fixes fglinbound arms / ends the indoors stage's search (docs/682 §9)
 static u8 AdOp(DWORD lo, DWORD hi);  // adaptdiag.cpp: op 63, [AdaptDiag] (docs/316)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
+    NpmScopeNote((hi >> 16) & 0xFF, lo);
     switch ((hi >> 16) & 0xFF) {
         case 61: return MdtOp(lo, hi);  // docs/298 [Diag] ModTime: on? / sim hour starts / world quit / notice ready? / notice bit
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
@@ -746,6 +750,8 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 63: return AdOp(lo, hi);  // docs/316 [AdaptDiag]: activity tag / install check missing / world quit / swapinvokediag wanted
         case 62: return PcOp(lo, hi);  // docs/299 [PcCheck]: problem flag lo set? / sim hour ended / world quit (62: same op as the docs/298 diag branch)
         case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
+        case 38: return NpmOptMsg(lo);  // docs/643 §7: ts3fixes npmfuzzy (bit 0) / npmhousehold (bit 1); 1 = the memo took them
+        case 39: return NpmCmdMsg();    // docs/643 §7: route lo is the selected Sim's own command (noted above); 1 = NoPathMemoHousehold on
         case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 40: return DsClassOp(lo, hi);  // docs/674 doorshare.cpp: route lo's Sim class (hi 0-15), before its START; 1 = DoorShare on
         case 48: return FglInsideOp(lo);    // docs/682 §9: lo 1 = this thread's next FindGoodLocation search is the indoors stage, 0 = over; 1 = [FglInside] installed
