@@ -3531,6 +3531,7 @@ static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
 static void UbLogCounters();   // unseenband.cpp (docs/322)
 static void PccLogCounters();  // plancand.cpp (docs/644)
+static void WaLogCounters();   // worldalt.cpp (docs/676 §14)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 // docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
@@ -3623,6 +3624,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     PccLogCounters();  // docs/644 (nothing until a part is on)
+    WaLogCounters();   // docs/676 §14 (nothing until WorldAlt is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
             "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
@@ -6767,6 +6769,7 @@ static void RewindPoolParkInit(const wchar_t* ini) {
 #include "plandeadline.cpp"  // docs/164 §7: [RouteAsync] PlanDeadlineMs / FailMemo (routephases.cpp takes its trampolines)
 #include "plancand.cpp"      // docs/644: [RouteAsync] CandidateCut / WaterGoalCheck, [RouteJobPhases] CandidateSplit (after plandeadline.cpp)
 #include "workerhold.cpp"    // docs/673: [RouteJobPhases] HoldProbe (after plancand.cpp: PCC_*, g_pccSplit)
+#include "worldalt.cpp"      // docs/676 §14: [WorldPrecompute] WorldAlt (after plancand.cpp: PccScopeNow; worldpre.cpp installs it)
 #include "worldpre.cpp"      // docs/676: [WorldPrecompute] (after waterjps.cpp: WjCtx, WJ_CALL; plancand.cpp: PccScopeNow, g_pccSplit)
 #include "nopathmemo.cpp"    // docs/643: [RouteAsync] NoPathMemo (after earlyout.cpp: CallPlanEo; after plandeadline.cpp: g_kdScope*)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)

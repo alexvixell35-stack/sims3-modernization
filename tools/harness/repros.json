@@ -116582,6 +116582,113 @@
     ]
   },
   {
+    "id": "ip-worldalt-storm",
+    "bug": "docs/676 §10, §12, §14: in s172 (Isla Paradiso, 3 min storm) the world A* 0x676260 is 9.4 s of worker time in 911 searches, all under the routing lock: 761 with water links allowed carry 9.0 s (212 that cross land components 3.2 s, 549 inside one component 5.8 s at 10.5 ms each against 2.6 ms without the flag). Its heuristic is the straight line at 1 per metre against costs of 2-13 per metre, and a water crossing costs 2 x 10 x body cells, so the search pops close to everything cheaper than the path",
+    "fix": "ts3native [WorldPrecompute] WorldAlt (1 use, 2 shadow; default 0): landmark distance tables on a lower-bound copy of the waypoint graph with one node per water body raise the heuristic part of every pushed node's f; the search, costs, walls, heap and tie rule stay the game's, so the path cost is the same and only the choice among equally cheap paths can differ (docs/676 §14)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the bound against a brute-force shortest distance on random worlds with random blocking; no MSVC build, the Windows selftest of the thunks and install checks has not run). Job ini: [WorldPrecompute] WorldAlt=2 WorldAltAll=1 WorldAltLandmarks=32, [RouteJobPhases] CandidateSplit=1 CandidateSplitLogMs=100, the s172 on-arm switches otherwise. Arm 0 is off (the sites stay installed and count nodes generated, the baseline), arm 1 is shadow (every eligible search runs three times: its world A* time is not a timing result, the compare counts are), arm 2 serves. Read the counter lines as differences between the arm ends. In mode 1 with water links the game's own heuristic can exceed the cost of the path it finds (a type-0x15 water link costs the flat water-lot value): such pairs can differ either way and are counted apart ('plain cost below the game's own first heuristic')",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "worldalt": 0
+        },
+        "waitS": 1,
+        "note": "arm 0: off (baseline; 'nodes generated ... plain' still counts)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 180,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-worldpre-storm; 3 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "worldalt": 2
+        },
+        "waitS": 1,
+        "note": "arm 1: shadow (the ini value): plain and bound runs compared, the game's route used"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 180,
+        "note": "the same storm in shadow; 3 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "worldalt": 1
+        },
+        "waitS": 1,
+        "note": "arm 2: the bound serves"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 180,
+        "note": "the same storm with the bound; 3 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "worldalt": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ],
+    "expect": "'OK   world alt: ready 0x3'. After arm 1: a 'world alt shadow: searches compared N' line with N > 0, 'bound dearer' no higher than 'plain cost below the game's own first heuristic', 'one found 0', and 'nodes generated P plain / B bound' with B well below P (the offline model gave 1.9-2.5 times fewer on land; crossings should gain more); at most the WORLD ALT MISMATCH lines of the game-heuristic pairs. 'world alt:' line: graphs 1-2, landmarks up to 64, dropped 0 unless a lot or the terrain was edited, 'checks' ms small against the storm's world A* ms. After arm 2: 'with the bound' > 0 and, in 'route candidate split totals', world ms per call below arm 0's (s172: 10.3 ms a search). No crash, plans / failed in 'route plans:' as in arm 0"
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
