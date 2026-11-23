@@ -129159,5 +129159,1240 @@
         "waitS": 1
       }
     ]
+  },
+  {
+    "id": "woohoosnap-force",
+    "bug": "WooHoo with two household partners: the bed side (or the shower's entry slot) of one of them is closed by furniture, that Sim's walk fails (EnterRelaxing / TakeShower: FailedBecauseNoPathToDestination) and the WooHoo ends for both (docs/686 §20.1)",
+    "fix": "ts3fixes WooHooSnap.cs: woohoosnap + woohoosnaphh (default off), woohoosnaplog, docs/686 §20",
+    "save": "any world with a vacant empty lot of 20 x 30 tiles (Sunset Valley new game: 18 Maywood Lane; shower and camera places are that lot's)",
+    "note": "RUN 2026-11-23 (Deck, Sunset Valley new game), by hand in session ws-m1 (phase-20261123-0645) and as this entry (docs/686 §20.6). Bea and Bo are made partners (modify_relationship); WooHoo is on the menu only in a hot conversation, so nine romantic socials come first at speed 2. bed_setup puts a mini fridge on one bed side's routing slot. Shower arms: a mini fridge on the shower's entry slot (agent step slot_close), both Sims in the room, 'WooHoo With...' on the shower. 'noKeepAlive' stops profile-world's keep_alive between the orders.",
+    "expect": "woohoosnap-off: 'routefail: ... EnterRelaxing target BedDoubleBrass, Plan async FailedBecauseNoPathToDestination blocker Object ... MiniFridge', tries (4566) and would (4567) up, no Beds.WooHoo. woohoosnap-on: 'woohoosnap: <who> <Sim>, EnterRelaxing with <partner> -> BedDoubleBrass ... : snap 2.6 m to slot 0x31229A4C at 1192.2,49.1,1192.8', snaps at a bed (4569) 1 or more, both run Beds.WooHoo, afterwards both walk to the yard (the game's plan from the closed slot succeeds: snap outs 4574 stay 0), errors 0. showersnap-off: 'routefail: Bo Snap ..., TakeShower target ShowerBasic ... blocker Object ... MiniFridge', would up. showersnap-on: 'woohoosnap: ... TakeShower with Bea Snap -> ShowerBasic ...: snap 1.2 m to slot ...' and the same for Bea's WooHoo, shower snaps (4570) 2, Bo's shower becomes 'WooHoo With Bea', errors 0.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Snap",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Snap",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Snap",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Snap"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "note": "daylight",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1 (the Deck runner's idle phase is paused)",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Snap",
+            "Bo Snap"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "both at the home mailbox, queues empty",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E",
+            "E E E E E E E",
+            "E E E B E E E",
+            "E E E E E E E",
+            "E E E E E E E",
+            "E X E E E E E"
+          ],
+          "house": true,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "legend": {
+            "B": {
+              "name": "bed",
+              "class": "BedDouble",
+              "facing": "E",
+              "loose": true
+            }
+          },
+          "sim_timeout_s": 120
+        },
+        "note": "room 7x6 without roof: a double bed in the middle",
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Shower",
+          "name": "shower",
+          "x": 1194.2,
+          "y": 49.1,
+          "z": 1190.6
+        },
+        "note": "a shower in the room (18 Maywood Lane, Sunset Valley: the lot make_household picks; the Buy tool's tile differs between runs)",
+        "max": 300,
+        "waitS": 2
+      },
+      {
+        "cmd": "modify_relationship",
+        "args": {
+          "sim": "Bea Snap",
+          "other": "Bo Snap",
+          "state": "Partner",
+          "liking": 100
+        },
+        "note": "Bea and Bo are partners",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnaplog": true,
+          "routefaillog": true,
+          "blockeduse": false,
+          "blockedusehh": false,
+          "woohoosnap": false,
+          "woohoosnaphh": false
+        },
+        "note": "log lines on, arm off",
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Snap",
+            "Bo Snap"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "both at the mailbox for the warm-up",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "fast"
+        },
+        "note": "speed x2 for the warm-up",
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Flirt"
+        },
+        "note": "warm-up: Flirt",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Compliment Appearance"
+        },
+        "note": "warm-up: Compliment Appearance",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / First Kiss"
+        },
+        "note": "warm-up: First Kiss",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Amorous Hug"
+        },
+        "note": "warm-up: Amorous Hug",
+        "max": 200,
+        "waitS": 45
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Make Out"
+        },
+        "note": "warm-up: Make Out (WooHoo is on the menu only in a hot conversation)",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Kiss"
+        },
+        "note": "warm-up: Kiss (WooHoo is on the menu only in a hot conversation)",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Embrace"
+        },
+        "note": "warm-up: Embrace (WooHoo is on the menu only in a hot conversation)",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Stroke Cheek"
+        },
+        "note": "warm-up: Stroke Cheek (WooHoo is on the menu only in a hot conversation)",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / Dip Kiss"
+        },
+        "note": "warm-up: Dip Kiss (WooHoo is on the menu only in a hot conversation)",
+        "max": 200,
+        "waitS": 50
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "query": "woohoo"
+        },
+        "note": "WooHoo is on Bea's menu for Bo",
+        "max": 400,
+        "mustMatch": "Romantic\\.\\.\\. / WooHoo",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble",
+          "close": "fridge"
+        },
+        "note": "a mini fridge on one side's routing slot: that half cannot be reached (plan false)",
+        "max": 1500,
+        "mustMatch": "\"plan\":false",
+        "waitS": 2
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again (the game takes the agent's switch back after some interactions)",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "woohoosnap-off"
+        },
+        "note": "log marker woohoosnap-off"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / WooHoo"
+        },
+        "note": "off order: WooHoo (the social, then both walk to the nearest bed)",
+        "max": 200,
+        "waitS": 75
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 75 s: tries (4566) and would (4567) up, no snap",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "snaps at a bed 0.*off: would [1-9]"
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off at 75 s: no bed WooHoo runs (the Sim for the closed side failed its walk)",
+        "max": 700,
+        "mustMatch": "^(?!.*Beds\\.WooHoo)",
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Snap",
+            "Bo Snap"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "both back at the mailbox, queues empty",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again (the game takes the agent's switch back after some interactions)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": true,
+          "woohoosnaphh": true
+        },
+        "note": "arm on: woohoosnap + woohoosnaphh",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "woohoosnap-on"
+        },
+        "note": "log marker woohoosnap-on"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1186.5,
+            "y": 56,
+            "z": 1200.5
+          },
+          "target": {
+            "x": 1192,
+            "y": 49.5,
+            "z": 1194
+          }
+        },
+        "note": "camera on the bed",
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "Bo Snap",
+          "interaction": "Romantic... / WooHoo"
+        },
+        "note": "on order: WooHoo",
+        "max": 200,
+        "waitS": 40,
+        "until": {
+          "cmd": "queues",
+          "args": {},
+          "all": [
+            {
+              "path": "0.type",
+              "equals": "Sims3.Gameplay.Objects.Beds.WooHoo"
+            },
+            {
+              "path": "1.type",
+              "equals": "Sims3.Gameplay.Objects.Beds.WooHoo"
+            }
+          ],
+          "everyS": 2,
+          "maxS": 90
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on, both in the bed's WooHoo: 'snap ... to slot' at the bed (4569), errors 0",
+        "max": 1800,
+        "waitS": 45,
+        "mustMatch": "snaps at a bed [1-9].*errors 0"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Snap"
+        },
+        "note": "on after the WooHoo: Bea",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Snap"
+        },
+        "note": "on after the WooHoo: Bo",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "sim": "Bea Snap",
+          "near": "@type:Mailbox",
+          "forward": -2.5
+        },
+        "note": "on: Bea walks out to the front yard",
+        "max": 120,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "sim": "Bo Snap",
+          "near": "@type:Mailbox",
+          "forward": -2.5,
+          "right": 1.5
+        },
+        "note": "on: Bo walks out to the front yard",
+        "max": 120,
+        "waitS": 24
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Snap"
+        },
+        "note": "on: Bea stands in the yard (z 1198)",
+        "max": 200,
+        "waitS": 1,
+        "mustMatch": "\"z\":119[6-9]"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Snap"
+        },
+        "note": "on: Bo stands in the yard (z 1198)",
+        "max": 200,
+        "waitS": 1,
+        "mustMatch": "\"z\":119[6-9]"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on after the walk out: snap outs (4574) count only when a plan from the closed slot failed (ws-m1: the game's own plan led out), errors 0",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "errors 0"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Snap"
+          ],
+          "x": 1190.5,
+          "z": 1190.6,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "shower arms: Bea into the room",
+        "max": 300,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Snap"
+          ],
+          "x": 1190.3,
+          "z": 1192.8,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "shower arms: Bo into the room",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again (the game takes the agent's switch back after some interactions)",
+        "waitS": 1
+      },
+      {
+        "cmd": "slot_close",
+        "args": {
+          "target": "@type:Shower",
+          "close": "fridge"
+        },
+        "note": "a mini fridge on the shower's entry slot (it lies beside the shower's facing; the Buy tool does not hit the same tile in every run: ws-r1)",
+        "max": 600,
+        "mustMatch": "\"plan\":false",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "the shower's slot is closed for Bea's plans",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "ShowerBasic[^;]*1 of 1 slots closed"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": false,
+          "woohoosnaphh": false
+        },
+        "note": "arm off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "showersnap-off"
+        },
+        "note": "log marker showersnap-off"
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "at": "@type:Shower"
+        },
+        "note": "camera on the shower",
+        "waitS": 1
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "@type:Shower",
+          "interaction": "WooHoo With...",
+          "pick": [
+            "Bo Snap"
+          ]
+        },
+        "note": "shower off order: WooHoo With Bo",
+        "max": 300,
+        "waitS": 65
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "shower off at 65 s: would (4567) up again, no shower snap",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "shower, tub or sauna 0.*off: would [2-9]"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Snap"
+        },
+        "note": "queues empty",
+        "max": 60,
+        "optional": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Snap"
+        },
+        "note": "queues empty",
+        "max": 60,
+        "optional": true,
+        "waitS": 3
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again (the game takes the agent's switch back after some interactions)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": true,
+          "woohoosnaphh": true
+        },
+        "note": "arm on",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "showersnap-on"
+        },
+        "note": "log marker showersnap-on"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Snap",
+          "target": "@type:Shower",
+          "interaction": "WooHoo With...",
+          "pick": [
+            "Bo Snap"
+          ]
+        },
+        "note": "shower on order: WooHoo With Bo",
+        "max": 300,
+        "waitS": 30,
+        "until": {
+          "cmd": "sim_where",
+          "args": {
+            "sim": "Bo Snap"
+          },
+          "all": [
+            {
+              "path": "interaction",
+              "equals": "WooHoo With Bea"
+            }
+          ],
+          "everyS": 2,
+          "maxS": 90
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "shower on, Bo's shower is 'WooHoo With Bea': snaps at a shower (4570), errors 0",
+        "max": 1800,
+        "waitS": 30,
+        "mustMatch": "shower, tub or sauna [1-9].*errors 0"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Snap"
+        },
+        "note": "shower on, afterwards: Bea",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Snap"
+        },
+        "note": "shower on, afterwards: Bo",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: errors 0",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": false,
+          "woohoosnaphh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "pairsnap-force",
+    "bug": "Two household partners 2.3 m apart with furniture between them and no way round: a kiss's or hug's placement (SetupTwoPersonSocial) finds no route, the starter plays the route-fail balloon and nothing happens (docs/686 §17.1, §20.1)",
+    "fix": "ts3fixes WooHooSnap.cs: pairsnap + pairsnaphh (default off), pairsnaplog, docs/686 §20",
+    "save": "any world with a vacant empty lot (Sunset Valley new game: 18 Maywood Lane; the places are that lot's)",
+    "note": "RUN 2026-11-23 (Deck, Sunset Valley new game), by hand in session ws-m1 (phase-20261123-0645) and as this entry (docs/686 §20.6). The layout of socialreach-force: Bo on a lawn tile ringed by eight fridges (box_in), Bea on the tile beyond the ring. Only rule a (the failed placement) is run here; rules b and c (a failed walk, a jig's plan) need a social whose placement succeeds and whose walk fails.",
+    "expect": "pairsnap-off: 'routefail: Bea Pair ..., SocialInteractionA target Sim, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeModerate', tries (4576) and would (4577) up, no kiss. pairsnap-on: 'pairsnap: selected Bea Pair, SocialInteractionA Heat Of The Moment Kiss -> Bo Pair (placement): the partner snaps 1.6 m to 1190.8,49.1,1185.2, 0.70 m from the starter', placed (4579) 1, Bea runs the kiss and Bo 'Be Smooched' (the game's 2 mm alignment test passed), errors 0. pairsnap-hug: the same line for Amorous Hug, placed 2; Bo then walks to the front yard.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Pair",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Pair",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Pair",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Pair"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 11
+        },
+        "note": "daylight",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "setup": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1 (the Deck runner's idle phase is paused)",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Pair",
+            "Bo Pair"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "both at the home mailbox, queues empty",
+        "max": 300,
+        "waitS": 8
+      },
+      {
+        "cmd": "modify_relationship",
+        "args": {
+          "sim": "Bea Pair",
+          "other": "Bo Pair",
+          "state": "Partner",
+          "liking": 100
+        },
+        "note": "Bea and Bo are partners (kiss and hug are on the menu)",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Pair"
+          ],
+          "x": 1190.8,
+          "z": 1183.6,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bo on a lawn tile of the back yard",
+        "max": 300,
+        "waitS": 10
+      },
+      {
+        "cmd": "box_in",
+        "args": {
+          "sim": "Bo Pair",
+          "x": 1190.8,
+          "z": 1183.6
+        },
+        "note": "eight fridges on the eight tiles round him, backs to him (no walls); his plan to a place 6 m away fails",
+        "max": 900,
+        "mustMatch": "\"boxed\":true",
+        "waitS": 2
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1190.8,
+            "y": 61,
+            "z": 1189.4
+          },
+          "target": {
+            "x": 1190.8,
+            "y": 49,
+            "z": 1184.9
+          }
+        },
+        "note": "camera above the box and the tile south of it",
+        "waitS": 1
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Bea Pair",
+          "x": 1190.8,
+          "z": 1185.9
+        },
+        "note": "Bea on the tile beyond the ring, 2.3 m from Bo",
+        "max": 200,
+        "waitS": 3
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again (the game takes the agent's switch back after some interactions)",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnaplog": true,
+          "routefaillog": true,
+          "socialreach": false,
+          "socialreachhh": false,
+          "unstuck": false,
+          "unstuckhh": false,
+          "blockeduse": false,
+          "blockedusehh": false,
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "log lines on, arm off",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairsnap-off"
+        },
+        "note": "log marker pairsnap-off"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Pair",
+          "target": "Bo Pair",
+          "interaction": "Romantic... / Heat of the Moment Kiss"
+        },
+        "note": "off order: Bea, Heat of the Moment Kiss with Bo",
+        "max": 200,
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off at 20 s: tries (4576) and would (4577) up, nothing placed",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "placed 0.*off: would [1-9]"
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off at 20 s: no kiss runs",
+        "max": 600,
+        "mustMatch": "^(?!.*SocialInteraction)",
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Pair"
+        },
+        "note": "Bea's queue empty",
+        "max": 60,
+        "optional": true,
+        "waitS": 3
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": true,
+          "pairsnaphh": true
+        },
+        "note": "arm on: pairsnap + pairsnaphh",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairsnap-on"
+        },
+        "note": "log marker pairsnap-on"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Pair",
+          "target": "Bo Pair",
+          "interaction": "Romantic... / Heat of the Moment Kiss"
+        },
+        "note": "on order: the same kiss",
+        "max": 200,
+        "waitS": 1,
+        "until": {
+          "cmd": "sim_where",
+          "args": {
+            "sim": "Bo Pair"
+          },
+          "all": [
+            {
+              "path": "interaction",
+              "equals": "Be Smooched"
+            }
+          ],
+          "everyS": 1,
+          "maxS": 40
+        }
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: both sides of the kiss run",
+        "max": 600,
+        "mustMatch": "SocialInteraction[AB].*SocialInteraction[AB]",
+        "waitS": 22
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: 'the partner snaps ... 0.70 m from the starter' (4579), kept 0, errors 0",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "placed 1 \\(snap 1\\); kept as the game has it 0.*errors 0"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Pair"
+        },
+        "note": "on: Bo stands outside the ring, next to Bea (z 1185)",
+        "max": 200,
+        "waitS": 1,
+        "mustMatch": "\"z\":1185\\.[0-9]+"
+      },
+      {
+        "cmd": "relationships",
+        "args": {
+          "sim": "Bea Pair"
+        },
+        "note": "on: liking with Bo",
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Pair"
+        },
+        "note": "queues empty",
+        "max": 60,
+        "optional": true,
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Pair"
+        },
+        "note": "queues empty",
+        "max": 60,
+        "optional": true,
+        "waitS": 2
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Bo Pair",
+          "x": 1190.8,
+          "z": 1183.6
+        },
+        "note": "hug arm: Bo back into the ring",
+        "max": 200,
+        "waitS": 1
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Bea Pair",
+          "x": 1190.8,
+          "z": 1185.9
+        },
+        "note": "hug arm: Bea back on her tile",
+        "max": 200,
+        "waitS": 3
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairsnap-hug"
+        },
+        "note": "log marker pairsnap-hug"
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Pair",
+          "target": "Bo Pair",
+          "interaction": "Romantic... / Amorous Hug"
+        },
+        "note": "hug order: Bea, Amorous Hug with Bo",
+        "max": 200,
+        "waitS": 25
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "hug: placed 2, errors 0",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "placed 2 \\(snap 2\\); kept as the game has it 0.*errors 0"
+      },
+      {
+        "cmd": "go_at",
+        "args": {
+          "sim": "Bo Pair",
+          "near": "@type:Mailbox",
+          "forward": -2.5
+        },
+        "note": "Bo walks to the front yard: he stands on routable ground after the snap",
+        "max": 120,
+        "waitS": 25
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Pair"
+        },
+        "note": "Bo stands in the front yard (z 1198)",
+        "max": 200,
+        "waitS": 1,
+        "mustMatch": "\"z\":119[6-9]"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: errors 0",
+        "max": 1800,
+        "waitS": 1,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]

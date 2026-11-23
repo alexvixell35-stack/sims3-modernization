@@ -32,6 +32,7 @@ namespace Ts3Agent
             Dispatcher.Register("contemplate", Contemplate);
             Dispatcher.Register("route_points", RoutePoints);
             Dispatcher.Register("box_in", BoxIn);
+            Dispatcher.Register("slot_close", SlotClose);
         }
 
         // The place `forward` metres along the target's facing (negative = behind) and `right` metres to its right.
@@ -373,6 +374,46 @@ namespace Ts3Agent
             r["moved"] = o.GetType().Name;
             r["position"] = Pos(o.Position);
             return r;
+        }
+
+        // slot_close {target, close?: "fridge" (catalogue name part), slot?: 0}: one object of that product on the target's
+        //   routing slot `slot` (RoutingSlot_0..3), as bed_setup does for a bed side: the slot is closed by furniture. A
+        //   shower's entry slot lies beside its facing, and the Buy tool does not hit the same tile in every run (ws-r1).
+        //   Answers the selected Sim's plan to that slot before and after.
+        static object SlotClose(Args a)
+        {
+            RequireLive();
+            GameObject t = FindTarget(a, "target");
+            Slot[] names = { Slot.RoutingSlot_0, Slot.RoutingSlot_1, Slot.RoutingSlot_2, Slot.RoutingSlot_3 };
+            long n = a.Long("slot", 0);
+            if (n < 0 || n >= names.Length) throw new McpException("slot: 0-3");
+            Slot slot = names[n];
+            Vector3 at = t.GetPositionOfSlot(slot);
+            string close = a.Str("close", "fridge").ToLowerInvariant();
+            BuildBuyProduct prod = null;
+            foreach (BuildBuyProduct c in Catalog())
+                if ((c.CatalogName ?? "").ToLowerInvariant().IndexOf(close) >= 0) { prod = c; break; }
+            if (prod == null) throw new McpException("no catalogue product '" + close + "'");
+            Sim sim = Util.ActiveSim();
+            Dictionary<string, object> r = Util.Obj();
+            r["target"] = t.GetType().Name;
+            r["slot_at"] = Pos(at);
+            r["plan_before"] = SlotPlan(sim, t, slot);
+            GameObject g = GlobalFunctions.CreateObjectOutOfWorld(prod.ProductResourceKey) as GameObject;
+            if (g == null) throw new McpException("the product could not be created");
+            g.SetPosition(at);
+            g.SetForward(t.ForwardVector);
+            g.AddToWorld();
+            CreatedObjects().Add(g.ObjectId.Value);
+            r["closed_with"] = prod.CatalogName;
+            r["plan"] = SlotPlan(sim, t, slot);
+            return r;
+        }
+
+        static bool SlotPlan(Sim sim, GameObject t, Slot slot)
+        {
+            Route route = sim.CreateRoute();
+            return route != null && route.PlanToSlot(t, slot).Succeeded();
         }
 
         // bed_setup {target?: "@type:Bed", unmake?: all | closed | none (default none), close?: catalogue name part}

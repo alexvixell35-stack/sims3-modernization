@@ -1747,7 +1747,7 @@ City Hall has two enter slots; a Sim takes its slot 2 m before it and holds it f
 - Not run: the elevator rule (no elevator on a Sunset Valley lot, and the agent's buy places none), stations,
   the exit burst (4552: three NPCs never waited at one rabbit hole).
 
-## 20. WooHoo partners and paired socials are snapped onto their spots (`woohoosnap`, `pairsnap`; 2026-11-22, `feat/woohoosnap-1122`, built, default off, NOT RUN)
+## 20. WooHoo partners and paired socials are snapped onto their spots (`woohoosnap`, `pairsnap`; 2026-11-22, `feat/woohoosnap-1122`, built, default off, run §20.6)
 
 A player's wish: "WooHoo. If they get to kissing and just can't reach the bed, one of them, or the shower or wherever
 they are woohooing, you can teleport them, that's a big issue a lot of times." `WooHooSnap.cs`, rules in
@@ -1853,3 +1853,44 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
+### 20.6 Run in the game (2026-11-23, Deck, Sunset Valley new game) [verified]
+
+Repros `woohoosnap-force` (run `ws-r2`, `phase-20261123-0727`, exit 0; `ws-r1`, `phase-20261123-0717`, bed arms only)
+and `pairsnap-force` (run `ps-r1`, `phase-20261123-0746`, all steps passed), and by hand in session `ws-m1`
+(`phase-20261123-0645`). Two young adult partners of the active household on 18 Maywood Lane; WooHoo is on the menu
+only in a hot conversation, so nine romantic socials come first. Bed: a mini fridge on one side's routing slot
+(`bed_setup`). Shower: a mini fridge on its entry slot (agent step `slot_close`). Paired socials: the layout of §17.6
+(Bo ringed by eight fridges, Bea 2.3 m away).
+
+| | off | on (`woohoosnap` + `woohoosnaphh`, `pairsnap` + `pairsnaphh`) |
+|---|---|---|
+| WooHoo, bed side closed | `routefail: Bo Snap ..., EnterRelaxing target BedDoubleBrass, Plan async FailedBecauseNoPathToDestination blocker Object ... MiniFridge at 1192.2,49.1,1192.8`; tries (4566) 1, would (4567) 1; no `Beds.WooHoo`, the other Sim relaxes alone | `woohoosnap: household Bo Snap, EnterRelaxing with Bea Snap -> BedDoubleBrass ... (FailedBecauseNoPathToDestination, blocker Object): snap 3.0 m to slot 0x31229A4C at 1192.2,49.1,1192.8 from 1192.7,49.1,1195.8, walked up first`; bed snaps (4569) 1, after a walk up (4573) 1; both run `Beds.WooHoo` 48 s after the order; both walk to the yard afterwards; errors 0 |
+| WooHoo, shower slot closed | `routefail: Bo Snap ..., TakeShower target ShowerBasic, Plan async FailedBecauseNoPathToDestination blocker Object ... MiniFridge at 1193.8,49.1,1190.4`; would 2; no WooHoo | `woohoosnap: household Bo Snap, TakeShower with Bea Snap -> ShowerBasic ...: snap 1.2 m to slot 0x31229A4C at 1193.8,49.1,1190.4` and `woohoosnap: selected Bea Snap, WooHoo with Bo Snap -> ShowerBasic ...: snap 2.5 m to slot 0x31229A4C ...`; shower snaps (4570) 2 for 4 failed plans; Bo's shower becomes `WooHoo With Bea` 30 s after the order; errors 0 |
+| Heat of the Moment Kiss across the ring | `routefail: Bea Pair ..., SocialInteractionA target Sim, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeModerate`; tries (4576) 1, would (4577) 1; no kiss | `pairsnap: selected Bea Pair, SocialInteractionA Heat Of The Moment Kiss -> Bo Pair (placement): the partner snaps 1.6 m to 1190.8,49.1,1185.2, 0.70 m from the starter`; placed (4579) 1; `Heat of the Moment Kiss` / `Be Smooched` run; then Amorous Hug the same way, placed 2; kept 0, errors 0; Bo walks to the front yard afterwards |
+
+- **The alignment test passes** [measured]: after rule a's snap the game's `VerifyPositionAndAlignment` (2 mm) let
+  Kiss, Amorous Hug, Friendly Hug, Heat of the Moment Kiss and Dip Kiss play (`ws-m1`: placed 5, kept 0, errors 0).
+  The partner leaves the ring: its place next to the starter is routable ground.
+- **Snap outs (4574) stayed 0** in every arm: a Sim that leaves the bed or shower stands on the closed slot (in the
+  mini fridge) and the game's own plan from there succeeds. The way out is only needed where that plan fails; not
+  forced here.
+- **Bed in a room neither could enter** (`ws-m1`, mark `woohoosnap-room`): both snapped from the yard (`snap 3.8 m to
+  slot 0x31229A4D ... from 1189.7,49.1,1198.2`, `snap 4.3 m ...`), the second Sim onto the side the first had just
+  taken and then again to the free side (`snap 2.6 m to slot 0x31229A4C`); the WooHoo played. The plans failed there
+  on a no-path answer that outlived a fridge in the doorway (last point), so the snap from outside the room is run,
+  a really closed room is not.
+- **Fixed after `ws-m1`**: the catalogue's showers are classes of `Objects.Plumbing.Mimics` and were counted as
+  "other object" (4571); the shower's interactions plan to the slot twice, and the second plan (from the slot) was
+  counted and logged as `snap 0.0 m`. `ws-r2` has shower 2, other 0 and no `0.0 m` line.
+- **Kept as the game has it**: a doorway closed by an object answers `FailedBecauseDestinationPortalLocked`, the
+  result of a locked door; `woohoosnap` leaves it alone (tries up, no snap).
+- A fridge 0.5-1.1 m in front of a shower's facing closes nothing: the entry slot of `ShowerBasic` lies 1 m to its
+  side. The Buy tool put the shower 1.4 m from the asked place in `ws-r1`; hence `slot_close` and `camera {at}`.
+- Not run: rules b and c of `pairsnap` (a failed walk, a jig's plan: every social here failed at the placement), an
+  NPC pair (`woohoosnap` / `pairsnap` alone), tub, all-in-one bathroom and the other WooHoo objects, another level.
+- Seen, not part of these rules [unverified]: after a fridge had stood in the doorway (`put_in_front`, i.e.
+  `SetPosition`) and was moved away and sold, plans from the back yard into the room kept failing
+  (`FailedBecauseNoPathToDestination blocker Wall`) while plans from the door side succeeded. The runs have
+  `RouteAsync.NoPathMemo=1` with the fuzzy and household switches; a stale memo entry is the likely cause. To be
+  checked with objects moved in Buy mode.
