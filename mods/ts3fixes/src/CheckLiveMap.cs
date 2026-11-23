@@ -39,6 +39,7 @@ namespace Ts3Fixes
                 case "badsecretkey": return EpLive(typeof(BSxHook), 1);
                 case "bakesaleseller": return EpLive(typeof(BakeSaleHook), 3, "sBstNpc", sBstNpc, null);
                 case "bandjam": return EpLive(typeof(BjHook), 1);
+                case "barcloseorphan": return EpLive(typeof(BarCloseOrphanHook), 1);
                 case "barorderlog": return EpLive(typeof(BarOrderLogHook), 1);
                 case "barputdownwait": return EpLive(typeof(BpwWaitHook), 1, "sBpwDone", sBpwDone, typeof(bool), "sBpwHandler", sBpwHandler, null);
                 case "bathcleanup": return EpLive(typeof(BBcHook), 0, "sBcInBath", sBcInBath, null);
@@ -559,6 +560,7 @@ namespace Ts3Fixes
                 case "vehparkreserve": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatPlaceHook), 0), EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null)), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 0)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "vehprotestcar": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatPlaceHook), 0), EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null)), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 0)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
                 case "vehseatdestroy": return EpJoin(EpJoin(EpJoin(EpJoin(EpJoin(EpLive(typeof(BoatPlaceHook), 0), EpLive(typeof(VlGetInBoatHook), 0, "sVlGiBoatSim", sVlGiBoatSim, null, "sVlGiBoatId", sVlGiBoatId, null)), EpLive(typeof(VlGetInCarHook), 0, "sVlGiCarSim", sVlGiCarSim, null)), EpLive(typeof(VlGetVehicleHook), 0)), EpLive(typeof(VlParkHook), 1)), EpLive(typeof(VlProtestHook), 1));
+                case "venueintensity": return EpLive(typeof(VenueIntensityHook), 1);
                 case "venuememo": return EpJoin(EpLive(typeof(TuningMemoHook), 0), EpLive(typeof(VenueScoreHook), 0));
                 case "venuepickfast": return EpLive(typeof(VenuePickHook), 2);
                 case "venuepicktime": return EpLive(typeof(VenuePickHook), 2);

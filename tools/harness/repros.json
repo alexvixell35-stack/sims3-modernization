@@ -116353,6 +116353,168 @@
     ]
   },
   {
+    "id": "barcloseorphan-check",
+    "bug": "docs/661 §3.1: BartendingVenueHelper.OnClose re-arms itself every 30 sim-min while a bar of its type hosts a BachelorParty and each run overwrites mRemindVenueGuestsToLeave with a new repeating alarm without removing the old one [IL OnClose IL_00d1-IL_00fa]; the orphaned alarms push every guest of every bar of that type to the yard every 5 minutes, open hours included, until the world unloads",
+    "fix": "ts3fixes barcloseorphan (BarCloseOrphan.cs): while the venue is strictly open (after HourOpen, before the staggered exit) MakeSimLeaveVenueIfNecessary is skipped for non-exempt NPCs; 4230 skipped, 4231 exempt let through, 4232 errors",
+    "save": "Baseline-BP, during a bar's open hours (Bridgeport clubs: 16:00-24:00 is safe), an NPC guest inside a bar",
+    "note": "Forced. BarCloseOrphanCheck run calls EA's private RemindVenueGuestsToLeave once on the helper of an open bar with NPC guests, exactly what an orphaned alarm runs every 5 minutes. No open bar with an NPC inside = N/A, not FAIL. Household Sims on that lot keep EA's push (the check prefers a lot without one).",
+    "expect": "off: 'verdict: BROKEN' (NPC pushes >= 1, 4230 +0). on: 'verdict: FIXED' (pushes 0, skipped >= 1, 4230 +N, a 'barcloseorphan: ... skipped' line); no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.BarCloseOrphanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "barcloseorphan": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "venueintensity-check",
+    "bug": "docs/661 §3.2: MetaAutonomyTuning.GetIntensity reads IsDowntownWorld() ? Intensity : Intensity_Downtown [IL IL_0072-IL_0088], the columns swapped: every venue, park, pool, graveyard, rabbit hole and pond is weighted for NPCs with the other world's value wherever the Venues XML columns differ",
+    "fix": "ts3fixes venueintensity (VenueIntensity.cs): for a non-exempt NPC the two fields are swapped around EA's own GetIntensity body when the right column is set and differs (LotGameplayCore.ShouldSwap); each venue type's columns logged once; 4236 types logged, 4237 swapped, 4238 exempt, 4239 errors",
+    "save": "any world (Bridgeport = downtown, Isla Paradiso / Sunset Valley = not)",
+    "note": "Forced. VenueIntensityCheck run compares the hooked GetIntensity(null, npc) with EA's body for the columns as loaded and swapped, for each venue type whose columns differ. No such type = N/A (the Venues XML agrees with itself in this install): the fix then never changes anything. Run in one downtown and one non-downtown world.",
+    "expect": "off: 'verdict: BROKEN' (hook == ea != right) or N/A. on: 'verdict: FIXED' (hook == right), 'venueintensity: <type> Intensity a, Intensity_Downtown b' lines; no new exceptions",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        },
+        "waitS": 1,
+        "note": "off first"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's path"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": true
+        },
+        "waitS": 1,
+        "note": "on"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the fix"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.VenueIntensityCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "venueintensity": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

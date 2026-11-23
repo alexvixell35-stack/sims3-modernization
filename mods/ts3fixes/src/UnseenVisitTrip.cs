@@ -142,6 +142,16 @@ namespace Ts3Fixes
             return s.GetSituationOfType<GroupingSituation>() == null;
         }
 
+        // VwfLotOk's refusal as a docs/661 reason code (only asked after VwfLotOk said no)
+        static int VwfLotWhy(Sim s, Lot lot)
+        {
+            bool other = lot.IsWorldLot || s.LotCurrent == lot || !HouseboatOk(lot) || lot.BuildableShells.Length > 0 || lot == Household.ActiveHouseholdLot;
+            bool rd = lot.CommercialLotSubType == CommercialLotSubType.kEP10_Resort || lot.CommercialLotSubType == CommercialLotSubType.kEP10_Diving;
+            bool pets = s.Household != null && s.Household.Pets.Count > 0;
+            int r = LotGameplayCore.VwfLotReason(other, rd, pets, s.GetSituationOfType<GroupingSituation>() != null);
+            return r < 0 ? LotGameplayCore.kVwfLotOther : r;
+        }
+
         static void VwfPass()
         {
             try
@@ -162,14 +172,20 @@ namespace Ts3Fixes
                         gone.Add(kv.Key);
                         continue;
                     }
-                    if (t.Asked || t.Finished || now - t.Start < due || now < t.Start || !s.IsRouting) continue;
-                    if (!VwfLotOk(s, t.Lot) || !TownieUnseen(s, null) || !FarFromViewers(t.Lot.Position)) continue;
+                    if (t.Finished || now - t.Start < due || now < t.Start) continue;
+                    // docs/661 §4: why a walker past the mark is not interrupted, one count per pass and walker (slots 4220-4229)
+                    c[LotGameplayCore.kVwfBase + LotGameplayCore.kVwfDue]++;
+                    if (!s.IsRouting) { c[LotGameplayCore.kVwfBase + LotGameplayCore.kVwfNotRouting]++; continue; }
+                    if (t.Asked) { c[LotGameplayCore.kVwfBase + LotGameplayCore.kVwfAskedStill]++; continue; }
+                    if (!VwfLotOk(s, t.Lot)) { c[LotGameplayCore.kVwfBase + VwfLotWhy(s, t.Lot)]++; continue; }
+                    if (!TownieUnseen(s, null)) { c[LotGameplayCore.kVwfBase + LotGameplayCore.kVwfSeen]++; continue; }
+                    if (!FarFromViewers(t.Lot.Position)) { c[LotGameplayCore.kVwfBase + LotGameplayCore.kVwfNearViewers]++; continue; }
                     t.Asked = true;  // one interrupt per Run
                     c[2725]++;
                     VwfTrip trip = t;
                     s.SimRoutingComponent.RequestRouteInterruptAction(delegate(Sim sim, Route path) { return VwfInterrupt(sim, trip); }, StopMode.kStop_Soft);
                 }
-                if (gone != null) foreach (ulong id in gone) sVwfTrips.Remove(id);
+                if (gone != null) { c[LotGameplayCore.kVwfBase + LotGameplayCore.kVwfDropped] += gone.Count; foreach (ulong id in gone) sVwfTrips.Remove(id); }
             }
             catch (Exception) { PatchCounters()[2728]++; }
         }

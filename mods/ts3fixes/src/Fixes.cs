@@ -556,6 +556,8 @@ namespace Ts3Fixes
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
+            ApplyBarCloseOrphan();     // docs/661 §3.1 (BarCloseOrphan.cs), off by default
+            ApplyVenueIntensity();     // docs/661 §3.2 (VenueIntensity.cs), off by default
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1632,6 +1634,7 @@ namespace Ts3Fixes
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
+        // [4220-4239] docs/661 (lot gameplay): [4220-4229] visitwalkfinish VwfPass reasons (UnseenVisitTrip.cs / LotGameplayCore.cs, §4): walkers past the mark / not routing / resort or dive lot / pets / group / other lot refusal / not unseen / near viewers / asked, still walking / dropped; [4230-4232] barcloseorphan (BarCloseOrphan.cs, §3.1): NPC pushes skipped in open hours / exempt let through / errors; [4236-4239] venueintensity (VenueIntensity.cs, §3.2): venue types logged / NPC calls swapped / exempt calls that would swap / errors (4233-4235 left for another branch)
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
         const int kCounterSlots = 4470;
@@ -2129,6 +2132,8 @@ namespace Ts3Fixes
                 case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
                 case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
                 case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off
+                case "barcloseorphan": return Instantiator.kBarCloseOrphan;  // off (BarCloseOrphan.cs, docs/661 §3.1)
+                case "venueintensity": return Instantiator.kVenueIntensity;  // off (VenueIntensity.cs, docs/661 §3.2)
                 case "makebedbothhh": return Instantiator.kMakeBedBothHousehold;  // MakeBedBoth.cs: the same for household and selected Sims (stands alone), off
                 case "makebedbothlog": return Instantiator.kMakeBedBothLog;  // MakeBedBoth.cs (docs/686 §13): one line per act, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;

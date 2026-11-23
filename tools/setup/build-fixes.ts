@@ -820,6 +820,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kMakeBedBoth value="True" />
     <kMakeBedBothHousehold value="False" />
     <kMakeBedBothLog value="False" />
+    <kBarCloseOrphan value="False" />
+    <kVenueIntensity value="False" />
     <kTreasureSpawnInvDup value="True" />
     <kRouteFailProbe value="True" />
     <kRhEntryRelax value="True" />
