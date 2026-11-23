@@ -102,7 +102,7 @@ namespace Ts3Fixes
             return simInScope && allInScope ? kGo : kExempt;
         }
 
-        // The timing rule of the walk-through (simpass; docs/686 §8.8): walking
+        // The timing rule of every walk-through (simpass here, petrelax and clipwait in their files; docs/686 §8.8): walking
         // through a Sim or pet at once is for portals only (the walker or one of those in its way is within `near` of a
         // door, gate, stair, ladder or elevator lane). Anywhere else the game's wait runs first and the walk-through comes
         // after kClipGraceMinutes of it.

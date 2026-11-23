@@ -8,13 +8,13 @@
  "AdaptDiag": ["adaptdiag.cpp"],
  "RouteCache": ["ts3native.cpp"],
  "RouteWorker": ["ts3native.cpp"],
- "RouteAsync": ["a10.cpp", "hostcalls.cpp", "locowin.cpp", "plandeadline.cpp", "rcguard.cpp", "replandedupe.cpp", "routesnap.cpp", "tailunlock.cpp", "ts3native.cpp"],
+ "RouteAsync": ["a10.cpp", "hostcalls.cpp", "locowin.cpp", "plancand.cpp", "plandeadline.cpp", "rcguard.cpp", "replandedupe.cpp", "routesnap.cpp", "tailunlock.cpp", "ts3native.cpp"],
  "RouteBudget": ["ts3native.cpp"],
- "RouteJobPhases": ["hostcalls.cpp", "routephases.cpp", "syncphases.cpp"],
+ "RouteJobPhases": ["hostcalls.cpp", "plancand.cpp", "routephases.cpp", "syncphases.cpp", "workerhold.cpp"],
  "GoalGen": ["goalgen.cpp"],
  "CellMemoProbe": ["cellmemo.cpp"],
  "RouteSpeed": ["routesnap.cpp", "routespeed.cpp"],
- "WorldPrecompute": ["smoothcut.cpp"],
+ "WorldPrecompute": ["smoothcut.cpp", "worldpre.cpp"],
  "RouteEarlyOut": ["earlyout.cpp"],
  "SaveWrite": ["savewrite.cpp"],
  "Startup": ["dxdiagcache.cpp"],
@@ -112,5 +112,6 @@
  "EqualsFast": ["equalsfast.cpp"],
  "ThumbStall": ["thumbstall.cpp"],
  "ThumbCallers": ["thumbstall.cpp"],
+ "OutfitFirst": ["thumbstall.cpp"],
  "Experimental": ["ts3native.cpp"]
 }

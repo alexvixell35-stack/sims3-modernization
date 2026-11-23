@@ -1,4 +1,5 @@
 command,handler,states,player_action,realism,preconditions,source,gate
+pet_repro,PetReproHandlers,Live,"none: NPC pets teleported to a start spot and EA's GoHome / StrayPets / long-visit interactions pushed (docs/656 repro)",stress,"owned NPC pets of a known non-active household, not selectable or selected",handler,live
 ping,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
 commands,SystemHandlers,Any,none (agent plumbing),harness,,handler,none
 notify,SystemHandlers,Any,none (harness: kit benchmark notice in the corner; docs/315),harness,,handler,none

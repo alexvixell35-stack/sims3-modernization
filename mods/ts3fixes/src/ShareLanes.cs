@@ -56,7 +56,7 @@ namespace Ts3Fixes
     //   stairs, not the standard): at once, at the obstacle event or at a wait that still starts, only when the walker
     //   or a Sim in its way is within kClipPortalNear of a portal lane (door, gate, stairs, ladder, elevator; on stairs
     //   counts). Anywhere else the game's wait begins and runs, and its first cycle after kClipGraceMinutes ends it the
-    //   same way.
+    //   same way. petrelax and clipwait keep the same rule with the same two tunables.
     // angleentry / angleentryhh
     //   [verified, decompiled + native] The stair walk sets the Sim's place and facing itself when it starts (0x8555E0:
     //   facing from the lane's two ends); the ladder climb up does the same in script. So neither needs the Sim to arrive
@@ -65,7 +65,7 @@ namespace Ts3Fixes
     //   is approached by that point plan instead of the plan to the slot with its facing. The climb down keeps the slot.
     //
     // Off = compare mode: the hooks count what each switch would do, and the lane waits (how many, how long) either way.
-    // lanewaitlog writes one line per lane wait. Counters 4364-4397. Check: ShareLanesCheck.
+    // lanewaitlog writes one line per lane wait. Counters 4364-4397. Check: ShareLanesCheck. The waits that still begin: ClipWait.cs (clipwait).
     public static partial class Fixes
     {
         const int kShlFails = 4364, kShlSharable = 4365, kShlShared = 4366, kShlErrors = 4367, kShlWould = 4368, kShlExempt = 4369,
@@ -347,7 +347,8 @@ namespace Ts3Fixes
 
         // ---- laddershare, spiralshare (the line) -----------------------------------------------------------------------
 
-        // `this` is the game's SimQueue.
+        // `this` is the game's SimQueue. Every line in the game comes through here: ladders and spiral stairs (below),
+        // servingshare's platters and linewaitlog (ObjShare.cs).
         public class LdsQueueHook : SimQueue
         {
             public bool WaitHook(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes)
@@ -375,7 +376,17 @@ namespace Ts3Fixes
                 }
                 catch (ResetException) { throw; }
                 catch (Exception e) { ShlError(4, e); }
-                return WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                // docs/686 §15 (ShowerShare.cs): a partner is let into a shower or an all-in-one bathroom without the line
+                if (interaction != null && ShsLine(interaction, this, behavior != WaitBehavior.NeverWait)) return true;
+                // docs/686 §14 (ObjShare.cs): servingshare skips a platter's and its surface's line; linewaitlog times the rest
+                if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
+                // docs/686 §19 (CrowdPort.cs): a crowded elevator's line is answered "timed out" (the game's teleport skip follows) or gets a short timeout
+                if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
+                long start = SimClock.CurrentTicks;
+                int length = MemberCount();
+                bool got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
+                return got;
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body
         }
@@ -499,7 +510,7 @@ namespace Ts3Fixes
                         FollowRouteAction fa = sSpsAction.GetValue(this) as FollowRouteAction;
                         Route route = fa == null ? null : fa.RouteToBeFollowed;
                         bool counted = false;
-                        SpsPass(sim, route, obstacles, kSpsAtEvent, ref counted);
+                        if (!PrxPass(sim, route, obstacles, false)) SpsPass(sim, route, obstacles, kSpsAtEvent, ref counted);  // petrelax (PetRelax.cs, §11) first: small pets
                     }
                 }
                 catch (ResetException) { throw; }
@@ -518,7 +529,7 @@ namespace Ts3Fixes
                 if (sim == null || path == null || !path.PlanResult.Succeeded()) return false;
                 ObjectGuid[] obstacles = path.FindObstaclesForSim(sim.Proxy);
                 bool counted = false;
-                return obstacles != null && SpsPass(sim, path, obstacles, kSpsAtBegin, ref counted);
+                return obstacles != null && (PrxPass(sim, path, obstacles, true) || SpsPass(sim, path, obstacles, kSpsAtBegin, ref counted));
             }
             catch (ResetException) { throw; }
             catch (Exception e) { ShlError(7, e); return false; }

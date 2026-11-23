@@ -13,6 +13,27 @@ Credit: Dalexlol (PRs #637, #638, #639, #640, #643, #644). New fixes, all on by 
 - Burglars on apartment lots no longer go for loot nobody can reach (`burglarapt`).
 - Sims standing on a ladder's ends are asked to step aside when a plan needs the ladder (`ladderfootshoo`; for household and selected Sims `ladderfootshoohh` stays off).
 
+By Dalexlol and twopointjj (PRs #645, #646, #647, #648, #649, #650, #653). On by default except where noted:
+
+- Firefighter emergencies no longer abort on two EA script errors (a pregnant firefighter on the lot at setup, and a second one), and the "free N Sims" count only counts real rescues (`firenre`, `firecount`).
+- Make Simbot shows on the invention workbench in every world, not only outside Bridgeport (`simbotworld`).
+- A Sim whose toilet, shower or other object is boxed in by furniture walks up and uses it instead of failing the route (`blockeduse`).
+- Making a double bed makes both halves (`makebedboth`).
+- NPC Sims share narrow lanes, ladders and spiral stairs instead of waiting one by one (`sharelanes`, `laddershare`, `spiralshare`).
+- Off by default: the household variants, `simpass`, `angleentry`, the stand-and-wait fix and the empty-notification diagnostic (`blanktns`, experimental only).
+
+By Dalexlol and twopointjj (PRs #625, #651, #652, #654, #655, #656, #657, #658, #659, #672, #680, #681). On by default except where noted:
+
+- A Sim who changes clothes waits less: the outfit job that is ready is built first (`[OutfitFirst]` Mode 2; the same jobs, only the order changes).
+- NPC pets and Sims walk through a lying pet or each other instead of waiting at a one-tile corridor (`petrelax`).
+- Chores whose spot is closed (a trash pile behind a door, a puddle ringed by furniture) are done from within reach (`reachuse`).
+- NPC Sims share a rabbit hole door and a serving platter instead of queuing one by one, and the last serving is taken once (`rhshare`, `servingshare`).
+- Partners shower together, and a Sim with no usable toilet takes a shower instead of wetting themselves (`showertogether`, `showerpee`).
+- Contemplating, viewing and watching no longer show a route-fail balloon (`viewlenient`); boxed-in Sims walk out and talk socials work from a distance (`unstuck`, `socialreach`); crowded elevators and rabbit hole doors are skipped (`crowdport`).
+- Unseen NPC pets on long trips are placed at their goal; generated NPC boats stop being refused as "owned" (`petlonghome`, `petlongvisit`, `unseenboatgenboat`).
+- The water plan's jump-point search runs from a table: boats and swimming cost less planner time (`[WorldPrecompute] WaterScanTable`).
+- Off by default: WooHoo partners and paired socials snapped onto their spots (`woohoosnap`, `pairsnap`), and the household variants of all of the above.
+
 ## v0.3.1 (2026-11-21, hotfix)
 
 A small fix release on top of v0.3.0: the fix for the game staying paused after Buy or Build mode, a crash fix, an EA app start-up fix found by EA app testers, and a fix that keeps the script speed-up on with Apex Radiance; nothing else changed. If v0.3.0 runs fine for you, this update is still worth taking: the crash it fixes can happen on any edition.

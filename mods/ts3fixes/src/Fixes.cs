@@ -556,6 +556,19 @@ namespace Ts3Fixes
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
+            ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
+            ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
+            ApplySocialReach();        // docs/686 §17 (SocialReach.cs): socialreach / socialreachhh, off by default (counts either way); its DoRoute step is in ApplyBlockedUse's hook, as unstuck's (§18, Unstuck.cs)
+            ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
+            ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
+            ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
+            ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
+            ApplySmcSetActor();        // SmcSetActor.cs: StateMachineClient.SetActor for servingshare (docs/686 §14), a one-int test while nothing is armed
+            ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
+            ApplyPetStartleSkip();     // docs/656 §8.1 (PetStartleSkip.cs), off by default
+            ApplyPetArrivePoint();     // docs/656 §4.1 (PetArrivePoint.cs), off by default
+            ApplyStrayLeave();         // docs/656 §4.2 (StrayLeave.cs), off by default
+            ApplyWildLotSkip();        // docs/656 §8.3 (WildLotSkip.cs; FindGoodLot rides wildhorselot's BEp4WhHook), off by default
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1631,10 +1644,65 @@ namespace Ts3Fixes
         // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        // [4620-4639] docs/656 (pets; moved from the combo branch's 4074-4089, which upstream uses): [4620-4621] petstartleskip (PetStartleSkip.cs, §8.1): NPC pets recorded after a PortalLocked startle flee route / startles skipped; [4622-4623] petlonghome (PetLongHome.cs, §8.2): unseen NPC pets / horses placed on the lot of a long GoHome / GoToLot walk / refused (seen, lot seen, no spot, lot kind); [4624] exempt (household, selected, unknown scope) and [4625] errors, shared by petstartleskip and petlonghome; [4626-4630] wildlotskip (WildLotSkip.cs, §8.3): wild horse / NPC animal (animal, lot) pairs remembered after a PortalLocked or NoPath GoToLot / picks drawn again without them / every weighted lot remembered (EA's pick kept) / long GoToLot walks cancelled / exempt or errors.
+        // [4170-4180, 4196-4198] docs/656 (pets): [4170-4173] petarrivepoint (PetArrivePoint.cs, §4.1): inside front-door points skipped for NPC animals the door refuses / of those on a lot not validated yet / exempt / errors; [4174-4177] strayleave (StrayLeave.cs, §4.2): strays sent home / seen without the StrayPet buff / exempt / errors; [4178] petlonghome no-spot memo searches saved, [4179-4180] petlongvisit placed / refused (PetLongHome.cs, §4.3); [4196-4198] petlonghome herd spot share: shared / waited / no-spot not noted (§4.5). 4181-4195 are left to unseenboatwide (another PR).
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4470;
+        // [4398-4413] clipwait (ClipWait.cs, docs/686 §9): waits that reached the grace with a Sim or pet in the way / walked through / destination accepted (a floor
+        // spot, or an object's spot taken by a Sim not using it) / errors / would, off / exempt (household without its switch) / kept: object in the way / Sim at the
+        // object in use / social / player Go Here / plan fails without people too / destination-obstructed waits begun / tenths of sim-minutes stood in them / of
+        // them ended as route failed / destination events let through after a walk / walks by household or selected Sims.
+        // [4430-4445] petrelax (PetRelax.cs, docs/686 §11): walked through at the obstacle event / at the obstacle wait / stand-and-waits ended before the clipwait
+        // grace / destination accepted / routes given the pass through lying pets' floor jigs / pets walked off a lane end before lying down / errors / would,
+        // off / exempt (household without its switch) / kept: horse, foal or deer / object in the way / route's end (in use, social, player Go Here) / no free
+        // spot for the lie-down / autonomous floor lie-downs seen / of them at a portal lane end / acts with a household Sim or pet.
+        // [4446-4461] reachuse (ReachUse.cs, docs/686 §12): failed point plans of a reach-kind interaction in DoRoute / would handle, off / exempt (household
+        // without reachusehh) / done from range: fire / floor (puddle, burnt tile) / small thing picked up or cleaned away / plant / of them without a walk /
+        // slot chores given to blockeduse's rules / kept: nothing in reach / kept: other level or lot / kept: wall between / walk stopped / errors / kept:
+        // cooling down / other failed point plans (not a reach kind, not to the target, a Sim blocks, portal locked, pet).
+        // [4470-4493] objshare (ObjShare.cs, docs/686 §14): linewait: line waits from half a sim-minute / tenths of sim-minutes / timed out / cancelled;
+        // rabbit hole enter-slot waits / tenths / timed out (15 sim-min) / cancelled; errors; rhshare: walked to a held slot / would (off) / exempt / kept
+        // (holder out of scope, horse, rider, carrier) / left the wait on a cancel / dead reservations removed; servingshare: runs at a busy platter / lines
+        // skipped / took with another Sim / would / exempt / kept (a Sim out of scope there) / last serving refused; linewait: line full / shorter waits.
+        // [4494-4509] showershare (ShowerShare.cs, docs/686 §15): showertogether: joined a partner in a shower / would (off) / exempt / kept: not romantic
+        // or disliked / kept: a teen or child / kept: other (several Sims, not showering, a third Sim) / exits held for the partner's; errors;
+        // showerpee: bladders refilled in a shower / showers queued at the last warning / failures replaced by a shower / kept: no usable shower /
+        // would / exempt / given back to the game (the shower never began); showertogether: joined in an all-in-one bathroom.
+        // [4510-4525] viewlenient (ViewLenient.cs, docs/686 §16): failed plans of a view-kind interaction in DoRoute / would handle, off / exempt (household
+        // without viewlenienthh) / handled, by kind: contemplate / art (ViewObjects) / performer / tv / stars / by outcome: stayed in place / walked to the
+        // nearest place with a view / quiet ends (no balloon) / kept as the game has it (aborted plan, slot route, a route with no balloon, pet, another
+        // walk) / walk stopped or ended with no view / errors / quiet ends while cooling down / tries after a walk (failed replan).
+        // [4526-4537] socialreach (SocialReach.cs, docs/686 §17): failed plans and placements of talk socials (plain SocialInteractionA/B, one-person jig,
+        // two humans) / would handle, off / exempt (a household Sim in the pair without socialreachhh, none without socialreach) / paired or jig socials left
+        // alone / handled, by kind: the starter's route / the partner's route / the pair's placement / by outcome: from where they stand / walked to the
+        // nearest place / kept as the game has it (too far, other level, wall, sitting, still walking, placement jig walk, cooling down) / walk stopped or
+        // ended out of reach / errors.
+        // [4538-4549] unstuck (Unstuck.cs, docs/686 §18): failed plans left to the game (no path, no destination, obstructed) / stuck signals (3 from one
+        // spot over 2.5 sim-minutes, or the game's stuck check) / Sims the game's stuck check found no way for / would look, off / exempt (household
+        // without unstuckhh) / kept: sitting, lying, swimming, riding, carried, cancelled / kept: can walk 3 m away / kept: walled in (no way through
+        // objects either) / walked out through objects / walk out stopped / the failed route planned again after the walk out: ok / errors.
+        // [4550-4565] crowdport (CrowdPort.cs, docs/686 §19): elevator skips (the game's teleport skip, early) / rabbit hole in (set on the enter slot) /
+        // rabbit hole out (NPC exits released with the crowd) / station (subway, hover train: in or out) / other lines with a crowd (tube elevator,
+        // firefighter pole; kept) / kept (switched off or holder changed during our wait) / errors / would, off / exempt (household without crowdporthh) /
+        // horse, rider, carrier, toddler / elevator: line timeouts cut / elevator: no skip now (doors closed, car in use, other direction) / rabbit
+        // hole in: holder out of scope or Sim far away / in: short wait ended by a free slot or a cancel / out: NPC exit waits (switch on) / out: ended
+        // by the game's pacing.
+        // [4566-4581] woohoosnap, pairsnap (WooHooSnap.cs, docs/686 §20): failed plans of WooHoo partners / would, off / exempt (household without
+        // woohoosnaphh) / snaps at a bed / at a shower, tub, all-in-one bathroom or sauna / at another object / kept (other lot, not a route failure, no
+        // spot, pet or rider, a social's own route, walk up cancelled) / snaps after a walk up / snap outs (both rules) / errors; paired socials:
+        // failed placements, plans and walks / would, off / exempt (household without pairsnaphh) / placed (snap, turn, jig slot, plan through
+        // objects) / kept (too far, other level, sitting, still walking, no spot) / errors.
+        // [4640-4641] unseenboatgenboat (UnseenBoat.cs UbOwnsBoat, docs/851 §7): generated NPC boats in the NPC's own inventory not counted as its own boat / errors. Moved from the combo branch's 4060-4061, which main uses.
+        // [4642-4650] unseenboatland (UnseenBoatLand.cs, docs/687): land plans tried / land kept / boat may be much shorter (EA plan) / land plan failed or swims (EA plan) / refused: not one land component / refused: household, selected, unknown scope, seen, water posture or interaction, owned boat / land plan ms / of it ms followed by EA's plan / errors. Moved from the combo branch's 3845-3853, which main uses (PR #540 items).
+        // [4181-4195] unseenboatwide (UnseenBoatWide.cs, docs/248 §12): gate passes per relaxed rule: household lot visitor / indoor or raised goal / goal with no verdict / group / followers / child with a parent / unknown colours resolved to a crossing; unknown colours resolved to one land area (exact); owned boat left parked; party members placed; parties refused; no street side or mailbox spot; errors; shortcuts with a wide rule (subset of 839); members left (no spot). 4196-4199 spare.
+        // [4320-4327] failreplanboat (FailReplanBoat.cs, docs/851 §8; block 4320-4329): failed plans with a Boat follower / kept (no driver, or the driver or an
+        // occupant is household, selected, unknown scope or seen) / would switch the route-fail behaviour off (switch off) / switched off (DoRouteFail = false) /
+        // DoRouteFail off already (EA's fail-path plan, or the caller's choice) / errors / lines written / flag set back (the cleared route planned again, succeeded).
+        // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
+        // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
+        // or household without makebedbothhh) / run ended early, flags put back.
+        const int kCounterSlots = 4660;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1989,6 +2057,10 @@ namespace Ts3Fixes
                 case "unseenroute": return Instantiator.kUnseenRouteRelaxed;
                 case "unseenboat": return Instantiator.kUnseenBoat;
                 case "unseenboatstart": return Instantiator.kUnseenBoatStart;
+                case "failreplanboat": return Instantiator.kFailReplanBoat;  // FailReplanBoat.cs (docs/851 §8): an unseen NPC boat's failed plan skips EA's route-fail behaviour, off
+                case "unseenboatland": return Instantiator.kUnseenBoatLand;
+                case "unseenboatgenboat": return Instantiator.kUnseenBoatGenBoat;
+                case "unseenboatwide": return Instantiator.kUnseenBoatWide;      // off (UnseenBoatWide.cs, docs/248 §12)
                 case "boattaximemo": return Instantiator.kBoatTaxiMemo;
                 case "posturepopcycle": return Instantiator.kPosturePopCycle;
                 case "seasonimposter": return Instantiator.kSeasonImposter;
@@ -2125,12 +2197,43 @@ namespace Ts3Fixes
                 case "angleentry": return Instantiator.kAngleEntry;  // ShareLanes.cs (docs/686 §8): stairs and ladders climbed from below are approached by a point plan without facing, off
                 case "angleentryhh": return Instantiator.kAngleEntryHousehold;  // ShareLanes.cs: angleentry for household and selected Sims too, off
                 case "lanewaitlog": return Instantiator.kLaneWaitLog;  // ShareLanes.cs (docs/686 §8): one line per wait for a portal lane, off
+                case "clipwait": return Instantiator.kClipWait;  // ClipWait.cs (docs/686 §9): a Sim that stood past the grace with only Sims or pets in its way walks through them, off
+                case "clipwaithh": return Instantiator.kClipWaitHousehold;  // ClipWait.cs: clipwait for household and selected Sims too (as walker and as the Sim walked through), off
+                case "petrelax": return Instantiator.kPetRelax;  // PetRelax.cs (docs/686 §11): small pets and the Sims around them walk through each other at once, lying pets are not obstacles, no lie-down on a lane end, off
+                case "petrelaxhh": return Instantiator.kPetRelaxHousehold;  // PetRelax.cs: petrelax for household and selected Sims and pets too, off
+                case "petrelaxlog": return Instantiator.kPetRelaxLog;  // PetRelax.cs (docs/686 §11): one line per act, off
+                case "clipwaitlog": return Instantiator.kClipWaitLog;  // ClipWait.cs (docs/686 §9): one line per walk, off
+                case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
+                case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off
+                case "rhsharehh": return Instantiator.kRhShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
+                case "servingshare": return Instantiator.kServingShare;  // ObjShare.cs (docs/686 §14): NPCs grab servings from one platter at once, no line, last serving taken once, off
+                case "servingsharehh": return Instantiator.kServingShareHousehold;  // ObjShare.cs: the same for household and selected Sims, off
+                case "showertogether": return Instantiator.kShowerTogether;  // ShowerShare.cs (docs/686 §15): an NPC joins its romantic partner (young adult or older) in a shower or all-in-one bathroom, no line, off
+                case "showertogetherhh": return Instantiator.kShowerTogetherHousehold;  // ShowerShare.cs: the same for household and selected Sims, off
+                case "showerpee": return Instantiator.kShowerPee;  // ShowerShare.cs (docs/686 §15): an NPC that has to pee with no usable toilet on the lot takes a shower that refills its bladder, off
+                case "showerpeehh": return Instantiator.kShowerPeeHousehold;  // ShowerShare.cs: the same for household and selected Sims, off
+                case "showersharelog": return Instantiator.kShowerShareLog;  // ShowerShare.cs: one line per showertogether / showerpee act, off
+                case "crowdport": return Instantiator.kCrowdPort;  // CrowdPort.cs (docs/686 §19): an NPC at a crowded elevator, rabbit hole door or station skips the queue by the game's own teleport paths; NPC exits leave together, off
+                case "crowdporthh": return Instantiator.kCrowdPortHousehold;  // CrowdPort.cs: the same for household and selected Sims, off
+                case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
                 case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
                 case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
                 case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off
                 case "makebedbothhh": return Instantiator.kMakeBedBothHousehold;  // MakeBedBoth.cs: the same for household and selected Sims (stands alone), off
                 case "makebedbothlog": return Instantiator.kMakeBedBothLog;  // MakeBedBoth.cs (docs/686 §13): one line per act, off
+                case "reachuse": return Instantiator.kReachUse;  // ReachUse.cs (docs/686 §12): an NPC's chore (fire, mop, pick up, plant) whose spot is closed is done from within reach; chores at a slot get blockeduse's rules, off
+                case "reachusehh": return Instantiator.kReachUseHousehold;  // ReachUse.cs: the same for household and selected Sims (stands alone), off
+                case "reachuselog": return Instantiator.kReachUseLog;  // ReachUse.cs (docs/686 §12): one line per act, off
+                case "viewlenient": return Instantiator.kViewLenient;  // ViewLenient.cs (docs/686 §16): an NPC whose route to contemplate, view or watch fails looks from where it stands or the nearest place with a view, no balloon, off
+                case "viewlenienthh": return Instantiator.kViewLenientHousehold;  // ViewLenient.cs: the same for household and selected Sims (stands alone), off
+                case "viewlenientlog": return Instantiator.kViewLenientLog;  // ViewLenient.cs (docs/686 §16): one line per act, off
+                case "socialreach": return Instantiator.kSocialReach;  // SocialReach.cs (docs/686 §17): a talk social between NPCs whose route or placement fails is done from where the two stand (3 m, same level, no wall) or after a walk to the nearest place, off
+                case "socialreachhh": return Instantiator.kSocialReachHousehold;  // SocialReach.cs: the same for pairs with a household or selected Sim (stands alone), off
+                case "socialreachlog": return Instantiator.kSocialReachLog;  // SocialReach.cs (docs/686 §17): one line per act, off
+                case "unstuck": return Instantiator.kUnstuck;  // Unstuck.cs (docs/686 §18): an NPC or pet that fails 3 plans from one spot over 2.5 sim-minutes and has no normal way out walks out through the objects (walls count), off
+                case "unstuckhh": return Instantiator.kUnstuckHousehold;  // Unstuck.cs: the same for household and selected Sims and pets (stands alone), off
+                case "unstucklog": return Instantiator.kUnstuckLog;  // Unstuck.cs (docs/686 §18): one line per act, off
                 case "firetrapcount": return Instantiator.kFireTrapCount;
                 case "firenre": return Instantiator.kFireNre;
                 case "firecount": return Instantiator.kFireCount;
@@ -2477,6 +2580,12 @@ namespace Ts3Fixes
                 case "futuredescendantsize0": return Instantiator.kFutureDescendantSize0;
                 case "junglegymexitqueue": return Instantiator.kJungleGymExitQueue;
                 case "wildhorselot": return Instantiator.kWildHorseLot;
+                case "wildlotskip": return Instantiator.kWildLotSkip;        // off (WildLotSkip.cs, docs/656 §8.3)
+                case "petstartleskip": return Instantiator.kPetStartleSkip;  // off (PetStartleSkip.cs, docs/656 §8.1)
+                case "petlonghome": return Instantiator.kPetLongHome;        // off (PetLongHome.cs, docs/656 §8.2)
+                case "petarrivepoint": return Instantiator.kPetArrivePoint;  // off (PetArrivePoint.cs, docs/656 §4.1)
+                case "strayleave": return Instantiator.kStrayLeave;          // off (StrayLeave.cs, docs/656 §4.2)
+                case "petlongvisit": return Instantiator.kPetLongVisit;      // off (PetLongHome.cs, docs/656 §4.3)
                 case "harvesterunripe": return Instantiator.kHarvesterUnripe;
                 case "hottubseatposture": return Instantiator.kHotTubSeatPosture;
                 case "teenpartybreakup": return Instantiator.kTeenPartyBreakUp;
@@ -2522,6 +2631,12 @@ namespace Ts3Fixes
                 case "houseboatgangwayrescue": return Instantiator.kHouseboatGangwayRescue;  // off (HouseboatGangwayRescue.cs, docs/853 §3)
                 case "boatroamcap": return Instantiator.kBoatRoamCap;                        // off (BoatRoamCap.cs, docs/853 §4)
                 case "safespotdedupe": return Instantiator.kSafeSpotDedupe;
+                case "woohoosnap": return Instantiator.kWooHooSnap;  // WooHooSnap.cs (docs/686 §20): a WooHoo partner (NPC pairs) whose route to the bed, shower or other object fails is put on its spot, off
+                case "woohoosnaphh": return Instantiator.kWooHooSnapHousehold;  // WooHooSnap.cs: the same for pairs with a household or selected Sim, off
+                case "woohoosnaplog": return Instantiator.kWooHooSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
+                case "pairsnap": return Instantiator.kPairSnap;  // WooHooSnap.cs (docs/686 §20): a paired social (kiss, hug) of two NPCs within 3 m whose placement or route fails is lined up by a snap, off
+                case "pairsnaphh": return Instantiator.kPairSnapHousehold;  // WooHooSnap.cs: the same for pairs with a household or selected Sim, off
+                case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
@@ -2783,6 +2898,7 @@ namespace Ts3Fixes
             static int[] sCounters;
             public bool RunHook()
             {
+                PlhBefore(Actor, Target, SimFollowers, "gohome");  // docs/656 §8.2 petlonghome (PetLongHome.cs): pets only, off by default
                 // docs/560 gohomewalk: EA requests WalkStyle on the Sim and never unrequests it
                 int ghBefore = -1;
                 if (WalkStyle != Sims3.Gameplay.Actors.Sim.WalkStyle.AutoSelect && ShortcutOn("gohomewalk")) ghBefore = GhWalkCount(Actor, WalkStyle);
@@ -3671,6 +3787,7 @@ namespace Ts3Fixes
             public bool RunHook()
             {
                 Sims3.Gameplay.Actors.Sim sim = Actor as Sims3.Gameplay.Actors.Sim;
+                PlhBefore(sim, Target, Followers, "gotolot");  // docs/656 §8.2 petlonghome (PetLongHome.cs): pets only, off by default
                 if (sim != null && (Followers == null || Followers.Count == 0)) ShortcutToLot(sim, Target, "gotolot", 13);
                 return RunOrig();
             }
@@ -3702,6 +3819,7 @@ namespace Ts3Fixes
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
                     return Arrive();
                 }
+                if (mFollowers == null || mFollowers.Count == 0) PlhBefore(Actor, Target, null, "visit");  // petlongvisit (PetLongHome.cs, docs/656 §4.3)
                 if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
                 {
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();

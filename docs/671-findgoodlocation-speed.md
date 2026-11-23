@@ -127,7 +127,10 @@ stack (48 frames, owner thread only) and writes `FglAfter` into the stack slot; 
 `ret` / `ret N`; `FglAfter` saves everything again, calls `FglLeave(eax, &slot)` and returns to the real address. The
 game's caller gets eax / ecx / edx, the flags, the FPU / SSE state and esp exactly as the callee left them. A frame whose
 call never returned (an exception unwound it) is dropped when the next call arrives at or above its stack position; a
-search whose own frame was unwound is replaced by the next search.
+search whose own frame was unwound is replaced by the next search. `FglAfter` hands `FglLeave` its entry stack pointer: a
+frame deeper than the returning call (an unwind caught inside it) is dropped there, never returned through (fix/review-b).
+A search nested in the profiled one (or one deeper than an unwound one) marks it spoiled: `[FglFacing]` and `[FglMemo]`
+neither answer, learn, prove nor store until it ends (their state names no object).
 
 Files: `native/ts3native/fglprof.cpp`, `fglprof-core.h` (tallies, repeat ring, flag bytes), `fglprof-test.h`
 (`TestFglProfCore`, in selftest.cpp), `fglprof-stub-test.h` (`TestFglProfStubs`), `fglprof-host-test.cpp`; `ts3addr-ea169.h` (27 rows, unresolved: the EA 1.69 build

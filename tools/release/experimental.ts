@@ -25,7 +25,7 @@ import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const TYPE_XML = 0x0333406c; // tools/setup/build-fixes.ts
-const EXP_TAG = /^v(\d+)\.(\d+)\.(\d+)-exp\.(\d{8})$/;
+const EXP_TAG = /^v(\d+)\.(\d+)\.(\d+)-exp\.(\d{8})(?:\.\d+)?$/; // .N = extra same-day release (--force)
 
 type Values = { ini?: Record<string, Record<string, string>>; tunables?: Record<string, string> };
 export type Entry = { id: string; status: 'verified' | 'blocked' | 'unverified'; on?: Values; off?: Values; evidence?: string[]; reason?: string };
@@ -228,7 +228,8 @@ function main() {
   const sha = run('git', ['rev-parse', a.ref!], { cwd: ROOT });
   const rels: Rel[] = JSON.parse(gh(['release', 'list', '-R', a.repo!, '-L', '100', '--json', 'tagName,isPrerelease,isDraft,createdAt']));
   const stable = newestStable(rels); if (!stable) throw new Error('no stable release found');
-  const tag = nextTag(stable, Date.now());
+  let tag = nextTag(stable, Date.now());
+  if (a.force) { const base = tag; for (let n = 2; rels.some(r => r.tagName === tag); n++) tag = `${base}.${n}`; } // same-day extra release on request
   log(`source ${a.ref} = ${sha}, stable ${stable}, tag ${tag}${dry ? ' (dry run)' : ''}`);
 
   if (!existsSync(wt)) run('git', ['worktree', 'add', '-q', '--detach', wt, sha], { cwd: ROOT, timeout: 300_000 });
@@ -323,6 +324,7 @@ function selfCheck() {
   assert.deepEqual(toPrune(rels, 7), ['v0.2.13-exp.20261111', 'v0.2.13-exp.20261110']);
   assert.deepEqual(toPrune(rels, 20), []);
   assert.equal(expReleases(rels)[0].tagName, 'v0.2.13-exp.20261118');
+  assert.equal(expReleases([...rels, r('v0.2.13-exp.20261118.2', true, '2026-11-18T22')])[0].tagName, 'v0.2.13-exp.20261118.2', 'same-day .N release counts');
   assert.deepEqual(readSource(`x\n${marker('1aefcef8f'.padEnd(40, '0'), 'abcdef0123456789')}\n`), { sha: '1aefcef8f'.padEnd(40, '0'), sw: 'abcdef0123456789' });
   assert.equal(readSource('no marker'), null);
   assert.equal(busy('hold:        -\njob:         -\ngame:        -\nchains:      -\nqueues:      -\nmain.lock:   -'), '');

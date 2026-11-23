@@ -147,6 +147,23 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/sharelanes/run.ts': CSC,
   'tools/selftest/blockeduse/run.ts': CSC,
   'tools/selftest/makebedboth/run.ts': CSC,
+  'tools/selftest/clipwait/run.ts': CSC,
+  'tools/selftest/petrelax/run.ts': CSC,
+  'tools/selftest/reachuse/run.ts': CSC,
+  'tools/selftest/objshare/run.ts': CSC,
+  'tools/selftest/woohoosnap/run.ts': CSC,
+  'tools/selftest/showershare/run.ts': CSC,
+  'tools/selftest/viewlenient/run.ts': CSC,
+  'tools/selftest/socialreach/run.ts': CSC,
+  'tools/selftest/unstuck/run.ts': CSC,
+  'tools/selftest/crowdport/run.ts': CSC,
+  'tools/selftest/failreplanboat/run.ts': CSC,
+  'tools/selftest/unseenboatwide/run.ts': CSC,
+  'tools/selftest/petarrivepoint/run.ts': CSC,
+  'tools/selftest/petlonghome/run.ts': CSC,
+  'tools/selftest/petstartleskip/run.ts': CSC,
+  'tools/selftest/strayleave/run.ts': CSC,
+  'tools/selftest/wildlotskip/run.ts': CSC,
 };
 
 // No self-check, on purpose (the gap stays visible here). A new script needs a self-check or an entry with its reason.

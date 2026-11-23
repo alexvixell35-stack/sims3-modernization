@@ -116353,6 +116353,1228 @@
     ]
   },
   {
+    "id": "clipwait-check",
+    "bug": "A Sim waits because another Sim or a pet is in its way outside portals: the obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) and the destination wait (DestinationObstructedRouteInterruptAction) stand for up to 20 sim-minutes while the game pushes and replans; a Sim in an interaction or a conversation cannot be pushed, so the walker stands until it leaves or the route fails (docs/686 §9)",
+    "fix": "ts3fixes ClipWait.cs: clipwait (clipwaithh for household and selected Sims), default off, docs/686 §9",
+    "save": "any world (pure check)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ClipWaitCheck 'run' evaluates the rule with controls (read-only); 'result' shows the counters 4398-4413 and the last clipwait: line. The behaviour itself is shown by storms (docs/686 §9.5): destination waits 4409-4411 and 'would' 4402 off against walks 4399 / 4400 on.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's wait",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": true,
+          "clipwaithh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "petrelax-check",
+    "bug": "Pets block Sims and get blocked: a pet in an interaction (nap, sit, beg, follow) cannot be pushed, so a Sim or pet that meets it stands in the obstacle or destination stand-and-wait; a pet lying on the floor is an object for every other Sim's plan (its floor jig's locked footprint), and it lies down where it stands, doorways and stair feet included (docs/686 §11)",
+    "fix": "ts3fixes PetRelax.cs: petrelax (petrelaxhh for household and selected Sims and pets), default off, docs/686 §11",
+    "save": "any world (pure check)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). PetRelaxCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4430-4445 and the last petrelax: line; 'lot' lists the active lot's pets and each lying pet's distance to a lane end. The behaviour itself is shown by runs on a pet household (docs/686 §11.5).",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's wait for a pet",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": true,
+          "petrelaxhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PetRelaxCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "petrelax": false,
+          "petrelaxhh": false
+        },
+        "note": "back to the default"
+      }
+    ]
+  },
+  {
+    "id": "showershare-check",
+    "bug": "A Sim that wants the shower its romantic partner is in queues at the door (Shower.TakeShower: line, then 'in use'), and a Sim whose bladder fails on a lot with no usable toilet wets itself although a shower is free (Motive.MotiveDistress -> Sim.BladderFailure) (docs/686 §15)",
+    "fix": "ts3fixes ShowerShare.cs: showertogether, showerpee (each with an hh switch for household and selected Sims), showersharelog, default off, docs/686 §15",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot with a toilet or shower",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ShowerShareCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4494-4509 and the last showertogether: / showerpee: line; 'lot' lists the toilets, showers and all-in-one bathrooms of the selected Sim's lot, who uses them, and what both rules would do for that Sim now. Forced repros (two partners and one shower; a Sim that has to pee on a lot with a shower and no toilet) are outlined in docs/686 §15.4, not built as entries yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "showertogether": false,
+          "showertogetherhh": false,
+          "showerpee": false,
+          "showerpeehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "toilets and showers of the selected Sim's lot",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "showertogether": true,
+          "showertogetherhh": true,
+          "showerpee": true,
+          "showerpeehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ShowerShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "showertogether": false,
+          "showertogetherhh": false,
+          "showerpee": false,
+          "showerpeehh": false,
+          "showersharelog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "crowdport-check",
+    "bug": "Sims queue at transport portals: an elevator's line (12 long, 15 sim-minutes before the game's own teleport skip), a rabbit hole enter slot held by one Sim for its whole walk (15 sim-minutes per holder), NPCs leaving a rabbit hole or station one per 15 sim-minutes (docs/686 §19)",
+    "fix": "ts3fixes CrowdPort.cs: crowdport (NPCs), crowdporthh (household and selected Sims), crowdportlog, default off, docs/686 §19",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot (elevator lines there, busy rabbit holes in the town)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). CrowdPortCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4550-4565 and the last crowdport: line; 'lot' lists elevator doors with a line on the selected Sim's lot and rabbit holes with reserved enter slots or NPCs in the exit wait. Forced repros (5 household Sims sent into one elevator / one rabbit hole / a subway at once, crowdporthh on; an NPC crowd leaving work at 17:00) are outlined in docs/686 §19.5, not built as entries yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both. No 'crowdport: error at' line.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": false,
+          "crowdporthh": false,
+          "crowdportlog": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "elevators and rabbit holes now",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": true,
+          "crowdporthh": true,
+          "crowdportlog": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.CrowdPortCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "crowdport": false,
+          "crowdporthh": false,
+          "crowdportlog": false
+        },
+        "note": "switches back off",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "outfitfirst-check",
+    "bug": "docs/684 §9: a Sim that changes clothes (going to work or school, Switch To Outfit, bath, bed) stands idle in Sim.SwitchOutfitHelper.Wait until the SimService has built the new outfit's model; the service builds one job at a time and takes the ready job of the Sim nearest the camera first, so the swap of a Sim away from the camera waits behind every nearer Sim's LOD build",
+    "fix": "ts3native [OutfitFirst] (thumbstall.cpp, default off): Enabled=1 notes each live outfit swap at the call 0x6F492C; Mode=1 measures (how long the swap's job sat ready, how many other jobs were built first), Mode=2 builds the oldest pending swap's ready job first (same builds, another order, every Sim alike)",
+    "save": "needs a loaded world in live mode with an active household of two or more Sims, child or older, and townies around (Isla Paradiso: Baseline-IP-Spring)",
+    "note": "Measured in natural play (docs/684 §9.1, contributor rig, Isla Paradiso 6-min calm soaks): s233 Mode 1 / s234 Mode 2 ready ms in all 6,327 -> 3,988, other jobs built past a ready swap 8 -> 0. Job ini: [OutfitFirst] Enabled=1 Mode=1 for the off arm (measure), Mode=2 for the on arm (no runtime switch: the mode is read at start-up). The trigger is the agent's outfit_change, which runs EA's SwitchToOutfitWithoutSpin (CASUtils.SetOutfitInGameObjectDelayed, the same delayed swap as Switch To Outfit) on the household Sims and then on townies spread over the town, so most swaps are away from the camera. A game whose swaps never wait behind other jobs (ready 0 in the off arm) is N/A, not FAIL: then the wait is the build itself.",
+    "expect": "ts3native.log: 'OK   outfit first ([OutfitFirst], docs/684 §9)' with the job's mode; 'outfitfirst: swap job taken by the game's order' lines (Mode 1) or 'outfitfirst: swap job taken first' lines (Mode 2) after the outfit_change steps; the once-a-minute 'outfitfirst: mode N, swaps noted N' summary with swaps noted > 0, and in Mode 2 'other jobs built past a ready swap' near 0. outfit_change answers list the changed Sims, every one wears the asked outfit; no new exceptions",
+    "steps": [
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "formal"
+        },
+        "waitS": 30,
+        "note": "the household Sims (then others) change into Formalwear at once: delayed swaps, one SimService build job each"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 12,
+          "category": "athletic",
+          "townies": true
+        },
+        "waitS": 30,
+        "note": "townies over the town (most away from the camera) change at once"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 12,
+          "category": "everyday",
+          "townies": true
+        },
+        "waitS": 30,
+        "note": "more townies, back to Everyday"
+      },
+      {
+        "cmd": "outfit_change",
+        "args": {
+          "count": 8,
+          "category": "everyday"
+        },
+        "waitS": 70,
+        "note": "the household back to Everyday; the wait spans the once-a-minute summary line"
+      }
+    ]
+  },
+  {
+    "id": "reachuse-check",
+    "bug": "A chore whose spot is closed (a puddle in a nook, a fire behind a counter, a trash pile between chairs) ends with the route-fail balloon, and a fire whose plan fails is passed over, although the Sim could stand a step away and do it from there: the plan to the game's ring fails and SimRoutingComponent.DoRoute answers false (docs/686 §12)",
+    "fix": "ts3fixes ReachUse.cs: reachuse (Sims the player does not control), reachusehh (household and selected Sims), default off, docs/686 §12",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot (puddles, burnt tiles, fires, piles or plants make it say more)",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ReachUseCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4446-4461 and the last reachuse: line; 'lot' plans the selected Sim to the puddles, burnt tiles, fires, trash and ash piles and plants of its lot as the game does and, for those that fail, to the nearest place within reach (read-only plans, up to 40 targets). No forced arm: the agent has no step that makes a puddle or a fire in a closed spot.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": false,
+          "reachusehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "targets the game cannot plan to, and whether a place in reach exists",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": true,
+          "reachusehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachUseCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 1500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reachuse": false,
+          "reachusehh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "objshare-check",
+    "bug": "Sims wait at objects other Sims use: a rabbit hole enter slot is held by one Sim until its walk to it ends and the others idle in a loop that ignores exit reasons (RabbitHole.WaitForEnterSlot); Grab a Serving queues in the platter's line and gives up when the platter is in use (ServingContainerGroup.RunBodyForGrabAServing) (docs/686 §14)",
+    "fix": "ts3fixes ObjShare.cs: rhshare, servingshare (each with an hh switch for household and selected Sims), linewaitlog, default off, docs/686 §14",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). ObjShareCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4470-4493, the last linewait: line and the last share line; 'lot' lists the lines with Sims in them and the platters of the selected Sim's lot, and the rabbit holes of the world with a reserved enter slot.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": false,
+          "rhsharehh": false,
+          "servingshare": false,
+          "servingsharehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "lines, platters, reserved enter slots",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": true,
+          "rhsharehh": true,
+          "servingshare": true,
+          "servingsharehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ObjShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhshare": false,
+          "rhsharehh": false,
+          "servingshare": false,
+          "servingsharehh": false,
+          "linewaitlog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "woohoosnap-check",
+    "bug": "A WooHoo or Try for Baby both Sims agreed to ends with the route-fail balloon when one partner's route to its spot has no plan: the free bed side closed by furniture or a wall (EnterRelaxing: RouteToUnusedPart, then IsRoutingSlotObstructed), the shower, wardrobe, leaf pile, sarcophagus or other object's slot closed (docs/686 §20)",
+    "fix": "ts3fixes WooHooSnap.cs: woohoosnap (pairs of NPCs), woohoosnaphh (pairs with a household or selected Sim), woohoosnaplog, default off, docs/686 §20",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). WooHooSnapCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4566-4575, the reasons for kept cases and the last woohoosnap: line; 'lot' lists the beds, showers and objects with a WooHoo interaction on the selected Sim's lot that have a routing slot the selected Sim cannot plan to. Forced repro (two partners, a double bed with one side closed by a fridge or a wall, WooHoo ordered) outlined in docs/686 §20.5, not built as an entry yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": false,
+          "woohoosnaphh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "WooHoo objects on the selected Sim's lot with a closed routing slot",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": true,
+          "woohoosnaphh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.WooHooSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "woohoosnap": false,
+          "woohoosnaphh": false,
+          "woohoosnaplog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "pairsnap-check",
+    "bug": "A paired social (kiss, hug: ActionData.SocialJig other than one-person) between two Sims standing within 3 m ends with the route-fail balloon when SocialInteraction.SetupTwoPersonSocial finds no ring place or jig place (a counter, furniture or a wall next to them), or when the walk to the place fails (docs/686 §20)",
+    "fix": "ts3fixes WooHooSnap.cs: pairsnap (pairs of NPCs), pairsnaphh (pairs with a household or selected Sim), pairsnaplog, default off, docs/686 §20",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot",
+    "note": "UNVERIFIED (2026-11-22, offline only, never run). PairSnapCheck 'run' evaluates the rules with controls (read-only); 'result' shows the counters 4576-4581 (snap outs in 4574), how pairs were placed, the reasons for kept cases and the last pairsnap: line; 'lot' lists the Sims within 3 m of the selected Sim on its level the game's placement ring (0.7 m) has no plan for, and the place the rule would put them on. Forced repro (two Sims on either side of a counter, a kiss ordered) outlined in docs/686 §20.5, not built as an entry yet.",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'. 'members found=True' and 'controls ok=True' in both.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "Sims within 3 m of the selected Sim the game's placement ring cannot reach",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": true,
+          "pairsnaphh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false,
+          "pairsnaplog": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "pet-arrive-point",
+    "bug": "docs/656 §3.1: an NPC animal's GoHome first plans to the lot's cached point just inside the front door (Lot.PlanRouteIntoLot); horses (any non-barn door), strays (ungreeted lot) and pets at a pet-locked door cannot pass it, so that full-length plan fails PortalLocked (routecause GoHome PortalLocked 65 lines, 'locked doors 0', OFF runs 2026-11-15..19), and an animal that validates a lot first clears the point for every Sim after it",
+    "fix": "ts3fixes petarrivepoint (PetArrivePoint.cs): for a non-exempt NPC animal the front door refuses (EA's CommonDoor.IsAllowedThrough), PlanRouteIntoLot runs only EA's mailbox / PlanToLotEx tail; 4170 skipped, 4171 of those on an unvalidated lot, 4172 exempt, 4173 errors",
+    "save": "Baseline-BP",
+    "note": "Forced, built by the step. pet_repro mode arrive picks an owned NPC pet whose home lot (no apartment slots) has a front door that refuses it: a horse first (any non-barn door), else a cat or dog whose front door gets EA's Pets lock (restored at the end of the window or on stop). The lot's arrival point is marked unvalidated (EA's public BestRouteIntoLotLocationValidated) so the pet validates it; it is set down 40-145 m from home (under petlonghome's 150 m) and only then EA's GoHome is pushed and the timer starts. routecauselog is on in both arms. Works in BP and Appaloosa Plains (ranch horses). No pick = not triggered: N/A, not FAIL. Needs Pets (EP5).",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "routecauselog": true,
+          "petarrivepoint": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "arrive",
+          "start": true,
+          "seconds": 180
+        },
+        "waitS": 215,
+        "note": "setup (teleport, up to 30 s), then EA's GoHome and 180 s"
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "before / after lot cache, counter deltas"
+      }
+    ],
+    "expect": "pushed true; before.validated false, before.door_allows false. OFF: a 'routecause: <pet> npc, GoHome, Plan FailedBecauseDestinationPortalLocked' line, after.validated true and after.has_point false (the lot's point poisoned), 4170 +0; ON: 4170 >= 1 and 4171 >= 1, a 'petarrivepoint: <pet> (<species>) -> <lot>: front door closed to it' line, after.validated false; reached the same or better ON; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-stray-leave",
+    "bug": "docs/656 §3.2: a stray's visit ends only when its StrayPet buff times out (BuffStrayPet.OnTimeout -> MakeSimGoHome); a stray that never got the buff or lost it sits and stands on the lot for days and counts against EA's kMaxStraysInWorld (6), so new stray visits stop",
+    "fix": "ts3fixes strayleave (StrayLeave.cs): EA's hourly StrayPetHelper first gives a non-exempt instantiated stray without the buff for kStrayLeaveHours EA's own MakeSimGoHome; 4174 sent, 4175 seen without the buff, 4176 exempt, 4177 errors",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode stray takes a stray from EA's pool, sends it with EA's StrayPets.SendStrayToLot to the active household's lot, cancels its StrayGoToLot (the buff is never added) and sets it on that lot with buffs cleared. kStrayLeaveHours is set to 1 in both arms so two hourly alarms fall in the window at ultra speed. No stray left in the pool = not triggered: N/A, not FAIL. Needs Pets (EP5) and an active household.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "strayleave": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
+          "value": 1
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "stray",
+          "start": true,
+          "seconds": 420
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 420,
+        "note": "about 3 sim-hours: two or more StrayPetHelper alarms"
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "left, stray_buff, counter deltas 4174-4177"
+      }
+    ],
+    "expect": "OFF: left false for the whole window, stray_buff false, 4174 +0; ON: 4175 +1 then 4174 +1, a 'strayleave: <stray> ... EA's MakeSimGoHome pushed' line, left true (GoToVirtualHome or de-instantiated); no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "reflect_set",
+        "args": {
+          "path": "Ts3Fixes.Instantiator.kStrayLeaveHours",
+          "value": 3
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-long-visit",
+    "bug": "docs/656 §3.3: owned NPC pets walk alone to community lots for many sim-hours (health.jsonl: Minnie Cat 'Visit Eugi's' 2203 sim-min, Snowshoe Cat 'Visit Buena Vista Resort' 1793, Cookie Horse 'Visit Bridgeport Sports Zone' 1106); petlonghome covers only GoHome / GoToLot and the human trip shortcuts refuse pets",
+    "fix": "ts3fixes petlongvisit (PetLongHome.cs): an unseen owned NPC pet on a long VisitCommunityLot walk is placed on the target lot like petlonghome (SafeSpot, unseen pet and lot); 4179 placed, 4180 refused, 4624 exempt, 4625 errors",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode visit picks an owned NPC pet (cats and dogs before horses; no stray, pool animal or wild horse), sets it at a lot >= 300 m from the camera target and the active Sim and, once it stands there, pushes EA's VisitCommunityLot to a community lot 400-1500 m away, also >= 300 m from both; the timer starts at the push. The camera must stay with the active Sim (unseen rule). No pick = N/A, not FAIL.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petlongvisit": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "visit",
+          "start": true,
+          "seconds": 180
+        },
+        "waitS": 215
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "push_dist_m, jumped_s, reached_s, counter deltas 4179-4180"
+      }
+    ],
+    "expect": "pushed true, push_dist_m >= 400. OFF: jumped_s -1, reached false or reached_s >= 60, 4179 +0; ON: 4179 >= 1, jumped_s <= 5, a 'petlonghome: placed <pet> ... via visit' line, reached_s <= 5; household pets untouched; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "pet-long-home",
+    "bug": "docs/645 §4 / docs/656 §3.3: owned NPC pets walk home on foot for 10-35 sim-hours (Tigger Cat 2110 sim-min, Majora Cat 1777, Lucky Coyle 816); the human trip shortcuts refuse pets",
+    "fix": "ts3fixes petlonghome (PetLongHome.cs): an unseen NPC pet on a long GoHome is placed on its home lot (SafeSpot, unseen pet and lot); 4622 placed, 4623 refused, 4624 exempt, 4625 errors; with kPetLongHomeNoSpotMinutes > 0 a failed spot search is remembered (4178)",
+    "save": "Baseline-BP",
+    "note": "Forced. pet_repro mode home picks an owned NPC pet (cats and dogs before horses) whose home lot is >= 300 m from the camera target and the active Sim, sets it at a lot 400-1500 m from home (also >= 300 m from both) and, once it stands there, pushes EA's GoHome; the timer starts at the push. No pick = N/A, not FAIL.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "petlonghome": "$on"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "mode": "home",
+          "start": true,
+          "seconds": 180
+        },
+        "waitS": 215
+      },
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "result": true
+        },
+        "note": "push_dist_m, jumped_s, reached_s, petlonghome_placed_4622"
+      }
+    ],
+    "expect": "pushed true, push_dist_m >= 400. OFF: jumped_s -1, reached false or reached_s >= 60, petlonghome_placed_4622 +0; ON: petlonghome_placed_4622 >= 1, jumped_s <= 5, a 'petlonghome: placed <pet> ... via gohome' line, reached_s <= 5; no new exceptions, no crash",
+    "cleanup": [
+      {
+        "cmd": "pet_repro",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "enabled": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-workerhold-storm",
+    "bug": "docs/673: in the s151 / s153 / s155 storms (Isla Paradiso, 2 min) the route worker held +0x918 for 36-52 s of job time in 1548-2239 jobs and the sim thread waited on it 167-244 times (5.6-7.0 s). The logs give no job length distribution, no plan count per candidate count, and cannot say where in a job the sim starts to wait",
+    "fix": "none (measurement): ts3native [RouteJobPhases] HoldProbe=1 (default 0, observe only; docs/673)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test). Job ini: [RouteJobPhases] HoldProbe=1 CandidateSplit=1 CandidateSplitLogMs=100, the s155 on-arm switches otherwise. Nothing changes a plan: one arm is enough",
+    "expect": "'OK   worker hold probe:' with 'plans by candidates'. After the storm: a 'worker hold:' line with jobs in the buckets, a 'worker hold plans by candidates' line, a 'worker hold boundaries' line with boundaries reached > 0. No crash, the 'route async: mode' job count as in s155 (about 2000)",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-holdoutside-storm",
+    "bug": "docs/673 §9: in the s159 storm (Isla Paradiso, 2 min) 12.4 s of the route worker's 33.7 s of job time (+0x918 hold) is outside PlanHierarchical, and no log says what it is: the goal step and its door asks before the plan, our Route_PlanLocked wrappers, the EditPath tail, our job end. The sim thread's wait pump tries +0x918 once a millisecond, so a TailUnlock window shorter than that is missed, and the job's tail after its plan is held although the search is over",
+    "fix": "ts3native [RouteJobPhases] HoldProbe=1 (the 'worker hold parts' line, observe only), [RouteAsync] PlanEndLend=1 (the job's +0x918 lent to a waiting sim taker when the plan has returned, worker parked) and LendWake=1 (a TailUnlock window wakes the sim's wait pump); all default 0 (docs/673 §9)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the probe; the selftest of the lend is single-threaded and was not run). Off arm: the s159 on-arm ini with [RouteJobPhases] HoldProbe=1 CandidateSplit=1 HostSplit=1 and [RouteAsync] PlanEndLend=2 (count only). On arm: PlanEndLend=1 LendWake=1 on top. Compare 'hitch totals' +0x918 waits and the 'route lock wait' lines",
+    "expect": "'OK   plan end lend: PlanEndLend=1' and 'OK   worker hold probe:'. After the storm: a 'worker hold parts' line whose parts sum to the job time of 'route async:', a 'plan end lend:' line with plan ends about the job count, windows > 0, 'closed while parked 0', and no 'TailUnlock: worker waited' line. Off arm: windows 0, the same plan ends. No crash, no stuck Sim, the same plans and fails as the off arm within storm noise",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-placetestro-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-worldpre-storm",
+    "bug": "docs/676: in the s160-s168 storms (Isla Paradiso, 2 min) the water plan is 5.3-8.1 s of planner time in 218-316 searches (22-30 ms each), the world A* 4.0-7.0 s in 1001-1203 searches and the post pass 4.8-6.0 s. The water search walks straight rays over two byte grids that change only when a footprint or the water grid is written; no log says how often a world or water query repeats, nor which of the post pass's 19 node passes carry its time",
+    "fix": "ts3native [WorldPrecompute] WaterScanTable (1 use, 2 shadow: per map pair a table of every straight ray's run, compared with the live grids at each search; identical results) and Probe=1 (repeat counts of water and world searches, the post pass by node pass; observe only); both default 0 (docs/676)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Linux host test of the table, its updates, the slot manager and the probe counts). Job ini: [WorldPrecompute] WaterScanTable=2 WaterScanAll=1 Probe=1, [WaterJps] Enabled=1, [RouteJobPhases] CandidateSplit=1 CandidateSplitLogMs=100, the s168 on-arm switches otherwise. Arm 1 is shadow (every jump runs both ways: the water time rises, the mismatch count is the result), arm 2 serves",
+    "expect": "'OK   world precompute: ready 0xF' (0x7 without the post pass sites). After arm 1: a 'world precompute: water scan table mode 2' line with searches > 0, 'with a table' > 0, shadow checks > 0 and mismatch 0, and no 'WATER SCAN TABLE MISMATCH' line; 'world precompute probe water / world / post passes' lines with searches > 0. After arm 2 (mode 1): 'straight rays from it' > 0, and in 'route candidate split totals' the water ms per call below arm 1's and below the s160-s168 on arms (22-30 ms a call). No crash, plans / failed in 'route plans:' as in s168",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waterscantable": 2
+        },
+        "waitS": 1,
+        "note": "arm 1: shadow (the ini value)"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-workerhold-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waterscantable": 1
+        },
+        "waitS": 1,
+        "note": "arm 2: the jump's straight rays come from the table"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "the same storm with the table serving; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "waterscantable": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

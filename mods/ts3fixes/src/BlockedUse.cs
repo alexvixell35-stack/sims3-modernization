@@ -44,8 +44,12 @@ namespace Ts3Fixes
     // object. Point routes (Go Here) have no slot destination and never come here. A case that kept the game's
     // behaviour is not tried again for kBuCooldownMinutes.
     // Off = compare mode: counted, nothing done. Counters 4414-4429. Check: BlockedUseCheck.
+    // reachuse (ReachUse.cs, docs/686 §12) shares the DoRoute hook: failed plans without slot destinations go to its
+    // rules, and its switches turn these rules on for chores at their target's own slots.
     // A plan that fails during the walk (a replan; the walk answers false, no exit reason on the Sim)
     // gets the same rules as a failed first plan, minus the game's route-fail behaviour, which the walk has had.
+    // socialreach (SocialReach.cs, docs/686 §17) is the fourth step of the hook's chain, unstuck (Unstuck.cs, §18) the
+    // last: every failed plan the steps before it leave to the game passes its count.
     public static partial class Fixes
     {
         const int kBuTries = 4414, kBuWould = 4415, kBuExempt = 4416, kBuNear = 4417, kBuClip = 4418, kBuSnapIn = 4419, kBuSnapOut = 4420,
@@ -70,7 +74,8 @@ namespace Ts3Fixes
             public RoutePlanResult Saved; public bool OptObjects, OptOverride, OptChecks;
         }
         // a Sim that was let onto a slot
-        sealed class BuExit { public Vector3 Origin, Slot; public WeakReference Ia; public long At; public bool Snap; }
+        // Obj: the object whose slot it is (0 = none). Owner: 0 blockeduse, 1 woohoosnap, 2 pairsnap (WooHooSnap.cs)
+        sealed class BuExit { public Vector3 Origin, Slot; public WeakReference Ia; public long At; public bool Snap; public ulong Obj; public int Owner; }
 
         static readonly Dictionary<uint, BuRec> sBuRecs = new Dictionary<uint, BuRec>();
         static readonly Dictionary<ulong, BuExit> sBuExits = new Dictionary<ulong, BuExit>();  // by Sim object id
@@ -198,6 +203,13 @@ namespace Ts3Fixes
             return s;
         }
 
+        // Does the route hold slot destinations (the last plan was a plan to routing slots)?
+        static bool BuIsSlotRoute(Route r)
+        {
+            BuRec rec;
+            return sBuRecs.TryGetValue(r.Handle, out rec) && rec.N > 0;
+        }
+
         // ---- a failed plan in DoRoute ----
 
         static bool BuSimOk(Sim sim)
@@ -235,6 +247,7 @@ namespace Ts3Fixes
             bool blockerSim = pr.mBlockerType == RouteBlockerType.Sim || (pr.mBlockerObjectId != 0 && GameObject.GetObject(new ObjectGuid(pr.mBlockerObjectId)) is Sim);
             bool kind = BlockedUseCore.Kind((int)pr.mType, blockerSim) && BuSimOk(sim) && BuObjOk(obj);
             int d = BlockedUseCore.Decide(kind, IsPlayerSim(sim), ShortcutOn("blockeduse"), ShortcutOn("blockedusehh"));
+            if (kind && d != BlockedUseCore.kGo && RuSlotCase(sim, obj)) d = BlockedUseCore.kGo;  // reachuse (ReachUse.cs, docs/686 §12): a chore at its target's own slots
             if (d == BlockedUseCore.kNone) { c[kBuNotKind]++; return null; }
             if (d == BlockedUseCore.kWould) { c[kBuWould]++; return null; }
             if (d == BlockedUseCore.kExempt) { c[kBuExempt]++; return null; }
@@ -281,7 +294,8 @@ namespace Ts3Fixes
                 x.Origin = k.Origin;  // a Sim let on twice keeps the first spot: that one it walked to
                 sBuExits[id] = x;
             }
-            x.Slot = k.Goal; x.Snap = snap; x.At = SimClock.CurrentTicks;
+            x.Slot = k.Goal; x.Snap = snap; x.At = SimClock.CurrentTicks; x.Owner = 0;
+            x.Obj = k.Obj != null ? k.Obj.ObjectId.Value : 0UL;
             InteractionInstance ia = sim.CurrentInteraction;
             x.Ia = ia != null ? new WeakReference(ia) : null;
         }
@@ -376,18 +390,27 @@ namespace Ts3Fixes
                 return RouteBlocked(r, true);
             }
 
+            // A failed plan the rules above leave to the game: unstuck's look first (Unstuck.cs), then the game's answer.
+            bool Keep(Route r, bool afterWalk) { return RouteStuck(r, afterWalk); }
+
             // The game's answer for a failed plan: before a walk its route-fail behaviour, after a walk (which has had it) false.
-            bool Keep(Route r, bool afterWalk) { return afterWalk ? false : RouteOrig(r); }
+            bool KeepEa(Route r, bool afterWalk) { return afterWalk ? false : RouteOrig(r); }
 
             // No catch round a walk: a reset must unwind the Sim's stack.
             bool RouteBlocked(Route r, bool afterWalk)
             {
                 Sim sim = OwnerSim;
+                // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20): a WooHoo partner's or a paired social's failed plan
+                WhsCase w = null;
+                try { w = WhsBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { WhsError(false, 0, e); }
+                if (w != null) return RouteSnap(sim, r, w, afterWalk);
                 BuCase k = null;
                 try { k = BuBegin(sim, r); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { BuError(0, e); }
-                if (k == null) return Keep(r, afterWalk);
+                if (k == null) return RouteReach(sim, r, afterWalk);
                 if (k.Near != null && !RouteOrig(k.Near))
                 {
                     PatchCounters()[kBuNearStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
@@ -415,12 +438,122 @@ namespace Ts3Fixes
                 catch (Exception e) { BuError(4, e); }
                 return walked;
             }
+
+            // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20): the Sim walks up to the object's room when a normal plan
+            // gets it there, then it is put on its spot. A walk up that was cancelled keeps the game's answer.
+            bool RouteSnap(Sim sim, Route r, WhsCase w, bool afterWalk)
+            {
+                if (w.Near != null && !RouteOrig(w.Near) && (sim.HasBeenDestroyed || sim.HasExitReason()))
+                {
+                    try { WhsKeep(WooHooSnapCore.kWhyStopped, w.Head); } catch (Exception) { }
+                    return KeepEa(r, afterWalk);
+                }
+                bool arrived = false;
+                try { arrived = w.Pair ? PrsArrive(sim, r, w) : WhsArrive(sim, r, w); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { WhsError(w.Pair, 1, e); }
+                return arrived || Keep(r, afterWalk);
+            }
+
+            // reachuse (ReachUse.cs, docs/686 §12): a failed plan that blockeduse left alone. A chore whose route has no
+            // slot destination is done from within reach of its target; anything else gets the game's answer.
+            bool RouteReach(Sim sim, Route r, bool afterWalk)
+            {
+                RuCase q = null;
+                try { q = RuBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { RuError(0, e); }
+                if (q == null) return RouteView(sim, r, afterWalk);
+                if (q.Near != null && !RouteOrig(q.Near))
+                {
+                    PatchCounters()[kRuStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
+                    return Keep(r, afterWalk);
+                }
+                bool arrived = false;
+                try { arrived = RuArrive(sim, r, q); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { RuError(1, e); }
+                return arrived || Keep(r, afterWalk);
+            }
+
+            // viewlenient (ViewLenient.cs, docs/686 §16): a failed plan that blockeduse and reachuse left alone. A Sim that
+            // only looks at something (contemplate, view, watch) looks from where it stands or from the nearest place
+            // with a view; with no such place the interaction ends without the route-fail balloon.
+            bool RouteView(Sim sim, Route r, bool afterWalk)
+            {
+                VlCase v = null;
+                try { v = VlBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { VlError(0, e); }
+                if (v == null) return RouteSocial(sim, r, afterWalk);
+                bool arrived = false;
+                if (!v.Quiet && (v.Near == null || RouteOrig(v.Near)))
+                {
+                    try { arrived = VlArrive(sim, r, v); }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { VlError(1, e); }
+                }
+                else if (!v.Quiet) PatchCounters()[kVlStopped]++;  // cancelled or stopped on the way
+                if (arrived) return true;
+                try { VlQuietEnd(sim, v, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { VlError(2, e); }
+                if (afterWalk) return false;
+                // the game's own answer for a failed plan (exit reason RouteFailed, false), its balloon switched off
+                bool show = r.DoRouteFail;
+                r.DoRouteFail = false;
+                try { return RouteOrig(r); }
+                finally { r.DoRouteFail = show; }
+            }
+
+            // socialreach (SocialReach.cs, docs/686 §17): a failed plan of a Sim in a talk social that the rules above
+            // left alone. Within reach of the partner the Sim talks from where it stands; the starter otherwise walks
+            // to the nearest place near the partner.
+            bool RouteSocial(Sim sim, Route r, bool afterWalk)
+            {
+                SrCase s = null;
+                try { s = SrBegin(sim, r, afterWalk); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { SrError(0, e); }
+                if (s == null) return Keep(r, afterWalk);
+                if (s.Near != null && !RouteOrig(s.Near))
+                {
+                    PatchCounters()[kSrStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
+                    return KeepEa(r, afterWalk);
+                }
+                bool arrived = false;
+                try { arrived = SrArrive(sim, r, s); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { SrError(1, e); }
+                return arrived || KeepEa(r, afterWalk);
+            }
+
+            // unstuck (Unstuck.cs, docs/686 §18): every failed plan the rules above leave to the game is counted per
+            // Sim and spot. A Sim found boxed in walks out through the objects (a real walk, walls count), its route is
+            // planned again and walked when it now has a plan; anything else gets the game's answer.
+            bool RouteStuck(Route r, bool afterWalk)
+            {
+                Sim sim = OwnerSim;
+                UnCase k = null;
+                try { k = UnBegin(sim, r); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { UnError(0, e); }
+                if (k == null) return KeepEa(r, afterWalk);
+                bool walked = RouteOrig(k.Out);
+                bool again = false;
+                try { again = UnAfter(sim, r, k, walked); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { UnError(1, e); }
+                if (again) return RouteOrig(r);
+                return KeepEa(r, afterWalk);
+            }
         }
 
         // ---- out again: called after every Plan / Replan (RouteBackoff.cs); one count test when nobody is remembered ----
 
         internal static RoutePlanResult BuAfterPlan(ScriptCore.Route route, int kind, RoutePlanResult r)
         {
+            if (sUnRecs.Count != 0) UnPlanSeen(route, kind, r);  // unstuck (Unstuck.cs, docs/686 §18): a plan that leads away clears the Sim's count
             if (sBuExits.Count == 0 || sBuBusy) return r;
             try
             {
@@ -459,6 +592,7 @@ namespace Ts3Fixes
                     if (found && BuValid(fwd)) sim.SetForward(fwd);
                     c[kBuSnapOut]++;
                     if (found) c[kBuOutFound]++;
+                    if (x.Owner != 0) WhsOut(sim, x.Owner, from, to);  // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20)
                     BuLine(BuWho(sim) + " " + sim.FullName + ": snap out from " + BuAt(from) + " to " + BuAt(to) + (found ? " (a spot found near the one it came from)" : " (the spot it came from)")
                         + ", came by " + (x.Snap ? "snap" : "clip"));
                     r = kind == 0 ? route.Plan() : route.Replan();

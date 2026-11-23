@@ -1149,6 +1149,7 @@ namespace Ts3Fixes
                     if (btm && !btmAnswered) BtmPost(r, unchecked(System.Environment.TickCount - t0));
                     if (hlmLeg != 0) HlmPost(hlmLeg, p, r, unchecked(System.Environment.TickCount - t0), last.Cut, hlm, hgr);
                     else if (hlm && !btmAnswered) HlmMiss(r, unchecked(System.Environment.TickCount - t0));
+                    FrbPost(r, unchecked(System.Environment.TickCount - t0));  // docs/851 §8 failreplanboat (FailReplanBoat.cs): every failed plan, answered ones too; counts with the switch off
                 }
                 finally { sUfPlanDepth.Exit(task); DiagSend(12, Handle); }  // docs/197 §7: this plan's scope ends here
                 UrLearn ln;

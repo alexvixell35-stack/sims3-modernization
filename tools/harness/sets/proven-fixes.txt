@@ -33,10 +33,24 @@
 #   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
 #   blockedusehh
 #   makebedbothhh makebedbothlog
+#   petrelaxhh petrelaxlog
+#   clipwait clipwaithh clipwaitlog
+#   reachusehh reachuselog
+#   linewaitlog rhsharehh servingsharehh
+#   showertogetherhh showerpeehh showersharelog
+#   viewlenienthh viewlenientlog
+#   socialreachhh socialreachlog
+#   unstuckhh unstucklog
+#   woohoosnap woohoosnaphh pairsnap pairsnaphh woohoosnaplog pairsnaplog
+#   crowdporthh crowdportlog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
 #   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# docs/656 pets: petlonghome / petlongvisit ran in s134 / s136, no off/on verdict; the others never exercised:
+#   petstartleskip petarrivepoint strayleave wildlotskip
+# unseen boats (docs/687, docs/851 §7-§8, docs/248 §12): unseenboatland / unseenboatgenboat acted in one-arm runs, no off/on verdict; unseenboatwide no recorded pass; failreplanboat never run:
+#   unseenboatland unseenboatwide failreplanboat
 # combo pieces: first in-game check only, not marked proven (docs/551):
 #   combovenue
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:

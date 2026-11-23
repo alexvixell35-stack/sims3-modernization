@@ -356,6 +356,8 @@ namespace Ts3Fixes
                 if (!ok) BtPlanFailed(r, sim, res);  // burnttilefloor: learn MopBurnt tiles EA's planner finds no destination for (BurntTileFloor.cs)
                 if (!ok) SrlReplan(r, sim, kind, res);  // socialreplanlog (SocialReplanLog.cs, docs/577 §2), logging only
                 if (!ok) RclPlan(r, sim, kind, res);  // routecauselog (RouteCauseLog.cs, docs/580), logging only
+                if (!ok) PssPlan(sim, res);  // petstartleskip (PetStartleSkip.cs, docs/656 §8.1)
+                if (!ok) WlsPlan(sim, res);  // wildlotskip (WildLotSkip.cs, docs/656 §8.3): note no-path plans
                 if (!ok && RfpPlan(sim, kind, res, r, t0)) return;  // routefailprobe (RhEntry627.cs, docs/627 §2): an NPC spot probe, not this Sim's route
                 AfcPlan(sim, ok, res.mType);  // autonomyfailcooldown (AutonomyFailCooldown.cs): did the head's last plan fail
                 if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
