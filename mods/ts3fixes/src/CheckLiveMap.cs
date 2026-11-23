@@ -328,12 +328,14 @@ namespace Ts3Fixes
                 case "partyoutcome": return EpLive(typeof(PfOutcomeHook), 2);
                 case "permamemo": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(PermaMemoHook), 0));
                 case "permazombiemoon": return EpLive(typeof(PermaZombieHook), 1);
+                case "petarrivepoint": return EpLive(typeof(PetArriveHook), 1);
                 case "petdreamtimer": return EpLive(typeof(B12PdHook), 1, "sPdTimer", sPdTimer, typeof(float), "sPdTimer", sPdTimer, null, "sPdFreq", sPdFreq, typeof(float), "sPdFreq", sPdFreq, "static");
                 case "petfireplan": return EpLive(typeof(PetFirePlanHook), 1);
                 case "petharvestvfx": return EpLive(typeof(B13PvHook), 2);
                 case "petpoolghost": return EpLive(typeof(BPgHook), 1, "sPpgIds", sPpgIds, null);
                 case "petpoolorphan": return EpLive(typeof(PetPoolOrphanHook), 2);
                 case "petpuddletile": return EpLive(typeof(PetPuddleHook), 2);
+                case "petstartleskip": return EpLive(typeof(PetStartleSkipHook), 1);
                 case "petwakebed": return EpLive(typeof(PwCleanupHook), 1, "sPwBed", sPwBed, null);
                 case "phonecallrearm": return EpLive(typeof(PhCallRearmHook), 0, "sPhInterval", sPhInterval, typeof(int), "sPhInterval", sPhInterval, "static");
                 case "phonecallschedule": return EpLive(typeof(PhCallScheduleHook), 0, "sPhWindow", sPhWindow, typeof(int), "sPhWindow", sPhWindow, "static", "sPhAlarm", sPhAlarm, null);
@@ -479,6 +481,7 @@ namespace Ts3Fixes
                 case "stcsocialscheck": return EpLive(typeof(SocialStcHook), 1);
                 case "steadygigmiss": return EpLive(typeof(SteadyGigHook), 1, "sFtcSpec", sFtcSpec, null);
                 case "stereoupgrade": return EpJoin(EpJoin(EpLive(typeof(BSuDanceHook), 1), EpLive(typeof(BSuSpeakerHook), 1)), EpLive(typeof(BSuUpHook), 1));
+                case "strayleave": return EpLive(typeof(StrayLeaveHook), 1);
                 case "stuckcheckasync": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckbusy": return EpLive(typeof(StuckCheckBusyHook), 1);
                 case "stuckcheckown": return EpLive(typeof(RouteBackoffHook), 4);
@@ -588,6 +591,7 @@ namespace Ts3Fixes
                 case "wildflowertask": return EpLive(typeof(WildflowerTaskHook), 0, "sWfLots", sWfLots, null, "sWfLots", sWfLots, "static", "sWfClear", sWfClear, 0);
                 case "wildherdmother": return EpLive(typeof(WildHerdMotherHook), 0, "sWhMother", sWhMother, typeof(ulong), "sWhMother", sWhMother, null);
                 case "wildhorsegender": return EpLive(typeof(WildHorseGenderHook), 0);
+                case "wildlotskip": return EpJoin(EpLive(typeof(WlsAnimalHook), 2), EpLive(typeof(WlsHerdHook), 1));
                 case "wishfeedbackkeep": return EpLive(typeof(W86FeedbackHook), 1);
                 case "wishsubjectgone": return EpLive(typeof(W86MgrHook), 3);
                 case "wishupdatelost": return EpLive(typeof(W86MgrHook), 3);

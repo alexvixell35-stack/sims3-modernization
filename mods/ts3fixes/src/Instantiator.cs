@@ -406,6 +406,19 @@ namespace Ts3Fixes
         [Tunable] public static bool kBlockedUse = true;   // blockeduse (docs/686 §10): a Sim the player does not control whose route to an object's routing slot fails because furniture or a wall closes the slot or the last stretch walks up to the object, then walks the last stretch through objects, or is put on the slot and back where it came from afterwards
         [Tunable] public static bool kBlockedUseHousehold = false;  // blockedusehh: blockeduse for household and selected Sims (stands alone)
         [Tunable] public static bool kMakeBedBoth = true;   // makebedboth (docs/686 §13): a Sim the player does not control who makes a bed whose unmade half cannot be reached stands at the other side and the bed plays the unmade half's animation; both halves end made. A half that can be reached is walked to as before
+        [Tunable] public static bool kPetStartleSkip = false;          // petstartleskip (docs/656 §8.1): an NPC pet whose startle flee route hit a pet-locked door (PortalLocked) skips further startles for kPetStartleSkipMinutes
+        [Tunable] public static float kPetStartleSkipMinutes = 30f;    // petstartleskip: sim-minutes an entry lives
+        [Tunable] public static bool kPetLongHome = false;             // petlonghome (docs/656 §8.2): an unseen NPC pet or horse on a long GoHome / GoToLot walk is placed on the lot like the human trip shortcuts
+        [Tunable] public static float kPetLongHomeMeters = 150f;       // petlonghome: straight distance (m) above which the trip counts as long
+        [Tunable] public static float kPetLongHomeHours = 2f;          // petlonghome: or the trip to that lot began more than this many sim-hours ago (0 = distance only)
+        [Tunable] public static float kPetLongHomeNoSpotMinutes = 0f; // petlonghome / petlongvisit (docs/656 §4.3): sim-minutes a (lot, species class) whose safe-spot search failed is refused without a new search (0 = search every time, as before)
+        [Tunable] public static bool kPetLongVisit = false;            // petlongvisit (docs/656 §4.3): an unseen owned NPC pet on a long VisitCommunityLot walk is placed on that community lot like petlonghome
+        [Tunable] public static bool kPetArrivePoint = false;          // petarrivepoint (docs/656 §4.1): Lot.PlanRouteIntoLot skips the lot's inside-front-door point for a non-exempt NPC animal that door refuses (EA's mailbox / PlanToLotEx tail runs instead)
+        [Tunable] public static bool kStrayLeave = false;              // strayleave (docs/656 §4.2): a non-exempt instantiated stray without the StrayPet buff for kStrayLeaveHours gets EA's MakeSimGoHome (what the buff's timeout does)
+        [Tunable] public static float kStrayLeaveHours = 3f;           // strayleave: sim-hours without the buff (and not leaving, busy or held) before the push
+        [Tunable] public static bool kWildLotSkip = false;             // wildlotskip (docs/656 §8.3): wild horses and NPC animals (raccoon, deer) skip a lot their GoToLot could not reach lately (EA's weights over the rest), and a GoToLot walk past kWildLotSkipWalkHours is cancelled
+        [Tunable] public static float kWildLotSkipHours = 6f;          // wildlotskip: sim-hours an (animal, lot) pair stays remembered
+        [Tunable] public static float kWildLotSkipWalkHours = 8f;      // wildlotskip: sim-hours one GoToLot may run before the guard cancels it
         [Tunable] public static bool kMakeBedBothHousehold = false;  // makebedbothhh: makebedboth for household and selected Sims (stands alone)
         [Tunable] public static bool kMakeBedBothLog = false;  // makebedbothlog: one ts3native.log line per act
         [Tunable] public static bool kDoorShare = false;  // doorshare (docs/674): tell ts3native which door answers do not depend on the Sim ([RouteSnap] DoorShare shares them between route jobs); needs doorgen; off until its in-game A/B

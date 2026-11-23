@@ -163,39 +163,55 @@ namespace Ts3Fixes
             Patch(typeof(WildHorses), "FindGoodLot", new Type[] { typeof(SimDescription) }, typeof(BEp4WhHook), "FindHook", "FindOrig");
         }
 
+        // WildHorses.FindGoodLot's lists: weighted lots and weights, and the unweighted fallback list. on = wildhorselot's
+        // corrections (index 0 preferred, a gnome-protected lot is no fallback); off = EA's loop exactly. Also used by
+        // wildlotskip (WildLotSkip.cs, docs/656 §8.3) to draw again without the lots a horse could not reach.
+        internal static void WhLists(SimDescription horse, bool on, List<Lot> list, List<float> weights, List<Lot> fallback)
+        {
+            foreach (Lot lot in LotManager.AllLotsWithoutCommonExceptions)
+            {
+                if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Port) continue;
+                if (!on) fallback.Add(lot);  // EA: before the gnome test
+                IStrayWildlifeGnome[] g = lot.GetObjects<IStrayWildlifeGnome>();
+                if (g != null && g.Length > 0 && g[0].DoesGnomeDisallowWildlifeType(horse)) continue;
+                if (on) fallback.Add(lot);  // changed: after the gnome test
+                float num = WildHorses.kDefaultLotWeight;
+                List<Sim> sims = new List<Sim>(lot.GetSims());
+                if (sims.Count > 0) num = WildHorses.kDefaultPopulatedLotWeight;
+                foreach (Sim s in sims) if (s.HasTrait(TraitNames.FriendOfTheHerdPet)) num += WildHorses.kFriendOfTheHerdLotWeightIncrease;
+                if (lot.IsResidentialLot) num *= WildHorses.kVisitResidentialLotMultiplier;
+                else num *= WhMult(on, Array.IndexOf(WildHorses.kPreferredCommercialLots, lot.CommercialLotSubType), WildHorses.kPreferredCommercialLotWeights, WildHorses.kVisitCommercialLotMultiplier);  // changed when on: index 0 is preferred
+                if (num != 0f) { list.Add(lot); weights.Add(num); }
+            }
+        }
+
         public class BEp4WhHook
         {
             public static Lot FindHook(SimDescription horse)
             {
                 bool on = ShortcutOn("wildhorselot");
+                Lot pick = null;
                 if (!on)
                 {
                     if (WildHorses.kPreferredCommercialLots != null && WildHorses.kPreferredCommercialLots.Length > 0) PatchCounters()[3266]++;
-                    return FindOrig(horse);
+                    pick = FindOrig(horse);
                 }
-                try
+                else
                 {
-                    List<Lot> list = new List<Lot>(), list2 = new List<Lot>();
-                    List<float> list3 = new List<float>();
-                    foreach (Lot lot in LotManager.AllLotsWithoutCommonExceptions)
+                    try
                     {
-                        if (lot.CommercialLotSubType == CommercialLotSubType.kEP10_Port) continue;
-                        IStrayWildlifeGnome[] g = lot.GetObjects<IStrayWildlifeGnome>();
-                        if (g != null && g.Length > 0 && g[0].DoesGnomeDisallowWildlifeType(horse)) continue;
-                        list2.Add(lot);  // changed: after the gnome test
-                        float num = WildHorses.kDefaultLotWeight;
-                        List<Sim> sims = new List<Sim>(lot.GetSims());
-                        if (sims.Count > 0) num = WildHorses.kDefaultPopulatedLotWeight;
-                        foreach (Sim s in sims) if (s.HasTrait(TraitNames.FriendOfTheHerdPet)) num += WildHorses.kFriendOfTheHerdLotWeightIncrease;
-                        if (lot.IsResidentialLot) num *= WildHorses.kVisitResidentialLotMultiplier;
-                        else num *= WhMult(on, Array.IndexOf(WildHorses.kPreferredCommercialLots, lot.CommercialLotSubType), WildHorses.kPreferredCommercialLotWeights, WildHorses.kVisitCommercialLotMultiplier);  // changed: index 0 is preferred
-                        if (num != 0f) { list.Add(lot); list3.Add(num); }
+                        List<Lot> list = new List<Lot>(), list2 = new List<Lot>();
+                        List<float> list3 = new List<float>();
+                        WhLists(horse, true, list, list3, list2);
+                        PatchCounters()[3265]++;
+                        if (list.Count <= 0) pick = list2.Count > 0 ? RandomUtil.GetRandomObjectFromList(list2) : null;
+                        else pick = RandomUtil.GetWeightedRandomObjectFromList(list3, list);
                     }
-                    PatchCounters()[3265]++;
-                    if (list.Count <= 0) return list2.Count > 0 ? RandomUtil.GetRandomObjectFromList(list2) : null;
-                    return RandomUtil.GetWeightedRandomObjectFromList(list3, list);
+                    catch (Exception) { PatchCounters()[3267]++; pick = FindOrig(horse); }
                 }
-                catch (Exception) { PatchCounters()[3267]++; return FindOrig(horse); }
+                // docs/656 §8.3 wildlotskip: a lot this horse or its herd could not reach lately is drawn again (same weights)
+                if (pick != null && ShortcutOn("wildlotskip")) pick = WlsHorsePick(horse, pick, on);
+                return pick;
             }
             public static Lot FindOrig(SimDescription horse) { return null; } // WildHorses.FindGoodLot
         }

@@ -556,6 +556,10 @@ namespace Ts3Fixes
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
+            ApplyPetStartleSkip();     // docs/656 §8.1 (PetStartleSkip.cs), off by default
+            ApplyPetArrivePoint();     // docs/656 §4.1 (PetArrivePoint.cs), off by default
+            ApplyStrayLeave();         // docs/656 §4.2 (StrayLeave.cs), off by default
+            ApplyWildLotSkip();        // docs/656 §8.3 (WildLotSkip.cs; FindGoodLot rides wildhorselot's BEp4WhHook), off by default
             try { Alloc87Sync(); } catch (Exception) { }  // docs/625: before any save loads, when the tuning turns them on
         }
 
@@ -1631,10 +1635,12 @@ namespace Ts3Fixes
         // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        // [4620-4639] docs/656 (pets; moved from the combo branch's 4074-4089, which upstream uses): [4620-4621] petstartleskip (PetStartleSkip.cs, §8.1): NPC pets recorded after a PortalLocked startle flee route / startles skipped; [4622-4623] petlonghome (PetLongHome.cs, §8.2): unseen NPC pets / horses placed on the lot of a long GoHome / GoToLot walk / refused (seen, lot seen, no spot, lot kind); [4624] exempt (household, selected, unknown scope) and [4625] errors, shared by petstartleskip and petlonghome; [4626-4630] wildlotskip (WildLotSkip.cs, §8.3): wild horse / NPC animal (animal, lot) pairs remembered after a PortalLocked or NoPath GoToLot / picks drawn again without them / every weighted lot remembered (EA's pick kept) / long GoToLot walks cancelled / exempt or errors.
+        // [4170-4180, 4196-4198] docs/656 (pets): [4170-4173] petarrivepoint (PetArrivePoint.cs, §4.1): inside front-door points skipped for NPC animals the door refuses / of those on a lot not validated yet / exempt / errors; [4174-4177] strayleave (StrayLeave.cs, §4.2): strays sent home / seen without the StrayPet buff / exempt / errors; [4178] petlonghome no-spot memo searches saved, [4179-4180] petlongvisit placed / refused (PetLongHome.cs, §4.3); [4196-4198] petlonghome herd spot share: shared / waited / no-spot not noted (§4.5). 4181-4195 are left to unseenboatwide (another PR).
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4470;
+        const int kCounterSlots = 4640;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2477,6 +2483,12 @@ namespace Ts3Fixes
                 case "futuredescendantsize0": return Instantiator.kFutureDescendantSize0;
                 case "junglegymexitqueue": return Instantiator.kJungleGymExitQueue;
                 case "wildhorselot": return Instantiator.kWildHorseLot;
+                case "wildlotskip": return Instantiator.kWildLotSkip;        // off (WildLotSkip.cs, docs/656 §8.3)
+                case "petstartleskip": return Instantiator.kPetStartleSkip;  // off (PetStartleSkip.cs, docs/656 §8.1)
+                case "petlonghome": return Instantiator.kPetLongHome;        // off (PetLongHome.cs, docs/656 §8.2)
+                case "petarrivepoint": return Instantiator.kPetArrivePoint;  // off (PetArrivePoint.cs, docs/656 §4.1)
+                case "strayleave": return Instantiator.kStrayLeave;          // off (StrayLeave.cs, docs/656 §4.2)
+                case "petlongvisit": return Instantiator.kPetLongVisit;      // off (PetLongHome.cs, docs/656 §4.3)
                 case "harvesterunripe": return Instantiator.kHarvesterUnripe;
                 case "hottubseatposture": return Instantiator.kHotTubSeatPosture;
                 case "teenpartybreakup": return Instantiator.kTeenPartyBreakUp;
@@ -2783,6 +2795,7 @@ namespace Ts3Fixes
             static int[] sCounters;
             public bool RunHook()
             {
+                PlhBefore(Actor, Target, SimFollowers, "gohome");  // docs/656 §8.2 petlonghome (PetLongHome.cs): pets only, off by default
                 // docs/560 gohomewalk: EA requests WalkStyle on the Sim and never unrequests it
                 int ghBefore = -1;
                 if (WalkStyle != Sims3.Gameplay.Actors.Sim.WalkStyle.AutoSelect && ShortcutOn("gohomewalk")) ghBefore = GhWalkCount(Actor, WalkStyle);
@@ -3671,6 +3684,7 @@ namespace Ts3Fixes
             public bool RunHook()
             {
                 Sims3.Gameplay.Actors.Sim sim = Actor as Sims3.Gameplay.Actors.Sim;
+                PlhBefore(sim, Target, Followers, "gotolot");  // docs/656 §8.2 petlonghome (PetLongHome.cs): pets only, off by default
                 if (sim != null && (Followers == null || Followers.Count == 0)) ShortcutToLot(sim, Target, "gotolot", 13);
                 return RunOrig();
             }
@@ -3702,6 +3716,7 @@ namespace Ts3Fixes
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();
                     return Arrive();
                 }
+                if (mFollowers == null || mFollowers.Count == 0) PlhBefore(Actor, Target, null, "visit");  // petlongvisit (PetLongHome.cs, docs/656 §4.3)
                 if ((mFollowers == null || mFollowers.Count == 0) && ShortcutToLot(Actor, Target, "visit", 7))
                 {
                     mFollowers = new List<Sims3.Gameplay.Actors.Sim>();

@@ -37,6 +37,8 @@
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
 #   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# docs/656 pets: petlonghome / petlongvisit ran in s134 / s136, no off/on verdict; the others never exercised:
+#   petstartleskip petlonghome petlongvisit petarrivepoint strayleave wildlotskip
 # combo pieces: first in-game check only, not marked proven (docs/551):
 #   combovenue
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
