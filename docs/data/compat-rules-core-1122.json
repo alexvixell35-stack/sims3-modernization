@@ -1,0 +1,27 @@
+{
+ "_doc": "Set compat-rules-core-1122 (docs/328 §5, queue compat-rules-proof-1122): group C (module-current next to the test install's module-changed simler90 core: pair-core-other-module). Build: node tools/mod-set.ts build docs/data/compat-rules-core-1122.json -> game-copy/mod-sets/compat-rules-core-1122 (git-ignored). Sources local only (game-copy/compat-mods, MTS downloads), never re-hosted.",
+ "set": "compat-rules-core-1122",
+ "out": "game-copy/mod-sets/compat-rules-core-1122",
+ "sources": {
+  "compat": "game-copy/compat-mods"
+ },
+ "mods": [
+  {
+   "name": "XCAS core mod (Steam 1.67 full)",
+   "page": "https://modthesims.info/d/434270/xcas-core-mod-more-tattoo-locations-edit-naked-out.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "434270-xcas-core-mod-more-tattoo-locations-edit-naked-out/cmar_XCASfullSteam1.67.zip"
+   ]
+  },
+  {
+   "name": "simler90 Gameplay Core Mod",
+   "page": "https://modthesims.info/d/659969/simler90-gameplay-core-mod.html",
+   "version": "UPDATE242 (Steam)",
+   "status": "in-test-install",
+   "why": "module-changed sample; already in the test Mods"
+  }
+ ]
+}

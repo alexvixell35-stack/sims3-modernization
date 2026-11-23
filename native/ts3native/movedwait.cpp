@@ -120,13 +120,13 @@ static void MwLogCounters() {
     char b[640];
     int n = 0;
     for (int i = 0; i < 12 && c.mwKey[i] && n < 560; i++)
-        n += sprintf_s(b + n, sizeof(b) - n, " 0x%08lX %ld/%ld", c.mwKey[i], c.mwKeyN[i], c.mwKeyUs[i] / 1000);
+        n += SFmt(b + n, sizeof(b) - n, " 0x%08lX %ld/%ld", c.mwKey[i], c.mwKeyN[i], c.mwKeyUs[i] / 1000);
     b[n] = 0;
     Log("moved waits keys (n/ms):%s other %ld", n ? b : " none", c.mwKeyOther);
     n = 0;
     for (int i = 0; i < 10 && n < 560; i++)
         if (c.ntN[i])
-            n += sprintf_s(b + n, sizeof(b) - n, " 0x%08lX %ld/%ld/%ld fb %ld gv %ld ik %ld", c.ntKey[i], c.ntN[i], c.ntUs[i] / 1000,
+            n += SFmt(b + n, sizeof(b) - n, " 0x%08lX %ld/%ld/%ld fb %ld gv %ld ik %ld", c.ntKey[i], c.ntN[i], c.ntUs[i] / 1000,
                            c.ntMaxUs[i] / 1000, c.ntFb[i], c.ntGv[i], c.ntIk[i]);
     b[n] = 0;
     Log("next takers (n/ms/max ms):%s", n ? b : " none");

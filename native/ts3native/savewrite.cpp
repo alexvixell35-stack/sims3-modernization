@@ -38,7 +38,7 @@ static SaveFinalFn g_saveFinalOrig = (SaveFinalFn)(uintptr_t)SAVE_FINAL;
 
 // --- folder helpers (plain Win32, no game code: they run on the worker) ---
 static bool Join(wchar_t* out, const wchar_t* dir, const wchar_t* name) {
-    return swprintf_s(out, MAX_PATH, L"%s\\%s", dir, name) > 0;
+    return PathFmt(out, MAX_PATH, L"%s\\%s", dir, name);
 }
 static const wchar_t* Tail(const wchar_t* p) {  // last path part: log lines carry no user folders (docs/188)
     const wchar_t* s = p ? wcsrchr(p, L'\\') : NULL;
@@ -164,14 +164,14 @@ static void SaveWriteResolve(SaveTimes& t) {
 
 static const char* SavePhaseText(char* b, size_t n, LONG us) {  // "12" ms, or "not measured"
     if (us < 0) return "not measured";
-    sprintf_s(b, n, "%ld", us / 1000);
+    SFmt(b, n, "%ld", us / 1000);
     return b;
 }
 // "3000 (call)" timed at 0xAB12AF; "~15000 (gate span)" / "~15000 (info span)" from the entries around it; "not measured"
 static const char* SaveWriteText(char* b, size_t n, const SaveTimes& t) {
     if (t.write < 0 || t.writeHow == SW_NONE) return "not measured";
-    if (t.writeHow == SW_CALL) sprintf_s(b, n, "%ld (call)", t.write / 1000);
-    else sprintf_s(b, n, "~%ld (%s span)", t.write / 1000, t.writeHow == SW_GATE ? "gate" : "info");
+    if (t.writeHow == SW_CALL) SFmt(b, n, "%ld (call)", t.write / 1000);
+    else SFmt(b, n, "~%ld (%s span)", t.write / 1000, t.writeHow == SW_GATE ? "gate" : "info");
     return b;
 }
 
@@ -213,14 +213,14 @@ static bool SaveJobPaths(const u8* info) {
     if (n == 0 || n >= MAX_PATH || !EndsWithI(nhd, L".nhd")) return false;
     DWORD a = GetFileAttributesW(nhd);
     if (a == INVALID_FILE_ATTRIBUTES || (a & FILE_ATTRIBUTE_DIRECTORY)) return false;  // no old save: the game skips the backup too
-    wcscpy_s(g_sj.src, nhd);
+    WCpy(g_sj.src, nhd);
     CutLast(g_sj.src);  // <Saves>\<name>.sims3
     wchar_t user[MAX_PATH];
-    wcscpy_s(user, g_sj.src);
+    WCpy(user, g_sj.src);
     CutLast(user);  // <Saves>
     if (!EndsWithI(g_sj.src, L".sims3") || !EndsWithI(user, L"\\Saves")) return false;
     CutLast(user);  // the TS3 user folder: same volume as Saves (rename works), not listed as a save
-    return swprintf_s(g_sj.bak, L"%s.backup", g_sj.src) > 0 && Join(g_sj.tmp, user, L"ts3native-backup.tmp");
+    return PathFmt(g_sj.bak, L"%s.backup", g_sj.src) && Join(g_sj.tmp, user, L"ts3native-backup.tmp");
 }
 
 static void SaveJobDiscard() {  // wait for the worker and drop its copy
@@ -258,7 +258,7 @@ static bool SaveJobPromote(const wchar_t* name) {
     const wchar_t* last = wcsrchr(g_sj.src, L'\\');
     wchar_t want[MAX_PATH];
     bool same = last && name && Readable(name, MAX_PATH * sizeof(wchar_t)) && wcsnlen(name, MAX_PATH) < MAX_PATH - 8 &&
-                (!_wcsicmp(last + 1, name) || (swprintf_s(want, L"%s.sims3", name) > 0 && !_wcsicmp(last + 1, want)));
+                (!_wcsicmp(last + 1, name) || (PathFmt(want, L"%s.sims3", name) && !_wcsicmp(last + 1, want)));
     u64 h, b;
     if (!g_sj.ok || !same || !TreeHashOf(g_sj.src, &h, &b) || h != g_sj.hash || b != g_sj.bytes) {
         Log("save backup: worker copy not used (ok %ld, same folder %d), game copies", g_sj.ok, same);
@@ -298,7 +298,7 @@ static FlushJob g_fj;
 static void __cdecl SaveFlushHook(const wchar_t* path) {
     FlushJob& f = g_fj;
     if (f.defer && f.tid == GetCurrentThreadId() && f.n < 8 && path && wcsnlen(path, MAX_PATH) < MAX_PATH) {
-        wcscpy_s(f.path[f.n++], path);
+        WCpy(f.path[f.n++], path);
         InterlockedIncrement(&ts3native_counters.flushDeferred);
         return;
     }
@@ -333,7 +333,9 @@ static void FlushTree(const wchar_t* path) {  // as FUN_00AAF4B0, but shared so 
     HANDLE h = FindFirstFileW(pat, &fd);
     if (h == INVALID_HANDLE_VALUE) return;
     do {
-        if (!IsDots(fd.cFileName) && Join(p, path, fd.cFileName)) FlushTree(p);
+        if (IsDots(fd.cFileName)) continue;
+        if (Join(p, path, fd.cFileName)) FlushTree(p);
+        else FlushFail(path, "child path too long");  // docs/323: counted in fails, not flushed
     } while (FindNextFileW(h, &fd));
     FindClose(h);
 }

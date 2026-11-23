@@ -646,7 +646,7 @@ static DWORD WINAPI VfPollThread(void* memory) {
 // One probe at `at` with prologue `pro` of the probe's length: the game address and its verified bytes, or a selftest dummy.
 static bool VfInstallAt(int id, DWORD at, const u8* pro) {
     char name[48];
-    sprintf_s(name, "%s (verify)", kVf[id].name);
+    SFmt(name, "%s (verify)", kVf[id].name);
     return (g_vfTramp[id] = InstallDetour(name, at, pro, kVf[id].len, (void*)kVfStubs[id], &g_vfTramp[id])) != NULL;
 }
 
@@ -673,7 +673,7 @@ static bool ApplyVerify(const wchar_t* ini) {
         wanted[i] = (p.group & g_vfGroups) && (p.at != VF_THREADED_OBJS || threadedObjs);
         if (wanted[i] && ApexVerifySite(p.at)) {
             char what[64];
-            sprintf_s(what, "[Verify] probe %s", p.name);
+            SFmt(what, "[Verify] probe %s", p.name);
             if (ApexStandsDown(ApexVerifySite(p.at), what, "its entry")) wanted[i] = false;
         }
         // S3MM's profiler detours 0xE59FD0 too (docs/291 §6): stand down; a profiler that hooked first fails the prologue check below
@@ -684,7 +684,7 @@ static bool ApplyVerify(const wchar_t* ini) {
         owner[i] = wanted[i] && !ok[i] && p.pair == VF_NONE ? VfOwnerSlot(p.at) : NULL;
         if (owner[i]) Log("verify %s: counted inside the stub that owns 0x%08X", p.name, p.at);
         else if (wanted[i] && !ok[i]) {
-            if (Readable((const void*)(uintptr_t)p.at, p.len)) Hex((const u8*)(uintptr_t)p.at, p.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+            if (Readable((const void*)(uintptr_t)p.at, p.len)) Hex((const u8*)(uintptr_t)p.at, p.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP verify %s: prologue at 0x%08X differs (found %s)", p.name, p.at, hex);
         }
     }
@@ -695,10 +695,10 @@ static bool ApplyVerify(const wchar_t* ini) {
     k.vfMode = GetPrivateProfileIntW(L"Verify", L"Mode", 1, ini) == 0 ? 0 : 1;
     if ((g_vfGroups || memory) && GetPrivateProfileIntW(L"Verify", L"Log", 1, ini)) {
         wchar_t path[MAX_PATH];
-        wcscpy_s(path, ini);
+        WCpy(path, ini);
         wchar_t* dot = wcsrchr(path, L'.');
         if (dot) *dot = 0;
-        wcscat_s(path, L"-verify.jsonl");
+        WCat(path, L"-verify.jsonl");
         g_vfLog = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (g_vfLog == INVALID_HANDLE_VALUE) Log("verify: cannot create %ls (err %lu), no event log", path, GetLastError());
     }

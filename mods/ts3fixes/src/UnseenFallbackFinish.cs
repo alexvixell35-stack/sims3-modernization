@@ -102,6 +102,19 @@ namespace Ts3Fixes
 
         // D's Sim rules (UfPreSim) with the finish deny list (a townie's plain Go Here allowed), standing (walking keeps Standing),
         // not in a tomb or hidden room
+        // unseenfbgohere (kUnseenFbGoHere, default off, docs/328 §7.5): NRaas GoHere's VisitLotEx / VisitCommunityLotEx may take the
+        // unseen fallback (pre and finish) like EA's VisitLot / VisitCommunityLot; every other NRaas type stays denied. [1587] / [1588]
+        // count pre / finish eligibility of a GoHere trip; the first of each writes one log line (the switch-on queue reads it).
+        static bool UfTripOk(Sims3.Gameplay.Interactions.InteractionInstance cur, bool finish)
+        {
+            string n = cur.GetType().FullName;
+            bool gh = ShortcutOn("unseenfbgohere");
+            bool ok = finish ? !UfFinishCore.Denied(n, gh) : !UfPreCore.Denied(n, gh);
+            if (ok && gh && Array.IndexOf(UfPreCore.kGoHereTrips, n) >= 0 && PatchCounters()[finish ? 1588 : 1587]++ == 0)
+                DiagLine("unseenfbgohere: " + n + " eligible (" + (finish ? "finish" : "pre") + ")");
+            return ok;
+        }
+
         static bool UfFinishSim(Sim s)
         {
             Sims3.Gameplay.CAS.SimDescription d = s.SimDescription;
@@ -109,7 +122,7 @@ namespace Ts3Fixes
             if (s.GetSituationOfType<Sims3.Gameplay.Situations.GroupingSituation>() != null) return false;
             if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(s)) return false;  // docs/267 F2: hidden rooms too
             Sims3.Gameplay.Interactions.InteractionInstance cur = s.CurrentInteraction;
-            return cur != null && !(cur is Sims3.Gameplay.Socializing.SocialInteraction) && !UfFinishCore.Denied(cur.GetType().FullName);
+            return cur != null && !(cur is Sims3.Gameplay.Socializing.SocialInteraction) && UfTripOk(cur, true);
         }
 
         // the end is out of view with its lot (UfGoalUnseen) and on no lot where an active-household Sim is

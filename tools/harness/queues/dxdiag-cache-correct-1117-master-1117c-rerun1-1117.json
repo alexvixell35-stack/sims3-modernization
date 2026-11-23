@@ -1,0 +1,461 @@
+{
+  "note": "dxdiag-cache-correct-1117-master-1117c-rerun1-1117: rerun of chain-1117g step 2 (all 6 jobs voided by harness causes, bugfix/chain-1117g-harness-1117 b16377985: menu jobs hit the [RouteAsync] idle check with no world loaded; bp-ddc-park1 ran with a stale rewind-spike.exe that refused the snapshot and left the route worker parked; park1/park2 overwatchchain voided 78/51 sim min after 03:00, before the alarm fires ~05:00). Needs that branch merged into the checkout queue.ts runs from and tools/harness/rewind/build.cmd run after it (chain-1117h does both checks). Jobs unchanged. Was: dxdiag-cache-correct-1117-master-1117c: copy of dxdiag-cache-correct-1117 repinned to the master-1117c set (0.36.271-mc1117: feature/dxdiag-skip-1117 merged into master with the Dalexlol batch, rewind COM settle, mandatory cleanup), run by probe-out/queue/chain-1117g.sh. Was: dxdiag-cache-correct-1117 (PREPARED, NOT RUN; correctness, no timing, noiseCheck false): docs/284 [Startup] DxDiagCache. Build ts3native.asi.dxdiag-skip-1117 (0.36.270-ddc1, feature/dxdiag-skip-1117 on master 2561c2801). Needs feature/dxdiag-skip-1117 merged into the checkout queue.ts runs from (tools/harness/devcfg-check.ts; queue.ts lightIni adds DxDiagCache=1 to every job, these jobs set it themselves). Bin state apex via tools/turbo-compat.ts. Order matters: off records the DeviceConfig.log reference, miss (3) probes and writes the sidecar, hit and hit2 read it, then the Park pair (rewind). Pass: every --expect job prints \"devcfg: same as ddc-off\" (exit 0), the log lines per path, no SKIP/FAIL line; gain = row.startMs(off) - row.startMs(hit) (launch to menu, expect ~60 s; report it in docs/284 §5 and PLAN); Park: zero line in both jobs, job 2 row.start \"rewind (N ms)\", queue log without \"settle ping loop\" for that group. Household: no Sim behaviour (start-up VRAM answer only); script errors 0. Run: node tools/harness/queue.ts tools/harness/queues/dxdiag-cache-correct-1117.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "menu-ddc-off",
+      "note": "[est 6 min] OFF arm (vanilla DxDiag query, ~60 s): records the DeviceConfig.log stable lines as the reference. row.startMs = launch to menu with the query.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "repinned 2026-11-17 to the master-1117c set (merge/harness-1117, 0.36.271-mc1117: asi + ini + ts3fixes + agent from one merge). Was: ts3native.asi.dxdiag-skip-1117 (builds.json, 0.36.270-ddc1 = master 2561c2801 + [Startup] DxDiagCache, feature/dxdiag-skip-1117) with its ini and the master-1117b ts3fixes package (no managed change)",
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "save": "menu",
+      "ini": {
+        "Startup.DxDiagCache": 0
+      },
+      "run": {
+        "script": [
+          "devcfg-check.ts",
+          "--record",
+          "ddc-off"
+        ]
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.271-mc1117 ": 1,
+        "^DxDiag cache off \\(DxDiagCache=0\\)$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) DxDiag cache": 0,
+        "^DxDiagCache: miss, probe or write failed": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.271-mc1117 ": {
+          "match": [
+            "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.270-ddc1 2026-11-17 12:00:00",
+            "ts3native 0.36.269-mb1117 2026-11-17 10:00:00"
+          ]
+        },
+        "^DxDiag cache off \\(DxDiagCache=0\\)$": {
+          "match": [
+            "DxDiag cache off (DxDiagCache=0)"
+          ],
+          "noMatch": [
+            "DxDiag cache: DxDiagCache=1 (cache), sidecar ts3native-vram.ini"
+          ]
+        },
+        "^(SKIP|FAIL) DxDiag cache": {
+          "match": [
+            "SKIP DxDiag cache: VRAM_DxDiag 0x612640 bytes differ, nothing written",
+            "FAIL DxDiag cache: VirtualProtect at 0x612640 (err 5)"
+          ],
+          "noMatch": [
+            "DxDiag cache off (DxDiagCache=0)"
+          ]
+        },
+        "^DxDiagCache: miss, probe or write failed": {
+          "match": [
+            "DxDiagCache: miss, probe or write failed (nothing cached) -> 0 MB (mode 3, 0 device(s), sig 0011223344556677) in 20 ms, ~0 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
+          ]
+        }
+      }
+    },
+    {
+      "id": "menu-ddc-miss",
+      "note": "[est 6 min] ON, cache MISS (DxDiagCache=3: always probes and rewrites the sidecar). DeviceConfig.log must equal the off arm; startMs about the off arm.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "repinned 2026-11-17 to the master-1117c set (merge/harness-1117, 0.36.271-mc1117: asi + ini + ts3fixes + agent from one merge). Was: ts3native.asi.dxdiag-skip-1117 (builds.json, 0.36.270-ddc1 = master 2561c2801 + [Startup] DxDiagCache, feature/dxdiag-skip-1117) with its ini and the master-1117b ts3fixes package (no managed change)",
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "save": "menu",
+      "ini": {
+        "Startup.DxDiagCache": 3
+      },
+      "run": {
+        "script": [
+          "devcfg-check.ts",
+          "--expect",
+          "ddc-off"
+        ]
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.271-mc1117 ": 1,
+        "^DxDiag cache: DxDiagCache=3 \\(refresh: probe and rewrite\\), sidecar ts3native-vram\\.ini$": 1,
+        "^DxDiagCache: miss, probed and written -> \\d+ MB \\(mode 3,": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) DxDiag cache": 0,
+        "^DxDiagCache: miss, probe or write failed": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.271-mc1117 ": {
+          "match": [
+            "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.270-ddc1 2026-11-17 12:00:00",
+            "ts3native 0.36.269-mb1117 2026-11-17 10:00:00"
+          ]
+        },
+        "^DxDiag cache: DxDiagCache=3 \\(refresh: probe and rewrite\\), sidecar ts3native-vram\\.ini$": {
+          "match": [
+            "DxDiag cache: DxDiagCache=3 (refresh: probe and rewrite), sidecar ts3native-vram.ini"
+          ],
+          "noMatch": [
+            "DxDiag cache: DxDiagCache=1 (cache), sidecar ts3native-vram.ini"
+          ]
+        },
+        "^DxDiagCache: miss, probed and written -> \\d+ MB \\(mode 3,": {
+          "match": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probe or write failed (nothing cached) -> 0 MB (mode 3, 0 device(s), sig 0011223344556677) in 20 ms, ~0 ms saved"
+          ]
+        },
+        "^(SKIP|FAIL) DxDiag cache": {
+          "match": [
+            "SKIP DxDiag cache: VRAM_DxDiag 0x612640 bytes differ, nothing written",
+            "FAIL DxDiag cache: VirtualProtect at 0x612640 (err 5)"
+          ],
+          "noMatch": [
+            "DxDiag cache off (DxDiagCache=0)"
+          ]
+        },
+        "^DxDiagCache: miss, probe or write failed": {
+          "match": [
+            "DxDiagCache: miss, probe or write failed (nothing cached) -> 0 MB (mode 3, 0 device(s), sig 0011223344556677) in 20 ms, ~0 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
+          ]
+        }
+      }
+    },
+    {
+      "id": "menu-ddc-hit",
+      "note": "[est 4 min] ON, cache HIT (DxDiagCache=1, reads the sidecar the miss arm wrote). DeviceConfig.log must equal the off arm; startMs ~60 s below the off arm (the gain).",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "repinned 2026-11-17 to the master-1117c set (merge/harness-1117, 0.36.271-mc1117: asi + ini + ts3fixes + agent from one merge). Was: ts3native.asi.dxdiag-skip-1117 (builds.json, 0.36.270-ddc1 = master 2561c2801 + [Startup] DxDiagCache, feature/dxdiag-skip-1117) with its ini and the master-1117b ts3fixes package (no managed change)",
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "save": "menu",
+      "ini": {
+        "Startup.DxDiagCache": 1
+      },
+      "run": {
+        "script": [
+          "devcfg-check.ts",
+          "--expect",
+          "ddc-off"
+        ]
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.271-mc1117 ": 1,
+        "^DxDiag cache: DxDiagCache=1 \\(cache\\), sidecar ts3native-vram\\.ini$": 1,
+        "^DxDiagCache: hit -> \\d+ MB \\(mode 1, \\d+ device\\(s\\), sig [0-9A-F]{16}, sidecar by (game|helper)\\) in \\d+ ms, ~[1-9]\\d* ms saved$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) DxDiag cache": 0,
+        "^DxDiagCache: miss, probe or write failed": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.271-mc1117 ": {
+          "match": [
+            "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.270-ddc1 2026-11-17 12:00:00",
+            "ts3native 0.36.269-mb1117 2026-11-17 10:00:00"
+          ]
+        },
+        "^DxDiag cache: DxDiagCache=1 \\(cache\\), sidecar ts3native-vram\\.ini$": {
+          "match": [
+            "DxDiag cache: DxDiagCache=1 (cache), sidecar ts3native-vram.ini"
+          ],
+          "noMatch": [
+            "DxDiag cache: DxDiagCache=3 (refresh: probe and rewrite), sidecar ts3native-vram.ini"
+          ]
+        },
+        "^DxDiagCache: hit -> \\d+ MB \\(mode 1, \\d+ device\\(s\\), sig [0-9A-F]{16}, sidecar by (game|helper)\\) in \\d+ ms, ~[1-9]\\d* ms saved$": {
+          "match": [
+            "DxDiagCache: hit -> 0 MB (mode 1, 2 device(s), sig 0011223344556677, sidecar by game) in 3 ms, ~61234 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved",
+            "DxDiagCache: hit -> 0 MB (mode 1, 2 device(s), sig 0011223344556677, sidecar by game) in 3 ms, ~0 ms saved"
+          ]
+        },
+        "^(SKIP|FAIL) DxDiag cache": {
+          "match": [
+            "SKIP DxDiag cache: VRAM_DxDiag 0x612640 bytes differ, nothing written",
+            "FAIL DxDiag cache: VirtualProtect at 0x612640 (err 5)"
+          ],
+          "noMatch": [
+            "DxDiag cache off (DxDiagCache=0)"
+          ]
+        },
+        "^DxDiagCache: miss, probe or write failed": {
+          "match": [
+            "DxDiagCache: miss, probe or write failed (nothing cached) -> 0 MB (mode 3, 0 device(s), sig 0011223344556677) in 20 ms, ~0 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
+          ]
+        }
+      }
+    },
+    {
+      "id": "menu-ddc-hit2",
+      "note": "[est 4 min] ON, cache HIT repeat (second hit launch: same answer and time, no rewrite).",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "repinned 2026-11-17 to the master-1117c set (merge/harness-1117, 0.36.271-mc1117: asi + ini + ts3fixes + agent from one merge). Was: ts3native.asi.dxdiag-skip-1117 (builds.json, 0.36.270-ddc1 = master 2561c2801 + [Startup] DxDiagCache, feature/dxdiag-skip-1117) with its ini and the master-1117b ts3fixes package (no managed change)",
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "save": "menu",
+      "ini": {
+        "Startup.DxDiagCache": 1
+      },
+      "run": {
+        "script": [
+          "devcfg-check.ts",
+          "--expect",
+          "ddc-off"
+        ]
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.271-mc1117 ": 1,
+        "^DxDiagCache: hit -> \\d+ MB \\(mode 1, \\d+ device\\(s\\), sig [0-9A-F]{16}, sidecar by (game|helper)\\) in \\d+ ms, ~[1-9]\\d* ms saved$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) DxDiag cache": 0,
+        "^DxDiagCache: miss, probe or write failed": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.271-mc1117 ": {
+          "match": [
+            "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.270-ddc1 2026-11-17 12:00:00",
+            "ts3native 0.36.269-mb1117 2026-11-17 10:00:00"
+          ]
+        },
+        "^DxDiagCache: hit -> \\d+ MB \\(mode 1, \\d+ device\\(s\\), sig [0-9A-F]{16}, sidecar by (game|helper)\\) in \\d+ ms, ~[1-9]\\d* ms saved$": {
+          "match": [
+            "DxDiagCache: hit -> 0 MB (mode 1, 2 device(s), sig 0011223344556677, sidecar by game) in 3 ms, ~61234 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved",
+            "DxDiagCache: hit -> 0 MB (mode 1, 2 device(s), sig 0011223344556677, sidecar by game) in 3 ms, ~0 ms saved"
+          ]
+        },
+        "^(SKIP|FAIL) DxDiag cache": {
+          "match": [
+            "SKIP DxDiag cache: VRAM_DxDiag 0x612640 bytes differ, nothing written",
+            "FAIL DxDiag cache: VirtualProtect at 0x612640 (err 5)"
+          ],
+          "noMatch": [
+            "DxDiag cache off (DxDiagCache=0)"
+          ]
+        },
+        "^DxDiagCache: miss, probe or write failed": {
+          "match": [
+            "DxDiagCache: miss, probe or write failed (nothing cached) -> 0 MB (mode 3, 0 device(s), sig 0011223344556677) in 20 ms, ~0 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-ddc-park1",
+      "note": "[est 9 min] [Rewind] Park=1 forces DxDiagCache 2 (zero, no DxDiag). Job 1 of 2 with the same game start: fresh launch + load; the queue snapshots after it. That settle must NOT log \"settle ping loop\" (queue log; line from bugfix/rewind-com-roid-1117) nor refuse on a combase ping-loop worker. BP 3 min profile, script errors 0.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "repinned 2026-11-17 to the master-1117c set (merge/harness-1117, 0.36.271-mc1117: asi + ini + ts3fixes + agent from one merge). Was: ts3native.asi.dxdiag-skip-1117 (builds.json, 0.36.270-ddc1 = master 2561c2801 + [Startup] DxDiagCache, feature/dxdiag-skip-1117) with its ini and the master-1117b ts3fixes package (no managed change)",
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "Startup.DxDiagCache": 1,
+        "Rewind.Park": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.271-mc1117 ": 1,
+        "^DxDiag cache: DxDiagCache=2 \\(zero, no DxDiag\\), sidecar ts3native-vram\\.ini$": 1,
+        "^DxDiagCache: zero -> 0 MB \\(mode 2,": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) DxDiag cache": 0,
+        "^DxDiagCache: miss, probe or write failed": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.271-mc1117 ": {
+          "match": [
+            "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.270-ddc1 2026-11-17 12:00:00",
+            "ts3native 0.36.269-mb1117 2026-11-17 10:00:00"
+          ]
+        },
+        "^DxDiag cache: DxDiagCache=2 \\(zero, no DxDiag\\), sidecar ts3native-vram\\.ini$": {
+          "match": [
+            "DxDiag cache: DxDiagCache=2 (zero, no DxDiag), sidecar ts3native-vram.ini"
+          ],
+          "noMatch": [
+            "DxDiag cache: DxDiagCache=1 (cache), sidecar ts3native-vram.ini"
+          ]
+        },
+        "^DxDiagCache: zero -> 0 MB \\(mode 2,": {
+          "match": [
+            "DxDiagCache: zero -> 0 MB (mode 2, 2 device(s), sig 0011223344556677, sidecar by helper) in 2 ms, ~61234 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: hit -> 0 MB (mode 1, 2 device(s), sig 0011223344556677, sidecar by game) in 3 ms, ~61234 ms saved"
+          ]
+        },
+        "^(SKIP|FAIL) DxDiag cache": {
+          "match": [
+            "SKIP DxDiag cache: VRAM_DxDiag 0x612640 bytes differ, nothing written",
+            "FAIL DxDiag cache: VirtualProtect at 0x612640 (err 5)"
+          ],
+          "noMatch": [
+            "DxDiag cache off (DxDiagCache=0)"
+          ]
+        },
+        "^DxDiagCache: miss, probe or write failed": {
+          "match": [
+            "DxDiagCache: miss, probe or write failed (nothing cached) -> 0 MB (mode 3, 0 device(s), sig 0011223344556677) in 20 ms, ~0 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-ddc-park2",
+      "note": "[est 5 min] [Rewind] Park=1 forces DxDiagCache 2 (zero, no DxDiag). Job 2 of 2 with the same game start: starts from a rewind to job 1 snapshot (row.start \"rewind (N ms)\"; a refusal naming the ping loop = FAIL). BP 3 min profile, script errors 0.",
+      "asi": "game-copy/ts3native.asi.master-1117c",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+      "pinReason": "repinned 2026-11-17 to the master-1117c set (merge/harness-1117, 0.36.271-mc1117: asi + ini + ts3fixes + agent from one merge). Was: ts3native.asi.dxdiag-skip-1117 (builds.json, 0.36.270-ddc1 = master 2561c2801 + [Startup] DxDiagCache, feature/dxdiag-skip-1117) with its ini and the master-1117b ts3fixes package (no managed change)",
+      "minCounters": 912,
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "ini": {
+        "Startup.DxDiagCache": 1,
+        "Rewind.Park": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 3,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.271-mc1117 ": 1,
+        "^DxDiag cache: DxDiagCache=2 \\(zero, no DxDiag\\), sidecar ts3native-vram\\.ini$": 1,
+        "^DxDiagCache: zero -> 0 MB \\(mode 2,": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) DxDiag cache": 0,
+        "^DxDiagCache: miss, probe or write failed": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.271-mc1117 ": {
+          "match": [
+            "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.270-ddc1 2026-11-17 12:00:00",
+            "ts3native 0.36.269-mb1117 2026-11-17 10:00:00"
+          ]
+        },
+        "^DxDiag cache: DxDiagCache=2 \\(zero, no DxDiag\\), sidecar ts3native-vram\\.ini$": {
+          "match": [
+            "DxDiag cache: DxDiagCache=2 (zero, no DxDiag), sidecar ts3native-vram.ini"
+          ],
+          "noMatch": [
+            "DxDiag cache: DxDiagCache=1 (cache), sidecar ts3native-vram.ini"
+          ]
+        },
+        "^DxDiagCache: zero -> 0 MB \\(mode 2,": {
+          "match": [
+            "DxDiagCache: zero -> 0 MB (mode 2, 2 device(s), sig 0011223344556677, sidecar by helper) in 2 ms, ~61234 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: hit -> 0 MB (mode 1, 2 device(s), sig 0011223344556677, sidecar by game) in 3 ms, ~61234 ms saved"
+          ]
+        },
+        "^(SKIP|FAIL) DxDiag cache": {
+          "match": [
+            "SKIP DxDiag cache: VRAM_DxDiag 0x612640 bytes differ, nothing written",
+            "FAIL DxDiag cache: VirtualProtect at 0x612640 (err 5)"
+          ],
+          "noMatch": [
+            "DxDiag cache off (DxDiagCache=0)"
+          ]
+        },
+        "^DxDiagCache: miss, probe or write failed": {
+          "match": [
+            "DxDiagCache: miss, probe or write failed (nothing cached) -> 0 MB (mode 3, 0 device(s), sig 0011223344556677) in 20 ms, ~0 ms saved"
+          ],
+          "noMatch": [
+            "DxDiagCache: miss, probed and written -> 0 MB (mode 3, 2 device(s), sig 0011223344556677) in 61020 ms, ~0 ms saved"
+          ]
+        }
+      }
+    }
+  ]
+}

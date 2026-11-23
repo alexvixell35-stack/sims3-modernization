@@ -1,0 +1,40 @@
+{
+ "_doc": "Set compat-rules-base-1122 (docs/328 §5, queue compat-rules-proof-1122): group A (compatible: override-calls-base, derives). Build: node tools/mod-set.ts build docs/data/compat-rules-base-1122.json -> game-copy/mod-sets/compat-rules-base-1122 (git-ignored). Sources local only (game-copy/compat-mods, MTS downloads), never re-hosted.",
+ "set": "compat-rules-base-1122",
+ "out": "game-copy/mod-sets/compat-rules-base-1122",
+ "sources": {
+  "compat": "game-copy/compat-mods"
+ },
+ "mods": [
+  {
+   "name": "Housecleaning For All Sims",
+   "page": "https://modthesims.info/d/411634/housecleaning-for-all-sims.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "411634-housecleaning-for-all-sims/Buzz_CleanHouseForEveryone.zip"
+   ]
+  },
+  {
+   "name": "Scribbling Pad",
+   "page": "https://modthesims.info/d/422974/scribbling-pad.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "422974-scribbling-pad/Buzz_ScribblingPad.zip"
+   ]
+  },
+  {
+   "name": "Death Note",
+   "page": "https://modthesims.info/d/498188/death-note.html",
+   "version": "download of 2026-11-22 in game-copy/compat-mods",
+   "status": "include",
+   "from": "compat",
+   "files": [
+    "498188-death-note/Desecrate_DeathNote.zip"
+   ]
+  }
+ ]
+}

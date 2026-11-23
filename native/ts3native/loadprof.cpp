@@ -186,13 +186,13 @@ static bool LpInstallAt(int id, DWORD at, DWORD target) {
     const u8* p = (const u8*)(uintptr_t)at;
     if (!Matches(p, want, s.len)) {
         char hex[64];
-        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP loadprof %s: bytes at 0x%08lX differ (found %s; another section owns it?)", s.name, at, hex);
         return false;
     }
     if (!target) {
         char name[80];
-        sprintf_s(name, "%s (loadprof)", s.name);
+        SFmt(name, "%s (loadprof)", s.name);
         return (g_lpJmp[id] = InstallDetour(name, at, s.pro, s.len, (void*)kLpStubs[id], &g_lpJmp[id])) != NULL;
     }
     g_lpJmp[id] = (void*)(uintptr_t)target;

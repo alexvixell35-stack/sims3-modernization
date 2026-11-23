@@ -151,7 +151,7 @@ namespace Ts3Fixes
             if (sShlMissing.Length > 0) AppliedLog().Add("sharelanes: not found: " + sShlMissing);
         }
 
-        static bool ShlScope(Sim s, bool hhOn) { return hhOn || !HouseholdExempt(s); }
+        static bool ShlScope(Sim s, bool hhOn) { return hhOn || !IsPlayerSim(s); }  // not HouseholdExempt: HouseholdToo never lifts lane skips, clip-through or path changes
 
         static string ShlWho(Sim s) { return s == PlumbBob.SelectedActor ? "selected" : s.IsInActiveHousehold ? "household" : "npc"; }
 

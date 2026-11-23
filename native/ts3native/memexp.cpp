@@ -204,12 +204,12 @@ static int MxVt(DWORD vt) {
 // "Ns.Name" (MonoClass +0x38 namespace, +0x34 name), separators of our line format replaced
 static void MxName(DWORD klass, char* out, int cap) {
     out[0] = 0;
-    if (klass == 0) { strcpy_s(out, cap, "(no class)"); return; }
+    if (klass == 0) { SCpy(out, cap, "(no class)"); return; }
     __try {
         const char* nm = *(const char* const*)(uintptr_t)(klass + 0x34);
         const char* ns = *(const char* const*)(uintptr_t)(klass + 0x38);
         _snprintf_s(out, cap, _TRUNCATE, "%s%s%s", ns && *ns ? ns : "", ns && *ns ? "." : "", nm ? nm : "?");
-    } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(out, cap, "?"); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(out, cap, "?"); }
     for (char* p = out; *p; p++)
         if (*p == ',' || *p == ':' || *p == '=' || *p == ' ' || *p == '<' ) *p = '_';
 }
@@ -394,7 +394,7 @@ static void MxTypeGrowth(LONG gcNo) {
             int bi = -1;
             for (DWORD i = 0; i < x.nh; i++) if (x.h[i].n && (bi < 0 || x.h[i].bytes > x.h[bi].bytes)) bi = (int)i;
             if (bi < 0) break;
-            if (x.h[bi].cls >= 0) MxName(s.cls[x.h[bi].cls].klass, nm, sizeof(nm)); else strcpy_s(nm, "(non-object)");
+            if (x.h[bi].cls >= 0) MxName(s.cls[x.h[bi].cls].klass, nm, sizeof(nm)); else SCpy(nm, "(non-object)");
             n += _snprintf_s(line + n, sizeof(line) - n, _TRUNCATE, " %s:%.0f", nm, x.h[bi].bytes / 1024.0);
             x.h[bi].n = 0;  // printed (the table is rebuilt next pass)
             if (n >= (int)sizeof(line) - 1) break;

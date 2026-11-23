@@ -1,0 +1,118 @@
+{
+ "note": "ts3fixes-loop-cost-conv-rerun-1123 (docs/330 §8.3, WRITTEN): rerun of the one FAIL of ts3fixes-loop-cost-correct-1122, bp-conversation-gone-check-cadence, on ts3fixes loopcost3 (multi-sample since 2026-11-23: 5 conversations per arm; the check accepts an empty member list only when phase 15 removed the gone member from the seeded conversation; a gone member never removed still fails). queue.ts on this branch keeps every new ScriptError xml in probe-out/queue as <queue>-<date>-<job>-ScriptError_*.xml. Bin state apex. Est ~15 min.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-conversation-gone-check-cadence",
+   "note": "[est 15 min] Correctness under deadrefcadence ON: repro conversation-gone-check (phase 15 (Sims from the world snapshot)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefconvo_members>=1, deadrefcadence_snapshots moved (the new pass ran), 0 script errors. Since 2026-11-23: 5 samples per arm judged per sample (>= 3 conclusive, no fail; results line lists each); the expected #166 RemoveSim throw is reported (not counted) only before the [on] step (scriptErrorsReportBefore); any other script error, or that one in the on arm, still fails.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.loopcost4",
+   "pinReason": "ts3fixes-loop-cost-1122 (docs/330): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.ts3fixes-loop-cost-1122d (loopcost4: loopcost1 + the multi-sample conversation-gone-check with the repro-only seed clean entry point, DeadRefsCore.ConvSampleVerdict; loop code unchanged) (deadrefcadence + viewerpushdelta, both ON); agent ts3agent.package.ts3fixes-loop-cost-1122 (new switch and counter names) installed into the worktree build/ by chain-ts3fixes-loop-cost-1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "conversation-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefconvo_members>=3,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefconvo_members",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ],
+   "scriptErrorsReport": [
+    "System\\.NullReferenceException[^\\n]*\\r?\\n\\s*#0:[^\\n]*Socializing\\.Conversation:RemoveSim \\([^\\n]*\\r?\\n\\s*#1:[^\\n]*SocialComponent:(LeaveOrig|LeaveConversation) \\("
+   ],
+   "scriptErrorsReportBefore": "on",
+   "regexCases": {
+    "System\\.NullReferenceException[^\\n]*\\r?\\n\\s*#0:[^\\n]*Socializing\\.Conversation:RemoveSim \\([^\\n]*\\r?\\n\\s*#1:[^\\n]*SocialComponent:(LeaveOrig|LeaveConversation) \\(": {
+     "match": [
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveConversation ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()"
+     ],
+     "noMatch": [
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:OnSimDestroyed ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.InvalidCastException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.NullReferenceException: x\r\n#0: 0x1 in Sims3.Gameplay.Socializing.Conversation:AddSim (Sim) ()\r\n#1: 0x2 in Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()"
+     ]
+    },
+    "^ts3native 0\\.36\\.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 06:55:20"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+      "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+     ]
+    }
+   }
+  }
+ ],
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1122 ": {
+   "match": [
+    "ts3native 0.36.299-m1122 2026-11-22 06:55:20"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+    "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ }
+}

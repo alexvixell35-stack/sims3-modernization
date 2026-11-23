@@ -1,5 +1,5 @@
 {
-  "_about": "Known-bad or outdated mods for tools/compat-scan.ts. Each entry: name (regex, case-insensitive, matched against the file name without extension), optional key (resource key type:group:instance as compat-scan prints it, 8:8:16 hex digits), status (known-bad | outdated | hang-seen: a hang seen on our setup with none of our mods, not proven for every setup), reason, source (doc, issue or URL a human can check). Add an entry only with a source; no guessed entries.",
+  "_about": "Known-bad or outdated mods for tools/compat-scan.ts. Each entry: name (regex, case-insensitive, matched against the file name without extension), optional key (resource key type:group:instance as compat-scan prints it, 8:8:16 hex digits), status (known-bad | outdated | hang-seen: a hang seen on our setup with none of our mods, not proven for every setup | audit-confirmed: a crash (script error) or hang finding of the audited build that the docs/318 second review confirmed, static, not seen in game), reason, source (doc, issue or URL a human can check). Add an entry only with a source; no guessed entries.",
   "entries": [
     {
       "name": "^EnhancedWitches$",
@@ -12,6 +12,48 @@
       "status": "hang-seen",
       "reason": "the world load never finished with this package alone, twice, none of our mods installed (Steam 1.67 + Apex Radiance bridge; sha256 316f12dc...2bad); a tester on the EA app 1.69.47 loads fine with it. Seen on our setup, not ours, not proven for every setup",
       "source": "docs/314-kit-ab-mode.md (bisect 2026-11-22)"
+    },
+    {
+      "name": "^Buzz_(MakeNPCDoorFix|BuildBuyRestrictionChoker)$",
+      "status": "audit-confirmed",
+      "reason": "Builder Stuff (MTS 450059): throws a script error on every world load, save load and world quit, so mods that hook in after it can miss their own load or quit step (crash, confirmed, static)",
+      "source": "docs/318-mod-audit.md (second review 2026-11-22)"
+    },
+    {
+      "name": "^ani_GetDrunk_1\\.63$",
+      "status": "audit-confirmed",
+      "reason": "Drinks for your Sims (MTS 399992), audited 1.63/1.67 build: in one rare case a script error stops that Sim's needs and moodlets from updating until the Sim is reset (crash, confirmed, static)",
+      "source": "docs/318-mod-audit.md (second review 2026-11-22)"
+    },
+    {
+      "name": "^TSS_MoreRomanticInteractions$",
+      "status": "audit-confirmed",
+      "reason": "More Romantic Interactions v2 (MTS 691427): a script error in a lot's background update when a couch proposal has an Inappropriate or Insane bystander (crash, confirmed, static)",
+      "source": "docs/318-mod-audit.md (second review 2026-11-22)"
+    },
+    {
+      "name": "^ani_Dexter$",
+      "status": "audit-confirmed",
+      "reason": "Dexter the Bear (MTS 372599): the arresting officer waits forever if the suspect cannot reach the police car (hang, confirmed, static, rare)",
+      "source": "docs/318-mod-audit.md (second review 2026-11-22)"
+    },
+    {
+      "name": "^Desecrate_WeaponsLib$",
+      "status": "audit-confirmed",
+      "reason": "Weapons System (MTS 402950): the arresting officer waits forever if the suspect cannot reach the police car (hang, confirmed, static, rare)",
+      "source": "docs/318-mod-audit.md (second review 2026-11-22)"
+    },
+    {
+      "name": "^Enhanced Vampires$",
+      "status": "audit-confirmed",
+      "reason": "Enhanced Vampires (MTS 648599): the Friendship, Romance and Hatred aura pulses always throw a script error (crash, confirmed, static)",
+      "source": "docs/318-mod-audit.md, ranks 101-500 part (branch feature/compat-top500-1122, 2026-11-22)"
+    },
+    {
+      "name": "^icarusallsorts\\.PoolLifeguard(\\.package)?$",
+      "status": "audit-confirmed",
+      "reason": "Pool Jobs for Lifeguards (MTS 574660): a lifeguard who quits or is fired mid-shift still gets the rescue check and throws a script error; the base game has the same bug (crash, confirmed, static, rare)",
+      "source": "docs/318-mod-audit.md, ranks 101-500 part (branch feature/compat-top500-1122, 2026-11-22)"
     }
   ]
 }

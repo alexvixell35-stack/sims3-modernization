@@ -13315,6 +13315,7 @@ static void TestP5() {
 #include "apex-test.h"  // TestApex ([Compat] ApexStandDown, docs/148 §7)
 #include "saveframes-test.h"  // TestSavedFrames ([EaCrashFixes] SavedFrameGuard, docs/293)
 #include "s3mm-test.h"  // TestS3mm ([Compat] S3mmStandDown, Satb act refusal, docs/291 §6)
+#include "overflow-test.h"  // TestOverflow* (docs/323 overflow audit fixes)
 #include "compaction-test.h"  // TestCompaction ([Compaction], docs/204)
 #include "saveslim-test.h"  // TestSaveSlim ([SaveSlim], docs/15 phase 11)
 #include "rctrim-test.h"  // TestRcTrim ([ResourceCache] TrimAfterCleanup, docs/198 §6)
@@ -13352,6 +13353,7 @@ static void TestP5() {
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
 #include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
 #include "taskseam-test.h"  // TestTaskSeam ([Diag] TaskSeam, docs/308)
+#include "nonsim-test.h"    // TestNonSimSplit ([Diag] NonSimSplit, docs/329)
 #include "routespeed-test.h"  // TestRouteSpeed ([RouteSpeed] NeighbourMemo, docs/663)
 #include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
 #include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
@@ -14877,6 +14879,7 @@ int main(int argc, char** argv) {
     TestMintCall();
     TestMintFuse();
     TestAutShadow();
+    TestAsOlGrow();
     TestAutRaces();
     TestAutRacesR2c();
     TestThreadStack();
@@ -14899,6 +14902,9 @@ int main(int argc, char** argv) {
     TestCrashForensicsObjRes();  // docs/186 §10
     TestApex();
     TestS3mm();
+    TestOverflowPaths();  // docs/323 lane A
+    TestOverflowCalls();  // docs/323 lane B
+    TestOverflowSmall();  // docs/323 lane F (L9)
     TestSavedFrames();
     TestCompaction();
     TestRcTrim();
@@ -14942,6 +14948,7 @@ int main(int argc, char** argv) {
     TestForegroundRender();
     TestHostCalls();
     TestAskLent();
+    TestDoorMemoXGrow();
     TestTailUnlock();
     TestCellMemoProbe();
     TestBoatProbe();
@@ -14949,6 +14956,7 @@ int main(int argc, char** argv) {
     TestPlanDeadline();
     TestTaskServe();  // docs/637
     TestTaskSeam();   // docs/308
+    TestNonSimSplit();  // docs/329
     TestRouteSpeed();  // docs/663
     TestPlaceCore();   // docs/670
     TestPlaceTestRO();

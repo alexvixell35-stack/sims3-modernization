@@ -41,5 +41,47 @@ namespace Ts3Fixes
         {
             return total >= 16 && gone * 2 > total;
         }
+
+        // Repro conversation-gone-check, one seeded conversation (host + one destroyed member). "pass" / "fail" / "na".
+        // left (expectLeft, switches off): the gone member still listed = pass; gone 0 with the host gone from it = na (it left
+        // before the check, EA's exit or the #166 throw the queue reports); gone 0 with the host still there = fail.
+        // cleaned (switches on): no gone member and the host still listed (members 1) = pass; an empty list = pass only with this
+        // conversation's own phase-15 removal (removedHere > 0: the host left afterwards through EA's exit); empty without it and
+        // the host left = na (EA's exit ran before the phase reached it); a gone member left while the host is still there = fail;
+        // a gone member left after a removal = fail; the host left with the gone member still listed = na. Switches in the wrong
+        // state = fail.
+        public static string ConvSampleVerdict(bool expectLeft, bool on, int gone, int members, int removedHere, bool hostLeft)
+        {
+            if (expectLeft)
+            {
+                if (on) return "fail";
+                if (gone >= 1) return "pass";
+                return hostLeft ? "na" : "fail";
+            }
+            if (!on) return "fail";
+            if (gone == 0)
+            {
+                if (members == 1 && !hostLeft) return "pass";
+                if (members == 0) return removedHere > 0 ? "pass" : (hostLeft ? "na" : "fail");
+                return hostLeft ? "na" : "fail";
+            }
+            if (removedHere > 0) return "fail";
+            return hostLeft ? "na" : "fail";
+        }
+
+        // Repro "seed clean" (docs/330 §8.3): runs phase 15's step right after the seed only when the sweep is on and the pass's
+        // own unsafe-state check passes; returns the reason it does not run, or null.
+        public static string ConvSeedCleanGate(bool sweepOn, string unsafeWhy)
+        {
+            if (!sweepOn) return "deadrefsweep off";
+            return unsafeWhy;
+        }
+
+        // Arm verdict over the samples: any fail = "fail"; fewer than 3 conclusive (pass) samples = "inconclusive"; else "pass".
+        public static string ConvArmVerdict(int pass, int fail, int na)
+        {
+            if (fail > 0) return "fail";
+            return pass >= 3 ? "pass" : "inconclusive";
+        }
     }
 }

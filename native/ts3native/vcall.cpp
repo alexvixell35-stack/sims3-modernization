@@ -293,10 +293,10 @@ static int VcLogPairs(bool summary = true) {
                                        (LPCWSTR)(uintptr_t)t, &h) && GetModuleFileNameA(h, path, MAX_PATH)) {
                     b = strrchr(path, '\\') ? strrchr(path, '\\') + 1 : path;
                 }
-                sprintf_s(mod, " out=%s", b);
+                SFmt(mod, " out=%s", b);
             }
             char thr[80] = "";
-            if (g_vcThreads) sprintf_s(thr, " thr=job:%ld,worker:%ld,sim:%ld,other:%ld", s.p[j].cls[VC_JOB],
+            if (g_vcThreads) SFmt(thr, " thr=job:%ld,worker:%ld,sim:%ld,other:%ld", s.p[j].cls[VC_JOB],
                                        s.p[j].cls[VC_WORKER], s.p[j].cls[VC_SIM], s.p[j].cls[VC_OTHER]);
             Log("vcall 0x%08lX -> 0x%08lX n=%ld%s%s%s", s.addr, t, n, s.call ? "" : " jmp", mod, thr);
             lines++;

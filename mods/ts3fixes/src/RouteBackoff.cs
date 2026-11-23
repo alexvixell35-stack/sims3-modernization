@@ -47,7 +47,8 @@ namespace Ts3Fixes
                 if (urx != 0) UrxAfter(urx, 0, Vector3.Invalid, r);
                 if (ShortcutOn("boattrip")) { try { r = BtAfter(0, Vector3.Invalid, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
                 IaNote(0, Vector3.Invalid, r, rflT0);  // after BtAfter: iafailmemo sees the final result (boattrip may turn a failed boat plan into a working one)  // note: start and ms are read after BtAfter
-                return r;
+                r = LfsAfterPlan(0, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 0, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
 
             // marked: this plan carries unseenfbplan's cut mark (an argument, not a static: UfPre's holds sleep before they plan)
@@ -166,6 +167,7 @@ namespace Ts3Fixes
                     e.Until = now + kBackoffTicks;
                     e.Type = r.mType;
                     sBackoff[key] = e;
+                    CapHw(kCBackoffHw, sBackoff.Count);  // docs/321 lane 0
                     c[25]++;
                 }
                 return r;
@@ -359,7 +361,8 @@ namespace Ts3Fixes
                 RflPlan(this, 1, rflT0, r);
                 IaNote(1, Vector3.Invalid, r, rflT0);
                 if (urx != 0) UrxAfter(urx, 1, Vector3.Invalid, r);
-                return r;
+                r = LfsAfterPlan(1, Vector3.Invalid, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 1, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
             RoutePlanResult ReplanAsync()
             {
@@ -393,7 +396,8 @@ namespace Ts3Fixes
                 if (urx != 0) UrxAfter(urx, 2, startPosition, r);
                 if (ShortcutOn("boattrip")) { try { r = BtAfter(2, startPosition, r, rflT0); } finally { KdRescopeEnd(); } }  // boattrip (BoatTrip.cs) + retryscope (RetryScope.cs)
                 IaNote(2, startPosition, r, rflT0);  // after BtAfter, as above
-                return r;
+                r = LfsAfterPlan(2, startPosition, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 2, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
             RoutePlanResult PlanFromPointAsync(Vector3 startPosition)
             {
@@ -441,7 +445,8 @@ namespace Ts3Fixes
                 RflPlan(this, 3, rflT0, r);
                 IaNote(3, fromPt, r, rflT0);
                 if (urx != 0) UrxAfter(urx, 3, fromPt, r);
-                return r;
+                r = LfsAfterPlan(3, fromPt, r);  // ladderfootshoo (LadderFoot.cs, docs/183 §9), off by default
+                return BuAfterPlan(this, 3, r);  // blockeduse's way out (BlockedUse.cs, docs/686 §10), off by default
             }
             RoutePlanResult ReplanFromPointAsync(Vector3 fromPt)
             {
@@ -818,7 +823,7 @@ namespace Ts3Fixes
             foreach (KeyValuePair<BackoffKey, BackoffEntry> kv in sBackoff)
                 if (now >= kv.Value.Until || kv.Value.From > now) dead.Add(kv.Key);
             foreach (BackoffKey k in dead) sBackoff.Remove(k);
-            if (sBackoff.Count >= kMaxBackoffEntries) sBackoff.Clear();
+            if (sBackoff.Count >= kMaxBackoffEntries) { sBackoff.Clear(); CapCount(kCBackoffClears); }
         }
 
         const float kBackoffMinutes = 30f, kBackoffMinDistance = 5f;

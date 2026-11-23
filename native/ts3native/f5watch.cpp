@@ -95,7 +95,7 @@ static void F5sHit(int s, const CONTEXT* c) {  // watchpt.cpp WpVeh, on the writ
     const int ne = CtEbpChain(c->Ebp, c->Esp, eb, 8), nr = CrStack(c->Esp, rs, 10);
     char at[48], fn[48] = "", chain[8 * 44 + 8], scan[10 * 44 + 8];
     CrFrame(c->Eip, at, sizeof(at)), CtFrames(eb, ne, chain, sizeof(chain)), CtFrames(rs, nr, scan, sizeof(scan));
-    if (const DWORD f = CtFnStart(c->Eip)) sprintf_s(fn, ", EA function ~0x%08lX +0x%lX", f, c->Eip - f);
+    if (const DWORD f = CtFnStart(c->Eip)) SFmt(fn, ", EA function ~0x%08lX +0x%lX", f, c->Eip - f);
     const DWORD tid = GetCurrentThreadId();
     Log("float5 sticky: write to 0x%08lX value %s0x%08lX%s eip 0x%08lX (%s%s) thread %lu (%s); eax %08lX ecx %08lX edx %08lX ebx %08lX esi %08lX edi %08lX "
         "ebp %08lX esp %08lX; stack scan (%d):%s; ebp chain (%d):%s; save #%ld, world load #%ld; DR%d, writes %ld (float 5.0 %ld)", a, ok ? "" : "(unreadable) ", v,
@@ -240,13 +240,13 @@ static void F5wOutfit(const u8* outfit, bool clean, const char* site, bool cand)
 
 // What another thread runs now: suspend, context + a copy of its stack (no lock, no heap, no log while suspended), resume.
 static void F5wThreadNow(DWORD tid, char* out, size_t cap) {
-    if (!tid) { strcpy_s(out, cap, "unknown (no sim thread id yet)"); return; }
-    if (tid == GetCurrentThreadId()) { strcpy_s(out, cap, "this thread (the detector's line is its activity)"); return; }
+    if (!tid) { SCpy(out, cap, "unknown (no sim thread id yet)"); return; }
+    if (tid == GetCurrentThreadId()) { SCpy(out, cap, "this thread (the detector's line is its activity)"); return; }
     HANDLE h = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, tid);
-    if (!h) { sprintf_s(out, cap, "not opened (err %lu)", GetLastError()); return; }
+    if (!h) { SFmt(out, cap, "not opened (err %lu)", GetLastError()); return; }
     static DWORD stk[512];  // shortcut: one capture at a time (s_busy); a second caller gets "busy"
     static volatile LONG s_busy;
-    if (InterlockedExchange(&s_busy, 1)) { CloseHandle(h); strcpy_s(out, cap, "busy (another capture running)"); return; }
+    if (InterlockedExchange(&s_busy, 1)) { CloseHandle(h); SCpy(out, cap, "busy (another capture running)"); return; }
     CONTEXT c = {};
     c.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
     DWORD ns = 0;
@@ -269,10 +269,10 @@ static void F5wThreadNow(DWORD tid, char* out, size_t cap) {
     int nf = 0;
     for (DWORD i = 0; i < ns && nf < 8; i++) if (CrAfterCall(stk[i])) f[nf++] = stk[i];
     InterlockedExchange(&s_busy, 0);
-    if (!got) { strcpy_s(out, cap, "no context"); return; }
+    if (!got) { SCpy(out, cap, "no context"); return; }
     char at[48], fr[8 * 44 + 8];
     CrFrame(c.Eip, at, sizeof(at)), CtFrames(f, nf, fr, sizeof(fr));
-    sprintf_s(out, cap, "eip %s, stack scan (%d):%s", at, nf, fr);
+    SFmt(out, cap, "eip %s, stack scan (%d):%s", at, nf, fr);
 }
 static void F5wEvText(DWORD from, bool never, DWORD now, char* out, size_t cap) {  // save / world events since `from` (never: the last 6)
     int w = 0, k = 0;
@@ -281,12 +281,12 @@ static void F5wEvText(DWORD from, bool never, DWORD now, char* out, size_t cap) 
     for (LONG s = top; s > 0 && top - s < 64 && w < (int)cap - 64 && (!never || k < 6); s--) {
         const F5wEv& e = g_f5wEv[(s - 1) & 63];
         if (!e.what || (!never && now - e.tick > now - from)) break;
-        w += sprintf_s(out + w, cap - w, "%s %s #%ld %lu ms ago", k++ ? "," : "", e.what, e.n, now - e.tick);
+        w += SFmt(out + w, cap - w, "%s %s #%ld %lu ms ago", k++ ? "," : "", e.what, e.n, now - e.tick);
     }
-    if (!k) strcpy_s(out, cap, " none");
+    if (!k) SCpy(out, cap, " none");
 }
 static void F5wCeText(DWORD ms, char* out, size_t cap) {  // our-events ring entries in the last `ms`
-    if (!g_ceOn) { strcpy_s(out, cap, "ring off ([CrashForensics] OurEvents=0)"); return; }
+    if (!g_ceOn) { SCpy(out, cap, "ring off ([CrashForensics] OurEvents=0)"); return; }
     LARGE_INTEGER q, f;
     QueryPerformanceCounter(&q), QueryPerformanceFrequency(&f);
     const LONGLONG lo = q.QuadPart - (LONGLONG)ms * f.QuadPart / 1000;
@@ -300,12 +300,12 @@ static void F5wCeText(DWORD ms, char* out, size_t cap) {  // our-events ring ent
         if (e.tag < CE_NTAGS) n[e.tag]++;
         th[e.tid == F5wSimTid() ? 0 : e.tid == g_mainTid ? 1 : 2]++, tot++;
     }
-    int w = sprintf_s(out, cap, "%ld (sim %ld, main %ld, other %ld)%s", tot, th[0], th[1], th[2], s > 0 && top - s >= (LONG)kCeRing ? " ring wrapped, more" : "");
-    for (int t = 1; t < CE_NTAGS && w < (int)cap - 32; t++) if (n[t]) w += sprintf_s(out + w, cap - w, " %s=%ld", kCeTag[t], n[t]);
+    int w = SFmt(out, cap, "%ld (sim %ld, main %ld, other %ld)%s", tot, th[0], th[1], th[2], s > 0 && top - s >= (LONG)kCeRing ? " ring wrapped, more" : "");
+    for (int t = 1; t < CE_NTAGS && w < (int)cap - 32; t++) if (n[t]) w += SFmt(out + w, cap - w, " %s=%ld", kCeTag[t], n[t]);
 }
 static void F5wOkText(const F5wEnt& e, DWORD obj, DWORD now, char* out, size_t cap) {
-    if (e.obj != obj || !e.okTick) sprintf_s(out, cap, "last OK never (no clean check of this object recorded)");
-    else sprintf_s(out, cap, "last OK %lu ms ago at %s (save #%ld, world load #%ld; registered %lu ms ago as %s)", now - e.okTick, e.okSite ? e.okSite : "?",
+    if (e.obj != obj || !e.okTick) SFmt(out, cap, "last OK never (no clean check of this object recorded)");
+    else SFmt(out, cap, "last OK %lu ms ago at %s (save #%ld, world load #%ld; registered %lu ms ago as %s)", now - e.okTick, e.okSite ? e.okSite : "?",
                    e.okSave, e.okWorld, now - e.regTick, e.kind == F5K_OUTFIT ? "outfit" : e.kind == F5K_SLOT ? "slot component" : "note");
 }
 static void F5wBad(const char* site, DWORD obj, DWORD slot, DWORD val) {
@@ -339,18 +339,18 @@ static int F5wSweepOne(const F5wEnt& e, DWORD obj, DWORD* at, char* site, size_t
         if (e.kind == F5K_SLOT) {
             for (int i = 0; i < 5; i++) {
                 (*reads)++;
-                if (F5wStray(o[(0xC + 8 * i) / 4])) return *at = obj + 0xC + 8 * i, sprintf_s(site, cap, "sweep: slot component +0x%X (%s)", 0xC + 8 * i, kSgPair[i]), 1;
+                if (F5wStray(o[(0xC + 8 * i) / 4])) return *at = obj + 0xC + 8 * i, SFmt(site, cap, "sweep: slot component +0x%X (%s)", 0xC + 8 * i, kSgPair[i]), 1;
             }
             return 0;
         }
         for (const DWORD off : {0xBCu, 0xC0u, 0x98u, 0x9Cu})
-            if (F5wStray(o[off / 4])) return *at = obj + off, sprintf_s(site, cap, "sweep: outfit +0x%lX", off), 1;
+            if (F5wStray(o[off / 4])) return *at = obj + off, SFmt(site, cap, "sweep: outfit +0x%lX", off), 1;
         const DWORD* cb = (const DWORD*)(uintptr_t)o[0xBC / 4];
         const DWORD* ce = (const DWORD*)(uintptr_t)o[0xC0 / 4];
         if (cb && ce > cb && ce - cb <= 4096)
             for (LONG i = 0, n = (LONG)(ce - cb); i < n; i++) {
                 (*reads)++;
-                if (F5wStray(cb[i])) return *at = (DWORD)(uintptr_t)(cb + i), sprintf_s(site, cap, "sweep: outfit cell [+0xBC] entry %ld of %ld", i, n), 1;
+                if (F5wStray(cb[i])) return *at = (DWORD)(uintptr_t)(cb + i), SFmt(site, cap, "sweep: outfit cell [+0xBC] entry %ld of %ld", i, n), 1;
             }
         const u8 *rb = (const u8*)(uintptr_t)o[0x98 / 4], *re = (const u8*)(uintptr_t)o[0x9C / 4];
         if (rb && re > rb && (re - rb) % 0x68 == 0 && (re - rb) / 0x68 <= 64)
@@ -358,21 +358,21 @@ static int F5wSweepOne(const F5wEnt& e, DWORD obj, DWORD* at, char* site, size_t
                 const DWORD* r = (const DWORD*)(rb + ri * 0x68);
                 for (const DWORD off : {0x14u, 0x18u, 0x38u, 0x3Cu, 0x5Cu}) {
                     (*reads)++;
-                    if (F5wStray(r[off / 4])) return *at = (DWORD)(uintptr_t)r + off, sprintf_s(site, cap, "sweep: outfit record %ld of %ld +0x%lX", ri, rn, off), 1;
+                    if (F5wStray(r[off / 4])) return *at = (DWORD)(uintptr_t)r + off, SFmt(site, cap, "sweep: outfit record %ld of %ld +0x%lX", ri, rn, off), 1;
                 }
                 for (const DWORD arr : {0x14u, 0x38u}) {
                     const DWORD *a = (const DWORD*)(uintptr_t)r[arr / 4], *ae = (const DWORD*)(uintptr_t)r[arr / 4 + 1];
                     if (!a || ae <= a || ae - a > 64) continue;
                     for (LONG k = 0; k < (LONG)(ae - a); k++) {
                         (*reads)++;
-                        if (F5wStray(a[k])) return *at = (DWORD)(uintptr_t)(a + k), sprintf_s(site, cap, "sweep: outfit record %ld array +0x%lX slot %ld", ri, arr, k), 1;
+                        if (F5wStray(a[k])) return *at = (DWORD)(uintptr_t)(a + k), SFmt(site, cap, "sweep: outfit record %ld array +0x%lX slot %ld", ri, arr, k), 1;
                     }
                 }
                 if (const DWORD so = r[0x5C / 4])
                     for (const DWORD off : {0x2Cu, 0x30u, 0x34u}) {
                         (*reads)++;
                         if (F5wStray(*(const DWORD*)(uintptr_t)(so + off)))
-                            return *at = so + off, sprintf_s(site, cap, "sweep: outfit record %ld string object [rec+0x5C] +0x%lX", ri, off), 1;
+                            return *at = so + off, SFmt(site, cap, "sweep: outfit record %ld string object [rec+0x5C] +0x%lX", ri, off), 1;
                     }
             }
         if (o[0] != e.vt) return -1;  // torn down while read
@@ -426,8 +426,8 @@ static F5wArm g_f5wArm[4];  // by DR slot
 static volatile LONG g_f5wDrArms, g_f5wDrHits, g_f5wDrF5, g_f5wDrLogs, g_f5wDrF5Logs;
 static DWORD g_f5wRotAt;
 static void F5wArmDesc(const F5wArm& a, char* out, size_t cap) {
-    if (a.kind == F5K_SLOT) sprintf_s(out, cap, "slot component obj 0x%08lX +0x14 (ContainmentSlots)", a.obj);
-    else sprintf_s(out, cap, "outfit 0x%08lX cell [+0xBC] entry %ld of %ld", a.obj, a.e, a.n);
+    if (a.kind == F5K_SLOT) SFmt(out, cap, "slot component obj 0x%08lX +0x14 (ContainmentSlots)", a.obj);
+    else SFmt(out, cap, "outfit 0x%08lX cell [+0xBC] entry %ld of %ld", a.obj, a.e, a.n);
 }
 static void F5wDrHit(int s, const CONTEXT* c) {  // WpVeh, writing thread
     const F5wArm& a = g_f5wArm[s];
@@ -445,7 +445,7 @@ static void F5wDrHit(int s, const CONTEXT* c) {  // WpVeh, writing thread
     const int ne = CtEbpChain(c->Ebp, c->Esp, eb, 8), nr = CrStack(c->Esp, rs, 10);
     char at[48], fn[48] = "", chain[8 * 44 + 8], scan[10 * 44 + 8], d[96] = "record pending";
     CrFrame(c->Eip, at, sizeof(at)), CtFrames(eb, ne, chain, sizeof(chain)), CtFrames(rs, nr, scan, sizeof(scan));
-    if (const DWORD f = CtFnStart(c->Eip)) sprintf_s(fn, ", EA function ~0x%08lX +0x%lX", f, c->Eip - f);
+    if (const DWORD f = CtFnStart(c->Eip)) SFmt(fn, ", EA function ~0x%08lX +0x%lX", f, c->Eip - f);
     if (a.slot == slot) F5wArmDesc(a, d, sizeof(d));
     const DWORD tid = GetCurrentThreadId();
     Log("float5 watch: %s DR%d: slot 0x%08lX (%s, %s) value now %s0x%08lX%s by eip 0x%08lX (%s%s), thread %lu (%s), write %ld of this watch, armed %lu ms ago "
@@ -495,7 +495,7 @@ static void F5wRotate(DWORD now) {
         char d[96];
         F5wArmDesc(a, d, sizeof(d));
         if (s >= 0) g_f5wArm[s] = a, InterlockedIncrement(&g_f5wDrArms);
-        w += sprintf_s(txt + w, sizeof(txt) - w, "%s DR%d %s slot 0x%08lX (created %lu ms ago)", j ? ";" : "", s, d, p[j].slot, now - p[j].tick);
+        w += SFmt(txt + w, sizeof(txt) - w, "%s DR%d %s slot 0x%08lX (created %lu ms ago)", j ? ";" : "", s, d, p[j].slot, now - p[j].tick);
     }
     Log("float5 watch: DR rotation at %s #%ld +%lu ms: %d watch(es):%s", g_f5wWinWhat, g_f5wWinN, now - (win & ~1u), np, txt);
 }

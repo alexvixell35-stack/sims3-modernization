@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-11-20",
+  "updated": "2026-11-23",
   "about": "Switch evidence for experimental builds (tools/release/experimental.ts). status verified = correctness gate PASSED: its on values go into the experimental ini/package; blocked = force its off values; unverified = master default stays. Agents update an entry when a correctness job passes or fails, with the result page as evidence.",
   "switches": [
     {
@@ -519,6 +519,25 @@
         "docs/67-crash-triage.md (§43, the EA tester crash 0xD71EBD = Steam 0xD71E7D)"
       ],
       "reason": "rare-crash rule met: crash seen (EA tester, EA 1.69), forced repro crashes with the fix off and never with it on; EA bug fix on a host map, not Sim behaviour, so no household question. Release ini Enabled=1 Repair=1 since 2026-11-20; TestRehash stays 0 (repro only)."
+    },
+    {
+      "id": "blanktns",
+      "status": "verified",
+      "on": {
+        "tunables": {
+          "kBlankTns": "True"
+        }
+      },
+      "off": {
+        "tunables": {
+          "kBlankTns": "False"
+        }
+      },
+      "evidence": [
+        "PLAN.md (blanktns experimental ON, Rodney 2026-11-23)",
+        "docs/869-blank-notification-sender.md (diagnostic; Dalexlol PR #647 offline selftest, import = build + selftests)"
+      ],
+      "reason": "Rodney 2026-11-23: diagnostic for testers, ON in experimental builds only, OFF in the release (master default False). Only effect: a notification with empty text shows '[blank notice] sent by ...'; no Sim, save or household effect. No in-game correctness job run yet (docs/869 §6)."
     }
   ],
   "knownIssues": [

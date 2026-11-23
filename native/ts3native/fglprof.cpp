@@ -135,7 +135,7 @@ static void FglLine(const u8* rec, const FglKey& key, bool ok, LONG us, long rep
     const FglTally& t = g_fgl.t;
     const LONG checks = g_fgl.checkUs[0] + g_fgl.checkUs[1] + g_fgl.checkUs[2] + g_fgl.checkUs[3] + g_fgl.checkUs[4] + g_fgl.checkUs[5];
     char rep[64] = "no repeat";
-    if (repeatAge >= 0) sprintf_s(rep, "repeat of a search %ld ms ago (%s result)", repeatAge, repeatSame ? "same" : "other");
+    if (repeatAge >= 0) SFmt(rep, "repeat of a search %ld ms ago (%s result)", repeatAge, repeatSame ? "same" : "other");
     float pos[2] = {0, 0}, radius = 0;
     memcpy(pos, rec + 8, sizeof(pos));
     memcpy(&radius, rec + 0x54, sizeof(radius));
@@ -151,7 +151,7 @@ static void FglLine(const u8* rec, const FglKey& key, bool ok, LONG us, long rep
         g_fgl.checkUs[4] / 1000, g_fgl.checkUs[5] / 1000, (g_fgl.partUs - g_fgl.coreUs) / 1000, (g_fgl.testUs - g_fgl.partUs) / 1000,
         (us - g_fgl.testUs) / 1000, rep, g_fglk.dropped);
     char st[900] = "?";
-    if (g_fglk.frames <= 0 || FbStackText(st, sizeof(st), g_fglk.frames) <= 0) strcpy_s(st, "?");
+    if (g_fglk.frames <= 0 || FbStackText(st, sizeof(st), g_fglk.frames) <= 0) SCpy(st, "?");
     Log("fgl prof: that search's failed tests by first failing check: %s %ld, %s %ld, %s %ld, %s %ld, %s %ld, %s %ld, %s %ld, %s %ld, "
         "%s %ld; managed caller (innermost first): %s",
         kFglCheckName[0], t.fail[0], kFglCheckName[1], t.fail[1], kFglCheckName[2], t.fail[2], kFglCheckName[3], t.fail[3], kFglCheckName[4],
