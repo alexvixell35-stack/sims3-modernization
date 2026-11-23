@@ -49,6 +49,7 @@
 // tools/harness commit. --no-smoke skips it (correctness-only queues; a queue without timing jobs never smokes).
 // Hold (Rodney 2026-10-25): before each job and the smoke job, while probe-out/queue/hold exists (a crash-triage build, hold.ts)
 // the queue waits (line every 5 min, warning at 60 min); probe-out/queue/job-running names the running job for hold.ts wait-job-end.
+// Both are the MAIN checkout's files, also for a queue started from a worktree (hold.ts QUEUE_DIR, 2026-11-23).
 // Noisy rerun: a timing job (profile, noiseCheck not false) stopped by the early noise check or with a high end verdict runs once
 // more at the end of the same run as <id>-rerun; both rows are kept and the md note says which one counts.
 // Build check (docs/TESTING.md "Build verification", tools/builds.ts, docs/data/builds.json): before every game start Bin/ts3native.asi
@@ -234,6 +235,31 @@ export function correctionOnly(xml: string): boolean {
 }
 // scriptErrorsReport: the error under study (any regex matches the xml text)
 export function reportedError(xml: string, res: string[]): boolean { return res.some(r => new RegExp(r).test(xml)); }
+// scriptErrorsReportBefore (docs/330 §8.3): the repro step note (text in [...]) that ends the window in which a scriptErrorsReport match
+// counts as studied; a match logged at or after that step's start counts as a new error (the off arm's expected throw, not the on arm's).
+// XML Log-Time is local time; the job log's repro step lines are UTC time-of-day, dated by the log's first ISO stamp.
+export function xmlLogTime(xml: string): number | null {
+  const m = xml.match(/Log-Time:\s*(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2})/);
+  return m ? new Date(+m[3], +m[1] - 1, +m[2], +m[4], +m[5], +m[6]).getTime() : null;
+}
+// The job log is appended per run (a same-day rerun of the job adds to it): the LAST such step counts, dated by the last ISO stamp before it.
+export function reproStepStart(jobLog: string, note: string): number | null {
+  const esc = note.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const st = [...jobLog.matchAll(new RegExp(String.raw`^(\d{2}):(\d{2}):(\d{2}) repro \S+ step \S+ \[${esc}\]`, 'gm'))].at(-1);
+  if (!st) return null;
+  const iso = [...jobLog.slice(0, st.index).matchAll(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z/g)].at(-1);
+  if (!iso) return null;
+  const base = Date.UTC(+iso[1], +iso[2] - 1, +iso[3]), t0 = base + ((+iso[4] * 60 + +iso[5]) * 60 + +iso[6]) * 1000;
+  let t = base + ((+st[1] * 60 + +st[2]) * 60 + +st[3]) * 1000;
+  if (t < t0 - 60_000) t += 86_400_000; // the step ran after midnight UTC
+  return t;
+}
+export function studiedError(xml: string, res: string[], before?: number | null): boolean {
+  if (!reportedError(xml, res)) return false;
+  if (before === undefined) return true;
+  const t = xmlLogTime(xml);
+  return before !== null && t !== null && t < before; // window or Log-Time unknown: not studied (counts)
+}
 
 export function allowedCorrection(xml: string, allow: string[]): boolean {
   if (correctionOnly(xml)) return true;
@@ -264,7 +290,7 @@ import { EXE as REWIND_EXE, pidOf, REWIND_ON } from './rewind-smoke.ts';
 const rewindExe = (): boolean | 'stale' => !existsSync(REWIND_EXE) ? false : ['rewind-spike.cpp', 'rewind-toy.h', 'rewind-selftest.inl'].map(s => join(dirname(REWIND_EXE), '..', s)).some(s => existsSync(s) && statSync(s).mtimeMs > statSync(REWIND_EXE).mtimeMs) ? 'stale' : true;
 import { saveForeground } from './focus-game.ts';
 import { parseStory, smokeFails, storyFile } from './story-report.ts';
-import { clearJob, markJob, waitHold } from './hold.ts';
+import { clearJob, markJob, registerOwner, waitHold } from './hold.ts';
 import { pending as modsPending, restoreMods, snapshotMods } from './mods-restore.ts';
 import { parseLoadSplit } from './load-split.ts';
 import { dayFails } from './story-day.ts';
@@ -274,7 +300,7 @@ import { earlyNoise, rowsOf, startMachineLoad, summarize as loadSummary } from '
 import { jsonlRows, queueFile, rowTiming, timingText } from './run-verdict.ts';
 import { loadRun as hitchRun, runIters, toolCosts, toolsOn, withBaseIni } from './hitch-ab.ts';
 import { mergeFile as mergeCallsites } from '../callsite-db.ts';
-import { asiCheck, asiVersion, fixesCheck, loadDb, logVersionCheck, packageTuning, type Build } from '../builds.ts';
+import { asiCheck, asiVersion, fixesCheck, loadDb, logVersionCheck, packageTuning, testedBuild, type Build } from '../builds.ts';
 import { COMMUNITY, defaultSpec as vanillaSpec, install as vanillaInstall, mfile as vanillaMf, ourModsSpec, problems as vanillaProblems, restore as vanillaRestore, vanilla as vanillaEnv } from './vanilla.ts';
 import { inventory as modInventory, modClash, MOD_SET_RE, scriptAsmLine } from '../mod-set.ts';
 
@@ -283,7 +309,8 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
 } });
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const H = (f: string) => join(ROOT, 'tools', 'harness', f);
-const TESTED_ASI = join(ROOT, 'native', 'ts3native', 'out', 'ts3native.asi');
+// asi "tested" = the newest master build set (builds.ts testedBuild): A/B baselines on "tested" move with master
+const TESTED = testedBuild(loadDb()), TESTED_REL = `game-copy/${TESTED?.name ?? 'ts3native.asi.m-none-in-builds.json'}`, TESTED_ASI = join(ROOT, TESTED_REL);
 const REPO_INI = join(ROOT, 'native', 'ts3native', 'ts3native.ini');
 const OUT = join(ROOT, 'probe-out', 'queue');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3'); // as cycle.ts / install-fixes.ts
@@ -339,7 +366,7 @@ function machineCols(tag: string) { return tag ? { head: ' machine |', sep: '---
 function machineField(tag: string): { machineTag?: string } { return tag ? { machineTag: tag } : {}; }
 type Job = { id: string; note?: string; asi: string; ini?: Record<string, string | number | boolean>; fixes?: { install?: string[]; uninstall?: string[] };
   save?: string; content?: string; ccSet?: string | string[]; ccLots?: string; modSet?: string; run: { repro?: string; saveReload?: string[]; script?: string[]; matrix?: string[]; soak?: { minutes: number; speed?: string }; menuMemory?: { waitS?: number; draws?: number };
-    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; apexToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; apexLogRequire?: Record<string, number>; apexLogForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; timeoutMin?: number; pin?: false | PinOpts;
+    profile?: { minutes: number; seed?: number; repro?: string; mainstack?: string; ab?: string; fixedwork?: number | boolean; abOnFirst?: boolean; slice?: number; taskstall?: number; inroom?: boolean; watchstalk?: boolean | 'worker'; livereads2?: boolean; f4b?: boolean; vres?: boolean; noEnv?: boolean; quitJobs?: boolean; envGuard?: boolean; travel?: string }; routelock?: { minutes: number; speed?: string }; worldimage?: { captures: number; settleS?: number; gapS?: number; speed?: string }; age?: { days: number; checkpoint: number; keepAlive?: number | 'off'; save?: string }; rewindGames?: { n: number; profile: { minutes: number; seed?: number; fixesOn?: string; fixesOff?: string }; ab?: string } }; gameArgs?: string[]; defaultIni?: Record<string, string | number | boolean>; s3ppIni?: Record<string, string | number | boolean>; s3ssToml?: Record<string, string | number | boolean>; apexProfiler?: boolean; apexToml?: Record<string, string | number | boolean>; dxvkConf?: Record<string, string | number | boolean>; d3d9Dll?: string; minCounters?: number; noiseCheck?: boolean; callSites?: boolean; releaseDefaults?: boolean; nativeRequire?: string; logRequire?: Record<string, number>; logForbid?: Record<string, number>; apexLogRequire?: Record<string, number>; apexLogForbid?: Record<string, number>; routingFailFast?: FailFast; earlyGates?: EarlyGate[]; report?: string[]; stopQueueOnFail?: boolean; crashHunt?: boolean; scriptErrorsMax?: number; scriptErrorsAllow?: string[]; scriptErrorsReport?: string[]; scriptErrorsReportBefore?: string; timeoutMin?: number; pin?: false | PinOpts;
   saveMatrix?: { fixes?: 'all' | 'shipped' }; regexCases?: Record<string, { match: string[]; noMatch: string[] }>; fixesBuild?: string; fixesPackage?: string; iniBase?: string; dogfood?: boolean; pinReason?: string; rerunOf?: string; retryOf?: string; kcOf?: string; expectHang?: string; shadowCheck?: boolean; quitsGame?: boolean; skipIfMissing?: boolean; ourMods?: false; rewind?: false; rewindRequire?: 'snapshot' | 'rewind' };
 
 function checkRegexCases(cases: Record<string, { match?: unknown; noMatch?: unknown }>, res: string[], at: string, requireAll = true) {
@@ -365,7 +392,7 @@ function versionPinMiss(j: { asi?: string; logRequire?: Record<string, number> }
 }
 
 // every top-level job key queue.ts reads (Job type plus the optional extras); anything else is a typo or a profile key at the wrong level
-const JOB_KEYS = new Set(['id', 'dogfood', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'apexToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'modSet', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'apexLogRequire', 'apexLogForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm', 'rewindRequire']);
+const JOB_KEYS = new Set(['id', 'dogfood', 'quitsGame', 'note', 'expectHang', 'asi', 'ini', 'defaultIni', 's3ppIni', 's3ssToml', 'apexProfiler', 'apexToml', 'dxvkConf', 'd3d9Dll', 'gameArgs', 'fixes', 'fixesBuild', 'fixesPackage', 'iniBase', 'scriptErrorsAllow', 'fixesRequire', 'save', 'content', 'ccSet', 'ccLots', 'modSet', 'callSites', 'run', 'saveMatrix', 'pin', 'pinReason', 'rerunOf', 'shadowCheck', 'timeoutMin', 'minCounters', 'nativeRequire', 'logRequire', 'logForbid', 'apexLogRequire', 'apexLogForbid', 'regexCases', 'noiseCheck', 'earlyGates', 'report', 'routingFailFast', 'scriptErrorsMax', 'scriptErrorsReport', 'scriptErrorsReportBefore', 'stopQueueOnFail', 'crashHunt', 'reuseSession', 'rewind', 'releaseDefaults', 'skipIfMissing', 'ourMods', 'agentArm', 'rewindRequire']);
 // ---- vanilla mode (docs/236): what a job may not ask for without ts3native/ts3fixes, and the checks the row names as N/A
 // results md cell: at most `max` chars, cut at an item boundary (", " / "; " / "<br>") and marked, never inside a number
 // (docs/277 §1: the cut at 400 turned aut_l0_pairn_hh 397 / 3163 into "3" / "316"; full values stay in the jsonl row)
@@ -574,7 +601,8 @@ export function parseQueue(json: unknown): Job[] {
     if (j.nativeRequire !== undefined) { const lint = startupDeltaLint(j.nativeRequire); if (lint.length) throw new Error(`${at}: ${lint.join('; ')}`); }
     for (const k of ['logRequire', 'apexLogRequire'] as const) if (j[k] !== undefined) for (const [re, n] of Object.entries(j[k]!)) { new RegExp(re); if (!(Number.isInteger(n) && n > 0)) throw new Error(`${at}: ${k} "${re}" must map to a positive integer`); }
     for (const k of ['logForbid', 'apexLogForbid'] as const) if (j[k] !== undefined) for (const [re, n] of Object.entries(j[k]!)) { new RegExp(re); if (!(Number.isInteger(n) && n >= 0)) throw new Error(`${at}: ${k} "${re}" must map to an integer >= 0`); }
-    if (j.regexCases !== undefined) checkRegexCases(j.regexCases, [...Object.keys(j.logRequire ?? {}), ...Object.keys(j.logForbid ?? {}), ...Object.keys(j.apexLogRequire ?? {}), ...Object.keys(j.apexLogForbid ?? {})], at);
+    if (j.regexCases !== undefined) checkRegexCases(j.regexCases, [...Object.keys(j.logRequire ?? {}), ...Object.keys(j.logForbid ?? {}), ...Object.keys(j.apexLogRequire ?? {}), ...Object.keys(j.apexLogForbid ?? {}), ...(j.scriptErrorsReportBefore !== undefined ? j.scriptErrorsReport ?? [] : [])], at);
+    if (j.scriptErrorsReportBefore !== undefined && (typeof j.scriptErrorsReportBefore !== 'string' || !j.scriptErrorsReport?.length || !j.run.profile?.repro)) throw new Error(`${at}: scriptErrorsReportBefore needs a step note string, scriptErrorsReport and profile.repro`);
     if (j.routingFailFast !== undefined) {
       checkFailFast(j.routingFailFast, at);
       if (!j.run.profile) throw new Error(`${at}: routingFailFast needs run.profile (it starts at the profile start)`);
@@ -1856,6 +1884,29 @@ if (values['self-check']) {
     assert.equal(reportedError(' System.InvalidOperationException: Collection was modified;enumeration operation may not execute.\n #0: in Sims3.Gameplay.Objects.Decorations.DanceFloor:FindAndRouteOntoADanceFloorWithFollower', df), true, 'the dance floor throw is reported');
     assert.equal(reportedError(' System.InvalidOperationException: Collection was modified\n #0: in Sims3.Gameplay.X:Y', df), false, 'another collection throw still counts');
     assert.equal(reportedError('anything', []), false);
+    { // scriptErrorsReportBefore (docs/330 §8.3): the off-arm #166 throw is studied; the same throw in the on arm, another stack, an unknown window count
+      const re = String.raw`System\.NullReferenceException[^\n]*\r?\n\s*#0:[^\n]*Socializing\.Conversation:RemoveSim \([^\n]*\r?\n\s*#1:[^\n]*SocialComponent:(LeaveOrig|LeaveConversation) \(`;
+      const x166 = (t: string, f1 = 'SocialComponent:LeaveOrig ()') => ` Log-Time: 11/23/2026 ${t}\r\nSystem.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.${f1} ()\r\n#2: x`;
+      const jobLog = '17:2026-11-22T22:12:58.100Z $ node profile-world.ts\n22:13:26 repro conversation-gone-check step reflect_call [off: the hard state (5 samples)]: {}\n22:13:50 repro conversation-gone-check step patches [on] (setup): {}\n';
+      const on = reproStepStart(jobLog, 'on');
+      assert.equal(on, Date.UTC(2026, 10, 22, 22, 13, 50));
+      assert.equal(reproStepStart(jobLog, 'nope'), null);
+      assert.equal(reproStepStart('x 2026-11-22T23:59:00Z\n00:00:05 repro r step patches [on] (setup)', 'on'), Date.UTC(2026, 10, 23, 0, 0, 5), 'after midnight UTC');
+      // a same-day rerun appends to the job log (2026-11-23 try 2: the first run's [on] at 22:13:49 made a 23:17 off-arm throw count)
+      assert.equal(reproStepStart(jobLog + '17:2026-11-22T23:17:10.000Z $ node profile-world.ts\n23:18:04 repro conversation-gone-check step patches [on] (setup): {}\n', 'on'), Date.UTC(2026, 10, 22, 23, 18, 4), 'last run of an appended log');
+      const loc = (d: Date) => [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+      const offT = new Date(Date.UTC(2026, 10, 22, 22, 13, 32)), onT = new Date(Date.UTC(2026, 10, 22, 22, 14, 2));
+      // xmlLogTime reads local time: fixtures use 11/23 only when the local date is 11/23 (PHT); else build the date from offT
+      const xd = (d: Date) => x166(loc(d)).replace('11/23/2026', `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`);
+      assert.equal(studiedError(xd(offT), [re], on), true, 'off arm #166 throw (our pass-through hook in the stack): studied');
+      assert.equal(studiedError(xd(offT).replace('SocialComponent:LeaveOrig', 'SocialComponent:LeaveConversation'), [re], on), true, 'off arm, EA frame without our hook: studied');
+      assert.equal(studiedError(xd(onT), [re], on), false, 'the same throw in the on arm: counts');
+      assert.equal(studiedError(xd(offT).replace('SocialComponent:LeaveOrig', 'SocialComponent:OnSimDestroyed'), [re], on), false, 'another caller of RemoveSim: counts');
+      assert.equal(studiedError(xd(offT), [re], null), false, 'window unknown: counts');
+      assert.equal(studiedError(xd(offT).replace(/ Log-Time[^\n]*\n/, ''), [re], on), false, 'no Log-Time: counts');
+      assert.equal(studiedError(xd(offT), [re], undefined), true, 'no window key: plain scriptErrorsReport');
+      assert.equal(studiedError(xd(offT).replace('NullReferenceException', 'InvalidCastException'), [re], on), false, 'another exception: counts');
+    }
   }
   // pair check: same id stem, profiler tools differ -> one warning line (the 2026-10-24 sv-soak case); other jobs left alone
   const pj = (id: string, p: object = {}) => ({ id, asi: 'tested', save: 'S', run: { profile: { minutes: 45, ...p } } });
@@ -2482,13 +2533,13 @@ const REPROS = JSON.parse(readFileSync(H('repros.json'), 'utf8')) as { id: strin
 const loopOfId = (id?: string) => REPROS.find(r => r.id === id)?.loop;
 const loopOf = (j: Job) => { const l = loopOfId(j.run.profile?.repro); return l && withRule(l, j.run.profile?.loopRule); };
 const asiPath = (j: Job) => (j.asi === 'tested' ? TESTED_ASI : resolve(ROOT, j.asi));
-// "tested" must be the source's version: a stale out/ build (0.10.1, async without the route gate) ran as "tested" for 3 days
-// and crashed bp-watch-stalk-worker (docs/113 §8.6). The DLL holds the log line format "ts3native <version> %04d".
+// a stale out/ build (0.10.1, async without the route gate) once ran as "tested" for 3 days and crashed bp-watch-stalk-worker
+// (docs/113 §8.6); "tested" is now the newest master set, so stale = its game-copy file is not the version builds.json names
 const SRC_VERSION = SRC_VERSION_RE.exec(readFileSync(join(ROOT, 'native', 'ts3native', 'ts3native.cpp'), 'utf8'))?.[1];
 const staleAsi = (j: Job) => {
   if (j.asi !== 'tested' || !existsSync(TESTED_ASI)) return '';
-  const v = /ts3native (\d+\.\d+\.\d+\S*) %04d/.exec(readFileSync(TESTED_ASI).toString('latin1'))?.[1];
-  return v === SRC_VERSION ? '' : `tested build is ts3native ${v ?? '?'}, source is ${SRC_VERSION}: rebuild with native/ts3native/build.cmd`;
+  const v = asiVersion(readFileSync(TESTED_ASI));
+  return v === TESTED?.version ? '' : `tested build ${TESTED_REL} is ts3native ${v ?? '?'}, builds.json says ${TESTED?.version}: recopy the master set`;
 };
 const saveOf = (j: Job) => j.save ?? (j.run.menuMemory ? 'menu' : REPROS.find(r => r.id === j.run.repro)?.save);
 const saveFile = (s: string) => (/\.sims3$/i.test(s) ? s : `${s}.sims3`);
@@ -2992,6 +3043,7 @@ if (!values['dry-run']) {
 // disk gate (docs/283, 2026-11-17: C: at 0 bytes broke builds and runs mid-job): < 30 GB free runs cleanup.ts --apply, < 15 GB refuses here
 { const s3 = s3mmFiles(); if (s3.length) { log(`STOP: Sims3MonoModder (S3MM) found in the game folder: ${s3.join(', ')}. We never install it (its profiler is not compatible with ts3native, docs/291); remove it, then start again`); process.exit(5); } }
 if (!values['dry-run'] && !process.env.TS3_SMOKE_PARENT) { const g = diskGate(); log(g.line); if (!g.ok) { log('STOP: not enough free disk space to start (cleanup.ts gate)'); process.exit(5); } }
+if (!values['dry-run']) registerOwner(); // track.ts stop from another checkout leaves this queue alone (hold.ts owners/)
 if (!values['dry-run']) saveForeground(); // the window to give focus back to once the game takes it (focus-game.ts)
 // apps a killed run left on the narrowed CPUs go back first; the same on any exit of this run (pin.ts)
 if (pinStatePending()) log(`pin: leftover from an earlier run: ${restorePins()}`);
@@ -3062,7 +3114,7 @@ const logSize = () => { try { return statSync(LOG).size; } catch { return 0; } }
 type BuildRec = { asiSha: string; asiDb: string[]; version?: string; fixesSha?: string; fixesTuning?: string; fixesDb: string[]; fixesExpected: string; fixesExpectedTuning?: string; logVersion?: string; launchedAt: number };
 let lastBuild: BuildRec | null = null;
 function buildCheck(j: Job, binAsi: Buffer): { fails: string[]; rec: BuildRec } {
-  const a = asiCheck(BUILDS, readFileSync(asiPath(j)), j.asi === 'tested' ? 'native/ts3native/out/ts3native.asi' : j.asi, binAsi);
+  const a = asiCheck(BUILDS, readFileSync(asiPath(j)), j.asi === 'tested' ? TESTED_REL : j.asi, binAsi);
   const f = fixesCheck(BUILDS, readOr(FIXES_INST), { name: j.fixesBuild, built: readOr(fixesSrc(j)) });
   return { fails: [...a.fails, ...f.fails], rec: { asiSha: a.sha, asiDb: a.names, version: a.version, fixesSha: f.sha, fixesTuning: f.digest, fixesDb: f.names,
     fixesExpected: j.fixesBuild ?? j.fixesPackage ?? 'build/ts3fixes.package', fixesExpectedTuning: f.expected, launchedAt: Date.now() } };
@@ -3321,7 +3373,7 @@ for (const [n, j] of jobs.entries()) {
     if (j.modSet && !ccSetReady(j.modSet)) throw new Error(`modSet missing or empty: ${j.modSet} (build it with tools/mod-set.ts build; refused before touching the game)`);
     if (!reused) { // ---- game start and load (indent kept: the pre-docs/170 body)
     if (j.run.worldimage && !existsSync(String(jobIni(j)!['WorldImage.Helper']))) throw new Error(`worldimage helper missing: ${jobIni(j)!['WorldImage.Helper']} (build: native\\worldimage\\build.cmd; refused before touching the game)`);
-    if (staleAsi(j)) console.log(`${stamp()} queue: WARN ${staleAsi(j)} (the tested build is pinned on purpose; rebuild out/ to move it)`);
+    if (staleAsi(j)) console.log(`${stamp()} queue: WARN ${staleAsi(j)} (tested = newest master set in builds.json)`);
     if (!values['dry-run']) await ensureSteam();
     if (CONTENT[row.content].length) {
       await closeGame(); // files must not be open when they move
@@ -3843,7 +3895,10 @@ for (const [n, j] of jobs.entries()) {
   if (j.scriptErrorsMax !== undefined) {
     const se = newScriptErrors(USER, Date.parse(t0)), news = se.files;
     if (se.problem) { row.verdict.push(`FAIL: UNKNOWN: script errors not checked (${se.problem})`); row.pass = false; } // docs/236 #19: an unreadable folder is not "0 new"
-    const studied = news.filter(f => { try { return reportedError(readFileSync(join(USER, f), 'utf8'), j.scriptErrorsReport ?? []); } catch { return false; } });
+    for (const f of news) { try { copyFileSync(join(USER, f), join(OUT, `${queueName}-${date}-${j.id}-${f}`)); } catch { /* listed below either way */ } } // docs/330 §8: keep the xml (the user folder is restored later)
+    let before: number | null | undefined;
+    if (j.scriptErrorsReportBefore !== undefined) { try { before = reproStepStart(readFileSync(join(OUT, `${queueName}-${date}-${j.id}.log`), 'utf8'), j.scriptErrorsReportBefore); } catch { before = null; } }
+    const studied = news.filter(f => { try { return studiedError(readFileSync(join(USER, f), 'utf8'), j.scriptErrorsReport ?? [], before); } catch { return false; } });
     if (j.scriptErrorsReport) row.verdict.push(`REPORT: ${studied.length} script errors matching ${j.scriptErrorsReport.join(' | ')}${studied.length ? `: ${studied.slice(0, 3).join(', ')}` : ''}`);
     const unknown = news.filter(f => { try { const x = readFileSync(join(USER, f), 'utf8'); return !studied.includes(f) && !matchKnown(x) && !allowedCorrection(x, j.scriptErrorsAllow ?? []); } catch { return true; } });
     row.scriptErrors = unknown;

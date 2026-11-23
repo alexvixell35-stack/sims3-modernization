@@ -121,7 +121,108 @@ No audited mod has a public source repo: GitHub was checked per author, and Game
 - **Moar Interactions (437344)** fully replaces the two visit interactions our fixes patch. The overlap is confirmed.
 - No other audited mod touches code we patch.
 
+## NRaas mods (source audit, 2026-11-22)
+Status: static only, read from the public NRaas source (github.com/Chain-Reaction/NRaas, commit `2f57186` of 2026-07-29, no license: read and cited, never copied). The release zips were not downloaded: nraas.net asks for no automated downloads (announcement topic15303, 2026-03-01), so the current releases (StoryProgression V269, Traffic V21, Woohooer V130, MasterController V135 and so on) may differ from this source. Same checklist and second review as above: 42 first-pass findings were rejected (about 20 match EA's own code or are bounded, about 12 are cleared at load, quit, save or CAS, about 8 are handler lifetimes that are fine, and saved settings are dropped by EA's loader once a mod is removed). Reports to NRaas are drafted as GitHub issues and not posted.
+
+Audited: StoryProgression with its modules, Traffic, Retuner, Relativity, Woohooer, Careers, Traveler, Hybrid, Portrait Panel, Dresser, Tagger, Saver, GoHere, Shooless, Mover, Consigner, MasterController (with Cheats and Integration), Register.
+
+| Mod | Severity | Review verdict | Evidence | What happens (plain words) | Touches our fixes |
+|---|---|---|---|---|---|
+| Shared NRaas helper (all NRaas mods that create Sims) | perf | possible | code verified, effect inferred | Every Sim an NRaas mod creates gets EA's "always animate" setting, which EA itself uses only for stand-in models. | Our off-screen animation and throttle work; our three Sim-creation fixes do not run for these Sims |
+| StoryProgression | leak | confirmed | verified | One-time timers are kept until you quit the world. They hold Sims that were removed from town and grow every sim-day. | no |
+| StoryProgression | perf | possible | verified, size not measured | Every 10 sim-minutes it works up to 100 ms before letting a frame draw, and it rebuilds its town tables in one go. | no (shows in hitch numbers) |
+| StoryProgression Skill module | leak | confirmed | verified | A workout table is never cleared, not even at world quit. | no |
+| StoryProgression Career module | crash | possible | inferred | After an error, the commute step can queue an empty work action. | close to one of our work-trip fixes |
+| Woohooer | hang | possible | verified code, reach inferred | When a Sim arrives after a WooHooty text (also the KamaSimtra visit), it waits with no limit for the texter. | yes: our fix for the same EA wait (`woohootywait`, on by default) does not reach Woohooer's copy |
+| Woohooer | leak | confirmed | verified | An attraction record for every pair of Sims that ever socialized stays in the save forever. | no |
+| Traffic | leak | confirmed | verified | Lists of food and ice-cream trucks are never cleared, so removed trucks stay in memory and their lots stay marked as taken. | our road step-aside fix does not run for its trucks |
+| Careers | perf | confirmed | verified, cost not measured | About 75 event listeners start a script task on every event, even when no Sim has the career. | no |
+| Careers | leak | confirmed | verified | A table of changed objects survives world quit. | no |
+| Traveler | hang | possible | inferred | The save before travel waits forever if the save step throws an error. | our save-path fixes sit on that path |
+| Portrait Panel | perf | confirmed | verified | With its optional "only idle Sims" filter, any interaction change in town rebuilds the panel. | no |
+| Dresser | perf | confirmed | verified | One script task per room change, object use, moodlet and similar event. | its outfit changes still go through our fixes |
+| Tagger | perf | confirmed | verified | Map handlers are added again on every world load, so the map view rebuilds its tags several times. | no |
+| GoHere | leak | confirmed (rare in play) | verified | A list of Sims that used ancient portals is never cleared. | no |
+| MasterController | leak | possible | verified code | Its copy of the CAS grid keeps an EA bug that leaves empty rows. | yes: our CAS row fix does not reach its copy |
+
+StoryProgression and our features (verified unless marked):
+- **Our EA story-progression fixes go idle.** StoryProgression switches EA's own story progression off, so those fixes never run. Nothing breaks.
+- **Visits and trips home** that StoryProgression sends go through our visit, routing and unseen-Sim fixes. It adds many more of these trips, but replaces none of the code.
+- **Sim creation.** NRaas creates Sims with its own copy of EA's code, so our three Sim-creation fixes (outfit deferral, age-up duplicate, resident spawn slot) do not run for those Sims. This is ours to fix.
+- **School trips** (StoryProgression Career, NRaas Careers) use their own copy of the rabbit-hole entry, so our speed-up there is lost. Nothing breaks.
+- **Autonomy scoring work on other cores (AutShadow, go-live):** no overlap. StoryProgression pushes actions directly and does not score autonomy.
+- **Household Sims:** StoryProgression gives household Sims work, school and money actions that the base game does not. Our household checks read household membership live, so household Sims never take an unseen-Sim path. A check that household play matches vanilla must run with StoryProgression off.
+
+GoHere has the largest overlap of any mod read so far. Our unseen-Sim fallbacks deliberately stand down for NRaas interactions, and GoHere puts its own interaction on most NPC trips. Its community-lot visit never calls EA's code, and its routing skips one of our route-option fixes. So with GoHere installed, much of our unseen-Sim routing work does not run (inferred from the code; not measured).
+
+In-game checks worth running: GoHere on and off on the same world (visit and unseen-routing counters), a townie created by StoryProgression seen after being off screen, a WooHooty text with Woohooer, and StoryProgression on and off on a big save (hitch p99, p99.9, max). Queue `compat-sp-1122` (StoryProgression, written, not started) waits for a hand download.
+
+## MTS ranks 101-500: mods that overlap our fixes (2026-11-22)
+Status: static only. The ranks 101-500 extension of the compat set (docs/COMPATIBILITY.md) found new overlap rows; the 14 mods behind the first 48 items were audited with the same method and second review. 33 first-pass findings were rejected on review (mostly the same as EA's code or already guarded, loops that do end, mod data that EA drops cleanly on uninstall). Counts are crash / hang / leak / save / perf / minor after review. Author drafts are private and not sent.
+
+| Mod | MTS id | Version audited | Findings | Issues above minor (plain description) | Our fixes |
+|---|---|---|---|---|---|
+| Job Overhaul | 629524 | 2021-05-30 build | 2 / 0 / 0 / 0 / 0 / 6 | crash (possible, rare): the interview time-out clean-up stops at the first phone without the mod's actions, so a missed interview is never cleared. crash (possible, rare): Find Job on a newspaper without its data throws and resets the Sim. | harmless: it calls the base game where we hook |
+| University Student Union / Library shells | 611709 | single build (2017-2018 packages) | 2 / 0 / 0 / 1 / 0 / 5 | crash (possible, rare): after a door is locked or deleted, a door counter can run past the usable doors, and every later visit to that building fails with a script error for the session. crash (possible, rare): at load it removes the game's building before checking the new one, so a clash with another shell mod can leave the lot without a building. save (possible, rare): after uninstall, saves may lose those two buildings. | **bypasses our visit fixes** for community-lot visits in every world (only the opt-in `unseenfbtrip`, off by default, gives the speed-up back); outside the University world it runs the game's visit unchanged |
+| The Randomizer Mod | 668302 | BASE + CORE 2025-01-07 | 0 / 0 / 2 / 0 / 1 / 5 | leak (confirmed): a list keeps every Sim of every world loaded in the session. leak (possible): the Disasters module can add up to 8 duplicate calls to a phone. perf (confirmed, size not measured): a Build/Buy-exit handler is added on every load, so each exit scans the whole world once more per load. | harmless |
+| Gardener Service 2 | 575912 | 2016-04-21 | 2 / 0 / 1 / 0 / 0 / 3 | leak (confirmed): each extra job on one plant leaves a hidden helper object behind. crash (possible, rare): a plant without soil, or soil without a plant, causes a script error (one of our fixes already catches the first case). | harmless or helpful |
+| Enhanced Vampires | 648599 | update 7-12-22 | 1 / 1 / 1 / 1 / 1 / 5 | crash (confirmed): the Friendship, Romance and Hatred aura pulses always throw. hang (possible, rare): the aura task can spin without pausing while the game is paused. leak (confirmed): each aura's first glow effect is never removed. perf (confirmed): later Sims get several copies of its "Go Inside" action for autonomy to score. save (possible, rare): mind-control motives stay on a Sim after uninstall. | harmless |
+| Working Sim's Bed | 395024 | 5.4.2014 (5 builds compared) | 0 / 0 / 1 / 0 / 0 / 2 | leak (confirmed): its bed list is never cleared, so the previous world's beds and Sims stay in memory after loading another save. | harmless |
+| Eat Outside Restaurant | 524698 | 23 Jul 2016 | 0 / 0 / 0 / 0 / 0 / 2 | - | harmless |
+| Online Center | 541640 | V30 | 0 / 0 / 0 / 0 / 0 / 3 | - | harmless |
+| Toddlers Extra Activities | 593434 | no version | 0 / 0 / 0 / 0 / 0 / 1 | - | harmless |
+| More Vampire Powers | 489366 | V2.0 | 0 / 0 / 0 / 0 / 0 / 2 | - | harmless |
+| Modern Elevators | 469658 | 1.48 | 0 / 0 / 0 / 0 / 0 / 1 | - | **our elevator rider fixes do not reach it**: it ships its own copy of the game's elevator logic, so modern elevators keep the game's old rider behaviour (found by the batch 3 copy check; nothing breaks) |
+| Canning Station Overhaul | 580462 | 1.0.1 | 0 / 0 / 0 / 0 / 0 / 1 | - | harmless |
+| Yoga Mod | 671837 | V3.0 | 0 / 0 / 0 / 0 / 0 / 3 | - | harmless |
+| Pick Up Toddler Fixes | 678824 | single build | 0 / 0 / 0 / 0 / 0 / 0 | no findings | harmless |
+
+Batch 2 (items 49-98; 24 first-pass findings rejected on review):
+
+| Mod | MTS id | Version audited | Findings | Issues above minor (plain description) | Our fixes |
+|---|---|---|---|---|---|
+| Chef Service | 495287 | v1.7 (v1.2-v1.6 compared) | 0 / 1 / 0 / 0 / 0 / 9 | hang (possible, rare): on a lot with a counter or stove but no fridge, the chef cannot find a recipe and stays until you cancel the service. | harmless |
+| The Chef Plant | 495651 | 1.30 | 0 / 0 / 0 / 0 / 0 / 3 | - | harmless; with our harvest fix, skilled harvesters may get its seeds more often than the mod intends (inferred) |
+| Autonomous Fun in the Sun | 530601 | single build | 0 / 0 / 0 / 0 / 0 / 5 | - | **bypasses our boat roaming cap** for rowboats and paddleboats (its roam replaces the game's) |
+| Toddlers Can Use Stairs (and its GoHere variant) | 655350 | single build | 0 / 0 / 0 / 0 / 0 / 3 | - | **bypasses our stair wait fix** (its own copy of the stair start) |
+| Enhanced Hospitals | 666384 | single build | 0 / 0 / 0 / 0 / 0 / 4 | - | **bypasses most of our birth trip fix** (its own birth step); one part still applies |
+| Pool Jobs for Lifeguards | 574660 | single build | 1 / 0 / 0 / 0 / 0 / 2 | crash (confirmed, rare): a lifeguard who quits or is fired mid-shift still gets the rescue check, which reads the missing job and throws. The base game has the same bug. | **bypasses our lifeguard-quit fix** for it (the mod hides the game's method with its own instead of overriding it, so the compat scan did not see it) |
+| Professional Massage Table | 559245 | single build | 0 / 0 / 0 / 1 / 0 / 2 | save (possible): the masseur role turns needs decay off and never turns it back on. | harmless |
+| Consort Age | 517293 | 1.2 | 0 / 0 / 0 / 0 / 1 / 5 | perf (possible, size not measured): every day at 1 AM all tracked Sims get their outfits rebuilt at once (as in Consort Grow). | harmless |
+| Business as Unusual Bistro set | 513025 | 1.63 build | 0 / 0 / 0 / 0 / 0 / 4 | - | harmless |
+| Zerbu Ultimate Careers | 517911 | 4.3.1 | 0 / 0 / 0 / 0 / 0 / 5 | - | harmless |
+| Ultimate Careers rework, Lot Events, Career Opportunities | 657354 | 2.0.3 | 0 / 0 / 0 / 0 / 0 / 7 | - | harmless |
+| Toddlers Can Learn to Walk Alone | 670796 | single build | 0 / 0 / 0 / 0 / 0 / 0 | no findings | harmless |
+| Level Up Video Game Skill | 681789 | current build | 0 / 0 / 0 / 0 / 0 / 2 | - | harmless |
+| Debug Console Command Enabler, No Shoo Mod | 343068, 354513 | load check only | n/a | 2009 core mods: they replace the gameplay module with a game patch 1.2 build that lacks types every later script module needs, so they cannot load on 1.67 (era verified, load failure inferred). Not audited. | n/a |
+
+Batch 3 (items 99-148; 8 first-pass findings rejected on review). From this batch on, every mod was also checked for copies of game classes whose methods we patch (a copy is invisible to the compat scan, as in Pool Jobs):
+
+| Mod | MTS id | Version audited | Findings | Issues above minor (plain description) | Our fixes |
+|---|---|---|---|---|---|
+| Take Sims to Court | 670856 | single build | 1 / 1 / 0 / 0 / 0 / 2 | hang (confirmed, player: yes): in Serve Jail Time, a loop waits on a flag that nothing ever clears and never pauses, so a Sim who serves the full sentence freezes the game. crash (possible, rare): asking the lawyer about adoption, marriage or no case resets the Sim. | harmless |
+| Break Into House | 650590 | ArrestAndAlarm (2024; other builds compared) | 3 / 0 / 1 / 0 / 0 / 3 | crash (confirmed, player: yes): when a resident catches the burglar, its alarm-off step runs once per burglar alarm in town and throws when the house has none or the town has several; that lot likely stops updating until reload (effect inferred). crash (possible, rare): a late alarm switch-off on an empty list; a lot without a front door resets the Sim. leak (possible, rare): references to the old world's lot and Sim after quit. | **our private-eye case fix does not reach its copy** of the game's break-in action (the copy keeps the door-lock bug); the game's own action still gets the fix |
+| The Savvier Seller | 515159 | 17.06.2014 set | 1 / 0 / 1 / 0 / 0 / 0 | crash (confirmed, rare): deleting a store rug after the item on it was deleted. leak (confirmed): every rug stays subscribed to a world event the game never clears, so old rugs stay in memory across reloads. | harmless; our `storeworldevents` fix (off by default) would clean those up |
+| No Shopping From Fridge | 466990 | 18.8.2014 build (7 builds compared) | 0 / 0 / 1 / 0 / 0 / 1 | leak (confirmed): every placed object adds another purchase listener and scans every kitchen appliance in the world. | harmless in the newest build; its 2012 build has its own copy of the food tray step and skips our `foodtraygrill` fix |
+| Working Futon, Reheat Food in Microwave, Custom Beverages, Family Kiss, One With Nature, Investment Mod, Livestreaming Mod | 542123, 548273, 579816, 616968, 672189, 677347, 681938 | current builds | 0 / 0 / 0 / 0 / 0 / 1-3 each | - | harmless |
+| Eiffel Tower, Gardening Spells, Mud Bathtub / Sauna | 518835, 543219, 561028 | current builds | none | no findings | harmless |
+
+Batch 4 (items 149-216; 18 first-pass findings rejected on review). A copy check over every other script item of ranks 101-500 (111 items, 370 assemblies) found no further hidden copy of a game class we patch; a copy under a new name that does not derive from the game's class would still not be found.
+
+| Mod | MTS id | Version audited | Findings | Issues above minor (plain description) | Our fixes |
+|---|---|---|---|---|---|
+| Functional Sewing Table | 643837 | BETA V2.0.0 | 1 / 0 / 0 / 0 / 0 / 5 | crash (confirmed, player: yes): its world-quit step throws every time, so every quit step after it is skipped. | our fixes in its code still run; **our own world-quit clean-up may be skipped** when it runs after this mod (load order, inferred) |
+| Arms Dealing | 677382 | 1.0.0.0 (main file only) | 2 / 0 / 0 / 0 / 0 / 2 | crash (confirmed, player: yes): the Sunday alarm reads a skill some household Sims do not have; one such Sim stops the weekly payments for the session. crash (confirmed, rare): taking a suspect home in a world without a police station. | harmless |
+| Take a Stroll | 577598 | no version | 0 / 0 / 1 / 0 / 1 / 3 | leak and perf (confirmed): every stroll, NPC strolls included, leaves two callbacks on the game's route-planning hook for the session; every later route plan runs through them. | harmless |
+| Functioning Well and Off-Grid Plumbing | 637857 | PAIL build (others compared) | 0 / 0 / 1 / 0 / 0 / 2 | leak (confirmed, size not measured): every water check leaves a throwaway lot object in a list the game never clears. | harmless; it clashes with Kitchen Tweaks (both replace the same serving clean-up action) |
+| Generic Food Maker | 578872 | 1.0.0.0 | 1 / 0 / 0 / 0 / 0 / 0 | crash (possible, rare): autonomous Make after the player empties a recipe list. | harmless |
+| Private Room Door | 566837 | 1.0.0.0 | 0 / 0 / 0 / 0 / 0 / 0 | no findings | only our door mirror feature (off by default) overlaps; with it on, the key-only door would probably count as open (inferred, ours to fix before that switch goes on) |
+| Flower Arranging, Kitchen Tweaks, Magic Mood Manager, Shop for Clothes, Jogging Track Marker, Japanese Culture Trait, Mangaka Active Career, Baking Mod | 667032, 691504, 395910, 412721, 537593, 543979, 579441, 693272 | current builds | 0 / 0 / 0 / 0 / 0 / 0-3 each | - | harmless |
+| Magic Gardening Gnome, Exotic Dancers Stage, Scribbling Pad Fixed | 486705, 545321, 659002 | current builds | none | no findings | harmless |
+
 ## Gaps
+- Ranks 101-500 audit: no game runs; Enhanced Vampires, Job Overhaul, Online Center and Randomizer partly skimmed; a few methods read from IL only.
+- NRaas: source of 2026-07-29 read, not the current release zips; no game runs; Woohooer's location add-ons skimmed only.
 - Second review: 42 of the 52 first-pass minor findings were not re-checked. What TS3's Mono throws for Builder Stuff's wrapped null handler (an error is expected on any .NET runtime, but its type on that Mono is not proven) and which later mods it skips depend on load order. Neither was run.
 - No game runs. Every in-game effect is reasoning from the code, and the hitch sizes of the perf findings are not measured.
 - Core mods: one build each was diffed. The other builds of the 2x mod (46) and the xCAS basics and 1.69 builds were not. For simler90's replaced assemblies, the change lists were read, but not every changed method was checked against vanilla.

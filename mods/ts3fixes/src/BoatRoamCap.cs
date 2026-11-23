@@ -124,8 +124,10 @@ namespace Ts3Fixes
         }
 
         // true = this run must not roam (ReturnToShore was pushed as its continuation)
+        static readonly List<object> sBrcModRuns = new List<object>();  // mod BoatAround runs already checked (CompatResolve CrBr0)
         static bool BrcBefore(Boat.BoatAround ba)
         {
+            if (sBrcModRuns.Count > 0 && sBrcModRuns.Contains(ba)) return false;
             Sim sim = ba != null ? ba.Actor : null;
             Boat boat = ba != null ? ba.Target : null;
             if (sim == null || boat == null || sim.SimDescription == null) return false;

@@ -1,0 +1,98 @@
+{
+ "note": "apex-seh-probe-correct-1120 (PREPARED, NOT RUN; probe-out/apex-pr-seh-probe-1120.md): Apex Radiance 4.0.12 raises tens of thousands of first-chance access violations per session in its lot story reads (ApexRadiance.asi+0x12A048 / +0x12A054 LotStoryManager, +0x133F77 ReadCutExtras, +0x12A9BA ReadXform; 90558 in jit-vslot-correct-1120-rerun1 bp-vslot-on) and catches them itself. Fork branch fix/no-seh-probe-1120 replaces those reads with non-faulting checks. Two jobs on the same save, seed and ts3native set (hotfix hf031: JIT FaultRecover leaves foreign faults alone), run by probe-out/queue/chain-apex-seh-probe-1120.sh with --only per job: bp-av-stock = Bin state apex with the stock 4.0.12 release asi; bp-av-fixed = Bin state apex with game-copy/apex-seh-probe-test/ApexRadiance.asi (fork build, sha pinned in the chain). Measure: the last 'crash log: N more AVs at logged addresses' line per job (total and per address) and the foreign-fault tick line. PASS for bp-av-fixed: no logged AV inside the fixed functions of the fork build (LotStoryManager 0x12A0E0-0x12A16F, ReadXform 0x12AA90-0x12AB5F, ReadCutExtras 0x133F90-0x13411F, from its map). bp-av-stock only measures; its logRequire on the stock offsets proves the stock asi ran. Measurement only, no Sim changed (household check n/a). ~2 x 15 min.",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-av-stock",
+   "note": "[est 15 min] stock Apex 4.0.12 (release zip asi) + bridge, BP 10 min: counts Apex's first-chance AVs (baseline arm)",
+   "asi": "game-copy/ts3native.asi.hf031",
+   "iniBase": "game-copy/ts3native.ini.hf031",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+   "pinReason": "v0.3.1 hotfix set hf031 on purpose: its JIT FaultRecover leaves Apex's faults alone (no jit: fault ban), so both arms see the same JIT; the A/B is the Apex asi",
+   "releaseDefaults": true,
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "gameArgs": ["-disablestoryprogression"],
+   "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+   "timeoutMin": 30,
+   "logRequire": {
+    "^ts3native 0\\.36\\.295a ": 1,
+    "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v4\\.0\\.12\\.\\d+": 1,
+    "^crash log: first 16 first-chance exceptions": 1,
+    "^exception C0000005 at 0x[0-9A-F]{8} \\(ApexRadiance\\.asi\\+0x(12A048|12A054|133F77|12A9BA)\\)": 1
+   },
+   "logForbid": {
+    "^jit: fault passed on: .* at eip [0-9A-F]{8} in ": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.295a ": { "match": ["ts3native 0.36.295a 2026-11-21 00:40:00"], "noMatch": ["ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"] },
+    "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v4\\.0\\.12\\.\\d+": {
+     "match": ["diag: Bin add-ons: ApexRadiance.asi 16148 KB v4.0.12.0, d3d9.dll 1028 KB v10.0.17763.1, ts3native.asi 1431 KB"],
+     "noMatch": ["diag: Bin add-ons: ApexRadiance.asi 14362 KB v4.0.6.0, ts3native.asi 1431 KB"]
+    },
+    "^crash log: first 16 first-chance exceptions": {
+     "match": ["crash log: first 16 first-chance exceptions, an AV in another module once per address, then one per new eip up to 64 (module 0x6C520000-0x6D255000)"],
+     "noMatch": ["crash log: 4065 more AVs at logged addresses in other modules (not logged): 67C1A048 x3525 67C1A054 x481 67C23F77 x59"]
+    },
+    "^exception C0000005 at 0x[0-9A-F]{8} \\(ApexRadiance\\.asi\\+0x(12A048|12A054|133F77|12A9BA)\\)": {
+     "match": ["exception C0000005 at 0x67C1A048 (ApexRadiance.asi+0x12A048) (info 00000000 00000000) thread 16068 eip 67C1A048 esp 3630C1DC; stack code refs: 00D7D5B1 00D7D56D"],
+     "noMatch": ["exception C0000005 at 0x67E5AEBA (ApexRadiance.asi+0x36AEBA) (info 00000000 14010DA5) thread 60036 eip 67E5AEBA esp 001AF9EC; stack code refs: 006C793E"]
+    },
+    "^jit: fault passed on: .* at eip [0-9A-F]{8} in ": {
+     "match": ["jit: fault passed on: 0xC0000005 at eip 67C1A054 in System.Collections.Generic.Dictionary`2.GetSlot: in a helper the body called (a return address on the stack); the method is off for the session, the game's handlers get the fault"],
+     "noMatch": ["jit: compiled DefaultComparer.Equals: 12 positions, 10 native, 2 exits, 1673 bytes, lazy body"]
+    }
+   }
+  },
+  {
+   "id": "bp-av-fixed",
+   "note": "[est 15 min] fork fix/no-seh-probe-1120 asi (game-copy/apex-seh-probe-test) + 4.0.12 bridge, BP 10 min: no AV in the fixed lot story reads; total AVs vs bp-av-stock",
+   "asi": "game-copy/ts3native.asi.hf031",
+   "iniBase": "game-copy/ts3native.ini.hf031",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+   "pinReason": "same set as bp-av-stock (the A/B is the Apex asi)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP",
+   "noiseCheck": false,
+   "gameArgs": ["-disablestoryprogression"],
+   "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } },
+   "timeoutMin": 30,
+   "logRequire": {
+    "^ts3native 0\\.36\\.295a ": 1,
+    "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v4\\.0\\.12\\.\\d+": 1,
+    "^crash log: first 16 first-chance exceptions": 1
+   },
+   "logForbid": {
+    "^exception C0000005 at 0x[0-9A-F]{8} \\(ApexRadiance\\.asi\\+0x(12A0[E-F][0-9A-F]|12A1[0-6][0-9A-F]|12AA[9A-F][0-9A-F]|12AB[0-5][0-9A-F]|133F[9A-F][0-9A-F]|1340[0-9A-F]{2}|1341[0-1][0-9A-F])\\)": 0,
+    "^jit: fault passed on: .* at eip [0-9A-F]{8} in ": 0
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.295a ": { "match": ["ts3native 0.36.295a 2026-11-21 00:40:00"], "noMatch": ["ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"] },
+    "^diag: Bin add-ons: .*ApexRadiance\\.asi \\d+ KB v4\\.0\\.12\\.\\d+": {
+     "match": ["diag: Bin add-ons: ApexRadiance.asi 16148 KB v4.0.12.0, d3d9.dll 1028 KB v10.0.17763.1, ts3native.asi 1431 KB"],
+     "noMatch": ["diag: Bin add-ons: ApexRadiance.asi 14362 KB v4.0.6.0, ts3native.asi 1431 KB"]
+    },
+    "^crash log: first 16 first-chance exceptions": {
+     "match": ["crash log: first 16 first-chance exceptions, an AV in another module once per address, then one per new eip up to 64 (module 0x6C520000-0x6D255000)"],
+     "noMatch": ["crash log: 4065 more AVs at logged addresses in other modules (not logged): 67C1A048 x3525 67C1A054 x481 67C23F77 x59"]
+    },
+    "^exception C0000005 at 0x[0-9A-F]{8} \\(ApexRadiance\\.asi\\+0x(12A0[E-F][0-9A-F]|12A1[0-6][0-9A-F]|12AA[9A-F][0-9A-F]|12AB[0-5][0-9A-F]|133F[9A-F][0-9A-F]|1340[0-9A-F]{2}|1341[0-1][0-9A-F])\\)": {
+     "match": [
+      "exception C0000005 at 0x67C1A150 (ApexRadiance.asi+0x12A150) (info 00000000 00000000) thread 16068 eip 67C1A150 esp 3630C1DC; stack code refs: 00D7D5B1",
+      "exception C0000005 at 0x67C24050 (ApexRadiance.asi+0x134050) (info 00000000 CCCCCD54) thread 16068 eip 67C24050 esp 3630C1EC; stack code refs: 00D7D5B1",
+      "exception C0000005 at 0x67C1AAD0 (ApexRadiance.asi+0x12AAD0) (info 00000000 92A506AE) thread 60036 eip 67C1AAD0 esp 001AF7F0; stack code refs: 00DF14FD"
+     ],
+     "noMatch": [
+      "exception C0000005 at 0x67C1A048 (ApexRadiance.asi+0x12A048) (info 00000000 00000000) thread 16068 eip 67C1A048 esp 3630C1DC; stack code refs: 00D7D5B1",
+      "exception C0000005 at 0x67C1A170 (ApexRadiance.asi+0x12A170) (info 00000000 00000000) thread 16068 eip 67C1A170 esp 3630C1DC; stack code refs: 00D7D5B1",
+      "exception C0000005 at 0x67E5AEBA (ApexRadiance.asi+0x36AEBA) (info 00000000 14010DA5) thread 60036 eip 67E5AEBA esp 001AF9EC; stack code refs: 006C793E"
+     ]
+    },
+    "^jit: fault passed on: .* at eip [0-9A-F]{8} in ": {
+     "match": ["jit: fault passed on: 0xC0000005 at eip 67C1A054 in System.Collections.Generic.Dictionary`2.GetSlot: in a helper the body called (a return address on the stack); the method is off for the session, the game's handlers get the fault"],
+     "noMatch": ["jit: compiled DefaultComparer.Equals: 12 positions, 10 native, 2 exits, 1673 bytes, lazy body"]
+    }
+   }
+  }
+ ]
+}

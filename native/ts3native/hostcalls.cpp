@@ -109,8 +109,14 @@ static volatile LONG g_hcMismatchLog;
 
 // --- DoorMemoX (worker only) ---
 struct DmxRow { DWORD key[9]; DWORD ans, deleg; LONG gen; LONGLONG t; };
-static DmxRow g_dmx[256];
-static int g_dmxI;
+// docs/321 M11 (lane C): the ring of 256 overwrote rows still inside their life 368 / 30 / 111 times in 10 min on BP / IP / SV.
+// DmxPut now reuses the key's own row, else a dead row (empty or past DoorMemoXMs), else doubles the table (worker only, the
+// old block is kept: a reader on this thread never holds a row across a put); only at g_dmxMax does the ring evict a live row (old blocks are not freed: 240 KB at most in all).
+// Find answers the newest row of a key, and one row per key is the newest, so every answer equals the ring's.
+static DmxRow g_dmx0[256];
+static DmxRow* g_dmx = g_dmx0;
+static int g_dmxI, g_dmxCap = 256;
+static int g_dmxMax = 4096;  // 4096 rows = 240 KB (a test lowers it)
 static LONG g_dmxLast;               // the mode the table was filled under
 static LONGLONG g_dmxTicks;          // DoorMemoXMs in QPC ticks
 static const DWORD* g_dmxDelegate;   // the event 59 delegate slot (0x11D72C4; NULL in tests)
@@ -137,8 +143,12 @@ static void DmxHoldSet(DWORD lot, bool on) {  // sim thread
         if (!g_dmxHold[i] && free < 0) free = i;
     }
     if (!on) return;
-    if (lot && free >= 0) g_dmxHold[free] = lot;
-    else InterlockedExchange(&g_dmxHoldAll, 1);
+    if (lot && free >= 0) {
+        g_dmxHold[free] = lot;
+        LONG held = 0;
+        for (int i = 0; i < 32; i++) held += g_dmxHold[i] != 0;
+        CapSee(CAP_DMXHOLD, held, 32);
+    } else InterlockedExchange(&g_dmxHoldAll, 1), CapFull(CAP_DMXHOLD);
 }
 // sub >= DS_SRC_OP_BASE (docs/674 §9, DoorGen.cs with DoorShare): a bump from source sub - DS_SRC_OP_BASE (DS_SRC_*), lo =
 // DsIdHash of the door or lot it names (0 = neither). DoorMemoX's generation moves on every one; DoorShare's stamps by the
@@ -179,7 +189,7 @@ static DWORD DmxDeleg() { return g_dmxDelegate ? *(volatile const DWORD*)g_dmxDe
 static volatile LONG g_dmxFound;  // valid rows (the miss split's other side; not logged)
 static const DmxRow* DmxFind(const DWORD* key, LONG gen, DWORD deleg, LONGLONG now, bool* stale) {
     const DmxRow* best = NULL;
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < g_dmxCap; i++) {
         const DmxRow& r = g_dmx[i];
         if (r.t && !memcmp(r.key, key, sizeof(r.key)) && (!best || r.t > best->t)) best = &r;
     }
@@ -190,10 +200,23 @@ static const DmxRow* DmxFind(const DWORD* key, LONG gen, DWORD deleg, LONGLONG n
 }
 static void DmxPut(const DWORD* key, DWORD ans, LONG gen, DWORD deleg, LONGLONG now) {
     if (ans != 2) { InterlockedIncrement(&ts3native_doorgen.notUnlocked); return; }  // only "unlocked": see the header
-    DmxRow& w = g_dmx[g_dmxI];
-    g_dmxI = (g_dmxI + 1) & 255;
-    memcpy(w.key, key, sizeof(w.key));
-    w.ans = ans, w.gen = gen, w.deleg = deleg, w.t = now;
+    DmxRow* w = NULL;
+    int live = 0;
+    for (int i = 0; i < g_dmxCap; i++) {
+        DmxRow& r = g_dmx[g_dmxI = (g_dmxI + 1) % g_dmxCap];  // ring order from the last write: the oldest dead row first
+        const bool alive = r.t && now - r.t <= g_dmxTicks;
+        if (r.t && !memcmp(r.key, key, sizeof(r.key))) { w = &r; break; }
+        if (!alive && !w) w = &r;
+        live += alive;
+    }
+    if (!w && g_dmxCap < g_dmxMax) {
+        DmxRow* g = (DmxRow*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(DmxRow) * g_dmxCap * 2);
+        if (g) memcpy(g, g_dmx, sizeof(DmxRow) * g_dmxCap), w = &g[g_dmxCap], g_dmx = g, g_dmxI = g_dmxCap, g_dmxCap *= 2;
+    }
+    if (!w) w = &g_dmx[g_dmxI = (g_dmxI + 1) % g_dmxCap], CapFull(CAP_DMX);  // at the ceiling: the ring evicts a live row
+    CapSee(CAP_DMXROWS, live + 1, g_dmxMax);
+    memcpy(w->key, key, sizeof(w->key));
+    w->ans = ans, w->gen = gen, w->deleg = deleg, w->t = now;
 }
 static void DmxShadow(const DmxRow* row, DWORD r, const DWORD* key) {  // mode 2: a valid row asked anyway
     Ts3nCounters& k = ts3native_counters;
@@ -249,7 +272,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         return 1;
     }
     if (xm != g_dmxLast) {  // a flip (either way): nothing filled under the other mode is used
-        memset(g_dmx, 0, sizeof(g_dmx));
+        memset(g_dmx, 0, sizeof(DmxRow) * g_dmxCap);
         g_dmxLast = xm;
         InterlockedIncrement(&k.dmxClear);
     }

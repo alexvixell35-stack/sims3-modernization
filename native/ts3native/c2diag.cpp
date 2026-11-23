@@ -81,7 +81,7 @@ static void C2Stack(const DWORD* sp, char* out, size_t cap) {
     __try {
         for (int i = 0; i < 64 && found < 8 && n + 12 < cap; i++) {
             const DWORD v = sp[i];
-            if (v >= C2_TEXT_LO && v < C2_TEXT_HI) n += sprintf_s(out + n, cap - n, " %08lX", v), found++;
+            if (v >= C2_TEXT_LO && v < C2_TEXT_HI) n += SFmt(out + n, cap - n, " %08lX", v), found++;
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
 }

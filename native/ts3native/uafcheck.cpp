@@ -123,9 +123,9 @@ static int UafVerify(const UafBlk& b, const char* when) {
     }
     if (InterlockedIncrement(&g_uafLogN) <= kUafLogMax) {
         char more[96] = "";
-        for (int i = 1, w = 0; i < changed && i < 4; i++) w += sprintf_s(more + w, sizeof(more) - w, " +0x%lX=0x%08lX", offs[i], vals[i]);
+        for (int i = 1, w = 0; i < changed && i < 4; i++) w += SFmt(more + w, sizeof(more) - w, " +0x%lX=0x%08lX", offs[i], vals[i]);
         char ob[96] = "";
-        if (b.from[0] == kUafObjRet) sprintf_s(ob, "; Object block id %08lX%08lX (ObjectService free 0x935E1B)", b.oidHi, b.oidLo);
+        if (b.from[0] == kUafObjRet) SFmt(ob, "; Object block id %08lX%08lX (ObjectService free 0x935E1B)", b.oidHi, b.oidLo);
         Log("uaf: write after free: block 0x%08lX size 0x%lX (chunk 0x%lX), offset +0x%lX value 0x%08lX%s, %d dword(s) changed%s%s; freed %lu ms ago "
             "at save #%ld world load #%ld (now save #%ld, world load #%ld); free stack %08lX %08lX %08lX %08lX; freed under tag %s (site ts3native+0x%lX); "
             "found at %s, thread %lu%s",
@@ -231,7 +231,7 @@ static int UafNearLog(DWORD a, const char* what) {  // returns the matches (self
             if (!in(b.p, b.chunk)) continue;
             hits++;
             char ob[80] = "";
-            if (b.from[0] == kUafObjRet) sprintf_s(ob, "; Object block id %08lX%08lX (ObjectService free)", b.oidHi, b.oidLo);
+            if (b.from[0] == kUafObjRet) SFmt(ob, "; Object block id %08lX%08lX (ObjectService free)", b.oidHi, b.oidLo);
             Log("float5 near our free: tag %s (site ts3native+0x%lX): %s 0x%08lX is +0x%lX into quarantined block 0x%08lX size 0x%lX, freed %lu ms ago "
                 "at save #%ld world load #%ld; free stack %08lX %08lX %08lX %08lX%s", UafTagName(b.tag), UafSiteOff(b.site), what, a, a - b.p, b.p,
                 b.chunk - 0x10, now - b.tick, (LONG)b.save, (LONG)b.world, b.from[0], b.from[1], b.from[2], b.from[3], ob);

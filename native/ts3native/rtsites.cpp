@@ -313,7 +313,7 @@ static void InstallRtSites(const wchar_t* ini, bool gate) {
     int n = 0;
     for (int i = 0; i < RT_N; i++) {
         char name[64];
-        sprintf_s(name, "%s (route gate site)", kRtSites[i].name);
+        SFmt(name, "%s (route gate site)", kRtSites[i].name);
         // InstallDetour re-targets a copied leading call rel32 before the jmp goes live
         if ((g_rtTramp[i] = InstallDetour(name, kRtSites[i].addr, kRtSites[i].pro, kRtSites[i].len, (void*)kRtStubs[i], &g_rtTramp[i])) != NULL) {
             ready |= 1 << i;

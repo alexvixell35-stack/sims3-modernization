@@ -68,7 +68,7 @@ static bool IlpSha256(const BYTE* p, DWORD n, BYTE out[32]) {
     return g_ilpBcHash && g_ilpBcHash(g_ilpBcSha, NULL, 0, (PUCHAR)p, n, out, 32) == 0;
 }
 static const char* IlpHex(const BYTE* p, int n, char* buf) {  // first n bytes as hex (buf >= 2n + 1)
-    for (int i = 0; i < n; i++) sprintf_s(buf + 2 * i, 3, "%02x", p[i]);
+    for (int i = 0; i < n; i++) SFmt(buf + 2 * i, 3, "%02x", p[i]);
     return buf;
 }
 

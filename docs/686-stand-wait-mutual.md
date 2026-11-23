@@ -349,6 +349,239 @@ A player's rule: "doors and shower and stairs etc can be almost always but other
   The `simpass` count of §8.7 (about 55 acts per storm) was taken before this rule; away from portals those walks
   now come after the grace.
 
+## 10. A slot closed by furniture or a wall is used anyway (`blockeduse`, `blockedusehh`; 2026-11-22, `feat/blockeduse-1122`, built, default off; forced repro run, §10.6)
+
+A player's wish: "if he can't get in because there's something in the way he could just go in, and bed, if one of the
+sides is next to the wall just teleport him to the animation and then back". Clipping on the last stretch and a short
+jump onto the slot and back are fine; ordinary walking stays real. `BlockedUse.cs`, rules in `BlockedUseCore.cs`.
+
+### 10.1 How object use reaches a slot [verified, decompiled `Sims3.Gameplay`, `ScriptCore`, unless marked]
+
+- `RoutingComponent.RouteToSlot` (one slot, or a list with an optional preferred slot: 735 call sites with its
+  `...AndCheckInUse` / `RouteToSlotList` wrappers) makes a route, adds one slot destination (`Route.PlanToSlot`), plans
+  and calls `DoRoute`. `SimRoutingComponent.RouteToUnusedPart` (beds, seats; 20 sites) adds one slot destination per
+  part: weight 0 for a part in use, 1000 for the preferred part, 500 for the others, plus a "near the object" goal
+  while the Sim is not close; once close, only the slots of free parts are left. So the game takes whichever free bed
+  side it can reach; a side that cannot be reached is only a failure when it is the last one free.
+- `SimRoutingComponent.DoRoute` tests the plan result first. A failed plan: route-fail behaviour (a walk to 1-3 m from
+  the blocker in its room, the balloon), exit reason `RouteFailed`, `false`; the interaction ends. Afterwards the
+  callers read the route's plan result only: the slot's name hash, and `RouteToUnusedPart` the end point, which it
+  compares with the slot's place to find the part.
+- The route's destination list is native and cannot be read back, so the slots a plan wanted are noted when they are
+  added (`Route.AddDestination`, cleared with `Route.ClearDestinationList`).
+- The game has its own switches for a relaxed plan: `PassThroughObjects` (used for ghosts, with `PassThroughWalls`)
+  and `UserOverrideSlotObstruction` + `DoSlotObstructionChecksUserOverride = false` (carry, repair, houseboat routes).
+- Not covered by a route at all: interaction tests that plan to a slot and hide or grey the interaction when the plan
+  fails (`Sink.CanRouteToSink` and others among the 178 direct `PlanToSlot` sites).
+
+### 10.2 Measured (storm logs `phase-*`, `routefail:` lines, read-only)
+
+56,328 failed plans in 1,042 logs (household Sims; storms on crowded lots, so Sims and locked doors dominate). Of the
+6,622 from object-use interactions (bed, tub, shower, toilet, sink, fridge, seats, counters, mirrors):
+
+| result, blocker | lines |
+|---|---|
+| no path, no blocker named | 1,886 |
+| destination portal locked | 1,826 |
+| no destination (every wanted slot refused before the search) [what refused them: not logged] | 1,719 |
+| no path, a Sim | 735 |
+| no path, furniture | 403 |
+| no path, a wall | 16 |
+
+Furniture cases by pair: `TakeBath` blocked by a litter pile 107, mirror interactions by the double bed 127, toilet by
+a dining chair or bar stool 18, tub by a dresser 14, sink / toilet by the crib or the tub 31. No log line says how
+often a bed side at a wall fails: with the other side free the plan succeeds.
+
+### 10.3 What is built
+
+In `DoRoute`, for a failed plan whose route has slot destinations on an object, result "no path", "no destination" or
+"slots / points obstructed", blocker not a Sim:
+
+1. Walk up. Unless the Sim stands in the object's room, on its level, within 3 m of a wanted slot, the game's own
+   "near the object" plan (1-3 m, the object's room: the plan of its route-fail behaviour) is walked as a normal
+   route. No such plan = the object is out of reach (another level, a closed room): the game's behaviour stays.
+2. Clip. The route is planned again with "pass through objects" and "no slot obstruction test"; walls still count. A
+   plan of at most 6 m whose end no Sim stands on is walked; the options are put back afterwards.
+3. Snap. Otherwise the Sim is put on the nearest wanted slot within 4 m (1 m in height) that no Sim stands on, facing
+   as the slot does, and the route answers "arrived" with that slot's hash and place, which is all the callers read.
+   A slot behind a wall (a bed side at the wall) takes this branch: the way round is longer than 6 m or there is none.
+4. Out. The Sim is remembered with the spot it stood on before step 2 or 3. Later, when it plans a route (`Plan` /
+   `Replan`), is done with that interaction, sits or lies in nothing and is still at the slot: a plan that succeeds
+   ends the entry (it walks). A plan that fails is followed by one plan to the remembered spot; if that fails too the
+   Sim is put on that spot (or, if that spot is not routable any more, on a spot the game's placement search finds
+   near it) and the plan is made again.
+
+Scope: `blockeduse` = Sims the player does not control, `blockedusehh` = household and selected Sims, each alone
+(`IsPlayerSim`; `[Experimental] HouseholdToo` does not lift it: this is a teleport). Humans only, not riding, not in
+a vehicle. Not with a Sim, a door or stair, a rabbit hole or a vehicle as the object; not on the world lot. Go Here and
+every other point route has no slot destination and never comes here. A case that kept the game's behaviour is not
+tried again by that Sim on that object for 30 sim-minutes. Off = compare mode: 4414 / 4415 count.
+
+Counters 4414-4429 (`kCounterSlots` 4430): failed slot plans / would / exempt / walked up / clip / snap in / snap out /
+walked out / not this kind / kept: out of reach / kept: no slot in range / walk up stopped / errors / clip walk
+stopped / snap out to a found spot / kept: cooling down. Lines `blockeduse: <who> <Sim> -> <Object> ...: clip | snap in
+| kept`, `blockeduse: ... snap out from ... to ...`, `blockeduse: error at <site>` (20 a minute, 300 a session).
+
+### 10.4 Limits [inferred unless marked]
+
+- "No destination" is taken as "every slot refused by an obstruction" from the logs' shape; a plan that answers it for
+  another reason costs one walk up and one extra plan, then keeps the game's behaviour and cools down.
+- A snap is a visible jump of up to 4 m; a clip walks through furniture for up to 6 m. The animation that follows
+  plays where the game would play it; with a wall at the slot the Sim stands in or behind the wall for its length.
+- The way out waits for the Sim's next plan. A Sim with nothing to do stands on the closed slot until autonomy or the
+  player gives it a route.
+- Three swaps are new: `Route.AddDestination`, `Route.ClearDestinationList` (no yield) and
+  `SimRoutingComponent.DoRoute` (yields; stub, `savedstacks`). Every Sim saved mid-route has a frame in the `DoRoute`
+  hook; its body is two lines on purpose, since a build that changes it resets those Sims once at the next load
+  (docs/242 §2). The earlier `DoRoute` hook was removed for that reason because it only logged.
+- Pets, interaction tests that plan to a slot (10.1), jig routes (socials, `SocialJigTwoPerson` blockers) and objects
+  the Sim reaches by a radius route (TV, easel at a distance) are not covered.
+
+### 10.5 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/blockeduse/run.ts`: 45 checks of the rules. `BlockedUseCheck run | result | lot` (`lot`: plans
+  of the selected Sim to every routing slot of the lot's tubs, showers, toilets, sinks, beds, chairs and sofas, lists
+  the objects with a closed slot). Repro `blockeduse-check` (rules, counters). The forced repro `blockeduse-force` (a room built with
+  `build_layout`, a fridge put on the toilet's slot with the agent's `put_in_front` step) stays on the contributor's
+  combo branch until that agent step is upstream; §10.6 gives its results.
+- Run plan, about 30 min of game time: 1. load, `ts3fixes applied` must show `SimRoutingComponent.DoRoute: ok`,
+  `Route.AddDestination: ok`, `Route.ClearDestinationList: ok`; save and load with the switches off, Sims mid-route
+  must come back (`savedstacks` 761 = 0). 2. `blockeduse-force`. 3. By hand: a double bed with one side at a wall and
+  two sleepers; a tub with a dresser in front. 4. One storm with both switches on.
+- Pass: 4426 = 0, no `blockeduse: error at` line, no new script errors, the Sim ends on a routable spot after use
+  (4420 or 4421 follows every 4418 / 4419), no Sim left standing in a wall, `gohere` lines unchanged.
+
+### 10.6 Results (2026-11-22, Steam Deck, Sunset Valley new game)
+
+- Forced repro `blockeduse-force`, run bu-r11 (exit 0): a two-Sim household on an empty lot, a toilet at a wall with a
+  fridge on the tile in front of it. Before each arm `BlockedUseCheck lot` showed `ToiletModerate ... 1 of 1 slots
+  closed (FailedBecauseNoPathToDestination blocker Object)`.
+  - off: `routefail: ... UseToilet ... FailedBecauseNoPathToDestination blocker Object` (the fridge), `would` 1; the Sim
+    does not use the toilet.
+  - on: `blockeduse: ... clip 1.0 m to slot ..., walked up first`; counters walked up 1, clip 2 (the interaction routes
+    to the slot twice), walked out 1, errors 0.
+- The same off / on by hand in a second session (bu-m1).
+- Not exercised yet: snap in / snap out (a slot the clip plan cannot reach, such as a bed side at a wall). Not
+  confirmed by eye: no screenshot of the Sim seated. Not run: a save and load with a Sim mid-route (the `DoRoute`
+  swap is installed whatever the switches say, and its stub keeps saved stacks loading).
+
+## 13. A bed half that cannot be reached is made from the other side (`makebedboth`, `makebedbothhh`; 2026-11-22, `feat/makebedboth-1122`, built, default off; forced repro run, §13.5)
+
+A player's wish: when half of a bed cannot be reached, the Sim makes it from the other side and the whole bed is
+made. `MakeBedBoth.cs`, rules in `MakeBedBothCore.cs`, counters 4462-4469, check
+`MakeBedBothCheck run | result | lot`, selftest `tools/selftest/makebedboth`, repro `makebedboth-check`.
+
+### 13.1 How Make Bed works [verified, decompiled `Sims3.Gameplay.Objects.Beds` unless marked]
+
+- **The walk.** `BedMakeBed.Run` collects the routing slots of every part that is unmade with no Sim in it and
+  walks to one (`RouteToSlotList`). A double bed has two parts (`BedData`, slots 0 and 1), a single bed too
+  (`BedSingleData`, slots 4 and 5: its two sides).
+- **The run.** State machine `BedMakeBed`, `Enter_MakeBed_<Route0|Route1>`, loop `MakeBed`,
+  `Exit_MakeBed_<...>`, then `BedMade = true` on that part. When the other part is unmade the interaction pushes
+  itself again as a continuation.
+- **The bug.** When the other part's slot is closed the continuation's walk fails. The bed stays half made, the
+  definition's `Test` passes for any unmade part not in use, so autonomy offers the bed again and fails again,
+  and the room keeps the unmade bed's penalty. A bed whose only unmade part is the closed one fails on the first
+  walk. With `blockeduse` (§10, a separate change) Sims get into and out of a closed half, which makes such halves common.
+- **The look.** No script call sets a half's made or unmade look. `BedData.BedMade` keeps a flag and the "dirty"
+  alarm; `Bed.DoReset` sets the flags only. The look is the bed model's last animation pose, left by the bed's
+  track of the get-out and make clips.
+- **The clips** [verified, JAZZ `BedMakeBed` in `Game/Bin/Jazz/JazzData.package`, CLIP names from
+  `FullBuild0`]. The Sim plays `a2o_bed_make_start / pat / smooth / stop_x`, the bed `..._bed`, as two tracks.
+  `Route1` mirrors both. The parameter `MakeOppositeSide` changes the bed's mirror alone: at `Route0` the bed is
+  mirrored when it is set, at `Route1` the bed is mirrored when it is not set. So with the parameter the Sim plays
+  at the side it stands on and the bed plays the other half. The Sim is not moved: its clips are relative to its
+  own slot.
+- **Who sets it.** `BedData.SetPartParameters` sets it false; `BedSingleData` sets it to "other part unmade".
+  A single bed's parts copy "made" to each other and Make Bed walks to the unmade part, so in the game the
+  parameter is never true during Make Bed [inferred].
+
+### 13.2 What is built
+
+At the start of `BedMakeBed.Run` (swap with stub `RunOrig`), for a bed with two plain parts (`BedData` or
+`BedSingleData`; no tent, igloo, pod, upper bunk) of which exactly one is unmade and free:
+
+1. A route plan to that part's slots succeeds: the game's run. Double beds whose both sides are open are walked
+   round as before.
+2. Otherwise, when the other part is made, has no Sim and is not in use, and a plan to its slots succeeds: the two
+   parts' made flags are swapped for the run. The game's own run then walks to the other part's slot (no walk when
+   the Sim stands there after the first half), animates there and sets that part made at its end. Both parts are
+   made, the game pushes no continuation, a Murphy bed gets its Close, the events fire as in the game.
+   `BedData.SetPartParameters` and `BedSingleData.SetPartParameters` (two swaps, no yield) set
+   `MakeOppositeSide` for that part while this Sim is in it, so the bed animates the far half.
+3. The run does not end with that part made (walk failed, part taken, reset, error): the flags are put back.
+
+Both halves unmade and one closed: the game's run makes the open one, and its continuation is case 2. The plans
+are read-only (`Route.PlanToSlot`), at most two per Make Bed run on such a bed. With the bed made `Test` no longer
+passes, so autonomy stops offering it. No change to `Test` itself.
+
+Scope: `makebedboth` = Sims the player does not control, `makebedbothhh` = household and selected Sims, each
+stands alone. Off = counted (`would`), nothing changed. `makebedbothlog` writes one `makebedboth:` line per act.
+
+| Counter | Meaning |
+|---|---|
+| 4462 | Make Bed runs on a bed with exactly one unmade free half |
+| 4463 | second half made from the first side |
+| 4464 | closed half made from the other side (first make) |
+| 4465 | kept: the half can be reached (the game's walk) |
+| 4466 | kept: no side to make it from (other half taken, or closed too) |
+| 4467 | errors (`makebedboth: error at begin | end | parameter | run`) |
+| 4468 | would: switch off, or household without `makebedbothhh` |
+| 4469 | run ended early, flags put back |
+
+### 13.3 Limits [inferred unless marked]
+
+- **By eye, not yet seen.** The Sim pats the half in front of it while the far half is the one that moves. The
+  mirrored bed track on a double bed with the Sim's unmirrored track is the game's own state-machine path, but one
+  the game never takes, so the far half's look after it needs a look in the game. If the track does not move the
+  far half, the flags are still right (no retries, no penalty) and that half looks unmade until it is next used.
+- The bed's mirror is not cleared on the `Route0` exit path of the state machine. Whether that outlives the state
+  machine is not known.
+- During the walk in case 2 the flags are swapped: another Sim's Make Bed can pick the same part, as it can in the
+  game for any unmade part. A Sim that gets into the part first makes the game's run fail and the flags go back.
+- A save made during such a run resumes in the stub (the game's run): the bed ends made, the parameter is not set
+  again after the load.
+- The closed half's "dirty" state restarts its 30-minute alarm when the flags are put back.
+- With `blockeduse` on as well this rule comes first: the Sim stays at the open side.
+
+### 13.4 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/makebedboth/run.ts`: 406 checks (the decision table over every input, the end of the
+  run, second half or first make, the parameter, scope). `build-fixes.ts` builds; the selftest compiles
+  `BlockedUseCore.cs` too (the scope rule is shared with `blockeduse`); `swap-stack-audit` has the three new rows (`BedMakeBed.Run` yields, stub `RunOrig`).
+- The forced repro `makebedboth-force` (a room built with `build_layout`, the bed set up with the agent's
+  `bed_setup` step) stays on the contributor's combo branch until that agent step is upstream; §13.5 gives its results.
+- Live: `makebedboth-check` once (off `BROKEN`, on `FIXED`, `members found=True`). A household with a double bed
+  whose one side stands at a wall or behind furniture, `blockeduse blockedusehh` on so both halves get used:
+  off arm 4462 and 4468 up, the bed stays half made; on arm `makebedboth makebedbothhh makebedbothlog`: 4463 or
+  4464 up, `makebedboth: ... made from the ... side`, 4467 = 0, no `makebedboth: error at` line, the bed no
+  longer offered. `MakeBedBothCheck lot` lists the lot's beds with an unmade half and the plan to each part.
+  By eye: the far half's look after the run (13.3).
+
+### 13.5 Results (2026-11-22, Steam Deck)
+
+- Forced repro `makebedboth-force`, run mb-r2: off, one half stays unmade (`would` 1, `Left half closed: would be
+  made from the Right side`); on, both halves made (`made from the Right side (second half)`), errors 0.
+- By hand, a double bed with one side at a wall (session bu-m1): off, the Right half stays unmade with two
+  `routefail: ... BedMakeBed ... FailedBecauseNoDestinationSpecified` lines; on, both halves made.
+- Not confirmed: whether the far half's look visibly changes to made (13.3); the counters and the bed's flags say made.
+
+## Import 2026-11-23 (maintainer): PRs #648, #649, #650
+
+Imported by Dalexlol's commits of PR #648 (§1-§8: `standwaitfix`, `sharelanes`, `laddershare`, `spiralshare`, `simpass`, `angleentry`, the `...hh` household variants, `standwaitlog`, `lanewaitlog`), PR #649 (§10: `blockeduse`, `blockedusehh`) and PR #650 (§13: `makebedboth`, `makebedbothhh`, `makebedbothlog`). Stacked PRs #651 (petrelax, clipwait), #652 (reachuse), #654-#656 and #657-#659 are **not** imported. `docs/686` was the same file in all of them; the sections were merged here. Counters kept: 4300-4319, 4364-4397 (PR #648), 4414-4429 (#649), 4462-4469 (#650), `kCounterSlots` 4470; 4320-4363 and 4398-4413 are left to other work (4352-4363 are `ladderfootshoohh`, import 637-644).
+
+| Switch | Default | Why |
+|---|---|---|
+| `sharelanes`, `laddershare`, `spiralshare` | ON | his natural route-storm A/B (16 storms, Isla Paradiso): lane waits 11 (about 26 sim-minutes) off / 0 on, spiral-stair waits of 7-12 sim-minutes gone, errors 0, no hitch of 500 ms or more. Caveat: both arms also had `standwaitfix`, the on arms had all five lane switches and their `hh` variants, no ms/s or p99 figures were taken, how crossing Sims look was not watched (§8.7). Not household: NPC scope only, see below |
+| `blockeduse` | ON | his forced repro `blockeduse-force` (Sunset Valley, run bu-r11): off `FailedBecauseNoPathToDestination` for a toilet behind a fridge, on the Sim walks up (clip) with errors 0, same by hand. The repro itself needs the agent step `put_in_front` that is not upstream, so only `blockeduse-check` is in repros.json. Snap in / out was never exercised in game; the extra save/load test idea is dropped |
+| `makebedboth` | ON | his forced repro `makebedboth-force` (run mb-r2): off one half unmade, on both made, errors 0, same by hand. The far half's look was not checked on screen. `makebedboth-check` in repros.json |
+| `sharelaneshh`, `laddersharehh`, `spiralsharehh`, `blockedusehh`, `makebedbothhh`, `simpasshh`, `angleentryhh`, `standwaitfixhh` | OFF | household and selected Sims keep EA's behaviour (CLAUDE.md household rule). In code every switch exempts a household, selected or unknown-scope Sim unless its `hh` switch is on. Changed at import: the scope tests of `ShareLanes.cs` (`ShlScope`) and `StandWait.cs` (`SwfInScope`) now use `IsPlayerSim`, not `HouseholdExempt`, so `[Experimental] HouseholdToo` does not lift lane skips, clip-through or path changes; `BlockedUse` and `MakeBedBoth` never read it (the snap branch is never lifted) |
+| `simpass` | OFF | the clip-through rule was changed after his storm run (walk through at once only within 1.5 m of a portal, else after 2.5 sim-minutes, §8.8) and is **NOT RUN** in game; walking through Sims is player-visible |
+| `angleentry` | OFF | acted about 270 times per storm but there is no per-switch result and the angled entry was not watched by eye |
+| `standwaitfix`, `standwaitlog`, `lanewaitlog`, `makebedbothlog` | OFF | `standwaitfix` is unproven alone (both A/B arms had it, §6 run plan open); the others only write log lines |
+
+The `blockeduse` `DoRoute` swap is installed even with the switches off (saves keep a frame in it), so the save change matrix (docs/242 §2) still applies before the swap is relied on; `blockedusehh` and `HouseholdToo` must never lift its snap branch. PR #651 later adds a second swap of `SimRoutingComponent.DoRoute` (not imported). Repros `standwait-check`, `sharelanes-check`, `blockeduse-check`, `makebedboth-check` added to repros.json.
+
 ## 14. Sims share rabbit hole doors and serving platters; line waits logged (`rhshare`, `servingshare`, `linewaitlog`; 2026-11-22, `feat/objshare-1122`, built, default off, run §14.5)
 
 A player's wish: Sims share more things, clipping is fine. Privacy objects (toilet, shower, bath, bed) are not

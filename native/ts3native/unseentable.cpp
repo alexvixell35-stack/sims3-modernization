@@ -100,7 +100,8 @@ static int UtbRowGet(void* obj, bool* lazy) {
     const int i = UtbFind(obj);
     if (lazy) *lazy = i >= 0;
     if (i >= 0) return i;
-    if (g_utbN == UTB_ROWS) return -1;
+    if (g_utbN == UTB_ROWS) { CapFull(CAP_UTB); return -1; }
+    CapSee(CAP_UTB, g_utbN + 1, UTB_ROWS);
     UtbRow& r = g_utbRow[g_utbN];
     const bool samp = (k.utbRowCalc++ & 15) == 0;  // time 1 row in 16 (a QPC pair costs ~40 ns)
     LARGE_INTEGER t0 = {}, t1;
@@ -160,7 +161,8 @@ static void UtbWalk(bool* cap) {
         } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
         e.obj = owner, g_utbListN++;
     }
-    if (walked == UTB_WALK) *cap = true;
+    CapSee(CAP_UTBWALK, walked, UTB_WALK);
+    if (walked == UTB_WALK) *cap = true, CapFull(CAP_UTBWALK);
 }
 
 static unsigned __int64 UtbId(const UtbListed& e) { return e.lo | (unsigned __int64)e.hi << 32; }

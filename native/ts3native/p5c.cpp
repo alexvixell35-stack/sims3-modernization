@@ -204,9 +204,9 @@ static bool P5cRelFind(DWORD a, char* out, size_t cap) {
         const P5cRel& r = g_p5cRel[j & (kP5cRelN - 1)];
         if (a >= r.obj && a - r.obj < 0x400 && (best < 0 || r.obj > g_p5cRel[best & (kP5cRelN - 1)].obj)) best = j;
     }
-    if (best < 0) { sprintf_s(out, cap, "not in the P5c released ring (last 4096)"); return false; }
+    if (best < 0) { SFmt(out, cap, "not in the P5c released ring (last 4096)"); return false; }
     const P5cRel& r = g_p5cRel[best & (kP5cRelN - 1)];
-    sprintf_s(out, cap, "+0x%lX into %08lX released by our flush %ld releases ago, %.1f ms ago, count %ld before, id %08lX%08lX, key %08lX",
+    SFmt(out, cap, "+0x%lX into %08lX released by our flush %ld releases ago, %.1f ms ago, count %ld before, id %08lX%08lX, key %08lX",
               a - r.obj, r.obj, n - 1 - best, UsSince(r.t) / 1000.0, r.count, r.idHi, r.idLo, r.key0);
     return true;
 }

@@ -126,10 +126,14 @@ static u8 GvuMsg(DWORD handle, DWORD kind) {
     }
     if (!e) {
         e = &g_gvu[0];
+        LONG used = 0;
+        for (int i = 0; i < GVU_SLOTS; i++) used += g_gvu[i].h != 0;
         for (int i = 0; i < GVU_SLOTS; i++) {
             if (!g_gvu[i].h) { e = &g_gvu[i]; break; }
             if (now - g_gvu[i].last > now - e->last) e = &g_gvu[i];
         }
+        if (e->h && now - e->last < maxMs) CapFull(CAP_GVU);  // docs/321 lane 0: a live streak evicted
+        CapSee(CAP_GVU, used + !e->h, GVU_SLOTS);
         e->h = handle, e->t0 = now;
     }
     e->last = now;

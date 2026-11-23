@@ -1,0 +1,167 @@
+{
+ "note": "ts3fixes-loop-cost-time-1122 (docs/330, WRITTEN, NOT RUN; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): old vs new cadence of our own loops in one load, --ab deadrefcadence,viewerpushdelta (both flipped together each slice). Run only after ts3fixes-loop-cost-correct-1122 passed. queue.ts runs its smoke first. Each job: 25 min, 5-min slices: warm-up (on), then off,on,on,off = 10 min per arm (ABBA). Per-arm ms/s of our loops straight from the ts3fixes counters (deadrefsweep_total_ms, viewerpush_ms, per phase) in <tag>-ab-fixes.jsonl: node tools/harness/loopcost-report.ts probe-out/profile/<tag>-ab-fixes.jsonl; sim thread: node tools/harness/wait-ab.ts <tag> and node tools/profile-compare.mjs <tag>:on <tag>:off (iterations/s, sim ms/iter, hitch p99 / p99.9 / max). Pass: ours ms/s on < off on every world (expected saving [inferred, docs/330 §4] ~8-15 ms/s BP, ~12-22 IP, ~18-32 SV), hitch p99.9 / max on not worse than off beyond noise, CPU clock per side within 3%. Bin state apex. Est ~100 min.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-loopcost-ab",
+   "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices, 10 min per arm), --ab deadrefcadence,viewerpushdelta. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.loopcost4",
+   "pinReason": "ts3fixes-loop-cost-1122 (docs/330): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.ts3fixes-loop-cost-1122d (loopcost4: loopcost1 + the multi-sample conversation-gone-check with the repro-only seed clean entry point; loop code unchanged) (deadrefcadence + viewerpushdelta, both ON); agent ts3agent.package.ts3fixes-loop-cost-1122 (new switch and counter names) installed into the worktree build/ by chain-ts3fixes-loop-cost-1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_passes>=2,viewerpush_wakes>=100"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-loopcost-ab",
+   "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices, 10 min per arm), --ab deadrefcadence,viewerpushdelta. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.loopcost4",
+   "pinReason": "ts3fixes-loop-cost-1122 (docs/330): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.ts3fixes-loop-cost-1122d (loopcost4: loopcost1 + the multi-sample conversation-gone-check with the repro-only seed clean entry point; loop code unchanged) (deadrefcadence + viewerpushdelta, both ON); agent ts3agent.package.ts3fixes-loop-cost-1122 (new switch and counter names) installed into the worktree build/ by chain-ts3fixes-loop-cost-1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_passes>=2,viewerpush_wakes>=100"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-loopcost-ab",
+   "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices, 10 min per arm), --ab deadrefcadence,viewerpushdelta. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.loopcost4",
+   "pinReason": "ts3fixes-loop-cost-1122 (docs/330): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.ts3fixes-loop-cost-1122d (loopcost4: loopcost1 + the multi-sample conversation-gone-check with the repro-only seed clean entry point; loop code unchanged) (deadrefcadence + viewerpushdelta, both ON); agent ts3agent.package.ts3fixes-loop-cost-1122 (new switch and counter names) installed into the worktree build/ by chain-ts3fixes-loop-cost-1122.sh",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_passes>=2,viewerpush_wakes>=100"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ],
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1122 ": {
+   "match": [
+    "ts3native 0.36.299-m1122 2026-11-22 06:55:20"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+    "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "smoke": {
+  "id": "bp-loopcost-ab-smoke",
+  "note": "[est 10 min] queue-level SMOKE (queue.ts runs it before the timing jobs; measurement proof): BP 4 min, 1-min slices, --ab deadrefcadence,viewerpushdelta (per-slice read-back of both switches by profile-world; a switch that does not stick fails the run). Pass: viewer push counted in both arms (loopcost-report prints both arms), 0 script errors.",
+  "asi": "game-copy/ts3native.asi.m1122",
+  "iniBase": "game-copy/ts3native.ini.m1122",
+  "fixesPackage": "game-copy/ts3fixes.package.loopcost4",
+  "pinReason": "ts3fixes-loop-cost-1122 (docs/330): master set m1122 asi + ini (0.36.299-m1122, no native change) with ts3fixes.package.ts3fixes-loop-cost-1122d (loopcost4: loopcost1 + the multi-sample conversation-gone-check with the repro-only seed clean entry point; loop code unchanged) (deadrefcadence + viewerpushdelta, both ON); agent ts3agent.package.ts3fixes-loop-cost-1122 (new switch and counter names) installed into the worktree build/ by chain-ts3fixes-loop-cost-1122.sh",
+  "releaseDefaults": true,
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "minCounters": 1,
+  "shadowCheck": false,
+  "scriptErrorsMax": 0,
+  "noiseCheck": false,
+  "save": "Baseline-BP-Spring",
+  "timeoutMin": 20,
+  "stopQueueOnFail": true,
+  "run": {
+   "profile": {
+    "seed": 12345,
+    "minutes": 5,
+    "slice": 1,
+    "noSamplers": true,
+    "ab": "deadrefcadence,viewerpushdelta",
+    "fixesRequire": "viewerpush_wakes>=20,viewerpush_table_sends>=1"
+   }
+  },
+  "logRequire": {
+   "^ts3native 0\\.36\\.299-m1122 ": 1,
+   "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+   "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+  }
+ }
+}

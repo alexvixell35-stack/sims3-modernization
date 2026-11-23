@@ -277,7 +277,12 @@ namespace Ts3Fixes
             public bool HarvestHook(Sim actor, bool hasHarvested, BurglarSituation burglarSituation)
             {
                 if (!ShortcutOn("harvestextras")) { PatchCounters()[3209]++; return HarvestOrig(actor, hasHarvested, burglarSituation); }
-                HarvestPlant hp = (HarvestPlant)(object)this;
+                return HeDoHarvest((HarvestPlant)(object)this, actor, hasHarvested, burglarSituation);
+            }
+
+            // The fixed body; also run by CompatResolve CrHe0 for a mod's static DoHarvest copy.
+            internal static bool HeDoHarvest(HarvestPlant hp, Sim actor, bool hasHarvested, BurglarSituation burglarSituation)
+            {
                 List<GameObject> list = new List<GameObject>();
                 foreach (Slot slot in hp.GetContainmentSlots())
                 {
