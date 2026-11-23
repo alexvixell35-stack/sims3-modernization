@@ -1492,3 +1492,33 @@ Next: rerun `bp-seen-smoke` on a build with this fix; a repeat now names the fau
 - **Exit noise, not crashes:** `C0000005 at 0xF???604F` with an empty stack appears at game close in clean runs too (e.g. `phase-20261117-0857`).
 - **Status:** one-off engine Swarm crash, 1 in 20+ sessions; reopen if a third sample appears (grep `0x91AD0` / `0x91A46E` in run logs).
 - **Reopened 2026-11-20 (docs/678):** two more samples with one stack (`0x92E0DB` <- `0x91BC0F`, `phase-20261111-2105` and `phase-20261120-0347`): a live `cVisualEffect` whose word at `+4` was overwritten by a list link of another object. Writer unknown; `[SwarmGuard]` (default off) guards the call and logs the writer's memory.
+
+## 40. `Sims3SettingsSetter.asi+0x4E313` after every fatal fault (2026-11-23): a second fault in the crash-report path, not a cause
+
+**Signature.** `exception C0000005 at ... (Sims3SettingsSetter.asi+0x4E313) (info 00000000 8BF18B6A)`, stack refs
+`004D7001 004D7140 ... 0058D945`, registers `esi 004D7550 ebx 004D7500 edi 00000001`. The same line as the `eip 0` /
+`0x8BF1` pattern of the table above and docs/539 §12.1, with S3SS 1.6.3 (third party, not ours) loaded.
+
+**It is never the first fault** [verified: logs]. 29 of 29 logs that have it (2026-11-11..11-23, 14 since 11-16) show a
+fatal exception on the same thread first, about `0xD90` higher on the same stack. The primaries differ: `0x6E75D2`,
+`0xEBAB5B`, `0xE6463F`, the `0x59386B` wild call (docs/144), `IC_Route_DestroyRoute` `0x74E4E9` (docs/259 §9), a load
+failure. Triage the exception line before it. The EA `xcpt` file is still written.
+
+**Mechanism** [verified: static, both binaries; register values match]. EA's report writer (`0x4D6E..0x4D701A`, run from
+the filter `0x4D7140`) ends with two virtual calls on the text writer at `[this+0x510]`: slot `+0x14` at `0x4D6FFC`, then
+`+0xC`. S3SS `ExpandedCrashLogs` overwrites the 5 bytes at `0x4D6FFC` with a call to its own wrapper. The wrapper runs its
+section writer, then jumps to the original (saved pointer, else writer vtable `+0x14`). The section writer calls writer
+slot `+0x20` (`0x4D7550`, two stack arguments, `ret 8`; EA pushes two at `0x4D6FE5`) with one argument, twice. The stack
+ends 8 bytes high, so its epilogue pops the wrong saved registers: `edi` = EA's `ebx` (1), `esi` = the slot `+0x20`
+pointer (`0x4D7550`), `ebx` = the slot `+0x18` pointer (`0x4D7500`). The wrapper then reads the "vtable" from `esi`,
+which is code (`56 8B F1 8B`), and faults reading `0x8BF18B56 + 0x14`. EA's last two writer calls never run.
+
+**Config** [verified: `S3SS.toml`, `S3SS_LOG.txt`]. The patch installs with `[patches.ExpandedCrashLogs] enabled = false`
+(log: `[ExpandedCrashLogs] Successfully installed`), so the TOML switch does not avoid it on 1.6.3.
+
+**Our code** [verified: source grep, logs]. ts3native has no detour in `0x4D5000..0x4D7FFF`; `[CrashReport]` chains the
+filter through the IAT slot and is off. No link to the docs/686 clip / share / snap switches: since 11-16, 621 storm
+phases, 74 with any of them on (sharelanes, simpass 74; laddershare, angleentry 70; crowdport, unstuck, socialreach 13;
+clipwait 12; blockeduse, petrelax, reachuse 6; objshare, showershare, woohoosnap, pairsnap 0). The signature is in 1 of
+those 74 (s467, the docs/144 `0x59386B` wild call, also seen 11-16 and 11-17 before the switches existed) and in 13 of
+the 547 others. The 64 `bu-run.sh` forced repros have no crash.
