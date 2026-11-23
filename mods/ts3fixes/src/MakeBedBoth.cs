@@ -94,6 +94,27 @@ namespace Ts3Fixes
             unmade.BedMade = false;
         }
 
+        // User rule 2026-11-23: a bed half a Sim could only be snapped onto (its slot is behind a wall) is not made by
+        // hand. When the Sim gets up and is put back on real ground (BlockedUse.cs BuPutBack), that half takes the other
+        // half's flag: made when the other is made, unmade when it is unmade. Flag only: the model's pose stays.
+        internal static void MbFollow(Sim sim, Sims3.Gameplay.Abstracts.GameObject obj, Vector3 slot)
+        {
+            Bed bed = obj as Bed;
+            if (bed == null || bed.PartComp == null || bed.PartComp.PartDataList == null || bed.PartComp.PartDataList.Count != 2) return;
+            BedData closed = null, other = null;
+            foreach (BedData p in bed.PartComp.PartDataList.Values)
+            {
+                if (p == null || !MbPlain(p) || p.RoutingSlot == null) return;
+                bool at = false;
+                foreach (Slot s in p.RoutingSlot) if (BuFlat(bed.GetPositionOfSlot(s), slot) < 0.3f) at = true;
+                if (at) closed = p; else other = p;
+            }
+            if (closed == null || other == null || (closed.ContainedSim != null && closed.ContainedSim != sim)) return;  // the Sim getting up may still be its part's Sim
+            bool made = other.BedMade;
+            if (closed.BedMade != made) closed.BedMade = made;
+            MbLine(MbWho(sim) + " " + sim.FullName + " -> " + bed.GetType().Name + " at " + MbAt(bed.Position) + ", " + closed.Area + " half closed: follows the " + other.Area + " half, " + (made ? "made" : "unmade"));
+        }
+
         // Start of a Make Bed run. Null = the game's run as it is. Otherwise the flags are swapped and the case is open.
         static MbCase MbBegin(Sim sim, Bed bed)
         {

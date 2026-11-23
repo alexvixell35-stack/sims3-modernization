@@ -40,6 +40,7 @@ namespace Ts3Fixes
                 if (!UnseenFallbackCore.IsPop(cur, cur != null ? cur.PreviousPosture : null, value) || !ShortcutOn("posturepopcycle") || !value.Compatible(cur))
                 {
                     SetOrig(value);
+                    if (sBuExits.Count != 0) BuPostureSet(s, cur);  // blockeduse (BlockedUse.cs): a snapped-in Sim that gets up goes back at once
                     return;
                 }
                 PatchCounters()[372]++;
@@ -51,6 +52,7 @@ namespace Ts3Fixes
                 Sim.PostureChangedCallback cb = named ? fPosChanged.GetValue(s) as Sim.PostureChangedCallback : null;
                 if (cb != null) cb();
                 s.QueueIdleLogic();
+                if (sBuExits.Count != 0) BuPostureSet(s, cur);
             }
             public void SetOrig(Posture value) { } // receives Sim.set_Posture's original header
         }

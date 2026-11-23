@@ -75,7 +75,7 @@ namespace Ts3Fixes
         }
         // a Sim that was let onto a slot
         // Obj: the object whose slot it is (0 = none). Owner: 0 blockeduse, 1 woohoosnap, 2 pairsnap (WooHooSnap.cs)
-        sealed class BuExit { public Vector3 Origin, Slot; public WeakReference Ia; public long At; public bool Snap; public ulong Obj; public int Owner; }
+        sealed class BuExit { public Vector3 Origin, Slot; public WeakReference Ia; public long At; public bool Snap, Up; public ulong Obj; public int Owner; }
 
         static readonly Dictionary<uint, BuRec> sBuRecs = new Dictionary<uint, BuRec>();
         static readonly Dictionary<ulong, BuExit> sBuExits = new Dictionary<ulong, BuExit>();  // by Sim object id
@@ -294,10 +294,21 @@ namespace Ts3Fixes
                 x.Origin = k.Origin;  // a Sim let on twice keeps the first spot: that one it walked to
                 sBuExits[id] = x;
             }
-            x.Slot = k.Goal; x.Snap = snap; x.At = SimClock.CurrentTicks; x.Owner = 0;
+            x.Slot = k.Goal; x.Snap = snap; x.Up = false; x.At = SimClock.CurrentTicks; x.Owner = 0;
             x.Obj = k.Obj != null ? k.Obj.ObjectId.Value : 0UL;
             InteractionInstance ia = sim.CurrentInteraction;
             x.Ia = ia != null ? new WeakReference(ia) : null;
+        }
+
+        // The game waits for a Sim's new outfit (sleepwear: EnterSleeping.Run, Sim.SwitchOutfitHelper.Wait) after the route,
+        // on the slot. A Sim that is about to be snapped onto a slot behind a wall waits here instead, on real ground, so
+        // it is not seen standing behind the wall (user test 2026-11-23). The game's own Wait then returns at once.
+        static System.Reflection.FieldInfo fBuOutfit;
+        static void BuOutfitWait(Sim sim)
+        {
+            if (fBuOutfit == null) fBuOutfit = typeof(Sim).GetField("mActiveSwitchOutfitHelper", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            Sim.SwitchOutfitHelper h = fBuOutfit != null && sim != null ? fBuOutfit.GetValue(sim) as Sim.SwitchOutfitHelper : null;
+            if (h != null) h.Wait(true);
         }
 
         // After the walk up. kClip: r holds a plan through objects, options still relaxed (the caller walks it and puts
@@ -340,6 +351,9 @@ namespace Ts3Fixes
                 return step;
             }
             BuRestoreOptions(r, k);
+            // no snap behind a wall just to make the bed: the Sim would be seen standing in the wall for a chore
+            bool chore = step == BlockedUseCore.kSnap && sim.CurrentInteraction is Sims3.Gameplay.Objects.Beds.BedMakeBed;
+            if (chore) step = BlockedUseCore.kKeep;
             if (step == BlockedUseCore.kSnap)
             {
                 GameObject target = s.Obj[pick];
@@ -362,7 +376,7 @@ namespace Ts3Fixes
             r.PlanResult = k.Saved;
             c[kBuNoSlot]++;
             BuCoolSet(sim, obj);
-            BuLine(head + ": kept, " + (here ? "no slot within " + kBuSnapMax + " m (" + s.N + " wanted)" : "the Sim is not on the object's level"));
+            BuLine(head + ": kept, " + (chore ? "no snap for making the bed" : here ? "no slot within " + kBuSnapMax + " m (" + s.N + " wanted)" : "the Sim is not on the object's level"));
             return step;
         }
 
@@ -416,6 +430,7 @@ namespace Ts3Fixes
                     PatchCounters()[kBuNearStopped]++;  // cancelled or stopped on the way: the game's answer for the failed plan
                     return Keep(r, afterWalk);
                 }
+                BuOutfitWait(sim);
                 int step = BlockedUseCore.kKeep;
                 try { step = BuApproach(sim, r, k); }
                 catch (ResetException) { throw; }
@@ -569,39 +584,90 @@ namespace Ts3Fixes
                 int look = BlockedUseCore.ExitLook(ia != null && ReferenceEquals(ia, sim.CurrentInteraction), inPosture, BuFlat(sim.Position, x.Slot), kBuLeftDist,
                     SimClock.CurrentTicks - x.At, SimClock.ConvertToTicks(kBuExitMaxHours, TimeUnit.Hours));
                 if (look == BlockedUseCore.kExitWait) return r;
+                if (x.Up && !inPosture)
+                {
+                    float d = BuFlat(sim.Position, x.Slot);
+                    if (d > kBuLeftDist)
+                    {
+                        if (d > 2f || r.Succeeded()) { sBuExits.Remove(id); c[kBuWalkedOut]++; }  // else: still getting up next to the slot
+                        return r;
+                    }
+                    sBuBusy = true;
+                    try { if (BuPutBack(sim, x, ", after get-up", true, true)) r = kind == 0 ? route.Plan() : route.Replan(); }
+                    finally { sBuBusy = false; }
+                    return r;
+                }
                 if (look == BlockedUseCore.kExitGone || r.Succeeded()) { sBuExits.Remove(id); c[kBuWalkedOut]++; return r; }
                 if (kind > 1) return r;  // a plan from a point the caller named says nothing about where the Sim stands
                 sBuBusy = true;
                 try
                 {
-                    Route probe = sim.CreateRoute();
-                    probe.DoRouteFail = false;
-                    bool probeOk = BuValid(x.Origin) && probe.PlanToPoint(x.Origin).Succeeded();
-                    sBuExits.Remove(id);
-                    if (!BlockedUseCore.ExitSnap(false, true, probeOk)) { c[kBuWalkedOut]++; return r; }  // it can walk: the plan failed for its own reasons
-                    Vector3 to = x.Origin, fwd = sim.ForwardVector;
-                    bool found = false;
-                    if (!BuValid(to) || !probe.IsPointRoutable(to))
-                    {
-                        Vector3 fp, ff;
-                        if (Sims3.Gameplay.GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(BuValid(to) ? to : sim.Position), out fp, out ff)) { to = fp; fwd = ff; found = true; }
-                    }
-                    if (!BuValid(to)) return r;
-                    Vector3 from = sim.Position;
-                    sim.SetPosition(to);
-                    if (found && BuValid(fwd)) sim.SetForward(fwd);
-                    c[kBuSnapOut]++;
-                    if (found) c[kBuOutFound]++;
-                    if (x.Owner != 0) WhsOut(sim, x.Owner, from, to);  // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20)
-                    BuLine(BuWho(sim) + " " + sim.FullName + ": snap out from " + BuAt(from) + " to " + BuAt(to) + (found ? " (a spot found near the one it came from)" : " (the spot it came from)")
-                        + ", came by " + (x.Snap ? "snap" : "clip"));
-                    r = kind == 0 ? route.Plan() : route.Replan();
+                    if (BuPutBack(sim, x, "", false, true)) r = kind == 0 ? route.Plan() : route.Replan();
                 }
                 finally { sBuBusy = false; }
             }
             catch (ResetException) { throw; }
             catch (Exception e) { BuError(2, e); }
             return r;
+        }
+
+        // Forgets the Sim; puts it back on the spot it came from when it cannot walk there. True = moved. Caller holds sBuBusy.
+        // force: no walk test (a Sim that got up on a slot it was snapped onto: the walk test from a half-played get-up
+        // answered "can walk" and left the Sim behind the wall, run prtb-apt-33603). forget false: the entry stays for the next plan.
+        static bool BuPutBack(Sim sim, BuExit x, string when, bool force, bool forget)
+        {
+            int[] c = PatchCounters();
+            Route probe = sim.CreateRoute();
+            probe.DoRouteFail = false;
+            bool probeOk = !force && BuValid(x.Origin) && probe.PlanToPoint(x.Origin).Succeeded();
+            if (forget) sBuExits.Remove(sim.ObjectId.Value);
+            if (!BlockedUseCore.ExitSnap(false, true, probeOk)) { c[kBuWalkedOut]++; return false; }  // it can walk: the plan failed for its own reasons
+            Vector3 to = x.Origin, fwd = sim.ForwardVector;
+            bool found = false;
+            if (!BuValid(to) || !probe.IsPointRoutable(to) || BuSimAt(to, sim, sim.LotCurrent))  // taken by another Sim: a spot near it
+            {
+                Vector3 fp, ff;
+                if (Sims3.Gameplay.GlobalFunctions.FindGoodLocation(sim, new World.FindGoodLocationParams(BuValid(to) ? to : sim.Position), out fp, out ff)) { to = fp; fwd = ff; found = true; }
+            }
+            if (!BuValid(to)) return false;
+            Vector3 from = sim.Position;
+            sim.SetPosition(to);
+            if (found && BuValid(fwd)) sim.SetForward(fwd);
+            c[kBuSnapOut]++;
+            if (found) c[kBuOutFound]++;
+            if (x.Snap && x.Obj != 0UL) MbFollow(sim, GameObject.GetObject(new ObjectGuid(x.Obj)) as GameObject, x.Slot);  // MakeBedBoth.cs
+            if (x.Owner != 0) WhsOut(sim, x.Owner, from, to);  // woohoosnap / pairsnap (WooHooSnap.cs, docs/686 §20)
+            BuLine(BuWho(sim) + " " + sim.FullName + ": snap out from " + BuAt(from) + " to " + BuAt(to) + (found ? " (a spot found near the one it came from)" : " (the spot it came from)")
+                + ", came by " + (x.Snap ? "snap" : "clip") + when);
+            return true;
+        }
+
+        // Called from the Sim.set_Posture hook (PosturePop.cs) while a Sim is remembered. A Sim that was snapped onto a
+        // slot and now leaves the object (gets up) is put back at once: it does not stand behind the wall until its
+        // next plan fails.
+        internal static void BuPostureSet(Sim sim, Posture was)
+        {
+            if (sBuBusy) return;
+            try
+            {
+                BuExit x;
+                if (!sBuExits.TryGetValue(sim.ObjectId.Value, out x) || !x.Snap) return;
+                Posture p = sim.Posture;
+                bool wasIn = was != null && was.Container != null && !ReferenceEquals(was.Container, sim);
+                bool inNow = p != null && p.Container != null && !ReferenceEquals(p.Container, sim);
+                if (!wasIn || inNow) return;
+                // snapped 0 m (it stood on the slot already, runs prtb-ipbig-33605: dining chairs): nothing to go back to
+                if (BuFlat(x.Origin, x.Slot) < 0.3f) { sBuExits.Remove(sim.ObjectId.Value); return; }
+                x.Up = true;
+                float d = BuFlat(sim.Position, x.Slot);
+                BuLine(BuWho(sim) + " " + sim.FullName + ": got up " + d.ToString("0.00") + " m from its snap slot, at " + BuAt(sim.Position) + " room " + sim.RoomId);
+                if (d > kBuLeftDist) return;  // the next plan looks again (BuAfterPlan)
+                sBuBusy = true;
+                try { BuPutBack(sim, x, ", at get-up", true, false); }
+                finally { sBuBusy = false; }
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { BuError(2, e); }
         }
 
         // ---- check ----
