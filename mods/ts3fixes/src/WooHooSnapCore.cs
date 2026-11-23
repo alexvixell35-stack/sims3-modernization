@@ -39,11 +39,12 @@ namespace Ts3Fixes
         public const int kBed = 0, kPlumbing = 1, kOtherObject = 2;
 
         // The object's group for the counters: beds (tents, igloos and the other bed classes with them), showers, tubs,
-        // hot tubs, all-in-one bathrooms and saunas, anything else.
+        // hot tubs, all-in-one bathrooms and saunas, anything else. The catalogue's showers and tubs are classes of
+        // Objects.Plumbing.Mimics (ShowerBasic...): run ws-m1 counted their snaps as "other object".
         public static int Group(bool isBed, string typeNamespace, string typeName)
         {
             if (isBed) return kBed;
-            if ((typeNamespace != null && typeNamespace.EndsWith(".Plumbing", StringComparison.Ordinal)) || (typeName != null && typeName.StartsWith("Sauna", StringComparison.Ordinal))) return kPlumbing;
+            if ((typeNamespace != null && (typeNamespace.EndsWith(".Plumbing", StringComparison.Ordinal) || typeNamespace.IndexOf(".Plumbing.", StringComparison.Ordinal) >= 0)) || (typeName != null && typeName.StartsWith("Sauna", StringComparison.Ordinal))) return kPlumbing;
             return kOtherObject;
         }
 

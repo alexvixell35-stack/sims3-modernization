@@ -338,7 +338,8 @@ namespace Ts3Agent
                 if (s == null || s.Autonomy == null) continue;
                 int n;
                 off.TryGetValue(sd.SimDescriptionId, out n);
-                if (!enable && n == 0) { s.Autonomy.IncrementAutonomyDisabled(); off[sd.SimDescriptionId] = 1; changed.Add(sd.FullName); }
+                // n > 0 with autonomy on: the game took our increment back (session ws-m1: the selected Sim read a book between the orders)
+                if (!enable && (n == 0 || !s.Autonomy.AutonomyDisabled)) { s.Autonomy.IncrementAutonomyDisabled(); off[sd.SimDescriptionId] = 1; changed.Add(sd.FullName); }
                 else if (enable && n > 0)
                 {
                     for (int i = 0; i < n; i++) s.Autonomy.DecrementAutonomyDisabled(); // the game's Decrement stops at 0

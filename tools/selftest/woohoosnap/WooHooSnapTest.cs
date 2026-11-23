@@ -43,7 +43,8 @@ static class WooHooSnapTest
 
         // object groups
         Check(WooHooSnapCore.Group(true, "Sims3.Gameplay.Objects.Beds", "BedDouble") == WooHooSnapCore.kBed && WooHooSnapCore.Group(true, "x", "Tent") == WooHooSnapCore.kBed, "beds and tents");
-        Check(WooHooSnapCore.Group(false, "Sims3.Gameplay.Objects.Plumbing", "Shower") == WooHooSnapCore.kPlumbing && WooHooSnapCore.Group(false, "Sims3.Gameplay.Objects.Plumbing.Mimics", "ShowerTubX") == WooHooSnapCore.kOtherObject, "plumbing by namespace");
+        Check(WooHooSnapCore.Group(false, "Sims3.Gameplay.Objects.Plumbing", "Shower") == WooHooSnapCore.kPlumbing && WooHooSnapCore.Group(false, "Sims3.Gameplay.Objects.Plumbing.Mimics", "ShowerBasic") == WooHooSnapCore.kPlumbing
+            && WooHooSnapCore.Group(false, "Sims3.Gameplay.Objects.PlumbingX", "Thing") == WooHooSnapCore.kOtherObject, "plumbing by namespace, Mimics classes with it");
         Check(WooHooSnapCore.Group(false, "Sims3.Store.Objects", "SaunaClassic") == WooHooSnapCore.kPlumbing, "sauna");
         Check(WooHooSnapCore.Group(false, "Sims3.Gameplay.Objects.Elevator", "ElevatorDoors") == WooHooSnapCore.kOtherObject && WooHooSnapCore.Group(false, null, null) == WooHooSnapCore.kOtherObject, "anything else");
 
