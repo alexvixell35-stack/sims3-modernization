@@ -777,10 +777,13 @@ static void __fastcall UofSite(u8* world, void*, u8* obj) {
     g_uof(world, NULL, obj);
 }
 
-// flush before a reader that needs the object's fresh footprints (an IC point: managed code is on the stack); true = flushed
+// flush before a reader that needs the object's fresh footprints (an IC point: managed code is on the stack); true = flushed.
+// Not inside a job callback (g_inInvoke): DiscDrain's WaitAsyncDone would wait for the job that waits on this call (a hang,
+// as PlanDrain's rule); the IC then runs ahead of the object's queued records, the shortcut UolFlushFor takes there too
 static bool Fp2FlushFor(const u8* obj) {
     const DWORD me = GetCurrentThreadId();
     if (!obj || !g_discCount || g_discDraining || me != g_async.owner || ts3native_counters.rgOwnerTid == (LONG)me) return false;
+    if (g_inInvoke) return false;
     if (DiscLastOf(*(const DWORD*)(obj + 8), *(const DWORD*)(obj + 0xC)) < 0) return false;
     DiscDrain(true, DS_FP2READ);
     InterlockedIncrement(&ts3native_counters.fp2Forced);

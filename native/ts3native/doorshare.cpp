@@ -182,7 +182,12 @@ static void DsAfter(const DsAsk* a, const DWORD* key, DWORD r, LONG us) {
     InterlockedExchangeAdd64(&c.liveUs, us);
     const uint32_t* k9 = (const uint32_t*)key;
     const int cls = DsClassOf((uint32_t)t_dsBits, k9[2], k9[3]);
-    if (a->row && DsKindFor(cls, a->row->kind)) {  // a valid row and a router it speaks for: the live answer must be "unlocked" too
+    // a change event while the ask was out (the sim thread changed the door, then served the ask): the row stopped answering
+    // the key before the live answer was read, so a different answer is no mismatch (the put below is stale already)
+    DsGen genNow = {};
+    DsGenOf(&g_dsStamps, a->k7, &genNow);
+    const bool moved = !DsGenSame(&genNow, &a->gen);
+    if (a->row && !moved && DsKindFor(cls, a->row->kind)) {  // a valid row and a router it speaks for: the live answer must be "unlocked" too
         InterlockedIncrement(&c.checks);
         if (r != 2) {
             InterlockedIncrement(&c.mismatch);

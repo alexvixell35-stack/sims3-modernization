@@ -4117,6 +4117,10 @@ static void RjnWait(DWORD key, LONG us, DWORD handle);  // hitchattr.cpp ([Hitch
 // [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (hitchsum.cpp, docs/666 §5), log only: the sim frame's waits and sync plans
 // behind the "hitch:" line, and the +0x918 wait line. Off (default): one test of these globals at each call site.
 static volatile LONG g_hsOn, g_hsLockLogUs;                    // HitchMs set / RouteLockMs in us
+// [HitchAttr] RouteLockCallers=1 (hitchsum.cpp HsChain, docs/670 §19): the "route lock wait:" line also names the frames above
+// the waiting acquire. t_hsRetSlot = the return slot of this thread's last Lock_Acquire (written only with the switch on)
+static volatile LONG g_hsLockCallers;
+static __declspec(thread) const DWORD* t_hsRetSlot;
 static LONG g_hsJobLogUs = 300000, g_hsJobLinesPerMin = 20;    // JobWaitLogMs in us / JobWaitLinesPerMin (SwNote's line)
 static void HsJob(int site, LONG us, DWORD handle);
 static void HsOtherLock(LONG us);
@@ -6181,6 +6185,13 @@ static __declspec(noinline) LONG __fastcall LockAcquireHook(void* lock, void* ed
             Log("snap replay: +0x918 acquire inside a RecsUnlocked round: caller 0x%08lX, record type %ld", t_waitKey, (g_rpPhase >> 8) & 0xFF);
     }
     if (g_gvaWatch && lock == g_rgLock && GetCurrentThreadId() == g_async.owner) g_gvaTakes++;  // docs/250 §13.3, waited or not
+    if (g_hsLockCallers) {  // the slot of the outermost acquire in progress: a nested one (a served callback) puts it back
+        const DWORD* const outer = t_hsRetSlot;
+        t_hsRetSlot = (const DWORD*)_AddressOfReturnAddress();
+        const LONG r = g_hoOn ? HoAcquire(lock, edx, deadline, ret) : LockAcquirePlain(lock, edx, deadline, ret);
+        t_hsRetSlot = outer;
+        return r;
+    }
     if (g_hoOn) return HoAcquire(lock, edx, deadline, ret);
     return LockAcquirePlain(lock, edx, deadline, ret);
 }

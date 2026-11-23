@@ -938,3 +938,83 @@ add`, `probe N moved M`), the `drain point fp2 reader` lines and `pfAddFlush`. I
 `DeferPrivateFpAdd=1` (`applied`, `lot moved`, `object gone`; the `fp2 reader` waits should go; watch boats for a
 turn-helper footprint that shows late). Separate observe-only arm: `[ProbeP1b] Enabled=1` for the callers of `0x62FB74`
 and `0x62EF7A`. Read the hitch totals' wait sums, not one key (§7.1).
+
+## 19. s170-s187 read: callers, sync-plan reasons, `[HitchAttr] RouteLockCallers` (log only, default off; ran s189: 82 lines by key and first caller, docs/680)
+
+Ten on-arm logs (s170, s173, s174-s176 Isla Paradiso; s183-s187 Bridgeport), `RouteLockMs` lines >= 20 ms, branch
+`feat/lock918-readers5`. Nothing here changes a lock path.
+
+### 19.1 Logged waits by key and the callers the logs can name [verified: logs]
+
+A caller is "named" when a stall-watch sample of the sim thread sits beside the wait line, its native scan holds
+`Lock_Acquire+0x45` and the gate's return address, and the script stack names the IC. That needs a stall of about 170 ms,
+so 85-98 % of the lines of each key carry no name.
+
+| key | lines / ms (10 logs) | named lines / ms | who |
+|---|---|---|---|
+| `0x760BFF` | 94 / 4,283 | 2 / 151 | a sync plan's goal step (§19.2) |
+| `0x62FB74` | 68 / 3,393 | 6 / 624 `World_ArePointsConnectedByLand`; 2 / 44 `World_FindGoodLocation` | the named share is `ArePointsConnectedByLand` (§12.2's path); 57 lines / 2,519 ms unnamed |
+| `0x62EF7A` | 61 / 3,251 | 1 / 217 `Route_GetObstructionAtWorldOrLotPoint` (scan word above the gate: `0x7328C3`) | 60 lines / 3,034 ms unnamed; no line names `RoutingBlockerCheck2d` |
+| `0x62F782` | 42 / 2,032 | 4 / 318 `RouteManager_SetPortalCost` (writer; one under `Route_HandPathsToSteering+0x57F`), 2 / 315 `Slots_GetPositionOfSlotImpl` (SH, `[SlotEnabledRO]`) | |
+| `0x833697` | 32 / 1,670 | writer | keeps the lock |
+| `0x85FE10` | 24 / 1,523 | - | §14.3 |
+| `0xD882D7` | 23 / 1,015 | 2 / 185 `GetConnectedRooms` | `[ConnRoomsRO]` give-backs |
+| `0x631F40` | 8 / 757 | 3 / 531 `World_FindGoodLocation` | footprints near point, under FGL |
+
+The two `Route_PlanFromPoint` lines once listed under `0x62FB74` show `Route_PlanCommon+0x51F` in the scan: they are
+`0x760BFF` waits sampled late. So the logs cannot settle the callers of `0x62FB74` and `0x62EF7A`: one fifth of the first
+key's time is `ArePointsConnectedByLand`, the rest of both keys is short waits no sample sees. `[ProbeP1b]` would name them
+but installs the QL writer stubs and the portal count thunks, and no arm has had it.
+
+### 19.2 `[HitchAttr] RouteLockCallers=1` [built: `hitchsum.cpp` `HsChain`, `ts3native.cpp` `LockAcquireHook`]
+
+With `RouteLockMs` set, each `route lock wait:` line ends with `; callers A ~B ~C`. For a gate wait the line is written while
+the gate's frame is still open, so `A` is read at the leaf's known frame layout (the `kP1b` table of `[ProbeP1b]`: keys
+`0x62FB74`, `0x62EF7A`, `0x62F782`, `0x631814`, `0x631F40`, `0x760BFF`): exact. The words marked `~` are a scan of up to 192
+stack words above it for values that follow a call (`CrAfterCall`); they may be stale. For a plain `Lock_Acquire` caller
+(`0x85FE10`, `0x833697`) only scanned words exist, from the acquire's own return slot (a thread-local written in the hook only
+with the switch on). Log only: no hook, no stub, no counter added; cost = one scan per logged line (30 a minute).
+Expected `A` for the known paths: `0x62FB74` under `ArePointsConnectedByLand`: the return of call `0x654BE0`; `0x62EF7A`
+under `RoutingBlockerCheck2d`: `0x82E696` / `0x82E6C7`.
+
+### 19.3 Sync plans that still wait (`route async: sync plan`, `LogFallbackMs=40`, `M1Retry=1`) [verified: logs + source]
+
+37 lines / 2,397 ms in ten logs; `M1Pending` 0.
+
+| reason | lines / ms / max | meaning in our code | managed callers |
+|---|---|---|---|
+| `Skipped` | 13 / 1,223 / 142 | the job was queued, and when the worker took it the world was not quiet (`k.rtBusy`, `!RtQuietWorld`: pending lot updates or a dirty lot index; or wrong world / closing): `J_SKIPPED`, the READY poll then plans on the sim thread (`ts3native.cpp` worker loop, `AsyncReady`) | `Lot.PlanToLotEx` < `VisitCommunityLot` 4 / 370, < `GoToLot` 1; `PlanToPointRadialRange` < `Lot.PlanToMailbox` 2 / 160, `RouteToDoor` 1; `PlanToSlot` < `RabbitHole.Enter` 1, `RouteToSlot` 1; `PlanToLot` < boat `GetOutOfBoat` 1, `GoHome` 1 |
+| `Los` | 11 / 777 / 116 | START refused: the route has `ForcePhysicsBasedRaycast` (option bit `0x2000000`), whose plan reads physics on the planning thread (docs/134 §17.9) | all 11: `ViewObjects.RouteToObject` (view an object) |
+| `QueueFull` | 3 / 205 / 90 | START refused: no free job slot | `Lot.Plan`, `GoHere.RouteActorToDestination`, `VisitCommunityLot` |
+| `NoStart` | 2 / 140 / 76 | no START was made for this handle (kind not hooked or not armed, or no point argument) | `ExitHouseboatThroughGangway` (ReplanFromPosition), `RouteTurnToFace` (`PlanToMatrix`) |
+| `M1NoLock` | 1 / 52 | the lock was not free at the START probe | `RouteTurnToFace` |
+
+`Skipped` is the same world condition that `M1Pending` / `M1DirtyIndex` refuse at START, met a little later (at dequeue). It
+need not be synchronous: the job can go back to `J_PEND` and be retried on the task's READY polls exactly as `M1Retry` does
+for a refused START (bounded by its retry cap, then today's sync plan). **Not built** in this pass (time); it is the next
+build for this key: about 30-45 min with a selftest case beside the M1Retry ones. `Los` must stay synchronous until the
+physics raycast has a worker-safe form (not a lock question). The selected Sim's Go Here is `QueueFull` once (60 ms): a
+queue-depth matter, not a reason class.
+
+### 19.4 Job waits (`route jobs: sim waited`, 10 logs) [verified: logs]
+
+`runplan` 228 / 10.6 s (the task's own plan: the Sim's timeline, not a frame cost when the task yields), `rtwait` 180 / 8.9 s
+(own job 119 / 5.3 s, foreign 61 / 3.6 s; 39 lines / 1.65 s with "task could yield no"), `disc` 84 / 4.2 s. The `rtwait` line
+does not carry its site key. Named by a stall-watch sample beside it: `Objects_SetPosition` 3 / 362 ms and
+`Slots_AttachToSlotImpl` 4 / 326 ms (both the object-move flush of a queued record before the object changes: `RT_*` site
+through `RtWaitJob`); 81 lines sit beside a `ufplan` line of the same tick (a plan's collect in ts3fixes); 88 lines have
+nothing beside them. `RouteLockCallers` does not cover these (not a lock wait); the cheap next step is the site key
+(`0x02000000 | RT_*`, already passed to `RtWaitJob`) in the line.
+
+### 19.5 Checks run (2026-11-20, no game)
+
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0 errors, no warning in the new lines.
+- Selftest block in `TestHitchSum` (exact second frame at the `kP1b` offset, repeated word not a frame, scan-only form, text
+  form, no room, null slot): written, **not run** (needs the MSVC CI build or the Wine harness).
+- `node tools/selftest-all.ts --ci`: 199 PASS, 0 FAIL.
+
+### 19.6 Next storm, on arm
+
+On top of §18: `[HitchAttr] RouteLockMs=20`, `RouteLockCallers=1`. Read the `; callers` word of the `0062FB74` and `0062EF7A`
+lines (sum ms by the first word) and resolve the addresses with Ghidra; build the SH hold around `0x654790` (§12.2, §17)
+only if `ArePointsConnectedByLand` carries most of `0x62FB74`.

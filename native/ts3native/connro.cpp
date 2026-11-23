@@ -50,6 +50,8 @@ typedef DWORD(__fastcall* CnFn)(u8* p, void* edx, DWORD lo, DWORD hi, DWORD room
 typedef void*(__cdecl* CnNewFn)(DWORD size, DWORD tag, DWORD, DWORD, const char* file, DWORD line);          // EA_AllocTagged 0x4E3F90
 static CnFn g_cnOrig = (CnFn)(uintptr_t)CN_TARGET;
 static CnNewFn g_cnNew = (CnNewFn)(uintptr_t)TS3A(0x004E3F90);
+// the IC's first early out: the script host [0x11D4BBC] (its getter 0x7692B0; 0x792A1E: none, return before the call)
+static const void* const volatile* g_cnHostPP = (const void* const volatile*)(uintptr_t)TS3A(0x011D4BBC);
 
 enum { CN_FB_STATE, CN_FB_TRY, CN_FB_TRIP, CN_FB_JOBEND, CN_FB_UNBUILT, CN_FB_UNFILLED, CN_FB_SHAPE, CN_FB_MAYNOT };
 enum { CN_WHY_JOBEND = 120, CN_WHY_UNBUILT, CN_WHY_UNFILLED, CN_WHY_SHAPE };  // above the SR_* codes
@@ -137,8 +139,10 @@ static void CnFallback(int why) {
     InterlockedIncrement(&ts3native_connroomsro.cnFb[i]);
 }
 
-// the planner the IC will pass (0x8292D0, 0x829BC0); NULL = the IC returns before its call
+// the planner the IC will pass (0x8292D0, 0x829BC0); NULL = the IC returns before its call (also with no script host: an
+// answer parked for a call that never comes would stay set for whatever 0x792A55 call meets its key next)
 static const u8* CnPlanner() {
+    if (!*g_cnHostPP) return NULL;
     const u8* world = g_srWorldGet();
     return world && world[0x974] ? *(const u8* const*)(world + 0x95C) : NULL;
 }

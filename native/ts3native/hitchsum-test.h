@@ -213,6 +213,25 @@ static void TestHitchSum() {
     HsLockText(b, sizeof(b), true, 50000, 0x0062EF7A, false, 0, HO_OTHER, false, je, "no job running", 9001);
     assert(!strcmp(b, "route lock wait: main waited 50 ms on +0x918 (key 0062EF7A, plain), held by nobody at the start (lent window or a race); "
                       "no job ended in the wait, now: no job running, at 9001 ms"));
+    {  // RouteLockCallers: the exact second frame of a gate-12 key (kP1b offset 4), then scanned words; text form
+        DWORD stk[224] = {0, 0, 0, 0, 0, 0, 0, 0x0062FB74, 1, 2, 3, 0x00654BE5, 0x00654BE5, 7, 0x00659787, 9};  // rest 0: the scan reads 192 words
+        static const auto isRet = [](DWORD v) { return v == 0x00659787 || v == 0x00654BE5; };
+        bool (*const save)(DWORD) = g_hsIsRet;
+        g_hsIsRet = isRet;
+        DWORD fr[4] = {0, 0, 0, 0};
+        bool exact = false;
+        int n = HsChain(12, TS3A(0x0062FB74), stk + 7, fr, 4, &exact);
+        assert(n == 2 && exact && fr[0] == 0x00654BE5 && fr[1] == 0x00659787);  // the repeated word is not a second frame
+        strcpy_s(b, "x");
+        HsChainText(b, sizeof(b), fr, n, exact);
+        assert(!strcmp(b, "x; callers 00654BE5 ~00659787"));
+        n = HsChain(-1, 0x0085FE10, stk + 7, fr, 4, &exact);  // a plain acquire: scan only
+        assert(n == 2 && !exact && fr[0] == 0x00654BE5);
+        HsChainText(b, 12, fr, n, exact);  // no room: untouched
+        assert(!strcmp(b, "x; callers 00654BE5 ~00659787"));
+        assert(HsChain(12, TS3A(0x0062FB74), NULL, fr, 4, &exact) == 0 && !exact);
+        g_hsIsRet = save;
+    }
     g_hsJe = jeSave;
 
     // 5. the frame end: frames under HitchMs only count; a hitch is counted by cause, and by the docs/666 §2 hypothesis
