@@ -116582,6 +116582,78 @@
     ]
   },
   {
+    "id": "ip-cellindex-crowd",
+    "bug": "docs/669 §2-§3: in the s140 Isla Paradiso hitches of 2026-11-19 (perf, sim thread) AStarCellTable_Find 0x664370 is 14.8% of the routing samples of the five cell A* hitches and the top leaf of three; 352 of its 417 samples sit on the chain walk's key compare. The table has 10007 chained buckets with bucket = (k0 xor k1) mod 10007, and the key's shape byte is xor-ed into the x index bits, so sub-cells of neighbouring leaves share buckets and a lookup walks several cell objects",
+    "fix": "ts3native [RouteSpeed] CellIndex (default 0): per-thread 2-way side index (table, key) -> (cell, bucket) of the game's own answers until Q's table clear 0x61C020; a repeat lookup is served after a check of the cell's key words, 'not found' always runs the game's function (docs/669 §4)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static + clang-cl syntax check + Linux host test, 2026-11-19): never run in the game. Job ini must have [RouteSpeed] CellIndex=2 (shadow: hook installed, the game's function always runs) and [RouteJobPhases] Enabled=1 CandidateSplit=1 (cell ms per call). Arms flip the runtime mode by export (native_set cellindex: off = 0, on = 1 serve; CellIndexAll=0 serves NPC routers only). Read per arm: 'route candidate split' totals (cell ms per call) and the 'route speed: cell index' line (hits, stores, the game's chain cells a walk, most cells in a table, saved ~ms); in a shadow-only pass first, mismatch 0 and stale 0. The chain length line also decides the load question of docs/669 §3 (inferred from perf, not yet measured). Same crowd as ip-neighbourmemo-crowd; run with NeighbourMemo off first, then with both on.",
+    "expect": "shadow pass: ciChecks > 0, ciMismatch 0, ciStale 0, no CELL INDEX MISMATCH line. on arms: ciHits > 0, cell ms per call below the off arms (expected about 10% of cell time when the measured chain is several cells a walk; no gain when it is near 1), route results (ufplansplit codes, stuck Sims) unchanged; no crash",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "cellindex": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 serve"
+        },
+        {
+          "cmd": "crowd_go",
+          "setup": false,
+          "args": {
+            "to": "far"
+          },
+          "waitS": 180,
+          "note": "unseen townies route across the island; 3 minutes = 3 counter lines per arm"
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "native_set",
+        "args": {
+          "cellindex": 2
+        },
+        "note": "back to shadow (the ini value)"
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

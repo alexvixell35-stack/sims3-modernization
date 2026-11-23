@@ -3531,6 +3531,7 @@ static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
 static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
 static void UbLogCounters();   // unseenband.cpp (docs/322)
 static void PccLogCounters();  // plancand.cpp (docs/644)
+static void CiLogCounters();   // cellindex.cpp (docs/669)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
 // docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
@@ -3623,6 +3624,7 @@ static void MaybeLogCounters(ULONGLONG now) {
     CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
     PccLogCounters();  // docs/644 (nothing until a part is on)
+    CiLogCounters();   // docs/669 (nothing until CellIndex is installed)
     if (ts3native_readydrain.mode)
         Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
             "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
@@ -6790,6 +6792,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plandeadline.cpp: t_pd.scope)
 #include "smoothcut.cpp"   // docs/676 §15: [WorldPrecompute] SmoothCut (no dependencies beyond the helpers above)
 #include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
+#include "cellindex.cpp"   // docs/669: [RouteSpeed] CellIndex (after routespeed.cpp: the Q clear stub; plancand.cpp: PccScopeNow)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
 #include "thumbstall.cpp"  // [ThumbStall]: timeout for state 0x11 of the Sim thumbnail queue (EXPERIMENT, off)
@@ -7071,6 +7074,7 @@ static void Run(HMODULE self) {
         InstallSmoothCut(ini);   // docs/676 §15: one call site of its own (0x6676CE), nobody else's
         InstallWorkerHold(ini);  // docs/673: after InstallPlanCand (g_pccSplit) and [RouteAsync] (g_lockOrig)
         InstallWorldPre(ini);    // docs/676: after ApplyWaterJps (the jump hook), InstallPlanCand and InstallTailUnlock (it chains its sites)
+        InstallCellIndex(ini);   // docs/669: after InstallRouteSpeed (the Q table clear stub; installs it when NeighbourMemo is off)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install

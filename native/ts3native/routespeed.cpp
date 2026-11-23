@@ -167,6 +167,19 @@ static __declspec(naked) void NmClearStub() {
     }
 }
 
+// The Q table clear hook, shared with docs/667 FloodMemo (floodmemo.cpp): installed once, by whichever asks first
+static bool RsInstallClear() {
+    if (g_nmClearNext) return true;
+    if (Matches((const void*)(uintptr_t)NM_CLEAR, kNmClearPro, sizeof(kNmClearPro))) {
+        InstallDetour("Q cell table clear (route speed)", NM_CLEAR, kNmClearPro, sizeof(kNmClearPro), (void*)NmClearStub, &g_nmClearNext);
+    } else if (g_rgTramp[9] && kRgSites[9].addr == NM_CLEAR) {  // [RouteGate] owns the entry: we run after its stub
+        g_nmClearNext = g_rgTramp[9];
+        InterlockedExchangePointer(&g_rgTramp[9], (void*)NmClearStub);
+        Log("OK   Q cell table clear (route speed): after the [RouteGate] stub");
+    }
+    return g_nmClearNext != NULL;
+}
+
 static void InstallRouteSpeed(const wchar_t* ini) {
     RouteSpeedCounters& c = ts3native_routespeed;
     const int nm = Clamp(GetPrivateProfileIntW(L"RouteSpeed", L"NeighbourMemo", 0, ini), 0, 2);
@@ -184,15 +197,7 @@ static void InstallRouteSpeed(const wchar_t* ini) {
     c.nmReady |= 4;
     g_nmAll = GetPrivateProfileIntW(L"RouteSpeed", L"NeighbourMemoAll", 0, ini) != 0 || g_hhToo == 1;
     // the clear hook first: the memo never serves without it
-    if (Matches((const void*)(uintptr_t)NM_CLEAR, kNmClearPro, sizeof(kNmClearPro))) {
-        if (InstallDetour("Q cell table clear (neighbour memo)", NM_CLEAR, kNmClearPro, sizeof(kNmClearPro), (void*)NmClearStub, &g_nmClearNext))
-            c.nmReady |= 2;
-    } else if (g_rgTramp[9] && kRgSites[9].addr == NM_CLEAR) {  // [RouteGate] owns the entry: we run after its stub
-        g_nmClearNext = g_rgTramp[9];
-        InterlockedExchangePointer(&g_rgTramp[9], (void*)NmClearStub);
-        c.nmReady |= 2;
-        Log("OK   Q cell table clear (neighbour memo): after the [RouteGate] stub");
-    }
+    if (RsInstallClear()) c.nmReady |= 2;
     if (!(c.nmReady & 2)) { Log("FAIL route speed neighbour memo: 0x%08lX differs and no known owner", NM_CLEAR); return; }
     g_nmNbNext = (NmNbFn)InstallDetour("QuadCell_Neighbours (neighbour memo)", NM_NB, kNmNbPro, sizeof(kNmNbPro), (void*)NmNbHook, &g_nmNbNext);
     if (!g_nmNbNext) return;  // the clear stub stays: it only counts
