@@ -14,6 +14,9 @@
 // (QlSharedTrip), an odd lot table. The sim's portal AddRef/Release then race the worker's (T-L3: worker refs outside QL), so
 // the portal vtable 0xFED048 gets interlocked count functions (PortalAddRefX / PortalReleaseX in lotfd.cpp) for the whole run.
 // Shadow (no job, job starts held off): the game's call, then the call again under a dry hold on a copy of the point, compared.
+//
+// The hold has a kind (t_slKind): SLK_SLOT is the one above; SLK_LAND is [LandCheckRO]'s hold over the closest-waypoint gather
+// 0x654790 (landro.cpp, docs/670 §24), which has its own gate rule (LcGateWhy), drop reasons and counters. One hold per thread.
 
 static const DWORD SL_POS = TS3A(0x0076F0A0);
 static const u8 kSlPro[] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16 (no relative operand)
@@ -22,12 +25,18 @@ typedef DWORD(__cdecl* SlFn)(float* point, const u8* obj, DWORD ags, DWORD a4);
 static SlFn g_slOrig;
 static __declspec(thread) LONG t_slDry;
 enum { SL_OK, SL_FB_STATE, SL_FB_NESTED, SL_FB_BROKEN, SL_FB_TRY };
+enum { SLK_SLOT, SLK_LAND };
+static __declspec(thread) LONG t_slKind;      // whose hold t_slHold is: set by SlBegin, back to SLK_SLOT in SlEnd
+static int LcGateWhy(int site, DWORD* slot);  // landro.cpp: -1 = this gate entry passes inside the land check's hold
+static void LcOnDrop(int why, bool dry);      //   its drop counters; the area goes back to the route worker
+static void LcRelease();                      //   the area is no longer the sim's (hold over or dropped)
 
 static void SlDrop(int why) {
     if (t_slHold != 1) return;
     t_qlShared = 0;
     ReleaseSRWLockShared(&g_ql);
     t_slHold = 2;
+    if (t_slKind == SLK_LAND) { LcOnDrop(why, t_slDry != 0); return; }
     InterlockedIncrement(&ts3native_counters.slDrop[why]);
     if (t_slDry) InterlockedIncrement(&ts3native_counters.slShadowDrop);
 }
@@ -50,6 +59,12 @@ static int SlPortals(const u8* p, const DWORD* slot) {
 // RgEnter (routegate.cpp), outermost non-worker entry with the hold live. slot = the gate's return slot, slot[-2] = ecx
 static bool SlGate(int site, DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
+    if (t_slKind == SLK_LAND) {  // the land check's hold: its own rule, its own reasons
+        const int lc = LcGateWhy(site, slot);
+        if (lc < 0) return true;
+        SlDrop(lc);
+        return false;
+    }
     int why = SLD_GATE;
     if (site == 12) {  // LotTable_Contains(P)(lo, hi): reads only the table
         why = VfRealRet(slot) == SL_PFO_RET ? SlPortals((const u8*)(uintptr_t)slot[-2], slot) : -1;
@@ -65,13 +80,14 @@ static bool SlGate(int site, DWORD* slot) {
     return false;
 }
 
-static int SlBegin(bool dry) {
+static int SlBegin(bool dry, int kind = SLK_SLOT) {
     if (t_qlDepth || t_qlShared || t_slHold) return SL_FB_NESTED;
     if (g_steerBroken) return SL_FB_BROKEN;
     if (!TryAcquireSRWLockShared(&g_ql)) return SL_FB_TRY;
     t_qlShared = 1;
     t_slHold = 1;
     t_slDry = dry;
+    t_slKind = kind;
     return SL_OK;
 }
 // true: the hold lasted to the return
@@ -81,8 +97,10 @@ static bool SlEnd() {
         t_qlShared = 0;
         ReleaseSRWLockShared(&g_ql);
     }
+    if (t_slKind == SLK_LAND) LcRelease();
     t_slHold = 0;
     t_slDry = 0;
+    t_slKind = SLK_SLOT;
     return kept;
 }
 // the game's body inside the hold; an unwind through it still releases QL

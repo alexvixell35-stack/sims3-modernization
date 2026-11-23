@@ -938,3 +938,569 @@ add`, `probe N moved M`), the `drain point fp2 reader` lines and `pfAddFlush`. I
 `DeferPrivateFpAdd=1` (`applied`, `lot moved`, `object gone`; the `fp2 reader` waits should go; watch boats for a
 turn-helper footprint that shows late). Separate observe-only arm: `[ProbeP1b] Enabled=1` for the callers of `0x62FB74`
 and `0x62EF7A`. Read the hitch totals' wait sums, not one key (§7.1).
+
+> **Port note (post/roclone-1123, 2026-11-23):** §21-§26 below come from the combo branch with the read-only clone set ([ObstructAtRO], [Blocker2dRO], [LandCheckRO], the §26 shadow fix, [SteerRO] RetryWait). §19, §20 and §24's `ForeignKindsUnseen` part are not in this PR (other PRs / not posted), which is why the numbering has gaps; the two §24 headings are kept as the code comments name them. **None of this has run in the game**, and docs/631 §5 suspects the set of the s229 / s241 third-floor stranding.
+
+## 21. s189 read: every gate wait has its caller (`RouteLockCallers`) [verified: log + disassembly]
+
+2026-11-20, branch `feat/lock918-readers6`. Input: s189 (3-min storm, Isla Paradiso, every fix on, `[HitchAttr] RouteLockMs=20
+RouteLockCallers=1`), 63 `route lock wait:` lines, 3,369 ms. No s190 log existed when this was read. Functions found with
+objdump on the Steam 1.67 code and `functions.csv`; no Ghidra run.
+
+| ms | lines | max | key | first caller word | who | class |
+|---|---|---|---|---|---|---|
+| 508 | 13 | 76 | `0x62EF7A` | `0x655ABE` | `RouteObstructionAtPoint 0x655880` (§21.1) | reader: **built, `[ObstructAtRO]`** (§22) |
+| 476 | 8 | 152 | `0x62FB74` | `0x654BE5` | `0x654790` under `World_ArePointsConnectedByLand` (§12.2's path) | reader; SH hold, not built (§23.1) |
+| 442 | 7 | 109 | `0x85FE10` | `~7805F619` (ts3native) | S2 steering query given back | `steer RO:` line: 381 ms in given-back calls |
+| 413 | 5 | 129 | `0x62EF7A` | `0x82E696` | `RoutingWorld_BlockerCheck2d 0x82E340` | reader; IC-level stub on `rtoro.cpp`, not built (§23.2) |
+| 247 | 6 | 67 | `0x62FB74` | `0x834201` | `0x8341D0` (§21.2) | **writer path**: keeps the lock |
+| 242 | 3 | 104 | `0x62F782` | `0x7581A6` | `0x758110` = `RouteManager_SetPortalCost` (§21.3) | **writer**: keeps the lock |
+| 225 | 7 | 58 | `0x760BFF` | `0x76429D` | `0x7641D0`, the goal step of `IC_Route_Plan` / `IC_Route_Replan` (§23.3) | sync plan |
+| 222 | 4 | 128 | `0x760BFF` | `0x764400` | `0x7642C0`, the goal step of `IC_Route_PlanFromPoint` / `IC_Route_ReplanFromPosition` (§23.3) | sync plan |
+| 187 | 2 | 139 | `0x631814` | `77FF029C` (not image) | `[LotFrontDoorRO]` given back [inferred] | - |
+| 114 | 2 | 76 | `0xD882D7` | scan only | `[ConnRoomsRO]` given back | - |
+| 109 | 2 | 73 | `0x62FB74` | `77FA1526` (not image: stale) | unknown | - |
+| 53 / 51 / 48 / 32 | 1 each | | `0x846D21`, `0x85F6CB`, `0x631F40`, `0x62EF7A` from `0x75167F` | | RouteFollow_A, EditPath given back, FGL footprints, `IsPointObstructedBySim` given back by `[ObstructedRO]` | - |
+
+### 21.1 `0x655ABE`: `RouteObstructionAtPoint 0x655880` [verified disassembly 0x655880..0x655ED1]
+
+thiscall(self; ctx, Vector3 point, bool classFlag), `ret 0x14`, result EDX:EAX. Two callers: `0x7519D9` (an IC body after
+`IsPointObstructedBySim`; it builds ctx on its stack from the route: option word `route+0x3C`, own id `route+0x40/+0x44`,
+ignore list `route+0x158`; the s170-s187 logs named `Route_GetObstructionAtWorldOrLotPoint` beside this key [inferred: the same
+IC]) and `0x6437AF` (in planner function `0x6435B0`, classFlag 1).
+Body: `World_LotLookup(self+0xC, x, z)`; no lot: the other path through `0x62D0D0` (not read). With a lot: the level
+(`0xADD860`), the height (`0xB015B0`, `0x74A8F0`), **the lot transform `0x62EF30(self+8, lot id, ...)` = gate 0**, whose two
+outputs are never read again, then `RoutingWorld_ObstacleQuery 0x82EDB0` (mode 0, radius `[0x106E8A8]`, option word = ctx's)
+at `0x655AF6`, which takes `+0x918` itself. Then the loop over the returned footprints: classFlag 0: type (slot `+0xC`) 0x14
+or 1, id (slot `+0x84`) not ctx's own and not in the ignore list (`0x81C970`) = the answer; classFlag 1: class (slot `+8`
+with ctx) >= 2 and not 0xD = answer 1:0. Nothing found: 0.
+**A reader of planner state** (lot table hit, quadtree footprints); the result is a value. It writes only footprint
+refcounts (+1/-1) and a lot-table entry on a miss. So the gate wait buys nothing by itself: without it the function would
+wait at `0x82EDB0` instead. Both touches must be answered together: §22.
+
+### 21.2 `0x834201`: `0x8341D0` [verified disassembly, 0x831710 not read]
+
+thiscall(RoutingWorld; object, level), called from `0x834C12` (`0x834B80`) and `0x835DED` (`0x835240`), the object
+footprint update family (`0x833697` is the writer key next to it). It skips objects with `+0x408 == 1 && +0x40C == 0x50`,
+finds the lot entry (`0x62FB60`, gate 12), tests bit `level - entry+0x40` of `entry+0x168`, and when the bit is clear calls
+`0x831710(object, level, 0, 1)`. The read is two fields of the entry; what follows it is a routing-world change for that
+object and level [inferred from the callers and the argument shape]. **Writer path: keeps the lock.** A read-only answer
+would only cover the "bit already set" case and would move the callers' following writes beside the job; not provable per
+caller in this pass.
+
+### 21.3 `0x7581A6`: `0x758110` = `RouteManager_SetPortalCost` [verified disassembly]
+
+`PortalsForObject 0x62F760` into a vector, then `portal+0x2C = cost` for each, then the references released. **Writer of
+portal cost: keeps the lock** (§12.2 had it from the script name; now from the code).
+
+## 22. `[ObstructAtRO]`: `RouteObstructionAtPoint` on the clone (ts3native, default off, NOT RUN)
+
+### 22.1 What it does [built: `gvro.cpp` `OaHook`, `OaRun`, `OaLocked`, `OaScan`]
+
+An entry detour on `0x655880` (6 bytes `55 8B EC 83 E4 F0`, the prologue `[ObstructedRO]` checks on its sibling). On the
+sim thread while a route job runs, and only when the thread holds no `+0x918`, serves no job callback and has no gate frame
+open (`OrHook`'s conditions):
+
+- phase 1, no lock, the game's own calls in its order: `World_LotLookup(self+0xC)`, the level `0xADD860`, `0x82EDB0`'s own
+  lookup on `world+0x964`. The height is not computed (the query reads x, z and the level; as `[ObstructedRO]`).
+- phase 2, QL shared (try only), S2's protocol (tripwires armed, sequence, epoch, generation): the lot table hit for gate 0
+  (`SrEntry`; a miss would insert: the game), the obstacle query as S2's point query (`g_orQuery` = `SrQuery`, record =
+  ctx's option word, `+0x24 = 1`, radius `[0x106E8A8]`), then the function's loop for classFlag 0 on the clone's list in
+  `0x82EDB0`'s order, through the game's slots `+0xC` and `+0x84`. The refcount +1/-1 is skipped (net 0).
+
+Given back to the game (it waits as today), each with its own count: no lot at the point (the `0x62D0D0` path is not
+cloned), classFlag 1 with footprints found (slot `+8` is not read for this call; `gvhits.cpp` has it for the validator),
+an ignore list that lies inside the route the running job plans (or the job's route cannot be found), `self+8` not the
+world's planner, a dirty lot index, and every S2 doubt (QL busy, lot not in the table, deferred flush, shape, tripwire, job
+end). `Shadow=1`: with no job running (and none allowed to start: `g_rgOffSimOpen`), the game's call, then the clone,
+compared; `SHADOW MISMATCH` lines (16 at most).
+
+Keys: `[ObstructAtRO] Enabled=0`, `Mode=1`, `Shadow=0`. Export `ts3native_obstructat` (size 0x48, `+0x00` mode =
+`native_set obstructat`, `+0x04` shadow; docs/registry.md). Line, once a minute when installed: `obstruction at point RO:
+mode M shadow S calls C, answered in a job A (obstructed H) max U us; given back: state, QL busy, lot, shape, tripwire, no
+lot, class flag with footprints, job's route; shadow runs R mismatch X`. Address row `0x00655880` (EA 1.69: unresolved, the
+feature prints its SKIP line there). Repro `ip-obstructat-storm`.
+
+### 22.2 Checks run, and what is not checked
+
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`: 0 errors, no warning in the new lines.
+- `node tools/selftest-all.ts --ci`: 200 PASS, 0 FAIL.
+- `steerro-test` section OA (2026-11-20, branch `fix/obstructat-check`; clang-cl build under Wine as §8.5, `SRT_ONLY=OA`): the
+  game's own `0x655880` (its lookup, transform `0x62EF30`, query `0x82EDB0`, `0x8294E0` / `0x81C970` and loop; the level
+  `0xADD860`, `0xB015B0` and the height `0x74A8F0` faked, the height returning a y far from the caller's) against `OaRun` on
+  random worlds, points, contexts (none, own id, ignore list or none) and both class flags: **30,000 calls, 24,394 compared
+  equal** (4,768 name an object; 4,453 class flag with nothing near), **0 differ**, 5,606 given back (no lot 2,091, class
+  flag with footprints 2,123, lot not in the table 1,392: the game inserts it there). The fakes saw the same lot and the same
+  point `{x, y, z, x}` from both sides; references balanced. Then the detour on the mapped function: 2,712 answers in a
+  "job" equal to the game's, 689 given back for the job's own route, shadow 3,735 runs / 0 mismatches, QL busy 51 times -> the
+  game's call. 12 call edges and the bytes of `0x8294E0`, `0x81C970`, the ctx reads and the flag test match the image. Eight
+  wrong readings put into `OaRun` on purpose (own id dropped or read at `+4`, type 1 dropped, ignore list by low word only,
+  option word 0, level 0, lookup `(z, x)`, point w 0) each stopped the section. The whole `steerro-test` ends `steerro-test
+  ok` with the other sections' numbers unchanged. **So the reading of §21.1 holds**: lookup `(x, z)`, the point's layout, ctx
+  `+0` / `+8` / `+0xC` / `+0x28`, the transform's outputs dead, the query blind to y. Nothing in `OaRun` had to change.
+- Selftest case `TestObstructAtRO` (`gvro-test.h`; clone and hook on fakes, the gate's lot and the query's lot apart, every
+  given-back reason, shadow compare), built with clang-cl and run under Wine before and after `TestGoalValidRO` /
+  `TestObstructedRO`. Pass. The full selftest needs the MSVC CI build.
+- Still read only, not run: the no-lot path (`0x62D0D0`; given back before any routing read), the class flag's loop with
+  footprints (slot `+8`; given back), the real `0xADD860` / `0x74A8F0` / `0xB015B0` (lot objects and terrain; the clone calls
+  the first as `[ObstructedRO]` does and skips the other two), a world where `self+0xC` and `world+0x964` are different
+  managers (selftest fakes only). The section's worlds never give a deferred flush or an invalid polygon cache for this call.
+  The job's-route test takes any ignore list within 0x1000 bytes of the job's route as that route's own (the route's size
+  is not known): another route allocated right behind it would be given back too; the `job's route` count shows it.
+  **`Mode=0 Shadow=1` first stays the order** (§23.4).
+- Not known: how many job-time calls are classFlag 1 with footprints (given back), i.e. how much of the 508 ms it removes.
+  The `class flag with footprints` count of the first arm says it.
+
+## 23. Read, not built
+
+### 23.1 `0x62FB74` from `0x654BE5` (476 ms, the second largest)
+
+The prediction of §12.2 / §19.2 holds: all 8 lines with that word are the call at `0x654BE0` in `0x654790`. Design SH (a
+QL shared hold around `0x654790` at call `0x659787`, gate 12 passing inside) is still the fit. Open before it can be
+built: `0x654790` reaches `World_LotLookup`'s own lock `0x10786C8` (§17), so `LockAcquireHook`'s `QlSharedTrip(SLD_LOCK)`
+must be shown to let that one lock pass without dropping the hold, or the hold drops on every call and nothing is gained;
+and an offline section that runs the game's `0x654790` under the hold against the plain call. About 1-1.5 h. Not started
+in this pass (the 45 minutes went to §22). **Built since: §24** (the lock question is settled in §24.1; the offline
+section is still open).
+
+### 23.2 `0x62EF7A` from `0x82E696` (413 ms)
+
+`RoutingBlockerCheck2d` does rank now (§17 said it did not: the stall-watch names missed it; the caller word does not).
+`rtoro.cpp` clones this check as a step of `RouteToObjectCheck`; the IC-level stub on the call to `0x82E340` (§12.2: the
+segment gather `0x631E20` with its pin and references rules SH out) is the next build after §23.1, about 1-2 h with its
+offline section. **Built since: §24.**
+
+### 23.3 `0x760BFF`: which sync plans [verified: disassembly of the call sites + s189 log]
+
+`0x7641D0` (return `0x76429D`) is called at `0x7651DC` (`IC_Route_Plan 0x765160`) and `0x7654C8` (`IC_Route_Replan
+0x765490`); `0x7642C0` (return `0x764400`) at `0x76542C` (`IC_Route_PlanFromPoint 0x765240`) and `0x7655C3`
+(`IC_Route_ReplanFromPosition 0x765550`). Both call the goal step `0x7606E0` (gate 10). So the caller word splits the key
+by IC pair, not by reason.
+
+s189's sync plans >= 40 ms (18 lines): **16 are `entry Route_PlanLocked (no IC)` with managed caller
+`ScriptCore.Route.Route_PlanFromPoint`** (41-93 ms each, about 0.9 s), 1 `ReplanFromPosition / Skipped` (75 ms), 1 `Plan /
+Los` (77 ms). `(no IC)` means no IC frame of ours was open: these plans never reached a START, the `NoStart` class of §19.3.
+So for `0x764400` (4 lines / 222 ms) the reason is `NoStart` on PlanFromPoint; `SkipRetry` cannot help (nothing was queued
+to be skipped) and neither can M1Retry (no START was refused). What would: give those PlanFromPoint calls a START (why the
+A10 kind-2 hook does not arm for them: `KindsUnseen` scope, no point argument, or the watchdog-only hook; `arWdPass` and
+the `pkAfSkip` counters say which) and then they park like any other. That is a read of `a10.cpp`'s arming rules, not the
+small SkipRetry pattern; not built. `0x76429D` (7 lines / 225 ms, all under 60 ms) are Plan / Replan sync plans mostly
+below the 40 ms line threshold, so the log does not give their reasons; `Los` is one of them and must stay synchronous.
+`QueueFull`: 0 lines in s189 (3 in ten logs before): parking it is the same `J_PEND` + `FbRetry` pattern, but with nothing
+to measure in this arm it was not built.
+
+### 23.4 Next storm, on arm
+
+On top of §20.4:
+
+```
+[ObstructAtRO]
+Enabled=1
+Mode=0
+Shadow=1
+[HitchAttr]
+RouteLockMs=20
+RouteLockCallers=1
+```
+
+First pass as written (compare only; `shadow runs` > 0, `mismatch` 0). Second pass `Mode=1`: `answered in a job` against
+`class flag with footprints` and `no lot`; lines with key `0062EF7A` and first caller `00655ABE` against s189's 13 / 508 ms;
+no new key `00655AFB`. Also read `arWdPass` / `pkAfSkip` for §23.3.
+
+## 24. `[Blocker2dRO]`: the IC's `RoutingWorld_BlockerCheck2d` call on the clone (ts3native, default off, NOT RUN)
+
+2026-11-20, branch `fix/blocker2d-ro` (from `work/combo-1117` a7ecd7ba). The build §23.2 asked for.
+
+### 24.1 The call [verified disassembly `0x74E110..0x74E288`, `0x82E340..0x82ED9E`, `0x62EF30`, `0x814C30`, `0x81CB60`, `0x81C880`, `0x81C970`]
+
+`IC_RouteManager_RoutingBlockerCheck2d 0x74E110` (cdecl: x0, z0, level, x1, z1, a goal word, four option words, the target object's id,
+an ignore id, an option word): `World_LotLookup` on wm `[0x11ECBC4]` for the start (no lot, no world or no object manager:
+returns 8), the height `0xC6A250`, the options object on its stack (`0x81CB60`: the four words at `+0x28..+0x34`, five empty
+vectors), the target object by id (`0x939560`; may be none), then **one call, `0x74E261`**:
+`0x82E340` (thiscall world; out, lot, start {x, y, z, x} with the level at `+0x24`, goal {x, z}, opts, target, &ignore id,
+five zero bytes, the option word; `ret 0x34`). The IC returns `out[0]`.
+
+`0x82E340` takes no lock of its own. Its two routing touches each wait behind a route job: the lot transform `0x62EF30`
+x2 (`0x82E691`, `0x82E6C2`: gate 0, key `0x62EF7A`, caller words `0x82E696` / `0x82E6C7`) and the segment gather `0x631E20`
+(`0x82E6EB`: Contains, the cell graph, pin, flush, references). So, as §21.1 found for its neighbour, answering only the
+gate would move the wait to the gather: both are answered together. Everything else in the function is sim-owned or
+physics: the option tests, the option copy `0x81D3C0` the gather's record points at, the ignore ids (`*ign` when not 0, the
+target's, with option `0x80000` the target's parent, with `0x100000` its slot children), the per-footprint rules (id not
+ignored, not in the options' list `0x81C970`, not in the lot's Sim list when T(0, 4), slot `+0xC0`, the level-0 segment
+test `+0xD8` with radius `+0x44`, then the type rules and the merge `0x829250`), and, when no footprint answered and option
+4 holds and `b34` is 0, five physics range samples along the segment (`0x686A90`, `0x682590`, `0x82A780`). The debug
+segment draw `0x814C30` does nothing unless byte `[0x11D90B0]` is set.
+
+`rtoro.cpp`'s `RtoBlock` already is this function from the two transforms to the merge (it is step 7 of
+`RouteToObjectCheck`, `[RouteToObjRO]`, on by default since 2026-11-04), and `RtoTail` is its physics samples.
+
+### 24.2 The stub (`rtoro.cpp` `B2Stub`, `B2Run`, `B2Phase1`)
+
+One call-site retarget, `0x74E261` -> `B2Stub`. On the sim (owner) thread while a job runs, when the thread is not the
+`+0x918` owner, serves no job callback and has no gate frame open (`AvMayRun`):
+
+- phase 1, no lock: the option tests (`b24 |= T(2)`, `b28 |= T(1)`, `o4 = b2c || T(4)`, `T(0, 4)`, `T(0, 0x800)`), the
+  ignore ids in the game's order, the option copy with bit 4 forced when `o4`.
+- phase R, QL shared (try only), `RtoLocked` (tripwire state, QL sequence, epoch and job generation before and after):
+  the lot table hit for gate 0 (`SrEntry`, GetOrInsert rules), then `RtoBlock`.
+- phase P, QL released: `RtoTail` when the footprint pass left code 0 and the tail applies (`Tail=1`).
+
+An answer writes `out[0]`, `out[2]`, `out[3]` and returns `out`, as the function does (`out[1]` is never written by it).
+Given back to the game's call (today's wait), each counted: may not (the `AvMayRun` cases), state (not the routing world,
+no planner), QL busy, lot (table miss: the game inserts; deferred flush; pin moved), shape (unknown footprint class or
+slot), polygon cache, tripwire, job end, tail (`Tail=0` only), option (the debug-draw byte; `0x100000` with a slot
+component on the target: the children iterator `0x952E40` is not cloned). `Shadow=1`: with no job running and none
+allowed to start (`g_rgOffSimOpen`), the game's call, then the clone, the three words compared; `SHADOW MISMATCH` lines
+(16 at most).
+
+The answer is the game's own for every Sim (no scope gate, nothing relaxed). In time it differs only as §8.3 says: the
+clone reads between the job's writers under QL, the game's call reads after the job.
+
+Changed in the shared clone, for both users: `RtoBlock`'s tail gate reads `g_rtoTailOn` (set by `RtoRun` from
+`rtoTailMode`, by `B2Run` from this block's `b2Tail`), and `RtoTail` takes optional counter pointers so `[Blocker2dRO]`
+counts its tails in its own block. `[RouteToObjRO]`'s behaviour and counters are unchanged.
+
+### 24.3 Switches, counters, files
+
+- `ts3native.ini` `[Blocker2dRO] Enabled=0` (install), `Mode=1` (start of the runtime switch: export
+  `ts3native_blocker2dro` `+0x00`, `native_set blocker2dro`), `Shadow=0`, `Tail=1`. Needs `[RouteGate] Enforce=1`,
+  `[RouteAsync]`, the S2 writer set. Independent of `[RouteToObjRO]` (shared code, own site).
+- One line a minute when installed: `blocker check 2d RO: mode M shadow S tail T calls C, with a job J: answered A (code 0
+  .., 1 .., 3 .., 4 .., 6 .., 7 ..; physics tails N, hit H; T ms, max U us), the game's call G ms (max V us); given back:
+  state, QL busy, lot, shape, polygon cache, tripwire, job end, may not, tail, option; shadow runs R mismatch X not
+  compared Y`.
+- Files: `native/ts3native/rtoro.cpp` (the section at its end), `blocker2dro-test.h` (selftest case `TestBlocker2dRO`),
+  `steerro-test.cpp` section B2, `ts3native.cpp` (three lines), `ts3addr-ea169.h` (rows `0x0074E261`, `0x0082E340`,
+  `0x011D90B0`, all unresolved: the EA 1.69 build logs SKIP), `ts3native.ini`, `tools/ini-sections.json`, `tools/ea-ini.ts`,
+  `tools/harness/native-switches.ts`, `docs/registry.md`, `docs/68-hook-conflict-map.md`, repro `ip-blocker2dro-storm`.
+
+### 24.4 Checks run (2026-11-20, no game), and what is not checked
+
+- **`steerro-test` section B2** (clang-cl build under Wine with §8.5's recipe, `SRT_ONLY=B2`, the Steam 1.67 code mapped
+  at its addresses): the game's `0x82E340` in the IC's form (its whole path: option tests and copy by the game's own
+  `0x81CB60` object, both transforms, `0x631E20`, `0x667400`, the collector, the footprints' own slots, the merge) against
+  `B2Run` on random worlds, segments, levels -1..2, option bits, option id lists, targets, ignore ids and, in a quarter of
+  the calls, non-zero byte arguments: **60,000 calls, 56,324 compared equal** (code 0: 46,858, 1: 133, 3: 535, 4: 541, 6:
+  422, 7: 7,835; 30,502 footprints gathered; 37,564 with a target; 14,675 reached the tail), 3,676 given back (lot not in
+  the table: the game's insert is not run on the fake table), **0 differ**; `out[1]` untouched, references balanced; 15
+  call edges, `ret 0x34` and the IC's result load match the image; the stub passes through off the owner thread and
+  with no job; one shadow run on the game's code, 0 mismatch. This is also the first offline comparison of `RtoBlock`
+  itself with the game's function (until now `steerro-test` checked `[RouteToObjRO]`'s three call edges only). The whole
+  `steerro-test` (400 cases) ends `steerro-test ok`.
+- Selftest case `TestBlocker2dRO` (the stub on fakes, no thread, no timer, its own preconditions): 42 hand-derived cases
+  x (Mode 1 with a job, shadow), incl. each byte argument against its option bit, the ignore ids with and without a
+  target, option `0x80000`'s parent, the merge, the physics tail with `Tail` 1 and 0, and the give-backs; then switches
+  off, another thread, no job, may not, QL busy, tripwire, job end, shadow skew. Built with clang-cl and run alone under
+  Wine together with `TestRouteToObjTail`: pass. `TestRouteToObjRO` does not run alone in that build (it stops silently,
+  the same on the base commit), so **the unchanged behaviour of `[RouteToObjRO]` after the two small changes of §24.2 is
+  read, not run: the MSVC CI selftest is the check.**
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `steerro-test.cpp`: 0 errors, no warning
+  in the new or changed lines. `node tools/selftest-all.ts --ci`: 200 PASS, 0 FAIL. No MSVC build here.
+- Not covered offline: the physics samples (no physics world in the test process: both sides return before the first
+  sample; `RtoTail` has its own selftest and runs in the game under `[RouteToObjRO] Tail=1`), the lot's Sim list
+  (`lot+0x2C0`, T(0, 4)), option `0x80000` against the game's component lookup (selftest fakes only), a deferred flush
+  and an invalid polygon cache (the test worlds have neither), the IC body above the call (read from the disassembly:
+  argument order and the start point's layout; a wrong reading would show as a shadow mismatch).
+- Not known: how many of the IC's job-time calls are given back (lot misses, `0x100000`), i.e. how much of the 413 ms
+  goes; and §7.1 applies: the frame's next real taker may inherit the wait.
+
+### 24.5 Next storm, on arm
+
+```
+[Blocker2dRO]
+Enabled=1
+```
+
+## 24. `[LandCheckRO]`: the closest-waypoint gather under design SH (ts3native, default off, NOT RUN)
+
+2026-11-20, branch `fix/land-check-ro`. Tools: capstone on the Steam 1.67 code (function bodies, a direct-call closure of
+`0x654790` with every indirect call, absolute write and import listed, a rel32 scan for callers, a field-offset scan of
+`0x61C000..0x690000`), `functions.csv`. No Ghidra run, no game run.
+
+### 24.1 The open question of §23.1: `World_LotLookup`'s lock [verified disassembly + source]
+
+- The path is `0x654790 -> 0x650030 -> 0xC68990 -> 0xC688A0`. `0xC688A0` starts with `cmp byte [wm+0x1CC], 0; je` and calls
+  the lot index rebuild `0xC68680` only when that byte is set (`0xC688A6..0xC688AF`). The rebuild is the only function of
+  the gather's closure that calls `Lock_Acquire` (`0xC6869C`). The lock is the object `wm+0x228` (`lea ecx, [ebx+0x228]`);
+  **`0x10786C8` is the timeout word pushed for the call, not the lock** (the reading docs/62 gives for `0xFBA5CC`).
+- So with a clean index the gather never meets that lock. With a dirty index: `LockAcquirePlain` sends every acquire of a
+  thread with `t_slHold` set to `LockAcquireFull`, whose first statement is `QlSharedTrip(SLD_LOCK)` -> `SlDrop`: QL is
+  released **before** the game's lock call. The hold is never open across the lock; what follows runs as today (the
+  rebuild on the sim thread, then the gate's wait). Nothing of ours is held while it waits.
+- §23.1's worry ("the hold drops on every call and nothing is gained") does not hold: the drop happens only for a dirty
+  index. The build excludes that case up front anyway (`dirty lot index`: no hold is started, the game's call), and the
+  drop stays as the answer when the byte is set by another thread after the check.
+- The rest of the closure (108 functions by direct call): the imports reached are the allocator's `EnterCriticalSection` /
+  `LeaveCriticalSection` (not `Lock_Acquire`, so no drop: the candidate vector may grow inside the hold), `VirtualAlloc` /
+  `VirtualFree` / `VirtualQuery`, `GetSystemInfo`, `memmove`, `ceil`. No wait import, no write to an absolute address. The
+  water point test `0xB793F0` (flag `0x800`) reaches no gate site and no `Lock_Acquire` by direct call; it has virtual
+  calls (`0xB74D05`, `0x746119`, `0x958643..0x95895F`, `0x8A65EB`, `0x9EC452`) **[not followed]**: a lock or managed call
+  behind one of them drops the hold like any other.
+
+### 24.2 What the gather is, and a finding about its area [verified disassembly]
+
+`0x654790` is thiscall(area), no stack argument, AL; one caller, `0x659787` in `ClosestWaypoints_Try 0x6595B0`, only for an
+area whose flag `0x400` is set. It resets the area's candidate vector (`+0x34 = +0x30`), walks the chunks of the area,
+appends one 32-byte record per accepted waypoint (`0x654240`, may reallocate) and clears `0x400`. For a waypoint of type 2
+or `0x15`: `0x650030` (the lot under the waypoint), `LotTable_GetIfPresent 0x62FB60` = `LotTable_Contains` (gate 12, return
+`0x62FB74`) then `GetOrInsert` (gate 0, return `0x62FB8B`), then the entry's waypoint map `+0x120` (`0xD38B00`, a pure
+find), `+0x10`, `+0x16C`, the level table `+0x90` and the hub's position `+0x50 / +0x54`. The two gate frames are the only
+places the function waits.
+
+- **The follow-up reads of the entry** (§12.2's condition for SH): the writers of `+0x120` / `+0x16C` found in
+  `0x61C000..0x690000` are the entry's constructor and copy in the insert path (`0x62AA60`, `0x62DE40`: W5),
+  `0x6236D0 <- 0x63C8E0 <- RoutingWorld_LoadLotData 0x82CA10 <- 0xAB4920` (lot load, not a plan step) and `0x630CF0`
+  (`+0x16C`; callers `0x829D50 <- 0xAB1EB0`, the coarse rebuild gate `0x835110`, `0x83575D`: lot-side calls, their
+  threads not traced); the level table is
+  W4's. Under the hold W4 / W5 are excluded; today these reads run after the gate returned with no lock at all.
+- **The gate is not a guard the caller relies on**: it is reached only when an area must be gathered and has a lot
+  waypoint. A call that finds its area in the cache, or gathers an area with no lot waypoint, runs the whole IC beside
+  the job today.
+- **Finding: the area is shared with the route worker and has no lock.** The area is one of the 10 blocks of the
+  planner's FindClosest object `W+0xE0` (`W = [world+0x960]`: the IC takes it through `0x829C00`, and so does
+  `RoutingJob_Execute`, p4clone.cpp / docs/94 §21.13). `0x652D80` relinks that list (move to front) and recycles the
+  oldest block, and both threads append to block vectors: the worker inside plans under `+0x918`, the IC with no lock (it
+  only meets `+0x918` at the two gates above). With plans on the sim thread (the game as shipped) the two cannot
+  overlap; with `[RouteAsync]` they can, today, whenever the IC runs during a job **[inferred from the code paths; no
+  crash is attributed to it, nothing measured]**. Not fixed here (a lock around `0x6595B0` would deadlock with the gate
+  wait); listed in §24.5.
+
+### 24.3 The build (`landro.cpp`, the hold in `slotro.cpp`)
+
+- `slotro.cpp`: the hold has a kind (`t_slKind`: `SLK_SLOT`, `SLK_LAND`); `SlBegin(dry, kind)`, `SlGate`, `SlDrop` and `SlEnd`
+  send the land kind to `LcGateWhy` / `LcOnDrop` / `LcRelease`. `[SlotEnabledRO]`'s own behaviour and counters are
+  unchanged. One hold per thread: a gather inside a slot hold (or the reverse) runs the game's code.
+- An entry detour on `0x654790` (6 bytes `55 8B EC 83 E4 F8`; no branch in `.text` lands in them). On the sim (owner)
+  thread while a job runs, and only when the thread holds no `+0x918`, serves no job callback and has no gate frame
+  open: QL shared (try only), then the game's own gather. Inside, `RgEnter` passes **exactly** the gate-12 entry that
+  returns to `0x62FB74` and a gate-0 **hit** that returns to `0x62FB8B`. Everything else drops the hold (QL released,
+  the game goes on and waits at its next gate as today), each with its own count: another gate site, another caller of
+  either gate, a gate-0 miss (an insert), an odd lot table, a `Lock_Acquire`, a host or managed call.
+- Given back before a hold starts (the game's call, today's wait): state (lock owner, job callback, open gate frame),
+  nested hold, a broken clone path, QL busy, a dirty lot index, the worker on the same area.
+- **The area hand-over** (so the hold never puts both threads into one block's vector where today's gate wait kept them
+  apart): the hook runs on every thread. The sim publishes the area of its hold, any other thread the area it gathers
+  (each publishes, then reads the other's). The sim starts no hold on an area the worker is gathering, and drops its
+  hold at the next gate when the worker arrives (`worker`: it then waits at that gate, which is today's order of
+  events). The worker waits at the gather's entry while the sim's hold is on that area; the hold contains no wait
+  (§24.1), so this ends with the sim's own work. A cap (4000 pause loops, then 250 sleeps of 1 ms; `gave up`, must stay
+  0) sets Mode to 0 and lets the worker go on. After a drop for another reason the sim runs on to its next gate with
+  the area free, as today.
+- `Shadow=1` (changed 2026-11-21, §26): with no job running, the game's gather as with the switch off, then (job starts
+  held off, no job since) the gather again under a dry hold **on a private copy of the area**; AL, the area's flags, the
+  candidate count and an FNV hash of the candidate records compared (`land check RO: SHADOW MISMATCH ...`, 16 lines at
+  most). It checks that the gates passed without `+0x918` change nothing; it costs a second gather per call.
+- The answer is the game's own code for every Sim: no scope gate, nothing cached, nothing skipped.
+
+Keys: `[LandCheckRO] Enabled=0`, `Mode=1`, `Shadow=0`. Needs `[RouteGate] Enforce=1` (gate stubs 0 and 12), `[RouteAsync]`,
+the QL writer stubs W4 / W5 / W6g. Export `ts3native_landcheckro` (size 0x88; `+0x00` mode = `native_set landcheckro`,
+`+0x04` shadow; docs/registry.md). Line, once a minute when installed: `land check RO: mode M shadow S gathers N, in a
+job J: held to the end T (gate 12 passed, gate 0 hits, candidates; ms, max us); dropped: gate, miss, lock, managed, table,
+caller, worker; not held: state, nested, broken, QL busy, dirty lot index, worker on the area; worker gathers G waited W
+(max us) gave up X; shadow runs R mismatch M dropped D`. Address row `0x00654790` (EA 1.69: unresolved, SKIP line there).
+Repro `ip-landcheckro-storm`.
+
+### 24.4 Checks run (2026-11-20, no game)
+
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `steerro-test.cpp`: 0 errors, no
+  diagnostic in `landro.cpp`, `landro-test.h` or `slotro.cpp`.
+- Selftest case `TestLandCheckRO` (clang-cl build, run under Wine three times in one process between `TestSlotRo`,
+  `TestEditPathRO`, `TestConnRoomsRO`, `TestPlaceTestRO`): the gate rule (pass, other caller, miss, active lot, table
+  shape, other site, lock, managed call, worker on the area), `LcBegin`'s refusals, the hook (off, shape, hold, drop
+  inside, state fallbacks, QL busy, unwind), shadow (equal, skewed, dry drop), another thread's gather (free, waiting
+  for the hold's end, handed over at the sim's gate, the cap). No step reads a timer; every sub-case asserts the state it
+  starts from. Pass. `TestSlotRo` passes unchanged. The MSVC `/W4 /WX` build and the full selftest need CI.
+- `node tools/selftest-all.ts --ci`: pass.
+
+### 24.5 Not verified, not done
+
+- **No offline section** runs the game's `0x654790` under the hold against the plain call (a waypoint chunk table, lot
+  waypoints, lot entries with their map: about 1 h). Until then the in-game shadow pass is the equality check. Read from
+  the disassembly only: the area layout (`+0x24` try, `+0x2C` flags, `+0x30 / +0x34` vector, `+0x40` FindClosest object),
+  the FindClosest fields (`+0xC` P, `+0x10` W, `+0x14` world manager, `+0x18` graph) and `W+0xC` = the world manager.
+  **Run `Mode=0 Shadow=1` first.**
+- The entry fields' writer list (§24.2) is a scan of `0x61C000..0x690000` for two offsets, not a proof for `+0x10` and
+  the hub records; they are read with no lock today too.
+- The shared area cache (§24.2) outside the two cases the hand-over covers: both threads in `0x652D80`'s list at once,
+  the sim recycling the block a plan is still scoring. Unchanged by this build; a candidate for its own fix (a private
+  FindClosest object for the IC's calls would remove the sharing).
+- How much of the 476 ms goes: unknown. The gather's time itself stays (docs/679); only its gate waits go, and §7.1's
+  rule applies (the next taker in the frame inherits the wait).
+
+### 24.6 Next storm, on arm
+
+```
+[LandCheckRO]
+Enabled=1
+Mode=0
+Shadow=1
+[HitchAttr]
+RouteLockMs=20
+RouteLockCallers=1
+```
+
+First pass as written (compare only): `shadow runs` > 0, `mismatch` 0. Second pass `Mode=1` (repro
+`ip-blocker2dro-storm`): `answered` against the give-back counts; lines with key `0062EF7A` and first caller `0082E696` /
+`0082E6C7` against s189's 5 / 413 ms; `the game's call` ms is what is left of this site's wait.
+First pass as written (`shadow runs` > 0, `mismatch` 0). Second pass `Mode=1 Shadow=0`: `held to the end` against `in a
+job`, the drop and not-held counts, `gave up 0`; lines with key `0062FB74` and first caller `00654BE5` against s189's
+8 / 476 ms. The default storm kinds do not force the IC: use `kinds` with `taxi` and `stray` (repro
+`ip-landcheckro-storm`).
+
+## 25. s216-s225 read: which waits are left and why; `[SteerRO] RetryWait` (ts3native, default off, NOT RUN)
+
+2026-11-20, branch `feat/lock918-rest-1120`. Input: the nine on arms s216, s217, s218, s219 (calm), s221 (calm), s222, s223,
+s224 (calm 6 min), s225 (the others: 2-min Isla Paradiso storms, seed 152), ts3native 0.36.267; `route lock wait:` lines
+(>= 20 ms) and `hitch:` frames with cause `lock918`. No game run in this pass. s226 was still running.
+
+### 25.1 What the arms did not have on [verified: the `job yield mode` and ini lines of each log]
+
+- **`[RouteAsync] JobYield=0` in all nine** (`route jobs sim waits: ... job yield mode 0 asks 0 busy 0`). The repo ini has
+  `JobYield=1` since 0.36.253 (docs/183 §6: on by default, household included, measured); the test rig's `Bin\ts3native.ini`
+  still carries `JobYield=0` and no run script sets it. ts3fixes `kJobYield` is on, so `StepAside` asks and the native side
+  answers "not busy" every time.
+- `[ObstructAtRO]`, `[Blocker2dRO]`, `[LandCheckRO]` are not in any of the nine arms (only in s204-s213).
+- `[RouteAsync] SkipRetry` and `ForeignKindsUnseen` are off in all nine. s205 / s213 set `ForeignKindsUnseen=1`, which is
+  the Replan bit; the `Foreign` class of §24 is kind 2 (PlanFromPoint) and needs `ForeignKindsUnseen=2`.
+- `[HitchAttr] RouteLockCallers` is off in all nine, so the gate keys (`0x62FB74`, `0x62EF7A`, `0x62F782`) have no caller
+  word; their split below is s189's (§21) [inferred for these arms].
+
+### 25.2 The table (nine arms summed: 385 lines, 21,229 ms; 41 `lock918` frames)
+
+| key | lines / ms / max | `lock918` frames (frame's largest key) / lock ms | who | why not answered in these arms |
+|---|---|---|---|---|
+| `0x62FB74` gate 12 | 99 / 4,860 / 202 | 8 / 1,205 | s189: `ArePointsConnectedByLand` gather `0x654BE5`, the writer path `0x834201` | `[LandCheckRO]` off (s213 with it serving: 338 ms against 540 a run here); `0x834201` is a writer path and keeps the lock (§21.2) |
+| `0x760BFF` gate 10, a sync plan | 90 / 4,795 / 261 | 9 / 1,407 | sync plans behind a running job. By the `route phases` line beside the wait: `Plan / Los` 17 / 1,187 (`ViewObjects.RouteToObject`), kind-2 pass-through `(no IC)` 12 / 650 (§24's `Foreign`; tally lines of four arms: `Foreign` 29-113, `NoStartMsg` 3-58 a run), `Plan / NoStart` 6 / 435, `ReplanFromPosition / NoStart` 1 / 156, `Skipped` 3 / 132, no line (plan under 40 ms) 51 / 2,235 | **`JobYield=0`** (§25.1): every refused START and the poll cap run `StepAside` before the sync plan [verified `RouteBackoff.cs`]. Not reached by it: `Skipped` (READY then the plan, no `StepAside`: `SkipRetry`, off) and a task that may not yield |
+| `0x62EF7A` gate 0 | 59 / 3,148 / 161 | 5 / 734 | s189: `RouteObstructionAtPoint` `0x655ABE`, `BlockerCheck2d` `0x82E696` | `[ObstructAtRO]`, `[Blocker2dRO]` off (s213 with both serving: 81 ms against 350 a run here) |
+| `0x85FE10` steering query | 41 / 2,739 / 267 | 7 / 1,193 | S2's given-back calls: the `steer RO` line books 110-619 ms a run in them, 2,485 ms of the 2,739 | **nothing answers it**: `[SteerRO] Retry=1` is on and still gives back `QL busy` 2-11, `tripwire` 1-5, `state` 1-7 a run. Built: §25.3 |
+| `0x62F782` gate 12 `PortalsForObject` | 27 / 1,538 / 172 | 4 / 700 | `SetPortalCost` (writer), `Slots_GetPositionOfSlotImpl` | writer keeps the lock; `[SlotEnabledRO]` on |
+| `0xD882D7` coarse gate, `GetConnectedRooms` | 21 / 1,361 / 232 | 3 / 440 | `[ConnRoomsRO]` give-backs | `lot not built` (6 of 36 in s225): a room list not built yet is a write |
+| `0x631814`, `0x631F40` | 13 / 991 / 224 | 3 / 509 | `[LotFrontDoorRO]` give-back, FGL footprints | - |
+| `0x833697`, `0x83156D` | 14 / 859 / 208 | 1 / 208 | object footprint update | writers |
+| `0x846D21`, `0x85F6CB`, `0x75AA16`, `0x63D89B`, `0x82F4AB`, `0x62FB8B`, `0x75A64C`, `0x62EB55`, `0xD866E3` | 21 / 938 / 77 | 1 / 142 | readers' give-backs | - |
+
+The holder is the route worker in every line. Jobs that ended in the wait: own kind 0 the most (2,875 ms at `0x62FB74`,
+2,691 at `0x760BFF`), A10 foreign kind 3 next (1,377 at `0x62EF7A`); most `0x85FE10` lines end without a job end (the sim
+got the lock in a TailUnlock window).
+
+So with the switches that exist turned on (`JobYield=1`, the three clones of §22 / §24, `SkipRetry=1`,
+`ForeignKindsUnseen=2`) the largest key left without an answer is `0x85FE10`, then the writer paths.
+
+### 25.3 `[SteerRO] RetryWait` (`steerro.cpp` `SrWait`, `steerwait-core.h` `SwLoop`)
+
+`Retry=1` reruns a dropped clone at most 4 times within ~1 ms. A W1-W6 writer's exclusive QL hold or a tripwire writer
+that lasts longer is given back, and the game's `Locomotion_ObstacleCheck` then waits at `+0x918` for the rest of the job
+(or its TailUnlock window): 2-11 + 1-5 such calls a run carry 110-619 ms.
+
+With `RetryWait=1` such a call waits for the writer instead of the job: `LocoHook` opens a `g_rgOffSimOpen` frame (no job
+starts until the call is over, as the `+0x918` wait pump does), then loops: one pump step (up to 1 ms on the job's
+managed-call event or its end, the call served with `HC_PUMP918`), the clone again from its protocol start (sequence,
+epoch, generation read again, as `SrRetry`). The loop ends when the clone answers, the job ends (the game's call then runs
+with no job, inside the frame), a rerun meets a reason waiting does not cure, or `RetryWaitMs` (1-250, default 50) is used
+(the game's call waits as before). The answer is S2's clone answer or the game's call: no check is skipped, household
+included as S2 itself. `RetryWait=2` only counts the calls that would wait.
+
+Worst case [inferred]: a call waits `RetryWaitMs` longer than today when the writer's hold lasts to the job's end and a
+TailUnlock window would have let the game's call in earlier; `budget used` and `the game's call after a wait` measure it.
+
+Not covered: `state` give-backs (the job ended in the clone: the game's call runs with no job while `[LocoWindow] Mode=1`
+holds starts), the 0x85F6CB gather (`[EditPathRO]` has its own loop).
+
+Counters: exported block `ts3native_steerwait` (docs/registry.md; runtime switch `native_set steerwait`). Lines: minute
+`steer RO wait: mode M budget B ms, waits N (QL busy a, tripwire b): answered .., job ended .., other reason .., budget used
+..; T ms in the waits (max ..; .. of it answered), R reruns, S managed calls served; the game's call after a wait G ms;
+count only: would wait W`; one `steer RO wait: N ms for a writer's hold (...)` line per wait >= 20 ms (64 a session). With
+`[HitchAttr]` on a wait is booked as a `+0x918` wait behind the worker under key `0x85FD10`, so it stays in `lock918` and
+splits from `0x85FE10`.
+
+No compare mode: the clone is S2's, compared by `[SteerRO] Shadow=1` (no job running); a rerun has nothing to compare
+with while the job runs.
+
+### 25.4 Checks run (2026-11-20, no game)
+
+- `steerwait-host-test.cpp` (clang++ -m32, freestanding): answered after three steps, tripwire / QL busy mixed, job end in
+  a step, no job, a reason not curable (in the loop and at the entry), budget, budget 0: pass.
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`) 0 errors, 170 warnings as before; `selftest.cpp` 0 errors,
+  217 as before.
+- Selftest block in `TestSteerRO` (`SrWait`: answered on the third rerun, a state reason, budget, no job, no frame leaked;
+  the block's layout): written, **not run** (MSVC CI).
+- `node tools/native-install-once.ts`, `node tools/selftest-all.ts --ci`: pass.
+
+### 25.5 Next storm, on arm
+
+First the config: `RouteAsync.JobYield=1` in every arm (the release value). Then, on top of s223's keys:
+
+- count arm: `SteerRO.RetryWait=2` (read `would wait` against `QL busy` + `tripwire` of the `steer RO` line);
+- serve arm: `SteerRO.RetryWait=1 SteerRO.RetryWaitMs=50`. Read `answered` against `waits`, `budget used` small, `the
+  game's call after a wait` against s216-s225's `job waits in given-back calls` (110-619 ms), keys `0085FE10` + `0085FD10`
+  together against 304 ms a run, no new stuck Sim, `steer RO: ... shadow` unchanged.
+
+## 26. Shadow mode of `[ObstructAtRO]` / `[Blocker2dRO]` / `[LandCheckRO]` made free of side effects (2026-11-21, `fix/ro-shadow-side-1121`, NOT RUN, no MSVC build)
+
+### 26.1 Why: repro `upstairs-landing-jam`, arm c
+
+Two loads (landing-11202338, landing-11210005). Arms 0, a, b, d: the four household Sims reach the ground floor (crowd
+4/4, 10-20 s). Arm c (= b with the three switches at `Mode=0 Shadow=1`): crowd 1/4 in both loads, alone and top pass.
+
+What the logs show **[verified, counter lines and `gohere` lines of both logs]**:
+
+- The plans succeed in every arm. In arm c three or four Sims stand within 0.3 m of each other at the stair top
+  (927.2-927.7, 61.0, 1203.4-1203.8), each Go Here ends with `MidRoutePushRequested`, and the push routes (1.0-2.2 m) are
+  replanned 15-18 times and end `route false`; the Sims are still on the landing or the stair when the 50 s wait ends.
+  Arms a and d show the same push (1-3 Sims) and it ends `route ok` after one more plan.
+- `[Blocker2dRO]`: its stub was not reached in arm c in either load (`calls 4` before and after).
+- `[ObstructAtRO]`: load 1: no call in the failing segment (`calls 5` before it and after the last `route false`);
+  load 2: 2 calls, both ended at `no lot` (the clone had read the lot index only).
+- `[LandCheckRO]`: the only shadow path that ran in both failing segments (6 and 2 shadow gathers, mismatch 0).
+
+So of the three, only the land check's shadow can be tied to the failing segments, and it was the only one whose shadow
+wrote data the game reads: its second gather ran **on the live area** (`0x654790` resets the candidate vector at `+0x34`,
+refills it and clears flag `0x400`; the function's only two writes through the area pointer, plus the append `0x654240`
+on `area+0x30`, **[verified disassembly `0x654790..0x654CB0`, `0x654240`, `0x6534A0`]**), with the gates of
+`LotTable_GetIfPresent` passed without `+0x918`. All three ran the game's own call inside a job-start hold-off
+(`g_rgOffSimOpen`) that a call with the switch off does not have.
+
+**Not shown:** how a doubled gather (equal result, 33 of 33 compares) changes route following on a stair. No per-call
+line exists and the mechanism was not found in the code; the tie to arm c is the two loads (arm c is also always the
+fourth crowd segment at the same game time, so position in the load is not excluded). The fix below removes every
+difference a shadow run had from a switch-off run; the rerun decides whether arm c was the shadow's doing.
+
+### 26.2 The rule and the build (`roshadow-core.h`, `landro.cpp`, `gvro.cpp`, `rtoro.cpp`)
+
+With `Shadow=1` the game's call runs exactly as with the switch off; the clone works on copies; nothing the game reads
+is written.
+
+- `RoShadow(env, game, clone)` (`roshadow-core.h`): the game's call first, with no frame of ours open. Then job starts
+  are held off (`g_rgOffSimOpen`, the worker's Dekker order) and the clone runs only when no job runs and none ran since
+  before the game's call (`g_asyncRuns`, counted by the worker with `A_RUNNING` published); else the call is not
+  compared. All three hooks use it.
+- `[LandCheckRO]`: the dry gather runs on `g_lcScratch`, a private copy of the area holding the inputs as they were
+  before the game's call (bytes `+0x00..+0x2F`, `+0x3C..+0x43`) and a candidate vector of its own, empty at the start. The
+  game's vector code grows it through `EA_AllocTagged 0x4E3F90` (`0x6534A0`: an empty vector frees nothing) and the hook
+  gives the storage back with `EA_Free 0x4E3F70` (cdecl, one argument, as the call at `0x6535B3`) after the compare.
+  Nothing is published for the copy (`g_lcSim` stays NULL; `t_lcArea` = the copy, which no other thread gathers). The
+  live area and its storage are only read (hash, count, flags). The record is written whole before the append
+  (`0x654C66..0x654C9A`: all 32 bytes), so the hash does not see stack residue.
+- Line: `land check RO: ... shadow runs R mismatch M dropped D not compared N` (`lcFb[6]`, `+0x60`: a job ran or runs
+  since the game's call). The other two count such a call in neither `shadow runs` nor a give-back.
+
+### 26.3 Checks (2026-11-21, no game)
+
+- `roshadow-host-test.cpp` (clang++ `-m32`, freestanding, exit 0): the order (the game's call sees no hold-off, the clone
+  one; a live job, a job that started, a whole job in between, a backing-off worker: no clone), the area copy (0-4
+  candidates: the live area and its storage byte-equal across the clone, the copy's storage from the allocator and handed
+  back, inputs from before the game's call, a skewed gather = mismatch, an empty vector hashes equal with and without
+  storage), and the order used before this change run through the same checks, which it fails. Writing the test found
+  one error of the first draft (an empty gather on the copy hashed differently from the live one).
+- `TestLandCheckRO` section 4 and `TestBlocker2dRO` (MSVC selftest, **CI only, not run here**): the game's call with
+  `g_rgOffSimOpen == 0` and no hold, the dry gather on `g_lcScratch`, the live fake area unchanged, one free of the
+  copy's storage, a job in between not compared.
+- clang-cl `/Zs /W4`: `ts3native.cpp` (Steam and `/DTS3A_TABLE`), `selftest.cpp`, `steerro-test.cpp`: no error, no
+  diagnostic in the changed files. `node tools/selftest-all.ts --ci`: pass.
+
+### 26.4 Next run
+
+Repro `upstairs-landing-jam` with the CI asi of this branch, twice. Pass: arm c crowd 4/4 in both loads, `land check RO`
+with `shadow runs` > 0 and `mismatch 0`. If arm c still fails, the shadow switches are not the cause (26.1's open
+point): swap arms c and d in the repro, and run arm c with one shadow word at a time.
+

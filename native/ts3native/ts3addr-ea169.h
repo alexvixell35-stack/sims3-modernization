@@ -290,6 +290,8 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00652BF0, 0x00654240},
     {0x00652C50, 0x006542A0},
     {0x00654110, 0x006553F0},
+    {0x00654790, 0x00000000},
+    {0x00655880, 0x00000000},
     {0x00655AFB, 0x00656D9B},
     {0x00657650, 0x00658860},
     {0x006583E0, 0x006594A0},
@@ -493,6 +495,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0074D040, 0x0074DF80},
     {0x0074D3F0, 0x0074E330},
     {0x0074D6B0, 0x0074E5F0},
+    {0x0074E261, 0x00000000},
     {0x0074FC30, 0x00000000},
     {0x00750400, 0x00000000},
     {0x00750430, 0x00751320},
@@ -669,6 +672,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x0082D140, 0x0082BE10},
     {0x0082D280, 0x0082BF50},
     {0x0082D296, 0x0082BF66},
+    {0x0082E340, 0x00000000},
     {0x0082EDB0, 0x0082DA20},
     {0x0082F098, 0x0082DD08},
     {0x0082F0B0, 0x0082DD20},
@@ -1515,6 +1519,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x011D8A88, 0x01232B38},
     {0x011D8A8C, 0x01232B3C},
     {0x011D9060, 0x01233110},
+    {0x011D90B0, 0x00000000},
     {0x011D9128, 0x012331D8},
     {0x011D9140, 0x012331F0},
     {0x011D9848, 0x00000000},
@@ -1791,7 +1796,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1616;
+constexpr int ts3addr_count = 1621;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)
@@ -1926,3 +1931,8 @@ constexpr int ts3addr_count = 1616;
 // unresolved: 0x00C6BBC0 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
 // unresolved: 0x01183538 no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
 // unresolved: 0x0118353C no-ea-1.69-address native/ts3native/watergrid.cpp (Steam-only [WaterGrid] Par, docs/100 §14)
+// unresolved: 0x00654790 no-ea-1.69-address native/ts3native/landro.cpp
+// unresolved: 0x00655880 no-ea-1.69-address native/ts3native/gvro.cpp
+// unresolved: 0x0074E261 no-ea-1.69-address native/ts3native/rtoro.cpp
+// unresolved: 0x0082E340 no-ea-1.69-address native/ts3native/rtoro.cpp
+// unresolved: 0x011D90B0 no-ea-1.69-address native/ts3native/rtoro.cpp

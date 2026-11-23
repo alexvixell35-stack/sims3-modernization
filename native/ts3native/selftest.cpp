@@ -7193,6 +7193,35 @@ static void TestSteerRO() {
         g_srLocoCalls--;
         k.srrMode = 0;
     }
+    // docs/670 §25 [SteerRO] RetryWait: SrWait on LocoHook's environment (the loop's cases: steerwait-host-test.cpp). The
+    // "job" here is the state word only, so no managed call is posted and each step is the pump's 1 ms wait
+    {
+        SteerWaitCounters& w = ts3native_steerwait;
+        static_assert(offsetof(SteerWaitCounters, budgetUs) == 0x04 && offsetof(SteerWaitCounters, end) == 0x10 &&
+                          offsetof(SteerWaitCounters, reruns) == 0x20 && offsetof(SteerWaitCounters, gameUs) == 0x34 &&
+                          sizeof(SteerWaitCounters) == 0x40,
+                      "ts3native_steerwait layout (docs/registry.md)");
+        u8 saved[sizeof(SteerWaitCounters)];
+        memcpy(saved, (const void*)&w, sizeof(saved));
+        memset((void*)&w, 0, sizeof(w));
+        w.budgetUs = 50000;
+        const LONG open0 = g_rgOffSimOpen;
+        int runs = 0;
+        auto third = [&]() { return ++runs < 3 ? SR_FB_TRY : SR_OK; };
+        assert(SrWait(SR_FB_TRY, third) == SR_OK && runs == 3 && w.entered[0] == 1 && w.end[SWL_ANSWERED] == 1 && w.reruns == 3 &&
+               w.answeredUs == w.us && w.served == 0);
+        runs = 0;  // a reason waiting does not cure ends the wait at once
+        auto state = [&]() { runs++; return SR_FB_STATE; };
+        assert(SrWait(SR_FB_TRIP, state) == SR_FB_STATE && runs == 1 && w.entered[1] == 1 && w.end[SWL_OTHER] == 1);
+        runs = 0, w.budgetUs = 2000;  // a hold longer than the budget: given back within a step of it
+        auto busy = [&]() { runs++; return SR_FB_TRY; };
+        assert(SrWait(SR_FB_TRY, busy) == SR_FB_TRY && runs >= 1 && w.end[SWL_BUDGET] == 1 && w.maxUs >= 2000);
+        runs = 0, g_async.state = A_IDLE;  // no job: nothing is run
+        assert(SrWait(SR_FB_TRY, busy) == SR_FB_TRY && runs == 0 && w.end[SWL_JOBEND] == 1 && w.entered[0] == 3);
+        g_async.state = A_RUNNING;
+        assert(g_rgOffSimOpen == open0);  // SrWait itself opens no frame (LocoHook's does)
+        memcpy((void*)&w, saved, sizeof(saved));
+    }
     // QL free, no lot anywhere: the read-only answer is "nothing to add" without the game's call
     const LONG taken0 = k.steerTaken;
     LocoHook(agent, NULL, (u8*)idsv, NULL, 0, NULL, 0);
@@ -13360,11 +13389,13 @@ static void TestP5() {
 #include "fglprof-stub-test.h"   // TestFglProfStubs: the trampolines against cdecl and ret-4 fakes
 #include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
 #include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
+#include "landro-test.h"    // TestLandCheckRO ([LandCheckRO], docs/670 §24)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
+#include "blocker2dro-test.h"  // TestBlocker2dRO ([Blocker2dRO], docs/670 §24; after rtoro-test.h and rtotail-test.h: their fakes)
 #include "fgro-test.h"   // TestPlacementRO ([PlacementRO], docs/174)
 #include "gvro-test.h"   // TestGoalValidRO ([GoalValidRO], docs/178 §7 T6)
 #include "gvhits-test.h" // TestGoalHitsRO ([GoalValidRO] Hits, docs/670 §11; uses gvro-test.h fakes)
@@ -14816,6 +14847,7 @@ int main(int argc, char** argv) {
     TestObstructedRO();
     TestAvoidRO();
     TestSlotRo();
+    TestLandCheckRO();  // docs/670 §24: the same hold, kind SLK_LAND
     TestP10();
     TestProbeSnap();
     TestCallSites();
@@ -14970,12 +15002,14 @@ int main(int argc, char** argv) {
     TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();
+    TestBlocker2dRO();  // docs/670 §24
     TestPlacementRO();
     TestGoalValidRO();
     TestGoalHitsRO();  // docs/670 §11
     TestGvAttr();
     TestGvAttrNoLater();  // docs/250 §13.3, §12.3 (v189)
     TestGvUnseen();       // docs/250 §7.3 B2 (v189)
+    TestObstructAtRO();   // docs/670 §22
     TestFootstepRO();
     TestRouteToObjTail();
     TestIdleCheckRO();

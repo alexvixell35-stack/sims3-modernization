@@ -49,6 +49,12 @@ export const KEY_ADDRS: Record<string, number[]> = {
     "EaCrashFixes.BridgeHeightNaN": [0x00B745A0, 0x00C6133B, 0x00C61342, 0x00C6137B, 0x00C6A46B, 0x00C6A472, 0x00C6A4B3, 0x00C6A709, 0x00C6A710, 0x00C6A772],
     "EaCrashFixes.LotLevelPastEnd": [0x00AB70B0, 0x010652D4],
     "EaCrashFixes.FglStaleObject": [0x00B11A95, 0x00B11A9C, 0x00B11ABF],
+    // docs/670 §21 (gvro.cpp): RouteObstructionAtPoint has no EA 1.69 row
+    "ObstructAtRO.Enabled": [0x00655880],
+    // docs/670 §24 (rtoro.cpp): the IC call site, RoutingWorld_BlockerCheck2d and the debug-draw byte have no EA 1.69 rows
+    "Blocker2dRO.Enabled": [0x0074E261, 0x0082E340, 0x011D90B0],
+    // docs/670 §24 (landro.cpp): the closest-waypoint gather has no EA 1.69 row
+    "LandCheckRO.Enabled": [0x00654790],
 };
 const keyed = new Set(Object.values(KEY_ADDRS).flat());
 const unresolvedRows = (addrHdr: string) => [...addrHdr.matchAll(/^\/\/ unresolved: (\S+) \S+ (?:native\/ts3native\/)?([\w-]+\.(?:cpp|h))/gm)];
@@ -107,8 +113,8 @@ export const IGNORE_FILE: Record<string, string[]> = { GC: ["memexp.cpp"] };
 const RG = ["RouteGate", "RouteAsync"];
 export const DEPENDS: Record<string, string[]> = {
     RouteGate: ["RouteAsync"], RouteAsync: ["RouteGate"], Discourage: RG, RouteSnap: RG, Watchpoint: ["RouteSnap"],
-    SteerRO: RG, FpRebuildLock: RG, LotFrontDoorRO: RG, ObstructedRO: RG, AvoidRO: RG, RouteToObjRO: [...RG, "SlotEnabledRO"], PlacementRO: RG, PlaceTestRO: RG, EditPathRO: RG, ConnRoomsRO: RG,
-    GoalValidRO: RG, IdleCheckRO: RG, SlotEnabledRO: RG, Gate0RO: RG, ProbeP1b: RG, LocoWindow: RG, ProbeP10: RG,
+    SteerRO: RG, FpRebuildLock: RG, LotFrontDoorRO: RG, ObstructedRO: RG, ObstructAtRO: RG, Blocker2dRO: RG, AvoidRO: RG, RouteToObjRO: [...RG, "SlotEnabledRO"], PlacementRO: RG, PlaceTestRO: RG, EditPathRO: RG, ConnRoomsRO: RG,
+    GoalValidRO: RG, IdleCheckRO: RG, SlotEnabledRO: RG, LandCheckRO: RG, Gate0RO: RG, ProbeP1b: RG, LocoWindow: RG, ProbeP10: RG,
     UnseenProbe: ["RouteAsync"], UnseenThrottle: ["RouteAsync"], UnseenFallback: ["RouteAsync"], HitchAttr: ["RouteAsync"],
     CellMemoProbe: ["RouteJobPhases"], SaveFlush: ["SaveWrite"], Compaction: ["UserDiag", "SaveWrite"], MemDiag: ["UserDiag"], AutShadow: ["MonoThread", "RouteSnap"],
 };

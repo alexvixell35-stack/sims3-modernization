@@ -3519,6 +3519,9 @@ static void RsLogCounters();   // routespeed.cpp (docs/663)
 static void PtLogCounters();   // placero.cpp (docs/670)
 static void FglLogCounters();   // fglprof.cpp (docs/671)
 static void EpLogCounters();   // epro.cpp (docs/670 §8)
+static void OaLogCounters();    // gvro.cpp (docs/670 §21)
+static void B2LogCounters();    // rtoro.cpp (docs/670 §24)
+static void LcLogCounters();    // landro.cpp (docs/670 §24)
 static void SrLogCounters();   // steerro.cpp (docs/670 §7)
 static void CnLogCounters();   // connro.cpp (docs/670 §15)
 static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
@@ -3610,6 +3613,9 @@ static void MaybeLogCounters(ULONGLONG now) {
     PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
     FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
     EpLogCounters();   // docs/670 §8 (nothing until [EditPathRO] is installed)
+    OaLogCounters();    // docs/670 §21 (nothing until [ObstructAtRO] is installed)
+    B2LogCounters();    // docs/670 §24 (nothing until [Blocker2dRO] is installed)
+    LcLogCounters();    // docs/670 §24 (nothing until [LandCheckRO] is installed)
     SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
     CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
     GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
@@ -4082,6 +4088,16 @@ static void RwWake() {
 static void RgOffSimDrop() {
     if (InterlockedDecrement(&g_rgOffSimOpen) == 0) RwWake();
 }
+// Shadow mode of the read-only clones (roshadow-core.h, docs/670 §26): jobs the worker committed to run (ServeAsync, with
+// A_RUNNING published), so a shadow compare can tell that a job ran between the game's call and the clone
+static volatile LONG g_asyncRuns;
+#include "roshadow-core.h"
+struct RoShadowEnv {
+    unsigned long JobRuns() const { return (unsigned long)g_asyncRuns; }
+    bool JobLive() const { return g_async.state == A_RUNNING; }
+    void HoldStarts() { InterlockedIncrement(&g_rgOffSimOpen); }  // the worker's Dekker order: it publishes A_RUNNING, then reads this
+    void ReleaseStarts() { RgOffSimDrop(); }
+};
 enum { G0W_JOBWAIT, G0W_SYNCPLAN };
 static void G0wDrop(int site, const void* ret);  // locowin.cpp
 static void RcDrop();  // rcguard.cpp: kept +0x918 levels released before a sim wait for the worker
@@ -4733,6 +4749,7 @@ static void ServeAsync() {
             SetEvent(g_asyncDone);  // an owner that saw A_RUNNING meanwhile waits in WaitAsyncDone: wake it now, not at its 2 s timeout
             InterlockedIncrement(&k.asyncBackoffs);
         }
+        InterlockedIncrement(&g_asyncRuns);  // roshadow-core.h: A_RUNNING is published, no shadow compare spans this job
         if (late) {  // backed out as the early refusal above: J_SKIPPED, the collect plans synchronously
             InterlockedExchange(&g_async.state, A_IDLE);
             LockReleaseHook(j->lock, NULL);
@@ -6485,6 +6502,7 @@ static void SlimWait();
 #include "obstructro.cpp"
 #include "avoidro.cpp"
 #include "slotro.cpp"
+#include "landro.cpp"  // docs/670 §24: [LandCheckRO], design SH over the closest-waypoint gather 0x654790 (slotro.cpp's hold)
 #include "gate0ro.cpp"
 #include "locowin.cpp"
 #include "taskserve.cpp"  // docs/637: [RouteAsync] TaskServe (after savewrite.cpp: PatchCalls; after hostcalls.cpp: HcNow)
@@ -6892,6 +6910,7 @@ static void Run(HMODULE self) {
         InstallObstructedRO(ini);
         InstallAvoidRO(ini);
         InstallSlotRo(ini);
+        InstallLandCheckRO(ini);  // docs/670 §24: entry detour on 0x654790, QL writer subset like [SlotEnabledRO]
         InstallGate0Ro(ini);  // docs/152 §G1: after SteerRO and AvoidRO (reads their ready state for the log)
         InstallLocoWindow(ini);
         InstallYieldDiag(ini);
@@ -6902,8 +6921,10 @@ static void Run(HMODULE self) {
         InstallRefcountGuard(ini);  // docs/177 §7: after the steering frames (InstallRtSites) and AvoidRO's A-site
         InstallTailUnlock(ini);  // docs/150 §11: after the steering frames (InstallRtSites)
         InstallRouteToObjRO(ini);  // docs/140 §12: after [SteerRO] (QL, W1-W6) and [SlotEnabledRO] (SH)
+        InstallBlocker2dRO(ini);   // docs/670 §24: the IC call of RoutingWorld_BlockerCheck2d 0x82E340 (S2's writer set)
         InstallPlacementRO(ini);   // docs/174: S2's writer set, like [RouteToObjRO]
         InstallGoalValidRO(ini);   // docs/178 §7 T6: S2's writer set, like [PlacementRO]
+        InstallObstructAtRO(ini);  // docs/670 §21: RouteObstructionAtPoint 0x655880 (S2's writer set)
         InstallPlaceTestRO(ini);   // docs/670: S2's writer set, like [PlacementRO]
         InstallFglProf(ini);       // docs/671: measurement only; its sites differ from [PlaceTestRO]'s 0xB462B7
         InstallEditPathRO(ini);    // docs/670 §8: S2's writer set, like [PlaceTestRO]

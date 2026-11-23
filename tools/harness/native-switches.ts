@@ -1,6 +1,6 @@
 // ts3native runtime switches the harness flips in a running game (profile-world.ts --ab and native_set repro steps) and
 // session-reuse.ts reads and puts back between jobs that share one game load (docs/170 §2).
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 // ts3native's runtime switches with a /native parameter (native?<name>=0|1), not C# patches; the /native field holding each
 export const nativeNames = ['routeworker', 'routebudget', 'routeasync', 'alloc', 'waterjps'];
@@ -16,8 +16,11 @@ export const counterSwitches: Record<string, number> = { gcmarkhelpers: 0x68A8, 
 // gvunseenms (v189, docs/250 §7.3 B2) = [GoalValidRO] UnseenDeferMaxMs in ms (clamped 100-10000 at use)
 // p6warm (v131, docs/189 §16): [P6Waits] arm from the in-load loop (0 = the P6 switch, 1 = off, 2 = on); ladder loops set "$on:2:1"
 export const nativeValues: Record<string, number> = { gvunseenms: 0x601C, unseenfbcms: 0x5394, unseenfbus: 0x5364, synccapus: 0x3164, fbjobcapus: 0x3550, plandeadlineus: 0x4248, plandeadlineownus: 0x424C, kdceilus: 0x5D28, jobnameus: 0x5E40, kdnpcceilus: 0x5D48, kduncutceilus: 0x62F8, kdownplanus: 0x5224, p6warm: 0x51BC };
-// Switches that are their own ts3native export, not a Ts3nCounters field: native_set name -> export (gcgrow.cpp, docs/67 §35)
-export const nativeExports: Record<string, string> = { gcstreakat: 'ts3native_gc_streak_at', neighbourmemo: 'ts3native_routespeed', placetestro: 'ts3native_placetestro', editpathro: 'ts3native_editpathro', connroomsro: 'ts3native_connroomsro', goalhitsro: 'ts3native_goalhitsro', doorshare: 'ts3native_doorshare', pfadd: 'ts3native_pfadd', smoothcut: 'ts3native_smoothcut' };  // docs/663: +0x00 nmMode
+// Switches that are their own ts3native export, not a Ts3nCounters field: native_set name -> export (gcgrow.cpp, docs/67 §35).
+// A value "<export>&offset=N" writes the field at +N of that export instead of +0x00 (the probe's /nativeexport offset), e.g. the
+// shadow words at +0x04 of [ObstructAtRO] / [Blocker2dRO] / [LandCheckRO], read on every call (gvro.cpp, rtoro.cpp, landro.cpp).
+export const nativeExports: Record<string, string> = { gcstreakat: 'ts3native_gc_streak_at', neighbourmemo: 'ts3native_routespeed', placetestro: 'ts3native_placetestro', editpathro: 'ts3native_editpathro', connroomsro: 'ts3native_connroomsro', goalhitsro: 'ts3native_goalhitsro', doorshare: 'ts3native_doorshare', pfadd: 'ts3native_pfadd', smoothcut: 'ts3native_smoothcut', steerwait: 'ts3native_steerwait', taskserve: 'ts3native_taskserve', obstructat: 'ts3native_obstructat', blocker2dro: 'ts3native_blocker2dro', landcheckro: 'ts3native_landcheckro',
+  obstructatshadow: 'ts3native_obstructat&offset=4', blocker2droshadow: 'ts3native_blocker2dro&offset=4', landcheckroshadow: 'ts3native_landcheckro&offset=4' };  // docs/663: +0x00 nmMode
 
 // --ab names and --fixes-on / --fixes-off names (C# patches switches) that name one switch twice: one name in both fixes lists,
 // or an --ab name that --ab flips as a patches switch (not native, not a counter switch). A native or counter --ab switch and the
@@ -38,5 +41,12 @@ if (process.argv.includes('--self-check') && import.meta.filename === resolve(pr
   if (bad.length) { console.error(`native-switches self-check FAILED: no single Ts3nCounters field for ${bad.join(', ')}`); process.exit(1); }
   const clash = [abFixesClash(['jobyield'], ['jobyield'], []), abFixesClash(['routeasync'], [], ['routeasync']), abFixesClash(['idlememo'], ['idlememo'], []), abFixesClash([], ['a'], ['a', 'b'])];
   if (JSON.stringify(clash) !== JSON.stringify([[], [], ['idlememo'], ['a']])) { console.error(`native-switches self-check FAILED: abFixesClash ${JSON.stringify(clash)}`); process.exit(1); }
-  console.log(`native-switches self-check ok (${Object.keys(counterSwitches).length + Object.keys(nativeValues).length} offsets)`);
+  // every nativeExports export (offset suffix dropped) is exactly one dllexport in the ts3native sources, so a renamed block
+  // cannot leave native_set writing nothing (the probe answers an unknown export name with no value: 'did not stick')
+  const nsrc = readdirSync(new URL('../../native/ts3native/', import.meta.url)).filter(f => /\.(cpp|h)$/.test(f))
+    .map(f => readFileSync(new URL(`../../native/ts3native/${f}`, import.meta.url), 'utf8')).join('\n');
+  const missing = [...new Set(Object.values(nativeExports).map(e => e.split('&')[0]))]
+    .filter(e => (nsrc.match(new RegExp(`dllexport\\)[^;=\\n]* ${e}\\s*(=|;|\\[)`, 'g')) ?? []).length !== 1);
+  if (missing.length) { console.error(`native-switches self-check FAILED: no single dllexport for ${missing.join(', ')}`); process.exit(1); }
+  console.log(`native-switches self-check ok (${Object.keys(counterSwitches).length + Object.keys(nativeValues).length} offsets, ${Object.keys(nativeExports).length} export switches)`);
 }

@@ -300,3 +300,223 @@ static void InstallGoalValidRO(const wchar_t* ini) {
     k.gvReady = 1;
     Log("OK   goal validation RO: 0x75A647 + the S2 writer set (Mode=%ld Shadow=%ld Attr=%ld)", k.gvMode, k.gvShadow, k.gvaMode);
 }
+
+// --- [ObstructAtRO] (docs/670 §21): RouteObstructionAtPoint 0x655880 answered read-only while a route job runs ---
+// 0x655880: thiscall(self; ctx, Vector3 point, bool classFlag), ret 0x14, result EDX:EAX (0 = free, an object id, or 1:0 with
+// classFlag). Callers: the IC body at 0x7519D9 (ctx on its stack: +0 the route's option word, +8 / +0xC the route's own
+// Sim id, +0x28 the route's ignore list route+0x158) and the planner at 0x6437AF (classFlag 1). Its routing touches are the
+// lot transform 0x62EF30 (gate 0, return 0x655ABE = the caller word of 13 lines / 508 ms of key 0x62EF7A in s189; the
+// transform's two outputs are not read afterwards) and RoutingWorld_ObstacleQuery 0x82EDB0 at 0x655AF6 (+0x918 itself).
+// It is IC_Route_IsPointObstructedBySim's sibling, so the clone is [ObstructedRO]'s (obstructro.cpp) with this
+// function's loop 0x655B15..0x655C1B: classFlag 0: the first footprint of type 0x14 or 1 (slot +0xC) whose id (slot +0x84)
+// is not ctx's own and not in the ignore list (0x81C970 inline) is the answer; none = 0. The game's refcount +1/-1 per
+// footprint is skipped (net 0). Given back to the game (today's wait): no lot at the point (the function's other path,
+// 0x62D0D0), classFlag set with footprints found (the class slot +8 is not read for this call), an ignore list that may
+// belong to the route the job plans, a gate-0 miss (an insert), and every S2 doubt. The height (0x74A8F0, 0xB015B0) is
+// not computed: the query reads x, z and the level only (as [ObstructedRO]).
+// Checked against the game's own 0x655880 on random worlds: steerro-test section OA (docs/670 §22.2; the height fake there
+// returns a y far from the caller's); on fakes: TestObstructAtRO (gvro-test.h).
+// Exported block ts3native_obstructat: +0x00 mode is the runtime switch (native_set obstructat), +0x04 shadow.
+static const DWORD OA_FN = TS3A(0x00655880);
+struct ObstructAtCounters {
+    LONG oaMode;            // +0x00: 1 = answer while a job runs
+    LONG oaShadow;          // +0x04: 1 = with no job, the game's call (as with the switch off), then the clone, compared
+    LONG oaReady;           // +0x08
+    LONG oaCalls;           // +0x0C: owner-thread calls with mode or shadow on
+    LONG oaTaken;           // +0x10: answered while a job ran
+    LONG oaHits;            // +0x14: of those, an id returned
+    LONG oaUs, oaMaxUs;     // +0x18, +0x1C
+    LONG oaFb[8];           // +0x20: state, QL busy, lot, shape / cache, tripwire, no lot, class flag hits, job's route
+    LONG oaShadowRuns;      // +0x40
+    LONG oaShadowMismatch;  // +0x44
+};
+extern "C" __declspec(dllexport) ObstructAtCounters ts3native_obstructat = {};
+static_assert(offsetof(ObstructAtCounters, oaFb) == 0x20 && sizeof(ObstructAtCounters) == 0x48, "ts3native_obstructat layout (docs/registry.md)");
+typedef u64(__fastcall* OaFn)(u8* self, void* edx, const u8* ctx, float x, float y, float z, DWORD flag);
+static OaFn g_oaOrig;
+enum { OA_FB_STATE, OA_FB_TRY, OA_FB_LOT, OA_FB_SHAPE, OA_FB_TRIP, OA_FB_NOLOT, OA_FB_HITS, OA_FB_ROUTE };
+static const int OA_WHY_NOLOT = 200, OA_WHY_HITS = 201, OA_WHY_ROUTE = 202;  // above the SR_* codes
+
+// the loop 0x655B15..0x655C1B with classFlag 0, on the clone's list (0x82EDB0's order)
+static void OaScan(const SrCtx* c, const u8* ctx, u64* res) {
+    const DWORD ownLo = ctx ? *(const DWORD*)(ctx + 8) : 0, ownHi = ctx ? *(const DWORD*)(ctx + 0xC) : 0;
+    const u8* ign = ctx ? *(const u8* const*)(ctx + 0x28) : NULL;  // 0x8294E0
+    for (int i = 0; i < c->n; i++) {
+        const u8* obj = c->objs[i];
+        const void* const* vt = *(const void* const* const*)obj;
+        const int type = (int)((SlotIntFn)vt[3])(obj, NULL);
+        if (type != 0x14 && type != 1) continue;
+        const unsigned __int64 id = ((SlotIdFn)vt[0x84 / 4])(obj, NULL);
+        const DWORD lo = (DWORD)id, hi = (DWORD)(id >> 32);
+        if (lo == ownLo && hi == ownHi) continue;
+        bool skip = false;
+        if (ign) {
+            const DWORD* p = *(const DWORD* const*)(ign + 0x38);
+            const DWORD* end = *(const DWORD* const*)(ign + 0x3C);
+            for (; p != end && !skip; p += 2) skip = p[0] == lo && p[1] == hi;
+        }
+        if (!skip) { *res = id; return; }
+    }
+}
+
+// gate 0's hit, the query and the loop under QL shared, S2's protocol (as OrLocked)
+static int OaLocked(const u8* p, const u8* lot, const u8* qlot, const SrPt& pt, const u8* ctx, bool flag, bool job, u64* res) {
+    if (t_qlDepth || t_qlShared) return SR_FB_STATE;  // SRW locks are not recursive
+    if (!TryAcquireSRWLockShared(&g_ql)) return SR_FB_TRY;
+    if (g_steerBroken) { ReleaseSRWLockShared(&g_ql); return SR_FB_STATE; }
+    const LONG seq = g_qlSeq;
+    InterlockedExchange(&g_srInClone, 1);
+    const LONG twEpoch = g_twEpoch, twGen = g_twGen;
+    t_inRo = true;
+    t_qlShared = 1;
+    t_srFail = SR_OK;
+    int why = job && !g_twArmed ? SR_FB_STATE : g_twActive ? SR_FB_TRIP : SR_OK;
+    const u8* entry = NULL;
+    if (!why) why = SrEntry(p, *(const DWORD*)(lot + 0x48), *(const DWORD*)(lot + 0x4C), false, &entry);  // a miss inserts: the game
+    if (!why && qlot) {  // else 0x82EDB0 returns 0 with the vector empty and the function 0
+        __declspec(align(16)) u8 rec[0x30] = {};  // 0x82EDB0's record: ctx's option word (0 without ctx), +0x24 = 1
+        *(DWORD*)rec = ctx ? *(const DWORD*)ctx : 0;
+        rec[0x24] = 1;
+        static SrCtx c;  // owner thread only
+        why = g_orQuery(&c, p, *(const DWORD*)(qlot + 0x48), *(const DWORD*)(qlot + 0x4C), pt, *g_orRadius, rec);
+        if (!why && c.n) {
+            if (flag) why = OA_WHY_HITS;
+            else OaScan(&c, ctx, res);
+        }
+    }
+    if (!why && t_srFail) why = t_srFail;
+    if (!why && (g_qlSeq != seq || g_twActive || g_twEpoch != twEpoch)) why = SR_FB_TRIP;
+    if (!why && job && g_twGen != twGen) why = SR_FB_STATE;  // disarmed during the clone: writers unseen
+    t_inRo = false;
+    t_qlShared = 0;
+    ReleaseSRWLockShared(&g_ql);
+    InterlockedExchange(&g_srInClone, 0);
+    if (why) *res = 0;
+    return why;
+}
+
+static int OaRun(const u8* self, const u8* ctx, float x, float y, float z, bool flag, bool job, u64* res) {
+    *res = 0;
+    u8* world = g_srWorldGet();  // 0x8292D0
+    if (!world || !self) return SR_FB_STATE;
+    const u8* p = *(const u8* const*)(self + 8);
+    u8* wm = *(u8* const*)(self + 0xC);
+    u8* wmw = *(u8* const*)(world + 0x964);
+    if (!p || !wm || !wmw || p != *(const u8* const*)(world + 0x95C)) return SrShape(SRS_NOPLANNER);
+    if (wm[0x1CC] || wmw[0x1CC]) return SR_FB_DIRTY;  // World_LotLookup would rebuild the lot index
+    // the ignore list lives in a route (the IC passes route+0x158): not the one the job plans. The route's size is not
+    // known, so any list within 0x1000 bytes of the job's route counts as its own.
+    if (job && ctx && *(const u8* const*)(ctx + 0x28)) {
+        const u8* ign = *(const u8* const*)(ctx + 0x28);
+        const u8* rm = *g_orRmSlot;
+        const DWORD h = g_async.handle;
+        const u8* jr = rm && h ? g_orRoute(rm, NULL, h) : NULL;
+        if (!jr || (ign >= jr && ign < jr + 0x1000)) return OA_WHY_ROUTE;
+    }
+    const u8* lot = g_srLotLookup(wm, NULL, x, z);  // 0x65598B
+    if (!lot) return OA_WHY_NOLOT;  // 0x655C86: the path through 0x62D0D0, not cloned
+    SrPt pt;
+    memset(&pt, 0, sizeof(pt));
+    pt.v[0] = x, pt.v[1] = y, pt.v[2] = z, pt.v[3] = x;
+    pt.one = *g_srOne;
+    __declspec(align(16)) float io[4] = {};
+    g_orLevel(lot, pt.v, io);  // 0x6559C0
+    pt.level = *(const LONG*)&io[2];
+    const u8* qlot = g_srLotLookup(wmw, NULL, x, z);  // 0x82EDB0's own lookup
+    return OaLocked(p, lot, qlot, pt, ctx, flag, job, res);
+}
+
+static void OaFallback(int why) {
+    int i = OA_FB_STATE;
+    switch (why) {
+    case SR_FB_TRY: i = OA_FB_TRY; break;
+    case SR_FB_DIRTY: case SR_FB_LOTMISS: case SR_FB_DEFERRED: i = OA_FB_LOT; break;
+    case SR_FB_SHAPE: case SR_FB_CACHE: i = OA_FB_SHAPE; break;
+    case SR_FB_TRIP: i = OA_FB_TRIP; break;
+    case OA_WHY_NOLOT: i = OA_FB_NOLOT; break;
+    case OA_WHY_HITS: i = OA_FB_HITS; break;
+    case OA_WHY_ROUTE: i = OA_FB_ROUTE; break;
+    default: break;
+    }
+    InterlockedIncrement(&ts3native_obstructat.oaFb[i]);
+}
+
+static volatile LONG g_oaNoted;
+static u64 __fastcall OaHook(u8* self, void* edx, const u8* ctx, float x, float y, float z, DWORD flag) {
+    ObstructAtCounters& k = ts3native_obstructat;
+    const DWORD tid = GetCurrentThreadId();
+    if ((!k.oaMode && !k.oaShadow) || tid != g_async.owner) return g_oaOrig(self, edx, ctx, x, y, z, flag);
+    InterlockedIncrement(&k.oaCalls);
+    const bool cls = (u8)flag != 0;
+    if (g_async.state != A_RUNNING) {
+        if (!k.oaShadow) return g_oaOrig(self, edx, ctx, x, y, z, flag);
+        // docs/670 §26 (roshadow-core.h): the game's call as with the switch off, then the clone with job starts held off
+        u64 r = 0;
+        RoShadowEnv env;
+        RoShadow(env, [&] { r = g_oaOrig(self, edx, ctx, x, y, z, flag); }, [&] {
+            u64 r2 = 0;
+            const int why = OaRun(self, ctx, x, y, z, cls, false, &r2);
+            InterlockedIncrement(&k.oaShadowRuns);
+            if (why) OaFallback(why);
+            else if (r != r2) {
+                InterlockedIncrement(&k.oaShadowMismatch);
+                if (InterlockedIncrement(&g_oaNoted) <= 16)
+                    Log("obstruction at point RO: SHADOW MISMATCH at (%.2f, %.2f) flag %u: game %08lX:%08lX, clone %08lX:%08lX", x, z,
+                        (unsigned)cls, (DWORD)(r >> 32), (DWORD)r, (DWORD)(r2 >> 32), (DWORD)r2);
+            }
+        });
+        return r;
+    }
+    if (!k.oaMode) return g_oaOrig(self, edx, ctx, x, y, z, flag);
+    // a job runs: not the +0x918 owner, no job callback, no gate frame open (as OrHook)
+    const RgThread& t = t_rg;
+    int why = SR_FB_STATE;
+    if (!g_inInvoke && ts3native_counters.rgOwnerTid != (LONG)tid && t.n == t.readers) {
+        LARGE_INTEGER t0;
+        QueryPerformanceCounter(&t0);
+        u64 r = 0;
+        why = OaRun(self, ctx, x, y, z, cls, true, &r);
+        if (!why) {
+            const LONG us = UsSince(t0);
+            InterlockedIncrement(&k.oaTaken);
+            if (r) InterlockedIncrement(&k.oaHits);
+            InterlockedExchangeAdd(&k.oaUs, us);
+            Max(&k.oaMaxUs, us);
+            return r;
+        }
+    }
+    OaFallback(why);
+    return g_oaOrig(self, edx, ctx, x, y, z, flag);
+}
+
+// the 60 s counter line (ts3native.cpp MaybeLogCounters)
+static void OaLogCounters() {
+    const ObstructAtCounters& k = ts3native_obstructat;
+    if (!k.oaReady) return;
+    Log("obstruction at point RO: mode %ld shadow %ld calls %ld, answered in a job %ld (obstructed %ld) max %ld us; given back: state %ld, "
+        "QL busy %ld, lot %ld, shape %ld, tripwire %ld, no lot %ld, class flag with footprints %ld, job's route %ld; shadow runs %ld mismatch %ld",
+        k.oaMode, k.oaShadow, k.oaCalls, k.oaTaken, k.oaHits, k.oaMaxUs, k.oaFb[0], k.oaFb[1], k.oaFb[2], k.oaFb[3], k.oaFb[4],
+        k.oaFb[5], k.oaFb[6], k.oaFb[7], k.oaShadowRuns, k.oaShadowMismatch);
+}
+
+// [ObstructAtRO] Enabled=1: needs [RouteGate] Enforce=1 with the async path and the S2 writer set
+static void InstallObstructAtRO(const wchar_t* ini) {
+    ObstructAtCounters& k = ts3native_obstructat;
+    if (!GetPrivateProfileIntW(L"ObstructAtRO", L"Enabled", 0, ini)) { Log("obstruction at point RO off (Enabled=0)"); return; }
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP obstruction at point RO: no EA 1.69 address, docs/670 §21"); return; }
+#endif
+    if (!ts3native_counters.rgEnforce || !ts3native_counters.asyncReady) {
+        Log("SKIP obstruction at point RO: needs [RouteGate] Enforce=1 with the async path");
+        return;
+    }
+    if (!Matches((const void*)(uintptr_t)OA_FN, kOrPro, sizeof(kOrPro))) { Log("SKIP obstruction at point RO: 0x655880 prologue differs"); return; }
+    if (!InstallSrWriters()) { Log("SKIP obstruction at point RO: the S2 writer set (W1-W6, W4, tripwires) is not all in place"); return; }
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    g_oaOrig = (OaFn)InstallDetour("RouteObstructionAtPoint", OA_FN, kOrPro, sizeof(kOrPro), (void*)OaHook, &g_oaOrig);
+    if (!g_oaOrig) return;
+    k.oaMode = Clamp(GetPrivateProfileIntW(L"ObstructAtRO", L"Mode", 1, ini), 0, 1);
+    k.oaShadow = Clamp(GetPrivateProfileIntW(L"ObstructAtRO", L"Shadow", 0, ini), 0, 1);
+    k.oaReady = 1;
+    Log("OK   obstruction at point RO: 0x655880 + the S2 writer set (Mode=%ld Shadow=%ld)", k.oaMode, k.oaShadow);
+}

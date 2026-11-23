@@ -116353,6 +116353,2197 @@
     ]
   },
   {
+    "id": "ip-obstructat-storm",
+    "bug": "docs/670 §21: in the s189 route storm (2026-11-20, every lock fix on, [HitchAttr] RouteLockCallers=1) the largest named gate wait is key 0x62EF7A with caller 0x655ABE: 13 'route lock wait' lines >= 20 ms / 508 ms in 3 min. It is the lot transform of RouteObstructionAtPoint 0x655880 (the obstruction-at-point IC and one planner call), which then also takes +0x918 itself in its obstacle query 0x82EDB0.",
+    "fix": "ts3native [ObstructAtRO] Enabled=1 (default 0, gvro.cpp): while a job runs the function is answered by [ObstructedRO]'s read-only clone with this function's own loop (first footprint of type 0x14 / 1, not the caller's own id, not in its ignore list); no lot, the class-flag form with footprints, the job's own route and any S2 doubt call the game. Shadow=1 compares with the game when no job runs. Runtime switch native_set obstructat.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game and offline (2026-11-20: clang-cl syntax check only, Steam and TS3A_TABLE; no selftest case and no steerro-test section yet). Needs the MSVC asi with [ObstructAtRO] Enabled=1 Shadow=1 and [RouteGate] Enforce=1, [RouteAsync] on in both arms. First pass: Mode=0 Shadow=1 (compare only).",
+    "expect": "shadow pass: 'obstruction at point RO:' line with shadow runs > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: answered in a job > 0; 'route lock wait' lines with key 0062EF7A and first caller word 00655ABE (needs [HitchAttr] RouteLockMs=20 RouteLockCallers=1) and their ms well below the off arms; read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "obstructat": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 park a skipped job and retry it on READY"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back while lots update"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
+    "id": "ip-blocker2dro-storm",
+    "bug": "docs/670 §21 / §24: in the s189 route storm (2026-11-20, every lock fix on, [HitchAttr] RouteLockCallers=1) key 0x62EF7A with first caller word 0x82E696 has 5 'route lock wait' lines >= 20 ms / 413 ms in 3 min. It is the lot transform inside RoutingWorld_BlockerCheck2d 0x82E340 called by the script IC RouteManager.RoutingBlockerCheck2d (0x74E110); the same function then waits again in its segment gather 0x631E20.",
+    "fix": "ts3native [Blocker2dRO] Enabled=1 (default 0, rtoro.cpp): while a job runs the IC's call at 0x74E261 is answered by [RouteToObjRO]'s read-only clone of BlockerCheck2d (transforms, segment gather, per-footprint rules, merge; the physics samples after QL with Tail=1); a lot table miss, option 0x100000 with a slot component, the debug-draw switch and any S2 doubt call the game. Shadow=1 compares with the game when no job runs. Runtime switch native_set blocker2dro.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20). Offline: steerro-test section B2 (60000 calls against the game's own 0x82E340, 56324 compared, 0 differ) and selftest case TestBlocker2dRO in a clang-cl build under Wine; no MSVC build yet (docs/670 §24.4). Needs the MSVC asi with [Blocker2dRO] Enabled=1 Shadow=1 and [RouteGate] Enforce=1, [RouteAsync] on in both arms. First pass: Mode=0 Shadow=1 (compare only).",
+    "expect": "shadow pass: 'blocker check 2d RO:' line with shadow runs > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: answered > 0; 'route lock wait' lines with key 0062EF7A and first caller word 0082E696 (needs [HitchAttr] RouteLockMs=20 RouteLockCallers=1) and their ms well below the off arms; no new lines with first caller 0082E6C7; read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "blocker2dro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 answer the IC's BlockerCheck2d call from the clone while a job runs"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back while lots update"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "blocker2dro": 0
+        },
+        "note": "back to off"
+      }
+    ]
+  },
+  {
+    "id": "ip-landcheckro-storm",
+    "bug": "docs/670 §23.1 / §24: in the s189 route storm (2026-11-20, every lock fix on, [HitchAttr] RouteLockCallers=1) the second largest named gate wait is key 0x62FB74 with first caller 0x654BE5: 8 'route lock wait' lines >= 20 ms / 476 ms in 3 min. It is the lot lookup of each lot waypoint (LotTable_GetIfPresent 0x62FB60: gate 12, then gate 0) in the closest-waypoint gather 0x654790 under World.ArePointsConnectedByLand, waiting for the running route job's +0x918.",
+    "fix": "ts3native [LandCheckRO] Enabled=1 (default 0, landro.cpp): while a job runs the game's own gather runs under design SH's QL shared hold (slotro.cpp), in which exactly the two gate entries of 0x62FB60 pass without +0x918; a dirty lot index, QL busy, the route worker on the same candidate area and every other gate, lock, host or managed call give the call back to today's wait. Shadow=1 compares the gather under a dry hold with the game's when no job runs. Runtime switch native_set landcheckro.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check, Steam and TS3A_TABLE; selftest case TestLandCheckRO built with clang-cl and run under Wine; no steerro-test section against the game's own 0x654790). Needs the MSVC asi with [LandCheckRO] Enabled=1 Shadow=1 and [RouteGate] Enforce=1, [RouteAsync] on in both arms, [HitchAttr] RouteLockMs=20 RouteLockCallers=1. First pass: Mode=0 Shadow=1 (compare only; every arm then runs the game's gather). The default storm kinds do not force the IC: taxi (CarNpcManager -> HasValidStreetParking) and stray (the stray pet lot check) reach it; an arm with 'gathers 0' is N/A, not a pass.",
+    "expect": "shadow pass: 'land check RO:' line with shadow runs > 0, mismatch 0, no 'SHADOW MISMATCH' line. on arms: 'held to the end' > 0 with gate 12 passed > 0, 'gave up 0'; 'route lock wait' lines with key 0062FB74 and first caller word 00654BE5 and their ms well below the off arms; read the hitch totals' +0x918 wait sum, not the key alone (docs/670 §7.1). No crash.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "landcheckro": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 the game's wait at the gate, 1 the gather under the QL shared hold"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148,
+            "kinds": [
+              "lot",
+              "home",
+              "boat",
+              "meet",
+              "nopath",
+              "taxi",
+              "stray"
+            ]
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path) plus the two kinds whose managed code asks ArePointsConnectedByLand: route jobs back to back while the IC gathers"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "landcheckro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
+    "id": "upstairs-landing-jam",
+    "bug": "docs/data/stuck-log.md 2026-11-20 (s229, phase-20261120-2251, Isla Paradiso storm): the Collins household stuck on the third floor of Colonial Casa (y 61, room 11, lot 0x8F300533282EBE0): about 100 routefail lines in ~125 s, NoPathToDestination with blocker None from the landing to goals on the two lower floors (async jobs and sync plans alike), Christopher NoDestinationSpecified at the stair top 934.2,61,1204.1 (room 0). First run with JobYield, PlayerFirst, TaskServe, SmoothCut, ObstructAtRO, Blocker2dRO, LandCheckRO and SteerRO RetryWait together; s231 / s232 (each half) had no Sim upstairs.",
+    "fix": "none yet: decision repro. Our fixes or EA's own landing jam? Arms in one load by native_set / patches: 0 floor (every runtime route switch of ours off), a proven set, b + JobYield / TaskServe / PlayerFirst, c + the three new ROs in shadow, d the full s229 set serving.",
+    "save": "IslaParadiso.world fresh start, largest household (Collins) active: the storm-ab.sh / phasesoakr.sh load; the Linux rig runs it with landing-run.sh (not in the repo)",
+    "area": [
+      930.5,
+      1202.0
+    ],
+    "note": "UNVERIFIED (2026-11-20, offline only: JSON and steps checked, never run). Per arm three segments, each a 'mem: landing-<arm>-<seg>' line in ts3native.log: crowd (the four on the landing at their s229 spots, then Go Here each to its own s229 ground-floor goal at y 55), alone (the others parked on the ground floor at 940,55,1191, Rosemarie alone on the landing), top (Christopher alone at the stair top). Placement is setup_sims (EA's Teleport Me Here with y, autonomy off; skipped when the Sim already stands within 2 m in x/z on that lot), so every arm starts from the same spots; no rewind (docs/270: Windows tool, refuses with the Frida probe loaded). Per-Sim reads: HiddenRoomCheck 'sim <SimDescriptionId>' (room, level, pos, doing) placed and after; the route result is ts3fixes' 'gohere start/plan/end' and 'routefail:' lines between the markers. Ini at load = the s229 superset (landing-run.sh); needs an asi with ts3native_counters version 912 (counter offsets of native-switches.ts). Verdict: a Sim that ends at level 0 reached the ground floor; level 2 with 'gohere end: ... route false' is stuck. Fails in arm 0 and a = EA's own (or an ini-only fix); a pass in 0/a that fails from b/c/d on names the switch set that brings it; crowd fails with alone passes = a crowd jam on the landing.",
+    "expect": "Per arm and segment one line per Sim: level 2 placed, then level 0 after (reached) or level 2 (stuck) with the gohere end line's route ok/false and last plan result. No crash, no 'did not stick' read-back.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "normal speed: the walk waits below are real seconds at x1"
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "jobyield": 0,
+          "taskserve": 0,
+          "obstructat": 0,
+          "obstructatshadow": 0,
+          "blocker2dro": 0,
+          "blocker2droshadow": 0,
+          "landcheckro": 0,
+          "landcheckroshadow": 0,
+          "steerwait": 0,
+          "smoothcut": 0,
+          "placetestro": 0,
+          "editpathro": 0,
+          "connroomsro": 0,
+          "goalhitsro": 0,
+          "steerro": 0,
+          "m1retry": 0,
+          "doorshare": 0,
+          "deferprivatefp": 0
+        },
+        "note": "arm 0: floor: every runtime switch of our route fixes off (BASE ROs incl. SteerRO (its Retry then idle), NoPathMemo, DoorShare, M1Retry, DeferPrivateFp, new set; managed playerfirst, npmfuzzy, npmhousehold, doorgen, doorshare); ini-only installs stay",
+        "max": 600
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": false,
+          "npmfuzzy": false,
+          "npmhousehold": false,
+          "doorgen": false,
+          "doorshare": false
+        },
+        "note": "arm 0: managed switches",
+        "max": 120,
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-0-crowd"
+        },
+        "note": "log marker landing-0-crowd"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "0 crowd Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "0 crowd Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "0 crowd Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "0 crowd Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "0 crowd Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "0 crowd Omar placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "0 crowd Cristobel placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "0 crowd Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "0 crowd Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 939.9,
+          "y": 55,
+          "z": 1205.0
+        },
+        "note": "0 crowd Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 928.4,
+          "y": 55,
+          "z": 1205.5
+        },
+        "note": "0 crowd Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "0 crowd Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "0 crowd Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "0 crowd Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "0 crowd Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "0 crowd Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-0-alone"
+        },
+        "note": "log marker landing-0-alone"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "0 alone park the others on the ground floor",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "0 alone Rosemarie place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "0 alone Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "0 alone Rosemarie go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "0 alone Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-0-top"
+        },
+        "note": "log marker landing-0-top"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 934.2,
+          "y": 61,
+          "z": 1204.1,
+          "autonomy": false
+        },
+        "note": "0 top Christopher place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Rosemarie Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "0 top park the others on the ground floor",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "0 top Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "0 top Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "0 top Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "jobyield": 0,
+          "taskserve": 0,
+          "obstructat": 0,
+          "obstructatshadow": 0,
+          "blocker2dro": 0,
+          "blocker2droshadow": 0,
+          "landcheckro": 0,
+          "landcheckroshadow": 0,
+          "steerwait": 0,
+          "smoothcut": 0,
+          "placetestro": 1,
+          "editpathro": 1,
+          "connroomsro": 1,
+          "goalhitsro": 1,
+          "steerro": 1,
+          "m1retry": 1,
+          "doorshare": 1,
+          "deferprivatefp": 1
+        },
+        "note": "arm a: proven set only: BASE ROs + NoPathMemo + DoorShare + M1Retry + DeferPrivateFp on; JobYield 0, TaskServe 0, the three ROs off, SteerRO RetryWait 0, SmoothCut 0, playerfirst off",
+        "max": 600
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": false,
+          "npmfuzzy": true,
+          "npmhousehold": true,
+          "doorgen": true,
+          "doorshare": true
+        },
+        "note": "arm a: managed switches",
+        "max": 120,
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-a-crowd"
+        },
+        "note": "log marker landing-a-crowd"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "a crowd Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "a crowd Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "a crowd Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "a crowd Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "a crowd Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "a crowd Omar placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "a crowd Cristobel placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "a crowd Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "a crowd Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 939.9,
+          "y": 55,
+          "z": 1205.0
+        },
+        "note": "a crowd Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 928.4,
+          "y": 55,
+          "z": 1205.5
+        },
+        "note": "a crowd Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "a crowd Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "a crowd Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "a crowd Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "a crowd Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "a crowd Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-a-alone"
+        },
+        "note": "log marker landing-a-alone"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "a alone park the others on the ground floor",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "a alone Rosemarie place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "a alone Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "a alone Rosemarie go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "a alone Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-a-top"
+        },
+        "note": "log marker landing-a-top"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 934.2,
+          "y": 61,
+          "z": 1204.1,
+          "autonomy": false
+        },
+        "note": "a top Christopher place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Rosemarie Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "a top park the others on the ground floor",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "a top Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "a top Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "a top Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "jobyield": 1,
+          "taskserve": 1,
+          "obstructat": 0,
+          "obstructatshadow": 0,
+          "blocker2dro": 0,
+          "blocker2droshadow": 0,
+          "landcheckro": 0,
+          "landcheckroshadow": 0,
+          "steerwait": 0,
+          "smoothcut": 0,
+          "placetestro": 1,
+          "editpathro": 1,
+          "connroomsro": 1,
+          "goalhitsro": 1,
+          "steerro": 1,
+          "m1retry": 1,
+          "doorshare": 1,
+          "deferprivatefp": 1
+        },
+        "note": "arm b: a + JobYield 1, TaskServe 1, playerfirst on",
+        "max": 600
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": true,
+          "npmfuzzy": true,
+          "npmhousehold": true,
+          "doorgen": true,
+          "doorshare": true
+        },
+        "note": "arm b: managed switches",
+        "max": 120,
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-b-crowd"
+        },
+        "note": "log marker landing-b-crowd"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "b crowd Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "b crowd Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "b crowd Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "b crowd Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "b crowd Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "b crowd Omar placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "b crowd Cristobel placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "b crowd Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "b crowd Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 939.9,
+          "y": 55,
+          "z": 1205.0
+        },
+        "note": "b crowd Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 928.4,
+          "y": 55,
+          "z": 1205.5
+        },
+        "note": "b crowd Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "b crowd Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "b crowd Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "b crowd Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "b crowd Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "b crowd Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-b-alone"
+        },
+        "note": "log marker landing-b-alone"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "b alone park the others on the ground floor",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "b alone Rosemarie place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "b alone Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "b alone Rosemarie go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "b alone Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-b-top"
+        },
+        "note": "log marker landing-b-top"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 934.2,
+          "y": 61,
+          "z": 1204.1,
+          "autonomy": false
+        },
+        "note": "b top Christopher place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Rosemarie Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "b top park the others on the ground floor",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "b top Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "b top Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "b top Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "jobyield": 1,
+          "taskserve": 1,
+          "obstructat": 0,
+          "obstructatshadow": 1,
+          "blocker2dro": 0,
+          "blocker2droshadow": 1,
+          "landcheckro": 0,
+          "landcheckroshadow": 1,
+          "steerwait": 0,
+          "smoothcut": 0,
+          "placetestro": 1,
+          "editpathro": 1,
+          "connroomsro": 1,
+          "goalhitsro": 1,
+          "steerro": 1,
+          "m1retry": 1,
+          "doorshare": 1,
+          "deferprivatefp": 1
+        },
+        "note": "arm c: b + ObstructAtRO / Blocker2dRO / LandCheckRO in shadow (mode 0, shadow 1: the game answers, upper-floor queries compared with no job running)",
+        "max": 600
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": true,
+          "npmfuzzy": true,
+          "npmhousehold": true,
+          "doorgen": true,
+          "doorshare": true
+        },
+        "note": "arm c: managed switches",
+        "max": 120,
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-c-crowd"
+        },
+        "note": "log marker landing-c-crowd"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "c crowd Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "c crowd Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "c crowd Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "c crowd Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "c crowd Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "c crowd Omar placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "c crowd Cristobel placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "c crowd Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "c crowd Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 939.9,
+          "y": 55,
+          "z": 1205.0
+        },
+        "note": "c crowd Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 928.4,
+          "y": 55,
+          "z": 1205.5
+        },
+        "note": "c crowd Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "c crowd Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "c crowd Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "c crowd Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "c crowd Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "c crowd Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-c-alone"
+        },
+        "note": "log marker landing-c-alone"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "c alone park the others on the ground floor",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "c alone Rosemarie place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "c alone Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "c alone Rosemarie go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "c alone Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-c-top"
+        },
+        "note": "log marker landing-c-top"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 934.2,
+          "y": 61,
+          "z": 1204.1,
+          "autonomy": false
+        },
+        "note": "c top Christopher place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Rosemarie Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "c top park the others on the ground floor",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "c top Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "c top Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "c top Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "jobyield": 1,
+          "taskserve": 1,
+          "obstructat": 1,
+          "obstructatshadow": 0,
+          "blocker2dro": 1,
+          "blocker2droshadow": 0,
+          "landcheckro": 1,
+          "landcheckroshadow": 0,
+          "steerwait": 1,
+          "smoothcut": 1,
+          "placetestro": 1,
+          "editpathro": 1,
+          "connroomsro": 1,
+          "goalhitsro": 1,
+          "steerro": 1,
+          "m1retry": 1,
+          "doorshare": 1,
+          "deferprivatefp": 1
+        },
+        "note": "arm d: full s229 set serving: b + the three ROs mode 1 (shadow 0), SteerRO RetryWait 1, SmoothCut 1",
+        "max": 600
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "playerfirst": true,
+          "npmfuzzy": true,
+          "npmhousehold": true,
+          "doorgen": true,
+          "doorshare": true
+        },
+        "note": "arm d: managed switches",
+        "max": 120,
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-d-crowd"
+        },
+        "note": "log marker landing-d-crowd"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "d crowd Rosemarie place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins"
+          ],
+          "x": 932.4,
+          "y": 61,
+          "z": 1203.1,
+          "autonomy": false
+        },
+        "note": "d crowd Omar place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Cristobel Collins"
+          ],
+          "x": 931.4,
+          "y": 61,
+          "z": 1203.5,
+          "autonomy": false
+        },
+        "note": "d crowd Cristobel place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 929.9,
+          "y": 61,
+          "z": 1202.1,
+          "autonomy": false
+        },
+        "note": "d crowd Christopher place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "d crowd Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "d crowd Omar placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "d crowd Cristobel placed",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "d crowd Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "d crowd Rosemarie go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 939.9,
+          "y": 55,
+          "z": 1205.0
+        },
+        "note": "d crowd Omar go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 928.4,
+          "y": 55,
+          "z": 1205.5
+        },
+        "note": "d crowd Cristobel go",
+        "max": 300
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "d crowd Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "d crowd Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD10"
+          ]
+        },
+        "note": "d crowd Omar after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD20"
+          ]
+        },
+        "note": "d crowd Cristobel after",
+        "max": 900
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "d crowd Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-d-alone"
+        },
+        "note": "log marker landing-d-alone"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "d alone park the others on the ground floor",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins"
+          ],
+          "x": 929.4,
+          "y": 61,
+          "z": 1201.5,
+          "autonomy": false
+        },
+        "note": "d alone Rosemarie place",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "d alone Rosemarie placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55,
+          "z": 1206.5
+        },
+        "note": "d alone Rosemarie go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "d alone Rosemarie after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-d-top"
+        },
+        "note": "log marker landing-d-top"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Christopher Collins"
+          ],
+          "x": 934.2,
+          "y": 61,
+          "z": 1204.1,
+          "autonomy": false
+        },
+        "note": "d top Christopher place",
+        "max": 400
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Omar Collins",
+            "Cristobel Collins",
+            "Rosemarie Collins"
+          ],
+          "x": 940.0,
+          "y": 55,
+          "z": 1191.0,
+          "autonomy": false
+        },
+        "note": "d top park the others on the ground floor",
+        "max": 400,
+        "waitS": 8
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "d top Christopher placed",
+        "max": 900
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 938.4,
+          "y": 55,
+          "z": 1209.4
+        },
+        "note": "d top Christopher go",
+        "max": 300,
+        "waitS": 50
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DCF0"
+          ]
+        },
+        "note": "d top Christopher after",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "landing-end"
+        },
+        "note": "log marker landing-end"
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "enabled": true
+        },
+        "note": "autonomy back on",
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Omar Collins",
+          "enabled": true
+        },
+        "note": "autonomy back on",
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Cristobel Collins",
+          "enabled": true
+        },
+        "note": "autonomy back on",
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Christopher Collins",
+          "enabled": true
+        },
+        "note": "autonomy back on",
+        "optional": true
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
