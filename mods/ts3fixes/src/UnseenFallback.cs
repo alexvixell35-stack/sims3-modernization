@@ -63,8 +63,13 @@ namespace Ts3Fixes
         // first (a plan that never reaches AsyncWait reads Seen false). Line "ufplansplit:" for plans >= kUfSlowPlanMs only:
         //   pre  = UfPlan start -> the async wait (why checks, marks, START), wait = the task sleeping one frame per poll until
         //   the job is READY (polls = frames), post = the original Plan collecting the result and the rest of UfPlan; sync = a
-        //   refused START planned on the sim thread instead (the frame waits for it); dist = straight line to the destination.
-        struct UfSplit { public bool On, Seen; public int WaitStart, WaitMs, Polls, SyncMs; }
+        //   refused START planned on the sim thread instead (the frame waits for it); dist = straight line from the plan's start to
+        //   its destination; longest = the longest single poll (one game frame).
+        // docs/641: a PlanFromPoint / ReplanFromPoint (kind 2 / 3) starts at its point, not at the Sim. dist used to be measured
+        // from the Sim, so a SafeSpot check of a far lot read "dist 1231" for a plan from a spot inside the lot to that lot's own
+        // edge (8 radial destinations at the lot's corners and edge midpoints, 1-2 m). Now dist is from the start point and
+        // "sim N m away" names the old figure.
+        struct UfSplit { public bool On, Seen; public int WaitStart, WaitMs, Polls, SyncMs, MaxPollMs; }
         // per script task: the async poll loop yields (Simulator.Sleep), so other Sims' plans run in between; one shared static
         // mixed their waits into this plan and read t0 = 0 when the flag flipped mid-wait ("async wait 89247836 ms", run 2043)
         static readonly System.Collections.Generic.Dictionary<ulong, UfSplit> sUfSplits = new System.Collections.Generic.Dictionary<ulong, UfSplit>();
@@ -136,15 +141,21 @@ namespace Ts3Fixes
 
         // the dedicated line, under ufplan's per-minute cap shared with nothing else (kUfSlowPlanPerMin of its own)
         static int sUfSplitLogged, sUfSplitMinute;
-        static void UfSplitLog(ScriptCore.Route rt, int kind, int ms, int t0, UfLast l, RoutePlanResult r, UfSplit u)
+        static void UfSplitLog(ScriptCore.Route rt, int kind, int ms, int t0, UfLast l, RoutePlanResult r, UfSplit u, Vector3 from)
         {
             int minute = System.Environment.TickCount / 60000;
             if (minute != sUfSplitMinute) { sUfSplitMinute = minute; sUfSplitLogged = 0; }
             if (sUfSplitLogged++ >= kUfSlowPlanPerMin) return;
             string parts = !u.Seen ? "no wait" : u.SyncMs >= 0 ? "sync " + u.SyncMs + " ms (START refused)"
-                : "pre " + unchecked(u.WaitStart - t0) + " wait " + u.WaitMs + " (" + u.Polls + " polls) post " + (ms - unchecked(u.WaitStart - t0) - u.WaitMs);
+                : "pre " + unchecked(u.WaitStart - t0) + " wait " + u.WaitMs + " (" + u.Polls + " polls, longest " + u.MaxPollMs + ") post " + (ms - unchecked(u.WaitStart - t0) - u.WaitMs);
             string dist = "?";
-            try { Sim s = rt.Follower != null ? rt.Follower.Target as Sim : null; if (s != null) dist = Math.Round((rt.GetApproximateOriginalDestination() - s.Position).Length(), 0).ToString(); }
+            try
+            {
+                Sim s = rt.Follower != null ? rt.Follower.Target as Sim : null;
+                Vector3 dest = rt.GetApproximateOriginalDestination();
+                if (kind >= 2) dist = Math.Round((dest - from).Length(), 0) + (s != null ? " (sim " + Math.Round((s.Position - from).Length(), 0) + " m away)" : "");
+                else if (s != null) dist = Math.Round((dest - s.Position).Length(), 0).ToString();
+            }
             catch (Exception) { }
             DiagLine("ufplansplit: kind " + kind + " " + ms + " ms, " + parts + ", why " + l.Why + (l.Cut ? " cut" : "") + (l.Src != null ? ", src " + l.Src : "") + ", result " + r.mType
                 + ", dist " + dist + (l.Sim != null ? ", " + l.Sim.FullName + (l.Sim.LotCurrent != null ? " on " + l.Sim.LotCurrent.Name : "") : "")
@@ -1127,7 +1138,8 @@ namespace Ts3Fixes
                 UfSplit outerSplit;
                 bool hadOuter = sUfSplits.TryGetValue(task, out outerSplit);  // a plan inside another plan's callback: restored below
                 bool split = ShortcutOn("ufplansplit");
-                if (split) sUfSplits[task] = new UfSplit { On = true, SyncMs = -1 };
+                bool attr = kind == 2 && (sInRoutableCheck || sInWdCheck) && ShortcutOn("spotwaitattr");  // docs/641
+                if (split || attr) sUfSplits[task] = new UfSplit { On = true, SyncMs = -1 };
                 else if (hadOuter) sUfSplits.Remove(task);
                 RoutePlanResult r;
                 sUfPlanDepth.Enter(task);  // §3.9.6: > 1 in this task = a plan inside another plan's callback (PostPlan / AboutToPlan)
@@ -1164,7 +1176,8 @@ namespace Ts3Fixes
                 UfSplit mine;
                 if (!sUfSplits.TryGetValue(task, out mine)) mine = default(UfSplit);
                 if (split) PlanWaitNote(ufMs, last.Why, mine);
-                if (split && ufMs >= kUfSlowPlanMs) UfSplitLog(this, kind, ufMs, t0, last, r, mine);
+                if (split && ufMs >= kUfSlowPlanMs) UfSplitLog(this, kind, ufMs, t0, last, r, mine, p);
+                if (attr) SpotWaitNote(ufMs, mine, last.Src);
                 if (hadOuter) sUfSplits[task] = outerSplit; else sUfSplits.Remove(task);
                 UfLoopNote(Follower, r);  // docs/202 §5.7 E (unseenfbloopdet)
                 if (sUfFill.Route != null && ReferenceEquals(sUfFill.Route, this))

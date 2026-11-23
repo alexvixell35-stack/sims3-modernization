@@ -1631,10 +1631,11 @@ namespace Ts3Fixes
         // blockedusehh) / walked up to the object first / last stretch walked through objects (clip) / Sim put on the slot (snap in) / put back where it came from
         // (snap out) / walked out by itself / not this kind (a Sim blocks, portal locked, pet, object kind) / kept: object out of reach / kept: no slot in range /
         // walk up stopped / errors / clip walk stopped / snap out to a found spot / kept: cooling down.
+        // [4662-4665] spotwaitattr (SpotWaitAttr.cs, docs/641): kind-2 lot-edge check waits >= 250 ms / frame-bound (one poll >= 80 % of the wait) / job-bound / frame-bound ms.
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4470;
+        const int kCounterSlots = 4666;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1938,6 +1939,7 @@ namespace Ts3Fixes
                 case "visitcar": return false;  // unseen NPC visits keep driving at EA's coin flip (UnseenVisitTrip.cs, docs/584 §1)
                 case "visitwalkfinish": return false;  // unseen NPC still walking to a visit after 60 sim-min finishes at the lot (UnseenVisitTrip.cs, docs/584 §1)
                 case "autlastsearch": return false;  // log only: each Sim's last autonomy search and its result, for the census (AutLive.cs, docs/584 §4)
+                case "spotwaitattr": return false;  // log only (docs/641): slow lot-edge check waits split frame-bound vs job-bound (SpotWaitAttr.cs)
                 case "ufplansplit": return false;  // log only: where a slow unseen-fallback plan's wall time goes (UnseenFallback.cs)
                 case "doorshare": return Instantiator.kDoorShare;  // DoorShare.cs (docs/674): mark Sim-independent door answers for ts3native [RouteSnap] DoorShare, off
                 case "doorgen": return Instantiator.kDoorGen;  // DoorGen.cs: bump ts3native's door generation when a door answer input changes (DoorMemoX=3)

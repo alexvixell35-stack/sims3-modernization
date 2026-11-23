@@ -25,6 +25,7 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  spotwaitattr: DIAG + ' (log and counters only, docs/641: slow lot-edge check waits split frame-bound / job-bound; read in natural play with ufplansplit)',
   unseenfbgohere: 'docs/328 §7.5 (2026-11-23): natural-play switch, no forced GoHere visit repro; judged by compat-switchon-1122g-1123 bp-gohere-ab (--ab unseenfbgohere, eligibility log line)',
   spiralshare: 'no forced repro yet: judged by the route storms of docs/686 §8.7 (spiral stair waits of 7-12 sim-min gone); its hooks are the ones sharelanes-check reads',
   spiralsharehh: 'as spiralshare (household scope of the same hooks)',

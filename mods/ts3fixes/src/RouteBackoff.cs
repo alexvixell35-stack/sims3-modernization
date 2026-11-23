@@ -277,7 +277,7 @@ namespace Ts3Fixes
                 // another task that starts right after ours delays this task's collect until it ends. Timing only, no Sim
                 // scope (same as jobyield's StepAside). Counters [1275] polls skipped, [1276] waits with one.
                 bool jr = ShortcutOn("jobyieldready"), skipped = false;
-                int t0 = System.Environment.TickCount, i = 0;
+                int t0 = System.Environment.TickCount, i = 0, tp = t0, maxPoll = 0;
                 for (; ; i++)
                 {
                     if (jr && sYieldProbe.GetOption2(kJobBusy)) { c[1275]++; skipped = true; }
@@ -287,11 +287,13 @@ namespace Ts3Fixes
                     if (i >= kAsyncMaxPolls) { c[58]++; StepAside("poll cap"); break; }
                     c[57]++;
                     Simulator.Sleep(0);
+                    // ufplansplit / spotwaitattr (docs/641): the longest single poll = the longest game frame this task slept through
+                    if (splitOn) { int now = System.Environment.TickCount; if (unchecked(now - tp) > maxPoll) maxPoll = unchecked(now - tp); tp = now; }
                 }
                 // ufplansplit (log only): this task's entry (other Sims' plans ran during the polls; they keep their own)
                 UfSplit su;
                 if (splitOn && sUfSplits.TryGetValue(splitTask, out su))
-                { su.WaitStart = t0; su.WaitMs = unchecked(System.Environment.TickCount - t0); su.Polls = i; su.Seen = true; sUfSplits[splitTask] = su; }
+                { su.WaitStart = t0; su.WaitMs = unchecked(System.Environment.TickCount - t0); su.Polls = i; su.MaxPollMs = maxPoll; su.Seen = true; sUfSplits[splitTask] = su; }
                 if (skipped) c[1276]++;
             }
 

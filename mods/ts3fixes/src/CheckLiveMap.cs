@@ -466,6 +466,7 @@ namespace Ts3Fixes
                 case "spoilbroadcast": return EpLive(typeof(SpbSpoilHook), 1, "sSpbField", sSpbField, null);
                 case "spoonreset": return EpLive(typeof(SrHook), 1, "sSrMasterI", sSrMasterI, null, "sSrSlaveI", sSrSlaveI, null, "sSrIsSlave", sSrIsSlave, typeof(bool), "sSrIsMaster", sSrIsMaster, typeof(bool), "sSrSpooning", sSrSpooning, typeof(bool), "sSrSmc", sSrSmc, null, "sSrClear", sSrClear, 0);
                 case "spoonslavechecks": return EpLive(typeof(SrHook), 1, "sSrMasterI", sSrMasterI, null, "sSrSlaveI", sSrSlaveI, null, "sSrIsSlave", sSrIsSlave, typeof(bool), "sSrIsMaster", sSrIsMaster, typeof(bool), "sSrSpooning", sSrSpooning, typeof(bool), "sSrSmc", sSrSmc, null, "sSrClear", sSrClear, 0);
+                case "spotwaitattr": return EpLive(typeof(RouteBackoffHook), 4);
                 case "spouseunlink": return EpLive(typeof(GgHook), 4, "sGgAnc", sGgAnc, null);
                 case "sppensionprompt": return EpLive(typeof(BSpAcquireHook), 2);
                 case "sprecheck": return EpLive(typeof(BSpTryHook), 1, "sRcUpdate", sRcUpdate, 0, "sRcDemo", sRcDemo, null, "sRcTarget", sRcTarget, typeof(float), "sRcTarget", sRcTarget, "static", "sRcMult", sRcMult, null, "sRcDrop", sRcDrop, typeof(float), "sRcDrop", sRcDrop, "static", "sRcNotify", sRcNotify, 1, "sRcTun", sRcTun, null, "sRcLast", sRcLast, null);
