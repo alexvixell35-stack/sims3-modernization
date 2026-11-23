@@ -14,7 +14,7 @@
  "GoalGen": ["goalgen.cpp"],
  "CellMemoProbe": ["cellmemo.cpp"],
  "RouteSpeed": ["floodmemo.cpp", "plancand.cpp", "routesnap.cpp", "routespeed.cpp"],
- "WorldPrecompute": ["smoothcut.cpp", "worldpre.cpp"],
+ "WorldPrecompute": ["smoothcut.cpp", "smoothmemo.cpp", "worldpre.cpp"],
  "RouteEarlyOut": ["earlyout.cpp"],
  "SaveWrite": ["savewrite.cpp"],
  "Startup": ["dxdiagcache.cpp"],

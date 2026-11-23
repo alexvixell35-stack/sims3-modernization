@@ -624,6 +624,127 @@ callees` and `+0x72 set`, and the scan table's `built N (pair replaced E, too ma
 > contributor branch (`SmoothMemo`: shadow 4,348,062 / 0, no gain; `WorldAlt`: built, not run) is not part of it; §15
 > (`SmoothCut`) was imported earlier and follows unchanged.
 
+## 14. Built: `SmoothMemo`, a memo of quadtree cell evaluations inside one pass 3 (default off; s212 shadow 0 mismatches, s213 no gain)
+
+Branch `speed/pass3-smooth`. Ghidra headless on a private copy (`0x663900`, `0x66B670`, `0x66B600`, `0x66B090`, `0x667350`,
+`0x662D30`, `0x6681E0`, `0x668C40`, `0x667DB0`, `0x669530`, `0x669850`, `0x669B90`, `0x669D80`, `0x66A380`, `0x66A040`,
+`0x61B7C0`, `0x64E380`) plus capstone on the sites. The repack copy only, as in §13.
+
+### 14.1 What a lot test really costs [verified: decompile + disassembly]
+
+§11.2 listed "two point queries and one segment query" for the mode with smoother byte `+0x72` clear. Read further:
+
+- `0x6675E0` (thiscall, `ECX` = the level's tree from `0x62FB10`, stack: context = smoother `+0x10`, x0, z0, x1, z1,
+  radius; `ret 0x18`): `0x663900` walks a stack cursor down to the start point and one to the end point, then
+  `QuadCell_Multiplier 0x66B670` on each. Either multiplier equal to the constant at `0x11584C8`: blocked. Else the segment
+  query `0x667350`, whose callback `0x662D30` asks `0x66B670` and, when the query's flag byte is 0, the class reader
+  `0x66B600` for **every final cell the segment crosses**, and keeps count, minimum and maximum. Blocked when the maximum
+  does not exceed one of the two end multipliers.
+- Both readers return the cursor's cached value only when the cursor's key (`+0x1C >> 8`) equals the context's flags
+  (`+0x50`). The cursors of a query are stack objects built for that query, so the key never matches and every ask runs
+  the evaluator `QuadTreeCellPos_C 0x66B090`: the leaf's footprint entries with three or more virtual calls each
+  (docs/98 §5.2), and for small cells a temporary footprint set. With a flag above bit 23 the 24-bit key cannot match
+  at all, so the class ask evaluates the same cell a second time (docs/98 §5.4).
+- So a lot test is N + 2 cell evaluations for a segment crossing N cells, and the neighbouring tests of a pass (same
+  anchor and the next sample; the next anchor and the same sample) cross mostly the same cells. The pass tests no segment
+  twice (§11.1), but it evaluates the same cells many times. That is the repeat.
+- `+0x72` is bit 10 of the route's flag word (`0x64E380`: `byte [smoother + 0x72] = (flags >> 10) & 1`). With it set the
+  lot test collects footprints into a set and asks no multiplier: this memo does nothing there.
+
+### 14.2 Why the memo is exact
+
+| claim | status |
+|---|---|
+| The evaluator reads of the cursor: tree `+0x04`, parent `+0x08`, node `+0x0C`, size `+0x14`, position `+0x18`, shape (low byte of `+0x1C`), quadrant (bits 8-9 of `+0x20`, in `0x66A380`). It writes `+0x10` and the class byte before reading them; the reader writes the key bits of `+0x1C` before it calls | [verified: decompile of `0x66B090` and the callees above; disassembly of both readers] |
+| It reads of the context: options `+0x40`, class word `+0x4C`, flags `+0x50`; it writes `+0x4C` in one branch (docs/98 §5.3 step 1) | [verified: every `param + offset` on the context argument in those functions]; the same list FloodMemo rests on (docs/667) |
+| Beyond that: the node's footprint entries and the footprints' own fields, the agent's ignore list behind the options, one object lookup by the agent (`0x8294E0`) | [verified for the functions read; the footprints' virtual slots are docs/98 §5.1's table, not re-read] |
+| The game reuses the same answer itself: a cell of the in-room search keeps multiplier and class for the whole hierarchical plan while the flags match | [verified, docs/98 §5.4] |
+| A class 1 cell clears its key (`0x66B090`'s last lines), so the game evaluates it at every use | [verified]. Why: not read. The memo never keeps such a cell |
+| The trees do not change inside a pass 3 call | [inferred]: the pass runs inside a plan, the plan holds the routing lock from start to end, tree writers run under it (docs/81, docs/156). Not re-proved here. Three checks stand next to it, below |
+
+Record: key = the seven cursor words above, the options pointer, a hash of the options' first `0x38` bytes, the context's
+class word, flags and lot (`+0x54`); value = the cursor's `+0x10`, `+0x1C`, class byte and the context's class word after
+the game's function ran. A hit writes those four back and returns what the game's reader returns (`fld [cursor + 0x10]`
+or `movsx eax, byte [cursor + 0x20]`). A miss runs the game's function on the game's cursor and copies what it left.
+
+Checks that do not depend on the lock claim:
+
+1. A tree whose pending-edits byte (`+0x4C`) is set is neither read from nor written to the memo. `0x6675E0` asks for its
+   two end cells before `0x667350` flushes deferred edits (`0x666A40`), so those two asks could see a tree the segment
+   query then changes.
+2. `[RouteSnap]`'s write sequence (when its counting is on) and the thread's managed-call sequence: a move drops every
+   record, and an evaluation during which either moved is not kept.
+3. Every pass 3 call starts with an empty table and closes the memo in a `__finally`; an ask that is not below the open
+   pass's stack frame closes it too.
+
+Shadow (`SmoothMemo=2`) runs every evaluation and compares the four words.
+
+### 14.3 Sites and install
+
+Five `E8` retargets, no address row (`ts3addr_count` stays 1507). Found from the post pass's row `0x64E380`: its call of
+pass 3 (`+0x48`), then pass 3 `+0x426` -> segment test `+0xB8` -> lot walk `+0x189` -> lot test `+0x1D9` -> `0x6675E0`,
+whose calls at `+0x62` and `+0x70` must name one function (the multiplier reader) and whose call at `+0xEE` is the
+segment query; in it `+0x3A` must be a `push imm32` (the callback) and `+0x7C` a call of the tree walk `0x663B20` (a
+row: the anchor); the callback's calls at `+0x0E` (must be the multiplier reader) and `+0x24` (the class reader); both
+readers must start with the same nine bytes and call one evaluator at `+0x2A`. Anything else: `SKIP ... nothing
+written`. With `Probe` on, the probe's stubs sit on the first four calls; the install takes the game's functions from the
+probe's saved targets and chains the pass hook into the probe's stub, so it runs after `InstallWorldPre`.
+
+| site | was | now |
+|---|---|---|
+| `0x64E3C8` | `call 0x64DD40` | `SmPassHook` (thiscall shape, `ret 4`, `eax` passed back whole) |
+| `0x667642`, `0x667650` | `call 0x66B670` | `SmMultHook` |
+| `0x662D3E` | `call 0x66B670` | `SmMultHook` |
+| `0x662D54` | `call 0x66B600` | `SmClassHook` |
+
+Outside a pass 3 call of the thread both reader hooks call the game's function at once (one thread-local read). The
+callback and `0x6675E0` are shared with other callers of the segment query; they get that path.
+
+### 14.4 Keys, scope, line
+
+- `[WorldPrecompute] SmoothMemo` 0 off (default), 1 serve, 2 shadow. Runtime switch `native_set smoothmemo` (export
+  `ts3native_smoothmemo` `+0x00`); the hooks install only with a non-zero ini value.
+- `SmoothMemoAll` 0 (default): records answer only for unseen and seen-NPC routers; a household, selected or unknown
+  router's pass runs as shadow. 1 (or `[Experimental] HouseholdToo=1`): every router except a plan that may be a player
+  command (FloodMemo's rule).
+- Line, once a minute: `world precompute: smooth memo mode M ready 0xR: pass 3 calls with the memo N (ms; shadow by
+  scope), without N (ms); cell evaluations asked N: from a record, the game's (kept; not kept: class 1, slots taken,
+  other), tree with pending edits; records dropped in a pass; shadow checks N mismatch N (the game's evaluations a
+  record would have replaced N ms)`.
+- Memory: 280 KB per planning thread, at most 4.
+
+### 14.5 What is not known
+
+- **The gain.** No run has split pass 3 (§13 probe, NOT RUN). The memo touches only lot tests with `+0x72` clear. If the
+  storm's passes are mostly off-lot (`0x658A00`) or run with `+0x72` set, it saves next to nothing. The shadow arm
+  measures it directly: "the game's evaluations a record would have replaced N ms" against "pass 3 calls with the memo
+  (ms)". Read that before turning mode 1 on.
+- The tree walk `0x663B20`, its box tests and the two descents per test still run on a hit.
+- Candidates (a) (lot of the start point per anchor) and (b) (sin / cos per lot) were not built: (b) exists as
+  `[LotSinCos]`; (a) saves one cell-list lookup per test (§13.2). (c) as a per-pass obstacle set and (d) were not built:
+  this memo is the part of (c) that could be proved (the per-cell answers, not the tree walk); (d)'s set differs per
+  segment.
+- Why the game re-evaluates class 1 cells.
+
+### 14.6 Checks (no game)
+
+- `smoothmemo-host-test.cpp` (Linux, 32-bit, freestanding; `smoothmemo-test.h` as is): the table; a pass of 300-400 asks
+  through the hooks against the same asks through fake readers alone, every cursor word, context word and return value
+  folded into one sum (equal), with fewer evaluator runs; class 1; the class word's replay; flags above bit 23; a new
+  pass after a write with no sequence; a write and a managed call inside a pass; every context word, an option word,
+  another tree; pending edits; no context; the cursor's own cached answer; a pass left open; shadow and a forced
+  mismatch; scope; the command rule; a thread with no block. Thirteen deliberate bugs (a key word dropped, no replay of
+  the class word or byte, class 1 kept, each guard off) each fail it.
+- clang-cl `/Zs /W4` on `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp`: 0 errors, no warning in
+  `smoothmemo*`. `node tools/selftest-all.ts --ci` pass.
+- Not run: MSVC, the Windows selftest, the game. The five sites' bytes were read from the repack copy only; the install
+  check guards another layout.
+
+### 14.7 Next storm
+
+`ip-smoothmemo-storm` (repros.json): ini `SmoothMemo=2`, `[RouteSnap] Enabled=1`; arms off, shadow, serve by
+`native_set smoothmemo`. Pass: mismatch 0, no `SMOOTH MEMO MISMATCH`; then compare pass 3 ms per call with and without.
+
 ## 15. Pass 3: where the 2.5 ms go, and `[WorldPrecompute] SmoothCut` (default off; shadow and serve ran, §15.10)
 
 Branch `feat/post-pass-1120`, 2026-11-20. Inputs: the `Probe` lines of s195 / s196 / s198 / s200 (the §13 probe ran),
