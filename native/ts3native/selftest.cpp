@@ -5,6 +5,7 @@
 #define TS3N_EA_PORT  // the EA-port-only features (ts3addr.h): [ImageGuard], [EaCrashFixes] SimNoTexture, tested on dummies
 #include "ts3native.cpp"
 static void TestUfStrict();  // unseenfbc-test.h (docs/202 §3.1.1), run from the uf block
+static void TestDiscYield(u8* out);  // discyield-test.h (docs/640 [RouteAsync] DiscYieldForeign), run from TestFallback
 #include <assert.h>
 // CI runners are shared and slow: wall-clock bounds and thread-interleaving checks flake there (docs/RELEASE.md, "CI-skipped
 // selftests"). TIMING_ASSERT skips its condition on CI (GITHUB_ACTIONS / CI set) with one SKIPPED line per site; runs locally.
@@ -1221,6 +1222,101 @@ static void TestA10() {
         memset(&k.afMode, 0, offsetof(Ts3nCounters, afActiveTrip) + 4 - offsetof(Ts3nCounters, afMode));
     }
 
+    // 13c. docs/670 §24 [RouteAsync] ForeignKindsUnseen (release shape Kinds=0 ForeignKinds=4 WatchdogKind2=1): a foreign
+    // PlanFromPoint START (a boat planned in its rider's task) starts only with the kind's bit and an unseen scope answer for
+    // this route; every other case is refused "Foreign" and its IC call runs the game's IC directly, the reason tallied.
+    // Preconditions set here, nothing left from 13 / 13b: no job, no scope answer, no refusal note, the tallies at 0.
+    {
+        auto fstart = [](DWORD h, int kind, const float* pt) -> u8 {
+            for (int i = 0; pt && i < 3; i++) {
+                DWORD b;
+                memcpy(&b, &pt[i], 4);
+                assert(GetOptionHook(h, b, kAsyncOptHi | kArHi | kArPtHi | (DWORD)i << 24, 1) == 1);
+            }
+            return GetOptionHook(h, 0, kAsyncOptHi | kArHi | kArFgnHi | (DWORD)kind << 24, 1);
+        };
+        const int ownKinds = g_arOwnKinds, wd0k = g_arWdKind2, hh0 = g_hhToo;
+        const LONG afMode0 = k.afMode, afKinds0 = k.afKinds, wdPass0 = k.arWdPass;
+        g_arOwnKinds = 0, g_arWdKind2 = 1, g_hhToo = 0;
+        k.afKinds = 4, k.afMode = 1;
+        KdScopeClear(kH1), KdScopeClear(kH2);
+        g_rfbHandle = 0, g_scTagH = 0, g_scProbeH = 0;  // no refusal note, no stuck-check / watchdog tag from an earlier case
+        memset(g_arPassWhy, 0, sizeof(g_arPassWhy)), memset(g_arPassN, 0, sizeof(g_arPassN));
+        g_afUnseenPass[1] = g_afUnseenNot[1] = g_afUnseenPass[2] = g_afUnseenNot[2] = 0;
+        assert(!JobFor(kH1) && !AsyncBusy() && g_async.state == A_IDLE);
+        const LONG seen0 = k.afSeen[1], st0 = k.afStarted[1], sync0 = k.arSyncN[1];
+        // switch off (the release shape): unseen or not, refused Foreign; the IC passes to the game, reason Foreign
+        g_afUnseenKinds = 0;
+        KdScopeSet(kH1, 2);
+        assert(!fstart(kH1, 2, p1) && !JobFor(kH1) && g_rfbHandle == kH1 && g_rfbWhy == RFB_FOREIGN && k.afSeen[1] == seen0 + 1);
+        assert(ArPass(2, kH1) && ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && k.arSyncN[1] == sync0);
+        assert(g_arPassWhy[1][RFB_FOREIGN] == 1 && g_arPassN[1] == 1 && g_rfbHandle == 0 && g_afUnseenNot[1] == 0);
+        // a call with no START at all for its route: tallied as kRf3None
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && g_arPassWhy[1][kRf3None] == 1 && g_arPassN[1] == 2);
+        // switch on for PlanFromPoint: no answer (unknown = household), household / seen (1), seen NPC (3) and another route's
+        // answer stay refused Foreign
+        g_afUnseenKinds = 2;
+        KdScopeClear(kH1);
+        assert(!fstart(kH1, 2, p1) && !JobFor(kH1) && g_rfbWhy == RFB_FOREIGN);
+        KdScopeSet(kH1, 1);
+        assert(!fstart(kH1, 2, p1) && !JobFor(kH1));
+        KdScopeSet(kH1, 3);
+        assert(!fstart(kH1, 2, p1) && !JobFor(kH1));
+        KdScopeSet(kH2, 2);
+        assert(!fstart(kH1, 2, p1) && !JobFor(kH1) && k.afStarted[1] == st0 && g_afUnseenNot[1] == 4 && g_afUnseenPass[1] == 0);
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && g_arPassWhy[1][RFB_FOREIGN] == 2 && k.arSyncN[1] == sync0);
+        // the unseen route: starts as an A10 foreign job (af, no fb cap), is not passed through, READY then the IC take it
+        KdScopeSet(kH1, 2);
+        g_icSleepMs = 10;
+        assert(fstart(kH1, 2, p1) && JobFor(kH1) && JobFor(kH1)->af == 1 && JobFor(kH1)->fb == 0 && k.afStarted[1] == st0 + 1);
+        assert(g_afUnseenPass[1] == 1 && !ArPass(2, kH1));
+        WaitReady(kH1);
+        assert(ArCollect(2, out, kH1, p1) == out && ArFromJob(out, kH1, 2, p1) && g_arPassN[1] == 3);
+        Cancel(kH1);
+        g_icSleepMs = 0;
+        // a kind outside the mask (Replan, not hooked for anything here) stays refused even when unseen; an own PlanFromPoint
+        // START of the unseen route is not this switch's (no watchdog tag): refused at the kind gate
+        KdScopeSet(kH1, 2);
+        assert(!fstart(kH1, 1, NULL) && !JobFor(kH1) && g_rfbWhy == RFB_FOREIGN);
+        KdScopeSet(kH1, 2);
+        assert(!ArStart(kH1, 2, p1) && !JobFor(kH1) && g_rfbWhy == RFB_NOSTART);
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && g_arPassWhy[1][RFB_NOSTART] == 1);
+        // afMode 0 (--ab a10foreign off) refuses it too; a followed route keeps A10's Active refusal
+        k.afMode = 0;
+        KdScopeSet(kH1, 2);
+        assert(!fstart(kH1, 2, p1) && !JobFor(kH1) && g_afUnseenPass[1] == 1);
+        k.afMode = 1;
+        g_arActive = 1;
+        KdScopeSet(kH1, 2);
+        assert(!fstart(kH1, 2, p1) && !JobFor(kH1) && g_rfbWhy == RFB_ACTIVE && g_afUnseenPass[1] == 2);
+        g_arActive = 0;
+        assert(ArCollect(2, out, kH1, p1) == out && ArSync(out, 2) && g_arPassWhy[1][RFB_ACTIVE] == 1);
+        // [Experimental] HouseholdToo lifts the exemption (a worker-computed answer), counted
+        const LONG lift0 = k.hhTooLift;
+        g_hhToo = 1;
+        KdScopeSet(kH1, 1);
+        g_icSleepMs = 5;
+        assert(fstart(kH1, 2, p1) && JobFor(kH1) && k.hhTooLift == lift0 + 1);
+        WaitReady(kH1);
+        assert(ArCollect(2, out, kH1, p1) == out && ArFromJob(out, kH1, 2, p1));
+        Cancel(kH1);
+        g_icSleepMs = 0;
+        // hooked only for this switch (no WatchdogKind2): calls without a job still pass straight to the game
+        g_hhToo = hh0, g_arWdKind2 = 0;
+        KdScopeClear(kH1), KdScopeClear(kH2);
+        assert(ArPass(2, kH1) && !ArPass(3, kH1) && !ArPass(1, kH1));
+        g_afUnseenKinds = 0;
+        assert(!ArPass(2, kH1));
+        g_arOwnKinds = ownKinds, g_arWdKind2 = wd0k;
+        k.afMode = afMode0, k.afKinds = afKinds0, k.arWdPass = wdPass0;
+        g_rfbHandle = 0;
+        memset(g_arPassWhy, 0, sizeof(g_arPassWhy)), memset(g_arPassN, 0, sizeof(g_arPassN));
+        g_arPassLines = 0, g_afUnseenLines = 0;
+        g_afUnseenPass[0] = g_afUnseenPass[1] = g_afUnseenPass[2] = g_afUnseenNot[0] = g_afUnseenNot[1] = g_afUnseenNot[2] = 0;
+        memset(&k.afSeen, 0, offsetof(Ts3nCounters, afActiveTrip) + 4 - offsetof(Ts3nCounters, afSeen));
+        assert(!JobFor(kH1) && !AsyncBusy() && g_async.state == A_IDLE);
+    }
+
     // 14. docs/250 §7.1 [RouteAsync] WatchdogKind2 (release shape Kinds=0 ForeignKinds=4): an own PlanFromPoint START starts
     // only with the switch on and the watchdog tag (ScProbeMark bit 10) on its route; every other kind-2 call runs the game's IC
     // directly (arWdPass), with no SyncIc (arSyncN unchanged)
@@ -1537,6 +1633,100 @@ static void TestFallback() {
     assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
     Cancel(kH1);
     assert(k.fbPendApplied == 2);  // never applied twice
+    // 2c. SkipRetry (docs/670 §20): a job the worker skipped is parked at its READY and queued again; scope, PlayerFirst and
+    // the two caps leave it to today's synchronous plan. The skip itself is faked: a collected job's slot set to J_SKIPPED
+    {
+        SkipRetryCounters& sr = ts3native_skipretry;
+        memset(&sr, 0, sizeof(sr));
+        const LONG busy0 = k.fbPendBusy, applied0 = k.fbPendApplied, retry0 = k.fbRetryMode;
+        const LONG rfbMax0 = k.rfbMax, logMs0 = k.rfbLogMs, rp0 = k.fbRetryParked, rq0 = k.fbRetryQueued, rg0 = k.fbRetryGaveUp;
+        LONG rfbN0[3] = {0, 0, 0}, rfbMs0[3] = {0, 0, 0};
+        memcpy(rfbN0, k.rfbN, sizeof(rfbN0));
+        memcpy(rfbMs0, k.rfbMs, sizeof(rfbMs0));
+        k.rfbLogMs = 0x7FFFFFFF;  // this block's sync plans write no line and leave the fallback sums as they were (restored below)
+        k.fbRetryMode = 0;  // not needed by SkipRetry
+        // switch off: as before (READY says done, the plan runs here)
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1) && !JobFor(kH1) && g_rfbWhy == RFB_SKIPPED && sr.parked == 0 && sr.notScope == 0);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // on, a route known unseen, world quiet: parked and queued in the same READY, the worker's answer collected
+        sr.mode = 1;
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        const LONG started1 = k.asyncStarted;
+        assert(!Ready(kH1) && sr.parked == 1 && sr.queued == 1 && sr.ticksMax == 1 && k.asyncStarted == started1 + 1);
+        assert(JobFor(kH1) && JobFor(kH1)->sk == 1 && JobFor(kH1)->state != J_SKIPPED && JobFor(kH1)->state != J_PEND);
+        WaitReady(kH1);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
+        Cancel(kH1);
+        // the collect put the job's scope back as the route's mark (IcCollect, docs/197 §7: for a plan given back); the managed
+        // plan end clears it (ts3fixes op 12). Without this the next START of the route would take scope 2 again
+        KdScopeClear(kH1);
+        // scope not known unseen (household, selected, unknown): today's path
+        assert(Start(kH1));
+        WaitReady(kH1);
+        assert(JobFor(kH1) && JobFor(kH1)->kdScope == 0 && JobFor(kH1)->uf == 0 && JobFor(kH1)->pf == 0 && JobFor(kH1)->sk == 0);
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1));
+        assert(!JobFor(kH1) && g_rfbWhy == RFB_SKIPPED);
+        assert(sr.notScope == 1 && sr.parked == 1);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // a PlayerFirst-marked route, even when unseen: today's path
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        JobFor(kH1)->pf = 1;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1) && !JobFor(kH1) && sr.notScope == 2 && sr.parked == 1);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // kSkMax parks used: today's path
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        JobFor(kH1)->sk = kSkMax;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        assert(Ready(kH1) && !JobFor(kH1) && sr.capped == 1 && sr.parked == 1 && g_rfbWhy == RFB_SKIPPED);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        // pending lot updates and +0x918 busy on every tick: parked, kFbRetryTicks READY polls, then the synchronous plan
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        p[0x10E] = 1;
+        g_fbAcq = FbBusyAcquire;
+        const LONG started2 = k.asyncStarted;
+        for (LONG i = 1; i < kFbRetryTicks; i++) assert(!Ready(kH1) && JobFor(kH1)->state == J_PEND && JobFor(kH1)->pend == i);
+        assert(sr.parked == 2 && sr.gaveUp == 0 && sr.queued == 1 && k.asyncStarted == started2);
+        assert(Ready(kH1) && !JobFor(kH1) && sr.gaveUp == 1 && sr.ticksMax == kFbRetryTicks && g_rfbWhy == RFB_M1 + 3);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        p[0x10E] = 0;
+        g_fbAcq = FakeLockAcquire;
+        // parked, then the switch goes off: given up on the next tick with the skip's reason
+        assert(Start(kH1));
+        WaitReady(kH1);
+        JobFor(kH1)->kdScope = 2;
+        InterlockedExchange(&JobFor(kH1)->state, J_SKIPPED);
+        p[0x10E] = 1;
+        g_fbAcq = FbBusyAcquire;
+        assert(!Ready(kH1) && sr.parked == 3);
+        sr.mode = 0;
+        assert(Ready(kH1) && !JobFor(kH1) && sr.gaveUp == 2 && g_rfbWhy == RFB_SKIPPED);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me);
+        p[0x10E] = 0;
+        g_fbAcq = FakeLockAcquire;
+        assert(k.fbRetryParked == rp0 && k.fbRetryQueued == rq0 && k.fbRetryGaveUp == rg0);  // M1Retry's own counters untouched
+        k.fbPendBusy = busy0, k.fbPendApplied = applied0, k.fbRetryMode = retry0;
+        k.rfbMax = rfbMax0, k.rfbLogMs = logMs0;
+        memcpy(k.rfbN, rfbN0, sizeof(rfbN0));
+        memcpy(k.rfbMs, rfbMs0, sizeof(rfbMs0));
+        memset(&sr, 0, sizeof(sr));
+        KdScopeClear(kH1);  // no scope mark of this block reaches the cases below
+    }
     // RemovalFirst (docs/89 §18), M1Retry off as shipped: a queued removal parks a route not known unseen, the tick waits while it
     // is queued, then the job queues; other records and the switch keep today's START; the tick cap goes on
     {
@@ -1621,6 +1811,7 @@ static void TestFallback() {
         p[0x10E] = 1;
         g_fbAcq = FbBusyAcquire;
     }
+    TestDiscYield(out);  // docs/640
     // the tick cap: READY gives up, the plan runs here with reason M1Pending, nothing applied
     p[0x10E] = 1;
     g_fbAcq = FbBusyAcquire;
@@ -13362,6 +13553,7 @@ static void TestP5() {
 #include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
 #include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
 #include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
+#include "discyield-test.h"  // TestDiscYield ([RouteAsync] DiscYieldForeign, docs/640)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)

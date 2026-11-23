@@ -116353,6 +116353,143 @@
     ]
   },
   {
+    "id": "ip-skipretry-storm",
+    "bug": "docs/670 §20: with [RouteAsync] M1Retry=1 the sync plans left in the s170-s187 route storms (2026-11-20) are led by reason Skipped (13 lines / 1.2 s over ten on arms, max 142 ms; VisitCommunityLot / GoToLot PlanToLotEx, PlanToMailbox, PlanToSlot): the job was queued, but when the worker took it the world was not quiet (pending lot updates, a dirty lot index, a save), so the job is dropped and the task's next READY poll runs the whole plan on the sim thread, behind the job that runs then (key 0x760BFF).",
+    "fix": "ts3native [RouteAsync] SkipRetry=1 (default 0, needs FallbackAsync=1): READY parks the skipped START again (J_PEND) and FbRetry tries it each poll as M1Retry does (pending updates applied under a +0x918 try, then queued); 30 polls or 3 skips in all, then today's synchronous plan. Only routes known unseen at START (UnseenFallback mark or scope 2; every route with [Experimental] HouseholdToo=1), never a PlayerFirst-marked route. Exported block ts3native_skipretry, runtime switch native_set skipretry.",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: clang-cl syntax check; selftest case 2c in TestFallback written for the MSVC CI build). Needs the MSVC asi with [RouteAsync] FallbackAsync=1 M1Retry=1 LogFallbackMs=40 and the unseen marks on (UnseenFallback, or main's [RouteAsync] Kinds=7 with its docs/288 §4 unseen-only gate), as the s170 arm.",
+    "expect": "on arms: 'route skip retry:' line with parked > 0 and queued near parked, gave up small, max ticks well under 30; 'route async: sync plan ... reason Skipped' lines and their ms well below the off arms (what is left: routes not known unseen = 'not parked: scope'); no new watchdog, no 'route async: sim waited' line; read the hitch totals' +0x918 wait sum (docs/670 §7.1).",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      }
+    ],
+    "loop": {
+      "steps": [
+        {
+          "cmd": "native_set",
+          "setup": true,
+          "args": {
+            "skipretry": "$on"
+          },
+          "waitS": 1,
+          "note": "arm: 0 off, 1 park a skipped job and retry it on READY"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "count": 40,
+            "repeatS": 30,
+            "seed": 148
+          },
+          "waitS": 180,
+          "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path): route jobs back to back while lots update"
+        },
+        {
+          "cmd": "route_storm",
+          "setup": false,
+          "args": {
+            "stop": true
+          },
+          "waitS": 5
+        }
+      ],
+      "arms": [
+        "off",
+        "on",
+        "on",
+        "off"
+      ],
+      "until": {
+        "perArm": 2
+      },
+      "maxMinutes": 30
+    },
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "native_set",
+        "args": {
+          "goalhitsro": 1
+        },
+        "note": "back to the ini value"
+      }
+    ]
+  },
+  {
+    "id": "ip-foreignkindsunseen-storm",
+    "bug": "PlanFromPoint plans of unseen NPC boats / vehicles planned in their rider's task (foreign STARTs, ts3fixes bit 61) run synchronously on the sim thread: the release ini's [RouteAsync] ForeignKinds=4 has no PlanFromPoint bit, the START is refused Foreign, and the kind-2 pass-through (ArPass) logs the plan only as 'entry Route_PlanLocked (no IC)' (s189: 16 of 18 sync plans >= 40 ms, 41-93 ms each, plus their waits on key 0x760BFF caller 0x764400; docs/670 §23.3, §24.1)",
+    "fix": "ts3native [RouteAsync] ForeignKindsUnseen (bits as Kinds, default 0): a foreign START of those kinds starts as an A10 foreign job only for a route ts3fixes scoped unseen right before it; household / selected / seen / unknown scope stay refused Foreign and sync (docs/670 §24.2). Log only, always on: 'route async: kind K call of route ... runs the game's IC with no job (reason)' tallies the pass-through calls by START refusal reason (§24.3)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static + clang-cl syntax check only, 2026-11-20): never run; selftest TestA10 case 13c written for the MSVC CI build. ini-only switch, so the arms are two loads: off = ForeignKindsUnseen=0, on = ForeignKindsUnseen=2, both with WatchdogKind2=1 ForeignKinds=4 and [RouteAsync] LogFallbackMs=40, [HitchAttr] RouteLockMs=20 RouteLockCallers=1 (no rewind between them). Spawned townies cross the island by boat while the camera stays on the household lot. Off arm: read the 'runs the game's IC with no job' lines: Foreign should carry most kind-2 calls (if NoStartMsg or NoYield leads instead, the cause of docs/670 §24.1 is wrong for that share). On arm: 'ForeignKindsUnseen: foreign kind 2 START of unseen route' lines present; count 'entry Route_PlanLocked (no IC)' lines with managed caller Route_PlanFromPoint and 'route lock wait' lines with key 00760BFF and first caller 00764400 against the off arm.",
+    "expect": "off: 'runs the game's IC with no job' lines for kind 2, mostly Foreign. on: foreign kind-2 passes logged, fewer (no IC) PlanFromPoint sync plans and 0x760BFF / 0x764400 waits; 'not unseen' counts the household and seen boats that stay sync; no new stuck boat rider, no crash; household lines unchanged.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ufplansplit": true
+        },
+        "waitS": 1,
+        "note": "log the split of every slow plan"
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 240,
+        "note": "unseen townies route across the island: own replans in their own tasks"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 240,
+        "note": "second wave"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "ufplansplit": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

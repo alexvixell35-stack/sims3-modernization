@@ -73,6 +73,13 @@ static inline int RtRole(DWORD tid) {  // 0 main, 1 sim, 2 worker, 3 other
 // Waits until the async job is done unless this thread may not or need not: the worker, a real +0x918 owner (the worker is
 // outside its job body), the owner inside a callback for the job (returns false: waiting would deadlock). The owner pumps.
 // P5c (p5c.cpp): an owner of the lock the worker lent out is inside the job's window, so it waits (WaitAsyncDone hands it back)
+// the site kind of an RtWaitJob key, for the "route jobs: sim waited ... at rtwait" line
+static const char* RtSiteName(DWORD key) {
+    static const char* const kKind[] = {"quadtree read", "quadtree write", "quadtree leaf", "destroy", "lot grid", "pending updates",
+                                        "index rebuild", "save", "build routing data", "lot save", "debug", "teardown", "closing", "steer"};
+    const DWORD kind = key & 0xFF;
+    return kind == 0x40 ? "lost-removal flush" : kind < sizeof(kKind) / sizeof(kKind[0]) ? kKind[kind] : "other";
+}
 static bool RtWaitJob(volatile LONG* us, DWORD key) {
     const DWORD tid = GetCurrentThreadId();
     if (g_async.state != A_RUNNING || !g_async.lock || RgIsWorker(tid) || (ts3native_counters.rgOwnerTid == (LONG)tid && !P5cLent(tid)))
@@ -86,8 +93,11 @@ static bool RtWaitJob(volatile LONG* us, DWORD key) {
     const DWORD handle = g_async.handle;
     const DWORD mwTok = MwSeqNow();  // [MovedWaits]
     UdWait("the running route job");  // [UserDiag]: no-op unless this thread is saving
-    if (tid == g_async.owner) WaitAsyncDone(SW_RTWAIT);
-    else while (g_async.state == A_RUNNING) Sleep(1);
+    if (tid == g_async.owner) {
+        g_swRtKey = key;
+        WaitAsyncDone(SW_RTWAIT);
+        g_swRtKey = 0;
+    } else while (g_async.state == A_RUNNING) Sleep(1);
     UdWait(NULL);
     const LONG waited = UsSince(t0);
     InterlockedExchangeAdd(us, waited);

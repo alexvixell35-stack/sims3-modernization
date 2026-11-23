@@ -359,7 +359,9 @@ static void DiscDrain(bool force, int site) {
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     UdWait("the running route job (deferred footprints)");  // [UserDiag]: no-op unless this thread is saving
+    g_swDs = site;  // docs/640: SwNote's >= 300 ms line names the drain point
     WaitAsyncDone(SW_DISC);
+    g_swDs = -1;
     static const DWORD kInfinite = 0xFFFFFFFF;
     UdWait("+0x918 (deferred footprints)");
     if (lock) LockAcquireHook(lock, NULL, &kInfinite);  // uncontended: no job runs and none can start
@@ -408,6 +410,69 @@ static void DiscPoll(int site) {
     DiscDrain(GetTickCount() - g_disc[g_discHead].t >= kDiscMaxAgeMs, site);
 }
 
+// docs/640 [RouteAsync] DiscYieldForeign (default 0; no counter fields, the layout stays; log lines "disc yield"). A forced
+// DiscDrain at our script-IC points (DiscPoll: the oldest record is >= kDiscMaxAgeMs old) blocks the sim thread until the
+// running job ends (WaitAsyncDone, 300+ ms for an IP boat ReplanFromPosition foreign job). With the switch on, when that job is a
+// foreign one (fb / af), the caller is known unseen (scope 2 or an UnseenFallback mark; unknown = household keeps the wait) and its
+// task sits at its root interpreter state (CanYield), the drain is skipped instead: START parks (J_PEND, dy; the job is queued by
+// READY once the records are applied, so it plans on the same footprints as after the wait), READY answers "not yet" or hands over a
+// result the drain could not change (DyReadyMay). The records are applied by the first DiscPoll with no job running. Ceilings: an
+// oldest record >= kDyMaxAgeMs old is drained with the wait as before, whoever asks; a parked START waits at most kDyTicks READY ticks.
+//
+// docs/670 §27 [RouteAsync] DiscYieldOwn (default 0; no counter fields; the same lines): the same skip when the running job is an
+// own one (a Sim's Route.Plan job, most of a storm's jobs: s294-s309 have 67 of 81 READY disc waits behind one). Every rule above
+// holds unchanged (known unseen caller at its task root, the 1 s ceiling, DyReadyMay at READY, the park at START); only the kind of
+// the job that is waited out differs, and nothing in the park or in READY reads it. The two switches are independent.
+static int g_dyMode, g_dyOwn;
+static const DWORD kDyMaxAgeMs = 1000;
+static LONG g_dyYield[DS_N], g_dyKept[3], g_dyTicksMax, g_dyCapped, g_dyAgeMaxMs;  // kept: 0 not unseen, 1 cannot yield, 2 age ceiling
+static LONG g_dyOwnYield, g_dyReadyQueued;  // yields behind an own job; READY polls whose own job was queued (DyReadyMay: the wait stays)
+static DWORD g_dyLogMin, g_dyLogLines;
+static DWORD DiscOldestAge() { return g_discCount ? GetTickCount() - g_disc[g_discHead].t : 0; }
+// owner thread, at a START / A10 START / READY point right before its DiscPoll: true = skip the forced drain (the caller yields).
+// unseen: the caller's route is known unseen (scope 2 or an UnseenFallback mark)
+static bool DiscYieldOk(bool unseen, int site) {
+    if ((g_dyMode != 1 && g_dyOwn != 1) || !g_discCount || g_discDraining || GetCurrentThreadId() != g_async.owner) return false;
+    if (g_async.state != A_RUNNING) return false;  // no wait
+    const bool own = g_jobOwn != 0;  // read once: the worker clears it at the job's end
+    if (own ? g_dyOwn != 1 : g_dyMode != 1) return false;  // DiscYieldForeign: a foreign job; DiscYieldOwn (docs/670 §27): an own one
+    const DWORD age = DiscOldestAge();
+    if (age < kDiscMaxAgeMs) return false;  // DiscPoll would not wait either
+    // household, selected and unknown scope keep the wait (HhExempt; [Experimental] HouseholdToo=1 lifts it: the same plan, later)
+    const int kept = HhExempt(!unseen) ? 0 : !CanYield() ? 1 : age >= kDyMaxAgeMs ? 2 : -1;
+    if (kept >= 0) { g_dyKept[kept]++; return false; }
+    g_dyYield[site >= 0 && site < DS_N ? site : DS_OTHER]++;
+    if (own) g_dyOwnYield++;
+    if ((LONG)age > g_dyAgeMaxMs) g_dyAgeMaxMs = (LONG)age;
+    const DWORD now = GetTickCount();
+    if (now - g_dyLogMin >= 60000) g_dyLogMin = now, g_dyLogLines = 0;
+    if (g_dyLogLines++ < 10)
+        Log("disc yield: %s skipped a forced drain (oldest record %lu ms, %d queued) while %s job %08lX runs", site == DS_READY ? "READY" :
+            site == DS_A10START ? "A10 START" : "START", age, g_discCount, own ? "own" : "foreign", g_async.handle);
+    return true;
+}
+// READY of a caller whose job is still queued, right before its DiscPoll: counted when that poll will wait out a job a yield
+// switch covers (the drain is what keeps the worker from claiming the queued job past the old records, docs/640 §2)
+static void DiscYieldQueuedNote() {
+    if (!g_discCount || g_discDraining || g_async.state != A_RUNNING || DiscOldestAge() < kDiscMaxAgeMs) return;
+    if (g_jobOwn ? g_dyOwn == 1 : g_dyMode == 1) g_dyReadyQueued++;
+}
+// one READY tick of a START parked by it (DiscPoll ran just before): true = keep waiting (a forced drain is still due)
+static bool DiscYieldWait(LONG ticks) {
+    const bool due = g_discCount && DiscOldestAge() >= kDiscMaxAgeMs;
+    if (due && ticks < kDyTicks) return true;
+    if (due) g_dyCapped++;
+    if (ticks > g_dyTicksMax) g_dyTicksMax = ticks;
+    return false;
+}
+static void DiscYieldLog() {
+    if (g_dyMode || g_dyOwn || g_dyYield[DS_START] + g_dyYield[DS_A10START] + g_dyYield[DS_READY])
+        Log("disc yield: mode %d yields START %ld A10 START %ld READY %ld, kept not unseen %ld no yield %ld age cap %ld, parked capped %ld "
+            "max ticks %ld, max age %ld ms; own mode %d: %ld of the yields behind an own job, READY kept for a queued job %ld",
+            g_dyMode, g_dyYield[DS_START], g_dyYield[DS_A10START], g_dyYield[DS_READY], g_dyKept[0], g_dyKept[1], g_dyKept[2], g_dyCapped,
+            g_dyTicksMax, g_dyAgeMaxMs, g_dyOwn, g_dyOwnYield, g_dyReadyQueued);
+}
+
 // RemovalFirst (docs/89 §18, [Discourage] RemovalFirst=1, 0 = off; no counter fields, the hotfix keeps the layout; log line
 // "footprint removal first"): a START that finds a removal queued (a job runs, so DiscPoll left it) would plan past it: the worker
 // takes the next job at once and nothing drains between two jobs. A removal a Sim's own script made just before (a region's
@@ -441,6 +506,7 @@ static bool DiscRfWait(LONG ticks, LONG cap) {
 static void DiscRfLog() {
     if (g_udMode || g_udQueued) Log("uof defer: mode %d queued %ld applied %ld dropped %ld full %ld", g_udMode, g_udQueued, g_udApplied, g_udDropped, g_udFull);
     if (g_rfMode || g_rfParked) Log("footprint removal first: mode %d parked %ld capped %ld max ticks %ld", g_rfMode, g_rfParked, g_rfCapped, g_rfTicksMax);
+    DiscYieldLog();
 }
 
 // PlanDrain (docs/89 §13; counters v107, [Discourage] PlanDrain=1, runtime switch sdMode, --ab plandrain): before a sim-thread
@@ -1292,6 +1358,10 @@ static void InstallDiscourage(const wchar_t* ini) {
     InstallPrivateFpDefer(ini);
     g_rfMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"RemovalFirst", 1, ini), 0, 1);
     Log("footprint removal first: RemovalFirst=%d (docs/89 §18)", g_rfMode);
+    g_dyMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"DiscYieldForeign", 0, ini), 0, 1);
+    g_dyOwn = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"DiscYieldOwn", 0, ini), 0, 1);
+    Log("disc yield: DiscYieldForeign=%d (docs/640; 1 = an unseen caller parks instead of waiting out a foreign job at a forced drain), "
+        "DiscYieldOwn=%d (docs/670 §27; the same behind an own job)", g_dyMode, g_dyOwn);
     ts3native_counters.fpgMode = Clamp(GetPrivateProfileIntW(L"Discourage", L"GhostSweep", 1, ini), 0, 2);
     g_fpgTest = GetPrivateProfileIntW(L"Discourage", L"GhostTest", 0, ini) != 0;
     Log("ghost census at world load: GhostSweep=%ld (0 off, 1 count only, 2 remove)%s", ts3native_counters.fpgMode, g_fpgTest ? ", GhostTest ops on" : "");

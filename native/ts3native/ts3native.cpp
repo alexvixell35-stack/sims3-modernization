@@ -3396,6 +3396,23 @@ struct Ts3nCounters {
     LONG tskIters;                          // +0x6B24, Simulate iterations seen
     LONG tskSpare[8];                       // +0x6B28, v222 spares (held for the [ModBudget] handoff, docs/302 §3 #4)
 };
+// [RouteAsync] SkipRetry=1 (default 0, docs/670 §20; needs FallbackAsync=1): a job the worker skipped because the world was not
+// quiet when it took it (pending lot updates, a dirty lot index, a save) is parked at its READY poll like a refused M1Retry
+// START (J_PEND) and FbRetry tries it again each tick, instead of the plan running on the sim thread at once. Same plan, same
+// IC, later by ticks. Only routes known unseen at START (UnseenFallback mark or scope 2), or any route with [Experimental]
+// HouseholdToo (HhExempt); never a PlayerFirst-marked route (the player's command). Caps: kSkMax parks per START and FbRetry's
+// kFbRetryTicks READY ticks in all, then today's synchronous plan. Own exported block: the counters layout is unchanged.
+struct SkipRetryCounters {
+    volatile LONG mode;   // +0x00 runtime switch (native_set skipretry): 1 = park a skipped job
+    LONG parked;          // +0x04 skipped jobs parked again at READY
+    LONG queued;          // +0x08 of those, queued again by a later tick (the worker plans them)
+    LONG gaveUp;          // +0x0C parked ones that planned synchronously after all (tick cap, another refusal, poll cap)
+    LONG ticksMax;        // +0x10 most READY ticks one such START waited in all
+    LONG notScope;        // +0x14 skipped jobs left to today's sync plan: not known unseen (household, selected, unknown) or PlayerFirst
+    LONG capped;          // +0x18 skipped jobs left to today's sync plan: kSkMax parks or the tick cap already used
+};
+extern "C" __declspec(dllexport) SkipRetryCounters ts3native_skipretry = {};
+static const LONG kSkMax = 3;
 // [RouteAsync] ReadyDrain (default 0, docs: issue "why off-screen plans take 500-800 ms"): on the READY poll of the job the worker
 // runs now, serve every managed call it posts within a small budget (not one per poll), and answer "done" in the same poll when
 // the job ended meanwhile. Same calls, same order, same thread (the job's owner); only sooner. Own exported block, so the
@@ -3564,6 +3581,10 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.asyncReady && (c.fbRetryMode || c.fbRetryParked))  // docs/134 §2.6
         Log("route fallback retry: mode %ld parked %ld queued %ld gave up %ld max ticks %ld", c.fbRetryMode, c.fbRetryParked,
             c.fbRetryQueued, c.fbRetryGaveUp, c.fbRetryTicksMax);
+    if (c.asyncReady && (ts3native_skipretry.mode || ts3native_skipretry.parked))  // docs/670 §20
+        Log("route skip retry: mode %ld parked %ld queued %ld gave up %ld max ticks %ld, not parked: scope %ld cap %ld (skipped %ld)",
+            ts3native_skipretry.mode, ts3native_skipretry.parked, ts3native_skipretry.queued, ts3native_skipretry.gaveUp,
+            ts3native_skipretry.ticksMax, ts3native_skipretry.notScope, ts3native_skipretry.capped, c.asyncSkipped);
     if (c.asyncReady && c.asyncStarted)  // docs/134 §10
         Log("route jobs: longest foreign %ld us own %ld us, >= 200 ms foreign %ld own %ld; job cap mode %ld %ld ms capped %ld",
             c.fbjcMaxUs, c.ownJobMaxUs, c.fbjcLong, c.ownJobLong, c.fbjcMode, c.fbjcCapUs / 1000, c.fbjcCapped);
@@ -4022,6 +4043,8 @@ struct AsyncJob {
     LONGLONG p6T0, p6CutQpc;  // P6 phase split (§24.7): QPC at an armed Route.Plan START and at its cut (0 = none)
     LONG pend;        // docs/134 §2.6: READY ticks this J_PEND slot has waited
     LONG rf;          // docs/89 §18: parked by RemovalFirst, not by M1 (FbRetry)
+    LONG sk;          // docs/670 §20 [RouteAsync] SkipRetry: times this START's job was skipped by the worker and parked again
+    LONG dy;          // docs/640: parked by [RouteAsync] DiscYieldForeign instead of a forced DiscDrain wait at START
     LONG probe;       // docs/163 §10: 1 = a stuck-check probe (PROBE mark on this route right before its own START)
     LONG sc;          // docs/163 §10.1: stuck-check tag of an own START (ScTagText), 0 = no mark
     u64 kdId;         // docs/197: the route's follower (route +0x40/+0x44) read at START with KindDeadlines on, 0 = unknown
@@ -5249,6 +5272,7 @@ typedef u8(__cdecl* GetOptionFn)(DWORD handle, DWORD optLo, DWORD optHi, DWORD o
 typedef LONG(__fastcall* LockAcquireFn)(void* lock, void* edx, const DWORD* deadline);       // 0x4E16F0 thiscall, ret 4
 static GetOptionFn g_getOptOrig;
 static LockAcquireFn g_lockOrig;
+static const char* RtSiteName(DWORD key);            // rtsites.cpp
 static bool RtM1Allows(void** lock, int* why = NULL);  // rtsites.cpp; *why = the refusal's asyncRefusedM1 index
 static int RtM1Why();                                  // rtsites.cpp; the same test, no counter: refusal index or -1
 // docs/247 §13.4 C (counters v192 ds*): which drain point a forced DiscDrain wait happened at. START / A10-channel START (kinds 1-3 and the foreign kind 0) / READY /
@@ -5260,6 +5284,13 @@ static void DiscPoll(int site = DS_OTHER);  // discourage.cpp
 static void DiscDrain(bool force, int site = DS_OTHER);  // discourage.cpp
 static bool DiscRfStart();            // discourage.cpp (docs/89 §18 RemovalFirst)
 static bool DiscRfWait(LONG ticks, LONG cap);
+static bool DiscYieldOk(bool unseen, int site);  // discourage.cpp (docs/640 [RouteAsync] DiscYieldForeign)
+static bool DiscYieldWait(LONG ticks);
+static void DiscYieldQueuedNote();  // discourage.cpp (docs/670 §27)
+static bool DyKnownUnseen(DWORD handle);         // unseenfb.cpp: scope 2 or an UnseenFallback mark for this START
+static bool g_dyArm, g_dyParked;  // sim thread: this START skipped its forced drain (AsyncStartBody parks it) / it was parked
+static DWORD g_swRtKey;           // sim thread: RtWaitJob's site key of the wait in progress (0x02000000 | RT_* kind, 0x40 = lost-removal flush)
+static int g_swDs = -1;          // sim thread: the DS_* drain point of the DiscDrain wait in progress (SwNote's line)
 static DWORD g_collect;  // handle whose READY said "done": the owner's next IC_Route_Plan for it takes the stored result
 
 // docs/183: one sim-thread wait for a job, by site (always counted; a wait that found no job is not one). yieldable = the wait
@@ -5273,13 +5304,19 @@ static void SwNote(int site, LONG us, bool yieldable, DWORD handle, bool own) {
     if (g_hsOn) HsJob(site, us, handle);  // docs/666: the frame's job-wait sum
     if (us < g_hsJobLogUs) return;         // [HitchAttr] JobWaitLogMs (300)
     static const char* const kSite[SW_N] = {"runplan", "rtwait", "disc", "collect", "drop", "other"};
+    static const char* const kDs[DS_N] = {"other", "START", "A10 START", "READY", "CANCEL", "plan", "D1 add", "D1 remove", "usf",
+                                          "fp2", "fp2 reader", "private fp", "ghost census", "ghost op", "world", "save"};
     static DWORD minute, lines;
     const DWORD now = GetTickCount();
     if (now - minute >= 60000) minute = now, lines = 0;
     if (lines++ >= (DWORD)g_hsJobLinesPerMin) return;
     InterlockedIncrement(&k.swLines);
-    Log("route jobs: sim waited %ld ms for a job at %s (route %08lX, %s job, task could yield %s)", us / 1000, kSite[site], handle,
-        own ? "own" : "foreign", yieldable ? "yes" : "no");
+    // docs/640: a disc wait also names its drain point (DS_*): only START / A10 START / READY can take DiscYieldForeign
+    const bool ds = site == SW_DISC && g_swDs >= 0 && g_swDs < DS_N;
+    char rt[40] = "";  // docs/670 §20: an rtwait names its gate site (RtSiteName, rtsites.cpp)
+    if (site == SW_RTWAIT && g_swRtKey) _snprintf_s(rt, sizeof(rt), _TRUNCATE, ", site %s", RtSiteName(g_swRtKey));
+    Log("route jobs: sim waited %ld ms for a job at %s (route %08lX, %s job, task could yield %s%s%s%s)", us / 1000, kSite[site], handle,
+        own ? "own" : "foreign", yieldable ? "yes" : "no", ds ? ", drain point " : "", ds ? kDs[g_swDs] : "", rt);
 }
 
 // docs/183 JOBBUSY (ts3fixes RouteBackoff.cs StepAside, GetOption2 with optHi 0x85000000; bit 63 has no name, so the game and
@@ -5617,8 +5654,8 @@ static u8* IcCollect(int kind, u8* out, DWORD handle, const float* pt, const voi
     }
     // docs/134 §2.6: still parked (the C# poll cap, or a Plan without READY): plan here, as M1Pending did before M1Retry
     if (InterlockedCompareExchange(&j->state, J_FREE, J_PEND) == J_PEND) {
-        InterlockedIncrement(&k.fbRetryGaveUp);
-        return SyncIc(kind, out, handle, pt, RFB_M1 + 3, "pending", ret);
+        InterlockedIncrement(j->sk ? &ts3native_skipretry.gaveUp : &k.fbRetryGaveUp);
+        return SyncIc(kind, out, handle, pt, j->sk ? RFB_SKIPPED : RFB_M1 + 3, "pending", ret);
     }
     // never started: take it back and plan it here
     if (InterlockedCompareExchange(&j->state, J_FREE, J_QUEUED) == J_QUEUED) {
@@ -5777,7 +5814,10 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     void* lock = NULL;
     int m1 = 0;
     bool park = false;  // docs/134 §2.6 M1Retry: the one +0x918 try met a running job; READY tries again each tick
-    if (!RtM1Allows(&lock, &m1)) {
+    // docs/640 DiscYieldForeign: the START's forced drain was skipped, so it parks below whatever M1 says now; FbRetry runs the
+    // M1 test once the old records are applied (a job runs now, so the test could only say "busy")
+    const bool dy = g_dyArm;
+    if (!dy && !RtM1Allows(&lock, &m1)) {
         if (m1 != 3 || k.fbMode != 1) return AsyncRefuse(handle, RFB_M1 + m1, kind);
         if (FbApplyPending()) {
             if (!RtM1Allows(&lock, &m1)) return AsyncRefuse(handle, RFB_M1 + m1, kind);
@@ -5807,6 +5847,7 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
         }
     if (!j) { InterlockedIncrement(&k.asyncQueueFull); CapFull(CAP_JOBS); return AsyncRefuse(handle, RFB_QFULL, kind); }
     j->probe = probe;  // before J_PEND / J_QUEUED: the worker reads it once it claims the slot
+    j->sk = 0;
     j->sc = sc;
     j->kdId = k.kdMode == 1 ? KdFollower(handle) : 0;  // docs/197: the backoff key, read here on the sim thread
     j->rfGoal = j->kdId ? RfGoal(handle) : 0;
@@ -5817,8 +5858,10 @@ static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) 
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
     j->ufCut = j->ufCutView = 0;
     // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it
-    j->rf = !park && j->kdScope != 2 && !j->uf && DiscRfStart();
-    if (j->rf) park = true;
+    j->rf = !park && !dy && j->kdScope != 2 && !j->uf && DiscRfStart();
+    j->dy = dy ? 1 : 0;
+    if (j->rf || dy) park = true;
+    if (dy) g_dyParked = true;  // GetOptionHook's DyStartEnd: no drain owed
     if (park) {  // the slot is this route's; READY (FbRetry) queues it once the pending updates are applied
         g_async.owner = GetCurrentThreadId();
         j->handle = handle;
@@ -5881,14 +5924,22 @@ static bool FbRetry(AsyncJob* j) {
     const DWORD h = j->handle;
     void* lock = NULL;
     int m1 = 0, why = -1;
-    Max(&k.fbRetryTicksMax, ++j->pend);
+    const bool sk = j->sk != 0;  // docs/670 §20: a skipped job parked again (its own counters, its own switch)
+    SkipRetryCounters& sr = ts3native_skipretry;
+    ++j->pend;
+    Max(sk ? &sr.ticksMax : &k.fbRetryTicksMax, j->pend);
     j->doneTick = GetTickCount();
-    const bool rf = j->rf != 0;
+    const bool rf = j->rf != 0, dy = j->dy != 0;
     if (rf) {
         if (DiscRfWait(j->pend, kFbRetryTicks)) return true;
         j->rf = 0;
     }
-    if (!rf && (k.fbMode != 1 || k.fbRetryMode != 1)) why = RFB_M1 + 3;  // switched off while parked
+    if (dy) {  // docs/640: parked by DiscYieldForeign; READY's DiscPoll applies the records once the job ends (or at the cap)
+        if (DiscYieldWait(j->pend)) return true;
+        j->dy = 0;
+        j->pend = 0;  // the M1 test below gets its own kFbRetryTicks, as a START that had waited at the drain
+    }
+    if (sk ? (k.fbMode != 1 || sr.mode != 1) : (!rf && !dy && (k.fbMode != 1 || k.fbRetryMode != 1))) why = sk ? RFB_SKIPPED : RFB_M1 + 3;  // switched off while parked
     else if (AsyncLosRoute(h)) why = RFB_LOS;
     else if (!RtM1Allows(&lock, &m1)) {
         if (m1 != 3) why = RFB_M1 + m1;
@@ -5899,13 +5950,32 @@ static bool FbRetry(AsyncJob* j) {
     }
     if (why < 0 && (j->kind || j->fb) && g_routeIsActive(h)) why = RFB_ACTIVE;
     if (why < 0 && JobQueue(j, h, j->kind, NULL, j->fb != 0 || j->af != 0, lock)) {
-        InterlockedIncrement(&k.fbRetryQueued);
+        InterlockedIncrement(sk ? &sr.queued : &k.fbRetryQueued);
         return true;
     }
-    InterlockedIncrement(&k.fbRetryGaveUp);
+    InterlockedIncrement(sk ? &sr.gaveUp : &k.fbRetryGaveUp);
     InterlockedExchange(&j->state, J_FREE);
     RfbRefuse(h, why < 0 ? RFB_INVOKE : why);
     return false;
+}
+
+// docs/670 §20 [RouteAsync] SkipRetry, READY of a J_SKIPPED job (sim thread, the job's owner): true = parked again as J_PEND
+// (FbRetry then runs this tick); false = today's path (the slot freed, the plan synchronous). The worker is done with a
+// J_SKIPPED slot, so the state change is the sim thread's alone.
+static bool HhExempt(bool hh);
+static bool SkPark(AsyncJob* j) {
+    SkipRetryCounters& sr = ts3native_skipretry;
+    if (sr.mode != 1 || ts3native_counters.fbMode != 1) return false;
+    const bool unseen = j->uf || j->kdScope == 2;
+    if (j->pf || (!unseen && HhExempt(true))) { InterlockedIncrement(&sr.notScope); return false; }
+    if (j->sk >= kSkMax || (j->sk && j->pend >= kFbRetryTicks)) { InterlockedIncrement(&sr.capped); return false; }
+    if (!j->sk++) j->pend = 0;  // the first park starts the tick count; later parks go on with it (one cap for the START)
+    j->rf = 0;
+    j->dy = 0;
+    j->doneTick = GetTickCount();
+    InterlockedIncrement(&sr.parked);
+    InterlockedExchange(&j->state, J_PEND);
+    return true;
 }
 
 // A10 handshake (ts3fixes RouteBackoff.cs), GetOption2 with bits 58 + 59 (no RouteOption2 names up there; the game answers
@@ -5921,10 +5991,19 @@ static int g_arOwnKinds = 7;        // [RouteAsync] Kinds: kinds whose own-task 
 static int g_arWdKind2;             // [RouteAsync] WatchdogKind2 (docs/250 §7.1): own PlanFromPoint STARTs tagged as the watchdog's check may start
 // WatchdogKind2 with kind 2 in neither Kinds nor ForeignKinds: a PlanFromPoint call that READY did not arm and that meets no job of
 // its route runs the game's IC directly (a10.cpp), exactly as unhooked. Sim thread only.
-static bool ArWdPass(DWORD handle) {
-    return g_arWdKind2 && !((g_arOwnKinds | ts3native_counters.afKinds) & 2) && g_collect != handle &&
+// docs/670 §24 [RouteAsync] ForeignKindsUnseen (default 0; bits as Kinds): a foreign START (bit 61) of these kinds passes the
+// foreign gate without its ForeignKinds bit, only for a route scoped unseen right before it (a10.cpp AfUnseenPass). Sim thread only.
+static int g_afUnseenKinds;
+static bool AfUnseenPass(DWORD handle, int idx);
+// a kind hooked only for WatchdogKind2 (kind 2) or ForeignKindsUnseen and in neither Kinds nor ForeignKinds: a call that READY
+// did not arm and that meets no job of its route runs the game's IC directly (a10.cpp), exactly as unhooked (no SyncIc). Sim
+// thread only.
+static bool ArPass(int kind, DWORD handle) {
+    const int bit = 1 << (kind - 1), extra = g_afUnseenKinds | (g_arWdKind2 ? 2 : 0);
+    return (extra & bit) && !((g_arOwnKinds | ts3native_counters.afKinds) & bit) && g_collect != handle &&
            !(GetCurrentThreadId() == g_async.owner && JobFor(handle));
 }
+static bool ArWdPass(DWORD handle) { return ArPass(2, handle); }
 
 static u8 SpDoorMsg(DWORD lo, DWORD hi);  // snap.cpp: door mirror channel (RouteOption bits 63 + 58)
 static u8 UtViewerMsg(DWORD lo, DWORD hi);  // unseen.cpp: active-household viewer channel (RouteOption bits 63 + 57)
@@ -6024,6 +6103,66 @@ static bool ArOwnGateOk(DWORD handle) {
     InterlockedIncrement(&k.arScopeRefused);
     return false;
 }
+// docs/176 A10-channel START after its drain point (GetOptionHook): the kind / foreign gates, then AsyncStart
+static u8 A10StartBody(DWORD handle, DWORD optHi, int idx) {
+    const bool ptOk = idx == 1 || g_arPtSet == 7;  // kinds 2-3: all three components since the last START
+    g_arPtSet = 0;
+    // docs/134 foreign START (ts3fixes 0.36.7+, kind 0 on this channel; older builds answered 0 here): Route.Plan from a
+    // yielding task that is not the route's Sim. fbMode 0: refused as "Foreign" (the log then splits NoStart)
+    if (!idx) {
+        InterlockedIncrement(&ts3native_counters.fbForeign);
+        if (ts3native_counters.fbMode != 1) { g_collect = 0; return RfbRefuse(handle, RFB_FOREIGN); }
+        return AsyncStart(handle, 0, NULL, true);
+    }
+    // docs/176: foreign kind STARTs need ForeignKinds (afKinds) and afMode 1, else "Foreign" (the sync line names it);
+    // own STARTs need the kind in Kinds (a kind hooked only for ForeignKinds keeps its own-task plans synchronous)
+    const bool fgn = (optHi & kArFgnHi) != 0;
+    if (!idx || !ptOk) { g_collect = 0; return idx ? ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false)) : 0; }
+    // docs/250 §7.1 [RouteAsync] WatchdogKind2: an own PlanFromPoint START whose route carries the watchdog tag (ScProbeMark
+    // bit 10, sent by ts3fixes only for an A1 check, which never picks a household, selected or unknown-scope Sim)
+    const bool wd2 = idx == 2 && !fgn && g_arWdKind2 && g_scTagH == handle && (g_scTag & 0x10400) == 0x10400;
+    // a watchdog tag is good for this START only, refused or not (AsyncStart takes it otherwise)
+    const bool wdTagged = g_scTagH == handle && (g_scTag & 0x400);
+    if (fgn) {
+        InterlockedIncrement(&ts3native_counters.afSeen[idx - 1]);
+        // docs/670 §24: a kind outside ForeignKinds starts only for an unseen route (ForeignKindsUnseen); afMode gates both
+        if (ts3native_counters.afMode != 1 || (!(ts3native_counters.afKinds >> (idx - 1) & 1) && !AfUnseenPass(handle, idx))) {
+            g_collect = 0;
+            if (wdTagged) g_scTagH = 0;
+            return ArRf3(idx, fgn, handle, RfbRefuse(handle, RFB_FOREIGN));
+        }
+    } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2) {
+        g_collect = 0;
+        if (wdTagged) g_scTagH = 0;
+        return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false), kRf3KindsOff);
+    } else if (!wd2 && !ArOwnGateOk(handle)) {  // docs/288 §4: unseen routes only, guards on
+        g_collect = 0;
+        if (wdTagged) g_scTagH = 0;
+        return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false));
+    }
+    float pt[3];
+    memcpy(pt, g_arPt, sizeof(pt));
+    return ArRf3(idx, fgn, handle, AsyncStart(handle, idx, idx >= 2 ? pt : NULL, fgn));
+}
+// docs/640 [RouteAsync] DiscYieldForeign at READY: only where the skipped drain cannot reach this caller's plan. Its job is the one
+// running (planned on the footprints of its START) or done (READY hands the stored result over), or a START this switch parked
+// (not queued until the records are applied) with ticks left before the cap. A queued job keeps the wait: the drain stops the worker
+// from claiming it before the old records are applied. No job, a skipped one or another park: a sync plan may follow, keep the wait.
+static const LONG kDyTicks = 30;  // per parked START: READY ticks before its forced wait comes back (as kFbRetryTicks)
+static bool DyReadyMay(const AsyncJob* j) {
+    if (!j) return false;
+    const LONG st = j->state;
+    if (st == J_PEND) return j->dy && j->pend + 1 < kDyTicks;
+    return st == J_DONE || (st == J_RUNNING && g_async.state == A_RUNNING && g_async.handle == j->handle);
+}
+// docs/640 [RouteAsync] DiscYieldForeign: a START whose forced drain was skipped (g_dyArm) and that AsyncStartBody did not park
+// (refused: its sync plan follows at once) takes the skipped drain now, so that plan sees the footprints it saw before the switch
+static u8 DyStartEnd(u8 r, int site) {
+    const bool armed = g_dyArm, parked = g_dyParked;
+    g_dyArm = g_dyParked = false;
+    if (armed && !parked) DiscPoll(site);
+    return r;
+}
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
     if ((u8)options2 && optHi == kJobBusyHi && optLo <= 2) return JyBusy(handle, optLo);  // docs/183
@@ -6043,58 +6182,33 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
             return 1;
         }
         if (ts3native_counters.asyncMode != 1) DropAllJobs();
-        DiscPoll(DS_A10START);  // a script-IC point, as Route.Plan's START (docs/84 §2.4)
+        // docs/640 DiscYieldForeign: an unseen caller at its task root parks instead of waiting out a foreign job here
+        g_dyArm = DiscYieldOk(DyKnownUnseen(handle), DS_A10START);
+        if (!g_dyArm) DiscPoll(DS_A10START);  // a script-IC point, as Route.Plan's START (docs/84 §2.4)
         P5cFlush();  // P5c: parked destroy references, when no job runs (docs/88 §5.1 flush points)
-        const bool ptOk = idx == 1 || g_arPtSet == 7;  // kinds 2-3: all three components since the last START
-        g_arPtSet = 0;
-        // docs/134 foreign START (ts3fixes 0.36.7+, kind 0 on this channel; older builds answered 0 here): Route.Plan from a
-        // yielding task that is not the route's Sim. fbMode 0: refused as "Foreign" (the log then splits NoStart)
-        if (!idx) {
-            InterlockedIncrement(&ts3native_counters.fbForeign);
-            if (ts3native_counters.fbMode != 1) { g_collect = 0; return RfbRefuse(handle, RFB_FOREIGN); }
-            return AsyncStart(handle, 0, NULL, true);
-        }
-        // docs/176: foreign kind STARTs need ForeignKinds (afKinds) and afMode 1, else "Foreign" (the sync line names it);
-        // own STARTs need the kind in Kinds (a kind hooked only for ForeignKinds keeps its own-task plans synchronous)
-        const bool fgn = (optHi & kArFgnHi) != 0;
-        if (!idx || !ptOk) { g_collect = 0; return idx ? ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false)) : 0; }
-        // docs/250 §7.1 [RouteAsync] WatchdogKind2: an own PlanFromPoint START whose route carries the watchdog tag (ScProbeMark
-        // bit 10, sent by ts3fixes only for an A1 check, which never picks a household, selected or unknown-scope Sim)
-        const bool wd2 = idx == 2 && !fgn && g_arWdKind2 && g_scTagH == handle && (g_scTag & 0x10400) == 0x10400;
-        // a watchdog tag is good for this START only, refused or not (AsyncStart takes it otherwise)
-        const bool wdTagged = g_scTagH == handle && (g_scTag & 0x400);
-        if (fgn) {
-            InterlockedIncrement(&ts3native_counters.afSeen[idx - 1]);
-            if (ts3native_counters.afMode != 1 || !(ts3native_counters.afKinds >> (idx - 1) & 1)) {
-                g_collect = 0;
-                if (wdTagged) g_scTagH = 0;
-                return ArRf3(idx, fgn, handle, RfbRefuse(handle, RFB_FOREIGN));
-            }
-        } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2) {
-            g_collect = 0;
-            if (wdTagged) g_scTagH = 0;
-            return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false), kRf3KindsOff);
-        } else if (!wd2 && !ArOwnGateOk(handle)) {  // docs/288 §4: unseen routes only, guards on
-            g_collect = 0;
-            if (wdTagged) g_scTagH = 0;
-            return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false));
-        }
-        float pt[3];
-        memcpy(pt, g_arPt, sizeof(pt));
-        return ArRf3(idx, fgn, handle, AsyncStart(handle, idx, idx >= 2 ? pt : NULL, fgn));
+        return DyStartEnd(A10StartBody(handle, optHi, idx), DS_A10START);
     }
     if (optLo != 0 || (optHi & ~(kAsyncCancelHi | kNoYieldHi)) != kAsyncOptHi) return g_getOptOrig(handle, optLo, optHi, options2);
     if (optHi & kNoYieldHi) return !CanYield();
     if (ts3native_counters.asyncMode != 1) DropAllJobs();  // switched off mid-job: READY then says "done", Route.Plan plans inline
-    DiscPoll(!(u8)options2 ? DS_START : (optHi & kAsyncCancelHi) ? DS_CANCEL : DS_READY);  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
+    AsyncJob* j = (u8)options2 && GetCurrentThreadId() == g_async.owner ? JobFor(handle) : NULL;  // READY / CANCEL: the caller's job
+    // docs/640 DiscYieldForeign: START parks (AsyncStartBody) and READY answers "not yet" instead of waiting out a foreign job,
+    // for a caller known unseen at its task root; CANCEL keeps the wait
+    bool dy = false;
+    if (!(u8)options2) dy = g_dyArm = DiscYieldOk(DyKnownUnseen(handle), DS_START);
+    else if (!(optHi & kAsyncCancelHi) && DyReadyMay(j)) dy = DiscYieldOk(j->uf || j->kdScope == 2, DS_READY);
+    else if (!(optHi & kAsyncCancelHi) && j && j->state == J_QUEUED) DiscYieldQueuedNote();  // docs/670 §27: counted, the wait stays
+    if (!dy) DiscPoll(!(u8)options2 ? DS_START : (optHi & kAsyncCancelHi) ? DS_CANCEL : DS_READY);  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
     P5cFlush();
-    if (!(u8)options2) return AsyncStart(handle);
-    AsyncJob* j = GetCurrentThreadId() == g_async.owner ? JobFor(handle) : NULL;
+    if (!(u8)options2) return DyStartEnd(AsyncStart(handle), DS_START);
+    j = GetCurrentThreadId() == g_async.owner ? JobFor(handle) : NULL;  // again: the drain served the job's managed calls
     if (optHi & kAsyncCancelHi) {  // the caller gives up (finally, Sim reset): its job must not outlive it
         g_collect = 0;
         if (j) DropJob(j);
         return 1;
     }
+    const bool skTried = j && j->state == J_SKIPPED;
+    if (skTried) SkPark(j);  // docs/670 §20: J_PEND now, or left as it is for the sync plan below
     if (j && j->state == J_PEND) {  // docs/134 §2.6: parked START, one more try this tick
         if (FbRetry(j)) return 0;
         j = NULL;  // given up: READY says done, the plan runs synchronously with the recorded reason
@@ -6104,9 +6218,15 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
-        InterlockedExchange(&j->state, J_FREE);
+        // docs/670 §20: the worker skipped it after the state read above (between the reads, or while ReadyDrain served it):
+        // parked here as at the top (once per READY: a job SkPark already left here is not counted twice). FbRetry false has
+        // freed the slot and recorded the reason
+        if (!skTried && SkPark(j) && FbRetry(j)) return 0;
+        if (j->state == J_SKIPPED) {
+            InterlockedExchange(&j->state, J_FREE);
+            RfbRefuse(handle, RFB_SKIPPED);
+        }
         j = NULL;
-        RfbRefuse(handle, RFB_SKIPPED);
     }
     g_collect = j ? handle : 0;
     return 1;
@@ -6347,6 +6467,10 @@ static int ReadRouteAsync(const wchar_t* ini) {
     g_fbCaller = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"LogFallbackCaller", 0, ini), 0, 8);  // docs/666 §5
     if (g_fbCaller) Log("route async: LogFallbackCaller=%ld: sync plan lines name their managed caller", g_fbCaller);
     ts3native_counters.fbRetryMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"M1Retry", 0, ini), 0, 1);
+    ts3native_skipretry.mode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"SkipRetry", 0, ini), 0, 1);
+    if (ts3native_skipretry.mode)
+        Log("OK   route async SkipRetry=1: a job the worker skipped (world not quiet) is parked and retried on READY for routes "
+            "known unseen (needs FallbackAsync=1; docs/670 section 20)");
     const int jobCapMs = GetPrivateProfileIntW(L"RouteAsync", L"FbJobCapMs", 0, ini);  // docs/134 §10
     ts3native_counters.fbjcCapUs = jobCapMs > 0 ? Clamp(jobCapMs, 50, 60000) * 1000 : 0;
     ts3native_counters.fbjcMode = ts3native_counters.fbjcCapUs ? 1 : 0;

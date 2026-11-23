@@ -71,6 +71,11 @@ static u8 UfMsg(DWORD handle, DWORD lo) {
     return 1;
 }
 
+// docs/640 DiscYieldForeign, sim thread, before START (nothing taken): this route's next START is known unseen (ts3fixes scope 2 or
+// an UnseenFallback mark, the two AsyncStartBody stores as kdScope / uf); no answer = unknown = household
+static bool DyKnownUnseen(DWORD handle) {
+    return handle && ((g_kdScopeH == handle && g_kdScope == 2) || (g_ufH == handle && UfOn()));
+}
 // sim thread: the mark is good for this route's next START or sync IC only
 static bool UfTake(DWORD handle) {
     if (!handle || g_ufH != handle) return false;
