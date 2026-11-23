@@ -93,6 +93,7 @@ static void UbAdd(int site, int row, LONGLONG ticks) {
     UnseenBandCounters& b = ts3native_unseenband;
     b.n[site][row]++;
     g_ubTk[site][row] += ticks;
+    if (g_tskInRun == 1 && (site == UB_FOOT || site == UB_PLAN)) g_nsOutTk[site == UB_PLAN][row] += ticks;  // docs/329 (g_tskInRun: NonSimSplit only)
     b.us[site][row] = (LONG)(g_ubTk[site][row] * 1000000 / g_qpf.QuadPart);
 }
 static void UbAddUs(int site, int row, LONG us) { UbAdd(site, row, (LONGLONG)us * g_qpf.QuadPart / 1000000); }
@@ -154,12 +155,12 @@ static void UbLogCounters() {
     char line[1024];
     for (int s = 0; s < UB_SITES; s++) {
         int o = 0;
-        for (int r = 0; r <= b.nEdges; r++) o += sprintf_s(line + o, sizeof(line) - o, " b%d %ld/%ld", r, b.n[s][r], b.us[s][r] / 1000);
+        for (int r = 0; r <= b.nEdges; r++) o += SFmt(line + o, sizeof(line) - o, " b%d %ld/%ld", r, b.n[s][r], b.us[s][r] / 1000);
         Log("unseen bands %s (n/ms per band, docs/322):%s hh %ld/%ld none %ld/%ld", kSite[s], line, b.n[s][UB_HH], b.us[s][UB_HH] / 1000,
             b.n[s][UB_UNK], b.us[s][UB_UNK] / 1000);
     }
     int o = 0;
-    for (int r = 0; r <= b.nEdges; r++) o += sprintf_s(line + o, sizeof(line) - o, " b%d %ld", r, b.simUpd[r]);
+    for (int r = 0; r <= b.nEdges; r++) o += SFmt(line + o, sizeof(line) - o, " b%d %ld", r, b.simUpd[r]);
     Log("unseen bands: ready 0x%lX, passes %ld, Sim agent updates%s hh %ld none %ld; autonomy actors named %ld, runs with none %ld, camera-only asks %ld",
         b.ready, k.unPasses, line, b.simUpd[UB_HH], b.simUpd[UB_UNK], b.autNamed, b.autNone, b.camOnly);
 }
@@ -176,7 +177,7 @@ static void ApplyUnseenBands(const wchar_t* ini) {
     b.ready = 1;
     char e[96];
     int o = 0;
-    for (int i = 0; i < b.nEdges; i++) o += sprintf_s(e + o, sizeof(e) - o, i ? ",%ld" : "%ld", b.edgeM[i]);
+    for (int i = 0; i < b.nEdges; i++) o += SFmt(e + o, sizeof(e) - o, i ? ",%ld" : "%ld", b.edgeM[i]);
     Log("OK   unseen bands (docs/322): edges %s m (%ld bands + household + no position), nearest of camera target / position and household"
         " Sims; sites locomotion, waits, footprint, plans, pose ([AnimPhase] Split), Sim tasks + autonomy ([Diag] TaskSeam); a minute line each",
         e, b.nEdges + 1);

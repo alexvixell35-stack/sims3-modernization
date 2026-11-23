@@ -1,0 +1,886 @@
+{
+  "note": "REPINNED 11-18 to ts3native.asi.yalias-1117 (was hotres2-1117: on dalexlol-1117b motivemultonce swaps Motive.UpdateMotiveWithDecay, hotres2 never compiled it, jit-hot-reserve rerun1 fixed that in yalias2); smoke repinned from the old m2y1116 / master-1116c pair to the same asi/ini/package as the jobs, method regex accepts Motive.DecayOrig. REPINNED 11-17 to ts3native.asi.hotres2-1117 (0.36.273-hotres2 on master: gchold2 set + YRows + HotReserve), ini hotres2-1117, ts3fixes dalexlol-1117b. m2-motive-time-1116 (PREPARED, NOT RUN; needs quiet machine; RUN ONLY AFTER m2-motive-correct-1116 passes AND its exits per entry do not already eat the gain, docs/537 §31): ABBA timing of [MonoJit] YRows (0 off, 1 on) on BP then IP, 10 min each, seed 12345, Mode=1, Count=0, no samplers; same asi, ini base, package in every arm, only YRows differs. Noise: queue.ts stops a job at >= 10% other CPU / clock drop and reruns it once. Smoke runs first (~12 min); 8 jobs x ~12 min, ~110 min total. Read: node tools/harness/arm-ms.ts m2-motive-time-1116, node tools/harness/run-verdict.ts m2-motive-time-1116. Stop rule: pooled on - off gain under 1.0 ms/s on BP and on IP = park M2 (YRows stays 0); also park when the correctness job's exits per entry make the modelled exit cost >= the gain. ON only if both worlds gain >= 1.0 ms/s and both ABBA halves agree in sign. Game: Apex + bridge (Bin state apex).",
+  "smoke": {
+    "asi": "game-copy/ts3native.asi.yalias-1117",
+    "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+    "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+    "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+    "minCounters": 912,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "scriptErrorsMax": 0,
+    "save": "Baseline-BP-Spring",
+    "note": "measurement smoke (AGENTS.md): BP 10 min with the ON arm settings: OK line YRows=1 read back, the method compiled, heavy tools off (noSamplers, Count=0). 10 min, not 5 (03:00 self check).",
+    "logRequire": {
+      "^ts3native 0\\.36\\.274-yalias2 ": 1,
+      "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": 1,
+      "^jit: compiled ": 1,
+      "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": 1
+    },
+    "logForbid": {
+      "jit verify MISMATCH": 0,
+      "jit: fault": 0,
+      "^FAIL mono jit": 0
+    },
+    "ini": {
+      "MonoJit.YRows": 1,
+      "MonoJit.Mode": 1,
+      "MonoJit.Count": 0
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 10,
+        "noSamplers": true
+      }
+    },
+    "timeoutMin": 30,
+    "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+    "regexCases": {
+      "^ts3native 0\\.36\\.274-yalias2 ": {
+        "match": [
+          "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+        ],
+        "noMatch": [
+          "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+          "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+        ]
+      },
+      "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": {
+        "match": [
+          "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+        ],
+        "noMatch": [
+          "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+          "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+          "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+        ]
+      },
+      "^jit: compiled ": {
+        "match": [
+          "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+        ],
+        "noMatch": [
+          "jit: refusals by reason (first tick): none"
+        ]
+      },
+      "jit verify MISMATCH": {
+        "match": [
+          "jit verify MISMATCH in X.Y at ip 12"
+        ],
+        "noMatch": [
+          "jit verify ok 1080046"
+        ]
+      },
+      "jit: fault": {
+        "match": [
+          "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+        ],
+        "noMatch": [
+          "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+        ]
+      },
+      "^FAIL mono jit": {
+        "match": [
+          "FAIL mono jit clause lazy: x"
+        ],
+        "noMatch": [
+          "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+        ]
+      },
+      "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": {
+        "match": [
+          "jit: compiled Sims3.Gameplay.Autonomy.Motive.DecayOrig: 1686 positions, 1590 native, 96 exits, 163825 bytes, not verified (branch to word 0)",
+          "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: 1686 positions, 1474 native, 212 exits, 120873 bytes"
+        ],
+        "noMatch": [
+          "jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: code region full (#1 of this reason)",
+          "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotive: 90 positions, 80 native, 10 exits, 4000 bytes"
+        ]
+      }
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-m2-abba-off-1",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-BP-Spring",
+      "note": "BP ABBA off-1: YRows=0, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": 1,
+        "^jit: compiled ": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 0,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-m2-abba-on-1",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-BP-Spring",
+      "note": "BP ABBA on-1: YRows=1, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": 1,
+        "^jit: compiled ": 1,
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.DecayOrig: 1686 positions, 1590 native, 96 exits, 163825 bytes, not verified (branch to word 0)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: 1686 positions, 1474 native, 212 exits, 120873 bytes"
+          ],
+          "noMatch": [
+            "jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: code region full (#1 of this reason)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotive: 90 positions, 80 native, 10 exits, 4000 bytes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-m2-abba-on-2",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-BP-Spring",
+      "note": "BP ABBA on-2: YRows=1, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": 1,
+        "^jit: compiled ": 1,
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.DecayOrig: 1686 positions, 1590 native, 96 exits, 163825 bytes, not verified (branch to word 0)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: 1686 positions, 1474 native, 212 exits, 120873 bytes"
+          ],
+          "noMatch": [
+            "jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: code region full (#1 of this reason)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotive: 90 positions, 80 native, 10 exits, 4000 bytes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-m2-abba-off-2",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-BP-Spring",
+      "note": "BP ABBA off-2: YRows=0, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": 1,
+        "^jit: compiled ": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 0,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-m2-abba-off-1",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-IP-Spring",
+      "note": "IP ABBA off-1: YRows=0, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": 1,
+        "^jit: compiled ": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 0,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-m2-abba-on-1",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-IP-Spring",
+      "note": "IP ABBA on-1: YRows=1, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": 1,
+        "^jit: compiled ": 1,
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.DecayOrig: 1686 positions, 1590 native, 96 exits, 163825 bytes, not verified (branch to word 0)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: 1686 positions, 1474 native, 212 exits, 120873 bytes"
+          ],
+          "noMatch": [
+            "jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: code region full (#1 of this reason)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotive: 90 positions, 80 native, 10 exits, 4000 bytes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-m2-abba-on-2",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-IP-Spring",
+      "note": "IP ABBA on-2: YRows=1, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": 1,
+        "^jit: compiled ": 1,
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 1,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=1$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        },
+        "^jit: compiled .*Motive\\.(UpdateMotiveWithDecay|DecayOrig): [0-9]+ positions": {
+          "match": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.DecayOrig: 1686 positions, 1590 native, 96 exits, 163825 bytes, not verified (branch to word 0)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay: 1686 positions, 1474 native, 212 exits, 120873 bytes"
+          ],
+          "noMatch": [
+            "jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: code region full (#1 of this reason)",
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotive: 90 positions, 80 native, 10 exits, 4000 bytes"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ip-m2-abba-off-2",
+      "asi": "game-copy/ts3native.asi.yalias-1117",
+      "iniBase": "game-copy/ts3native.ini.hotres2-1117",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.yalias-1117 (0.36.274-yalias2 on master: hotres2 + YRows keys match the ts3fixes motivemultonce swap stub Motive.DecayOrig + HotReserve 300 s deadline; jit-hot-reserve-correct-1117-rerun1-1117 PASS BP + IP) with ts3native.ini.hotres2-1117 and ts3fixes.package.dalexlol-1117b",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "stopQueueOnFail": true,
+      "save": "Baseline-IP-Spring",
+      "note": "IP ABBA off-2: YRows=0, Mode=1, Count=0; only YRows differs between arms",
+      "logRequire": {
+        "^ts3native 0\\.36\\.274-yalias2 ": 1,
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": 1,
+        "^jit: compiled ": 1
+      },
+      "logForbid": {
+        "jit verify MISMATCH": 0,
+        "jit: fault": 0,
+        "^FAIL mono jit": 0
+      },
+      "ini": {
+        "MonoJit.YRows": 0,
+        "MonoJit.Mode": 1,
+        "MonoJit.Count": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30,
+      "nativeRequire": "@jitMethods>=1000,jitMismatch<=0,jitFaults<=0",
+      "regexCases": {
+        "^ts3native 0\\.36\\.274-yalias2 ": {
+          "match": [
+            "ts3native 0.36.274-yalias2 2026-11-17 23:04:53"
+          ],
+          "noMatch": [
+            "ts3native 0.36.273-hotres2 2026-11-17 12:00:00",
+            "ts3native 0.36.272-gchold2 2026-11-17 11:41:10"
+          ]
+        },
+        "OK   mono jit \\(docs/527\\): Mode=1, .*Count=0, .*YRows=0$": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1",
+            "OK   mono jit (docs/527): Mode=2, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0",
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=1, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=0"
+          ]
+        },
+        "^jit: compiled ": {
+          "match": [
+            "jit: compiled IEquatableOfTEqualityComparer`1.GetHashCode (14 words, 3 positions)"
+          ],
+          "noMatch": [
+            "jit: refusals by reason (first tick): none"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH in X.Y at ip 12"
+          ],
+          "noMatch": [
+            "jit verify ok 1080046"
+          ]
+        },
+        "jit: fault": {
+          "match": [
+            "jit: fault 0xC0000005 in Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay"
+          ],
+          "noMatch": [
+            "jit: compiled Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay (5132 words, 1686 positions)"
+          ]
+        },
+        "^FAIL mono jit": {
+          "match": [
+            "FAIL mono jit clause lazy: x"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=1, 259 templates (Groups=2047), 5463 list rows, VerifyEvery=16, code region 12288 KB (CodeKB), 8192 methods (MaxMethods), Direct=2 (docs/537), Trap=0, VtOps=0, CallExit=0, NewVt=0, Count=0, FastCopy=0, Ldsflda=0, BoundCall=0x3, ClauseLazy=1, RetTeardown=0, FaultRecover=1, YRows=1"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -52,8 +52,51 @@ namespace Ts3Fixes
         // The Sim's live entry in this stair's wait list (null when it is not waiting there).
         static object SweEntry(Stairs.StairsPortalComponent pc, ObjectGuid sim)
         {
-            IDictionary d = pc == null ? null : sSweTasks.GetValue(pc) as IDictionary;
+            FieldInfo f = pc == null ? null : SweTasksOf(pc.GetType());
+            IDictionary d = f == null ? null : f.GetValue(pc) as IDictionary;
             return d != null && d.Contains(sim) ? d[sim] : null;
+        }
+
+        // The wait list a stair component's OnPortalStart fills: EA's field, or a mod subclass's own mSleepingTasks when its
+        // OnPortalStart copy declares one (docs/328 §7: Toddler Independence's lizcandorStairs keeps its own list of EA's entries).
+        static readonly Dictionary<Type, FieldInfo> sSweTasksBy = new Dictionary<Type, FieldInfo>();
+        static FieldInfo SweTasksOf(Type t)
+        {
+            FieldInfo f;
+            if (sSweTasksBy.TryGetValue(t, out f)) return f;
+            f = sSweTasks;
+            for (Type c = t; c != null && c != typeof(Stairs.StairsPortalComponent); c = c.BaseType)
+            {
+                FieldInfo own = c.GetField("mSleepingTasks", kInstAll | BindingFlags.DeclaredOnly);
+                if (own != null && typeof(IDictionary).IsAssignableFrom(own.FieldType)) { f = own; break; }
+            }
+            sSweTasksBy[t] = f;
+            return f;
+        }
+
+        // One stair wait's deadline alarm (InvalidHandle when the switch is off); shared by EA's OnPortalStart hook and the
+        // mod-override hooks of CompatResolve.cs.
+        static AlarmHandle SweArm(object component, Sim s)
+        {
+            AlarmHandle h = AlarmHandle.kInvalidHandle;
+            try
+            {
+                if (s != null && sSweMissing.Length == 0 && ShortcutOn("stairwaitend"))
+                {
+                    Stairs.StairsPortalComponent pc = component as Stairs.StairsPortalComponent;
+                    long t0 = SimClock.CurrentTicks;
+                    h = AlarmManager.Global.AddAlarm(kStairWaitEndMinutes, TimeUnit.Minutes, delegate { SweFire(pc, s, t0); },
+                        "Ts3Fixes.StairWaitEnd", AlarmType.NeverPersisted, null);
+                }
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { PatchCounters()[3449]++; }
+            return h;
+        }
+
+        static void SweDisarm(AlarmHandle h)
+        {
+            if (h != AlarmHandle.kInvalidHandle) { try { AlarmManager.Global.RemoveAlarm(h); } catch (Exception) { } }
         }
 
         // HandleStairsCompleted(false)'s end of the wait: the loop exits at its next check and OnPortalStart returns false.

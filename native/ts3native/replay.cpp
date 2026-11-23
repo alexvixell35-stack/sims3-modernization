@@ -3341,8 +3341,8 @@ static void RpAudit(RpClone* c, const RpAuditRec* a) {
         RpAuditForce(a->keys[i]);
         g_rpMisSeq = a->seq, g_rpMisOkSeq = ok.key == a->keys[i] ? ok.seq : 0;
         char tag[96];  // ring window of the drift (docs/157 §7; tools/p5-mismatch-report.ts reads it)
-        if (g_rpMisOkSeq) sprintf_s(tag, " (ring %lu, cut %ld, last equal ring %lu, %lu records)", a->seq, a->cut, g_rpMisOkSeq, a->seq - g_rpMisOkSeq);
-        else sprintf_s(tag, " (ring %lu, cut %ld, last equal ring none)", a->seq, a->cut);
+        if (g_rpMisOkSeq) SFmt(tag, " (ring %lu, cut %ld, last equal ring %lu, %lu records)", a->seq, a->cut, g_rpMisOkSeq, a->seq - g_rpMisOkSeq);
+        else SFmt(tag, " (ring %lu, cut %ld, last equal ring none)", a->seq, a->cut);
         {
             if (diff) g_rpDiffLot = a->keys[i], g_rpDiffSeq = a->seq, g_rpDiffQ = qd;  // named at the next hold
             if (InterlockedIncrement(&g_rpLogged) <= (LONG)g_rpLogMis && l && qd >= 0)
@@ -3515,7 +3515,7 @@ static void RpTypeTime(DWORD type, LONG us) {
     char buf[640];
     int o = 0;
     for (int i = 0; i <= RP_NTYPES + 2 && o < 560; i++)
-        if (g_rpTypeN[i]) o += sprintf_s(buf + o, sizeof(buf) - o, " %s %lld ms (%ld, max %ld us);", kName[i], g_rpTypeUs[i] / 1000, g_rpTypeN[i], g_rpTypeMax[i]);
+        if (g_rpTypeN[i]) o += SFmt(buf + o, sizeof(buf) - o, " %s %lld ms (%ld, max %ld us);", kName[i], g_rpTypeUs[i] / 1000, g_rpTypeN[i], g_rpTypeMax[i]);
     buf[o] = 0;
     const double s = (now - g_rpTypeAt) / 1000.0;  // 0.35.21: the holds (closed before this record's) in wall ms/s and thread CPU
     Log("snap replay: consumer time under the routing lock by record, last %lu s:%s holds: wall %.2f ms/s, thread CPU (2.3 GHz nominal) "

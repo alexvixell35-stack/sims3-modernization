@@ -149,7 +149,7 @@ static LONG CALLBACK JitRtVeh(EXCEPTION_POINTERS* x) {
     if ((code & 0xF0000000) != 0xC0000000 || eip < (DWORD)(uintptr_t)g_jitRtLo || eip >= (DWORD)(uintptr_t)g_jitRtHi) return EXCEPTION_CONTINUE_SEARCH;
     InterlockedIncrement(&JRT_CTR.rtdFaults);
     char what[96];
-    sprintf_s(what, "fault 0x%08lX at eip %08lX", code, eip);
+    SFmt(what, "fault 0x%08lX at eip %08lX", code, eip);
     JitRtKill(2, what);
     for (int k = 0; k < 2; k++)
         if (eip >= (DWORD)(uintptr_t)g_jitRtEntry[k] && eip < (DWORD)(uintptr_t)g_jitRtWrite[k]) {  // read-only tests: nothing written yet
@@ -239,13 +239,13 @@ static void* JitRtTrap(JitRegs* r) {
         return JitOrig(r, v.retIp, v.op);
     }
     char what[160] = "";
-    if (r->edi != v.aEdi) sprintf_s(what, "edi block %08lX EA %08lX", v.aEdi, r->edi);
-    else if (r->esi != v.aEsi) sprintf_s(what, "esi block %08lX EA %08lX", v.aEsi, r->esi);
-    else if (r->esp_ != v.aEsp) sprintf_s(what, "esp block %08lX EA %08lX", v.aEsp, r->esp_);
+    if (r->edi != v.aEdi) SFmt(what, "edi block %08lX EA %08lX", v.aEdi, r->edi);
+    else if (r->esi != v.aEsi) SFmt(what, "esi block %08lX EA %08lX", v.aEsi, r->esi);
+    else if (r->esp_ != v.aEsp) SFmt(what, "esp block %08lX EA %08lX", v.aEsp, r->esp_);
     for (int i = 0; i < v.nr && !what[0]; i++)
         for (DWORD k = 0; k < v.rg[i].n; k++)
             if (v.rg[i].at[k] != v.a[v.rg[i].off + k] && !(i == 0 && McScratch(0x80 - (k & ~3u)))) {
-                sprintf_s(what, "range %d +0x%lX (%08lX) byte block %02X EA %02X", i, k, (DWORD)(uintptr_t)(v.rg[i].at + k), v.a[v.rg[i].off + k], v.rg[i].at[k]);
+                SFmt(what, "range %d +0x%lX (%08lX) byte block %02X EA %02X", i, k, (DWORD)(uintptr_t)(v.rg[i].at + k), v.a[v.rg[i].off + k], v.rg[i].at[k]);
                 break;
             }
     const DWORD retIp = v.retIp, op = v.op;

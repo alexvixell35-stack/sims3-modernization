@@ -1,0 +1,498 @@
+{
+ "note": "ts3fixes-loop-cost-correct-1122-m1123 (2026-11-23): ts3fixes-loop-cost-correct-1122 repinned to master set m1123 (0.36.299-m1123; asi + ini + ts3fixes from game-copy/*.m1123, agent installed by probe-out/queue/chain-m1123.sh). [previous] ts3fixes-loop-cost-correct-1122 (docs/330, WRITTEN, NOT RUN): correctness of the two fixes to our own default-ON loops, deadrefcadence (deadrefsweep: one world snapshot per pass, phases 10-12+14 merged per object, slice clock every 8 items, event-gated description and Sim phase groups) and viewerpushdelta (viewer / held tables sent on change or every 500 ms, Actors walked sparsely while no ride runs). Both ON in the build (release defaults). Job 1 smoke (BP 3 min, stops the queue on fail); BP / IP / SV 10 min natural play with the new counters and the native viewer-protocol check (utViewerBad 0 = every table we sent was well-formed); then the eight deadrefsweep repros (each phase still removes its seeded dead refs under the new cadence; the agent sweep marks every group due). Switch read-back: fixesOn deadrefcadence,viewerpushdelta (profile-world prints fixes on: ... (verified)) and counters that move only with both switches on (deadrefcadence_snapshots, viewerpush_walks_skipped). Household untouched: the sweep removes the same entries as before (exact per item, docs/330 §2), the household is always first in both native tables and its own rides are read every wake (docs/330 §3); seeds use townies only. Bin state apex (Apex latest + RTX Remix bridge, turbo-compat snapshot -> state -> restore). Run from the lane worktree (its builds.json names the build). Est ~150 min.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-loopcost-smoke",
+   "note": "[est 9 min] SMOKE (stops the queue on fail): BP 3 min natural play, release defaults (deadrefcadence and viewerpushdelta ON). Pass: version, Apex + bridge lines, viewer push wakes and sends counted, Actors walks skipped (the delta mode ran), utViewerPushes moved and utViewerBad 0, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "viewerpush_wakes>=20,viewerpush_table_sends>=1,viewerpush_actor_walks>=1,viewerpush_walks_skipped>=1"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-loopcost-correct",
+   "note": "[est 15 min] BP 10 min natural play (seed 12345), release defaults (both switches ON). Pass: at least one full deadrefsweep pass under the new cadence (snapshot taken), viewer tables sent and Actors walks skipped, utViewerBad 0, 0 script errors. Read: the ts3fixes activity line (fixesReport) for deadrefsweep_p*_ms / _items, deadrefcadence_*_skipped, viewerpush_* (docs/330 §1 table).",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,viewerpush_walks_skipped>=1,viewerpush_table_sends>=1,viewerpush_actor_walks>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,viewerpush"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-loopcost-correct",
+   "note": "[est 15 min] IP 10 min natural play (seed 12345), release defaults (both switches ON). Pass: at least one full deadrefsweep pass under the new cadence (snapshot taken), viewer tables sent and Actors walks skipped, utViewerBad 0, 0 script errors. Read: the ts3fixes activity line (fixesReport) for deadrefsweep_p*_ms / _items, deadrefcadence_*_skipped, viewerpush_* (docs/330 §1 table).",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,viewerpush_walks_skipped>=1,viewerpush_table_sends>=1,viewerpush_actor_walks>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,viewerpush"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-loopcost-correct",
+   "note": "[est 15 min] SV 10 min natural play (seed 12345), release defaults (both switches ON). Pass: at least one full deadrefsweep pass under the new cadence (snapshot taken), viewer tables sent and Actors walks skipped, utViewerBad 0, 0 script errors. Read: the ts3fixes activity line (fixesReport) for deadrefsweep_p*_ms / _items, deadrefcadence_*_skipped, viewerpush_* (docs/330 §1 table).",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,viewerpush_walks_skipped>=1,viewerpush_table_sends>=1,viewerpush_actor_walks>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,viewerpush"
+    }
+   },
+   "nativeRequire": "utViewerPushes>=1,utViewerBad<=0",
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-deadrefs-check-cadence",
+   "note": "[est 12 min] Correctness under deadrefcadence ON: repro bp-deadrefs-check (phases 1-8 (relationship keys, aging, alarm owners, descriptions, Sims, fish, vehicles, horseshoe) through the agent sweep (DrAllDue: both groups run); its steps check every gone count drops). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), every gone count 0 after the pass, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 15,
+   "run": {
+    "profile": {
+     "minutes": 8,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "bp-deadrefs-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-dart-gone-check-cadence",
+   "note": "[est 15 min] Correctness under deadrefcadence ON: repro dart-gone-check (phase 9 (dartboards from the world snapshot)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_dartboards>=3, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "dart-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_dartboards>=3,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefsweep_dartboards",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-use-list-gone-check-cadence",
+   "note": "[est 17 min] Correctness under deadrefcadence ON: repro use-list-gone-check (phase 10 in the merged object step (use list scanned, copied only when a gone Sim is listed)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_uselists>=3, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "use-list-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_uselists>=3,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_uselists",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-object-owner-gone-check-cadence",
+   "note": "[est 17 min] Correctness under deadrefcadence ON: repro object-owner-gone-check (phase 11 in the merged object step (OwnerBody)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_objectowners>=2, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "object-owner-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_objectowners>=2,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_objectowners",
+     "op": ">=",
+     "value": 2,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-disposed-handler-gone-check-cadence",
+   "note": "[est 17 min] Correctness under deadrefcadence ON: repro disposed-handler-gone-check (phase 12 in the merged object step (HandlerBody)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_handlers>=1, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "disposed-handler-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_handlers>=1,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_handlers",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-cooking-handler-gone-check-cadence",
+   "note": "[est 15 min] Correctness under deadrefcadence ON: repro cooking-handler-gone-check (phase 14 in the merged object step (CookingBody)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefcooking_handlers>=2, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "cooking-handler-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefcooking_handlers>=2,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefcooking_handlers",
+     "op": ">=",
+     "value": 2,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-celebrity-waiting-gone-check-cadence",
+   "note": "[est 17 min] Correctness under deadrefcadence ON: repro celebrity-waiting-gone-check (phase 13 (Sims from the world snapshot)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_celebrity>=1, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "celebrity-waiting-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefsweep_celebrity>=1,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_celebrity",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-conversation-gone-check-cadence",
+   "note": "[est 15 min] Correctness under deadrefcadence ON: repro conversation-gone-check (phase 15 (Sims from the world snapshot)). The repro switches deadrefsweep off then on; the cadence sub-switch stays ON (release default). Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefconvo_members>=1, deadrefcadence_snapshots moved (the new pass ran), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.m1123",
+   "pinReason": "master set m1123 (0.36.299-m1123), repinned 2026-11-23 from ts3native.asi.m1122, ts3native.ini.m1122, ts3fixes.package.loopcost1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "conversation-gone-check",
+     "fixesOn": "deadrefcadence,viewerpushdelta",
+     "fixesRequire": "deadrefconvo_members>=1,deadrefcadence_snapshots>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefconvo_members",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm cleaned nothing: phase missing under the new cadence, sweep refused, or the seed failed"
+    }
+   ]
+  }
+ ],
+ "regexCases": {
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^ts3native 0\\.36\\.299-m1123 ": {
+   "match": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1122 2026-11-22 15:00:00",
+    "ts3native 0.36.299-nsplit1 2026-11-22 12:17:42",
+    "ts3native 0.36.299-m1123x 2026-11-23 15:00:00"
+   ]
+  }
+ }
+}

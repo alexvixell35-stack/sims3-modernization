@@ -73,7 +73,11 @@ static u8 JyBusy(DWORD handle, DWORD op) {
         if (JypBack(g_jyPark, slots, handle, now, kJyKeepMs) || g_jyPark.expired + g_jyPark.full != g_jyLostN) JyCounts();
         return 0;
     }
-    JypPark(g_jyPark, slots, handle, now, kJyKeepMs);  // before any managed code runs: the job's call below, then the other tasks
+    // before any managed code runs: the job's call below, then the other tasks
+    if (JypPark(g_jyPark, slots, handle, now, kJyKeepMs) == JYP_FULL) {  // docs/323 M2: no slot, no sleep: the plan runs now (counted in jyLostN)
+        JyCounts();
+        return 0;
+    }
     JyCounts();
     if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
     InterlockedIncrement(&k.jyBusy);

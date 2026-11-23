@@ -1,9 +1,11 @@
 // Switch test tracks without stale state (Rodney 2026-10-30): chain scripts (probe-out/queue/chain-*.sh, mono-loop.sh
 // under nohup) and queue.ts processes killed by hand left build holds, a job-running marker with a dead pid, a stale
 // main.lock and `tail -F` watchers. One command each, short output. Always works on the MAIN checkout's probe-out/queue
-// (git common dir), also when run from a worktree; TS3_QUEUE_DIR overrides.
+// (git common dir, hold.ts QUEUE_DIR), also when run from a worktree; TS3_QUEUE_DIR overrides. A worktree releases only a hold
+// it set (owner=<checkout>), else --force-hold (2026-11-23: `stop` from a worktree released the main checkout's build window).
 //   node tools/harness/track.ts status                       hold, job, game, chains, queues, main.lock, watchers; flags stale
-//   node tools/harness/track.ts stop [--after-job]           stop chains + queue.ts (+ job tree + TS3W.exe unless --after-job), clean
+//   node tools/harness/track.ts stop [--after-job] [--force-hold] [--all]  stop this checkout's chains + queue.ts (+ job tree + TS3W.exe unless --after-job), clean
+//   (--all: every checkout's and unknown-owner ones; without it those are listed, not killed)
 //   node tools/harness/track.ts switch <script.sh> [--after-job]   stop, then start the script detached (out: probe-out/queue/<name>.out)
 //   node tools/harness/track.ts wait-chain <script.sh>         block until that chain, every queue.ts and the job are gone (use in the next chain)
 //   node tools/harness/track.ts marker [--chain <name>] <text>  in a chain: prints "marker: <time> <text>" (the .out) and appends it to
@@ -11,31 +13,27 @@
 //   node tools/harness/track.ts wait-marker <chain> <text>   block until <chain>.markers has a line containing text (exit 0), or the
 //                                                             chain process is gone without it (exit 3); use instead of grepping the .out
 //   node tools/harness/track.ts build-window <reason>       hold "build-window: <reason>", wait for the running job, "ok to build"
-//   node tools/harness/track.ts build-done                   release the hold if it is a build-window hold
+//   node tools/harness/track.ts build-done [--force-hold]     release the hold if it is a build-window hold
 //   node tools/harness/track.ts --self-check                 temp dir, fake process list
 import { execFileSync, spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { GAME_EXE } from './game-exe.ts';
+import { CHECKOUT, MAIN_ROOT, QUEUE_DIR, holdOwner, holdText, mayRelease, readOwners, samePath } from './hold.ts';
 import { pending as modsPending, restoreMods, snapshotMods } from './mods-restore.ts';
 
 // mppid: Windows pid of the MSYS (Git Bash) parent; differs from ppid after an exec (the exec'ing Windows process exits)
 export type Proc = { pid: number; ppid: number; name: string; cmd: string; start?: string; mppid?: number };
-type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; sleepMs: number; log: (m: string) => void };
+// me/main: this checkout and the main one, for hold ownership (default CHECKOUT / MAIN_ROOT of hold.ts); roots: every checkout
+// (git worktree list), for process owners (default [] = owners only from the hold.ts registry)
+type Env = { dir: string; procs: () => Proc[]; kill: (pid: number) => void; sleepMs: number; log: (m: string) => void; me?: string; main?: string; roots?: string[] };
 
 const read = (f: string) => { try { return readFileSync(f, 'utf8').trim(); } catch { return null; } };
 // max(0): clock skew on a fresh dir gave < 0, read as "absent"
 const ageMin = (f: string) => { try { return Math.max(0, Date.now() - statSync(f).mtimeMs) / 60000; } catch { return -1; } };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-function mainQueueDir() {
-  if (process.env.TS3_QUEUE_DIR) return resolve(process.env.TS3_QUEUE_DIR);
-  try {
-    const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: import.meta.dirname, timeout: 10000 }).toString().trim();
-    return join(dirname(common), 'probe-out', 'queue');
-  } catch { return resolve(import.meta.dirname, '..', '..', 'probe-out', 'queue'); }
-}
 export function realProcs(): Proc[] {
   const ps = `Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine,@{n='S';e={$_.CreationDate.ToString('s')}} | ConvertTo-Json -Compress`;
   const out = execFileSync('powershell', ['-NoProfile', '-Command', ps], { timeout: 30000, maxBuffer: 64 << 20 }).toString();
@@ -80,7 +78,31 @@ function jobState(e: Env, alive: (pid: number) => boolean) {
   const s = read(join(e.dir, 'job-running'));
   if (!s) return null;
   const [id, pid] = s.split(' ');
-  return { id, pid: Number(pid), alive: alive(Number(pid)) };
+  return { id, pid: Number(pid), alive: alive(Number(pid)), owner: holdOwner(s) };
+}
+
+// Owner checkout of a process, else of its nearest ancestor: the hold.ts registry (owners/<pid>, queue.ts), a checkout path in the
+// command line (deepest root wins; Git Bash /c/ form too), a relative chain script found in exactly one checkout; null = unknown.
+const DRIVE = /^[a-z]:[\\/]/i;   // a Windows drive root stays as is: path.resolve on Linux/macOS would prefix the cwd
+const normCmd = (s: string) => s.replace(/\\/g, '/').replace(/(^|[\s"'=])\/([a-z])\//gi, '$1$2:/').toLowerCase();
+export function procOwner(p: Proc, byPid: Map<number, Proc>, reg: Map<number, string>, roots: string[]): string | null {
+  const seen = new Set<number>();
+  for (let q: Proc | undefined = p; q && !seen.has(q.pid); q = byPid.get(q.ppid) ?? (q.mppid ? byPid.get(q.mppid) : undefined)) {
+    seen.add(q.pid);
+    if (reg.has(q.pid)) return reg.get(q.pid)!;
+    const cmd = normCmd(q.cmd), abs = roots.filter(r => cmd.includes(`${normCmd(DRIVE.test(r) ? r : resolve(r))}/`)).sort((a, b) => b.length - a.length)[0];
+    if (abs) return abs;
+    const sc = CHAIN.exec(q.cmd)?.[1];
+    if (sc && !/^([a-z]:)?[\\/]/i.test(sc)) { const has = roots.filter(r => existsSync(join(r, sc))); if (has.length === 1) return has[0]; }
+  }
+  return null;
+}
+// which stop targets this checkout may kill; the rest is listed
+function stopFilter(e: Env, all: Proc[], everything: boolean) {
+  const byPid = new Map(all.map(p => [p.pid, p])), reg = readOwners(e.dir), me = e.me ?? CHECKOUT;
+  const owner = (p: Proc) => procOwner(p, byPid, reg, e.roots ?? []);
+  const mine = (p: Proc) => { if (everything) return true; const o = owner(p); return o !== null && samePath(o, me); };
+  return { mine, owner };
 }
 
 // stale markers; returns what it did
@@ -90,6 +112,7 @@ export function clean(e: Env, c = classify(e.procs())) {
   if (job && !job.alive) { rmSync(join(e.dir, 'job-running'), { force: true }); did.push(`removed stale job-running (${job.id}, pid ${job.pid} dead)`); }
   const lock = join(e.dir, 'main.lock'), age = ageMin(lock);
   if (age >= 0 && (age > 30 || !c.builds.length)) { rmSync(lock, { recursive: true, force: true }); did.push(`removed main.lock (${age.toFixed(0)} min, ${c.builds.length ? 'old' : 'no build running'})`); }
+  for (const pid of readOwners(e.dir).keys()) if (!c.alive(pid)) rmSync(join(e.dir, 'owners', String(pid)), { force: true }); // a reused pid must not inherit an owner
   const orphans = c.tails.filter(t => t.orphan);
   for (const t of orphans) e.kill(t.pid);
   if (orphans.length) did.push(`killed ${orphans.length} orphan tail watcher(s)`);
@@ -97,7 +120,9 @@ export function clean(e: Env, c = classify(e.procs())) {
 }
 
 const holdFile = (e: Env) => join(e.dir, 'hold');
-function setHold(e: Env, reason: string) { mkdirSync(e.dir, { recursive: true }); writeFileSync(holdFile(e), `${reason} @ ${new Date().toISOString().slice(0, 19)}Z\n`); }
+function setHold(e: Env, reason: string) { mkdirSync(e.dir, { recursive: true }); writeFileSync(holdFile(e), `${holdText(reason, e.me ?? CHECKOUT)}\n`); }
+const mayReleaseHold = (e: Env, h: string | null, force: boolean) => mayRelease(h, e.me ?? CHECKOUT, e.main ?? MAIN_ROOT, force);
+const keptLine = (h: string) => `set by ${holdOwner(h) ?? 'the main checkout'}, not this worktree (${h}); --force-hold releases it`;
 
 // wait until job-running is gone, names another job, or its pid is dead (stale marker removed)
 async function waitJobEnd(e: Env) {
@@ -157,25 +182,36 @@ export async function waitMarker(e: Env, chain: string, text: string): Promise<{
   }
 }
 
-export async function stop(e: Env, afterJob: boolean) {
+// everything (--all): every checkout's and unknown-owner chains, queues, job and game; default only this checkout's (2026-11-23)
+export async function stop(e: Env, afterJob: boolean, forceHold = false, everything = false) {
   const did: string[] = [];
   if (afterJob) { setHold(e, 'track stop'); did.push(`hold "track stop"; ${await waitJobEnd(e)}`); }
-  let c = classify(e.procs());
-  for (const p of c.chains) e.kill(p.pid);
-  for (const p of c.queues) e.kill(p.pid);
-  if (c.chains.length || c.queues.length) did.push(`killed ${c.chains.map(p => `${p.script}(${p.pid})`).concat(c.queues.map(p => `queue ${p.queue}(${p.pid})`)).join(', ')}`);
+  const ps0 = e.procs();
+  let c = classify(ps0);
+  const f = stopFilter(e, ps0, everything), left: string[] = [];
+  const pick = <T extends Proc>(xs: T[], name: (p: T) => string) => xs.filter(p => f.mine(p) || (left.push(`${name(p)}(${p.pid}) ${f.owner(p) ?? 'owner unknown'}`), false));
+  const chains = pick(c.chains, p => p.script), queues = pick(c.queues, p => `queue ${p.queue}`);
+  for (const p of chains) e.kill(p.pid);
+  for (const p of queues) e.kill(p.pid);
+  if (chains.length || queues.length) did.push(`killed ${chains.map(p => `${p.script}(${p.pid})`).concat(queues.map(p => `queue ${p.queue}(${p.pid})`)).join(', ')}`);
   if (!afterJob) {
-    const j = jobState(e, c.alive);
-    if (j?.alive) { e.kill(j.pid); did.push(`killed job ${j.id} tree (pid ${j.pid})`); }
-    for (const g of c.game) e.kill(g.pid);
-    if (c.game.length) did.push(`killed ${GAME_EXE} (${c.game.map(g => g.pid).join(', ')}): check Game\\Bin pair before the next run`);
+    const j = jobState(e, c.alive), jp = j ? ps0.find(p => p.pid === j.pid) : undefined;
+    const jOwner = j?.owner ?? (jp ? f.owner(jp) : null);
+    if (j?.alive && (everything || (jOwner !== null && samePath(jOwner, e.me ?? CHECKOUT)))) { e.kill(j.pid); did.push(`killed job ${j.id} tree (pid ${j.pid})`); }
+    else if (j?.alive) left.push(`job ${j.id}(${j.pid}) ${jOwner ?? 'owner unknown'}`);
+    const game = pick(c.game, () => GAME_EXE);
+    for (const g of game) e.kill(g.pid);
+    if (game.length) did.push(`killed ${GAME_EXE} (${game.map(g => g.pid).join(', ')}): check Game\\Bin pair before the next run`);
   }
+  if (left.length) did.push(`not killed (another checkout or owner unknown; --all kills them): ${left.join(', ')}`);
   c = classify(e.procs());
   // Mods packages a killed queue installed (cycle.ts build/ copies): back to the queue's start record (mods-restore.ts)
   const modsDir = join(e.dir, 'mods-before');
   if (modsPending(modsDir)) did.push(c.game.length ? `Mods packages not restored (${GAME_EXE} still running): node tools/harness/mods-restore.ts restore` : restoreMods(modsDir).line);
   did.push(...clean(e, c));
-  if (existsSync(holdFile(e))) { did.push(`released hold (${read(holdFile(e))})`); rmSync(holdFile(e), { force: true }); }
+  const h = read(holdFile(e));
+  if (h !== null && !mayReleaseHold(e, h, forceHold)) did.push(`hold kept: ${keptLine(h)}`);
+  else if (h !== null) { did.push(`released hold (${h})`); rmSync(holdFile(e), { force: true }); }
   return did.length ? did : ['nothing to stop'];
 }
 
@@ -183,8 +219,9 @@ export function status(e: Env) {
   const c = classify(e.procs()), L: string[] = [];
   const h = read(holdFile(e));
   L.push(`hold:        ${h ? `${h} (${ageMin(holdFile(e)).toFixed(0)} min)` : '-'}`);
+  if (h) L.push(`hold owner:  ${holdOwner(h) ?? 'NONE (old hold without owner=: counts as the main checkout; a worktree releases it only with --force-hold)'}`);
   const j = jobState(e, c.alive);
-  L.push(`job:         ${j ? `${j.id} pid ${j.pid} ${j.alive ? 'alive' : 'DEAD (stale marker)'}` : '-'}`);
+  L.push(`job:         ${j ? `${j.id} pid ${j.pid} ${j.alive ? 'alive' : 'DEAD (stale marker)'}${j.owner ? ` owner ${j.owner}` : ''}` : '-'}`);
   L.push(`game:        ${c.game.length ? `${GAME_EXE} ${c.game.map(g => g.pid).join(', ')}` : '-'}`);
   L.push(`chains:      ${c.chains.length ? c.chains.map(p => `${p.script} pid ${p.pid} since ${p.start ?? '?'}`).join('; ') : '-'}`);
   L.push(`queues:      ${c.queues.length ? c.queues.map(p => `${p.queue} pid ${p.pid}`).join('; ') : '-'}`);
@@ -197,15 +234,19 @@ export function status(e: Env) {
   return L;
 }
 
+function worktreeRoots() {
+  try { return execFileSync('git', ['worktree', 'list', '--porcelain'], { cwd: MAIN_ROOT, timeout: 15000 }).toString().split(/\r?\n/).filter(l => l.startsWith('worktree ')).map(l => resolve(l.slice(9))); }
+  catch { return [MAIN_ROOT]; }
+}
 function env(): Env {
-  return { dir: mainQueueDir(), procs: realProcs, kill: realKill, sleepMs: 5000, log: m => console.log(`${new Date().toISOString().slice(11, 19)} track: ${m}`) };
+  return { dir: QUEUE_DIR, roots: worktreeRoots(), procs: realProcs, kill: realKill, sleepMs: 5000, log: m => console.log(`${new Date().toISOString().slice(11, 19)} track: ${m}`) };
 }
 
 if (import.meta.main) {
   const die = (e: any) => { console.error(`track: ERROR ${e?.stack ?? e}`); process.exit(1); };
   process.on('uncaughtException', die); process.on('unhandledRejection', die);
-  const args = process.argv.slice(2), afterJob = args.includes('--after-job');
-  const [cmd, ...rest] = args.filter(a => a !== '--after-job');
+  const args = process.argv.slice(2), afterJob = args.includes('--after-job'), forceHold = args.includes('--force-hold'), everything = args.includes('--all');
+  const [cmd, ...rest] = args.filter(a => a !== '--after-job' && a !== '--force-hold' && a !== '--all');
   if (cmd === '--self-check') {
     const assert = (await import('node:assert')).strict;
     const d = mkdtempSync(join(tmpdir(), 'track-'));
@@ -255,11 +296,53 @@ if (import.meta.main) {
       assert.equal(await p, 'j2 ended');
       writeFileSync(join(d, 'job-running'), 'j3 4242');
       assert.match(await waitJobEnd(e), /dead, stale marker removed/); assert.ok(!existsSync(join(d, 'job-running')));
-      // stop: kills chain, queue, game; releases hold
+      // process owners: registry, checkout path in the command line (deepest root, Git Bash form), relative script in one checkout, parent
+      const oMain = join(d, 'own', 'main'), oWt = join(oMain, '.claude', 'worktrees', 'lc'), oGb = 'C:\\gb\\main';   // Windows root: same Git Bash case on every OS
+      mkdirSync(join(oWt, 'probe-out', 'queue'), { recursive: true }); writeFileSync(join(oWt, 'probe-out', 'queue', 'chain-lc.sh'), '');
+      const op: Proc[] = [
+        { pid: 1, ppid: 0, name: 'bash.exe', cmd: `bash ${oWt.replace(/\\/g, '/')}/probe-out/queue/chain-x.sh` },
+        { pid: 2, ppid: 0, name: 'bash.exe', cmd: `bash ${oMain}\\probe-out\\queue\\chain-y.sh` },
+        { pid: 3, ppid: 0, name: 'bash.exe', cmd: 'bash "/c/gb/main/probe-out/queue/chain-z.sh"' },
+        { pid: 4, ppid: 0, name: 'bash.exe', cmd: 'bash probe-out/queue/chain-lc.sh' },
+        { pid: 5, ppid: 4, name: 'node.exe', cmd: 'node tools/harness/queue.ts x.json' },
+        { pid: 6, ppid: 0, name: 'node.exe', cmd: 'node tools/harness/queue.ts y.json' },
+        { pid: 7, ppid: 0, name: 'node.exe', cmd: 'node tools/harness/queue.ts z.json' }];
+      const oBy = new Map(op.map(p => [p.pid, p])), oReg = new Map([[7, oMain]]), oRoots = [oMain, oWt, oGb];
+      assert.deepEqual(op.map(p => procOwner(p, oBy, oReg, oRoots)), [oWt, oMain, oGb, oWt, oWt, null, oMain], 'abs path, deepest root, Git Bash path, script in one checkout, parent, unknown, registry');
+      // stop kills only this checkout's: unknown owners are listed, not killed; --all kills them
       writeFileSync(join(d, 'job-running'), 'j4 12');
+      const kept = await stop({ ...e, me: oWt, roots: oRoots }, false);
+      assert.deepEqual(killed.filter(p => [10, 12, 15].includes(p)), [], 'unknown owner: nothing killed');
+      assert.ok(kept.some(l => /^not killed .*--all kills them\): chain-mono\.sh\(10\) owner unknown, queue mono-x\(12\) owner unknown, job j4\(12\) owner unknown, TS3W\.exe\(15\) owner unknown$/i.test(l)), kept.join(' | '));
+      mkdirSync(join(d, 'owners'), { recursive: true }); writeFileSync(join(d, 'owners', '10'), oMain);
+      writeFileSync(join(d, 'owners', '777'), oMain);
+      const other = await stop({ ...e, me: oWt, roots: oRoots }, false);
+      assert.ok(!existsSync(join(d, 'owners', '777')) && existsSync(join(d, 'owners', '10')), 'dead pid registry entry pruned, live kept');
+      assert.ok(other.some(l => l.includes(`chain-mono.sh(10) ${oMain}`)) && !killed.includes(10), 'another checkout\'s chain listed, not killed');
+      const k2: number[] = [];
+      await stop({ ...e, kill: pid => k2.push(pid), me: oWt, roots: oRoots }, false, false, true);
+      assert.ok([10, 12, 15].every(pid => k2.includes(pid)), '--all kills every checkout\'s');
+      // status names the hold owner and flags an ownerless (old) hold
+      writeFileSync(holdFile(e), 'build-window: old @ 2026-11-23T04:58:54Z\n');
+      assert.ok(status(e).some(l => /^hold owner:  NONE \(old hold/.test(l)), 'ownerless hold flagged');
+      setHold(e, 'build-window: y'); assert.ok(status(e).includes(`hold owner:  ${CHECKOUT}`));
+      // stop: kills chain, queue, game (children of the registered chain); releases hold
+      writeFileSync(join(d, 'owners', '10'), CHECKOUT);
+      setHold(e, 'build-window: x');
       const out = await stop(e, false);
       assert.ok([10, 12, 15].every(pid => killed.includes(pid)) && !killed.includes(16), 'unrelated bash untouched');
       assert.ok(!existsSync(holdFile(e)) && out.some(l => /released hold/.test(l)) && !existsSync(join(d, 'job-running')));
+      // stop from a worktree keeps a hold the main checkout (or no owner) set; owner, main and --force-hold release it (2026-11-23)
+      const mainD = join(d, 'main'), ew: Env = { ...e, me: join(mainD, '.claude', 'worktrees', 'lc'), main: mainD };
+      writeFileSync(holdFile(e), `${holdText('build-window: merge', mainD)}\n`);
+      assert.ok((await stop(ew, false)).some(l => /^hold kept: set by .*main, not this worktree/.test(l)) && existsSync(holdFile(e)), 'worktree keeps main hold');
+      writeFileSync(holdFile(e), 'build-window: old @ 2026-11-23T04:57:00Z\n');
+      assert.ok((await stop(ew, false)).some(l => /^hold kept: set by the main checkout/.test(l)), 'no owner = main');
+      assert.ok((await stop(ew, false, true)).some(l => /released hold/.test(l)) && !existsSync(holdFile(e)), '--force-hold');
+      setHold(ew, 'build-window: lc'); assert.equal(holdOwner(read(holdFile(e))), ew.me);
+      assert.ok((await stop(ew, false)).some(l => /released hold/.test(l)) && !existsSync(holdFile(e)), 'own hold released');
+      setHold(ew, 'x');
+      assert.ok((await stop({ ...ew, me: mainD }, false)).some(l => /released hold/.test(l)), 'main releases a worktree hold');
       // stop with a killed queue's Mods record: the job's package goes back to the start one (2026-11-08 dance repro)
       const pk = join(d, 'user', 'Mods', 'Packages'); mkdirSync(pk, { recursive: true }); writeFileSync(join(pk, 'ts3fixes.package'), 'release');
       snapshotMods(pk, join(d, 'mods-before')); writeFileSync(join(pk, 'ts3fixes.package'), 'build');
@@ -296,7 +379,7 @@ if (import.meta.main) {
     const e = env();
     let script = '';
     if (cmd === 'switch') { script = resolve(rest[0]); if (!existsSync(script)) { console.error(`no such script: ${script}`); process.exit(2); } }
-    for (const l of (await stop(e, afterJob)).slice(0, 10)) console.log(l);
+    for (const l of (await stop(e, afterJob, forceHold, everything)).slice(0, 10)) console.log(l);
     if (script) {
       const outF = join(e.dir, `${chainName(script)}.out`), ch = startChain(script, outF, dirname(dirname(e.dir)));
       ch.unref();
@@ -319,7 +402,8 @@ if (import.meta.main) {
     e.log(await waitJobEnd(e)); console.log('ok to build');
   } else if (cmd === 'build-done') {
     const e = env(), h = read(holdFile(e));
-    if (h?.startsWith('build-window')) { rmSync(holdFile(e), { force: true }); console.log(`released: ${h}`); }
+    if (h?.startsWith('build-window') && !mayReleaseHold(e, h, forceHold)) { console.log(`WARN: build-window hold ${keptLine(h)}`); process.exit(1); }
+    else if (h?.startsWith('build-window')) { rmSync(holdFile(e), { force: true }); console.log(`released: ${h}`); }
     else console.log(`WARN: ${h ? `hold is not a build-window hold (${h}), left in place` : 'no hold set'}`);
-  } else { console.error('usage: node tools/harness/track.ts status | stop [--after-job] | switch <script.sh> [--after-job] | wait-chain <script.sh> | build-window <reason> | build-done | --self-check'); process.exit(2); }
+  } else { console.error('usage: node tools/harness/track.ts status | stop [--after-job] [--force-hold] [--all] | switch <script.sh> [--after-job] [--force-hold] [--all] | wait-chain <script.sh> | build-window <reason> | build-done [--force-hold] | --self-check'); process.exit(2); }
 }

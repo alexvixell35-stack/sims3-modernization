@@ -171,7 +171,7 @@ static void GvaPlanEnd() {  // UserDiag op 12: the plan is over
         int n = 0;
         for (int i = 0; i <= GVA_WHY_NONE; i++)  // only the reasons that waited a millisecond or more
             if (k.gvaWhyWaitUs[i] >= 1000 && n < (int)sizeof(why) - 32)
-                n += sprintf_s(why + n, sizeof(why) - n, " %s %ld", i < GVA_WHY_NONE ? kRfbName[i] : "none", k.gvaWhyWaitUs[i] / 1000);
+                n += SFmt(why + n, sizeof(why) - n, " %s %ld", i < GVA_WHY_NONE ? kRfbName[i] : "none", k.gvaWhyWaitUs[i] / 1000);
         Log("gvattr: wait ms by sync reason:%s", n ? why : " -");
     }
 }

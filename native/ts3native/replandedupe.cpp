@@ -119,6 +119,7 @@ static RdEntry* RdSlot(DWORD lo, DWORD hi, int kind, bool add) {  // g_rdLock he
         if (e.ms && e.lo == lo && e.hi == hi && e.kind == kind) return &e;
         if (!old || e.ms < old->ms) old = &e;
     }
+    if (add && old->ms && GetTickCount64() - old->ms <= kRdWinMs[2]) CapFull(CAP_RD);  // docs/321 lane 0: a row inside its 1 s window lost
     return add ? old : NULL;
 }
 

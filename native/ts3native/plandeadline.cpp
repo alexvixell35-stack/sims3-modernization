@@ -78,8 +78,9 @@ static DWORD g_pdMinute, g_pdLinesMin;
 // the last) has no backoff: ts3fixes stuckcheckcap already plans the last round uncut.
 // Not distinguished here (no field in the job): car / boat drivers, NRaas GoHere, crowds: they are own or foreign jobs by START.
 // P5/P6 clone runs (p5.cpp) read only a foreign job's deadline: with [RouteSnap] Mode=2 an own clone job is not cut (off in release).
-// shortcut: 64 followers, oldest cut evicted; a town with more Sims cut inside 10 s loses their backoff (they then stay at
-// the base deadline); grow kKdRows if kdBackoff stays 0 while kdCut is high.
+// docs/321 H2: 64 follower rows to start; a new follower takes a free row, else the row cut longest ago once that cut is older
+// than kKdStuckMs (no rule reads it then: the same pick as before), else the table doubles (up to g_kdCapMax), so a follower
+// cut in the last 30 s keeps its backoff on a world with more Sims. Only at the ceiling a live row is evicted (CAP_KD full).
 enum { KD_PLAN, KD_REPLAN, KD_PFP, KD_RFP, KD_A10F, KD_FGN, KD_PROBE, KD_N };
 static const wchar_t* const kKdIniKey[KD_N] = {L"KdOwnPlanMs", L"KdOwnReplanMs", L"KdOwnPlanFromPointMs", L"KdOwnReplanFromPositionMs",
                                                L"KdA10ForeignMs", L"KdForeignPlanMs", L"KdProbeMs"};
@@ -98,7 +99,9 @@ static volatile LONG g_kdUfCapLines;
 static const DWORD kKdWinMs = 10000, kKdStuckMs = 30000;
 static const int kKdRows = 64;
 struct KdRow { u64 id; DWORD cutTick; LONG level, pending; DWORD cutH; u64 cutGoal; };  // level = cuts in a row (1 doubled, 2 uncut); pending = a cut not yet followed; cutH / cutGoal = that job (routefail retry)
-static KdRow g_kdTab[kKdRows];
+static KdRow g_kdTab0[kKdRows];
+static KdRow* g_kdTab = g_kdTab0;  // g_kdTab0 or a heap block; replaced only under g_kdLock exclusive
+static int g_kdCap = kKdRows, g_kdCapMax = 4096;  // 4096 rows = 160 KB; selftest lowers the ceiling
 static SRWLOCK g_kdLock = SRWLOCK_INIT;
 static __declspec(thread) bool t_kdUncut;  // this job runs uncut because of its follower's backoff
 // docs/197 §7 [RouteAsync] KdExemptSeen: a job of a Sim the player can see never gets a KindDeadlines cut (player report 2026-11-07:
@@ -299,14 +302,32 @@ static u64 KdFollower(DWORD handle) {
         return 0;
     }
 }
-// caller holds g_kdLock (shared for add = false); add = take a free row, else the one cut longest ago
+// caller holds g_kdLock (shared for add = false; add needs it exclusive); add = take a free row, else the one cut longest
+// ago if that cut is stale, else grow (docs/321 H2)
 static KdRow* KdFind(u64 id, bool add) {
     KdRow* victim = &g_kdTab[0];
-    for (KdRow& r : g_kdTab) {
+    for (int i = 0; i < g_kdCap; i++) {
+        KdRow& r = g_kdTab[i];
         if (r.id == id) return &r;
         if (victim->id && (!r.id || (LONG)(r.cutTick - victim->cutTick) < 0)) victim = &r;
     }
     if (!add) return NULL;
+    if (victim->id) {  // no free row
+        const DWORD now = GetTickCount();
+        LONG live = 0;
+        for (int i = 0; i < g_kdCap; i++) live += now - g_kdTab[i].cutTick < kKdStuckMs;
+        CapSee(CAP_KD, live + 1, g_kdCap);
+        if (now - victim->cutTick < kKdStuckMs) {  // the oldest cut still counts: grow rather than drop its backoff
+            const int cap = g_kdCap * 2 > g_kdCapMax ? g_kdCapMax : g_kdCap * 2;
+            KdRow* t = cap > g_kdCap ? (KdRow*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(KdRow) * cap) : NULL;
+            if (t) {
+                memcpy(t, g_kdTab, sizeof(KdRow) * g_kdCap);
+                if (g_kdTab != g_kdTab0) HeapFree(GetProcessHeap(), 0, g_kdTab);
+                victim = &t[g_kdCap];
+                g_kdTab = t, g_kdCap = cap;
+            } else CapFull(CAP_KD);  // ceiling: the old eviction
+        }
+    }
     memset(victim, 0, sizeof(*victim));
     victim->id = id;
     return victim;
@@ -458,9 +479,9 @@ static void RfIaText(LONG ia, char* b, size_t n) {
 }
 static void RfText(const RfRec& r, char* b, size_t n) {
     char dl[48];
-    if (r.why) sprintf_s(dl, "cut (%s, mask %ld)", r.why, r.cutMask);
-    else if (r.wouldUs) sprintf_s(dl, "uncut (exempt)");
-    else sprintf_s(dl, "uncut");
+    if (r.why) SFmt(dl, "cut (%s, mask %ld)", r.why, r.cutMask);
+    else if (r.wouldUs) SFmt(dl, "uncut (exempt)");
+    else SFmt(dl, "uncut");
     _snprintf_s(b, n, _TRUNCATE, ", job seq %lu %ld ms result %ld, %s, kind %s deadline %ld ms, follower %016I64X, plan %ld host %ld other %ld ms, "
                 "capAt %ld tail %ld ms, nodes %ld in %ld plans, %s", r.seq, r.us / 1000, r.res, dl, r.kdKind ? kKdName[r.kdKind - 1] : "off",
                 (r.capUs ? r.capUs : r.wouldUs) / 1000, r.follower, r.planUs / 1000, r.hostUs / 1000, (r.us - r.planUs - r.hostUs) / 1000,
@@ -616,7 +637,7 @@ static void PdOpen(int entry, LONG us) {
     s.dl = s.t0 + (LONGLONG)us * g_qpf.QuadPart / 1000000;
     s.savedDl = t_fbDeadline;
     t_fbDeadline = s.dl;  // read by CallPlanBudget for every Route_PlanLocked of the session (D1, D2)
-    strcpy_s(s.ent, "Route_PlanLocked (no IC)");
+    SCpy(s.ent, "Route_PlanLocked (no IC)");
     InterlockedExchange((volatile LONG*)&g_pdTid, (LONG)GetCurrentThreadId());
     InterlockedIncrement(&ts3native_counters.pdSessions[entry]);
 }
@@ -704,7 +725,7 @@ static void PdIcBegin(LONG us, int kind, int why, const char* entry, DWORD handl
     const LONG scope = PdScopeAt(handle);
     PdOpen(0, us);
     t_pd.scope = scope;
-    sprintf_s(t_pd.ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
+    SFmt(t_pd.ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
     t_pd.handle = handle;
     t_pd.ceil = t_kdCeil != 0, t_pd.wouldUs = t_kdCeil;
     KdCamSyncArm(handle);

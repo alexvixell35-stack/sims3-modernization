@@ -269,6 +269,22 @@ static void TestEqualsFast() {
     assert(EqtSame(a, &b, &hit) && !hit && k.eqFtFull == 1 && !EqFind(late.k));
     g_eqPoolN = pool;
 
+    // docs/323 L3: a class whose probe window is full takes no pool slot per call (it used to eat the whole pool)
+    static EqtClass crowd;
+    EqtMake(crowd, 0x11, "Crowd", 1, fb);
+    EqtNew(a, crowd), EqtNew(b, crowd);
+    static EqPlan other;
+    other.klass = (const u8*)&other;
+    EqPlan* saved[EQ_PROBE];
+    const DWORD ch = EqHash(crowd.k);
+    for (DWORD i = 0; i < EQ_PROBE; i++) saved[i] = g_eqTab[(ch + i) & (EQ_TAB - 1)], g_eqTab[(ch + i) & (EQ_TAB - 1)] = &other;
+    const LONG pool2 = g_eqPoolN, full2 = k.eqFtFull, plans2 = k.eqPlans;
+    for (int i = 0; i < 50; i++) assert(EqtSame(a, &b, &hit) && !hit);
+    assert(g_eqPoolN == pool2 && k.eqFtFull == full2 + 50 && k.eqPlans == plans2 + 1 && !EqFind(crowd.k));  // built once
+    for (DWORD i = 0; i < EQ_PROBE; i++) g_eqTab[(ch + i) & (EQ_TAB - 1)] = saved[i];
+    g_eqNoRoom[ch & (EQ_NOROOM - 1)] = NULL;  // room again: the next call learns it
+    assert(EqtSame(a, &b, &hit) && !hit && EqFind(crowd.k) && EqtSame(a, &b, &hit) && hit);
+
     // random values over every class above: the hook and the model never differ
     EqtClass* all[] = {&en, &s8, &mx, &u1, &gi, &many, &del, &busy, &late};
     DWORD s = 7;

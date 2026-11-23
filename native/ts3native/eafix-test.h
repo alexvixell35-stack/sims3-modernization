@@ -302,13 +302,18 @@ static u8* __fastcall TslGet(u8* part, void*, int i) {  // 0x839CA0
     u8** b = *(u8***)(part + 0x10);
     return i < *(LONG*)(part + 0xC) && b + i < *(u8***)(part + 0x14) ? b[i] : NULL;
 }
+static void SlReset() {  // selftest: back to the image's 64 pairs, all free
+    if (g_slPairs != g_slPairs0) HeapFree(GetProcessHeap(), 0, g_slPairs);
+    g_slPairs = g_slPairs0, g_slCap = SL_CAP0, memset(g_slPairs0, 0, sizeof(g_slPairs0));
+    ts3native_slavelink.cap = SL_CAP0, ts3native_slavelink.hw = ts3native_slavelink.grows = 0;
+}
 static void TestSlaveLink() {
     SlaveLinkCounters& c = ts3native_slavelink;
     const SlSetFn s0 = g_slSet;
     const SlDtorFn d0 = g_slDtor;
     const SlGetFn g0 = g_slGet;
     g_slSet = &TslSet, g_slDtor = &TslDtor, g_slGet = &TslGet;
-    memset(g_slPairs, 0, sizeof(g_slPairs)), c.sets = c.unlinks = c.overflow = c.tripHits = 0, g_tslDtors = 0;
+    SlReset(), c.sets = c.unlinks = c.overflow = c.tripHits = 0, g_tslDtors = 0;
     g_tslLive[6] = 0x00401000, g_tslDead[6] = SL_PURECALL;
     alignas(8) static u8 ag[5][0x60], own[5][0x10];  // agents M, A, B, X, N; part = agent+8, owner = agent+4, id at owner+8
     u8* p[5];
@@ -356,17 +361,29 @@ static void TestSlaveLink() {
     SlDtorHook(b, NULL);
     assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 2);
     *(DWORD*)m = (DWORD)(uintptr_t)g_tslLive;
-    // a full table: pairs whose master no longer lists them are reused; none free counts overflow
+    // a full table: pairs whose master no longer lists them are reused (no grow, as before docs/321)
     TslSet(m, NULL, NULL, 0, 0);
-    memset(g_slPairs, 0, sizeof(g_slPairs));
-    for (int i = 0; i < SL_CAP; i++) g_slPairs[i].master = m, g_slPairs[i].slave = x, g_slPairs[i].mPartVt = 0x12345678;
+    SlReset();
+    for (int i = 0; i < SL_CAP0; i++) g_slPairs[i].master = m, g_slPairs[i].slave = x, g_slPairs[i].mPartVt = 0x12345678;
     relive();
     SlSetHook(p[4], NULL, &a, 1, 0);
-    assert(c.overflow == 0);
-    for (int i = 0; i < SL_CAP; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
+    assert(c.overflow == 0 && g_slCap == SL_CAP0 && c.grows == 0);
+    // docs/321 H4: every pair live: the table doubles and the new list is recorded and guarded (was: overflow, no guard)
+    TslSet(p[4], NULL, &a, 1, 0);
+    for (int i = 0; i < SL_CAP0; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
     SlSetHook(m, NULL, &b, 1, 0);
-    assert(c.overflow == 1);
-    memset(g_slPairs, 0, sizeof(g_slPairs));
+    assert(c.overflow == 0 && g_slCap == 2 * SL_CAP0 && c.grows == 1 && c.cap == 2 * SL_CAP0 && c.hw == SL_CAP0 + 1);
+    assert(g_slPairs[0].master == p[4] && g_slPairs[SL_CAP0 - 1].slave == a);  // the old pairs kept their slots
+    SlDtorHook(b, NULL);
+    assert(c.unlinks == 3 && *(LONG*)(m + 0xC) == 0);  // the pair past the old cap unlinks like any other
+    // at the ceiling, every pair live: overflow as before
+    relive();
+    g_slCapMax = 2 * SL_CAP0;
+    for (int i = 0; i < g_slCap; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
+    SlSetHook(m, NULL, &b, 1, 0);
+    assert(c.overflow == 1 && g_slCap == 2 * SL_CAP0 && c.grows == 1 && ts3native_caps.r[CAP_SLAVE].full >= 1);
+    g_slCapMax = 65536;
+    SlReset();
     // tripwire: a destroyed slave 0 (the crash: base vtable, slot +0x18 the purecall thunk) and an unreadable one answer null
     TslSet(m, NULL, two, 2, 1);
     relive();
@@ -378,9 +395,10 @@ static void TestSlaveLink() {
     TslSt(m)[0] = page;
     assert(SlTripGet(m, NULL, 0) == NULL && c.tripHits == 2);
     g_slSet = s0, g_slDtor = d0, g_slGet = g0;
-    memset(g_slPairs, 0, sizeof(g_slPairs)), c.sets = c.unlinks = c.overflow = c.tripHits = 0;
+    SlReset(), c.sets = c.unlinks = c.overflow = c.tripHits = 0;
     printf("EaCrashFixes: SlaveUnlink a destroyed slave taken off its master's list (one of two kept, the last through SetSlaves(0)), "
-           "unlisted / EA-cleared / replaced lists and destroyed or reused masters unchanged, full table reuses stale pairs; "
+           "unlisted / EA-cleared / replaced lists and destroyed or reused masters unchanged, full table reuses stale pairs, all-live table grows "
+           "(docs/321 H4), overflow only at the ceiling; "
            "DeadSlaveTrip live slaves passed, destroyed / unreadable slave answered null: ok\n");
 }
 

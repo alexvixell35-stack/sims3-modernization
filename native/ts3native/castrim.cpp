@@ -436,19 +436,19 @@ static bool CtGoneText(DWORD v, char* out, size_t cap) {  // the newest erase wh
     for (LONG s = top; s > 0 && top - s < (LONG)CT_GRING; s--) {
         const CtGoneEv& e = g_ctGRing[(DWORD)(s - 1) & (CT_GRING - 1)];
         if (e.o && v - e.o < 0x68) {
-            sprintf_s(out, cap, "ERASED by CasTrim %lu s ago (object 0x%08lX +0x%lX, key hash %08lX, erase %ld of %ld)", (GetTickCount() - e.tick) / 1000,
+            SFmt(out, cap, "ERASED by CasTrim %lu s ago (object 0x%08lX +0x%lX, key hash %08lX, erase %ld of %ld)", (GetTickCount() - e.tick) / 1000,
                       e.o, v - e.o, e.h, s, top);
             return true;
         }
     }
-    sprintf_s(out, cap, "never erased by CasTrim (ring: the last %ld of %ld erases)", top < (LONG)CT_GRING ? top : (LONG)CT_GRING, top);
+    SFmt(out, cap, "never erased by CasTrim (ring: the last %ld of %ld erases)", top < (LONG)CT_GRING ? top : (LONG)CT_GRING, top);
     return false;
 }
 static void CtSlotText(DWORD v, char* out, size_t cap) {
     const CtEnt* t = g_ct ? CtSlot(v, false) : NULL;
     const DWORD now = GetTickCount();
-    if (!t) sprintf_s(out, cap, "no CasTrim slot");
-    else sprintf_s(out, cap, "CasTrim slot: seen %ld s, used %ld s, marked %ld s ago (-1 never), found by 0x%lX", t->seen ? (LONG)(now - t->seen) / 1000 : -1L,
+    if (!t) SFmt(out, cap, "no CasTrim slot");
+    else SFmt(out, cap, "CasTrim slot: seen %ld s, used %ld s, marked %ld s ago (-1 never), found by 0x%lX", t->seen ? (LONG)(now - t->seen) / 1000 : -1L,
                    t->used ? (LONG)(now - t->used) / 1000 : -1L, t->cand ? (LONG)(now - t->cand) / 1000 : -1L, t->from);
 }
 // docs/539 §13.5 (0.36.198, castrimdiag1108b), after the 11-08 release-smoke AV at 0xD4B156: [outfit+0xBC] entry 63 held
@@ -479,14 +479,14 @@ static void CtVtCount(CtVtN* t, DWORD vt) {
 static void CtVtText(const CtVtN* t, char* out, size_t cap) {
     int w = 0;
     out[0] = 0;
-    for (int i = 0; i < CT_VTN && t[i].vt && w < (int)cap - 24; i++) w += sprintf_s(out + w, cap - w, " %08lX=%ld", t[i].vt, t[i].n);
-    if (!w) strcpy_s(out, cap, " none");
+    for (int i = 0; i < CT_VTN && t[i].vt && w < (int)cap - 24; i++) w += SFmt(out + w, cap - w, " %08lX=%ld", t[i].vt, t[i].n);
+    if (!w) SCpy(out, cap, " none");
 }
 static void CtCtx(int path, const u8* node, const u8* outfit, char* out, size_t cap) {  // where: path, save, world, outfit, key
     DWORD key[4] = {}, ovt = 0;
     __try { if (node && *(const u8* const*)(node + 0x10) == outfit) memcpy(key, node, 16); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     __try { if (outfit) ovt = *(const DWORD*)outfit; } __except (EXCEPTION_EXECUTE_HANDLER) {}
-    sprintf_s(out, cap, "%s, thread %lu; save #%ld (travel flags %d), %ld s after world load #%ld; outfit 0x%08lX (vtable %08lX) key %08lX %08lX %08lX %08lX",
+    SFmt(out, cap, "%s, thread %lu; save #%ld (travel flags %d), %ld s after world load #%ld; outfit 0x%08lX (vtable %08lX) key %08lX %08lX %08lX %08lX",
               kCtPath[path], GetCurrentThreadId(), g_ctInvSave, g_swTravel, g_udWorldTick ? (LONG)(GetTickCount() - g_udWorldTick) / 1000 : -1L, g_udWorlds,
               (DWORD)(uintptr_t)outfit, ovt, key[0], key[1], key[2], key[3]);
 }
@@ -494,8 +494,8 @@ static void CtNear(const DWORD* c, int n, int i, char* out, size_t cap) {  // ce
     int w = 0;
     out[0] = 0;
     __try {
-        for (int k = i < 8 ? 0 : i - 8; k < n && k <= i + 8 && w < (int)cap - 12; k++) w += sprintf_s(out + w, cap - w, k == i ? " [%08lX]" : " %08lX", c[k]);
-    } __except (EXCEPTION_EXECUTE_HANDLER) { strcat_s(out, cap, " (unreadable)"); }
+        for (int k = i < 8 ? 0 : i - 8; k < n && k <= i + 8 && w < (int)cap - 12; k++) w += SFmt(out + w, cap - w, k == i ? " [%08lX]" : " %08lX", c[k]);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { SCat(out, cap, " (unreadable)"); }
 }
 // Item 2, the float-5 watch: a record slot or cell equal to 0x40A00000, or one whose first dword is below 0x10000, in every mode.
 // arr: 0x14 / 0x38 a record array (rec), 0xBC a cell (cells, n).
@@ -508,10 +508,10 @@ static void CtF5(int path, const u8* node, const u8* outfit, int arr, LONG ri, i
         UafNearLog((DWORD)(uintptr_t)outfit, "outfit");
         char site[112];  // docs/539 §21 [Float5Watch] window line, [Float5Sticky] address
         DWORD at = cells ? (DWORD)(uintptr_t)(cells + i) : 0;
-        if (cells) sprintf_s(site, "%s: outfit cell [+0xBC] entry %d of %d", kCtPath[path], i, n);
+        if (cells) SFmt(site, "%s: outfit cell [+0xBC] entry %d of %d", kCtPath[path], i, n);
         else {
             __try { at = *(const DWORD*)(rec + arr) + 4 * (DWORD)i; } __except (EXCEPTION_EXECUTE_HANDLER) {}
-            sprintf_s(site, "%s: outfit record %ld array +0x%X slot %d", kCtPath[path], ri, arr, i);
+            SFmt(site, "%s: outfit record %ld array +0x%X slot %d", kCtPath[path], ri, arr, i);
         }
         F5wBad(site, (DWORD)(uintptr_t)outfit, at, v);
     }
@@ -519,7 +519,7 @@ static void CtF5(int path, const u8* node, const u8* outfit, int arr, LONG ri, i
     char ctx[300], gone[160], sl[160], b[0x68 * 3 + 4] = "unreadable";
     CtCtx(path, node, outfit, ctx, sizeof(ctx)), CtGoneText(v, gone, sizeof(gone)), CtSlotText(v, sl, sizeof(sl));
     if (cells) CtNear(cells, n, i, b, sizeof(b));
-    else __try { if (rec) Hex(rec, 0x68, b, sizeof(b)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(b, "unreadable"); }
+    else __try { if (rec) Hex(rec, 0x68, b, sizeof(b)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(b, "unreadable"); }
     Log("cas trim: float-5 cell: %s; %s +0x%X record %ld index %d: value 0x%08lX%s, first dword %s%08lX; %s; %s; %s: %s", ctx, cells ? "cells" : "record array", arr, ri, i,
         v, v == CT_F5 ? " (float 5.0)" : "", ok ? "" : "(unreadable) ", first, sl, gone, cells ? "cells -8..+8" : "record bytes", b);
 }
@@ -644,7 +644,7 @@ static void CtFrames(const DWORD* f, int n, char* out, size_t cap) {
     for (int i = 0, w = 0; i < n && w < (int)cap - 40; i++) {
         char a[48];
         CrFrame(f[i], a, sizeof(a));
-        w += sprintf_s(out + w, cap - w, " %s", a);
+        w += SFmt(out + w, cap - w, " %s", a);
     }
 }
 static void CtTrapHit(int s, const CONTEXT* c) {  // watchpt.cpp WpVeh on the writing thread, after the write (eip = the next instruction)
@@ -666,7 +666,7 @@ static void CtTrapHit(int s, const CONTEXT* c) {  // watchpt.cpp WpVeh on the wr
     const int ne = CtEbpChain(c->Ebp, c->Esp, eb, 8), nr = CrStack(c->Esp, rs, 10);
     char at[48], fn[48] = "", chain[8 * 44 + 8], scan[10 * 44 + 8];
     CrFrame(c->Eip, at, sizeof(at)), CtFrames(eb, ne, chain, sizeof(chain)), CtFrames(rs, nr, scan, sizeof(scan));
-    if (const DWORD f = CtFnStart(c->Eip)) sprintf_s(fn, ", EA function ~0x%08lX +0x%lX", f, c->Eip - f);
+    if (const DWORD f = CtFnStart(c->Eip)) SFmt(fn, ", EA function ~0x%08lX +0x%lX", f, c->Eip - f);
     const DWORD tid = GetCurrentThreadId();
     Log("cas trim: %s DR%d: cell 0x%08lX ([outfit+0xBC] entry %ld of %ld, outfit 0x%08lX, armed at save #%ld%s) value now %s0x%08lX%s by eip 0x%08lX (%s%s), "
         "thread %lu (%s), write %ld of this watch, save #%ld; eax %08lX ecx %08lX edx %08lX ebx %08lX esi %08lX edi %08lX ebp %08lX esp %08lX; ebp chain (%d):%s; "
@@ -710,7 +710,7 @@ static void CtTrapArm() {  // after each save (CtInvSaveLog), the save's thread:
     for (int s = 0; s < n; s++) {
         DWORD v = 0;
         __try { v = *(const DWORD*)(uintptr_t)a[s]; } __except (EXCEPTION_EXECUTE_HANDLER) {}
-        w += sprintf_s(cells + w, sizeof(cells) - w, "%s DR%d%s outfit 0x%08lX entry %ld of %ld cell 0x%08lX (now 0x%08lX)", s ? ";" : "", s,
+        w += SFmt(cells + w, sizeof(cells) - w, "%s DR%d%s outfit 0x%08lX entry %ld of %ld cell 0x%08lX (now 0x%08lX)", s ? ";" : "", s,
                        mask & (1 << s) ? "" : " NOT SET (slot in use)", g_ctTrap[s].outfit, g_ctTrap[s].e, g_ctTrap[s].n, a[s], v);
         if (mask & (1 << s)) InterlockedIncrement(&z.trArms);
     }
@@ -746,7 +746,7 @@ static void CtInvBad(const char* what, const u8* node, const u8* outfit, LONG ri
     bool vOk = false;
     __try { if (node && *(const u8* const*)(node + 0x10) == outfit) memcpy(key, node, 16); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     __try { if (v) memcpy(w, (const void*)(uintptr_t)v, 16), vOk = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
-    __try { if (rec) Hex(rec, 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
+    __try { if (rec) Hex(rec, 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(rb, "unreadable"); }
     CtSlotText(v, sl, sizeof(sl));
     Log("cas trim: inventory bad slot (%s, thread %lu): %s; save #%ld (travel flags %d), %ld s after world load #%ld; outfit 0x%08lX key %08lX %08lX %08lX %08lX, "
         "record %ld of %ld at 0x%08lX, array +0x%X slot %d: value 0x%08lX, first dwords %s %08lX %08lX %08lX %08lX; %s; %s; record bytes: %s",
@@ -829,8 +829,8 @@ static DWORD g_ctSweepAt;        // tick | 1 at the last "sweep done" (CtSweepSt
 static LONG g_ctSweepSave = -1;  // the save # it followed
 static bool CtFloaty(DWORD v) { const DWORD x = (v >> 23) & 0xFF; return !(v & 0xFFFF) && x >= 0x70 && x <= 0x90; }  // a round float, |x| 2^-15..2^17
 static void CtSweepText(char* out, size_t cap) {
-    if (!g_ctSweepAt) sprintf_s(out, cap, "no CasTrim sweep this session");
-    else sprintf_s(out, cap, "last CasTrim sweep done %ld s ago, after save #%ld (swept %ld in total)", (LONG)(GetTickCount() - g_ctSweepAt) / 1000, g_ctSweepSave,
+    if (!g_ctSweepAt) SFmt(out, cap, "no CasTrim sweep this session");
+    else SFmt(out, cap, "last CasTrim sweep done %ld s ago, after save #%ld (swept %ld in total)", (LONG)(GetTickCount() - g_ctSweepAt) / 1000, g_ctSweepSave,
                    ts3native_counters.ctSwept);
 }
 static const char* CtMbFrom(DWORD ret) { return ret == CT_MB_RET_DTOR ? "ModelBuilder dtor 0x5D83B4" : ret == CT_MB_RET_HOLD ? "holder release 0x5D96AD" : "?"; }
@@ -841,7 +841,7 @@ static void CtMbBad(const u8* mb, DWORD ret, const u8* rec, LONG ri, LONG rn, in
         if (rec && k >= 0) UafNearLog((DWORD)(uintptr_t)(rec + 4 + 4 * k), "modelbuilder cell");
         UafNearLog((DWORD)(uintptr_t)rec, "modelbuilder record"), UafNearLog((DWORD)(uintptr_t)mb, "modelbuilder");
         char site[96];  // docs/539 §21
-        sprintf_s(site, "modelbuilder release (%s): record %ld of %ld cell %d", CtMbFrom(ret), ri, rn, k);
+        SFmt(site, "modelbuilder release (%s): record %ld of %ld cell %d", CtMbFrom(ret), ri, rn, k);
         F5wBad(site, (DWORD)(uintptr_t)mb, rec && k >= 0 ? (DWORD)(uintptr_t)(rec + 4 + 4 * k) : 0, v);
     }
     if (InterlockedIncrement(&g_ctMbLogs) > 40) return;
@@ -849,8 +849,8 @@ static void CtMbBad(const u8* mb, DWORD ret, const u8* rec, LONG ri, LONG rn, in
     DWORD w[4] = {};
     bool vOk = false;
     __try { if (v) memcpy(w, (const void*)(uintptr_t)v, 16), vOk = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
-    __try { if (rec) Hex(rec, 0x74, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
-    __try { Hex(mb, 0x40, hb, sizeof(hb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(hb, "unreadable"); }
+    __try { if (rec) Hex(rec, 0x74, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(rb, "unreadable"); }
+    __try { Hex(mb, 0x40, hb, sizeof(hb)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(hb, "unreadable"); }
     CtSlotText(v, sl, sizeof(sl)), CtSweepText(sw, sizeof(sw));
     Log("cas trim: modelbuilder cell bad: %s; thread %lu, from 0x%08lX (%s); builder 0x%08lX, record %ld of %ld at 0x%08lX, cell %d (rec+0x%X): value 0x%08lX%s%s, "
         "first dwords %s%08lX %08lX %08lX %08lX; MbGuard %d (%s); value: %s; %s; record: %s; builder: %s; %s; CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), "
@@ -925,9 +925,9 @@ static bool CtMbFaultText(const CONTEXT* c, char* out, size_t cap) {
     const int k = rec && cell >= rec + 4 ? (int)((cell - rec - 4) / 4) : -1;
     char gv[160], gr[160], gb[160], sl[160], sw[120], rb[0x74 * 3 + 4] = "none", hb[0x40 * 3 + 4] = "unreadable";
     CtGoneText(v, gv, sizeof(gv)), CtGoneText(rec, gr, sizeof(gr)), CtGoneText(mb, gb, sizeof(gb)), CtSlotText(v, sl, sizeof(sl)), CtSweepText(sw, sizeof(sw));
-    __try { if (rec) Hex((const u8*)(uintptr_t)rec, 0x74, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
-    __try { if (mb) Hex((const u8*)(uintptr_t)mb, 0x40, hb, sizeof(hb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(hb, "unreadable"); }
-    sprintf_s(out, cap, "crash forensics: cas trim modelbuilder release fault at 0x%08lX (0x5D82A0 %s, loop return 0x%08lX): value 0x%08lX%s%s, first dwords %s%08lX %08lX %08lX %08lX; "
+    __try { if (rec) Hex((const u8*)(uintptr_t)rec, 0x74, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(rb, "unreadable"); }
+    __try { if (mb) Hex((const u8*)(uintptr_t)mb, 0x40, hb, sizeof(hb)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(hb, "unreadable"); }
+    SFmt(out, cap, "crash forensics: cas trim modelbuilder release fault at 0x%08lX (0x5D82A0 %s, loop return 0x%08lX): value 0x%08lX%s%s, first dwords %s%08lX %08lX %08lX %08lX; "
               "value: %s; %s; cell 0x%08lX (rec+0x%X, cell %d); record 0x%08lX (%ld of %ld, end 0x%08lX; %s); builder 0x%08lX (vtable %08lX, from 0x%08lX %s; %s); "
               "modelbuilder checks: calls %ld, cells %ld, bad %ld, skips %ld (MbGuard %d); %s; CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), %ld s after world "
               "load #%ld; record bytes: %s; builder +0..+0x40: %s", c->Eip, loop == 3 ? "part records" : loop == 1 ? "list +0x1C" : "list +0x28", f[10], v,
@@ -985,9 +985,9 @@ static void CtOsBad(const u8* outfit, DWORD ret, const u8* rec, LONG ri, LONG rn
     UafNearLog((DWORD)(uintptr_t)outfit, "outfit");
     if (InterlockedIncrement(&g_ctOsLogs) > 40) return;
     char sw[120], rb[0x68 * 3 + 4] = "unreadable", ob[0x60 * 3 + 4] = "unreadable", ub[0x40 * 3 + 4] = "unreadable";
-    __try { if (rec) Hex(rec, 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
-    __try { if (obj) Hex(obj, 0x60, ob, sizeof(ob)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(ob, "unreadable"); }
-    __try { if (outfit) Hex(outfit, 0x40, ub, sizeof(ub)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(ub, "unreadable"); }
+    __try { if (rec) Hex(rec, 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(rb, "unreadable"); }
+    __try { if (obj) Hex(obj, 0x60, ob, sizeof(ob)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(ob, "unreadable"); }
+    __try { if (outfit) Hex(outfit, 0x40, ub, sizeof(ub)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(ub, "unreadable"); }
     CtSweepText(sw, sizeof(sw));
     Log("cas trim: outfit string bad: %s; thread %lu, from 0x%08lX (%s); outfit 0x%08lX (last seen by the inventory check at save #%ld), record %ld of %ld at 0x%08lX, "
         "object [rec+0x5C] 0x%08lX; OutfitStrGuard %d (%s); object: %s; record: %s; %s; CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), %ld s after world "
@@ -1067,8 +1067,8 @@ static bool CtOsFaultText(const CONTEXT* c, char* out, size_t cap) {
     __try { o[0] = *(const DWORD*)(uintptr_t)obj, memcpy(o + 1, (const void*)(uintptr_t)(obj + 0x28), 16), ook = true; } __except (EXCEPTION_EXECUTE_HANDLER) {}
     char go[160], gr[160], sw[120], ob[0x60 * 3 + 4] = "unreadable";
     CtGoneText(obj, go, sizeof(go)), CtGoneText(rec, gr, sizeof(gr)), CtSweepText(sw, sizeof(sw));
-    __try { Hex((const u8*)(uintptr_t)obj, 0x60, ob, sizeof(ob)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(ob, "unreadable"); }
-    sprintf_s(out, cap, "crash forensics: cas trim outfit string copy fault at 0x%08lX (%s; 0x5BF4C0 frame at 0x%08lX, %s): string begin 0x%08lX%s, end 0x%08lX%s; "
+    __try { Hex((const u8*)(uintptr_t)obj, 0x60, ob, sizeof(ob)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(ob, "unreadable"); }
+    SFmt(out, cap, "crash forensics: cas trim outfit string copy fault at 0x%08lX (%s; 0x5BF4C0 frame at 0x%08lX, %s): string begin 0x%08lX%s, end 0x%08lX%s; "
               "object 0x%08lX (%s, vtable %08lX%s, +0x28 %08lX, now begin %08lX end %08lX capacity end %08lX; %s); record 0x%08lX ([rec+0x5C] %s0x%08lX%s; %s); "
               "outfit 0x%08lX (last seen by the inventory check at save #%ld); outfit string checks: calls %ld, objects %ld, bad %ld, resets %ld (OutfitStrGuard %d); %s; "
               "CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), %ld s after world load #%ld; object bytes: %s", c->Eip,
@@ -1247,7 +1247,7 @@ static void RlCheck(u8* realm, DWORD node, DWORD shape, bool add, DWORD ret, con
                 if (g_rlGuard) {
                     if (const DWORD got = RlFind(realm, node, (DWORD)i)) {
                         b[i] = got;
-                        sprintf_s(fx, "restored shape 0x%08lX (its node and node index)", got), fix = fx;
+                        SFmt(fx, "restored shape 0x%08lX (its node and node index)", got), fix = fx;
                     } else {  // EA's swap-remove of slot i
                         const DWORD last = e[-1];
                         b[i] = last;
@@ -1324,7 +1324,7 @@ static void CtInvFault(const CONTEXT* c) {
     __try { memcpy(f, (const void*)(uintptr_t)(c->Esp + 0x10), sizeof(f)); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     char gone[160], grec[160], sl[160], rb[0x68 * 3 + 4] = "unreadable";
     CtGoneText(c->Esi, gone, sizeof(gone)), CtGoneText(f[0], grec, sizeof(grec)), CtSlotText(c->Esi, sl, sizeof(sl));
-    __try { if (f[0]) Hex((const u8*)(uintptr_t)f[0], 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy_s(rb, "unreadable"); }
+    __try { if (f[0]) Hex((const u8*)(uintptr_t)f[0], 0x68, rb, sizeof(rb)); } __except (EXCEPTION_EXECUTE_HANDLER) { SCpy(rb, "unreadable"); }
     DWORD begin = 0;
     __try { if (f[1]) begin = *(const DWORD*)(uintptr_t)(f[1] + 0x98); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("crash forensics: cas trim inventory fault at 0x%08lX (array +0x%X slot %lu): value esi 0x%08lX (%s; %s), record 0x%08lX (index %ld, %ld left; %s), "
@@ -1361,7 +1361,7 @@ static bool CtRelFaultText(const CONTEXT* c, char* out, size_t cap) {  // true: 
     CtGoneText(v, gone, sizeof(gone)), CtSlotText(v, sl, sizeof(sl));
     const int n = frame && e >= b && e - b < 4096 * 4 ? (int)((e - b) / 4) : 0, idx = frame && cell >= b && cell < e ? (int)((cell - b) / 4) : -1;
     if (idx >= 0) CtNear((const DWORD*)(uintptr_t)b, n, idx, nb, sizeof(nb));
-    sprintf_s(out, cap, "crash forensics: cas trim outfit release fault at 0x%08lX (%s): value 0x%08lX%s, first dwords %s%08lX %08lX %08lX %08lX; %s; %s; cell 0x%08lX "
+    SFmt(out, cap, "crash forensics: cas trim outfit release fault at 0x%08lX (%s): value 0x%08lX%s, first dwords %s%08lX %08lX %08lX %08lX; %s; %s; cell 0x%08lX "
               "(entry %d of %d, 0x%08lX-0x%08lX), outfit 0x%08lX (vtable %08lX), return 0x%08lX (%s); outfit last seen by the inventory check at save #%ld; "
               "release checks: calls %ld, cells %ld, bad %ld, guard skips %ld (CellGuard %d); float-5 %ld; CasTrim mode %ld, in a save %ld, save #%ld (travel flags %d), "
               "%ld s after world load #%ld; cells -8..+8:%s", c->Eip, frame ? "0x5AF640 frame" : "value only", v, v == CT_F5 ? " (float 5.0)" : "", vOk ? "" : "(unreadable) ",
@@ -1637,7 +1637,7 @@ static void CtMemLine(LONG n, const char* tag) {
     int w = 0;
     for (const CtName& e : g_ctNames) {
         if (!e.s[0]) break;
-        w += sprintf_s(line + w, sizeof(line) - w, " %s=%ld", e.s, e.n);
+        w += SFmt(line + w, sizeof(line) - w, " %s=%ld", e.s, e.n);
         if (w > 330) Log("diag: castrim names #%ld%s", n, line), w = 0;
     }
     if (w || g_ctNameOther) Log("diag: castrim names #%ld%s other=%ld", n, w ? line : "", g_ctNameOther);
