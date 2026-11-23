@@ -348,8 +348,6 @@ A player's rule: "doors and shower and stairs etc can be almost always but other
 - §8.2 and §8.7: the lane waits, lane shares and line skips are at doors, stairs and ladders and are not touched.
   The `simpass` count of §8.7 (about 55 acts per storm) was taken before this rule; away from portals those walks
   now come after the grace.
-portal lanes, pets, chores, beds); this copy carries §10 and §12. The section numbers are kept
-so the code comments (`docs/686 §10`, `§12`) match. Built with `node tools/setup/build-fixes.ts`; nothing here needs ts3native.
 
 ## 10. A slot closed by furniture or a wall is used anyway (`blockeduse`, `blockedusehh`; 2026-11-22, `feat/blockeduse-1122`, built, default off; forced repro run, §10.6)
 
