@@ -322,6 +322,7 @@ static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
               miss ? ", callvirt of " : "", miss ? callee : "", obj, vt, kl, st);
     return true;
 }
+static void RdFlush(bool closing);  // routedefer.cpp: [RouteAsync] DestroyDefer, deferred route destroys (docs/67 §41)
 static DWORD P5cRelMatch(const CONTEXT* c);  // p5c.cpp: registers in an object our graveyard flush released (crash I)
 static void CfOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] dump (off unless Enabled=1)
 static void CfModInit();  // crashfx.cpp: TS3W.exe / MSVCR80.dll ranges for the CtOsFault gate (docs/254 R2)
@@ -5952,6 +5953,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         g_dyArm = DiscYieldOk(DyKnownUnseen(handle), DS_A10START);
         if (!g_dyArm) DiscPoll(DS_A10START);  // a script-IC point, as Route.Plan's START (docs/84 §2.4)
         P5cFlush();  // P5c: parked destroy references, when no job runs (docs/88 §5.1 flush points)
+        RdFlush(false);  // [RouteAsync] DestroyDefer: deferred route destroys, when no job runs
         return DyStartEnd(A10StartBody(handle, optHi, idx), DS_A10START);
     }
     if (optLo != 0 || (optHi & ~(kAsyncCancelHi | kNoYieldHi)) != kAsyncOptHi) return g_getOptOrig(handle, optLo, optHi, options2);
@@ -5966,6 +5968,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     else if (!(optHi & kAsyncCancelHi) && j && j->state == J_QUEUED) DiscYieldQueuedNote();  // docs/670 §27: counted, the wait stays
     if (!dy) DiscPoll(!(u8)options2 ? DS_START : (optHi & kAsyncCancelHi) ? DS_CANCEL : DS_READY);  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
     P5cFlush();
+    RdFlush(false);
     if (!(u8)options2) return DyStartEnd(AsyncStart(handle), DS_START);
     j = GetCurrentThreadId() == g_async.owner ? JobFor(handle) : NULL;  // again: the drain served the job's managed calls
     if (optHi & kAsyncCancelHi) {  // the caller gives up (finally, Sim reset): its job must not outlive it
@@ -6610,6 +6613,7 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "stallwatch.cpp"  // docs/67 §25: [StallWatch] sim stall sampler (needs crashreport.cpp, castrim.cpp, simloop.cpp, userdiag.cpp)
 #include "hitchsum.cpp"    // docs/666 §5: [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (needs stallwatch.cpp, hitchattr.cpp, syncphases.cpp, memexp.cpp)
 #include "c2diag.cpp"      // docs/259 §9: [Crash2Diag] route destination list lifetime detector, CRASH-TRIAGE (after autshadow.cpp: g_arGate; values.cpp: PvSwClass)
+#include "routedefer.cpp"   // docs/67 §41: [RouteAsync] DestroyDefer (after c2diag.cpp: shares IC_Route_DestroyRoute)
 #include "monosig.cpp"     // docs/539 §20: [MonoSigGuard] EA bug, delegate signature param_count before params[0] at 0xD70F90 (release ini on)
 #include "bindertd.cpp"    // docs/537 §20.3 E1: [Binder] TypeHandleDirect, GetTypeFromHandle's EA body reads the handle (no n2m call)
 #include "s3sscompat.cpp"  // docs/539 §22: [S3SSCompat] StaleWriteGuard, S3SS 1.6.3 stale camera-threshold write (after crashreport.cpp: CrFileSha; release ini on)
@@ -6807,6 +6811,7 @@ static void Run(HMODULE self) {
         keepLog = ApplyFloat5Free(ini) || keepLog;  // docs/539 §19 (off): after [UafCheck] (shares its EA Free detour)
         keepLog = ApplyFloat5Watch(ini) || keepLog;  // docs/539 §21 (off): [Float5Sticky], [Float5Watch]
         keepLog = ApplyCrash2Diag(ini) || keepLog;  // docs/259 §9 (off): route destination detours, before the game runs
+        keepLog = ApplyRouteDestroyDefer(ini) || keepLog;  // docs/67 §41 (off): after [Crash2Diag] (same prologue)
         keepLog = ApplyMonoSigGuard(ini) || keepLog;  // docs/539 §20 (EA bug fix, default on): before Mono starts
         keepLog = ApplyBinderTypeHandle(ini) || keepLog;  // docs/537 §20.3 E1 (default 0): before Mono starts
         keepLog = ApplyS3ssCompat(ini) || keepLog;  // docs/539 §22 (default on): S3SS 1.6.3 stale maintained write, stands aside for other S3SS builds
