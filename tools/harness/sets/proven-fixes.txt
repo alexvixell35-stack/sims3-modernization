@@ -37,6 +37,8 @@
 #   viewlenient viewlenienthh viewlenientlog
 #   socialreach socialreachhh socialreachlog
 #   unstuck unstuckhh unstucklog
+#   linewaitlog rhshare rhsharehh servingshare servingsharehh
+#   showertogether showertogetherhh showerpee showerpeehh showersharelog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
 #   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep

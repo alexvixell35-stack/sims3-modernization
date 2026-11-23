@@ -3,7 +3,7 @@
 2026-11-21, branch `fix/stand-wait-1121`. Storm logs s141-s291 (Isla Paradiso, Collins household, 2-minute route storms) +
 decompiled C#. Built, default off, **NOT RUN**. Switches `standwaitfix`, `standwaitfixhh`, `standwaitlog`; counters
 4300-4319; `StandWait.cs`, `StandWaitCore.cs`; repro `standwait-check`.
-§7 (waits at a privacy-locked room, `standwaitlocked`) and §9-§13 stay on the contributor's combo branch for now; §8 is
+§7 (waits at a privacy-locked room, `standwaitlocked`) and the other sections stay on the contributor's combo branch for now; §8, §14 and §15 are
 in this file. **Correction to §1-§2:** the wait in the tuning XML is 20 sim-minutes, not 50; "50" below is the default
 in the code.
 
@@ -1063,3 +1063,264 @@ Ten route storms s520-s529 (5 on, 5 off; §16-§18's switches together). `social
 Ichtaca, SocialInteractionB Share Interests -> Edward Dregg (FailedBecauseNoPathToDestination, a turn): talks from
 where it stands`. `unstuck` walked a Sim out once (0.7 m; its route still had no plan afterwards). Errors 0, crashes
 0; hitches per storm 4.8 on vs 5.8 off. **Not run in the game as a forced repro yet** (pending).
+
+## 14. Sims share rabbit hole doors and serving platters; line waits logged (`rhshare`, `servingshare`, `linewaitlog`; 2026-11-22, `feat/objshare-1122`, built, default off, run §14.5)
+
+A player's wish: Sims share more things, clipping is fine. Privacy objects (toilet, shower, bath, bed) are not
+touched. Source `ObjShare.cs`, rules `ObjShareCore.cs`, counters 4470-4493, `kCounterSlots` 4494, check
+`ObjShareCheck`, selftest `tools/selftest/objshare`, repros `objshare-check`, `rhshare-rush`, `servingshare-buffet`.
+
+### 14.1 Where Sims queue at objects [verified, decompiled `Sims3.Gameplay` unless marked]
+
+- `SimQueue.WaitForTurn` is the one line of the game: 58 classes own one. A Sim is entered, walks behind the Sim
+  before it, and its place is looked at once per check period; after the timeout it gets `ObjectInUse` + `TimedOut`
+  and the route-fail balloon. After the line most objects test `InUse` again.
+- `RabbitHole.AnimateEnterRabbitHole` calls `WaitForEnterSlot` before each walk to its enter slot. One Sim holds
+  the slot (`ReservedEnterSlots`, `ReservedEnterSlotsPerPerson`) until that walk has ended; the caller's `finally`
+  takes the reservation off and names the nearest Sim of `WaitingToEnterSims` as the next holder. The waiting loop
+  sleeps 10 ticks a turn, never looks at exit reasons (a cancelled Sim stays), and breaks a reservation only after
+  15 sim-minutes with the same holder. The caller's retry path takes the slot's reservation off without asking
+  whose it is. Riders and horses come through the same call.
+- `ServingContainerGroup.RunBodyForGrabAServing` (platters, buffet food, pizza through its override's base call):
+  a walk near the platter, the platter's line (`servings - 1` long, 10 sim-minutes), the surface slot's walk (which
+  waits in the surface's line when it has one), then `InUse` -> `ObjectInUse`, `HasFoodLeft`, `StandardEntry`, the
+  state machine `TakeAServing` (actors: the Sim and its own plate) and `DecrementServings` after the take. Food on
+  an `IBuffetTable` is never decremented. Nothing but the line and the use list keeps two Sims from both passing
+  `HasFoodLeft` on the last serving.
+
+### 14.2 What is built
+
+- `linewaitlog` (log only). `LdsQueueHook.WaitHook` (sharelanes' swap of `WaitForTurn`, no second swap) times the
+  game's body: from half a sim-minute one line and counters 4470-4473; shorter ones 4493, a refusal at once at a
+  line with Sims in it 4492. The enter-slot hook below does the same for every wait at a held slot (4474-4477).
+  `linewait: <Sim> npc|household|selected, <interaction>: <TargetType> line|rhdoor, waited N sim-min, line length L, outcome got turn|timed out|cancelled|shared, at x,y,z`.
+  Line: `timed out` = refused after the whole timeout, `cancelled` = refused earlier. rhdoor: `timed out` = the
+  wait lasted the 15 sim-minutes after which a reservation is broken, `shared` = rhshare let the Sim walk.
+  The counters run with the switch off. With `linewaitlog` on rhshare and servingshare write one line per act too.
+- `rhshare` / `rhsharehh`: swap of `RabbitHole.WaitForEnterSlot` (yields, stub `WaitOrig`). When another Sim
+  holds the slot:
+  - holder in scope and a plain walker: the Sim returns at once and walks to the slot. It takes no reservation and
+    is not in the waiting list, so the holder's `finally` and the hand-over are what they were (4479).
+  - the reservation names no living Sim: it is removed, the game's code reserves for this Sim (4484).
+  - holder out of scope, or a horse / rider / carrier: the Sim waits in our loop, entered in the waiting list. It
+    is the game's loop with three more exits: an exit reason on the Sim (4483; the caller's walk then fails and it
+    ends), the holder changing to one it may share with, and a dead holder. After 15 sim-minutes with one holder
+    the reservation is removed as the game does. Then the game's own code runs (free slot or handed over).
+  - horses, riders, Sims carrying a child and toddlers keep the game's wait (4482 with the kept holders).
+- `servingshare` / `servingsharehh`: swap of `ServingContainerGroup.RunBodyForGrabAServing` (yields, stub
+  `GrabOrig`) opens a run for a Sim in scope when every Sim in the platter's line and use list is in scope; the
+  game's own body runs inside it.
+  - `WaitForTurn` for a Sim whose run has not begun its take answers true without entering the Sim, for the
+    platter's line and the surface's, while the Sims in that line are in scope (4486 when somebody was there).
+  - `ServingContainerGroup.HasFoodLeft` (swap, no yield; one integer test while no run is open): the run's first
+    call is the test before the take. Servings that other runs are taking now count as gone; with none left it
+    answers false and the game's run ends as at an empty platter (4491). Otherwise the serving is spoken for. The
+    run's second call is the game's test after `DecrementServings`, which ends the reservation. Buffets always
+    have food. Other callers get the game's answer.
+  - `StateMachineClient.SetActor` (`SmcSetActor.cs`; on the combo branch actdelay's swap; one integer test while no run is open): the first call for a
+    Sim that has passed the food test is its take; the Sim leaves the platter's use list there, before the first
+    yield, so the next Sim's `InUse` test passes (4487 counts takes that began while another was running).
+
+### 14.3 Limits [inferred unless marked]
+
+- Scope is not exact at the platter: a Sim out of scope that arrives while a Sim in scope takes finds the line
+  empty and the platter free, so it does not wait either.
+- While a Sim takes (a few seconds) the platter is not in use for other interactions (pick up, clean up, drag).
+  A platter destroyed in those seconds would make the game's `DecrementServings` run on a dead object.
+- A Sim that leaves the enter-slot wait on a cancel is handed to the caller's walk, which has to fail on the exit
+  reason. If a route ignores it the Sim walks to the slot and enters.
+- A sharing Sim whose walk fails runs the game's retry path, which takes the holder's reservation off; the next
+  waiting Sim is then named while the holder still walks. The tables stay consistent, Sims overlap.
+- Sims walking to one slot stand in each other's footprint at the door: the obstacle wait there is `clipwait` /
+  `simpass`' business (§8, §9).
+- `LdsQueueHook.WaitHook` changed: Sims saved in a line by an older build are reset once at the first load
+  (docs/242 §2).
+- A serving run's identity is the Sim's task: a `HasFoodLeft` call on the same platter from that task before the
+  game's own test would be taken for it (none found in the walk).
+
+### 14.4 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/objshare/run.ts`: 29 checks. `build-fixes.ts` builds; selftests `sharelanes`, `clipwait`,
+  `standwait` pass; `swap-stack-audit` has the three new rows.
+- Live: `objshare-check` once (off `BROKEN`, on `FIXED`, one switch on `MIXED`). Then a storm with the switches
+  off and `linewaitlog` on to rank the lines by 4470-4477, before any on arm.
+- `rhshare-rush`: a town at 08:00-09:00 on a weekday (school and work), or a festival / showtime venue. Off arm:
+  4474 / 4475 and `rhdoor` lines; on arm `rhshare rhsharehh`: 4479 up, 4475 near zero, no `objshare: error at`.
+  Cancel a household Sim that waits behind a held slot (hh off): 4483.
+- `servingshare-buffet`: a party or a community lot with a buffet table / a platter on a counter and 4+ hungry
+  Sims. Off arm: `ServingContainerGroup... line` waits; on arm: 4486 / 4487 up; a platter with 2 servings and 3
+  Sims: 4491 once, servings never below 0 (`ObjShareCheck lot`).
+
+### 14.5 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Four household young adults, nobody autonomous; by hand in session `sh-m1`, then the entries below (exit 0 each). The
+forced repros `servingshare-force` and `rhshare-force` stay on the contributor's combo branch: their agent steps
+(`add_platter` and others) are not upstream yet. In these runs the `SetActor` hook was actdelay's; here it is
+`SmcSetActor.cs` with the same body.
+
+**Repro `servingshare-force`** (run `sv-r1`): a finished group meal on the ground of the front yard (agent step
+`add_platter`: `Recipe.CreateFinishedFood`, Group), the Sims 6 m away on four sides, Grab a Serving for three at
+once and the fourth 6 s later.
+
+| | off | on (`servingshare servingsharehh`) |
+|---|---|---|
+| 8 servings, 4 Sims | `linewait: Di Platter household, ServingContainerGroup_GrabAServing target BowlL: BowlLarge line, waited 3.1 sim-min, line length 1, outcome got turn`, Cy 5.9 and Bo 5.0 sim-min (line length 2); 4 plates | no line wait; `servingshare: Di Platter household takes from BowlLarge with 1 other Sim(s), 4 left`, `Cy ... with 2 other Sim(s)`; 4 plates, servings 0 |
+| Counters | line waits (4470) 3 more, runs at a busy platter (4485) 1, would (4488) 1 | took with another Sim (4487) 2, line waits unchanged, errors 0 |
+| 2 servings, 3 Sims | | exactly 2 plates, servings 0, lines skipped (4486) 1 |
+| 1 serving, 3 Sims | | exactly 1 plate, `servingshare: Bea Platter selected does not take from BowlLarge: 1 left, 1 being taken`, last serving refused (4491) 1 (2 in `sh-m1`), servings 0 |
+
+- Sims that come from one side, or through one door, reach the platter one after the other and take 3 s apart
+  with the switch on (6 s off): they never meet at it and 4487 stays 0. From several sides the takes overlap.
+- 4485 and 4488 count a run only when the platter was in use or had a line when the run began (before the walk):
+  orders given at one time leave them at 0. Counters only, not changed.
+- The third Sim at a platter with 2 servings found it empty the game's own way; 4491 needs a Sim that asks while
+  the last serving is being taken (the 1-serving arm).
+
+**Repro `rhshare-force`** (run `rh-r1`): the four Sims put 20 m before City Hall's doors and ordered Tour City Hall.
+
+| | off | on (`rhshare rhsharehh`) |
+|---|---|---|
+| Lines | `linewait: Di Rabbit household, VisitRabbitHole target CityHall: CityHall rhdoor, waited 0.9 sim-min, line length 2, outcome got turn`, Cy 2.1, Bea 5.1 sim-min | `rhshare: Bo Rabbit household walks to enter slot 1212927037 of CityHall held by another Sim, 1 waiting`, `linewait: Bo Rabbit household, ...: CityHall rhdoor, waited 0.0 sim-min, line length 1, outcome shared`; the same for Bea and Cy |
+| Counters | rhdoor waits (4474) 4, 9.4 sim-min (4475), would (4480) 4 | walked to a held slot (4479) 3, sim-min unchanged, errors 0 |
+| After 30 s | all four in the tour | all four in the tour, no reserved enter slot left |
+
+- NPCs shared too in the on arm (`rhshare: Monika Morris npc walks to enter slot ... of Stadium`).
+- Not run: the cancel exit (4483), dead reservations (4484), horses and riders (4482).
+
+## 15. Partners shower together; a Sim with no usable toilet takes a shower (`showertogether`, `showerpee`; 2026-11-22, `feat/showershare-1122`, built, default off, run §15.5)
+
+A player's wish: romantic Sims shower together (they clip and come out one at a time), also in the all-in-one
+bathroom, and a Sim that has to pee with the toilet busy or no toilet on the lot does it in the shower, as a
+shower: no new interaction. Source `ShowerShare.cs`, rules `ShowerShareCore.cs`, counters 4494-4509,
+`kCounterSlots` 4510, check `ShowerShareCheck`, selftest `tools/selftest/showershare`, repro `showershare-check`.
+
+### 15.1 How the game's shower, all-in-one bathroom and bladder failure work [verified, decompiled `Sims3.Gameplay` unless marked]
+
+- `Shower.TakeShower.Run` (target `IShowerable`: every shower and shower tub): `SimLine.WaitForTurn` (line of 2,
+  waits outside the room's door, evicts after 15 sim-minutes), `RouteToSlotAndCheckInUse(RoutingSlot_0)`, a
+  `ShowerPrivacySituation`, `StandardEntry` (use list), a second walk to the slot, the outfit change, its own
+  "Shower" state machine (actors `x` and `Shower`), `SimInShower = Actor`, the loop until hygiene is full, then
+  `WaitToLeaveShower`, the exit animation and `StandardExit`.
+- `SimRoutingComponent.RouteToSlotAndCheckInUse`: `PreRouteCheckForLine` (asks the line once more, never
+  waiting), `RouteToSlot`, then `InUse` -> exit reason `ObjectInUse`.
+- `WaitToLeaveShower`: `EnableFootprintAndPushSims(824351308, actor)` pushes every other Sim off the exit
+  footprint, then sleeps while `IsRoutingSlotObstructed(actor, RoutingSlot_0)`.
+- Privacy: `ShowerPrivacySituation.OtherSimCanIgnorePrivacy` is true for a Sim in a romantic relationship
+  (`Sim.CanIgnoreNormalPrivacySituationsWith` -> `IsInRomanticRelationshipWith`: the relationship's long-term state
+  is romantic). A partner is neither shooed out nor reacted to; nothing had to change there.
+- The game's own second Sim in a shower is `Shower.WooHoo`: actor `y` on the first Sim's state machine, on
+  `RoutingSlot_0`. There is no "shower with" interaction to unlock, so a partner runs its own Take Shower with
+  its own state machine on the same slot.
+- `AllInOneBathroom.UseAllInOneBathroom`: its line (6, cut ahead of lower priority), the same in-use walk, no
+  privacy situation, a footprint shut while a Sim is inside, the Sim fades out; hygiene and the bladder fill
+  (bladder in 5 sim-minutes). No exit wait.
+- Bladder: `Motive.MotiveDistress(sim, Bladder)` runs when the motive is at its minimum and queues
+  `Sim.BladderFailure` (puddle, embarrassment) unless one is queued. `BuffReallyHasToPee` is added shortly before.
+  Toilets fill the bladder with a motive delta on the interaction (`Motives.LerpToFill`).
+
+### 15.2 What is built
+
+`showertogether` (NPCs) / `showertogetherhh` (household and selected Sims too; both Sims must be in scope):
+
+- Rule (`ShowerShareCore.Join`): exactly one other Sim uses the object or is in its line, it runs the same
+  interaction there (Take Shower, or the all-in-one bathroom's use; not a bath, a repair, a WooHoo), both are
+  humans and no robots, both young adults or older, the game's romantic test holds, and their liking is not
+  below zero.
+- The line: `LdsQueueHook.WaitHook` (sharelanes' swap of `SimQueue.WaitForTurn`) returns at once for such a Sim
+  and notes the two as the object's pair. A third Sim keeps the line.
+- The in-use test: swap of `SimRoutingComponent.RouteToSlotAndCheckInUse` (yields, stub `InUseOrig`). Switch
+  off: the game's body. Switch on: the game's three steps in the hook, with "in use" passing while every Sim
+  using the object is of its pair (so a pair formed during a walk still counts after it). For an all-in-one
+  bathroom the partner's walk first opens the footprint the Sim inside shut.
+- The exit (showers): swap of `GameObject.PushSimsFromFootprint` (yields, stub `PushOrig`) adds the partner to
+  the push's exceptions for footprint 824351308, and swap of `GameObject.IsRoutingSlotObstructed` (8 arguments,
+  no yield, stub `ObstructedOrig`) answers the game's wait for a Sim of a pair: obstructed while the partner
+  plays its exit and is still in the use list (cap 10 sim-minutes), free otherwise. So the partner in the
+  shower does not hold the leaving Sim, and two leaving Sims come out one after the other.
+
+`showerpee` / `showerpeehh`:
+
+- Rule (`ShowerShareCore.Pee`): a human Sim, child or older, no robot, not swimming, on a lot; no toilet, urinal
+  or all-in-one bathroom there that is not broken, not used by another Sim, with nobody else in its line (a
+  urinal only for a male Sim); and a shower that is not broken and free, or held by a partner `showertogether`
+  lets the Sim join.
+- At the last warning (swap of `BuffReallyHasToPee.OnAddition`, stub `AddOrig`): the game's Take Shower is
+  queued next at high priority, unless the Sim is selectable and has orders from the player.
+- At the failure (swap of `Motive.MotiveDistress`, stub `DistressOrig`): the same shower is queued instead of
+  `BladderFailure`, and further distress calls are held back while that shower is queued or runs. A shower that
+  has not begun within 30 sim-minutes, or that left the queue, gives the failure back to the game, and the Sim is
+  not sent again for 60 sim-minutes.
+- The bladder: a Take Shower started by such a Sim (pushed or of its own accord, noted in the line hook) gets a
+  bladder delta when the shower becomes an actor of its state machine (`StateMachineClient.SetActor`, `SmcSetActor.cs`
+  (actdelay's hook on the combo branch); 5 sim-minutes to full), and the bladder is set full when the Sim steps out. Hygiene is the shower's own.
+- An all-in-one bathroom is a toilet for this rule: when it is free the game uses it.
+
+`showersharelog`: one `showertogether:` / `showerpee:` line per act.
+
+### 15.3 Limits [inferred unless marked]
+
+- Not run. Open questions for the first run: whether a walk to `RoutingSlot_0` succeeds while the partner stands
+  on it (the game's own shower WooHoo does exactly that), whether two "Shower" state machines on one shower
+  fight over the door and water effects (they overlap; the first exit closes the door on the second Sim), and
+  whether the all-in-one bathroom's shut footprint covers its routing slot.
+- Autonomy does not offer a shower that is in use, so a join happens for a directed Sim, for a Sim whose shower
+  was queued by `showerpee`, and for a Sim that was already walking there. No autonomy change was made.
+- `SimInShower` is the last Sim that began, and is cleared by the first that ends: "WooHoo in shower" may be
+  missing on the shower until the next shower begins.
+- All-in-one bathroom: no exit wait exists in the game, so both exits may overlap; the second Sim's use starts
+  no second sound, and the first exit stops the sound.
+- A toilet that cannot be reached counts as usable (no route test is made); a toilet on another level too.
+- `showerpee` sends a visitor into the host's shower; the alternative was a puddle.
+- The failure is held back for up to 30 sim-minutes while the Sim walks to the shower; its bladder stays at the
+  minimum for that time.
+- With `showertogether` on, every `RouteToSlotAndCheckInUse` in the game runs through the hook's three steps
+  (the same calls in the same order).
+- `LdsQueueHook.WaitHook` changed: Sims saved in a line by an older build are reset once at the first load
+  (docs/242 §2).
+
+### 15.4 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/showershare/run.ts`: 41 checks. `build-fixes.ts` builds; selftests `objshare`,
+  `sharelanes`, `standwait` pass; `swap-stack-audit` has the five new rows.
+- Live: `showershare-check` once (off `BROKEN`, on `FIXED`, one switch on `MIXED`).
+- Forced repro, partners (outline, existing agent steps): `make_household` with two young adults on an empty
+  lot; `build_layout` one room with a door; `buy_object` one shower (then a shower tub, then an all-in-one
+  bathroom); `modify_relationship` to Partner (and a control pair: friends; a teen); `set_motive` Hygiene -80 for
+  both; `do_interaction` Take Shower for the first, the same for the second once the first is in the use list
+  (`ShowerShareCheck lot`). Off arm: the second waits at the door, 4495 up. On arm (`showertogether`
+  `showertogetherhh` `showersharelog`): a `showertogether: ... joins ...` line, 4494 up, both in the use list,
+  no shoo, 4500 up when both end together, both end standing outside, 4501 = 0.
+- Forced repro, bladder (outline): the same lot without a toilet (or with the toilet in use by the other Sim);
+  `set_motive` Bladder -95 for the active Sim, no orders. Off arm: the puddle, 4506 up. On arm (`showerpee`
+  `showerpeehh`): `showerpee: ... takes a shower ...` and `... bladder fills ...` lines, 4503 or 4504 and 4502
+  up, no puddle, bladder full after the shower. Control: a free toilet on the lot -> the game's way, nothing
+  counted; no shower -> 4505 and the puddle.
+
+### 15.5 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
+
+Repro `showershare-force` (run `sh-r7`, exit 0; by hand in sessions `sh-m1`, `sh-m2`): four young adults, Bea and
+Bo partners, a room without roof, one shower, later an all-in-one bathroom.
+
+| | off | on |
+|---|---|---|
+| Take Shower for Bea, then Bo | `in use by 1, in line 1`, Bo waits at the door (`linewait: Bo Share household, TakeShower target ShowerBasic: ShowerBasic line, waited 11.9 sim-min, line length 1, outcome cancelled`), would (4495) 1 | `showertogether: Bo Share household, TakeShower target ShowerBasic: joins Bea Share selected in ShowerBasic`, `in use by 2`, joined (4494) 1, both end clean and stand outside, exits held (4500) 1 when both end together (`sh-m1`, `sh-r5`; 0 in `sh-r7`), errors 0 |
+| Bladder -97, no toilet, no orders | Pee Self, Embarrassed, Smelly; would (4506) 1 | `showerpee: Di Share household, none: no usable toilet, takes a shower in ShowerBasic ... at the last warning`, `... bladder fills in ShowerBasic`; 4503 1, 4502 1, bladder 98, hygiene 99, no accident |
+| All-in-one bathroom | `in use by 1, in line 1`, would 2 | `showertogether: Bo Share household, UseAllInOneBathroom target AllInOneBathroom: joins Bea Share selected`, `in use by 2`, 4509 1, both come out |
+
+- How it looks: both Sims stand on the shower's one place inside each other, under one censor mosaic; from outside
+  it reads as one occupied shower. They step out one after the other and dry off side by side.
+- Answers to §15.3: the walk to `RoutingSlot_0` succeeds while the partner showers; the two state machines did not
+  disturb each other in these runs; the all-in-one bathroom's footprint opens for the partner.
+- **Fixed here: a partner that arrives while the other leaves.** Bea nearly clean, Bo 8 s away: Bo joins (no line),
+  Bea's exit footprint and then Bea herself cover the slot, Bo's walk fails and his Take Shower ended, where the
+  game's line would have held him (`sh-m1`, twice). The walk hook now waits until the partner no longer uses the
+  shower (cap 10 sim-min) plus 2 sim-min, takes the route-fail exit reason off and walks again, up to three times:
+  `showertogether: Bo Share household: the walk failed while Bea Share left ShowerBasic, waited 6.3 sim-min, walks
+  again` (twice in `sh-r7`), then Bo showers. He still plays the route-fail reaction once per failed walk.
+- The shower lasts about a minute at speed 1 from hygiene -95, so a second order 20 s late is this late case.
+- Not run: 4504 (the failure itself replaced: the last warning always came first), a shower tub, a teen or friend
+  as control, a visitor, 4508.
+- The forced repro `showershare-force` stays on the contributor's combo branch: its agent steps and the
+  harness's `noKeepAlive` flag are not upstream yet.
+- Harness: profile-world's `keep_alive` fills every household motive below -50 each 30 s and hid the bladder
+  failure in three runs; a repro entry with `"noKeepAlive": true` runs without it.

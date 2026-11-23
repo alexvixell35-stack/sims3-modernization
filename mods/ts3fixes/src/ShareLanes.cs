@@ -347,7 +347,8 @@ namespace Ts3Fixes
 
         // ---- laddershare, spiralshare (the line) -----------------------------------------------------------------------
 
-        // `this` is the game's SimQueue.
+        // `this` is the game's SimQueue. Every line in the game comes through here: ladders and spiral stairs (below),
+        // servingshare's platters and linewaitlog (ObjShare.cs).
         public class LdsQueueHook : SimQueue
         {
             public bool WaitHook(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes)
@@ -375,7 +376,15 @@ namespace Ts3Fixes
                 }
                 catch (ResetException) { throw; }
                 catch (Exception e) { ShlError(4, e); }
-                return WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                // docs/686 §15 (ShowerShare.cs): a partner is let into a shower or an all-in-one bathroom without the line
+                if (interaction != null && ShsLine(interaction, this, behavior != WaitBehavior.NeverWait)) return true;
+                // docs/686 §14 (ObjShare.cs): servingshare skips a platter's and its surface's line; linewaitlog times the rest
+                if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
+                long start = SimClock.CurrentTicks;
+                int length = MemberCount();
+                bool got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
+                return got;
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body
         }
