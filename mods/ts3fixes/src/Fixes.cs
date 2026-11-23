@@ -97,6 +97,7 @@ namespace Ts3Fixes
             ApplyDoorGen();       // DoorGen.cs: door-answer generation for ts3native DoorMemoX=3 (switch doorgen, on)
             ApplyDoorShare();     // DoorShare.cs (docs/674): Sim class and shareable door answers for ts3native DoorShare (switch doorshare, off)
             ApplyFglInBound();    // FglInBound.cs (docs/682 §9): FindGoodLocationNearby swap, the indoors stage announced to ts3native [FglInside] (switch fglinbound, off)
+            ApplyRouteRelax();    // RouteRelax.cs (docs/675): fglnonescan, fglnnearspot (inside FglInBound.cs's FindGoodLocationNearby swap), followerlasttry (all off)
             ApplyOverwatchStuck(false);
             ApplyOverwatchSpread(false);
             ApplyOverwatchNotice(false);
@@ -2107,6 +2108,9 @@ namespace Ts3Fixes
                 case "firegreet": return Instantiator.kFireGreet;
                 case "horseshoesolo": return Instantiator.kHorseshoeSolo;
                 case "fglinbound": return Instantiator.kFglInBound;  // FglInBound.cs (docs/682 §9): FindGoodLocationNearby's indoors stage announced to ts3native [FglInside] (no placement tests on tiles without a room; EA's answer), off
+                case "fglnonescan": return Instantiator.kFglnOneScan;  // RouteRelax.cs (docs/675): one scan for FindGoodLocationNearby's lot-wide stages, off
+                case "fglnnearspot": return Instantiator.kFglnNearSpot;  // RouteRelax.cs (docs/675): nearest valid spot instead of any indoor spot first (NPC Sims), relaxed rule, off
+                case "followerlasttry": return Instantiator.kFollowerLastTry;  // RouteRelax.cs (docs/675): full ring on an NPC follower's last meet-up try, relaxed rule, off
                 case "fglinboundhh": return Instantiator.kFglInBoundHousehold;  // FglInBound.cs (docs/682): fglinbound for household and selected Sims too, off
                 case "fireleftover": return Instantiator.kFireLeftover;
                 case "aptgasleak": return Instantiator.kAptGasLeak;

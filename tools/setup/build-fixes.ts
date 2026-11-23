@@ -792,6 +792,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDoorGen value="True" />
     <kDoorShare value="False" />
     <kFglInBound value="False" />
+    <kFglnOneScan value="False" />
+    <kFglnNearSpot value="False" />
+    <kFglnNearSpotMargin value="4" />
+    <kFollowerLastTry value="False" />
     <kFglInBoundHousehold value="False" />
     <kFglInBoundShadow value="False" />
     <kStandWaitFix value="False" />

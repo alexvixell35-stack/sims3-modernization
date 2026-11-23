@@ -75,6 +75,7 @@ namespace Ts3Fixes
             AfcClear();  // autonomyfailcooldown: in memory only, never carried into another world
             try { DoorGenWorldLoad(); } catch (Exception) { }  // DoorGen.cs: arm ts3native DoorMemoX=3 when switch doorgen is on
             try { DoorShareWorldLoad(); } catch (Exception) { }  // DoorShare.cs (docs/674): after doorgen, which it needs
+            try { RouteRelaxWorldLoad(); } catch (Exception) { }  // RouteRelax.cs (docs/675): followerlasttry's per-Sim try memo
             // settings in effect: every tunable of Instantiator (the player's tuning), then any runtime test switch
             List<string> on = new List<string>(), off = new List<string>();
             foreach (FieldInfo f in typeof(Instantiator).GetFields(BindingFlags.Public | BindingFlags.Static))

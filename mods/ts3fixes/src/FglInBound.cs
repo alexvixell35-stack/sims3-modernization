@@ -62,6 +62,9 @@ namespace Ts3Fixes
             public static bool NearbyHook(IGameObject obj, ObjectGuid[] objIdsToIgnore, ref Vector3 position, ref Vector3 forward, float offset,
                 GlobalFunctions.FindGoodLocationStrategies searches, FindGoodLocationBooleans fglBools)
             {
+                // fglnonescan / fglnnearspot (RouteRelax.cs, docs/675) answer first when on; with both off this returns -1 at once
+                int rr = RrNearby(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
+                if (rr >= 0) return rr == 1;
                 if (obj != null && ShortcutOn("fglinbound"))
                 {
                     Vector3 bp = position, bf = forward;

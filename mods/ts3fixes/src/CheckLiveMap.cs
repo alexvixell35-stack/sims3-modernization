@@ -188,6 +188,7 @@ namespace Ts3Fixes
                 case "firetrapcount": return EpJoin(EpLive(typeof(FtcJobHook), 1, "sFtcSpec", sFtcSpec, null, "sFtcPositions", sFtcPositions, null), EpLive(typeof(FtcSitHook), 2));
                 case "fireworkswatchlate": return EpLive(typeof(FireworksWatchLateHook), 0);
                 case "flowersinuse": return EpLive(typeof(FlowersInUseHook), 1);
+                case "followerlasttry": return EpLive(typeof(RrFollowHook), 0);
                 case "foodtraygrill": return EpLive(typeof(B12FtgHook), 1);
                 case "freshclothingresume": return EpLive(typeof(BFcHook), 1, "sFcMap", sFcMap, null);
                 case "fridgetestnull": return EpLive(typeof(BFtHook), 1);

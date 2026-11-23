@@ -116353,6 +116353,329 @@
     ]
   },
   {
+    "id": "fglnonescan-check",
+    "bug": "docs/675 §3.1: GlobalFunctions.FindGoodLocationNearby runs its indoors, outdoors and same-lot searches one after the other from the same start with the same object and constraints; they differ only in the managed check, and a search that finds nothing walks the whole lot (s154-s158: a guitar jig's indoors search 654 / 675 ms with 196 passing spots refused as outdoors, then 271 / 273 ms for the outdoors search over the same tiles; laptop and toddler put-down two or three identical failed scans)",
+    "fix": "ts3fixes RouteRelax.cs + RouteRelaxCore.cs: fglnonescan (tuning kFglnOneScan, default off): one scan, EA's stage order decides among the spots it passes (docs/675)",
+    "save": "pure part needs no save",
+    "note": "FglnOneScanCheck run puts the logged jig shape and 24 control shapes through EA's stage order and through the one scan (pure); result prints the session's counts (one scans, ms, kept spots, kept spot not confirmed, errors) and the swap's live state. In-game effect: repro ip-routerelax-storm",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnonescan": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnOneScanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's rule"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnOneScanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnonescan": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnOneScanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the relaxed or merged rule and its controls"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnOneScanCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnonescan": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnonescan": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "fglnnearspot-check",
+    "bug": "docs/675 §3.2: once the same room and the adjoining rooms have no space, FindGoodLocationNearby takes ANY indoor spot of the lot, however far, before the nearest outdoor one, and scans the whole lot for it (the rule behind the 654 ms indoors search of s154)",
+    "fix": "ts3fixes RouteRelax.cs: fglnnearspot (tuning kFglnNearSpot, default off; kFglnNearSpotMargin 4 m; includes the one scan): the nearest valid spot wins unless an indoor one lies within the margin further out; NPC Sims only (docs/675)",
+    "save": "pure part needs no save",
+    "note": "relaxed rule, not an exact speed-up: the spot can differ from EA's (outdoors near the Sim instead of a far room). FglnNearSpotCheck run: an outdoor spot 3 m out against an indoor one 30 m out, with controls (indoor spot inside the margin wins, no margin for household Sims). In-game effect: repro ip-routerelax-storm",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnnearspot": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnNearSpotCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's rule"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnNearSpotCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnnearspot": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnNearSpotCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the relaxed or merged rule and its controls"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnNearSpotCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnnearspot": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnnearspot": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "followerlasttry-check",
+    "bug": "docs/675 §3.3: a follower of a group walk (FollowerMeetUpAtPoint) plans three times to the same two 60 degree arcs beside the leader, 1-3.5 m from a meeting point that moves 0.45 m per failed try; s157-s166: 49 failed plans (38 no path, 11 no destination), docs/643 §7 the bursts",
+    "fix": "ts3fixes RouteRelax.cs: followerlasttry (tuning kFollowerLastTry, default off): the last try of an NPC follower plans to the full ring, as EA does for horses, boats and groups of four or more (docs/675)",
+    "save": "pure part needs no save",
+    "note": "relaxed rule: the follower may stand in front of or behind the leader. FollowerLastTryCheck run: three tries 0.45 m apart, with controls (tries 1 and 2 unchanged, a new meeting point or an old try starts over). In-game effect: repro ip-routerelax-storm",
+    "expect": "off: 'verdict: BROKEN'. on: 'verdict: FIXED'.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "followerlasttry": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FollowerLastTryCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "off: EA's rule"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FollowerLastTryCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "followerlasttry": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FollowerLastTryCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "waitS": 2,
+        "note": "on: the relaxed or merged rule and its controls"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FollowerLastTryCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "followerlasttry": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "followerlasttry": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "ip-routerelax-storm",
+    "bug": "docs/675: in the Isla Paradiso route storms s152-s158 the slow placement searches that were not our own SafeSpot were FindGoodLocationNearby's lot-wide stages (guitar jig 925-948 ms per placement in two scans, laptop and put-down 100-171 ms in two or three failed scans), and FollowerMeetUpAtPoint failed 49 plans in s157-s166 on tries that repeat nearly the same goals",
+    "fix": "ts3fixes fglnonescan (same spot, one scan), fglnnearspot (relaxed: nearest valid spot unless an indoor one is within kFglnNearSpotMargin), followerlasttry (relaxed: full ring on the last try); all default off (docs/675)",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED in the game (2026-11-20: built with Roslyn, C# core selftest). One switch per arm on the s158 on-arm ini plus [FglProf] Enabled=1 LogMs=50 Frames=16: (A) none = baseline; (B) fglnonescan; (C) fglnnearspot; (D) followerlasttry. This repro turns all three on; for an arm edit the first step. The storm must make a Sim play an instrument or use a laptop from the inventory for the placement lines to appear (s154 / s157 / s158 did)",
+    "expect": "B: 'ts3fixes: fglnonescan: N ms, <jig>, stages 7 ... kept the outdoor spot' lines; 'fgl prof: search' lines with FindGoodLocationNearby in the caller: no 'repeat of a search ... (other result)' pair and no second FAILED line with the same object and start within 1 s; FglnOneScanCheck result: 'kept spot not confirmed 0, errors 0'. C: as B, the kept-spot lines end with 'scan ended by the 4 m margin' and their ms is well under arm B's for the same object; the jig or object stands on free ground (no Sim inside an object, none on a wall line). D: 'ts3fixes: followerlasttry: <Sim> try 3 of 3 ... the full ring' lines; 'routefail job:' lines with FollowerMeetUpAtPoint fewer than arm A (49 in ten storms); FollowerLastTryCheck result: tries given the full ring > 0, errors 0. All arms: no crash, no stuck Sim, 'fails/min' not higher than arm A.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnonescan": true,
+          "fglnnearspot": true,
+          "followerlasttry": true
+        },
+        "note": "read at every search / every follower plan",
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "count": 40,
+          "repeatS": 30,
+          "seed": 143
+        },
+        "waitS": 120,
+        "note": "40 forced routes every 30 s (lot, home, boat, meet, no-path), as ip-doorshare-storm; 2 min"
+      },
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FglnOneScanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "one scans, kept spots, margin stops"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FollowerLastTryCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "tries given the full ring"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "route_storm",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "fglnonescan": false,
+          "fglnnearspot": false,
+          "followerlasttry": false
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
