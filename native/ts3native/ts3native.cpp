@@ -322,7 +322,7 @@ static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
               miss ? ", callvirt of " : "", miss ? callee : "", obj, vt, kl, st);
     return true;
 }
-static void RdFlush(bool closing);  // routedefer.cpp: [RouteAsync] DestroyDefer, deferred route destroys (docs/67 §41)
+static void RddFlush(bool closing);  // routedefer.cpp: [RouteAsync] DestroyDefer, deferred route destroys (docs/67 §41)
 static DWORD P5cRelMatch(const CONTEXT* c);  // p5c.cpp: registers in an object our graveyard flush released (crash I)
 static void CfOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] dump (off unless Enabled=1)
 static void CfModInit();  // crashfx.cpp: TS3W.exe / MSVCR80.dll ranges for the CtOsFault gate (docs/254 R2)
@@ -3963,7 +3963,7 @@ static u8* CallIcRaw(int kind, u8* out, DWORD handle, const float* pt) {
     return ((IcPointFn)g_arOrig[kind])(out, handle, pt[0], pt[1], pt[2]);
 }
 // [RouteAsync] ReplanDedupe (replandedupe.cpp, docs/150 §13): Replan / ReplanFromPosition through its repeat check
-static volatile LONG g_rdOn;
+static volatile LONG g_rddOn;
 static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, u8* (*inner)(int, u8*, DWORD, const float*));
 // [RouteAsync] FailMemo (plandeadline.cpp, docs/164 §7 D5): the same check on the sim's sync Plan IC (SyncIc sets t_fmSync for
 // its own call; a worker job's Plan never goes through it)
@@ -3972,7 +3972,7 @@ static __declspec(thread) bool t_fmSync;
 static u8* CallIc(int kind, u8* out, DWORD handle, const float* pt) {
     const bool fm = t_fmSync;
     t_fmSync = false;  // a Plan nested in a managed call of this one comes back through SyncIc, which sets it again
-    if (g_rdOn && (kind == 1 || kind == 3)) return RdRun(kind, out, handle, pt, CallIcRaw);
+    if (g_rddOn && (kind == 1 || kind == 3)) return RdRun(kind, out, handle, pt, CallIcRaw);
     if (fm && !kind && g_fmOn) return RdRun(0, out, handle, pt, CallIcRaw);
     return CallIcRaw(kind, out, handle, pt);
 }
@@ -5953,7 +5953,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
         g_dyArm = DiscYieldOk(DyKnownUnseen(handle), DS_A10START);
         if (!g_dyArm) DiscPoll(DS_A10START);  // a script-IC point, as Route.Plan's START (docs/84 §2.4)
         P5cFlush();  // P5c: parked destroy references, when no job runs (docs/88 §5.1 flush points)
-        RdFlush(false);  // [RouteAsync] DestroyDefer: deferred route destroys, when no job runs
+        RddFlush(false);  // [RouteAsync] DestroyDefer: deferred route destroys, when no job runs
         return DyStartEnd(A10StartBody(handle, optHi, idx), DS_A10START);
     }
     if (optLo != 0 || (optHi & ~(kAsyncCancelHi | kNoYieldHi)) != kAsyncOptHi) return g_getOptOrig(handle, optLo, optHi, options2);
@@ -5968,7 +5968,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     else if (!(optHi & kAsyncCancelHi) && j && j->state == J_QUEUED) DiscYieldQueuedNote();  // docs/670 §27: counted, the wait stays
     if (!dy) DiscPoll(!(u8)options2 ? DS_START : (optHi & kAsyncCancelHi) ? DS_CANCEL : DS_READY);  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
     P5cFlush();
-    RdFlush(false);
+    RddFlush(false);
     if (!(u8)options2) return DyStartEnd(AsyncStart(handle), DS_START);
     j = GetCurrentThreadId() == g_async.owner ? JobFor(handle) : NULL;  // again: the drain served the job's managed calls
     if (optHi & kAsyncCancelHi) {  // the caller gives up (finally, Sim reset): its job must not outlive it

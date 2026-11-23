@@ -13,20 +13,20 @@
 // is queued here and run on the owner when no job runs (the START / READY polls, the next destroy, save / closing /
 // teardown entries). Only the sim moves a job to QUEUED and only the worker moves QUEUED to RUNNING, so a handle with no
 // such job when the owner looks cannot be picked up by the worker later. Off the owner thread, or switch off: as before.
-static const DWORD RD_DESTROY = TS3A(0x00750400);
-static const u8 kRdDestroy[6] = {0x8B, 0x0D, 0xC4, 0x40, 0x1D, 0x01};  // mov ecx,[0x11D40C4] (RouteManager), as c2diag
-typedef void(__cdecl* RdDestroyFn)(DWORD handle);
-static RdDestroyFn g_rdDestroyT;
-static volatile LONG g_rdOn;
-static const int kRdCap = 256;
-struct RdRec { DWORD handle; LARGE_INTEGER t; };
-static RdRec g_rdQ[kRdCap];
-static LONG g_rdN;  // owner thread only
-static volatile LONG g_rdDeferred, g_rdRun, g_rdFull, g_rdDropped, g_rdLog;
-static int g_rdFlushing;
+static const DWORD RDD_DESTROY = TS3A(0x00750400);
+static const u8 kRddDestroy[6] = {0x8B, 0x0D, 0xC4, 0x40, 0x1D, 0x01};  // mov ecx,[0x11D40C4] (RouteManager), as c2diag
+typedef void(__cdecl* RddDestroyFn)(DWORD handle);
+static RddDestroyFn g_rddDestroyT;
+static volatile LONG g_rddOn;
+static const int kRddCap = 256;
+struct RddRec { DWORD handle; LARGE_INTEGER t; };
+static RddRec g_rddQ[kRddCap];
+static LONG g_rddN;  // owner thread only
+static volatile LONG g_rddDeferred, g_rddRun, g_rddFull, g_rddDropped, g_rddLog;
+static int g_rddFlushing;
 
 // true = a job of this route may still resolve its handle: queued, running, or the running job's own
-static bool RdJobHolds(DWORD handle) {
+static bool RddJobHolds(DWORD handle) {
     if (g_async.state == A_RUNNING && g_async.handle == handle) return true;
     for (int i = 0; i < kJobs; i++) {
         const AsyncJob& j = g_jobs[i];
@@ -37,44 +37,44 @@ static bool RdJobHolds(DWORD handle) {
 }
 // the owner thread outside a job callback with no job running; closing = the world goes: entries a job still holds are
 // dropped (leaked) rather than run against a later world's handles
-static void RdFlush(bool closing) {
-    if (!g_rdN || g_rdFlushing || GetCurrentThreadId() != g_async.owner || g_inInvoke) return;
-    g_rdFlushing = 1;
+static void RddFlush(bool closing) {
+    if (!g_rddN || g_rddFlushing || GetCurrentThreadId() != g_async.owner || g_inInvoke) return;
+    g_rddFlushing = 1;
     LONG keep = 0;
-    for (LONG i = 0; i < g_rdN; i++) {
-        const RdRec r = g_rdQ[i];
-        if (RdJobHolds(r.handle)) {
-            if (closing) { InterlockedIncrement(&g_rdDropped); continue; }
-            g_rdQ[keep++] = r;
+    for (LONG i = 0; i < g_rddN; i++) {
+        const RddRec r = g_rddQ[i];
+        if (RddJobHolds(r.handle)) {
+            if (closing) { InterlockedIncrement(&g_rddDropped); continue; }
+            g_rddQ[keep++] = r;
             continue;
         }
-        InterlockedIncrement(&g_rdRun);
-        if (InterlockedIncrement(&g_rdLog) <= 200)
+        InterlockedIncrement(&g_rddRun);
+        if (InterlockedIncrement(&g_rddLog) <= 200)
             Log("route destroy defer: route %08lX destroyed now, %.1f ms after its finalizer (%ld deferred, %ld run)", r.handle,
-                UsSince(r.t) / 1000.0, g_rdDeferred, g_rdRun);
-        g_rdDestroyT(r.handle);
+                UsSince(r.t) / 1000.0, g_rddDeferred, g_rddRun);
+        g_rddDestroyT(r.handle);
     }
-    g_rdN = keep;
-    g_rdFlushing = 0;
+    g_rddN = keep;
+    g_rddFlushing = 0;
 }
-static void __cdecl RdDestroyHook(DWORD handle) {
-    if (g_rdOn && GetCurrentThreadId() == g_async.owner && handle) {
-        if (RdJobHolds(handle)) {
-            if (g_rdN < kRdCap) {
-                RdRec& r = g_rdQ[g_rdN++];
+static void __cdecl RddDestroyHook(DWORD handle) {
+    if (g_rddOn && GetCurrentThreadId() == g_async.owner && handle) {
+        if (RddJobHolds(handle)) {
+            if (g_rddN < kRddCap) {
+                RddRec& r = g_rddQ[g_rddN++];
                 r.handle = handle;
                 QueryPerformanceCounter(&r.t);
-                InterlockedIncrement(&g_rdDeferred);
-                if (InterlockedIncrement(&g_rdLog) <= 200)
+                InterlockedIncrement(&g_rddDeferred);
+                if (InterlockedIncrement(&g_rddLog) <= 200)
                     Log("route destroy defer: route %08lX finalized while its job %s (job route %08lX): destroy deferred, %ld queued",
-                        handle, g_async.state == A_RUNNING && g_async.handle == handle ? "runs" : "is queued", g_async.handle, g_rdN);
+                        handle, g_async.state == A_RUNNING && g_async.handle == handle ? "runs" : "is queued", g_async.handle, g_rddN);
                 return;
             }
-            InterlockedIncrement(&g_rdFull);  // full: as before (the old race stays possible for this one)
+            InterlockedIncrement(&g_rddFull);  // full: as before (the old race stays possible for this one)
         }
-        if (g_async.state != A_RUNNING) RdFlush(false);
+        if (g_async.state != A_RUNNING) RddFlush(false);
     }
-    g_rdDestroyT(handle);
+    g_rddDestroyT(handle);
 }
 static bool ApplyRouteDestroyDefer(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"RouteAsync", L"DestroyDefer", 0, ini) <= 0) return false;
@@ -85,10 +85,10 @@ static bool ApplyRouteDestroyDefer(const wchar_t* ini) {
         Log("SKIP route destroy defer ([RouteAsync] DestroyDefer=1): [Crash2Diag] holds IC_Route_DestroyRoute");
         return false;
     }
-    if (!InstallDetour("IC_Route_DestroyRoute (destroy defer)", RD_DESTROY, kRdDestroy, sizeof(kRdDestroy), (void*)&RdDestroyHook,
-                       &g_rdDestroyT))
+    if (!InstallDetour("IC_Route_DestroyRoute (destroy defer)", RDD_DESTROY, kRddDestroy, sizeof(kRddDestroy), (void*)&RddDestroyHook,
+                       &g_rddDestroyT))
         return false;
-    InterlockedExchange(&g_rdOn, 1);
+    InterlockedExchange(&g_rddOn, 1);
     Log("OK   route destroy defer ([RouteAsync] DestroyDefer=1, docs/67 §41): a route finalized while a job holds its handle is "
         "destroyed on the sim thread once no job runs");
     return true;

@@ -301,7 +301,7 @@ static int __cdecl RtEnter(int i, DWORD* slot) {
     if (!worker && ((s.kind == RT_DESTROY && k.rtClosing) || s.kind == RT_SAVE || s.kind == RT_CLOSING || s.kind == RT_TEARDOWN))
     {
         P5cFlush();
-        RdFlush(s.kind == RT_CLOSING || s.kind == RT_TEARDOWN);  // closing: a job's leftovers dropped, never run in the next world
+        RddFlush(s.kind == RT_CLOSING || s.kind == RT_TEARDOWN);  // closing: a job's leftovers dropped, never run in the next world
     }
     if (note) RgNoteAs(32 + i, s.name, s.addr, note, VfRealRet(slot), (LONG)tid);
     return 0;
