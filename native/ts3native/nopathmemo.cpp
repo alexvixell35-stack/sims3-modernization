@@ -317,6 +317,7 @@ static __declspec(naked) void NpmPcStub() {
     }
 }
 static bool NpmPcInstall() {
+    #pragma warning(suppress : 4127)  // the address is a constant in this build (0 only in a build with no mapped table)
     if (!kNpmPcSite || !kNpmPcBack || !kNpmPlanRet) return false;  // a build with no mapped address (EA 1.69 table: 0): record only
     u8* site = (u8*)(uintptr_t)kNpmPcSite;
     if (!Matches(site, kNpmPcBytes, sizeof(kNpmPcBytes))) return false;
