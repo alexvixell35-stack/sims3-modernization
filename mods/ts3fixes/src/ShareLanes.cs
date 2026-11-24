@@ -382,6 +382,7 @@ namespace Ts3Fixes
                 if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
                 // docs/686 §19 (CrowdPort.cs): a crowded elevator's line is answered "timed out" (the game's teleport skip follows) or gets a short timeout
                 if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
+                FglBegin(interaction, this);
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
                 LswWait lsw = LswBegin(this, interaction, target);  // docs/686 §25 (LineSwitch.cs): a free twin object is used after a while
@@ -389,6 +390,15 @@ namespace Ts3Fixes
                 try { got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes); }
                 finally { if (lsw != null) LswEnd(interaction.InstanceActor, lsw); }
                 OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
+                // fridgeline (FridgeBusy.cs): after a soft fail made quiet, a clicked action pauses and asks the line again
+                while (!got && FglRetry(interaction, exitReasons))
+                {
+                    start = SimClock.CurrentTicks;
+                    length = MemberCount();
+                    got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                    OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
+                }
+                FglEnd(interaction, got);
                 return got;
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body

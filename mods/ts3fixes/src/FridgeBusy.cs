@@ -5,6 +5,7 @@ using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Interactions;
+using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.Objects.Appliances;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
@@ -31,7 +32,8 @@ namespace Ts3Fixes
             string r;
             try
             {
-                if (a.Length < 2) return "fridgebusy <push|state|watch> <full name>";
+                if (a[0] == "line") return FglResult();
+                if (a.Length < 2) return "fridgebusy <push|state|watch> <full name> | line";
                 if (a[0] == "push") r = FbPush(a[1]);
                 else if (a[0] == "state" || a[0] == "watch")
                 {
@@ -106,6 +108,122 @@ namespace Ts3Fixes
             StringBuilder b = new StringBuilder();
             foreach (Sim o in line) b.Append(b.Length > 0 ? ", " : "").Append(o == null ? "?" : o.FirstName);
             return b.ToString();
+        }
+
+        // ---- fridgeline ------------------------------------------------------------------------------------------------
+        // EA (decompiled): Fridge.RouteToOpen waits in Fridge.Line (a SimQueue of 3 Sims, 15 sim-min). WaitForTurn fails with
+        // ObjectInUse (and TimedOut) plus PlayRouteFail (the route-fail balloon with the user's thumbnail and Sim.RouteFailure)
+        // when the line is full, a higher-priority Sim evicts the last one, the 15 sim-min run out, or the walk to the wait spot
+        // fails (11-24 repro prtest1124g: Ben's walk ended and his wait broke with a balloon). fridgeline makes such a soft fail
+        // (no exit reason but ObjectInUse / TimedOut) quiet; a clicked action then idles kFglPauseMin where it stands and asks
+        // the line again, up to kFglMaxMin from its first ask; an autonomous one just ends (autonomy picks something else).
+        // Reasons from outside (a cancel, a higher-priority action) are never soft: EA's fail and balloon stay. Hooks: the
+        // existing WaitForTurn (ShareLanes.cs LdsQueueHook) and PlayRouteFail (SleepQueue597b.cs SrfPlayHook) swaps. Nothing is
+        // saved: an entry of the static sFglWaits lives inside one WaitForTurn call and the map is cleared at world load.
+        const float kFglMaxMin = 45f, kFglPauseMin = 2f;
+        const int kFglLogMax = 200;
+        sealed class FglWait { public Fridge F; public float Deadline; public bool Soft; public int Tries; }
+        static readonly Dictionary<Sim, FglWait> sFglWaits = new Dictionary<Sim, FglWait>();
+        static int sFglQuiet, sFglRetries, sFglGot, sFglAutoQuiet, sFglLeft, sFglErrors, sFglLog;
+
+        // Pure: is this fail soft (only the line's own reasons) with time left?
+        internal static bool FglSoft(ExitReason r, float now, float deadline)
+        {
+            return (r & (ExitReason.ObjectInUse | ExitReason.TimedOut)) != 0 && (r & ~(ExitReason.ObjectInUse | ExitReason.TimedOut)) == 0 && now < deadline;
+        }
+
+        static void FglBegin(InteractionInstance ii, SimQueue q)
+        {
+            try
+            {
+                Sim a = ii == null ? null : ii.InstanceActor;
+                Fridge f = a == null ? null : ii.Target as Fridge;
+                if (f == null || !object.ReferenceEquals(f.Line, q) || !ShortcutOn(IsPlayerSim(a) ? "fridgelinehh" : "fridgeline")) return;
+                FglWait w = new FglWait();
+                w.F = f;
+                w.Deadline = SimClock.ElapsedTime(TimeUnit.Minutes) + kFglMaxMin;
+                sFglWaits[a] = w;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { sFglErrors++; }
+        }
+
+        // PlayRouteFail of a Sim in a fridgeline wait: true = skip EA's balloon (the fail is soft)
+        static bool FglQuiet(Sim sim)
+        {
+            FglWait w;
+            if (sim == null || sFglWaits.Count == 0 || !sFglWaits.TryGetValue(sim, out w)) return false;
+            try
+            {
+                if (!FglSoft(sim.ExitReason, SimClock.ElapsedTime(TimeUnit.Minutes), w.Deadline)) return false;
+                w.Soft = true;
+                sFglQuiet++;
+                if (++sFglLog <= kFglLogMax)
+                    DiagLine("fridgeline: " + sim.FullName + " " + ShlWho(sim) + ": quiet soft fail (" + sim.ExitReason + "), line " + FbLine(w.F)
+                        + ", users " + w.F.ActorsUsingMe.Count + ", tries " + w.Tries);
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { sFglErrors++; return false; }
+        }
+
+        // after a quiet fail: true = ask the line again (a clicked action that idled kFglPauseMin with nothing new)
+        static bool FglRetry(InteractionInstance ii, ExitReason exitReasons)
+        {
+            Sim a = ii == null ? null : ii.InstanceActor;
+            FglWait w;
+            if (a == null || !sFglWaits.TryGetValue(a, out w) || !w.Soft) return false;
+            w.Soft = false;
+            try
+            {
+                if (ii.Autonomous) { sFglAutoQuiet++; return false; }
+                a.RemoveExitReason(ExitReason.ObjectInUse | ExitReason.TimedOut);
+                a.LoopIdle();
+                if (a.WaitForExitReason(kFglPauseMin, exitReasons)) { a.AddExitReason(ExitReason.ObjectInUse); sFglLeft++; return false; }
+                if (w.F.HasBeenDestroyed) { a.AddExitReason(ExitReason.ObjectInUse); return false; }
+                w.Tries++;
+                sFglRetries++;
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { sFglErrors++; return false; }
+        }
+
+        // every route-fail balloon EA still plays at a fridge's line (switch on or off: the A/B's count)
+        static int sFglBalloons;
+        static void FglBalloon(IGameObject target, Sim sim)
+        {
+            try
+            {
+                if (!(target is Fridge) || sim == null) return;
+                sFglBalloons++;
+                if (++sFglLog <= kFglLogMax) DiagLine("fridgeline: " + sim.FullName + " " + ShlWho(sim) + ": balloon (" + sim.ExitReason + "), line " + FbLine((Fridge)target));
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { sFglErrors++; }
+        }
+
+        static void FglEnd(InteractionInstance ii, bool got)
+        {
+            Sim a = ii == null ? null : ii.InstanceActor;
+            FglWait w;
+            if (a == null || sFglWaits.Count == 0 || !sFglWaits.TryGetValue(a, out w)) return;
+            sFglWaits.Remove(a);
+            if (!got || w.Tries == 0) return;
+            sFglGot++;
+            if (++sFglLog <= kFglLogMax) DiagLine("fridgeline: " + a.FullName + " " + ShlWho(a) + ": got the fridge after " + w.Tries + " quiet retries");
+        }
+
+        static string FglResult()
+        {
+            float d = 100f;
+            bool self = FglSoft(ExitReason.ObjectInUse, 0f, d) && FglSoft(ExitReason.ObjectInUse | ExitReason.TimedOut, 0f, d)
+                && !FglSoft(ExitReason.ObjectInUse | ExitReason.UserCanceled, 0f, d) && !FglSoft(ExitReason.TimedOut | ExitReason.HigherPriorityNext, 0f, d)
+                && !FglSoft(ExitReason.ObjectInUse, d, d) && !FglSoft(ExitReason.None, 0f, d);
+            return "fridgeline " + (ShortcutOn("fridgeline") ? "on" : "off") + ", fridgelinehh " + (ShortcutOn("fridgelinehh") ? "on" : "off")
+                + ": quiet soft fails " + sFglQuiet + ", retries " + sFglRetries + ", got the fridge after a retry " + sFglGot
+                + ", autonomous ended quietly " + sFglAutoQuiet + ", left during the pause " + sFglLeft + ", balloons played " + sFglBalloons + ", errors " + sFglErrors
+                + ", open waits " + sFglWaits.Count + ", self-check " + (self ? "ok" : "FAILED");
         }
 
         const int kFbWatchMax = 800;

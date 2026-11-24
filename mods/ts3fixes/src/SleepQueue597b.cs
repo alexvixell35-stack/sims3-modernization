@@ -96,6 +96,8 @@ namespace Ts3Fixes
                     }
                     catch (Exception) { PatchCounters()[2765]++; }
                 }
+                if (FglQuiet(sim)) return;  // fridgeline (FridgeBusy.cs): a soft fail at a fridge's line
+                FglBalloon(target, sim);
                 PlayOrig(behavior, target, sim);
             }
             public void PlayOrig(SimQueue.WaitBehavior behavior, IGameObject target, Sim sim) { } // SimQueue.PlayRouteFail
