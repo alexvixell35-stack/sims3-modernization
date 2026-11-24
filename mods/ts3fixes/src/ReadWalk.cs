@@ -163,11 +163,31 @@ namespace Ts3Fixes
                 + (sRwLast.Length > 0 ? "; last: " + sRwLast : "");
         }
 
+        // Repro aid (readwalk-force, docs/686 §22.6): the story as autonomy starts it. EA's Sim_ReadToSleep_PickBook, pushed
+        // as the parent's own autonomous pick, takes a random book (no picker), then fetches it and runs Bed_ReadToSleep;
+        // its menu test hides it while the child is out of bed, its running test does not.
+        static string RwForce(string names)
+        {
+            string[] n = names.Split('|');
+            if (n.Length != 2) return "force: Parent Name|Child Name";
+            Sim parent = null, child = null;
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                if (s.FullName == n[0]) parent = s;
+                else if (s.FullName == n[1]) child = s;
+            }
+            if (parent == null || child == null) return "force: Sim not found";
+            InteractionInstance ia = Sim.Sim_ReadToSleep_PickBook.Singleton.CreateInstance(child, parent, new InteractionPriority(InteractionPriorityLevel.Autonomous), true, true);
+            bool queued = parent.InteractionQueue.Add(ia);
+            return "force: Sim_ReadToSleep_PickBook " + (queued ? "queued" : "refused") + " for " + parent.FullName + " -> " + child.FullName;
+        }
+
         // ReadWalkCheck run: the rules with controls. result: the counters and the last line.
         public static object ReadWalkCheck(string what)
         {
             if (what == "result") return RwCounters();
-            if (what != "run") return "readwalk <run|result>";
+            if (what != null && what.StartsWith("force:")) return RwForce(what.Substring(6));
+            if (what != "run") return "readwalk <run|result|force:Parent Name|Child Name>";
             bool on = ShortcutOn("readwalk");
             bool fixedNow = ReadWalkCore.Step(false, true, true, 4f) == ReadWalkCore.kWalk && on;
             bool controls = ReadWalkCore.Step(true, true, true, 4f) == ReadWalkCore.kKeepChildIn && ReadWalkCore.Step(false, false, true, 4f) == ReadWalkCore.kWaitPart

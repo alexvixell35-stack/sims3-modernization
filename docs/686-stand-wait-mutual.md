@@ -1747,3 +1747,25 @@ child walks and climbs in. Only then does it walk to `part.RoutingSlotForSit` (`
 - One story in the on arm: kept, because the sit slot was on the child's way (Jack Bunch to Arlo Bunch's single bed,
   while the child got in). No walk, no error. Off arm: no case. Not proven yet. Needs a forced story with the
   parent more than 5 m away and the bed's sit side clear of the child's way.
+
+### 22.5 Forced repro (2026-11-24, repro `readwalk-pairjig-force`, runs r4-rp1 to r4-rp4): the story never started [verified]
+- A child not in bed never offers "Read to Sleep" on the parent's menu: `Sim_ReadToSleep_PickBook`'s test
+  (`SocialTest.TestReadToSleep`, `fromSocialization` false) answers false for a Child unless it already sits in the
+  bed, and then `Bed_ReadToSleep` finds it in (EA walks the parent at once, `kKeepChildIn`). Outside the bed the story
+  starts only from the socials ("Ask for Bedtime Story" by the child, the parent's social when offered).
+- With a single bed, a bookshelf and the Tired moodlet, Kit's "Ask for Bedtime Story" ran at 19:00-23:00 (actdelay
+  `SocialInteractionA:Request Bedtime Story`), but no book picker opened (`pending_dialogs` open false, 8 tries) and
+  no `Bed_ReadToSleep` followed: readwalk counted nothing in any arm (would 0, kept 0, errors 0). Why the accept did not
+  push the picker is not found yet. readwalk stays NOT PROVEN; next try: a parent and child of one family (made by
+  `make_household` with a parent link), or the parent's own social in the Friendly menu.
+
+### 22.6 Forced repro, second try (2026-11-24, `readwalk-force`, runs r6-rp1, r6-rp2): the story starts, readwalk keeps it [verified]
+- New start: `ReadWalkCheck force:Parent|Child` pushes EA's `Sim.Sim_ReadToSleep_PickBook` as the parent's autonomous pick
+  (`EffectivelyAutonomous`: a random book, no picker); its menu test hides it for a child out of bed, its running test
+  (`SocialTest.TestReadToSleep(..., running: true)`) does not. It fetches the book (`Sim_ReadToSleep_GetBook`) and runs
+  `Bed_ReadToSleep` + `Bed_BeReadToSleep` (r6-rp1: 3 of 3 arms; r6-rp2: 2 of 3, Kit went to sleep on her own once).
+- readwalk counted every story: kept 3 (r6-rp1, both Sims from the mailbox) and kept 2 (r6-rp2, Kit 0.8 m beside the
+  Left or Right entry slot, Bea 5+ m away), reason "sit slot on the child's way" (the sit slot lies within 0.7 m of
+  Kit's way to her entry slot at that single bed); would 0, walked 0, errors 0.
+- readwalk stays NOT PROVEN: the trigger works now, the single bed's sit slot is too close to its entry slots for the
+  rule to act. Next try (not run, two-load cap): a double bed, the child at the far part, the parent's side open.
