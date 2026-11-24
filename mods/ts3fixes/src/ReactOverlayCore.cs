@@ -5,8 +5,8 @@ namespace Ts3Fixes
     {
         public const int kGo = 0, kWould = 1, kKeep = 2;
         public const int kWhyNone = 0, kWhyNotHuman = 1, kWhyRouting = 2, kWhyPosture = 3, kWhyTransition = 4, kWhyCarry = 5,
-            kWhyPrivate = 6, kWhyConversation = 7, kWhyBusyParts = 8, kWhyNoClip = 9, kWhyExempt = 10, kWhyAsleep = 11;
-        public const int kWhyCount = 12;
+            kWhyPrivate = 6, kWhyConversation = 7, kWhyBusyParts = 8, kWhyNoClip = 9, kWhyExempt = 10, kWhyAsleep = 11, kWhyAgeUp = 12;
+        public const int kWhyCount = 13;
         public const int kStaleMinMs = 500, kStaleMaxMs = 10000;
 
         // ReactionSpeed bits (EA's enum): Immediate 1, ImmediateWithoutOverlay 2, AfterInteraction 4, CriticalWithRoute 0xC.

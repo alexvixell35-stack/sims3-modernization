@@ -1787,3 +1787,10 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
 - r6-rp1 found one bug, fixed in r6c: a queued reaction that became safe after the stale time was still played (Startled
   `overlaid from the queue after 9151 ms`); the stale test now comes first.
 - PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.
+
+### 26.6 Age-up kept out (2026-11-24, s542 all-on storm on Isla Paradiso, build r8b) [verified in the lines; fix built, not run in the game]
+- s542: `overlaid now: selected Omar Collins, Wave during AgeUpEx (StandingPosture)` twice during his birthday (the
+  family's waves). `AgeUpEx` is NRaas Overwatch's `AgeUp`; EA's `AgeUp` swaps the rig and the model mid-way
+  (`AnimationUtil.SetRig`, `SimBuilderTask.SwapModel`, decompiled `AgeUp.cs`), so a wave over the spin looked wrong.
+- Fix: a Sim whose current action is an `AgeUp` keeps EA's way (new reason "age transition"). The guests' waves during
+  `ParticipateInBirthdayCelebration` stay overlays.
