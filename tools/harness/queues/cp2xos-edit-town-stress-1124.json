@@ -1,0 +1,329 @@
+{
+  "note": "cp2xos-edit-town-stress-1124 (docs/67 §46): stress the 2026-11-24 C0000029 crash (wild execute AV at ASCII eip 0x68676972, main-thread esp 0x12998A68 off its stack, then RtlUnwind invalid target; run 2 of bp-lothook-edit-town on 0.36.299-cp2 + cp2b, 11 min in) until it breaks. Same job as the crashed one on the cp2 build + the off-stack esp crash-log line and a [CrashForensics] dump; four tries, stop at the first FAIL or crash. A crash or an off-stack esp line is the catch: triage at once (the job ts3native.log off-stack esp line, the dump). Correctness only: run with --no-smoke.",
+  "rewind": "auto",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: arm, native True, polling True, world gen 1, lot events 0, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: arm, native False, polling False, world gen 1, lot events 0, faults 0, subscribers 2",
+        "ts3fixes: lothub: arm, native True, polling True, world gen 3, lot events 40, faults 0, subscribers 4"
+      ]
+    },
+    "^ts3fixes: lothub: result, native True, polling True, .*, faults 0, subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 2, lot events 9, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling False, world gen 2, lot events 9, faults 0, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": {
+      "match": [
+        "ts3fixes: lothub: remove lot 0x1A2, events 3, world gen 1"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: add lot 0x1A2, events 3, world gen 1"
+      ]
+    },
+    "^ts3fixes: lothub: .*polling False": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling False, world gen 2, lot events 9, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 2, lot events 9, faults 0, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": {
+      "match": [
+        "ts3fixes: lothub: add lot 0x1A2, events 3, world gen 1"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: remove lot 0x1A2, events 3, world gen 1",
+        "ts3fixes: lothub: overflow lot 0x0, events 9, world gen 1"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not found at start; ApexStandDown=1"
+      ]
+    },
+    "^ts3fixes: lothub: (arm|result|world).*, subscribers (?!2$)\\d+$": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 0, subscribers 4",
+        "ts3fixes: lothub: world load, world gen 3, lot events 50, faults 0, subscribers 3"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 0, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: .*, faults [1-9]": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 1, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 0, subscribers 2"
+      ]
+    },
+    "^OK   lot hub: ready 0x3 ": {
+      "match": [
+        "OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"
+      ],
+      "noMatch": [
+        "FAIL lot hub: ready 0x1 (lot generation counter + world event, docs/321 §8)"
+      ]
+    },
+    "^ts3fixes: lothub: result, .*, mode returns [1-9]\\d*, rearms \\d+, faults 0, subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 1, lot events 12, mode returns 2, rearms 0, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 1, lot events 12, mode returns 0, rearms 0, faults 0, subscribers 2",
+        "ts3fixes: lothub: result, native True, polling True, world gen 1, lot events 12, mode returns 2, rearms 0, faults 1, subscribers 2"
+      ]
+    },
+    "^(SKIP|FAIL) lot hub": {
+      "match": [
+        "SKIP lot hub: add / remove execute prologue differs (another hook?), lhLotGen stays 0, consumers keep today's behaviour"
+      ],
+      "noMatch": [
+        "OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"
+      ]
+    },
+    "^ts3native 0\\.36\\.299-cp2xos ": {
+      "match": [
+        "ts3native 0.36.299-cp2xos 2026-11-24 06:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.299-cp2 2026-11-23 10:00:00"
+      ]
+    },
+    "^  off-stack esp: ": {
+      "match": [
+        "  off-stack esp: thread stack 000B0000-001B0000, esp region base 12998000 alloc 12900000 type 20000 protect 4 state 1000; seh head 001AF5D4 handler 00E8D1A0; esp words: 00000000"
+      ],
+      "noMatch": [
+        "  registers eax 00FF39F8 ebx 00000000"
+      ]
+    },
+    "^exception C0000029 ": {
+      "match": [
+        "exception C0000029 at 0x7765A647 (info 00000000 00000000) thread 47908 eip 7765A647 esp 12997A80; stack code refs:"
+      ],
+      "noMatch": [
+        "exception C0000005 at 0x68676972 (info 00000000 00000020) thread 47908"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-cp2xos-edit-town-stress-1",
+      "note": "[est 15 min] Audit 2026-11-23: Bridgeport, one load, repro lothook-edit-town (two Edit Town enter / exit rounds between lot pans). Pass: every 'lothub: result' reads polling True, faults 0, subscribers 2 (cp2b: the poll task waits outside live mode, drains on return and is re-armed on the return to live mode if it was destroyed; 'mode returns' counts the returns, at least one result line must show >= 1), lot add lines keep arriving, 0 script errors, 0 watchdogs, household untouched. UNVERIFIED repro.",
+      "asi": "game-copy/ts3native.asi.cp2xos-1124",
+      "iniBase": "game-copy/ts3native.ini.cp1-lotgen-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp2b",
+      "pinReason": "0.36.299-cp2xos = feature/cp2-lothook-1123 (the crashed build 0.36.299-cp2) + the off-stack esp crash-log line of bugfix/xcpt-offstack-1124 (docs/67 §46); ini cp1-lotgen-1123 + [CrashForensics] Enabled=1 for a dump; ts3fixes cp2b = the crashed run package",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "noSamplers": true,
+          "repro": "lothook-edit-town",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp2xos ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": 1,
+        "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^ts3fixes: lothub: result, native True, polling True, .*, faults 0, subscribers 2$": 6,
+        "^ts3fixes: lothub: result, .*, mode returns [1-9]\\d*, rearms \\d+, faults 0, subscribers 2$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) lot hub": 0,
+        "^ts3fixes: lothub: (arm|result|world).*, subscribers (?!2$)\\d+$": 0,
+        "^ts3fixes: lothub: .*, faults [1-9]": 0,
+        "^ts3fixes: lothub: .*polling False": 0,
+        "^  off-stack esp: ": 0,
+        "^exception C0000029 ": 0
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Enabled": 1
+      }
+    },
+    {
+      "id": "bp-cp2xos-edit-town-stress-2",
+      "note": "[est 15 min] Audit 2026-11-23: Bridgeport, one load, repro lothook-edit-town (two Edit Town enter / exit rounds between lot pans). Pass: every 'lothub: result' reads polling True, faults 0, subscribers 2 (cp2b: the poll task waits outside live mode, drains on return and is re-armed on the return to live mode if it was destroyed; 'mode returns' counts the returns, at least one result line must show >= 1), lot add lines keep arriving, 0 script errors, 0 watchdogs, household untouched. UNVERIFIED repro.",
+      "asi": "game-copy/ts3native.asi.cp2xos-1124",
+      "iniBase": "game-copy/ts3native.ini.cp1-lotgen-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp2b",
+      "pinReason": "0.36.299-cp2xos = feature/cp2-lothook-1123 (the crashed build 0.36.299-cp2) + the off-stack esp crash-log line of bugfix/xcpt-offstack-1124 (docs/67 §46); ini cp1-lotgen-1123 + [CrashForensics] Enabled=1 for a dump; ts3fixes cp2b = the crashed run package",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "noSamplers": true,
+          "repro": "lothook-edit-town",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp2xos ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": 1,
+        "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^ts3fixes: lothub: result, native True, polling True, .*, faults 0, subscribers 2$": 6,
+        "^ts3fixes: lothub: result, .*, mode returns [1-9]\\d*, rearms \\d+, faults 0, subscribers 2$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) lot hub": 0,
+        "^ts3fixes: lothub: (arm|result|world).*, subscribers (?!2$)\\d+$": 0,
+        "^ts3fixes: lothub: .*, faults [1-9]": 0,
+        "^ts3fixes: lothub: .*polling False": 0,
+        "^  off-stack esp: ": 0,
+        "^exception C0000029 ": 0
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Enabled": 1
+      }
+    },
+    {
+      "id": "bp-cp2xos-edit-town-stress-3",
+      "note": "[est 15 min] Audit 2026-11-23: Bridgeport, one load, repro lothook-edit-town (two Edit Town enter / exit rounds between lot pans). Pass: every 'lothub: result' reads polling True, faults 0, subscribers 2 (cp2b: the poll task waits outside live mode, drains on return and is re-armed on the return to live mode if it was destroyed; 'mode returns' counts the returns, at least one result line must show >= 1), lot add lines keep arriving, 0 script errors, 0 watchdogs, household untouched. UNVERIFIED repro.",
+      "asi": "game-copy/ts3native.asi.cp2xos-1124",
+      "iniBase": "game-copy/ts3native.ini.cp1-lotgen-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp2b",
+      "pinReason": "0.36.299-cp2xos = feature/cp2-lothook-1123 (the crashed build 0.36.299-cp2) + the off-stack esp crash-log line of bugfix/xcpt-offstack-1124 (docs/67 §46); ini cp1-lotgen-1123 + [CrashForensics] Enabled=1 for a dump; ts3fixes cp2b = the crashed run package",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "noSamplers": true,
+          "repro": "lothook-edit-town",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp2xos ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": 1,
+        "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^ts3fixes: lothub: result, native True, polling True, .*, faults 0, subscribers 2$": 6,
+        "^ts3fixes: lothub: result, .*, mode returns [1-9]\\d*, rearms \\d+, faults 0, subscribers 2$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) lot hub": 0,
+        "^ts3fixes: lothub: (arm|result|world).*, subscribers (?!2$)\\d+$": 0,
+        "^ts3fixes: lothub: .*, faults [1-9]": 0,
+        "^ts3fixes: lothub: .*polling False": 0,
+        "^  off-stack esp: ": 0,
+        "^exception C0000029 ": 0
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Enabled": 1
+      }
+    },
+    {
+      "id": "bp-cp2xos-edit-town-stress-4",
+      "note": "[est 15 min] Audit 2026-11-23: Bridgeport, one load, repro lothook-edit-town (two Edit Town enter / exit rounds between lot pans). Pass: every 'lothub: result' reads polling True, faults 0, subscribers 2 (cp2b: the poll task waits outside live mode, drains on return and is re-armed on the return to live mode if it was destroyed; 'mode returns' counts the returns, at least one result line must show >= 1), lot add lines keep arriving, 0 script errors, 0 watchdogs, household untouched. UNVERIFIED repro.",
+      "asi": "game-copy/ts3native.asi.cp2xos-1124",
+      "iniBase": "game-copy/ts3native.ini.cp1-lotgen-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp2b",
+      "pinReason": "0.36.299-cp2xos = feature/cp2-lothook-1123 (the crashed build 0.36.299-cp2) + the off-stack esp crash-log line of bugfix/xcpt-offstack-1124 (docs/67 §46); ini cp1-lotgen-1123 + [CrashForensics] Enabled=1 for a dump; ts3fixes cp2b = the crashed run package",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "noSamplers": true,
+          "repro": "lothook-edit-town",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp2xos ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": 1,
+        "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^ts3fixes: lothub: result, native True, polling True, .*, faults 0, subscribers 2$": 6,
+        "^ts3fixes: lothub: result, .*, mode returns [1-9]\\d*, rearms \\d+, faults 0, subscribers 2$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) lot hub": 0,
+        "^ts3fixes: lothub: (arm|result|world).*, subscribers (?!2$)\\d+$": 0,
+        "^ts3fixes: lothub: .*, faults [1-9]": 0,
+        "^ts3fixes: lothub: .*polling False": 0,
+        "^  off-stack esp: ": 0,
+        "^exception C0000029 ": 0
+      },
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Enabled": 1
+      }
+    }
+  ]
+}

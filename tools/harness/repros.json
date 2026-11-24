@@ -117575,6 +117575,351 @@
     ]
   },
   {
+    "id": "ip-cullrace-pan",
+    "bug": "docs/338: suspected EA scene-list race (v0.3.1 crash on EA 1.69 at the drain 0x6E4720 / EA 0x6E54F5): DrawScene 0x6F3F90 drains the scene index list (scene+0x40) without waiting for render job 318 (main-view cull, appends to that list without a lock; growth frees the old buffer) when shadows, reflections and the second shadow view are off",
+    "fix": "[EaCrashFixes] CullDrainWait=1 (cullrace.cpp): JobManager_Wait(318) before the drain; detector [CrashForensics] CullRaceWatch=1 (default) counts crRace / crBadIdx and logs `cullrace:` lines with the thread running the cull",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-23): never run. Needs the queue job optionsIni options.lightingquality=1 + options.generalreflections=0 (no shadow / reflection waits). 30 spawned Sims and a far Go Here (30+ route jobs; with [RouteAsync] on they run on our route worker) while the camera pans over 8 lots for ~9 min: the main-view cull must still be running when the frame draws.",
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "fast"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": false
+        },
+        "waitS": 2,
+        "note": "30 Go Here plans (route jobs), household stays put"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 40,
+          "passes": 6
+        },
+        "waitS": 245,
+        "note": "pan while the routes run (245 s)"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": false
+        },
+        "waitS": 2,
+        "note": "second wave of plans"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 40,
+          "passes": 6
+        },
+        "waitS": 245,
+        "note": "pan again (245 s)"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "off: crash at 0x6E4735, or `cullrace: RACE` / `cullrace: BADIDX` lines with the cull thread id (the early gates stop the job at the first hit); CullDrainWait=1: no crash, crBadIdx 0, cdwWaits ~ one per frame and cdwWaitUs per wait small; no script errors"
+  },
+  {
+    "id": "lothub-visit",
+    "bug": "none (feature check): CP-1 lot hub (docs/321 §8) must count every lot add / remove and world event while the game behaves as before",
+    "fix": "ts3native [LotHub] Enabled=1 (always on, measurement only): lhLotGen / lhAdds / lhRemoves / lhWorldGen, 'lot hub:' read-back lines at world events and powers of two",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "camera", "args": {}, "note": "start pose, for the log"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot (the game picks walk or drive)"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "streams lots in and out: add and remove executes run"},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75, "note": "and home"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "expect": "'lot hub:' lines with world gen >= 1 and removes >= 1; no script errors; household untouched (the hub changes nothing)"
+  },
+  {
+    "id": "lothook-travel",
+    "bug": "none (feature check): CP-2 managed lot hook (docs/321 §9) must deliver every lot add / remove and world change to ts3fixes consumers once, and its subscriber state must not grow across travel and return",
+    "fix": "ts3fixes LotHub.cs + LotHubCore.cs (dispatch only, no consumer in release) fed by ts3native op 49 (lotstream.cpp queue); test consumer armed by reflect_call Fixes.LotHubDiag(\"arm\")",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["arm"]}, "waitS": 1, "note": "test consumer: subscribers 2"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "streams lots in and out"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "before travel"},
+      {"cmd": "set_motive", "args": {"sim": "household"}, "waitS": 2, "note": "a tired Sim drops the queued trip"},
+      {"cmd": "travel_vacation", "args": {"world": "france", "days": 2}, "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": true}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "world quit + load: one OnWorldChange each"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "away"},
+      {"cmd": "travel_home", "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": false}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "back to Bridgeport"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["arm"]}, "waitS": 1, "note": "arm again after the reload: subscribers must stay 2"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 1}, "waitS": 35, "note": "lot events after the return"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "end"}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "expect": "'ts3fixes: lothub:' add and remove lines with lot ids; world quit / load lines from both trips; every read-back 'subscribers 2' and 'faults 0'; no script errors; household untouched"
+  },
+  {
+    "id": "lothook-edit-town",
+    "bug": "CP-2 lot hub poll task (LhTask) must keep draining after Edit Town (CAS) is entered and left: it stops on IsWorldShuttingDown and LhEnsureTask only re-arms on a world load or a new subscribe",
+    "fix": "ts3fixes LotHub.cs (CP-2), docs/321 section 9",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-23, never run). Two Edit Town enter / exit rounds between pans with the test consumer armed (LotHubDiag). Each result line must read polling True, faults 0, subscribers 2 (flat); lot add / remove lines keep arriving after the second exit. If polling reads False after an exit the task died without a world quit / load: LhTask must not end on IsWorldShuttingDown alone (keep sleeping until the generation changes), or Edit Town exit must call LhEnsureTask.",
+    "expect": "'lothub: result ... polling True ... faults 0, subscribers 2' after each exit (queue logRequire), no 'polling False', no script errors.",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "arm"
+          ]
+        },
+        "waitS": 1,
+        "note": "test consumer: subscribers 2"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
+        },
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "et_move_lot",
+        "args": {
+          "action": "enter"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "EditTownState"
+            }
+          ],
+          "everyS": 3,
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "edit town"
+          ]
+        },
+        "note": "in Edit Town",
+        "waitS": 5
+      },
+      {
+        "cmd": "enter_live_mode",
+        "waitS": 5,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
+        },
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "et_move_lot",
+        "args": {
+          "action": "enter"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "EditTownState"
+            }
+          ],
+          "everyS": 3,
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "enter_live_mode",
+        "waitS": 5,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
+        },
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",
