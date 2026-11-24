@@ -34,7 +34,8 @@ namespace Ts3Fixes
     // (Role.CreateRole, Role.RemoveSimFromRole, RoleManagerTask.FillInWorldRole, which clears other Sims' roles), resort VIP data
     // and closing (ResortManager set_Closed, DoUpdate when Closed changed, CreateNewVIPDoorGroup, RemoveDoorFromVIPRoom,
     // FindVIPRoomData when it created a row, RefreshVIPRooms, VIPRoomData.AddGuest / RemoveGuest), gender, age and visible
-    // pregnancy (SimDescription set_Gender / set_Age / set_IsVisuallyPregnant: gender doors, diving board).
+    // pregnancy (SimDescription set_Gender / set_Age / set_IsVisuallyPregnant: gender doors, diving board), venue hours (a
+    // non-residential lot with a gender door is held out of the memo, DoorGenHold).
     // Not covered: inputs of portal types with their own IsAllowedThrough beyond these (elevators, box stalls, horse jumps,
     // spiral stairs, pools, tube elevators, ladders) and world-switch role teardown (RoleManager.DestroyAllRoleBots: travel
     // starts a new world and table). Those stay on the native 1-in-8 re-ask, the self-disable and DoorMemoXMs.
@@ -97,6 +98,7 @@ namespace Ts3Fixes
             sDoorGenOn = ShortcutOn("doorgen");
             if (!sDoorGenOn) return;
             DoorGenSend(1);
+            sDgHeld.Clear();  // native cleared its holds on arm
             foreach (Lot lot in LotManager.AllLots) DoorGenHold(lot);  // privacy situations restored before the switch was read
             AlarmManager.Global.AddAlarmRepeating(10f, TimeUnit.Minutes, DoorGenPoll, 10f, TimeUnit.Minutes, "ts3fixes doorgen mismatch names", AlarmType.NeverPersisted, null);
         }
@@ -109,6 +111,9 @@ namespace Ts3Fixes
         {
             try
             {
+                // shortcut: gender doors placed (or lot types changed) after world load are held up to 10 sim minutes late; hook
+                // door placement if a mismatch ever names one
+                foreach (Lot lot in LotManager.AllLots) DoorGenHold(lot);
                 if (!DiagSend(kDoorKeyOp, 0, 0)) return;
                 uint[] w = new uint[11];
                 for (uint b = 0; b < 352; b++) if (DiagSend(kDoorKeyOp, b, 1)) w[b >> 5] |= 1u << (int)(b & 31);
@@ -148,7 +153,11 @@ namespace Ts3Fixes
         // A lot's PortalPathPlan handlers beyond EA's Sim.OnPortalPathPlan (PrivacySituation, mods) answer from the asking Sim's
         // current interaction, which nothing bumps: the native memo leaves such a lot alone (op 36 hi 1 = held, 2 = free; key is
         // the lot id's low dword). Unknown (field missing, error) = held.
+        // Also held: a non-residential lot with a gender door. DoorSingleGender.IsAllowedThrough stops the other gender there only
+        // while Lot.IsOpenVenue(), which reads SimClock: the answer flips at opening and closing time with no input to bump
+        // (Banzai Lounge bouncer, doorhunt 2026-11-24). Sent only on a change: each send bumps the native generation.
         static FieldInfo sDgLotHandlers;
+        static readonly Dictionary<ulong, bool> sDgHeld = new Dictionary<ulong, bool>();  // lot id -> held state last sent
         static void DoorGenHold(Lot lot)
         {
             if (!sDoorGenOn || lot == null) return;
@@ -161,8 +170,13 @@ namespace Ts3Fixes
                 else if (d != null)
                     foreach (Delegate h in d.GetInvocationList())
                         if (h.Method.DeclaringType != typeof(Sim) || h.Method.Name != "OnPortalPathPlan") { held = true; break; }
+                if (!held && !lot.IsResidentialLot) held = lot.GetObjects<DoorSingleGender>().Length > 0;
             }
+            catch (ResetException) { throw; }
             catch (Exception) { held = true; }
+            bool was;
+            if (sDgHeld.TryGetValue(lot.LotId, out was) && was == held) return;
+            sDgHeld[lot.LotId] = held;
             try { DiagSend(kDoorGenOp, (uint)lot.LotId, held ? (ushort)1 : (ushort)2); } catch (Exception) { }
         }
 
