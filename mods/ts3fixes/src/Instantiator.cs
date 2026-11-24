@@ -441,6 +441,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kPairSnapLog = false;  // pairsnaplog: one ts3native.log line per act
         [Tunable] public static bool kPartnerPull = false;  // partnerpull (docs/686 §21): a Sim that waits (read to sleep, a social) on a partner whose linked half is queued behind an autonomous, cancellable action of the partner gets the half moved up after 1 sim-minute with EA's own prioritize; the action ends through its own exit; never a player's action or queue; every Sim
         [Tunable] public static bool kPartnerPullLog = false;  // partnerpulllog: one ts3native.log line per pull or kept case
+        [Tunable] public static bool kReadWalk = false;  // readwalk (docs/686 §22): the parent of a bedtime story walks straight to the sit slot of the child's bed part once it is known, not 3-5 m away first and then again once the child is in bed; every Sim
+        [Tunable] public static bool kReadWalkLog = false;  // readwalklog: one ts3native.log line per act
         [Tunable] public static bool kCrowdPortLog = false;  // crowdportlog: one ts3native.log line per act
         [Tunable] public static int kCrowdPortMin = 3;  // crowdport: Sims waiting for or using the portal, this one included, that make a crowd (2 at least)
         [Tunable] public static float kCrowdPortWait = 1f;  // crowdport: sim-minutes a Sim waits behind another Sim before it skips without a crowd (0-15)
