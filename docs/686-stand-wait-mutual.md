@@ -1752,3 +1752,8 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   own exit running on the Sim's task before the loop comes back [inferred, not traced]. That is not the idle sleep
   either.
 - Neither is a confirmed bug, so no fix. queuewake only removes the 10/20-tick idle sleep.
+
+### 23.4 Run in the game (2026-11-24, s532 off / s533 on) [verified]
+- Off: 40-42 would, 10 ticks each (all in the autonomy-queue sleep), 62-85 adds after the deadline (left alone).
+- On: 42 idle loops woken, 420 ticks in all (10 each, about 0.27 s at speed 1 per action), for BedSleep, socials,
+  baths, homework, toilets and chores; 113 adds after the deadline, 0 errors. No odd starts were seen.
