@@ -384,8 +384,9 @@ namespace Ts3Fixes
                 if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
+                string ahead = ShortcutOn("linewaitlog") ? OjsAhead(this, interaction, target) : null;  // who holds the line when this Sim asks
                 bool got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
-                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
+                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes, ahead == null ? null : ahead + "; at end " + OjsAhead(this, interaction, target));
                 return got;
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body

@@ -100,7 +100,7 @@ namespace Ts3Fixes
         // ---- linewaitlog ------------------------------------------------------------------------------------------------
 
         // One finished wait. rhdoor: every wait counts; line: from ObjShareCore.kLogMinutes.
-        static void OjsWaitDone(Sim s, string targetType, bool rhDoor, float min, int length, int outcome)
+        static void OjsWaitDone(Sim s, string targetType, bool rhDoor, float min, int length, int outcome, string ahead = null)
         {
             int[] c = PatchCounters();
             c[rhDoor ? kLwRhWaits : kLwWaits]++;
@@ -108,12 +108,12 @@ namespace Ts3Fixes
             if (outcome == ObjShareCore.kTimedOut) c[rhDoor ? kLwRhTimeouts : kLwTimeouts]++;
             else if (outcome == ObjShareCore.kCancelled) c[rhDoor ? kLwRhCancelled : kLwCancelled]++;
             sOjsLast = "linewait: " + s.FullName + " " + ShlWho(s) + ", " + SwfIa(s) + ": " + targetType + (rhDoor ? " rhdoor" : " line") + ", waited " + min.ToString("0.0")
-                + " sim-min, line length " + length + ", outcome " + ObjShareCore.kOutcomeNames[outcome] + ", at " + V(s.Position);
+                + " sim-min, line length " + length + ", outcome " + ObjShareCore.kOutcomeNames[outcome] + ", at " + V(s.Position) + (ahead == null ? "" : ", ahead: " + ahead);
             if (ShortcutOn("linewaitlog") && sOjsCap.Take(System.Environment.TickCount)) DiagLine(sOjsLast);
         }
 
         // After SimQueue.WaitForTurn's own body (LdsQueueHook.WaitHook). lengthBefore: Sims in the line when this one asked.
-        static void OjsLineWaitEnd(InteractionInstance interaction, IGameObject target, long startTicks, int lengthBefore, bool got, float timeoutInMinutes)
+        static void OjsLineWaitEnd(InteractionInstance interaction, IGameObject target, long startTicks, int lengthBefore, bool got, float timeoutInMinutes, string ahead)
         {
             try
             {
@@ -125,10 +125,41 @@ namespace Ts3Fixes
                 }
                 Sim s = interaction == null ? null : interaction.InstanceActor;
                 if (s == null) return;
-                OjsWaitDone(s, target == null ? "?" : target.GetType().Name, false, min, lengthBefore, ObjShareCore.LineOutcome(got, min, timeoutInMinutes));
+                OjsWaitDone(s, target == null ? "?" : target.GetType().Name, false, min, lengthBefore, ObjShareCore.LineOutcome(got, min, timeoutInMinutes), ahead);
             }
             catch (ResetException) { throw; }
             catch (Exception e) { OjsError(0, e); }
+        }
+
+        // linewaitlog: the other Sims in the line and the object's users, each with its running interaction and distance
+        // to the waiter, so a long wait names who holds the turn and what it is doing (docs/686 §14).
+        static string OjsAhead(SimQueue line, InteractionInstance interaction, IGameObject target)
+        {
+            try
+            {
+                Sim a = interaction == null ? null : interaction.InstanceActor;
+                System.Text.StringBuilder b = new System.Text.StringBuilder();
+                int n = 0;
+                List<Sim> inLine = line.SimsInQueue;  // null while nobody is in the line
+                if (inLine != null)
+                    foreach (Sim o in inLine)
+                        if (o != null && o != a && n++ < 3) b.Append(OjsWhoLine("line", o, a));
+                GameObject g = target as GameObject;
+                List<Sim> users = g == null ? null : g.ActorsUsingMe;
+                if (users != null)
+                    foreach (Sim o in users)
+                        if (o != null && o != a && (inLine == null || !inLine.Contains(o)) && n++ < 5) b.Append(OjsWhoLine("user", o, a));
+                return n == 0 ? "nobody" : b.ToString().TrimEnd(' ', ',');
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { OjsError(0, e); return "?"; }
+        }
+
+        static string OjsWhoLine(string role, Sim o, Sim a)
+        {
+            if (o.HasBeenDestroyed) return role + " (destroyed), ";
+            string d = a == null || a.HasBeenDestroyed ? "?" : (o.Position - a.Position).Length().ToString("0.0");
+            return role + " " + o.FullName + " " + ShlWho(o) + " " + SwfIa(o) + " " + d + " m, ";
         }
 
         // ---- rhshare ----------------------------------------------------------------------------------------------------
