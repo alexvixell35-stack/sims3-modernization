@@ -537,14 +537,18 @@ const reproStep = async (s: any) => {
   if (!r.ok && !s.optional) await reproFail(`repro step ${s.cmd} failed: ${String(r.error).split('\n')[0].slice(0, 300)}`);
   const mm = mustMatchFail(s, r); // "mustMatch": the answer must show the case happened (an "N/A" answer is not a PASS)
   if (mm) await reproFail(mm);
+  // "expectLog": true | ["<logRequire regex>", ...]: queue.ts checks those logRequire lines now and stops the job if one is missing
+  if (s.expectLog) console.log(`${stamp()} repro checkpoint ${s.expectLog === true ? '*' : JSON.stringify(s.expectLog)}`);
   return r;
 };
 const reproRun = (async () => {
   // fixed waitS or adaptive waitUntil, then until; every wait ends at the window end, then the steps stop at the first until /
   // waitUntil (repro-loop.ts runSteps)
-  await runSteps(reproSteps, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs), log: l => console.log(`${stamp()} ${l}`) })
-    .catch((e: Error) => reproFail(`repro ${e.message}`));
+  const ran = await runSteps(reproSteps, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs), log: l => console.log(`${stamp()} ${l}`) })
+    .catch(async (e: Error) => { await reproFail(`repro ${e.message}`); return -1; });
   if (story) await story.run({ ag, sleep, halted: () => stopped || Date.now() >= at(secs), pre }).catch(e => reproFail(e.message)); // household creation failed: stop the job
+  // queue.ts early logRequire check (CHECKPOINT_RE): every step ran; a loop job's lines come from the loop, so it gets none
+  if (!reproLoop && reproSteps.length && ran === reproSteps.length && !stopped) console.log(`${stamp()} repro checkpoint *end`);
   if (!reproLoop) return;
   // firings inside the first minute are excluded by the hitch classifier (bp-overwatch-ab-loop2 2026-10-23: all 20 fell in it)
   // shortcut: 65 s even in a reused session (whose start edge is only 15 s), upgrade when reuse measurement matters

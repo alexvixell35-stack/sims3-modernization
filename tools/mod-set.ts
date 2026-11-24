@@ -52,6 +52,7 @@ export const scriptAsmLine = (log: string) => log.split(/\r?\n/).find(l => SCRIP
 // job inventory text (queue.ts writes it into the job's -modset.txt)
 export function inventory(set: string, dir: string, files: string[], scan: string): string {
   const meta = existsSync(join(dir, 'set.json')) ? JSON.parse(readFileSync(join(dir, 'set.json'), 'utf8')) as { built?: string; files: SetFile[] } : { files: [] };
+  meta.files ??= []; // queue.ts modSetProblem refuses such a set first; this keeps the inventory readable
   const by = new Map(meta.files.map(f => [f.file.toLowerCase(), f]));
   const rows = files.map(f => { const m = by.get(f.toLowerCase()); return `${f}\t${m?.mod ?? '?'}\t${m?.bytes ?? '?'}\t${m?.sha256.slice(0, 8) ?? '?'}`; });
   return [`modSet ${set}: ${files.length} packages (set.json built ${meta.built ?? '?'})`, 'file\tmod\tbytes\tsha256', ...rows, '',

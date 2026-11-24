@@ -42,6 +42,7 @@ namespace Ts3Fixes
         // Pure: does an entry stay in the exit queue? Does ResetSafeToExit return on this queue (EA dequeues an empty one)?
         internal static bool JgKeep(bool on, bool live, bool onTower, bool alarmPending) { return !on || (live && (onTower || alarmPending)); }
         internal static bool JgSafeSkips(bool on, int queued) { return on && queued == 0; }
+        internal static bool JgGone(Sim s) { return s == null || s.HasBeenDestroyed; }
 
         static void ApplyJungleGymExitQueue()
         {
@@ -53,12 +54,13 @@ namespace Ts3Fixes
 
         static void JgPurge(bool on, JungleGymLookOutTower t, Queue<Sim> q, Sim self, bool dropSelf)
         {
+            sJgPending.RemoveAll(JgGone);   // docs/323 L8: destroyed Sims' pending exits go (their alarm may never fire)
             if (q.Count == 0) return;
             List<Sim> keep = new List<Sim>();
             int dropped = 0;
             foreach (Sim s in q)
             {
-                bool live = s != null && !s.HasBeenDestroyed;
+                bool live = !JgGone(s);
                 if ((s == self ? !dropSelf : JgKeep(on, live, live && t.ActorsUsingMe.Contains(s), live && sJgPending.Contains(s)))) keep.Add(s);   // review: before enqueueing, the Sim's own stale entries go too
                 else dropped++;
             }

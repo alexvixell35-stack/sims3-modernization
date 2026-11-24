@@ -125,12 +125,95 @@ static void LsOtherFn(DWORD fn) {
     Log("lot stream: remote call fn 0x%08X on the add/remove execute (not counted)", fn);
 }
 
+// --- CP-1 lot hub (docs/321 §8): always-on lot generation counter + world-change event; no behaviour change ---
+// The two execute hooks below are installed by ApplyLotHub on their own (always, [LotHub] Enabled=1 default); [LotStream]
+// measurement rides on the same detours. Each run of the add fn 0xAC1130 / remove fn 0xAB4C00 bumps lhLotGen and
+// lhAdds / lhRemoves after the game's call returns; the ts3fixes "world:" / "world quit" lines (userdiag.cpp) bump
+// lhWorldGen and lhLotGen. Subscribers (CP-3 consumers, each behind its own default-off switch) are called on the thread
+// that raised the event: the sim thread for lot add / remove [verified: they run in the sim pump, docs/28 §5.2] and for the
+// world lines [verified: UdTextMsg runs on the sim thread, userdiag.cpp]. Readers on other threads poll lhLotGen /
+// lhWorldGen (monotonic, interlocked) and compare with the value they cached.
+enum { LH_ADD = 1, LH_REMOVE = 2, LH_WORLD_LOAD = 3, LH_WORLD_QUIT = 4 };
+typedef void (*LotHubFn)(int kind, const u8* lot, LONG gen, void* ctx);  // lot NULL for world kinds; gen = the bumped lhLotGen
+static const int kLhSubsMax = 16;
+struct LhSub { LotHubFn fn; void* ctx; };
+static LhSub g_lhSubs[kLhSubsMax];
+static volatile LONG g_lhSubN;
+
+// Install time only (Apply*, the loader thread, before the game runs); no unsubscribe. False = table full (logged).
+static inline bool LotHubSubscribe(LotHubFn fn, void* ctx) {  // inline: no consumer in the asi until CP-3
+    const LONG n = g_lhSubN;
+    // no leak (docs/321 §8.4): the same fn + ctx again (an Apply* run twice) keeps its one row; the table is fixed at 16
+    for (LONG i = 0; i < n; i++) if (g_lhSubs[i].fn == fn && g_lhSubs[i].ctx == ctx) return true;
+    if (n >= kLhSubsMax) { Log("lot hub: subscriber table full (%d), one consumer gets no events", kLhSubsMax); return false; }
+    g_lhSubs[n].fn = fn;
+    g_lhSubs[n].ctx = ctx;
+    InterlockedExchange(&g_lhSubN, n + 1);  // publish after the row is written
+    return true;
+}
+
+// CP-2 managed bridge (docs/321 §9, UserDiag op 49): ts3fixes LotHub.cs drains a queue of lot events once per sim frame.
+// Off until ts3fixes asks (its first pop arms it; no managed subscriber = never armed, no work). Sim thread only: lot
+// add / remove, the world lines and op 49 all run there (see above), so no lock. A full queue drops the event and marks
+// overflow, which the next pop hands out first as one "every lot" event (kind 0) with the queue cleared; a world event
+// clears the queue (ts3fixes' OnWorldChange supersedes it).
+static const int kLhQ = 64;
+struct LhQEv { int kind; DWORD id; };  // id = the lot's low id dword [lot+0x48]
+static LhQEv g_lhQ[kLhQ], g_lhQCur;
+static int g_lhQHead, g_lhQN;
+static bool g_lhQArmed, g_lhQOver;
+static void LhQPush(int kind, const u8* lot) {
+    if (!g_lhQArmed) return;
+    if (kind >= LH_WORLD_LOAD) { g_lhQHead = g_lhQN = 0; g_lhQOver = false; return; }
+    if (g_lhQN == kLhQ) { g_lhQOver = true; return; }
+    LhQEv& e = g_lhQ[(g_lhQHead + g_lhQN++) % kLhQ];
+    e.kind = kind;
+    e.id = *(const DWORD*)(lot + 0x48);
+}
+// op 49, hi & 0xFF: 0 pop the next event into the current one (1 = popped; arms the queue), 1 bit (hi >> 8) of the current
+// lot's id, 2 current is a remove, 3 current is the overflow event, 4 hub installed (lhReady != 0).
+static u8 LhOp(DWORD hi) {
+    switch (hi & 0xFF) {
+        case 0:
+            g_lhQArmed = true;
+            if (g_lhQOver) { g_lhQOver = false; g_lhQHead = g_lhQN = 0; g_lhQCur.kind = 0; g_lhQCur.id = 0; return 1; }
+            if (!g_lhQN) return 0;
+            g_lhQCur = g_lhQ[g_lhQHead];
+            g_lhQHead = (g_lhQHead + 1) % kLhQ;
+            g_lhQN--;
+            return 1;
+        case 1: return (u8)((g_lhQCur.id >> ((hi >> 8) & 31)) & 1);
+        case 2: return g_lhQCur.kind == LH_REMOVE ? 1 : 0;
+        case 3: return g_lhQCur.kind == 0 ? 1 : 0;
+        case 4: return ts3native_counters.lhReady ? 1 : 0;
+    }
+    return 0;
+}
+
+static void LotHubFire(int kind, const u8* lot) {
+    Ts3nCounters& k = ts3native_counters;
+    LhQPush(kind, lot);
+    if (kind >= LH_WORLD_LOAD) InterlockedIncrement(&k.lhWorldGen);
+    else InterlockedIncrement(kind == LH_ADD ? &k.lhAdds : &k.lhRemoves);
+    const LONG gen = InterlockedIncrement(&k.lhLotGen);
+    const LONG n = g_lhSubN;
+    if (kind >= LH_WORLD_LOAD || !(gen & 63) || !(gen & (gen - 1))) {  // read-back line: world events, powers of two, every 64th
+        static const char* const kName[5] = {"?", "add", "remove", "world load", "world quit"};
+        Log("lot hub: %s, lot gen %ld (adds %ld, removes %ld), world gen %ld, subscribers %ld", kName[kind], gen, k.lhAdds, k.lhRemoves, k.lhWorldGen, n);
+    }
+    for (LONG i = 0; i < n; i++) g_lhSubs[i].fn(kind, lot, gen, g_lhSubs[i].ctx), InterlockedIncrement(&k.lhFired);
+}
+
 static DWORD LsExec(u8* call, void* edx, LsExecFn orig, DWORD want, bool add) {
     Ts3nCounters& k = ts3native_counters;
-    if (k.lsMode != 1) return orig(call, edx);
     const DWORD fn = *(const DWORD*)(call + 0x10);
-    if (fn != want) { LsOtherFn(fn); return orig(call, edx); }
     const u8* lot = *(u8* const*)(call + 0x0C) + *(const int*)(call + 0x14);  // the `this` the execute passes to fn
+    if (k.lsMode != 1) {  // [LotStream] off or Mode=0: hub only
+        const DWORD r = orig(call, edx);
+        if (fn == want) LotHubFire(add ? LH_ADD : LH_REMOVE, lot);
+        return r;
+    }
+    if (fn != want) { LsOtherFn(fn); return orig(call, edx); }
     const LONG objs = (LONG)((*(const DWORD*)(lot + 0x18) - *(const DWORD*)(lot + 0x14)) / 4);
     const LONGLONG t0 = LsNow();
     const DWORD r = orig(call, edx);
@@ -139,6 +222,7 @@ static DWORD LsExec(u8* call, void* edx, LsExecFn orig, DWORD want, bool add) {
     else { k.lotRemoves++; k.lotRemoveUs += us; LsMax(k.lotRemoveMaxUs, us); }
     if (g_lsPumpTid && g_lsPumpTid == GetCurrentThreadId()) g_lsPumpLots++;
     LsEmit(add ? "add" : "remove", lot, objs, us, 0);
+    LotHubFire(add ? LH_ADD : LH_REMOVE, lot);
     return r;
 }
 static DWORD __fastcall LsAddHook(u8* call, void* edx) { return LsExec(call, edx, g_lsAddOrig, LS_ADD_FN, true); }
@@ -251,8 +335,9 @@ static bool ApplyLotStream(const wchar_t* ini) {
         {"Lot::SetActive (lot stream)", LS_SET_ACTIVE, kLsSetActive, sizeof(kLsSetActive), (void*)LsSetActiveHook, (void**)&g_lsSetActiveOrig, 16},
     };
     char hex[64];
+    const LONG hub = ts3native_counters.lhReady & 3;  // the hub's detours already are the add / remove hooks (same functions)
     for (const Req& r : req)  // all or nothing: a half-hooked path would give numbers that do not add up
-        if (!Matches((const void*)(uintptr_t)r.at, r.bytes, r.len)) {
+        if (!(hub & r.bit) && !Matches((const void*)(uintptr_t)r.at, r.bytes, r.len)) {
             if (Readable((const void*)(uintptr_t)r.at, r.len)) Hex((const u8*)(uintptr_t)r.at, r.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP lot stream: %s prologue at 0x%08X differs (found %s), nothing hooked", r.name, r.at, hex);
             return false;
@@ -269,7 +354,7 @@ static bool ApplyLotStream(const wchar_t* ini) {
     }
     LONG ready = 0;
     for (const Req& r : req)
-        if ((*r.orig = InstallDetour(r.name, r.at, r.bytes, r.len, r.hook, r.orig)) != NULL) ready |= r.bit;
+        if ((hub & r.bit) || (*r.orig = InstallDetour(r.name, r.at, r.bytes, r.len, r.hook, r.orig)) != NULL) ready |= r.bit;
     if (GetPrivateProfileIntW(L"LotStream", L"SyncWait", 0, ini) &&
         (g_lsSyncOrig = (LsSyncFn)InstallDetour("remote call dispatch (lot stream sync wait)", LS_SYNC, kLsSync, sizeof(kLsSync), (void*)LsSyncHook, &g_lsSyncOrig)) != NULL)
         ready |= 32;
@@ -282,5 +367,22 @@ static bool ApplyLotStream(const wchar_t* ini) {
     ts3native_counters.lsReady = ready;
     Log("%s lot stream: ready 0x%lX (Mode=%ld, event log %s, ObjLogMs=%ld)", (ready & 31) == 31 ? "OK  " : "FAIL", ready,
         ts3native_counters.lsMode, g_lsLog != INVALID_HANDLE_VALUE ? "on" : "off", g_lsObjLogUs / 1000);
+    return ready != 0;
+}
+
+// [LotHub] Enabled=1 (default; 0 = kill switch): the always-on CP-1 hub hooks. Both prologues are checked before either is
+// written, so lhLotGen never counts one direction only. Runs before ApplyLotStream (which reuses these detours) and before
+// [Verify] (its lotAddExec probe 65 then finds the site taken and skips itself).
+static bool ApplyLotHub(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"LotHub", L"Enabled", 1, ini)) { Log("lot hub off ([LotHub] Enabled=0): no lot generation counter"); return false; }
+    if (!Matches((const void*)(uintptr_t)LS_ADD, kLsAdd, sizeof(kLsAdd)) || !Matches((const void*)(uintptr_t)LS_REMOVE, kLsRemove, sizeof(kLsRemove))) {
+        Log("SKIP lot hub: add / remove execute prologue differs (another hook?), lhLotGen stays 0, consumers keep today's behaviour");
+        return false;
+    }
+    LONG ready = 0;
+    if ((g_lsAddOrig = (LsExecFn)InstallDetour("lot add execute (lot hub)", LS_ADD, kLsAdd, sizeof(kLsAdd), (void*)LsAddHook, &g_lsAddOrig)) != NULL) ready |= 1;
+    if ((g_lsRemoveOrig = (LsExecFn)InstallDetour("lot remove execute (lot hub)", LS_REMOVE, kLsRemove, sizeof(kLsRemove), (void*)LsRemoveHook, &g_lsRemoveOrig)) != NULL) ready |= 2;
+    ts3native_counters.lhReady = ready;
+    Log("%s lot hub: ready 0x%lX (lot generation counter + world event, docs/321 §8)", ready == 3 ? "OK  " : "FAIL", ready);
     return ready != 0;
 }
