@@ -1622,6 +1622,7 @@ namespace Ts3Fixes
         // [1543-1584] our loop cost (docs/330): deadrefsweep / deadrefcadence (DeadRefs.cs) and viewerpushdelta (UnseenViewers.cs): see the lists there
         // [1518-1529] docs/321 lane 0 / H1 / H3 table fill (Caps.cs, always on): AutShadow requests capped / by objects / by pairs /
         // most objects / most pairs; NearVenue groups over 32 / most open lots; spawnerskip hw / clears; backoff hw / clears; cookclick hw.
+        // [1658-1661] deadrefexact (DeadRefs.cs, docs/334): partitions, objects in the last one, shared event lists, re-reads; [1669-1670] deadrefexactverify lists compared / differed
         // One size for every slot a fix may take (maintainer slots below 2000, contributor ranges up to 3999 since 2026-11-17, then
         // the contributor block 4000-4199, docs/registry.md), so a new fix never needs the array resized by hand.
         // [4352-4363] ladderfootshoo (LadderFoot.cs, docs/183 §9): scans of a lot's level links for a cross-level no-path plan / plans whose needed link is closed by
@@ -2732,6 +2733,8 @@ namespace Ts3Fixes
                 case "asyncjigsync": return Instantiator.kAsyncJigSync;
                 case "deadrefsweep": return Instantiator.kDeadRefSweep;
                 case "deadrefcadence": return Instantiator.kDeadRefCadence;  // docs/330, ON (sub-switch of deadrefsweep: old cadence when off)
+                case "deadrefexact": return Instantiator.kDeadRefExact;  // docs/334, OFF (LC-1 exact cuts of the cadence pass)
+                case "deadrefexactverify": return false;  // docs/334, OFF, test only: partition lists compared with the filter passes
                 case "viewerpushdelta": return Instantiator.kViewerPushDelta;  // docs/330, ON (old every-wake push when off)
                 case "savecleanupaggressive": return Instantiator.kSaveCleanupAggressive;
                 case "vacexport": return Instantiator.kVacExport;
