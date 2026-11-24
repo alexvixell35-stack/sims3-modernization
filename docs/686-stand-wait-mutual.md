@@ -1753,3 +1753,15 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
 ### 21.3 Limits [inferred]
 - The alarm sees waits of 0.5 sim-min or more. A pull lands 1-1.5 sim-min after the wait began.
 - `SocialInteractionA` subclasses (pillow fight, tag) are covered as well: they wait the same way.
+
+### 21.4 Run in the game (2026-11-24, Deck, Sunset Valley new game, storm A/B s532 off / s533 on, 5 min each, seed 152) [verified]
+- Off (compare mode): 20-22 waits past the grace, of which 11-12 would be pulled, 7-8 were kept because of a player's
+  action or queue, and 2 were kept with a busy head. Waits measured: socials 39, 238.3 sim-min in total (max 45.0,
+  the 15 + 30 sim-min timeouts); read to sleep 1, 286.6 sim-min.
+- On: 11 socials pulled 1.1-1.3 sim-min after their wait began, 0 refused, 0 errors. Socials 45, 140.7 sim-min in
+  total (mean 3.1 against 6.1 off; max 30.1); read to sleep 0 (in this arm the story's waits ended in the
+  "Ask for Bedtime Story" social, pulled twice). 7 kept (6 for the player, 1 outranking head).
+- What was ended: Do Homework, Browse Web, Read, Play Video Game, Preside Over Royal Court, Wash all dishes, Be
+  Chatted To (the partner's other conversation), and Go to Lot twice (an NPC's trip, for a Chat and a Refuse
+  Entrance). No player-queued action was ended. Errors, resets and stuck lines are the same as off (stuck 21 vs 26).
+- To check: whether a partner's Go to Lot or a running conversation should be kept (treat them as busy).
