@@ -445,6 +445,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kReadWalkLog = false;  // readwalklog: one ts3native.log line per act
         [Tunable] public static bool kQueueWake = false;  // queuewake (docs/686 §23): the first action added to an idle household or selected Sim wakes its loop at once instead of after its 10 or 20 tick sleep
         [Tunable] public static bool kQueueWakeLog = false;  // queuewakelog: one ts3native.log line per wake
+        [Tunable] public static bool kSlotRetry = false;  // slotretry (docs/686 §24): a failed walk to an object's slot list or seats is retried quietly (next free slot or seat, at most 2 tries), every human Sim
+        [Tunable] public static bool kSlotRetryLog = false;  // slotretrylog: one ts3native.log line per case
         [Tunable] public static bool kCrowdPortLog = false;  // crowdportlog: one ts3native.log line per act
         [Tunable] public static int kCrowdPortMin = 3;  // crowdport: Sims waiting for or using the portal, this one included, that make a crowd (2 at least)
         [Tunable] public static float kCrowdPortWait = 1f;  // crowdport: sim-minutes a Sim waits behind another Sim before it skips without a crowd (0-15)

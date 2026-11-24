@@ -535,6 +535,7 @@ namespace Ts3Fixes
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
             ApplyPartnerPull();        // docs/686 §21 (PartnerPull.cs): partnerpull, off by default (counts either way); a 0.5 sim-minute alarm started at world load, no swap
             ApplyReadWalk();           // docs/686 §22 (ReadWalk.cs): readwalk, off by default (counts either way); swaps Sim.LoopIdle and Sim.RouteToObjectRadialRange
+            ApplySlotRetry();          // docs/686 §24 (SlotRetry.cs): slotretry, off by default (counts either way); swaps RoutingComponent.RouteToSlot (Slot[] core) and SimRoutingComponent.RouteToUnusedPart
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
@@ -1397,7 +1398,9 @@ namespace Ts3Fixes
         // kept (no sit slot, slot on the child's way) / plan or walk failed / errors.
         // [4596-4601] queuewake (QueueWake.cs, docs/686 §23): idle loops woken / would, off / loop ticks saved (on and off) / left: past the deadline /
         // left: not the first entry / errors.
-        const int kCounterSlots = 4602;
+        // [4602-4609] slotretry (SlotRetry.cs, docs/686 §24): retried cases / worked on retry 1 / on retry 2 / retries failed / would, off / kept /
+        // errors / retried cases at parts (seats, beds).
+        const int kCounterSlots = 4610;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1742,6 +1745,8 @@ namespace Ts3Fixes
                 case "readwalk": return Instantiator.kReadWalk;  // ReadWalk.cs (docs/686 §22): a bedtime story's parent walks straight to the sit slot of the child's bed part, every Sim, off
                 case "readwalklog": return Instantiator.kReadWalkLog;  // ReadWalk.cs (docs/686 §22): one line per act, off
                 case "queuewake": return Instantiator.kQueueWake;  // QueueWake.cs (docs/686 §23): the first entry of an idle household or selected Sim wakes its loop at once, off
+                case "slotretry": return Instantiator.kSlotRetry;  // SlotRetry.cs (docs/686 §24): a failed walk to an object's slot list or seats is retried quietly, every human Sim, off
+                case "slotretrylog": return Instantiator.kSlotRetryLog;  // SlotRetry.cs (docs/686 §24): one line per case, off
                 case "queuewakelog": return Instantiator.kQueueWakeLog;  // QueueWake.cs (docs/686 §23): one line per wake, off
                 case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
                 case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off

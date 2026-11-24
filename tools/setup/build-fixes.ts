@@ -225,6 +225,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kReadWalkLog value="False" />
     <kQueueWake value="False" />
     <kQueueWakeLog value="False" />
+    <kSlotRetry value="False" />
+    <kSlotRetryLog value="False" />
     <kCrowdPortMin value="3" />
     <kCrowdPortWait value="1" />
     <kLineWaitLog value="False" />

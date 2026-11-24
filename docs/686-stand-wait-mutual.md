@@ -2042,3 +2042,59 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
 - Off: 40-42 would, 10 ticks each (all in the autonomy-queue sleep), 62-85 adds after the deadline (left alone).
 - On: 42 idle loops woken, 420 ticks in all (10 each, about 0.27 s at speed 1 per action), for BedSleep, socials,
   baths, homework, toilets and chores; 113 adds after the deadline, 0 errors. No odd starts were seen.
+
+## 24. A failed walk to an object's slot list or seats is tried again (`slotretry`; 2026-11-24, `post/slotretry-1124`, built, default off, run §24.4)
+
+### 24.1 Which routes take a list [verified, decompiled `RoutingComponent.cs`, `SimRoutingComponent.cs`, `Sim.cs`, `Sit.cs`, `SittableComponent.cs`, `Sink.cs`, `Fridge.cs`, `TV.cs`]
+- `RoutingComponent.RouteToSlot(obj, Slot[], preferred, out index, petFacing, ignore)`: every `Slot[]` overload of
+  `Sim.RouteToSlot` and `SimRoutingComponent.RouteToSlotList` / `RouteToSlotListAndCheckInUse` (33 + 82 call sites in
+  the decompiled packs) end here. One plan to all slots, `DoRoute`, the chosen index from the plan's slot.
+- `SimRoutingComponent.RouteToUnusedPart(parts, preferred, ...)` (15 call sites): seats through
+  `SittableComponent` / `MultiSeatObject.RouteToForSitting` (nearby seats of a seating group included), beds
+  (`EnterRelaxing`, `EnterSleeping`), sauna, trampoline, sandbox. One plan to the routing slots of every free part
+  (`PlanToUnusedPart`, weights 1000 preferred / 500 / 250 taken on the way / 0 in use). EA loops (up to 5) only when
+  the walk reached a part someone took meanwhile; a failed plan or walk ends there.
+- A failed plan in `SimRoutingComponent.DoRoute` runs `DoRouteFailureBehavior` (balloon, route-fail animation; off
+  when `Sim.PlayRouteFailFrequency` is `NeverPlayRouteFail`) and adds `ExitReason.RouteFailed`.
+- Not list routes, so not touched: the five interactions with the most route fails in s496-s529 are WatchTV (24,
+  `TV.RouteToCone` or a sofa seat through `RouteToForSitting`), PillowFight (27) and PlayTag (17) (jigs: `pairsnap`
+  rule c), WashDishes (17, `Sink.RouteToSink` = `RouteToSlotAndCheckInUse` to slot 0, slot 1 for a child) and
+  Fridge_Have (9, `Fridge.RouteToOpen` = `PlanToSlot(RoutingSlot_0)`). A single-slot caller animates from that one slot.
+- "The nearest identical object" is not built: every caller keeps its own `Target`; `Sit.Run` would take another
+  container's part, the other part users (beds, sauna) would not.
+
+### 24.2 What is built
+- `slotretry` (`SlotRetry.cs`, `SlotRetryCore.cs`, counters 4602-4609, `SlotRetryCheck`, selftest
+  `tools/selftest/slotretry`). Swaps (both with a stub): `RoutingComponent.RouteToSlot` (the `Slot[]` core overload)
+  and `SimRoutingComponent.RouteToUnusedPart`.
+- The game's try runs with the Sim's route-fail behaviour off (`PlayRouteFailFrequency`, the pattern EA uses itself).
+  When it fails, a human Sim (not riding) on its own task gets up to 2 retries if: no exit reason besides
+  `RouteFailed` (cancelled or interrupted Sims keep the answer), the object stands, no other Sim uses it (slot lists;
+  parts in use are never planned to, as clipwait leaves objects in use alone), and a free slot or part is left.
+- The slot or part the failed walk led to is dropped when the Sim walked (at least 0.5 m) and another one is left; a
+  plan that failed where the Sim stands is tried again after 15 ticks. Retry 1 is quiet, retry 2 has the Sim's own
+  route-fail behaviour, so a case nothing helps ends as in the game (one balloon).
+- One switch for every human Sim (the result is a real walk, docs/686 user rule "routing: better, not identical").
+  Off = compare mode (`would`). `slotretrylog`: `slotretry: retry N worked | retries failed, the game's answer | would
+  retry | kept, <why>: <who> <Sim>, <Interaction> -> <Object> (<n> slots | parts, walked m | plan failed)`.
+
+### 24.3 Limits [inferred]
+- A plan that failed for a wall or a closed room fails again; the retry only costs one more plan (async with
+  `[RouteAsync]`) and 15 ticks before the game's answer.
+- The same object only. Single-slot routes (sinks, fridges, TV slots, toilets) are left as they are.
+
+### 24.4 Run in the game (2026-11-24, Deck, Sunset Valley new game, storm A/B s534 off / s535 on, 5 min each, seed 152) [verified]
+- Smoke first (repro `pairsnapjig-force` load r4-rp4, `SlotRetryCheck run`): both swaps applied (`members found=True`),
+  rules and controls as the selftest.
+- Route fails per interaction (`routefail:` lines, spot probes left out): off 30 (SocialInteractionA 19, TakeShower 3,
+  PillowFight 2, GetInCarpool 2, one each PlayOn, Contemplate, GoHome, SocialInteractionB); on 31
+  (SocialInteractionA 23, WashDishes 2, Bed_ReadToSleep 2, one each SocialInteractionB, PutAwayLeftovers, CleanSink,
+  Bake). Neither storm had a WatchTV or Fridge_Have fail; the s496-s529 top five are single-slot or jig routes
+  (§24.1), so slotretry could not change them.
+- slotretry cases: off 10 kept (9 with another exit reason, 1 with no free part: Jack Bunch to a loveseat with both
+  seats taken), would 0. On 7: 6 kept (5 another exit reason: DisposeOutside, VisitLot at a door, TakeBath, SitAndWait,
+  BedMakeBed; 1 no free part), 1 retried: `retries failed, the game's answer: household Ethan Bunch, none -> SofaClub
+  (3 parts, 1 free, walked 1.0 m)`. Retries that worked: 0. Errors 0 in both arms; no stuck Sim or odd walk seen.
+- Reading: a failed list or part route in a storm almost always ends with an exit reason besides `RouteFailed`, so the
+  gate keeps it; the gate is right for cancels, but which reasons these are is not known yet. The kept line now
+  names `Sim.ExitReason` (build r4b); run s536 (§24.5) reads them. NOT PROVEN: no retry has worked yet.
