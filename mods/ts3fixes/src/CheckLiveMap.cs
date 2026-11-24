@@ -235,6 +235,7 @@ namespace Ts3Fixes
                 case "lifeguardsurvey": return EpLive(typeof(BLgHook), 1, "sLgAlarm", sLgAlarm, null, "sLgRemove", sLgRemove, 0);
                 case "lightcustom": return EpLive(typeof(B12LcHook), 2);
                 case "lightningweights": return EpLive(typeof(B13LwHook), 1, "sLwWeights", sLwWeights, null, "sLwWeights", sLwWeights, "static");
+                case "linewaitlog": return EpJoin(EpLive(typeof(ShlAcquireHook), 0), EpLive(typeof(ShlLaneHook), 0));
                 case "littercap": return EpLive(typeof(LitterCapHook), 1);
                 case "lookatcopy": return EpLive(typeof(B12LaHook), 1);
                 case "lotmgrcallbacks": return EpLive(typeof(LmcLoadHook), 2);
