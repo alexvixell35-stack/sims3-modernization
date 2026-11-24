@@ -26,6 +26,8 @@ const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
   unseenfbgohere: 'docs/328 §7.5 (2026-11-23): natural-play switch, no forced GoHere visit repro; judged by compat-switchon-1122g-1123 bp-gohere-ab (--ab unseenfbgohere, eligibility log line)',
+  standwaitsocial: 'storm proof (docs/686 §30): the Bridgeport computer-chair receiver of storms s543a / s545a / s549a (seed 152), judged by storm replays with standwaitlog; no forced repro yet',
+  standwaitsocialhh: 'storm proof (docs/686 §30), as standwaitsocial: the household receivers of the same storms',
   petrelaxlog: 'log only (one petrelax: line per act, docs/686 §11): on in the forced repro petrelax-force (docs/686 §11.6), which needs agent steps that are not upstream yet',
   clipwaitlog: 'log only (one clipwait: line per wait, docs/686 §9); clipwait is here as petrelax plumbing',
   showersharelog: 'log only (one showertogether: / showerpee: line per act, docs/686 §15): on in the forced repro showershare-force (docs/686 §15.5), whose agent steps and harness flag are not upstream yet',

@@ -29,7 +29,7 @@
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   firegreet
 #   fglinbound fglinboundhh
-#   standwaitfix standwaitfixhh standwaitlog
+#   standwaitfix standwaitfixhh standwaitlog standwaitsocial standwaitsocialhh
 #   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
 #   blockedusehh
 #   makebedbothhh makebedbothlog

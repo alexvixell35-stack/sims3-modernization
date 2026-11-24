@@ -393,6 +393,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kStandWaitLog = false;  // standwaitlog: one ts3native.log line per stand-and-wait that had blocked cycles (either switch state)
         [Tunable] public static int kStandWaitPassCycle = 2;  // blocked cycle from which the route is planned once without people (0 = never)
         [Tunable] public static int kStandWaitPassEvery = 3;  // blocked cycles between two such plans
+        [Tunable] public static bool kStandWaitSocial = false;  // standwaitsocial (docs/686 §30): an NPC social half (SocialInteractionA/B) whose stand-and-wait failed kStandWaitSocialPasses people-free passes ends the wait as the timeout does (needs standwaitfix)
+        [Tunable] public static bool kStandWaitSocialHh = false;  // standwaitsocialhh: household and selected Sims too
+        [Tunable] public static int kStandWaitSocialPasses = 2;  // standwaitsocial: failed people-free passes before the wait ends (1-10)
         [Tunable] public static float kStandWaitPassMinutes = 5f;  // sim-minutes of the game's ignore-obstacles timer after a pass
         [Tunable] public static int kStandWaitLogLines = 300;  // standwaitlog lines per session
         [Tunable] public static bool kShareLanes = true;   // sharelanes (docs/686 §8): a lane of stairs, a door, a gate or a ladder that another Sim holds from the other end is given to the arriving Sim as well (the game shares a lane only in one direction and sends the Sim to a waiting spot for up to 20 sim-minutes); a stand-and-wait whose plan calls a portal locked plans without people at once

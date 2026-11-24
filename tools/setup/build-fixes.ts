@@ -816,6 +816,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStandWaitLog value="False" />
     <kStandWaitPassCycle value="2" />
     <kStandWaitPassEvery value="3" />
+    <kStandWaitSocial value="False" />
+    <kStandWaitSocialHh value="False" />
+    <kStandWaitSocialPasses value="2" />
     <kStandWaitPassMinutes value="5" />
     <kStandWaitLogLines value="300" />
     <kShareLanes value="True" />

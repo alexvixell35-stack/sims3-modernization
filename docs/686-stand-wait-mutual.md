@@ -1718,3 +1718,39 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
+## 30. A social's stand-and-wait for a spot that cannot be reached without people either (`standwaitsocial`; 2026-11-24, `post/standwaitsocial-1124`, built, default off, PROVEN by storm s549a)
+- Numbered as on the combo branch (§21-§29 there: partnerpull, readwalk, queuewake, slotretry, lineswitch, reactoverlay,
+  linestale, their PRs pending).
+- Lead (s543a, Bridgeport, upper floor, lot 0xF5900033BA9E8C10, room 8): Indie Girl and later Kirby Wise
+  (`SocialInteractionB`) stood at 501.9,34.1,1535.5 with their jig goal 0.4 m away; every replan failed in ~27 ms (no
+  path, 0 plans), blocker = the starter (Matty Crewe, Katelyn Missoni) 0.1 m away; standwaitfix's people-free passes
+  failed too (4 plans); standwait ended by timeout after 20.8 / 21.6 sim-min, then socialreach let them talk.
+- Our switches ruled out first: s544a = Bridgeport, seed 152, every managed fix and every native route key off (the
+  read-only keys too), log switches only. No social receiver froze (household zero-plan route fails 4 vs 34 in s543a),
+  but no receiver was pulled either. The on-arm replays: s545a Kirby Wise froze again (21.6 sim-min, same spot, same
+  goal); s546a, s548a: no freeze.
+- Mechanism [verified from the logs]: every freeze follows a `partnerpull` pull of a receiver sitting at the computer
+  at 502.5,34.1,1535.2 (`Make Inappropriate Forum Post`, `Work Indefinitely`); the starters were 2.6-20 m away at the
+  pull (s546a pulled lines now name the partner's posture and the distance), so the starter arrives at its spot by the
+  chair while the receiver stands up. The receiver lands 0.2-0.3 m from the starter and its jig spot (placed while it
+  sat) is out of reach with or without people. EA's code: the same happens whenever the computer user ends its action
+  inside the starter's 15-minute wait; partnerpull makes it frequent. A seat rule in partnerpull (keep a seated partner
+  with the starter within 1.2 m) was tried and dropped: the starter is never that close at the pull.
+- Fix `standwaitsocial` (`StandWaitSocial.cs`, `StandWaitSocialCore.cs`, counters 4687-4691, `StandWaitSocialCheck`, no
+  swap): in standwaitfix's blocked cycle, after `kStandWaitSocialPasses` (2) failed people-free passes of a waiter whose
+  running interaction is `SocialInteractionA` / `B`, the cycle handler answers "not elected to exit" and the route fails
+  as at the timeout (standwaitlocked's exit). Waits that people alone block (the pass works) are not touched. Needs
+  standwaitfix (the passes are its plans). `standwaitsocial` NPCs, `standwaitsocialhh` household and selected Sims.
+  standwait lines get a ", social: N failed people-free passes, gave up cycle C" tail. Selftest
+  `tools/selftest/standwaitsocial` (7 checks).
+- How often: Bridgeport storms with partnerpull: s543a 2 frozen receivers, s545a 1, s546a 0, s548a 0 (Matty Crewe's
+  receiver wait at 492.6,34.1,1537.8 ended by standwaitfix's yield after 7.7 sim-min), s549a 1; 0 in s541 / s542 /
+  s543b / s543c; 0 long SocialInteractionB stand-waits in ~150 storms without partnerpull (SocialInteractionA waits of
+  11-22 sim-min there are EA's starter waits, not this).
+- Run s549a (Deck, Bridgeport new game, seed 152, 5 min, build r9d, s541 all-on list + standwaitsocial(+hh)): Kirby
+  Wise (selected, `SocialInteractionB`, at 492.6,34.1,1537.8, the second computer of the lot, starter Indie Girl)
+  "blocked 5 of 7 cycles, 11.4 sim-min ... social: 2 failed people-free passes, gave up cycle 5"; socialreach then let
+  him talk from where he stood (0.1 m). Off (s543a, s545a): the same waits ran 20.8-21.6 sim-min to the timeout. Saved
+  about 10 sim-min a case (the passes come every few cycles, so the second failed pass lands at cycle 5). Errors 0.
+  Status: built, default off, PROVEN by storm (one case on, three off).

@@ -1703,7 +1703,10 @@ namespace Ts3Fixes
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4660;
+        // [4687-4691] standwaitsocial (StandWaitSocial.cs, docs/686 §30; the same slots as the combo branch, 4660-4686 left to the
+        // pending lineswitch / reactoverlay / linestale PRs): social waits with a failed people-free pass / gave up / would, off /
+        // exempt (household without standwaitsocialhh) / errors.
+        const int kCounterSlots = 4692;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2187,6 +2190,8 @@ namespace Ts3Fixes
                 case "firedoorkeep": return Instantiator.kFireDoorKeep;
                 case "standwaitfix": return Instantiator.kStandWaitFix;  // StandWait.cs (docs/686): a blocked obstacle stand-and-wait yields to pushes, pushes its blockers, passes when only people block, off
                 case "standwaitfixhh": return Instantiator.kStandWaitFixHousehold;  // StandWait.cs (docs/686): standwaitfix for household and selected Sims too, off
+                case "standwaitsocial": return Instantiator.kStandWaitSocial;  // StandWaitSocial.cs (docs/686 §30): a social half whose spot cannot be reached without people either ends its stand-and-wait after 2 failed passes, NPCs, off
+                case "standwaitsocialhh": return Instantiator.kStandWaitSocialHh;  // StandWaitSocial.cs (docs/686 §30): household and selected Sims too, off
                 case "sharelanes": return Instantiator.kShareLanes;  // ShareLanes.cs (docs/686 §8): a stair, door, gate or ladder lane held from the other end is shared; a portal closed by standing Sims is tried without people at once, off
                 case "sharelaneshh": return Instantiator.kShareLanesHousehold;  // ShareLanes.cs: sharelanes for household and selected Sims too (as the arriving Sim and as a lane holder), off
                 case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
