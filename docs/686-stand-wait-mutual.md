@@ -1742,3 +1742,8 @@ child walks and climbs in. Only then does it walk to `part.RoutingSlotForSit` (`
 ### 22.3 Limits [inferred]
 - On a double bed before the child reaches it, the part is unknown, so the 3-5 m walk stays and the early walk
   happens once the child's `EnterRelaxing` has picked its part.
+
+### 22.4 Run in the game (2026-11-24, s532 off / s533 on) [verified]
+- One story in the on arm: kept, because the sit slot was on the child's way (Jack Bunch to Arlo Bunch's single bed,
+  while the child got in). No walk, no error. Off arm: no case. Not proven yet. Needs a forced story with the
+  parent more than 5 m away and the bed's sit side clear of the child's way.
