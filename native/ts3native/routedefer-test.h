@@ -1,4 +1,4 @@
-// TestRouteDestroyDefer ([RouteAsync] DestroyDefer, routedefer.cpp, docs/67 §46). Included by selftest.cpp.
+// TestRouteDestroyDefer ([RouteAsync] DestroyDefer, routedefer.cpp, docs/67 §47). Included by selftest.cpp.
 // The hook runs against a landing function in place of the trampoline; job slots and the async slot are set by hand.
 static DWORD g_rddtCalls, g_rddtLast;
 static void __cdecl RddtLand(DWORD handle) { g_rddtCalls++, g_rddtLast = handle; }

@@ -72,8 +72,9 @@ export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
 // every path a state or a run can change; backed up at snapshot when present, reset to the snapshot before each state
 export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'ts3wrap.exe', 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
 // Bin files absent from the snapshot that restore may delete (run outputs of Apex, the bridge, Turbo, the game)
-export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|ts3wrap\.exe$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|[^/]*\.(log|jsonl|dmp)$)/i;
-const IGNORE_DIFF = /^[^/]*\.(log|jsonl|dmp)$/i; // game and mod logs: changed by every run
+export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|ts3wrap\.exe$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|pccheck(-summary)?\.(txt|csv)$|[^/]*\.(log|jsonl|dmp)$)/i;
+// runtime outputs, changed by every run: game and mod logs, the bridge logs, the pccheck report (the sha check stays strict for every other file)
+const IGNORE_DIFF = /^([^/]*\.(log|jsonl|dmp)|rtx-remix\/logs\/[^/]+\.log|pccheck(-summary)?\.(txt|csv))$/i;
 // docs/284: the DxDiagCache sidecar is a per-machine cache, kept across states and restores (never compared, never removed)
 export const KEEP_CACHE = /^ts3native-vram\.ini$/i;
 
@@ -406,7 +407,8 @@ function selfCheck() {
   for (const f of ['rtx-remix/logs/bridge32.log', '.trex/x.dll', 'NvRemixBridge_d3d9.log', 'Turbo.txt', 'ts3native.log', 'imgui.ini', 'ApexRadiance_Crash.dmp', 'ts3wrap.exe']) assert.ok(EXTRA_OK.test(f), f);
   for (const f of ['TS3W.exe', 'Default.ini', 'Sims3Performance.ini', 'Gameplay/x.package', 'sub/ts3native.log', 'ts3wrapXexe', 'sub/ts3wrap.exe']) assert.ok(!EXTRA_OK.test(f), f);
   assert.ok(KEEP_CACHE.test('ts3native-vram.ini') && !KEEP_CACHE.test('ts3native.ini') && !KEEP_CACHE.test('sub/ts3native-vram.ini') && !EXTRA_OK.test('ts3native-vram.ini'));
-  assert.ok(IGNORE_DIFF.test('ts3native.log') && !IGNORE_DIFF.test('wininet.dll') && !IGNORE_DIFF.test('rtx-remix/logs/bridge32.log'));
+  for (const f of ['ts3native.log', 'rtx-remix/logs/bridge32.log', 'rtx-remix/logs/bridge64.log', 'pccheck-summary.txt', 'pccheck.csv']) assert.ok(IGNORE_DIFF.test(f) && EXTRA_OK.test(f), f);
+  for (const f of ['wininet.dll', 'TS3W.exe', 'bridge.conf', 'rtx-remix/d3d9.dll', 'rtx-remix/logs/x.dll', 'sub/pccheck.csv', 'Default.ini']) assert.ok(!IGNORE_DIFF.test(f), f);
   const s: Sample = { t: 60, ws: 1, pv: 1, mn: 0, mx: 0, cls: 'High', nb: 0x10000000, nz: 0x200000, resp: true,
     th: [{ id: 1, b: 13, s: 0x401000 }, { id: 2, b: 4, s: 0x100B9230 }, { id: 3, b: 13, s: 0x10001000 }, { id: 5, b: 13, s: 0x10400000 }, { id: 4, b: 14, s: 0x100AAE30 }] };
   const d = digest(s);

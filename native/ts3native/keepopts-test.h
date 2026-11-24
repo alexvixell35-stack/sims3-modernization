@@ -34,7 +34,7 @@ static __declspec(naked) int __cdecl KoTestCall(const u8* /*cfg*/, const u8* /*r
 
 static void TestKeepOptions() {
     static_assert(offsetof(Ts3nCounters, resV215_218) == 0x6908 && offsetof(Ts3nCounters, koMode) == 0x6A08 &&
-                      offsetof(Ts3nCounters, koRedetected) == 0x6A14 && sizeof(Ts3nCounters) == 6866 * 4,
+                      offsetof(Ts3nCounters, koRedetected) == 0x6A14 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v219 layout after the v215-v218 placeholder (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const DWORD sCont = g_koCont, sSkip = g_koSkip;

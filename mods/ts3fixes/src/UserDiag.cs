@@ -66,11 +66,12 @@ namespace Ts3Fixes
 
         // Called from Instantiator's world-quit handler (menu, travel, another save, exit): ts3native [GC] BlackListCapKB
         // puts the lenient black-list cap back for the load screen (gcgrow.cpp; "world:" below makes it strict again).
-        public static void DiagWorldQuit() { RflSummary("world quit"); sRflCmds.Clear(); BtForget(0); AfcClear(); DiagLine("world quit"); }
+        public static void DiagWorldQuit() { try { LotHubWorldQuit(); } catch (Exception) { } RflSummary("world quit"); sRflCmds.Clear(); BtForget(0); AfcClear(); DiagLine("world quit"); }
 
         // Called from Instantiator's world-load handler.
         public static void DiagWorldLoad()
         {
+            try { LotHubWorldLoad(); } catch (Exception) { }  // LotHub.cs (CP-2): first, so OnWorldChange runs without ts3native too; its poll task starts next frame, after the "world:" line below cleared the native lot queue
             RflWorldLoad();  // docs/197 §7
             AfcClear();  // autonomyfailcooldown: in memory only, never carried into another world
             try { DoorGenWorldLoad(); } catch (Exception) { }  // DoorGen.cs: arm ts3native DoorMemoX=3 when switch doorgen is on

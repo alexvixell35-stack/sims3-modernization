@@ -1,0 +1,167 @@
+{
+ "note": "lc1-exact-time-1123 (docs/334, WRITTEN, NOT RUN; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): deadrefexact off vs on in one load per world (BP / IP / SV), deadrefcadence ON in both arms. Run only after lc1-exact-correct-1123 passed. Smoke first. Each job: 25 min, 5-min slices, ABBA. Read: node tools/harness/loopcost-report.ts --arm deadrefexact <tag>-ab-fixes.jsonl; node tools/harness/hitch-ab.ts <tag>. Gate (docs/333 §6): no regression in our ms/s or hitch p99 / p99.9 / max beyond noise. Est ~1 h 50 min.",
+ "rewind": "off",
+ "stopQueueOnFail": true,
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1122 ": {
+   "match": [
+    "ts3native 0.36.299-m1122 2026-11-22 06:55:20"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+    "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc1-ab-smoke",
+   "note": "[est 10 min] SMOKE as the first job (stops the queue on fail): BP 5 min, 1-min slices, --ab deadrefexact (per-slice read-back by profile-world; a switch that does not stick fails the run). Pass: both arms counted (node tools/harness/loopcost-report.ts --arm deadrefexact prints both), a partition in the on arm, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "slice": 1,
+     "noSamplers": true,
+     "ab": "deadrefexact",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefexact_partitions>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc1-ab",
+   "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefexact (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefexact probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p5 gather, p10 step); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected: deadrefsweep -1 to -3 ms/s, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefexact",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefexact_partitions>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc1-ab",
+   "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefexact (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefexact probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p5 gather, p10 step); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected: deadrefsweep -1 to -3 ms/s, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefexact",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefexact_partitions>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc1-ab",
+   "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefexact (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefexact probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p5 gather, p10 step); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected: deadrefsweep -1 to -3 ms/s, no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefexact",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefexact_partitions>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ]
+}

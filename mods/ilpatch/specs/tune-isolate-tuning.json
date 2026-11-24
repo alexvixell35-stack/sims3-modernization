@@ -1,0 +1,44 @@
+{
+  "id": "tune-isolate-tuning",
+  "switch": "ilp_tuneisolate",
+  "counter": null,
+  "assembly": "Sims3GameplaySystems",
+  "method": "Sims3.Gameplay.Tuning.TuningControl::TuneAssemblies(System.Reflection.Assembly[],bool)",
+  "edits": [
+    {
+      "at": "0x56",
+      "mode": "replace",
+      "entry": "fallthrough",
+      "expect": [
+        "newobj",
+        "throw"
+      ],
+      "maxStack": 0,
+      "il": [
+        "pop",
+        "leave @0x12F"
+      ]
+    }
+  ],
+  "source": {
+    "file": "docs/339",
+    "entries": [
+      "GetTypes failure of one [Tunable] assembly skips that assembly instead of ending the tuning loop"
+    ]
+  },
+  "builds": {
+    "ea-1.67": {
+      "size": 321,
+      "sha256": "5e1b4b6ddc0e3ee136e0a66ca0140923fb3d0abda97dd8082eb5ef41cce25bbd",
+      "tokens": {},
+      "patchedSha256": "d51df4b3234e335635962fc340c3027a854b46d468f12a04a27b2dea718b98d0"
+    },
+    "simler90-242": {
+      "size": 321,
+      "sha256": "0e12755d31b300aff22800a7a732bf8f6cccaeb1062ed6a74b8197c8a6607071",
+      "tokens": {},
+      "patchedSha256": "9f9c63b08a91b4137abdf29eb708c5fa91e50065b0c1dd87a72fd7da6764d1d4"
+    }
+  },
+  "ilHashG6": "9c722804162a549d"
+}

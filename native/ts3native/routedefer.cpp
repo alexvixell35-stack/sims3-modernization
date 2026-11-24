@@ -1,4 +1,4 @@
-// [RouteAsync] DestroyDefer=1 (docs/67 §46, rs-C4; default 0). Included by ts3native.cpp after p5c.cpp.
+// [RouteAsync] DestroyDefer=1 (docs/67 §47, rs-C4; default 0). Included by ts3native.cpp after p5c.cpp.
 // IC_Route_DestroyRoute 0x750400 (cdecl, [esp+4] = route handle 0x25xxxxxx) runs only from ~Route (ScriptCore Route.cs: the
 // finalizer; Dispose has no callers), on the sim thread. The route job's IC on the worker resolves the same handle by itself:
 // IC_Route_Plan 0x765160 -> lookup 0x74B2C0 (script host slot +0xCC under the host lock, no reference taken, lock dropped)
@@ -89,7 +89,7 @@ static bool ApplyRouteDestroyDefer(const wchar_t* ini) {
                        &g_rddDestroyT))
         return false;
     InterlockedExchange(&g_rddOn, 1);
-    Log("OK   route destroy defer ([RouteAsync] DestroyDefer=1, docs/67 §46): a route finalized while a job holds its handle is "
+    Log("OK   route destroy defer ([RouteAsync] DestroyDefer=1, docs/67 §47): a route finalized while a job holds its handle is "
         "destroyed on the sim thread once no job runs");
     return true;
 }
