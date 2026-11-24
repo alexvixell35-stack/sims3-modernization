@@ -560,6 +560,7 @@ namespace Ts3Fixes
             ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
             ApplySocialReach();        // docs/686 §17 (SocialReach.cs): socialreach / socialreachhh, off by default (counts either way); its DoRoute step is in ApplyBlockedUse's hook, as unstuck's (§18, Unstuck.cs)
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
+            ApplyPartnerPull();        // docs/686 §21 (PartnerPull.cs): partnerpull, off by default (counts either way); a 0.5 sim-minute alarm started at world load, no swap
             ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
@@ -1702,6 +1703,8 @@ namespace Ts3Fixes
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
+        // [4582-4589] partnerpull (PartnerPull.cs, docs/686 §21): waits past the grace / pulled: read to sleep / socials / would, off / kept: player's
+        // action or queue / kept: busy or outranking head / errors / refused by the game (timed interaction about to finish).
         const int kCounterSlots = 4660;
         static int[] sCountersCache;
         static int[] PatchCounters()
@@ -2637,6 +2640,8 @@ namespace Ts3Fixes
                 case "pairsnap": return Instantiator.kPairSnap;  // WooHooSnap.cs (docs/686 §20): a paired social (kiss, hug) of two NPCs within 3 m whose placement or route fails is lined up by a snap, off
                 case "pairsnaphh": return Instantiator.kPairSnapHousehold;  // WooHooSnap.cs: the same for pairs with a household or selected Sim, off
                 case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
+                case "partnerpull": return Instantiator.kPartnerPull;  // PartnerPull.cs (docs/686 §21): a Sim waiting on a partner whose linked half is queued behind an autonomous action gets the half moved up and the action ended (EA's prioritize), every Sim, off
+                case "partnerpulllog": return Instantiator.kPartnerPullLog;  // PartnerPull.cs (docs/686 §21): one line per pull or kept case, off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;

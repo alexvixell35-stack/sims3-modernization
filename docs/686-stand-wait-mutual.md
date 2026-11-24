@@ -1718,3 +1718,38 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
+## 21. A partner busy with an autonomous action is pulled to the waiting half (`partnerpull`; 2026-11-24, `post/partnerpull-1124`, built, default off, run §21.4)
+
+### 21.1 The wait [verified, decompiled `Sims3GameplayObjects` `Bed.cs`, `Sims3GameplaySystems` `Sim.cs`, `SocialInteraction.cs`, `InteractionInstance.cs`, `InteractionQueue.cs`]
+- Bedtime story: `Sim.ReadToSleep.Run` adds the child's `Bed_BeReadToSleep` with `InteractionQueue.Add` (end of the
+  queue, the parent's priority). `Bed.Bed_ReadToSleep.Run` (parent) then loops `Simulator.Sleep(0)` until the child's
+  head is that half and the child moves into a bed. A child busy with a long autonomous action keeps the parent
+  standing until it ends.
+- Socials: `SocialInteraction.PushSocialB` adds the `SocialInteractionB` half at the end of the partner's queue and
+  cancels only other queued linked interactions of lower priority (`CancelNonBSocialInteractionsFromQueue`). The
+  starter then waits in `InteractionInstance.StartSync` (pre-sync loop, `kNumMinToWaitOnPreSync` 15 sim-min) and
+  `Sim.WaitForSynchronizationLevelWithSim` (`kNumMinToWaitOnSyncStart` 30 sim-min). `npcbusypartner` (docs/577 §4)
+  ends the NPC-only case after the pre-sync. It does not pull the partner.
+- `InteractionQueue.PrioritizeInteraction(ii)` is the game's own "do this next" path. It moves `ii` behind the current
+  interaction and adds `InterruptionRequested` to the Sim (part of `ExitReason.Default`), so the current interaction
+  ends through its own exit. A timed stage with 10 sim-min or less left is refused
+  (`kMaxMinutesRemainingNotToAutosolve`). Interruptible tradeoffs get `ShouldReenque`.
+
+### 21.2 What is built
+- `partnerpull` (`PartnerPull.cs`, `PartnerPullCore.cs`, counters 4582-4589, `PartnerPullCheck`, selftest
+  `tools/selftest/partnerpull`). No swap: a repeating 0.5 sim-minute alarm, started at world load on the
+  `UfTpCleanupWorldLoad` ride, looks at every Sim whose current interaction is `Bed_ReadToSleep` or a
+  `SocialInteractionA` while the linked half is still queued, not running, on the partner. Past a 1 sim-minute grace
+  (about 1 s at speed 1; quicker hand-offs are never touched) it calls `PrioritizeInteraction(half)` on the partner
+  and clears `ShouldReenque` on the interrupted head, so the head is cancelled through the game's exit path, not
+  queued again.
+- Kept, as the game has it: a head the player queued; any player-queued entry between the head and the half (never
+  jumped); a head that is not cancellable by the player, must run, is linked to the waiter, or runs while the partner
+  is in a posture transition; a head that outranks the half; a refusal by the game (about to finish).
+- One switch for every Sim, household included (user-approved). Off = compare mode (would). `partnerpulllog`: one
+  line per pull or kept case. The waits are measured in both modes (count, sim-minutes, longest) for the A/B.
+
+### 21.3 Limits [inferred]
+- The alarm sees waits of 0.5 sim-min or more. A pull lands 1-1.5 sim-min after the wait began.
+- `SocialInteractionA` subclasses (pillow fight, tag) are covered as well: they wait the same way.
