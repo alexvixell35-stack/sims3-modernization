@@ -251,6 +251,12 @@ namespace Ts3Fixes
                     catch (ResetException) { throw; }
                     catch (Exception e) { LswError(e); }
                 }
+                if (sLstHeads.Count > 0)  // docs/686 §29 (LineStale.cs): a head that is not coming leaves the line
+                {
+                    try { LstCheck(this, sim); }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { LstError(e); }
+                }
                 return ExitOrig(sim, minutesToWait, exitReasons);
             }
             public bool ExitOrig(Sim sim, float minutesToWait, ExitReason exitReasons) { return false; }  // receives SimQueue.WaitForExitReasonOnSim

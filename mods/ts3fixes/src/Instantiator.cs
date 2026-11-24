@@ -390,6 +390,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kStandWaitLocked = false;  // standwaitlocked (docs/686 §7): a blocked obstacle stand-and-wait whose destination room is privacy-locked for the Sim ends after kStandWaitLockedCycles cycles the way the game's own timeout ends it (route failed), instead of standing out the 20 sim-minutes
         [Tunable] public static bool kStandWaitLockedHousehold = false;  // standwaitlockedhh: standwaitlocked for household and selected Sims too (never a player's own order: the game does not privacy-lock those)
         [Tunable] public static int kStandWaitLockedCycles = 2;  // privacy-locked blocked cycles in a row before the wait ends (0 = never; a cycle is about 1.6 sim-minutes)
+        [Tunable] public static bool kStandWaitSocial = false;  // standwaitsocial (docs/686 §30): an NPC social half (SocialInteractionA/B) whose stand-and-wait failed kStandWaitSocialPasses people-free passes ends the wait as the timeout does (needs standwaitfix)
+        [Tunable] public static bool kStandWaitSocialHh = false;  // standwaitsocialhh: household and selected Sims too
+        [Tunable] public static int kStandWaitSocialPasses = 2;  // standwaitsocial: failed people-free passes before the wait ends (1-10)
         [Tunable] public static bool kLadderFootShoo = false;  // ladderfootshoo (docs/183 §9): a plan to another level that fails with no path because Sims stand on the lane ends of the ladder or stair it needs asks them to step away (the game's own push, as at doors), waits for them and plans once more
         [Tunable] public static bool kLadderFootShooHousehold = false;  // ladderfootshoohh: ladderfootshoo for household and selected Sims too, as the planning Sim and as the Sim asked to step away
         [Tunable] public static float kLadderFootWaitMinutes = 5f;  // sim-minutes the planning Sim waits for the asked Sims before it gives up (never above the game's own wait for pushed Sims; 0 = ask, do not wait)
@@ -451,6 +454,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
         [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
         [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
+        [Tunable] public static bool kLineStale = false;  // linestale (docs/686 §29): the head of an object's line whose turn-taking action ended or waits in its queue behind another action leaves the line after kLineStaleMinutes; NPC heads
+        [Tunable] public static bool kLineStaleHh = false;  // linestalehh: household and selected heads too
+        [Tunable] public static bool kLineStaleLog = false;  // linestalelog: one ts3native.log line per case
+        [Tunable] public static float kLineStaleMinutes = 5f;  // linestale: sim-minutes a head is not coming before it leaves the line (1-60)
         [Tunable] public static bool kReactOverlay = false;  // reactoverlay (docs/686 §26): an NPC busy standing or seated reacts at once as EA's overlay instead of a ReactionInteraction queued behind its action; a queued one is dropped after kReactOverlayStaleMs
         [Tunable] public static bool kReactOverlayHh = false;  // reactoverlayhh: household and selected Sims too
         [Tunable] public static bool kReactOverlayLog = false;  // reactoverlaylog: one ts3native.log line per case

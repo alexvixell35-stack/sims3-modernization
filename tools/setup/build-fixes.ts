@@ -168,6 +168,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStandWaitLocked value="False" />
     <kStandWaitLockedHousehold value="False" />
     <kStandWaitLockedCycles value="2" />
+    <kStandWaitSocial value="False" />
+    <kStandWaitSocialHh value="False" />
+    <kStandWaitSocialPasses value="2" />
     <kLadderFootShoo value="False" />
     <kLadderFootShooHousehold value="False" />
     <kLadderFootWaitMinutes value="5" />
@@ -231,6 +234,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLineSwitchHh value="False" />
     <kLineSwitchLog value="False" />
     <kLineSwitchMinutes value="2" />
+    <kLineStale value="False" />
+    <kLineStaleHh value="False" />
+    <kLineStaleLog value="False" />
+    <kLineStaleMinutes value="5" />
     <kReactOverlay value="False" />
     <kReactOverlayHh value="False" />
     <kReactOverlayLog value="False" />

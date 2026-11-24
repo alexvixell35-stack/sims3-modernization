@@ -1408,7 +1408,11 @@ namespace Ts3Fixes
         // [4620-4669] free on the combo branch (upstream uses 4620-4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
-        const int kCounterSlots = 4680;
+        // [4680-4686] linestale (LineStale.cs, docs/686 §29): heads dropped / would, off / kept (household head without linestalehh) /
+        // stale kind: queued behind another action / ended without leaving the line / errors / ended, still in the use list, away from it.
+        // [4687-4691] standwaitsocial (StandWaitSocial.cs, docs/686 §30): social waits with a failed people-free pass / gave up /
+        // would, off / exempt (household without standwaitsocialhh) / errors.
+        const int kCounterSlots = 4692;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1703,6 +1707,8 @@ namespace Ts3Fixes
                 case "failreplanboat": return Instantiator.kFailReplanBoat;  // FailReplanBoat.cs (docs/642 §10): an unseen NPC boat's failed plan skips EA's route-fail behaviour, off
                 case "standwaitlocked": return Instantiator.kStandWaitLocked;  // StandWaitLocked.cs (docs/686 §7): a stand-and-wait at a privacy-locked room ends after kStandWaitLockedCycles cycles, off
                 case "standwaitlockedhh": return Instantiator.kStandWaitLockedHousehold;  // StandWaitLocked.cs (docs/686 §7): standwaitlocked for household and selected Sims too, off
+                case "standwaitsocial": return Instantiator.kStandWaitSocial;  // StandWaitSocial.cs (docs/686 §30): a social half whose spot cannot be reached without people either ends its stand-and-wait after 2 failed passes, NPCs, off
+                case "standwaitsocialhh": return Instantiator.kStandWaitSocialHh;  // StandWaitSocial.cs (docs/686 §30): household and selected Sims too, off
                 case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
                 case "ladderfootshoohh": return Instantiator.kLadderFootShooHousehold;  // LadderFoot.cs (docs/183 §9): ladderfootshoo for household and selected Sims too (as planner and as the Sim asked), off
                 case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
@@ -1756,6 +1762,9 @@ namespace Ts3Fixes
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
                 case "lineswitchlog": return Instantiator.kLineSwitchLog;  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "linestale": return Instantiator.kLineStale;  // LineStale.cs (docs/686 §29): a line head whose action ended or sits queued behind another action leaves the line after 5 sim-min, NPC heads, off
+                case "linestalehh": return Instantiator.kLineStaleHh;  // LineStale.cs (docs/686 §29): household and selected heads too, off
+                case "linestalelog": return Instantiator.kLineStaleLog;  // LineStale.cs (docs/686 §29): one line per case, off
                 case "reactoverlay": return Instantiator.kReactOverlay;  // ReactOverlay.cs (docs/686 §26): a busy NPC standing or seated reacts at once as EA's overlay, a stale queued reaction is dropped, off
                 case "reactoverlayhh": return Instantiator.kReactOverlayHh;  // ReactOverlay.cs (docs/686 §26): household and selected Sims too, off
                 case "reactoverlaylog": return Instantiator.kReactOverlayLog;  // ReactOverlay.cs (docs/686 §26): one line per case, off

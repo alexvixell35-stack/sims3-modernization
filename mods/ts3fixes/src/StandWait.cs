@@ -63,6 +63,9 @@ namespace Ts3Fixes
             // StandWaitLocked.cs: cycles with a locked destination portal / of them a privacy lock / such cycles in a row
             public int Locked, Privacy, LockRun, LockKind, GaveUpCycle, WouldGiveUp, ClearedCycle;
             public bool GaveUp, LockOn, LockExempt;
+            // StandWaitSocial.cs: failed people-free passes of a social, the cycle it gave up in / would have
+            public int SocFails, SocGaveUp, SocWould;
+            public bool SocExempt;
             public string LockText = "";
             public readonly ulong[] Named = new ulong[kSwfMaxBlockers];
             public int NamedN;
@@ -308,6 +311,8 @@ namespace Ts3Fixes
                         }
                         if (shl) c[kShlPortalStillLocked]++;  // locked without people too: a real lock, the wait goes on
                         if (on) StandWaitCore.PassFailed(st.Blocked, ref st.NextPass, Instantiator.kStandWaitPassEvery);
+                        // docs/686 §30 (StandWaitSocial.cs): a social's spot out of reach without people too ends the wait as the timeout does
+                        if (on && SwsPassFailed(st, sim, sim.HasExitReason(ExitReason.CancelExternal | ExitReason.MidRoutePushRequested), c)) return false;
                     }
                 }
 
@@ -365,7 +370,7 @@ namespace Ts3Fixes
                     + ", fix " + (st.On ? "on" : st.Exempt ? "exempt" : "off")
                     + (st.On ? ": yield cycle " + st.YieldCycle + ", pushed " + st.Pushed + " in " + st.PushCycles + " cycles, pass cycle " + st.PassCycle + " (" + st.Probes + " plans)"
                              : ": would yield cycle " + st.WouldYield + ", push " + st.WouldPush + ", pass cycle " + st.WouldPass)
-                    + ", timeout cycles left " + left + SwlEnd(st, kind, left, c)
+                    + ", timeout cycles left " + left + SwlEnd(st, kind, left, c) + SwsEnd(st)
                     + ", near: " + (st.Who.Length > 0 ? st.Who : "nobody");
                 if (ShortcutOn("standwaitlog") && c[kSwfLines] < Instantiator.kStandWaitLogLines && DiagLine(sSwfLast)) c[kSwfLines]++;
             }

@@ -2328,3 +2328,80 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
 - s541 lies between s537 and s538 (storm spread; the largest entries are EA's social partner waits, SocialInteractionB
   preroute). s542's wake is one entry: Rosemarie Collins's TakeBath, wake 4353 ms into an empty queue after
   `PutDownChild` (she carried a child); queuewake does not cover that loop. A lead, not traced [inferred].
+
+## 29. A line head that holds the turn and is not coming (`linestale`; 2026-11-24, `post/linestale-1124`, built, default off, no stale head seen)
+- Lead (s543c, Twinbrook, Racket house): Marigold Racket waited 49.1 sim-min in the FridgeCheap line behind Lolly
+  Racket (12.3 m away, running `Fridge_EatLeftovers`), Dennis Racket 30.4 sim-min behind Marigold.
+- [verified, decompiled SimQueue] The head is `mQueue[0]`, the Sim whose `WaitForTurn` answered true. It has no timeout
+  and leaves only through `RemoveFromQueue`: `GameObject.RemoveFromUseList` (`StandardExit`), `InteractionInstance.Cleanup`
+  → `RemoveFromLine` (only the action's own Target's line, and only when the Sim is not in that object's use list), and
+  explicit calls of some objects (`ServingContainer_CleanUp` for the fridge it used). The waiters time out after the
+  object's `kTimeToWaitInLine` (Fridge 15 sim-min), counted from the end of their own first walk to the waiting spot;
+  `CutAheadOfLowerPrioritySims` never inserts in front of the head.
+- So a head can be stale three ways: its action ended without a removal (another object's line, RemoveFromLine's
+  use-list guard), its action was put back in the queue behind another action, or it is still in the use list after its
+  action and stands away from the object.
+- `linestale` (`LineStale.cs`, `LineStaleCore.cs`, counters 4680-4686, `LineStaleCheck`, no new swap): `LdsQueueHook.WaitHook`
+  records each granted turn (the action, the action running then, the object); each waiter's per-minute check
+  (`LswExitHook`, LineSwitch.cs's swap of `SimQueue.WaitForExitReasonOnSim`) looks at the head. Fresh while either
+  action runs (walking over from any distance, the player's rule) or while it is in the use list within 3 m. After
+  `kLineStaleMinutes` (5) not fresh without a break the head leaves the line through EA's `RemoveFromQueue`; a queued
+  action asks again when it runs. Scope: NPC heads with `linestale`, household / selected heads also with
+  `linestalehh`; `linestalelog` writes one line per case and a "kept, head holds N sim-min and counts as coming" line
+  for any head held 10 sim-min. Selftest `tools/selftest/linestale` (16 checks).
+- Runs (Deck, new games, seed 152, 5 min storms, s541 all-on list + linestale(+hh)+log; r9a-r9d builds):
+
+| run | world | stale heads (would / dropped) | long line waits (≥ 5 sim-min) and their head |
+|---|---|---|---|
+| s545a | Bridgeport | 0 / 0 (87 heads watched) | none |
+| s545c | Twinbrook | 0 / 0 (92 heads) | Max 25.1 behind Bill (`Fridge_EatLeftovers`, 2.9 m) |
+| s547c | Twinbrook | 0 / 0 (80 heads) | Silver 34.1 behind Max: "head holds 34.1 sim-min ... Fridge_EatLeftovers (walking), 5.6 m"; Dennis 24.8 behind Bill (bookshelf, 11.1 m) |
+| s548a | Bridgeport | 0 / 0 | Indie Girl holds the FridgeModerate 10.4 sim-min walking from 12.6 m |
+
+- Cause of the lead [verified for s547c, inferred for s543c]: the head is walking over, slowly. Max Racket is an elder
+  in `HoldingCanePosture`; the house's fridge is reached over the stair foot (room 25, `routefail strand link` lines for
+  the same stairs in s543c). The head's own action runs and routes the whole time, so it is not stale by the player's
+  rule (a Sim walking over keeps its turn; EA's first-come order stays). The waiters pass EA's 15-minute timeout because
+  that clock starts after their own walk to the waiting spot. Nothing to fix in the line; the slow part is the head's
+  walk (cane, stairs), a routing lead, not a line bug.
+- How often: storms s532-s543 (14 phase dirs, `linewait:` lines with ≥ 5 sim-min): 53 long waits, 0 whose head was
+  doing something else at the start of the wait (the hits of a plain name match are `Bookshelf_GetBook` run inline by
+  `Sim_ReadToSleep_GetBook`, `Sit` under `Eat`, and platter lines under the cook's `Fridge_Have`: all heads at work on
+  the object). With linestale watching, 0 stale heads in 4 storms (s545a, s545c, s547c, s548a). Built, default off,
+  NOT PROVEN (no case to prove it on).
+
+## 30. A social's stand-and-wait for a spot that cannot be reached without people either (`standwaitsocial`; 2026-11-24, `post/standwaitsocial-1124`, built, default off, PROVEN by storm s549a)
+- Lead (s543a, Bridgeport, upper floor, lot 0xF5900033BA9E8C10, room 8): Indie Girl and later Kirby Wise
+  (`SocialInteractionB`) stood at 501.9,34.1,1535.5 with their jig goal 0.4 m away; every replan failed in ~27 ms (no
+  path, 0 plans), blocker = the starter (Matty Crewe, Katelyn Missoni) 0.1 m away; standwaitfix's people-free passes
+  failed too (4 plans); standwait ended by timeout after 20.8 / 21.6 sim-min, then socialreach let them talk.
+- Our switches ruled out first: s544a = Bridgeport, seed 152, every managed fix and every native route key off (the
+  read-only keys too), log switches only. No social receiver froze (household zero-plan route fails 4 vs 34 in s543a),
+  but no receiver was pulled either. The on-arm replays: s545a Kirby Wise froze again (21.6 sim-min, same spot, same
+  goal); s546a, s548a: no freeze.
+- Mechanism [verified from the logs]: every freeze follows a `partnerpull` pull of a receiver sitting at the computer
+  at 502.5,34.1,1535.2 (`Make Inappropriate Forum Post`, `Work Indefinitely`); the starters were 2.6-20 m away at the
+  pull (s546a pulled lines now name the partner's posture and the distance), so the starter arrives at its spot by the
+  chair while the receiver stands up. The receiver lands 0.2-0.3 m from the starter and its jig spot (placed while it
+  sat) is out of reach with or without people. EA's code: the same happens whenever the computer user ends its action
+  inside the starter's 15-minute wait; partnerpull makes it frequent. A seat rule in partnerpull (keep a seated partner
+  with the starter within 1.2 m) was tried and dropped: the starter is never that close at the pull.
+- Fix `standwaitsocial` (`StandWaitSocial.cs`, `StandWaitSocialCore.cs`, counters 4687-4691, `StandWaitSocialCheck`, no
+  swap): in standwaitfix's blocked cycle, after `kStandWaitSocialPasses` (2) failed people-free passes of a waiter whose
+  running interaction is `SocialInteractionA` / `B`, the cycle handler answers "not elected to exit" and the route fails
+  as at the timeout (standwaitlocked's exit). Waits that people alone block (the pass works) are not touched. Needs
+  standwaitfix (the passes are its plans). `standwaitsocial` NPCs, `standwaitsocialhh` household and selected Sims.
+  standwait lines get a ", social: N failed people-free passes, gave up cycle C" tail. Selftest
+  `tools/selftest/standwaitsocial` (7 checks).
+- How often: Bridgeport storms with partnerpull: s543a 2 frozen receivers, s545a 1, s546a 0, s548a 0 (Matty Crewe's
+  receiver wait at 492.6,34.1,1537.8 ended by standwaitfix's yield after 7.7 sim-min), s549a 1; 0 in s541 / s542 /
+  s543b / s543c; 0 long SocialInteractionB stand-waits in ~150 storms without partnerpull (SocialInteractionA waits of
+  11-22 sim-min there are EA's starter waits, not this).
+- Run s549a (Deck, Bridgeport new game, seed 152, 5 min, build r9d, s541 all-on list + standwaitsocial(+hh)): Kirby
+  Wise (selected, `SocialInteractionB`, at 492.6,34.1,1537.8, the second computer of the lot, starter Indie Girl)
+  "blocked 5 of 7 cycles, 11.4 sim-min ... social: 2 failed people-free passes, gave up cycle 5"; socialreach then let
+  him talk from where he stood (0.1 m). Off (s543a, s545a): the same waits ran 20.8-21.6 sim-min to the timeout. Saved
+  about 10 sim-min a case (the passes come every few cycles, so the second failed pass lands at cycle 5). Errors 0.
+  Status: built, default off, PROVEN by storm (one case on, three off).
+- partnerpull's "pulled" lines now name the partner's posture and position and the starter's distance (kept from the
+  seat-rule test above).

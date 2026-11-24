@@ -138,6 +138,7 @@ namespace Ts3Fixes
             bool trip = head.Target is Lot || head is ITakeSimToWorkLocation || PpTripName(head.GetType().Name);
             int step = PartnerPullCore.Step(waited, head.Autonomous, aheadAuto, busy, trip, head is SocialInteraction, link.GetPriority().CompareTo(head.GetPriority()));
             if (step == PartnerPullCore.kWaitGrace) return;
+            float dist = s.HasBeenDestroyed || partner.HasBeenDestroyed ? -1f : (s.Position - partner.Position).Length();
             w.Decided = true;
             int[] c = PatchCounters();
             c[kPpSeen]++;
@@ -154,7 +155,7 @@ namespace Ts3Fixes
             if (!q.PrioritizeInteraction(link)) { c[kPpRefused]++; PpLine("refused by the game (about to finish): " + what); return; }
             head.ShouldReenque = false;  // cancelled, not queued again behind the half
             c[w.Kind == PartnerPullCore.kReadToSleep ? kPpPullRts : kPpPullSoc]++;
-            PpLine("pulled after " + waited.ToString("0.0") + " sim-min: " + what);
+            PpLine("pulled after " + waited.ToString("0.0") + " sim-min: " + what + ", partner " + (partner.Posture == null ? "no posture" : partner.Posture.GetType().Name) + " at " + V(partner.Position) + ", starter " + dist.ToString("0.0") + " m away at " + V(s.Position));
         }
 
         // lot trips and arrivals named by type (the ones not targeted at a Lot)
