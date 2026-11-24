@@ -9,7 +9,7 @@
 static void TestUnseenTable() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, utbReady) == 0x5690 && offsetof(Ts3nCounters, utbListCap) == 0x56CC &&
-                  sizeof(Ts3nCounters) == 6866 * 4, "counters v149 + v152 layout (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v149 + v152 layout (docs/registry.md)");
     static Ts3nCounters saved;
     memcpy(&saved, &k, sizeof(k));
     {  // EnvOrderNative::LotPrint (docs/274 §11): the walker print of the lot; 0 only for a failed read

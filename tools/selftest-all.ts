@@ -92,6 +92,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/overwatchspread/run.ts': CSC,
   'tools/selftest/preplancb/run.ts': CSC,
   'tools/selftest/asyncjigsync/run.ts': CSC,
+  'tools/selftest/lothub/run.ts': CSC,
   'tools/selftest/commodmapfast/run.ts': CSC,
   'tools/selftest/kitarm/run.ts': CSC,
   'tools/selftest/stepaside/run.ts': CSC,
