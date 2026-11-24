@@ -124,6 +124,31 @@ static class ActDelayTest
         r = c.Move(S, 31300 * ms, 830);
         Check(r != null && r.Ms(ActDelayCore.kQueue) == 800 && r.Ms(ActDelayCore.kWake) == 250 && r.Ms(ActDelayCore.kTotal) == 1100 && r.TicksBeforeRun == 29, "5: queue behind another");
 
+        // 5b. the line names the head it queued behind (with its state) and the animations of the wake gap (docs/686 §27)
+        object a5 = new object(), b5 = new object();
+        c.Queued(a5, "T5b", S, ActDelayCore.kSelected, false, true, true, 32000 * ms, 840);
+        c.Queued(b5, "T5b", S, ActDelayCore.kSelected, false, false, false, 32100 * ms, 841);
+        c.Push(a5, a5, S, false, 32200 * ms, 842, "K", 0);
+        c.Move(S, 32300 * ms, 843);
+        c.Pop(a5, S, false, 34000 * ms, 900);
+        c.Removed(a5, S, true, false, 34000 * ms, 900, "Ahead", ActDelayCore.kAheadHpn | ActDelayCore.kAheadMustRun);
+        c.Anim(S, 34030 * ms, 901);
+        c.Anim(S, 34100 * ms, 902);
+        c.Push(b5, b5, S, false, 34500 * ms, 915, "K", 0);
+        r = c.Move(S, 34600 * ms, 916);
+        Check(r != null && r.Ms(ActDelayCore.kQueue) == 1900 && r.Ms(ActDelayCore.kWake) == 500 && r.GapAnims == 2 && r.GapAnimUs == 30 * ms, "5b: ahead and gap");
+        string l5 = r == null ? "" : ActDelayCore.Line(r, "T5b", null, null);
+        Check(l5.Contains(", queued behind Ahead (must run, asked to exit (hpn)), wake anims 2 (first at 30 ms)") && l5.Contains("queue 1900, wake 500,"), "5b: line: " + l5);
+        // control: an entry added to an empty queue names nothing ahead and no gap
+        object c5 = new object();
+        c.Removed(b5, S, true, true, 35000 * ms, 930, "B", 0);
+        c.Anim(S, 35100 * ms, 931);
+        c.Queued(c5, "T5b", S, ActDelayCore.kSelected, false, true, true, 36000 * ms, 940);
+        c.Push(c5, c5, S, false, 36100 * ms, 941, "K", 0);
+        r = c.Move(S, 36200 * ms, 942);
+        Check(r != null && r.AheadType == null && r.GapAnims == 0 && !ActDelayCore.Line(r, "T5b", null, null).Contains("queued behind"), "5b: control");
+        Check(ActDelayCore.AheadText(ActDelayCore.kAheadInterrupt | ActDelayCore.kAheadCancelled) == "asked to exit (int), cancelled" && ActDelayCore.AheadText(0) == "", "5b: flag text");
+
         // 6. a transition's route is the first visible movement, not the act; nested plans count once
         object h6 = new object(), tr = new object();
         c.Queued(h6, "T6", S, ActDelayCore.kHousehold, false, true, true, 40000 * ms, 900);

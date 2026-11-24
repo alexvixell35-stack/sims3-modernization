@@ -2243,3 +2243,40 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
 - r6-rp1 found one bug, fixed in r6c: a queued reaction that became safe after the stale time was still played (Startled
   `overlaid from the queue after 9151 ms`); the stale test now comes first.
 - PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.
+
+## 27. The wake gap after a head is removed, and what an entry queued behind (2026-11-24, actdelay logging, s539 / s540)
+
+### 27.1 Where the gap is [verified, decompiled `Sim.Simulate`, `Sim.DoInteraction`, `InteractionQueue.ProcessOneInteraction`, `DeQueue`, `RemoveInteraction`]
+- With an entry in the queue there is no 10/20-tick loop sleep. `ProcessOneInteraction` ends with `DeQueue` (the old
+  head's `OnRemovedFromQueue`, where actdelay's "head" starts for the next one), then `CleanupInteraction` (callbacks,
+  `Cleanup`), `PutDownCarriedObjects`; `DoInteraction` then `Simulator.Sleep(0)` (one frame) and loops straight back
+  (`Simulate` is a bare `while (true) DoInteraction()`). Before the next `ProcessOneInteraction` only the distress and
+  non-distress idles run (skipped for a MustRun, prioritized or continuation head).
+- A queuewake widening for this path (`queuewakehead`: wake the loop when an entry was already queued at the end of
+  `LoopIdle`) was built and run on (s540): 0 cases (woken 0, would 0). An entry queued during the idles finds the Sim
+  out of the autonomy queue, so the sleep that follows is EA's 2 ticks. Dropped, not posted; PR #711 unchanged.
+
+### 27.2 The numbers (s539 r7, s540 r7b, same switches as s538's on arm) [verified]
+- Wake after a removed head (queue > 0): s539 78 lines, median 35 ms, one over 200 (423 ms); s540 one over 200 (464
+  ms). No animation set-up of the Sim in either outlier's gap (`wake anims` absent), so not an idle animation or a
+  put-down. The s537/s538 434-627 ms values are such outliers; their cause is not traced (a long frame inside the one
+  `Sleep(0)`, or the old head's cleanup, are the candidates) [inferred].
+- Household / selected adds to an empty queue over 200 ms wake: s539 3 (434-719 ms), s540 0. queuewake: s539 79 woken,
+  93 adds after the deadline; s540 42 woken, 102 after the deadline.
+
+### 27.3 Logging added (actdelay, under the `actdelay` switch)
+- The line names the head an entry waited behind: `queued behind <Type> (must run, asked to exit (hpn|int|hpn+int),
+  cancelled)`: the removed head's MustRun, the Sim's `HigherPriorityNext` / `InterruptionRequested` exit reasons and
+  the entry's `Cancelled` at `OnRemovedFromQueue`. `wake anims N (first at M ms)`: animation set-ups of the Sim between
+  that removal and the next head's first push. Both go after the buckets, so the bucket parsers keep working.
+  Selftest `tools/selftest/actdelay` case 5b (with an empty-queue control).
+
+### 27.4 PassOut [verified decompiled; not reproduced in the game]
+- `BuffExhausted.PassOutDelegate` adds PassOut with `AddNext`, priority High, not MustRun. `RemoveLowerPriorityInteractions`
+  cancels the lower, non-MustRun entries in front with `HigherPriorityNext` (an exit reason on the running head), not
+  `InterruptionRequested` (that one is only `PrioritizeInteraction`, a player's action). A MustRun head or one with the
+  same group is never cancelled, so PassOut waits for it by EA's rule.
+- No PassOut in s539 or s540, so the 6.9 s wait of s537 (Darlene, day 1 hour 15.24, carpool time) is not named. The
+  new `queued behind` text names the head the next time. In s539 the longest waits behind a head asked to exit were
+  1.0-2.3 s (GetInPool, ReadToSleep_PickBook, Request Bedtime Story, Chat): exits that play their own end, not a head
+  that ignores the request. No bug confirmed, nothing built.

@@ -97,10 +97,12 @@ namespace Ts3Fixes
             public long KQ, KHead, KWake, KRun, KPlan1, KAnim;
             public long PlanUs, JobUs, TrUs, FglUs, PlanT0, TrT0, OutfitUs, SyncUs, SyncT0, SyncAtAnim;
             public int Plans, Fails, Async, TrN, TrPlans, FglN, Depth, OutfitN, SyncN, SyncDepth, NestN;
-            public object TrType, NestType;
+            public object TrType, NestType, AheadType;
+            public int AheadFlags, GapAnims;
+            public long GapAnimUs;
             public void Clear()
             {
-                Key = null; Type = null; Sim = 0; Kind = 0; Auto = false; TrType = null; NestType = null;
+                Key = null; Type = null; Sim = 0; Kind = 0; Auto = false; TrType = null; NestType = null; AheadType = null; AheadFlags = GapAnims = 0; GapAnimUs = 0;
                 OutfitUs = SyncUs = SyncT0 = SyncAtAnim = 0; OutfitN = SyncN = SyncDepth = NestN = 0;
                 TQ = THead = TWake = TRun = TPlan1 = TPlanEnd = TAnim = TVis = 0;
                 KQ = KHead = KWake = KRun = KPlan1 = KAnim = 0;
@@ -113,15 +115,23 @@ namespace Ts3Fixes
         public sealed class Result
         {
             public readonly long[] Us = new long[kStats];
-            public object Key, Type, TrType, NestType;
+            public object Key, Type, TrType, NestType, AheadType;
             public ulong Sim;
+            public int AheadFlags, GapAnims;
+            public long GapAnimUs;
             public int Kind, How, Plans, Fails, Async, TrN, TrPlans, FglN, OutfitN, SyncN, NestN;
             public bool Auto, Routed, NoAct, Over;
             public long TrUs, FglUs, OutfitUs, SyncUs, TicksBeforeRun, TicksInRun;
             public int Ms(int stat) { return (int)Math.Min(int.MaxValue, Us[stat] / 1000); }
         }
 
-        sealed class SimSlot { public int Cur = -1; public long THeadFree, KHeadFree, IdleFrom; }
+        // AheadType / AheadFlags: the head removed last (what the next entry queued behind); Between: from that removal until
+        // the next head's first push (the wake bucket), GapAnims / GapAnim1 the animation set-ups of the Sim in that gap.
+        sealed class SimSlot { public int Cur = -1; public long THeadFree, KHeadFree, IdleFrom, GapAnim1; public object AheadType; public int AheadFlags, GapAnims; public bool Between; }
+
+        // flags of the head removed last (Removed's aheadFlags): the Sim had been asked to exit (HigherPriorityNext, set by a
+        // higher-priority add; InterruptionRequested, a player's prioritize), the head was MustRun, or it was cancelled
+        public const int kAheadHpn = 1, kAheadInterrupt = 2, kAheadMustRun = 4, kAheadCancelled = 8;
 
         sealed class TypeAgg
         {
@@ -272,7 +282,9 @@ namespace Ts3Fixes
         }
 
         // The instance left the queue (done, cancelled, replaced). A record that ran and never acted is finished here.
-        public Result Removed(object key, ulong sim, bool isHead, bool emptyAfter, long now, long ticks)
+        public Result Removed(object key, ulong sim, bool isHead, bool emptyAfter, long now, long ticks) { return Removed(key, sim, isHead, emptyAfter, now, ticks, null, 0); }
+        // aheadType / aheadFlags (kAhead*): the removed entry's class and state, named on the line of the entry behind it
+        public Result Removed(object key, ulong sim, bool isHead, bool emptyAfter, long now, long ticks, object aheadType, int aheadFlags)
         {
             Result res = null;
             int i = Find(key);
@@ -286,6 +298,7 @@ namespace Ts3Fixes
             {
                 SimSlot s = Slot(sim, true);
                 s.THeadFree = now; s.KHeadFree = ticks;
+                s.AheadType = aheadType; s.AheadFlags = aheadFlags; s.GapAnims = 0; s.GapAnim1 = 0; s.Between = !emptyAfter;
                 if (emptyAfter) s.IdleFrom = now;
             }
             return res;
@@ -307,7 +320,13 @@ namespace Ts3Fixes
                 {
                     r.THead = s.THeadFree > r.TQ ? s.THeadFree : r.TQ;
                     r.KHead = s.KHeadFree > r.KQ ? s.KHeadFree : r.KQ;
+                    if (s.Between && s.THeadFree > r.TQ)
+                    {
+                        r.AheadType = s.AheadType; r.AheadFlags = s.AheadFlags; r.GapAnims = s.GapAnims;
+                        r.GapAnimUs = s.GapAnims > 0 && s.GapAnim1 > s.THeadFree ? s.GapAnim1 - s.THeadFree : 0;
+                    }
                 }
+                s.Between = false;
             }
             s.Cur = h;
             if (ReferenceEquals(key, head))
@@ -400,7 +419,14 @@ namespace Ts3Fixes
         public void Anim(ulong sim, long now, long ticks)
         {
             Rec r = Cur(sim);
-            if (r == null) return;
+            if (r == null)
+            {
+                // between a head's removal and the next head's first push (the wake bucket): the old one's cleanup, a
+                // carried object put down, the loop's distress or non-distress idle (Sim.DoInteraction)
+                SimSlot s;
+                if (mSims.TryGetValue(sim, out s) && s.Between && s.Cur < 0) { if (s.GapAnims++ == 0) s.GapAnim1 = now; }
+                return;
+            }
             if (r.TRun == 0) { if (r.TrT0 != 0 && r.TVis == 0) r.TVis = now; return; }
             if (r.TAnim != 0) return;
             r.TAnim = now; r.KAnim = ticks;
@@ -503,6 +529,7 @@ namespace Ts3Fixes
             res.Key = r.Key; res.Type = r.Type; res.Sim = r.Sim; res.Kind = r.Kind; res.How = how; res.Auto = r.Auto;
             res.Plans = r.Plans; res.Fails = r.Fails; res.Async = r.Async; res.TrN = r.TrN; res.TrPlans = r.TrPlans; res.FglN = r.FglN;
             res.TrUs = r.TrUs; res.FglUs = r.FglUs; res.TrType = r.TrType; res.NestType = r.NestType; res.NestN = r.NestN;
+            res.AheadType = r.AheadType; res.AheadFlags = r.AheadFlags; res.GapAnims = r.GapAnims; res.GapAnimUs = r.GapAnimUs;
             // a sync wait still open when the Sim acts (the route inside ReceiveSocialInteraction) ends at the act
             if (how == kHowAnim) { if (r.SyncAtAnim > r.SyncUs) r.SyncN++; r.SyncUs = r.SyncAtAnim; }   // waits after the act are not delay
             else if (r.SyncT0 != 0 && act > r.SyncT0) { r.SyncUs += act - r.SyncT0; r.SyncN++; }
@@ -584,6 +611,14 @@ namespace Ts3Fixes
             if (r.OutfitN > 0) b.Append(", outfit waits ").Append(r.OutfitN).Append(" (").Append(r.OutfitUs / 1000).Append(" ms)");
             if (r.SyncN > 0 && r.SyncUs >= 1000) b.Append(", sync waits ").Append(r.SyncN).Append(" (").Append(r.SyncUs / 1000).Append(" ms)");
             if (r.FglN > 0) b.Append(", placement searches ").Append(r.FglN).Append(" (").Append(r.FglUs / 1000).Append(" ms)");
+            // the queue bucket's cause: the head it waited behind; the wake bucket's: animations the Sim played in the gap
+            if (r.AheadType != null && r.Ms(kQueue) > 0)
+            {
+                b.Append(", queued behind ").Append(TypeText(r.AheadType, name));
+                string f = AheadText(r.AheadFlags);
+                if (f.Length > 0) b.Append(" (").Append(f).Append(')');
+            }
+            if (r.GapAnims > 0) b.Append(", wake anims ").Append(r.GapAnims).Append(" (first at ").Append(r.GapAnimUs / 1000).Append(" ms)");
             b.Append(", ticks ").Append(r.TicksBeforeRun).Append(" before Run + ").Append(r.TicksInRun).Append(" in Run");
             // the native log line holds 512 bytes: the time and the name go last and only while they fit
             if (when != null && b.Length + when.Length + 2 <= kLineMax) b.Append(", ").Append(when);
@@ -592,6 +627,15 @@ namespace Ts3Fixes
         }
 
         public const int kLineMax = 470;
+        // "must run, asked to exit (hpn), cancelled": the kAhead* flags of the head an entry waited behind
+        public static string AheadText(int f)
+        {
+            string t = (f & kAheadMustRun) != 0 ? "must run" : "";
+            if ((f & (kAheadHpn | kAheadInterrupt)) != 0)
+                t += (t.Length > 0 ? ", " : "") + "asked to exit (" + ((f & kAheadHpn) != 0 ? "hpn" : "") + ((f & kAheadHpn) != 0 && (f & kAheadInterrupt) != 0 ? "+" : "") + ((f & kAheadInterrupt) != 0 ? "int" : "") + ")";
+            if ((f & kAheadCancelled) != 0) t += (t.Length > 0 ? ", " : "") + "cancelled";
+            return t;
+        }
         // the class without its namespace ("Sit+StandUp"), at most 48 characters
         static string TypeText(object type, Namer name)
         {

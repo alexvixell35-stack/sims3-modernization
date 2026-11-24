@@ -169,7 +169,17 @@ namespace Ts3Fixes
                 Sim sim = ii.InstanceActor;
                 if (sim == null) return;
                 InteractionQueue q = sim.InteractionQueue;
-                ActDone(sAct.Removed(ii, sim.ObjectId.Value, isHead, q == null || q.Count <= 1, ActNow(), SimClock.CurrentTicks));
+                // the head's state for the line of the entry behind it (docs/686 §27): asked to exit by a higher-priority add or
+                // a player's prioritize, MustRun, cancelled. Exit reasons are cleared only before the next Run.
+                int flags = 0;
+                if (isHead)
+                {
+                    if (sim.HasExitReason(ExitReason.HigherPriorityNext)) flags |= ActDelayCore.kAheadHpn;
+                    if (sim.HasExitReason(ExitReason.InterruptionRequested)) flags |= ActDelayCore.kAheadInterrupt;
+                    if (ii.MustRun) flags |= ActDelayCore.kAheadMustRun;
+                    if (ii.Cancelled) flags |= ActDelayCore.kAheadCancelled;
+                }
+                ActDone(sAct.Removed(ii, sim.ObjectId.Value, isHead, q == null || q.Count <= 1, ActNow(), SimClock.CurrentTicks, isHead ? ActTypeKey(ii) : null, flags));
             }
             catch (ResetException) { throw; }
             catch (Exception) { ActError(); }
