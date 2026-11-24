@@ -451,6 +451,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
         [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
         [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
+        [Tunable] public static bool kReactOverlay = false;  // reactoverlay (docs/686 §26): an NPC busy standing or seated reacts at once as EA's overlay instead of a ReactionInteraction queued behind its action; a queued one is dropped after kReactOverlayStaleMs
+        [Tunable] public static bool kReactOverlayHh = false;  // reactoverlayhh: household and selected Sims too
+        [Tunable] public static bool kReactOverlayLog = false;  // reactoverlaylog: one ts3native.log line per case
+        [Tunable] public static int kReactOverlayStaleMs = 2000;  // reactoverlay: ms of real time after which a queued reaction with no safe overlay moment is dropped (500-10000)
         [Tunable] public static bool kCrowdPortLog = false;  // crowdportlog: one ts3native.log line per act
         [Tunable] public static int kCrowdPortMin = 3;  // crowdport: Sims waiting for or using the portal, this one included, that make a crowd (2 at least)
         [Tunable] public static float kCrowdPortWait = 1f;  // crowdport: sim-minutes a Sim waits behind another Sim before it skips without a crowd (0-15)

@@ -191,6 +191,7 @@ namespace Ts3Fixes
             DishPileWorldLoad();  // dishpilecap (DishPileCap.cs, docs/652): its hourly pass, same ride
             PartnerPullWorldLoad();  // partnerpull (PartnerPull.cs, docs/686 §21): its 0.5 sim-minute pass, same ride
             QueueWakeWorldLoad();  // queuewake (QueueWake.cs, docs/686 §23): marks of the old world dropped, same ride
+            ReactOverlayWorldLoad();  // reactoverlay (ReactOverlay.cs, docs/686 §26): its 0.1 sim-minute pass, same ride
         }
 
         // returns "moved m, left l" (the harness reads it)

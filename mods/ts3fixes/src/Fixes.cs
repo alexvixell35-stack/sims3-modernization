@@ -537,6 +537,7 @@ namespace Ts3Fixes
             ApplyReadWalk();           // docs/686 §22 (ReadWalk.cs): readwalk, off by default (counts either way); swaps Sim.LoopIdle and Sim.RouteToObjectRadialRange
             ApplySlotRetry();          // docs/686 §24 (SlotRetry.cs): slotretry, off by default (counts either way); swaps RoutingComponent.RouteToSlot (Slot[] core) and SimRoutingComponent.RouteToUnusedPart
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
+            ApplyReactOverlay();       // docs/686 §26 (ReactOverlay.cs): reactoverlay / reactoverlayhh, off by default (counts either way); swaps Sim.PlayReaction
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
@@ -1404,7 +1405,10 @@ namespace Ts3Fixes
         // [4610-4614] free on the combo branch (upstream's pending npcloops PR holds them).
         // [4615-4619] lineswitch (LineSwitch.cs, docs/686 §25): switched to a free twin object / would, off / kept (waited past the switch time, not
         // switched) / plans to candidates / errors.
-        const int kCounterSlots = 4620;
+        // [4620-4669] free on the combo branch (upstream uses 4620-4665).
+        // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
+        // would drop, off / queued that ran / their summed ms / max ms / errors.
+        const int kCounterSlots = 4680;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1752,6 +1756,9 @@ namespace Ts3Fixes
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
                 case "lineswitchlog": return Instantiator.kLineSwitchLog;  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "reactoverlay": return Instantiator.kReactOverlay;  // ReactOverlay.cs (docs/686 §26): a busy NPC standing or seated reacts at once as EA's overlay, a stale queued reaction is dropped, off
+                case "reactoverlayhh": return Instantiator.kReactOverlayHh;  // ReactOverlay.cs (docs/686 §26): household and selected Sims too, off
+                case "reactoverlaylog": return Instantiator.kReactOverlayLog;  // ReactOverlay.cs (docs/686 §26): one line per case, off
                 case "slotretry": return Instantiator.kSlotRetry;  // SlotRetry.cs (docs/686 §24): a failed walk to an object's slot list or seats is retried quietly, every human Sim, off
                 case "slotretrylog": return Instantiator.kSlotRetryLog;  // SlotRetry.cs (docs/686 §24): one line per case, off
                 case "queuewakelog": return Instantiator.kQueueWakeLog;  // QueueWake.cs (docs/686 §23): one line per wake, off
