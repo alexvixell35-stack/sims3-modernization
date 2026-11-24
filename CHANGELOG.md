@@ -4,6 +4,8 @@ Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub r
 
 ## Unreleased
 
+Maintenance release: mostly fixes for stuck Sims, crashes and mod compatibility, plus a smaller per-tick cost of our own script fixes.
+
 Credit: Dalexlol (PRs #637, #638, #639, #640, #643, #644). New fixes, all on by default except where noted:
 
 - Firefighter emergencies end when their last rescue or window-fire task cannot be done any more (`fireleftover`).
