@@ -18,7 +18,9 @@ namespace Ts3Fixes
     // pass or a Bladder moodlet comes round, often at -80. Every kBwSleepTicks the loop checks the active household at home:
     // a Sim with Bladder at or below kBwNeed, doing an autonomous thing (or nothing), with no toilet free, is marked waiting.
     // When a toilet is free (not in use, not broken, its room not privacy-locked for that Sim, not claimed by a Sim already
-    // sent there), the waiting Sim gets Toilet.UseToilet pushed at UserDirected priority. That cuts the autonomous filler the
+    // sent there), the waiting Sim gets the toilet's own use interaction pushed at UserDirected priority: the first one on the
+    // toilet whose definition type is named *UseToilet*, so a mod's replacement (zoeoe_WaterMod's CustomUseToilet, the only one
+    // seen in the 11-24 party logs) wins over EA's Toilet.UseToilet, and its Test must pass. That cuts the autonomous filler the
     // way a player's click does (InteractionQueue.RemoveLowerPriorityInteractions). The push stays autonomous, so the bathroom
     // door still applies privacy to its route. Never sent: a Sim with a user command running or queued, asleep, eating, talking
     // to the active Sim, washing, already queued for the toilet, or away from home. Without privacyroom, RoomLockedByPrivacy reads
@@ -29,7 +31,6 @@ namespace Ts3Fixes
         const int kBwLogMax = 400, kBwSleepTicks = 10;
         const float kBwNeed = -20f, kBwMaxWaitMin = 180f, kBwClaimMin = 30f;
         static int sBwN;
-        static InteractionDefinition sBwUse;
 
         sealed class BwWait { public float T0; public float Need0; }
         sealed class BwClaim { public Sim S; public float T0; }
@@ -37,10 +38,6 @@ namespace Ts3Fixes
         public static void BathroomWaitWorldLoad()
         {
             if (!ShortcutOn("bathroomwait")) return;
-            Type t = typeof(Toilet).GetNestedType("UseToilet", BindingFlags.NonPublic);
-            FieldInfo f = t == null ? null : t.GetField("Singleton", BindingFlags.Public | BindingFlags.Static);
-            sBwUse = f == null ? null : f.GetValue(null) as InteractionDefinition;
-            if (sBwUse == null) { DiagLine("bathroomwait: Toilet.UseToilet.Singleton not found, switch does nothing"); return; }
             Dictionary<ulong, BwWait> wait = new Dictionary<ulong, BwWait>();
             Dictionary<ulong, BwClaim> claim = new Dictionary<ulong, BwClaim>();
             Simulator.AddObject(new LoopTask(delegate { BathroomWaitLoop(wait, claim); }));
@@ -98,12 +95,18 @@ namespace Ts3Fixes
                             if (now - w.T0 > kBwMaxWaitMin) { wait.Remove(id); BwLog(s, "gives up after " + (now - w.T0).ToString("0") + " sim-min"); }
                             continue;
                         }
-                        InteractionInstance ii = sBwUse.CreateInstance(free, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), true, true);
-                        if (ii != null && s.InteractionQueue.Add(ii))
+                        string use;
+                        InteractionInstance ii = BwUse(free, s, out use);
+                        if (ii == null)
+                        {
+                            wait.Remove(id);
+                            BwLog(s, "stops waiting: " + free.GetType().Name + " has no usable *UseToilet* interaction (" + use + ")");
+                        }
+                        else if (s.InteractionQueue.Add(ii))
                         {
                             claim[free.ObjectId.Value] = new BwClaim { S = s, T0 = now };
                             wait.Remove(id);
-                            BwLog(s, "sent to the toilet after " + (now - w.T0).ToString("0.0") + " sim-min, bladder " + w.Need0.ToString("0") + " to " + need.ToString("0") + ", cut " + doing);
+                            BwLog(s, "sent to the toilet after " + (now - w.T0).ToString("0.0") + " sim-min, bladder " + w.Need0.ToString("0") + " to " + need.ToString("0") + ", cut " + doing + ", via " + use);
                         }
                     }
                 }
@@ -149,6 +152,27 @@ namespace Ts3Fixes
                 if (dd < bestD) { bestD = dd; best = t; }
             }
             return best;
+        }
+
+        // the toilet's use interaction for this Sim, mod replacements first, or null; use names it (or why none)
+        static InteractionInstance BwUse(Toilet t, Sim s, out string use)
+        {
+            use = "none on the object";
+            InteractionObjectPair pick = null;
+            foreach (InteractionObjectPair iop in t.Interactions)
+            {
+                if (iop == null || iop.InteractionDefinition == null) continue;
+                string n = iop.InteractionDefinition.GetType().FullName;
+                if (n.IndexOf("UseToilet", StringComparison.Ordinal) < 0) continue;
+                if (pick == null || !n.StartsWith("Sims3.", StringComparison.Ordinal)) pick = iop;
+            }
+            if (pick == null) return null;
+            use = pick.InteractionDefinition.GetType().FullName;
+            InteractionPriority pr = new InteractionPriority(InteractionPriorityLevel.UserDirected);
+            InteractionInstanceParameters p = new InteractionInstanceParameters(pick, s, pr, true, true);
+            GreyedOutTooltipCallback cb = null;
+            if (!InteractionDefinitionUtilities.IsPass(pick.InteractionDefinition.Test(ref p, ref cb))) { use += " test failed"; return null; }
+            return pick.InteractionDefinition.CreateInstance(t, s, pr, true, true);
         }
 
         // a Sim sent to this toilet still has it queued, within kBwClaimMin sim-minutes
