@@ -107,6 +107,19 @@ namespace Ts3Fixes
             return otherMoving ? kPairTurn : kPairSnap;
         }
 
+        // Rule c (a failed jig plan): the jig may stand away from the pair (Pillow Fight puts it by the nearest bed), so the
+        // reach is the Sim's distance to the jig (`toJig`, at most the clip walk `clipMax`), not to the partner; one level
+        // with the partner and no posture as for the other rules.
+        public static int JigStep(float toJig, float dy, bool sameLevel, bool inPosture, float clipMax, out int why)
+        {
+            why = kWhyNone;
+            float h = dy < 0f ? -dy : dy;
+            if (!sameLevel || h > kPairMaxDy) { why = kPairWhyLevel; return kPairKeep; }
+            if (toJig > clipMax) { why = kPairWhyFar; return kPairKeep; }
+            if (inPosture) { why = kPairWhyPosture; return kPairKeep; }
+            return kPairSnap;
+        }
+
         // Place `i` (0..kRing-1) for the mover: `dist` from the Sim that stays (sx, sz), first on the line towards
         // where the mover stands (mx, mz), then 45, 90, 135 degrees to either side, last straight behind. (fx, fz) is
         // the mover's facing there: at the Sim that stays; that Sim faces (-fx, -fz).

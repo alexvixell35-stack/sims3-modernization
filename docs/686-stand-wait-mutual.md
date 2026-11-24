@@ -1718,3 +1718,21 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
+### 20.7 Rule c in the game: Pillow Fight by a bed (2026-11-24, Deck, Sunset Valley new game, repro `readwalk-pairjig-force`, runs r4-rp1 to r4-rp4) [verified]
+- Layout: Bo of the active household ringed by eight fridges (`box_in`), Bea 2.3 m away, a single bed by the ring.
+  `Sim.PillowFight.CreateAndPlaceJig` puts its two-person jig by the bed nearest the target (`FindGoodLocationNearby`
+  from the bed's position), so the jig stands away from the pair.
+- Two bugs of rule c, fixed: (1) its reach was the 3 m pair rule, measured to the partner, so a jig by a bed 4.9 m
+  away was "too far" (r4-rp1); now the reach is the Sim's distance to the jig, at most the 6 m clip walk
+  (`WooHooSnapCore.JigStep`). (2) It planned again with `Route.Replan`, which re-plans the last plan (its
+  decompiled body hands `PlanResult.mDestination`, which a failed plan lacks, to the plan callback) [inferred]; in
+  r4-rp2 that plan failed, now a fresh `Plan` / `PlanFromPoint`, which succeeded in r4-rp3 and r4-rp4. The keep line names the plan result and length.
+- r4-rp3: the plan through objects was 6.9 m (the jig 5.1 m away, kept by the 6 m cap). r4-rp4 (bed by the ring):
+
+| | off (`pairsnap` + `pairsnaphh` off) | on |
+|---|---|---|
+| Ask To Pillow Fight, Bo boxed in | `routefail: Bo Jig ..., SocialInteractionB target Sim, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeCheap`; would 1; no fight | `pairsnap: household Bo Jig -> SocialJigTwoPerson with Bea Jig (FailedBecauseNoPathToDestination, jig plan): planned through objects, 2.8 m`; walk through objects 1, kept 0, errors 0; Bo walks out through a fridge and both run `Pillow Fighting` (`Sim+PillowFight` / `SocialInteractionB`) |
+
+- The look: the fight plays on the jig's own slots (the game's slot routes end on them), so no 2 mm alignment step is
+  involved; Bo stands outside the ring afterwards. Not run: an NPC pair (`pairsnap` alone), rule b.

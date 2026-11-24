@@ -120759,5 +120759,421 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "pairsnapjig-force",
+    "bug": "Pillow Fight by a bed: the jig is placed by the bed and the boxed-in partner's plan to its jig slot fails (PlanRouteToJigA / RouteToJigB); the social ends with a route-fail balloon (docs/686 §20.1, storms: PillowFight 27 route fails in s496-s529)",
+    "fix": "ts3fixes WooHooSnap.cs pairsnap rule c (pairsnap, pairsnaphh, pairsnaplog), docs/686 §20.7",
+    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
+    "note": "RUN 2026-11-24 (Deck, Sunset Valley new game), as part of the combined entry readwalk-pairjig-force (runs r4-rp1..r4-rp4, docs/686 §20.7); r4-rp4 passed: off would 1 and no fight, on 'planned through objects, 2.8 m' and both Sims run Pillow Fighting.",
+    "expect": "pairjig-off: PairSnapCheck would 1, no pillow fight. pairjig-on: 'pairsnap: household Bo Jig -> SocialJigTwoPerson with Bea Jig (FailedBecauseNoPathToDestination, jig plan): planned through objects, N m', walk through objects 1, both run Pillow Fighting, errors 0.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedSingle",
+          "name": "bed",
+          "x": 1193.6,
+          "y": 49.1,
+          "z": 1182.8
+        },
+        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "x": 1197.5,
+          "y": 49.1,
+          "z": 1192.5
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedSingle"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "modify_relationship",
+        "args": {
+          "sim": "Bea Jig",
+          "other": "Bo Jig",
+          "state": "Partner",
+          "liking": 100
+        },
+        "note": "Bea and Bo are partners",
+        "waitS": 1,
+        "max": 200
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Jig"
+          ],
+          "x": 1190.8,
+          "z": 1183.6,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bo on a lawn tile of the back yard",
+        "waitS": 10,
+        "max": 300
+      },
+      {
+        "cmd": "box_in",
+        "args": {
+          "sim": "Bo Jig",
+          "x": 1190.8,
+          "z": 1183.6
+        },
+        "note": "eight fridges round Bo: his plan to the pillow fight's jig fails",
+        "waitS": 2,
+        "max": 900,
+        "mustMatch": "\"boxed\":true"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Bea Jig",
+          "x": 1190.8,
+          "z": 1185.9
+        },
+        "note": "Bea on the tile beyond the ring, 2.3 m from Bo",
+        "waitS": 3,
+        "max": 200
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1191.5,
+            "y": 61,
+            "z": 1192
+          },
+          "target": {
+            "x": 1192.5,
+            "y": 49,
+            "z": 1185.5
+          }
+        },
+        "note": "camera over the ring and the bed",
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnaplog": true,
+          "routefaillog": true,
+          "socialreach": false,
+          "socialreachhh": false,
+          "unstuck": false,
+          "unstuckhh": false,
+          "blockeduse": false,
+          "blockedusehh": false,
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "log lines on, arms off",
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "query": "pillow"
+        },
+        "note": "Pillow Fight is on Bea's menu for Bo",
+        "waitS": 1,
+        "max": 600,
+        "optional": true
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairjig-off"
+        },
+        "note": "log marker pairjig-off",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "interaction": "pillow fight"
+        },
+        "note": "off order: Bea, Pillow Fight with Bo (a jig by the bed)",
+        "waitS": 25,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "pairjig-off at 25 s (expect tries and would up, jig plan): pairsnap counters",
+        "waitS": 1,
+        "max": 1800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: no pillow fight runs",
+        "waitS": 1,
+        "max": 600
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "Bea's queue empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "Bo's queue empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": true,
+          "pairsnaphh": true
+        },
+        "note": "arm on: pairsnap + pairsnaphh",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairjig-on"
+        },
+        "note": "log marker pairjig-on",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "interaction": "pillow fight"
+        },
+        "note": "on order: the same pillow fight",
+        "waitS": 30,
+        "max": 300
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "on: Bo at the jig (out of the ring)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: both sides of the pillow fight",
+        "waitS": 15,
+        "max": 600
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "pairjig-on (expect walk through objects 1, kept 0, errors 0): pairsnap counters",
+        "waitS": 1,
+        "max": 1800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea after the fight",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the fight",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "end the fight",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: placed by a walk through objects, errors 0",
+        "waitS": 1,
+        "max": 1800,
+        "mustMatch": "walk through objects [1-9].*errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]
