@@ -1,0 +1,69 @@
+{
+  "note": "cp1-lothub-correct-1123 (2026-11-23, WRITTEN, NOT RUN): CP-1 lot hub (docs/321 §8, docs/332 CP-1) correctness, bundle style (one BP load). Build ts3native.asi.cp1-lotgen-1123 (0.36.299-cp1 = m1123 + the hub) with ini cp1-lotgen-1123 ([LotHub] Enabled=1, everything else as m1123) and ts3fixes m1123; Bin state apex, release defaults. Repro lothub-visit: selected Sim to the farthest community lot, camera pan over 8 lots, Sim home. Pass: hub installed (switch read-back), world load counted, lot adds and removes counted after the world load, 0 script errors, 0 watchdogs, household untouched. ~15 min.",
+  "rewind": "auto",
+  "regexCases": {
+    "^ts3native 0\\.36\\.299-cp1 ": {
+      "match": ["ts3native 0.36.299-cp1 2026-11-23 15:40:00"],
+      "noMatch": ["ts3native 0.36.299-m1123 2026-11-23 15:00:00", "ts3native 0.36.299-cp12 2026-11-23 15:00:00"]
+    },
+    "^OK   lot hub: ready 0x3 ": {
+      "match": ["OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"],
+      "noMatch": ["FAIL lot hub: ready 0x1 (lot generation counter + world event, docs/321 §8)", "OK   lot stream: ready 0x1F (Mode=1, event log on, ObjLogMs=5)"]
+    },
+    "^lot hub: world load, lot gen \\d+ \\(adds \\d+, removes \\d+\\), world gen [1-9]\\d*, ": {
+      "match": ["lot hub: world load, lot gen 813 (adds 700, removes 112), world gen 1, subscribers 0"],
+      "noMatch": ["lot hub: add, lot gen 64 (adds 60, removes 4), world gen 0, subscribers 0", "lot hub: world quit, lot gen 900 (adds 750, removes 149), world gen 2, subscribers 0"]
+    },
+    "^lot hub: (add|remove), lot gen \\d+ \\(adds [1-9]\\d*, removes [1-9]\\d*\\), world gen [1-9]\\d*, ": {
+      "match": ["lot hub: remove, lot gen 896 (adds 760, removes 135), world gen 1, subscribers 0", "lot hub: add, lot gen 1024 (adds 880, removes 143), world gen 1, subscribers 0"],
+      "noMatch": ["lot hub: add, lot gen 512 (adds 512, removes 0), world gen 0, subscribers 0", "lot hub: remove, lot gen 64 (adds 50, removes 13), world gen 0, subscribers 0", "lot hub: world load, lot gen 813 (adds 700, removes 112), world gen 1, subscribers 0"]
+    },
+    "^(SKIP|FAIL) lot hub": {
+      "match": ["SKIP lot hub: add / remove execute prologue differs (another hook?), lhLotGen stays 0, consumers keep today's behaviour", "FAIL lot hub: ready 0x1 (lot generation counter + world event, docs/321 §8)"],
+      "noMatch": ["OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": ["compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"],
+      "noMatch": ["compat: Apex Radiance not found at start; ApexStandDown=1"]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-lothub",
+      "note": "[est 15 min] Bridgeport, one load, 10 min seed-12345 play with repro lothub-visit (community lot and back + camera pan). Correctness only: the hub changes nothing the game does; read-back of the hub lines and counters.",
+      "asi": "game-copy/ts3native.asi.cp1-lotgen-1123",
+      "iniBase": "game-copy/ts3native.ini.cp1-lotgen-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.m1123",
+      "pinReason": "feature/cp1-lotgen-1123 (0.36.299-cp1): CP-1 lot hub on m1123; ts3fixes unchanged (m1123)",
+      "releaseDefaults": true,
+      "gameArgs": ["-disablestoryprogression"],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "lothub-visit",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp1 ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^lot hub: world load, lot gen \\d+ \\(adds \\d+, removes \\d+\\), world gen [1-9]\\d*, ": 1,
+        "^lot hub: (add|remove), lot gen \\d+ \\(adds [1-9]\\d*, removes [1-9]\\d*\\), world gen [1-9]\\d*, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) lot hub": 0
+      }
+    }
+  ]
+}

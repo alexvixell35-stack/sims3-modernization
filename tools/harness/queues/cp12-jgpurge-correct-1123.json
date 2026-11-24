@@ -1,0 +1,49 @@
+{
+  "note": "cp12-jgpurge-correct-1123 (2026-11-23, bugfix/cp12-jgpurge-1123, docs/332 CP-12, docs/323 L8): correctness only, one bundle-style BP load. Master set m1123 native pair + the branch ts3fixes package (JgPurge also drops destroyed Sims from sJgPending). Bin state apex. Pass: kJungleGymExitQueue read back ON, repro junglegymexitqueue-check (off BROKEN, on FIXED; the on 'run' row now also asserts JgGone(null)), household untouched, 0 script errors, 0 watchdogs.",
+  "rewind": "auto",
+  "regexCases": {
+    "^ts3fixes: settings on: (.*, )?kJungleGymExitQueue(, |$)": {
+      "match": [
+        "ts3fixes: settings on: kJungleGymExitQueue",
+        "ts3fixes: settings on: kBookHand, kJungleGymExitQueue, kVisitArrive"
+      ],
+      "noMatch": [
+        "ts3fixes: settings on: kJungleGymExitQueueX, kBookHand",
+        "ts3fixes: settings off: kJungleGymExitQueue"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-cp12-jgpurge",
+      "note": "[est 13-15 min] Bridgeport, one load, 10 min seed 12345, release defaults, repro junglegymexitqueue-check (pure decision check with controls, read-only). Switch read-back via the settings-on line; household untouched via autliveseen_hh_post / householdtoo_lift.",
+      "asi": "game-copy/ts3native.asi.m1123",
+      "iniBase": "game-copy/ts3native.ini.m1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp12-jgpurge-1123",
+      "pinReason": "branch build bugfix/cp12-jgpurge-1123 on master set m1123 native pair",
+      "releaseDefaults": true,
+      "gameArgs": ["-disablestoryprogression"],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true,
+          "repro": "junglegymexitqueue-check",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-m1123 ": 1,
+        "^ts3fixes: settings on: (.*, )?kJungleGymExitQueue(, |$)": 1
+      }
+    }
+  ]
+}

@@ -117575,1944 +117575,347 @@
     ]
   },
   {
-    "id": "readwalk-force",
-    "bug": "Read to Sleep: a parent more than 5 m from the child's bed walks to 3-5 m of it, stands while the child climbs in, then walks again to the sit slot (docs/686 §22.1)",
-    "fix": "ts3fixes ReadWalk.cs (readwalk, readwalklog) docs/686 §22",
-    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
-    "note": "2026-11-24 round 6: the start is Sim_ReadToSleep_PickBook pushed through ReadWalkCheck force (the menu hides Read to Sleep for a child out of bed; the child's Ask for Bedtime Story ran without a picker or story in r4-rp3/r4-rp4, docs/686 §22.5-§22.6). r6-rp1: the force starts the story every arm (Bed_ReadToSleep + Bed_BeReadToSleep), readwalk kept 3 (sit slot on the child's way, both Sims from the mailbox); r6-rp2: Kit next to her entry slot, Bea 5+ m away.",
-    "expect": "readwalk-off: 'readwalk: would walk: Bea Jig to Kit Jig's bed (instead of the 3-5 m walk)'. readwalk-on: 'readwalk: walked: ...' (instead of the 3-5 m walk 1), Bea never stands 3-5 m from the bed.",
-    "noKeepAlive": true,
+    "id": "ip-cullrace-pan",
+    "bug": "docs/338: suspected EA scene-list race (v0.3.1 crash on EA 1.69 at the drain 0x6E4720 / EA 0x6E54F5): DrawScene 0x6F3F90 drains the scene index list (scene+0x40) without waiting for render job 318 (main-view cull, appends to that list without a lock; growth frees the old buffer) when shadows, reflections and the second shadow view are off",
+    "fix": "[EaCrashFixes] CullDrainWait=1 (cullrace.cpp): JobManager_Wait(318) before the drain; detector [CrashForensics] CullRaceWatch=1 (default) counts crRace / crBadIdx and logs `cullrace:` lines with the thread running the cull",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-23): never run. Needs the queue job optionsIni options.lightingquality=1 + options.generalreflections=0 (no shadow / reflection waits). 30 spawned Sims and a far Go Here (30+ route jobs; with [RouteAsync] on they run on our route worker) while the camera pans over 8 lots for ~9 min: the main-view cull must still be running when the frame draws.",
     "steps": [
-      {
-        "cmd": "make_household",
-        "args": {
-          "name": "Jig",
-          "empty_lot": true,
-          "sims": [
-            {
-              "key": "a",
-              "first": "Bea",
-              "last": "Jig",
-              "age": "YoungAdult",
-              "gender": "Female",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            },
-            {
-              "key": "b",
-              "first": "Bo",
-              "last": "Jig",
-              "age": "YoungAdult",
-              "gender": "Male",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            },
-            {
-              "key": "c",
-              "first": "Kit",
-              "last": "Jig",
-              "age": "Child",
-              "gender": "Female",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            }
-          ]
-        },
-        "note": "Edit Town: two young adults and a child on a vacant empty lot",
-        "waitS": 5
-      },
-      {
-        "cmd": "switch_household",
-        "args": {
-          "household": "Jig"
-        },
-        "note": "Edit Town: Change Active Household",
-        "waitS": 30
-      },
-      {
-        "cmd": "clock_hour",
-        "args": {
-          "hour": 19
-        },
-        "note": "evening: after school, before bedtime",
-        "waitS": 1,
-        "setup": true
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "nothing but the orders moves the Sims",
-        "waitS": 1,
-        "setup": true
-      },
       {
         "cmd": "set_speed",
         "args": {
-          "speed": "normal"
+          "speed": "fast"
         },
-        "note": "speed x1",
         "waitS": 2
       },
       {
-        "cmd": "setup_sims",
+        "cmd": "spawn_sims",
         "args": {
-          "sims": [
-            "Bea Jig",
-            "Bo Jig",
-            "Kit Jig"
-          ],
-          "near": "@type:Mailbox",
-          "autonomy": false,
-          "motives": true
+          "count": 10
         },
-        "note": "all three at the mailbox, queues empty",
-        "waitS": 8,
-        "max": 300
+        "waitS": 20
       },
       {
-        "cmd": "buy_object",
+        "cmd": "spawn_sims",
         "args": {
-          "type": "BedSingle",
-          "name": "bed",
-          "x": 1193.6,
-          "y": 49.1,
-          "z": 1182.8
+          "count": 10
         },
-        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
-        "waitS": 3,
-        "max": 300
+        "waitS": 20
       },
       {
-        "cmd": "buy_object",
+        "cmd": "spawn_sims",
         "args": {
-          "type": "Bookshelf",
-          "name": "shelf",
-          "x": 1197.5,
-          "y": 49.1,
-          "z": 1192.5
+          "count": 10
         },
-        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
-        "waitS": 3,
-        "max": 300
+        "waitS": 20
       },
       {
-        "cmd": "bed_setup",
+        "cmd": "crowd_go",
         "args": {
-          "target": "@type:BedSingle"
+          "to": "far",
+          "household": false
         },
-        "note": "the bed's part and routing slots (where sit and entry slots lie)",
-        "waitS": 1,
-        "max": 900,
-        "optional": true
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "x": 1188.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea more than 5 m from the bed",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1191.9,
-          "z": 1182.4,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit 0.8 m beside a part's entry slot (bed_setup: Left 1192.7/1182.4, Right 1194.5/1182.4), so her way to it stays clear of the sit slot (r6-rp1: kept 3, slot on the child's way from the mailbox)",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "moodlet",
-        "args": {
-          "sim": "Kit Jig",
-          "action": "add",
-          "moodlet": "Tired"
-        },
-        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
         "waitS": 2,
-        "max": 300
+        "note": "30 Go Here plans (route jobs), household stays put"
       },
       {
-        "cmd": "list_interactions",
+        "cmd": "camera_pan",
         "args": {
-          "sim": "Bea Jig",
-          "target": "Kit Jig"
+          "lots": 8,
+          "height": 25,
+          "seconds": 40,
+          "passes": 6
         },
-        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
-        "waitS": 1,
-        "max": 4000,
-        "optional": true
+        "waitS": 245,
+        "note": "pan while the routes run (245 s)"
       },
       {
-        "cmd": "set_motive",
+        "cmd": "crowd_go",
         "args": {
-          "sim": "Kit Jig",
-          "motive": "Energy",
-          "value": -60
+          "target": "home",
+          "household": false
         },
-        "note": "Kit tired (Read to Sleep needs Tired)",
-        "waitS": 15,
-        "max": 300
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "autonomy off again",
-        "waitS": 1
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "readwalk": false,
-          "readwalklog": true
-        },
-        "note": "readwalk off (compare mode)",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "readwalk-off"
-        },
-        "note": "log marker readwalk-off",
-        "waitS": 0
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea before the story",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "force:Bea Jig|Kit Jig"
-          ]
-        },
-        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
-        "waitS": 3,
-        "mustMatch": "queued"
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (0)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (1)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (2)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (3)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (4)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (5)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (6)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (7)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (8)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (9)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "note": "readwalk-off (expect would 1 or a kept line): readwalk counters",
-        "waitS": 1,
-        "max": 1500
-      },
-      {
-        "cmd": "queues",
-        "args": {},
-        "note": "off: the story",
-        "waitS": 1,
-        "max": 800
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "end the story",
-        "waitS": 3,
-        "max": 60,
-        "optional": true
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Kit Jig"
-        },
-        "note": "Kit out of bed",
-        "waitS": 8,
-        "max": 60,
-        "optional": true
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "x": 1188.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea more than 5 m from the bed",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1191.9,
-          "z": 1182.4,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit 0.8 m beside a part's entry slot (bed_setup: Left 1192.7/1182.4, Right 1194.5/1182.4), so her way to it stays clear of the sit slot (r6-rp1: kept 3, slot on the child's way from the mailbox)",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "moodlet",
-        "args": {
-          "sim": "Kit Jig",
-          "action": "add",
-          "moodlet": "Tired"
-        },
-        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
         "waitS": 2,
-        "max": 300
+        "note": "second wave of plans"
       },
       {
-        "cmd": "list_interactions",
+        "cmd": "camera_pan",
         "args": {
-          "sim": "Bea Jig",
-          "target": "Kit Jig"
+          "lots": 8,
+          "height": 25,
+          "seconds": 40,
+          "passes": 6
         },
-        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
-        "waitS": 1,
-        "max": 4000,
+        "waitS": 245,
+        "note": "pan again (245 s)"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        },
         "optional": true
-      },
-      {
-        "cmd": "set_motive",
-        "args": {
-          "sim": "Kit Jig",
-          "motive": "Energy",
-          "value": -60
-        },
-        "note": "Kit tired",
-        "waitS": 15,
-        "max": 300
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "autonomy off again",
-        "waitS": 1
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "readwalk": true
-        },
-        "note": "arm on: readwalk",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "readwalk-on"
-        },
-        "note": "log marker readwalk-on",
-        "waitS": 0
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "force:Bea Jig|Kit Jig"
-          ]
-        },
-        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
-        "waitS": 3,
-        "mustMatch": "queued"
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (0)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (1)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (2)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (3)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (4)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (5)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (6)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (7)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (8)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (9)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "note": "readwalk-on (expect instead of the 3-5 m walk 1): readwalk counters",
-        "waitS": 1,
-        "max": 1500
-      },
-      {
-        "cmd": "queues",
-        "args": {},
-        "note": "on: the story",
-        "waitS": 1,
-        "max": 800
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "end the story",
-        "waitS": 3,
-        "max": 60,
-        "optional": true
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Kit Jig"
-        },
-        "note": "Kit out of bed",
-        "waitS": 8,
-        "max": 60,
-        "optional": true
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "x": 1188.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea more than 5 m from the bed",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1195.3,
-          "z": 1182.4,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit 0.8 m beside a part's entry slot (bed_setup: Left 1192.7/1182.4, Right 1194.5/1182.4), so her way to it stays clear of the sit slot (r6-rp1: kept 3, slot on the child's way from the mailbox)",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "moodlet",
-        "args": {
-          "sim": "Kit Jig",
-          "action": "add",
-          "moodlet": "Tired"
-        },
-        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
-        "waitS": 2,
-        "max": 300
-      },
-      {
-        "cmd": "list_interactions",
-        "args": {
-          "sim": "Bea Jig",
-          "target": "Kit Jig"
-        },
-        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
-        "waitS": 1,
-        "max": 4000,
-        "optional": true
-      },
-      {
-        "cmd": "set_motive",
-        "args": {
-          "sim": "Kit Jig",
-          "motive": "Energy",
-          "value": -60
-        },
-        "note": "Kit tired",
-        "waitS": 15,
-        "max": 300
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "autonomy off again",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "readwalk-on2"
-        },
-        "note": "log marker readwalk-on2",
-        "waitS": 0
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "force:Bea Jig|Kit Jig"
-          ]
-        },
-        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
-        "waitS": 3,
-        "mustMatch": "queued"
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (0)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (1)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (2)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (3)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (4)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (5)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (6)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (7)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (8)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (9)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "note": "readwalk-on2: readwalk counters",
-        "waitS": 1,
-        "max": 1500
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "note": "end: readwalk errors 0",
-        "waitS": 1,
-        "max": 1500,
-        "mustMatch": "errors 0"
       }
     ],
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "readwalk": false
-        },
-        "note": "default off again",
-        "waitS": 1
-      }
-    ]
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "off: crash at 0x6E4735, or `cullrace: RACE` / `cullrace: BADIDX` lines with the cull thread id (the early gates stop the job at the first hit); CullDrainWait=1: no crash, crBadIdx 0, cdwWaits ~ one per frame and cdwWaitUs per wait small; no script errors"
   },
   {
-    "id": "readwalk-double-force",
-    "bug": "Read to Sleep: a parent more than 5 m from the child's bed walks to 3-5 m of it, stands while the child climbs in, then walks again to the sit slot (docs/686 §22.1)",
-    "fix": "ts3fixes ReadWalk.cs (readwalk, readwalklog) docs/686 §22; ReactOverlay.cs (reactoverlay, reactoverlayhh, reactoverlaylog) docs/686 §26",
-    "save": "Sunset Valley new game: 18 Maywood Lane (as readwalk-force), a double bed in place of the single bed",
-    "note": "docs/686 §22.6 next try: a double bed, Kit beside the Right part (away from Bea, who comes from the Left, 5+ m off), so the Right part's sit slot is not on Kit's way. Same steps as readwalk-force otherwise; the readwalk line names the sit slot, the child and the entry slot and how far the slot is off the child's way.",
-    "expect": "readwalk-off: 'readwalk: would walk: Bea Jig to Kit Jig's bed (instead of the 3-5 m walk)'. readwalk-on: 'readwalk: walked: ...' (instead of the 3-5 m walk 1), Bea never stands 3-5 m from the bed. reactoverlay-off: 'would overlay', the ReactionInteraction queued behind Watch TV, then 'would drop'. reactoverlay-on: 'overlaid now' x2, no ReactionInteraction queued; Kit (idle) not a case; errors 0.",
-    "noKeepAlive": true,
+    "id": "lothub-visit",
+    "bug": "none (feature check): CP-1 lot hub (docs/321 §8) must count every lot add / remove and world event while the game behaves as before",
+    "fix": "ts3native [LotHub] Enabled=1 (always on, measurement only): lhLotGen / lhAdds / lhRemoves / lhWorldGen, 'lot hub:' read-back lines at world events and powers of two",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "camera", "args": {}, "note": "start pose, for the log"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot (the game picks walk or drive)"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "streams lots in and out: add and remove executes run"},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75, "note": "and home"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "expect": "'lot hub:' lines with world gen >= 1 and removes >= 1; no script errors; household untouched (the hub changes nothing)"
+  },
+  {
+    "id": "lothook-travel",
+    "bug": "none (feature check): CP-2 managed lot hook (docs/321 §9) must deliver every lot add / remove and world change to ts3fixes consumers once, and its subscriber state must not grow across travel and return",
+    "fix": "ts3fixes LotHub.cs + LotHubCore.cs (dispatch only, no consumer in release) fed by ts3native op 49 (lotstream.cpp queue); test consumer armed by reflect_call Fixes.LotHubDiag(\"arm\")",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["arm"]}, "waitS": 1, "note": "test consumer: subscribers 2"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "streams lots in and out"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "before travel"},
+      {"cmd": "set_motive", "args": {"sim": "household"}, "waitS": 2, "note": "a tired Sim drops the queued trip"},
+      {"cmd": "travel_vacation", "args": {"world": "france", "days": 2}, "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": true}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "world quit + load: one OnWorldChange each"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "away"},
+      {"cmd": "travel_home", "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": false}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "back to Bridgeport"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["arm"]}, "waitS": 1, "note": "arm again after the reload: subscribers must stay 2"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 1}, "waitS": 35, "note": "lot events after the return"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "end"}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "expect": "'ts3fixes: lothub:' add and remove lines with lot ids; world quit / load lines from both trips; every read-back 'subscribers 2' and 'faults 0'; no script errors; household untouched"
+  },
+  {
+    "id": "lothook-edit-town",
+    "bug": "CP-2 lot hub poll task (LhTask) must keep draining after Edit Town (CAS) is entered and left: it stops on IsWorldShuttingDown and LhEnsureTask only re-arms on a world load or a new subscribe",
+    "fix": "ts3fixes LotHub.cs (CP-2), docs/321 section 9",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-23, never run). Two Edit Town enter / exit rounds between pans with the test consumer armed (LotHubDiag). Each result line must read polling True, faults 0, subscribers 2 (flat); lot add / remove lines keep arriving after the second exit. If polling reads False after an exit the task died without a world quit / load: LhTask must not end on IsWorldShuttingDown alone (keep sleeping until the generation changes), or Edit Town exit must call LhEnsureTask.",
+    "expect": "'lothub: result ... polling True ... faults 0, subscribers 2' after each exit (queue logRequire), no 'polling False', no script errors.",
     "steps": [
       {
-        "cmd": "make_household",
+        "cmd": "reflect_call",
         "args": {
-          "name": "Jig",
-          "empty_lot": true,
-          "sims": [
-            {
-              "key": "a",
-              "first": "Bea",
-              "last": "Jig",
-              "age": "YoungAdult",
-              "gender": "Female",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            },
-            {
-              "key": "b",
-              "first": "Bo",
-              "last": "Jig",
-              "age": "YoungAdult",
-              "gender": "Male",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            },
-            {
-              "key": "c",
-              "first": "Kit",
-              "last": "Jig",
-              "age": "Child",
-              "gender": "Female",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            }
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "arm"
           ]
         },
-        "note": "Edit Town: two young adults and a child on a vacant empty lot",
-        "waitS": 5
-      },
-      {
-        "cmd": "switch_household",
-        "args": {
-          "household": "Jig"
-        },
-        "note": "Edit Town: Change Active Household",
-        "waitS": 30
-      },
-      {
-        "cmd": "clock_hour",
-        "args": {
-          "hour": 19
-        },
-        "note": "evening: after school, before bedtime",
         "waitS": 1,
-        "setup": true
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "nothing but the orders moves the Sims",
-        "waitS": 1,
-        "setup": true
+        "note": "test consumer: subscribers 2"
       },
       {
         "cmd": "set_speed",
         "args": {
-          "speed": "normal"
+          "speed": "ultra"
         },
-        "note": "speed x1",
         "waitS": 2
       },
       {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig",
-            "Bo Jig",
-            "Kit Jig"
-          ],
-          "near": "@type:Mailbox",
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "all three at the mailbox, queues empty",
-        "waitS": 8,
-        "max": 300
-      },
-      {
-        "cmd": "buy_object",
-        "args": {
-          "type": "BedDouble",
-          "name": "bed",
-          "x": 1193.6,
-          "y": 49.1,
-          "z": 1182.8
-        },
-        "note": "a double bed on the back lawn (the same spot as readwalk-force's single bed)",
-        "waitS": 3,
-        "max": 300
-      },
-      {
-        "cmd": "buy_object",
-        "args": {
-          "type": "Bookshelf",
-          "name": "shelf",
-          "x": 1197.5,
-          "y": 49.1,
-          "z": 1192.5
-        },
-        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
-        "waitS": 3,
-        "max": 300
-      },
-      {
-        "cmd": "bed_setup",
-        "args": {
-          "target": "@type:BedDouble"
-        },
-        "note": "the bed's part and routing slots (where sit and entry slots lie)",
-        "waitS": 1,
-        "max": 900,
-        "optional": true
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "x": 1188.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea more than 5 m from the bed",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1196.0,
-          "z": 1182.4,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit beside the double bed's Right part (its far part from Bea), outside it, so her way in does not cross that part's sit slot",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "moodlet",
-        "args": {
-          "sim": "Kit Jig",
-          "action": "add",
-          "moodlet": "Tired"
-        },
-        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
-        "waitS": 2,
-        "max": 300
-      },
-      {
-        "cmd": "list_interactions",
-        "args": {
-          "sim": "Bea Jig",
-          "target": "Kit Jig"
-        },
-        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
-        "waitS": 1,
-        "max": 4000,
-        "optional": true
-      },
-      {
-        "cmd": "set_motive",
-        "args": {
-          "sim": "Kit Jig",
-          "motive": "Energy",
-          "value": -60
-        },
-        "note": "Kit tired (Read to Sleep needs Tired)",
-        "waitS": 15,
-        "max": 300
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "autonomy off again",
-        "waitS": 1
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "readwalk": false,
-          "readwalklog": true
-        },
-        "note": "readwalk off (compare mode)",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "readwalk-off"
-        },
-        "note": "log marker readwalk-off",
-        "waitS": 0
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea before the story",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "force:Bea Jig|Kit Jig"
-          ]
-        },
-        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
-        "waitS": 3,
-        "mustMatch": "queued"
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (0)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (1)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (2)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (3)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (4)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (5)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (6)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (7)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (8)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "off: Bea during the story (9)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
           "args": [
             "result"
           ]
-        },
-        "note": "readwalk-off (expect would 1 or a kept line): readwalk counters",
-        "waitS": 1,
-        "max": 1500
+        }
       },
       {
-        "cmd": "queues",
-        "args": {},
-        "note": "off: the story",
-        "waitS": 1,
-        "max": 800
-      },
-      {
-        "cmd": "cancel_interactions",
+        "cmd": "camera_pan",
         "args": {
-          "sim": "Bea Jig"
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
         },
-        "note": "end the story",
-        "waitS": 3,
-        "max": 60,
-        "optional": true
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
       },
       {
-        "cmd": "cancel_interactions",
+        "cmd": "camera_pan",
         "args": {
-          "sim": "Kit Jig"
-        },
-        "note": "Kit out of bed",
-        "waitS": 8,
-        "max": 60,
-        "optional": true
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "x": 1188.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea more than 5 m from the bed",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1196.0,
-          "z": 1186.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit out of the bed first (r8-rp1: she stayed in it after the off arm, 'already there', so the on arm was EA's child-in case)",
-        "waitS": 10,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1196.0,
-          "z": 1182.4,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit beside the double bed's Right part (its far part from Bea), outside it, so her way in does not cross that part's sit slot",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "moodlet",
-        "args": {
-          "sim": "Kit Jig",
-          "action": "add",
-          "moodlet": "Tired"
-        },
-        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
-        "waitS": 2,
-        "max": 300
-      },
-      {
-        "cmd": "list_interactions",
-        "args": {
-          "sim": "Bea Jig",
-          "target": "Kit Jig"
-        },
-        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
-        "waitS": 1,
-        "max": 4000,
-        "optional": true
-      },
-      {
-        "cmd": "set_motive",
-        "args": {
-          "sim": "Kit Jig",
-          "motive": "Energy",
-          "value": -60
-        },
-        "note": "Kit tired",
-        "waitS": 15,
-        "max": 300
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "autonomy off again",
-        "waitS": 1
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "readwalk": true
-        },
-        "note": "arm on: readwalk",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "readwalk-on"
-        },
-        "note": "log marker readwalk-on",
-        "waitS": 0
+          "stop": true
+        }
       },
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "force:Bea Jig|Kit Jig"
-          ]
-        },
-        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
-        "waitS": 3,
-        "mustMatch": "queued"
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (0)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (1)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (2)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (3)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (4)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (5)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (6)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (7)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (8)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on: Bea during the story (9)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
           "args": [
             "result"
           ]
-        },
-        "note": "readwalk-on (expect instead of the 3-5 m walk 1): readwalk counters",
-        "waitS": 1,
-        "max": 1500
+        }
       },
       {
-        "cmd": "queues",
-        "args": {},
-        "note": "on: the story",
-        "waitS": 1,
-        "max": 800
-      },
-      {
-        "cmd": "cancel_interactions",
+        "cmd": "et_move_lot",
         "args": {
-          "sim": "Bea Jig"
+          "action": "enter"
         },
-        "note": "end the story",
-        "waitS": 3,
-        "max": 60,
-        "optional": true
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Kit Jig"
-        },
-        "note": "Kit out of bed",
-        "waitS": 8,
-        "max": 60,
-        "optional": true
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "EditTownState"
+            }
           ],
-          "x": 1188.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea more than 5 m from the bed",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1196.0,
-          "z": 1186.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit out of the bed first (r8-rp1: she stayed in it after the off arm, 'already there', so the on arm was EA's child-in case)",
-        "waitS": 10,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "x": 1196.0,
-          "z": 1182.4,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit beside the double bed's Right part (its far part from Bea), outside it, so her way in does not cross that part's sit slot",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "moodlet",
-        "args": {
-          "sim": "Kit Jig",
-          "action": "add",
-          "moodlet": "Tired"
-        },
-        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
-        "waitS": 2,
-        "max": 300
-      },
-      {
-        "cmd": "list_interactions",
-        "args": {
-          "sim": "Bea Jig",
-          "target": "Kit Jig"
-        },
-        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
-        "waitS": 1,
-        "max": 4000,
-        "optional": true
-      },
-      {
-        "cmd": "set_motive",
-        "args": {
-          "sim": "Kit Jig",
-          "motive": "Energy",
-          "value": -60
-        },
-        "note": "Kit tired",
-        "waitS": 15,
-        "max": 300
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "autonomy off again",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "readwalk-on2"
-        },
-        "note": "log marker readwalk-on2",
-        "waitS": 0
+          "everyS": 3,
+          "maxS": 120
+        }
       },
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
           "args": [
-            "force:Bea Jig|Kit Jig"
+            "edit town"
           ]
         },
-        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
-        "waitS": 3,
-        "mustMatch": "queued"
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (0)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (1)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (2)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (3)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (4)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (5)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (6)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (7)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (8)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "on 2: Bea during the story (9)",
-        "waitS": 3,
-        "max": 300,
-        "optional": true
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "note": "readwalk-on2: readwalk counters",
-        "waitS": 1,
-        "max": 1500
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
-          "args": [
-            "result"
-          ]
-        },
-        "note": "end: readwalk errors 0",
-        "waitS": 1,
-        "max": 1500,
-        "mustMatch": "errors 0"
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "reactoverlay part: queues empty",
-        "waitS": 3
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Kit Jig"
-        },
-        "waitS": 3
-      },
-      {
-        "cmd": "buy_object",
-        "args": {
-          "type": "TVCheap",
-          "name": "tv",
-          "x": 1191.5,
-          "y": 49.1,
-          "z": 1190.5
-        },
-        "note": "a TV in the yard: Watch TV is a still action with the arms free",
-        "waitS": 3,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "x": 1188.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea more than 5 m from the bed",
-        "waitS": 6
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "reactoverlay": false,
-          "reactoverlayhh": false,
-          "reactoverlaylog": true
-        },
-        "note": "reactoverlay off: compare mode",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "reactoverlay-off"
-        },
-        "waitS": 0
-      },
-      {
-        "cmd": "do_interaction",
-        "args": {
-          "sim": "Bea Jig",
-          "target": "@type:TVCheap",
-          "interaction": "watch"
-        },
-        "note": "Bea watches TV",
-        "waitS": 15
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "Bea in front of the TV",
+        "note": "in Edit Town",
         "waitS": 5
       },
       {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Bea Jig|Startled"
-          ]
-        },
-        "note": "off: a NowOrLater reaction while she watches: EA queues it behind Watch TV (would 1)",
-        "waitS": 2
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "past the 2 s stale time",
-        "waitS": 4
+        "cmd": "enter_live_mode",
+        "waitS": 5,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        }
       },
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
           "args": [
             "result"
           ]
-        },
-        "note": "off: would drop 1 (EA keeps the reaction queued)",
-        "waitS": 2
+        }
       },
       {
-        "cmd": "queues",
-        "args": {},
-        "note": "the ReactionInteraction still queued behind Watch TV",
-        "waitS": 1
-      },
-      {
-        "cmd": "patches",
+        "cmd": "camera_pan",
         "args": {
-          "reactoverlay": true,
-          "reactoverlayhh": true
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
         },
-        "note": "reactoverlay on, household too",
-        "waitS": 1
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
       },
       {
-        "cmd": "mem_mark",
+        "cmd": "camera_pan",
         "args": {
-          "tag": "reactoverlay-on"
-        },
-        "waitS": 0
+          "stop": true
+        }
       },
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Bea Jig|Embarrassed"
-          ]
-        },
-        "note": "on: the overlay plays at once, nothing queued (overlaid now 1)",
-        "waitS": 2
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "wait",
-        "waitS": 4
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Bea Jig|Startled"
-          ]
-        },
-        "note": "on: again",
-        "waitS": 2
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "wait",
-        "waitS": 4
-      },
-      {
-        "cmd": "queues",
-        "args": {},
-        "note": "no ReactionInteraction behind Watch TV (the off arm's one is overlaid or dropped)",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Kit Jig|Startled"
-          ]
-        },
-        "note": "control: Kit idle (no action): EA's way, not a case",
-        "waitS": 2
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
           "args": [
             "result"
           ]
-        },
-        "note": "on: overlaid now, from the queue or dropped stale; errors 0",
-        "waitS": 2,
-        "mustMatch": "errors 0"
-      }
-    ],
-    "cleanup": [
+        }
+      },
       {
-        "cmd": "patches",
+        "cmd": "et_move_lot",
         "args": {
-          "readwalk": false
+          "action": "enter"
         },
-        "note": "default off again",
-        "waitS": 1
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "EditTownState"
+            }
+          ],
+          "everyS": 3,
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "enter_live_mode",
+        "waitS": 5,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
+        },
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
       }
     ]
   },
@@ -122701,5 +121104,1947 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "readwalk-force",
+    "bug": "Read to Sleep: a parent more than 5 m from the child's bed walks to 3-5 m of it, stands while the child climbs in, then walks again to the sit slot (docs/686 §22.1)",
+    "fix": "ts3fixes ReadWalk.cs (readwalk, readwalklog) docs/686 §22",
+    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
+    "note": "2026-11-24 round 6: the start is Sim_ReadToSleep_PickBook pushed through ReadWalkCheck force (the menu hides Read to Sleep for a child out of bed; the child's Ask for Bedtime Story ran without a picker or story in r4-rp3/r4-rp4, docs/686 §22.5-§22.6). r6-rp1: the force starts the story every arm (Bed_ReadToSleep + Bed_BeReadToSleep), readwalk kept 3 (sit slot on the child's way, both Sims from the mailbox); r6-rp2: Kit next to her entry slot, Bea 5+ m away.",
+    "expect": "readwalk-off: 'readwalk: would walk: Bea Jig to Kit Jig's bed (instead of the 3-5 m walk)'. readwalk-on: 'readwalk: walked: ...' (instead of the 3-5 m walk 1), Bea never stands 3-5 m from the bed.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedSingle",
+          "name": "bed",
+          "x": 1193.6,
+          "y": 49.1,
+          "z": 1182.8
+        },
+        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "x": 1197.5,
+          "y": 49.1,
+          "z": 1192.5
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedSingle"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea more than 5 m from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1191.9,
+          "z": 1182.4,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit 0.8 m beside a part's entry slot (bed_setup: Left 1192.7/1182.4, Right 1194.5/1182.4), so her way to it stays clear of the sit slot (r6-rp1: kept 3, slot on the child's way from the mailbox)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired (Read to Sleep needs Tired)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": false,
+          "readwalklog": true
+        },
+        "note": "readwalk off (compare mode)",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-off"
+        },
+        "note": "log marker readwalk-off",
+        "waitS": 0
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea before the story",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "force:Bea Jig|Kit Jig"
+          ]
+        },
+        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
+        "waitS": 3,
+        "mustMatch": "queued"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-off (expect would 1 or a kept line): readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: the story",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the story",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "note": "Kit out of bed",
+        "waitS": 8,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea more than 5 m from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1191.9,
+          "z": 1182.4,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit 0.8 m beside a part's entry slot (bed_setup: Left 1192.7/1182.4, Right 1194.5/1182.4), so her way to it stays clear of the sit slot (r6-rp1: kept 3, slot on the child's way from the mailbox)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": true
+        },
+        "note": "arm on: readwalk",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-on"
+        },
+        "note": "log marker readwalk-on",
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "force:Bea Jig|Kit Jig"
+          ]
+        },
+        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
+        "waitS": 3,
+        "mustMatch": "queued"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-on (expect instead of the 3-5 m walk 1): readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: the story",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the story",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "note": "Kit out of bed",
+        "waitS": 8,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea more than 5 m from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1195.3,
+          "z": 1182.4,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit 0.8 m beside a part's entry slot (bed_setup: Left 1192.7/1182.4, Right 1194.5/1182.4), so her way to it stays clear of the sit slot (r6-rp1: kept 3, slot on the child's way from the mailbox)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-on2"
+        },
+        "note": "log marker readwalk-on2",
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "force:Bea Jig|Kit Jig"
+          ]
+        },
+        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
+        "waitS": 3,
+        "mustMatch": "queued"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-on2: readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: readwalk errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "readwalk-double-force",
+    "bug": "Read to Sleep: a parent more than 5 m from the child's bed walks to 3-5 m of it, stands while the child climbs in, then walks again to the sit slot (docs/686 §22.1)",
+    "fix": "ts3fixes ReadWalk.cs (readwalk, readwalklog) docs/686 §22; ReactOverlay.cs (reactoverlay, reactoverlayhh, reactoverlaylog) docs/686 §26",
+    "save": "Sunset Valley new game: 18 Maywood Lane (as readwalk-force), a double bed in place of the single bed",
+    "note": "docs/686 §22.6 next try: a double bed, Kit beside the Right part (away from Bea, who comes from the Left, 5+ m off), so the Right part's sit slot is not on Kit's way. Same steps as readwalk-force otherwise; the readwalk line names the sit slot, the child and the entry slot and how far the slot is off the child's way.",
+    "expect": "readwalk-off: 'readwalk: would walk: Bea Jig to Kit Jig's bed (instead of the 3-5 m walk)'. readwalk-on: 'readwalk: walked: ...' (instead of the 3-5 m walk 1), Bea never stands 3-5 m from the bed. reactoverlay-off: 'would overlay', the ReactionInteraction queued behind Watch TV, then 'would drop'. reactoverlay-on: 'overlaid now' x2, no ReactionInteraction queued; Kit (idle) not a case; errors 0.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedDouble",
+          "name": "bed",
+          "x": 1193.6,
+          "y": 49.1,
+          "z": 1182.8
+        },
+        "note": "a double bed on the back lawn (the same spot as readwalk-force's single bed)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "x": 1197.5,
+          "y": 49.1,
+          "z": 1192.5
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedDouble"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea more than 5 m from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1196.0,
+          "z": 1182.4,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit beside the double bed's Right part (its far part from Bea), outside it, so her way in does not cross that part's sit slot",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired (Read to Sleep needs Tired)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": false,
+          "readwalklog": true
+        },
+        "note": "readwalk off (compare mode)",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-off"
+        },
+        "note": "log marker readwalk-off",
+        "waitS": 0
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea before the story",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "force:Bea Jig|Kit Jig"
+          ]
+        },
+        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
+        "waitS": 3,
+        "mustMatch": "queued"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-off (expect would 1 or a kept line): readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: the story",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the story",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "note": "Kit out of bed",
+        "waitS": 8,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea more than 5 m from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1196.0,
+          "z": 1186.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit out of the bed first (r8-rp1: she stayed in it after the off arm, 'already there', so the on arm was EA's child-in case)",
+        "waitS": 10,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1196.0,
+          "z": 1182.4,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit beside the double bed's Right part (its far part from Bea), outside it, so her way in does not cross that part's sit slot",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": true
+        },
+        "note": "arm on: readwalk",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-on"
+        },
+        "note": "log marker readwalk-on",
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "force:Bea Jig|Kit Jig"
+          ]
+        },
+        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
+        "waitS": 3,
+        "mustMatch": "queued"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-on (expect instead of the 3-5 m walk 1): readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: the story",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the story",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "note": "Kit out of bed",
+        "waitS": 8,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea more than 5 m from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1196.0,
+          "z": 1186.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit out of the bed first (r8-rp1: she stayed in it after the off arm, 'already there', so the on arm was EA's child-in case)",
+        "waitS": 10,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1196.0,
+          "z": 1182.4,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit beside the double bed's Right part (its far part from Bea), outside it, so her way in does not cross that part's sit slot",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-on2"
+        },
+        "note": "log marker readwalk-on2",
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "force:Bea Jig|Kit Jig"
+          ]
+        },
+        "note": "the story as autonomy starts it: EA's Sim_ReadToSleep_PickBook pushed as Bea's own pick (random book, no picker; docs/686 §22.6)",
+        "waitS": 3,
+        "mustMatch": "queued"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-on2: readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: readwalk errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "reactoverlay part: queues empty",
+        "waitS": 3
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "TVCheap",
+          "name": "tv",
+          "x": 1191.5,
+          "y": 49.1,
+          "z": 1190.5
+        },
+        "note": "a TV in the yard: Watch TV is a still action with the arms free",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea more than 5 m from the bed",
+        "waitS": 6
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlay": false,
+          "reactoverlayhh": false,
+          "reactoverlaylog": true
+        },
+        "note": "reactoverlay off: compare mode",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-off"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "@type:TVCheap",
+          "interaction": "watch"
+        },
+        "note": "Bea watches TV",
+        "waitS": 15
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "Bea in front of the TV",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "off: a NowOrLater reaction while she watches: EA queues it behind Watch TV (would 1)",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "past the 2 s stale time",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: would drop 1 (EA keeps the reaction queued)",
+        "waitS": 2
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "the ReactionInteraction still queued behind Watch TV",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlay": true,
+          "reactoverlayhh": true
+        },
+        "note": "reactoverlay on, household too",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-on"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Embarrassed"
+          ]
+        },
+        "note": "on: the overlay plays at once, nothing queued (overlaid now 1)",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "on: again",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "no ReactionInteraction behind Watch TV (the off arm's one is overlaid or dropped)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Kit Jig|Startled"
+          ]
+        },
+        "note": "control: Kit idle (no action): EA's way, not a case",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: overlaid now, from the queue or dropped stale; errors 0",
+        "waitS": 2,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]
