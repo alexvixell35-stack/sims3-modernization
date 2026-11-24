@@ -36,6 +36,7 @@ captures/
 # Build output
 build/
 out/
+out-*/
 native/ts3native/out/
 Debug/
 Release/

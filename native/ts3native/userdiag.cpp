@@ -739,6 +739,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
+        case 50: return g_ilpTuneIso ? 1 : 0;  // docs/339 ilpatch.cpp: [IlPatch] ilp_tuneisolate armed (ts3fixes late init of ts3agent)
         case 8: return (u8)g_asLiveUnseen;  // autshadow-run.cpp: [AutShadow] Unseen=1 (docs/222); no icalls when [AutShadow] is off
         case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2, hi & 0xFFFF); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan; hi 0-15: its routefail interaction id (docs/226)
         case 12: KdScopeClear(lo); GvaPlanEnd(); if (g_pfH == lo) g_pfH = 0; if (g_dsH == lo) g_dsH = 0; return 1;  // docs/631: a sync plan's PlayerFirst mark ends with it too  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
@@ -749,6 +750,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
         case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
         case 40: return DsClassOp(lo, hi);  // docs/674 doorshare.cpp: route lo's Sim class (hi 0-15), before its START; 1 = DoorShare on
         case 48: return FglInsideOp(lo);    // docs/682 §9: lo 1 = this thread's next FindGoodLocation search is the indoors stage, 0 = over; 1 = [FglInside] installed
+        case 49: return LhOp(hi & 0xFFFF);  // docs/321 §9 (lotstream.cpp): ts3fixes LotHub.cs lot event queue (pop / id bit / kind / ready)
         case 41: return DsNoteOp(lo, hi);   // docs/674: the door answer just given is shareable (lo = hash of the ask, hi 0-15 = kind)
         case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);
@@ -805,8 +807,8 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 return 1;
             }
             UdOtherLine(g_udTxt);  // per-prefix cap + total disk guard: a looping sender cannot fill the disk or starve others
-            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds);  // F5wEvent: docs/539 §21
-            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
+            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds), LotHubFire(LH_WORLD_LOAD, NULL);  // F5wEvent: docs/539 §21; LotHubFire: lotstream.cpp CP-1
+            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), LotHubFire(LH_WORLD_QUIT, NULL), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
             g_udTxtN = 0;
             return 1;

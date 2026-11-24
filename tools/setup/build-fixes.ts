@@ -328,6 +328,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBoatParkGone value="True" />
     <kDeadRefCooking value="True" />
     <kDeadRefCadence value="True" />
+    <kDeadRefExact value="False" />
     <kViewerPushDelta value="True" />
     <kDeadRefConvo value="True" />
     <kTakeARiskGuard value="True" />

@@ -16,7 +16,7 @@ static int g_ilpTestPost; static DWORD g_ilpTestPostAfter;
 static void __cdecl IlpTestPost(BYTE*, void*) { g_ilpTestPost++; g_ilpTestPostAfter = g_ilpTestSeen.calls; }
 
 static void TestIlPatch() {
-    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 6866 * 4,
+    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v907 layout after v906 (docs/registry.md)");
     assert(IlpShaInit());
     BYTE sha[32];
@@ -105,6 +105,17 @@ static void TestIlPatch() {
         const IlpSpec s4 = {"tC4", L"tC4", "", "T", "m", "T::m()", 1, 1, &bld, &e4};
         IlpApply(body, 6, 8, clTry35, 1, s4, bld, r);
         assert(r.why && strstr(r.why, "exception region"));
+        static const IlpIns ins4l[1] = {{0xDD, IK_BR_ORIG, 0, 3}};  // a leave into the try: still refused
+        const IlpEdit e4l = {0, 0, 0, 1, 1, 0, 0, exp17, ins4l};
+        const IlpSpec s4l = {"tC4l", L"tC4l", "", "T", "m", "T::m()", 1, 1, &bld, &e4l};
+        IlpApply(body, 6, 8, clTry35, 1, s4l, bld, r);
+        assert(r.why && strstr(r.why, "exception region"));
+        static const IlpIns ins4o[1] = {{0xDD, IK_BR_ORIG, 0, 0}};  // docs/339: a leave out of the try at 3 to 0: allowed
+        const IlpEdit e4o = {3, 0, 0, 1, 1, 0, 0, exp16, ins4o};
+        const IlpSpec s4o = {"tC4o", L"tC4o", "", "T", "m", "T::m()", 1, 1, &bld, &e4o};
+        IlpApply(body, 6, 8, clTry35, 1, s4o, bld, r);
+        assert(!r.why && r.code && r.code[6] == 0xDD);
+        HeapFree(GetProcessHeap(), 0, r.code);
         const IlpEdit e5 = {2, 0, 0, 0, 1, 0, 0, exp17, ins};  // 2 is inside the br.s operand
         const IlpSpec s5 = {"tC5", L"tC5", "", "T", "m", "T::m()", 1, 1, &bld, &e5};
         IlpApply(body, 6, 8, NULL, 0, s5, bld, r);

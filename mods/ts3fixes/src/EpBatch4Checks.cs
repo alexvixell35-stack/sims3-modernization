@@ -90,7 +90,7 @@ namespace Ts3Fixes
             return Ep4Check("junglegymexitqueue", 3262, new[] { "stale entries dropped", "stale heads with switch off", "errors" },
                 EpJoin(EpMiss("mExitQueue", sJgQueue, "kTimeToWaitForNextExit", sJgNext, "kTimeMaxToWait", sJgMax),
                     EpLive(typeof(BEp4JgHook), 2, "mExitQueue", sJgQueue, typeof(Queue<Sim>), "kTimeToWaitForNextExit", sJgNext, typeof(float), "kTimeMaxToWait", sJgMax, typeof(float))), what,
-                "gone / off-tower entries dropped, empty-queue reset skipped", !JgKeep(on, false, false, false) && !JgKeep(on, true, false, false) && JgSafeSkips(on, 0),
+                "gone / off-tower entries dropped, empty-queue reset skipped", !JgKeep(on, false, false, false) && !JgKeep(on, true, false, false) && JgSafeSkips(on, 0) && JgGone(null),
                 "on tower / alarm pending kept, queued reset as EA", JgKeep(on, true, true, false) && JgKeep(on, true, false, true) && !JgSafeSkips(on, 1));
         }
 

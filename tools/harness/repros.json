@@ -117575,420 +117575,347 @@
     ]
   },
   {
-    "id": "reactoverlay-force",
-    "bug": "A Sim busy with a still action (Watch TV) reacts seconds late: Sim.PlayReaction NowOrLater / AfterInteraction queues a ReactionInteraction behind the action (household queue up to 6.9 s in s496-s529, docs/686 §26.1)",
-    "fix": "ts3fixes ReactOverlay.cs (reactoverlay, reactoverlayhh, reactoverlaylog) docs/686 §26",
-    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
-    "note": "The readwalk-force lot (Jig household, Sunset Valley new game) plus a TV; the same steps are the tail of readwalk-force, so one load runs both.",
-    "expect": "off: 'would overlay' and 'would drop', the ReactionInteraction queued behind Watch TV. on: 'overlaid now' x2, nothing queued; Kit (idle) not a case; errors 0.",
-    "noKeepAlive": true,
+    "id": "ip-cullrace-pan",
+    "bug": "docs/338: suspected EA scene-list race (v0.3.1 crash on EA 1.69 at the drain 0x6E4720 / EA 0x6E54F5): DrawScene 0x6F3F90 drains the scene index list (scene+0x40) without waiting for render job 318 (main-view cull, appends to that list without a lock; growth frees the old buffer) when shadows, reflections and the second shadow view are off",
+    "fix": "[EaCrashFixes] CullDrainWait=1 (cullrace.cpp): JobManager_Wait(318) before the drain; detector [CrashForensics] CullRaceWatch=1 (default) counts crRace / crBadIdx and logs `cullrace:` lines with the thread running the cull",
+    "save": "Baseline-IP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-23): never run. Needs the queue job optionsIni options.lightingquality=1 + options.generalreflections=0 (no shadow / reflection waits). 30 spawned Sims and a far Go Here (30+ route jobs; with [RouteAsync] on they run on our route worker) while the camera pans over 8 lots for ~9 min: the main-view cull must still be running when the frame draws.",
     "steps": [
       {
-        "cmd": "make_household",
+        "cmd": "set_speed",
         "args": {
-          "name": "Jig",
-          "empty_lot": true,
-          "sims": [
-            {
-              "key": "a",
-              "first": "Bea",
-              "last": "Jig",
-              "age": "YoungAdult",
-              "gender": "Female",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            },
-            {
-              "key": "b",
-              "first": "Bo",
-              "last": "Jig",
-              "age": "YoungAdult",
-              "gender": "Male",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            },
-            {
-              "key": "c",
-              "first": "Kit",
-              "last": "Jig",
-              "age": "Child",
-              "gender": "Female",
-              "traits": [
-                "Artistic",
-                "Virtuoso"
-              ]
-            }
+          "speed": "fast"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far",
+          "household": false
+        },
+        "waitS": 2,
+        "note": "30 Go Here plans (route jobs), household stays put"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 40,
+          "passes": 6
+        },
+        "waitS": 245,
+        "note": "pan while the routes run (245 s)"
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "target": "home",
+          "household": false
+        },
+        "waitS": 2,
+        "note": "second wave of plans"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 40,
+          "passes": 6
+        },
+        "waitS": 245,
+        "note": "pan again (245 s)"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        },
+        "optional": true
+      }
+    ],
+    "watch": {
+      "kind": "stuck",
+      "sims": [],
+      "minutes": 1
+    },
+    "expect": "off: crash at 0x6E4735, or `cullrace: RACE` / `cullrace: BADIDX` lines with the cull thread id (the early gates stop the job at the first hit); CullDrainWait=1: no crash, crBadIdx 0, cdwWaits ~ one per frame and cdwWaitUs per wait small; no script errors"
+  },
+  {
+    "id": "lothub-visit",
+    "bug": "none (feature check): CP-1 lot hub (docs/321 §8) must count every lot add / remove and world event while the game behaves as before",
+    "fix": "ts3native [LotHub] Enabled=1 (always on, measurement only): lhLotGen / lhAdds / lhRemoves / lhWorldGen, 'lot hub:' read-back lines at world events and powers of two",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "camera", "args": {}, "note": "start pose, for the log"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot (the game picks walk or drive)"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "streams lots in and out: add and remove executes run"},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75, "note": "and home"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "expect": "'lot hub:' lines with world gen >= 1 and removes >= 1; no script errors; household untouched (the hub changes nothing)"
+  },
+  {
+    "id": "lothook-travel",
+    "bug": "none (feature check): CP-2 managed lot hook (docs/321 §9) must deliver every lot add / remove and world change to ts3fixes consumers once, and its subscriber state must not grow across travel and return",
+    "fix": "ts3fixes LotHub.cs + LotHubCore.cs (dispatch only, no consumer in release) fed by ts3native op 49 (lotstream.cpp queue); test consumer armed by reflect_call Fixes.LotHubDiag(\"arm\")",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["arm"]}, "waitS": 1, "note": "test consumer: subscribers 2"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "streams lots in and out"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "before travel"},
+      {"cmd": "set_motive", "args": {"sim": "household"}, "waitS": 2, "note": "a tired Sim drops the queued trip"},
+      {"cmd": "travel_vacation", "args": {"world": "france", "days": 2}, "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": true}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "world quit + load: one OnWorldChange each"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "away"},
+      {"cmd": "travel_home", "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": false}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "back to Bridgeport"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["arm"]}, "waitS": 1, "note": "arm again after the reload: subscribers must stay 2"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 1}, "waitS": 35, "note": "lot events after the return"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LotHubDiag", "args": ["result"]}, "waitS": 1, "note": "end"}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "expect": "'ts3fixes: lothub:' add and remove lines with lot ids; world quit / load lines from both trips; every read-back 'subscribers 2' and 'faults 0'; no script errors; household untouched"
+  },
+  {
+    "id": "lothook-edit-town",
+    "bug": "CP-2 lot hub poll task (LhTask) must keep draining after Edit Town (CAS) is entered and left: it stops on IsWorldShuttingDown and LhEnsureTask only re-arms on a world load or a new subscribe",
+    "fix": "ts3fixes LotHub.cs (CP-2), docs/321 section 9",
+    "save": "Baseline-BP-Spring",
+    "note": "UNVERIFIED (static only, 2026-11-23, never run). Two Edit Town enter / exit rounds between pans with the test consumer armed (LotHubDiag). Each result line must read polling True, faults 0, subscribers 2 (flat); lot add / remove lines keep arriving after the second exit. If polling reads False after an exit the task died without a world quit / load: LhTask must not end on IsWorldShuttingDown alone (keep sleeping until the generation changes), or Edit Town exit must call LhEnsureTask.",
+    "expect": "'lothub: result ... polling True ... faults 0, subscribers 2' after each exit (queue logRequire), no 'polling False', no script errors.",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "arm"
           ]
         },
-        "note": "Edit Town: two young adults and a child on a vacant empty lot",
-        "waitS": 5
-      },
-      {
-        "cmd": "switch_household",
-        "args": {
-          "household": "Jig"
-        },
-        "note": "Edit Town: Change Active Household",
-        "waitS": 30
-      },
-      {
-        "cmd": "clock_hour",
-        "args": {
-          "hour": 19
-        },
-        "note": "evening: after school, before bedtime",
         "waitS": 1,
-        "setup": true
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "nothing but the orders moves the Sims",
-        "waitS": 1,
-        "setup": true
+        "note": "test consumer: subscribers 2"
       },
       {
         "cmd": "set_speed",
         "args": {
-          "speed": "normal"
+          "speed": "ultra"
         },
-        "note": "speed x1",
         "waitS": 2
       },
       {
-        "cmd": "setup_sims",
+        "cmd": "reflect_call",
         "args": {
-          "sims": [
-            "Bea Jig",
-            "Bo Jig",
-            "Kit Jig"
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
+        },
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "et_move_lot",
+        "args": {
+          "action": "enter"
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "EditTownState"
+            }
           ],
-          "near": "@type:Mailbox",
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "all three at the mailbox, queues empty",
-        "waitS": 8,
-        "max": 300
+          "everyS": 3,
+          "maxS": 120
+        }
       },
       {
-        "cmd": "buy_object",
+        "cmd": "reflect_call",
         "args": {
-          "type": "BedSingle",
-          "name": "bed",
-          "x": 1193.6,
-          "y": 49.1,
-          "z": 1182.8
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "edit town"
+          ]
         },
-        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
-        "waitS": 3,
-        "max": 300
-      },
-      {
-        "cmd": "buy_object",
-        "args": {
-          "type": "Bookshelf",
-          "name": "shelf",
-          "x": 1197.5,
-          "y": 49.1,
-          "z": 1192.5
-        },
-        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
-        "waitS": 3,
-        "max": 300
-      },
-      {
-        "cmd": "bed_setup",
-        "args": {
-          "target": "@type:BedSingle"
-        },
-        "note": "the bed's part and routing slots (where sit and entry slots lie)",
-        "waitS": 1,
-        "max": 900,
-        "optional": true
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "near": "@type:Mailbox",
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "readwalk: Bea (parent) at the front mailbox, far from the bed",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Kit Jig"
-          ],
-          "near": "@type:Mailbox",
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Kit next to Bea at the mailbox (the ask is a social; the bed is far)",
-        "waitS": 6,
-        "max": 300
-      },
-      {
-        "cmd": "moodlet",
-        "args": {
-          "sim": "Kit Jig",
-          "action": "add",
-          "moodlet": "Tired"
-        },
-        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
-        "waitS": 2,
-        "max": 300
-      },
-      {
-        "cmd": "list_interactions",
-        "args": {
-          "sim": "Bea Jig",
-          "target": "Kit Jig"
-        },
-        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
-        "waitS": 1,
-        "max": 4000,
-        "optional": true
-      },
-      {
-        "cmd": "set_motive",
-        "args": {
-          "sim": "Kit Jig",
-          "motive": "Energy",
-          "value": -60
-        },
-        "note": "Kit tired (Read to Sleep needs Tired)",
-        "waitS": 15,
-        "max": 300
-      },
-      {
-        "cmd": "autonomy",
-        "args": {
-          "sim": "household",
-          "enabled": false
-        },
-        "note": "autonomy off again",
-        "waitS": 1
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "reactoverlay part: queues empty",
-        "waitS": 3
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Kit Jig"
-        },
-        "waitS": 3
-      },
-      {
-        "cmd": "buy_object",
-        "args": {
-          "type": "TVCheap",
-          "name": "tv",
-          "x": 1191.5,
-          "y": 49.1,
-          "z": 1190.5
-        },
-        "note": "a TV in the yard: Watch TV is a still action with the arms free",
-        "waitS": 3,
-        "max": 300
-      },
-      {
-        "cmd": "setup_sims",
-        "args": {
-          "sims": [
-            "Bea Jig"
-          ],
-          "x": 1189.5,
-          "z": 1192.5,
-          "autonomy": false,
-          "motives": true
-        },
-        "note": "Bea near the TV",
-        "waitS": 6
-      },
-      {
-        "cmd": "patches",
-        "args": {
-          "reactoverlay": false,
-          "reactoverlayhh": false,
-          "reactoverlaylog": true
-        },
-        "note": "reactoverlay off: compare mode",
-        "waitS": 1
-      },
-      {
-        "cmd": "mem_mark",
-        "args": {
-          "tag": "reactoverlay-off"
-        },
-        "waitS": 0
-      },
-      {
-        "cmd": "do_interaction",
-        "args": {
-          "sim": "Bea Jig",
-          "target": "@type:TVCheap",
-          "interaction": "watch"
-        },
-        "note": "Bea watches TV",
-        "waitS": 15
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "Bea in front of the TV",
+        "note": "in Edit Town",
         "waitS": 5
       },
       {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Bea Jig|Startled"
-          ]
-        },
-        "note": "off: a NowOrLater reaction while she watches: EA queues it behind Watch TV (would 1)",
-        "waitS": 2
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "past the 2 s stale time",
-        "waitS": 4
+        "cmd": "enter_live_mode",
+        "waitS": 5,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        }
       },
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
           "args": [
             "result"
           ]
-        },
-        "note": "off: would drop 1 (EA keeps the reaction queued)",
-        "waitS": 2
+        }
       },
       {
-        "cmd": "queues",
-        "args": {},
-        "note": "the ReactionInteraction still queued behind Watch TV",
-        "waitS": 1
-      },
-      {
-        "cmd": "patches",
+        "cmd": "camera_pan",
         "args": {
-          "reactoverlay": true,
-          "reactoverlayhh": true
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
         },
-        "note": "reactoverlay on, household too",
-        "waitS": 1
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
       },
       {
-        "cmd": "mem_mark",
+        "cmd": "camera_pan",
         "args": {
-          "tag": "reactoverlay-on"
-        },
-        "waitS": 0
+          "stop": true
+        }
       },
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Bea Jig|Embarrassed"
-          ]
-        },
-        "note": "on: the overlay plays at once, nothing queued (overlaid now 1)",
-        "waitS": 2
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "wait",
-        "waitS": 4
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Bea Jig|Startled"
-          ]
-        },
-        "note": "on: again",
-        "waitS": 2
-      },
-      {
-        "cmd": "sim_where",
-        "args": {
-          "sim": "Bea Jig"
-        },
-        "note": "wait",
-        "waitS": 4
-      },
-      {
-        "cmd": "queues",
-        "args": {},
-        "note": "no ReactionInteraction behind Watch TV (the off arm's one is overlaid or dropped)",
-        "waitS": 1
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
-          "args": [
-            "force:Kit Jig|Startled"
-          ]
-        },
-        "note": "control: Kit idle (no action): EA's way, not a case",
-        "waitS": 2
-      },
-      {
-        "cmd": "reflect_call",
-        "args": {
-          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
           "args": [
             "result"
           ]
-        },
-        "note": "on: overlaid now, from the queue or dropped stale; errors 0",
-        "waitS": 2,
-        "mustMatch": "errors 0"
-      }
-    ],
-    "cleanup": [
+        }
+      },
       {
-        "cmd": "patches",
+        "cmd": "et_move_lot",
         "args": {
-          "readwalk": false
+          "action": "enter"
         },
-        "note": "default off again",
-        "waitS": 1
+        "waitS": 5,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "EditTownState"
+            }
+          ],
+          "everyS": 3,
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "enter_live_mode",
+        "waitS": 5,
+        "until": {
+          "cmd": "picker_state",
+          "all": [
+            {
+              "path": "live",
+              "equals": true
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "lots": 8,
+          "height": 25,
+          "seconds": 30,
+          "passes": 1
+        },
+        "waitS": 35,
+        "note": "streams lots in and out: the poll task must still drain the native queue"
+      },
+      {
+        "cmd": "camera_pan",
+        "args": {
+          "stop": true
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LotHubDiag",
+          "args": [
+            "result"
+          ]
+        }
       }
     ]
   },
@@ -121177,5 +121104,423 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "reactoverlay-force",
+    "bug": "A Sim busy with a still action (Watch TV) reacts seconds late: Sim.PlayReaction NowOrLater / AfterInteraction queues a ReactionInteraction behind the action (household queue up to 6.9 s in s496-s529, docs/686 §26.1)",
+    "fix": "ts3fixes ReactOverlay.cs (reactoverlay, reactoverlayhh, reactoverlaylog) docs/686 §26",
+    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
+    "note": "The readwalk-force lot (Jig household, Sunset Valley new game) plus a TV; the same steps are the tail of readwalk-force, so one load runs both.",
+    "expect": "off: 'would overlay' and 'would drop', the ReactionInteraction queued behind Watch TV. on: 'overlaid now' x2, nothing queued; Kit (idle) not a case; errors 0.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedSingle",
+          "name": "bed",
+          "x": 1193.6,
+          "y": 49.1,
+          "z": 1182.8
+        },
+        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "x": 1197.5,
+          "y": 49.1,
+          "z": 1192.5
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedSingle"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "readwalk: Bea (parent) at the front mailbox, far from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit next to Bea at the mailbox (the ask is a social; the bed is far)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired (Read to Sleep needs Tired)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "reactoverlay part: queues empty",
+        "waitS": 3
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "TVCheap",
+          "name": "tv",
+          "x": 1191.5,
+          "y": 49.1,
+          "z": 1190.5
+        },
+        "note": "a TV in the yard: Watch TV is a still action with the arms free",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1189.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea near the TV",
+        "waitS": 6
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlay": false,
+          "reactoverlayhh": false,
+          "reactoverlaylog": true
+        },
+        "note": "reactoverlay off: compare mode",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-off"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "@type:TVCheap",
+          "interaction": "watch"
+        },
+        "note": "Bea watches TV",
+        "waitS": 15
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "Bea in front of the TV",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "off: a NowOrLater reaction while she watches: EA queues it behind Watch TV (would 1)",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "past the 2 s stale time",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: would drop 1 (EA keeps the reaction queued)",
+        "waitS": 2
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "the ReactionInteraction still queued behind Watch TV",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlay": true,
+          "reactoverlayhh": true
+        },
+        "note": "reactoverlay on, household too",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-on"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Embarrassed"
+          ]
+        },
+        "note": "on: the overlay plays at once, nothing queued (overlaid now 1)",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "on: again",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "no ReactionInteraction behind Watch TV (the off arm's one is overlaid or dropped)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Kit Jig|Startled"
+          ]
+        },
+        "note": "control: Kit idle (no action): EA's way, not a case",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: overlaid now, from the queue or dropped stale; errors 0",
+        "waitS": 2,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]

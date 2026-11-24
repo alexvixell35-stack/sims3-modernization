@@ -1,0 +1,535 @@
+{
+ "note": "lc1-exact-correct-1123 (docs/334, WRITTEN, NOT RUN; correctness, any machine): deadrefexact (LC-1 of docs/333, exact cuts of the deadrefsweep cadence pass: one partition pass for the five typed lists, one ObjectDisposed read per object for the handler and cooking holders, cooking switch and counters read per slice) on top of the release defaults. Smoke first (stops the queue), then BP / IP / SV 10 min natural play with deadrefexactverify (household-untouched check: partition lists = filter passes) and the eight docs/330 deadref repros with the switch on. ON rule (Rodney 2026-11-23, docs/333 §6): PASS here + no regression in lc1-exact-time-1123 + the docs/334 §4 scaling case = ON. Est ~2 h 10 min.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1122 ": {
+   "match": [
+    "ts3native 0.36.299-m1122 2026-11-22 06:55:20"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+    "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc1-smoke",
+   "note": "[est 9 min] SMOKE (stops the queue on fail): BP 3 min natural play, release defaults (deadrefcadence ON) plus deadrefexact and deadrefexactverify ON. Pass: version, Apex + bridge lines, a partition pass ran and every partition list equalled its filter pass (verify_diff 0), 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "noSamplers": true,
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc1-correct",
+   "note": "[est 15 min] BP 10 min natural play (seed 12345), release defaults plus deadrefexact and deadrefexactverify ON. Household-untouched check: the verify switch runs the five old filter passes next to every partition and compares each list item by item (household Sims included); the object step's shared-list path is proven equal offline (tools/selftest/loopcost: SharedDrop against the old two-body flow). Pass: at least one full pass, a partition ran, verify_diff 0, the shared-list path taken (shared_lists >= 1), 0 script errors. Read deadrefsweep_p5_ms against the cadence-only rows of docs/330.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_shared_lists>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefexact"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc1-correct",
+   "note": "[est 15 min] IP 10 min natural play (seed 12345), release defaults plus deadrefexact and deadrefexactverify ON. Household-untouched check: the verify switch runs the five old filter passes next to every partition and compares each list item by item (household Sims included); the object step's shared-list path is proven equal offline (tools/selftest/loopcost: SharedDrop against the old two-body flow). Pass: at least one full pass, a partition ran, verify_diff 0, the shared-list path taken (shared_lists >= 1), 0 script errors. Read deadrefsweep_p5_ms against the cadence-only rows of docs/330.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_shared_lists>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefexact"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc1-correct",
+   "note": "[est 15 min] SV 10 min natural play (seed 12345), release defaults plus deadrefexact and deadrefexactverify ON. Household-untouched check: the verify switch runs the five old filter passes next to every partition and compares each list item by item (household Sims included); the object step's shared-list path is proven equal offline (tools/selftest/loopcost: SharedDrop against the old two-body flow). Pass: at least one full pass, a partition ran, verify_diff 0, the shared-list path taken (shared_lists >= 1), 0 script errors. Read deadrefsweep_p5_ms against the cadence-only rows of docs/330.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_shared_lists>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefexact"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-deadrefs-check-lc1",
+   "note": "[est 12 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro bp-deadrefs-check (phases 1-8 (relationship keys, aging, alarm owners, descriptions, Sims, fish, vehicles, horseshoe) through the agent sweep (DrAllDue: both groups run); its steps check every gone count drops). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), every gone count 0 after the pass, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 15,
+   "run": {
+    "profile": {
+     "minutes": 8,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "bp-deadrefs-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-dart-gone-check-lc1",
+   "note": "[est 15 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro dart-gone-check (phase 9 (dartboards from the world snapshot)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_dartboards>=3, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "dart-gone-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_dartboards>=3,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefsweep_dartboards",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under deadrefexact, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-use-list-gone-check-lc1",
+   "note": "[est 17 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro use-list-gone-check (phase 10 in the merged object step (use list scanned, copied only when a gone Sim is listed)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_uselists>=3, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "use-list-gone-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_uselists>=3,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_uselists",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under deadrefexact, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-object-owner-gone-check-lc1",
+   "note": "[est 17 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro object-owner-gone-check (phase 11 in the merged object step (OwnerBody)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_objectowners>=2, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "object-owner-gone-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_objectowners>=2,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_objectowners",
+     "op": ">=",
+     "value": 2,
+     "why": "the on arm cleaned nothing: phase missing under deadrefexact, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-disposed-handler-gone-check-lc1",
+   "note": "[est 17 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro disposed-handler-gone-check (phase 12 in the merged object step (HandlerBody)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_handlers>=1, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, deadrefexact_rereads >= 1, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "disposed-handler-gone-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_handlers>=1,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0,deadrefexact_rereads>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_handlers",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm cleaned nothing: phase missing under deadrefexact, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-cooking-handler-gone-check-lc1",
+   "note": "[est 15 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro cooking-handler-gone-check (phase 14 in the merged object step (CookingBody)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefcooking_handlers>=2, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, deadrefexact_shared_lists >= 1, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "cooking-handler-gone-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefcooking_handlers>=2,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0,deadrefexact_shared_lists>=1"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefcooking_handlers",
+     "op": ">=",
+     "value": 2,
+     "why": "the on arm cleaned nothing: phase missing under deadrefexact, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-celebrity-waiting-gone-check-lc1",
+   "note": "[est 17 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro celebrity-waiting-gone-check (phase 13 (Sims from the world snapshot)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefsweep_celebrity>=1, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "celebrity-waiting-gone-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefsweep_celebrity>=1,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_celebrity",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm cleaned nothing: phase missing under deadrefexact, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-conversation-gone-check-lc1",
+   "note": "[est 15 min] Correctness under deadrefexact ON (deadrefcadence ON as released, deadrefexactverify ON): repro conversation-gone-check (phase 15 (Sims from the world snapshot)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefexact stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefconvo_members>=1, deadrefexact_partitions moved (the exact pass ran), verify_diff 0, 0 script errors. Since 2026-11-23: 5 samples per arm judged per sample (>= 3 conclusive, no fail; results line lists each); the expected #166 RemoveSim throw is reported (not counted) only before the [on] step (scriptErrorsReportBefore); any other script error, or that one in the on arm, still fails.",
+   "asi": "game-copy/ts3native.asi.m1122",
+   "iniBase": "game-copy/ts3native.ini.m1122",
+   "fixesPackage": "game-copy/ts3fixes.package.lc1exact1",
+   "pinReason": "lc1-exact-cuts-1123 (docs/334, LC-1 of docs/333): master set m1122 asi + ini (0.36.299-m1122, no native change, the loop-cost lane baseline) with ts3fixes.package.lc1-exact-cuts-1123 (copy game-copy/ts3fixes.package.lc1exact1: the -1122d loop-cost build + deadrefexact, default OFF, and the test-only deadrefexactverify); agent ts3agent.package.lc1-exact-cuts-1123 (game-copy/ts3agent.package.lc1exact1: the two switch names and slots 1658-1661, 1669-1670) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "conversation-gone-check",
+     "fixesOn": "deadrefexact,deadrefexactverify",
+     "fixesRequire": "deadrefconvo_members>=3,deadrefcadence_snapshots>=1,deadrefexact_partitions>=1,deadrefexact_verify_lists>=5,deadrefexact_verify_diff<=0"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1122 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefconvo_members",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under deadrefexact, sweep refused, or the seed failed"
+    }
+   ],
+   "scriptErrorsReport": [
+    "System\\.NullReferenceException[^\\n]*\\r?\\n\\s*#0:[^\\n]*Socializing\\.Conversation:RemoveSim \\([^\\n]*\\r?\\n\\s*#1:[^\\n]*SocialComponent:(LeaveOrig|LeaveConversation) \\("
+   ],
+   "scriptErrorsReportBefore": "on",
+   "regexCases": {
+    "System\\.NullReferenceException[^\\n]*\\r?\\n\\s*#0:[^\\n]*Socializing\\.Conversation:RemoveSim \\([^\\n]*\\r?\\n\\s*#1:[^\\n]*SocialComponent:(LeaveOrig|LeaveConversation) \\(": {
+     "match": [
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveConversation ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()"
+     ],
+     "noMatch": [
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:OnSimDestroyed ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.InvalidCastException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.NullReferenceException: x\r\n#0: 0x1 in Sims3.Gameplay.Socializing.Conversation:AddSim (Sim) ()\r\n#1: 0x2 in Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()"
+     ]
+    },
+    "^ts3native 0\\.36\\.299-m1122 ": {
+     "match": [
+      "ts3native 0.36.299-m1122 2026-11-22 06:55:20"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-nsplit1 2026-11-22 20:00:00",
+      "ts3native 0.36.298-m1121b 2026-11-21 10:00:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+     ]
+    }
+   }
+  }
+ ]
+}
