@@ -533,6 +533,7 @@ namespace Ts3Fixes
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / simpass / angleentry and their household switches, off by default (counts either way)
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
+            ApplyPartnerPull();        // docs/686 §21 (PartnerPull.cs): partnerpull, off by default (counts either way); a 0.5 sim-minute alarm started at world load, no swap
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
@@ -1388,7 +1389,9 @@ namespace Ts3Fixes
         // spot, pet or rider, a social's own route, walk up cancelled) / snaps after a walk up / snap outs (both rules) / errors; paired socials:
         // failed placements, plans and walks / would, off / exempt (household without pairsnaphh) / placed (snap, turn, jig slot, plan through
         // objects) / kept (too far, other level, sitting, still walking, no spot) / errors.
-        const int kCounterSlots = 4582;
+        // [4582-4589] partnerpull (PartnerPull.cs, docs/686 §21): waits past the grace / pulled: read to sleep / socials / would, off / kept: player's
+        // action or queue / kept: busy or outranking head / errors / refused by the game (timed interaction about to finish).
+        const int kCounterSlots = 4590;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1728,6 +1731,8 @@ namespace Ts3Fixes
                 case "pairsnap": return Instantiator.kPairSnap;  // WooHooSnap.cs (docs/686 §20): a paired social (kiss, hug) of two NPCs within 3 m whose placement or route fails is lined up by a snap, off
                 case "pairsnaphh": return Instantiator.kPairSnapHousehold;  // WooHooSnap.cs: the same for pairs with a household or selected Sim, off
                 case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
+                case "partnerpull": return Instantiator.kPartnerPull;  // PartnerPull.cs (docs/686 §21): a Sim waiting on a partner whose linked half is queued behind an autonomous action gets the half moved up and the action ended (EA's prioritize), every Sim, off
+                case "partnerpulllog": return Instantiator.kPartnerPullLog;  // PartnerPull.cs (docs/686 §21): one line per pull or kept case, off
                 case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
                 case "linewaitlog": return Instantiator.kLineWaitLog;  // ObjShare.cs (docs/686 §14): one line per wait in an object's line or for a rabbit hole's enter slot, and per share, off
                 case "rhshare": return Instantiator.kRhShare;  // ObjShare.cs (docs/686 §14): an NPC walks to a rabbit hole enter slot another Sim holds; a cancelled Sim leaves the wait, off

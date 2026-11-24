@@ -189,6 +189,7 @@ namespace Ts3Fixes
             DormantProbeWorldLoad();  // dormantprobe (DormantProbe.cs, docs/630): its hourly line, same ride
             NpcStallWorldLoad();  // npcstallend (NpcStallEnd.cs, docs/649): its 10 sim-minute pass, same ride
             DishPileWorldLoad();  // dishpilecap (DishPileCap.cs, docs/652): its hourly pass, same ride
+            PartnerPullWorldLoad();  // partnerpull (PartnerPull.cs, docs/686 §21): its 0.5 sim-minute pass, same ride
         }
 
         // returns "moved m, left l" (the harness reads it)

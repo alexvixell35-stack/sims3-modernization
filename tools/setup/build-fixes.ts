@@ -219,6 +219,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPairSnap value="False" />
     <kPairSnapHousehold value="False" />
     <kPairSnapLog value="False" />
+    <kPartnerPull value="False" />
+    <kPartnerPullLog value="False" />
     <kCrowdPortMin value="3" />
     <kCrowdPortWait value="1" />
     <kLineWaitLog value="False" />
