@@ -1895,6 +1895,24 @@ only in a hot conversation, so nine romantic socials come first. Bed: a mini fri
   `RouteAsync.NoPathMemo=1` with the fuzzy and household switches; a stale memo entry is the likely cause. To be
   checked with objects moved in Buy mode.
 
+### 20.7 Rule c in the game: Pillow Fight by a bed (2026-11-24, Deck, Sunset Valley new game, repro `readwalk-pairjig-force`, runs r4-rp1 to r4-rp4) [verified]
+- Layout: Bo of the active household ringed by eight fridges (`box_in`), Bea 2.3 m away, a single bed by the ring.
+  `Sim.PillowFight.CreateAndPlaceJig` puts its two-person jig by the bed nearest the target (`FindGoodLocationNearby`
+  from the bed's position), so the jig stands away from the pair.
+- Two bugs of rule c, fixed: (1) its reach was the 3 m pair rule, measured to the partner, so a jig by a bed 4.9 m
+  away was "too far" (r4-rp1); now the reach is the Sim's distance to the jig, at most the 6 m clip walk
+  (`WooHooSnapCore.JigStep`). (2) It planned again with `Route.Replan`, which re-plans the last plan (its
+  decompiled body hands `PlanResult.mDestination`, which a failed plan lacks, to the plan callback) [inferred]; in
+  r4-rp2 that plan failed, now a fresh `Plan` / `PlanFromPoint`, which succeeded in r4-rp3 and r4-rp4. The keep line names the plan result and length.
+- r4-rp3: the plan through objects was 6.9 m (the jig 5.1 m away, kept by the 6 m cap). r4-rp4 (bed by the ring):
+
+| | off (`pairsnap` + `pairsnaphh` off) | on |
+|---|---|---|
+| Ask To Pillow Fight, Bo boxed in | `routefail: Bo Jig ..., SocialInteractionB target Sim, Plan async FailedBecauseNoPathToDestination blocker Object ... FridgeCheap`; would 1; no fight | `pairsnap: household Bo Jig -> SocialJigTwoPerson with Bea Jig (FailedBecauseNoPathToDestination, jig plan): planned through objects, 2.8 m`; walk through objects 1, kept 0, errors 0; Bo walks out through a fridge and both run `Pillow Fighting` (`Sim+PillowFight` / `SocialInteractionB`) |
+
+- The look: the fight plays on the jig's own slots (the game's slot routes end on them), so no 2 mm alignment step is
+  involved; Bo stands outside the ring afterwards. Not run: an NPC pair (`pairsnap` alone), rule b.
+
 ## 21. A partner busy with an autonomous action is pulled to the waiting half (`partnerpull`; 2026-11-24, `post/partnerpull-1124`, built, default off, run §21.4)
 
 ### 21.1 The wait [verified, decompiled `Sims3GameplayObjects` `Bed.cs`, `Sims3GameplaySystems` `Sim.cs`, `SocialInteraction.cs`, `InteractionInstance.cs`, `InteractionQueue.cs`]
@@ -1974,6 +1992,17 @@ child walks and climbs in. Only then does it walk to `part.RoutingSlotForSit` (`
 - One story in the on arm: kept, because the sit slot was on the child's way (Jack Bunch to Arlo Bunch's single bed,
   while the child got in). No walk, no error. Off arm: no case. Not proven yet. Needs a forced story with the
   parent more than 5 m away and the bed's sit side clear of the child's way.
+
+### 22.5 Forced repro (2026-11-24, repro `readwalk-pairjig-force`, runs r4-rp1 to r4-rp4): the story never started [verified]
+- A child not in bed never offers "Read to Sleep" on the parent's menu: `Sim_ReadToSleep_PickBook`'s test
+  (`SocialTest.TestReadToSleep`, `fromSocialization` false) answers false for a Child unless it already sits in the
+  bed, and then `Bed_ReadToSleep` finds it in (EA walks the parent at once, `kKeepChildIn`). Outside the bed the story
+  starts only from the socials ("Ask for Bedtime Story" by the child, the parent's social when offered).
+- With a single bed, a bookshelf and the Tired moodlet, Kit's "Ask for Bedtime Story" ran at 19:00-23:00 (actdelay
+  `SocialInteractionA:Request Bedtime Story`), but no book picker opened (`pending_dialogs` open false, 8 tries) and
+  no `Bed_ReadToSleep` followed: readwalk counted nothing in any arm (would 0, kept 0, errors 0). Why the accept did not
+  push the picker is not found yet. readwalk stays NOT PROVEN; next try: a parent and child of one family (made by
+  `make_household` with a parent link), or the parent's own social in the Friendly menu.
 
 ## 23. An idle household Sim starts a new action at once (`queuewake`; 2026-11-24, `post/queuewake-1124`, built, default off, run §23.4)
 

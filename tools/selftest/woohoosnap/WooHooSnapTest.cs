@@ -73,6 +73,10 @@ static class WooHooSnapTest
         Check(WooHooSnapCore.PairStep(1.5f, 0f, true, false, false, false, out why) == PSnap && why == WooHooSnapCore.kWhyNone, "1.5 m apart: snap");
         Check(WooHooSnapCore.PairStep(3f, 0f, true, false, false, false, out why) == PSnap, "3 m is in");
         Check(WooHooSnapCore.PairStep(3.01f, 0f, true, false, false, false, out why) == PKeep && why == WooHooSnapCore.kPairWhyFar, "beyond 3 m");
+        Check(WooHooSnapCore.JigStep(4.9f, 0f, true, false, 6f, out why) == PSnap, "rule c: a jig 4.9 m away (by a bed) is in reach");
+        Check(WooHooSnapCore.JigStep(6.1f, 0f, true, false, 6f, out why) == PKeep && why == WooHooSnapCore.kPairWhyFar, "rule c: beyond the clip walk");
+        Check(WooHooSnapCore.JigStep(2f, 0f, false, false, 6f, out why) == PKeep && why == WooHooSnapCore.kPairWhyLevel, "rule c: another level");
+        Check(WooHooSnapCore.JigStep(2f, 0f, true, true, 6f, out why) == PKeep && why == WooHooSnapCore.kPairWhyPosture, "rule c: in a posture");
         Check(WooHooSnapCore.PairStep(1f, 0f, false, false, false, false, out why) == PKeep && why == WooHooSnapCore.kPairWhyLevel, "another level");
         Check(WooHooSnapCore.PairStep(1f, -0.2f, true, false, false, false, out why) == PKeep && why == WooHooSnapCore.kPairWhyLevel, "a step in height the game's own test refuses");
         Check(WooHooSnapCore.PairStep(1f, 0.13f, true, false, false, false, out why) == PSnap, "within the game's height tolerance");

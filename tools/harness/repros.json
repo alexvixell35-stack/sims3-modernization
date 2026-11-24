@@ -130836,5 +130836,1487 @@
         "waitS": 1
       }
     ]
+  },
+  {
+    "id": "readwalk-pairjig-force",
+    "bug": "(1) Read to Sleep: a parent more than 5 m from the child's bed walks to 3-5 m of it, stands while the child climbs in, then walks again to the sit slot (docs/686 §22.1). (2) Pillow Fight by a bed: the jig is placed by the bed and the boxed-in partner's plan to its jig slot fails (PlanRouteToJigA / RouteToJigB), the social ends with a route-fail balloon (docs/686 §20.1, storms: PillowFight 27 route fails in s496-s529)",
+    "fix": "ts3fixes ReadWalk.cs (readwalk, readwalklog) docs/686 §22; WooHooSnap.cs pairsnap rule c (pairsnap, pairsnaphh, pairsnaplog) docs/686 §20",
+    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
+    "note": "RUN 2026-11-24 (Deck, Sunset Valley new game, r4-rp1..r4-rp4; docs/686 §20.7, §22.5). Two forced repros in one load, off arms first; checks have no mustMatch except the last ones, so the log shows each arm. Pillow fight part PASSES (r4-rp4: off would 1, no fight; on 'planned through objects, 2.8 m', both Pillow Fighting). Readwalk part does not trigger yet: Read to Sleep is not on the parent's menu for a child out of bed, and Kit's Ask for Bedtime Story ran without a book picker or story (readwalk counted nothing).",
+    "expect": "pairjig-off: PairSnapCheck tries and would up (a 'jig plan' case), no pillow fight. pairjig-on: 'pairsnap: ... -> SocialJig... with ... (..., jig plan): planned through objects, N m', walk through objects 1, Bo walks through the ring, both run PillowFight. readwalk-off: 'readwalk: would walk: Bea Jig to Kit Jig's bed (instead of the 3-5 m walk)'. readwalk-on: 'readwalk: walked: ...' (instead of the 3-5 m walk 1), Bea never stands 3-5 m from the bed.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedSingle",
+          "name": "bed",
+          "x": 1193.6,
+          "y": 49.1,
+          "z": 1182.8
+        },
+        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "x": 1197.5,
+          "y": 49.1,
+          "z": 1192.5
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedSingle"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "modify_relationship",
+        "args": {
+          "sim": "Bea Jig",
+          "other": "Bo Jig",
+          "state": "Partner",
+          "liking": 100
+        },
+        "note": "Bea and Bo are partners",
+        "waitS": 1,
+        "max": 200
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bo Jig"
+          ],
+          "x": 1190.8,
+          "z": 1183.6,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bo on a lawn tile of the back yard",
+        "waitS": 10,
+        "max": 300
+      },
+      {
+        "cmd": "box_in",
+        "args": {
+          "sim": "Bo Jig",
+          "x": 1190.8,
+          "z": 1183.6
+        },
+        "note": "eight fridges round Bo: his plan to the pillow fight's jig fails",
+        "waitS": 2,
+        "max": 900,
+        "mustMatch": "\"boxed\":true"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Bea Jig",
+          "x": 1190.8,
+          "z": 1185.9
+        },
+        "note": "Bea on the tile beyond the ring, 2.3 m from Bo",
+        "waitS": 3,
+        "max": 200
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 1191.5,
+            "y": 61,
+            "z": 1192
+          },
+          "target": {
+            "x": 1192.5,
+            "y": 49,
+            "z": 1185.5
+          }
+        },
+        "note": "camera over the ring and the bed",
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnaplog": true,
+          "routefaillog": true,
+          "readwalklog": true,
+          "socialreach": false,
+          "socialreachhh": false,
+          "unstuck": false,
+          "unstuckhh": false,
+          "blockeduse": false,
+          "blockedusehh": false,
+          "pairsnap": false,
+          "pairsnaphh": false,
+          "readwalk": false,
+          "partnerpull": false,
+          "partnerpullhh": false
+        },
+        "note": "log lines on, arms off",
+        "waitS": 1
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "query": "pillow"
+        },
+        "note": "Pillow Fight is on Bea's menu for Bo",
+        "waitS": 1,
+        "max": 600,
+        "optional": true
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairjig-off"
+        },
+        "note": "log marker pairjig-off",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "interaction": "pillow fight"
+        },
+        "note": "off order: Bea, Pillow Fight with Bo (a jig by the bed)",
+        "waitS": 25,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "pairjig-off at 25 s (expect tries and would up, jig plan): pairsnap counters",
+        "waitS": 1,
+        "max": 1800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: no pillow fight runs",
+        "waitS": 1,
+        "max": 600
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "Bea's queue empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "Bo's queue empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": true,
+          "pairsnaphh": true
+        },
+        "note": "arm on: pairsnap + pairsnaphh",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "pairjig-on"
+        },
+        "note": "log marker pairjig-on",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Bo Jig",
+          "interaction": "pillow fight"
+        },
+        "note": "on order: the same pillow fight",
+        "waitS": 30,
+        "max": 300
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "on: Bo at the jig (out of the ring)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: both sides of the pillow fight",
+        "waitS": 15,
+        "max": 600
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "pairjig-on (expect walk through objects 1, kept 0, errors 0): pairsnap counters",
+        "waitS": 1,
+        "max": 1800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea after the fight",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the fight",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bo Jig"
+        },
+        "note": "end the fight",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "readwalk: Bea (parent) at the front mailbox, far from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit next to Bea at the mailbox (the ask is a social; the bed is far)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired (Read to Sleep needs Tired)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": false
+        },
+        "note": "readwalk off (compare mode)",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-off"
+        },
+        "note": "log marker readwalk-off",
+        "waitS": 0
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea before the story",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig",
+          "interaction": "read to sleep"
+        },
+        "note": "off order: Bea reads Kit to sleep",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Kit Jig",
+          "target": "Bea Jig",
+          "interaction": "bedtime story"
+        },
+        "note": "off order: Bea reads Kit to sleep (or Kit asks for a bedtime story)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "pending_dialogs",
+        "args": {},
+        "note": "open dialog after the ask (the book picker?)",
+        "waitS": 0,
+        "max": 600,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "off: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-off (expect would 1 or a kept line): readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: the story",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the story",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "note": "Kit out of bed",
+        "waitS": 8,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "on: Bea back at the mailbox",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "on: Kit next to Bea again",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": true
+        },
+        "note": "arm on: readwalk",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-on"
+        },
+        "note": "log marker readwalk-on",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig",
+          "interaction": "read to sleep"
+        },
+        "note": "on order: the same story",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Kit Jig",
+          "target": "Bea Jig",
+          "interaction": "bedtime story"
+        },
+        "note": "on order: the same story (or Kit asks for a bedtime story)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "pending_dialogs",
+        "args": {},
+        "note": "open dialog after the ask (the book picker?)",
+        "waitS": 0,
+        "max": 600,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-on (expect instead of the 3-5 m walk 1): readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: the story",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "end the story",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "note": "Kit out of bed",
+        "waitS": 8,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1188.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "on 2: Bea 7 m west of the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "x": 1198.0,
+          "z": 1187.0,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "on 2: Kit 3.5 m east of the bed (the other side; she walks to Bea for the ask)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "readwalk-on2"
+        },
+        "note": "log marker readwalk-on2",
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig",
+          "interaction": "read to sleep"
+        },
+        "note": "on 2 order",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Kit Jig",
+          "target": "Bea Jig",
+          "interaction": "bedtime story"
+        },
+        "note": "on 2 order (or Kit asks for a bedtime story)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "pending_dialogs",
+        "args": {},
+        "note": "open dialog after the ask (the book picker?)",
+        "waitS": 0,
+        "max": 600,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "respond_dialog",
+        "args": {
+          "pick": [
+            ""
+          ]
+        },
+        "note": "the book picker: the first book (try 8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (0)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (1)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (2)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (3)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (4)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (5)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (6)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (7)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (8)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "on 2: Bea during the story (9)",
+        "waitS": 3,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "readwalk-on2: readwalk counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PairSnapCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: pairsnap counters",
+        "waitS": 1,
+        "max": 1800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReadWalkCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: readwalk errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlotRetryCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "slotretry: hooks applied, rules (smoke for the storm A/B)",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "pairsnap": false,
+          "pairsnaphh": false,
+          "readwalk": false
+        },
+        "note": "default off again",
+        "waitS": 1
+      }
+    ]
   }
 ]
