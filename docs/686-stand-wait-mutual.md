@@ -1953,3 +1953,37 @@ child walks and climbs in. Only then does it walk to `part.RoutingSlotForSit` (`
 ### 22.3 Limits [inferred]
 - On a double bed before the child reaches it, the part is unknown, so the 3-5 m walk stays and the early walk
   happens once the child's `EnterRelaxing` has picked its part.
+
+## 23. An idle household Sim starts a new action at once (`queuewake`; 2026-11-24, `post/queuewake-1124`, built, default off, run §23.4)
+
+### 23.1 The sleep [verified, decompiled `Sim.DoInteraction`, `Sim.LoopIdle`; docs/684 E1]
+With an empty queue, `Sim.DoInteraction` runs `LoopIdle()` and then, with no yield in between, one of three sleeps:
+`Sleep(kSimLoopSleepTicksWhenAutonomyDisabled = 20)`, `Sleep(kSimLoopSleepTicksWhenInAutonomyQueue = 10)`, or 2
+ticks after adding itself to the autonomy manager's queue. An entry added from another task (the player's click, or
+autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `PostureIdle` reaches
+`StateMachineClient.RequestState` (swap-stack audit).
+
+### 23.2 What is built
+- `queuewake` (`QueueWake.cs`, `QueueWakeCore.cs`, counters 4596-4601, `QueueWakeCheck`, selftest
+  `tools/selftest/queuewake`). Swaps: `Sim.LoopIdle` and `InteractionInstance.OnAddedToQueue` (both stacked, with a
+  stub). At the end of `LoopIdle` (after the posture idle) a household or selected Sim with an empty queue, nothing
+  running and no transition, on its own task, gets a mark: now + the sleep it is about to take (10 or 20 ticks;
+  2-tick sleeps are left alone).
+- When the Sim's first entry is added from another task before that deadline, `Simulator.Wake(sim, false)` wakes it.
+  Any add drops the mark. After the deadline the Sim is never woken, because the loop may by then sleep somewhere
+  else (an animation). NPCs are never marked.
+- Off = compare mode, with the ticks it would save. `queuewakelog` writes one line per wake.
+
+### 23.3 Long "wake" means in the actdelay lines (s496-s529, 405 lines) [verified from the lines + decompiled]
+- Toilet `UseToilet` (16 lines, mean 345 ms), `FutureSkill+Inspect` (7, 635), `PillowFight` (6, 386): the mean comes
+  from 2-4 s outliers (2490, 2295, 4242, 2219 ms). All of them are a Sim that carries a child:
+  `InteractionQueue.ProcessOneInteraction` calls `InsertInteractionsToHandleBabiesAndToddlers`, and
+  `InsertBabyOrToddlerTransition` inserts a `PostureTransitionProxyInteraction` (put the child down, `MustRun`,
+  synced with the child, "sync waits 3") at index 0, ahead of the head. actdelay's "wake" (head to first transition
+  or Run) therefore holds the whole put-down. This is EA's childcare rule, not a loop sleep and not a bug. Without
+  those lines, wakes on an empty queue are under 60 ms in 100 of 113 lines.
+- `Sim+MotiveFail` (6, 585-657 ms, household, "queue" 770-1500 ms first): it queues behind a running
+  `ReactionInteraction` and becomes head when that is removed. The ~600 ms that follow fit the removed interaction's
+  own exit running on the Sim's task before the loop comes back [inferred, not traced]. That is not the idle sleep
+  either.
+- Neither is a confirmed bug, so no fix. queuewake only removes the 10/20-tick idle sleep.

@@ -190,6 +190,7 @@ namespace Ts3Fixes
             NpcStallWorldLoad();  // npcstallend (NpcStallEnd.cs, docs/649): its 10 sim-minute pass, same ride
             DishPileWorldLoad();  // dishpilecap (DishPileCap.cs, docs/652): its hourly pass, same ride
             PartnerPullWorldLoad();  // partnerpull (PartnerPull.cs, docs/686 §21): its 0.5 sim-minute pass, same ride
+            QueueWakeWorldLoad();  // queuewake (QueueWake.cs, docs/686 §23): marks of the old world dropped, same ride
         }
 
         // returns "moved m, left l" (the harness reads it)
