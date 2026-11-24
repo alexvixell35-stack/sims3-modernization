@@ -459,6 +459,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kPairSnap = false;  // pairsnap (docs/686 §20): a paired social (kiss, hug) of two Sims the player does not control, within 3 m on one level, whose placement or route fails is lined up by a short snap
         [Tunable] public static bool kPairSnapHousehold = false;  // pairsnaphh: pairsnap for pairs with a household or selected Sim (stands alone)
         [Tunable] public static bool kPairSnapLog = false;  // pairsnaplog: one ts3native.log line per act
+        [Tunable] public static bool kLineSwitch = false;  // lineswitch (docs/686 §25): an NPC waiting in a toilet, sink, shower or bath line takes a free, reachable object of the same kind on the lot after kLineSwitchMinutes
+        [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
+        [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
+        [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
         [Tunable] public static bool kSocialReachHousehold = false;  // socialreachhh: socialreach for pairs with a household or selected Sim (stands alone)
         [Tunable] public static bool kSocialReachLog = false;  // socialreachlog: one ts3native.log line per act
         [Tunable] public static bool kUnstuck = true;  // unstuck (docs/686 §18): a Sim or pet the player does not control that failed 3 plans from one spot over 2.5 sim-minutes (or that the game's nightly stuck check found no way for) and has no normal way to a place 3 m away walks out through the objects to the nearest open place (a real walk, never through walls, at most 12 m); never a Sim that sits, lies, swims, rides or is carried

@@ -169,6 +169,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPairSnap value="False" />
     <kPairSnapHousehold value="False" />
     <kPairSnapLog value="False" />
+    <kLineSwitch value="False" />
+    <kLineSwitchHh value="False" />
+    <kLineSwitchLog value="False" />
+    <kLineSwitchMinutes value="2" />
     <kSafeSpotYield value="False" />
     <kSafeSpotPlanYield value="True" />
     <kDisposeSpread value="False" />

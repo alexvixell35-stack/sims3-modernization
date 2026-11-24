@@ -29,7 +29,6 @@ export const EXEMPT: Record<string, string> = {
   petrelaxlog: 'log only (one petrelax: line per act, docs/686 §11): on in the forced repro petrelax-force (docs/686 §11.6), which needs agent steps that are not upstream yet',
   clipwaitlog: 'log only (one clipwait: line per wait, docs/686 §9); clipwait is here as petrelax plumbing',
   showersharelog: 'log only (one showertogether: / showerpee: line per act, docs/686 §15): on in the forced repro showershare-force (docs/686 §15.5), whose agent steps and harness flag are not upstream yet',
-  linewaitlog: 'log only (one linewait: line per wait in an object line or at a rabbit hole enter slot, docs/686 §14): on in the forced repros servingshare-force and rhshare-force (docs/686 §14.5), whose agent steps are not upstream yet',
   spiralshare: 'no forced repro yet: judged by the route storms of docs/686 §8.7 (spiral stair waits of 7-12 sim-min gone); its hooks are the ones sharelanes-check reads',
   spiralsharehh: 'as spiralshare (household scope of the same hooks)',
   lanewaitlog: 'log only (one lanewait: line per wait for a portal lane, docs/686 §8): on in both arms of the route storms of docs/686 §8.7 (storm runner, not a repro)',

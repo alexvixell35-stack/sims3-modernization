@@ -384,7 +384,10 @@ namespace Ts3Fixes
                 if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
-                bool got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                LswWait lsw = LswBegin(this, interaction, target);  // docs/686 §25 (LineSwitch.cs): a free twin object is used after a while
+                bool got;
+                try { got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes); }
+                finally { if (lsw != null) LswEnd(interaction.InstanceActor, lsw); }
                 OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
                 return got;
             }

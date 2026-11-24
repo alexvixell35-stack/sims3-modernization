@@ -120759,5 +120759,455 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "lineswitch-force",
+    "bug": "A Sim waiting in a toilet's line keeps waiting while a second toilet on the lot is free: EA's substitution (SimQueue.TryReplacementInteraction) looks only once, on the first pass of the wait loop (docs/686 §25.1)",
+    "fix": "ts3fixes LineSwitch.cs: lineswitch, lineswitchhh (default off), lineswitchlog, docs/686 §25",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap and ToiletModerate on one lot, as in storms s533-s536)",
+    "note": "Jack uses the moderate toilet, Lisa the cheap one, Judy (autonomous pick) queues for the cheap one while both are taken; Jack finishes first. Off: Judy waits for Lisa. On: from 2 sim-min of waiting Judy takes the free moderate toilet. (An empty lot did not work: the game found no outdoor spot for a toilet.)",
+    "expect": "off: LineSwitchCheck 'would 1', Judy waits in line until Lisa is done; on: 'switched 1' and a 'lineswitch: switched' line, Judy uses ToiletModerate; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 20
+        },
+        "note": "evening: everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitchlog": true,
+          "linewaitlog": true,
+          "routefaillog": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "log lines on, arm off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap"
+        },
+        "note": "Judy's menu on the cheap toilet",
+        "waitS": 1,
+        "max": 1500,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "lineswitch: swap applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -30
+        },
+        "note": "off: Jack needs the toilet a little (a short use of the moderate toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "off: Lisa needs it (-80: -100 makes her pee herself first, r5-rp2) (a long use of the cheap toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -70
+        },
+        "note": "off: Judy needs it",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lineswitch-off"
+        },
+        "note": "log marker lineswitch-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "off: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "off: Jack uses the moderate toilet",
+        "waitS": 4,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "off: Judy's own pick: the cheap toilet; both toilets taken, so EA's first-pass substitution finds nothing and she waits in Lisa's line",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy in the cheap toilet's line, Jack on the moderate one",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (20 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Jack done; on: Judy on the moderate toilet, off: Judy still in line",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (50 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: lineswitch counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: end of the arm",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitch": true,
+          "lineswitchhh": true
+        },
+        "note": "arm on: lineswitch + lineswitchhh",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -30
+        },
+        "note": "on: Jack needs the toilet a little (a short use of the moderate toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "on: Lisa needs it (-80: -100 makes her pee herself first, r5-rp2) (a long use of the cheap toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -70
+        },
+        "note": "on: Judy needs it",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lineswitch-on"
+        },
+        "note": "log marker lineswitch-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "on: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "on: Jack uses the moderate toilet",
+        "waitS": 4,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "on: Judy's own pick: the cheap toilet; both toilets taken, so EA's first-pass substitution finds nothing and she waits in Lisa's line",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy in the cheap toilet's line, Jack on the moderate one",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (20 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Jack done; on: Judy on the moderate toilet, off: Judy still in line",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (50 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: lineswitch counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: end of the arm",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: switched 1 (on arm), would 1 (off arm), errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "switched [1-9].*errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
   }
 ]

@@ -628,9 +628,11 @@ namespace Ts3Agent
                 }
             }
 
+            // "autonomous": true queues the action as the Sim's own pick (autonomous priority and flag), as autonomy would
+            bool auto = a.Bool("autonomous", false);
             InteractionInstanceParameters p = new InteractionInstanceParameters(e.Iop, actor,
-                new InteractionPriority(InteractionPriorityLevel.UserDirected), AutonomySearchType.None,
-                InteractionFlags.UserDirected, hit, picked, false);
+                new InteractionPriority(auto ? InteractionPriorityLevel.Autonomous : InteractionPriorityLevel.UserDirected), AutonomySearchType.None,
+                auto ? InteractionFlags.Autonomous : InteractionFlags.UserDirected, hit, picked, false);
             InteractionInstance inst = e.Iop.InteractionDefinition.CreateInstanceFromParameters(ref p);
             if (inst == null) throw new McpException("the game could not create '" + e.Label + "'");
             bool queued;

@@ -81,6 +81,7 @@ namespace Ts3Fixes
         {
             public void PlayHook(SimQueue.WaitBehavior behavior, IGameObject target, Sim sim)
             {
+                if (LswSkipRouteFail(sim)) return;  // docs/686 §25 (LineSwitch.cs): the Sim walks to the free twin it was just given
                 if (sim != null && sim == sSrfSim)
                 {
                     bool sameTick = sSrfTick == SimClock.CurrentTicks;
