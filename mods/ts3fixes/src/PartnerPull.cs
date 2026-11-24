@@ -4,6 +4,7 @@ using System.Reflection;
 using Sims3.Gameplay;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
+using Sims3.Gameplay.Careers;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects.Beds;
@@ -134,7 +135,8 @@ namespace Ts3Fixes
             }
             Sim headLinkSim = head.LinkedInteractionInstance != null ? head.LinkedInteractionInstance.InstanceActor : null;
             bool busy = !head.CancellableByPlayer || head.MustRun || q.TransitionInteraction != null || headLinkSim == s;
-            int step = PartnerPullCore.Step(waited, head.Autonomous, aheadAuto, busy, link.GetPriority().CompareTo(head.GetPriority()));
+            bool trip = head.Target is Lot || head is ITakeSimToWorkLocation || PpTripName(head.GetType().Name);
+            int step = PartnerPullCore.Step(waited, head.Autonomous, aheadAuto, busy, trip, head is SocialInteraction, link.GetPriority().CompareTo(head.GetPriority()));
             if (step == PartnerPullCore.kWaitGrace) return;
             w.Decided = true;
             int[] c = PatchCounters();
@@ -144,7 +146,8 @@ namespace Ts3Fixes
             if (step != PartnerPullCore.kPull)
             {
                 c[step == PartnerPullCore.kKeepPlayer ? kPpKeptPlayer : kPpKeptBusy]++;
-                PpLine("kept, " + (step == PartnerPullCore.kKeepPlayer ? "player's action" : step == PartnerPullCore.kKeepRank ? "head outranks" : "head busy") + ": " + what);
+                PpLine("kept, " + (step == PartnerPullCore.kKeepPlayer ? "player's action" : step == PartnerPullCore.kKeepRank ? "head outranks" : step == PartnerPullCore.kKeepTrip ? "partner on a lot trip"
+                    : step == PartnerPullCore.kKeepSocial ? "partner in a conversation" : "head busy") + ": " + what);
                 return;
             }
             if (!PartnerPullCore.Act(ShortcutOn("partnerpull"))) { c[kPpWould]++; PpLine("would pull: " + what); return; }
@@ -153,6 +156,9 @@ namespace Ts3Fixes
             c[w.Kind == PartnerPullCore.kReadToSleep ? kPpPullRts : kPpPullSoc]++;
             PpLine("pulled after " + waited.ToString("0.0") + " sim-min: " + what);
         }
+
+        // lot trips and arrivals named by type (the ones not targeted at a Lot)
+        static bool PpTripName(string n) { return n.IndexOf("GoToLot") >= 0 || n.IndexOf("Visit") >= 0 || n.IndexOf("Arrive") >= 0 || n.IndexOf("Travel") >= 0 || n.IndexOf("GoHome") >= 0; }
 
         static string PpName(InteractionInstance ii)
         {
@@ -167,7 +173,7 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             return "partnerpull: waits past the grace " + c[kPpSeen] + "; pulled: read to sleep " + c[kPpPullRts] + ", socials " + c[kPpPullSoc]
-                + "; off: would " + c[kPpWould] + "; kept: player's action or queue " + c[kPpKeptPlayer] + ", busy or outranking head " + c[kPpKeptBusy]
+                + "; off: would " + c[kPpWould] + "; kept: player's action or queue " + c[kPpKeptPlayer] + ", busy (lot trip, conversation, must run, transition) or outranking head " + c[kPpKeptBusy]
                 + ", refused by the game " + c[kPpRefused] + "; errors " + c[kPpErrors] + (sPpLastError.Length > 0 ? " (last: " + sPpLastError + ")" : "")
                 + "; waits measured: read to sleep " + sPpWaits[0] + " (" + (sPpWaitTenths[0] / 10f).ToString("0.0") + " sim-min, max " + (sPpWaitMax[0] / 10f).ToString("0.0")
                 + "), socials " + sPpWaits[1] + " (" + (sPpWaitTenths[1] / 10f).ToString("0.0") + " sim-min, max " + (sPpWaitMax[1] / 10f).ToString("0.0") + "), open " + sPpWait.Count
@@ -182,12 +188,13 @@ namespace Ts3Fixes
             if (what != "run") return "partnerpull <run|result>";
             bool on = ShortcutOn("partnerpull");
             const int Pull = PartnerPullCore.kPull;
-            bool fixedNow = PartnerPullCore.Step(1.5f, true, true, false, 0) == Pull && PartnerPullCore.Step(3f, true, true, false, 1) == Pull && PartnerPullCore.Act(on);
-            bool controls = PartnerPullCore.Step(0.5f, true, true, false, 0) == PartnerPullCore.kWaitGrace
-                && PartnerPullCore.Step(2f, false, true, false, 0) == PartnerPullCore.kKeepPlayer && PartnerPullCore.Step(2f, true, false, false, 0) == PartnerPullCore.kKeepPlayer
-                && PartnerPullCore.Step(2f, true, true, true, 0) == PartnerPullCore.kKeepBusy && PartnerPullCore.Step(2f, true, true, false, -1) == PartnerPullCore.kKeepRank;
+            bool fixedNow = PartnerPullCore.Step(1.5f, true, true, false, false, false, 0) == Pull && PartnerPullCore.Step(3f, true, true, false, false, false, 1) == Pull && PartnerPullCore.Act(on);
+            bool controls = PartnerPullCore.Step(0.5f, true, true, false, false, false, 0) == PartnerPullCore.kWaitGrace
+                && PartnerPullCore.Step(2f, false, true, false, false, false, 0) == PartnerPullCore.kKeepPlayer && PartnerPullCore.Step(2f, true, false, false, false, false, 0) == PartnerPullCore.kKeepPlayer
+                && PartnerPullCore.Step(2f, true, true, true, false, false, 0) == PartnerPullCore.kKeepBusy && PartnerPullCore.Step(2f, true, true, false, false, false, -1) == PartnerPullCore.kKeepRank
+                && PartnerPullCore.Step(2f, true, true, false, true, false, 0) == PartnerPullCore.kKeepTrip && PartnerPullCore.Step(2f, true, true, false, false, true, 0) == PartnerPullCore.kKeepSocial;
             return "partnerpull check (switch " + (on ? "on" : "off") + "): an autonomous action of the partner ahead of a linked half is ended after the grace and the half moved up=" + fixedNow
-                + "; control: grace, player's head or queue, busy head, outranking head kept=" + controls + "; verdict: " + GlVerdict(on, fixedNow, controls, sPpRtsType != null) + "; " + PpCounters();
+                + "; control: grace, player's head or queue, lot trip, conversation, busy head, outranking head kept=" + controls + "; verdict: " + GlVerdict(on, fixedNow, controls, sPpRtsType != null) + "; " + PpCounters();
         }
     }
 }

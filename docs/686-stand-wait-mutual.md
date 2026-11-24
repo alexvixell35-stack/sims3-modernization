@@ -1922,7 +1922,10 @@ only in a hot conversation, so nine romantic socials come first. Bed: a mini fri
   queued again.
 - Kept, as the game has it: a head the player queued; any player-queued entry between the head and the half (never
   jumped); a head that is not cancellable by the player, must run, is linked to the waiter, or runs while the partner
-  is in a posture transition; a head that outranks the half; a refusal by the game (about to finish).
+  is in a posture transition; a head that outranks the half; a refusal by the game (about to finish). Since
+  2026-11-24 (after §21.4) these are kept too: a lot trip (any head on a `Lot`, `ITakeSimToWorkLocation`, or a type
+  named GoToLot / Visit / Arrive / Travel / GoHome), and a partner in a conversation (any `SocialInteraction` head,
+  e.g. Be Chatted To). Both are counted as "busy" (4587).
 - One switch for every Sim, household included (user-approved). Off = compare mode (would). `partnerpulllog`: one
   line per pull or kept case. The waits are measured in both modes (count, sim-minutes, longest) for the A/B.
 
@@ -1940,7 +1943,8 @@ only in a hot conversation, so nine romantic socials come first. Bed: a mini fri
 - What was ended: Do Homework, Browse Web, Read, Play Video Game, Preside Over Royal Court, Wash all dishes, Be
   Chatted To (the partner's other conversation), and Go to Lot twice (an NPC's trip, for a Chat and a Refuse
   Entrance). No player-queued action was ended. Errors, resets and stuck lines are the same as off (stuck 21 vs 26).
-- To check: whether a partner's Go to Lot or a running conversation should be kept (treat them as busy).
+- Changed after this run: a partner's lot trip and a partner's running conversation are now kept as busy (§21.2).
+  Of the 11 pulls above, 3 (Go to Lot twice, Be Chatted To) would now be kept. Not re-run.
 
 ## 22. The bedtime story's parent walks once (`readwalk`; 2026-11-24, `post/readwalk-1124`, built, default off, run §22.4)
 
