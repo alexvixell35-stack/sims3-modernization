@@ -553,6 +553,7 @@ namespace Ts3Fixes
             ApplyAutLiveB14();
             ApplyHitchCause();
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
+            ApplyReactOverlay();       // docs/686 §26 (ReactOverlay.cs): reactoverlay / reactoverlayhh, off by default (counts either way); swaps Sim.PlayReaction
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
             ApplyMakeBedBoth();        // docs/686 §13 (MakeBedBoth.cs): makebedboth ON, makebedbothhh off by default (counts either way)
@@ -1702,7 +1703,10 @@ namespace Ts3Fixes
         // [4462-4469] makebedboth (MakeBedBoth.cs, docs/686 §13): Make Bed runs on a bed with exactly one unmade free half / second half made from the first
         // side / closed half made from the other side (first make) / kept: the half can be reached / kept: no side to make it from / errors / would (off,
         // or household without makebedbothhh) / run ended early, flags put back.
-        const int kCounterSlots = 4660;
+        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
+        // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
+        // would drop, off / queued that ran / their summed ms / max ms / errors.
+        const int kCounterSlots = 4680;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2217,6 +2221,9 @@ namespace Ts3Fixes
                 case "crowdporthh": return Instantiator.kCrowdPortHousehold;  // CrowdPort.cs: the same for household and selected Sims, off
                 case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off
                 case "standwaitlog": return Instantiator.kStandWaitLog;  // StandWait.cs (docs/686): one line per wait with blocked cycles, off
+                case "reactoverlay": return Instantiator.kReactOverlay;  // ReactOverlay.cs (docs/686 §26): a busy NPC standing or seated reacts at once as EA's overlay, a stale queued reaction is dropped, off
+                case "reactoverlayhh": return Instantiator.kReactOverlayHh;  // ReactOverlay.cs (docs/686 §26): household and selected Sims too, off
+                case "reactoverlaylog": return Instantiator.kReactOverlayLog;  // ReactOverlay.cs (docs/686 §26): one line per case, off
                 case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
                 case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
                 case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off

@@ -813,6 +813,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStandWaitFix value="False" />
     <kStandWaitFixHousehold value="False" />
     <kStandWaitLog value="False" />
+    <kReactOverlay value="False" />
+    <kReactOverlayHh value="False" />
+    <kReactOverlayLog value="False" />
+    <kReactOverlayStaleMs value="2000" />
     <kStandWaitPassCycle value="2" />
     <kStandWaitPassEvery value="3" />
     <kStandWaitPassMinutes value="5" />

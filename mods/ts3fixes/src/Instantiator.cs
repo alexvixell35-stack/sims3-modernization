@@ -390,6 +390,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kStandWaitFix = false;  // standwaitfix (docs/686): in a blocked cycle of the obstacle stand-and-wait (replan failed) a Sim obeys a push or cancel, pushes the Sims in its way and, when only people block, walks on with the game's ignore-obstacles timer
         [Tunable] public static bool kStandWaitFixHousehold = false;  // standwaitfixhh: standwaitfix for household and selected Sims too (their result differs from EA's 50-minute wait)
         [Tunable] public static bool kStandWaitLog = false;  // standwaitlog: one ts3native.log line per stand-and-wait that had blocked cycles (either switch state)
+        [Tunable] public static bool kReactOverlay = false;  // reactoverlay (docs/686 §26): an NPC busy standing or seated reacts at once as EA's overlay instead of a ReactionInteraction queued behind its action; a queued one is dropped after kReactOverlayStaleMs
+        [Tunable] public static bool kReactOverlayHh = false;  // reactoverlayhh: household and selected Sims too
+        [Tunable] public static bool kReactOverlayLog = false;  // reactoverlaylog: one ts3native.log line per case
+        [Tunable] public static int kReactOverlayStaleMs = 2000;  // reactoverlay: ms of real time after which a queued reaction with no safe overlay moment is dropped (500-10000)
         [Tunable] public static int kStandWaitPassCycle = 2;  // blocked cycle from which the route is planned once without people (0 = never)
         [Tunable] public static int kStandWaitPassEvery = 3;  // blocked cycles between two such plans
         [Tunable] public static float kStandWaitPassMinutes = 5f;  // sim-minutes of the game's ignore-obstacles timer after a pass

@@ -1718,3 +1718,72 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
+## 26. A busy Sim reacts at once instead of after its action (`reactoverlay`; 2026-11-24, `post/reactoverlay-1124`, built, default off, run §26.4-§26.5)
+
+### 26.1 The late reaction [verified, decompiled `Sim.PlayReaction`, `OverlayComponent.RequestOverlay`, `ReactionInteraction`, `IdleManager.PlayReactionAnimation`]
+- `Sim.PlayReaction(..., ReactionSpeed, ...)`: with `Immediate` in the speed, EA plays `OverlayComponent.PlayReaction(type,
+  target, yield: false)` (an overlay over the running animation, with look-at and thought balloon) only while the Sim
+  idles in a posture (`mIsAlreadyIdling`, not standing idle) or walks a long enough route. Otherwise `NowOrLater` and
+  `AfterInteraction` create a `ReactionInteraction` and `InteractionQueue.AddNext` it behind the current action, with a
+  `kReactionTimeout` of 60 sim-min. It plays when that action ends (`ReactionInteraction.Run` ->
+  `IdleManager.PlayReactionAnimation`, the same overlay component, standing idle only), often long after its cause.
+- The overlay asks for body parts (`RequestOverlay` level 6: all, else both arms and head, else head, else face); the
+  current clip's SACS events hold parts (`InteractionPartLevelCallback`, `mInteractionPartsUsedFlags`,
+  `mAwarenessPartsUsedFlags`). That is EA's own gate for a natural look.
+- s537 (combo, off): ReactionInteraction actdelay n=99, mean 170 ms, max 3393 ms; 5 instances over 500 ms (household
+  Jack Bunch 1009 and 1029 ms, Ethan Bunch 791 ms, Arlo Bunch 1173 ms; NPC Beau Andrews 3393 ms). r6-rp1 off arm
+  (Sunset Valley, the queued ones watched by the compare mode): 8 queued reactions ran after mean 2328 ms, max 6823 ms;
+  13 waited past 2 s.
+
+### 26.2 What is built
+- `reactoverlay`, `reactoverlayhh`, `reactoverlaylog` (`ReactOverlay.cs`, `ReactOverlayCore.cs`, counters 4670-4679,
+  `kCounterSlots` 4680, `kReactOverlayStaleMs` 2000, `ReactOverlayCheck` (`run`, `result`, `force:Sim|Reaction`),
+  selftest `tools/selftest/reactoverlay`, repro `reactoverlay-force`).
+  Swap: `Sim.PlayReaction` (13 arguments, stub); a 0.1 sim-minute alarm from the world load.
+- A `NowOrLater` / `AfterInteraction` reaction (not `ImmediateWithoutOverlay`, not `CriticalWithRoute`, not
+  watch-until-exit, not a double balloon) of a human Sim busy with an action, standing or seated (`Sim.StandingPosture`,
+  `SittingPosture`, the posture allows reaction overlays), not routing, not in a posture transition, carrying nothing,
+  not at a toilet, sink, shower, bath, bed or pool, not in a conversation or a social, with both arms and the head free
+  in the current clip and an overlay clip of EA's (`sReactionEnumToStringCache`, `TestReactionAnimation(..., overlay)`):
+  EA's Now path runs (before callback, overlay, look-at, balloon, callback), nothing is queued.
+- Any other case runs EA's `PlayReaction`; a reaction it queued is watched: at the first safe moment within the stale
+  time it is played as the overlay and removed from the queue (`RemoveInteractionByRef`, its `Cleanup` hands the
+  callback "played"); one that waited 2000 ms real time is dropped. The queue head (the next or running action) is never
+  touched. A Sim with no action keeps EA's way (the queued reaction runs at once).
+- Scope: human Sims; NPCs with `reactoverlay`, household and selected Sims also with `reactoverlayhh` (docs/271 rule).
+  Off = compare mode: `would overlay`, `would drop`. Lines: `reactoverlay: overlaid now | overlaid from the queue after
+  N ms | dropped stale after N ms (<why>) | queued reaction ran after N ms | would ...: <who> <Sim>, <Reaction> during
+  <Interaction> (<Posture>)`.
+
+### 26.3 Limits [inferred]
+- No turn to face the target (EA's overlay path never turns either; the queued `ReactionInteraction` did).
+- A dropped reaction is gone: the Sim does not react to an event it was busy for more than 2 s (EA played it late).
+- Socials are kept out after s538 showed Wave overlays over a social's start (`SocialInteractionA/B`, Conversation not yet
+  set).
+
+### 26.4 Storm (2026-11-24, Deck, Sunset Valley new game, s538 on, 5 min, seed 152; off arm s537, same switches but reactoverlay) [verified]
+- reactoverlay (r6 build): overlaid now 14, from the queue 10, dropped stale 8, queued by EA and watched 31 (of them ran
+  11: mean 257 ms, max 1947 ms from the queue to the start), errors 0. EA's way at the call: routing 29, conversation 18,
+  arms or head busy 6, posture 4, carrying 3, not a human 3, toilet/bath/bed/pool 1.
+- ReactionInteraction actdelay: s537 n=99, mean 170 ms, max 3393 ms, 5 over 500 ms (4 household: 791-1173 ms); s538:
+  not in the top 15 any more, 2 over 500 ms (NPC 514 ms, household Ethan Bunch 2522 ms: a reaction at the queue head,
+  which the fix never removes).
+- Overlays seen: Wave, Surprise, JoyousCrying during WatchTV (seated), Wave during PracticeChess, EatHeldFood, Fridge_Have,
+  FoodTray_Prepare, CheckSelfOutInMirror, Mwah during GrabAServing; NPC BadNoise in WaitOutsideRabbitHole, Embarrassed
+  during PerformerPerformForTips. Drops: household Waves and Surprise while reading (carrying the book, RelaxingPosture),
+  routing, in a vehicle or a conversation.
+- Looked wrong: 5 Wave overlays during `SocialInteractionA/B` (the social's start, before the Conversation is set):
+  socials are now kept out (r6b build). No pop seen in the lines; the overlay gate is EA's part flags, a clip holding the
+  arms keeps EA's way (6 such cases).
+
+### 26.5 Forced repro (repro `reactoverlay-force`, runs r6-rp1 (r6b build), r6-rp2 (r6c)) [verified]
+- Bea Jig watches TV (standing, `TV+WatchTV`), `ReactOverlayCheck force:Bea Jig|<Reaction>` calls EA's `PlayReaction`
+  with NowOrLater.
+- Off: `would overlay`, a ReactionInteraction queued behind Watch TV (`queues`), `would drop after 2036 ms`. The town's
+  queued reactions in the off arm ran after mean 2328 ms, max 6823 ms (r6-rp1) and mean 7147 ms, max 43591 ms (r6-rp2).
+- On (r6-rp2): Embarrassed and Startled `overlaid now`, nothing queued; the off arm's Startled `dropped stale after
+  9152 ms`. Kit (in bed, RelaxingPosture) kept EA's way. Errors 0.
+- r6-rp1 found one bug, fixed in r6c: a queued reaction that became safe after the stale time was still played (Startled
+  `overlaid from the queue after 9151 ms`); the stale test now comes first.
+- PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.
