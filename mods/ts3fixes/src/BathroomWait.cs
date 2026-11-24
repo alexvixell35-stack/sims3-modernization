@@ -32,7 +32,7 @@ namespace Ts3Fixes
         const float kBwNeed = -20f, kBwMaxWaitMin = 180f, kBwClaimMin = 30f;
         static int sBwN;
 
-        sealed class BwWait { public float T0; public float Need0; }
+        sealed class BwWait { public float T0; public float Need0; public bool TestFailLogged; }
         sealed class BwClaim { public Sim S; public float T0; }
 
         public static void BathroomWaitWorldLoad()
@@ -99,8 +99,9 @@ namespace Ts3Fixes
                         InteractionInstance ii = BwUse(free, s, out use);
                         if (ii == null)
                         {
-                            wait.Remove(id);
-                            BwLog(s, "stops waiting: " + free.GetType().Name + " has no usable *UseToilet* interaction (" + use + ")");
+                            // keeps waiting: the toilet's own test can refuse for a moment (11-24 A/B: 2 of 79 waits ended here);
+                            // the next sample tries again, up to kBwMaxWaitMin. Logged once per wait.
+                            if (!w.TestFailLogged) { w.TestFailLogged = true; BwLog(s, "keeps waiting: " + free.GetType().Name + " refused (" + use + ")"); }
                         }
                         else if (s.InteractionQueue.Add(ii))
                         {
