@@ -35,7 +35,6 @@ export const EXEMPT: Record<string, string> = {
   lanewaitlog: 'log only (one lanewait: line per wait for a portal lane, docs/686 §8): on in both arms of the route storms of docs/686 §8.7 (storm runner, not a repro)',
   standwaitlog: 'log only (one standwait: line per wait with blocked cycles, docs/686): read in the route storms of docs/686 §8.7; its forced repro standwait-landing-crowd needs agent steps that are not upstream yet',
   makebedbothlog: 'log only (one makebedboth: line per case, docs/686 §13): its forced repro makebedboth-force needs the agent step bed_setup, not upstream yet (results in docs/686 §13.5)',
-  pairsnaplog: 'built, not run in the game yet: forced repro pending (docs/686 §20)',
   woohoosnaplog: 'built, not run in the game yet: forced repro pending (docs/686 §20)',
   unstucklog: 'built, not run in the game as a forced repro yet (pending); storms s520-s529 in docs/686 §18.6',
   socialreachlog: 'built, not run in the game as a forced repro yet (pending); storms s520-s529 in docs/686 §18.6',
