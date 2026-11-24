@@ -2,7 +2,7 @@
 //   node tools/publish-public.ts sync --message-file <f> [--yes]
 //        clone the public repo into a temp dir, new branch, replace the tree with `git archive <ref>` of this repo, apply
 //        tools/public-strip.json (held-back files and hooks), scrub personal names, check-docs-code, secret scan of the staged diff, commit; with --yes: push, PR, watch checks,
-//        squash-merge with --admin
+//        squash-merge with --admin; --no-merge stops after the PR (left open, no merged marker), e.g. to share an RC branch
 //   node tools/publish-public.ts release v0.1.6 --native-version 0.36.40 --prev-ini <prev ts3native.ini> --prev-package <prev ts3fixes.package> --message-file <f> [--yes]
 //        sync, then (with --yes) tag the merge commit, watch the tag's build.yml run, download the draft's ts3native zip and
 //        verify it (asi version string, ini sha256 = the tested ini, enabled sections), check and attach the ts3fixes
@@ -167,7 +167,7 @@ export function pickTagRun(runs: TagRun[], sha: string, pushedAtMs: number): num
 // --- runner ---
 
 type Opts = { yes: boolean; repo: string; remote: string; src: string; ref: string; branch: string; message: string;
-  authorName: string; authorEmail: string; tag?: string; nativeVersion?: string; ini: string; pkg: string; prevIni?: string; prevPkg?: string; quiet?: boolean };
+  authorName: string; authorEmail: string; tag?: string; nativeVersion?: string; ini: string; pkg: string; prevIni?: string; prevPkg?: string; quiet?: boolean; noMerge?: boolean };
 
 // Every child gets a timeout and no prompts (a credential helper waiting for input hung the queue-end sync 3x on 2026-11-09).
 // Network git/gh: 120 s, local git/tar: 30 s, node check scripts: 600 s. Auth for git over https comes from the env token as an
@@ -308,6 +308,8 @@ export function publish(o: Opts): { clone: string; commit: string } {
   remote(`push ${o.branch}`, () => git(clone, 'push', '-q', '-u', 'origin', o.branch), '');
   const [title, ...body] = o.message.split('\n');
   const pr = remote('gh pr create', () => run('gh', ['pr', 'create', ...R, '--head', o.branch, '--title', title, '--body', body.join('\n').trim() || title]), '<pr url>');
+  // --no-merge: share a branch (e.g. an RC for the EA laptop) as an open PR; merged later by a normal sync
+  if (o.noMerge) { log(`   left open (--no-merge): ${pr}`); return { clone, commit }; }
   remote(`gh pr checks ${pr} --watch`, () => {
     // checks show up seconds to minutes after the PR, and `gh pr checks` exits 1 ("no checks reported") until then, the same
     // code as a failed check: wait for the rollup to list any, then watch
@@ -480,6 +482,8 @@ function selfCheck(): void {
     assert.equal(run('git', ['show', '-s', '--format=%an <%ae>|%s'], r.clone), 't <t@example.com>|Sync', 'commit author + summary');
     assert.equal(head(), before, 'dry run pushed nothing');
     assert.equal(run('git', ['--git-dir', bare, 'branch', '--list', 'sync/test']), '', 'no branch on the remote');
+    const nm = publish({ ...o, branch: 'sync/test-nm', noMerge: true }); // dry run: stops after the PR step, nothing pushed
+    assert.ok(nm.commit, '--no-merge still commits in the clone'); assert.equal(head(), before, '--no-merge dry run pushed nothing');
     // a secret in the source stops the sync before the commit
     writeFileSync(join(src, 'docs/b.md'), `token ${fake[2]}\n`); g(src, 'add', '-A'); g(src, 'commit', '-qm', 'two');
     assert.throws(() => publish({ ...o, branch: 'sync/test2' }), /possible secrets[\s\S]*docs\/b.md: AWS access key/, 'secret stops the sync');
@@ -506,7 +510,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     yes: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'self-check': { type: 'boolean' },
     repo: { type: 'string', default: 'rodneypantonial/sims3-modernization' }, remote: { type: 'string' }, ref: { type: 'string', default: 'master' },
     branch: { type: 'string' }, message: { type: 'string' }, 'message-file': { type: 'string' },
-    'if-behind': { type: 'boolean' }, 'min-gap-min': { type: 'string', default: '60' },
+    'if-behind': { type: 'boolean' }, 'no-merge': { type: 'boolean' }, 'min-gap-min': { type: 'string', default: '60' },
     'author-name': { type: 'string' }, 'author-email': { type: 'string' }, 'native-version': { type: 'string' },
     'prev-ini': { type: 'string' }, 'prev-package': { type: 'string' },
     ini: { type: 'string', default: join(ROOT, 'native/ts3native/out/ts3native.ini') }, package: { type: 'string', default: join(ROOT, 'build/ts3fixes.package') },
@@ -516,6 +520,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     else if (p[0] === 'sync' || (p[0] === 'release' && p[1])) {
       if (a.yes && a['dry-run']) throw new Error('--yes and --dry-run together');
       if (a['if-behind'] && p[0] !== 'sync') throw new Error('--if-behind is for sync only');
+      if (a['no-merge'] && (p[0] !== 'sync' || a['if-behind'])) throw new Error('--no-merge is for a manual sync only');
       const synced = a['if-behind'] || a.yes ? run('git', ['rev-parse', (a.ref ?? defaultBranch(ROOT))], ROOT) : ''; // read before the sync starts: a later commit is not marked synced
       if (a['if-behind']) {
         const d = behindDecision(synced, readMarker(), Date.now(), Number(a['min-gap-min']));
@@ -530,11 +535,11 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
       const tag = p[0] === 'release' ? p[1] : undefined;
       const r = publish({ yes: !!a.yes, repo: a.repo!, remote: a.remote ?? `https://github.com/${a.repo}.git`, src: ROOT, ref: (a.ref ?? defaultBranch(ROOT)),
         branch: a.branch ?? (tag ? `release/${tag}` : `sync/${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`), message, authorName, authorEmail,
-        tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package!, prevIni: a['prev-ini'], prevPkg: a['prev-package'] });
+        tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package!, prevIni: a['prev-ini'], prevPkg: a['prev-package'], noMerge: !!a['no-merge'] });
       console.log(a.yes ? 'done' : `dry run done; the clone stays for review: ${r.clone}`);
       if (a.yes) {
         rmSync(resolve(r.clone, '..'), { recursive: true, force: true });
-        if (!tag) { mkdirSync(resolve(MARKER, '..'), { recursive: true }); writeFileSync(MARKER, JSON.stringify({ sha: synced, at: new Date().toISOString() }) + '\n'); }
+        if (!tag && !a['no-merge']) { mkdirSync(resolve(MARKER, '..'), { recursive: true }); writeFileSync(MARKER, JSON.stringify({ sha: synced, at: new Date().toISOString() }) + '\n'); }
       }
     } else {
       console.error('usage: node tools/publish-public.ts sync|release <vX.Y.Z> --message-file <f> [--native-version X.Y.Z] [--yes] | --self-check');
