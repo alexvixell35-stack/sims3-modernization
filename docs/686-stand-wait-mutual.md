@@ -1769,3 +1769,16 @@ child walks and climbs in. Only then does it walk to `part.RoutingSlotForSit` (`
   Kit's way to her entry slot at that single bed); would 0, walked 0, errors 0.
 - readwalk stays NOT PROVEN: the trigger works now, the single bed's sit slot is too close to its entry slots for the
   rule to act. Next try (not run, two-load cap): a double bed, the child at the far part, the parent's side open.
+
+### 22.7 Forced repro on a double bed (2026-11-24, `readwalk-double-force`, runs r8-rp1, r8-rp2, build r8b): PROVEN [verified]
+- Lot as `readwalk-force`, a double bed (BedDoubleBrass, entry slots Left 1192.3/1182.4, Right 1194.9/1182.4) in place
+  of the single bed, Kit beside the Right part (away from Bea, who starts 5+ m off on the Left side). The readwalk line
+  now names the sit slot, the child, the entry slot and how far the slot lies off the child's way.
+- Off (r8-rp1): `would walk: ... RoutingSlot_2 1194.8/1182.8, child 1194.0/1182.3, entry RoutingSlot_1 1194.0/1182.3,
+  0.88 m off the way`. Bea's samples (3 s apart): routing to 1192.4/1185.6 (3.2 m from the sit slot), stopped there,
+  routing again, at the sit slot 15 s after the push: EA's stop and second walk.
+- On (r8-rp2, two arms): `walked` 2; Bea routed without a stop from 5+ m off to the sit slot in 9 s. The off arm of
+  r8-rp2 was `kept, sit slot on the child's way` (Kit's teleport landed on the entry slot, 0.50 m), as the rule asks.
+  Errors 0 in both loads.
+- r8-rp1's on arms were EA's child-in case (Kit stayed in the bed after the off arm, `setup_sims` said "already there"):
+  the repro now moves Kit 4 m away before each later arm.

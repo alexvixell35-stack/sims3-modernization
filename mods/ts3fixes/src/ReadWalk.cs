@@ -102,6 +102,7 @@ namespace Ts3Fixes
             BedData part = null;
             GameObject target = null;
             Slot slot = Slot.None;
+            string geo = "";  // where the sit slot, the child and its entry slot lie (readwalklog: why a story is kept)
             int step;
             try
             {
@@ -123,6 +124,8 @@ namespace Ts3Fixes
                         Vector3 sp = target.GetPositionOfSlot(slot), cp = child.Position;
                         Vector3 ep = part.ContainedSim == child ? cp : target.GetPositionOfSlot(part.RoutingSlot[0]);
                         clear = ReadWalkCore.SegDistSq(sp.x, sp.z, cp.x, cp.z, ep.x, ep.z);
+                        geo = "; " + slot + " " + sp.x.ToString("F1") + "/" + sp.z.ToString("F1") + ", child " + cp.x.ToString("F1") + "/" + cp.z.ToString("F1")
+                            + ", entry " + part.RoutingSlot[0] + " " + ep.x.ToString("F1") + "/" + ep.z.ToString("F1") + ", " + System.Math.Sqrt(clear).ToString("F2") + " m off the way";
                     }
                 }
                 step = ReadWalkCore.Step(childIn, part != null, slot != Slot.None && target != null, clear);
@@ -133,7 +136,7 @@ namespace Ts3Fixes
             if (sRwTried.Count >= 256) sRwTried.Clear();
             sRwTried[ii.Id] = true;
             int[] c = PatchCounters();
-            string who = me.FullName + " to " + child.FullName + "'s bed (" + (far != null ? "instead of the 3-5 m walk" : "while the child gets in") + ")";
+            string who = me.FullName + " to " + child.FullName + "'s bed (" + (far != null ? "instead of the 3-5 m walk" : "while the child gets in") + ")" + geo;
             if (step != ReadWalkCore.kWalk) { c[kRwKept]++; RwLine("kept, " + kRwWhy[step] + ": " + who); return false; }
             if (!ShortcutOn("readwalk")) { c[kRwWould]++; RwLine("would walk: " + who); return false; }
             Route r = me.CreateRoute();
