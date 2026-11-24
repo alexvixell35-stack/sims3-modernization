@@ -385,7 +385,10 @@ namespace Ts3Fixes
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
                 string ahead = ShortcutOn("linewaitlog") ? OjsAhead(this, interaction, target) : null;  // who holds the line when this Sim asks
-                bool got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes);
+                LswWait lsw = LswBegin(this, interaction, target);  // docs/686 §25 (LineSwitch.cs): a free twin object is used after a while
+                bool got;
+                try { got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes); }
+                finally { if (lsw != null) LswEnd(interaction.InstanceActor, lsw); }
                 OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes, ahead == null ? null : ahead + "; at end " + OjsAhead(this, interaction, target));
                 return got;
             }

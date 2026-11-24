@@ -2107,3 +2107,59 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   interaction had a higher priority, not a real route failure. Keeping these is right, since a retry would override
   the queued action. The real case (RouteFailed alone, a free slot left) is rare: 1 in 3 storms (§24.4 Ethan Bunch ->
   SofaClub, and the retry failed too). slotretry is harmless but has little to do. It stays default off, NOT PROVEN.
+
+## 25. A Sim in a toilet, sink, shower or bath line takes a free twin object (`lineswitch`; 2026-11-24, `post/lineswitch-1124`, built, default off, run §25.4-§25.5)
+
+### 25.1 The line [verified, decompiled `SimQueue.cs`, `Toilet.cs`, `Sink.cs`, `Shower.cs`, `Bathtub.cs`]
+- `SimQueue.WaitForTurn(interaction, target, behavior, exitReasons, timeout)`: the Sim is inserted in the object's
+  `mQueue` (`FindNewPlaceInLine`), walks to the head of the line or behind the Sim ahead, then loops `LoopIdle` +
+  `WaitForExitReasonOnSim(sim, kCheckPeriodInMinutes = 1, ...)` until it is first, evicted, cancelled or past the timeout
+  (then `ObjectInUse` + `TimedOut` and `PlayRouteFail`: balloon with the user's thumbnail).
+- EA's only substitution: on the first pass of that loop, with `TryAnotherObjectIfLineExists` or
+  `TryAnotherObjectIfNewLineExists` (toilets: `DefaultAllowSubstitution`, `!WasInUse`), `TryReplacementInteraction`
+  asks autonomy for the best action of the tradeoff's most positive motive on the lot and pushes it as a continuation
+  when its object has no line (`WasInUse = true`, `ExitReason.FailedToStart`, break). It never looks again, so an object
+  that frees up later is not used. Sinks (`CutAheadOfLowerPrioritySims`), showers and baths (`DefaultEvict`) never ask.
+- Storms s533-s536 (Sunset Valley, the Bunch house has ToiletCheap, ToiletModerate, ToiletExpensive): toilet waits of
+  1.9-20.3 sim-min (5 waits), a 17.1 sim-min shower wait, sink waits of 4.0-13.1 sim-min (3).
+
+### 25.2 What is built
+- `lineswitch`, `lineswitchhh`, `lineswitchlog` (`LineSwitch.cs`, `LineSwitchCore.cs`, counters 4615-4619,
+  `kLineSwitchMinutes` 2, `LineSwitchCheck`, selftest `tools/selftest/lineswitch`, repro `lineswitch-force`).
+  Swap: `SimQueue.WaitForExitReasonOnSim` (stub); `LdsQueueHook.WaitHook` (ShareLanes.cs) records the wait.
+- From 2 sim-min in the line, each per-minute check looks for an object of the same kind (Toilet, Sink, a shower
+  for shower actions, Bathtub) on the lot: not the one waited for, standing, `InUse` false, no user, no line, no Sim
+  with it as the target of a running or queued action, the same interaction definition's `Test` passes, and a plan to
+  1.5 m of it in its room works (2 plans per check at most). Order: the same room, the same level, the nearest.
+- Then EA's own substitution: that definition on the twin pushed as a continuation, `WasInUse`, `FailedToStart`, the
+  loop breaks into EA's tail; that tail's route-fail balloon is skipped for this Sim on this tick (`SrfPlayHook`).
+- Scope: human Sims, actions they picked themselves (a player's order keeps its object); NPCs with `lineswitch`,
+  household and selected Sims also with `lineswitchhh` (a visible change, so its own switch, docs/271 rule).
+  Off = compare mode: `would`. Lines: `lineswitch: switched | would switch | kept, <why>: <who> <Sim>, <Interaction>
+  <object> -> <twin> (same room | other room, m, waited sim-min)`.
+
+### 25.3 Limits [inferred]
+- Lot objects only; a public lot's toilets are covered, rabbit holes and portals are not lines of this kind.
+- A player-ordered wait is kept (r5-rp2: Lisa Bunch waited 18.6 sim-min on her own order).
+
+### 25.4 Storm (2026-11-24, Deck, Sunset Valley new game, s537 on, 5 min, seed 152; off arm s532) [verified]
+- s537 had no toilet, sink, shower or bath wait (other lines: laptop 9.9, chair 11.2, bookshelf 14.9 and 6.7, workout
+  bench 9.1 sim-min), so lineswitch: switched 0, would 0, kept 0, errors 0, swap found. The storms give 0-4 such waits
+  each; the forced repro proves it.
+
+### 25.5 Forced repro (repro `lineswitch-force`, Bunch house, runs r5-rp2, r5-rp3) [verified]
+- Lisa Bunch uses ToiletCheap (order), Jack Bunch ToiletModerate (order), Judy Bunch picks ToiletCheap as her own
+  action (agent `do_interaction` `autonomous: true`, new in this round) and waits in Lisa's line.
+- r5-rp3 off: `would switch ... -> ToiletExpensive (other room, 4.1 m, waited 7.1 sim-min)`; Judy waited 9.3 sim-min
+  for her turn. On: `switched: household Judy Bunch, UseToilet ToiletCheap -> ToiletExpensive (other room, 8.7 m,
+  waited 4.9 sim-min)`; her line wait ended at 5.0 sim-min and she used the other toilet. r5-rp2 on: switched after
+  2.0 sim-min, Judy used ToiletExpensive and washed her hands. Errors 0 in both runs, no route-fail balloon, a walk.
+- PROVEN by forced repro (toilets). Sinks, showers and baths: same code path, not yet seen in a run.
+
+### 25.6 Partnerpull busy rules and queuewake in s537 (on, r5 build; off arm s532) [verified]
+- partnerpull: waits past the grace 24, pulled 9 (read to sleep 1, socials 8), kept: player's action or queue 4, busy
+  or outranking head 11 (s533: 1); errors 0. The new busy rules (§21.2) hold: every lot-trip partner (Visit Central
+  Park, Visit the Clavell household, Go to Lot x2) and every partner in a conversation (Flatter, Chat, Listen to
+  Request x3, Start Water Balloon Fight) was kept; no pull of such a partner.
+- queuewake: woken 48 (s533: 42), loop ticks saved 480, left past the deadline 94, errors 0.
+- s537 vs s532: route fails 14 (`routefail:` lines); nothing new or odd seen in the lines.

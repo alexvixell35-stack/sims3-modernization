@@ -447,6 +447,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kQueueWakeLog = false;  // queuewakelog: one ts3native.log line per wake
         [Tunable] public static bool kSlotRetry = false;  // slotretry (docs/686 §24): a failed walk to an object's slot list or seats is retried quietly (next free slot or seat, at most 2 tries), every human Sim
         [Tunable] public static bool kSlotRetryLog = false;  // slotretrylog: one ts3native.log line per case
+        [Tunable] public static bool kLineSwitch = false;  // lineswitch (docs/686 §25): an NPC waiting in a toilet, sink, shower or bath line takes a free, reachable object of the same kind on the lot after kLineSwitchMinutes
+        [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
+        [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
+        [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
         [Tunable] public static bool kCrowdPortLog = false;  // crowdportlog: one ts3native.log line per act
         [Tunable] public static int kCrowdPortMin = 3;  // crowdport: Sims waiting for or using the portal, this one included, that make a crowd (2 at least)
         [Tunable] public static float kCrowdPortWait = 1f;  // crowdport: sim-minutes a Sim waits behind another Sim before it skips without a crowd (0-15)

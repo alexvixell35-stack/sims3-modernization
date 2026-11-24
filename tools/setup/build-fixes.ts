@@ -227,6 +227,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kQueueWakeLog value="False" />
     <kSlotRetry value="False" />
     <kSlotRetryLog value="False" />
+    <kLineSwitch value="False" />
+    <kLineSwitchHh value="False" />
+    <kLineSwitchLog value="False" />
+    <kLineSwitchMinutes value="2" />
     <kCrowdPortMin value="3" />
     <kCrowdPortWait value="1" />
     <kLineWaitLog value="False" />
