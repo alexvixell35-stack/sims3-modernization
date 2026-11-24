@@ -18,7 +18,8 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         static bool sPrOn;
-        static int sPrPoll;
+        static int sPrPoll, sPrChanged;
+        const int kPrLogMax = 200;
 
         static void ApplyPrivacyRoom()
         {
@@ -38,7 +39,16 @@ namespace Ts3Fixes
             {
                 if (PrOn())
                 {
-                    try { return ((GenericPrivacySituation)(object)this).Participants.Contains(actor); }
+                    try
+                    {
+                        GenericPrivacySituation g = (GenericPrivacySituation)(object)this;
+                        bool inP = g.Participants.Contains(actor);
+                        // the first kPrLogMax answers that differ from EA's: shows the fix firing and for which rooms
+                        if (!inP && sPrChanged < kPrLogMax && InOrig(actor))
+                            DiagLine("privacyroom: " + actor.FullName + " kept out of " + g.GetType().Name + " (" + (g.Participants.Count > 0 && g.Participants[0] != null ? g.Participants[0].FullName : "?")
+                                + "), EA would let in, change " + (++sPrChanged));
+                        return inP;
+                    }
                     catch (ResetException) { throw; }
                     catch (Exception) { }
                 }
