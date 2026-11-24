@@ -120759,5 +120759,41 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "slotretry-check",
+    "bug": "A failed walk to an object's slot list or seats ends the action with a route-fail shrug, though another free slot or seat of that object is left (docs/686 §24.1)",
+    "fix": "ts3fixes SlotRetry.cs: slotretry (default off), slotretrylog, docs/686 §24",
+    "save": "any (storm A/B s534/s535, Sunset Valley new game)",
+    "note": "RUN 2026-11-24 in storms s534 (off) / s535 (on): 1 retried case, 0 worked, errors 0 (docs/686 §24.4). Rules and counters only; storms give the cases.",
+    "expect": "run: 'controls ok' path true, members found=True; result: counters, errors 0.",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlotRetryCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "rules, controls, swaps found",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SlotRetryCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "counters: errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      }
+    ]
   }
 ]

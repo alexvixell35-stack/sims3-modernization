@@ -36,6 +36,8 @@ export const EXEMPT: Record<string, string> = {
   standwaitlog: 'log only (one standwait: line per wait with blocked cycles, docs/686): read in the route storms of docs/686 §8.7; its forced repro standwait-landing-crowd needs agent steps that are not upstream yet',
   makebedbothlog: 'log only (one makebedboth: line per case, docs/686 §13): its forced repro makebedboth-force needs the agent step bed_setup, not upstream yet (results in docs/686 §13.5)',
   pairsnaplog: 'built, not run in the game yet: forced repro pending (docs/686 §20)',
+  slotretry: 'storm A/B only (docs/686 §24.4, s534/s535): a failed slot-list or part route has no forced trigger yet; judged by counters 4602-4609',
+  slotretrylog: 'log only for slotretry (docs/686 §24): one line per case',
   woohoosnaplog: 'built, not run in the game yet: forced repro pending (docs/686 §20)',
   unstucklog: 'built, not run in the game as a forced repro yet (pending); storms s520-s529 in docs/686 §18.6',
   socialreachlog: 'built, not run in the game as a forced repro yet (pending); storms s520-s529 in docs/686 §18.6',

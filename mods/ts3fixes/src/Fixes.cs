@@ -560,6 +560,7 @@ namespace Ts3Fixes
             ApplyPetRelax();           // docs/686 §11 (PetRelax.cs): petrelax / petrelaxhh, off by default (counts either way); after ApplyShareLanes and ApplyClipWait
             ApplySocialReach();        // docs/686 §17 (SocialReach.cs): socialreach / socialreachhh, off by default (counts either way); its DoRoute step is in ApplyBlockedUse's hook, as unstuck's (§18, Unstuck.cs)
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
+            ApplySlotRetry();          // docs/686 §24 (SlotRetry.cs): slotretry, off by default (counts either way); swaps RoutingComponent.RouteToSlot (Slot[] core) and SimRoutingComponent.RouteToUnusedPart
             ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
@@ -1693,6 +1694,8 @@ namespace Ts3Fixes
         // spot, pet or rider, a social's own route, walk up cancelled) / snaps after a walk up / snap outs (both rules) / errors; paired socials:
         // failed placements, plans and walks / would, off / exempt (household without pairsnaphh) / placed (snap, turn, jig slot, plan through
         // objects) / kept (too far, other level, sitting, still walking, no spot) / errors.
+        // [4602-4609] slotretry (SlotRetry.cs, docs/686 §24): retried cases / worked on retry 1 / on retry 2 / retries failed / would, off / kept /
+        // errors / retried cases at parts (seats, beds).
         // [4640-4641] unseenboatgenboat (UnseenBoat.cs UbOwnsBoat, docs/851 §7): generated NPC boats in the NPC's own inventory not counted as its own boat / errors. Moved from the combo branch's 4060-4061, which main uses.
         // [4642-4650] unseenboatland (UnseenBoatLand.cs, docs/687): land plans tried / land kept / boat may be much shorter (EA plan) / land plan failed or swims (EA plan) / refused: not one land component / refused: household, selected, unknown scope, seen, water posture or interaction, owned boat / land plan ms / of it ms followed by EA's plan / errors. Moved from the combo branch's 3845-3853, which main uses (PR #540 items).
         // [4181-4195] unseenboatwide (UnseenBoatWide.cs, docs/248 §12): gate passes per relaxed rule: household lot visitor / indoor or raised goal / goal with no verdict / group / followers / child with a parent / unknown colours resolved to a crossing; unknown colours resolved to one land area (exact); owned boat left parked; party members placed; parties refused; no street side or mailbox spot; errors; shortcuts with a wide rule (subset of 839); members left (no spot). 4196-4199 spare.
@@ -2637,6 +2640,8 @@ namespace Ts3Fixes
                 case "pairsnap": return Instantiator.kPairSnap;  // WooHooSnap.cs (docs/686 §20): a paired social (kiss, hug) of two NPCs within 3 m whose placement or route fails is lined up by a snap, off
                 case "pairsnaphh": return Instantiator.kPairSnapHousehold;  // WooHooSnap.cs: the same for pairs with a household or selected Sim, off
                 case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
+                case "slotretry": return Instantiator.kSlotRetry;  // SlotRetry.cs (docs/686 §24): a failed walk to an object's slot list or seats is retried quietly, every human Sim, off
+                case "slotretrylog": return Instantiator.kSlotRetryLog;  // SlotRetry.cs (docs/686 §24): one line per case, off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;
                 case "awardkeep": return Instantiator.kAwardKeep;
