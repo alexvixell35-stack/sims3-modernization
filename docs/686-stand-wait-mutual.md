@@ -1718,3 +1718,27 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
+## 22. The bedtime story's parent walks once (`readwalk`; 2026-11-24, `post/readwalk-1124`, built, default off, run §22.4)
+
+### 22.1 The walk [verified, decompiled `Bed.cs`, `EnterRelaxing.cs`, `BedData.cs`]
+`Bed_ReadToSleep.Run`: once the child's head is the story half and its transition targets a bed, the parent walks
+to 3-5 m of the bed (`RouteToObjectRadialRange(bed, 3, 5)`, only when farther than 5 m or standing in a routing
+slot's footprint). It then loops `LoopIdle` + `Sleep(0)` until `Bed_BeReadToSleep` runs, so it stands while the
+child walks and climbs in. Only then does it walk to `part.RoutingSlotForSit` (`RoutingSlot_0` to `_3`, `_1` to `_2`,
+`_4` to `_7`, `_5` to `_6`). `EnterRelaxing.Route` picks the part when the child reaches the bed (`mEntryPart`;
+`Bed.SetContainedObject` claims it).
+
+### 22.2 What is built
+- `readwalk` (`ReadWalk.cs`, `ReadWalkCore.cs`, counters 4590-4595, `ReadWalkCheck`, selftest `tools/selftest/readwalk`).
+  Swaps: `Sim.RouteToObjectRadialRange` and `Sim.LoopIdle` (both with a stub; `LoopIdle` is stacked with `queuewake`'s).
+  Once the child's part is known (claimed, `EnterRelaxing.mEntryPart`, or the bed's only part), the parent walks
+  straight to that part's sit slot. This replaces the 3-5 m walk, or happens from inside the idle loop on the
+  parent's own task. EA's last `RouteToSlot` then finds the parent already there.
+- The game's path is kept in these cases: the sit slot is within 0.7 m of the child's way (its position to its
+  entry slot); the part has no sit slot; or our plan (`DoRouteFail` off, so no balloon) or walk fails. One try per
+  story. One switch for every Sim. Off = compare mode. `readwalklog` writes one line per act.
+
+### 22.3 Limits [inferred]
+- On a double bed before the child reaches it, the part is unknown, so the 3-5 m walk stays and the early walk
+  happens once the child's `EnterRelaxing` has picked its part.
