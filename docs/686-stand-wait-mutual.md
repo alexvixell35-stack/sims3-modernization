@@ -2300,3 +2300,31 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   new `queued behind` text names the head the next time. In s539 the longest waits behind a head asked to exit were
   1.0-2.3 s (GetInPool, ReadToSleep_PickBook, Request Bedtime Story, Chat): exits that play their own end, not a head
   that ignores the request. No bug confirmed, nothing built.
+
+## 28. All loop fixes on together (2026-11-24, Deck, storms s541 Sunset Valley and s542 Isla Paradiso, new games, 5 min, seed 152, build r7) [verified]
+- Switches: s538's on arm plus partnerpull, readwalk, queuewake, slotretry, lineswitch(+hh), reactoverlay(+hh),
+  pairsnap(+hh) and their log switches. s542's household: the Collins family, Colonial Casa (4 bedrooms, 2.5 baths).
+- Errors 0 in every fix (partnerpull, readwalk, queuewake, slotretry, lineswitch, reactoverlay, pairsnap); no new
+  exception lines (the same 3-4 first-chance lines as s537/s538); no crash, no reset; unstuck 2 / 1 (s538: 6), both
+  NPCs "kept"; crowdport 0; route fails s541 15, s542 18 (s537/s538: 14).
+- Cases: partnerpull pulled 9 / 3 (all socials), kept busy or outranking 10 / 20; queuewake woken 28 / 32;
+  reactoverlay overlaid now 13 / 11, from the queue 7 / 5; slotretry retried 0 / 1 (failed on retry, the game's answer);
+  pairsnap placed 0 / 1 (through objects); lineswitch 0 / 0 (no toilet, sink, shower or bath line in either storm);
+  readwalk 0 / 0 (no story).
+- No fix acted on a Sim another fix had just moved: no lineswitch move, so no partnerpull of a moved Sim; no overlay
+  on a pulled partner (the overlay lines within 8 lines after each of the 12 pulls name other Sims); queuewake never
+  woke a Sim between a pairsnap plan and its placement (the one placement, Martina Collins's jig, follows her last
+  wake by 17 lines, GetSelfPickedUp).
+- Looked wrong (fixed, §26.6): reactoverlay waved over Omar Collins's age-up (`AgeUpEx`) twice.
+- Household / selected waiting (actdelay, ad.py buckets; ad2.py total / first visible; line waits):
+
+| run | buckets s | queue | preroute | prerun | wake | total / first visible s | HH line waits |
+|---|---|---|---|---|---|---|---|
+| s537 (SV, r5) | 33.4 | 19.9 | 4.3 | 3.3 | 2.6 | 56.9 / 41.7 | 3, 19.2 sim-min |
+| s538 (SV, r6) | 18.2 | 7.8 | 6.1 | 1.8 | 1.3 | 29.8 / 21.0 | 3, 32.0 sim-min |
+| s541 (SV, all on) | 23.6 | 11.2 | 6.9 | 3.0 | 0.6 | 29.1 / 27.3 | 6, 23.8 sim-min |
+| s542 (IP, all on) | 21.1 | 7.3 | 2.8 | 3.9 | 6.2 | 30.3 / 22.8 | 0 |
+
+- s541 lies between s537 and s538 (storm spread; the largest entries are EA's social partner waits, SocialInteractionB
+  preroute). s542's wake is one entry: Rosemarie Collins's TakeBath, wake 4353 ms into an empty queue after
+  `PutDownChild` (she carried a child); queuewake does not cover that loop. A lead, not traced [inferred].
