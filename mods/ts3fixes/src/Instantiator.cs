@@ -464,6 +464,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
         [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
         [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
+        [Tunable] public static bool kLineStale = false;  // linestale (docs/686 §29): the head of an object's line whose turn-taking action ended or waits in its queue behind another action leaves the line after kLineStaleMinutes; NPC heads
+        [Tunable] public static bool kLineStaleHh = false;  // linestalehh: household and selected heads too
+        [Tunable] public static bool kLineStaleLog = false;  // linestalelog: one ts3native.log line per case
+        [Tunable] public static float kLineStaleMinutes = 5f;  // linestale: sim-minutes a head is not coming before it leaves the line (1-60)
         [Tunable] public static bool kSocialReachHousehold = false;  // socialreachhh: socialreach for pairs with a household or selected Sim (stands alone)
         [Tunable] public static bool kSocialReachLog = false;  // socialreachlog: one ts3native.log line per act
         [Tunable] public static bool kUnstuck = true;  // unstuck (docs/686 §18): a Sim or pet the player does not control that failed 3 plans from one spot over 2.5 sim-minutes (or that the game's nightly stuck check found no way for) and has no normal way to a place 3 m away walks out through the objects to the nearest open place (a real walk, never through walls, at most 12 m); never a Sim that sits, lies, swims, rides or is carried

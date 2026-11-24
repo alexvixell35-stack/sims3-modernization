@@ -1706,7 +1706,10 @@ namespace Ts3Fixes
         // or household without makebedbothhh) / run ended early, flags put back.
         // [4615-4619] lineswitch (LineSwitch.cs, docs/686 §25): switched to a free twin object / would, off / kept (waited past the switch time, not
         // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).
-        const int kCounterSlots = 4660;
+        // [4680-4686] linestale (LineStale.cs, docs/686 §29; the same slots as the combo branch, 4660-4679 left to the pending
+        // reactoverlay / hotpaths / spotwaitattr PRs): heads dropped / would, off / kept (household head without linestalehh) /
+        // stale kind: queued behind another action / ended without leaving the line / errors / ended, still in the use list, away from it.
+        const int kCounterSlots = 4687;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2643,6 +2646,9 @@ namespace Ts3Fixes
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
                 case "lineswitchlog": return Instantiator.kLineSwitchLog;  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "linestale": return Instantiator.kLineStale;  // LineStale.cs (docs/686 §29): a line head whose action ended or sits queued behind another action leaves the line after 5 sim-min, NPC heads, off
+                case "linestalehh": return Instantiator.kLineStaleHh;  // LineStale.cs (docs/686 §29): household and selected heads too, off
+                case "linestalelog": return Instantiator.kLineStaleLog;  // LineStale.cs (docs/686 §29): one line per case, off
                 case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;

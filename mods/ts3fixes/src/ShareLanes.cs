@@ -389,6 +389,7 @@ namespace Ts3Fixes
                 try { got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes); }
                 finally { if (lsw != null) LswEnd(interaction.InstanceActor, lsw); }
                 OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes);
+                if (got) LstGranted(this, interaction, target);  // docs/686 §29 (LineStale.cs): who holds the line and through which action
                 return got;
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body

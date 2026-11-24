@@ -1774,3 +1774,46 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   Request x3, Start Water Balloon Fight) was kept; no pull of such a partner.
 - queuewake: woken 48 (s533: 42), loop ticks saved 480, left past the deadline 94, errors 0.
 - s537 vs s532: route fails 14 (`routefail:` lines); nothing new or odd seen in the lines.
+
+## 29. A line head that holds the turn and is not coming (`linestale`; 2026-11-24, `post/linestale-1124`, built, default off, no stale head seen)
+- Stacked on `post/lineswitch-1124` (its swap of `SimQueue.WaitForExitReasonOnSim` carries the check); §26-§28 are on the
+  combo branch.
+- Lead (s543c, Twinbrook, Racket house): Marigold Racket waited 49.1 sim-min in the FridgeCheap line behind Lolly
+  Racket (12.3 m away, running `Fridge_EatLeftovers`), Dennis Racket 30.4 sim-min behind Marigold.
+- [verified, decompiled SimQueue] The head is `mQueue[0]`, the Sim whose `WaitForTurn` answered true. It has no timeout
+  and leaves only through `RemoveFromQueue`: `GameObject.RemoveFromUseList` (`StandardExit`), `InteractionInstance.Cleanup`
+  → `RemoveFromLine` (only the action's own Target's line, and only when the Sim is not in that object's use list), and
+  explicit calls of some objects (`ServingContainer_CleanUp` for the fridge it used). The waiters time out after the
+  object's `kTimeToWaitInLine` (Fridge 15 sim-min), counted from the end of their own first walk to the waiting spot;
+  `CutAheadOfLowerPrioritySims` never inserts in front of the head.
+- So a head can be stale three ways: its action ended without a removal (another object's line, RemoveFromLine's
+  use-list guard), its action was put back in the queue behind another action, or it is still in the use list after its
+  action and stands away from the object.
+- `linestale` (`LineStale.cs`, `LineStaleCore.cs`, counters 4680-4686, `LineStaleCheck`, no new swap): `LdsQueueHook.WaitHook`
+  records each granted turn (the action, the action running then, the object); each waiter's per-minute check
+  (`LswExitHook`, LineSwitch.cs's swap of `SimQueue.WaitForExitReasonOnSim`) looks at the head. Fresh while either
+  action runs (walking over from any distance, the player's rule) or while it is in the use list within 3 m. After
+  `kLineStaleMinutes` (5) not fresh without a break the head leaves the line through EA's `RemoveFromQueue`; a queued
+  action asks again when it runs. Scope: NPC heads with `linestale`, household / selected heads also with
+  `linestalehh`; `linestalelog` writes one line per case and a "kept, head holds N sim-min and counts as coming" line
+  for any head held 10 sim-min. Selftest `tools/selftest/linestale` (16 checks).
+- Runs (Deck, new games, seed 152, 5 min storms, s541 all-on list + linestale(+hh)+log; r9a-r9d builds):
+
+| run | world | stale heads (would / dropped) | long line waits (≥ 5 sim-min) and their head |
+|---|---|---|---|
+| s545a | Bridgeport | 0 / 0 (87 heads watched) | none |
+| s545c | Twinbrook | 0 / 0 (92 heads) | Max 25.1 behind Bill (`Fridge_EatLeftovers`, 2.9 m) |
+| s547c | Twinbrook | 0 / 0 (80 heads) | Silver 34.1 behind Max: "head holds 34.1 sim-min ... Fridge_EatLeftovers (walking), 5.6 m"; Dennis 24.8 behind Bill (bookshelf, 11.1 m) |
+| s548a | Bridgeport | 0 / 0 | Indie Girl holds the FridgeModerate 10.4 sim-min walking from 12.6 m |
+
+- Cause of the lead [verified for s547c, inferred for s543c]: the head is walking over, slowly. Max Racket is an elder
+  in `HoldingCanePosture`; the house's fridge is reached over the stair foot (room 25, `routefail strand link` lines for
+  the same stairs in s543c). The head's own action runs and routes the whole time, so it is not stale by the player's
+  rule (a Sim walking over keeps its turn; EA's first-come order stays). The waiters pass EA's 15-minute timeout because
+  that clock starts after their own walk to the waiting spot. Nothing to fix in the line; the slow part is the head's
+  walk (cane, stairs), a routing lead, not a line bug.
+- How often: storms s532-s543 (14 phase dirs, `linewait:` lines with ≥ 5 sim-min): 53 long waits, 0 whose head was
+  doing something else at the start of the wait (the hits of a plain name match are `Bookshelf_GetBook` run inline by
+  `Sim_ReadToSleep_GetBook`, `Sit` under `Eat`, and platter lines under the cook's `Fridge_Have`: all heads at work on
+  the object). With linestale watching, 0 stale heads in 4 storms (s545a, s545c, s547c, s548a). Built, default off,
+  NOT PROVEN (no case to prove it on).

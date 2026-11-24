@@ -173,6 +173,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLineSwitchHh value="False" />
     <kLineSwitchLog value="False" />
     <kLineSwitchMinutes value="2" />
+    <kLineStale value="False" />
+    <kLineStaleHh value="False" />
+    <kLineStaleLog value="False" />
+    <kLineStaleMinutes value="5" />
     <kSafeSpotYield value="False" />
     <kSafeSpotPlanYield value="True" />
     <kDisposeSpread value="False" />

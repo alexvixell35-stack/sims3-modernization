@@ -25,6 +25,9 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  linestale: 'storm proof (docs/686 §29): a stale line head needs another action to cut in front of the turn-taking one or end it without RemoveFromQueue; judged by storm replays with linestalelog, no forced repro yet',
+  linestalehh: 'storm proof (docs/686 §29), as linestale: household heads of the same storms',
+  linestalelog: 'log only (one linestale: line per stale head, docs/686 §29); on in the linestale storm replays',
   unseenfbgohere: 'docs/328 §7.5 (2026-11-23): natural-play switch, no forced GoHere visit repro; judged by compat-switchon-1122g-1123 bp-gohere-ab (--ab unseenfbgohere, eligibility log line)',
   petrelaxlog: 'log only (one petrelax: line per act, docs/686 §11): on in the forced repro petrelax-force (docs/686 §11.6), which needs agent steps that are not upstream yet',
   clipwaitlog: 'log only (one clipwait: line per wait, docs/686 §9); clipwait is here as petrelax plumbing',
