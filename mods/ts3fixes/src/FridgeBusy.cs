@@ -6,6 +6,7 @@ using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Objects.Appliances;
+using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 
 namespace Ts3Fixes
@@ -16,9 +17,12 @@ namespace Ts3Fixes
     //                        (UserDirected, not autonomous), from EA's own Fridge.GetCookRandomRecipeInteraction (a random
     //                        single-serving recipe); the repro's do_interaction could not pick a Fridge_Have menu entry.
     //                        When EA's test refuses, the answer names the reason (the greyed-out tooltip).
-    //   "state":             the fridge's users, its line, and for each Sim with a fridge action queued: what it runs now
-    //                        and where it stands, one line in the log ("fridgebusy: ...") and the answer.
-    // Only EA's own definition and instance go into the queue (a save keeps nothing of ours).
+    //   "state <full name>": the state of the fridge nearest the Sim (FbDescribe), one line in the log and the answer.
+    //   "watch <full name>": logs that state each time it changes (every 3 ticks, with the sim-minute), up to kFbWatchMax
+    //                        lines; a new watch ends the last one. The 11-24 run's per-5-s snapshots of every residential
+    //                        fridge were cut off before the household's own and too coarse to see who blocks the slot.
+    // Only EA's own definition and instance go into the queue (a save keeps nothing of ours). The watch is static state on
+    // a Simulator task (gone with the world), reads only.
     public static partial class Fixes
     {
         public static string FridgeBusyCheck(string what)
@@ -27,9 +31,22 @@ namespace Ts3Fixes
             string r;
             try
             {
-                if (a[0] == "push" && a.Length == 2) r = FbPush(a[1]);
-                else if (a[0] == "state") r = FbState();
-                else return "fridgebusy <push <full name>|state>";
+                if (a.Length < 2) return "fridgebusy <push|state|watch> <full name>";
+                if (a[0] == "push") r = FbPush(a[1]);
+                else if (a[0] == "state" || a[0] == "watch")
+                {
+                    Sim s = FbSim(a[1]);
+                    Fridge f = s == null ? null : FbFridge(s);
+                    if (f == null) r = s == null ? "no Sim " + a[1] : "no fridge on " + a[1] + "'s lot";
+                    else if (a[0] == "state") r = FbDescribe(f);
+                    else
+                    {
+                        int gen = ++sFbWatchGen;
+                        Simulator.AddObject(new LoopTask(delegate { FbWatchLoop(f, gen); }));
+                        r = "watching " + f.GetType().Name + ": " + FbDescribe(f);
+                    }
+                }
+                else return "fridgebusy <push|state|watch> <full name>";
             }
             catch (ResetException) { throw; }
             catch (Exception e) { r = "error " + e.GetType().Name + ": " + e.Message; }
@@ -51,10 +68,15 @@ namespace Ts3Fixes
             return best;
         }
 
+        static Sim FbSim(string name)
+        {
+            foreach (Sim x in Sims3.Gameplay.Queries.GetObjects<Sim>()) if (x.FullName == name) return x;
+            return null;
+        }
+
         static string FbPush(string name)
         {
-            Sim s = null;
-            foreach (Sim x in Sims3.Gameplay.Queries.GetObjects<Sim>()) if (x.FullName == name) { s = x; break; }
+            Sim s = FbSim(name);
             if (s == null) return "no Sim " + name;
             Fridge f = FbFridge(s);
             if (f == null) return "no fridge on " + name + "'s lot";
@@ -86,29 +108,54 @@ namespace Ts3Fixes
             return b.ToString();
         }
 
-        static string FbState()
+        const int kFbWatchMax = 800;
+        static int sFbWatchGen, sFbWatchN;
+
+        static void FbWatchLoop(Fridge f, int gen)
         {
-            StringBuilder b = new StringBuilder();
-            foreach (Fridge f in Sims3.Gameplay.Queries.GetObjects<Fridge>())
+            string last = null;
+            while (gen == sFbWatchGen && sFbWatchN < kFbWatchMax && !f.HasBeenDestroyed)
             {
-                if (f == null || f.HasBeenDestroyed || f.LotCurrent == null || !f.LotCurrent.IsResidentialLot) continue;
-                StringBuilder u = new StringBuilder();
-                foreach (Sim o in f.ActorsUsingMe) u.Append(u.Length > 0 ? ", " : "").Append(o == null ? "?" : o.FirstName);
-                b.Append(f.GetType().Name).Append(" users [").Append(u).Append("] line [").Append(FbLine(f)).Append("]");
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                {
-                    if (s == null || s.LotCurrent != f.LotCurrent || s.InteractionQueue == null) continue;
-                    bool wants = false;
-                    foreach (InteractionInstance i in s.InteractionQueue.InteractionList) if (i != null && i.Target == f) { wants = true; break; }
-                    if (!wants) continue;
-                    InteractionInstance cur = s.CurrentInteraction;
-                    b.Append("; ").Append(s.FirstName).Append(": ").Append(cur == null ? "nothing" : cur.GetType().Name)
-                        .Append(cur != null && cur.Target == f ? " (this fridge)" : "")
-                        .Append(", ").Append((s.Position - f.Position).Length().ToString("0.0")).Append(" m");
-                }
-                b.Append(" | ");
+                Simulator.Sleep(3);
+                string st;
+                try { st = FbDescribe(f); }
+                catch (ResetException) { throw; }
+                catch (Exception e) { st = "error " + e.GetType().Name + ": " + e.Message; }
+                if (st == last) continue;
+                last = st;
+                ++sFbWatchN;
+                DiagLine("fridgebusy: watch " + SimClock.ElapsedTime(TimeUnit.Minutes).ToString("0.0") + ": " + st);
             }
-            return b.Length == 0 ? "no fridge on a residential lot" : b.ToString();
+        }
+
+        // users, the line in order, Sims on the routing slot, and Sims with this fridge queued elsewhere; each Sim as
+        // name(running interaction, exit reasons when set, metres from the slot)
+        static string FbDescribe(Fridge f)
+        {
+            Vector3 slot = f.GetPositionOfSlot(Slot.RoutingSlot_0);
+            List<Sim> line = f.Line == null ? null : f.Line.SimsInQueue;
+            StringBuilder u = new StringBuilder(), l = new StringBuilder(), on = new StringBuilder(), q = new StringBuilder();
+            foreach (Sim o in f.ActorsUsingMe) FbSimText(u, o, slot);
+            if (line != null) foreach (Sim o in line) FbSimText(l, o, slot);
+            foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+            {
+                if (s == null || s.LotCurrent != f.LotCurrent || s.InteractionQueue == null) continue;
+                if ((s.Position - slot).LengthSqr() < 0.81f && !f.IsActorUsingMe(s)) FbSimText(on, s, slot);
+                if (f.IsActorUsingMe(s) || (line != null && line.Contains(s))) continue;
+                foreach (InteractionInstance i in s.InteractionQueue.InteractionList)
+                    if (i != null && i.Target == f) { FbSimText(q, s, slot); break; }
+            }
+            return "users [" + u + "] line [" + l + "] on slot [" + on + "] queued [" + q + "]";
+        }
+
+        static void FbSimText(StringBuilder b, Sim s, Vector3 slot)
+        {
+            if (b.Length > 0) b.Append(", ");
+            if (s == null) { b.Append("?"); return; }
+            InteractionInstance cur = s.CurrentInteraction;
+            b.Append(s.FirstName).Append('(').Append(cur == null ? "nothing" : cur.GetType().Name);
+            if (s.ExitReason != ExitReason.None) b.Append(' ').Append(s.ExitReason.ToString());
+            b.Append(' ').Append((s.Position - slot).Length().ToString("0.0")).Append(')');
         }
     }
 }
