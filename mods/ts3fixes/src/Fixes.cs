@@ -2349,6 +2349,7 @@ namespace Ts3Fixes
                 case "rummagebcast": return Instantiator.kRummageBcast;  // docs/611 §4 (LotCallbacks80.cs), EA bug fix, off
                 case "stairwaitend": return Instantiator.kStairWaitEnd;  // docs/612 §2 (StairDup82.cs), EA bug fix, off
                 case "privacyroom": return Instantiator.kPrivacyRoom;  // PrivacyRoom.cs, EA bug fix, off
+                case "bathroomwait": return Instantiator.kBathroomWait;  // BathroomWait.cs, off
                 case "simdisposelink": return Instantiator.kSimDisposeLink;  // docs/612 §3 (StairDup82.cs), EA bug fix, off
                 case "rhexitunseen": return Instantiator.kRhExitUnseen;  // docs/613 §2 (StuckJobs83.cs), EA bug fix, off
                 case "routefailprobe": return Instantiator.kRouteFailProbe;  // docs/627 §2 (RhEntry627.cs), log attribution fix, off
