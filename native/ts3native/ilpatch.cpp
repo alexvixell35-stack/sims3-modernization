@@ -42,6 +42,7 @@ static IlpHeaderFn g_ilpHeader = (IlpHeaderFn)(uintptr_t)IL_HEADER;
 static void (*g_ilpColdEnter)(int site, DWORD arg0);  // satb's cold-site client (SatbColdEnter), called first as its own detour did
 static void (__cdecl* g_ilpPost)(BYTE* rm, void* ctx);  // [MonoJit]'s post-pass: only after a transform that threw nothing
 static bool g_ilpArmed[kIlpSpecN];
+static bool g_ilpTuneIso;  // [IlPatch] Enabled=1 and ilp_tuneisolate=1 with the detour in (docs/339)
 static volatile LONG g_ilpLogged[kIlpSpecN];      // the once-per-spec lines
 struct IlpPatched {  // the patched body of one spec, built at the first transform of its method
     BYTE* rm;        // the runtime method it was built for (a repeat transform reuses it)
@@ -128,6 +129,15 @@ static bool IlpSameRegion(const DWORD* cl, DWORD n, DWORD a, DWORD b) {
     }
     return true;
 }
+// A leave may exit regions, never enter one (ECMA-335 III.3.46): every try or handler range holding b also holds a.
+static bool IlpLeaveOut(const DWORD* cl, DWORD n, DWORD a, DWORD b) {
+    for (DWORD i = 0; i < n; i++) {
+        const DWORD* c = cl + 6 * i;
+        if (b >= c[1] && b < c[1] + c[2] && !(a >= c[1] && a < c[1] + c[2])) return false;
+        if (b >= c[3] && b < c[3] + c[4] && !(a >= c[3] && a < c[3] + c[4])) return false;
+    }
+    return true;
+}
 struct IlpItem { DWORD off, size; int orig; int edit, line; };  // orig >= 0: that decoded instruction; else edit's line
 // cl: the original clause records (6 DWORD each, n of them). Allocates r.code; r.why names a refusal (nothing allocated then).
 static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, DWORD nCl, const IlpSpec& s, const IlpBuild& b, IlpReloc& r) {
@@ -160,7 +170,8 @@ static void IlpApply(const BYTE* code, DWORD n, WORD maxStack, const DWORD* cl, 
             const IlpIns& x = ed.ins[k];
             if (x.kind == IK_BR_ORIG) {
                 if (Idx::of(dec, nd, n, x.v) < 0) { HeapFree(heap, 0, dec); r.why = "our branch target is not an instruction start"; return; }
-                if (!IlpSameRegion(cl, nCl, ed.at, x.v)) { HeapFree(heap, 0, dec); r.why = "our branch leaves the exception region of its edit"; return; }
+                const bool leave = x.op == 0xDD || x.op == 0xDE;  // docs/339: a catch that skips its item leaves the handler
+                if (leave ? !IlpLeaveOut(cl, nCl, ed.at, x.v) : !IlpSameRegion(cl, nCl, ed.at, x.v)) { HeapFree(heap, 0, dec); r.why = "our branch leaves the exception region of its edit"; return; }
             } else if (x.kind == IK_BR_OURS) { if ((x.v >> 16) >= s.nEdits || (x.v & 0xFFFF) >= s.edits[x.v >> 16].nIns) { HeapFree(heap, 0, dec); r.why = "our branch names a line the spec has not"; return; } }  // v = edit << 16 | line
             else if (x.kind == IK_TOK) { if (x.v >= b.nTokens) { HeapFree(heap, 0, dec); r.why = "a token index past the build's token list"; return; } }
             else if (x.kind > IK_I32 && x.kind != IK_TOK) { HeapFree(heap, 0, dec); r.why = "an operand kind the native table does not carry"; return; }
@@ -455,6 +466,7 @@ static bool ApplyIlPatch(const wchar_t* ini) {
     if (!IlpHook()) { Log("SKIP il patch: the transform prologue differs (another mod or probe owns 0xE643B0): no fix applied"); return false; }
     ts3native_counters.ilpOn = 1;
     ts3native_counters.ilpArmed = armed;
+    g_ilpTuneIso = GetPrivateProfileIntW(L"IlPatch", L"ilp_tuneisolate", 1, ini) != 0;  // UserDiag op 50: ts3fixes' late init (docs/339)
     Log("OK   il patch (docs/506 §2, docs/526): %d of %d fixes armed; each is applied at the first transform of its method, on an exact body hash only", armed, kIlpSpecN);
     return true;  // keep the log open for the apply / skip lines
 }

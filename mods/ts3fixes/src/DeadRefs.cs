@@ -116,6 +116,85 @@ namespace Ts3Fixes
         // phases array index -> the phase number of the header list (index 12 is phase 14, cooking; 13 is phase 13)
         static readonly int[] kDrPhaseNo = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 13, 15 };
 
+        // docs/334 deadrefexact (default OFF, LC-1 of docs/333; needs deadrefcadence on, which it refines): exact cuts, the same
+        // items and removals as the cadence pass:
+        //  (a) one pass over the world snapshot fills the Sim, Fish, car / boat, horseshoe and dartboard lists (each in snapshot
+        //      order, as each filter made it) instead of five filter passes; the pass is sliced like the phases (clock every
+        //      kDeadRefClockEvery items, Sleep(0) and the unsafe re-check between slices, so a pass can now stop there, flags
+        //      re-set by the finally as at any slice) and timed to the phase that asks first; only on passes that run the Sim
+        //      group (a description-only pass keeps the fish filter);
+        //  (b) the merged object step reads ObjectDisposed and builds its invocation list once for the handler and cooking
+        //      holders, again only when the handler holder changed the field (LoopCostCore.SharedDrop, each part its own try);
+        //  (c) the deadrefcooking switch and the counter array are read once per slice, not per object: a flip applies from the
+        //      next slice. sDrC / sDrCookOn are set before every slice of the merged step, its only caller.
+        // [1658] partition passes, [1659] objects in the last one, [1660] objects whose cooking part reused the handler part's
+        // list, [1661] re-reads after a handler removal.
+        static bool DrExact() { return ShortcutOn("deadrefexact"); }
+        static bool sDrCookOn;
+        static int[] sDrC;
+        static readonly LoopCostCore.EvGet sDrEvGet = delegate(object h) { return sObjDisposed.GetValue(h) as Delegate; };
+        static readonly LoopCostCore.EvSet sDrEvSet = delegate(object h, Delegate v) { sObjDisposed.SetValue(h, v); };
+        static readonly LoopCostCore.EvTest sDrRelGone = delegate(Delegate d, object h) { GameObjectRelationship r = d.Target as GameObjectRelationship; return r != null && RelGone(r); };
+        static readonly LoopCostCore.EvTest sDrCpStale = delegate(Delegate d, object h) { CookingProcess cp = d.Target as CookingProcess; return cp != null && CpStale(cp, h as GameObject); };
+        static readonly LoopCostCore.EvDropped sDrCpDropped = delegate(Delegate d, object h)
+        {
+            CookingProcess cp = (CookingProcess)d.Target;
+            GameObject o = (GameObject)h;
+            if (cp.ObjectClickedOn == o) cp.ObjectClickedOn = null; // dead process: what EA's handler does at disposal
+            if (cp.ObjectClickedOn == null) CpDropListener(cp);
+        };
+
+        // phase index (p) whose list comes from the partition: 4 Sims, 5 fish, 6 vehicles, 7 horseshoe, 8 darts, 13 celebrity, 14 convo
+        static bool DrTypedPhase(int p) { return (p >= 4 && p <= 8) || p == 13 || (p == 14 && ShortcutOn("deadrefconvo")); }
+
+        // the partition list bits, in the order of the lists: Sim, Fish, CarOwnable or BoatOwnable, HorseshoeCourt, Dartboard
+        static int DrTypeMask(object o)
+        {
+            int m = 0;
+            if (o is Sim) m |= 1;
+            if (o is Fish) m |= 2;
+            if (o is CarOwnable || o is BoatOwnable) m |= 4;
+            if (o is HorseshoeCourt) m |= 8;
+            if (o is Dartboard) m |= 16;
+            return m;
+        }
+
+        // (a): false when the state turned unsafe between slices (the caller stops the pass)
+        static bool DrPartition(List<object> all, List<object>[] parts, int[] c)
+        {
+            for (int i = 0; i < parts.Length; i++) parts[i] = new List<object>();
+            // an index loop, no per-item delegate: the list is the pass's own snapshot and never changes
+            for (int i = 0, n = all.Count; i < n; i++)
+            {
+                object o = all[i];
+                int m = DrTypeMask(o);
+                if (m != 0) LoopCostCore.PartitionAdd(o, m, parts);
+                // the last part-slice runs on into the phase's first slice, as the gather did
+                if (i + 1 < n && (i + 1) % kDeadRefClockEvery == 0 && sDeadRefWatch.GetElapsedTime() >= EaSpreadCore.kSliceUs)
+                {
+                    DeadRefSliceDone(c);
+                    Simulator.Sleep(0);
+                    if (DeadRefUnsafe(false) != null) return false;
+                    sDeadRefWatch.Restart();
+                }
+            }
+            c[1658]++;
+            c[1659] = all.Count;
+            if (ShortcutOn("deadrefexactverify")) DrPartitionVerify(all, parts, c);
+            return true;
+        }
+
+        // deadrefexactverify (default OFF, test only): the five filter passes of the cadence pass run as well, unsliced, and
+        // each must equal its partition list (same items, same order; household Sims included). [1669] lists compared,
+        // [1670] lists that differed (must stay 0).
+        static void DrPartitionVerify(List<object> all, List<object>[] parts, int[] c)
+        {
+            List<object> v = new List<object>();
+            foreach (object o in all) if (o is CarOwnable || o is BoatOwnable) v.Add(o);
+            List<object>[] want = { DrOfType<Sim>(all), DrOfType<Fish>(all), v, DrOfType<HorseshoeCourt>(all), DrOfType<Dartboard>(all) };
+            for (int k = 0; k < want.Length; k++) { c[1669]++; if (!LoopCostCore.SameItems(want[k], parts[k])) c[1670]++; }
+        }
+
         static bool DrCadence() { return ShortcutOn("deadrefcadence"); }
         static bool DrDescPhase(int p) { return p <= 2 || p == 5; }
 
@@ -238,10 +317,11 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             if (sDeadRefWatch == null) sDeadRefWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
-            bool cad = DrCadence();
+            bool cad = DrCadence(), exact = cad && DrExact();
             List<object> objs = null, sims = null;
+            List<object>[] parts = exact ? new List<object>[5] : null; // filled by DrPartition before the first typed phase
             Gather objWalk = delegate { if (objs == null) { objs = Objects<GameObject>(); if (cad) { c[1575]++; c[1576] = objs.Count; } else c[2055]++; } return objs; };
-            Gather simList = delegate { if (!cad) return Objects<Sim>(); if (sims == null) sims = DrOfType<Sim>(objWalk()); return sims; };
+            Gather simList = delegate { if (!cad) return Objects<Sim>(); if (exact && parts[0] != null) return parts[0]; if (sims == null) sims = DrOfType<Sim>(objWalk()); return sims; };
             bool objByEvent = sDeadRefObjDue, objOpen = false;
             float nowH = SimClock.ElapsedTime(TimeUnit.Hours);
             bool objRun = objByEvent || nowH - sDeadRefObjLastH >= kDeadRefObjHours;
@@ -258,14 +338,15 @@ namespace Ts3Fixes
                 delegate { return AlarmOwnersToCheck(); },
                 delegate { return ToObjects(Household.EverySimDescription()); },
                 simList,
-                delegate { return cad ? DrOfType<Fish>(objWalk()) : Objects<Fish>(); },
+                delegate { return exact && parts[0] != null ? parts[1] : cad ? DrOfType<Fish>(objWalk()) : Objects<Fish>(); },
                 delegate
                 {
+                    if (exact && parts[0] != null) return parts[2];
                     if (cad) { List<object> v = new List<object>(); foreach (object o in objWalk()) if (o is CarOwnable || o is BoatOwnable) v.Add(o); return v; }
                     List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l;
                 },
-                delegate { return cad ? DrOfType<HorseshoeCourt>(objWalk()) : Objects<HorseshoeCourt>(); },
-                delegate { return cad ? DrOfType<Dartboard>(objWalk()) : Objects<Dartboard>(); },
+                delegate { return exact && parts[0] != null ? parts[3] : cad ? DrOfType<HorseshoeCourt>(objWalk()) : Objects<HorseshoeCourt>(); },
+                delegate { return exact && parts[0] != null ? parts[4] : cad ? DrOfType<Dartboard>(objWalk()) : Objects<Dartboard>(); },
                 objWalk,
                 objWalk,
                 objWalk,
@@ -293,6 +374,8 @@ namespace Ts3Fixes
                     int got0 = DrRemovedSum(c);
                     sDrPhase = p;
                     sDeadRefWatch.Restart();
+                    // only when the Sim group runs: a description-only pass needs the fish list alone and keeps its one filter
+                    if (exact && simRun && parts[0] == null && DrTypedPhase(p) && !DrPartition(objWalk(), parts, c)) { c[410]++; return; }
                     List<object> items = phases[p]();
                     if (p < 3)
                     {
@@ -305,9 +388,10 @@ namespace Ts3Fixes
                     SlicedPass<object> pass = new SlicedPass<object>(items);
                     int phase = p;
                     bool merged = cad && p == 9;
-                    Action<object> step = merged ? (Action<object>)DrObjectStep : delegate(object o) { DeadRefStep(phase, o); };
+                    Action<object> step = merged ? (exact ? (Action<object>)DrObjectStepExact : DrObjectStep) : delegate(object o) { DeadRefStep(phase, o); };
                     while (true)
                     {
+                        if (merged && exact) { sDrCookOn = ShortcutOn("deadrefcooking"); sDrC = c; } // (c): once per slice
                         int n = cad ? pass.RunSliceEvery(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); }, kDeadRefClockEvery)
                                     : pass.RunSlice(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); });
                         c[1557 + kDrPhaseNo[p]] += n;
@@ -358,6 +442,18 @@ namespace Ts3Fixes
             try { OwnerBody(o); } catch (Exception) { c[410]++; }
             try { HandlerBody(o); } catch (Exception) { c[410]++; }
             try { if (ShortcutOn("deadrefcooking")) CookingBody(o); } catch (Exception) { c[410]++; }
+        }
+
+        // DrObjectStep with the deadrefexact cuts (b) and (c): the same holders in the same order and the same tries.
+        static void DrObjectStepExact(object x)
+        {
+            GameObject o = x as GameObject;
+            int[] c = sDrC;
+            try { if (o == null || o.HasBeenDestroyed) return; } catch (Exception) { c[410]++; return; }
+            try { if (UseListGone(o) > 0) UseListBody(o); } catch (Exception) { c[410]++; }
+            try { OwnerBody(o); } catch (Exception) { c[410]++; }
+            if (sObjDisposed == null) return; // HandlerBody and CookingBody both stood down
+            LoopCostCore.SharedDrop(o, sDrEvGet, sDrEvSet, sRelDesc != null ? sDrRelGone : null, sDrCookOn ? sDrCpStale : null, sDrCpDropped, c, 2048, 994, 410, 1660, 1661);
         }
 
         static void DeadRefSliceDone(int[] c)

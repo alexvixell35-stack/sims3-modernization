@@ -7207,7 +7207,7 @@ Lane G `thread-census-1120` bp-thread-census, first attempt (pid 12184, start 09
 | ID | Doc | Claim | Based on | Check | Pass | Fail | Verdict |
 |---|---|---|---|---|---|---|---|
 | I-581-1 | 323 §5 L2 | No JIT template emits more than 256 bytes for one position, so the per-position room check never refuses a normal method | largest position over all JIT selftests 103 bytes [measured]; the game's methods use the same templates [inferred] | `[MonoJit]` refusal reasons in a game log (`code budget passed` count) | 0 refusals of that reason | any: raise `kJitPosRoom` or find the template | open |
-| I-581-2 | 323 §5 L6 | A new world gives World_SurfaceTypeAtPoint another world object, so the FootstepRO clear fires on travel / reload | thiscall world pointer from the footstep site [inferred, not traced] | a travel or menu reload with `[FootstepRO]` on: log or counter of the clear (not built) | the pointer changes | the pointer is one object for the session: entries still expire after MaxAgeMs (as before) | open |
+| I-581-2 | 323 §5 L6 | A new world gives World_SurfaceTypeAtPoint another world object, so the FootstepRO clear fires on travel / reload | thiscall world pointer from the footstep site [inferred, not traced] | a travel or menu reload with `[FootstepRO]` on: log or counter of the clear (not built) | the pointer changes | the pointer is one object for the session: entries still expire after MaxAgeMs (as before) | | open (CP-12 static look 2026-11-23, Steam 1.67: ecx at `0x869711` is `edi` = `[esp+0x1c]`, stored at `0x869485` from the return of `0xC62D40` called on the footstep owner, not a global [verified disassembly]; whether that object is reallocated per world is not traced; nothing built on it) |
 | I-581-3 | 323 §1.1 L9 | RegGetValueW with RRF_RT_REG_EXPAND_SZ and no RRF_NOEXPAND fails with ERROR_INVALID_PARAMETER | API documentation (audit) | `TestOverflowSmall` on Windows 11 | — | returns 0 with the expanded folder [measured] | refuted |
 
 ## 584. Unbounded-world caps lane C (2026-11-22, docs/321 §7.4; built, queue unbounded-caps-correct-1122c)
@@ -7259,3 +7259,50 @@ Lane G `thread-census-1120` bp-thread-census, first attempt (pid 12184, start 09
 | I-577-1 | 67 §45 | The 2026-11-19..23 `apex-401-present-lock-cycle` hangs are LotLightBridge::UpdateHooks vs D3D9Hooks g_lock, not the PostScene pair of #90 | disassembly of the 4.0.13 and a69a1bbc dumps (pushed mutex + "LotLightBridge" registration); PDB stress build names the frames [verified] | dump-locks + stacks of every new hit dump | same locks / helper | another pair: new section | verified (4 dumps) |
 | I-577-2 | 67 §45 | Taking the registration lock first in UpdateHooks removes the cycle | stress build (8 s hold inside UpdateHooks): base 3/3 hang, fix 3/3 pass [verified] | natural hits on an Apex build with #144 | 0 hits of this cycle over the next test week | a hit with UpdateHooks on the stack | open |
 | I-577-3 | 67 §45 | An off-render-thread unregister (pump reinstall) can still deadlock with a Present-time setter | static review of the fix [inferred] | a dump with Shutdown/SetEnabled(false) -> UnregisterAll on the Apex thread | never seen | seen: follow-up Apex PR | open |
+
+## 606. Tune isolate: EA's tuning loop and one broken script mod (2026-11-23, docs/339)
+
+| ID | Doc | Claim | Based on | Check | Pass | Fail | Verdict |
+|---|---|---|---|---|---|---|---|
+| I-606-1 | 339 §3 | In the e-icarus repro ts3fixes came before the add-on in EA's assembly order and was fully tuned; ts3agent came after it | 9 `play: ui tasks` lines (Fixes.Apply ran), no world-load lines, agent silent [inferred] | `ip-tuneiso-off`: the "broken script mod ... EA's tuning stops here" line present | line present | absent (ts3fixes after the add-on on that run) | open |
+| I-606-2 | 339 §1 | The IL transform of both methods runs after ts3native's detour is in, so the patched body is the one that runs | asi loads before Mono; same path as b89 Fixup (docs/526 §5 live) [inferred] | `ip-tuneiso-on` applied lines + agent answers | both applied, agent answers | not applied / agent silent | open |
+| I-606-3 | 339 §1 | `leave` from a catch handler to the loop increment works in mint after the relocator's long re-encode | ECMA-335 III.3.46; selftest relocates it [inferred for mint] | `ip-tuneiso-on` runs past the add-on, 0 script errors | world loads | crash or script error at startup | open |
+
+## 605. Scene index-list drain vs. the main-view cull job (2026-11-23, docs/338; static + build, queue cullrace-correct-1124, not run)
+
+| ID | Doc | Claim | Based on | Check | Pass | Fail | Verdict |
+|---|---|---|---|---|---|---|---|
+| I-605-1 | 338 §2 | `0x6E4720` is the scene index-list drain (`[scene+0x40..+0x44)`, `obj = [scene+4][idx]`, vfunc +0x74, then clear) | disassembly Steam 1.67 [verified] | - | - | - | verified |
+| I-605-2 | 338 §2 | DrawScene `0x6F3F90` drains at `0x6F401B` without waiting for job 318; it waits 310/314/320 only when `+0x28E` / `+0x294` / `+0x29C` | disassembly [verified] | - | - | - | verified |
+| I-605-3 | 338 §2 | With lightingquality 1 and generalreflections 0 all three flags are 0 | Lenovo triage, flag setters in docs/46 [inferred]; EA laptop 2026-11-23: `+0x28F` is 1 there, not 0 [verified, EA]; shadow / reflection / shadow2 values not read yet | `cullrace: first DrawScene drain` line in `ip-cullrace-*` (shadow / reflection / shadow2 values) | all 0 | any non-zero | open |
+| I-605-4 | 338 §1 | The v0.3.1 EA 1.69 crash at `0x6E54F5` is the drain reading a list buffer that job 318's `push_back` grew (and freed) on another thread | static path + crash registers [inferred] | queue cullrace-correct-1124: `cullrace: RACE` / `BADIDX` with the cull on another thread, off arms; none with CullDrainWait=1 | hits off, none on | no hit in the off arms (look for another writer / freer) | open |
+| I-605-5 | 338 §3 | `[RouteAsync]` makes the race more likely | brief [inferred]; route jobs run on our own worker, not JobThread0 [verified], so only indirect (CPU contention) | `crRace` rate RouteAsync on vs off (cullrace2 = state 4 only; EA cullrace1 jobs: ~590 state-4 lines in 4 jobs, fix off, 9 with a non-empty list of 7-219, BADIDX 0, no crash [verified, EA]; JobManager_ReadyJob stores 3 = queued, not running, so cullrace1's count also held queued states) | on >> off | equal | open |
+| I-605-6 | 338 §4 | CullDrainWait costs ~0 (EA's draw passes wait for 318 right after) | static [inferred] | `cdwWaitUs / cdwWaits` in ip-cullrace-fix | < 50 us per frame | more | open |
+
+## 591. CP-1 lot hub coverage (2026-11-23, docs/321 §8; built, queue cp1-lothub-correct-1123)
+
+| ID | Doc | Claim | Based on | Check | Pass | Fail | Verdict |
+|---|---|---|---|---|---|---|---|
+| I-591-1 | 321 §8 | Every lot whose objects enter or leave the scene goes through the add / remove executes `0xABD3C0` / `0xABD3E0` with fn `0xAC1130` / `0xAB4C00`, so lhLotGen moves on camera streaming, travel and Edit Town | camera streaming path [verified, docs/28 §5.2]; travel, Edit Town placement and world load through the same remote calls [inferred, ST-12 not done] | ST-12 static pass (callers of `0xAC20E0` / the remote-call constructors) + `cp1-lothub-correct-1123` (adds and removes after the world load) | each lifecycle path reaches a hooked execute | a path that adds lot objects another way: consumers also need lhWorldGen or a second site | open |
+| I-591-2 | 321 §8 | World load and world quit reach native through the ts3fixes `world:` / `world quit` lines on the sim thread, once each | userdiag.cpp dispatch [verified]; one line per OnWorldLoadFinished / quit [inferred from UserDiag.cs] | same queue: one `lot hub: world load` line per load | exactly 1 per load | 0 ([UserDiag] off or ts3fixes absent) or 2+ | open |
+
+## 593. CP-2 managed lot hook (2026-11-23, docs/321 §9; built, queue cp2-lothook-correct-1123)
+
+| ID | Doc | Claim | Based on | Check | Pass | Fail | Verdict |
+|---|---|---|---|---|---|---|---|
+| I-593-1 | 321 §9.2 | The native lot's `[lot+0x48]` dword (what `[LotStream]` logs as the lot id low half) equals `(uint)Lot.LotId` of the managed lot | `[LotStream]` logs `+0x48..+0x4C` as the id [verified, lotstream.cpp]; equality with the managed id [inferred] | `cp2-lothook-correct-1123`: ids in `lothub: add lot 0x..` lines vs the lot ids of the world | the visited community lot's id appears in an add or remove line | no line id matches any world lot | open |
+| I-593-2 | 321 §9.1 | Lot add / remove executes, the world lines and the ts3fixes poll task all run on the sim thread, so the op 49 queue needs no lock | executes and world lines [verified, docs/321 §8]; ts3fixes `Task.Simulate` on the sim thread [inferred, as for every ts3fixes task] | same queue: faults 0, ids in order | faults 0 | a fault or a crash in `LhOp` | open |
+
+## 588. deadrefsweep exact cuts: deadrefexact (2026-11-23, docs/334, LC-1 of docs/333; built, queues lc1-exact-correct-1123 / lc1-exact-time-1123, not run)
+
+| ID | Doc | Claim | Based on | Check | Pass | Fail | Verdict |
+|---|---|---|---|---|---|---|---|
+| I-588-1 | 334 §1 | The partition pass gives each typed phase the same items in the same order as its filter pass did, so every removal is unchanged | same type tests over the same fixed snapshot list [verified our source]; selftest loopcost: `PartitionAdd` lists = filters on random lists [verified offline]; `DrTypeMask` (EA types) only by the live verify | `deadrefexactverify` in lc1-exact-correct-1123 on BP / IP / SV and the eight repros | `deadrefexact_verify_diff` 0 with `_verify_lists` >= 5 on every job | any diff | open |
+| I-588-2 | 334 §4 | deadrefexact saves ~1-4 ms/s at 1x (SV), ~5-19 at 4x and ~14-49 at 10x; (b) + (c) alone are ~5 at 4x and ~14 at 10x | docs/333 §3 model and §9.1 split (15-25% of p10), measured 0.25 us per object per filter pass, split between loop overhead and type tests unknown [inferred] | lc1-exact-time-1123 ABBA per arm (deadrefsweep, p5 and p10 ms/s); M-1 per-part counters | on < off in deadrefsweep ms/s on at least two worlds, no hitch regression | no saving at all, or a hitch regression | open |
+
+## 607. C0000029 crash: off-stack esp on the main thread (2026-11-24, docs/67 §46; crash-log detector, stress cp2xos-edit-town-stress-1124 4/4 PASS)
+
+| ID | Doc | Claim | Based on | Check | Pass | Fail | Verdict |
+|---|---|---|---|---|---|---|---|
+| I-607-1 | 67 §46 | The 2026-11-24 C0000029 is secondary to a wild execute AV at an ASCII eip with the main thread's esp off its stack (bad longjmp / pivot) | ts3native.log registers of both exceptions [verified log], longjmp reading [inferred] | the `off-stack esp:` line + dump on the next hit | esp inside the TEB stack on the next hit | esp region names its owner | open |
+| I-607-2 | 67 §46 | CP-2's Edit Town exit re-arm is not on the faulting path | timing: last ET exit 8 min before the crash [inferred] | stress repro with the detector | a hit with no Edit Town round, or one off cp2 | a hit right after an ET exit | open |
