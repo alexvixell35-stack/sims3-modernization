@@ -1774,3 +1774,12 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
 - Reading: a failed list or part route in a storm almost always ends with an exit reason besides `RouteFailed`, so the
   gate keeps it; the gate is right for cancels, but which reasons these are is not known yet. The kept line now
   names `Sim.ExitReason` (build r4b); run s536 (§24.5) reads them. NOT PROVEN: no retry has worked yet.
+
+### 24.5 Which exit reasons (2026-11-24, s536, slotretry on, build r4b, same storm) [verified]
+- 13 cases, 0 retried, errors 0. Kept: 11 with another exit reason (log lines: 20x `HigherPriorityNext`, 2x
+  `Finished`), 2 with no free part (both parts of a bed taken). Route fails per interaction: 27 (SocialInteractionA 9,
+  PlayCatchSocialInteraction 5, Sit 4, ...).
+- Reading: in a storm, a failed slot-list or part route is almost always a walk that was cancelled because the next
+  interaction had a higher priority, not a real route failure. Keeping these is right, since a retry would override
+  the queued action. The real case (RouteFailed alone, a free slot left) is rare: 1 in 3 storms (§24.4 Ethan Bunch ->
+  SofaClub, and the retry failed too). slotretry is harmless but has little to do. It stays default off, NOT PROVEN.
