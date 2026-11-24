@@ -482,6 +482,15 @@ const isStbl = (k: string) => k.startsWith('220557da:');
 export function stblOverrides(keys: Iterable<string>, gameStbl: Set<string>): string[] {
   return [...keys].filter((k) => isStbl(k) && gameStbl.has(k)).sort();
 }
+// The runtime's own assemblies and ours: always there when a script mod loads
+const BASE_ASMS = ['mscorlib', 'System', 'System.Xml', 'ts3fixes', 'ts3agent'];
+/** docs/339: a note when asm references assemblies nothing installed provides (provided: lower-case names). */
+export function missingRefNote(asm: string, refs: string[], provided: Set<string>): string | undefined {
+  const miss = [...new Set(refs.filter((r) => !provided.has(r.toLowerCase())))];
+  if (!miss.length) return undefined;
+  return `missing assembly: ${asm} references ${miss.join(', ')}, which no installed package provides (base mod not installed?); `
+    + `EA's tuning loop stops at it and the script mods after it get no tuning (docs/339, ts3native [IlPatch] ilp_tuneisolate)`;
+}
 export function stblOverrideNote(hits: string[]): string | undefined {
   if (!hits.length) return undefined;
   return `replaces ${hits.length} EA string table(s) by key (${hits.slice(0, 2).join(', ')}${hits.length > 2 ? ', ...' : ''}): `
@@ -692,6 +701,14 @@ function run() {
       }
       if (skipped.length) modelNote = `unparsed assemblies: ${skipped.length}`;
     } else modelNote = gameDlls.size ? 'no ts3fixes source: patched methods unknown' : 'no game assemblies (--asm or --game): type checks skipped';
+    // docs/339: S3SA references that no scanned package and no game assembly provides (an add-on without its base mod)
+    const provided = new Set([...BASE_ASMS, ...gameDlls.keys(), ...units.flatMap((u) => u.asms.map((a) => a.name))].map((n) => n.toLowerCase()));
+    for (const d of modDlls) {
+      let refs: string[];
+      try { refs = cg.assemblyRefs(cg.loadStandalone(join(tmp, `${d.file}.dll`), `${d.name}.dll`)); } catch { continue; }
+      const note = missingRefNote(d.name, refs, provided);
+      if (note) (d.unit.extras ??= []).push(note);
+    }
     // EA string tables a non-script package replaces by key (docs/304 C1); game indexes read only when such a package has STBLs
     const stblUnits = units.filter((u) => !u.kind.has('script') && [...u.keys].some(isStbl));
     if (stblUnits.length) {
@@ -969,6 +986,9 @@ function selfCheck() {
     && o.targets.some((t) => t.feature === 'AutOffload' && t.method === 'CalculateSimEnvironmentScore') && o.targets.some((t) => t.on) && o.targets.some((t) => t.on === false), 'ts3fixes switch defaults / Hook swaps');
   if (existsSync(join(REPO, 'native', 'ts3native'))) assert(nativeHooks().length > 50, 'ts3native hook addresses');
   assert(firstVolume('a/x.part2.rar') === 'a/x.part1.rar' && firstVolume('x.part03.rar') === 'x.part01.rar' && firstVolume('x.part1.rar') === 'x.part1.rar' && firstVolume('y.rar') === 'y.rar', 'multi-volume rar part 1');
+  const prov = new Set(['mscorlib', 'sims3gameplaysystems', 'icarusallsorts.cookwithanyingredient']);
+  assert(missingRefNote('A', ['mscorlib', 'Sims3GameplaySystems'], prov) === undefined, 'missingRefNote: all provided');
+  assert(missingRefNote('A', ['icarusallsorts.CookWithAnyIngredient', 'Base.Lib', 'Base.Lib'], prov)?.includes('references Base.Lib, which'), 'missingRefNote: names the missing one once, case-insensitive');
   console.log('compat-scan self-check ok');
 }
 

@@ -371,6 +371,8 @@ function body(m: Method): Ins[] {
 // ---------- per-method IL shape (tools/mod-method-diff.ts) ----------
 // One assembly outside the global model (own methods array), to compare two builds of the same module.
 export function loadStandalone(path: string, name: string): Asm { const a = loadAsm(path, name); indexAsm(a, []); return a; }
+/** Names of the assemblies a module references (AssemblyRef table, column Name). */
+export function assemblyRefs(a: Asm): string[] { return tbl(a, 0x23).map((r) => str(a, r[6])); }
 // A token as text from the assembly's own metadata (no cross-assembly resolution): two builds that name the same member
 // give the same text whatever their token numbers.
 export function tokenText(a: Asm, tok: number): string {

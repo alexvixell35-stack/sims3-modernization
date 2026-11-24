@@ -1,5 +1,5 @@
 // Daily experimental pre-release for testers (docs/279): latest master, every switch whose correctness gate PASSED on.
-//   node tools/release/experimental.ts [--dry-run] [--ref master] [--switches <json>] [--ignore-busy] [--force] [--keep 7]
+//   node tools/release/experimental.ts [--dry-run] [--ref <branch, default master or main>] [--switches <json>] [--ignore-busy] [--force] [--keep 7]
 //   node tools/release/experimental.ts --self-check
 // Steps: while a chain / queue / job / the game runs (track.ts status), skip only when the running job is a timing job
 // (queue.ts isTimingJob; the scheduled task retries hourly) unless --ignore-busy; skip when the last experimental pre-release was built from the same commit and switch list (unless --force)
@@ -20,6 +20,7 @@ import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { zip, unzip, vet } from '../mts-zip.ts';
 import { holdOwner } from '../harness/hold.ts';
+import { defaultBranch } from '../default-branch.ts';
 import { leftovers, enabledSections } from '../publish-public.ts';
 import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
 
@@ -207,10 +208,11 @@ const gh = (args: string[], timeout = 120_000) => run('gh', args, { env: ghEnv()
 function main() {
   const { values: a } = parseArgs({ options: {
     'dry-run': { type: 'boolean' }, 'self-check': { type: 'boolean' }, 'ignore-busy': { type: 'boolean' }, force: { type: 'boolean' },
-    ref: { type: 'string', default: 'master' }, switches: { type: 'string' }, keep: { type: 'string', default: '7' },
+    ref: { type: 'string' }, switches: { type: 'string' }, keep: { type: 'string', default: '7' },
     repo: { type: 'string', default: 'rodneypantonial/sims3-modernization' }, work: { type: 'string', default: join(ROOT, 'probe-out', 'experimental') },
   } });
   if (a['self-check']) return selfCheck();
+  const REF = a.ref ?? defaultBranch(ROOT); // master, or main in a public clone
   const work = resolve(a.work!), wt = join(work, 'wt'), dry = !!a['dry-run'];
   mkdirSync(work, { recursive: true }); LOG = join(work, 'experimental.log');
   if (process.platform !== 'win32') throw new Error('the build needs Windows (MSVC for ts3native, csc for ts3fixes)');
@@ -225,12 +227,12 @@ function main() {
     log(`busy, no timing job running, building anyway: ${b}`);
   } else if (b) log(`busy but --ignore-busy: ${b}`);
 
-  const sha = run('git', ['rev-parse', a.ref!], { cwd: ROOT });
+  const sha = run('git', ['rev-parse', REF], { cwd: ROOT });
   const rels: Rel[] = JSON.parse(gh(['release', 'list', '-R', a.repo!, '-L', '100', '--json', 'tagName,isPrerelease,isDraft,createdAt']));
   const stable = newestStable(rels); if (!stable) throw new Error('no stable release found');
   let tag = nextTag(stable, Date.now());
   if (a.force) { const base = tag; for (let n = 2; rels.some(r => r.tagName === tag); n++) tag = `${base}.${n}`; } // same-day extra release on request
-  log(`source ${a.ref} = ${sha}, stable ${stable}, tag ${tag}${dry ? ' (dry run)' : ''}`);
+  log(`source ${REF} = ${sha}, stable ${stable}, tag ${tag}${dry ? ' (dry run)' : ''}`);
 
   if (!existsSync(wt)) run('git', ['worktree', 'add', '-q', '--detach', wt, sha], { cwd: ROOT, timeout: 300_000 });
   else { run('git', ['checkout', '-q', '--force', '--detach', sha], { cwd: wt, timeout: 300_000 }); run('git', ['clean', '-fdxq'], { cwd: wt, timeout: 300_000 }); }

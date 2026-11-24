@@ -16,6 +16,7 @@ namespace Ts3Agent
 
         static Instantiator()
         {
+            AppDomain.CurrentDomain.SetData("ts3agent.started", true);  // ts3fixes' late init reads it (TuneIsolate.cs, docs/339)
             World.OnStartupAppEventHandler += OnStartupApp;
             World.OnWorldLoadFinishedEventHandler += OnWorldLoadFinished;
             World.OnWorldQuitEventHandler += OnWorldQuit;
@@ -32,6 +33,25 @@ namespace Ts3Agent
         {
             Mailbox.Open();
             PollTask.Start(false);
+            try { LateInitFixes(); } catch (Exception) { }
+        }
+
+        // docs/339: EA's tuning loop stops at a script mod whose GetTypes fails; when it never reached ts3fixes and ts3native
+        // [IlPatch] ilp_tuneisolate is armed (UserDiag op 50), run ts3fixes' static constructor and its startup scan here.
+        static void LateInitFixes()
+        {
+            if (AppDomain.CurrentDomain.GetData("ts3fixes.applied") != null) return;
+            if (!new ScriptCore.Route().GetOption2(unchecked((ScriptCore.Route.RouteOption2)(0x8700000000000000UL | 50UL << 48)))) return;
+            foreach (System.Reflection.Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type t = a.GetType("Ts3Fixes.Instantiator", false);
+                if (t == null) continue;
+                System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(t.TypeHandle);
+                Type f = a.GetType("Ts3Fixes.Fixes", false);
+                System.Reflection.MethodInfo m = f != null ? f.GetMethod("TuneIsolateStartup") : null;
+                if (m != null) m.Invoke(null, new object[] { "ts3agent" });
+                return;
+            }
         }
 
         static void OnWorldLoadFinished(object sender, EventArgs e)

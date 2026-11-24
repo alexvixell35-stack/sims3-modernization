@@ -36,6 +36,14 @@ By Dalexlol and twopointjj (PRs #625, #651, #652, #654, #655, #656, #657, #658, 
 - The water plan's jump-point search runs from a table: boats and swimming cost less planner time (`[WorldPrecompute] WaterScanTable`).
 - Off by default: WooHoo partners and paired socials snapped onto their spots (`woohoosnap`, `pairsnap`), and the household variants of all of the above.
 
+Our fixes:
+
+- A broken script mod (an add-on installed without its base mod) no longer stops tuning and startup for every script mod loaded after it; the log names the broken mod and the missing assembly (`[IlPatch] ilp_tuneisolate`, on by default).
+- Groundwork for cheaper per-lot upkeep in big worlds: the game keeps a lot change count and a world-change event as lots stream in and out (`[LotHub]`, on; no gameplay change).
+- Our script fixes can be told when a lot loads or unloads and when the world changes, instead of scanning for it every pass (CP-2 lot hook, on; armed only when a fix subscribes).
+- A Sim deleted while waiting to leave a jungle gym no longer stays on our waiting list until the next alarm or world quit (`kJungleGymExitQueue`, on).
+- Fixed a rare crash while drawing the scene: EA's main-view cull job could still be adding to a list the renderer was already reading; the renderer now waits for that job first, as EA's other draw passes do (`[EaCrashFixes] CullDrainWait`, on by default; `[CrashForensics] CullRaceWatch` logs the race).
+
 ## v0.3.1 (2026-11-21, hotfix)
 
 A small fix release on top of v0.3.0: the fix for the game staying paused after Buy or Build mode, a crash fix, an EA app start-up fix found by EA app testers, and a fix that keeps the script speed-up on with Apex Radiance; nothing else changed. If v0.3.0 runs fine for you, this update is still worth taking: the crash it fixes can happen on any edition.

@@ -92,6 +92,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00599720, 0x00599F10},
     {0x00599FC0, 0x0059A7B0},
     {0x0059A430, 0x0059AC20},
+    {0x0059A500, 0x0059ACF0},
     {0x0059BDE0, 0x0059C5D0},
     {0x005A2FFA, 0x005A372A},
     {0x005A5D40, 0x005A63F0},
@@ -423,6 +424,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006DCD90, 0x006DDC10},
     {0x006DD160, 0x00000000},
     {0x006DD353, 0x006DE1D3},
+    {0x006E4720, 0x006E54E0},
     {0x006E4770, 0x006E5530},
     {0x006EA260, 0x006EB070},
     {0x006EBE30, 0x006ECBC0},
@@ -433,8 +435,10 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006F1B00, 0x006F2830},
     {0x006F1D10, 0x006F2A40},
     {0x006F3C30, 0x006F4960},
+    {0x006F3C3B, 0x006F496B},
     {0x006F3C50, 0x006F4980},
     {0x006F3DC0, 0x006F4AF0},
+    {0x006F401B, 0x006F4D4B},
     {0x006F4926, 0x00000000},
     {0x006F6B5B, 0x006F785B},
     {0x006F7331, 0x006F8031},
@@ -1808,7 +1812,8 @@ constexpr unsigned long ts3addr_pairs[][2] = {
 // unresolved: 0x00D7FB53 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D7FE01 no-ea-1.69-address native/ts3native/taskserve.cpp
 // unresolved: 0x00D800FC no-ea-1.69-address native/ts3native/taskserve.cpp
-constexpr int ts3addr_count = 1633;
+// cullrace-1123 (docs/338): 0x0059A500 0x006E4720 0x006F3C3B 0x006F401B = EA 1.69 candidates (Lenovo triage + neighbour offsets; 0x6F3C3B by offset only), not verified on EA: the runtime byte checks SKIP a wrong one
+constexpr int ts3addr_count = 1637;
 
 
 // unresolved: 0x00568710 no-ea-1.69-address native/ts3native/unseenanim.cpp ([AnimPhase] Split, merge 6942a6e3a)

@@ -100,6 +100,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x00599720, 0x0059A0E0},
     {0x00599FC0, 0x0059A980},
     {0x0059A430, 0x0059ADF0},
+    {0x0059A500, 0x0059AEC0},
     {0x0059AF50, 0x0059B960},
     {0x0059BDE0, 0x0059C780},
     {0x005A2C00, 0x00000000},
@@ -436,6 +437,7 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006DCD90, 0x006DCAC0},
     {0x006DD160, 0x00000000},
     {0x006DD353, 0x006DD083},
+    {0x006E4720, 0x006E4390},
     {0x006E4770, 0x006E43E0},
     {0x006EA260, 0x006EA0F0},
     {0x006EBE30, 0x006EBCC0},
@@ -446,8 +448,10 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x006F1B00, 0x006F1990},
     {0x006F1D10, 0x006F1BA0},
     {0x006F3C30, 0x006F3AC0},
+    {0x006F3C3B, 0x006F3ACB},
     {0x006F3C50, 0x006F3AE0},
     {0x006F3DC0, 0x006F3C50},
+    {0x006F401B, 0x006F3EAB},
     {0x006F4926, 0x00000000},
     {0x006F6B5B, 0x006F69BB},
     {0x006F7331, 0x006F7191},
@@ -1684,7 +1688,8 @@ constexpr unsigned long ts3addr_pairs[][2] = {
     {0x01234360, 0x01235360},
     {0x01234374, 0x01235374},
 };
-constexpr int ts3addr_count = 1679;
+// cullrace-1123 (docs/338): 0x0059A500 0x006E4720 0x006F3C3B 0x006F401B verified in the retail 1.67 exe (call targets, prologues)
+constexpr int ts3addr_count = 1683;
 // unresolved: 0x005A2C00 xref-none native/ts3native/allocsites-owners.h:16 (+1)
 // unresolved: 0x005BF1FB xref-none native/ts3native/vcallsites3.h:5
 // unresolved: 0x0060AA00 xref-none native/ts3native/allocsites-owners.h:16 (+1)

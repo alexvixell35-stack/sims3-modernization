@@ -30,6 +30,7 @@ import assert from 'node:assert/strict';
 import { unzip, zip } from './mts-zip.ts';
 import { FEATURES, status } from './release-features.ts';
 import { check as checkReleaseDefaults } from './release-defaults-check.ts';
+import { defaultBranch } from './default-branch.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 // built from pieces so this file survives its own scrub
@@ -515,7 +516,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     else if (p[0] === 'sync' || (p[0] === 'release' && p[1])) {
       if (a.yes && a['dry-run']) throw new Error('--yes and --dry-run together');
       if (a['if-behind'] && p[0] !== 'sync') throw new Error('--if-behind is for sync only');
-      const synced = a['if-behind'] || a.yes ? run('git', ['rev-parse', a.ref!], ROOT) : ''; // read before the sync starts: a later commit is not marked synced
+      const synced = a['if-behind'] || a.yes ? run('git', ['rev-parse', (a.ref ?? defaultBranch(ROOT))], ROOT) : ''; // read before the sync starts: a later commit is not marked synced
       if (a['if-behind']) {
         const d = behindDecision(synced, readMarker(), Date.now(), Number(a['min-gap-min']));
         console.log(`publish-public: ${d.go ? 'syncing' : 'skip'}: ${d.reason}`);
@@ -527,7 +528,7 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
       const authorName = a['author-name'] ?? cfg('user.name'), authorEmail = a['author-email'] ?? cfg('user.email');
       if (!authorName || !authorEmail) throw new Error('no author: pass --author-name/--author-email or set git config');
       const tag = p[0] === 'release' ? p[1] : undefined;
-      const r = publish({ yes: !!a.yes, repo: a.repo!, remote: a.remote ?? `https://github.com/${a.repo}.git`, src: ROOT, ref: a.ref!,
+      const r = publish({ yes: !!a.yes, repo: a.repo!, remote: a.remote ?? `https://github.com/${a.repo}.git`, src: ROOT, ref: (a.ref ?? defaultBranch(ROOT)),
         branch: a.branch ?? (tag ? `release/${tag}` : `sync/${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`), message, authorName, authorEmail,
         tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package!, prevIni: a['prev-ini'], prevPkg: a['prev-package'] });
       console.log(a.yes ? 'done' : `dry run done; the clone stays for review: ${r.clone}`);
