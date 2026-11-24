@@ -152,6 +152,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/reachuse/run.ts': CSC,
   'tools/selftest/objshare/run.ts': CSC,
   'tools/selftest/woohoosnap/run.ts': CSC,
+  'tools/selftest/queuewake/run.ts': CSC,
   'tools/selftest/showershare/run.ts': CSC,
   'tools/selftest/viewlenient/run.ts': CSC,
   'tools/selftest/socialreach/run.ts': CSC,

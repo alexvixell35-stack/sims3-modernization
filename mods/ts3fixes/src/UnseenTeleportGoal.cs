@@ -187,6 +187,7 @@ namespace Ts3Fixes
             sUfTpLogAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { try { UfTpLogPass(); } catch (Exception) { } }, 1f, TimeUnit.Hours, "Ts3Fixes.UnseenTpLog", AlarmType.NeverPersisted, null);
             CallCensusWorldLoad();  // callcensus (CallCensus.cs): its hourly line rides on this world-load call
             DormantProbeWorldLoad();  // dormantprobe (DormantProbe.cs, docs/630): its hourly line, same ride
+            QueueWakeWorldLoad();  // queuewake (QueueWake.cs, docs/686 §23): marks of the old world dropped, same ride
         }
 
         // returns "moved m, left l" (the harness reads it)
