@@ -410,6 +410,7 @@ namespace Ts3Fixes
             ApplyFireplaceHerb();   // docs/611 §3 (LotCallbacks80.cs)
             ApplyRummageBcast();   // docs/611 §4 (LotCallbacks80.cs)
             ApplyStairWaitEnd();   // docs/612 §2 (StairDup82.cs)
+            ApplyPrivacyRoom();   // PrivacyRoom.cs
             ApplyCompatPrecedence();   // docs/328 §7 (CompatResolve.cs): our cleanupvfx / lifeguardquit / stairwaitend on mod overrides that skip the game's method
             ApplySimDisposeLink();   // docs/612 §3 (StairDup82.cs)
             ApplyRhExitUnseen();   // docs/613 §2 (StuckJobs83.cs)
@@ -2347,6 +2348,7 @@ namespace Ts3Fixes
                 case "fireplaceherb": return Instantiator.kFireplaceHerb;  // docs/611 §3 (LotCallbacks80.cs), EA bug fix, off
                 case "rummagebcast": return Instantiator.kRummageBcast;  // docs/611 §4 (LotCallbacks80.cs), EA bug fix, off
                 case "stairwaitend": return Instantiator.kStairWaitEnd;  // docs/612 §2 (StairDup82.cs), EA bug fix, off
+                case "privacyroom": return Instantiator.kPrivacyRoom;  // PrivacyRoom.cs, EA bug fix, off
                 case "simdisposelink": return Instantiator.kSimDisposeLink;  // docs/612 §3 (StairDup82.cs), EA bug fix, off
                 case "rhexitunseen": return Instantiator.kRhExitUnseen;  // docs/613 §2 (StuckJobs83.cs), EA bug fix, off
                 case "routefailprobe": return Instantiator.kRouteFailProbe;  // docs/627 §2 (RhEntry627.cs), log attribution fix, off

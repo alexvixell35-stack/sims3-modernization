@@ -725,6 +725,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kFireplaceHerb = true; // fireplaceherb (docs/611 §3): Fireplace.AddHerb removes a burning herb first (EA leaked the first herb's VFX and haze broadcaster)
         [Tunable] public static bool kRummageBcast = true; // rummagebcast (docs/611 §4): a reset outdoor-trash rummage disposes the can's rummage broadcaster (EA left it queueing reactions)
         [Tunable] public static bool kStairWaitEnd = true; // stairwaitend (docs/612 §2): a stair traversal wait ends at EA's 30 sim-minute portal failsafe (elevator sibling) for NPCs; EA's loop had no deadline
+        [Tunable] public static bool kPrivacyRoom = false; // privacyroom (PrivacyRoom.cs): autonomy no longer picks objects in a bathroom another Sim uses with privacy (EA let every Sim "in" after a minute, then the door refused the route)
         [Tunable] public static bool kSimDisposeLink = true; // simdisposelink (docs/612 §3): Sim.Dispose of an unbound Sim keeps its description's link to the live Sim (EA unbound it: next Instantiate made a duplicate Sim)
         [Tunable] public static bool kBirthdayAgers = true;    // birthdayagers (docs/571 §1): birthday party records only the first Sim who ages up
         [Tunable] public static bool kSneakOutListener = true;    // sneakoutlistener (docs/571 §2): a caught teen's left-over sneak-out listener gives Snuck Out on the next trip (school carpool)

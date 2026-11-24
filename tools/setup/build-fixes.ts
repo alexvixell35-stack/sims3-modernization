@@ -125,6 +125,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFireplaceHerb value="True" />
     <kRummageBcast value="True" />
     <kStairWaitEnd value="True" />
+    <kPrivacyRoom value="False" />
     <kSimDisposeLink value="True" />
     <kWakeHooks value="False" />
     <kWakePark value="False" />
