@@ -126368,9 +126368,9 @@
   {
     "id": "elevskip-check",
     "bug": "Sims stand at elevator doors while the column's one car is in use on another floor: the doors give no lane, the Sim loops in the doors' line (a quarter sim-minute per ask, up to 30 sim-minutes); EA's teleport skip needs the car free with open doors on the Sim's floor. Storm logs s532-s560: 1,462 elevator lane waits, 9,730 sim-min, mostly NPCs in Bridgeport towers (docs/686 §33)",
-    "fix": "ts3fixes ElevSkip.cs: elevskip (unseen NPCs at once), elevskiphh (household, selected and NPCs in view after kElevSkipHhWait, with fade), elevtriplog; line step in CrowdPort.cs CpLineHook; default off, docs/686 §33",
+    "fix": "ts3fixes ElevSkip.cs: elevskip (unseen NPCs at once), elevskiphh (household, selected and NPCs in view after kElevSkipHhWait, with fade), elevskiphhunseen (with both: off-screen household Sims other than the selected Sim at once, no fade), elevtriplog; line step in CrowdPort.cs CpLineHook; default off, docs/686 §33",
     "save": "any world (pure check); the storm proof is Bridgeport seed 156 (s562, docs/686 §33.5)",
-    "note": "ElevSkipCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4700-4710 (set through, kept, car launches with their riders) and the last elevskip: line.",
+    "note": "ElevSkipCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4700-4710 and 4721 (set through, kept, car launches with their riders) and the last elevskip: line.",
     "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls ok=True' in both. No 'elevskip: error' line.",
     "cleanup": [
       {
@@ -126378,6 +126378,7 @@
         "args": {
           "elevskip": false,
           "elevskiphh": false,
+          "elevskiphhunseen": false,
           "elevtriplog": false
         }
       }
@@ -126388,6 +126389,7 @@
         "args": {
           "elevskip": false,
           "elevskiphh": false,
+          "elevskiphhunseen": false,
           "elevtriplog": false
         },
         "note": "off first",
@@ -126410,6 +126412,7 @@
         "args": {
           "elevskip": true,
           "elevskiphh": true,
+          "elevskiphhunseen": true,
           "elevtriplog": true
         },
         "note": "on",

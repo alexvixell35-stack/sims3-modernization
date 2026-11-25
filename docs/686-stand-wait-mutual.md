@@ -1883,6 +1883,12 @@ elevator is a portal: a player's rule allows clipping at portals, no teleport on
 
 - `elevskip`: unseen NPCs (the Sim and the far doors off screen and away from viewers), at once, no fade.
 - `elevskiphh`: household and selected Sims and NPCs in view too, after `kElevSkipHhWait` (1) sim-minutes, with EA's fade.
+- `elevskiphhunseen` (default off, acts only with `elevskip` + `elevskiphh`; counter 4721, logged "household, unseen";
+  built 2026-11-25, NOT RUN): a household Sim that is not the selected Sim goes at once with no fade, like an unseen
+  NPC, when the Sim itself is off screen and away from viewers and the far doors are off screen and away from viewers.
+  The project rule is that household Sims never count as unseen; this switch is an explicit player opt-in that lifts
+  that rule for elevator skips only (asked for as a performance option). The selected Sim never counts as unseen, and
+  a household Sim on screen keeps `elevskiphh`'s wait and fade.
 - A Sim set through in the last `kElevSkipRepeatMin` (5) sim-minutes keeps the game's wait; horses, pets, carriers,
   toddlers, WooHoo and the elevator's own interactions keep EA's code.
 - `elevtriplog`: one line per car launch (riders, wait in the car) and per Sim set through.

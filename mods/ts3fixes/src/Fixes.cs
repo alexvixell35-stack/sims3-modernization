@@ -577,7 +577,7 @@ namespace Ts3Fixes
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplySmcSetActor();        // SmcSetActor.cs: StateMachineClient.SetActor for servingshare (docs/686 §14), a one-int test while nothing is armed
-            ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
+            ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh / elevskiphhunseen, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
             ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh, off by default (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyPetStartleSkip();     // docs/656 §8.1 (PetStartleSkip.cs), off by default
@@ -1736,10 +1736,11 @@ namespace Ts3Fixes
         // would drop, off / queued that ran / their summed ms / max ms / errors.
         // [4700-4710] elevskip / elevtriplog (ElevSkip.cs, docs/686 §33): set through, unseen NPCs / with fade / would, off / NPC in view kept /
         // household exempt / repeat kept / no exit spot / errors / car launches / riders at launch / one-rider launches.
+        // [4721] elevskiphhunseen (ElevSkip.cs, docs/686 §33): set through, household, unseen.
         // [4711-4715] elevparked (ElevParked.cs, docs/686 §34): doors opened at once / would, off / household exempt / car stops seen / errors.
         // [4716-4720] poolshare (PoolShare.cs + ShareLanes.cs, docs/686 §35): pool ladder refusals / held from the other end / shared /
         // would, off / household exempt.
-        const int kCounterSlots = 4721;
+        const int kCounterSlots = 4722;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2252,6 +2253,7 @@ namespace Ts3Fixes
                 case "showersharelog": return Instantiator.kShowerShareLog;  // ShowerShare.cs: one line per showertogether / showerpee act, off
                 case "elevskip": return Instantiator.kElevSkip;  // ElevSkip.cs (docs/686 §33): an unseen NPC the elevator doors refused is set at the doors its ride ends at, and the game replans, off
                 case "elevskiphh": return Instantiator.kElevSkipHousehold;  // ElevSkip.cs (docs/686 §33): household and selected Sims and NPCs in view too, after kElevSkipHhWait sim-minutes, with EA's fade, off
+                case "elevskiphhunseen": return Instantiator.kElevSkipHhUnseen;  // ElevSkip.cs (docs/686 §33): with elevskip + elevskiphh, unseen household Sims (not the selected Sim) go at once with no fade; explicit opt-in lifting the household-never-unseen rule for elevator skips only, off
                 case "elevtriplog": return Instantiator.kElevTripLog;  // ElevSkip.cs (docs/686 §33): one line per car launch (riders, wait in the car), per Sim set through and per parked-car boarding, off
                 case "elevparked": return Instantiator.kElevParked;  // ElevParked.cs (docs/686 §34): an NPC boarding at closed doors where the column's car stands gets the doors opened at once instead of EA's 7 sim-minute call, off
                 case "elevparkedhh": return Instantiator.kElevParkedHousehold;  // ElevParked.cs (docs/686 §34): household and selected Sims too, off

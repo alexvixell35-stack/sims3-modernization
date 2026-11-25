@@ -884,6 +884,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kElevSkip value="False" />
     <kElevSkipHousehold value="False" />
     <kElevSkipHhWait value="1" />
+    <kElevSkipHhUnseen value="False" />
     <kElevSkipRepeatMin value="5" />
     <kElevTripLog value="False" />
     <kElevParked value="False" />
