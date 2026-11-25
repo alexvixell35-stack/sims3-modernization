@@ -389,3 +389,25 @@ static void TestAnimPhase() {
     printf("anim phase: four timing wrappers pass registers and arguments through, count; install refuses without the game's calls\n");
     TestAnimSplit();
 }
+
+// [UnseenAnim] DrainNodeLog helpers (docs/67 §47): the return-address slot in the first stack words, the guarded word scan
+static void TestAaDrainNode() {
+    const DWORD ra = 0x0059386B, rb = 0x00593880;
+    const DWORD s0[5] = {ra, 0x1010, 0, 0, 0}, s1[5] = {0x77, rb, 0x2020, 0, 0}, s2[5] = {1, 2, 3, 4, ra};
+    assert(AaDrainRetSlot(s0, 4, ra, rb) == 0 && AaDrainRetSlot(s1, 4, ra, rb) == 1);
+    assert(AaDrainRetSlot(s2, 4, ra, rb) == -1);  // only the first 4 words; slot + 1 (the argument) stays in the array
+    // a list head and two words that point at it, one across a page edge; the scan stops at maxHits
+    u8* blk = (u8*)VirtualAlloc(NULL, 0x3000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    assert(blk);
+    const DWORD b = (DWORD)(uintptr_t)blk, head = b + 0x2800;
+    *(DWORD*)(blk + 0x10) = head, *(DWORD*)(blk + 0xFFC) = head, *(DWORD*)(blk + 0x1000) = head;
+    DWORD hits[8];
+    assert(AaWordScan(b, head, head, hits, 8) == 3 && hits[0] == b + 0x10 && hits[1] == b + 0xFFC && hits[2] == b + 0x1000);
+    assert(AaWordScan(b, head, head, hits, 2) == 2);
+    DWORD old;
+    VirtualProtect(blk + 0x1000, 0x1000, PAGE_NOACCESS, &old);  // an unreadable page in the range is skipped, the rest scanned
+    *(DWORD*)(blk + 0x2010) = head;
+    assert(AaWordScan(b, head, head, hits, 8) == 3 && hits[2] == b + 0x2010);
+    VirtualFree(blk, 0, MEM_RELEASE);
+    printf("unseen anim drain node log: return address in the first 4 stack words; head word scan skips unreadable pages\n");
+}

@@ -18,7 +18,8 @@
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.301-m1124"  // master set m1124 (RC maintenance release): m1123c + harness-lenovo-bugs, night-run-codified, tune-assemblies-isolate, scene-cull-race (CullDrainWait ON), cp1-lotgen + cp2-lothook, lc1-exact-cuts, xcpt-offstack, players-skip-log
+#define TS3NATIVE_VERSION "0.36.302-drainlog1125"  // fix/drainlog-1125: [UnseenAnim] DrainNodeLog drain fault node / head / owner log (docs/67 §47, off)
+// was "0.36.301-m1124"  // master set m1124 (RC maintenance release): m1123c + harness-lenovo-bugs, night-run-codified, tune-assemblies-isolate, scene-cull-race (CullDrainWait ON), cp1-lotgen + cp2-lothook, lc1-exact-cuts, xcpt-offstack, players-skip-log
 // was "0.36.300-tuneiso1"  // tune-isolate-1123: [IlPatch] ilp_tuneisolate (docs/339, off) + leave-out relocator rule, on m1123c
 // was "0.36.299-xos1124"  // xos1124: m1123c + crash log off-stack esp line (docs/67 §46); master set m1123c (m1123 + Dalexlol 625, 651-659, 672, 680, 681); m1123: m1122 + overflow-fixes-1122 (docs/323 lanes A-F) + unbounded-caps-1122 (docs/321 lanes 0, B, C) + watergrid-next-1122 ([WaterGrid] Diff + Par, docs/100 §14, off) + nonsim-split-1122 ([Diag] NonSimSplit, docs/329, off) + compat, Dalexlol 637-653 and loop-cost merges (ts3fixes only)
 // was "0.36.299-cp2"  // feature/cp2-lothook-1123: CP-2 op 49 lot event queue for ts3fixes LotHub (docs/321 §9, armed only by a managed subscriber) on cp1 (CP-1 lot hub, docs/321 §8)

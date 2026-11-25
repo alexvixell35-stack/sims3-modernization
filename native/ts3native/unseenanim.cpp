@@ -424,6 +424,8 @@ static void __fastcall AaPassThunk(void* list, void* edx, float dt) {
 
 // [UnseenAnim] Enabled=1: both call sites, or neither
 static bool ApplyUnseenAnim(const wchar_t* ini) {
+    g_aaDrainNode = GetPrivateProfileIntW(L"UnseenAnim", L"DrainNodeLog", 0, ini) != 0;  // crash log only, any Enabled
+    if (g_aaDrainNode) Log("OK   unseen anim: DrainNodeLog=1, a drain fault with a heap manager logs the list node, its head and owner (docs/67 §47)");
     if (!GetPrivateProfileIntW(L"UnseenAnim", L"Enabled", 0, ini)) return false;
     Ts3nCounters& k = ts3native_counters;
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
@@ -476,10 +478,63 @@ static void AaHex(const char* what, DWORD at, int n) {
     }
     Log("  drain fault: %s 0x%08lX:%s", what, at, d);
 }
+// [UnseenAnim] DrainNodeLog=1 (docs/67 §47, default 0): the 11-16 / 11-17 / 11-25 dumps show [msg+4] replaced by a node X of a
+// doubly linked list {next = head, prev = &msg+4}: a std::list-style tail append whose old tail had been freed and reused
+// as this message [inferred]. With the key on, a manager outside TS3W.exe also logs 16 bytes before X (allocator header or
+// an owner's vtable), 48 at X, 16 before and 32 at the head ([head] = first node, [head+4] = last), the routing world
+// [0x11D9128] with head - world (0x13654 in the 11-25 run) and up to 8 words that hold the head address in the 256 KB
+// below it (the list object's head pointer: names the owner). It also finds the return address in the first 4 stack
+// words (the 11-22 run had pushed one word before the fault, docs/144 §3.5.1). Crash path only; reads guarded.
+static bool g_aaDrainNode;
+static int AaDrainRetSlot(const DWORD* sp, int n, DWORD ra, DWORD rb) {  // index of the destroy's return address, or -1
+    for (int i = 0; i < n; i++)
+        if (sp[i] == ra || sp[i] == rb) return i;
+    return -1;
+}
+// words in [lo, hi) equal to v (4-aligned, one guard per 4 KB page so an unmapped page is skipped); returns the hit count
+static int AaWordScan(DWORD lo, DWORD hi, DWORD v, DWORD* hits, int maxHits) {
+    int n = 0;
+    for (DWORD pg = lo & ~3u; pg < hi && n < maxHits; pg = (pg | 0xFFF) + 1) {
+        const DWORD end = (pg | 0xFFF) + 1 < hi ? (pg | 0xFFF) + 1 : hi;
+        __try {
+            for (DWORD a = pg; a + 4 <= end && n < maxHits; a += 4)
+                if (*(const DWORD*)(uintptr_t)a == v) hits[n++] = a;
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (end < pg) break;  // wrapped at 4 GB
+    }
+    return n;
+}
+static void AaDrainNodeDump(DWORD node) {
+    const u8* exe = (const u8*)GetModuleHandleW(NULL);
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(exe + ((const IMAGE_DOS_HEADER*)exe)->e_lfanew);
+    const DWORD lo = (DWORD)(uintptr_t)exe, hi = lo + nt->OptionalHeader.SizeOfImage;
+    if (node >= lo && node < hi) return;  // a static manager: the normal case, nothing overwritten
+    DWORD head = 0, world = 0;
+    __try { head = *(const DWORD*)(uintptr_t)node; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    __try { world = *(const DWORD*)(uintptr_t)TS3A(0x011D9128); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("  drain fault: node 0x%08lX (not in TS3W.exe), head 0x%08lX, routing world 0x%08lX (lock %p), head - world 0x%lX%s",
+        node, head, world, g_rgLock, head - world, world && head - world == 0x13654 ? " (= world + 0x13654)" : "");
+    AaHex("node - 16", node - 16, 16);
+    AaHex("node", node, 48);
+    if (!head) return;
+    AaHex("head - 16", head - 16, 16);
+    AaHex("head", head, 32);
+    DWORD hits[8];
+    const int n = AaWordScan(head > 0x40000 ? head - 0x40000 : 0, head, head, hits, 8);
+    for (int i = 0; i < n; i++) {
+        char what[48];
+        sprintf_s(what, "head ref %d (head - 0x%lX) - 16", i, head - hits[i]);
+        AaHex(what, hits[i] - 16, 24);
+    }
+    if (!n) Log("  drain fault: no word holds the head in the 256 KB below it");
+}
 static void AaDrainFaultDump(const CONTEXT* c) {
     static volatile LONG once;
-    DWORD ret = 0, arg = 0;
-    __try { ret = *(const DWORD*)(uintptr_t)c->Esp, arg = *(const DWORD*)(uintptr_t)(c->Esp + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    DWORD sp[5] = {}, ret = 0, arg = 0;
+    __try { memcpy(sp, (const void*)(uintptr_t)c->Esp, sizeof sp); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    const int slot = g_aaDrainNode ? AaDrainRetSlot(sp, 4, TS3A(0x0059386B), TS3A(0x00593880)) : 0;
+    if (slot < 0) return;
+    ret = sp[slot], arg = sp[slot + 1];
     if (ret != TS3A(0x0059386B) && ret != TS3A(0x00593880)) return;  // 0x593880: the same destroy for a chunk's last message
     if (InterlockedIncrement(&once) > 2) return;
     const DWORD msg = arg - 0x10;
@@ -487,6 +542,12 @@ static void AaDrainFaultDump(const CONTEXT* c) {
         "[UnseenAnim] %s pass %lu events %lu", ret, msg, c->Ecx, g_aaOn ? "on" : "off", g_aaPass, g_aaEvN);
     AaHex("message", msg, 0x50);
     AaHex("manager", c->Ecx, 32);
+    if (g_aaDrainNode) {
+        DWORD mgr = 0;
+        __try { mgr = *(const DWORD*)(uintptr_t)(msg + 4); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (slot) Log("  drain fault: return address at [esp+%d]", slot * 4);
+        AaDrainNodeDump(mgr ? mgr : c->Ecx);
+    }
     for (DWORD i = 0; i < 64 && i < g_aaEvN; i++) {
         const AaEv& e = g_aaEv[(g_aaEvN - 1 - i) & 63];
         Log("  aa event -%lu: %s %s actor %08lX owner %08lX%08lX owed %ld us pass %lu", i, e.act < AAE_N ? kAaEv[e.act] : "?",

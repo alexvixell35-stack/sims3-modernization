@@ -14948,6 +14948,7 @@ int main(int argc, char** argv) {
     TestUnseenGhost();
     TestUnseenAnim();
     TestAnimPhase();
+    TestAaDrainNode();
     TestStallWatch();
     TestModTime();
     TestWaterGrid();
