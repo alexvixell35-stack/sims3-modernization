@@ -1,0 +1,492 @@
+{
+  "note": "2026-11-21 docs/67 §44 fix check: [EaCrashFixes] VbFreeDelayMs=2000 (vbg1121c) on the Buy-entry stress repro; VbGuard stays on, VB BAD lines are now expected (late draws, benign), a crash or a VB guard AV hit FAILs.",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-apexbuy-fix-1",
+      "asi": "game-copy/ts3native.asi.vbg1121c",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121c ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121c ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121c 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        }
+      },
+      "note": "[fix check, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load with [EaCrashFixes] VbFreeDelayMs=2000; pass = no crash."
+    },
+    {
+      "id": "bp-apexbuy-fix-2",
+      "asi": "game-copy/ts3native.asi.vbg1121c",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121c ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121c ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121c 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        }
+      },
+      "note": "[fix check, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load with [EaCrashFixes] VbFreeDelayMs=2000; pass = no crash."
+    },
+    {
+      "id": "bp-apexbuy-fix-3",
+      "asi": "game-copy/ts3native.asi.vbg1121c",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121c ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121c ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121c 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        }
+      },
+      "note": "[fix check, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load with [EaCrashFixes] VbFreeDelayMs=2000; pass = no crash."
+    },
+    {
+      "id": "bp-apexbuy-fix-4",
+      "asi": "game-copy/ts3native.asi.vbg1121c",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121c ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121c ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121c 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        }
+      },
+      "note": "[fix check, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load with [EaCrashFixes] VbFreeDelayMs=2000; pass = no crash."
+    },
+    {
+      "id": "bp-apexbuy-fix-5",
+      "asi": "game-copy/ts3native.asi.vbg1121c",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121c ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121c ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121c 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        }
+      },
+      "note": "[fix check, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load with [EaCrashFixes] VbFreeDelayMs=2000; pass = no crash."
+    },
+    {
+      "id": "bp-apexbuy-fix-6",
+      "asi": "game-copy/ts3native.asi.vbg1121c",
+      "iniBase": "game-copy/ts3native.ini.d1121",
+      "fixesPackage": "game-copy/ts3fixes.package.hf031b",
+      "pinReason": "asi 0.36.297-vbg1121b = master set d1121 + [CrashForensics] VbGuard (bugfix/apex-buy-vb-guard-1121); ini d1121 (master) with VbGuard=1 set here; ts3fixes hf031b = the package of the crashed runs (v0.3.0 + PR 616)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 15,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1,
+        "CrashForensics.Light": 1,
+        "CrashForensics.VbGuard": 1,
+        "EaCrashFixes.VbFreeDelayMs": 2000
+      },
+      "run": {
+        "profile": {
+          "minutes": 5,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "apex-buy-entry-stress"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-vbg1121c ": 1,
+        "^crash forensics: VB guard .docs/67 §44. on: ": 1,
+        "^crash forensics: VB guard: device module 0x": 1,
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": 1
+      },
+      "logForbid": {
+        "^crash forensics: VB guard at AV": 0
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-vbg1121c ": {
+          "match": [
+            "ts3native 0.36.297-vbg1121c 2026-11-21 10:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+          ]
+        },
+        "^crash forensics: VB guard .docs/67 §44. on: ": {
+          "match": [
+            "crash forensics: VB guard (docs/67 §44) on: release ring 2048, 5 mod images for the release stacks"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard (docs/67 §44) PARTIAL: release ring 2048, 5 mod images for the release stacks"
+          ]
+        },
+        "^crash forensics: VB guard: device module 0x": {
+          "match": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: eax 0x41A80008: not in the VB release ring (12 releases)"
+          ]
+        },
+        "^crash forensics: VB guard at AV": {
+          "match": [
+            "crash forensics: VB guard at AV eip 0x5BBEA91D: 1 register hits, 0 VB BAD before, 812 VB releases"
+          ],
+          "noMatch": [
+            "crash forensics: VB guard: device module 0x5BB30000-0x5BC4E000 (vtable 0x5BC03FB0)"
+          ]
+        },
+        "^OK   ea fix: VbFreeDelay .docs/67 §44.: VB wrappers freed 2000 ms": {
+          "match": [
+            "OK   ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor (late draw 0xA84D00 binds NULL, not reused memory)"
+          ],
+          "noMatch": [
+            "PARTIAL ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed 2000 ms after their destructor"
+          ]
+        }
+      },
+      "note": "[fix check, Bin state apex 4.0.13 + bridge] live -> Buy -> live x4 after a fresh load with [EaCrashFixes] VbFreeDelayMs=2000; pass = no crash."
+    }
+  ]
+}

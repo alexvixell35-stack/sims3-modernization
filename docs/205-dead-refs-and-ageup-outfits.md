@@ -83,7 +83,7 @@ old one. We do not do that. We only count and name these descriptions:
 | `Dartboard` `Players`, `Teams`, `CurrentPlayer`, `CheatingSim` | `Quit` (every cleanup) drops the Sim from its team and `Players`; `CurrentPlayer` and `CheatingSim` clear only in `DoFinishGame`; a Sim reset or destroyed mid-game never reaches `Quit`. | verified | sweep (phase 9, docs/516) |
 | `GameObject` `mActorsUsingMe`, `mReferenceList`, `mRoutingReferenceList` | Persisted lists; the paired Remove runs only from the Sim's own clean-up, which a reset or destroyed Sim never reaches. | verified | sweep (phase 10, docs/517) |
 | `Celebrity.mWaitingToReact` (sweep phase 13, docs/523) | Holder object not located in time. | community | no |
-| `CookingProcess` appliance handlers | Needs event-delegate surgery per appliance; not read in full. | community | no |
+| `CookingProcess` appliance handlers | `AddObjectListeners` subscribes to the clicked appliance's `ObjectDisposed` and adds a state listener; nothing unsubscribes the handler while the appliance lives (`ClearObjectListeners` runs only from the disposal handler, after it nulled `ObjectClickedOn`), the state-changed path and the Prepare steps (`ObjectClickedOn = null` in FoodTray, Pot, FryingPan, BakingDish, Microwave) leave the handler. Same in simler90's core. | verified | sweep phase 14, own switch `deadrefcooking` (2026-11-15, not run) |
 | `ObjectOwnerComponent` `mOwner` (a reward's giving Sim or a theft's victim), `mThief` | Saved by description id and re-read as `CreatedSim` at load; nothing updates them in a running world when that Sim object is destroyed. | verified | sweep (phase 11, docs/519) |
 | `GameObject.ObjectDisposed` handlers of `GameObjectRelationship` (cars, birds) | The constructor subscribes, nothing unsubscribes: a deleted description or a decayed relationship stays reachable from the object. | verified | sweep (phase 12, docs/522) |
 | Adoption pool pets | Disposing descriptions is a behaviour change, not a cleanup. | community | no |
@@ -178,11 +178,11 @@ save pass us, [410] passes refused or stopped, and items that threw. Agent names
 | --- | --- | --- | --- |
 | `ageupkeepoutfits` | `kAgeUpKeepOutfits` | off | keeps outfits that EA would remove |
 | `deadrefguards` | `kDeadRefGuards` | off | no (fewer re-added keys reach the next save) |
-| `deadrefsweep` | `kDeadRefSweep` | off | yes |
+| `deadrefsweep` | `kDeadRefSweep` | **ON since 2026-11-18** (Rodney; gate: save matrix PASS, a FAIL turns it off; ~23 ms per hourly pass, 2026-11-03 measurement) | yes |
 
 ## 4. Not built
 
-Celebrity reactors, cooking-process handlers, stolen-item owner components and adoption-pool pets (§2.1). The
+Adoption-pool pets (§2.1). Celebrity reactors (phase 13, docs/523), owner components (phase 11, docs/519) and cooking-process handlers (phase 14, `deadrefcooking`, 2026-11-15: a handler goes when its process no longer names that appliance or the process is dead, no owner or owner destroyed; a dead process still naming it also gets `ObjectClickedOn = null`, as EA's handler does at disposal, and a process naming no object loses its state listener; counter 994, repro `cooking-handler-gone-check`, not run) are built since. The
 "valid but householdless at save" descriptions the reporter traces at the end of the issue are not dead yet at save time,
 so no sweep that tests validity can catch them; they need the cause (who orphans them) **[community]**.
 
@@ -203,3 +203,5 @@ The matrix's byte-identical cases do not apply: these switches change the save b
 save chain (ErrorTrap load scans, "SimDescription Removed" per load) is the end-to-end measure; we have no such save.
 
 Run: `node tools/harness/queue.ts tools/harness/queues/deadrefs-ageup.json` (after building ts3fixes and ts3agent).
+
+**2026-11-18 (Rodney):** `deadrefconvo` and `deadrefcooking` are default ON too, with `deadrefsweep`, in the save-matrix bundle (docs/289 §6); a matrix FAIL turns the culprit off.

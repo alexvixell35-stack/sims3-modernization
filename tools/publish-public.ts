@@ -2,8 +2,8 @@
 //   node tools/publish-public.ts sync --message-file <f> [--yes]
 //        clone the public repo into a temp dir, new branch, replace the tree with `git archive <ref>` of this repo, apply
 //        tools/public-strip.json (held-back files and hooks), scrub personal names, check-docs-code, secret scan of the staged diff, commit; with --yes: push, PR, watch checks,
-//        squash-merge with --admin
-//   node tools/publish-public.ts release v0.1.6 --native-version 0.36.40 --message-file <f> [--yes]
+//        squash-merge with --admin; --no-merge stops after the PR (left open, no merged marker), e.g. to share an RC branch
+//   node tools/publish-public.ts release v0.1.6 --native-version 0.36.40 --prev-ini <prev ts3native.ini> --prev-package <prev ts3fixes.package> --message-file <f> [--yes]
 //        sync, then (with --yes) tag the merge commit, watch the tag's build.yml run, download the draft's ts3native zip and
 //        verify it (asi version string, ini sha256 = the tested ini, enabled sections), check and attach the ts3fixes
 //        package (four shortcuts True, release-features tunables), publish the draft as latest
@@ -29,6 +29,8 @@ import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { unzip, zip } from './mts-zip.ts';
 import { FEATURES, status } from './release-features.ts';
+import { check as checkReleaseDefaults } from './release-defaults-check.ts';
+import { defaultBranch } from './default-branch.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 // built from pieces so this file survives its own scrub
@@ -42,7 +44,10 @@ const SECRETS: [string, RegExp][] = [
   ['private key', /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/],
 ];
 const SHORTCUTS = ['GoHome', 'BuildingTrip', 'LotTrip', 'VirtualHome'];
-export const MARKER = join(ROOT, 'probe-out', 'publish-public-last.json');
+// the main checkout's probe-out: a queue run from a worktree reads the same marker (2026-11-16/17: each worktree had none, so
+// every worktree queue end re-synced as "no sync marker yet")
+const MAIN = (() => { try { return resolve(execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: ROOT, encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'ignore'] }).trim(), '..'); } catch { return ROOT; } })();
+export const MARKER = join(MAIN, 'probe-out', 'publish-public-last.json');
 const sha256 = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');
 
 // --- pure checks (self-checked) ---
@@ -121,13 +126,18 @@ export function enabledSections(ini: string): string[] {
   return on;
 }
 
+// 0.36.295-rc1119b -> 0.36.295; other versions unchanged
+export const rcBase = (v: string) => v.replace(/-rc[0-9a-z]+$/, '');
+
 // the draft's ts3native-<tag>.zip: asi version, ini = tested ini; returns the enabled sections
 export function verifyZip(z: Buffer, nativeVersion: string, testedIni: Buffer): string[] {
   const files = unzip(z);
   const asi = files.get('ts3native.asi'), ini = files.get('ts3native.ini');
   if (!asi || !ini) throw new Error(`zip holds ${[...files.keys()].join(', ')}, want ts3native.asi + ts3native.ini`);
   const versions = new Set([...asi.toString('latin1').matchAll(/ts3native (\d+\.\d+\.\d+[a-z]?)\b/g)].map(m => m[1]));
-  if (versions.size !== 1 || !versions.has(nativeVersion)) throw new Error(`asi version ${[...versions].join(', ') || 'none'}, want ts3native ${nativeVersion}`);
+  // an RC asi's version string ends at '-' for this regex, and CI builds the RC's tag as the base version: accept both
+  const want = new Set([nativeVersion, rcBase(nativeVersion)]);
+  if (versions.size !== 1 || !want.has([...versions][0])) throw new Error(`asi version ${[...versions].join(', ') || 'none'}, want ts3native ${nativeVersion}`);
   // CI zips a CRLF ini, the tested one is LF; the game reads it via GetPrivateProfile, so compare without CRs
   const noCr = (b: Buffer) => Buffer.from(b.toString('latin1').replace(/\r/g, ''), 'latin1');
   if (sha256(noCr(ini)) !== sha256(noCr(testedIni))) throw new Error(`zip ini sha256 ${sha256(noCr(ini))} != tested ini ${sha256(noCr(testedIni))} (CRs stripped)`);
@@ -157,7 +167,7 @@ export function pickTagRun(runs: TagRun[], sha: string, pushedAtMs: number): num
 // --- runner ---
 
 type Opts = { yes: boolean; repo: string; remote: string; src: string; ref: string; branch: string; message: string;
-  authorName: string; authorEmail: string; tag?: string; nativeVersion?: string; ini: string; pkg: string; quiet?: boolean };
+  authorName: string; authorEmail: string; tag?: string; nativeVersion?: string; ini: string; pkg: string; prevIni?: string; prevPkg?: string; quiet?: boolean; noMerge?: boolean };
 
 // Every child gets a timeout and no prompts (a credential helper waiting for input hung the queue-end sync 3x on 2026-11-09).
 // Network git/gh: 120 s, local git/tar: 30 s, node check scripts: 600 s. Auth for git over https comes from the env token as an
@@ -176,6 +186,8 @@ export function timeoutFor(cmd: string, args: string[]): number {
   if (cmd === 'git' && (args.includes('clone') || args.includes('push') || args.includes('--cached'))) return 600_000;
   if (cmd === 'gh' || (cmd === 'git' && args.some(x => ['fetch', 'pull'].includes(x)))) return 120_000;
   if (cmd === process.execPath) return 600_000;
+  // add / commit hash the whole mirror tree (thousands of files, AV scan on each new blob): 30 s timed out 3x on 2026-11-17
+  if (cmd === 'git' && args.some(x => ['add', 'commit', 'rm'].includes(x))) return 300_000;
   return 30_000;
 }
 const BIG = { maxBuffer: 1 << 30 };
@@ -258,6 +270,10 @@ export function publish(o: Opts): { clone: string; commit: string } {
 
   step('node tools/check-docs-code.ts');
   run(process.execPath, ['tools/check-docs-code.ts'], clone);
+  if (existsSync(join(clone, 'native/ts3native/ts3addr-ea169.h'))) { // the self-check fixture has no native tree
+    step('node tools/ts3addr-check.ts (EA 1.69 address table covers every TS3A literal, ts3addr_count matches)');
+    run(process.execPath, ['tools/ts3addr-check.ts'], clone);
+  }
   if (stripped.length) {
     step('selftest-all --ci of tools/harness in the stripped tree');
     run(process.execPath, ['tools/selftest-all.ts', '--ci', '--only', 'tools/harness/*.ts'], clone);
@@ -282,11 +298,18 @@ export function publish(o: Opts): { clone: string; commit: string } {
     const bad = verifyPackage(readFileSync(o.pkg), readFileSync(join(clone, 'native/ts3native/ts3native.ini'), 'latin1'), readFileSync(join(clone, 'tools/setup/build-fixes.ts'), 'latin1'));
     if (bad.length) throw new Error(`package: ${bad.join('; ')}`);
     log(`   ok, sha256 ${sha256(readFileSync(o.pkg))}`);
+    step('release defaults: everything ON in the previous release is ON in master (tools/release-defaults-check.ts)');
+    if (!o.prevIni || !o.prevPkg) throw new Error('release needs --prev-ini and --prev-package: the previous release ts3native.ini and ts3fixes.package');
+    const dropped = checkReleaseDefaults(o.prevIni, o.prevPkg, clone);
+    if (dropped.length) throw new Error('ON in the previous release, not in master defaults (flip, or list in docs/data/release-default-exceptions.json): ' + dropped.join('; '));
+    log('   ok');
   }
   const R = ['--repo', o.repo];
   remote(`push ${o.branch}`, () => git(clone, 'push', '-q', '-u', 'origin', o.branch), '');
   const [title, ...body] = o.message.split('\n');
   const pr = remote('gh pr create', () => run('gh', ['pr', 'create', ...R, '--head', o.branch, '--title', title, '--body', body.join('\n').trim() || title]), '<pr url>');
+  // --no-merge: share a branch (e.g. an RC for the EA laptop) as an open PR; merged later by a normal sync
+  if (o.noMerge) { log(`   left open (--no-merge): ${pr}`); return { clone, commit }; }
   remote(`gh pr checks ${pr} --watch`, () => {
     // checks show up seconds to minutes after the PR, and `gh pr checks` exits 1 ("no checks reported") until then, the same
     // code as a failed check: wait for the rollup to list any, then watch
@@ -329,7 +352,7 @@ function selfCheck(): void {
     const e = childEnv({ A: '1' }, 'tok');
     assert.equal(e.GIT_TERMINAL_PROMPT, '0'); assert.equal(e.GCM_INTERACTIVE, 'never'); assert.equal(e.GIT_CONFIG_VALUE_0, '');
     assert.match(e.GIT_CONFIG_VALUE_1!, /^AUTHORIZATION: basic /); assert.equal(childEnv({}, '').GIT_CONFIG_COUNT, undefined);
-    assert.equal(timeoutFor('git', ['clone', 'x']), 600_000); assert.equal(timeoutFor('git', ['fetch']), 120_000); assert.equal(timeoutFor('git', ['status']), 30_000); assert.equal(timeoutFor('gh', ['api']), 120_000);
+    assert.equal(timeoutFor('git', ['clone', 'x']), 600_000); assert.equal(timeoutFor('git', ['fetch']), 120_000); assert.equal(timeoutFor('git', ['status']), 30_000); assert.equal(timeoutFor('git', ['-c', 'core.autocrlf=false', 'add', '-A']), 300_000); assert.equal(timeoutFor('gh', ['api']), 120_000);
     assert.throws(() => execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},9e4)'], { timeout: 300, killSignal: 'SIGKILL' }), (x: any) => x.code === 'ETIMEDOUT');
   }
   const user = 'rod' + 'ne', pc = 'LAPTOP' + '-M15', pc2 = 'ALRPan' + 'tonial1', user2 = 'RPan' + 'tonial';
@@ -391,6 +414,14 @@ function selfCheck(): void {
       assert.throws(() => publicStrip(d), /banned text left in:\s+a\.ts/, 'banned hit refused');
     } finally { rmSync(d, { recursive: true, force: true }); }
   }
+  if (existsSync(join(import.meta.dirname, 'public-strip.json'))) { // private only: the strip list is not in the public tree; repros.json strip rule: pretty-printed gif_* steps go, other steps stay, result is JSON (after trailing comma fix)
+    const cfg = JSON.parse(readFileSync(join(import.meta.dirname, 'public-strip.json'), 'utf8')) as { edits: { file: string; replace: [string, string][] }[] };
+    const re = new RegExp(cfg.edits.find(e => e.file === 'tools/harness/repros.json')!.replace[0][0], 'gm');
+    const pretty = '[\n  {\n    "cmd": "gi' + 'f_begin",\n    "args": {\n      "label": "a {arm}, \\"q\\""\n    },\n    "waitS": 0\n  },\n  {\n    "cmd": "stove_wall_goto",\n    "args": {}\n  },\n  {\n    "cmd": "gi' + 'f_end",\n    "args": { "name": "w" }\n  }\n]\n';
+    const out = pretty.replace(re, '');
+    assert.ok(!out.includes('gi' + 'f_') && out.includes('stove_wall_goto'), 'pretty gif steps removed, others kept');
+    assert.equal(JSON.parse(out.replace(/,\s*]/g, ']')).length, 1, 'result is JSON');
+  }
   assert.equal(leftovers(`${pc}`).length, 1, 'leftover found');
   assert.ok(!isText(Buffer.from([65, 0, 66])) && isText(Buffer.from('abc')), 'binary detection');
 
@@ -407,6 +438,14 @@ function selfCheck(): void {
   assert.deepEqual(verifyZip(z('0.36.37a'), '0.36.37a', ini), ['[GC]', '[RouteAsync]'], 'hotfix letter suffix ok');
   assert.throws(() => verifyZip(z('0.36.37a'), '0.36.37', ini), /asi version 0.36.37a/, 'hotfix asi is not the base release');
   assert.throws(() => verifyZip(z('0.36.40', Buffer.from('[GC]\nEnabled=0\n')), '0.36.40', ini), /ini sha256/, 'other ini refused');
+  // regexCases rcBase: match '0.36.295-rc1119b'; non-match '0.36.37a', '0.36.295-rc', '0.36.295-beta1'
+  assert.equal(rcBase('0.36.295-rc1119b'), '0.36.295', 'rc suffix stripped');
+  assert.equal(rcBase('0.36.37a'), '0.36.37a', 'hotfix letter kept');
+  assert.equal(rcBase('0.36.295-rc'), '0.36.295-rc', 'bare -rc kept');
+  assert.equal(rcBase('0.36.295-beta1'), '0.36.295-beta1', 'other suffix kept');
+  assert.deepEqual(verifyZip(z('0.36.295'), '0.36.295-rc1119b', ini), ['[GC]', '[RouteAsync]'], 'CI base build of an RC tag ok');
+  assert.deepEqual(verifyZip(z('0.36.295-rc1119b'), '0.36.295-rc1119b', ini), ['[GC]', '[RouteAsync]'], 'tested RC asi ok');
+  assert.throws(() => verifyZip(z('0.36.294'), '0.36.295-rc1119b', ini), /asi version 0.36.294/, 'other base refused for an RC');
   assert.deepEqual(verifyZip(z('0.36.40', Buffer.from(ini.toString('latin1').replace(/\r?\n/g, '\r\n'), 'latin1')), '0.36.40', ini), ['[GC]', '[RouteAsync]'], 'CRLF ini accepted');
 
   const tunables = Object.values(FEATURES).flatMap(f => f.tuning ?? []);
@@ -443,6 +482,8 @@ function selfCheck(): void {
     assert.equal(run('git', ['show', '-s', '--format=%an <%ae>|%s'], r.clone), 't <t@example.com>|Sync', 'commit author + summary');
     assert.equal(head(), before, 'dry run pushed nothing');
     assert.equal(run('git', ['--git-dir', bare, 'branch', '--list', 'sync/test']), '', 'no branch on the remote');
+    const nm = publish({ ...o, branch: 'sync/test-nm', noMerge: true }); // dry run: stops after the PR step, nothing pushed
+    assert.ok(nm.commit, '--no-merge still commits in the clone'); assert.equal(head(), before, '--no-merge dry run pushed nothing');
     // a secret in the source stops the sync before the commit
     writeFileSync(join(src, 'docs/b.md'), `token ${fake[2]}\n`); g(src, 'add', '-A'); g(src, 'commit', '-qm', 'two');
     assert.throws(() => publish({ ...o, branch: 'sync/test2' }), /possible secrets[\s\S]*docs\/b.md: AWS access key/, 'secret stops the sync');
@@ -469,8 +510,9 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     yes: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'self-check': { type: 'boolean' },
     repo: { type: 'string', default: 'rodneypantonial/sims3-modernization' }, remote: { type: 'string' }, ref: { type: 'string', default: 'master' },
     branch: { type: 'string' }, message: { type: 'string' }, 'message-file': { type: 'string' },
-    'if-behind': { type: 'boolean' }, 'min-gap-min': { type: 'string', default: '60' },
+    'if-behind': { type: 'boolean' }, 'no-merge': { type: 'boolean' }, 'min-gap-min': { type: 'string', default: '60' },
     'author-name': { type: 'string' }, 'author-email': { type: 'string' }, 'native-version': { type: 'string' },
+    'prev-ini': { type: 'string' }, 'prev-package': { type: 'string' },
     ini: { type: 'string', default: join(ROOT, 'native/ts3native/out/ts3native.ini') }, package: { type: 'string', default: join(ROOT, 'build/ts3fixes.package') },
   } });
   try {
@@ -478,7 +520,8 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
     else if (p[0] === 'sync' || (p[0] === 'release' && p[1])) {
       if (a.yes && a['dry-run']) throw new Error('--yes and --dry-run together');
       if (a['if-behind'] && p[0] !== 'sync') throw new Error('--if-behind is for sync only');
-      const synced = a['if-behind'] || a.yes ? run('git', ['rev-parse', a.ref!], ROOT) : ''; // read before the sync starts: a later commit is not marked synced
+      if (a['no-merge'] && (p[0] !== 'sync' || a['if-behind'])) throw new Error('--no-merge is for a manual sync only');
+      const synced = a['if-behind'] || a.yes ? run('git', ['rev-parse', (a.ref ?? defaultBranch(ROOT))], ROOT) : ''; // read before the sync starts: a later commit is not marked synced
       if (a['if-behind']) {
         const d = behindDecision(synced, readMarker(), Date.now(), Number(a['min-gap-min']));
         console.log(`publish-public: ${d.go ? 'syncing' : 'skip'}: ${d.reason}`);
@@ -490,13 +533,13 @@ if (import.meta.filename === resolve(process.argv[1] ?? '')) {
       const authorName = a['author-name'] ?? cfg('user.name'), authorEmail = a['author-email'] ?? cfg('user.email');
       if (!authorName || !authorEmail) throw new Error('no author: pass --author-name/--author-email or set git config');
       const tag = p[0] === 'release' ? p[1] : undefined;
-      const r = publish({ yes: !!a.yes, repo: a.repo!, remote: a.remote ?? `https://github.com/${a.repo}.git`, src: ROOT, ref: a.ref!,
+      const r = publish({ yes: !!a.yes, repo: a.repo!, remote: a.remote ?? `https://github.com/${a.repo}.git`, src: ROOT, ref: (a.ref ?? defaultBranch(ROOT)),
         branch: a.branch ?? (tag ? `release/${tag}` : `sync/${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`), message, authorName, authorEmail,
-        tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package! });
+        tag, nativeVersion: a['native-version'], ini: a.ini!, pkg: a.package!, prevIni: a['prev-ini'], prevPkg: a['prev-package'], noMerge: !!a['no-merge'] });
       console.log(a.yes ? 'done' : `dry run done; the clone stays for review: ${r.clone}`);
       if (a.yes) {
         rmSync(resolve(r.clone, '..'), { recursive: true, force: true });
-        if (!tag) { mkdirSync(resolve(MARKER, '..'), { recursive: true }); writeFileSync(MARKER, JSON.stringify({ sha: synced, at: new Date().toISOString() }) + '\n'); }
+        if (!tag && !a['no-merge']) { mkdirSync(resolve(MARKER, '..'), { recursive: true }); writeFileSync(MARKER, JSON.stringify({ sha: synced, at: new Date().toISOString() }) + '\n'); }
       }
     } else {
       console.error('usage: node tools/publish-public.ts sync|release <vX.Y.Z> --message-file <f> [--native-version X.Y.Z] [--yes] | --self-check');

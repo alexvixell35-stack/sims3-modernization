@@ -9,12 +9,13 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { rateCompare } from './hitch-ab.ts';
 
 const ROOT = process.env.TS3_REPO ?? resolve(import.meta.dirname, '..', '..');
 const PROFILE = join(ROOT, 'probe-out', 'profile');
 export const BAR = { netMs: 3, iterPct: 2, seenPct: 10, venueShare: 0.75, awayExtra: 2, strandedExtra: 1, starveExtra: 0, strandSamples: 8, auditMs: 0.5,
   // docs/246 §6 routing bars R1-R6: judgement thresholds from one data set, adjust after the first pair
-  r1PlansPct: 10, r2WorkPct: 10, r3LenPct: 15, r4FailMult: 1.5, r4FailExtra: 5, r5LongExtra: 2, r6BurstMult: 1.25, r6MinSecs: 500 };
+  r1PlansPct: 10, r2WorkPct: 10, r3LenPct: 15, r4FailMult: 1.5, r4FailExtra: 5, r6BurstMult: 1.25, r6MinSecs: 500 };
 
 type Slice = { from: number; on: boolean; warmup?: boolean };
 type Row = { i: number; s: number; c: Record<string, number> };
@@ -130,8 +131,13 @@ export function routingBars(w: string, rs: { order: string; a: { on: Arm; off: A
   rise(`R3 ${w} job mean not up > ${BAR.r3LenPct}% with R2 up (judgement)`, mean, BAR.r3LenPct, x => `${(mean(x) / 1000).toFixed(1)} ms`, r2 > 0);
   const exp = off.plans ? off.fails / off.plans * on.plans : NaN;
   L.push({ name: `R4 ${w} route fails <= ${BAR.r4FailMult} x off rate + ${BAR.r4FailExtra} events (judgement)`, ok: isFinite(exp) && both ? on.fails <= BAR.r4FailMult * exp + BAR.r4FailExtra : null, text: isFinite(exp) ? `${off.fails}/${off.plans} -> ${on.fails}/${on.plans}${tail}` : 'no data' });
-  const d = rs.map(r => r.a.on.ufLong - r.a.off.ufLong), have = rs.some(r => r.a.on.asyncN || r.a.off.asyncN);
-  L.push({ name: `R5 ${w} ufLong (>= 300 ms) on <= off + ${BAR.r5LongExtra} per pair (judgement; also read the hitch-ab rule)`, ok: have ? d.every(x => x <= BAR.r5LongExtra) : null, text: have ? `on - off per run: ${d.join(', ')}` : 'no data' });
+  // docs/23 §21: pooled exact-Poisson on/off rate ratio over the arms' native seconds (hitch-ab rateCompare); FAIL only when the
+  // 95% CI lies wholly above 1. The old "+2 per pair" failed on noise (IP: pooled 46 vs 42).
+  const ev = (k: 'on' | 'off') => ({ k: rs.reduce((s, r) => s + r.a[k].ufLong, 0), mins: rs.reduce((s, r) => s + r.a[k].nativeSecs, 0) / 60 });
+  const lOn = ev('on'), lOff = ev('off'), have = rs.some(r => r.a.on.asyncN || r.a.off.asyncN) && lOn.mins > 0 && lOff.mins > 0;
+  const c = have ? rateCompare(lOn, lOff) : null, d = rs.map(r => r.a.on.ufLong - r.a.off.ufLong);
+  L.push({ name: `R5 ${w} ufLong (>= 300 ms) pooled on/off rate ratio: 95% CI not wholly above 1 (exact Poisson, docs/23 §21)`, ok: c ? !(c.ratio.lo > 1) : null,
+    text: c ? `${lOff.k} in ${lOff.mins.toFixed(1)} min -> ${lOn.k} in ${lOn.mins.toFixed(1)} min, ratio ${c.ratio.est.toFixed(2)} [${c.ratio.lo.toFixed(2)}, ${c.ratio.hi.toFixed(2)}] (${c.verdict}); on - off per run: ${d.join(', ')}` : 'no data' });
   const a = rs.flatMap(r => r.a.on.rps), b = rs.flatMap(r => r.a.off.rps), enough = a.length >= BAR.r6MinSecs && b.length >= BAR.r6MinSecs;
   L.push({ name: `R6 ${w} p99.9 routes per second <= ${BAR.r6BurstMult} x off (judgement)`, ok: enough ? p999(a) <= BAR.r6BurstMult * p999(b) : null, text: enough ? `${p999(b)} -> ${p999(a)}` : `no data (needs ${BAR.r6MinSecs} s per arm)` });
   return L;
@@ -164,6 +170,144 @@ export function bars(runs: { world: string; order: string; a: { on: Arm; off: Ar
   }
   return L;
 }
+
+// ---- docs/124 §7.2 G8 pick histogram (ts3fixes {"t":"picks","g":"<class>.<path>"} lines in the job's autshadow.jsonl copy,
+// probe-out/queue/<tag>-<HHMM>-autshadow.jsonl). Class u unseen, s seen, h household scope; path d worker direct pick, x exact
+// consumer, g the game's search. Bar: household-scope Sims get no worker direct pick (h.d = 0). Log: unseen picks per definition,
+// worker (u.d) vs sim (u.x + u.g), chi-square over definitions with >= G8.minPicks picks (G8u reference p >= 0.001, docs/222 §5;
+// a log line since the 11-06 relaxed unseen bars). Self-contained block: G8, picksOf, addPicks, chiSqP, pickCompare, g8PickBars.
+export const G8 = { minPicks: 50, pRef: 0.001 }, AUTSHADOW_COPY = /^(.*)-\d{4}-autshadow\.jsonl$/; // queue.ts row.autshadowLog name -> tag
+export type Picks = Record<string, Record<string, number>>; // group -> definition -> pushes ("(other)" = past the line's size cap)
+export function picksOf(jsonl: string): Picks {
+  const best: Record<string, { n: number; d: Record<string, number> }> = {};
+  for (const l of jsonl.split(/\r?\n/)) {
+    if (!l.includes('"t":"picks"') || !l.includes('"g":')) continue; // builds before the groups wrote one line without "g"
+    let r: { n: number; g: string; def: [string, number][]; other?: number };
+    try { r = JSON.parse(l); } catch { continue; }
+    if (best[r.g] && best[r.g].n >= r.n) continue; // cumulative: the newest line of a group
+    const d: Record<string, number> = {};
+    for (const [k, v] of r.def) d[k] = v;
+    if (r.other) d['(other)'] = r.other;
+    best[r.g] = { n: r.n, d };
+  }
+  return Object.fromEntries(Object.entries(best).map(([g, v]) => [g, v.d]));
+}
+export function addPicks(a: Picks, b: Picks): Picks {
+  for (const [g, d] of Object.entries(b)) { const t = (a[g] ??= {}); for (const [k, v] of Object.entries(d)) t[k] = (t[k] ?? 0) + v; }
+  return a;
+}
+const pickSum = (d: Record<string, number> = {}) => Object.values(d).reduce((x, y) => x + y, 0);
+function lnGamma(x: number): number { // Lanczos, g = 7
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61566583863, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lnGamma(1 - x);
+  x -= 1; let s = c[0]; for (let i = 1; i < 9; i++) s += c[i] / (x + i);
+  const t = x + 7.5; return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(s);
+}
+// upper tail of chi-square(df) at x = Q(df/2, x/2): series below a + 1, continued fraction above (Numerical Recipes gammq)
+export function chiSqP(x: number, df: number): number {
+  if (df <= 0) return NaN;
+  if (x <= 0) return 1;
+  const a = df / 2, z = x / 2, pre = Math.exp(-z + a * Math.log(z) - lnGamma(a));
+  if (z < a + 1) { let s = 1 / a, t = s; for (let n = 1; n < 500 && Math.abs(t) > Math.abs(s) * 1e-14; n++) { t *= z / (a + n); s += t; } return Math.max(0, 1 - s * pre); }
+  let b = z + 1 - a, c = 1e300, d = 1 / b, h = d;
+  for (let i = 1; i < 500; i++) { const an = -i * (i - a); b += 2; d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300; c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < 1e-14) break; }
+  return pre * h;
+}
+// 2 x k test of worker vs sim picks; definitions under minPicks (both columns together) pooled into one "(small)" row
+export function pickCompare(w: Record<string, number>, s: Record<string, number>, minPicks = G8.minPicks) {
+  const rows: [string, number, number][] = [];
+  let sw = 0, ss = 0;
+  for (const k of new Set([...Object.keys(w), ...Object.keys(s)])) { const a = w[k] ?? 0, b = s[k] ?? 0; if (a + b >= minPicks) rows.push([k, a, b]); else { sw += a; ss += b; } }
+  if (sw + ss > 0) rows.push(['(small)', sw, ss]);
+  const W = pickSum(w), S = pickSum(s), N = W + S;
+  if (!W || !S || rows.length < 2) return null;
+  let chi = 0;
+  for (const [, a, b] of rows) { const e = (a + b) / N; chi += (a - e * W) ** 2 / (e * W) + (b - e * S) ** 2 / (e * S); }
+  const shift = rows.map(([k, a, b]) => ({ k, d: 100 * (a / W - b / S) })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 3);
+  return { W, S, df: rows.length - 1, chi, p: chiSqP(chi, rows.length - 1), shift };
+}
+export function g8PickBars(perWorld: Record<string, Picks>): { name: string; ok: boolean | null; text: string }[] {
+  const L: { name: string; ok: boolean | null; text: string }[] = [];
+  for (const [w, P] of Object.entries(perWorld)) {
+    const any = Object.keys(P).length > 0, hd = pickSum(P['h.d']), sd = pickSum(P['s.d']);
+    L.push({ name: `G8 ${w} household-scope worker direct picks = 0`, ok: any ? hd === 0 : null, text: any ? `h.d ${hd} of ${hd + pickSum(P['h.x']) + pickSum(P['h.g'])} household-scope pushes` : 'no data (no picks lines with groups)' });
+    const sim = addPicks({ x: { ...(P['u.x'] ?? {}) } }, { x: P['u.g'] ?? {} }).x, c = pickCompare(P['u.d'] ?? {}, sim);
+    L.push({ name: `log ${w} G8 unseen picks per definition, worker vs sim (G8u reference p >= ${G8.pRef})`, ok: null,
+      text: c ? `worker ${c.W}, sim ${c.S}; chi-square ${c.chi.toFixed(1)} df ${c.df}, p ${c.p.toPrecision(2)}${c.p < G8.pRef ? ' (under the reference)' : ''}; largest share shifts ${c.shift.map(x => `${x.k} ${x.d >= 0 ? '+' : ''}${x.d.toFixed(1)} pts`).join(', ')}; seen direct picks ${sd}`
+        : `no data (worker ${pickSum(P['u.d'])}, sim ${pickSum(sim)} unseen picks); seen direct picks ${sd}` });
+  }
+  return L;
+}
+function g8PicksSelfCheck() {
+  assert.ok(Math.abs(chiSqP(3.841, 1) - 0.05) < 1e-3, 'chi2 3.841 df1 = 0.05');
+  assert.ok(Math.abs(chiSqP(9.21, 2) - 0.01) < 1e-3, 'chi2 9.21 df2 = 0.01');
+  assert.ok(Math.abs(chiSqP(30, 20) - 0.0699) < 1e-3, 'chi2 30 df20 = 0.0699 (series side)');
+  assert.ok(Math.abs(chiSqP(40, 10) - 1.75e-5) < 1e-6, 'chi2 40 df10 = 1.75e-5 (continued fraction side)');
+  const line = (n: number, g: string, def: [string, number][], other = 0) => JSON.stringify({ t: 'picks', n, g, gn: 0, def, other });
+  const j = [line(100, 'u.d', [['GoHome.Definition', 10]]), '{"t":"picks","n":500,"def":[["Old.Definition",9]]}', 'not json "t":"picks" "g":',
+    line(200, 'u.d', [['GoHome.Definition', 60], ['Shop.Definition', 40]], 5), line(200, 'u.g', [['GoHome.Definition', 50], ['Shop.Definition', 50]]), line(150, 'u.d', [['GoHome.Definition', 1]])].join('\n');
+  const p = picksOf(j);
+  assert.deepEqual(p['u.d'], { 'GoHome.Definition': 60, 'Shop.Definition': 40, '(other)': 5 }, 'newest cumulative line per group, other kept, old group-less line out');
+  const ok = g8PickBars({ bp: p });
+  assert.equal(ok[0].ok, true, 'no h.d: bar passes');
+  assert.match(ok[1].text, /worker 105, sim 100; chi-square [\d.]+ df 2/, 'GoHome, Shop rows + (other) 5 pooled into (small)');
+  assert.equal(g8PickBars({ bp: addPicks(picksOf(j), { 'h.d': { 'GoHome.Definition': 1 } }) })[0].ok, false, 'a household direct pick fails');
+  assert.equal(g8PickBars({ bp: {} })[0].ok, null, 'no picks lines: no data');
+  const same = pickCompare({ A: 500, B: 500 }, { A: 500, B: 500 })!, skew = pickCompare({ A: 800, B: 200 }, { A: 500, B: 500 })!;
+  assert.ok(same.p > 0.99 && skew.p < 1e-6, 'equal shares p ~1, skewed p tiny');
+  assert.equal(skew.shift[0].k, 'A');
+  assert.equal(AUTSHADOW_COPY.exec('golive-unseen-gate2-2026-11-07-bp-gu2-t-ab-1702-autshadow.jsonl')?.[1], 'golive-unseen-gate2-2026-11-07-bp-gu2-t-ab', 'real queue copy name');
+  assert.equal(AUTSHADOW_COPY.exec('golive-unseen-gate2-2026-11-07-bp-gu2-t-ab-1702-ts3native.log'), null, 'native log copy: no match');
+  console.log('gate2-report G8 picks self-check PASS');
+}
+// ---- docs/246 §6 missing counters 1, 3, 4 (ts3fixes routelen, RouteLen.cs): log rows only, never a bar ----
+// Per arm from the --ab slice snapshots: planned metres per successful plan seen / unseen and the >= 40 m share (1), the
+// share of unseen plans whose goal is in view (4), and pushes per definition from the "pick:<def>" keys (3).
+export type RlArm = { n: number[]; m: number[]; far: number[]; endSeen: number; picks: Record<string, number> };
+const rlZero = (): RlArm => ({ n: [0, 0], m: [0, 0], far: [0, 0], endSeen: 0, picks: {} });
+export function routeLenArms(slices: Slice[], rows: Row[]): { on: RlArm; off: RlArm } {
+  const a = { on: rlZero(), off: rlZero() };
+  for (let x = 0; x + 1 < rows.length; x++) {
+    const sl = slices[rows[x].i];
+    if (!sl || sl.warmup) continue;
+    const t = a[sl.on ? 'on' : 'off'], d = (k: string) => (rows[x + 1].c[k] ?? 0) - (rows[x].c[k] ?? 0);
+    ['seen', 'unseen'].forEach((k, i) => { t.n[i] += d(`routelen_${k}_n`); t.m[i] += d(`routelen_${k}_m`); t.far[i] += d(`routelen_${k}_40m`); });
+    t.endSeen += d('routelen_unseen_endseen');
+    for (const k of Object.keys(rows[x + 1].c)) if (k.startsWith('pick:')) t.picks[k.slice(5)] = (t.picks[k.slice(5)] ?? 0) + d(k);
+  }
+  return a;
+}
+export function routeLenLog(w: string, rs: { on: RlArm; off: RlArm }[]): Bar[] {
+  const sum = (k: 'on' | 'off') => rs.reduce((p, r) => { const q = r[k]; for (let i = 0; i < 2; i++) { p.n[i] += q.n[i]; p.m[i] += q.m[i]; p.far[i] += q.far[i]; } p.endSeen += q.endSeen;
+    for (const [d, v] of Object.entries(q.picks)) p.picks[d] = (p.picks[d] ?? 0) + v; return p; }, rlZero());
+  const on = sum('on'), off = sum('off'), L: Bar[] = [];
+  if (!(on.n[0] + on.n[1] + off.n[0] + off.n[1])) return [{ name: `log ${w} route length by class (routelen)`, ok: null, text: 'no data (routelen off)' }];
+  const len = (x: RlArm, i: number) => `${per(x.m[i], x.n[i], 1)} m, >= 40 m ${per(100 * x.far[i], x.n[i], 1)}% (n=${x.n[i]})`;
+  L.push({ name: `log ${w} route length seen (routelen)`, ok: null, text: `${len(off, 0)} -> ${len(on, 0)}` });
+  L.push({ name: `log ${w} route length unseen (routelen)`, ok: null, text: `${len(off, 1)} -> ${len(on, 1)}` });
+  L.push({ name: `log ${w} unseen plans ending in view (routelen)`, ok: null, text: `${per(100 * off.endSeen, off.n[1], 1)}% -> ${per(100 * on.endSeen, on.n[1], 1)}%` });
+  const tot = (x: RlArm) => Object.values(x.picks).reduce((s, v) => s + v, 0), tOn = tot(on), tOff = tot(off);
+  const share = (x: RlArm, t: number, d: string) => t ? 100 * (x.picks[d] ?? 0) / t : 0;
+  const top = [...new Set([...Object.keys(on.picks), ...Object.keys(off.picks)])].map(d => ({ d, off: share(off, tOff, d), on: share(on, tOn, d) }))
+    .sort((p, q) => Math.abs(q.on - q.off) - Math.abs(p.on - p.off)).slice(0, 5);
+  L.push({ name: `log ${w} pick shares, largest changes (routelen)`, ok: null, text: tOn && tOff ? top.map(p => `${p.d} ${p.off.toFixed(1)}% -> ${p.on.toFixed(1)}%`).join(', ') + ` (pushes ${tOff} -> ${tOn})` : 'no data (no pick keys: autlive off)' });
+  return L;
+}
+function routeLenSelfCheck() {
+  const sl: Slice[] = [{ from: 0, on: true, warmup: true }, { from: 10, on: false }, { from: 20, on: true }];
+  const c = (x: number, far: number) => ({ routelen_seen_n: 10 * x, routelen_seen_m: 100 * x, routelen_seen_40m: x, routelen_unseen_n: 10 * x, routelen_unseen_m: 200 * x, routelen_unseen_40m: far, routelen_unseen_endseen: x, 'pick:Go.Definition': 9 * x, 'pick:Sit.Definition': x });
+  const rows: Row[] = [{ i: 0, s: 0, c: c(0, 0) }, { i: 1, s: 10, c: c(1, 1) }, { i: 2, s: 20, c: c(2, 2) }, { i: 3, s: 30, c: { ...c(3, 6), 'pick:Go.Definition': 18, 'pick:Sit.Definition': 12 } }];
+  const a = routeLenArms(sl, rows);
+  assert.deepEqual([a.off.n, a.off.m, a.on.far, a.on.endSeen], [[10, 10], [100, 200], [1, 4], 1], 'warm-up slice out, per-arm deltas');
+  assert.deepEqual(a.on.picks, { 'Go.Definition': 0, 'Sit.Definition': 10 });
+  const L = routeLenLog('bp', [a]);
+  assert.match(L.find(b => b.name.includes('unseen (routelen)'))!.text, /^20\.0 m, >= 40 m 10\.0% \(n=10\) -> 20\.0 m, >= 40 m 40\.0% \(n=10\)$/);
+  assert.match(L.find(b => b.name.includes('ending in view'))!.text, /^10\.0% -> 10\.0%$/);
+  assert.equal(L.find(b => b.name.includes('pick shares'))!.text, 'Go.Definition 90.0% -> 0.0%, Sit.Definition 10.0% -> 100.0% (pushes 10 -> 10)');
+  assert.ok(L.every(b => b.ok === null), 'log rows only');
+  assert.equal(routeLenLog('bp', [routeLenArms(sl, rows.map(r => ({ ...r, c: {} })))])[0].text, 'no data (routelen off)');
+}
+// ---- end docs/246 §6 counters block ----
 
 function selfCheck() {
   const sl: Slice[] = [{ from: 0, on: true, warmup: true }, { from: 10, on: false }, { from: 20, on: true }];
@@ -208,7 +352,7 @@ function selfCheck() {
   const worse = bars([], { bp: { on: { ...out, stranded: 3 }, off: out } });
   assert.equal(worse.find(b => b.name.includes('stranded'))!.ok, false);
   // R1-R6 (docs/246 §6)
-  const mk = (o: Partial<Arm>): Arm => ({ ...zero(), seenH: 5, unseenH: 5, plans: 100, fails: 2, asyncUs: 1_000_000, asyncN: 100, ufLong: 0, rps: Array.from({ length: 600 }, (_, i) => 10 + (i % 7)), ...o });
+  const mk = (o: Partial<Arm>): Arm => ({ ...zero(), seenH: 5, unseenH: 5, plans: 100, fails: 2, asyncUs: 1_000_000, asyncN: 100, ufLong: 0, nativeSecs: 300, rps: Array.from({ length: 600 }, (_, i) => 10 + (i % 7)), ...o });
   const pair = (order: string, on: Partial<Arm>, off: Partial<Arm> = {}) => ({ order, a: { on: mk(on), off: mk(off) } });
   const bar = (rs: ReturnType<typeof pair>[], n: string) => routingBars('bp', rs).find(b => b.name.startsWith(n))!;
   const flat = [pair('off-first', {}), pair('on-first', {})];
@@ -221,18 +365,24 @@ function selfCheck() {
   assert.equal(bar([pair('off-first', { asyncUs: 1_200_000, asyncN: 120 }), pair('on-first', { asyncUs: 1_200_000, asyncN: 120 })], 'R3').ok, true, 'job mean flat: R3 passes');
   assert.equal(bar([pair('off-first', { fails: 20 }), pair('on-first', { fails: 20 })], 'R4').ok, false, 'fails 2 -> 20 fails R4');
   assert.equal(bar([pair('off-first', { fails: 5 }), pair('on-first', { fails: 5 })], 'R4').ok, true, 'fails inside 1.5 x + 5 pass');
-  assert.equal(bar([pair('off-first', { ufLong: 3 }), pair('on-first', {})], 'R5').ok, false, 'ufLong +3 in one pair fails R5');
-  assert.equal(bar([pair('off-first', { ufLong: 2 }), pair('on-first', { ufLong: 1 })], 'R5').ok, true, 'ufLong +2 passes');
+  assert.equal(bar([pair('off-first', { ufLong: 3 }), pair('on-first', {})], 'R5').ok, true, 'ufLong +3 in one pair (0 -> 3 pooled) passes R5');
+  assert.equal(bar([pair('off-first', { ufLong: 25 }, { ufLong: 20 }), pair('on-first', { ufLong: 21 }, { ufLong: 22 })], 'R5').ok, true, 'IP 11-08 case: 42 -> 46 pooled, +5 in one pair, passes');
+  assert.equal(bar([pair('off-first', { ufLong: 20 }, { ufLong: 5 }), pair('on-first', { ufLong: 20 }, { ufLong: 5 })], 'R5').ok, false, '10 -> 40 pooled fails R5');
+  assert.equal(bar([pair('off-first', { ufLong: 6 }), pair('on-first', {})], 'R5').ok, false, '0 -> 6 pooled: CI wholly above 1, fails');
+  assert.equal(bar([pair('off-first', { ufLong: 4 }), pair('on-first', {})], 'R5').ok, true, '0 -> 4 pooled: CI reaches below 1, passes');
+  assert.equal(bar([pair('off-first', { nativeSecs: 0 }, { nativeSecs: 0 })], 'R5').ok, null, 'no native seconds: no data');
   assert.equal(bar(flat.map(r => ({ ...r, a: { on: { ...r.a.on, rps: r.a.on.rps.map((x, i) => i % 100 === 0 ? 40 : x) }, off: r.a.off } })), 'R6').ok, false, 'burst p99.9 40 vs 16 fails R6');
   assert.equal(bar([pair('off-first', { rps: [] })], 'R6').ok, null, 'too few seconds: no data');
   assert.equal(bar([pair('off-first', { seenH: 0, unseenH: 0 }), pair('on-first', { seenH: 0, unseenH: 0 })], 'R1').ok, null, 'no Sim-hours (no kAutLive): no data');
+  routeLenSelfCheck();
   console.log('gate2-report self-check PASS');
 }
 
-if (process.argv.includes('--self-check')) { selfCheck(); process.exit(0); }
+if (process.argv.includes('--self-check')) { selfCheck(); g8PicksSelfCheck(); process.exit(0); }
 const prefixes = process.argv.slice(2);
 if (!prefixes.length) { console.error('usage: gate2-report.ts <tag or tag prefix> [...] | --self-check'); process.exit(2); }
 const files = readdirSync(PROFILE), runs: Parameters<typeof bars>[0] = [], out: Parameters<typeof bars>[1] = {};
+const rlRuns: { world: string; a: ReturnType<typeof routeLenArms> }[] = []; // docs/246 §6 counters block
 let routeOnly = false; // --ab unseenrm (rootmotion-retest), unseenboat (verify-shortcut-boat): only the docs/246 route bars apply
 const worldOf = (t: string) => /-(bp|ip|sv)-/.exec(t)?.[1] ?? '?';
 for (const f of files) {
@@ -246,10 +396,20 @@ for (const f of files) {
     const nx = join(PROFILE, `${tag}-ab-native.jsonl`), native = existsSync(nx) ? readFileSync(nx, 'utf8').trim().split('\n').map(l => JSON.parse(l)) as NativeRow[] : [];
     const rows = readFileSync(fx, 'utf8').trim().split('\n').map(l => JSON.parse(l)) as Row[], a = armsOf(ab.slices, rows, readFileSync(join(PROFILE, sec), 'utf8'), native);
     runs.push({ world: worldOf(tag), order: ab.slices.find((s: Slice) => !s.warmup)?.on ? 'on-first' : 'off-first', a });
+    rlRuns.push({ world: worldOf(tag), a: routeLenArms(ab.slices, rows) }); // docs/246 §6 counters block
   }
   const o = /^(.*-out-(on|off))-activity\.jsonl$/.exec(f);
   if (o && prefixes.some(p => o[1].startsWith(p))) ((out[worldOf(o[1])] ??= {})[o[2] as 'on' | 'off'] = outcome(readFileSync(join(PROFILE, f), 'utf8')));
 }
 const res = bars(runs, out).filter(b => !routeOnly || /^R[1-6] /.test(b.name));
+{ // docs/124 §7.2 G8 pick histogram: the autshadow.jsonl copies of the same jobs (same tag filters), pooled per world
+  const QUEUE = join(ROOT, 'probe-out', 'queue'), perWorld: Record<string, Picks> = {};
+  for (const f of existsSync(QUEUE) && !routeOnly ? readdirSync(QUEUE) : []) {
+    const m = AUTSHADOW_COPY.exec(f), solo = m && /fastspeed|speed1|seengame|credit/.exec(m[1])?.[0];
+    if (m && prefixes.some(p => m[1].startsWith(p) && (!solo || p.includes(solo))) && !/-(rh|smoke)/.test(m[1])) addPicks(perWorld[worldOf(m[1])] ??= {}, picksOf(readFileSync(join(QUEUE, f), 'utf8')));
+  }
+  res.push(...g8PickBars(perWorld));
+}
 for (const b of res) console.log(`${b.ok === null ? (b.name.startsWith('log') ? 'log ' : 'NONE') : b.ok ? 'PASS' : 'FAIL'}  ${b.name}: ${b.text || 'no data'}`);
+for (const w of new Set(rlRuns.map(r => r.world))) for (const b of routeLenLog(w, rlRuns.filter(r => r.world === w).map(r => r.a))) console.log(`log   ${b.name}: ${b.text}`); // docs/246 §6 counters block
 process.exit(res.some(b => b.ok === false) ? 1 : 0);

@@ -1,0 +1,173 @@
+{
+  "note": "RUN FIRST for the Test memo question (docs/302 §3 #8: a memo only if the cost is big) - PREPARED, dry-run only, 2026-11-20. Measurement only, no memo, no switch. NEEDS A QUIET MACHINE (per-menu ms and hitches are wall time). NEEDS the ModTime master build (A1, repin) and MasterController in many-mods-s (Rodney's NRaas download; logRequire NRaasMasterController). Two jobs on ManyMods-IP-aged: with the script set (MasterController + Moar Interactions + TSS interaction mods) and without (ours only), same repro, so per-menu ms and the share of NRaas / interaction-mod frames in the hitches compare. Bin state apex, Apex latest + bridge. ~2 x 15 min.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.modtime-master-1120",
+      "iniBase": "game-copy/ts3native.ini.modtime-master-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.modtime-master-1120",
+      "pinReason": "NEEDS the sub-lane A1 build (feature/modtime-master-1120, ts3native 0.36.295-mdt1 = rc1119b + [Diag] ModTime on master): repin to its builds.json rows once merged",
+      "releaseDefaults": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "id": "ip-pie-script",
+      "note": "[est 15 min] with many-mods-s: repro pie-menu-cost (120 pie menu builds over 6 targets, ~3 min) inside a 6 min ModTime window at 50 Hz. Read per-call ms (repro log) and the hitches with owner stacks around them (-modtime-summary.txt copy).",
+      "save": "ManyMods-IP-aged",
+      "modSet": "game-copy/mod-sets/many-mods-s",
+      "noiseCheck": false,
+      "timeoutMin": 45,
+      "ini": {
+        "Diag.ModTime": 1,
+        "Diag.ModTimeHz": 50
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "pie-menu-cost"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-mdt1 ": 1,
+        "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": 1,
+        "^modtime: summary written \\(sim hour \\d+, [1-9]\\d* samples": 1,
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasMasterController": 1
+      },
+      "logForbid": {},
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-mdt1 ": {
+          "match": [
+            "ts3native 0.36.295-mdt1 2026-11-20 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 08:17:48"
+          ]
+        },
+        "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": {
+          "match": [
+            "OK   modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"
+          ],
+          "noMatch": [
+            "OK   modtime ([Diag] ModTime=1, docs/298): 10 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log",
+            "SKIP modtime ([Diag] ModTime): needs [UserDiag] Enabled=1 (the ts3fixes channel)"
+          ]
+        },
+        "^modtime: summary written \\(sim hour \\d+, [1-9]\\d* samples": {
+          "match": [
+            "modtime: summary written (sim hour 9, 3021 samples, 410 load-phase samples, busy 97%, overhead 0.081% of a core)"
+          ],
+          "noMatch": [
+            "modtime: summary written (sim hour 9, 0 samples, 0 load-phase samples, busy 0%, overhead 0.000% of a core)"
+          ]
+        },
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": {
+          "match": [
+            "diag: Mods\\Packages 163 .package files, 5184 MB, 10 with scripts (S3SA), 153 other (CC, tuning), 0 folders deeper than 5 not read; scan 341 ms"
+          ],
+          "noMatch": [
+            "diag: Mods\\Packages 20285 .package files, 31000 MB, 49 with scripts (S3SA), 20236 other (CC, tuning), 0 folders deeper than 5 not read; scan 9000 ms",
+            "diag: Mods\\Packages 2163 .package files, 5186 MB, 10 with scripts (S3SA), 2153 other (CC, tuning), 0 folders deeper than 5 not read; scan 900 ms"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": {
+          "match": [
+            "ts3fixes: script assemblies (54): NRaasErrorTrap  40c77ec4, TwoBTech.Mods.Commons  1a2b3c4d, TwoBTech.Mods.MoarInteractions  5e6f7a8b"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (15): StoreObjectsZoe  46796e9c, NRaasErrorTrap  40c77ec4, NRaasOverwatch  11223344"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*NRaasMasterController": {
+          "match": [
+            "ts3fixes: script assemblies (70): NRaasMasterController  0badf00d, NRaasErrorTrap  40c77ec4"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (15): StoreObjectsZoe  46796e9c, NRaasErrorTrap  40c77ec4, NRaasOverwatch  11223344"
+          ]
+        }
+      }
+    },
+    {
+      "asi": "game-copy/ts3native.asi.modtime-master-1120",
+      "iniBase": "game-copy/ts3native.ini.modtime-master-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.modtime-master-1120",
+      "pinReason": "NEEDS the sub-lane A1 build (feature/modtime-master-1120, ts3native 0.36.295-mdt1 = rc1119b + [Diag] ModTime on master): repin to its builds.json rows once merged",
+      "releaseDefaults": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "id": "ip-pie-ours",
+      "note": "[est 15 min] ours only (no set): repro pie-menu-cost (120 pie menu builds over 6 targets, ~3 min) inside a 6 min ModTime window at 50 Hz. Read per-call ms (repro log) and the hitches with owner stacks around them (-modtime-summary.txt copy).",
+      "save": "ManyMods-IP-aged",
+      "noiseCheck": false,
+      "timeoutMin": 45,
+      "ini": {
+        "Diag.ModTime": 1,
+        "Diag.ModTimeHz": 50
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "pie-menu-cost"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-mdt1 ": 1,
+        "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": 1,
+        "^modtime: summary written \\(sim hour \\d+, [1-9]\\d* samples": 1,
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": 1
+      },
+      "logForbid": {
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-mdt1 ": {
+          "match": [
+            "ts3native 0.36.295-mdt1 2026-11-20 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 08:17:48"
+          ]
+        },
+        "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": {
+          "match": [
+            "OK   modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"
+          ],
+          "noMatch": [
+            "OK   modtime ([Diag] ModTime=1, docs/298): 10 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log",
+            "SKIP modtime ([Diag] ModTime): needs [UserDiag] Enabled=1 (the ts3fixes channel)"
+          ]
+        },
+        "^modtime: summary written \\(sim hour \\d+, [1-9]\\d* samples": {
+          "match": [
+            "modtime: summary written (sim hour 9, 3021 samples, 410 load-phase samples, busy 97%, overhead 0.081% of a core)"
+          ],
+          "noMatch": [
+            "modtime: summary written (sim hour 9, 0 samples, 0 load-phase samples, busy 0%, overhead 0.000% of a core)"
+          ]
+        },
+        "^diag: Mods\\\\Packages \\d{1,3} \\.package files": {
+          "match": [
+            "diag: Mods\\Packages 163 .package files, 5184 MB, 10 with scripts (S3SA), 153 other (CC, tuning), 0 folders deeper than 5 not read; scan 341 ms"
+          ],
+          "noMatch": [
+            "diag: Mods\\Packages 20285 .package files, 31000 MB, 49 with scripts (S3SA), 20236 other (CC, tuning), 0 folders deeper than 5 not read; scan 9000 ms",
+            "diag: Mods\\Packages 2163 .package files, 5186 MB, 10 with scripts (S3SA), 2153 other (CC, tuning), 0 folders deeper than 5 not read; scan 900 ms"
+          ]
+        },
+        "^ts3fixes: script assemblies \\(\\d+\\): .*TwoBTech\\.Mods\\.MoarInteractions": {
+          "match": [
+            "ts3fixes: script assemblies (54): NRaasErrorTrap  40c77ec4, TwoBTech.Mods.Commons  1a2b3c4d, TwoBTech.Mods.MoarInteractions  5e6f7a8b"
+          ],
+          "noMatch": [
+            "ts3fixes: script assemblies (15): StoreObjectsZoe  46796e9c, NRaasErrorTrap  40c77ec4, NRaasOverwatch  11223344"
+          ]
+        }
+      }
+    }
+  ]
+}

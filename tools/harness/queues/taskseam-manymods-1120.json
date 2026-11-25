@@ -1,0 +1,98 @@
+{
+  "note": "taskseam-manymods-1120 (READY, NOT RUN, dry-run only; MEASUREMENT, RUN FIRST for the [ModBudget] build decision, docs/302 §4.7 / §6.3 job 3). modSet game-copy/mod-sets/many-mods-s (tools/mod-set.ts, master 679d1bb3a) on the aged save ManyMods-IP-aged from many-mods-age-1120 (run that first). Run after taskseam-smoke-1120 passes. [Diag] TaskSeam + [Diag] ModTime at 50 Hz (package names in the summary), 20 min live. Read Game\\Bin\taskseam-summary.txt: 'npc-candidate ... = X% of mod task time' against the 20% gate (an upper bound: active lot not checked), per-mod ms/s, run-length p50/p99/max, runs per iteration; and modtime-summary.txt for the same mods. Script errors: no scriptErrorsMax gate. The set's third-party mods throw their own script errors (count not yet stated by many-mods-age-1120), and TaskSeam is read-only, so every new ScriptError xml is listed through scriptErrorsReport (REPORT line, never a FAIL); the household-untouched / 0-error correctness gate is taskseam-smoke-1120 on the vanilla BP save. A TaskSeam / Ts3Fixes frame in a reported error is a FAIL by hand.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.295-tsk1 ": {
+      "match": [
+        "ts3native 0.36.295-tsk1 2026-11-20 08:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.295-mdt1 2026-11-20 08:00:00"
+      ]
+    },
+    "^OK   task seam \\(\\[Diag\\] TaskSeam=1, docs/308\\): 4 task resume sites \\+ 2 invoke sites": {
+      "match": [
+        "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites + 2 invoke sites, per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+      ],
+      "noMatch": [
+        "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites (invoke sites refused), per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+      ]
+    },
+    "^task seam: summary written \\([1-9]\\d* runs, [1-9]\\d* invoke runs, [1-9]\\d* owners, self \\d+ ns per run\\)$": {
+      "match": [
+        "task seam: summary written (48211 runs, 9120 invoke runs, 14 owners, self 180 ns per run)"
+      ],
+      "noMatch": [
+        "task seam: summary written (0 runs, 0 invoke runs, 0 owners, self 0 ns per run)"
+      ]
+    },
+    "^(SKIP|FAIL) task seam": {
+      "match": [
+        "SKIP task seam ([Diag] TaskSeam): RunTask call at 0x00D7FA74 goes to 0x12345678, not 0xD7F000 or TaskServe (another hook owns the seam), nothing written",
+        "FAIL task seam (ScriptHost_RunTask call sites): VirtualProtect at 0x00D7FA74 (err 5)"
+      ],
+      "noMatch": [
+        "OK   task seam ([Diag] TaskSeam=1, docs/308): 4 task resume sites + 2 invoke sites, per-owner run time, run-length histogram, runs per iteration; taskseam-summary.txt next to this log every 60 s"
+      ]
+    },
+    "^SKIP task seam \\(ScriptHost_RunTask call sites\\)|^SKIP task seam \\(OneShot": {
+      "match": [
+        "SKIP task seam (ScriptHost_RunTask call sites): call at 0x00D7FA74 is not a call to 0x00D7F000, nothing written",
+        "SKIP task seam (OneShot / ScriptTick runtime invoke call sites): call at 0x00D748C2 is not a call to 0x00EA1090, nothing written"
+      ],
+      "noMatch": [
+        "OK   task seam (ScriptHost_RunTask call sites): 4 call sites"
+      ]
+    },
+    "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": {
+      "match": [
+        "OK   modtime ([Diag] ModTime=1, docs/298): 50 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"
+      ],
+      "noMatch": [
+        "OK   modtime ([Diag] ModTime=1, docs/298): 10 Hz sampler of the sim thread's script stack, modtime-summary.txt + modtime.csv next to this log"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "ip-taskseam-manymods",
+      "note": "[est 30 min] ManyMods-IP-aged (Baseline-IP aged with many-mods-s, many-mods-age-1120), modSet many-mods-s, 20 min; every script error reported, not gated (queue note).",
+      "save": "ManyMods-IP-aged",
+      "timeoutMin": 45,
+      "modSet": "game-copy/mod-sets/many-mods-s",
+      "asi": "game-copy/ts3native.asi.mod-seam-budget-1120",
+      "iniBase": "game-copy/ts3native.ini.mod-seam-budget-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.modtime-master-1120",
+      "pinReason": "feature/mod-seam-budget-1120: 0.36.295-tsk1 = 0.36.295-mdt1 (master) + [Diag] TaskSeam (docs/308); asi + ini from the same commit, ts3fixes = the master ModTime package (TaskSeam has no managed part)",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "ini": {
+        "UserDiag.Enabled": 1,
+        "Diag.TaskSeam": 1,
+        "Diag.ModTime": 1,
+        "Diag.ModTimeHz": 50
+      },
+      "run": {
+        "profile": {
+          "minutes": 20,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "nativeRequire": "@tskOn==1,@tskSites==3,@mdtOn==1,tskRuns>=10000",
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-tsk1 ": 1,
+        "^OK   task seam \\(\\[Diag\\] TaskSeam=1, docs/308\\): 4 task resume sites \\+ 2 invoke sites": 1,
+        "^OK   modtime \\(\\[Diag\\] ModTime=1, docs/298\\): 50 Hz sampler": 1,
+        "^task seam: summary written \\([1-9]\\d* runs, [1-9]\\d* invoke runs, [1-9]\\d* owners, self \\d+ ns per run\\)$": 3
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) task seam": 0
+      },
+      "scriptErrorsReport": [
+        "."
+      ]
+    }
+  ]
+}

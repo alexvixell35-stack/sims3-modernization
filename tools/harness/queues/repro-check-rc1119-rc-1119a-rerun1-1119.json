@@ -1,0 +1,76 @@
+{
+  "note": "Rerun 1 (2026-11-19) of the rc-1119a FAILs in repro-check-rc1119-rc-1119a, pinned to RC set rc-1119a. Needs the repros.json of bugfix/rc1119a-fail-triage-1119 (bp-deadrefs-saves saves wait until written; alloc-churn-loop places 6 x 5 objects). repro-check-rc1119-rc-1119a (2026-11-19): repro-check-rc1119 repinned to the RC set rc-1119a (0.36.292-rc1119a) for chain-rc-1119a. [previous] repro-check-rc1119-rc-1118n (2026-11-18): repro-check-rc1119 repinned to the RC set rc-1118n (0.36.287-rc1118n, master 767d87408) for chain-rc-1118n. [source note] repro-check-rc1119 (2026-11-18 plan): repro-check-release.json repinned from asi 0331 to placeholder rc-1119 (asi + iniBase + ts3fixes). [source note] Release-check forced loops (docs/170 §5, ledger §275): one 5-6 min correctness job per new forced-loop repro (the needs-repro features and the loop forms of the plain repros). Repro-check measurement ini with every switch the loops flip installed; pass = no crash and the repro fired its events (nativeRequire / fixesRequire). A loop that ends at the window with its rule not met is fine here (5 min is shorter than a release-check run); 0 firings is not. Not timing runs; daytime OK. Run before release-check.ts relies on these repros.",
+  "jobs": [
+    {
+      "id": "bp-rcr-alloc-churn-rc1119",
+      "note": "[rerun1 2026-11-19 of repro-check-rc1119-rc-1119a: FAIL was no reply to one 30-object place_objects call (agent reply timeout, as ua1-churn-loop); now 6 calls of 5] alloc-churn-loop (gc): Sim, object and CAS create/destroy churn per firing. Pass: no crash, gcForeignAllocs 0; read commit MB before -> after.",
+      "asi": "game-copy/ts3native.asi.rc-1119a",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 98,
+      "nativeRequire": "gcForeignAllocs<=0",
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "AvoidRO.Enabled": 1,
+        "AvoidRO.Mode": 1,
+        "AvoidRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "Discourage.DeferFootprint": 1,
+        "Discourage.DestroyPark": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "RouteEarlyOut.LogMs": 200,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "Harness.ForegroundRender": 1,
+        "RouteJobPhases.Enabled": 1,
+        "RouteJobPhases.SyncPlans": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 14,
+          "repro": "alloc-churn-loop",
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,stuckcheckasync,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 26,
+      "iniBase": "game-copy/ts3native.ini.rc-1119a",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119a",
+      "pinReason": "[repinned 2026-11-19 to RC set rc-1119a (master with bugfix/save-ip-portable-1119, 0.36.292-rc1119a): asi/ini/ts3fixes/agent game-copy/*.rc-1119a; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "logRequire": {
+        "^ts3native 0\\.36\\.292-rc1119a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.292-rc1119a ": {
+          "match": [
+            "ts3native 0.36.292-rc1119a 2026-11-18 23:50:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00",
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00",
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+          ]
+        }
+      },
+      "rerunOf": "bp-rcr-alloc-churn-rc1119"
+    }
+  ]
+}

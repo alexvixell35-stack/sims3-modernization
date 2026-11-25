@@ -219,13 +219,13 @@ namespace Ts3Fixes
                 InterfaceMapping map = option.GetType().GetInterfaceMap(sOwPerform.DeclaringType);
                 for (int i = 0; i < map.InterfaceMethods.Length; i++)
                     if (map.InterfaceMethods[i] == sOwPerform)
-                        return (OwPerformFn)Delegate.CreateDelegate(typeof(OwPerformFn), option, map.TargetMethods[i]);
+                        return (OwPerformFn)Fixes.Bind(typeof(OwPerformFn), option, map.TargetMethods[i]);
             }
             catch (Exception e) { OwLog(OwName(option) + ": no interface map (" + e.Message + ")"); }
             try
             {
                 MethodInfo m = option.GetType().GetMethod("PerformAlarm", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-                if (m != null) return (OwPerformFn)Delegate.CreateDelegate(typeof(OwPerformFn), option, m);
+                if (m != null) return (OwPerformFn)Fixes.Bind(typeof(OwPerformFn), option, m);
             }
             catch (Exception e) { OwLog(OwName(option) + ": no delegate (" + e.Message + ")"); }
             return null;
@@ -328,9 +328,9 @@ namespace Ts3Fixes
         // One inventory as units, built at its turn: one per item (Overwatch's order, each found again in its stack), then
         // the stack clean-up for the stacks seen at the turn (missing or left empty). An exception leaves the rest of that
         // inventory as it is, as Overwatch does; an owner destroyed while we slept ends it.
-        static List<Job> OwInventoryUnits(Inventory inv, int[] n)
+        static List<SpreadUnit> OwInventoryUnits(Inventory inv, int[] n)
         {
-            List<Job> u = new List<Job>();
+            List<SpreadUnit> u = new List<SpreadUnit>();
             IGameObject owner = inv.Owner;
             if (owner != null && owner.HasBeenDestroyed) return u;
             bool failed = false;

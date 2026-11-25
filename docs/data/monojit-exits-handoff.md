@@ -298,7 +298,11 @@ edx/eax/ecx, keeps the base), exits via `exitRel[]` before any change.
 |---|---|---|---|
 | A1 | corpus kernels: pure icalls (szarray, multi-dim with bounds, bad dim, null), boxed-vt receivers through callvirt (override / no override / polymorphic site), callees with hot exits under lazy (newobj in callee, chains, exception after mat); bench case: always-exiting callee | `tools/jit-corpus.ts` (new list after ACCESSOR_CASES in `cases()`, kernel consts, `jitList()` and its self-check string) | B3 (same file: append-only, merge by hand) |
 | A2 | why callee lazy bodies mat so often (622k mats): per-method mat counter in count mode, then fix the top cause (e.g. String.GetHashCode / ValueType.InternalEquals as pure or EA calls without mat) | `JitLazyMat`, `JitCountReport`, maybe `EmitLazyCall` direct branch | B2 (EmitLazyCall) |
-| A3 | depth-slot bail: decide (document as host artifact with a docs/51 entry, or a normal-body-only slot fill like EA's alloca) | `EmitLazyCall` depth test | B2 |
+| A3 | depth-slot bail: decide (document as host artifact with a docs/51 entry, or a normal-body-only slot fill like EA's alloca). **Closed 2026-11-12 (docs/537 §20.4): no slot fill.** Game C0: 3.2k-4.9k depth bails/s (14% of bails, Dictionary GetSlot/GetPrev/TryGetValue on fresh `ves_exec` frames), 0.07-0.16 ms/s at 22-33 ns a bail (I-475-5); reopen above ~30k/s | `EmitLazyCall` depth test | B2 |
+| C5 ClauseLazy | **Parked 2026-11-12 (docs/537 §20.1):** #362's no-go stands; `ClauseLazy=0`, emitter not merged (est. <= 0.3 ms/s). #362's "Array.Copy 0.0 in game" corrected: not on the game list and the code region was full. Host-only pieces (KCL corpus, verifier label fix, `MONOHOST_JITDIRECTLEAF`) may merge alone | `feature/monojit-arraycopy5` | R1 (list rows only after the region fix) |
+| R1 | code region full in every game run since 11-08 (2033-2045 of 2048 KB, `jitMethods` world-independent): log refusals by reason under their own cap, then size the region or tighten `need` (docs/537 §20.0, I-475-1); ~30-60 min. **Built 2026-11-12, NOT RUN (0.36.245, branch `feature/monojit-r1-c2c-e1`, docs/537 §20.6):** `[MonoJit] CodeKB` default 4096 (+2 MB address space; ip table 2^16 / 49152 positions, +0.6 MB), refusals under their own cap (32 names per reason, per-reason summary at first tick / saves), counters v188 `jitFullN` / `jitFullBytes` / `jitRegionKB`; queue `jit-region.json` prepared | `JitPostPass` log cap, `JIT_CODE_BYTES` / `need` in `monojit.cpp` | none (not EmitLazyCall) |
+| C2c | drop binder-bound rows (EA native bodies: `SimClock.get_CurrentTicks`, `ConvertFromTicks`, `ElapsedTime` x3, `Type.GetTypeFromHandle`, `Enum.Equals`, one `Math.Min` overload) from the game list: they compile but never run (docs/537 §20.2, I-475-4); ~30 min. **Built 2026-11-12, NOT RUN (0.36.245, docs/537 §20.6):** `jit-hot.ts --emit-native` drops overloads whose signature is in binder-bodies.csv (self-check cases); list 127 -> 115 bodies (12 rows: the 7 above + all 5 `Math.Min` bodies: every one of the 11 `Math.Min` overloads is binder-bound). jit-hot.csv verdicts unchanged | `tools/jit-hot.ts --emit-native` filter + self-check, `monojit-list.h`, jit-hot.csv verdicts | R1 (both change what compiles; either order) |
+| E1 | `[Binder] TypeHandleDirect`: replace `GetTypeFromHandle`'s EA body n2m call to `get_Value` (0xDB095E-0xDB097D) with a direct read; est. 5-7 ms/s per world (docs/537 §20.3, I-475-2/3); ~1-2 h + sampler A/B. **Built 2026-11-12, NOT RUN (0.36.245, `bindertd.cpp`, docs/537 §20.6):** 32-byte patch `8B 45 18 89 45 BC 83 C4 0C EB 15` + 21 nop (the `add esp,0Ch` keeps the three late-popped memset arguments balanced), byte check `0xDB0940`-`0xDB0995`, `tdOn`, selftest 1024 handles EA window == direct read; queue `binder-typehandle.json` (BP/IP/SV off/on, 10 min, samplers) prepared | ts3native binder patch (new), ini, selftest | none (not the compiler) |
 | A4 | final host gates for A: corpus verify/on, lazy on/off, replay verify --lazy, jit-exit-census before/after CSV, jit-bench | none (runs) | none; done on the merged base except jit-bench timing |
 | A5 | game port of A: `[MonoJit] CallExit`, counters reserved, selftests in `monojit-test.h`, build, version + pair, queue `tools/harness/queues/jit-exits.json` | `native/ts3native/monojit.cpp`, `monojit-test.h`, ini reader, `docs/data/builds.json`, docs/registry.md | B5 (same files: do sequentially, A5 first) |
 | B1 | vt field / element / object ops: stfld.vt, ldelem.any.vt, stelem.any.vt, ldobj/stobj vt, kinds + table + c2 1024 | enum before K_FCMP, `g_opInfo` table, emitter switch cases in `JitCompiled`, `InstallJit` env line | A only at `InstallJit` (one line each) |
@@ -515,6 +519,101 @@ bench while a timing job runs; builds wait for the slot after the timing that st
 - **At stake**: even if the mat were free and the compiled side reached the 1.0x to 1.1x of other call-bound methods, that is <= ~1 ms/s on the 9.8 [inferred upper bound]; from the 0.98x measurement, ~0.2 ms/s. The big enum-compare win is already at the source: the walk-style hook (docs/04) replaced the boxed `Enum.Equals` lookups, and typed comparers (docs/74) are the lever for the rest (~1.0% spread over ~10 dictionaries).
 - **Proposed piece**: none. Optional only after C0: if the game count run shows `Enum.Equals` with real exits at `DefaultEquals` w16 above ~10 per ms of sample, add a pure-icall kind 4 `InternalEquals` (no-ref same-class memcmp) beside C3; otherwise drop C7. The 94% mat share is a host-bench artifact, not a game finding.
 
+### C0 result: game census (2026-11-11, runs jx1, master build, no compiler change) [measured, game; a model, not timing]
+
+Three 15-minute count runs (`bp/ip/sv-jit-exits-count`, `[MonoJit] Count=1` with VtOps, CallExit and NewVt on), last complete
+`jitcount:` interval of each, read with `tools/jit-hot.ts --game-count` and `tools/jit-exit-census.ts --census`. Rows:
+`docs/data/results/2026-11-11-jit-game-census.csv`.
+
+| | BP | IP | SV |
+|---|---|---|---|
+| Held back by exits in compiled bodies, est. ms/s | 5.73 | 5.82 | 5.74 |
+| `ret` | 4.39 | 4.42 | 4.39 |
+| `ret.void` | 0.28 | 0.27 | 0.28 |
+| `call` | 0.24 | 0.27 | 0.25 |
+| `callvirt` | 0.24 | 0.24 | 0.25 |
+| `con.callvirt` | 0.18 | 0.19 | 0.17 |
+| `ret.vt` | 0.16 | 0.16 | 0.17 |
+| `ldelema` | 0.10 | 0.11 | 0.11 |
+| `con.call` | 0.10 | 0.10 | 0.09 |
+| `unbox` | 0.04 | 0.04 | 0.03 |
+| newarr / box / reference newobj exit rows | 0 | 0 | 0 |
+| Bails: `no lazy body` / `depth slot` / `arena full` | 41.7M / 6.7M / 2.1M | 43.0M / 8.6M / 1.8M | 39.7M / 7.1M / 2.1M |
+| Bails: `cache class` (of all bails) | 239 of 50.55M | 239 of 53.39M | 238 of 48.86M |
+| Largest `cache class` share of a hot site (100k bails or more) | 0.0105% | 0.0241% | 0.0165% |
+
+The census puts the game at 5.7 to 5.8 ms/s held back by exits in compiled bodies. 4.4 ms/s of that is `ret` (frame teardown, B3),
+2.47 of it in `RuntimeTypeHandle.get_Value` alone; no other opcode is above 0.28 ms/s. **C4 is not reopened**: no newarr, box or
+reference newobj exit row exists in any of the three censuses (0.0 ms/s against the rule of 1 ms/s). This has a gap:
+`Array.Resize`, `DefaultComparer.Equals` and `Dictionary`2.DoAdd`, the allocation methods behind the host's 0.41 ms/s, have no row in
+the game census at all (not compiled in game, or not run; which of the two is not shown), so the census says only that the bodies
+compiled in game lose nothing to allocation exits. **C6 is not reopened**: `cache class` is 238 to 239 of about 50 million bails per
+run, and the largest share at a hot site (`Dictionary`2.GetPrev` call site 55) is 0.010% to 0.024% against the rule of 1%. The share
+is of the site's bails, not of its calls (calls that succeed are not counted), so it is an upper bound. The bails are `no lazy body`
+(about 83%), `depth slot` (about 14%) and `arena full` (about 4%), so the bail volume sits with C2 (lazy bodies for the missing
+callees). The ms/s values are the census model (exits per call times sampled self time), not measured time. All three jobs ended FAIL
+on the "new script errors" gate only: the four files per job are a script mod's periodic diagnostic logs written as ScriptError files,
+not exceptions, and every other gate passed.
+
+### C9 verdict: lazy bodies for methods with clauses (mono handoff task 4, 2026-11-11) [docs only; no game run]
+
+**Verdict: no-go, stays parked.** The task text sets no threshold of its own ("Lazy bodies for methods with clauses (the 5-arg
+`Array.Copy`, the next C3 item) ... Same host gates. 1-2 h."). The rule that applies is the handoff's section 4: "Measure before
+building. Show the gain path first, e.g. a census, L0, or a host model. Pieces below their bar stop with a written verdict", with
+the bars the handoff names elsewhere: 1 ms/s to reopen a C piece (task 1 gate) and "a consistent 3-5 ms/s gain" for a default-ON
+switch. The game census ("C0 result: game census" above) puts the whole possible gain below the first bar, before any clause filter.
+
+**Arithmetic** [verified: `2026-11-11-jit-game-census.csv`, column `est_ms_s_behind`, summed per opcode; model = exits per call x
+sampled self time, not timing]. A lazy body for a callee with clauses can only remove a call exit into that callee (`call`,
+`callvirt`, `con.call`, `con.callvirt`). It does not touch `ret`, `ret.void`, `ret.vt`, `ldelema` or `unbox`.
+
+| ms/s held back | BP | IP | SV |
+|---|---|---|---|
+| all exits | 5.733 | 5.821 | 5.742 |
+| `ret` (frame teardown, not addressable here) | 4.389 | 4.419 | 4.389 |
+| call-type exits: call + callvirt + con.call + con.callvirt (the ceiling for this task) | 0.753 | 0.803 | 0.762 |
+| of which the clause-method share | not shown | not shown | not shown |
+| rule | 1.0 | 1.0 | 1.0 |
+
+Ceiling 0.75 to 0.80 ms/s against 1.0: below the bar even if every call exit in the game became free, and the clause-method share
+is a subset of it. Against the 3-5 ms/s ON bar it is 6 to 7 times short [inferred: 0.8 / 5 = 0.16, 0.8 / 3 = 0.27].
+
+**Sites that carry the call-exit potential** (BP; IP and SV within 0.01 to 0.03 of it) [verified, CSV]: `IEquatableOfTEqualityComparer`1.GetHashCode`
+con.callvirt 0.156 + con.call 0.085; `Dictionary`2.GetPrev` callvirt 0.154; `List`1.GrowIfNeeded` call 0.124; `Enumerator.MoveNext`
+call 0.052; `Array.IndexOf` callvirt 0.052. No row is above 0.16 ms/s. `Array.Copy` has no row in the game census at all (no
+`jitcalls` and no `jitbail` line names it in any of the three logs), so the task's own example is 0.0 ms/s in game; its host
+figure was 3.1 held back and 0.14 modelled gain (C3 table, host MintBench traffic, "a host artifact" per the C0 caveat) [verified].
+
+**Bails** (last complete interval; `no lazy body` / `depth slot` / `arena full`): BP 41.7M / 6.7M / 2.1M, IP 43.0M / 8.6M / 1.8M,
+SV 39.7M / 7.1M / 2.1M. By site, `no lazy body` on BP is 41.75M in 24 sites; 67% (28.1M) sits at the two `IEquatableOfTEqualityComparer`1`
+sites (`Equals` ip 17, `GetHashCode` ip 4, both ED guards, lazy and normal copies), 23% (9.5M) at `Dictionary`2.GetPrev` (ips 24, 55, 59),
+6% at `Enumerator.MoveNext`, 2% at `List`1.GrowIfNeeded` [verified: recomputed from `game-count-bp.log`]. Large volume, but each bail
+is a call that goes the slow way and costs about 0.8 ms/s in total; volume is not ms/s.
+
+**What the data cannot say** [not checked, and why]: whether the callee behind any of these sites has clauses. The game count
+build writes no `jitedge` line (0 in all three logs; `jitedge` carries `callee ... clauses N` in the host only, and a `jitbail` row
+names the caller and ip, not the callee), and the bail reason `no lazy body` covers both "callee not on the compile list" and
+"callee has clauses" (`lazyOk` needs `!rm[0x41]`, `monojit.cpp` line 1143). Static reading points the other way: the hot callees
+are T-specific `Equals` / `GetHashCode` of the closed generic T and `Dictionary` / `Enumerator` helpers, which are short and,
+as far as the host edges show, clause-free; the C0 paragraph already assigns this bail volume to C2 (list additions). To settle
+it, a game count run that also logs callee and `clauses` per `no lazy body` bail would be needed; it is not worth a job for a ceiling
+of 0.8 ms/s.
+
+**What would have to be built if it were reopened** [inferred from the handoff sections cited]: a lazy body is a frame-free callee
+compiled so that a call never writes an `MonoInvocation` unless it exits; with clauses it needs (1) the `lazyOk` gate relaxed
+(`monojit.cpp` 1143, 1107, 2371, `[MonoJit] Wide` already lets a clause method compile as a normal body); (2) a catch search that
+sees the same ip as EA's (docs/537 section 10: "Lazy bodies have no clauses, so catch search is unchanged"; with clauses it is not);
+(3) a native `leave` / `leave.s` that matches EA's `handle_finally` (0xE54198), since `leave.s` always exits today; (4) a per-call
+verifier that compares clause methods (they are "unverified (clauses)" now, corpus hash only); (5) corpus cases for try/catch/finally
+in a lazy callee and the standard host gates. That is more than the 1-2 h the task lists, in the highest-risk part of the emitter
+(`EmitLazyCall`, serial with C4-C6), for at most 0.8 ms/s and in practice less: the clause subset.
+
+**Reopen rule** (same form as C4 and C6): reopen only if a game count run that names callees and `clauses` shows call exits
+into clause methods summing to 1 ms/s or more on some world, or if `Array.Copy` appears in a game census with a held-back row above
+0.5 ms/s.
+
+Verified/inferred summary: the sums, the site list and the bail split are [verified, from the CSV and the three count logs]; the
+ceiling against the bars is [inferred, a model]; the build list is [inferred, from docs/537 section 10 and the code lines cited].
 ### C2 status (2026-11-08, branch `feature/monojit-c2`, not merged) [measured, host]
 
 Data only; no emitter edit. Added callees (lazy bodies): `SimClock.ElapsedTime` (3 overloads), `ScriptObject.get_Proxy`,
@@ -860,6 +959,13 @@ with real traffic in game. If C0 shows none, park C4 and C5 together. C4a is che
 
 ### C4a result: static read (2026-11-08, branch `docs/monojit-c4a`; no build, no game or host run)
 
+**C0 read 2026-11-10: C4 parked [measured, game count].** The C0 count jobs ran on 11-08 (bp/ip/sv-jit-exits-count, pair monojit-count1108,
+all PASS; logs `probe-out/queue/correctness-1109-2026-11-08-<w>-jit-exits-count-*-ts3native.log`). `node tools/jit-hot.ts --game-count <log>
+--out probe-out/jx/game-count-<w>.log`, last block (841 compiled methods, 12528 exit sites): **0 box, newarr or newobj exits** in BP, IP and SV
+(jitexit totals 160.6 M / 146.5 M / 168.7 M; the only allocation-adjacent op is unbox, 31 k / 28 k / 35 k = 0.02%; no jitnew rows). By the rule
+below ("if C0 shows none, park C4"), C4b-C4g are not started. Reopen only if the game compile list grows methods with box / newarr / reference
+newobj sites (rerun the count arms, same parser).
+
 **Verdict: C4 waits for the C0 game count (Rodney's compiler rule: no stop rule on small gains); 0.41 ms/s host census.** The design is safe as written (two small
 corrections below), but the host census gives allocation exits only **0.41 ms/s** behind (1.2% of the 33.8 ms/s census
 total), below the design's ~0.6 ceiling (the old 1 ms/s bar no longer applies to compiler work). With C5's
@@ -1109,3 +1215,102 @@ Status (2026-11-08 ~10:30 UTC): steps 1-4 below done; not merged, not run.
   4. Queue: C0 arm in `tools/harness/queues/jit-exits.json`: `bp/ip/sv-jit-exits-count`, 15 min, bundle switches on (as the bundle-on arms)
      + `Count=1`, logRequire the OK line with `Count=1` and a `jitcount: end` line; `--dry-run` only.
 - Not checked (at the source-only commit): whether it compiles; now built and selftested, see Status above.
+
+## Task 6 status (2026-11-10, f1-callpath + [MintFuse] Sub verify, master c2bb5ed, ts3native 0.36.239, asi tested)
+
+- **`[MonoFast] CallPath` (f1-callpath, IP, in-load `--ab mintcall`, both orders): no gain, stays default off** [measured].
+  Script ms/s per arm (arm-ms readout of the profile): on first 8.1 on / 8.1 off; off first 7.8 on / 7.3 off (+0.5). Both under
+  the 3-5 ms/s gate and inside the route noise of the same runs. The fixed-work bench says on vs off -5.91% (on first) and
+  -5.82% (off first), but the tool flags it itself: `clock step 2000 us: too coarse for the loop` and same-arm spread 1.05%,
+  so it is not used as a gain. The first off-first job was lost to the route-lock freeze of #338 (not mintcall) and was rerun
+  alone (`f1-callpath-m1110-j1.json`). Results: `results/2026-11-10-queue-f1-callpath-m1110.md`, `...-m1110-j1.md`.
+- **`[MintFuse] Sub` IP/SV verify: PASS on both** [verified] (BP passed twice before, on g2pair1108). Per job: no crash, no new
+  script errors, 0 watchdogs, `OK   mintfuse: superops also fused inside runs (matcher call 0x00E5C8CA)`, `mfReady` 1.
+  After the run: IP `mfRuns` 295,940, `mfInner` 62,518, `mfWhole` 11,813; SV 319,612 / 67,225 / 12,625 (inner:whole 5.3:1 in
+  game, host ~8:1). Results: `results/2026-11-10-queue-mintfuse-verify-m1110.md`.
+- SV ran with a townie leak-stress driver and two class censuses beside it (the contributor's leak rider, issue #40). Its
+  stuck-Sim repro save lists 10 stuck townies, vs 2 in the last plain SV job (sv-t2l0), and 7 of the 10 were rider targets
+  (tattoo, makeover, lifecycle, death). So that count is not read as a MintFuse effect. IP ran without the rider.
+- Open for default ON: a timing claim. `[MintFuse]` acts at transform time and has no runtime switch, so no in-load A/B is
+  possible; it needs a two-load pair on a clean night (docs/139 §7). Not run.
+
+## C5 ClauseLazy: 5-arg Array.Copy lazy body + host DirectLeaf (2026-11-08, branch `feature/monojit-arraycopy5` from master 91269f04, commit 9cb60639, not merged) [built, host gates run; game not run]
+
+**Reopened 2026-11-13 (docs/537 §24, Rodney: build and ship on a static gain):** the game path is back on `feature/monojit-clauselazy-guards` (ts3native 0.36.252) with an allow list (5-arg Array.Copy only), a session kill switch and a fault watch; `ClauseLazy=0` until the bench (shared bench tool) shows the gain. Queue `tools/harness/queues/jit-clauselazy.json` replaces the `*-jit-ac5-*` jobs.
+
+**Parked 2026-11-12 (docs/537 §20 Q1, #362 C9 no-go stands):** C5 ClauseLazy parked; reopen if calls from compiled code into 5-arg Array.Copy reach >=30k/s after the code-region fix. integrate/mono-routing-1112 keeps the host side (monohost MONOHOST_JITCLAUSELAZY / DIRECTLEAF, corpus cases, verifier fix) and leaves the game emitter, its selftest, `[MonoJit] ClauseLazy` and the Array.Copy list rows out of ts3native.
+
+Pair **arraycopy5-1108**: `game-copy/ts3native.asi.arraycopy5-1108` (ts3native 0.36.212, sha256 a8c1b3aea4fc...) + `game-copy/ts3fixes.package.arraycopy5-1108`
+(= master1108's package f2826284; no mods change), both in builds.json.
+- Host `MONOHOST_JITCLAUSELAZY=1` / game `[MonoJit] ClauseLazy=1` (default 0; OK line `..., Ldsflda=%d, ClauseLazy=%d`; in game a clause method still compiles
+  only with `Wide=1`). A method with clauses gets a lazy body; `JitClauseMark` marks every position inside a try or handler region and the lazy pass
+  emits those as plain exits (frame written by JitLazyMat, then EA's handler). So the lazy body never runs a protected word: EA's clause search
+  (it walks the MonoInvocation chain and reads `[inv+0x1C]` per frame), leave / endfinally and rethrow see the frame an uncompiled call leaves, and a
+  handler resumes in the normal body (JIT_OP dispatch). A filter (EA asserts on kind 1 at 0xE5414C), any kind but 0 / 2, or a range past the code:
+  no lazy body. Protected exits follow the CallExit rule (without CallExit a hot one drops the lazy body).
+- EA's clause table [verified: disassembly 0xE5410A-0xE54127 (search), 0xE542C1-0xE542D2 (finally walk)]: pointer `[rm+0x18]`, count byte `[rm+0x41]`,
+  0x18-byte entries: kind (0 catch, 1 filter, 2 finally), try start, try length, handler start (all in mint words: `([inv+0x1C] - [rm]) >> 1`), handler
+  length at +0x10 [inferred from Mono's layout, then checked by the host proof lines: every handler ends inside the code and the regions are
+  contiguous, e.g. Array.Copy `try 205+15 handler 220+65, try 317+15 handler 332+65` in 408 words].
+- Host `MONOHOST_JITDIRECTLEAF=1`: the game's DirectLeaf=1 rule (no guarded site, a call site drops the lazy body even with CallExit, no lazy calls from
+  a lazy body); the host's lazyOk scan now also skips pure icall sites, as the game's does.
+- Game list: Array.Copy compile rows (4 overloads, IL 51 / 501 / 158 / 45; jit-hot.csv row 13 verdict set to compile by hand). In game, with Wide=0 the
+  5-arg overload is refused ("exception clauses") and the others compile.
+- Proof line (host and game): `jit: clause lazy body <method>: n of m positions in clauses, w words, kind k try a+b handler c+d` (game: first 64).
+- Corpus block KCL (cases 239-240, `JitKCL.*`): Array.Copy's catch paths from compiled loops (object[] holding a string to int[], long[] to int[],
+  object[] to string[], widening, references; exception type + message hashed) and clause callees (catch inside, throw before a try, rethrow, finally,
+  an uncaught type). Native selftest `TestMonoJitClauseLazy` (off / filter / range past / CallExit=0 refusals, normal body unchanged, lazy call exits at
+  the try's first word with the frame written and the callee's MonoInvocation method set, an unreached region returns natively).
+
+Gates (worktree monohost, CallExit VtOps NewVt FastCopy Ldsflda = 1, INLINE=2 WIDE=1, `MONOHOST_JIT=verify`):
+
+| ClauseLazy | lazy | DirectLeaf | corpus (262 cases) | runs |
+|---|---|---|---|---|
+| 1 | on | 0 | 0 differ, 0 unstable, MISMATCH 0 (per-call ok 61470) | 4 of 4 clean |
+| 0 | on | 0 | 0 differ, 0 unstable, MISMATCH 0 | 1 |
+| 1 | off | - | 0 differ, 0 unstable, MISMATCH 0 (per-call ok 63929) | 1 |
+| 1 | on | 1 | 0 differ, 0 unstable, MISMATCH 0 (per-call ok 62684) | 5 runs: 4 clean, 1 with 20 faults in the M1.3 / M2 cctor sweeps (closed below) |
+| 0 | on | 1 | 0 differ, 0 unstable, MISMATCH 0 | 4 of 4 clean |
+
+Host lazy bodies 1091 -> 1121 with ClauseLazy (lazy on, DirectLeaf=0); 30 clause methods get one, among them System.Array.Copy (68 of 199 positions in
+clauses) and DesireCurve.GetYFromX. Every run has the same one selftest FAIL `AS-install guards ... Setup -> Version 11` (AutShadow install check, in the
+ClauseLazy=0 arms too; not this change). Replay `probe-out/jit-replay-all.txt --mode verify --lazy`, switches VtOps, CallExit, NewVt, Inline=2, Wide,
+ClauseLazy (+ FastCopy, Ldsflda env): 5468 inputs, 5282 ran, 0 differ, 0 unstable, 186 skipped, 0 faulted, per-call ok 1413749, MISMATCH 0 (an old
+capture: few or no 5-arg Copy inputs; the ac5 captures give the real replay). ts3native build.cmd selftest ok; selftest-all 217 PASS 0 FAIL 5 SKIP;
+hook-sites --check pass.
+
+**Closed 2026-11-10: the DirectLeaf=1 + ClauseLazy=1 cctor-sweep faults were the host verifier's MISMATCH label, not the compiler**
+[verified: host stacks + map file, 6 of 120 unfixed runs]. Repro: the arm's corpus run repeated in private exe folders, 8-10 at a time
+(`scratchpad leafrep/rep.sh`): 6 of 120 runs faulted (1/16, 0/24, 2/40, 3/40), always at the same two places (strnlen read 0xD in the
+HouseboatUtils cctor, or a read of 0x82C71200 in StopWatch's), then ~20 wild-EIP faults as the broken cctor state spread. The crash handler now also
+prints the host return addresses on the stack (`host/jit values on stack: +off:hRVA`, only values right after a call); with a `/MAP` build they read
+JitVerifyEnterStub -> JitVerifySlow -> `sprintf_s(what, "region %d (%lu bytes, class %.60s)")` -> strnlen. Cause: when a verified call's first
+attempt differs in a snapshot region (a one-time effect, retried, then equal: every run has 2), JitVerifySlow built the region's label by reading
+word 0 as a vtable and `[[word 0]] + 0x34` as the class name, even for a block that is no object. In every run region 29 of `System.Type.GetTypeFromHandle`
+(a GC block reached through the graph, word 0 = 0x00EA8880, a TS3W code address [inferred: the domain type hash table's hash function, so the
+block is the table]) gets that read: "klass" = the code bytes 0x0424448B, name pointer = the heap dword at 0x042444BF. It is 0 in most runs (label
+"?"); in ~5% the heap layout leaves a stale non-zero dword there, and strnlen faults inside the interpreter's verify stub. The faults land in the
+sweep only because that is where GetTypeFromHandle first runs verified; ClauseLazy and DirectLeaf only shift the heap layout (the label read is the
+same in every arm). Fix (monohost-jit.cpp, JitVerifySlow): no label on a quiet first attempt (it is never logged); otherwise the class name only
+from a GC object whose word 0 is no free-list link (JitFreeCell) and whose vtable, klass+0x34 and name are readable (`mt::Readable`), else "?". A
+`jit verify: region N of <method> has no class label: word0 ...` line (first 20) and the summary's `differing regions without a class label N` count
+what the old read would have dereferenced: every final-build run has the region 29 line. The game's monojit has no such verifier label.
+Also: master's `UafTagSet` in monothread-m5.cpp (e6824557, 0.36.229) broke the monohost build (`UT_MONO_WORKER` undeclared); monohost.cpp now
+includes `../ts3native/uaftag.h` before monothread.cpp.
+Gates after the fix (merged branch, host only, 2026-11-10): DirectLeaf=1 + ClauseLazy=1 corpus **49 of 49 final-build runs clean** (0 sweep faults,
+262 cases 0 differ 0 unstable, MISMATCH 0, region 29 no-label line in each; a 60-run batch was stopped at 49 + 5 killed when a game queue started)
+plus 60 of 60 on the first build of the fix; one run each of ClauseLazy 0/1 x DirectLeaf 0, ClauseLazy 0 + DirectLeaf 1, lazy off: 0 differ,
+MISMATCH 0 (lazy bodies 1091 / 1121 / 535 / 0). Replay `jit-replay-all.txt` all-on with ClauseLazy=1, DirectLeaf 0 and 1: 5468 inputs, 5282 ran,
+0 differ, 0 faulted, MISMATCH 0. ts3native 0.36.241 build.cmd `monojit: ok`, `selftest ok`; selftest-all 220 PASS 0 FAIL 5 SKIP; hook-sites
+--check pass. Unchanged: the one selftest FAIL `AS-install guards` in every arm (not this change).
+
+**Next step (exact):** with the game free, after this branch is merged (pair files are parked in the main checkout's `game-copy/`):
+`node tools/harness/queue.ts tools/harness/queues/jit-exits.json --no-smoke --only bp-jit-ac5-smoke,bp-jit-ac5-capture,ip-jit-ac5-capture,sv-jit-ac5-capture`,
+then per world `node tools/jit-replay.ts --capture probe-out/jit-capture-<w>-ac5.jitcap --out probe-out/jit-capture-<w>-ac5.txt --summary` and
+`node tools/jit-replay.ts --run probe-out/jit-capture-<w>-ac5.txt --mode verify --lazy --switches VtOps=1,CallExit=1,NewVt=1,Inline=2,Wide=1,FastCopy=1,Ldsflda=1,ClauseLazy=1`
+(gate 0 differ, 0 faulted, MISMATCH 0), then `--only bp-jit-ac5-bundle-on,bp-jit-ac5-bundle-off,ip-jit-ac5-bundle-on,ip-jit-ac5-bundle-off,sv-jit-ac5-bundle-on,sv-jit-ac5-bundle-off --no-smoke`.
+The on arms require the `jit: clause lazy body ... Array.Copy` line. The ac5 and c3g OK-line regexes include `Count=0` (master's OK line prints
+Count between NewVt and FastCopy; the c3g fix came with the 11-10 master merge), and every logRequire / logForbid regex of the 19 c3g / ac5 jobs has
+`regexCases` (real log lines it must match and must not; queue.ts checks them at parse and `--dry-run`).
+Branch state 2026-11-10: master 8c31955f merged in (ts3native 0.36.241 = 0.36.240 + ClauseLazy; pair arraycopy5-1108 stays the 0.36.212 build, so the
+game jobs need a new pair built from the merged branch first: version, builds.json, jit-exits.json `asi` / `pin`).

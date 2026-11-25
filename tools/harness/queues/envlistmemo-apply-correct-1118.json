@@ -1,0 +1,109 @@
+{
+ "note": "envlistmemo-apply-correct-1118 (branch feature/envlistmemo-apply-1118, PREPARED, NOT RUN, correctness, dry-run checked; est ~30 min game time): docs/274 §9. envlistmemoapply reuses the memoized env lists (room GameObjects, lot + room aromainators) in the env scan of unseen NPCs only (actor and every other Sim in the scan Scope 0 and not IsPlayerSim; household / selected / unknown scope / seen take the game call; HouseholdToo never lifts it); envlistmemoverify lists live on every 4th reuse and compares. Gate (FAIL): envlistapply_reuse>=1, verify>=1, verify_diff<1 (0 differences on sampled applied reuses; diff lines EnvListMemo: wrong hit verify ... in fixesApplied), exc<1, fb_actor>=1 (household / seen Sims reached the game call = household untouched path exercised), 0 script errors. Read: reuse/(reuse+live) >= 40% on BP and IP (docs/274 gate) from the row. Apex + bridge (Bin state apex). Agent: game-copy/ts3agent.package.envlistmemo-apply-1118.",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-elapply",
+   "note": "BP 10 min, envlistmemoapply + envlistmemoverify on: gate envlistapply_reuse>=1,envlistapply_verify>=1,envlistapply_verify_diff<1,envlistapply_exc<1,envlistapply_fb_actor>=1, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-apply-1118",
+   "pinReason": "master-1117c native set + ts3fixes.package.envlistmemo-apply-1118 (feature/envlistmemo-apply-1118: docs/274 §9 R1 apply, unseen NPCs only, + sampled verify; managed only); agent game-copy/ts3agent.package.envlistmemo-apply-1118 (envlistapply_* keys) installed by the chain",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0.36.271-mc1117 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemoapply,envlistmemoverify",
+     "fixesRequire": "envlistapply_reuse>=1,envlistapply_verify>=1,envlistapply_verify_diff<1,envlistapply_exc<1,envlistapply_fb_actor>=1",
+     "fixesReport": "envlistapply_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+     "match": [
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.269-mb1117 2026-11-17 10:00:00",
+      "ts3native 0.36.270-ddc1 2026-11-17 12:00:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-elapply",
+   "note": "IP 10 min, envlistmemoapply + envlistmemoverify on: gate envlistapply_reuse>=1,envlistapply_verify>=1,envlistapply_verify_diff<1,envlistapply_exc<1,envlistapply_fb_actor>=1, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.master-1117c",
+   "iniBase": "game-copy/ts3native.ini.master-1117c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-apply-1118",
+   "pinReason": "master-1117c native set + ts3fixes.package.envlistmemo-apply-1118 (feature/envlistmemo-apply-1118: docs/274 §9 R1 apply, unseen NPCs only, + sampled verify; managed only); agent game-copy/ts3agent.package.envlistmemo-apply-1118 (envlistapply_* keys) installed by the chain",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+    "^ts3native 0.36.271-mc1117 ": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemoapply,envlistmemoverify",
+     "fixesRequire": "envlistapply_reuse>=1,envlistapply_verify>=1,envlistapply_verify_diff<1,envlistapply_exc<1,envlistapply_fb_actor>=1",
+     "fixesReport": "envlistapply_"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0,
+   "regexCases": {
+    "^ts3native 0.36.271-mc1117 ": {
+     "match": [
+      "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.269-mb1117 2026-11-17 10:00:00",
+      "ts3native 0.36.270-ddc1 2026-11-17 12:00:00"
+     ]
+    },
+    "OK   sim loop: .* runs at the end of every Simulate iteration": {
+     "match": [
+      "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+     ],
+     "noMatch": [
+      "FAIL sim loop: hook not installed"
+     ]
+    }
+   }
+  }
+ ]
+}

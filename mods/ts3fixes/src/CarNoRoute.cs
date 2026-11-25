@@ -66,7 +66,7 @@ namespace Ts3Fixes
             if (car == null) throw new InvalidOperationException("carnoroute " + what + ": make first");
             if (car.CarRoutingComponent != null) throw new InvalidOperationException("carnoroute " + what + ": the destroyed car still has its routing component (not disposed yet), so the case cannot be built");
             MethodInfo mi = typeof(CarNpcManager).GetMethod("DriveFromPointToMatrix", kInstAll, null, new Type[] { typeof(Car), typeof(Vector3), typeof(Matrix44) }, null);
-            CnDriveFn drive = (CnDriveFn)Delegate.CreateDelegate(typeof(CnDriveFn), m, mi);
+            CnDriveFn drive = (CnDriveFn)Fixes.Bind(typeof(CnDriveFn), m, mi);
             int seen0 = PatchCounters()[2039], ret0 = PatchCounters()[2040];
             Exception got = null;
             bool r = true;

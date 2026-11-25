@@ -36,11 +36,13 @@ captures/
 # Build output
 build/
 out/
+out-*/
 native/ts3native/out/
 Debug/
 Release/
 # core.ignorecase makes Release/ match our release/ notes folder too; keep it tracked (release/mts/out/ stays ignored via out/)
 !/release/
+!/tools/release/
 *.obj
 *.pdb
 *.ilk

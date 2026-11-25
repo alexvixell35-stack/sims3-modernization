@@ -115,7 +115,7 @@ namespace Ts3Agent
                 if (only != null && s.LotCurrent != only) continue;
                 if (s.LotCurrent == Household.ActiveHouseholdLot) { skippedHome++; continue; }
                 object h = ctor.Invoke(new object[] { s.SimDescription.SimDescriptionId, s.Position, attempt });
-                AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), h, exec);
+                AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), h, exec);  // bind-ok: concrete method of a concrete class
                 AlarmManager.Global.AddAlarm(delay, TimeUnit.Minutes, cb, "RunStuckCheck(ts3agent #" + attempt + ":" + s.FullName, AlarmType.NeverPersisted, s);
                 armed++;
             }

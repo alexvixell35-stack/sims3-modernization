@@ -1,0 +1,104 @@
+{
+  "note": "adaptdiag-kit-correct-1121 (PREPARED, NOT RUN; correctness, no timing; docs/316 §10): adaptive diag kit on 0.36.298-adk1 (master m1121 + [AdaptDiag], ModTime hook label fix docs/298 §5.1) with ts3fixes adk1-1121. Bin state apex (Apex latest + RTX Remix bridge) per queue.ts. Job 1: level 0 only (the kit's diag ini fragment as ini overrides), 10 min BP: 'OK   adaptdiag' + mod-set line read back, 0 script errors, no crash; the kit changes no Sim (read-only: activity, counters, report), so household and selected Sim are untouched by construction (no Sim-facing code; docs/316 §9). Job 2: same plus the kit-test switches InduceHitchMs=1500 / InduceScriptErrors=2: the rules engine must log a runtime turn-on (hitchstack) and a next-session line (scripterr); exactly the 2 induced script errors are allowed. The known-issue library and expected list are kit files in Bin, not installed by queue.ts: both jobs run with 0 signatures / no expected list (the install-check line says so). Run only when track.ts status shows nothing running and the kit A/B lane is done: node tools/harness/queue.ts tools/harness/queues/adaptdiag-kit-correct-1121.json --no-smoke",
+  "stopQueueOnFail": false,
+  "rewind": "auto",
+  "jobs": [
+    {
+      "id": "bp-adaptdiag-level0",
+      "note": "[est 15 min] [natural play, no cheats] level 0 only: no induced symptoms; adaptdiag.csv rows + adaptdiag-report.txt written next to the log.",
+      "asi": "game-copy/ts3native.asi.adk1-1121",
+      "iniBase": "game-copy/ts3native.ini.m1121",
+      "fixesPackage": "game-copy/ts3fixes.package.adk1-1121",
+      "pinReason": "adaptive diag kit build adk1-1121 (0.36.298-adk1) on the m1121 ini + the kit fragment",
+      "save": "Baseline-BP",
+      "gameArgs": ["-disablestoryprogression"],
+      "ini": { "AdaptDiag.Enabled": 1, "UserDiag.Enabled": 1, "HitchAttr.HitchMs": 1000, "StallWatch.Enabled": 1, "PcCheck.Enabled": 1, "CrashReport.Enabled": 1, "Diag.ModTime": 1, "Diag.ModTimeHz": 10 },
+      "noiseCheck": false,
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 30,
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-adk1 ": 1,
+        "^OK   adaptdiag \\(\\[AdaptDiag\\] Enabled=1, docs/316\\): level 0 per minute": 1,
+        "^adaptdiag: mod set [0-9a-f]{16} \\(\\d+ packages": 1,
+        "^ts3fixes: adaptinstall: patched \\d+, failed \\d+": 1
+      },
+      "logForbid": {
+        "^adaptdiag: KIT TEST": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.298-adk1 ": {
+          "match": ["ts3native 0.36.298-adk1 2026-11-21 18:00:00"],
+          "noMatch": ["ts3native 0.36.298-m1121 2026-11-21 12:00:00"]
+        },
+        "^OK   adaptdiag \\(\\[AdaptDiag\\] Enabled=1, docs/316\\): level 0 per minute": {
+          "match": ["OK   adaptdiag ([AdaptDiag] Enabled=1, docs/316): level 0 per minute (adaptdiag.csv), rules MaxActive=3 TtlMin=15 BudgetUsPerS=5000 LineCapKB=4096 LogCapMB=200, 0 known-issue signatures, 0 expected install parts, edition steam, arm -, benchmark 0"],
+          "noMatch": ["FAIL adaptdiag ([AdaptDiag] Enabled=1, docs/316): level 0 per minute (adaptdiag.csv), rules MaxActive=3", "SKIP adaptdiag ([AdaptDiag]): needs [UserDiag] Enabled=1 (the ts3fixes channel)"]
+        },
+        "^adaptdiag: mod set [0-9a-f]{16} \\(\\d+ packages": {
+          "match": ["adaptdiag: mod set 3f2a9c0d11e5b7a4 (212 packages in Mods\\Packages), mod config 9b0e44c2a1d3f856 (7 config files in Mods and Bin)"],
+          "noMatch": ["adaptdiag: a/b INVALID: mod set changed since arm A"]
+        },
+        "^ts3fixes: adaptinstall: patched \\d+, failed \\d+": {
+          "match": ["ts3fixes: adaptinstall: patched 611, failed 0: "],
+          "noMatch": ["ts3fixes: ts3fixes 0.1.1 build 23e76546, 447 settings on/valued, 115 off"]
+        },
+        "^adaptdiag: KIT TEST": {
+          "match": ["adaptdiag: KIT TEST: InduceHitchMs=1500 InduceAfterS=120 InduceScriptErrors=2 (induced symptoms, never in a player kit)"],
+          "noMatch": ["adaptdiag: turn on hitchstack for long iterations (rank 6 = severity 3 x 2; ttl 15 min, line cap 4096 KB, est 3500 us/s): HitchAttr 250 ms"]
+        }
+      },
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } }
+    },
+    {
+      "id": "bp-adaptdiag-induced",
+      "note": "[est 15 min] [natural play + induced symptoms] kit test switches on: 3 sim-thread sleeps of 1500 ms 20 s apart from 120 s after the world is live, 2 throwing script tasks from 150 s; escalation must fire.",
+      "asi": "game-copy/ts3native.asi.adk1-1121",
+      "iniBase": "game-copy/ts3native.ini.m1121",
+      "fixesPackage": "game-copy/ts3fixes.package.adk1-1121",
+      "pinReason": "adaptive diag kit build adk1-1121 (0.36.298-adk1) on the m1121 ini + the kit fragment + kit-test switches",
+      "save": "Baseline-BP",
+      "gameArgs": ["-disablestoryprogression"],
+      "ini": { "AdaptDiag.Enabled": 1, "AdaptDiag.InduceHitchMs": 1500, "AdaptDiag.InduceAfterS": 120, "AdaptDiag.InduceScriptErrors": 2, "UserDiag.Enabled": 1, "HitchAttr.HitchMs": 1000, "StallWatch.Enabled": 1, "PcCheck.Enabled": 1, "CrashReport.Enabled": 1, "Diag.ModTime": 1, "Diag.ModTimeHz": 10 },
+      "noiseCheck": false,
+      "minCounters": 1,
+      "scriptErrorsMax": 2,
+      "timeoutMin": 30,
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-adk1 ": 1,
+        "^adaptdiag: KIT TEST: InduceHitchMs=1500 ": 1,
+        "^adaptdiag: induced hitch 3 of 3": 1,
+        "^adaptdiag: turn on hitchstack ": 1,
+        "^ts3fixes: adaptdiag: induced script error 2 of 2": 1,
+        "^adaptdiag: next session turns on scripterr ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.298-adk1 ": {
+          "match": ["ts3native 0.36.298-adk1 2026-11-21 18:00:00"],
+          "noMatch": ["ts3native 0.36.298-m1121 2026-11-21 12:00:00"]
+        },
+        "^adaptdiag: KIT TEST: InduceHitchMs=1500 ": {
+          "match": ["adaptdiag: KIT TEST: InduceHitchMs=1500 InduceAfterS=120 InduceScriptErrors=2 (induced symptoms, never in a player kit)"],
+          "noMatch": ["adaptdiag: KIT TEST: InduceHitchMs=0 InduceAfterS=120 InduceScriptErrors=2 (induced symptoms, never in a player kit)"]
+        },
+        "^adaptdiag: induced hitch 3 of 3": {
+          "match": ["adaptdiag: induced hitch 3 of 3: 1500 ms on the sim thread (kit test, [AdaptDiag] InduceHitchMs)"],
+          "noMatch": ["adaptdiag: induced hitch 2 of 3: 1500 ms on the sim thread (kit test, [AdaptDiag] InduceHitchMs)"]
+        },
+        "^adaptdiag: turn on hitchstack ": {
+          "match": ["adaptdiag: turn on hitchstack for long iterations (rank 6 = severity 3 x 2; ttl 15 min, line cap 4096 KB, est 3500 us/s): HitchAttr 250 ms"],
+          "noMatch": ["adaptdiag: turn off hitchstack after 15 min (ttl): 3 hitch lines", "adaptdiag: next session turns on hitchstack for long iterations (StallWatch.Names=1)"]
+        },
+        "^ts3fixes: adaptdiag: induced script error 2 of 2": {
+          "match": ["ts3fixes: adaptdiag: induced script error 2 of 2 (kit test)"],
+          "noMatch": ["ts3fixes: adaptdiag: induced script error 1 of 2 (kit test)"]
+        },
+        "^adaptdiag: next session turns on scripterr ": {
+          "match": ["adaptdiag: next session turns on scripterr for repeated script errors (AdaptDiag.SwapInvokeDiag=1)"],
+          "noMatch": ["adaptdiag: turn on hitchstack for long iterations (rank 6 = severity 3 x 2; ttl 15 min, line cap 4096 KB, est 3500 us/s): HitchAttr 250 ms"]
+        }
+      },
+      "run": { "profile": { "minutes": 10, "seed": 12345, "noSamplers": true } }
+    }
+  ]
+}

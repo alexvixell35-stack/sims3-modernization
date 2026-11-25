@@ -29,6 +29,7 @@ namespace Ts3Fixes
             public ActionResult DoPortalHook(ref PortalComponent.LaneInfo laneInfo, bool preferredLaneSelected)
             {
                 ScriptAdaptor before = mScriptAdaptor;
+                AneStairs(mRoutingSim, mRoute, mPortalObject, mPortalStartPos, ref laneInfo, preferredLaneSelected);  // angleentry (ShareLanes.cs, docs/686 §8), off by default
                 ActionResult r = DoPortalOrig(ref laneInfo, preferredLaneSelected);
                 ScriptAdaptor a = mScriptAdaptor;
                 if (a != null && a != before && ShortcutOn("portaladaptorleak") && Unsubscribe(a.GetAssociatedSim(this), a))

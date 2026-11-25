@@ -1,0 +1,132 @@
+{
+ "note": "envlistexact-time-1118 (branch feature/r1x-1118, PREPARED, NOT RUN, TIMING, needs quiet machine, dry-run checked; est ~140 min): docs/274 §11 R1 exact. BP + IP 45 min in-load ABBAABBA (5-min slices after warm-up, 4 iterations per arm), --ab envlistmemoexact; envlistmemoverify, envscancost, envlistmemoapply and the envlistmemo dry probe off (the exact path's own sampled verify, every 4th reuse, stays on in the on arm: it ships with it). Judge: sim busy ms/s off - on pooled (sim-budget-report.ts); ON at a clean 3-5 ms/s (clear-gain rule) after envlistexact-correct-1118 PASS; < 1.5 ms/s = park or the version-bump follow-up (docs/274 §11.7). Smoke first (queue.ts). Agent: game-copy/ts3agent.package.r1x-1118.",
+ "rewind": "auto",
+ "regexCases": {
+  "^ts3native 0\\.36\\.284-exact1 ": {
+   "match": [
+    "ts3native 0.36.284-exact1 2026-11-18 18:30:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.283-g5p3 2026-11-18 17:40:00",
+    "ts3native 0.36.271-mc1117 2026-11-17 16:30:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+   ]
+  }
+ },
+ "smoke": {
+  "id": "bp-elexact-ab-smoke",
+  "note": "Measurement smoke 4 min, --ab envlistmemoexact 1-min slices: both arms in the job log with the switch read back, envlistexact_reuse grows only in on slices, verify / cost / dry probe off, noSamplers. A FAIL stops the queue.",
+  "asi": "game-copy/ts3native.asi.r1x-1118",
+  "iniBase": "game-copy/ts3native.ini.r1x-1118",
+  "fixesPackage": "game-copy/ts3fixes.package.r1x-1118",
+  "pinReason": "ts3native.asi.r1x-1118 (0.36.284-exact1 = master 06351e330 + EnvOrderNative::LotPrint IC, reads only) + ts3native.ini.r1x-1118 + ts3fixes.package.r1x-1118 (feature/r1x-1118: docs/274 §11 envlistmemoexact + envscancost, default off); agent game-copy/ts3agent.package.r1x-1118 (envlistexact_* / envscancost_* keys) installed by the chain",
+  "save": "Baseline-BP-Spring",
+  "minCounters": 159,
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "logRequire": {
+   "^ts3native 0\\.36\\.284-exact1 ": 1,
+   "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+   "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+  },
+  "noiseCheck": false,
+  "scriptErrorsMax": 0,
+  "timeoutMin": 29,
+  "run": {
+   "profile": {
+    "minutes": 4,
+    "seed": 12345,
+    "noSamplers": true,
+    "slice": 1,
+    "fixesOff": "envlistmemoverify,envscancost,envlistmemoapply,envlistmemo",
+    "fixesReport": "envlistexact_",
+    "fixesRequire": "envlistexact_reuse>=10,envlistexact_exc<1,envlistexact_fb_noprint<1",
+    "ab": "envlistmemoexact"
+   }
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-elexact-ab",
+   "note": "BP 45 min ABBAABBA --ab envlistmemoexact (5-min slices), verify / cost / dry probe off, noSamplers; needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.r1x-1118",
+   "iniBase": "game-copy/ts3native.ini.r1x-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.r1x-1118",
+   "pinReason": "ts3native.asi.r1x-1118 (0.36.284-exact1 = master 06351e330 + EnvOrderNative::LotPrint IC, reads only) + ts3native.ini.r1x-1118 + ts3fixes.package.r1x-1118 (feature/r1x-1118: docs/274 §11 envlistmemoexact + envscancost, default off); agent game-copy/ts3agent.package.r1x-1118 (envlistexact_* / envscancost_* keys) installed by the chain",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 159,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.284-exact1 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "noiseCheck": true,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 65,
+   "run": {
+    "profile": {
+     "minutes": 45,
+     "seed": 12345,
+     "noSamplers": true,
+     "slice": 5,
+     "fixesOff": "envlistmemoverify,envscancost,envlistmemoapply,envlistmemo",
+     "fixesReport": "envlistexact_",
+     "fixesRequire": "envlistexact_reuse>=100,envlistexact_exc<1,envlistexact_fb_noprint<1",
+     "ab": "envlistmemoexact"
+    }
+   }
+  },
+  {
+   "id": "ip-elexact-ab",
+   "note": "IP 45 min ABBAABBA --ab envlistmemoexact (5-min slices), verify / cost / dry probe off, noSamplers; needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.r1x-1118",
+   "iniBase": "game-copy/ts3native.ini.r1x-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.r1x-1118",
+   "pinReason": "ts3native.asi.r1x-1118 (0.36.284-exact1 = master 06351e330 + EnvOrderNative::LotPrint IC, reads only) + ts3native.ini.r1x-1118 + ts3fixes.package.r1x-1118 (feature/r1x-1118: docs/274 §11 envlistmemoexact + envscancost, default off); agent game-copy/ts3agent.package.r1x-1118 (envlistexact_* / envscancost_* keys) installed by the chain",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 159,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.284-exact1 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "noiseCheck": true,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 65,
+   "run": {
+    "profile": {
+     "minutes": 45,
+     "seed": 12345,
+     "noSamplers": true,
+     "slice": 5,
+     "fixesOff": "envlistmemoverify,envscancost,envlistmemoapply,envlistmemo",
+     "fixesReport": "envlistexact_",
+     "fixesRequire": "envlistexact_reuse>=100,envlistexact_exc<1,envlistexact_fb_noprint<1",
+     "ab": "envlistmemoexact"
+    }
+   }
+  }
+ ]
+}

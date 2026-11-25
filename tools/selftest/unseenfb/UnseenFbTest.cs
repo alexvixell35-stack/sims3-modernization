@@ -30,6 +30,85 @@ static class UnseenFbTest
         }
         Check(UnseenFallbackCore.Cell(-0.5f) == -1 && UnseenFallbackCore.Cell(3.99f) == 3, "cell floor");
 
+        // docs/267 F1 teleport goal: tomb/hidden first, outdoor ground passes, indoors needs an open lot and a way out
+        Check(UfPreCore.TpGoal(true, true, true, false, true) == UfPreCore.kTpTombOrHidden, "tp: tomb or hidden room refuses before anything");
+        Check(UfPreCore.TpGoal(false, true, false, true, null) == UfPreCore.kTpOk, "tp: outdoor ground passes on any lot");
+        Check(UfPreCore.TpGoal(false, false, false, false, true) == UfPreCore.kTpLotClosed, "tp: indoors on a closed lot refuses");
+        Check(UfPreCore.TpGoal(false, false, true, true, true) == UfPreCore.kTpRaised, "tp: raised outdoor (deck, roof) refuses");
+        Check(UfPreCore.TpGoal(false, false, true, false, true) == UfPreCore.kTpOk, "tp: indoor room with a way out passes");
+        Check(UfPreCore.TpGoal(false, false, true, false, false) == UfPreCore.kTpNoWayOut, "tp: sealed or locked room refuses");
+        Check(UfPreCore.TpGoal(false, false, true, false, null) == UfPreCore.kTpNoWayOut, "tp: unknown flood refuses");
+        for (int m = 0; m < 48; m++)
+        {
+            bool th = (m & 1) != 0, og = (m & 2) != 0, ol = (m & 4) != 0, ro = (m & 8) != 0;
+            bool? re = (m >> 4) == 0 ? (bool?)null : (m >> 4) == 1 ? (bool?)false : true;
+            bool ok = !th && (og || (ol && !ro && re == true));
+            Check((UfPreCore.TpGoal(th, og, ol, ro, re) == UfPreCore.kTpOk) == ok, "tp: rule mask " + m);
+        }
+
+        // docs/584 §7 tpdoorrights: real door-lock cases (CommonDoor.tLock, EA's one-way sentinel 0x8FFF)
+        const int NW = UfPreCore.kNoOneWayRoom;
+        Check(UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "door: upstream closes an unlocked door (reads the no-one-way sentinel as one-way)");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, NW, true, false, false) == UfPreCore.kTpDoorFree, "door: unlocked ordinary door is free");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, false, 7, true, true, true) == UfPreCore.kTpDoorClosed, "door: real one-way room closes, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, true, true, true) == UfPreCore.kTpDoorOwn, "door: front door locked to the family passes its resident");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedHousehold, false, NW, false, false, false) == UfPreCore.kTpDoorClosed, "door: front door locked to the family closes for a visitor");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, true) == UfPreCore.kTpDoorHome, "door: sibling's locked bedroom passes on household access at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, false, true) == UfPreCore.kTpDoorClosed, "door: household access counts only on the home lot");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockSelectedActor, false, NW, false, true, false) == UfPreCore.kTpDoorClosed, "door: a lock owned outside the household closes");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockOwnerList, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: owner-list door passes a listed Sim");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockNobody, false, NW, true, true, true) == UfPreCore.kTpDoorClosed, "door: locked for everyone closes, residents too");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: no-pets door passes a human");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockPets, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: no-pets door closes for a pet, even at home");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockVipRoom, false, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: VIP room closes without the Sim's own right");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, true, false, false) == UfPreCore.kTpDoorOwn, "door: single-gender door passes a Sim of that gender");
+        Check(UfPreCore.TpDoor(UfPreCore.kLockAnybody, true, NW, false, true, true) == UfPreCore.kTpDoorClosed, "door: single-gender door closes for the other gender, even at home");
+        // the same sentinel in UfPreLot / UfLotLocked (UfDoorOneWay): off keeps upstream's "!= 0", on uses EA's 0x8FFF
+        Check(UfPreCore.OneWay(NW, false) && UfPreCore.OneWay(12, false) && !UfPreCore.OneWay(0, false), "oneway: upstream reads every ordinary door (0x8FFF) as one-way");
+        Check(!UfPreCore.OneWay(NW, true) && UfPreCore.OneWay(12, true) && UfPreCore.OneWay(0, true), "oneway: EA's sentinel: only a real destination room is one-way");
+        Check(!UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, 0) && UfPreCore.TpDoorUpstreamCloses(UfPreCore.kLockAnybody, false, NW), "oneway: upstream lot test closes on the sentinel");
+        for (int lk = 0; lk <= 6; lk++)
+            for (int m = 0; m < 32; m++)
+            {
+                bool g = (m & 1) != 0, own = (m & 2) != 0, home = (m & 4) != 0, hh = (m & 8) != 0; int ow = (m & 16) != 0 ? 3 : NW;
+                int v = UfPreCore.TpDoor(lk, g, ow, own, home, hh);
+                // never laxer than the Sim's own rights except on its home lot through a household-owned lock; never opens "nobody" or one-way
+                bool ok = v == UfPreCore.kTpDoorClosed || (v == UfPreCore.kTpDoorFree && lk == UfPreCore.kLockAnybody && !g) || (v == UfPreCore.kTpDoorOwn && own)
+                    || (v == UfPreCore.kTpDoorHome && home && hh && !own);
+                Check(ok && ((lk != UfPreCore.kLockNobody && ow == NW) || v == UfPreCore.kTpDoorClosed), "door: rule mask " + lk + "/" + m);
+            }
+
+        // docs/584 §8 tpaptgoal: apartment / shell lots open only on the Sim's own home lot with the switch on, and then only the
+        // goal room decides; a hidden-room goal (Late Night hidden apartment rooms, the hiddenroom* reports) must stay refused
+        Check(UfPreCore.TpAptLot(false, false, true, true) == UfPreCore.kTpAptNone, "apt: an ordinary lot keeps the usual lot test");
+        Check(UfPreCore.TpAptLot(true, false, true, false) == UfPreCore.kTpAptClosed, "apt: switch off = upstream (closed)");
+        Check(UfPreCore.TpAptLot(true, false, false, true) == UfPreCore.kTpAptClosed, "apt: not the Sim's home lot stays closed");
+        Check(UfPreCore.TpAptLot(true, true, true, true) == UfPreCore.kTpAptClosed, "apt: houseboat / resort / diving stays closed even at home");
+        Check(UfPreCore.TpAptLot(true, false, true, true) == UfPreCore.kTpAptRoom, "apt: home apartment, switch on: the room decides");
+        int aRoom = UfPreCore.kTpAptRoom;
+        Check(UfPreCore.TpGoal(true, false, UfPreCore.TpAptOpen(aRoom, false), false, true) == UfPreCore.kTpTombOrHidden, "apt control: hidden room at home refused even with a way out");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, false) == UfPreCore.kTpNoWayOut, "apt control: home room with no way out refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, null) == UfPreCore.kTpNoWayOut, "apt control: unknown flood refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), true, true) == UfPreCore.kTpRaised, "apt control: balcony / roof refused");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(aRoom, false), false, true) == UfPreCore.kTpOk, "apt: own unit with a way out passes");
+        Check(UfPreCore.TpGoal(false, false, UfPreCore.TpAptOpen(UfPreCore.kTpAptClosed, true), false, true) == UfPreCore.kTpLotClosed, "apt control: a visitor's goal in someone's unit refused");
+        Check(UfPreCore.TpAptOpen(UfPreCore.kTpAptNone, true) && !UfPreCore.TpAptOpen(UfPreCore.kTpAptNone, false), "apt: ordinary lots keep the usual answer");
+        for (int am = 0; am < 16; am++)
+        {
+            bool xAp = (am & 1) != 0, xSp = (am & 2) != 0, xHo = (am & 4) != 0, xOn = (am & 8) != 0;
+            int av = UfPreCore.TpAptLot(xAp, xSp, xHo, xOn);
+            Check(av == (!xAp ? UfPreCore.kTpAptNone : xOn && xHo && !xSp ? UfPreCore.kTpAptRoom : UfPreCore.kTpAptClosed), "apt: lot mask " + am);
+            for (int ag = 0; ag < 48; ag++)
+            {
+                bool xTh = (ag & 1) != 0, xOg = (ag & 2) != 0, xUo = (ag & 4) != 0, xRo = (ag & 8) != 0;
+                bool? xRe = (ag >> 4) == 0 ? (bool?)null : (ag >> 4) == 1 ? (bool?)false : true;
+                int aw = UfPreCore.TpGoal(xTh, xOg, UfPreCore.TpAptOpen(av, xUo), xRo, xRe);
+                // never a tomb / hidden room; indoors on an apartment lot only at home with the switch on and a proven way out
+                bool aok = !xTh && (xOg || (UfPreCore.TpAptOpen(av, xUo) && !xRo && xRe == true));
+                Check((aw == UfPreCore.kTpOk) == aok && (!xTh || aw == UfPreCore.kTpTombOrHidden) && (av != UfPreCore.kTpAptClosed || xOg || aw != UfPreCore.kTpOk), "apt: goal mask " + am + "/" + ag);
+            }
+        }
+
         // limiter
         UfLimiter u = new UfLimiter();
         object r;
@@ -219,7 +298,8 @@ static class UnseenFbTest
         Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kActiveLot) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kOnScreen) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNearViewers)
             && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHeld) && UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kSocialSeen), "seen NPC ceiling: the five proving reasons");
         Check(!UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kHousehold) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kNotLive) && !UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kGone)
-            && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(10), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+            && !UnseenFallbackCore.SeenNpc(-1) && !UnseenFallbackCore.SeenNpc(0) && !UnseenFallbackCore.SeenNpc(11), "household, not live, gone, failed check, unseen, unknown values: never the NPC ceiling");
+        Check(UnseenFallbackCore.SeenNpc(UnseenFallbackCore.kBirth) && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kBirth) == 13 && !UnseenFallbackCore.SeenButMovable(UnseenFallbackCore.kBirth), "birth route (docs/558): seen NPC scope, never cut, never a D-leave");
         Check(UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kSeen) == 11 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHeld) == 13 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGoalHousehold) == 13
             && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kHousehold) == 10 && UnseenFallbackCore.KdScopeOp(-1) == 10 && UnseenFallbackCore.KdScopeOp(UnseenFallbackCore.kGone) == 10, "scope op: unseen 11, seen NPC 13, household and unknown 10");
         Check(UnseenFallbackCore.KdHeldUnseen(true, false, false) && !UnseenFallbackCore.KdHeldUnseen(false, false, false)
@@ -298,6 +378,12 @@ static class UnseenFbTest
         Check(!UfFinishCore.RouteShape(true, false, 0, 1, 1348865362u, false), "finish: portal path");
         Check(!UfFinishCore.RouteShape(true, false, 0, 1, UfFinishCore.kSimPath, true), "finish: an action queued after");
         Check(!UfFinishCore.Denied(UfFinishCore.kTerrainGoHere) && UfPreCore.Denied(UfFinishCore.kTerrainGoHere), "finish: a townie's Go Here allowed (D denies it)");
+        // docs/328 §7.5 unseenfbgohere: GoHere's two plain trips by exact name, only with the switch on
+        Check(UfPreCore.Denied("NRaas.GoHereSpace.Interactions.VisitLotEx") && !UfPreCore.Denied("NRaas.GoHereSpace.Interactions.VisitLotEx", true)
+            && !UfFinishCore.Denied("NRaas.GoHereSpace.Interactions.VisitCommunityLotEx", true) && UfFinishCore.Denied("NRaas.GoHereSpace.Interactions.VisitCommunityLotEx", false)
+            && UfPreCore.Denied("NRaas.GoHereSpace.Interactions.VisitCommunityLotWithEx", true) && UfPreCore.Denied("NRaas.GoHereSpace.Interactions.GoHereEx+Definition", true)
+            && UfPreCore.Denied(null, true), "gohere trips: allowed only by exact name with the switch on");
+        Check(UfPreCore.GameAssembly("Sims3GameplayObjects") && !UfPreCore.GameAssembly("ClassLockableDoor"), "game assembly names");
         Check(UfFinishCore.Denied("Sims3.Gameplay.Core.Terrain+GoHereWith") && UfFinishCore.Denied("NRaas.GoHereSpace.Interactions.GoHereEx")
             && UfFinishCore.Denied("Sims3.Gameplay.Actors.Sim+GoJogging") && !UfFinishCore.Denied("Sims3.Gameplay.Objects.Seating.Chair+Sit"), "finish: deny list otherwise D's");
         Check(UfFinishCore.Step(true, true, true, 10, 20) == UfFinishCore.kKeep, "finish: hold until the walk time");
@@ -307,6 +393,23 @@ static class UnseenFbTest
         Check(UfFinishCore.Step(true, true, false, 30, 20) == UfFinishCore.kGiveUp, "finish: seen at the finish check");
 
         PostureChecks();
+        GhostChecks();
+
+        // iafailmemo: Sim + interaction + start lot + goal lot + options, any spot, kWindowMs; no interaction or a street goal = never remembered
+        {
+            object ro; int rms;
+            Check(IaFailMemo.Remembers(true, 0f, "RunAround", 9UL) && !IaFailMemo.Remembers(true, 0f, null, 9UL) && !IaFailMemo.Remembers(true, 3f, "RunAround", 9UL) && !IaFailMemo.Remembers(false, 0f, "RunAround", 9UL) && !IaFailMemo.Remembers(true, 0f, "RunAround", 0UL), "iafailmemo: failed, empty path, with an interaction, on a lot (not the street)");
+            Check(IaFailMemo.Eligible(false, true, false) && !IaFailMemo.Eligible(true, true, false) && !IaFailMemo.Eligible(false, false, false) && !IaFailMemo.Eligible(false, true, true), "iafailmemo: townies only");
+            IaFailMemo ia = new IaFailMemo();
+            ia.Remember(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 1000, 40, "fail-B");
+            Check(ia.HasSim(7) && ia.Answer(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 1000 + IaFailMemo.kWindowMs, out ro, out rms) && (string)ro == "fail-B" && rms == 40, "iafailmemo: same Sim, interaction, start lot, goal lot and options answer inside the window");
+            Check(!ia.Answer(7, "Scare", 0x22UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms) && !ia.Answer(7, "RunAround", 0x22UL, 1UL, 5, 2000, out ro, out rms) && !ia.Answer(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 4, 2000, out ro, out rms) && !ia.Answer(8, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms), "iafailmemo: other interaction, lot, options or Sim plans");
+            // a GoHome replan that failed inside the home building must not answer the same GoHome from a venue (af8 2026-11-18)
+            Check(!ia.Answer(7, "RunAround", 0x23UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms) && !ia.Answer(7, "RunAround", 0UL, 0x3A7A005540D45F10UL, 5, 2000, out ro, out rms), "iafailmemo: another start lot (or the street) plans");
+            Check(!ia.Answer(7, "RunAround", 0x22UL, 0x3A7A005540D45F10UL, 5, 1001 + IaFailMemo.kWindowMs, out ro, out rms) && !ia.HasSim(7) && ia.Count == 0, "iafailmemo: expired entry plans and is dropped");
+            for (int i = 0; i < IaFailMemo.kMax + 20; i++) ia.Remember((ulong)(100 + i), "GoHome", 1UL, 2UL, 0, 5000 + i, 10, "x");
+            Check(ia.Count == IaFailMemo.kMax && !ia.HasSim(100) && ia.HasSim(100 + IaFailMemo.kMax + 19), "iafailmemo: bounded table drops the oldest");
+        }
 
         if (fails > 0) { Console.WriteLine("unseenfb selftest FAILED: " + fails); Environment.Exit(1); }
         Console.WriteLine("unseenfb selftest ok");
@@ -335,6 +438,89 @@ static class UnseenFbTest
         if (!(guard && UnseenFallbackCore.IsPop(sCur, sCur != null ? sCur.Prev : null, value)) && compatible) value.Prev = sCur;
         sCur = value;  // unwind: the target is below, already linked
     }
+    // docs/202 §3.10: tiers, hysteresis, polyline, hand-off point, progress, steps, snap, no-loop
+    static void GhostChecks()
+    {
+        const float R = UfGhostCore.kSimMediumM, G = UfGhostCore.kGoalMediumM;
+        Check(UfGhostCore.Tier(false, false, 0f, 0f, R, G) == UfGhostCore.kSeen && UfGhostCore.Tier(false, true, 0f, 0f, R, G) == UfGhostCore.kSeen, "tier: not unseen = seen, whatever the distance");
+        Check(UfGhostCore.Tier(true, false, R, 1e9f, R, G) == UfGhostCore.kMedium, "tier: Sim at the radius = medium");
+        Check(UfGhostCore.Tier(true, false, R + 1f, 1e9f, R, G) == UfGhostCore.kFar, "tier: Sim past the radius = far");
+        Check(UfGhostCore.Tier(true, false, 1e9f, G, R, G) == UfGhostCore.kMedium && UfGhostCore.Tier(true, false, 1e9f, G + 1f, R, G) == UfGhostCore.kFar, "tier: goal near the view = medium");
+        // hysteresis: a medium Sim stays medium out to 1.2 x, a far Sim needs the plain radius; a Sim on the border does not flip
+        Check(UfGhostCore.Tier(true, true, R * 1.1f, 1e9f, R, G) == UfGhostCore.kMedium, "tier: medium Sim just past the radius stays medium");
+        Check(UfGhostCore.Tier(true, false, R * 1.1f, 1e9f, R, G) == UfGhostCore.kFar, "tier: far Sim just past the radius stays far");
+        Check(UfGhostCore.Tier(true, true, R * 1.21f, 1e9f, R, G) == UfGhostCore.kFar, "tier: medium Sim past 1.2 x leaves");
+        int t = UfGhostCore.kFar, flips = 0;
+        for (int i = 0; i < 100; i++)
+        {
+            int n = UfGhostCore.Tier(true, t == UfGhostCore.kMedium, R + (i % 2 == 0 ? -5f : 5f), 1e9f, R, G);  // jitter +-5 m around the radius
+            if (i > 0 && n != t) flips++;
+            t = n;
+        }
+        Check(flips <= 1, "tier: jitter around the radius flips at most once (" + flips + ")");
+        Check(Math.Abs(UfGhostCore.HDist(0f, 0f, 3f, 4f) - 5f) < 0.001f, "horizontal distance");
+
+        // unseenfbnosync tier gate: only an unseen Sim with a known household outside the active one has a tier; the recovery runs for medium and far only
+        Check(UfGhostCore.UnseenForTier(false, true, false), "gate: townie with a household is unseen input");
+        Check(!UfGhostCore.UnseenForTier(true, true, false) && !UfGhostCore.UnseenForTier(false, true, true) && !UfGhostCore.UnseenForTier(false, false, false) && !UfGhostCore.UnseenForTier(true, false, true), "gate: selectable, active household, no household = never unseen");
+        Check(UfGhostCore.NoSyncTier(UfGhostCore.kMedium) && UfGhostCore.NoSyncTier(UfGhostCore.kFar) && !UfGhostCore.NoSyncTier(UfGhostCore.kSeen), "gate: no-sync recovery for medium and far only");
+        for (int m = 0; m < 8; m++)
+        {
+            bool sel = (m & 1) != 0, hh = (m & 2) != 0, act = (m & 4) != 0;
+            int tier = UfGhostCore.Tier(UfGhostCore.UnseenForTier(sel, hh, act), false, 1f, 1f, UfGhostCore.kSimMediumM, UfGhostCore.kGoalMediumM);
+            Check(UfGhostCore.NoSyncTier(tier) == (!sel && hh && !act), "gate: exhaustive over selectable / has household / active " + m);
+        }
+
+        // unseenhouseboatview
+        Check(HbvCore.Applies(true, false, false) && !HbvCore.Applies(false, false, false) && !HbvCore.Applies(true, true, false) && !HbvCore.Applies(true, false, true), "hbv: foreign houseboat lots only, not the household's or the camera's");
+        Check(HbvCore.Why(true, true) == UnseenFallbackCore.kOnScreen && HbvCore.Why(true, false) == UnseenFallbackCore.kOnScreen, "hbv: EA's on-screen byte wins");
+        Check(HbvCore.Why(false, false) == UnseenFallbackCore.kNearViewers && HbvCore.Why(false, true) == 0, "hbv: the position test at the shown position decides the rest");
+        Check(HbvCore.Class(0, true) == 1 && HbvCore.Class(0, false) == 2 && HbvCore.Class(UnseenFallbackCore.kNearViewers, true) == 0 && HbvCore.Class(UnseenFallbackCore.kOnScreen, false) == 0, "hbv: counter classes");
+
+        // hbv at TownieUnseen / UfSimSeen: seen = (Why != 0), exhaustive over the two inputs
+        for (int m = 0; m < 4; m++)
+        {
+            bool on = (m & 1) != 0, camUnseen = (m & 2) != 0;
+            Check((HbvCore.Why(on, camUnseen) != 0) == (on || !camUnseen), "hbv: site rule seen = on screen or the shown position fails the position test, case " + m);
+        }
+
+        // polyline: a point every <= 2.5 m, start and end always, shape refusal at more than 1 in 4 bad
+        Check(UfGhostCore.Points(0f) == 2 && UfGhostCore.Points(2.5f) == 2 && UfGhostCore.Points(2.6f) == 3 && UfGhostCore.Points(100f) == 41, "polyline: point count");
+        int ok = 0;
+        for (int i = 0; i < UfGhostCore.kShapeSamples; i++) { int x = UfGhostCore.ShapeIndex(i, UfGhostCore.kShapeSamples, 41); if (x > 0 && x < 40) ok++; }
+        Check(ok == UfGhostCore.kShapeSamples, "polyline: shape samples are interior points");
+        Check(UfGhostCore.ShapeIndex(0, 12, 41) < UfGhostCore.ShapeIndex(11, 12, 41), "polyline: shape samples ascend");
+        Check(UfGhostCore.ShapeOk(3, 12) && !UfGhostCore.ShapeOk(4, 12) && UfGhostCore.ShapeOk(0, 12), "polyline: 3 of 12 bad ok, 4 refused");
+
+        // hand-off point H: 8-15 m before the goal; too close to the start is skipped; the list ends
+        Check(UfGhostCore.HandOffM(100f, 0) == 92f && UfGhostCore.HandOffM(100f, 3) == 85f && UfGhostCore.HandOffM(100f, 4) == -1f && UfGhostCore.HandOffM(100f, -1) == -1f, "H: 8, 10, 12, 15 m before the goal");
+        Check(UfGhostCore.HandOffM(20f, 0) == 12f && UfGhostCore.HandOffM(20f, 3) == 5f && UfGhostCore.HandOffM(19f, 3) == 0f, "H: a candidate under 5 m from the start is skipped");
+
+        // virtual progress
+        Check(UfGhostCore.Frac(0f, 10f) == 0f && UfGhostCore.Frac(5f, 10f) == 0.5f && UfGhostCore.Frac(11f, 10f) == 1f && UfGhostCore.Frac(1f, 0f) == 1f && UfGhostCore.Frac(-1f, 10f) == 0f, "progress: share of the hold");
+        Check(UfGhostCore.IndexAt(0f, 41) == 0 && UfGhostCore.IndexAt(1f, 41) == 40 && UfGhostCore.IndexAt(0.5f, 41) == 20 && UfGhostCore.IndexAt(2f, 41) == 40 && UfGhostCore.IndexAt(0.3f, 2) == 0 && UfGhostCore.IndexAt(0.7f, 2) == 1, "progress: polyline point reached");
+
+        // step spacing: every sim-minute near the camera, every 5 far away
+        Check(UfGhostCore.StepEveryMin(150f) == 1f && UfGhostCore.StepEveryMin(150.1f) == 5f, "steps: spacing by camera distance");
+        Check(UfGhostCore.StepDue(1f, 0f, 100f) && !UfGhostCore.StepDue(0.9f, 0f, 100f) && !UfGhostCore.StepDue(4.9f, 0f, 300f) && UfGhostCore.StepDue(5f, 0f, 300f) && UfGhostCore.StepDue(7f, 2f, 300f) && !UfGhostCore.StepDue(6f, 2f, 300f), "steps: due");
+        int steps = 0;
+        float last = 0f;
+        for (float el = 0.5f; el <= 60f; el += 0.5f) if (UfGhostCore.StepDue(el, last, 300f)) { steps++; last = el; }
+        Check(steps == 12, "steps: 60 sim-min far = 12 steps (" + steps + ")");
+
+        // snap: onto the virtual point when it is good ground, else stay on the last placed point; the jump is bounded by the steps since
+        Check(UfGhostCore.SnapIndex(10, true, 6) == 10 && UfGhostCore.SnapIndex(10, false, 6) == 6 && UfGhostCore.SnapIndex(4, true, 6) == 6, "snap: virtual point or last placed");
+        Check(UfGhostCore.SnapJumpM(10, 6) == 10f && UfGhostCore.SnapJumpM(6, 6) == 0f, "snap: jump size");
+
+        // no-loop: a failed or cut last leg blocks the next ghost for 10 s of wall time only
+        UfGhostGuard gg = new UfGhostGuard();
+        Check(!gg.Blocked(1, 5000), "no-loop: fresh Sim may ghost");
+        gg.Mark(1, 5000);
+        Check(gg.Blocked(1, 5000) && gg.Blocked(1, 5000 + UfGhostGuard.kNoLoopMs) && !gg.Blocked(1, 5001 + UfGhostGuard.kNoLoopMs) && !gg.Blocked(2, 5000), "no-loop: window per Sim");
+        for (ulong k = 10; k < 10 + UfGhostGuard.kMaxSims + 5; k++) gg.Mark(k, 1);
+        Check(gg.Blocked(10 + UfGhostGuard.kMaxSims + 4, 1), "no-loop: bounded table keeps the newest entry");
+    }
+
     static void PostureChecks()
     {
         for (int g = 0; g < 2; g++)

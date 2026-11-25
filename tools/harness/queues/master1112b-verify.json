@@ -1,0 +1,975 @@
+{
+  "note": "master1112b-verify (2026-11-12, PREPARED): test of everything merged to master on 2026-11-12 on the master1112b pair (ts3native 0.36.248 + ts3fixes master, agent TS3_AGENT_PACKAGE=game-copy/ts3agent.package.master1112b), bundled per world (memory bundle-testing). Timing: 4 loads (BP td0 ABBA, BP td1 BAAB, IP td1 ABBA, IP td0 BAAB) carry the in-load bundle A/B of [EqualsFast] + [GoalValidRO] UnseenDefer (both orders both worlds = clear-gain rule) and the cross-load [Binder] TypeHandleDirect pair per world. Correctness: MonoJit R1/C2c + E1 (BP 5 min, CodeKB 4096; the 2048 contrast job of jit-region.json dropped), R2c travel with Satb=2 + [ThumbStall] (#371) + FbApplyLog, H4 gvunseen defer repro (household exemption), IP Mode R autofflot houseboat answer + boatgetoutdiag + boat no-refusal split, Dalexlol leak fixes OFF/ON in one load (--ab, his results accepted: #337 #353 #357 #365 #366 #368) + rctrim (#359) + mooddrift/moodpending, #369 overwatchdeadsim reload repro, #368 vehicle switches (no results of his) in veh-leak-soak. Dropped: bp-iclock-eqfast-ab count job (diagnostic), binder-typehandle sampler jobs and SV (E1 read from the HitchAttr Mono bucket). Run (after the Apex 3.1.1 compat queue is finished): TS3_AGENT_PACKAGE=game-copy/ts3agent.package.master1112b node tools/harness/queue.ts tools/harness/queues/master1112b-verify.json",
+  "smoke": {
+    "note": "measurement smoke (AGENTS.md): BP 5 min, --ab equalsfast,gvunseen 1-min slices: version line, equals fast OK, UnseenDefer=1 read at start, both switches read back per slice, both arms in the per-arm split, heavy tools off",
+    "asi": "game-copy/ts3native.asi.master1112b",
+    "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+    "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+    "minCounters": 912,
+    "releaseDefaults": true,
+    "save": "Baseline-BP-Spring",
+    "ini": {
+      "UnseenFallback.Enabled": 1,
+      "RouteAsync.FallbackAsync": 1,
+      "HitchAttr.Enabled": 1,
+      "GoalValidRO.Attr": 1,
+      "RouteAsync.FbApplyLog": 1,
+      "EqualsFast.Enabled": 1,
+      "GoalValidRO.UnseenDefer": 1,
+      "Binder.TypeHandleDirect": 0
+    },
+    "logRequire": {
+      "^ts3native 0\\.36\\.248 ": 1,
+      "^OK   equals fast \\(docs/258 option C\\)": 1,
+      "^goal validation: UnseenDefer=1 ": 1
+    },
+    "regexCases": {
+      "^ts3native 0\\.36\\.248 ": {
+        "match": [
+          "ts3native 0.36.248 2026-11-12 21:05:10"
+        ],
+        "noMatch": [
+          "ts3native 0.36.246 2026-11-12 21:05:10",
+          "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+          "ts3native 0.36.2480 2026-11-12 21:05:10"
+        ]
+      },
+      "^OK   equals fast \\(docs/258 option C\\)": {
+        "match": [
+          "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"
+        ],
+        "noMatch": [
+          "equals fast off (Enabled=0)",
+          "SKIP detour ValueType.InternalEquals (equals fast) at 0x00E7A590: prologue differs"
+        ]
+      },
+      "^goal validation: UnseenDefer=1 ": {
+        "match": [
+          "goal validation: UnseenDefer=1 UnseenDeferMaxMs=2000"
+        ],
+        "noMatch": [
+          "goal validation: UnseenDefer=0 UnseenDeferMaxMs=2000"
+        ]
+      }
+    },
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "noiseCheck": true,
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "noSamplers": true,
+        "minutes": 5,
+        "slice": 1,
+        "ab": "equalsfast,gvunseen",
+        "fixesOn": "unseenfbplan,unseenfbteleport"
+      }
+    },
+    "timeoutMin": 18
+  },
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-m1112b-bundle-td0",
+      "note": "[est 26 min] TIMING. In-load ABBA of the bundle --ab equalsfast,gvunseen (2-min slices, warm-up on + 10 counted = 10 min per arm): on arms [EqualsFast] eqMode=1 + [GoalValidRO] UnseenDefer gvuMode=1, off arms both 0, read back per slice. [Binder] TypeHandleDirect=0 for the whole load (DllMain patch, no runtime switch): the BP td pair is this job + its twin, compared load vs load (indicative, one pair per world, opposite order per world). FbApplyLog=1 + v190-v192 counters (hitch logs: proof they log). Read: arm-ms.ts (ms/s per arm: script / Mono / route), hitch-ab.ts (p99 / p99.9 / max, counts >= 300 ms), eq* hit rate (eqHits vs eqFt*), gvuN / gvaScopeWaitUs[0] household unchanged between arms; HitchAttr Mono bucket per load for E1.",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "UnseenFallback.Enabled": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "HitchAttr.Enabled": 1,
+        "GoalValidRO.Attr": 1,
+        "RouteAsync.FbApplyLog": 1,
+        "EqualsFast.Enabled": 1,
+        "GoalValidRO.UnseenDefer": 1,
+        "Binder.TypeHandleDirect": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1,
+        "^OK   equals fast \\(docs/258 option C\\)": 1,
+        "^goal validation: UnseenDefer=1 ": 1
+      },
+      "logForbid": {
+        "^OK   binder type handle direct": 0,
+        "^FAIL ": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "^OK   equals fast \\(docs/258 option C\\)": {
+          "match": [
+            "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"
+          ],
+          "noMatch": [
+            "equals fast off (Enabled=0)",
+            "SKIP detour ValueType.InternalEquals (equals fast) at 0x00E7A590: prologue differs"
+          ]
+        },
+        "^goal validation: UnseenDefer=1 ": {
+          "match": [
+            "goal validation: UnseenDefer=1 UnseenDeferMaxMs=2000"
+          ],
+          "noMatch": [
+            "goal validation: UnseenDefer=0 UnseenDeferMaxMs=2000"
+          ]
+        },
+        "^OK   binder type handle direct": {
+          "match": [
+            "OK   binder type handle direct (docs/537 §20.3): Type.GetTypeFromHandle's EA body 0xDB0940 reads the handle at 0x00DB0950, "
+          ],
+          "noMatch": [
+            "SKIP binder type handle direct: bytes at 0x00DB0940 differ (another owner or another exe): not installed"
+          ]
+        },
+        "^FAIL ": {
+          "match": [
+            "FAIL rctrim: cannot write the service slot"
+          ],
+          "noMatch": [
+            "OK   binder type handle direct (docs/537 §20.3)",
+            "WARN thumbstall: fallback #1"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 22,
+          "slice": 2,
+          "ab": "equalsfast,gvunseen",
+          "fixesOn": "unseenfbplan,unseenfbteleport"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-m1112b-bundle-td1",
+      "note": "[est 26 min] TIMING. In-load BAAB of the bundle --ab equalsfast,gvunseen (2-min slices, warm-up on + 10 counted = 10 min per arm): on arms [EqualsFast] eqMode=1 + [GoalValidRO] UnseenDefer gvuMode=1, off arms both 0, read back per slice. [Binder] TypeHandleDirect=1 for the whole load (DllMain patch, no runtime switch): the BP td pair is this job + its twin, compared load vs load (indicative, one pair per world, opposite order per world). FbApplyLog=1 + v190-v192 counters (hitch logs: proof they log). Read: arm-ms.ts (ms/s per arm: script / Mono / route), hitch-ab.ts (p99 / p99.9 / max, counts >= 300 ms), eq* hit rate (eqHits vs eqFt*), gvuN / gvaScopeWaitUs[0] household unchanged between arms; HitchAttr Mono bucket per load for E1.",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "ini": {
+        "UnseenFallback.Enabled": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "HitchAttr.Enabled": 1,
+        "GoalValidRO.Attr": 1,
+        "RouteAsync.FbApplyLog": 1,
+        "EqualsFast.Enabled": 1,
+        "GoalValidRO.UnseenDefer": 1,
+        "Binder.TypeHandleDirect": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1,
+        "^OK   equals fast \\(docs/258 option C\\)": 1,
+        "^goal validation: UnseenDefer=1 ": 1,
+        "^OK   binder type handle direct": 1
+      },
+      "logForbid": {
+        "^FAIL ": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "^OK   equals fast \\(docs/258 option C\\)": {
+          "match": [
+            "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"
+          ],
+          "noMatch": [
+            "equals fast off (Enabled=0)",
+            "SKIP detour ValueType.InternalEquals (equals fast) at 0x00E7A590: prologue differs"
+          ]
+        },
+        "^goal validation: UnseenDefer=1 ": {
+          "match": [
+            "goal validation: UnseenDefer=1 UnseenDeferMaxMs=2000"
+          ],
+          "noMatch": [
+            "goal validation: UnseenDefer=0 UnseenDeferMaxMs=2000"
+          ]
+        },
+        "^OK   binder type handle direct": {
+          "match": [
+            "OK   binder type handle direct (docs/537 §20.3): Type.GetTypeFromHandle's EA body 0xDB0940 reads the handle at 0x00DB0950, "
+          ],
+          "noMatch": [
+            "SKIP binder type handle direct: bytes at 0x00DB0940 differ (another owner or another exe): not installed"
+          ]
+        },
+        "^FAIL ": {
+          "match": [
+            "FAIL rctrim: cannot write the service slot"
+          ],
+          "noMatch": [
+            "OK   binder type handle direct (docs/537 §20.3)",
+            "WARN thumbstall: fallback #1"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 22,
+          "slice": 2,
+          "ab": "equalsfast,gvunseen",
+          "abOnFirst": true,
+          "fixesOn": "unseenfbplan,unseenfbteleport"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-m1112b-bundle-td1",
+      "note": "[est 26 min] TIMING. In-load ABBA of the bundle --ab equalsfast,gvunseen (2-min slices, warm-up on + 10 counted = 10 min per arm): on arms [EqualsFast] eqMode=1 + [GoalValidRO] UnseenDefer gvuMode=1, off arms both 0, read back per slice. [Binder] TypeHandleDirect=1 for the whole load (DllMain patch, no runtime switch): the IP td pair is this job + its twin, compared load vs load (indicative, one pair per world, opposite order per world). FbApplyLog=1 + v190-v192 counters (hitch logs: proof they log). Read: arm-ms.ts (ms/s per arm: script / Mono / route), hitch-ab.ts (p99 / p99.9 / max, counts >= 300 ms), eq* hit rate (eqHits vs eqFt*), gvuN / gvaScopeWaitUs[0] household unchanged between arms; HitchAttr Mono bucket per load for E1.",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "ini": {
+        "UnseenFallback.Enabled": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "HitchAttr.Enabled": 1,
+        "GoalValidRO.Attr": 1,
+        "RouteAsync.FbApplyLog": 1,
+        "EqualsFast.Enabled": 1,
+        "GoalValidRO.UnseenDefer": 1,
+        "Binder.TypeHandleDirect": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1,
+        "^OK   equals fast \\(docs/258 option C\\)": 1,
+        "^goal validation: UnseenDefer=1 ": 1,
+        "^OK   binder type handle direct": 1
+      },
+      "logForbid": {
+        "^FAIL ": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "^OK   equals fast \\(docs/258 option C\\)": {
+          "match": [
+            "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"
+          ],
+          "noMatch": [
+            "equals fast off (Enabled=0)",
+            "SKIP detour ValueType.InternalEquals (equals fast) at 0x00E7A590: prologue differs"
+          ]
+        },
+        "^goal validation: UnseenDefer=1 ": {
+          "match": [
+            "goal validation: UnseenDefer=1 UnseenDeferMaxMs=2000"
+          ],
+          "noMatch": [
+            "goal validation: UnseenDefer=0 UnseenDeferMaxMs=2000"
+          ]
+        },
+        "^OK   binder type handle direct": {
+          "match": [
+            "OK   binder type handle direct (docs/537 §20.3): Type.GetTypeFromHandle's EA body 0xDB0940 reads the handle at 0x00DB0950, "
+          ],
+          "noMatch": [
+            "SKIP binder type handle direct: bytes at 0x00DB0940 differ (another owner or another exe): not installed"
+          ]
+        },
+        "^FAIL ": {
+          "match": [
+            "FAIL rctrim: cannot write the service slot"
+          ],
+          "noMatch": [
+            "OK   binder type handle direct (docs/537 §20.3)",
+            "WARN thumbstall: fallback #1"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 22,
+          "slice": 2,
+          "ab": "equalsfast,gvunseen",
+          "fixesOn": "unseenfbplan,unseenfbteleport"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "ip-m1112b-bundle-td0",
+      "note": "[est 26 min] TIMING. In-load BAAB of the bundle --ab equalsfast,gvunseen (2-min slices, warm-up on + 10 counted = 10 min per arm): on arms [EqualsFast] eqMode=1 + [GoalValidRO] UnseenDefer gvuMode=1, off arms both 0, read back per slice. [Binder] TypeHandleDirect=0 for the whole load (DllMain patch, no runtime switch): the IP td pair is this job + its twin, compared load vs load (indicative, one pair per world, opposite order per world). FbApplyLog=1 + v190-v192 counters (hitch logs: proof they log). Read: arm-ms.ts (ms/s per arm: script / Mono / route), hitch-ab.ts (p99 / p99.9 / max, counts >= 300 ms), eq* hit rate (eqHits vs eqFt*), gvuN / gvaScopeWaitUs[0] household unchanged between arms; HitchAttr Mono bucket per load for E1.",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "ini": {
+        "UnseenFallback.Enabled": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "HitchAttr.Enabled": 1,
+        "GoalValidRO.Attr": 1,
+        "RouteAsync.FbApplyLog": 1,
+        "EqualsFast.Enabled": 1,
+        "GoalValidRO.UnseenDefer": 1,
+        "Binder.TypeHandleDirect": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1,
+        "^OK   equals fast \\(docs/258 option C\\)": 1,
+        "^goal validation: UnseenDefer=1 ": 1
+      },
+      "logForbid": {
+        "^OK   binder type handle direct": 0,
+        "^FAIL ": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "^OK   equals fast \\(docs/258 option C\\)": {
+          "match": [
+            "OK   equals fast (docs/258 option C): InternalEquals 0xE7A590 answers int-only value types (enums) from a per-class plan, no loader lock (switch eqMode +0x5F94, --ab equalsfast)"
+          ],
+          "noMatch": [
+            "equals fast off (Enabled=0)",
+            "SKIP detour ValueType.InternalEquals (equals fast) at 0x00E7A590: prologue differs"
+          ]
+        },
+        "^goal validation: UnseenDefer=1 ": {
+          "match": [
+            "goal validation: UnseenDefer=1 UnseenDeferMaxMs=2000"
+          ],
+          "noMatch": [
+            "goal validation: UnseenDefer=0 UnseenDeferMaxMs=2000"
+          ]
+        },
+        "^OK   binder type handle direct": {
+          "match": [
+            "OK   binder type handle direct (docs/537 §20.3): Type.GetTypeFromHandle's EA body 0xDB0940 reads the handle at 0x00DB0950, "
+          ],
+          "noMatch": [
+            "SKIP binder type handle direct: bytes at 0x00DB0940 differ (another owner or another exe): not installed"
+          ]
+        },
+        "^FAIL ": {
+          "match": [
+            "FAIL rctrim: cannot write the service slot"
+          ],
+          "noMatch": [
+            "OK   binder type handle direct (docs/537 §20.3)",
+            "WARN thumbstall: fallback #1"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 22,
+          "slice": 2,
+          "ab": "equalsfast,gvunseen",
+          "abOnFirst": true,
+          "fixesOn": "unseenfbplan,unseenfbteleport"
+        }
+      },
+      "timeoutMin": 40
+    },
+    {
+      "id": "bp-m1112b-jit",
+      "note": "[est 8 min] CORRECTNESS. MonoJit R1 [MonoJit] CodeKB=4096 + refusal log, C2c game list 115 rows, E1 [Binder] TypeHandleDirect=1, on the jit-region.json c3g switch set. Gate: no crash, 0 jit verify MISMATCH, OK line with code region 4096 KB, refusals-by-reason line, jitMismatch 0, jitFaults 0. Read: jitCodeKB, jitFullN (want 0), jitMethods. 2026-11-13: jitRegionKB dropped from nativeRequire (startup value, after-before delta is 0) and stuckcheckasync dropped from fixesOn (3 AM self check false positive in 5-min BP jobs), as in jit-region. Then 5 -> 10 min: the 5-min rerun covered only 936 sim min (03:00 at 907), so the overwatchchain 3 AM self check voided it (owchain counters rose 0).",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "logForbid": {
+        "jit verify MISMATCH": 0
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1,
+        "code region 4096 KB \\(CodeKB\\)": 1,
+        "^jit: refusals by reason": 1,
+        "^OK   binder type handle direct": 1
+      },
+      "scriptErrorsMax": 0,
+      "ini": {
+        "SlotEnabledRO.Enabled": 1,
+        "SlotEnabledRO.Mode": 1,
+        "SlotEnabledRO.Shadow": 0,
+        "UnseenThrottle.Enabled": 1,
+        "UnseenThrottle.List": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 1,
+        "RouteAsync.SyncCapMs": 1000,
+        "RouteAsync.FbJobCapMs": 300,
+        "RouteAsync.TailUnlock": 1,
+        "RouteAsync.ReplanDedupe": 1,
+        "RouteAsync.H2": 1,
+        "RouteEarlyOut.Enabled": 1,
+        "RouteEarlyOut.Mode": 2,
+        "RouteEarlyOut.Act": 1,
+        "MonoJit.Enabled": 1,
+        "MonoJit.Mode": 2,
+        "MonoJit.VerifyEvery": 16,
+        "MonoJit.Direct": 1,
+        "MonoJit.DirectLeaf": 0,
+        "MonoJit.Inline": 2,
+        "MonoJit.Wide": 1,
+        "MonoJit.VtOps": 1,
+        "MonoJit.CallExit": 1,
+        "MonoJit.NewVt": 1,
+        "MonoJit.FastCopy": 1,
+        "MonoJit.Ldsflda": 1,
+        "MonoJit.CodeKB": 4096,
+        "Binder.TypeHandleDirect": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "fixesOn": "legreplanskip,bouncerskip,idlememo,errortrapspread",
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 25,
+      "nativeRequire": "@jitRegionKB>=4096,jitMismatch<=0,jitFaults<=0",
+      "stopQueueOnFail": true,
+      "noiseCheck": false,
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "^OK   binder type handle direct": {
+          "match": [
+            "OK   binder type handle direct (docs/537 §20.3): Type.GetTypeFromHandle's EA body 0xDB0940 reads the handle at 0x00DB0950, "
+          ],
+          "noMatch": [
+            "SKIP binder type handle direct: bytes at 0x00DB0940 differ (another owner or another exe): not installed"
+          ]
+        },
+        "code region 4096 KB \\(CodeKB\\)": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=2, 30 templates (Groups=4), 115 list rows, VerifyEvery=16, code region 4096 KB (CodeKB), Direct=1 (docs/537), Trap=0, VtOps=1, CallExit=1, NewVt=1, Count=0, FastCopy=1, Ldsflda=1"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 30 templates (Groups=4), 127 list rows, VerifyEvery=16, code region 2048 KB (CodeKB), Direct=1 (docs/537)"
+          ]
+        },
+        "^jit: refusals by reason": {
+          "match": [
+            "jit: refusals by reason (first tick):"
+          ],
+          "noMatch": [
+            "  jit: compiled 12 methods"
+          ]
+        },
+        "jit verify MISMATCH": {
+          "match": [
+            "jit verify MISMATCH Sims3.Foo:Bar result 1 vs 2"
+          ],
+          "noMatch": [
+            "jit verify ok 128 calls"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-m1112b-r2c-trip",
+      "note": "[est 18 min] CORRECTNESS. races-r2c.json bp-races-r2c-trip-satb on master1112b: [AutShadow] Races=7 DrainMs=250 with Satb=2 (#352 fix path) + LazyGate, travel to France and back (scen-travel), plus [ThumbStall] Enabled=1 (#371 travel portrait stall, Dalexlol results accepted, here: no hang, no FAIL) and FbApplyLog=1. Gate: races-r2c gates (3 pre-warm 0 still clear, 2 witness baselines (2026-11-13: BP travels ~30 s after load, before the first autonomy cut, so world 1 logs no baseline; 2026-11-12 run had 2), 3 gate opens, 2 closes, no UNEXPECTED, no FAIL autshadow races), autshadow A1-A3 0, no crash, sb* counters read.",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 912,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 0,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Races": 7,
+        "AutShadow.DrainMs": 250,
+        "AutShadow.Satb": 2,
+        "MonoThread.LazyGate": 1,
+        "MonoThread.LazyEarly": 1,
+        "ThumbStall.Enabled": 1,
+        "RouteAsync.FbApplyLog": 1
+      },
+      "logRequire": {
+        "^autonomy shadow: Races=7 .*DrainMs=250": 1,
+        "^OK   autshadow races R1 pre-warm: .* 0 still clear": 3,
+        "^autshadow races R2 witness: baseline of 43 rows": 2,
+        "^autshadow races R2c: world event 7 opens the worker gate": 3,
+        "^autshadow races R2c: world event 3 closes the worker gate": 2,
+        "^ts3native 0\\.36\\.248 ": 1
+      },
+      "logForbid": {
+        "races R2 witness: UNEXPECTED": 0,
+        "^FAIL autshadow races": 0,
+        "^FAIL thumbstall": 0
+      },
+      "regexCases": {
+        "^autonomy shadow: Races=7 .*DrainMs=250": {
+          "match": [
+            "autonomy shadow: Races=7 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows, bit 2 R2c worker drain at world events 2/3/4/5/8, DrainMs=250; docs/data/races-handoff.md)"
+          ],
+          "noMatch": [
+            "autonomy shadow: Races=3 (bit 0 R1 pre-warm at world event 7 + worker abort while a guard is clear, bit 1 R2/R3 witness of 43 rows; docs/data/races-handoff.md)"
+          ]
+        },
+        "^OK   autshadow races R1 pre-warm: .* 0 still clear": {
+          "match": [
+            "OK   autshadow races R1 pre-warm: 0 getters called, 0 converter kinds filled, guards 0x7FFF, 0 still clear"
+          ],
+          "noMatch": [
+            "PART autshadow races R1 pre-warm: 0 getters called, 2 converter kinds filled, guards 0x7FFF, 1 still clear: EAText handler fill 0x114CA08/0C, 0x11CB928 (0x4F98E0, witness only); "
+          ]
+        },
+        "^autshadow races R2 witness: baseline of 43 rows": {
+          "match": [
+            "autshadow races R2 witness: baseline of 43 rows"
+          ],
+          "noMatch": [
+            "autshadow races R2 witness: runtime 0x011EE140 (runtime (per-tick scratch)) hash 0x1234 -> 0x5678 at cut 3"
+          ]
+        },
+        "^autshadow races R2c: world event 7 opens the worker gate": {
+          "match": [
+            "autshadow races R2c: world event 7 opens the worker gate"
+          ],
+          "noMatch": [
+            "autshadow races R2c: world event 3 closes the worker gate"
+          ]
+        },
+        "^autshadow races R2c: world event 3 closes the worker gate": {
+          "match": [
+            "autshadow races R2c: world event 3 closes the worker gate"
+          ],
+          "noMatch": [
+            "autshadow races R2c: world event 5 closes the worker gate",
+            "autshadow races R2c: world event 7 opens the worker gate"
+          ]
+        },
+        "races R2 witness: UNEXPECTED": {
+          "match": [
+            "autshadow races R2 witness: UNEXPECTED 0x011ECBC4 (load-world) value 0x0A000000 -> 0x0B000000 at cut 12"
+          ],
+          "noMatch": [
+            "autshadow races R2 witness: runtime 0x011D6A78 (runtime (callback table)) hash 0x1 -> 0x2 at cut 4"
+          ]
+        },
+        "^FAIL autshadow races": {
+          "match": [
+            "FAIL autshadow races R1: FindClass Vector2 faulted, Races bit 0 off"
+          ],
+          "noMatch": [
+            "WARN autshadow races R2c: world event 3, worker job still inside after 250 ms: abort (stop flag set, every answer of it refused, result dropped)",
+            "OK   autshadow races R2c: world event 5, worker job drained in 812 us"
+          ]
+        },
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "^FAIL thumbstall": {
+          "match": [
+            "FAIL thumbstall: provider slot moved"
+          ],
+          "noMatch": [
+            "thumbstall: fallback #1 start (timeout): request 0x1234"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "travel": "france",
+          "fixesOn": "autshadow",
+          "fixesRequire": "autshadow_a1<1,autshadow_a2<1,autshadow_a3<1,autshadow_exceptions<1",
+          "repro": "scen-travel"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 40,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-m1112b-gvunseen-loop",
+      "note": "[est 15 min] CORRECTNESS (household exemption). docs/250 §14 repro, correctness: 10 firings per arm (ABBA), household Go Here jobs hold +0x918 while 30 unseen townies plan home. M1Retry=0 so their own STARTs are refused and their plans are sync (the B2 case). Gate: gvuN > 0 on on-firings, no gvunseen line names a household route, household arrives in both arms, no stuck townie at the end. 2026-11-13: run moved from run.repro (repro.ts has no native_set step: FAIL step failed, unknown command native_set) to profile.repro (profile-world.ts handles native_set).",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-IP",
+      "ini": {
+        "UnseenFallback.Enabled": 1,
+        "RouteAsync.FallbackAsync": 1,
+        "RouteAsync.M1Retry": 0,
+        "RouteAsync.LogFallbackMs": 20,
+        "RouteAsync.LogFallbackStack": 16,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "GoalValidRO.Attr": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 15,
+          "repro": "ip-gvunseen-defer-loop"
+        }
+      },
+      "timeoutMin": 35,
+      "noiseCheck": false
+    },
+    {
+      "id": "ip-m1112b-moder-offranks",
+      "note": "[est 15 min] CORRECTNESS. offload-ranks.json ip-offranks-verify on master1112b: Mode R autofflot with the IP household houseboat answer taken at the cut (route-misc-builds-1112, docs/208 §9.6): lot picks no longer abort on Dregg's Atlantis (read autoff_lot_a0 / abort lines), plus boatgetoutdiag (docs/257 §8, log only) and the boat no-refusal split (report only), FbApplyLog=1. Gate: fixesRequire of ip-offranks-verify, no crash, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "save": "Baseline-IP-Spring",
+      "minCounters": 912,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "RouteSnap.Enabled": 1,
+        "RouteSnap.Count": 1,
+        "RouteSnap.AuditEvery": 0,
+        "MonoThread.Enabled": 1,
+        "MonoThread.Mode": 1,
+        "MonoThread.GcLock": 1,
+        "MonoThread.FrameTls": 1,
+        "MonoThread.ArenaFix": 1,
+        "MonoThread.N2mPrivate": 1,
+        "AutShadow.Enabled": 1,
+        "AutShadow.Mode": 1,
+        "AutShadow.Sample": 4,
+        "AutShadow.Audit": 50,
+        "AutShadow.DumpOnMismatch": 1,
+        "AutShadow.WindowWaitUs": 5000,
+        "AutShadow.ColdIc": 1,
+        "AutShadow.CutLean": 2,
+        "AutShadow.TierMs": 1500,
+        "AutShadow.ListAudit": 1,
+        "AutShadow.TierClassMs": 1000,
+        "AutShadow.RowHot": 200,
+        "AutShadow.RunSkip": 1,
+        "AutShadow.FreshEvery": 8,
+        "AutShadow.KeepPartial": 1,
+        "AutShadow.Tier2Rows": 1,
+        "RouteAsync.FbApplyLog": 1
+      },
+      "logRequire": {
+        "OK   sim loop: .* runs at the end of every Simulate iteration": 1,
+        "OK   mono thread P4": 1,
+        "autonomy shadow: Tier2Rows=1": 1,
+        "^ts3native 0\\.36\\.248 ": 1
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "fixesOn": "autshadow,autofft2,autofflot,autoffdry,boatgetoutdiag",
+          "fixesRequire": "autoff_t2_items>=1,autoff_t2_a0>=1,autoff_t2_a2<1,autoff_t2_exc<1,autoff_lot_items>=1,autoff_lot_a2<1,autoff_lot_exc<1",
+          "repros": [
+            "offload-ranks-camera"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 35,
+      "noiseCheck": false,
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "OK   sim loop: .* runs at the end of every Simulate iteration": {
+          "match": [
+            "OK   sim loop: autshadow cut runs at the end of every Simulate iteration"
+          ],
+          "noMatch": [
+            "OK   sim loop: je at 0x00C2A2D0 -> SlpThunk, then 0x00C2A2D6 (every Simulate iteration)"
+          ]
+        },
+        "OK   mono thread P4": {
+          "match": [
+            "OK   mono thread P4: frame globals -> TLS 12/13 (fs:0xE10/0xE14), blocks 0x3 of 0xF"
+          ],
+          "noMatch": [
+            "OK   mono thread P3: n2m private"
+          ]
+        },
+        "autonomy shadow: Tier2Rows=1": {
+          "match": [
+            "autonomy shadow: Tier2Rows=1 (docs/219 four shared rows)"
+          ],
+          "noMatch": [
+            "autonomy shadow: Tier2Rows=0 (docs/219 four shared rows)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-m1112b-leaks-offon",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "note": "[est 16 min] OFF/ON SMOKE of the Dalexlol leak imports (his own results accepted as fact, Rodney's rule): #368 non-vehicle switches (docs/545 §1) incl. mooddrift/moodpending (default ON now), #366 exitcbsweep/dnppetkeys/dnpobjkeys, #337 customctlsweep/tinyuieventreg, #353 mapviewkeep, #365 hudunsub, #357 dnpsubjectcache, all flipped together per 2-min slice by --ab (warm-up on, off,on,on,off,off,on): read back per slice, patches counters per slice in -ab-fixes.jsonl (leak counters must rise in on slices where their trigger came up: hourly passes; CAS / map view / HUD switches have no trigger in natural play: N/A, his results stand). Plus #359 rctrim ([ResourceCache] TrimAfterCleanup=1 TrimEveryMin=2 (rctrim installs only with TrimAfterCleanup>0; 2026-11-12 run set only TrimEveryMin, so no rctrim line at all), `^rctrim: on ` required: the fixed vtable check must not skip every trim). Gate: no crash, 0 script errors, every switch read back on/off, ok lines of the hourly passes, >= 1 rctrim: #n line.",
+      "ini": {
+        "ResourceCache.TrimEveryMin": 2,
+        "ResourceCache.TrimAfterCleanup": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1,
+        "^rctrim: #\\d+ ": 1,
+        "^rctrim: on ": 1
+      },
+      "logForbid": {
+        "^rctrim: skipped ": 0,
+        "^FAIL rctrim": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        },
+        "^rctrim: #\\d+ ": {
+          "match": [
+            "rctrim: #1 timer world=BP rc=120.0/80.0 -> 60.0/20.0 anim=10.0/5.0 -> 5.0/0.0 freed=65.0 priv=1500 -> 1435 "
+          ],
+          "noMatch": [
+            "rctrim: skipped timer: manager or ResourceCache vtable not as expected: manager 0x1234 [+0]=0x01 (want 0x02) "
+          ]
+        },
+        "^rctrim: skipped ": {
+          "match": [
+            "rctrim: skipped timer: manager or ResourceCache vtable not as expected: manager 0x1234 [+0]=0x01 (want 0x02) "
+          ],
+          "noMatch": [
+            "rctrim: #1 timer world=BP rc=120.0/80.0"
+          ]
+        },
+        "^FAIL rctrim": {
+          "match": [
+            "FAIL rctrim: cannot write the service slot"
+          ],
+          "noMatch": [
+            "rctrim: on (EXPERIMENT, docs/198 §4)"
+          ]
+        },
+        "^rctrim: on ": {
+          "match": [
+            "rctrim: on (EXPERIMENT, docs/198 §4): game shrink-both 0x733E70 after the ResourceSystem main-thread update; triggers: world load (+2000 ms, needs [UserDiag]), every 2 min; Overwatch nightly not built"
+          ],
+          "noMatch": [
+            "FAIL rctrim: cannot write the service slot",
+            "rctrim: #1 timer world=BP rc=120.0/80.0 -> 60.0/20.0 anim=10.0/5.0 -> 5.0/0.0 freed=65.0 priv=1500 -> 1435 "
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 14,
+          "slice": 2,
+          "ab": "casrowleak,compositorleak,compositorghost,buyiconleak,buycellrecycle,buyclearrecycle,buygridsweep,sellcursorleak,filtergridleak,caspuckevents,casfiltergrid,famcursorleak,casexitsweep,seasonlistener,dnpdisposelistener,dreamrootorphan,blogorphan,relremovesafe,genealogycycle,spouseunlink,familyinvghost,attractionalarm,uncleguard,seasondup,dnpupdateguard,mooddrift,moodpending,exitcbsweep,dnppetkeys,dnpobjkeys,customctlsweep,tinyuieventreg,mapviewkeep,hudunsub,dnpsubjectcache"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "bp-m1112b-overwatch-reload",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "noiseCheck": false,
+      "note": "[est 20 min] CORRECTNESS of #369 (overwatchdeadsim checks the value class before reading mLastInteraction; no results of his): the same save loaded 3 times in one session (repro leak-overwatch-errortrap-reload), overwatchdeadsim on (release default). Gate: no crash, 0 script errors, no overwatchdeadsim exception line, 3 loads done.",
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "leak-overwatch-errortrap-reload"
+        }
+      },
+      "timeoutMin": 35
+    },
+    {
+      "id": "bp-m1112b-veh-leak",
+      "asi": "game-copy/ts3native.asi.master1112b",
+      "fixesPackage": "game-copy/ts3fixes.package.master1112b",
+      "pinReason": "master1112b pair (builds.json): ts3native 0.36.248 from master 7b4dcb66 + ts3fixes master (mooddrift/moodpending ON, every 11-12 import switch off); test of everything merged 2026-11-12",
+      "minCounters": 912,
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "note": "[est 25 min] CORRECTNESS of the #368 vehicle leak switches (docs/544 S1-S5; no Dalexlol results, plan only in docs/544 §5): repro veh-leak-soak with vehparkreserve, vehgetinleak, vehseatdestroy, vehfrankentaxi, vehprotestcar on. Gate: no crash, 0 script errors, fixes on verified; veh* counters are data (S4/S5 need EP events, N/A if not triggered).",
+      "logRequire": {
+        "^ts3native 0\\.36\\.248 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.248 ": {
+          "match": [
+            "ts3native 0.36.248 2026-11-12 21:05:10"
+          ],
+          "noMatch": [
+            "ts3native 0.36.246 2026-11-12 21:05:10",
+            "prior log: ts3native 0.36.248 2026-11-12 21:05:10",
+            "ts3native 0.36.2480 2026-11-12 21:05:10"
+          ]
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 20,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "veh-leak-soak",
+          "fixesOn": "vehparkreserve,vehgetinleak,vehseatdestroy,vehfrankentaxi,vehprotestcar"
+        }
+      },
+      "timeoutMin": 45
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "note": "hh-exempt-audit-correct-1118-rerun1-1118 (correctness, not timing): RC load test after the load-stall fix (docs/51 §525). Only bp-hh-exempt-audit of hh-exempt-audit-correct-1118, same job, ts3fixes package repinned to loadfix-1118 (master + bugfix/double-apply-load-stall-1118). PASS = the world loads and the job's own checks hold.",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-hh-exempt-audit",
+      "note": "BP 10 min on release defaults + the two Check repros; counters reported.",
+      "asi": "game-copy/ts3native.asi.gcmark-p4-1118",
+      "iniBase": "game-copy/ts3native.ini.gcmark-p4-1118",
+      "fixesPackage": "game-copy/ts3fixes.package.loadfix-1118",
+      "pinReason": "ts3fixes.package.loadfix-1118 (bugfix/double-apply-load-stall-1118: master + each Apply call once; the 1118b package of this job never started a world load) on the master native set ts3native.asi.gcmark-p4-1118 (0.36.285-g5p4) + its ini",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repros": [
+            "woohootywait-check",
+            "serviceshowalarm-check"
+          ],
+          "fixesReport": "exitcbsweep_"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.285-g5p4 ": 1
+      },
+      "timeoutMin": 40,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "^ts3native 0\\.36\\.285-g5p4 ": {
+          "match": [
+            "ts3native 0.36.285-g5p4 2026-11-18 17:55:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.284-exact1 2026-11-18 18:30:00",
+            "ts3native 0.36.283-g5p3 2026-11-18 17:40:00"
+          ]
+        }
+      }
+    }
+  ]
+}

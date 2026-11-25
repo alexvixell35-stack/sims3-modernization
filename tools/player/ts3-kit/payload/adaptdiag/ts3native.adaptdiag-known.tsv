@@ -1,0 +1,20 @@
+# ts3native adaptive diag kit: known-issue signatures (docs/316 §6). Tab separated:
+# id	kind	edition	match	label	doc	fixedin	switch
+# kind: crash (fault frame of the last crash report) / script (ScriptError head) / hitch (last hitch or stall line) / log (any log line) / any
+# edition: steam / retail / ea / any. match: case-insensitive substring. Crash frames are Steam 1.67 (TS3W+0x<rva>, base 0x400000).
+geombone	crash	steam	TS3W+0x1C6E07	GEOM bone index past the bone list	docs/67 §28	0.36.149	[EaCrashFixes] GeomBoneIndex
+thumbposebones	crash	steam	TS3W+0x14E79A	thumbnail pose reads past the rig bones	docs/67 §27.6	0.36.121	[EaCrashFixes] ThumbPoseBones
+geomnomaterial	crash	steam	TS3W+0x1DDFBD	GEOM without a material in the model builder	docs/67 §29	0.36.149	[EaCrashFixes] GeomNoMaterial
+worldastar1	crash	steam	TS3W+0x27663F	world A* neighbour without a range check	docs/67 §30	0.36.151	[EaCrashFixes] WorldAStarRefs
+worldastar2	crash	steam	TS3W+0x2742B5	world A* neighbour without a range check	docs/67 §30	0.36.151	[EaCrashFixes] WorldAStarRefs
+worldastar3	crash	steam	TS3W+0x2743FE	world A* neighbour without a range check	docs/67 §30	0.36.151	[EaCrashFixes] WorldAStarRefs
+lotlevel1	crash	steam	TS3W+0x2824D0	Realm_MoveShape lot level past the end	docs/67 §40	-	[EaCrashFixes] LotLevelPastEnd
+lotlevel2	crash	steam	TS3W+0x2824F3	Realm_MoveShape lot level past the end	docs/67 §40	-	[EaCrashFixes] LotLevelPastEnd
+lotlevel3	crash	steam	TS3W+0x4621EA	Realm_MoveShape lot level past the end	docs/67 §40	-	[EaCrashFixes] LotLevelPastEnd
+fglstale	crash	steam	TS3W+0x711A9C	find-good-location reads a deleted object id	docs/67 §41	-	[EaCrashFixes] FglStaleObject
+slaveunlink	crash	steam	TS3W+0x18D996	EA pure-call breakpoint (slave unlink)	docs/143	-	[EaCrashFixes] SlaveUnlink
+vbfree	crash	any	SetStreamSource	VB wrapper used after free (Buy-mode entry, bridge)	docs/67 §44	0.36.297	[EaCrashFixes] VbFreeDelayMs
+castargetexc	script	any	Unable to invoke an invalid target	CAS TargetException (Mono invoke on a wrong target)	docs/312	-	ts3fixes kSwapInvokeDiag (detector)
+wildflower	hitch	any	Wildflower.OnGrowWildflowersOnLot	EA spring wildflower alarm (one long lot pass)	docs/247 §11.2	-	ts3fixes kWildflowerTask
+boatreplan	hitch	any	boatreplan	boat get-in replans	docs/247 §11.3	-	unseen boat shortcuts
+castrisort	hitch	any	CAS/SimService	EA CAS triangle sort (Apex has the fix)	docs/247 §11.5	-	Apex CasTriSort

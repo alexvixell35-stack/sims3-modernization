@@ -278,3 +278,11 @@ Order with the rest: after v0.2.0 and after docs/189 phases 1-3 (A_HOLD, per-lot
 | I-194-15 | native share ~95-99% of asks on EA-only installs | phase 0 `dnNative` / `dnAsk[F1..F8]` |
 | Q1 | Answered: the ~48% is the host share of the on-arm sim wait in p6-integration rung 1 `ip-p6int-p6-ab` (2026-10-25, `p6 waits arm 1` lines, log `probe-out/queue/p6-integration-2026-10-25-ip-p6int-p6-ab-0427-ts3native.log`; rung crashed at off #29, so partial). Recheck on the ladder rerun. | closed |
 | Q2 | Is the extra ~70-100 MB over slimming worth ~60-95 h on Rodney's set (Error 12 > 1 GB away, docs/66 §7)? It matters for heavy-CC players near the cap | Rodney, after slimming lands and docs/190 metrics show players' headroom |
+
+## 2026-11-20 measurement: what routesnap holds in the v0.3.0 release config
+
+Static + existing run data, no game run (Rodney, 2026-11-20; gate: >= ~50 MB held = build the helper). Result: **~7 MB held (peak ~13 MB), far under the gate; do not build the helper for address space.** Page: `docs/data/results/2026-11-20-routesnap-held-rc1119b.md`.
+
+- Release ini `[RouteSnap]` `Enabled=1 Mode=0 Count=1 Lots=none`: `Enabled=1` = P3 world images only (`snap.cpp`, strategy `kSpLotNone`: no lot images, no lot audits), `Mode=0` = audit only, `Count=1` = pass-through counters. No clone and no pools: `PlInstall()` (96 MB reserve) is only called from the replay install (`replay.cpp:3816`, `Lots=replay`), so `g_rpClone`, `rpKB`, `plKB`, `plResKB` stay 0.
+- Measured (rc1119b release-verify `bp-lptrim-memtravel-x3-rc1119-r1`, 10 min, Apex): `spKB` 6,623 at load, 6,626 after, `spKBMax` 13,356; `rpKB` 0, `plKB` 0, `plResKB` 0. IP (unseen-rate-ab 2026-11-19, 30 min): `spKB` 6,790, `spKBMax` 13,575. The old 112 / 204 MB cost (docs/66 §7) was `Lots=replay` P5/P6, which the release ini does not use.
+- Not measured: the largest-free-block delta A vs B (`Enabled=0`). Bound: counters 6.6-13.6 MB plus unmeasured heap slack; both are well under 50 MB, so the A/B run was skipped.

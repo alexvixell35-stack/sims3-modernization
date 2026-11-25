@@ -24,7 +24,7 @@ static void TestApex() {
     g_apexModules[0] = mods0, g_apexModules[1] = mods1;
 
     // 2. config: defaults (lot group off), explicit false/true, CRLF, other tables, a longer name with the same prefix
-    const int defs = AXF_OBJECT_INDEX | AXF_FAST_CACHE | AXF_MEMORY_GUARD | AXF_RES_LOOKUP | AXF_FILE_LIST;
+    const int defs = AXF_OBJECT_INDEX | AXF_FAST_CACHE | AXF_MEMORY_GUARD | AXF_RES_LOOKUP | AXF_FILE_LIST | AXF_FAST_MEMORY;
     assert(ApexSwitchesOn(NULL) == defs && ApexSwitchesOn("") == defs);
     assert(ApexSwitchesOn("[patches.FastCacheCompression]\r\nenabled = false\r\n[patches.LotObjectThrottle]\r\nenabled=true\r\n") ==
            ((defs & ~AXF_FAST_CACHE) | AXF_LOT));
@@ -32,6 +32,7 @@ static void TestApex() {
     assert(ApexSwitchesOn("[patches.MemoryGuard]\n  enabled = false # off\n[patches.ObjectLookupIndex]\nenabled = true\n") ==
            (defs & ~AXF_MEMORY_GUARD));
     assert(ApexSwitchesOn("[patches.ObjectLookupIndex]\n[other]\nenabled = false\n") == defs);  // key under another table
+    assert(ApexSwitchesOn("[patches.FastMemory]\nenabled = false\n") == (defs & ~AXF_FAST_MEMORY));
 
     // 3. stand-down decisions
     const bool sd0 = g_apexStandDown;
@@ -51,14 +52,15 @@ static void TestApex() {
     wchar_t ini[MAX_PATH];
     GetTempPathW(MAX_PATH, ini);
     wcscat_s(ini, L"ts3n-selftest-apex.ini");
-    for (const wchar_t* sec : {L"IdCache", L"SaveCompress", L"FootprintIndex", L"LotStream"}) WritePrivateProfileStringW(sec, L"Enabled", L"1", ini);
+    for (const wchar_t* sec : {L"IdCache", L"SaveCompress", L"FootprintIndex", L"LotStream", L"Alloc"}) WritePrivateProfileStringW(sec, L"Enabled", L"1", ini);
     g_apexOn = defs | AXF_LOT;
     const LONG st1 = g_apexStood;
     assert(!ApplyIdCache(ini));
     assert(!ApplySaveCompress(ini));
     assert(!ApplyFootprintIndex(ini));
     assert(!ApplyLotStream(ini));
-    assert(g_apexStood == st1 + 4);
+    assert(!ApplyAlloc(ini) && !ts3native_counters.allocReady);  // FastMemory owns the EA allocator (docs/148 §6 #9)
+    assert(g_apexStood == st1 + 5 && ts3native_counters.apStood == g_apexStood);
     DeleteFileW(ini);
     // [Verify] probe sites by owner
     assert(ApexVerifySite(0x939100) == AXF_OBJECT_INDEX && ApexVerifySite(0x939170) == AXF_OBJECT_INDEX && ApexVerifySite(0xC60D30) == AXF_OBJECT_INDEX);

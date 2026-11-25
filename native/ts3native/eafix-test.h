@@ -159,6 +159,91 @@ static int MdtCase(const void* stub, DWORD a, DWORD b) {
     return (int)g_mdtKind;
 }
 
+#ifdef TS3N_EA_PORT
+// SimNoTexture: SnStub runs with the game's stack slot [esp+74h] = the first texture; the targets are landing pads. The
+// flags of the stub's compare reach the game's `ja`, so the continue pad records "above".
+static DWORD g_sntSp, g_sntKind, g_sntAbove, g_sntEsi, g_sntEbp, g_sntEdi;
+static __declspec(naked) void SntBack() {
+    __asm {
+        mov g_sntKind, eax
+        mov g_sntEsi, esi
+        mov g_sntEbp, ebp
+        mov g_sntEdi, edi
+        mov esp, g_sntSp
+        pop ebp
+        pop edi
+        pop esi
+        pop ebx
+        ret
+    }
+}
+static __declspec(naked) void SntSkip() { __asm { mov eax, 1 } __asm { jmp SntBack } }
+static __declspec(naked) void SntCont() {
+    __asm {
+        seta al
+        movzx eax, al
+        mov g_sntAbove, eax
+        mov eax, 2
+        jmp SntBack
+    }
+}
+static __declspec(naked) void __cdecl SntRun(void* /*first*/, void* /*esi*/, void* /*ebp*/) {
+    __asm {
+        push ebx
+        push esi
+        push edi
+        push ebp
+        mov g_sntSp, esp
+        mov eax, [esp + 20]
+        mov esi, [esp + 24]
+        mov ebp, [esp + 28]
+        sub esp, 0x80
+        mov [esp + 0x74], eax
+        mov edi, 0x5A5A5A5A
+        jmp SnStub
+    }
+}
+static int SntCase(void* first, void* req, void* second) {
+    g_sntKind = 0, g_sntAbove = 9;
+    SntRun(first, req, second);
+    assert(g_sntEsi == (DWORD)(uintptr_t)req && g_sntEbp == (DWORD)(uintptr_t)second && g_sntEdi == 0x5A5A5A5A);
+    return (int)g_sntKind;
+}
+
+// SimNoTextureAtlas: SaStub runs with [esp+18h] = the first texture, esi = the builder, ebx = the second
+static DWORD g_satEdx;
+static __declspec(naked) void SatCont() {
+    __asm {
+        mov g_satEdx, edx
+        mov eax, 2
+        jmp SntBack
+    }
+}
+static __declspec(naked) void __cdecl SatRun(void* /*first*/, void* /*esi*/, void* /*ebx*/) {
+    __asm {
+        push ebx
+        push esi
+        push edi
+        push ebp
+        mov g_sntSp, esp
+        mov eax, [esp + 20]
+        mov esi, [esp + 24]
+        mov ebx, [esp + 28]
+        sub esp, 0x80
+        mov [esp + 0x18], eax
+        mov ebp, 0x5A5A5A5A
+        mov edi, 0x5A5A5A5A
+        jmp SaStub
+    }
+}
+static int SatCase(void* first, void* builder, void* second) {
+    g_sntKind = 0, g_satEdx = 0;
+    SatRun(first, builder, second);
+    assert(g_sntEsi == (DWORD)(uintptr_t)builder && g_sntEbp == 0x5A5A5A5A && g_sntEdi == 0x5A5A5A5A);
+    return (int)g_sntKind;
+}
+#endif
+
 // GeomNoMaterial: GnStub runs with ebx = &part.mesh and esi = a fake builder; the two targets are landing pads
 static DWORD g_gntSp, g_gntKind, g_gntEbx, g_gntEsi, g_gntEdi, g_gntEbp;
 static __declspec(naked) void GntBack() {  // eax = 1 the skip tail, 2 the next instruction
@@ -201,11 +286,127 @@ static int GntCase(void* slot, void* builder) {
     return (int)g_gntKind;
 }
 
+// ---- SlaveUnlink + DeadSlaveTrip: fakes with the game's SetSlaves / base destructor / get-slave semantics ----
+static u8** TslSt(u8* part) { return (u8**)(part + 0x30); }  // each fake master's slave vector storage, inside its part
+static LONG g_tslDtors;
+static DWORD g_tslLive[8], g_tslDead[8];
+static void __fastcall TslSet(u8* part, void*, u8** arr, DWORD n, DWORD flag) {  // 0x83A650: copy in, or end = begin
+    if (arr && (LONG)n > 0) {
+        part[0x20] = (u8)flag, *(LONG*)(part + 0xC) = (LONG)n, *(u8***)(part + 0x10) = TslSt(part);
+        for (DWORD i = 0; i < n; i++) TslSt(part)[i] = arr[i];
+        *(u8***)(part + 0x14) = TslSt(part) + n;
+    } else *(u8***)(part + 0x14) = *(u8***)(part + 0x10), *(LONG*)(part + 0xC) = 0, part[0x20] = 0;
+}
+static void __fastcall TslDtor(u8* part, void*) { g_tslDtors++, *(DWORD*)part = (DWORD)(uintptr_t)g_tslDead; }  // 0x839E60: base vt
+static u8* __fastcall TslGet(u8* part, void*, int i) {  // 0x839CA0
+    u8** b = *(u8***)(part + 0x10);
+    return i < *(LONG*)(part + 0xC) && b + i < *(u8***)(part + 0x14) ? b[i] : NULL;
+}
+static void SlReset() {  // selftest: back to the image's 64 pairs, all free
+    if (g_slPairs != g_slPairs0) HeapFree(GetProcessHeap(), 0, g_slPairs);
+    g_slPairs = g_slPairs0, g_slCap = SL_CAP0, memset(g_slPairs0, 0, sizeof(g_slPairs0));
+    ts3native_slavelink.cap = SL_CAP0, ts3native_slavelink.hw = ts3native_slavelink.grows = 0;
+}
+static void TestSlaveLink() {
+    SlaveLinkCounters& c = ts3native_slavelink;
+    const SlSetFn s0 = g_slSet;
+    const SlDtorFn d0 = g_slDtor;
+    const SlGetFn g0 = g_slGet;
+    g_slSet = &TslSet, g_slDtor = &TslDtor, g_slGet = &TslGet;
+    SlReset(), c.sets = c.unlinks = c.overflow = c.tripHits = 0, g_tslDtors = 0;
+    g_tslLive[6] = 0x00401000, g_tslDead[6] = SL_PURECALL;
+    alignas(8) static u8 ag[5][0x60], own[5][0x10];  // agents M, A, B, X, N; part = agent+8, owner = agent+4, id at owner+8
+    u8* p[5];
+    for (int i = 0; i < 5; i++) {
+        memset(ag[i], 0, sizeof(ag[i]));
+        p[i] = ag[i] + 8, *(DWORD*)p[i] = (DWORD)(uintptr_t)g_tslLive, *(u8**)(ag[i] + 4) = own[i];
+        *(DWORD*)(own[i] + 8) = 0x100 + i, *(DWORD*)(own[i] + 0xC) = 0xA0000000;
+    }
+    u8 *m = p[0], *a = p[1], *b = p[2], *x = p[3];
+    auto relive = [&]() { for (int i = 1; i < 5; i++) *(DWORD*)p[i] = (DWORD)(uintptr_t)g_tslLive; };
+    u8* two[2] = {a, b};
+    // two slaves (a boat's driver and passenger): the first destroyed leaves the second listed, the last clears the list
+    SlSetHook(m, NULL, two, 2, 1);
+    assert(c.sets == 1 && *(LONG*)(m + 0xC) == 2 && m[0x20] == 1);
+    SlDtorHook(a, NULL);
+    assert(g_tslDtors == 1 && c.unlinks == 1 && *(LONG*)(m + 0xC) == 1 && TslSt(m)[0] == b && *(u8***)(m + 0x14) == TslSt(m) + 1 &&
+           m[0x20] == 1);
+    assert(SlTripGet(m, NULL, 0) == b && c.tripHits == 0);  // a live slave passes the tripwire
+    SlDtorHook(b, NULL);
+    assert(g_tslDtors == 2 && c.unlinks == 2 && *(LONG*)(m + 0xC) == 0 && *(u8***)(m + 0x14) == TslSt(m) && m[0x20] == 0);
+    // an entity on no list: only the destructor
+    SlDtorHook(x, NULL);
+    assert(g_tslDtors == 3 && c.unlinks == 2);
+    // the list EA cleared itself (route end), or replaced by a new route without that slave: unchanged
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    TslSet(m, NULL, NULL, 0, 0);
+    SlDtorHook(a, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 0);
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    SlSetHook(m, NULL, &x, 1, 1);
+    SlDtorHook(a, NULL);
+    assert(c.sets == 4 && c.unlinks == 2 && *(LONG*)(m + 0xC) == 1 && TslSt(m)[0] == x);
+    // the master destroyed first, or its memory reused (another vtable): the slave's later destruction writes nothing
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    SlDtorHook(m, NULL);
+    *(DWORD*)m = (DWORD)(uintptr_t)g_tslLive;
+    SlDtorHook(a, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 2);
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    *(DWORD*)m = 0x12345678;
+    SlDtorHook(b, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 2);
+    *(DWORD*)m = (DWORD)(uintptr_t)g_tslLive;
+    // a full table: pairs whose master no longer lists them are reused (no grow, as before docs/321)
+    TslSet(m, NULL, NULL, 0, 0);
+    SlReset();
+    for (int i = 0; i < SL_CAP0; i++) g_slPairs[i].master = m, g_slPairs[i].slave = x, g_slPairs[i].mPartVt = 0x12345678;
+    relive();
+    SlSetHook(p[4], NULL, &a, 1, 0);
+    assert(c.overflow == 0 && g_slCap == SL_CAP0 && c.grows == 0);
+    // docs/321 H4: every pair live: the table doubles and the new list is recorded and guarded (was: overflow, no guard)
+    TslSet(p[4], NULL, &a, 1, 0);
+    for (int i = 0; i < SL_CAP0; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
+    SlSetHook(m, NULL, &b, 1, 0);
+    assert(c.overflow == 0 && g_slCap == 2 * SL_CAP0 && c.grows == 1 && c.cap == 2 * SL_CAP0 && c.hw == SL_CAP0 + 1);
+    assert(g_slPairs[0].master == p[4] && g_slPairs[SL_CAP0 - 1].slave == a);  // the old pairs kept their slots
+    SlDtorHook(b, NULL);
+    assert(c.unlinks == 3 && *(LONG*)(m + 0xC) == 0);  // the pair past the old cap unlinks like any other
+    // at the ceiling, every pair live: overflow as before
+    relive();
+    g_slCapMax = 2 * SL_CAP0;
+    for (int i = 0; i < g_slCap; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
+    SlSetHook(m, NULL, &b, 1, 0);
+    assert(c.overflow == 1 && g_slCap == 2 * SL_CAP0 && c.grows == 1 && ts3native_caps.r[CAP_SLAVE].full >= 1);
+    g_slCapMax = 65536;
+    SlReset();
+    // tripwire: a destroyed slave 0 (the crash: base vtable, slot +0x18 the purecall thunk) and an unreadable one answer null
+    TslSet(m, NULL, two, 2, 1);
+    relive();
+    *(DWORD*)a = (DWORD)(uintptr_t)g_tslDead;
+    assert(SlTripGet(m, NULL, 0) == NULL && c.tripHits == 1);
+    assert(SlTripGet(m, NULL, 1) == b && SlTripGet(m, NULL, 2) == NULL && c.tripHits == 1);
+    u8* page = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    VirtualFree(page, 0, MEM_RELEASE);
+    TslSt(m)[0] = page;
+    assert(SlTripGet(m, NULL, 0) == NULL && c.tripHits == 2);
+    g_slSet = s0, g_slDtor = d0, g_slGet = g0;
+    SlReset(), c.sets = c.unlinks = c.overflow = c.tripHits = 0;
+    printf("EaCrashFixes: SlaveUnlink a destroyed slave taken off its master's list (one of two kept, the last through SetSlaves(0)), "
+           "unlisted / EA-cleared / replaced lists and destroyed or reused masters unchanged, full table reuses stale pairs, all-live table grows "
+           "(docs/321 H4), overflow only at the ceiling; "
+           "DeadSlaveTrip live slaves passed, destroyed / unreadable slave answered null: ok\n");
+}
+
 static void TestEaCrashFixes() {
     static_assert(offsetof(Ts3nCounters, caOn) == 0x5480 && offsetof(Ts3nCounters, caSkip) == 0x5484 &&
                       offsetof(Ts3nCounters, caOther) == 0x5490 && offsetof(Ts3nCounters, caOverflow) == 0x549C &&
                       offsetof(Ts3nCounters, tpOn) == 0x54A0 && offsetof(Ts3nCounters, tpNoSlot) == 0x54AC &&
-                      sizeof(Ts3nCounters) == 6112 * 4,
+                      sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v141 layout after v140 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -418,6 +619,55 @@ static void TestEaCrashFixes() {
     VirtualFree(gcode, 0, MEM_RELEASE);
     g_gbBad = 0;
 
+    // ---- LotLevelPastEnd ----
+    // a fake lot: lowest level -1, a deque of 5 Groups that starts at entry 62 of its first block (so it spans two blocks)
+    {
+        static DWORD llBlk[2][64], *llNode[2] = {llBlk[0], llBlk[1]}, llId = 0x10, llGets;
+        alignas(4) static u8 llLot[0x400], llObj[0x60], llComp[0x40];
+        for (DWORD i = 0; i < 128; i++) llBlk[i / 64][i % 64] = 0xBAD00000 + i;  // entry 67 = the word past the table
+        for (DWORD i = 0; i < 5; i++) llBlk[(62 + i) / 64][(62 + i) % 64] = 0x6000 + i;
+        DWORD* q = (DWORD*)(llLot + 0x378);
+        q[0] = (DWORD)(uintptr_t)&llBlk[0][62], q[1] = (DWORD)(uintptr_t)llBlk[0], q[2] = (DWORD)(uintptr_t)(llBlk[0] + 64), q[3] = (DWORD)(uintptr_t)&llNode[0];
+        q[4] = (DWORD)(uintptr_t)&llBlk[1][3], q[5] = (DWORD)(uintptr_t)llBlk[1], q[6] = (DWORD)(uintptr_t)(llBlk[1] + 64), q[7] = (DWORD)(uintptr_t)&llNode[1];
+        *(LONG*)(llLot + 0x17C) = -1;
+        *(DWORD*)(llObj + 0x2C) = 0x10 | 0x4 | 0x1, *(u8**)(llObj + 0x34 + 2 * 4) = llComp;  // two components below the level's
+        assert(LlLevels(llLot) == 5);
+        struct LlT { static DWORD __fastcall Get(u8*, void*, u8*) { llGets++; return 0x77; } };  // the game's getter stand-in
+        const LlFn get0 = g_llGet;
+        const DWORD id0 = g_llIdLevel;
+        g_llGet = &LlT::Get, g_llIdLevel = (DWORD)(uintptr_t)&llId, g_llHits = 0;
+        const LONG in[] = {-5, -1, 0, 3, 0x7FFFFFFF};  // below the lowest (clamped), each end, "no level" = 0: the game's getter
+        for (LONG lv : in) { *(LONG*)(llComp + 0x18) = lv; assert(LlGroup(llLot, NULL, llObj) == 0x77); }
+        assert(llGets == 5 && g_llHits == 0);
+        *(LONG*)(llComp + 0x18) = 4;  // index 5 of 5 (a Bridgeport crash's ask): the top Group, not entry 67
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 1 && llGets == 5);
+        *(LONG*)(llComp + 0x18) = 3, *(DWORD*)(llComp + 0x2C) = 0x20;  // the +1 flag
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 2);
+        *(DWORD*)(llComp + 0x2C) = 0, *(LONG*)(llComp + 0x18) = 0x7FFFFFFE;  // far past; lv - lowest overflows: still a hit
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 3);
+        q[4] = q[0], q[5] = q[1], q[6] = q[2], q[7] = q[3];  // an empty table: the root Group (0)
+        *(LONG*)(llComp + 0x18) = 0;
+        assert(LlLevels(llLot) == 0 && LlGroup(llLot, NULL, llObj) == 0 && g_llHits == 4 && llGets == 5);
+        // no object, no level component, a null component: the game's getter (it answers 0 there)
+        *(DWORD*)(llObj + 0x2C) = 0x5;
+        assert(LlGroup(llLot, NULL, NULL) == 0x77 && LlGroup(llLot, NULL, llObj) == 0x77);
+        *(DWORD*)(llObj + 0x2C) = 0x15, *(u8**)(llObj + 0x34 + 2 * 4) = NULL;
+        assert(LlGroup(llLot, NULL, llObj) == 0x77 && llGets == 8 && g_llHits == 4);
+        // the patch: only over the game's getter bytes, once
+        u8* lcode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        memcpy(lcode, kLlHead, sizeof(kLlHead)), memcpy(lcode + 0x4D, kLlLow, sizeof(kLlLow));
+        memcpy(lcode + 0x66, kLlDeq, sizeof(kLlDeq)), memcpy(lcode + 0x79, kLlBlk, sizeof(kLlBlk));
+        static DWORD lslot;
+        lslot = (DWORD)(uintptr_t)lcode;
+        lcode[0x68] = 0x80;  // another deque offset: nothing written
+        assert(!LlPatch(&lslot) && lslot == (DWORD)(uintptr_t)lcode);
+        lcode[0x68] = 0x7C;
+        assert(LlPatch(&lslot) && lslot == (DWORD)(uintptr_t)&LlGroup);
+        assert(!LlPatch(&lslot));  // ours now
+        VirtualFree(lcode, 0, MEM_RELEASE);
+        g_llGet = get0, g_llIdLevel = id0, g_llHits = 0;
+    }
+
     // ---- GeomNoMaterial ----
     const DWORD gn0[3] = {g_gnSkip, g_gnCont, g_gnGet};
     u8* ncode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -454,6 +704,46 @@ static void TestEaCrashFixes() {
     assert(!GnPatch(site, &nslot));  // ours now
     VirtualFree(ncode, 0, MEM_RELEASE);
     g_gnSkip = gn0[0], g_gnCont = gn0[1], g_gnGet = gn0[2], g_gnBad = 0;
+
+#ifdef TS3N_EA_PORT
+    // ---- SimNoTexture ----
+    const DWORD sn0[2] = {g_snCont, g_snSkip};
+    g_snCont = (DWORD)(uintptr_t)&SntCont, g_snSkip = (DWORD)(uintptr_t)&SntSkip, g_snBad = 0;
+    alignas(4) static u8 img[0x20], snReq[0x20];
+    *(DWORD*)(img + 0x14) = 0x400;
+    assert(SntCase(img, snReq, img) == 2 && g_sntAbove == 0 && g_snBad == 0);  // a normal texture: the game's `ja`, not taken
+    *(DWORD*)(img + 0x14) = 0x801;
+    assert(SntCase(img, snReq, NULL) == 2 && g_sntAbove == 1 && g_snBad == 0);  // too wide: the game's `ja`, taken
+    assert(SntCase(NULL, snReq, NULL) == 1 && g_snBad == 1);                    // missing, second missing too (the crash)
+    assert(SntCase(NULL, snReq, img) == 1 && g_snBad == 2);                     // missing, second present
+    u8* scode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    memcpy(scode, kSnSite, sizeof(kSnSite));
+    scode[3] = 0x70;  // another frame layout
+    assert(!SnPatch(scode) && scode[0] == 0x8B);
+    scode[3] = 0x74;
+    assert(SnPatch(scode) && scode[0] == 0xE9 && (uintptr_t)scode + 5 + *(LONG*)(scode + 1) == (uintptr_t)&SnStub && scode[10] == 0x90);
+    assert(!SnPatch(scode));  // ours now
+    VirtualFree(scode, 0, MEM_RELEASE);
+    g_snCont = sn0[0], g_snSkip = sn0[1], g_snBad = 0;
+
+    // ---- SimNoTextureAtlas ----
+    const DWORD sa0[2] = {g_saCont, g_saSkip};
+    g_saCont = (DWORD)(uintptr_t)&SatCont, g_saSkip = (DWORD)(uintptr_t)&SntSkip, g_saBad = 0;
+    alignas(4) static u8 saBuilder[0x100];
+    *(DWORD*)(saBuilder + 0xA8) = 0x12345678;
+    assert(SatCase(img, saBuilder, img) == 2 && g_satEdx == 0x12345678 && g_saBad == 0);  // present: the game's load, the game's path
+    assert(SatCase(NULL, saBuilder, NULL) == 1 && g_saBad == 1);                          // missing, second missing too
+    assert(SatCase(NULL, saBuilder, img) == 1 && g_saBad == 2);                           // missing, second present
+    u8* sacode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    memcpy(sacode, kSaSite, sizeof(kSaSite));
+    sacode[2] = 0xAC;  // another field
+    assert(!SaPatch(sacode) && sacode[0] == 0x8B);
+    sacode[2] = 0xA8;
+    assert(SaPatch(sacode) && sacode[0] == 0xE9 && (uintptr_t)sacode + 5 + *(LONG*)(sacode + 1) == (uintptr_t)&SaStub && sacode[5] == 0x90);
+    assert(!SaPatch(sacode));  // ours now
+    VirtualFree(sacode, 0, MEM_RELEASE);
+    g_saCont = sa0[0], g_saSkip = sa0[1], g_saBad = 0;
+#endif
 
     // ---- MintDivGuard ----
     static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, mdDivOverflow) == 0x5524 &&
@@ -499,8 +789,10 @@ static void TestEaCrashFixes() {
            "called, patched sequence run; ThumbPose reference kept across the evaluation and released by the stub; "
            "ThumbPoseBones short holders dropped at all three stubs, matching / longer / other holders unchanged, sites patched once; "
            "GeomBoneIndex in-range bones unchanged, past-the-list indices answered 0, key printed, vtable slot patched once; "
+           "LotLevelPastEnd in-range levels on the game's getter, past-the-table levels answered the top Group, empty table 0, slot patched once; "
            "GeomNoMaterial meshes with a material unchanged, no material skipped, other types and null meshes unchanged, "
            "site patched once; "
            "MintDivGuard 18 normal div/rem cases on the game's path, INT_MIN / -1 to the overflow stub, INT_MIN %% -1 = 0, "
            "table patched once: ok\n");
+    TestSlaveLink();
 }

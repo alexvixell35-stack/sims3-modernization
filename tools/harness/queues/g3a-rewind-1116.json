@@ -1,0 +1,1308 @@
+{
+ "note": "G3a (docs/276 §5.2, docs/222 §11.5): the go-live stack priced at runtime from one snapshot per world. TIMING, NEEDS A QUIET MACHINE (clean night); RUN FIRST: a rewind pilot that reaches >= 80% accepted rewinds on BP (rewind-pilot-1116-1116b or its rerun on the bridge with docs/270 §31). Bin state apex-rewind (node tools/harness/queue-rewind.ts state <this file>; Apex latest + the patched RTX Remix bridge). Two rewind groups (BP, IP), 14 jobs each = 7 pairs in ABBA order (off-1 on-1 | on-2 off-2 | ...); every job of a group has the same game start key, the arms differ only in profile.fixesOff (autshadow,autlive,autunseen off at runtime: no go-live requests, no worker, no consume, no unseen-direct; read back by profile-world.ts). The first job of each group loads fresh and the queue snapshots after the load; the other 13 start from a rewind with seed 12345, so each segment starts from the same memory image. A refused rewind reloads and starts a new snapshot epoch: tools/harness/g3-report.ts voids pairs across epochs and pairs with a high-noise row. Read: node tools/harness/g3-report.ts probe-out/queue/g3a-rewind-1116-<date>.jsonl (paired on - off it/s and ms/s, mean +- sd over valid pairs, >= 6 valid pairs per world; G3b installed-only price from the on rows). What this cannot price (installed at load, not switchable at runtime): the kAutLive hooks (B14, push, enqueue, choose pass-through frames), native guard thunks (Guard=all), the AutShadow managed hook set (in every package, also the release state), anything an ini Mode key installs; G3b prices the first two from counters. Household: no behaviour change (the off arm runs fewer of our features, the on arm the shipped defaults, each exempting the household). ~2 x (14 x ~4.3 min + ~2 min load) = ~2.1 h with the smoke. Start: node tools/harness/queue.ts tools/harness/queues/g3a-rewind-1116.json",
+ "rewind": "auto",
+ "jobs": [
+  {
+   "id": "bp-g3a-off-1",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 7 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 1 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); fresh load, the queue snapshots after it; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-on-1",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 1 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-on-2",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 2 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-off-2",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 2 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-off-3",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 3 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-on-3",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 3 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-on-4",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 4 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-off-4",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 4 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-off-5",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 5 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-on-5",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 5 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-on-6",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 6 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-off-6",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 6 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-off-7",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 7 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "bp-g3a-on-7",
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a BP pair 7 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-off-1",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 7 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 1 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); fresh load, the queue snapshots after it; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-on-1",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 1 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-on-2",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 2 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-off-2",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 2 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-off-3",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 3 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-on-3",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 3 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-on-4",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 4 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-off-4",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 4 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-off-5",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 5 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-on-5",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 5 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-on-6",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 6 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-off-6",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 6 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-off-7",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true,
+     "fixesOff": "autshadow,autlive,autunseen"
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 7 arm off: go-live stack off at runtime (fixesOff autshadow,autlive,autunseen, read back); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  },
+  {
+   "id": "ip-g3a-on-7",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "noiseCheck": true,
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+   "pinReason": "master-1116c (builds.json, 0.36.267-mc1116, merge/master-1116c aa67083f; repinned 2026-11-17 in merge/master-1117 from master-1116b): newest registered master set with [Rewind] Park/Offline; repin to the newest registered master set before the run",
+   "releaseDefaults": true,
+   "scriptErrorsMax": 0,
+   "logRequire": {
+    "^ts3native 0.36.267-mc1116 ": 1,
+    "^compat: Apex Radiance found ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.267-mc1116 ": {
+     "match": [
+      "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+     ],
+     "noMatch": [
+      "prior log: ts3native 0.36.267-mc1116 2026-11-16 22:10:00",
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00"
+     ]
+    },
+    "^compat: Apex Radiance found ": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: no Apex Radiance at start"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "noSamplers": true
+    }
+   },
+   "timeoutMin": 20,
+   "note": "[est 4 min] [natural play, no cheats] TIMING, NEEDS A QUIET MACHINE. G3a IP pair 7 arm on: as shipped (Mode=3, Unseen=1); starts from a rewind to the snapshot after the group's first load; 4 min profile (first 60 s dropped = 3 min measured), seed 12345."
+  }
+ ]
+}

@@ -104,6 +104,7 @@ export function costLines(i: Input): string[] {
     // docs/122 §5.1: A4 target < 20% of allow-listed pairs (ts3fixes from docs/122 §14.15 leaves off-allow-list skips out of A0-A5)
     const all = a.every(x => x !== undefined) ? a.reduce((s, x) => s! + x!, 0)! : undefined, skips = fx(i, 'autshadow_skips');
     L.push(`- A4 share: ${all ? `${(a[4]! * 100 / all).toFixed(1)}% of ${all} classified pairs (target < 20%)` : NA}; skipped pairs ${skips ?? NA} [measured]`);
+    L.push(...localLines(i.fix));
     L.push(`- answer table: ${as.entries ?? NA} rows after the last cut, learned ${d(N, 'autshadow', 'learned') ?? NA}, learnDropped ${d(N, 'autshadow', 'learnDropped') ?? NA}, inserts refused ${d(N, 'autshadow', 'full') ?? NA}` +
       (as.version >= 7 ? `; max ${as.entriesMax} rows, memo ${as.memoRows}, evicted ${d(N, 'autshadow', 'evicted') ?? NA} (memo ${d(N, 'autshadow', 'evictedMemo') ?? NA}), ring dropped ${d(N, 'autshadow', 'ringDropped') ?? NA}, most new keys at one cut ${as.learnWantMax}, most body calls at one cut ${as.refreshMax}` : '') + ' [measured]');
     if (as.version >= 8) {  // docs/122 §14.15: where the cut time goes
@@ -184,6 +185,11 @@ export function costLines(i: Input): string[] {
           `SimEvLearn ${as.seLearnOn ?? NA} / SimEvSeated ${as.seSeatOn ?? NA}: ${per('seLearnKept')} / ${per('seSeatKept')} rows kept; ` +
           `TierClassMax ${as.tcMax ?? NA}: ${per('tcCapped')} classifications deferred; gone marks without a record: ` +
           (gw ? `none ${gw[0]}, other lot ${gw[1]}, other room ${gw[2]}, full ${gw[3]}` : NA));
+      }
+      if (as.version >= 23) {  // docs/122 §14.29: ListWalk's world part from one world-lot index a cut
+        const g = (n: string) => d(N, 'autshadow', n) ?? NA;
+        L.push(`- world index per cut [measured]: WorldIndex ${as.wiOn ?? NA}: ${per('wiBuilds')} builds (${per('wiEntries')} entries, ${per('wiUs')} us), ` +
+          `${per('wiLots')} lot world parts from it, ${per('wiFall')} walked per lot; checks ${g('wiChecks')}, misses ${g('wiMis')} (must be 0)`);
       }
     }
     if (as.version >= 15 && as.satbMode) L.push(...satbLines(N, secs));
@@ -523,6 +529,20 @@ export function defCmpLines(fix: Input['fix'] | undefined, recs: any[]): string[
   return L;
 }
 
+// docs/276 rank 5 piece 5 (ts3fixes 1185-1199, switch autt2local, AutShadowLocal.cs): the local B9 replay in Mode R, reference vs
+// worker by walk index, and the worker against the game's own B9 C2 of the same search. Absent counters = no lines.
+export function localLines(fix: Input['fix'] | undefined): string[] {
+  if (typeof fix?.aut_lp_a0?.after !== 'number') return [];
+  const fv = (k: string) => { const c = fix?.[k]; return typeof c?.after === 'number' ? c.after - (c.before ?? 0) : 0; };
+  const pc = (x: number, y: number) => y > 0 ? `${(x * 100 / y).toFixed(1)}%` : NA;
+  const a = [0, 1, 2, 3, 4, 5].map(k => fv(`aut_lp_a${k}`)), all = a.reduce((x, y) => x + y, 0), gp = fv('aut_lp_g_pairs');
+  return [`- local Mode R (autt2local, docs/276 rank 5) [measured]: A0 ${pc(a[0], all)} of ${all} classified local pairs (A1 ${a[1]}, A2 ${a[2]}, ` +
+    `A3 ${a[3]}: must be 0; A4 ${a[4]}, A5 ${a[5]}); walk-order misses ${fv('aut_lp_walkmiss')} (must be 0); household share: {"t":"local"} lines, hh 1`,
+    `- local game report [measured]: ${gp} worker pairs the game's B9 C2 also scored, bit-equal ${pc(fv('aut_lp_g_equal'), gp)}, Test agree ` +
+    `${pc(fv('aut_lp_g_testagree'), gp)}, top 1 agree ${pc(fv('aut_lp_g_top1agree'), fv('aut_lp_g_top1'))} of ${fv('aut_lp_g_top1')} searches; game C2 ` +
+    `order misses ${fv('aut_lp_g_ordermiss')}, game-only pairs ${fv('aut_lp_g_only')} (maps changed between B9 and the cut), records capped ${fv('aut_lp_g_cap')}`];
+}
+
 function selfCheck() {
   const row = { iters: 30, script: 10, taskObjects: 80, oneShot: 0, threaded: 600, route: 100, rtPlanWait: 10, rtLock: 50, rtOtherLock: 0, rtJob: 0,
     gcMark: 4, gcForcedMs: 1, fin: 2, animSacs: 20, animPose: 30, locomotion: 40, publish: 10 };
@@ -622,6 +642,10 @@ function selfCheck() {
     tcMax: 16, tcCapped: 100, gdWhy: [10, 20, 30, 0] } } };
   assert.match(costLines({ tag: 'v19', minutes: 10, native: v19, fix }).join('\n'),
     /mono-cost17 per cut \[measured\]: IdsDelta 1: 4\.0 rows same ids, 1\.0 rows plus new objects \(3\.0 small host calls\), 0\.5 to the host, 10\.0 us; checks 300, misses 0 \(must be 0\); SimEvLearn 1 \/ SimEvSeated 1: 20\.0 \/ 4\.0 rows kept; TierClassMax 16: 0\.2 classifications deferred; gone marks without a record: none 10, other lot 20, other room 30, full 0/);
+  const v23 = { before: v19.before, after: { ...v19.after, autshadow: { ...v19.after.autshadow, version: 23, wiOn: 1, wiBuilds: 400, wiEntries: 800_000,
+    wiUs: 12_000, wiLots: 1300, wiFall: 0, wiChecks: 160, wiMis: 0 } } };
+  assert.match(costLines({ tag: 'v23', minutes: 10, native: v23, fix }).join('\n'),
+    /world index per cut \[measured\]: WorldIndex 1: 0\.8 builds \(1600\.0 entries, 24\.0 us\), 2\.6 lot world parts from it, 0\.0 walked per lot; checks 160, misses 0 \(must be 0\)/);
   const v13w = { before: v13.before, after: { ...v13.after, autshadow: { ...v13.after.autshadow, windowUs: 4_000 } } };
   assert.match(costLines({ tag: 'v13w', minutes: 10, native: v13w, fix }).join('\n'),
     /worker window \[measured\]: quiescent gap .* 10\.0 us vs 3\.0 ms a job.*overruns 40 of 400 \(10\.0%\) at the test wait; .*sim waits 3\.0 ms a request x 5\.0\/s = 15\.0 ms\/s: net /);
@@ -753,6 +777,14 @@ function selfCheck() {
   assert.doesNotMatch(bare, /worker adds/);
   const count = costLines({ tag: 'y', minutes: 10, native: { before: native.before, after: { autshadow: { ...native.after.autshadow, mode: 0 } } } }).join('\n');
   assert.match(count, /Mode R match rate: n\/a/); assert.match(count, /compared n\/a/); assert.doesNotMatch(count, /worker adds/);
+  const lp = (k: string, v: number) => [k, { before: 0, after: v }];
+  const lfix = Object.fromEntries([lp('aut_lp_a0', 90), lp('aut_lp_a1', 0), lp('aut_lp_a2', 0), lp('aut_lp_a3', 0), lp('aut_lp_a4', 8), lp('aut_lp_a5', 2),
+    lp('aut_lp_walkmiss', 0), lp('aut_lp_g_pairs', 50), lp('aut_lp_g_equal', 45), lp('aut_lp_g_testagree', 49), lp('aut_lp_g_top1', 10), lp('aut_lp_g_top1agree', 9),
+    lp('aut_lp_g_ordermiss', 0), lp('aut_lp_g_only', 3), lp('aut_lp_g_cap', 0)]);
+  const ll = localLines(lfix).join('\n');
+  assert.match(ll, /A0 90\.0% of 100 classified local pairs \(A1 0, A2 0, A3 0: must be 0; A4 8, A5 2\); walk-order misses 0/);
+  assert.match(ll, /50 worker pairs .*bit-equal 90\.0%, Test agree 98\.0%, top 1 agree 90\.0% of 10 searches; game C2 order misses 0, game-only pairs 3/);
+  assert.deepEqual(localLines({}), []);
   console.log(out);
   console.log('self-check ok');
 }

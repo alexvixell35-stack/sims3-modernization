@@ -1,0 +1,111 @@
+{
+  "note": "timing-v030-1120-smoke: the declared smoke of timing-v030-1120 as its own one-job queue. chain-timing-v030-1120 calls queue.ts --only per job, and a 10-min call never auto-smokes (SMOKE_OVER_MIN 60), so chain-timing-v030-1120b runs this before the remaining jobs. On arm BP: version, release ON bundle, Apex 4.x + StandDown read back, noSamplers, noise check.",
+  "rewind": "off",
+  "jobs": [
+    {
+      "id": "bp-v030-smoke",
+      "note": "Measurement smoke (AGENTS.md): BP 10 min on arm: version 0.36.295-rc1119b, release ON bundle, Apex 4.x + StandDown lines read back, heavy tools off (noSamplers), noise checked; warms the bridge shader cache.",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "v0.3.1 Steam hotfix = hf031 set (ts3native 0.36.295a, asi.hf031 sha ba8c7211, ini.hf031 sha 725496b5 = rc-1119b ini + [HostMapIterFix] Enabled=1 Repair=1); ts3fixes + ts3agent unchanged rc-1119b (agent installed to build/ by the timing chain)",
+      "releaseDefaults": true,
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0\\.36\\.295a ": 1,
+        "^OK   lost removal fix": 1,
+        "ghost census at world load: GhostSweep=2": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v4\\.\\d+\\.\\d+\\.\\d+, ": 1,
+        "^OK   host map iter fix \\(docs/67 §43\\)": 1
+      },
+      "regexCases": {
+        "^OK   lost removal fix": {
+          "match": [
+            "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+          ],
+          "noMatch": [
+            "SKIP lost removal fix: off"
+          ]
+        },
+        "ghost census at world load: GhostSweep=2": {
+          "match": [
+            "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+          ],
+          "noMatch": [
+            "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows",
+            "SKIP mono jit: off"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not loaded at start"
+          ]
+        },
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v4\\.\\d+\\.\\d+\\.\\d+, ": {
+          "match": [
+            "diag: Bin add-ons: ApexRadiance.asi 14362 KB v4.0.6.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1602 KB"
+          ],
+          "noMatch": [
+            "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1431 KB",
+            "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB"
+          ]
+        },
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-20 15:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 08:17:48",
+            "ts3native 0.36.298-vslot3 2026-11-20 14:00:00"
+          ]
+        },
+        "^OK   host map iter fix \\(docs/67 §43\\)": {
+          "match": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460"
+          ],
+          "noMatch": [
+            "SKIP host map iter fix: off"
+          ]
+        },
+        "^SKIP host map iter fix": {
+          "match": [
+            "SKIP host map iter fix: off"
+          ],
+          "noMatch": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460"
+          ]
+        }
+      },
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "timeoutMin": 30,
+      "stopQueueOnFail": true,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "logForbid": {
+        "^SKIP host map iter fix": 0
+      }
+    }
+  ]
+}

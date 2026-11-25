@@ -363,3 +363,16 @@ Where the notice comes from [verified, NRaas source `NRaasOverwatch/OverwatchSpa
 ## 14. 2026-10-24: `owprobeplans`, Stuck Check V2 no longer counts the game's stuck-check probes (built, not run)
 
 Player report (v0.1.5): V2's route-failure reset (`StuckCheck.OnPostPlan`, separate from the nightly walk above) reset a sleeping Sim after counting the 10-plan probe rounds of EA's own 3 AM stuck check as her failures; the reset notice is the one §13 summarises. Overwatch's own stack-trace skip for `RunStuckCheck` never matches with ts3fixes (our hooks hide that frame). Fix and evidence: docs/163 §9 (ts3fixes `OverwatchProbe.cs`, switch `owprobeplans`, tuning `kOverwatchIgnoreStuckProbes`, default on, counters 293-294; only `OnPostPlan` is patched, it returns early for plans made inside the game's stuck check; the rest of Overwatch unchanged). Upstream note for NRaas: matching the stack frame by method text breaks under any hook of `RunStuckCheck`; not sent.
+
+## 15. 2026-11-20: recheck on v0.3.0 + Apex + bridge (`overwatchchain` ON since v0.1.5)
+
+Queue `tools/harness/queues/spread-recheck-1120.json` (results `docs/data/results/2026-11-20-queue-spread-recheck-1120.md`), set rc-1119b = rel030 (sha256 match), Bin state apex-rewind, Baseline-BP. Correctness run on a busy machine (other CPU 16-19%), so counts are read per firing, not as ms/s. All PASS, 0 script errors, version read back, the switch read back per firing (`Theirs` / `Ours`, `owchain_alarms`).
+
+| Job | Arm | Firings | Frames >= 300 ms | Longest frame | Longest Overwatch step |
+|---|---|---|---|---|---|
+| `bp-overwatch-ab-1120` (bp-overwatch-ab-loop2, ABBA) | off (one tick) | 10 | 10 | 1,174 ms | 1,099 ms |
+| | on (`overwatchchain`) | 10 | 0 from Overwatch | - | 83 ms |
+| `bp-night-off-1120` (natural nights, 5 spreads off, 8 min) | off | 2 nights | 10 (2 Overwatch: 993, 1,119 ms) | 1,119 ms | 1,044 ms |
+| `bp-night-on-1120` (release defaults, 8 min) | on | 2 nights | 8 (none Overwatch) | 675 ms (a Sim's own update) | 69 ms |
+
+[measured] Overwatch's one-tick nightly run costs ~0.8-1.2 s on this build and machine (more than the 280-380 ms of 2026-10-23 on DXVK), and `overwatchchain` takes it below 100 ms per step. Per-arm frame counts come from the hitch lines mapped to the repro's firing times (hitch time + boot time), a ~2 s window error. Upstream comment text for PR #45: drafted for Rodney (not posted).

@@ -1,6 +1,6 @@
 # 241. Wrapper: host window + auto-restart (initial design, draft)
 
-Status (2026-11-03): initial design, not sent. Planned owner: Dalexlol (whole wrapper, not only the restart part), target v0.2.6. Rodney: "we don't go halfway with it".
+Status (2026-11-03): initial design, not sent. **Update 2026-11-15 [verified 2026-11-15: GitHub]:** built by Dalexlol (step 0 spike, draft PR #360; step 1 restart into the same save, draft PR #363; not merged here, never run in our harness) and shipped by Apex Radiance as the experimental restart host (`ts3wrap.exe`, off until `[ui] restart_host = true`) since 3.1.3 (2026-11-12). The 64-bit renderer part is Apex's RTX Remix bridge (our PR #316, handed over 2026-11-09). Planned owner: Dalexlol (whole wrapper, not only the restart part), target v0.2.6. Rodney: "we don't go halfway with it".
 
 Owner's design (2026-11-04): docs/530 (window ownership, input and focus, trigger, restart steps and failure paths, launch, plan, the decisions before the build).
 

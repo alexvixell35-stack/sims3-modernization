@@ -2,6 +2,7 @@
 #define TS3NATIVE_NO_DLLMAIN
 #define TS3N_FAULTINJ  // docs/157: the P5 / P5b / P5c fault-injection hooks (p4.cpp, p5.cpp), test builds only
 #define TS3N_TEST_EXPECTED  // TestDetourCallRel: live bytes that differ from the literal, as on EA
+#define TS3N_EA_PORT  // the EA-port-only features (ts3addr.h): [ImageGuard], [EaCrashFixes] SimNoTexture, tested on dummies
 #include "ts3native.cpp"
 static void TestUfStrict();  // unseenfbc-test.h (docs/202 §3.1.1), run from the uf block
 #include <assert.h>
@@ -662,7 +663,7 @@ static void __fastcall TpPassChecked(void* self, void* edx, float dt) {
 }
 static void TestH2Threaded() {
     static_assert(offsetof(Ts3nCounters, h2Released) == 0x364C && offsetof(Ts3nCounters, h2PassLockN) == 0x3650 &&
-                  offsetof(Ts3nCounters, h2PassLockUs) == 0x3658 && offsetof(Ts3nCounters, h2ReleaseMaxUs) == 0x3660 && sizeof(Ts3nCounters) == 6112 * 4, "v85 layout after v84 (docs/registry.md)");
+                  offsetof(Ts3nCounters, h2PassLockUs) == 0x3658 && offsetof(Ts3nCounters, h2ReleaseMaxUs) == 0x3660 && sizeof(Ts3nCounters) == 6883 * 4, "v85 layout after v84 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG wd0 = k.watchdogs;
     QueryPerformanceFrequency(&g_qpf);
@@ -933,6 +934,174 @@ static void TestA10() {
         memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     }
 
+    // 11a2. [RouteAsync] ClosestWpsCut (contributor 2026-11-13): CowFindSkip, no wait's ask, cuts only past the deadline of a job
+    // whose route is known unseen, counts only in mode 0; never seen NPC / household / unknown scope, before the deadline or
+    // without one; a KD kind with FbJobDeadline's mode off takes it too (the bg5-tbpro job's shape), no deadline owner never
+    {
+        ClosestWpsCounters& cw = ts3native_closestwps;
+        const LONGLONG dl0 = t_fbDeadline;
+        const LONG sc0 = t_kdJobScope, fm0 = k.fbjdMode, w0 = cw.would, c0 = cw.cuts;
+        assert(!CowAsked() && !t_kdCam);
+        t_fbDeadline = 1;
+        t_kdJobScope = 2;
+        k.fbjdMode = 1;
+        cw.mode = 0;
+        assert(!CowFindSkip() && cw.would == w0 + 1 && cw.cuts == c0);
+        cw.mode = 1;
+        assert(CowFindSkip() == 1 && cw.cuts == c0 + 1);
+        t_kdJobScope = 3;
+        assert(!CowFindSkip());  // seen NPC, no ask: never
+        t_kdJobScope = 1;
+        assert(!CowFindSkip());  // household side: never
+        t_kdJobScope = 0;
+        assert(!CowFindSkip());  // unknown scope counts as household
+        t_kdJobScope = 2;
+        t_fbDeadline = PdNow() + g_qpf.QuadPart;
+        assert(!CowFindSkip());  // before the deadline
+        t_fbDeadline = 0;
+        assert(!CowFindSkip());  // no deadline
+        {
+            const int kk0 = t_kdKind;
+            const LONG sp0 = t_scProbe, uj0 = t_ufJob;
+            k.fbjdMode = 0, t_scProbe = 0, t_ufJob = 0;
+            t_kdKind = 5;  // a KD kind + 1
+            t_fbDeadline = 1;
+            assert(CowFindSkip() == 1 && cw.cuts == c0 + 2);
+            t_kdKind = 0;
+            assert(!CowFindSkip());  // no KD kind, no FbJobDeadline mode, no probe or unseen-fallback job
+            t_kdKind = kk0, t_scProbe = sp0, t_ufJob = uj0;
+        }
+        t_fbDeadline = dl0;
+        t_kdJobScope = sc0;
+        k.fbjdMode = fm0;
+        cw.mode = cw.cuts = cw.would = 0;
+    }
+
+    // 11b. [RouteAsync] CutOnWait (docs/850): scope gate at the job's start (unseen and seen NPC only), one ask per job by site,
+    // the deadline moves to start + the scope's minimum run and never later than it was, the asked job's ClosestWaypoints_Find
+    // exit (asked jobs only), stale asks, counters. This thread plays the worker slot and the sim thread in turn.
+    {
+        const LONGLONG dlS = t_fbDeadline;
+        const auto scS = t_kdJobScope;
+        const LONG fmS = k.fbjdMode, exS = t_kdExemptUs, stS = g_async.state, ownS = g_jobOwn, decS = g_cowDecided;
+        const DWORD wkS = g_pdWkTid, seqS = g_asyncSeq, owS = g_async.owner, me = GetCurrentThreadId();
+        const LONG unS = g_cowUnseenUs, npS = g_cowNpcUs, lkS = g_cowLock;
+        const LONGLONG q = g_qpf.QuadPart;
+        assert(q > 0 && !t_pd.open && !t_kdCam);
+        static AsyncJob j;
+        memset(&j, 0, sizeof(j));
+        InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)me);
+        g_async.owner = me, g_async.state = A_RUNNING, g_jobOwn = 0;
+        k.fbjdMode = 1, k.cowMode = 0, k.cowAsks = k.cowCut = k.cowNpcCut = 0;
+        g_cowUnseenUs = 200000, g_cowNpcUs = 500000, g_cowLock = 1, g_cowReq = 0;
+        DWORD seq = 9000;
+        LONGLONG t0 = 0;
+        // a job of `scope` that started ranMs ago with its deadline dlMs after its start
+        auto begin = [&](LONG scope, LONG ranMs, LONG dlMs) {
+            CowJobEnd(false);
+            j.seq = ++seq, g_asyncSeq = seq;
+            t0 = PdNow() - (LONGLONG)ranMs * q / 1000;
+            t_kdJobScope = scope, t_kdExemptUs = scope == 2 ? 0 : 2000000;
+            t_fbDeadline = dlMs ? t0 + (LONGLONG)dlMs * q / 1000 : 0;
+            CowJobBegin(&j, t0);
+        };
+        CowWait w = {};
+        // switch off: nothing is published, nothing asks, no poll, no exit
+        begin(2, 250, 400);
+        CowAsk(SW_DISC, &w);
+        assert(!t_cowSeq && !g_cowOk && !k.cowAsks && !w.seq && !CowPoll() && !CowAsked() && !CowFindSkip());
+        k.cowMode = 1;
+        assert(CowPoll());  // the running job was not looked at with the switch on: the wait looks again
+        // household-or-seen (1, household and selected Sims) and unknown (0): never, whatever waits
+        for (LONG sc = 0; sc <= 1; sc++) {
+            begin(sc, 900, 2000);
+            for (int s = 0; s <= SW_LOCK; s++) CowAsk(s, &w);
+            const LONGLONG dl = t_fbDeadline;
+            PdCowApply(&t_fbDeadline);
+            assert(!t_cowSeq && !g_cowOk && !k.cowAsks && !w.seq && !CowPoll() && t_fbDeadline == dl && !CowFindSkip());
+        }
+        // unseen, 50 ms old, deadline 400: asked once, the deadline becomes start + 200 ms, so no cut yet
+        begin(2, 50, 400);
+        assert(t_cowSeq == (LONG)seq && g_cowOk == (LONG)seq && !CowAsked() && !CowPoll());
+        CowAsk(SW_COLLECT, &w), CowAsk(SW_DROP, &w), CowAsk(SW_OTHER, &w);  // waits for a result or a drop never ask
+        g_jobOwn = 1;
+        CowAsk(SW_RUNPLAN, &w);  // a plan behind an own job: no
+        g_jobOwn = 0, g_cowLock = 0;
+        CowAsk(SW_LOCK, &w);     // CutOnWaitLock=0
+        g_cowLock = 1;
+        assert(!k.cowAsks && !CowAsked());
+        CowAsk(SW_DISC, &w);
+        CowAsk(SW_RTWAIT, &w);  // one ask per job
+        assert(k.cowAsks == 1 && w.seq == (LONG)seq && w.scope == 2 && w.site == SW_DISC && CowAsked());
+        assert(!CowFindSkip() && t_fbDeadline == t0 + 200 * q / 1000 && t_fbDeadline == t_cowDl);
+        CowDone(&w);
+        assert(!w.seq);
+        // unseen, 250 ms old, deadline 400: a lock wait asks, the job is past start + 200 ms: the candidate exit answers none
+        begin(2, 250, 400);
+        assert(!CowFindSkip());  // not asked, before its deadline
+        CowAsk(SW_LOCK, &w);
+        assert(k.cowAsks == 2 && w.site == SW_LOCK && CowFindSkip() == 1 && t_fbDeadline == t_cowDl);
+        CowJobEnd(true);
+        assert(k.cowCut == 1 && !k.cowNpcCut && !g_cowOk && !t_cowSeq && g_cowCapSeq == (LONG)seq);
+        // unseen, past its own deadline but not asked: the game's ClosestWaypoints_Find (no exit of its own)
+        begin(2, 900, 400);
+        assert(!CowAsked() && !CowFindSkip());
+        // a deadline earlier than the minimum run is never moved later
+        begin(2, 10, 100);
+        CowAsk(SW_RTWAIT, &w);
+        LONGLONG bdl = t_fbDeadline;
+        PdCowApply(&bdl);
+        assert(k.cowAsks == 3 && t_fbDeadline == t0 + 100 * q / 1000 && bdl == t_fbDeadline);
+        // seen NPC under its 2 s ceiling: 300 ms old no cut (start + 500 ms), 600 ms old cut; a Budget's copy of the deadline follows
+        begin(3, 300, 2000);
+        CowAsk(SW_RUNPLAN, &w);  // a plan behind a foreign job asks
+        bdl = t_fbDeadline;
+        PdCowApply(&bdl);
+        assert(k.cowAsks == 4 && w.scope == 3 && bdl == t0 + 500 * q / 1000 && t_fbDeadline == bdl && !CowFindSkip());
+        begin(3, 600, 2000);
+        CowAsk(SW_DISC, &w);
+        assert(CowFindSkip() == 1 && PdWorkerSkip(0) == 1);
+        t_fbjdCut[1] = 0;
+        CowJobEnd(true);
+        assert(k.cowCut == 2 && k.cowNpcCut == 1);
+        // not capped at its end (it finished first): not counted as cut
+        begin(3, 10, 2000);
+        CowAsk(SW_DISC, &w);
+        CowJobEnd(false);
+        assert(k.cowAsks == 6 && k.cowCut == 2 && g_cowCapSeq != (LONG)seq);
+        // an ask for the job before reaches no later job
+        begin(3, 900, 2000);
+        assert(!CowAsked() && !CowFindSkip() && t_fbDeadline == t0 + 2000 * q / 1000);
+        // CutOnWaitNpcMs=0: seen NPCs never; probes, stuck-check rounds, no deadline, not the worker slot: never
+        g_cowNpcUs = 0;
+        begin(3, 900, 2000);
+        assert(!t_cowSeq && !g_cowOk);
+        g_cowNpcUs = 500000;
+        j.probe = 1;
+        begin(2, 900, 2000);
+        assert(!t_cowSeq);
+        j.probe = 0, j.sc = 1;
+        begin(2, 900, 2000);
+        assert(!t_cowSeq);
+        j.sc = 0;
+        begin(2, 900, 0);
+        assert(!t_cowSeq);
+        InterlockedExchange((volatile LONG*)&g_pdWkTid, 0);
+        begin(2, 900, 2000);
+        assert(!t_cowSeq && g_cowDecided == (LONG)seq);
+        CowDone(&w), CowAsk(SW_DISC, &w);
+        assert(k.cowAsks == 6 && !w.seq);
+        CowDone(&w);
+        CowJobEnd(false);
+        InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)wkS);
+        g_async.owner = owS, g_async.state = stS, g_jobOwn = ownS, g_asyncSeq = seqS, g_cowDecided = decS, g_cowReq = 0, g_cowCapSeq = 0;
+        g_cowUnseenUs = unS, g_cowNpcUs = npS, g_cowLock = lkS;
+        t_fbDeadline = dlS, t_kdJobScope = scS, t_kdExemptUs = exS, t_jobCapAt = 0;
+        k.fbjdMode = fmS, k.cowMode = k.cowAsks = k.cowCut = k.cowNpcCut = k.cowLateMaxUs = 0;
+        printf("CutOnWait (docs/850): scope gate (household / unknown never), sites, one ask per job, deadline = start + min run and never later, "
+               "ClosestWaypoints_Find exit for asked jobs only, stale ask, probe / stuck-check / no deadline / no worker slot never ok\n");
+    }
+
     // 12. random order over 4 routes and all kinds (incl. Route.Plan): START / READY / IC / CANCEL; every collected result
     // is its own route's and kind's, nothing is left at the end
     {
@@ -989,6 +1158,8 @@ static void TestA10() {
             return GetOptionHook(h, 0, kAsyncOptHi | kArHi | kArFgnHi | (DWORD)kind << 24, 1);
         };
         const int ownKinds = g_arOwnKinds;
+        LONG rf0[2][21];  // docs/247 §13.3 R1: kind 3 refusals by own / foreign and reason (v191)
+        memcpy(rf0, (const void*)k.arRf3, sizeof(rf0));
         for (int kind = 1; kind <= 3; kind++) {
             const int i = kind - 1;
             const float* pt = kind >= 2 ? p1 : NULL;
@@ -1015,6 +1186,21 @@ static void TestA10() {
             assert(!fstart(kH1, kind, pt) && k.afActive[i] == 1);
             g_arActive = 0;
             assert(!ArWould(kH1, 6) && ArWould(kH1, 5) && ArWould(kH1, 3) && !ArWould(kH1, 0));
+            {  // docs/261 L1: q 10 = ReplanLog, q 11 = Kinds bit 0, q 12 = arReady bit 0, unknown q 14 = 0; no counter moves
+                const LONG act = k.afActive[i];
+                g_rlOn = 0;
+                assert(!ArWould(kH1, 10));
+                g_rlOn = 1;
+                assert(ArWould(kH1, 10));
+                g_rlOn = 0;
+                const int ok0 = g_arOwnKinds;
+                g_arOwnKinds = 0;
+                assert(!ArWould(kH1, 11));
+                g_arOwnKinds = 1;
+                assert(ArWould(kH1, 11));
+                g_arOwnKinds = ok0;
+                assert(ArWould(kH1, 12) == ((k.arReady & 1) != 0) && !ArWould(kH1, 14) && k.afActive[i] == act);
+            }
             FakeTask(kNested, 7);
             assert(!ArWould(kH1, 5));
             assert(!fstart(kH1, kind, pt) && k.afNoYield[i] == 1);
@@ -1025,6 +1211,13 @@ static void TestA10() {
             k.afKinds = 0;
         }
         assert(!AsyncBusy() && g_async.state == A_IDLE);
+        // kind 3 only (kinds 1-2 counted nowhere here): 2 foreign refused while ForeignKinds / afMode were off, 1 own with Kinds=0,
+        // 1 foreign Active, 1 foreign NoYield; started STARTs are not counted
+        LONG drf = 0;
+        for (int r = 0; r < 2; r++)
+            for (int c = 0; c < 21; c++) drf += k.arRf3[r][c] - rf0[r][c];
+        assert(k.arRf3[1][RFB_FOREIGN] - rf0[1][RFB_FOREIGN] == 2 && k.arRf3[0][kRf3KindsOff] - rf0[0][kRf3KindsOff] == 1);
+        assert(k.arRf3[1][RFB_ACTIVE] - rf0[1][RFB_ACTIVE] == 1 && k.arRf3[1][RFB_NOYIELD] - rf0[1][RFB_NOYIELD] == 1 && drf == 5);
         memset(&k.afMode, 0, offsetof(Ts3nCounters, afActiveTrip) + 4 - offsetof(Ts3nCounters, afMode));
     }
 
@@ -1087,6 +1280,61 @@ static void TestA10() {
         k.arWdPass = 0;
         assert(!AsyncBusy() && g_async.state == A_IDLE);
     }
+    // 15. docs/288 §4: the own Kinds gate. Mode 1 needs H2Ic (7 slots, Mode 1) + RefcountGuard (Mode 1); then only a route
+    // known unseen (scope 2 for this handle) starts. Household, seen NPC, no answer and another route's answer plan sync;
+    // [Experimental] HouseholdToo lifts the scope part only; KindsMode 0 (shadow) needs no guards
+    {
+        const LONG hxR = k.hxReady, hxM = k.hxMode, rcR = k.rcReady, rcM = k.rcMode, arM = k.arMode;
+        const LONG sc0 = k.arScopeRefused, pr0 = k.arPrereqRefused, st0 = k.arStarted[0], sh0 = k.arShadow[0];
+        auto refused = [&](DWORD h) {
+            const bool r = !ArStart(h, 1, NULL) && !JobFor(h);
+            assert(ArCollect(1, out, h, NULL) == out && ArSync(out, 1));
+            return r;
+        };
+        auto started = [&](DWORD h) {
+            if (!ArStart(h, 1, NULL) || !JobFor(h)) return false;
+            WaitReady(h);
+            const bool r = ArCollect(1, out, h, NULL) == out && ArFromJob(out, h, 1, NULL);
+            Cancel(h);
+            return r;
+        };
+        g_arOwnGate = 1;
+        k.arMode = 1;
+        k.hxReady = 6, k.hxMode = 1, k.rcReady = 1, k.rcMode = 1;
+        KdScopeSet(kH1, 2);
+        assert(refused(kH1) && k.arPrereqRefused == pr0 + 1 && k.arScopeRefused == sc0);  // one H2Ic slot missing
+        k.hxReady = 7, k.rcMode = 0;
+        KdScopeSet(kH1, 2);
+        assert(refused(kH1) && k.arPrereqRefused == pr0 + 2);  // RefcountGuard counting only
+        k.rcMode = 1;
+        KdScopeSet(kH1, 1);
+        assert(refused(kH1) && k.arScopeRefused == sc0 + 1);  // household
+        KdScopeSet(kH1, 3);
+        assert(refused(kH1) && k.arScopeRefused == sc0 + 2);  // seen NPC
+        KdScopeClear(kH1);
+        assert(refused(kH1) && k.arScopeRefused == sc0 + 3);  // no answer = unknown = household
+        KdScopeSet(kH2, 2);
+        assert(refused(kH1) && k.arScopeRefused == sc0 + 4);  // another route's answer
+        KdScopeClear(kH2);
+        KdScopeSet(kH1, 2);
+        assert(started(kH1) && k.arStarted[0] == st0 + 1 && k.arPrereqRefused == pr0 + 2 && k.arScopeRefused == sc0 + 4);
+        g_hhToo = 1;
+        KdScopeSet(kH1, 1);
+        assert(started(kH1) && k.arStarted[0] == st0 + 2);
+        k.hxMode = 0;
+        assert(refused(kH1) && k.arPrereqRefused == pr0 + 3);  // the flag never lifts the guards
+        g_hhToo = 0;
+        k.arMode = 0, k.hxReady = 0;  // shadow: no guards needed, the scope part still applies
+        KdScopeSet(kH1, 2);
+        assert(refused(kH1) && k.arShadow[0] == sh0 + 1 && k.arPrereqRefused == pr0 + 3);
+        KdScopeSet(kH1, 1);
+        assert(refused(kH1) && k.arShadow[0] == sh0 + 1 && k.arScopeRefused == sc0 + 5);
+        KdScopeClear(kH1);
+        g_arOwnGate = 0;
+        k.hxReady = hxR, k.hxMode = hxM, k.rcReady = rcR, k.rcMode = rcM, k.arMode = arM;
+        k.arScopeRefused = sc0, k.arPrereqRefused = pr0;
+        assert(!AsyncBusy() && g_async.state == A_IDLE);
+    }
     assert(k.watchdogs == wd0);
     g_routeIsActive = savedActive;
     memset(g_arOrig, 0, sizeof(g_arOrig));
@@ -1103,6 +1351,22 @@ static void __fastcall FbFakeApply(void* world, void*) {
     (*(u8**)((u8*)world + 0x95C))[0x10E] = 0;
 }
 static LONG __fastcall FbBusyAcquire(void*, void*, const DWORD* deadline) { assert(*deadline == 0); return -2; }
+// docs/247 §13.1 L FbApplyLog=1: the written-out 0x82C420 walk over fake lots (ids in +0x48, the second word +0x4C)
+static u8 g_fbLot[3][0x50];
+static const u8* g_fbLotVec[4] = {g_fbLot[0], NULL, g_fbLot[1], g_fbLot[2]};
+static const u8* g_fbLotRange[2] = {(const u8*)&g_fbLotVec[0], (const u8*)&g_fbLotVec[4]};
+static void* g_fbLotsWm;
+static LONG g_fbLotOrder;  // applied lot ids, one hex digit each, in call order
+static const u8* const* __fastcall FbFakeLots(void* wm, void*, int which) {
+    assert(wm == g_fbLotsWm && which == 0);
+    return g_fbLotRange;
+}
+static char __fastcall FbFakeLotPend(void*, void*, DWORD a, DWORD b) { return b == 0x77 && a != 1; }  // lot 1 has no update
+static void __fastcall FbFakeLotApply(void*, void*, void* lot) {
+    const DWORD a = *(const DWORD*)((u8*)lot + 0x48);
+    g_fbLotOrder = g_fbLotOrder << 4 | (LONG)a;
+    if (a == 3) Sleep(5);  // the slow lot
+}
 static u8* __cdecl FbCapIc(u8* out, DWORD handle) {  // stands in for a sim plan whose world A* hit the cap
     g_fbSeenCap = t_fbCapUs;
     if (t_fbCapUs) t_fbCapHit = 1;
@@ -1226,6 +1490,25 @@ static void TestFallback() {
     WaitReady(kH1);  // the worker took +0x918 for the job, so the START released it
     assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
     Cancel(kH1);
+    assert(k.fbApN == 1 && k.fbApLots == 0 && k.fbApLong == 0);  // timed always; the per-lot split only with FbApplyLog=1
+    {  // docs/247 §13.1 L: FbApplyLog=1 walks the lots itself: pending ones only, in vector order, NULL skipped, flag cleared
+        for (int i = 0; i < 3; i++) *(DWORD*)(g_fbLot[i] + 0x48) = i + 1, *(DWORD*)(g_fbLot[i] + 0x4C) = 0x77;
+        g_fbLotsWm = *(void**)(world + 0x964);
+        g_fbLots = FbFakeLots, g_fbLotPend = FbFakeLotPend, g_fbLotApply = FbFakeLotApply;
+        k.fbApLog = 1;
+        p[0x10E] = 1;
+        assert(Start(kH1) && k.fbPendApplied == 2 && k.fbApN == 2 && p[0x10E] == 0);
+        assert(g_fbLotOrder == 0x23 && k.fbApLots == 2 && k.fbApLotMaxUs >= 4000 && k.fbApMaxUs >= k.fbApLotMaxUs);
+        WaitReady(kH1);
+        Cancel(kH1);
+        p[0x10E] = 0;  // flag already clear: the walk does not even read the lot list
+        g_fbLotsWm = (void*)1;
+        assert(Start(kH1) && k.fbApN == 2);  // RtM1Allows passes, no apply
+        WaitReady(kH1);
+        Cancel(kH1);
+        k.fbApLog = 0;
+        k.fbPendApplied = 1;  // the counts below were written before this block
+    }
     p[0x10E] = 1;  // +0x918 busy: one try, nothing applied, refused as before
     g_fbAcq = FbBusyAcquire;
     assert(!Start(kH1) && k.fbPendBusy == 1 && k.fbPendApplied == 1 && p[0x10E] == 1 && g_rfbWhy == RFB_M1 + 3);
@@ -1276,6 +1559,13 @@ static void TestFallback() {
         WaitReady(kH1);
         assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == g_workerTid);
         Cancel(kH1);
+        // docs/631 PlayerFirst: off = oldest first; on = a marked job before an older unmarked one, oldest first within each
+        assert(PfBefore(0, 0, 1, 1, 2) && !PfBefore(0, 1, 2, 0, 1) && PfBefore(1, 1, 2, 0, 1) && !PfBefore(1, 0, 1, 1, 2));
+        assert(PfBefore(1, 1, 1, 1, 2) && PfBefore(1, 0, 1, 0, 2) && PfBefore(1, 1, 0xFFFFFFFF, 1, 0));  // seq wraps
+        PfSet(kH1);
+        assert(PfTake(kH1 + 1) == 0 && PfTake(kH1) == 0);  // used up by any START, its own or not
+        PfSet(kH1);
+        assert(PfTake(kH1) == 1 && PfTake(kH1) == 0);
         // J_PEND audit: household and unknown scope park, known unseen queues; CANCEL frees; a world closing and a Plan without READY plan here
         g_discDraining = true;
         rec = DiscRec{};
@@ -1475,7 +1765,7 @@ static void TestFallback() {
         Cancel(kH1);
         assert(GetOptionHook(kH1, 0x20000 | 0x100, kProbeHi, 1) == 0 && g_scTagH == 0);  // other optLo forms: not this channel
         // docs/250 §7.1 bit 10: the watchdog's idle check; a label only (no probe even with the cut bit, no sync mark), job time in v179
-        static_assert(offsetof(Ts3nCounters, wdJobN) == 0x5F18 && offsetof(Ts3nCounters, wdJobLong) == 0x5F24 && sizeof(Ts3nCounters) == 6112 * 4,
+        static_assert(offsetof(Ts3nCounters, wdJobN) == 0x5F18 && offsetof(Ts3nCounters, wdJobLong) == 0x5F24 && sizeof(Ts3nCounters) == 6883 * 4,
                       "counters v179 after the v913 gap (docs/registry.md)");
         const LONG wdN0 = k.wdJobN;
         assert(GetOptionHook(kH1, 0x10000 | 0x400 | 0x100, kProbeHi, 1) == 0);
@@ -1502,7 +1792,7 @@ static void TestFallback() {
     // docs/202 [UnseenFallback]: a MARK makes the route's next START a job under ufUs (worker deadline slot open); one START
     // per mark, a mark on another route or with ufMode 0 marks nothing; CUT? answers once; sync deadline choice; job end
     {
-        static_assert(offsetof(Ts3nCounters, ufMode) == 0x5360 && offsetof(Ts3nCounters, ufCutAsks) == 0x538C && sizeof(Ts3nCounters) == 6112 * 4,
+        static_assert(offsetof(Ts3nCounters, ufMode) == 0x5360 && offsetof(Ts3nCounters, ufCutAsks) == 0x538C && sizeof(Ts3nCounters) == 6883 * 4,
                       "counters v138 layout after v137 (docs/registry.md)");
         const LONG um0 = k.ufMode, uu0 = k.ufUs, ur0 = k.ufReady, pr0 = k.pdReady;
         // the 0.36.91 miss (sv-ufb-farcrowd-loop: a marked 402 ms sync plan, "world A* capped 0"): [UnseenFallback] alone,
@@ -1583,7 +1873,7 @@ static void TestFallback() {
     // 4c. docs/134 §11: the job cap is a deadline from the job's start, read every 4th cost call of either kind
     {
         static_assert(offsetof(Ts3nCounters, fbjcCapAtMaxUs) == 0x3604 && offsetof(Ts3nCounters, fbjcWaitHist) == 0x3634 &&
-                          sizeof(Ts3nCounters) == 6112 * 4, "counters v84 layout after v83 (docs/registry.md)");
+                          sizeof(Ts3nCounters) == 6883 * 4, "counters v84 layout after v83 (docs/registry.md)");
         const PlanLockedFn planSave = g_planOrig;
         const LONG readySave = k.budgetReady;
         g_planOrig = FbSlowSearch;
@@ -1706,6 +1996,8 @@ static void TestFallback() {
     g_fbAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;
     g_fbRel = (FbRelFn)(uintptr_t)0x004E17B0;
     g_fbApply = (FbApplyFn)(uintptr_t)0x0082C420;
+    g_fbLots = (FbLotsFn)(uintptr_t)0x00C68960, g_fbLotPend = (FbLotPendFn)(uintptr_t)0x00631A60;
+    g_fbLotApply = (FbLotApplyFn)(uintptr_t)0x0082B590;
     g_routeIsActive = savedActive;
     g_rfbHandle = 0;
     memset(&k.rfbLogMs, 0, sizeof(LONG) * 8);
@@ -3208,6 +3500,8 @@ static DWORD __fastcall LsFakeScore(void*, void*, DWORD a, DWORD, DWORD, DWORD d
 static DWORD __fastcall LsFakeSync(void*, void*, DWORD, DWORD) { LsSpin(1); return 1; }
 static DWORD __fastcall LsFakeObj(u8*, void*, DWORD a, DWORD, DWORD) { LsSpin(2); return a + 1; }
 static DWORD WINAPI LsOtherThread(void*) { g_lsPumpNest = 0; return LsPumpHook(NULL, NULL, 1, 2, 3); }
+static DWORD __fastcall LsFakeThumb(void*, void*, DWORD a, DWORD, DWORD, DWORD, DWORD e) { LsSpin(2); return a + e; }
+static DWORD WINAPI LsThumbOtherThread(void*) { return LsThumbHook(NULL, NULL, 1, 0, 0, 0, 2); }
 
 static void TestLotStream() {
     Ts3nCounters& k = ts3native_counters;
@@ -3298,6 +3592,17 @@ static void TestLotStream() {
     LsObjHook(g_lsLot, NULL, 0xABCD, 0, 0);
     assert(k.objScenes == 2 && k.lsLogDropped == 0);
 
+    // thumbnail texture (Thumb=1): timed on the sim thread, only counted elsewhere, pass-through in mode 0, args kept
+    g_lsThumbOrig = LsFakeThumb;
+    assert(LsThumbHook(NULL, NULL, 5, 0, 0, 0, 7) == 12 && k.thumbCalls == 1 && k.thumbUs >= 1500 && k.thumbMaxUs == k.thumbUs);
+    HANDLE th = CreateThread(NULL, 0, LsThumbOtherThread, NULL, 0, NULL);
+    WaitForSingleObject(th, INFINITE);
+    CloseHandle(th);
+    assert(k.thumbCalls == 1 && k.thumbOffSim == 1);
+    k.lsMode = 0;
+    assert(LsThumbHook(NULL, NULL, 1, 0, 0, 0, 1) == 2 && k.thumbCalls == 1 && k.thumbOffSim == 1);
+    k.lsMode = 1;
+
     // event file: add (no pass), add + remove (in the pass), add + remove (other thread's pass, untimed), obj
     CloseHandle(g_lsLog);
     g_lsLog = INVALID_HANDLE_VALUE;
@@ -3321,6 +3626,90 @@ static void TestLotStream() {
     WritePrivateProfileStringW(L"LotStream", L"Enabled", L"1", ini);
     assert(!ApplyLotStream(ini) && k.lsReady == 0 && g_lsLog == INVALID_HANDLE_VALUE);
     DeleteFileW(ini);
+    memset(&k.lsReady, 0, (offsetof(Ts3nCounters, lsLogDropped) - offsetof(Ts3nCounters, lsReady) + 4));
+}
+
+// --- CP-1 lot hub (docs/321 §8): generation counter + events through the real hooks, both [LotStream] modes ---
+struct LhSeen { int n, kind; const u8* lot; LONG gen; void* ctx; };
+static void LhFakeSub(int kind, const u8* lot, LONG gen, void* ctx) {
+    LhSeen* s = (LhSeen*)ctx;
+    s->n++, s->kind = kind, s->lot = lot, s->gen = gen, s->ctx = ctx;
+}
+static void TestLotHub() {
+    Ts3nCounters& k = ts3native_counters;
+    memset(&k.lhReady, 0, offsetof(Ts3nCounters, lhFired) - offsetof(Ts3nCounters, lhReady) + 4);
+    g_lhSubN = 0;
+    g_lsAddOrig = g_lsRemoveOrig = LsFakeExec;
+    static LhSeen a, b;
+    assert(LotHubSubscribe(LhFakeSub, &a) && LotHubSubscribe(LhFakeSub, &b) && g_lhSubN == 2);
+
+    // [LotStream] off (Mode 0): the game's call runs first, then the hub; return value kept
+    k.lsMode = 0;
+    const int e0 = g_lsFakeExecs;
+    assert(LsAddHook(g_lsCallAdd, NULL) == 0x55 && g_lsFakeExecs == e0 + 1);
+    assert(k.lhAdds == 1 && k.lhRemoves == 0 && k.lhLotGen == 1 && k.lhWorldGen == 0 && k.lhFired == 2);
+    assert(a.n == 1 && a.kind == LH_ADD && a.lot == g_lsLot && a.gen == 1 && a.ctx == &a && b.n == 1 && b.ctx == &b);
+    assert(k.lotAdds == 0);  // no [LotStream] measurement in mode 0
+    // another fn on the execute is not a lot event
+    assert(LsAddHook(g_lsCallOther, NULL) == 0x55 && k.lhLotGen == 1 && a.n == 1);
+    assert(LsRemoveHook(g_lsCallAdd, NULL) == 0x55 && k.lhLotGen == 1 && k.lhRemoves == 0);  // add fn on the remove execute
+    assert(LsRemoveHook(g_lsCallRemove, NULL) == 0x55 && k.lhRemoves == 1 && k.lhLotGen == 2 && a.kind == LH_REMOVE && a.gen == 2);
+
+    // [LotStream] measuring (Mode 1): one hub event per call too, after the measurement
+    k.lsMode = 1;
+    assert(LsAddHook(g_lsCallAdd, NULL) == 0x55 && k.lotAdds == 1 && k.lhAdds == 2 && k.lhLotGen == 3 && a.n == 3 && b.n == 3);
+    assert(LsAddHook(g_lsCallOther, NULL) == 0x55 && k.lhLotGen == 3);
+    k.lsMode = 0;
+
+    // world events: both generations move, lot NULL, gen = the lot generation
+    LotHubFire(LH_WORLD_LOAD, NULL);
+    assert(k.lhWorldGen == 1 && k.lhLotGen == 4 && a.kind == LH_WORLD_LOAD && a.lot == NULL && a.gen == 4 && k.lhAdds == 2);
+    LotHubFire(LH_WORLD_QUIT, NULL);
+    assert(k.lhWorldGen == 2 && k.lhLotGen == 5 && a.kind == LH_WORLD_QUIT && k.lhFired == 10);
+
+    // no subscribers: counters still move
+    g_lhSubN = 0;
+    LsAddHook(g_lsCallAdd, NULL);
+    assert(k.lhLotGen == 6 && k.lhFired == 10 && a.n == 5);
+    // table full: refused, logged, nothing overwritten
+    // duplicate subscribe (re-init) keeps one row
+    assert(LotHubSubscribe(LhFakeSub, &b) && LotHubSubscribe(LhFakeSub, &b) && g_lhSubN == 1);
+    g_lhSubN = 0;
+    static LhSeen many[kLhSubsMax];
+    for (int i = 0; i < kLhSubsMax; i++) assert(LotHubSubscribe(LhFakeSub, &many[i]));
+    assert(!LotHubSubscribe(LhFakeSub, &a) && g_lhSubN == kLhSubsMax);
+    g_lhSubN = 0;
+
+    // CP-2 op 49 queue: unarmed = nothing kept; armed by the first pop; FIFO with kind and id bits; world event clears it;
+    // a full queue hands out one overflow event first and drops the rest
+    assert(g_lhQN == 0 && !g_lhQArmed);  // the events above came before any pop
+    assert(LhOp(4) == 0);  // lhReady 0 here
+    assert(LhOp(0) == 0 && g_lhQArmed);
+    *(DWORD*)(g_lsLot + 0x48) = 0x80000005;
+    LsAddHook(g_lsCallAdd, NULL);
+    *(DWORD*)(g_lsLot + 0x48) = 7;
+    LsRemoveHook(g_lsCallRemove, NULL);
+    assert(LhOp(0) == 1 && LhOp(2) == 0 && LhOp(3) == 0 && LhOp(1 | 0 << 8) == 1 && LhOp(1 | 1 << 8) == 0 && LhOp(1 | 2 << 8) == 1 && LhOp(1 | 31 << 8) == 1);
+    assert(LhOp(0) == 1 && LhOp(2) == 1 && LhOp(1 | 1 << 8) == 1 && LhOp(1 | 31 << 8) == 0);
+    assert(LhOp(0) == 0);
+    LsAddHook(g_lsCallAdd, NULL);
+    LotHubFire(LH_WORLD_LOAD, NULL);
+    assert(g_lhQN == 0 && LhOp(0) == 0);
+    for (int i = 0; i < kLhQ + 3; i++) LsAddHook(g_lsCallAdd, NULL);
+    assert(g_lhQN == kLhQ && g_lhQOver);
+    assert(LhOp(0) == 1 && LhOp(3) == 1 && LhOp(2) == 0 && g_lhQN == 0 && !g_lhQOver && LhOp(0) == 0);
+    *(DWORD*)(g_lsLot + 0x48) = 1;
+    g_lhQArmed = false;
+
+    // install: kill switch, then refused without the game's prologues (both checked before either is written)
+    wchar_t tmp[MAX_PATH], ini[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmp);
+    swprintf_s(ini, L"%sts3n-selftest-lothub-%lu.ini", tmp, GetCurrentProcessId());
+    WritePrivateProfileStringW(L"LotHub", L"Enabled", L"0", ini);
+    assert(!ApplyLotHub(ini) && k.lhReady == 0);
+    DeleteFileW(ini);  // no file = default Enabled=1
+    assert(!ApplyLotHub(ini) && k.lhReady == 0 && g_lsAddOrig == LsFakeExec);
+    memset(&k.lhReady, 0, offsetof(Ts3nCounters, lhFired) - offsetof(Ts3nCounters, lhReady) + 4);
     memset(&k.lsReady, 0, (offsetof(Ts3nCounters, lsLogDropped) - offsetof(Ts3nCounters, lsReady) + 4));
 }
 
@@ -4026,7 +4415,7 @@ static void TestRouteSites() {
     reset();
     // gate site 16 (index 15, IC_World_FindPlacesOnShoreline, crash K) counts in v108, not in the v25 arrays
     static_assert(offsetof(Ts3nCounters, rgUnlocked3) == 0x45C4 && offsetof(Ts3nCounters, rgJob3) == 0x45C8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v108 layout after v107 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v108 layout after v107 (docs/registry.md)");
     assert(kRgSites[15].addr == 0x0078C440 && kRgSites[15].len == 6);
     k.rgUnlocked3 = k.rgJob3 = 0;
     RgEnter(15, &stack[20]);
@@ -4619,6 +5008,17 @@ static void TestDiscourage() {
     g_async.state = A_IDLE;  // WaitAsyncDone returns at once in the test
     DiscPoll();
     assert(g_discCount == 0 && k.discForced == 0);  // no job ran: a plain drain
+    // #408: a slot keeps nothing from the record that used it before (a kind 2 LostRemovalFix record's lr and lot)
+    g_disc[g_discHead].lr = true;
+    g_disc[g_discHead].lotLo = 7;
+    g_disc[g_discHead].lotHi = 8;
+    g_async.state = A_RUNNING;
+    DiscRemoveHook(world, NULL, g_dObjA);
+    assert(g_discCount == 1 && !g_disc[g_discHead].lr && g_disc[g_discHead].lotLo == 0 && g_disc[g_discHead].lotHi == 0);
+    g_async.state = A_IDLE;
+    g_dLogN = 0;
+    DiscPoll();
+    assert(g_discCount == 0 && g_dLogN == 1 && g_dLog[0] == 'a');
     // mode 0: never deferred
     k.discMode = 0;
     g_async.state = A_RUNNING;
@@ -4853,7 +5253,7 @@ static u8 __fastcall FakeUsfShould(void*, void*, void* obj) { assert(obj); retur
 static void TestFootprintDefer() {
     static_assert(offsetof(Ts3nCounters, usfReady) == 0x3174 && offsetof(Ts3nCounters, usfMode) == 0x3178 &&
                   offsetof(Ts3nCounters, usfApplied) == 0x31A4 && offsetof(Ts3nCounters, usfApplyInJob) == 0x31C4 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "v74 layout (without v52, v58)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "v74 layout (without v52, v58)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5089,7 +5489,7 @@ static DWORD WINAPI F2JobEnd(void*) {  // the running job ends a little later (a
 static void TestFootprintDefer2() {
     static_assert(offsetof(Ts3nCounters, fp2Mode) == 0x3FB4 && offsetof(Ts3nCounters, fp2Deferred) == 0x3FBC &&
                   offsetof(Ts3nCounters, fp2Forced) == 0x3FDC && offsetof(Ts3nCounters, fp2ApplyInJob) == 0x3FE8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v94 layout after v92 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v94 layout after v92 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5236,10 +5636,12 @@ static void TestFootprintDefer2() {
     k.rgOwnerTid = (LONG)me;
     assert(PfRemoveSite(world, NULL, A, 1) == 1 && log("ZX") && g_discCount == 2);
     k.rgOwnerTid = 0;
-    const LONG forced0 = k.discForced;
+    const LONG forced0 = k.discForced, rd0 = k.dsN[DS_FP2READ], pf0 = k.dsN[DS_PF];
     CloseHandle(CreateThread(NULL, 0, F2JobEnd, NULL, 0, NULL));
     assert(PfRemoveSite(world, NULL, A, 1) == 1);
     assert(log("ZXfQX") && settled() && k.fp2Forced == 1 && k.discForced == forced0 + 1 && g_async.state == A_IDLE);
+    // docs/247 §13.4 C: that wait is the reader flush's (a native IC point, not ours), with its time
+    assert(k.dsN[DS_FP2READ] == rd0 + 1 && k.dsN[DS_PF] == pf0 && k.dsUs[DS_FP2READ] > 0 && k.dsN[DS_START] == 0 && k.dsN[DS_READY] == 0);
     g_xLogN = 0;
     g_async.state = A_RUNNING;
     UolHook(world, NULL, B);
@@ -5364,10 +5766,27 @@ static u8 __fastcall LrLotRemove(void*, void*, DWORD lotLo, DWORD lotHi, DWORD i
 }
 static DWORD WINAPI LrHoldThread(void*) { FpgHoldPoint(); return 0; }
 
+// the EA check before the LostRemovalFix patch: both callees must be direct calls inside UpdateObjectLot, else the fix stays off
+static void TestUolCalls() {
+    u8* const page = (u8*)VirtualAlloc(NULL, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    assert(page);
+    const DWORD fn = (DWORD)(uintptr_t)page, site = fn + 0x30, target = 0x8297C0;
+    u8* const p = (u8*)(uintptr_t)site;
+    p[0] = 0xE8;
+    *(LONG*)(p + 1) = (LONG)(target - (site + 5));
+    assert(UolCalls(fn, target));
+    assert(!UolCalls(fn, target + 0x10));  // a wrong row
+    p[0] = 0xE9;
+    assert(!UolCalls(fn, target));  // a jmp is no call
+    VirtualFree(page, 0, MEM_RELEASE);
+    assert(!UolCalls(fn, target));  // unreadable
+    printf("UolCalls: wrong row, jmp and unreadable code leave the lost removal fix off\n");
+}
+
 static void TestFp2LostRemoval() {
     static_assert(offsetof(Ts3nCounters, fp2lrMode) == 0x5DE8 && offsetof(Ts3nCounters, fp2lrOrderMiss) == 0x5E08 &&
                   offsetof(Ts3nCounters, fpgMode) == 0x5E0C && offsetof(Ts3nCounters, fpgHeld) == 0x5E34 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v172 layout (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v172 layout (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -5522,11 +5941,55 @@ static void TestFp2LostRemoval() {
     __declspec(align(16)) float pts[3][4] = {{1.5f}, {2}, {3}};
     u8* vec[3] = {(u8*)pts, (u8*)pts + 48, (u8*)pts + 48};
     DiscAddHook(world, NULL, A, vec, 0, 0, 0);
+    const LONG lrs0 = k.lrsN[0], lrsUs0 = k.lrsUs[0], lrFl0 = k.fp2lrFlushUs;
     CloseHandle(CreateThread(NULL, 0, F2JobEnd, NULL, 0, NULL));
     UofSite(world, NULL, A);
+    // docs/247 §13.4 C: called from here, not from EA's second site, so site [0]; its wait is the fp2lrFlushUs growth
+    assert(k.lrsN[0] == lrs0 + 1 && k.lrsN[1] == 0 && k.lrsUs[0] - lrsUs0 == k.fp2lrFlushUs - lrFl0 && k.lrsUs[0] > lrsUs0);
     assert(k.fp2lrOrderMiss == 3 && g_discCount == 2 && g_disc[g_discHead].idLo == 0xB && g_disc[(g_discHead + 1) % kDiscCap].add);
     DiscPoll();
     assert(g_discCount == 0 && k.fp2ApplyInJob == 0 && k.rgOwnerTid == 0);
+
+    // UofDefer (docs/852): a lot move during a job queues remove, remove, insert with no wait; the drain after the job
+    // leaves vanilla's map. Then a lone insert during a job, applied at the drain; and gone at apply: dropped.
+    g_udMode = 1;
+    g_udQueued = g_udApplied = g_udDropped = g_udFull = 0;
+    const LONG flush0 = k.fp2lrFlush, flushUs0 = k.fp2lrFlushUs;
+    place(1);
+    g_async.state = A_RUNNING;
+    lotMove(2);
+    assert(g_discCount == 3 && g_udQueued == 1 && k.fp2lrFlush == flush0 && k.fp2lrFlushUs == flushUs0 && g_lrMap[0] == 1u << 1);
+    assert(g_disc[(g_discHead + 2) % kDiscCap].fp2 == 3);
+    DiscPoll();  // records younger than kDiscMaxAgeMs and a job runs: nothing applied
+    assert(g_discCount == 3);
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(g_lrMap[0] == vanillaMove && g_discCount == 0 && g_udApplied == 1 && settled());
+    place(1);
+    g_async.state = A_RUNNING;
+    UofSite(world, NULL, A);
+    assert(g_discCount == 1 && g_lrMap[0] == 1u << 1);
+    g_lrLot[0] = 3;  // the lot it holds at apply: 0x833680 reads it then, as vanilla's call would now
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(g_lrMap[0] == ((1u << 1) | (1u << 3)) && g_udApplied == 2 && g_discCount == 0);
+    place(1);
+    g_async.state = A_RUNNING;
+    UofSite(world, NULL, A);
+    g_xLive[0] = NULL;
+    g_async.state = A_IDLE;
+    DiscPoll();
+    assert(g_lrMap[0] == 1u << 1 && g_udDropped == 1 && g_discCount == 0);
+    g_xLive[0] = A;
+    // no job: today's path (no record, no wait), and the flush of a queued insert keeps the order
+    UofSite(world, NULL, A);
+    assert(g_discCount == 0 && g_udQueued == 3);
+    g_async.state = A_RUNNING;
+    UofSite(world, NULL, A);
+    g_async.state = A_IDLE;
+    place(1);
+    UofSite(world, NULL, A);  // flushes the queued insert first (no job: no wait), then inserts now
+    assert(g_discCount == 0 && g_udApplied == 3 && g_udQueued == 4);
 
     // GhostSweep, a fake footprint map holding every kind of entry
     const DWORD G = 0x1D3272D0, GH = 0x38B400F5, L = 0x1D327130, P = 0x1D328EB0;
@@ -5645,7 +6108,7 @@ static unsigned __int64 __cdecl FakePfKey(int kind, int type, DWORD idLo, DWORD 
 
 static void TestPrivateFpDefer() {
     static_assert(offsetof(Ts3nCounters, pfReady) == 0x473C && offsetof(Ts3nCounters, pfMode) == 0x4740 &&
-                  offsetof(Ts3nCounters, pfApplyInJob) == 0x476C && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, pfApplyInJob) == 0x476C && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v113 layout after v112 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
@@ -5866,7 +6329,7 @@ static u8 __fastcall PdFakePlan(void* world, void*, int*, int*, int*, DWORD, DWO
 static void TestPlanDrain() {
     static_assert(offsetof(Ts3nCounters, sdReady) == 0x4588 && offsetof(Ts3nCounters, sdMode) == 0x458C &&
                   offsetof(Ts3nCounters, sdSkip) == 0x45A8 && offsetof(Ts3nCounters, sdFail) == 0x45BC &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v107 layout after v106 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v107 layout after v106 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.discReady, 0, offsetof(Ts3nCounters, discOverflow) + 4 - offsetof(Ts3nCounters, discReady));
     memset((void*)&k.discDestroyMode, 0, offsetof(Ts3nCounters, discIdMismatch) + 4 - offsetof(Ts3nCounters, discDestroyMode));
@@ -6118,7 +6581,7 @@ static void TestXformGuard() {
 static void TestDestroyPark() {
     static_assert(offsetof(Ts3nCounters, dpReady) == 0x31DC && offsetof(Ts3nCounters, dpMode) == 0x31E0 &&
                   offsetof(Ts3nCounters, dpParked) == 0x31E4 && offsetof(Ts3nCounters, dpKeptWait) == 0x31E8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "v76 layout after v75 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "v76 layout after v75 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     k.dpReady = k.dpMode = k.dpParked = k.dpKeptWait = 0;
     k.vfRtDestroyWaitUs = 0;
@@ -6360,6 +6823,8 @@ static void TestDestroyPark() {
 // The clone against the game's own code: steerro-test.exe (needs the exe). ---
 static int g_srLocoCalls;
 static void __fastcall FkLoco(u8*, void*, u8*, const void*, DWORD, const void*, DWORD) { g_srLocoCalls++; }
+// docs/250 §8: the game's call waits 7 ms for the job at the EditPath gather key
+static void __fastcall FkLocoWait(u8*, void*, u8*, const void*, DWORD, const void*, DWORD) { g_srLocoCalls++; g_w918Us += 7000; g_w918Key = 0x0085F6CB; }
 static u8 __fastcall FkS60(const u8*, void*, DWORD) { return 1; }
 static u8 __fastcall FkSFalse(const u8*, void*) { return 0; }
 static u8 __fastcall FkSTrue(const u8*, void*) { return 1; }
@@ -6775,9 +7240,45 @@ static void TestSteerRO() {
     CloseHandle(th);
     CloseHandle(held);
     CloseHandle(go);
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    // docs/250 §8 [SteerRO] Retry (counters v175): SrRetry reruns TRY / TRIP only, at most 4 times, only while the job runs;
+    // counted by the clone's failing site (g_srPhase); the fallback's job wait by key, with the switch off too
+    {
+        static_assert(offsetof(Ts3nCounters, srrMode) == 0x5E94 && offsetof(Ts3nCounters, srrN) == 0x5E98 &&
+                          offsetof(Ts3nCounters, srrOk) == 0x5EA0 && offsetof(Ts3nCounters, srrFb) == 0x5EA8 &&
+                          offsetof(Ts3nCounters, srrFbWaitUs) == 0x5EB0 && offsetof(Ts3nCounters, srrMaxUs) == 0x5EBC &&
+                          offsetof(Ts3nCounters, ctCellSeen) == 0x5EC0,
+                      "counters v175 layout after v174 (docs/registry.md)");
+        memset((void*)&k.srrMode, 0, offsetof(Ts3nCounters, srrMaxUs) + 4 - offsetof(Ts3nCounters, srrMode));  // v175 only (v176+ follow it)
+        int runs = 0;
+        g_srPhase = 0;
+        assert(SrRetry(SR_FB_TRY, [&]() { return ++runs == 1 ? SR_FB_TRY : SR_OK; }) == SR_OK && runs == 2 && k.srrN[0] == 1 &&
+               k.srrOk[0] == 1 && k.srrFb[0] == 0);
+        runs = 0, g_srPhase = 1;
+        assert(SrRetry(SR_FB_TRIP, [&]() { runs++; return SR_FB_TRIP; }) == SR_FB_TRIP && runs <= 4 && k.srrN[1] == 1 && k.srrFb[1] == 1);
+        runs = 0;  // a state fallback from a rerun ends the loop: given up
+        assert(SrRetry(SR_FB_TRY, [&]() { runs++; return SR_FB_STATE; }) == SR_FB_STATE && runs == 1 && k.srrFb[1] == 2);
+        runs = 0, g_async.state = A_IDLE;  // the job ended: no rerun
+        assert(SrRetry(SR_FB_TRY, [&]() { runs++; return SR_OK; }) == SR_FB_TRY && runs == 0);
+        g_async.state = A_RUNNING;
+        assert(SrWaitSite(0x0085FE10) == 0 && SrWaitSite(0x0085F6CB) == 1 && SrWaitSite(0x0075A64C) == -1);
+        // the fallback's game call waited 7 ms at the gather key: booked on site 1
+        const LocoFn savedLoco = g_locoOrig;
+        g_locoOrig = FkLocoWait;
+        fwm[0x1CC] = 1;  // dirty lot index: a fallback that is not retried
+        k.srrMode = 1;
+        const LONG calls0 = g_srLocoCalls, n0 = k.srrN[0] + k.srrN[1];
+        LocoHook(agent, NULL, (u8*)idsv, NULL, 0, NULL, 0);
+        assert(g_srLocoCalls == calls0 + 1 && k.srrFbWaitUs[1] == 7000 && k.srrFbWaitUs[0] == 0 && k.srrN[0] + k.srrN[1] == n0);
+        fwm[0x1CC] = 0;
+        g_w918Us -= 7000;
+        g_locoOrig = savedLoco;
+        k.steerFb[SR_FB_DIRTY - 1]--;  // the dirty-index case below counts from its own zero
+        g_srLocoCalls--;
+        k.srrMode = 0;
+    }
     // QL free, no lot anywhere: the read-only answer is "nothing to add" without the game's call
     const LONG taken0 = k.steerTaken;
-    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     LocoHook(agent, NULL, (u8*)idsv, NULL, 0, NULL, 0);
     assert(g_srLocoCalls == 5 && k.steerTaken == taken0 + 1);
     // a dirty lot index: give up
@@ -8040,7 +8541,7 @@ static void TestAvoidRO() {
                       offsetof(Ts3nCounters, avShadow) == 0x31F4 && offsetof(Ts3nCounters, avSiteSkip) == 0x3204 &&
                       offsetof(Ts3nCounters, avFb) == 0x3208 && offsetof(Ts3nCounters, avUs) == 0x3230 &&
                       offsetof(Ts3nCounters, avTwSite) == 0x323C && offsetof(Ts3nCounters, avShadowRuns) == 0x3244 &&
-                      offsetof(Ts3nCounters, avSimWriteInRo) == 0x325C && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, avSimWriteInRo) == 0x325C && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v74 layout (docs/registry.md)");
     using namespace av;
     Ts3nCounters& k = ts3native_counters;
@@ -8177,11 +8678,13 @@ static void TestAvoidRO() {
     static AvIn in;
     u64 id;
     bool none;
-    auto runA = [&](bool job, u8* pth = path, u8* ag = NULL) {
+    // pth has no default here: a default argument may not name a local (static) variable in standard C++ (clang-cl)
+    auto runAp = [&](bool job, u8* pth, u8* ag = NULL) {
         const int why = AvRunA(pth, ag ? ag : agentBase + 8, goal, ign, 1, job, &id, &in, &none);
         assert(t_qlShared == 0 && !t_inRo && g_srInClone == 0);
         return why;
     };
+    auto runA = [&](bool job) { return runAp(job, path); };
     assert(runA(false) == SR_OK && id == 0x705 && !none && ptU == 13.0f && ptV == 5.0f && optSeen == 0x42 && postureCalls == 1);
     assert(runA(true) == SR_FB_STATE && t_avJobEnd);  // a job answer needs the tripwire stubs armed
     TwArm(true);
@@ -8191,7 +8694,7 @@ static void TestAvoidRO() {
     fp[5][0x62] = 1;
     // no options object: 0x702 / 0x703 are not filtered (0x702 misses, 0x703 hits); agent NULL or 8: option word 0x100
     fp[3][0x60] = 1;
-    assert(runA(true, NULL) == SR_OK && id == 0x703);
+    assert(runAp(true, NULL) == SR_OK && id == 0x703);
     {
         const int pc = postureCalls;
         assert(AvRunA(NULL, NULL, goal, ign, 1, true, &id, &in, &none) == SR_OK && id == 0x703 && optSeen == 0x100 && postureCalls == pc);
@@ -8605,7 +9108,7 @@ static void TestProbeSnap() {
 static void TestCallSites() {
     static_assert(offsetof(Ts3nCounters, cpOn) == 0x517C && offsetof(Ts3nCounters, cpTrapUs) == 0x518C &&
                   offsetof(Ts3nCounters, cpLateMin) == 0x51A4 && offsetof(Ts3nCounters, plChunkMB) == 0x51CC &&
-                  offsetof(Ts3nCounters, rpSlimSpare) == 0x51F8 && sizeof(Ts3nCounters) == 0x5F80 && offsetof(Ts3nCounters, luOn) == 0x51FC, "v130 + v131 + v132 + v133 layout");
+                  offsetof(Ts3nCounters, rpSlimSpare) == 0x51F8 && sizeof(Ts3nCounters) == 0x6B8C && offsetof(Ts3nCounters, luOn) == 0x51FC, "v130 + v131 + v132 + v133 layout");
     static_assert(sizeof(kVcCovSites) / sizeof(kVcCovSites[0]) == 2115, "coverage table = vcallsites5.h");
     Ts3nCounters& k = ts3native_counters;
     memset(&k.vcReady, 0, 10 * sizeof(LONG));
@@ -9005,7 +9508,10 @@ static void TestLoadProf() {
     assert(k.lpRtUs[1] >= k.lpSite[LP_WORLDINIT][1][1]);
     // a new LoadWorld zeroes the rows and opens a new window
     stk[1] = 0x1111;  // the thunk puts the real return address back; here the test does
+    k.prReady = 0x5A;  // the first field after the lp block: a LoadWorld entry must not zero other sections' counters
     LpEnter(LP_LOADWORLD1, &stk[1]);
+    assert(k.prReady == 0x5A);
+    k.prReady = 0;
     assert(k.lpLoads == 2 && k.lpEv7 == 1 && k.lpSite[LP_QTINS][1][0] == 0 && k.lpRtUs[1] == 0 && g_lpOpen == 1);
     assert(LpLeave(&stk[1]) == 0x1111 && k.lpSite[LP_LOADWORLD1][0][0] == 1);
     g_lpOpen = 0;
@@ -11736,7 +12242,7 @@ static void TestP4DoorDump() {
 // the same ids is bit 2 only; a clone leaf without the entry is "only live"; box mode dumps a matched plan, outside it not
 static void TestP4LotDump() {
     static_assert(offsetof(Ts3nCounters, ldDumps) == 0x4B3C && offsetof(Ts3nCounters, ldObL) == 0x4B60 &&
-                      offsetof(Ts3nCounters, ldSpare) == 0x4B64 && sizeof(Ts3nCounters) == 6112 * 4,
+                      offsetof(Ts3nCounters, ldSpare) == 0x4B64 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v121 layout after v120 (docs/registry.md)");
     assert(ts3native_counters.version == 912);
     struct Side {
@@ -12310,6 +12816,32 @@ static void TestP4() {
         g_asRoute = savedRoute, g_asRmSlot = savedSlot;
         k.asyncMode = savedMode, k.asyncReady = savedReady;
     }
+    // [Rewind] Park (docs/270 §19): while the rewind tool asks, no job starts (the plan runs inline, as with async off)
+    {
+        RwPark park = {};
+        const LONG savedMode = k.asyncMode, savedReady = k.asyncReady;
+        k.asyncMode = 1, k.asyncReady = 1;
+        g_rwPark = &park;
+        park.request = 1;
+        assert(AsyncStart(0x4C07) == 0 && park.held == 1 && !JobFor(0x4C07));
+        g_rwPark = NULL;
+        assert(!RewindHold());
+        assert(OffPatch(GetModuleHandleW(NULL)) == 0);  // [Rewind] Offline: selftest.exe imports no wininet, nothing written
+        {   // [Rewind] Offline stubs: the 18 TS3W.exe wininet imports (docs/270 §22), never InternetCrackUrlA
+            int left = -1;
+            assert(OffPatch(GetModuleHandleW(NULL), &left) == 0 && left == 0);
+            assert(sizeof kOffImports / sizeof kOffImports[0] == 18);
+            for (const auto& o : kOffImports) assert(strcmp(o.name, "InternetCrackUrlA") && o.fn);
+            SetLastError(0);
+            assert(Off8(1, 2, 3, 4, 5, 6, 7, 8) == 0 && GetLastError() == 12163);
+            SetLastError(0);
+            assert(Off5(1, 2, 3, 4, 5) == 0 && GetLastError() == 12163);
+            DWORD fl = 7;
+            assert(!OffConnected(&fl, 0) && fl == 0 && OffClose(nullptr) && OffErrorDlg(nullptr, nullptr, 0, 0, nullptr) == ERROR_CANCELLED);
+            assert(OffCallback(nullptr, nullptr) == nullptr && Off3(1, 2, 3) == 0 && Off4(1, 2, 3, 4) == 0);
+        }
+        k.asyncMode = savedMode, k.asyncReady = savedReady;
+    }
     // H20d: a portal IC (SetPortalCost) in the window is D5 family 9, always counted (no reader stub): M5 with nr 256
     {
         const LONG m5p = k.snM[5], bp = k.snNrBitPortal;
@@ -12359,6 +12891,14 @@ static void TestP4() {
     }
     assert(g_xcptN == xcptN);
     RemoveVectoredExceptionHandler(xcpt);
+    {  // docs/67 §39: past the 16-line cap one line per new eip, 64 eips at most
+        const LONG lateN = g_xcptLateN;
+        g_xcptLateN = 0;
+        assert(XcptLateNew(0x604B89D8) && !XcptLateNew(0x604B89D8) && XcptLateNew(0x00D4B154));
+        for (DWORD a = 1; a <= 62; a++) assert(XcptLateNew(0x1000 + a));
+        assert(!XcptLateNew(0x2000) && !XcptLateNew(0x1001));
+        g_xcptLateN = lateN;
+    }
     // door miss: refused, NoListeners answered, no managed call
     rec = P4RunJob(4, list, s, g, opts);
     assert(strstr(rec, "\"refused\":\"door-miss\"") && strstr(rec, "\"copy\":null"));
@@ -12596,10 +13136,10 @@ static void TestP5() {
     static_assert(offsetof(Ts3nCounters, m2Ready) == 0x2F70 && offsetof(Ts3nCounters, m2Take) == 0x2F74 &&
                   offsetof(Ts3nCounters, m2Fb) == 0x2F90 && offsetof(Ts3nCounters, m2VerM) == 0x2FDC &&
                   offsetof(Ts3nCounters, m2DoorHist) == 0x3000 && offsetof(Ts3nCounters, m2Guard) == 0x3024 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v61 layout + v62 + v63 + v65 + v66 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v61 layout + v62 + v63 + v65 + v66 (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, p4QCut) == 0x30EC && offsetof(Ts3nCounters, p4QCutMiss) == 0x30F0 &&
                   offsetof(Ts3nCounters, p4WaitExt) == 0x30F4 && offsetof(Ts3nCounters, oiClone) == 0x30F8 &&
-                  offsetof(Ts3nCounters, rpHard) == 0x30FC && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, rpHard) == 0x30FC && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v67 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, rpOldAsk) == 0x310C && offsetof(Ts3nCounters, p4AcqBad) == 0x3110, "counters v68 layout (docs/registry.md)");
     static_assert(offsetof(Ts3nCounters, p4Obst) == 0x3114 && offsetof(Ts3nCounters, p4ObstBusy) == 0x3118,
@@ -12816,8 +13356,17 @@ static void TestP5() {
 #include "p5b-test.h"  // TestP5b (P5b, docs/94 §22.9)
 #include "hitchattr-test.h"  // TestHitchAttr ([HitchAttr], docs/96 §9)
 #include "unseen-test.h"  // TestUnseen ([UnseenProbe], docs/143)
+#include "unseenband-test.h"  // TestUnseenBand ([UnseenProbe] Bands, docs/322)
 #include "ghost-test.h"   // TestUnseenGhost ([UnseenGhost], docs/202 §3.9.5)
+#include "thumbstall-test.h"  // TestThumbLod ([ThumbStall] Actions 3 and 4, thumbstall.cpp)
+#include "outfitfirst-test.h"  // TestOutfitFirstCore ([OutfitFirst], docs/684 §9)
 #include "unseenanim-test.h"  // TestUnseenAnim ([UnseenAnim], docs/144 §3.4)
+#include "stallwatch-test.h"  // TestStallWatch ([StallWatch], docs/67 §25)
+#include "modtime-test.h"  // TestModTime ([Diag] ModTime, docs/298)
+#include "watergrid-test.h"  // TestWaterGrid ([WaterGrid] Prof, docs/100 §13)
+#include "pccheck-test.h"  // TestPcCheck ([PcCheck], docs/299)
+#include "adaptdiag-test.h"  // TestAdaptDiag ([AdaptDiag], docs/316)
+#include "hitchsum-test.h"    // TestStallWatchDeep, TestHitchSum (docs/666 §5)
 #include "unseenrm-test.h"  // TestUnseenRootMotion, TestUnseenRootMotion2 ([UnseenRootMotion] Mode 1 / Mode 2, docs/228)
 #include "unseentable-test.h"  // TestUnseenTable ([UnseenTable], docs/227 §6)
 #include "unseencost-test.h"  // TestUnseenCost ([UnseenCost] probe, docs/227)
@@ -12829,12 +13378,19 @@ static void TestP5() {
 #include "ilpatch-test.h"  // TestIlPatch ([IlPatch], docs/506 §2, docs/526)
 #include "mintcall-test.h"  // TestMintCall ([MonoFast] CallPath, docs/139 §8)
 #include "monojit-test.h"  // TestMonoJit ([MonoJit], docs/527 step 1)
+#include "monojit-norm-test.h"  // TestJitNorm, the --jitnorm row tool ([MonoJit] CoreModMatch, docs/537 §34)
 #include "mintfuse-test.h"  // TestMintFuse ([MintFuse] Sub, docs/139 §4)
 #include "autshadow-test.h"  // TestAutShadow ([AutShadow] part 1, docs/122 §13: T1, T2, T4)
+#include "autraces-test.h"  // TestAutRaces ([AutShadow] Races: R1b pre-warm, R2b/R3a witness, docs/data/races-handoff.md)
 #include "threadstack-test.h"  // TestThreadStack ([ThreadStack], docs/66 §6)
 #include "userdiag-test.h"  // TestUserDiag ([UserDiag], docs/188)
 #include "played-test.h"    // TestPlayed (played.cpp, docs/14 section 8.6)
 #include "memdiag-test.h"   // TestMemDiag ([MemDiag], docs/190 phase 1, docs/191)
+#include "memaccess-test.h"  // TestMemAccess ([MemDiag] Access, docs/190 phase 2)
+#include "dxdiagcache-test.h"  // TestDxDiagCache ([Startup] DxDiagCache, docs/284)
+#include "gcgate-test.h"    // TestGcIdleGate ([GC] IdleGate, docs/281 §8)
+#include "gcmark-test.h"    // TestGcMarkHelpers ([GC] MarkHelpers P2 helper pool, docs/287 §6)
+#include "gcgen-toy-test.h"  // TestGenGcToyHeap ([GC] Generational: sticky-mark model of EA's sweep / finalize, docs/290 §8.8)
 #include "memexp-test.h"    // TestMemExp ([MemDiag] TypeGrowth, [GC] SqrtHeapLimit, docs/199)
 #include "gcgrow-test.h"    // TestGcGrowLog ([GcGrowLog], [GC] BlackListCapKB, docs/232 Run 8l/8n)
 #include "allocsites-test.h"  // TestAllocSites ([MemDiag] AllocSites, docs/201)
@@ -12842,6 +13398,9 @@ static void TestP5() {
 #include "watchpt-test.h"  // TestWatchpoint ([Watchpoint], docs/157 §8)
 #include "crashfx-test.h"  // TestCrashForensics ([CrashForensics], docs/157 §11.7)
 #include "apex-test.h"  // TestApex ([Compat] ApexStandDown, docs/148 §7)
+#include "saveframes-test.h"  // TestSavedFrames ([EaCrashFixes] SavedFrameGuard, docs/293)
+#include "s3mm-test.h"  // TestS3mm ([Compat] S3mmStandDown, Satb act refusal, docs/291 §6)
+#include "overflow-test.h"  // TestOverflow* (docs/323 overflow audit fixes)
 #include "compaction-test.h"  // TestCompaction ([Compaction], docs/204)
 #include "saveslim-test.h"  // TestSaveSlim ([SaveSlim], docs/15 phase 11)
 #include "rctrim-test.h"  // TestRcTrim ([ResourceCache] TrimAfterCleanup, docs/198 §6)
@@ -12851,10 +13410,20 @@ static void TestP5() {
 #include "slotguard-test.h"  // TestSlotGuard ([SlotGuard], [UafCheck] Object frees, docs/539 §18)
 #include "float5free-test.h"  // TestFloat5Free ([Float5Free], docs/539 §19)
 #include "f5watch-test.h"  // TestFloat5Watch ([Float5Sticky], [Float5Watch], [UafCheck] TravelHold, docs/539 §21)
+#include "c2diag-test.h"      // TestCrash2Diag ([Crash2Diag], docs/259 §9)
 #include "monosig-test.h"     // TestMonoSigGuard ([MonoSigGuard], docs/539 §20)
+#include "hostmapiter-test.h"  // TestHostMapIterFix ([HostMapIterFix], docs/67 §43)
+#include "bindertd-test.h"    // TestBinderTypeHandle ([Binder] TypeHandleDirect, docs/537 §20.3)
+#include "equalsfast-test.h"  // TestEqualsFast ([EqualsFast], docs/258 option C)
+#include "mintpairs-test.h"  // TestMintPairs ([MonoFast] PairCount, docs/139 §3)
 #include "s3sscompat-test.h"  // TestS3ssCompat ([S3SSCompat] StaleWriteGuard, docs/539 §22)
 #include "pkglock-test.h"  // TestPkgLock ([PkgLock], docs/539 §13.9)
+#include "pkgprobe-test.h"  // TestPkgProbe ([PkgProbe], docs/549 §4)
+#include "audiodup-test.h"  // TestAudioStateDup ([AudioStateDup], docs/549 §5)
+#include "cullrace-test.h"  // TestCullRace ([CrashForensics] CullRaceWatch + [EaCrashFixes] CullDrainWait, docs/338)
+#include "keepopts-test.h"  // TestKeepOptions ([EaCrashFixes] KeepOptionsOnGpuChange, docs/37 §12)
 #include "eafix-test.h"   // TestEaCrashFixes ([EaCrashFixes] ConformActor + ThumbPose, docs/67 §26.4 / §27.5)
+#include "imgguard-test.h"  // TestImageGuard ([ImageGuard], docs/232 Run 8d, EA port)
 #include "wastar-test.h"  // TestWorldAStarRefs ([EaCrashFixes] WorldAStarRefs, docs/67 §30)
 #include "earlyout-test.h"  // TestEarlyOut ([RouteEarlyOut] probe, docs/142)
 #include "routephases-test.h"  // TestRouteJobPhases ([RouteJobPhases], docs/150 §7)
@@ -12865,13 +13434,29 @@ static void TestP5() {
 #include "asklent-test.h"      // TestAskLent ([RouteSnap] AskLent + DoorMemoX, docs/189 phase 3)
 #include "tailunlock-test.h"  // TestTailUnlock ([RouteAsync] TailUnlock, docs/150 §11)
 #include "cellmemo-test.h"  // TestCellMemoProbe ([CellMemoProbe], docs/150 §12)
+#include "boatprobe-test.h"  // TestBoatProbe ([BoatProbe], ts3fixes boatplace / boattrip)
 #include "replandedupe-test.h"  // TestReplanDedupe ([RouteAsync] ReplanDedupe, docs/150 §13)
 #include "plandeadline-test.h"  // TestPlanDeadline ([RouteAsync] PlanDeadlineMs / FailMemo, docs/164 §7)
+#include "taskserve-test.h"  // TestTaskServe ([RouteAsync] TaskServe, docs/637)
+#include "taskseam-test.h"  // TestTaskSeam ([Diag] TaskSeam, docs/308)
+#include "nonsim-test.h"    // TestNonSimSplit ([Diag] NonSimSplit, docs/329)
+#include "routespeed-test.h"  // TestRouteSpeed ([RouteSpeed] NeighbourMemo, docs/663)
+#include "workerhold-test.h"  // TestWorkerHold ([RouteJobPhases] HoldProbe, docs/673)
+#include "worldpre-test.h"    // TestWorldPre ([WorldPrecompute], docs/676)
+#include "placero-test.h"   // TestPlaceCore, TestPlaceTestRO ([PlaceTestRO], docs/670)
+#include "fglprof-test.h"   // TestFglProfCore ([FglProf], docs/671)
+#include "fglprof-stub-test.h"   // TestFglProfStubs: the trampolines against cdecl and ret-4 fakes
+#include "epro-test.h"      // TestEditPathRO ([EditPathRO], docs/670 §8)
+#include "connro-test.h"    // TestConnRoomsRO ([ConnRoomsRO], docs/670 §15)
+#include "doorshare-test.h"   // TestDoorShare ([RouteSnap] DoorShare, docs/674)
+#include "smoothcut-test.h"   // TestSmoothCut ([WorldPrecompute] SmoothCut, docs/676 §15)
+#include "plancand-test.h"  // TestPlanCand ([RouteAsync] CandidateCut / WaterGoalCheck, CandidateSplit, docs/644)
 #include "gate0ro-test.h"     // TestGate0Ro ([Gate0RO], docs/152 §G1)
 #include "rtotail-test.h"  // TestRouteToObjTail ([RouteToObjRO] Tail); its stubs serve rtoro-test.h
 #include "rtoro-test.h"  // TestRouteToObjRO ([RouteToObjRO], docs/140 §12)
 #include "fgro-test.h"   // TestPlacementRO ([PlacementRO], docs/174)
 #include "gvro-test.h"   // TestGoalValidRO ([GoalValidRO], docs/178 §7 T6)
+#include "gvhits-test.h" // TestGoalHitsRO ([GoalValidRO] Hits, docs/670 §11; uses gvro-test.h fakes)
 #include "fsro-test.h"
 #include "idlero-test.h"  // TestIdleCheckRO ([IdleCheckRO], docs/178 §8)
 #include "icc-test.h"     // TestIdleCheckC ([IdleCheckRO] SiteC, docs/195 §4 C1; uses gvro-test.h fakes)
@@ -12933,7 +13518,7 @@ static void P6eUseFree() {  // nothing keeps g_rpUse: the consumer can drain
 static void TestP6Early(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6Early) == 0x4B7C && offsetof(Ts3nCounters, p6eRel) == 0x4B8C &&
                   offsetof(Ts3nCounters, p6eSkip) == 0x4B98 && offsetof(Ts3nCounters, p6eCopyUs) == 0x4BA8 &&
-                  offsetof(Ts3nCounters, p6eSpare) == 0x4BAC && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, p6eSpare) == 0x4BAC && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v122 layout after v121 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     k.p6Plan = 1, k.p6Share = 1, k.p6Early = 1;
@@ -13040,7 +13625,7 @@ static void TestP6Kinds(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6All) == 0x503C && offsetof(Ts3nCounters, pkArmed) == 0x5040 &&
                   offsetof(Ts3nCounters, pkVerify) == 0x5080 && offsetof(Ts3nCounters, pkUntaken) == 0x50C0 &&
                   offsetof(Ts3nCounters, pkAfSkip) == 0x50D0 && offsetof(Ts3nCounters, pkSpare) == 0x50D8 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v127 layout after the v123-v126 reservations (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v127 layout after the v123-v126 reservations (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG early = k.p6Early, share = k.p6Share;
     k.p6Early = 0, k.p6Share = 1;
@@ -13105,7 +13690,7 @@ static void TestP6Kinds(int* list, int* s, int* g, u8* opts, DWORD& seq) {
 // a deadline; past the deadline BudgetStep walls the edges and the job counts as capped
 static void TestP6Foreign(int* list, int* s, int* g, u8* opts, DWORD& seq) {
     static_assert(offsetof(Ts3nCounters, p6fbOn) == 0x50DC && offsetof(Ts3nCounters, p6fbCloneCapped) == 0x50F0 &&
-                  offsetof(Ts3nCounters, p6fbSpare) == 0x50F4 && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, p6fbSpare) == 0x50F4 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v128 layout after the v123-v127 pad (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const LONG verify0 = g_p5Verify, ready0 = k.budgetReady, n0 = (LONG)g_p5N;
@@ -13181,7 +13766,7 @@ static void TestP6(int* list, int* s, int* g, u8* opts, DWORD& seq) {
                   offsetof(Ts3nCounters, p6BorrowMiss) == 0x4688 && offsetof(Ts3nCounters, p6ReAcqUs) == 0x46AC &&
                   offsetof(Ts3nCounters, p6jN) == 0x46B0 && offsetof(Ts3nCounters, p6jOut) == 0x4728 &&
                   offsetof(Ts3nCounters, p6jLines) == 0x4738 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v112 layout after v111 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v112 layout after v111 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
     // (f1) TakeKinds 8 (default): a Route.Plan START is not armed; 9: it is, and its answer is the clone's
@@ -13674,7 +14259,7 @@ static void TestInsFreeInPlace() {
 static void TestRecsUnlocked() {
     Ts3nCounters& k = ts3native_counters;
     static_assert(offsetof(Ts3nCounters, ulMode) == 0x4548 && offsetof(Ts3nCounters, ulFaults) == 0x4564 &&
-                  sizeof(Ts3nCounters) == 6112 * 4, "counters v105 layout after v104 (docs/registry.md)");
+                  sizeof(Ts3nCounters) == 6883 * 4, "counters v105 layout after v104 (docs/registry.md)");
     static DWORD simTid;
     const DWORD* savedSim = g_rtSimTidSlot;
     simTid = GetCurrentThreadId();
@@ -13915,8 +14500,7 @@ static void TestDetourPublish() {
         assert(Write5(fn, code));  // original bytes back, atomically
         g_dtCalls = 0;
         while (g_dtCalls < 2) SwitchToThread();  // the spinner finished a call that began after the restore
-        VirtualFree(g_dtSlot, 0, MEM_RELEASE);
-        g_dtSlot = NULL;
+        g_dtSlot = NULL;  // a pool slot (TrampAlloc): never freed
         g_dtCalls = 0;
     }
     g_log = saved;
@@ -13925,6 +14509,36 @@ static void TestDetourPublish() {
     CloseHandle(th);
     VirtualFree(fn, 0, MEM_RELEASE);
     printf("detour publish order: %d installs under a spinning caller, slot set before the jmp\n", n);
+}
+
+// TrampAlloc (issue #40): trampolines are slots of a shared 64 KB RWX block, not one 64 KB reservation each
+static bool TaRwx(const u8* p, MEMORY_BASIC_INFORMATION* m) {
+    return VirtualQuery(p, m, sizeof(*m)) == sizeof(*m) && m->State == MEM_COMMIT && m->Protect == PAGE_EXECUTE_READWRITE;
+}
+static void TestTrampAlloc() {
+    u8* const a = TrampAlloc(32, "test a");
+    u8* const b = TrampAlloc(20, "test b");  // rounded up to 32
+    MEMORY_BASIC_INFORMATION m;
+    assert(a && b && a != b && (a + 32 <= b || b + 32 <= a) && !((uintptr_t)a & 15) && !((uintptr_t)b & 15));
+    assert(TaRwx(a, &m) && TaRwx(b, &m));
+    for (int i = 0; i < 32; i++) assert(a[i] == 0 && b[i] == 0);
+    a[0] = 0xB8, *(LONG*)(a + 1) = 5, a[5] = 0xC3;  // mov eax,5 ; ret
+    FlushInstructionCache(GetCurrentProcess(), a, 6);
+    assert(((int(__cdecl*)())(void*)a)() == 5);
+    // 2048 x 32 bytes fill exactly one block: wherever the current block stands, exactly one new block opens
+    const LONG blocks = g_trampBlocks;
+    const void* base = NULL;
+    u8* prev = NULL;
+    int bases = 0;
+    for (int i = 0; i < 2048; i++) {
+        u8* const p = TrampAlloc(32, "test n");
+        assert(p && !((uintptr_t)p & 15) && TaRwx(p, &m) && p[0] == 0);
+        if (m.AllocationBase != base) bases++, base = m.AllocationBase;
+        else assert(p == prev + 32);  // same block: back to back, no overlap
+        prev = p;
+    }
+    assert(g_trampBlocks == blocks + 1 && bases <= 2);
+    printf("trampoline pool: 2048 x 32 bytes in %d block(s) (%ld new), slots 16-aligned, RWX, zero-filled\n", bases, g_trampBlocks - blocks);
 }
 
 static void TestRemPatch() {
@@ -13986,7 +14600,7 @@ static void TestRemPatch() {
 // TestRemPatch's level-box / child stand-ins
 static void TestP5Covers() {
     static_assert(offsetof(Ts3nCounters, rpLockKeyForce) == 0x4568 && offsetof(Ts3nCounters, p5bWdEscalate) == 0x4578 &&
-                  offsetof(Ts3nCounters, p5StormRunMax) == 0x4584 && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, p5StormRunMax) == 0x4584 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v106 layout after v105 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     // the fake replay worlds above (TestSnapReplay .. TestInsFreeInPlace) ran with InsCheck 1: their inserts' differences
@@ -14139,8 +14753,86 @@ static void TestLauncherFix() {
     VirtualFree(m, 0, MEM_RELEASE);
 }
 
-int main() {
+// host build guard (HostBuildOk, docs/230): Steam 1.67 stamp + SizeOfImage pass; a section appended after EA's image
+// (an import adder's `.addImp`) passes; retail 1.67 (an EA section past the Steam size), no EA section in the last page,
+// a smaller image or another stamp fail
+static void TestHostBuild() {
+    static u8 img[0x400];
+    memset(img, 0, sizeof(img));
+    ((IMAGE_DOS_HEADER*)img)->e_lfanew = 0x80;
+    IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(img + 0x80);
+    nt->FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER);
+    IMAGE_SECTION_HEADER* s = IMAGE_FIRST_SECTION(nt);
+    const DWORD host = TS3A_HOST_SIZE;
+    s[0].VirtualAddress = 0x1000, s[0].Misc.VirtualSize = host - 0x3000;  // EA's code
+    s[1].VirtualAddress = host - 0x1000, s[1].Misc.VirtualSize = 0x468;   // EA's last section, in the last page
+    s[2].VirtualAddress = host, s[2].Misc.VirtualSize = 0x1B2000;         // appended (.addImp)
+    nt->FileHeader.TimeDateStamp = TS3A_HOST_PE, nt->OptionalHeader.SizeOfImage = host, nt->FileHeader.NumberOfSections = 2;
+    assert(HostBuildOk(img));
+    nt->OptionalHeader.SizeOfImage = host + 0x1B2000, nt->FileHeader.NumberOfSections = 3;
+    assert(HostBuildOk(img));                                             // appended section: same addresses
+    s[1].Misc.VirtualSize = 0x1468;
+    assert(!HostBuildOk(img));                                            // EA's section runs past the Steam size (retail)
+    memcpy(s[1].Name, ".ooa", 5);
+    assert(HostBuildOk(img));                                             // EA's DRM stub grown by a rewrap (EA 0xEB7000)
+    memcpy(s[1].Name, ".ooax", 6);
+    assert(!HostBuildOk(img));                                            // only the exact name .ooa may run past
+    memset(s[1].Name, 0, sizeof(s[1].Name));
+    s[1].Misc.VirtualSize = 0x468, s[1].VirtualAddress = host - 0x3000;
+    assert(!HostBuildOk(img));                                            // nothing of EA's in the last page
+    s[1].VirtualAddress = host - 0x1000, nt->OptionalHeader.SizeOfImage = host - 0x1000;
+    assert(!HostBuildOk(img));                                            // smaller image
+    nt->OptionalHeader.SizeOfImage = host + 0x1B2000, nt->FileHeader.TimeDateStamp = TS3A_HOST_PE + 1;
+    assert(!HostBuildOk(img));                                            // another stamp
+}
+
+// docs/270 §32: the combase keepalive pattern. Synthetic buffers (0, 1, 2 copies, wildcards free), then the system
+// combase.dll read from disk (a 32-bit process gets SysWOW64's copy): never ambiguous, the count is printed.
+static void TestCombasePattern() {
+    static BYTE blk[] = {0x8D, 0x44, 0x24, 0x18, 0xB9, 0x30, 0x75, 0, 0, 0x50, 0x33, 0xC0, 0x40, 0x50, 0x51, 0x51, 0x56, 0x8B, 0xD0, 0x8B, 0xCF,
+                         0xE8, 1, 1, 0, 0, 0x85, 0xC0, 0x0F, 0xB6, 0xDB, 0x6A, 1, 0x58, 0x0F, 0x48, 0xD8, 0x89, 0x5C, 0x24, 0x14, 0x84, 0xDB,
+                         0x74, 0x16, 0x50, 0x68, 0x30, 0x75, 0, 0, 0xFF, 0x36, 0xFF, 0x15};
+    static BYTE buf[3 * sizeof blk + 16];
+    size_t at = 0;
+    memset(buf, 0xCC, sizeof buf);
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 0);
+    memcpy(buf + 5, blk, sizeof blk);
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 1 && at == 5);
+    assert(*(DWORD*)(buf + at + kCbPatch[0]) == 30000 && *(DWORD*)(buf + at + kCbPatch[1]) == 30000);
+    memcpy(buf + 5 + sizeof blk, blk, sizeof blk);
+    buf[5 + sizeof blk + 3] = 0x20;  // a wildcard byte differs: still a match
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 2);
+    buf[5 + sizeof blk + 5] = 0x31;  // the constant differs: no match there
+    assert(PatScan(buf, sizeof buf, kCbPat, &at) == 1);
+    wchar_t path[MAX_PATH];
+    GetSystemDirectoryW(path, MAX_PATH);
+    wcscat_s(path, L"\\combase.dll");
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);  // read only
+    const DWORD size = f != INVALID_HANDLE_VALUE ? GetFileSize(f, NULL) : 0;
+    BYTE* img = size ? (BYTE*)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE) : NULL;
+    DWORD got = 0;
+    const BYTE* text = NULL; size_t len = 0;
+    int hits = -1;
+    if (img && ReadFile(f, img, size, &got, NULL) && got == size && PeText(img, size, false, &text, &len)) hits = PatScan(text, len, kCbPat, &at);
+    if (f != INVALID_HANDLE_VALUE) CloseHandle(f);
+    char ver[48] = "?";
+    if (HMODULE cb = LoadLibraryW(L"combase.dll")) ModVersion(cb, ver, sizeof ver);
+    printf("combase keepalive pattern: %d match(es) in the system combase.dll %s .text\n", hits, ver);
+    assert(hits <= 1);  // 0 on another Windows build is allowed (settle wait); 2 never
+    if (img) VirtualFree(img, 0, MEM_RELEASE);
+    if (hits != 1) return;
+    RewindCombaseKeep();  // patches this test process's own combase (memory only): both values now INFINITE
+    const HMODULE cb = GetModuleHandleW(L"combase.dll");
+    assert(cb && PeText((const BYTE*)cb, ~(size_t)0, true, &text, &len));
+    assert(PatScan(text, len, kCbPat, &at) == 0);  // the 30000s are gone, so the pattern no longer matches
+    static char want[] = "8D 44 24 ?? B9 FF FF FF FF 50 33 C0 40 50 51 51 56 8B D0 8B CF E8 ?? ?? ?? ?? 85 C0 0F B6 DB 6A 01 58 "
+                         "0F 48 D8 89 5C 24 ?? 84 DB 74 ?? 50 68 FF FF FF FF FF 36 FF 15";
+    assert(PatScan(text, len, want, &at) == 1);
+    puts("combase keepalive: applied in this process (both 30000 -> 0xFFFFFFFF), file untouched");
+}
+int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0);  // a crash keeps what was printed
+    if (argc > 1 && !strcmp(argv[1], "--jitnorm")) return JnCli(argc, argv);  // docs/537 §34: the CoreModMatch rows (tools/jit-hot.ts)
     SetUnhandledExceptionFilter([](EXCEPTION_POINTERS* e) -> LONG {
         printf("selftest: unhandled exception %08lX at %p\n", e->ExceptionRecord->ExceptionCode, e->ExceptionRecord->ExceptionAddress);
         return EXCEPTION_EXECUTE_HANDLER;
@@ -14148,7 +14840,8 @@ int main() {
     static DWORD noSimTid;  // the game global 0x11D8A8C does not exist here
     g_rtSimTidSlot = &noSimTid;
     // PatchImm32: all sites match -> written; one differs -> nothing written.
-    static u8 buf[16] = {0x3D, 0x00, 0x08, 0x00, 0x00, 0x76, 0x2C, 0xB8, 0x00, 0x08, 0x00, 0x00, 0x50};
+    // 16-aligned: never across a page boundary (Readable takes one region; the pages of .data split by write history)
+    alignas(16) static u8 buf[16] = {0x3D, 0x00, 0x08, 0x00, 0x00, 0x76, 0x2C, 0xB8, 0x00, 0x08, 0x00, 0x00, 0x50};
     Site ok[] = {{(DWORD)(uintptr_t)buf, {0x3D, 0x00, 0x08, 0x00, 0x00, 0x76, 0x2C}, 7, 1},
                  {(DWORD)(uintptr_t)(buf + 7), {0xB8, 0x00, 0x08, 0x00, 0x00, 0x50}, 6, 1}};
     Site bad[] = {ok[0], {(DWORD)(uintptr_t)(buf + 7), {0xB8, 0x00, 0x09, 0x00, 0x00, 0x50}, 6, 1}};
@@ -14168,6 +14861,7 @@ int main() {
     assert(((int(__cdecl*)())tramp)() == 42);
     TestDetourPublish();
     TestDetourCallRel();
+    TestTrampAlloc();
     TestRouteCache();
     TestRouteWorker();
     TestRouteBudget();
@@ -14191,6 +14885,7 @@ int main() {
     TestGcRoots();  // docs/67 §22.4
     TestArenaTail();  // docs/67 §22.7
     TestLotStream();
+    TestLotHub();  // CP-1 (docs/321 §8)
     TestVerify();
     TestRouteSites();
     TestRouteEnforce();
@@ -14249,8 +14944,18 @@ int main() {
     TestHitchAttr();
     TestLockFastPath();
     TestUnseen();
+    TestUnseenBand();
     TestUnseenGhost();
     TestUnseenAnim();
+    TestAnimPhase();
+    TestAaDrainNode();
+    TestStallWatch();
+    TestModTime();
+    TestWaterGrid();
+    TestPcCheck();
+    TestAdaptDiag();
+    TestStallWatchDeep();
+    TestHitchSum();
     TestUnseenRootMotion();
     TestUnseenRootMotion2();
     TestUnseenTable();
@@ -14265,12 +14970,20 @@ int main() {
     TestMintCall();
     TestMintFuse();
     TestAutShadow();
+    TestAsOlGrow();
+    TestAutRaces();
+    TestAutRacesR2c();
     TestThreadStack();
     TestCrashReport();
     TestUserDiag();
     TestPlayed();
     TestMemDiag();
+    TestMemAccess();
     TestMemExp();
+    TestGcIdleGate();
+    TestGcMarkHelpers();
+    TestGenGcToyHeap();
+    TestDxDiagCache();
     TestGcGrowLog();
     TestAllocSites();
     TestWatchpoint();
@@ -14279,6 +14992,11 @@ int main() {
     TestCrashForensicsFx();    // docs/186 §9
     TestCrashForensicsObjRes();  // docs/186 §10
     TestApex();
+    TestS3mm();
+    TestOverflowPaths();  // docs/323 lane A
+    TestOverflowCalls();  // docs/323 lane B
+    TestOverflowSmall();  // docs/323 lane F (L9)
+    TestSavedFrames();
     TestCompaction();
     TestRcTrim();
     TestLotPoolTrim();
@@ -14294,13 +15012,25 @@ int main() {
     TestSlotGuard();  // docs/539 §18
     TestFloat5Free();  // docs/539 §19
     TestFloat5Watch();  // docs/539 §21
+    TestCrash2Diag();  // docs/259 §9
     TestMonoSigGuard();  // docs/539 §20
+    TestHostMapIterFix();  // docs/67 §43
+    TestBinderTypeHandle();  // docs/537 §20.3 E1
+    TestEqualsFast();  // docs/258 option C
+    TestMintPairs();  // docs/139 §3 pair census
     TestS3ssCompat();  // docs/539 §22
     TestEaCrashFixes();
+    TestImageGuard();
+    TestUolCalls();
     TestPkgLock();
+    TestPkgProbe();  // docs/549 §4
+    TestAudioStateDup();  // docs/549 §5
+    TestCullRace();  // docs/338
+    TestKeepOptions();  // docs/37 §12
     TestWorldAStarRefs();
     TestIlPatch();
     TestMonoJit();
+    TestJitNorm();
     TestEarlyOut();
     TestRouteJobPhases();
     TestGoalGen();
@@ -14310,14 +15040,37 @@ int main() {
     TestForegroundRender();
     TestHostCalls();
     TestAskLent();
+    TestDoorMemoXGrow();
     TestTailUnlock();
     TestCellMemoProbe();
+    TestBoatProbe();
     TestReplanDedupe();
     TestPlanDeadline();
+    TestTaskServe();  // docs/637
+    TestTaskSeam();   // docs/308
+    TestNonSimSplit();  // docs/329
+    TestRouteSpeed();  // docs/663
+    TestWorkerHold();  // docs/673
+    TestWorldPre();    // docs/676
+    TestPlaceCore();   // docs/670
+    TestPlaceTestRO();
+    TestFglProfCore();   // docs/671
+    TestFglProfStubs();
+    TestFglFacing();   // docs/671 §10
+    TestEditPathRO();  // docs/670 §8
+    TestConnRoomsRO();  // docs/670 §15
+    TestDoorShare();   // docs/674
+    TestSmoothCut();   // docs/676 §15
+    TestPlanCand();   // docs/644
+    TestUncutCeil();   // docs/264: [RouteAsync] KdUncutCeilMs
     TestGate0Ro();
     TestRouteToObjRO();
     TestPlacementRO();
     TestGoalValidRO();
+    TestGoalHitsRO();  // docs/670 §11
+    TestGvAttr();
+    TestGvAttrNoLater();  // docs/250 §13.3, §12.3 (v189)
+    TestGvUnseen();       // docs/250 §7.3 B2 (v189)
     TestFootstepRO();
     TestRouteToObjTail();
     TestIdleCheckRO();
@@ -14325,6 +15078,11 @@ int main() {
     TestMovedWaits();
     TestP6Waits();
     TestLauncherFix();
+    TestHostBuild();
+    TestThumbLod();
+    TestOutfitFirstCore();   // docs/684 §9
+    TestOutfitFirstPick();
+    TestCombasePattern();
     puts("selftest ok");
     return 0;
 }

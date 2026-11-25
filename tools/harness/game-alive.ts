@@ -13,6 +13,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statfsSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { analyzeDump } from '../dump-locks.ts';
+import { extractStacks } from './dump-stacks.ts';
 import { BIN, GAME_EXE, gameRunning, seenPids } from './game-exe.ts';
 
 const STARTED = new Date().toISOString(); // crash pickup: reports since this process started, of the game PIDs it saw
@@ -135,11 +136,23 @@ export function watchGame(onDeath?: () => void) {
 export const GUARD_MS = 30000;
 export type GameSample = { running: boolean; answering: boolean; error?: string; mark: string };
 
+// committed MB of a hung game still wobbles by ~1 MB (bp-elexact 2026-11-18: 1301.6/1302.6 every 30 s for 10 min, the guard
+// never fired); a commit change under COMMIT_JITTER_MB with every other field equal is no progress (pure)
+export const COMMIT_JITTER_MB = 3;
+export function sameMark(a: string, b: string | null): boolean {
+  if (b === null) return false;
+  if (a === b) return true;
+  const x = a.split('|'), y = b.split('|');
+  return x.length === y.length && x.length > 2 && x[2] !== '' && y[2] !== ''
+    && x.every((v, i) => i === 2 || v === y[i]) && Math.abs(Number(x[2]) - Number(y[2])) < COMMIT_JITTER_MB;
+}
+
 // one guard step (pure, covered by --self-check): '' while progressing, else why this sample is a miss once misses >= 2
 export function stallStep(st: { last: string | null; misses: number }, s: GameSample, liveOnly = false): string {
+  const still = sameMark(s.mark, st.last);
   const why = !s.running ? `${GAME_EXE} process gone` : liveOnly ? '' : !s.answering ? `probe not answering (${s.error ?? '?'})`
-    : s.mark === st.last ? 'nothing moved (agent heartbeat, world flag, committed MB, ts3native.log)' : '';
-  if (s.answering) st.last = s.mark;
+    : still ? 'nothing moved (agent heartbeat, world flag, committed MB, ts3native.log)' : '';
+  if (s.answering && !still) st.last = s.mark; // kept while still: slow commit growth adds up past the jitter band
   st.misses = why ? st.misses + 1 : 0;
   return st.misses >= 2 ? why : '';
 }
@@ -320,6 +333,7 @@ export async function captureHang(dir: string, o: { port?: number; get?: HangGet
   }
   const dumpFile = `${process.env.TS3_HANG_DUMP_DIR ? join(process.env.TS3_HANG_DUMP_DIR, pre.split(/[\\/]/).at(-1)!) : pre}.dmp`;
   const dump = left() > 2000 ? await (o.dump ?? procdump)(dumpFile, left()) : 'dump skipped: capture cap reached';
+  if (existsSync(dumpFile) && left() > 10000) try { extractStacks(dumpFile); } catch { /* cleanup.ts retries; docs/283 */ } // triage text now, so the .dmp can go at the next sweep
   const threads = th.threads?.filter((t: any) => t.stack?.length).length ?? 0;
   const main = th.threads?.find((t: any) => t.role === 'main' && t.stack?.length), groups = th.threads ? frameGroups(th.threads) : '';
   const line = `hang capture: ${ok.length} sim stacks, top frame ${top}${under !== top && under !== '-' ? ` under ${under}` : ''}${ok.length > 1 ? ` (${same}/${ok.length} same)` : ''}; ${threads} other thread stacks${th.error ? ` (${th.error})` : ''}${main ? `; main thread under ${ownFrame(main.stack)}` : ''}${groups ? `; thread frames ${groups}` : ''}; native ${nat?.error ?? `v${nat?.version ?? '?'}`}; ${holders}; ${managed}; ${dump}; ${pre}-*`;
@@ -379,6 +393,7 @@ try { if(-not [Dh]::MiniDumpWriteDump($p.Handle,${pid},$f.SafeFileHandle,0x1826,
   let size = 0; try { size = statSync(plan.file).size; } catch { /* none written */ }
   const line = size && !err ? `kill dump ${plan.tool} ${Math.round(size / 2 ** 20)} MB in ${Math.round((Date.now() - t0) / 1000)} s: ${plan.file}`
     : `kill dump failed (${plan.tool}: ${err || 'no file'})${size ? `, partial ${plan.file}` : ''}`;
+  if (size && !err) try { extractStacks(plan.file); } catch { /* cleanup.ts retries; docs/283 */ }
   console.log(`${tag}: ${line}`);
   return size && !err ? `${line}; ${lockWaits(plan.file)}` : line;
 }
@@ -389,8 +404,16 @@ export function lockWaits(file: string, read: typeof analyzeDump = analyzeDump):
   try { const a = read(file); for (const l of a.lines) console.log(`${stamp()} ${l}`); return a.summary; } catch (e) { return `lock waits: not read (${String(e).split('\n')[0]})`; }
 }
 
+// clock-stuck trip that gets a hang capture (pure, covered by --self-check): clock not natively paused and no dialog open
+// (rc1111d bookcarry 2026-11-11: native_paused false, pause_bits 0, one core busy, no stacks). No reply counts as running.
+export const stuckRunning = (cs: { native_paused?: boolean } | null, pd: { open?: boolean } | null) => cs?.native_paused !== true && pd?.open !== true;
+
 if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-check')) {
   const assert = (await import('node:assert')).strict;
+  assert.equal(stuckRunning({ native_paused: false }, { open: false }), true); // 2026-11-11 signature: capture
+  assert.equal(stuckRunning({ native_paused: true }, { open: false }), false); // paused: old behaviour
+  assert.equal(stuckRunning({ native_paused: false }, { open: true }), false); // dialog holds the clock
+  assert.equal(stuckRunning(null, null), true); // no reply: capture
   const st = { last: null as string | null, misses: 0 }, smp = (mark: string, running = true, answering = true) => ({ running, answering, mark });
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // first sample is progress
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // one miss
@@ -398,6 +421,14 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
   assert.equal(stallStep(st, smp('2|true|900|10|')), ''); assert.equal(st.misses, 0); // progress resets
   assert.equal(stallStep(st, smp('', true, false)), ''); assert.match(stallStep(st, smp('', true, false)), /probe not answering/);
   assert.equal(stallStep(st, smp('3|true|900|10|')), ''); assert.equal(st.misses, 0); // probe back and moving
+  const jt = { last: null as string | null, misses: 0 }; // bp-elexact 2026-11-18 marks: commit 1302/1303 alternating, nothing else moving
+  assert.equal(stallStep(jt, smp('|false|1302|87850|')), ''); assert.equal(stallStep(jt, smp('|false|1303|87850|')), '');
+  assert.match(stallStep(jt, smp('|false|1302|87850|')), /nothing moved/, 'a 1 MB commit wobble is no progress');
+  const cr = { last: null as string | null, misses: 0 };
+  assert.equal(stallStep(cr, smp('|false|1300|10|')), ''); assert.equal(stallStep(cr, smp('|false|1302|10|')), ''); // one miss
+  assert.equal(stallStep(cr, smp('|false|1304|10|')), ''); assert.equal(cr.misses, 0, 'creep past the band from the last moving sample is progress');
+  assert.equal(stallStep(cr, smp('|false|1304|11|')), ''); assert.equal(cr.misses, 0, 'log growth is progress');
+  assert.equal(sameMark('|false|1302|10|', '|false||10|'), false, 'no commit reading: plain compare');
   const lo = { last: null as string | null, misses: 0 };
   assert.equal(stallStep(lo, smp('a'), true), ''); assert.equal(stallStep(lo, smp('a'), true), ''); assert.equal(stallStep(lo, smp('a'), true), ''); // liveOnly ignores the mark
   assert.equal(stallStep(lo, smp('a', false), true), ''); assert.match(stallStep(lo, smp('a', false), true), /process gone/);
@@ -499,6 +530,13 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
     const lg = Array.from({ length: 12 }, (_, i) => `t ap click: d${i} -> #1 ok (only button)`).join('\r\n') + '\r\nother\r\nt ap click: (not clicked) -> no safe button, nothing clicked: \'Move?\' buttons: #2 \'move\' score 2\r\n';
     assert.equal(clickLines(lg).length, 10); assert.match(clickLines(lg).at(-1)!, /no safe button/);
     assert.match(noSafeButton(lg), /no safe button, nothing clicked: 'Move\?'/); assert.equal(noSafeButton('t ap click: a -> #1 cancel (safe default)'), '');
+    { // kDialogRules (C#) alien-baby rule: real dialog text matches the fragment, a plain "try for a baby" prompt does not, and the answer is a real button of that dialog
+        const cs = readFileSync(join(import.meta.dirname, '../../mods/ts3agent/src/plugin/Handlers/HarnessHandlers.cs'), 'utf8');
+        const m = /new\[\] \{ new\[\] \{ "(raise the alien baby)" \}, new\[\] \{ "(send to homeworld)" \} \}/.exec(cs); assert.ok(m, 'alien baby rule present');
+        const real = "only marty and the aliens know what happened on that ufo, but whatever it was left marty pregnant! would you like to raise the alien baby or return it to grow up on its homeworld?";
+        assert.ok(real.includes(m![1]!)); assert.ok(!'should we try for a baby?'.includes(m![1]!));
+        assert.ok("#3 'send to homeworld send to homeworld' score 1".includes(m![2]!));
+    }
   }
   { // docs/236 #18: the cycle, save-matrix and repro waits check progress (stallGuard) unless a wait opts out with null
     const src = (f: string) => readFileSync(join(import.meta.dirname, f), 'utf8');

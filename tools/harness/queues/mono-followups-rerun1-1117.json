@@ -1,0 +1,74 @@
+{
+ "note": "mono-followups-rerun1-1117 (2026-11-17, NOT RUN): reruns the one 11-15/11-16 Mono-lane job without data. sv-m1-gcnat (mono-measure-memgaps-1115-mm) crashed 7 s after launch in the Apex bridge client d3d9.dll+0x2d4b4 (known cause apex-0010-backbuffer, stack d3d9/ApexRadiance/S3SS/TS3W, no ts3native frame): not ours, no data. bp-mintpairs-jiton FAIL was a stale version regex only (fixed 21b3eeb6a; its mintpairs lines are in the log) and ip-mintpairs-jiton-retry PASSed; lane L8 bp-l8-dry passed after 31988a92 (lane-l8-1115-1115b): no rerun for those. Est ~16 min.",
+ "jobs": [
+  {
+   "id": "sv-m1-gcnat-rerun1",
+   "note": "[est 16 min] DATA (correctness-grade, not timing): docs/542 §7.1 M1 row 'natural SV': 12 min natural (the 10-min [UserDiag]/[MemDiag] Light sample lands before the end; the earlier BP job quit before it), [GC] SqrtHeapLimit=2 = observe (gcsize line per completed collection with gcMs = per-frame steps + forced collection; heap policy unchanged; walkMs is the observe cost, ~1 ms per GC, reported apart). Read: node tools/memory-report.ts <log> (GC size block: lines, gcMs sum) -> collections per minute, GC ms/s = sum gcMs / play seconds, heap range; frames with a collection from the profile hitches as on IP. Household untouched: diagnostics only.",
+   "asi": "game-copy/ts3native.asi.master-1117b",
+   "iniBase": "game-copy/ts3native.ini.master-1117b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+   "pinReason": "master-1117b set (0.36.269-mb1117); was master-mono-1115 (0.36.264-mono1) in mono-measure-memgaps-1115-mm, whose run crashed at launch in the Apex bridge client (known cause apex-0010-backbuffer, d3d9.dll+0x2d4b4, before any save load: no data)",
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 137,
+   "noiseCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "ini": {
+    "GC.SqrtHeapLimit": 2
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.269-mb1117 ": 1,
+    "^mem experiments: .*SqrtHeapLimit=2 ": 1,
+    "^gcsize: gc=\\d+ mode=\\d live=[\\d.]+ ": 20
+   },
+   "logForbid": {
+    "^note: SqrtHeapLimit without": 0
+   },
+   "regexCases": {
+    "^mem experiments: .*SqrtHeapLimit=2 ": {
+     "match": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, graph every 10, rank min 100) SqrtHeapLimit=2 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ],
+     "noMatch": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, graph every 10, rank min 100) SqrtHeapLimit=0 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ]
+    },
+    "^gcsize: gc=\\d+ mode=\\d live=[\\d.]+ ": {
+     "match": [
+      "gcsize: gc=216 mode=1 live=14.4 limit=160.0 heap=160.0 alloc=25.36 speed=153 gcMs=102.4 grewMB=0.0 forced=0 wouldFree=0.0 walkMs=1.16",
+      "gcsize: gc=2 mode=2 live=1.4 limit=0.0 heap=352.0 alloc=0.00 speed=0 gcMs=4.1 grewMB=0.0 forced=0 wouldFree=0.0 walkMs=0.18"
+     ],
+     "noMatch": [
+      "typegrowth: pass 3 objs 812345 classes 4100"
+     ]
+    },
+    "^note: SqrtHeapLimit without": {
+     "match": [
+      "note: SqrtHeapLimit without the per-frame timing: GC time undercounted"
+     ],
+     "noMatch": [
+      "mem experiments: TypeGrowth=0 (every 1, top 8, rank min 100) SqrtHeapLimit=2 (c=0.000500/MB, floor 352 MB, ceiling 1024 MB, min extra 16 MB, step 32 MB) ready=0xD"
+     ]
+    },
+    "^ts3native 0\\.36\\.269-mb1117 ": {
+     "match": [
+      "ts3native 0.36.269-mb1117 2026-11-16 09:36:51"
+     ],
+     "noMatch": [
+      "ts3native 0.36.264-mono1 2026-11-16 11:48:18"
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -20,7 +20,7 @@
 // bits (first 10 mismatches logged; a mismatch returns the original's answer). Runtime switch:
 // ts3native_counters.heightMode (+0x1B4; 0 = the game's raycast, 1 = cache).
 
-static const DWORD HC_FN = 0x00C2A570, HC_REBUILD = 0x00C2A840;
+static const DWORD HC_FN = TS3A(0x00C2A570), HC_REBUILD = TS3A(0x00C2A840);
 static const u8 kHcPrologue[6] = {0x55, 0x8B, 0xEC, 0x83, 0xE4, 0xF0};  // push ebp; mov ebp,esp; and esp,-16 (both functions)
 
 typedef double(__fastcall* HcFn)(void* grid, void* edx, float x, float z);  // thiscall via fastcall + dummy edx
@@ -70,8 +70,8 @@ static inline int HcFloor(float v) { const int n = (int)v; return n - ((float)n 
 // have read a parked pointer has ended. Ring full: wait (spin) for 0, then drain.
 // shortcut: parked shapes (at most 64) stay until the next rebuild, also across a world unload; that release then runs the
 // destructor later than the game would (its realm links are inferred to be gone by then). Upgrade: drain at world teardown.
-static const DWORD TG_RELEASE = 0x00682760;
-static DWORD g_tgSwapRet = 0x00C2A896;  // return address of the swap's release call (the selftest points it at its own)
+static const DWORD TG_RELEASE = TS3A(0x00682760);
+static DWORD g_tgSwapRet = TS3A(0x00C2A896);  // return address of the swap's release call (the selftest points it at its own)
 static const u8 kTgPrologue[5] = {0x83, 0x41, 0x4C, 0xFF, 0x56};  // add dword [ecx+0x4C],-1; push esi
 typedef LONG(__fastcall* TgReleaseFn)(void* shape, void* edx);
 static void* g_tgTramp;           // the original PhysShape_Release (trampoline)

@@ -32,7 +32,7 @@ namespace Ts3Fixes
                 if (sim == null || sim.HasBeenDestroyed || sim.SimDescription == null) continue;
                 object h = ctor.Invoke(new object[] { sim.SimDescription.SimDescriptionId, sim.Position, (uint)Math.Max(1, attempt) });
                 float at = 1f + (spreadMinutes > 0 ? RandomUtil.GetFloat(0f, spreadMinutes) : 0f);
-                AlarmManager.Global.AddAlarm(at, TimeUnit.Minutes, (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), h, exec),
+                AlarmManager.Global.AddAlarm(at, TimeUnit.Minutes, (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), h, exec),
                     "Ts3Fixes.StuckCheckNow", AlarmType.NeverPersisted, sim);
                 n++;
             }

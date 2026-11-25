@@ -1,0 +1,112 @@
+{
+  "note": "RERUN2 2026-11-17 (bugfix/burnttile-reach-1117), supersedes rerun1 (old design). burnttilefloor design 2 (docs/277 §8): the first design's no-floor test matched none of the 80 burnt Keaton tiles (list step 'burnt tiles 80, no floor 0' while 20 MopBurnt plans failed); now EA's planner decides: the goal tile of an autonomous MopBurnt whose fallback plan ends FailedBecauseNoDestinationSpecified is learned unreachable and left out of MopBurntTiles' list. Small-fix rule: correctness + one repro, no timing. Off arm first (bug must show, nothing learned), then on arm (tile learned after one try: <= 4 goal lines = 2 plans x 2 Sims, then none; burnttile_repeat 0). Bin state apex. Needs TS3_AGENT_PACKAGE=game-copy/ts3agent.package.burnttile-reach-1117 (burnttile_learned/_repeat keys). node tools/harness/queue.ts tools/harness/queues/burnttilefloor-sv-1116-rerun2-1117.json",
+  "rewind": "auto",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^ts3native 0\\.36\\.267-mc1116 ": {
+      "match": [
+        "ts3native 0.36.267-mc1116 2026-11-16 22:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+        "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+      ]
+    },
+    "routefail: .*, MopBurnt target \\w+, Plan a?sync FailedBecauseNoDestinationSpecified .*goal 1064\\.7,52\\.8,1243\\.2,": {
+      "match": [
+        "ts3fixes: routefail: Justine Keaton 0x713C Adult active, MopBurnt target Terrain, Plan async FailedBecauseNoDestinationSpecified blocker None, goal 1064.7,52.8,1243.2, at 1072.1,49.1,1233.4, lot 0x6C11001B8B52BB30 room 0, 105 ms, seen, route 250B888A, job seq 459 0 ms result 10, uncut (exempt), kind own Plan deadline 10000 ms, follower 33F400F46E748E00, plan 0 host 0 other 0 ms, capAt -1 tail -1 ms, nodes 0 in 0 plans, seen",
+        "ts3fixes: routefail: Justine Keaton 0x713C Adult active, MopBurnt target Terrain, Plan sync FailedBecauseNoDestinationSpecified blocker None, goal 1064.7,52.8,1243.2, at 1062.5,49.8,1255.9, lot 0x6C11001B8B52BB30 room 1, 109 ms, seen, route 25CE6FC0"
+      ],
+      "noMatch": [
+        "ts3fixes: routefail: Justine Keaton 0x713C Adult active, BedMakeBed target BedDoubleCountry, Plan async FailedBecauseNoPathToDestination blocker Object 0x6C110022D211A380 BedDoubleCountry at 1062.4,49.8,1261.4, goal 1062.4,49.8,1261.4, at 1061.5,49.8,1260.3, lot 0x6C11001B8B52BB30 room 3, 14 ms, seen, route 25500089, job seq 1033 0 ms result 16, uncut (exempt), kind own Plan deadline 10000 ms, follower 33F400F46E748E00, plan 0 host 0 other 0 ms, capAt -1 tail -1 ms, nodes 0 in 1 plans, seen",
+        "ts3fixes: routefail: Justine Keaton 0x713C Adult active, MopPuddle, DoRoute false plan Succeeded blocker None exit HigherPriorityNext, goal 1060.7,49.8,1254.5, at 1071.6,49.1,1247.0, lot 0x6C11001B8B52BB30 room 0, 10088 ms"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-burnttile-off",
+      "note": "Off arm (repro burnt-tile-floor-off): PASS = the bug shows: >= 1 routefail line 'MopBurnt target Terrain, Plan a?sync FailedBecauseNoDestinationSpecified ... goal 1064.7,52.8,1243.2' (logRequire), burnttile_dropped 0 and burnttile_learned 0 (switch off learns nothing). N/A (not FAIL) if the Keaton save has no burnt tile.",
+      "asi": "game-copy/ts3native.asi.master-1116c",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.burnttile-reach-1117",
+      "pinReason": "bugfix/burnttile-reach-1117 (builds.json ts3fixes.package.burnttile-reach-1117 + ts3agent.package.burnttile-reach-1117) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.burnttile-reach-1117 (TS3_AGENT_PACKAGE) before the queue (burnttile_learned/_repeat keys)",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.267-mc1116 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "routefail: .*, MopBurnt target \\w+, Plan a?sync FailedBecauseNoDestinationSpecified .*goal 1064\\.7,52\\.8,1243\\.2,": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "burnt-tile-floor-off",
+          "fixesReport": "burnttile_",
+          "fixesOff": "burnttilefloor",
+          "fixesRequire": "burnttile_dropped<1,burnttile_learned<1"
+        }
+      }
+    },
+    {
+      "id": "sv-burnttile-on",
+      "note": "On arm (repro burnt-tile-floor-on): PASS = the goal tile is learned after one try: <= 4 MopBurnt NoDestination routefail lines for goal 1064.7,52.8,1243.2 (logForbid; 2 plans per try, at most 2 Sims mid-plan before the memo), burnttile_learned >= 1, burnttile_dropped >= 1, burnttile_repeat 0 (no fail on an already learned tile), burnttile_err 0, 0 script errors. Household Sims: the tile is never mopped either way (vanilla outcome); only the impossible re-tries are gone; player-ordered MopBurnt untouched.",
+      "asi": "game-copy/ts3native.asi.master-1116c",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.burnttile-reach-1117",
+      "pinReason": "bugfix/burnttile-reach-1117 (builds.json ts3fixes.package.burnttile-reach-1117 + ts3agent.package.burnttile-reach-1117) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.burnttile-reach-1117 (TS3_AGENT_PACKAGE) before the queue (burnttile_learned/_repeat keys)",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.267-mc1116 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "burnt-tile-floor-on",
+          "fixesReport": "burnttile_",
+          "fixesOn": "burnttilefloor",
+          "fixesRequire": "burnttile_learned>=1,burnttile_dropped>=1,burnttile_repeat<1,burnttile_err<1"
+        }
+      },
+      "logForbid": {
+        "routefail: .*, MopBurnt target \\w+, Plan a?sync FailedBecauseNoDestinationSpecified .*goal 1064\\.7,52\\.8,1243\\.2,": 4
+      }
+    }
+  ]
+}

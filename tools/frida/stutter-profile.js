@@ -44,9 +44,17 @@ const HOOKS = {
   animPose: [0x571b90, '83 ec 08 55 57 8b f9 8b'],
   locomotion: [0x83ced0, '55 8b ec 83 e4 f0 81 ec'],
   publish: [0x593590, '53 56 57 8b f1 8d 7e 48'], // triple-buffer sync (EnterCriticalSection); may nest in other stages
+  // the four "other"-bucket timers (docs/28 §0.3, diag only): ServiceList_SimUpdate (2-4 calls per iteration, UI/audio/camera
+  // services), the pre-locomotion step, the job pump (RunJobs 0x59A430, which Simulate calls at 0xD81FC3; other sim-thread
+  // callers of RunJobs count too), and 0x7694B0
+  svcUpdate: [0x59ed70, '57 8b f9 8b 47 0c 85 c0'],
+  preLoco: [0x7fd520, '53 55 56 8b f1 8b 4e 04'],
+  pump: [0x59a430, '53 56 8b f1 57 8d 7e 08'],
+  other7694: [0x7694b0, '83 ec 08 56 8b f1 80 be'],
 };
 // sim-thread ms per stage, summed like the scheduler seams
 const EXTRA_STAGES = ['animSacs', 'animPose', 'locomotion', 'publish'];
+const OTHER_STAGES = ['svcUpdate', 'preLoco', 'pump', 'other7694']; // ms/s columns at the end of the CSV (stages: false = off)
 const ROUTE_ENTRIES = ['Route_Plan', 'Route_Replan', 'Route_PlanFromPoint', 'Route_ReplanFromPosition', 'Route_IsPointRoutable'];
 
 // tasks: per-task attribution (docs/166, below); taskMinMs: shortest task run kept in a hitch line
@@ -67,6 +75,7 @@ function blankIter() {
            steps: 0, route: 0, routeSearch: 0, routes: 0, routeFails: 0, byEntry: {},
            taskObjects: 0, oneShot: 0, threaded: 0, animSacs: 0, animPose: 0, locomotion: 0, publish: 0,
            // ts3native [HitchAttr] (docs/96 §9): sim waits for the route job, ms by class, count, longest and its key
+           svcUpdate: 0, preLoco: 0, pump: 0, other7694: 0,
            rtLock: 0, rtOtherLock: 0, rtJob: 0, rtPlanWait: 0, rtWaits: 0, rtMaxMs: 0, rtMaxKey: '',
            // [MovedWaits] (docs/178 §9): waits a read-only skip moved (same job), MW_* switch mask, longest and its key
            rtMovedMs: 0, rtMovedN: 0, rtMovedSw: 0, rtMovedMaxMs: 0, rtMovedKey: '',
@@ -89,7 +98,9 @@ function blankSecond() {
            // ts3native [HitchAttr] (docs/96 §9), ms per second; 0 when the plugin or the section is off
            rtLock: 0, rtOtherLock: 0, rtJob: 0, rtPlanWait: 0, rtWaits: 0, // new columns go last: readers use the header
            // FrameDb_PublishFrame 0x593600 calls on the sim thread (docs/162): 0 or 1 per iteration; longest publish gap ending here
-           publishes: 0, maxPubGapMs: 0 };
+           publishes: 0, maxPubGapMs: 0,
+           // "other"-bucket timers (docs/28 §0.3), ms per second
+           svcUpdate: 0, preLoco: 0, pump: 0, other7694: 0 };
 }
 
 // Sim-to-render publish (docs/162 §2): Simulate calls 0x76C8A0 -> FrameDb_PublishFrame once per iteration at most (0xD81DF5 after
@@ -437,7 +448,7 @@ function endIteration(t) {
   sec.maxIterMs = Math.max(sec.maxIterMs, wall);
   for (const k of ['script', 'gcMark', 'gcMarks', 'gcAborted', 'gcForced', 'gcForcedMs', 'fin', 'finRun',
                    'route', 'routeSearch', 'routes', 'routeFails', 'taskObjects', 'oneShot', 'threaded', ...EXTRA_STAGES,
-                   'rtLock', 'rtOtherLock', 'rtJob', 'rtPlanWait', 'rtWaits']) sec[k] += iter[k];
+                   'rtLock', 'rtOtherLock', 'rtJob', 'rtPlanWait', 'rtWaits', ...OTHER_STAGES]) sec[k] += iter[k];
   sec.maxSteps = Math.max(sec.maxSteps, iter.steps);
   if (wall >= cfg.hitchMs) {
     sec.hitches++;
@@ -509,6 +520,21 @@ function addr(name) {
   return p;
 }
 
+// The iteration boundary. ts3native [GC] IdleGate (and [GC] SqrtHeapLimit timing) retarget Simulate's per-tick call at 0xD819AA
+// to their own wrapper, and IdleGate=1 skips GC_try_to_collect for seconds between cycles: hooked at 0xE4A050 those ticks had
+// no boundary and merged into one 5-11 s "hitch" (steps ~3000; docs/281 §8.9). So hook whatever 0xD819AA calls when it is a
+// ts3native wrapper (it calls 0xE4A050 at most once, never on another thread); else 0xE4A050 as before.
+function boundaryAddr() {
+  const ea = addr('gcTryToCollect');
+  if (cfg.taskOnly) return ea;
+  const site = ptr(0xd819aa);
+  if (site.readU8() !== 0xe8) return ea;
+  const target = site.add(5).add(site.add(1).readS32());
+  if (target.equals(ptr(0xe4a050)) || Process.findModuleByAddress(target)?.name !== 'ts3native.asi') return ea;
+  console.log(`[ts3prof] iteration boundary: 0xD819AA calls ts3native ${target} (GC idle gate / SqrtHeapLimit wrapper), hooked there`);
+  return target;
+}
+
 function timed(name, onDone, onEnterExtra) {
   Interceptor.attach(addr(name), {
     onEnter(args) { this.t0 = now(); if (onEnterExtra) onEnterExtra.call(this, args); },
@@ -532,7 +558,7 @@ function install() {
   installTasks(); // before the boundary hook: it hands the sim thread id to the CModule
 
   // One GC_try_to_collect call per Simulate iteration: use its entry as the iteration boundary.
-  Interceptor.attach(addr('gcTryToCollect'), {
+  Interceptor.attach(boundaryAddr(), {
     onEnter() {
       if (simThread === null) { simThread = Process.getCurrentThreadId(); if (tasks) tasks.st.writeU32(simThread); }
       if (Process.getCurrentThreadId() !== simThread) return;
@@ -592,7 +618,7 @@ function installStages() {
     iter.fin += ms; iter.finRun += retval.toInt32();
   });
 
-  for (const stage of EXTRA_STAGES) {
+  for (const stage of [...EXTRA_STAGES, ...OTHER_STAGES]) {
     timed(stage, function (ms) {
       if (Process.getCurrentThreadId() === simThread) iter[stage] += ms;
     });

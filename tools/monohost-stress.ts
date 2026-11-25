@@ -102,7 +102,8 @@ async function main() {
         if (!c || c === '0') break;
       }
       let log = '';
-      for (;;) { try { log = readFileSync(join(dir, 'monohost.exe.log'), 'utf8'); break; } catch { await new Promise(r => setTimeout(r, 2000)); } }
+      // bounded: a run that died before writing its log counts as not done (a hang) instead of stalling the worker forever
+      for (let tries = 0; tries < 150; tries++) { try { log = readFileSync(join(dir, 'monohost.exe.log'), 'utf8'); break; } catch { await new Promise(r => setTimeout(r, 2000)); } }
       const r = parseLog(log), s = stats[arm], real = r.fails.filter(x => !ignore.has(x));
       s.n++;
       for (const f of real) s.checks[f] = (s.checks[f] ?? 0) + 1;

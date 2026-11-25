@@ -1,0 +1,182 @@
+{
+ "note": "dalexlol-1122-correct (PREPARED, NOT RUN; correctness, no timing, noiseCheck false): Dalexlol PRs #632 (JobYield records held across a step-aside, the fix on in the ini, JobYieldFollowed=0), #622 (SmoothCut, off) and #623 (FglInside + ts3fixes fglinbound, off) on master set e1122. 1) bp-fglinbound-check: repro fglinbound-check on BP ([FglInside] Enabled=1 Shadow=1; expect live verdict ok, every tile same, no SHADOW MISMATCH). 2) ip-smoothcut-storm: IP, the repro's own three arms (off / shadow / serve), SmoothCut=2 in the ini so the hook installs; expect shadow mismatch 0. 3) ip-jobyield-fix-storm and 4) ip-jobyield-control-storm: repro ip-jobyield-strand-storm once per arm (JobYield=1 vs 0; the contributor ran 8 fix and 4 control loads, interleave more loads if the first pair is clean); expect strand=0 and records lost 0 in the fix arm. The repro's note says UNVERIFIED in the game while the PR text reports 3/24 -> 0/24 on his rig: this queue is the first run here.",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "bp-fglinbound-check",
+   "note": "[est 10 min] BP 4 min, repro fglinbound-check (fglinbound off then on, live and live:big compares).",
+   "asi": "game-copy/ts3native.asi.e1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "master set e1122 (0.36.299-e1122: m1121b + Dalexlol 1122 imports #632 #622 #623): asi + ini + ts3fixes + agent",
+   "save": "Baseline-BP",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 25,
+   "logRequire": {
+    "^ts3native 0.36.299-e1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-e1122 ": {
+     "match": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.298-m1121b 2026-11-21 16:00:00",
+      "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 4,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "fglinbound-check"
+    }
+   },
+   "ini": {
+    "FglInside.Enabled": 1,
+    "FglInside.Shadow": 1,
+    "UserDiag.Enabled": 1,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "ip-smoothcut-storm",
+   "note": "[est 15 min] IP 8 min, repro ip-smoothcut-storm (off / shadow / serve arms).",
+   "asi": "game-copy/ts3native.asi.e1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "master set e1122 (0.36.299-e1122: m1121b + Dalexlol 1122 imports #632 #622 #623): asi + ini + ts3fixes + agent",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 35,
+   "logRequire": {
+    "^ts3native 0.36.299-e1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-e1122 ": {
+     "match": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.298-m1121b 2026-11-21 16:00:00",
+      "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 8,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "ip-smoothcut-storm"
+    }
+   },
+   "ini": {
+    "WorldPrecompute.SmoothCut": 2,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "ip-jobyield-fix-storm",
+   "note": "[est 15 min] IP 6 min, repro ip-jobyield-strand-storm, fix arm JobYield=1.",
+   "asi": "game-copy/ts3native.asi.e1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "master set e1122 (0.36.299-e1122: m1121b + Dalexlol 1122 imports #632 #622 #623): asi + ini + ts3fixes + agent",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 35,
+   "logRequire": {
+    "^ts3native 0.36.299-e1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-e1122 ": {
+     "match": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.298-m1121b 2026-11-21 16:00:00",
+      "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 6,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "ip-jobyield-strand-storm",
+     "fixesOn": "jobyield"
+    }
+   },
+   "ini": {
+    "RouteAsync.JobYield": 1,
+    "RouteAsync.JobYieldFollowed": 0,
+    "RouteAsync.PlayerFirst": 0,
+    "Crash.Log": 1
+   }
+  },
+  {
+   "id": "ip-jobyield-control-storm",
+   "note": "[est 15 min] IP 6 min, repro ip-jobyield-strand-storm, control arm JobYield=0.",
+   "asi": "game-copy/ts3native.asi.e1122",
+   "iniBase": "game-copy/ts3native.ini.e1122",
+   "fixesPackage": "game-copy/ts3fixes.package.e1122",
+   "pinReason": "master set e1122 (0.36.299-e1122: m1121b + Dalexlol 1122 imports #632 #622 #623): asi + ini + ts3fixes + agent",
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "timeoutMin": 35,
+   "logRequire": {
+    "^ts3native 0.36.299-e1122 ": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.299-e1122 ": {
+     "match": [
+      "ts3native 0.36.299-e1122 2026-11-22 12:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.298-m1121b 2026-11-21 16:00:00",
+      "ts3native 0.36.297-d1121 2026-11-21 09:00:00"
+     ]
+    }
+   },
+   "run": {
+    "profile": {
+     "minutes": 6,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "ip-jobyield-strand-storm",
+     "fixesOn": "jobyield"
+    }
+   },
+   "ini": {
+    "RouteAsync.JobYield": 0,
+    "RouteAsync.PlayerFirst": 0,
+    "Crash.Log": 1
+   }
+  }
+ ]
+}

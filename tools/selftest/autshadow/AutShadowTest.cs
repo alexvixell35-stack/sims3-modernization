@@ -84,6 +84,16 @@ static class AutShadowTest
     {
         const int P = AutShadowCore.kPass, F = AutShadowCore.kTestFailed, S = AutShadowCore.kSkip, X = AutShadowCore.kAbort, N = AutShadowCore.kFiltered;
         Check(AutShadowCore.UlpDistance(1f, 1f) == 0, "same float: 0 ULP");
+        // docs/321 H1: under the cap every object / pair goes in and the request stays uncapped (as before); at the cap it is
+        // left out and the request is marked capped (go-live then runs the game's search)
+        {
+            bool capped = false;
+            int added = 0;
+            for (int i = 0; i < 1024; i++) if (AutShadowCore.CapRoom(i, 1024, ref capped)) added++;
+            Check(added == 1024 && !capped, "cap: 1024 objects under kMaxObjs all added, not capped");
+            Check(!AutShadowCore.CapRoom(1024, 1024, ref capped) && capped, "cap: object 1025 refused, request capped");
+            Check(!AutShadowCore.CapRoom(8193, 8192, ref capped) && capped, "cap: past the pair cap stays refused");
+        }
         Check(AutShadowCore.UlpDistance(1f, Next(1f)) == 1, "neighbour: 1 ULP");
         Check(AutShadowCore.UlpDistance(0f, -0f) == 0, "+0 and -0: 0 ULP");
         Check(AutShadowCore.UlpDistance(-float.Epsilon, float.Epsilon) == 2, "across zero: 2 ULP");
@@ -266,6 +276,26 @@ static class AutShadowTest
         Check(!AutShadowCore.T2LodStale(160, 100) && AutShadowCore.T2LodStale(161, 100) && AutShadowCore.T2LodStale(0, long.MinValue),
             "T2LodStale: more than 60 ticks (never checked = stale)");
         Check(AutShadowCore.kT2HN == 5 && AutShadowCore.kT2HLodStale == 4, "T2H: five slots 898-902");
+
+        // tier-2 P2: front door answered only from the game's exits that write nothing; six slots 938-943
+        Check(AutShadowCore.T2FrontDoor(false, true, false, false, true, false, false) == 0, "T2FrontDoor: not used = null, nothing read");
+        Check(AutShadowCore.T2FrontDoor(true, true, true, true, false, false, false) == 1
+            && AutShadowCore.T2FrontDoor(true, true, true, false, true, true, true) == -1
+            && AutShadowCore.T2FrontDoor(true, true, false, true, true, true, true) == -1, "T2FrontDoor: override set = its door only when it is a door and validated");
+        Check(AutShadowCore.T2FrontDoor(true, false, false, false, true, true, true) == 2
+            && AutShadowCore.T2FrontDoor(true, false, false, false, true, true, false) == -1
+            && AutShadowCore.T2FrontDoor(true, false, false, false, true, false, true) == -1, "T2FrontDoor: calculated door only when it is a door and validated");
+        Check(AutShadowCore.T2FrontDoor(true, false, false, false, false, false, true) == 0
+            && AutShadowCore.T2FrontDoor(true, false, false, false, false, false, false) == -1, "T2FrontDoor: no door set = null only when validated, else the game recomputes");
+        Check(AutShadowCore.kT2P2N == 6 && AutShadowCore.kT2P2SuiteAbort == 5 && AutShadowCore.kT2P2CeWarm == 0, "T2P2: six slots 938-943");
+
+        // tier-2 P3: CallPet Test on the worker: household aborts first, only the self branch (a == target) saves and restores
+        Check(AutShadowCore.T2CallPetSite(false, true, false, true) == 0 && AutShadowCore.T2CallPetSite(true, false, false, true) == 0,
+            "T2CallPetSite: sim thread or switch off = the game's Test");
+        Check(AutShadowCore.T2CallPetSite(true, true, true, true) == 1 && AutShadowCore.T2CallPetSite(true, true, true, false) == 1,
+            "T2CallPetSite: household-scope actor aborts on either branch");
+        Check(AutShadowCore.T2CallPetSite(true, true, false, true) == 2 && AutShadowCore.T2CallPetSite(true, true, false, false) == 0,
+            "T2CallPetSite: save/restore only on the self branch (the only one that writes the field)");
 
         Console.WriteLine(sFails == 0 ? "autshadow selftest: PASS" : "autshadow selftest: " + sFails + " FAIL");
         return sFails == 0 ? 0 : 1;

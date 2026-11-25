@@ -3,13 +3,15 @@
 //   node tools/harness/build-agent.ts          full package (needs a game restart to take effect)
 //   node tools/harness/build-agent.ts --hot    plugin only, uniquely named, for tools/harness/reload-agent.ts
 // Windows-only by nature: it needs the .NET Framework C# compiler that ships with Windows (csc.exe, C# 5).
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { TYPE_S3SA, fnv64, s3saEncode, writePackage } from '../dbpf.ts';
+import { deterministicDll } from './deterministic-dll.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const CSC = 'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe';
+const CSC = process.env.TS3_CSC ?? 'C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe'; // TS3_CSC: another C# compiler, e.g. Roslyn on Linux
 const REF_DIR = process.env.TS3_REF_DIR ?? join(ROOT, 'game-copy', 'assemblies'); // from tools/extract-assemblies.ts
 const REFS = ['mscorlib', 'System', 'System.Xml', 'ScriptCore', 'SimIFace', 'Sims3Metadata',
               'Sims3GameplaySystems', 'Sims3GameplayObjects', 'Sims3StoreObjects', 'UI'];
@@ -42,6 +44,7 @@ const refs = REFS.map(r => `/reference:${join(REF_DIR, `${r}.dll`)}`);
 function csc(out: string, files: string[], extra: string[] = []) {
   execFileSync(CSC, ['/nologo', '/nostdlib+', '/noconfig', '/target:library', '/optimize+', '/langversion:5', '/warn:4',
     '/nowarn:414,169,649', `/out:${out}`, ...refs, ...extra, ...files], { stdio: 'inherit' });
+  writeFileSync(out, deterministicDll(readFileSync(out))); // csc 4.0 has no /deterministic: fixed timestamp, MVID and type GUID from the content (docs/data/change-ledger.jsonl noise)
 }
 const loaderDll = join(outDir, `${ASSEMBLY}.dll`);
 const hot = process.argv.includes('--hot');
@@ -61,5 +64,7 @@ if (hot) {
   ]);
   const out = join(outDir, 'ts3agent.package');
   writeFileSync(out, pkg);
+  // cycle.ts rebuilds only while build/ts3agent.package is this build: a package a chain/queue copied over it is kept (rerun4 b87)
+  writeFileSync(`${out}.built`, createHash('sha256').update(pkg).digest('hex'));
   console.log(`built ${out} (${pkg.length} bytes)`);
 }

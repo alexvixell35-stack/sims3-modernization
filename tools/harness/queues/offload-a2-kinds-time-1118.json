@@ -1,0 +1,187 @@
+{
+ "note": "offload-a2-kinds-time-1118 (timing, needs quiet machine, PREPARED, NOT RUN, dry-run checked; est ~75 min game time incl. smoke). Run only after offload-a2-route-diag-1118 shows unseen own Replan / PlanFromPoint sync time >= ~3 ms/s and offload-a2-kinds-correct-1118 passes. In-load ABBA --ab asyncreplan (arMode: 0 = shadow, own plans sync; 1 = unseen own Replan / PlanFromPoint jobs), 3-min slices, H2Ic + RefcountGuard on in both arms. Read per arm: route + rtLock + rtOtherLock + rtJob ms/s (the waits may move, as with ForeignKinds), sim ms/s, hitch p99 / max. Default ON only on >= 3-5 ms/s net main-thread gain with no hitch regression (clear-gain rule).",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0.36.281-offloada2 ": {
+   "match": [
+    "ts3native 0.36.281-offloada2 2026-11-18 18:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.280-g5p2 2026-11-18 18:40:00"
+   ]
+  },
+  "^route async A10: Kinds=3 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": {
+   "match": [
+    "route async A10: Kinds=3 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=0, own gate unseen routes only, Mode 1 needs H2Ic + RefcountGuard"
+   ],
+   "noMatch": [
+    "route async A10: Kinds=3 KindsMode=0 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=0, own gate unseen routes only, Mode 1 needs H2Ic + RefcountGuard",
+    "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0, own gate none (Kinds=0)"
+   ]
+  },
+  "^OK   H2 IC window: 7 of 7 IC slots \\(Mode=1": {
+   "match": [
+    "OK   H2 IC window: 7 of 7 IC slots (Mode=1: no job starts while one runs on the sim thread)"
+   ],
+   "noMatch": [
+    "PART H2 IC window: 6 of 7 IC slots (Mode=1: no job starts while one runs on the sim thread)",
+    "OK   H2 IC window: 7 of 7 IC slots (Mode=0: count only)"
+   ]
+  },
+  "^OK   refcount guard: .*\\(Mode=1": {
+   "match": [
+    "OK   refcount guard: 0x82F098 / 0x82F45C -> RcRelThunk (Mode=1: the sim keeps +0x918 until the query's caller returns)"
+   ],
+   "noMatch": [
+    "OK   refcount guard: 0x82F098 / 0x82F45C -> RcRelThunk (Mode=0: count only)",
+    "refcount guard off ([RouteAsync] RefcountGuard=0)"
+   ]
+  },
+  "^(SKIP|FAIL|PART) (route async A10|H2 IC window|refcount guard)": {
+   "match": [
+    "SKIP route async A10: needs the async route path",
+    "PART H2 IC window: 6 of 7 IC slots (Mode=1: no job starts while one runs on the sim thread)",
+    "SKIP refcount guard: needs [RouteGate] Enabled=1 Sites=1 Enforce=1 (steering frames) with the async path",
+    "SKIP H2 IC window: needs [RouteGate] Enforce=1 with the async path"
+   ],
+   "noMatch": [
+    "OK   H2 IC window: 7 of 7 IC slots (Mode=1: no job starts while one runs on the sim thread)",
+    "route async A10: Kinds=3 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=0, own gate unseen routes only, Mode 1 needs H2Ic + RefcountGuard"
+   ]
+  }
+ },
+ "smoke": {
+  "id": "smoke-kinds-time",
+  "asi": "game-copy/ts3native.asi.offload-a2-1118",
+  "iniBase": "game-copy/ts3native.ini.offload-a2-1118",
+  "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+  "pinReason": "feature/offload-a2-1118 (builds.json ts3native.asi.offload-a2-1118 sha256 347e593a35e7 + ini ed928671d0dd: 0.36.281-offloada2, docs/288 §4 own Kinds gate, counters v213) with ts3fixes.package.master-1117c (managed side unchanged)",
+  "releaseDefaults": true,
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "minCounters": 1,
+  "shadowCheck": false,
+  "scriptErrorsMax": 0,
+  "save": "Baseline-BP-Spring",
+  "ini": {
+   "RouteAsync.Kinds": 3,
+   "RouteAsync.KindsMode": 1,
+   "RouteAsync.H2Ic": 1,
+   "RouteAsync.H2IcMode": 1,
+   "RouteAsync.RefcountGuard": 1,
+   "RouteAsync.RefcountGuardMode": 1
+  },
+  "logRequire": {
+   "^ts3native 0.36.281-offloada2 ": 1,
+   "^route async A10: Kinds=3 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": 1,
+   "^OK   H2 IC window: 7 of 7 IC slots \\(Mode=1": 1,
+   "^OK   refcount guard: .*\\(Mode=1": 1
+  },
+  "logForbid": {
+   "^(SKIP|FAIL|PART) (route async A10|H2 IC window|refcount guard)": 0
+  },
+  "note": "[est 12 min] counter smoke: BP 6 min, 2-min slices, --ab asyncreplan, per-arm split + switch read-back",
+  "noiseCheck": true,
+  "timeoutMin": 20,
+  "run": {
+   "profile": {
+    "seed": 12345,
+    "minutes": 6,
+    "slice": 2,
+    "ab": "asyncreplan"
+   }
+  },
+  "nativeRequire": "@arReady>=7,@hxReady>=7,arPrereqRefused<1"
+ },
+ "jobs": [
+  {
+   "id": "bp-kinds-time",
+   "asi": "game-copy/ts3native.asi.offload-a2-1118",
+   "iniBase": "game-copy/ts3native.ini.offload-a2-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/offload-a2-1118 (builds.json ts3native.asi.offload-a2-1118 sha256 347e593a35e7 + ini ed928671d0dd: 0.36.281-offloada2, docs/288 §4 own Kinds gate, counters v213) with ts3fixes.package.master-1117c (managed side unchanged)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-BP-Spring",
+   "ini": {
+    "RouteAsync.Kinds": 3,
+    "RouteAsync.KindsMode": 1,
+    "RouteAsync.H2Ic": 1,
+    "RouteAsync.H2IcMode": 1,
+    "RouteAsync.RefcountGuard": 1,
+    "RouteAsync.RefcountGuardMode": 1
+   },
+   "logRequire": {
+    "^ts3native 0.36.281-offloada2 ": 1,
+    "^route async A10: Kinds=3 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": 1,
+    "^OK   H2 IC window: 7 of 7 IC slots \\(Mode=1": 1,
+    "^OK   refcount guard: .*\\(Mode=1": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL|PART) (route async A10|H2 IC window|refcount guard)": 0
+   },
+   "note": "BP 27 min, 3-min slices, ABBA --ab asyncreplan",
+   "noiseCheck": true,
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 27,
+     "slice": 3,
+     "ab": "asyncreplan"
+    }
+   },
+   "nativeRequire": "@arReady>=7,@hxReady>=7,arPrereqRefused<1,hhTooLift<1"
+  },
+  {
+   "id": "ip-kinds-time",
+   "asi": "game-copy/ts3native.asi.offload-a2-1118",
+   "iniBase": "game-copy/ts3native.ini.offload-a2-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/offload-a2-1118 (builds.json ts3native.asi.offload-a2-1118 sha256 347e593a35e7 + ini ed928671d0dd: 0.36.281-offloada2, docs/288 §4 own Kinds gate, counters v213) with ts3fixes.package.master-1117c (managed side unchanged)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-IP-Spring",
+   "ini": {
+    "RouteAsync.Kinds": 3,
+    "RouteAsync.KindsMode": 1,
+    "RouteAsync.H2Ic": 1,
+    "RouteAsync.H2IcMode": 1,
+    "RouteAsync.RefcountGuard": 1,
+    "RouteAsync.RefcountGuardMode": 1
+   },
+   "logRequire": {
+    "^ts3native 0.36.281-offloada2 ": 1,
+    "^route async A10: Kinds=3 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": 1,
+    "^OK   H2 IC window: 7 of 7 IC slots \\(Mode=1": 1,
+    "^OK   refcount guard: .*\\(Mode=1": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL|PART) (route async A10|H2 IC window|refcount guard)": 0
+   },
+   "note": "IP 27 min, 3-min slices, ABBA --ab asyncreplan",
+   "noiseCheck": true,
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 27,
+     "slice": 3,
+     "ab": "asyncreplan"
+    }
+   },
+   "nativeRequire": "@arReady>=7,@hxReady>=7,arPrereqRefused<1,hhTooLift<1"
+  }
+ ]
+}

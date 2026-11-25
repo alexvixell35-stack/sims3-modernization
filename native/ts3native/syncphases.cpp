@@ -20,7 +20,7 @@
 
 enum { SYP_IC, SYP_PLANLOCKED };
 enum { SYP_LOOP_ENTRY, SYP_LOOP_GROUND, SYP_LOOP_PREPASS, SYP_LOOP_OTHER, SYP_LOOPS };
-static DWORD g_sypLoopRet[4] = {0x0065F80E, 0x0065FB9E, 0x0065FDAA, 0x006762B9};  // selftest sets its own
+static DWORD g_sypLoopRet[4] = {TS3A(0x0065F80E), TS3A(0x0065FB9E), TS3A(0x0065FDAA), TS3A(0x006762B9)};  // selftest sets its own
 static const int kSypLoopOf[4] = {SYP_LOOP_ENTRY, SYP_LOOP_GROUND, SYP_LOOP_GROUND, SYP_LOOP_PREPASS};
 static const int kSypScanWords = 256;  // shortcut: a stale copy of a known return address in a hook's frame would misfile one call
 static const char* const kSypPhase[RJP_N] = {"plan", "cell", "post", "insert", "world", "lotleg", "portal", "cand", "lotgraph",
@@ -83,13 +83,13 @@ static void Add(LONG* a, const LONG* v, int n) { for (int i = 0; i < n; i++) if 
 // "route phases: sync plan N ms failed, ..."; returns the length (selftest reads it)
 static int SypLine(char* d, int room, const SypPlan& p, LONG ms, int res) {
     static const char* const kRes[3] = {"succeeded", "failed", "no-plan"};
-    int n = sprintf_s(d, room, "route phases: sync plan %ld ms %s, entry %s, route %08lX, planlocked %ld; loops entry=%ld/%ld "
+    int n = SFmt(d, room, "route phases: sync plan %ld ms %s, entry %s, route %08lX, planlocked %ld; loops entry=%ld/%ld "
                                "ground=%ld/%ld prepass=%ld/%ld othercaller=%ld/%ld; ms",
                       ms, kRes[res], p.ent, p.handle, p.planN, p.loopN[0], p.loopUs[0] / 1000, p.loopN[1], p.loopUs[1] / 1000,
                       p.loopN[2], p.loopUs[2] / 1000, p.loopN[3], p.loopUs[3] / 1000);
     for (int i = 0; i < RJP_N && n > 0 && n < room - 24; i++)
-        if (i != RJP_HOST) n += sprintf_s(d + n, room - n, " %s=%ld", kSypPhase[i], p.us[i] / 1000);
-    if (p.us[RJP_WATER] && g_wjLastH && n > 0 && n < room - 24) n += sprintf_s(d + n, room - n, " grid=%lux%lu", g_wjLastW, g_wjLastH);  // needs [WaterJps]
+        if (i != RJP_HOST) n += SFmt(d + n, room - n, " %s=%ld", kSypPhase[i], p.us[i] / 1000);
+    if (p.us[RJP_WATER] && g_wjLastH && n > 0 && n < room - 24) n += SFmt(d + n, room - n, " grid=%lux%lu", g_wjLastW, g_wjLastH);  // needs [WaterJps]
     return n;
 }
 
@@ -112,6 +112,7 @@ static void SypEnd() {
     Add(k.sypPhaseUs, p.us, RJP_N);
     Add(k.sypLoopN, p.loopN, SYP_LOOPS);
     Add(k.sypLoopUs, p.loopUs, SYP_LOOPS);
+    if (g_hsOn) HsSync(p.us, us);  // docs/666: the frame's sync plan split
     const LONG ms = us / 1000;
     if (!k.rfbLogMs || ms < k.rfbLogMs) return;
     InterlockedIncrement(&k.sypLongN);
@@ -122,9 +123,10 @@ static void SypEnd() {
     if (tick - g_sypMinute >= 60000) { g_sypMinute = tick; g_sypLinesMin = 0; }
     if (g_sypLinesMin >= g_sypLinesCap) { InterlockedIncrement(&k.sypLinesDropped); return; }
     g_sypLinesMin++;
-    char line[480];
+    char line[480], mc[420] = "";
     SypLine(line, sizeof(line), p, ms, res);
-    Log("%s", line);
+    if (p.entry == SYP_PLANLOCKED) RfbCallerText(mc, sizeof(mc), NULL);  // docs/666: no IC line names this plan's caller
+    Log("%s%s", line, mc);
     InterlockedIncrement(&k.sypLines);
 }
 
@@ -180,7 +182,7 @@ static u8* SypIcRun(int kind, u8* out, DWORD handle, const float* pt, int why, c
     const bool mine = !t_syp.open && SypBegin(SYP_IC, &here);
     char ent[64];
     if (mine) {
-        sprintf_s(ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
+        SFmt(ent, "IC %s/%s/%s", kArIcName[kind & 3], kRfbName[why], entry);
         t_syp.ent = ent;
         t_syp.handle = handle;
     }

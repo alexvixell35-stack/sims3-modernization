@@ -1,0 +1,91 @@
+{
+  "note": "kit-ab-smoke-ea-1121 (feature/kit-ab-1121, docs/314): EA LAPTOP ONLY, PREPARED, NOT RUN (no EA 1.69 install on the Steam machine). Bin state apex via tools/turbo-compat.ts on the laptop. Pass = the e7b payload (old e6 asi + new ts3fixes) loads, writes the kit lines and 0 script errors; arm B plays without our mod. AGENT: build/ts3agent.package = game-copy/ts3agent.package.m1121.",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON \\(ts3native \\+ ts3fixes; CAS error logging on\\) \\| read-back swapinvokediag=on$": {
+      "match": [
+        "ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON (ts3native + ts3fixes; CAS error logging on) | read-back swapinvokediag=on"
+      ],
+      "noMatch": [
+        "ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON (ts3native + ts3fixes; CAS error logging on) | read-back swapinvokediag=off"
+      ]
+    },
+    "^ts3fixes: kit: stats arm A \\(minute\\): in world [0-9.]+ min, ": {
+      "match": [
+        "ts3fixes: kit: stats arm A (minute): in world 1.0 min, worlds 1, sim updates/s median 30 min 2 (60 s), hitches >= 250 ms 0, >= 1 s 0, longest 120 ms, save pauses 0 (longest 0 ms), read-back commodmapfast=on commodmapshadow=off"
+      ],
+      "noMatch": [
+        "ts3fixes: kit: stats arm B (minute): in world 1.0 min, worlds 1"
+      ]
+    },
+    "^ts3fixes: kit: (notice failed|stats task threw)": {
+      "match": [
+        "ts3fixes: kit: stats task threw NullReferenceException: Object reference not set"
+      ],
+      "noMatch": [
+        "ts3fixes: kit: stats arm A (minute): in world 1.0 min"
+      ]
+    },
+    "^ts3native 0\\.36\\.297-eaooa1 ": {
+      "match": [
+        "ts3native 0.36.297-eaooa1 2026-11-20 10:00:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.297-m1120t 2026-11-20 08:00:00"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "e7b-armA-ea169",
+      "note": "[est 12 min] EA LAPTOP ONLY (EA app 1.69.47 TS3.exe): kit e7b arm A exactly as shipped: e6 EA asi eaooa1 + e6normal ini + the kit7a ts3fixes package (swapinvokediag ON + kit lines): the old asi with the new ts3fixes, never run together before. Notice line + read-back, minute stats, 0 script errors, CAS open/close once by hand if a player is there.",
+      "asi": "game-copy/ts3native-ea169.asi.eaooa1-1120",
+      "iniBase": "game-copy/ts3native-ea169.ini.e6normal-1120",
+      "fixesPackage": "game-copy/ts3fixes.package.kit7a-1121",
+      "pinReason": "kit e7b payload as shipped (EA 1.69)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.297-eaooa1 ": 1,
+        "^ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON \\(ts3native \\+ ts3fixes; CAS error logging on\\) \\| read-back swapinvokediag=on$": 1,
+        "^ts3fixes: kit: stats arm A \\(minute\\): in world [0-9.]+ min, ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: kit: (notice failed|stats task threw)": 0
+      }
+    },
+    {
+      "id": "e7b-armB-off-ea169",
+      "note": "[est 8 min] EA LAPTOP ONLY: kit e7b arm B (our mods off) on EA 1.69 + Apex + bridge alone.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,638 @@
+{
+  "note": "c96-stress-1120 (PREPARED, NOT RUN; stress repro, not timing): the 2026-11-20 09:50 UTC lane G bp-thread-census crash (exit 0xC0000096, ~45 s after the run, pid 12184) left no fault record: no XcptLog line (late slots free), no JIT FaultRecover line, no WER event, no Apex crash txt. Same setup (master m1120t release defaults, Apex + bridge, Bin state apex; threadCensus left out: lane G key, not on master; add it back once laneg-1120 merges) with [CrashReport] Enabled=1 and [CrashForensics] Light=1 (wild-call dump on C0000096, docs/144 §3.5.1), 8 x 20 min BP, stopQueueOnFail at the first crash. A hit with again no XcptLog line = the fault bypassed in-process dispatch (inferred: unusable esp); next step then an out-of-process first-chance capture (cdb sxe 96). Household n/a (diagnostics only). Run after the release timing chain ends (CHAIN END in probe-out/queue/chain-timing-v030-1120.log), needs bugfix/crash-report-every-job-1120 merged only for the default (jobs set the keys themselves). Run: node tools/harness/queue.ts tools/harness/queues/c96-stress-1120.json",
+  "rewind": "auto",
+  "jobs": [
+    {
+      "id": "bp-c96-stress-1",
+      "note": "[est 26 min] 1/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12345), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-c96-stress-2",
+      "note": "[est 26 min] 2/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12346), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12346,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-c96-stress-3",
+      "note": "[est 26 min] 3/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12347), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12347,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-c96-stress-4",
+      "note": "[est 26 min] 4/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12348), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12348,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-c96-stress-5",
+      "note": "[est 26 min] 5/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12349), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12349,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-c96-stress-6",
+      "note": "[est 26 min] 6/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12350), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12350,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-c96-stress-7",
+      "note": "[est 26 min] 7/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12351), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12351,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    },
+    {
+      "id": "bp-c96-stress-8",
+      "note": "[est 26 min] 8/8: the 11-20 bp-thread-census crash setup again (m1120t release defaults, Baseline-BP-Spring, seed 12352), 20 min profile; stop at the first crash.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "fixesPackage": "game-copy/ts3fixes.package.m1120t",
+      "pinReason": "master set m1120t (0.36.297-m1120t, merge/nextweek-1120 e5564c0c0: asi + ini + ts3fixes + agent), release defaults",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 45,
+      "stopQueueOnFail": true,
+      "ini": {
+        "CrashReport.Enabled": 1,
+        "CrashForensics.Light": 1
+      },
+      "run": {
+        "profile": {
+          "seed": 12352,
+          "minutes": 20,
+          "noSamplers": true
+        }
+      },
+      "logRequire": {
+        "^ts3native 0.36.297-m1120t ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+        "^crash report on: filter set": 1,
+        "^crash forensics: light \\(docs/67 §18\\)": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.297-m1120t ": {
+          "match": [
+            "ts3native 0.36.297-m1120t 2026-11-20 08:32:14"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-20 15:39:28",
+            "ts3native 0.36.297-m1120n 2026-11-20 06:00:00"
+          ]
+        },
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: Apex Radiance not found at start; ApexStandDown=1 has nothing to stand down"
+          ]
+        },
+        "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+          "match": [
+            "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+          ],
+          "noMatch": [
+            "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16"
+          ]
+        },
+        "^crash report on: filter set": {
+          "match": [
+            "crash report on: filter set (next 0x00000000), exe IAT SetUnhandledExceptionFilter hooked at 0x00F9517C, 6 scrub needles, RdataCheck 0"
+          ],
+          "noMatch": [
+            "crash report off (Enabled=0)"
+          ]
+        },
+        "^crash forensics: light \\(docs/67 §18\\)": {
+          "match": [
+            "crash forensics: light (docs/67 §18): ring 4096 P5 heap events + g_rpUse holds, heap check on"
+          ],
+          "noMatch": [
+            "crash forensics: DUMP access violation (read 0x00000000) at eip 0x00606D07"
+          ]
+        }
+      },
+      "noiseCheck": false
+    }
+  ]
+}

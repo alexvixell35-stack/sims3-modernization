@@ -1,0 +1,56 @@
+{
+  "id": "ao-pr99-ab",
+  "toml": {
+    "ui": {
+      "developer_mode": true
+    },
+    "screen": {
+      "fps_limit": 0,
+      "background_fps_limit": 0
+    }
+  },
+  "variants": {
+    "off": {
+      "toml": {
+        "patches.AmbientOcclusion": {
+          "enabled": true,
+          "zoomSlices": false,
+          "blendNormals": false
+        }
+      }
+    },
+    "on": {
+      "toml": {
+        "patches.AmbientOcclusion": {
+          "enabled": true,
+          "zoomSlices": true,
+          "blendNormals": true
+        }
+      }
+    }
+  },
+  "steps": [
+    {
+      "do": "speed",
+      "speed": "normal"
+    },
+    {
+      "do": "wait",
+      "minutes": 0.5
+    },
+    {
+      "do": "camera_pan",
+      "lots": 8,
+      "height": 150,
+      "seconds": 60,
+      "passes": 10
+    },
+    {
+      "do": "wait",
+      "minutes": 8,
+      "measure": true
+    }
+  ],
+  "save": "West Arbor",
+  "kitNote": "Taken from the test request comment (a scratch job, not in the Apex repo); save changed to West Arbor."
+}

@@ -61,7 +61,7 @@ namespace Ts3Fixes
         {
             if (o == null || o.HasBeenDestroyed) return false;
             Sim s = o as Sim;
-            if (s != null && (s.IsSelectable || s.Household == Household.ActiveHousehold)) return false;
+            if (s != null && IsPlayerSim(s)) return false;  // household rule (PlayerSims.cs)
             if (!o.InWorld) return true;
             int b = s != null ? UtbBits(s) : -1;  // docs/227 §6 central table (Sims only; objects keep the old rule)
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(o.ObjectId) && FarFromViewers(o.Position)) : UtbUnseen(b);
@@ -158,11 +158,20 @@ namespace Ts3Fixes
         {
             public void ReleaseHook()
             {
-                if (!ShortcutOn("disposespread")) { ReleaseOrig(); return; }
-                // the game's own body, Destroy queued instead (Release(fadeOut) already took the car out of the world)
-                CarNpcManager.Singleton.DriveAwayInNpcCar(this, null, LotCurrent);
+                // unseentraffic (UnseenTraffic.cs, docs/855) shares this hook: an unseen traffic car is released where it stands
+                bool inPlace = ShortcutOn("unseentraffic") && UtReleaseInPlace(this, PatchCounters());
+                bool spread = ShortcutOn("disposespread");
+                if (!inPlace && !spread) { ReleaseOrig(); return; }
+                if (inPlace)
+                {
+                    // DriveAwayInNpcCar's finally without its wait and its drive
+                    Sims3.Gameplay.Core.Lot lot = LotCurrent;
+                    if (lot != null && lot.StreetParking != null) lot.StreetParking.FreeParkingSpotForCar(this);
+                }
+                else CarNpcManager.Singleton.DriveAwayInNpcCar(this, null, LotCurrent);  // the game's own body
                 base.Release(true);
-                if (!DisposeSpreadDefer(this)) Destroy();
+                // disposespread: Destroy queued instead (Release(fadeOut) already took the car out of the world)
+                if (!spread || !DisposeSpreadDefer(this)) Destroy();
             }
             public void ReleaseOrig() { } // receives CarNpcWithNoDriver.DriveOffscreenAndRelease's original header
         }
@@ -175,6 +184,7 @@ namespace Ts3Fixes
                 try { SeasonImposterFlush(); } catch (Exception) { } // seasonimposter: the save holds fresh imposters (SeasonImposter.cs)
                 try { PreferredServiceSweep(); } catch (Exception) { } // preferredservice (EaFixes.cs)
                 try { FirePitChairSweep(); } catch (Exception) { } // firepitchair (EaFixes.cs)
+                try { OdFlushAll(); } catch (Exception) { } // unseenoutfitdefer: every waiting outfit is on its Sim before the save (UnseenOutfitDefer.cs)
                 try { DeadRefSavePass(); } catch (Exception) { } // deadrefsweep: cheap final pass, the rest is spread hourly (DeadRefs.cs)
                 bool saved = SaveOrig(synchronous, forceUseSaveName, forceSaveAs);
                 try { PlayedSyncKey(); } catch (Exception) { } // Save As: the played-household sidecar follows the new name (PlayedHouseholds.cs)

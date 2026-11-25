@@ -1,0 +1,164 @@
+{
+ "note": "offload-a2-route-diag-1118 (RUN FIRST, diag, PREPARED, NOT RUN, dry-run checked; est ~45 min game time, measurement only, heavy tools: no timing verdict). Splits the route residual (rebaseline-1116c route 65 / 53 / 11 ms/s BP / IP / SV) into sim-thread sync plans by reason (own Replan / PlanFromPoint / ReplanFromPosition IC vs Route.Plan sync fallbacks) and waits behind route jobs, and counts how many own A10 STARTs are for unseen routes (the only ones docs/288 §4 may move). Decide (docs/288 §3): build/time Kinds bit 1 or 2 for unseen NPCs only if arShadow x mean arSyncUs of that kind >= ~3 ms/s on BP or IP; if the waits (haUs[0] + haUs[2]) dominate, no new Kinds work (P6 stays stopped, ADR 0005). Apex + bridge stack (Bin state apex).",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0.36.281-offloada2 ": {
+   "match": [
+    "ts3native 0.36.281-offloada2 2026-11-18 18:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.280-g5p2 2026-11-18 18:40:00"
+   ]
+  },
+  "^route async A10: Kinds=7 KindsMode=0 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": {
+   "match": [
+    "route async A10: Kinds=7 KindsMode=0 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=0, own gate unseen routes only, Mode 1 needs H2Ic + RefcountGuard"
+   ],
+   "noMatch": [
+    "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0, own gate none (Kinds=0)",
+    "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=0"
+   ]
+  },
+  "^OK   route phases SyncPlans: sim-thread sync plans timed": {
+   "match": [
+    "OK   route phases SyncPlans: sim-thread sync plans timed (lines >= 50 ms, LogFallbackMs)"
+   ],
+   "noMatch": [
+    "FAIL route phases SyncPlans: Route_PlanLocked site not timed, sync plans stay untimed"
+   ]
+  },
+  "^(SKIP|FAIL) (route async A10|route phases)": {
+   "match": [
+    "SKIP route async A10: needs the async route path",
+    "FAIL route phases SyncPlans: Route_PlanLocked site not timed, sync plans stay untimed"
+   ],
+   "noMatch": [
+    "OK   route phases SyncPlans: sim-thread sync plans timed (lines >= 50 ms, LogFallbackMs)",
+    "route async A10 off (Kinds=0, ForeignKinds=0)"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-route-split",
+   "note": "BP 10 min, one arm (no A/B), release defaults + Kinds=7 KindsMode=0 (shadow: own STARTs only counted, every plan stays sync = release behaviour) + SyncPlans + HitchAttr. Read per world: arSyncUs/arSyncN by IC kind (Replan / PlanFromPoint / ReplanFromPosition sync plan time), arShadow (would-be unseen jobs that passed every check) vs arScopeRefused (own STARTs of household / selected / seen NPC / unknown routes, stay sync); sypUs + sypEntry (all sim-thread sync plans: IC path vs direct Route_PlanLocked), sypPhaseUs lock phase; haUs[0] +0x918 wait, haUs[2] job wait, haUs[3] plan waited for the job (waits behind jobs); profiler route / rtLock / rtOtherLock / rtJob buckets.",
+   "asi": "game-copy/ts3native.asi.offload-a2-1118",
+   "iniBase": "game-copy/ts3native.ini.offload-a2-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/offload-a2-1118 (builds.json ts3native.asi.offload-a2-1118, 0.36.281-offloada2: master 0.36.280-g5p2 + docs/288 §4 own Kinds gate, counters v213) with ts3fixes.package.master-1117c (managed side unchanged)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "RouteAsync.Kinds": 7,
+    "RouteAsync.KindsMode": 0,
+    "RouteJobPhases.SyncPlans": 1,
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10
+    }
+   },
+   "nativeRequire": "@arReady>=7,@sypMode>=1,@haReady>=1",
+   "logRequire": {
+    "^ts3native 0.36.281-offloada2 ": 1,
+    "^route async A10: Kinds=7 KindsMode=0 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": 1,
+    "^OK   route phases SyncPlans: sim-thread sync plans timed": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (route async A10|route phases)": 0
+   }
+  },
+  {
+   "id": "ip-route-split",
+   "note": "IP 10 min, one arm (no A/B), release defaults + Kinds=7 KindsMode=0 (shadow: own STARTs only counted, every plan stays sync = release behaviour) + SyncPlans + HitchAttr. Read per world: arSyncUs/arSyncN by IC kind (Replan / PlanFromPoint / ReplanFromPosition sync plan time), arShadow (would-be unseen jobs that passed every check) vs arScopeRefused (own STARTs of household / selected / seen NPC / unknown routes, stay sync); sypUs + sypEntry (all sim-thread sync plans: IC path vs direct Route_PlanLocked), sypPhaseUs lock phase; haUs[0] +0x918 wait, haUs[2] job wait, haUs[3] plan waited for the job (waits behind jobs); profiler route / rtLock / rtOtherLock / rtJob buckets.",
+   "asi": "game-copy/ts3native.asi.offload-a2-1118",
+   "iniBase": "game-copy/ts3native.ini.offload-a2-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/offload-a2-1118 (builds.json ts3native.asi.offload-a2-1118, 0.36.281-offloada2: master 0.36.280-g5p2 + docs/288 §4 own Kinds gate, counters v213) with ts3fixes.package.master-1117c (managed side unchanged)",
+   "releaseDefaults": true,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "RouteAsync.Kinds": 7,
+    "RouteAsync.KindsMode": 0,
+    "RouteJobPhases.SyncPlans": 1,
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10
+    }
+   },
+   "nativeRequire": "@arReady>=7,@sypMode>=1,@haReady>=1",
+   "logRequire": {
+    "^ts3native 0.36.281-offloada2 ": 1,
+    "^route async A10: Kinds=7 KindsMode=0 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": 1,
+    "^OK   route phases SyncPlans: sim-thread sync plans timed": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (route async A10|route phases)": 0
+   }
+  },
+  {
+   "id": "sv-route-split",
+   "note": "SV 10 min, one arm (no A/B), release defaults + Kinds=7 KindsMode=0 (shadow: own STARTs only counted, every plan stays sync = release behaviour) + SyncPlans + HitchAttr. Read per world: arSyncUs/arSyncN by IC kind (Replan / PlanFromPoint / ReplanFromPosition sync plan time), arShadow (would-be unseen jobs that passed every check) vs arScopeRefused (own STARTs of household / selected / seen NPC / unknown routes, stay sync); sypUs + sypEntry (all sim-thread sync plans: IC path vs direct Route_PlanLocked), sypPhaseUs lock phase; haUs[0] +0x918 wait, haUs[2] job wait, haUs[3] plan waited for the job (waits behind jobs); profiler route / rtLock / rtOtherLock / rtJob buckets.",
+   "asi": "game-copy/ts3native.asi.offload-a2-1118",
+   "iniBase": "game-copy/ts3native.ini.offload-a2-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/offload-a2-1118 (builds.json ts3native.asi.offload-a2-1118, 0.36.281-offloada2: master 0.36.280-g5p2 + docs/288 §4 own Kinds gate, counters v213) with ts3fixes.package.master-1117c (managed side unchanged)",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "RouteAsync.Kinds": 7,
+    "RouteAsync.KindsMode": 0,
+    "RouteJobPhases.SyncPlans": 1,
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10
+    }
+   },
+   "nativeRequire": "@arReady>=7,@sypMode>=1,@haReady>=1",
+   "logRequire": {
+    "^ts3native 0.36.281-offloada2 ": 1,
+    "^route async A10: Kinds=7 KindsMode=0 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=\\d, own gate unseen routes only": 1,
+    "^OK   route phases SyncPlans: sim-thread sync plans timed": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (route async A10|route phases)": 0
+   }
+  }
+ ]
+}

@@ -22,16 +22,16 @@
 // Frames an exception unwound are released at the next RcRel / RcDrop / locomotion pass (rcDropped[1]).
 // shortcut: callers outside the table (ts3native shadows and clones that call the queries themselves) pass through
 // (rcPass[1]); they write no footprint refcount except [SteerRO] / [AvoidRO] shadows, which are off in every queue.
-static const DWORD RC_REL_SITES[2] = {0x0082F098, 0x0082F45C}, RC_LOCK_RELEASE = 0x004E17B0;
+static const DWORD RC_REL_SITES[2] = {TS3A(0x0082F098), TS3A(0x0082F45C)}, RC_LOCK_RELEASE = TS3A(0x004E17B0);
 struct RcCaller { DWORD ret; int fn; };
 // return address after each call of 0x82EDB0 / 0x82F0B0 -> rcByFn index: 0 RouteObstructionAtPoint 0x655880,
 // 1 IC_Route_IsPointObstructedBySim 0x751480, 2 IC_RouteManager_IsOkToIdleAtCurrentLocation 0x7556B0, 3 0x755EA0,
 // 4 GoalPoint_Validate 0x759B20, 5 Route_GoalStep 0x75C2D0, 6 0x8243E0, 7 route-to-object 0x830340, 8 RouteFollow_A 0x846B70,
 // 9 RouteFollow_B 0x85B470, 10 RouteFollow_EditPath 0x85F5A0, 11 Locomotion_ObstacleCheck 0x85FD10
 static const RcCaller kRcCallers[15] = {
-    {0x00655AFB, 0}, {0x007516B8, 1}, {0x00755990, 2}, {0x00755FDD, 3}, {0x0075A64C, 4}, {0x0075AA16, 4}, {0x0075CC3B, 5},
-    {0x0075CFE5, 5}, {0x00824497, 6}, {0x008303EA, 7}, {0x00846D21, 8}, {0x0085B50C, 9}, {0x0085F6CB, 10}, {0x0085FE10, 11},
-    {0x0085FE81, 11}};
+    {TS3A(0x00655AFB), 0}, {TS3A(0x007516B8), 1}, {TS3A(0x00755990), 2}, {TS3A(0x00755FDD), 3}, {TS3A(0x0075A64C), 4}, {TS3A(0x0075AA16), 4}, {TS3A(0x0075CC3B), 5},
+    {TS3A(0x0075CFE5), 5}, {TS3A(0x00824497), 6}, {TS3A(0x008303EA), 7}, {TS3A(0x00846D21), 8}, {TS3A(0x0085B50C), 9}, {TS3A(0x0085F6CB), 10}, {TS3A(0x0085FE10), 11},
+    {TS3A(0x0085FE81), 11}};
 static void* g_rcRelOrig = (void*)(uintptr_t)RC_LOCK_RELEASE;                   // the call sites' target (route gate detour)
 static LockReleaseFn g_rcRel = (LockReleaseFn)(uintptr_t)RC_LOCK_RELEASE;      // releases a kept level; selftest: a fake
 static DWORD g_rcTestRet;  // selftest: one more caller key (fn 0)

@@ -40,12 +40,17 @@ Claim marks: **[verified]** = read in the game's IL by us (`ildasm`; no code rep
 
 A hook on `Book.StopUsingBook`. It reads `Sim.CarryStateMachine` before EA's method and again after it. When a machine was
 set before, was not the read machine, and the field is empty after (`BookCarryCore.Dropped`), the call is counted
-[2043], also with the switch off. With the switch on, the dropped machine is ended the way `ExitAndKeepHolding` ends a
-carry (request "ExitNoPut", the state that keeps the object where it is, since EA's handler has already put the book
-away), then disposed, which releases its driver [2044]. The request waits for the state when the reading interaction
-allows it, and is made without waiting otherwise. EA's method runs unchanged, and the check sits in a try/catch, so it
-never changes its result. The dispose follows the request at once, so the engine may cut the exit transition's blend
-**[inferred; not checked in game]**; the book is already in the inventory, so nothing but that blend can be lost.
+[2043], also with the switch off. With the switch on, the dropped machine is disposed, which releases its driver [2044].
+EA's method runs unchanged, and the check sits in a try/catch, so it never changes its result.
+
+Until 2026-11-17 the hook first requested "ExitNoPut" (the state `ExitAndKeepHolding` requests) with the waiting
+`RequestState`. That call threw `SacsErrorException` with an empty message at every drop, and an empty catch hid it
+**[verified, catch log: four 25-minute stress runs on BP, TB, IP and SV, 2026-11-17; at each catch summary the throw
+count was the [2044] count plus one; 582 drops in all]**. `StateMachineClient.RequestState` throws that exception when
+a task makes a waiting request on a machine that is not handling its events asynchronously. It throws before it calls
+the engine, so the state was never requested **[verified, decompiled SimIFace]**. Every ending tested here, the checks
+in §3 included, was the dispose alone. The request was removed. No exit transition plays; the book is already in the
+inventory, and §4 saw normal arms.
 
 Not covered: the rocking, relaxing and lying branches, which keep `Sim.CarryStateMachine` set (the next interaction's
 `InteractionQueue.PutDownCarriedObjects` clears it, also without an exit).

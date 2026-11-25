@@ -36,7 +36,8 @@ namespace Ts3Fixes
     // [818-823] unseenpark: [818] queue entries held (one per idle poll, not per search), [819] let through inside the window
     // because the Sim is seen (snap-back), [820] let through inside the window as exempt, low-LOD searches queued outside
     // the window [821] unseen, [822] seen, [823] non-household Sims walking onto a seen lot (both arms: the visitor bar),
-    // [824] most snap releases in one tick, [825] polls of a seen held Sim deferred to its stagger slot (kUnseenParkStaggerTicks).
+    // [824] most snap releases in one tick, [825] polls of a seen held Sim deferred to its stagger slot (kUnseenParkStaggerTicks),
+    // [1049] household / selected / unknown-scope Sims that reached a hold or a deferral (must stay 0; let through).
     public static partial class Fixes
     {
         static readonly EveryN sEnvGate = new EveryN(), sBroadcastGate = new EveryN(), sCarGate = new EveryN();
@@ -71,7 +72,7 @@ namespace Ts3Fixes
         }
         static bool SimUnseenBody(Sim s)
         {
-            if (s == null || s.IsSelectable || s.Household == Household.ActiveHousehold) return false;
+            if (IsPlayerSim(s)) return false;  // household rule (PlayerSims.cs): never unseen
             int b = UtbBits(s);  // docs/227 §6 central table
             if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), FarFromViewers(s.Position) && !UcOnScreen(s)) : UtbUnseen(b);
             if (!FarFromViewers(s.Position)) return false;
@@ -122,10 +123,21 @@ namespace Ts3Fixes
         {
             public bool SpotHook(Car car, ref Matrix44 mat)
             {
-                if (!(car is CarNpcWithNoDriver) || !ShortcutOn("unseencars") || !InLiteDriver()) return SpotOrig(car, ref mat);
+                // unseentraffic (UnseenTraffic.cs, docs/855) shares this hook: its teleport leg is decided first; a leg it
+                // leaves to EA still gets unseencars' turn-down below when both are on
+                bool trf = ShortcutOn("unseentraffic"), uc = ShortcutOn("unseencars");
+                if (!(car is CarNpcWithNoDriver) || (!trf && !uc) || !InLiteDriver()) return SpotOrig(car, ref mat);
                 int[] c = PatchCounters();
-                c[197]++;
+                if (uc) c[197]++;
+                if (trf) c[1301]++;
                 if (!SpotOrig(car, ref mat)) return false;
+                if (trf)
+                {
+                    int leg = UtLeg((CarNpcWithNoDriver)car, mat, c);
+                    if (leg == 1) return true;  // placed and held: EA's loop finds the car at the spot (no plan), frees it and waits
+                    if (leg == 2) { ((StreetParking)(object)this).FreeParkingSpotForCar(car); return false; }  // car out of the world: EA's no-spot path
+                }
+                if (!uc) return true;
                 int key = UnseenMath.Key(car.ObjectId.Value);
                 if (!FarFromViewers(car.Position) || UcOnScreen(car) || !FarFromViewers(mat.pos.V3))
                 {
@@ -168,14 +180,17 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 int why = SafeUfWhy(s);
                 float last = (float)sAutonomyLastTime.GetValue(a);
-                bool hold = UnseenMath.ParkHold(last, SimClock.ElapsedTime(TimeUnit.Minutes), Instantiator.kUnseenParkMinutes);
+                // household, selected, gone, not live and unknown scope (classifier error -1) are never held and never staggered:
+                // without this a recent search sent them down the snap branch and its stagger slot (up to 12 ticks late)
+                bool hold = !UnseenFallbackCore.HouseholdScope(why)
+                    && UnseenMath.ParkHold(last, SimClock.ElapsedTime(TimeUnit.Minutes), Instantiator.kUnseenParkMinutes);
                 switch (UnseenMath.ParkVerdict(why == 0, hold, why == 0 && hold && ParkExempt(a, s)))
                 {
-                    case UnseenMath.kParkHold: c[818]++; return;
+                    case UnseenMath.kParkHold: if (HouseholdLeak(s, c)) break; c[818]++; return;
                     case UnseenMath.kParkSnap:
                         // seen while held: wait for this Sim's slot so a camera jump does not release them all together
                         long tick = SimClock.CurrentTicks;
-                        if (!UnseenMath.ParkStaggerPass(tick, s.SimDescription.SimDescriptionId, Instantiator.kUnseenParkStaggerTicks)) { c[825]++; return; }
+                        if (!UnseenMath.ParkStaggerPass(tick, s.SimDescription.SimDescriptionId, Instantiator.kUnseenParkStaggerTicks) && !HouseholdLeak(s, c)) { c[825]++; return; }
                         c[819]++;
                         if (tick == sParkBurstTick) sParkBurstN++; else { sParkBurstTick = tick; sParkBurstN = 1; }
                         if (sParkBurstN > c[824]) c[824] = sParkBurstN;
@@ -187,6 +202,15 @@ namespace Ts3Fixes
                 AddOrig(a);
             }
             public static void AddOrig(Autonomy a) { } // receives AutonomyManager.Add's original header
+
+            // defensive: a household, selected or unknown-scope Sim (IsPlayerSim, true on any doubt) about to be held or deferred
+            // is counted in [1049] (must stay 0) and let through
+            static bool HouseholdLeak(Sim s, int[] c)
+            {
+                if (!IsPlayerSim(s)) return false;
+                c[1049]++;
+                return true;
+            }
 
             // Service Sims and role Sims skip EA's own idle delay, so they stay on it. A situation (party, visit, date, group,
             // wedding) drives its Sims partly by autonomy. Pregnancy is alarm-driven; exempt so no pregnant Sim idles for us.

@@ -1,0 +1,464 @@
+{
+  "note": "kinds4-ab-1112 (2026-11-12, docs/247 §13.3 R2, PREPARED, NOT RUN): ini-only re-test of [RouteAsync] Kinds=4 (own-task ReplanFromPosition STARTs as worker jobs; rejected 11-08 for moved waits, HANDOFF 11-08 night rank 5, not re-measured since) on the current build, Isla Paradiso ABBA + BAAB across loads (8 loads; 80 timing minutes, so queue.ts runs the declared smoke first) (Kinds is read at startup, so no in-load --ab), 10 min each, seeded natural play, release ini + package on both arms, light tools only. Counters read in every job (always on, ~no cost): v191 arRf3 (kind-3 START refusals by own / foreign and reason; arRf3_0_19 = own refused by Kinds), v190 fbAp* (FbApplyPending), v192 ds* / lrs* (DiscDrain / LostRemovalFix waits by site) and A10 arStarted / arSyncN / arJobUs ReplanFromPosition. Read: arm-ms.ts and hitch-ab.ts over the ABBA set (ms/s route + script, p99 / p99.9, counts >= 300 ms), sync ReplanFromPosition ms (arSyncUsReplanFromPosition) per arm, and the moved-wait check: dsUs_* and swMaxUs must not rise in the on arm (memory rule moved waits). Est ~2.3 h jobs + ~12 min smoke. Prepare: copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112. Start (between timing jobs only): node tools/harness/night-run.ts --queue-list tools/harness/queues/kinds4-ab-1112.json --close",
+  "stopQueueOnFail": true,
+  "smoke": {
+    "note": "measurement smoke: the on arm cut to 5 min: version, Kinds=4 read back from the A10 log line, own kind-3 jobs started, no Kinds refusal, the new v190 / v191 / v192 counters present",
+    "asi": "game-copy/ts3native.asi.rh1112",
+    "iniBase": "game-copy/ts3native.ini.rc1111d",
+    "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+    "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+    "save": "Baseline-IP-Spring",
+    "releaseDefaults": true,
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "noiseCheck": true,
+    "logRequire": {
+      "^ts3native 0\\.36\\.245 ": 1,
+      "route async A10: Kinds=4 ": 1
+    },
+    "regexCases": {
+      "^ts3native 0\\.36\\.245 ": {
+        "match": [
+          "ts3native 0.36.245 2026-11-12 21:04:11"
+        ],
+        "noMatch": [
+          "ts3native 0.36.243 2026-11-12 10:02:51",
+          "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+          "ts3native 0.36.2450 2026-11-12 21:04:11"
+        ]
+      },
+      "route async A10: Kinds=4 ": {
+        "match": [
+          "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+        ],
+        "noMatch": [
+          "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+          "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+        ]
+      }
+    },
+    "ini": {
+      "RouteAsync.Kinds": 4
+    },
+    "nativeRequire": "arStartedReplanFromPosition>=1,arRf3_0_19<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0,arMismatch<=0,arOrphan<=0",
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 5,
+        "noSamplers": true
+      }
+    },
+    "timeoutMin": 20
+  },
+  "jobs": [
+    {
+      "id": "ip-kinds4-off-1",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=0 (release) 1: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=0 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=0 ": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 0
+      },
+      "nativeRequire": "arRf3_0_19>=1,arStartedReplanFromPosition<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-kinds4-on-1",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=4 (own ReplanFromPosition STARTs as worker jobs) 1: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=4 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=4 ": {
+          "match": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 4
+      },
+      "nativeRequire": "arStartedReplanFromPosition>=1,arRf3_0_19<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0,arMismatch<=0,arOrphan<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-kinds4-on-2",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=4 (own ReplanFromPosition STARTs as worker jobs) 2: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=4 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=4 ": {
+          "match": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 4
+      },
+      "nativeRequire": "arStartedReplanFromPosition>=1,arRf3_0_19<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0,arMismatch<=0,arOrphan<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-kinds4-off-2",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=0 (release) 2: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=0 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=0 ": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 0
+      },
+      "nativeRequire": "arRf3_0_19>=1,arStartedReplanFromPosition<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-kinds4-on-3",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=4 (own ReplanFromPosition STARTs as worker jobs) 3: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=4 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=4 ": {
+          "match": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 4
+      },
+      "nativeRequire": "arStartedReplanFromPosition>=1,arRf3_0_19<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0,arMismatch<=0,arOrphan<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-kinds4-off-3",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=0 (release) 3: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=0 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=0 ": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 0
+      },
+      "nativeRequire": "arRf3_0_19>=1,arStartedReplanFromPosition<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-kinds4-off-4",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=0 (release) 4: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=0 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=0 ": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 0
+      },
+      "nativeRequire": "arRf3_0_19>=1,arStartedReplanFromPosition<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "ip-kinds4-on-4",
+      "note": "[est 17 min] TIMING R2 (docs/247 §13.3) IP Kinds=4 (own ReplanFromPosition STARTs as worker jobs) 4: release ini + package, 10 min seeded natural play, light tools only.",
+      "asi": "game-copy/ts3native.asi.rh1112",
+      "iniBase": "game-copy/ts3native.ini.rc1111d",
+      "fixesPackage": "game-copy/ts3fixes.package.rc1111c",
+      "pinReason": "route-hitch-logs-1112 asi (ts3native 0.36.245: master 0.36.243 + docs/247 §13.5 counters v190-v192; copy native/ts3native/out-rh/ts3native.asi of feature/route-hitch-logs-1112 to game-copy/ts3native.asi.rh1112 first) + the release ini ts3native.ini.rc1111d + release package ts3fixes.package.rc1111c: the arms differ only in [RouteAsync] Kinds (ini)",
+      "save": "Baseline-IP-Spring",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": true,
+      "logRequire": {
+        "^ts3native 0\\.36\\.245 ": 1,
+        "route async A10: Kinds=4 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.245 ": {
+          "match": [
+            "ts3native 0.36.245 2026-11-12 21:04:11"
+          ],
+          "noMatch": [
+            "ts3native 0.36.243 2026-11-12 10:02:51",
+            "prior log: ts3native 0.36.245 2026-11-12 20:40:02",
+            "ts3native 0.36.2450 2026-11-12 21:04:11"
+          ]
+        },
+        "route async A10: Kinds=4 ": {
+          "match": [
+            "route async A10: Kinds=4 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1",
+            "route async A10: Kinds=7 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 7, WatchdogKind2=1"
+          ]
+        }
+      },
+      "ini": {
+        "RouteAsync.Kinds": 4
+      },
+      "nativeRequire": "arStartedReplanFromPosition>=1,arRf3_0_19<=0,fbApN>=0,dsN_3>=0,lrsN_0>=0,arMismatch<=0,arOrphan<=0",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "noSamplers": true
+        }
+      },
+      "timeoutMin": 30
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "note": "cas-targetexc-1121 repinned to master set m1121 (0.36.298-m1121, 2026-11-21). cas-targetexc-1121 (PREPARED, NOT RUN; correctness, no timing; docs/312): ts3fixes swapinvokediag detector (the EA tester's CAS / Create-a-Style TargetException ScriptErrors). Job 1 on the diag package (kSwapInvokeDiag True): BP 10 min with repro cas-targetexc-check (CAS everyday, SwapInvokeDiagCheck, cas_click type buttons incl. right click and the second click that opens the designer, check again with the designer open, discard). Pass: check 'swapinvokediag check: OK' twice, detector lines read back, 0 script errors, no crash; household untouched (CAS edits a temporary copy left through the discard path; the detector only logs). Job 2 on the normal package (tuning False = no swap): same repro minus the expectations of the hook; the check must say 'invoke hook not in' and 0 script errors (the off path is vanilla reflection). Needs the ts3agent build with cas_click: game-copy/ts3agent.package.cas-targetexc-1121 (build/ts3agent.package of this branch; installed by cycle.ts --restart after the merge). Bin state apex (Apex latest + bridge) via tools/turbo-compat.ts per queue.ts. Run: node tools/harness/queue.ts tools/harness/queues/cas-targetexc-1121.json --no-smoke",
+  "stopQueueOnFail": false,
+  "rewind": "auto",
+  "jobs": [
+    {
+      "id": "bp-cas-targetexc-diag",
+      "note": "[est 15 min] [natural play + forced CAS clicks] diag package: hook in, switch on; repro cas-targetexc-check.",
+      "asi": "game-copy/ts3native.asi.m1121",
+      "iniBase": "game-copy/ts3native.ini.m1121",
+      "fixesPackage": "game-copy/ts3fixes.package.m1121-diag",
+      "save": "Baseline-BP",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "logRequire": {
+        "^ts3fixes: swapinvokediag: TargetException: Unable to invoke an invalid target\\. from MethodInfo\\.Invoke on \\S+ \\(ours, hook \\w+\\)": 1,
+        "^ts3fixes: swapinvokediag stack: ": 1,
+        "^ts3native 0\\.36\\.298-m1121 ": 1
+      },
+      "regexCases": {
+        "^ts3fixes: swapinvokediag: TargetException: Unable to invoke an invalid target\\. from MethodInfo\\.Invoke on \\S+ \\(ours, hook \\w+\\)": {
+          "match": [
+            "ts3fixes: swapinvokediag: TargetException: Unable to invoke an invalid target. from MethodInfo.Invoke on Sims3.UI.CAS.CASClothingCategory.AddGridItem (ours, hook CrlCategoryHook), target Sims3.UI.CAS.CASClothingCategory, caller assembly Ts3Fixes, #1 for this method, 14 frames"
+          ],
+          "noMatch": [
+            "ts3fixes: swapinvokediag: TargetException: Unable to invoke an invalid target. from MethodInfo.Invoke on Sims3.UI.CAS.Foo.Bar (not swapped by us, class Sims3.UI.CAS.Foo), target null, caller assembly BetterCAS, #1 for this method, 9 frames"
+          ]
+        },
+        "^ts3fixes: swapinvokediag stack: ": {
+          "match": [
+            "ts3fixes: swapinvokediag stack: Ts3Fixes:Ts3Fixes.Fixes.SwapInvokeDiagCheck, mscorlib:System.Reflection.MonoMethod.Invoke"
+          ],
+          "noMatch": [
+            "ts3fixes: swapinvokediag: TargetException reached task Sims3.Gameplay.CAS.CASLogic (invoke hook not in), stack at the report:"
+          ]
+        },
+        "^ts3native 0\\.36\\.298-m1121 ": {
+          "match": [
+            "ts3native 0.36.298-m1121 2026-11-21 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00",
+            "ts3native 0.36.297-m1120u 2026-11-20 13:20:08"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "cas-targetexc-check"
+        }
+      }
+    },
+    {
+      "id": "bp-cas-targetexc-normal",
+      "note": "[est 15 min] normal package (tuning False): no MonoMethod.Invoke swap; same repro; the check reports 'invoke hook not in' and every CAS swap still throws TargetException (that is the bug the detector looks for, not a FAIL here).",
+      "asi": "game-copy/ts3native.asi.m1121",
+      "iniBase": "game-copy/ts3native.ini.m1121",
+      "fixesPackage": "game-copy/ts3fixes.package.m1121",
+      "save": "Baseline-BP",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 1,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-m1121 ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.298-m1121 ": {
+          "match": [
+            "ts3native 0.36.298-m1121 2026-11-21 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.297-d1121 2026-11-21 09:00:00",
+            "ts3native 0.36.297-m1120u 2026-11-20 13:20:08"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "cas-targetexc-check"
+        }
+      }
+    }
+  ]
+}

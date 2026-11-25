@@ -1,0 +1,35 @@
+{
+  "id": "idle-mem",
+  "toml": {},
+  "variants": {
+    "run": {}
+  },
+  "steps": [
+    {
+      "do": "speed",
+      "speed": "normal"
+    },
+    {
+      "do": "memory",
+      "label": "start"
+    },
+    {
+      "do": "camera_pan",
+      "lots": 8,
+      "height": 60,
+      "seconds": 60,
+      "passes": 5
+    },
+    {
+      "do": "wait",
+      "minutes": 10,
+      "measure": false
+    },
+    {
+      "do": "memory",
+      "label": "end"
+    }
+  ],
+  "save": "West Arbor",
+  "kitNote": "Taken from the test request comment (a scratch job, not in the Apex repo); save changed to West Arbor."
+}

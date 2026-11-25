@@ -1,0 +1,550 @@
+{
+ "note": "quitcrash-repro-1114 (PREPARED, NOT RUN; crash repro, correctness only, no timing): player twopointjj v0.2.12 crash at quit to desktop (sim AV in RtlEnterCriticalSection from run_finalize 0xE78E20 during Mono domain finalize 0xE790E0 at shutdown; ECX = UTF-16 text: a freed object still in the domain's finalizable hash). quitdiag-1114 build ([QuitDiag] on by default). 10 jobs, arms interleaved: 5x [MonoThread] Enabled=1 Satb=2 (release) and 5x [MonoThread] Enabled=0. Each: fresh SV load, play 2 min (autopilot), save under a new name, quit_game, wait for exit. PASS = clean exit; FAIL 'game died at quit' carries the crash line; the job ts3native.log has the 'quitdiag' timeline and the 'quitdiag crash' block (object, class, rings). quitsGame jobs (queue.ts): a gone game is by design; crashHunt: crashes do not stop the queue. Run: node tools/harness/queue.ts tools/harness/queues/quitcrash-repro-1114.json (chain probe-out/queue/chain-quitcrash-1114.sh)",
+ "jobs": [
+  {
+   "id": "sv-quit-mt1-1",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt1-1, quit to desktop; [MonoThread] Enabled=1, [AutShadow] Satb=2 (release). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt1-1",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt0-1",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt0-1, quit to desktop; [MonoThread] Enabled=0. Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 0
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt0-1",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt1-2",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt1-2, quit to desktop; [MonoThread] Enabled=1, [AutShadow] Satb=2 (release). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt1-2",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt0-2",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt0-2, quit to desktop; [MonoThread] Enabled=0. Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 0
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt0-2",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt1-3",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt1-3, quit to desktop; [MonoThread] Enabled=1, [AutShadow] Satb=2 (release). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt1-3",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt0-3",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt0-3, quit to desktop; [MonoThread] Enabled=0. Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 0
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt0-3",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt1-4",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt1-4, quit to desktop; [MonoThread] Enabled=1, [AutShadow] Satb=2 (release). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt1-4",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt0-4",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt0-4, quit to desktop; [MonoThread] Enabled=0. Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 0
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt0-4",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt1-5",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt1-5, quit to desktop; [MonoThread] Enabled=1, [AutShadow] Satb=2 (release). Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 1,
+    "AutShadow.Satb": 2
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt1-5",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  },
+  {
+   "id": "sv-quit-mt0-5",
+   "note": "[est 9 min] SV load, play 2 min, save QuitCrash-sv-quit-mt0-5, quit to desktop; [MonoThread] Enabled=0. Pass: TS3W exits within 120 s with no crash line (quit-cycle.ts).",
+   "asi": "game-copy/ts3native.asi.quitdiag-1114",
+   "iniBase": "game-copy/ts3native.ini.rc1111g",
+   "fixesPackage": "game-copy/ts3fixes.package.rel0211b",
+   "pinReason": "quitdiag-1114 (builds.json, branch diag/quit-finalizer-crash): asi = v0.2.12 release code 0.36.247 (release/rc-1111g f979d8ed) + [QuitDiag] logging only (0.36.247-quitdiag1); ini = v0.2.12 release ini rc1111g; package = v0.2.12 ts3fixes rel0211b (570f8845) as the player had",
+   "save": "Baseline-SV-Spring",
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "quitsGame": true,
+   "crashHunt": true,
+   "ini": {
+    "MonoThread.Enabled": 0
+   },
+   "logRequire": {
+    "^ts3native 0.36.247-quitdiag1 ": 1,
+    "^OK   quitdiag: 4 of 4 sites": 1
+   },
+   "regexCases": {
+    "^ts3native 0.36.247-quitdiag1 ": {
+     "match": [
+      "ts3native 0.36.247-quitdiag1 2026-11-14 23:00:05"
+     ],
+     "noMatch": [
+      "ts3native 0.36.247 2026-11-13 05:55:00"
+     ]
+    },
+    "^OK   quitdiag: 4 of 4 sites": {
+     "match": [
+      "OK   quitdiag: 4 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites); finalizer ring 512"
+     ],
+     "noMatch": [
+      "OK   quitdiag: 3 of 4 sites (Mono cleanup, domain finalize pass, run_finalize and invoke-finalizers call sites)"
+     ]
+    }
+   },
+   "run": {
+    "script": [
+     "quit-cycle.ts",
+     "--minutes",
+     "2",
+     "--save-name",
+     "QuitCrash-sv-quit-mt0-5",
+     "--exit-s",
+     "120"
+    ]
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 20
+  }
+ ]
+}

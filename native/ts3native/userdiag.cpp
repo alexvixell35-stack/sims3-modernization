@@ -79,6 +79,8 @@ static int UdDbpfCount(const u8* hdr, size_t hdrN, const u8* idx, size_t idxN, D
     return n;
 }
 static const DWORD kUdS3SA = 0x073FAA07;  // script assembly resource
+// CC split by kind (docs/188 §1) [community: TS3 resource types]: CAS part, object definition
+static const DWORD kUdCASP = 0x034AEECB, kUdOBJD = 0x319E4F1D;
 
 // "PackedFile <pattern>" lines of a Resource.cfg (patterns are relative: no user path); returns their count.
 static int UdCfgPatterns(const char* txt, size_t n, UdList& l) {
@@ -115,7 +117,7 @@ static void UdModVersion(HMODULE m, char* out, size_t cap) {
     for (DWORD i = 0; p && i + 52 <= n; i += 4)
         if (*(const DWORD*)(p + i) == 0xFEEF04BD) {
             const VS_FIXEDFILEINFO* f = (const VS_FIXEDFILEINFO*)(p + i);
-            sprintf_s(out, cap, "%lu.%lu.%lu.%lu", f->dwFileVersionMS >> 16, f->dwFileVersionMS & 0xFFFF, f->dwFileVersionLS >> 16,
+            SFmt(out, cap, "%lu.%lu.%lu.%lu", f->dwFileVersionMS >> 16, f->dwFileVersionMS & 0xFFFF, f->dwFileVersionLS >> 16,
                       f->dwFileVersionLS & 0xFFFF);
             return;
         }
@@ -194,21 +196,22 @@ static void UdMemAdd(UdMemStat& s, const MEMORY_BASIC_INFORMATION& m) {
     (m.Type == MEM_IMAGE ? s.image : m.Type == MEM_MAPPED ? s.mapped : s.priv) += m.RegionSize;
     if (m.Type == MEM_MAPPED && (uintptr_t)m.BaseAddress - s.ownLo < s.ownLen) s.ownMapped += m.RegionSize;
 }
-static const DWORD kUdLowBigMB = 256;  // largest free block under this: Error 12 / crash-on-save territory (docs/66)
+// largest free block under this: Error 12 / crash-on-save territory (docs/66); [UserDiag] LowSpaceMB (64-1024, default 256)
+static DWORD g_udLowMB = 256;
 static const char* UdLimitText(u64 top) {  // top = highest user address + 1
     return top > (3ull << 30) ? "4 GB (large address aware, 64-bit Windows)" : top > (2ull << 30) ? "3 GB (large address aware, /3GB)"
                                                                                : "2 GB (NOT large address aware)";
 }
 static void UdMemFormat(char* out, size_t cap, const char* what, const UdMemStat& s, u64 top, u64 privUsage, DWORD lowMB, LONG walkUs) {
-    sprintf_s(out, cap,
+    SFmt(out, cap,
               "%s: private %lu MB, committed %lu MB; limit %s, free %lu MB, largest free %lu MB (2nd %lu), session low %lu MB; modules %lu MB, "
               "mapped files %lu MB, heaps and other private %lu MB; walk %ld us, %lu regions",
               what, (DWORD)(privUsage >> 20), (DWORD)(s.commit >> 20), UdLimitText(top), (DWORD)(s.freeB >> 20), (DWORD)(s.big1 >> 20),
               (DWORD)(s.big2 >> 20), lowMB, (DWORD)(s.image >> 20), (DWORD)(s.mapped >> 20), (DWORD)(s.priv >> 20), walkUs, s.regions);
 }
 static bool UdMemLow(char* out, size_t cap, DWORD bigMB) {  // the warning line, false = no warning
-    if (bigMB >= kUdLowBigMB) return false;
-    sprintf_s(out, cap, "diag: low address space: largest free block %lu MB (under %lu) - risk of Error 12 / crash on save", bigMB, kUdLowBigMB);
+    if (bigMB >= g_udLowMB) return false;
+    SFmt(out, cap, "diag: low address space: largest free block %lu MB (under %lu) - risk of Error 12 / crash on save", bigMB, g_udLowMB);
     return true;
 }
 static volatile DWORD g_udLowBigMB = 0xFFFFFFFF;  // session low of the largest free block
@@ -265,27 +268,30 @@ static volatile LONG g_udQuits;  // ts3fixes "world quit" lines (World.OnWorldQu
 static DWORD g_udWorldTick;  // GetTickCount at the last world load (castrim.cpp's inventory check)
 static void UdMemAsk(const char* fmt, LONG n, const char* ev = NULL) {
     char what[48];
-    sprintf_s(what, fmt, n);
+    SFmt(what, fmt, n);
     if (!g_udMemEv) { UdMemSample(what, ev); return; }  // no worker (CreateThread failed, selftest): inline
     if (g_udMemHead - g_udMemTail >= 8) return;  // shortcut: a full queue drops the sample; 8 asks within one walk do not happen
-    strcpy_s(g_udMemQ[g_udMemHead & 7], what);
+    SCpy(g_udMemQ[g_udMemHead & 7], what);
     strncpy_s(g_udMemQEv[g_udMemHead & 7], ev ? ev : "", _TRUNCATE);
     InterlockedIncrement(&g_udMemHead);
     SetEvent(g_udMemEv);
 }
 static DWORD MdWorkerPoll();  // memdiag.cpp: runs a pending [MemDiag] self-test; ms until it wants the worker again
+// Rewind (docs/270 §34): the wait has a fixed 1 s timeout and `last` lives in memory, so a wait at a rewind is the same
+// call as at the snapshot. A timeout left until the next deadline differed per loop and refused every rewind. The polls
+// below are deadline checks, so a 1 s tick only makes them up to 1 s late (periods are minutes or RcRefPeriodSec).
+static DWORD g_udMemLast;
 static DWORD WINAPI UdMemMain(LPVOID) {
-    DWORD last = GetTickCount();
+    g_udMemLast = GetTickCount();
     for (;;) {
-        const DWORD since = GetTickCount() - last, md = MdWorkerPoll();
-        const DWORD wait = since >= g_udMemPeriodMs ? 0 : g_udMemPeriodMs - since;
-        WaitForSingleObject(g_udMemEv, wait < md ? wait : md);
+        MdWorkerPoll();
+        WaitForSingleObject(g_udMemEv, 1000);
         for (; g_udMemTail != g_udMemHead; InterlockedIncrement(&g_udMemTail))
             UdMemSample(g_udMemQ[g_udMemTail & 7], g_udMemQEv[g_udMemTail & 7][0] ? g_udMemQEv[g_udMemTail & 7] : NULL);
-        if (GetTickCount() - last >= g_udMemPeriodMs) {
-            last = GetTickCount();
+        if (GetTickCount() - g_udMemLast >= g_udMemPeriodMs) {
+            const DWORD last = g_udMemLast = GetTickCount();
             char what[48];
-            sprintf_s(what, "diag: memory at %lu min", (last - g_udT0) / 60000);
+            SFmt(what, "diag: memory at %lu min", (last - g_udT0) / 60000);
             if (g_udWorlds) UdMemSample(what);  // play only: nothing before the first world load
         }
     }
@@ -318,7 +324,7 @@ static void UdIniLines() {
         char item[128];
         CrUtf8(s, item + 1, sizeof(item) - 2);
         item[0] = '[';
-        strcat_s(item, "]");
+        SCat(item, "]");
         UdListAdd(l, item);
         const DWORD m = GetPrivateProfileSectionW(s, sec, 16384, g_udIni);
         for (const wchar_t* kv = sec; m && *kv; kv += wcslen(kv) + 1) {
@@ -337,7 +343,7 @@ static void UdBinLines(const wchar_t* bin) {
     UdListBegin(l, "diag: Bin add-ons:");
     wchar_t pat[MAX_PATH], p[MAX_PATH];
     WIN32_FIND_DATAW f;
-    swprintf_s(pat, L"%s\\*", bin);
+    PathFmt(pat, L"%s\\*", bin);
     HANDLE h = FindFirstFileExW(pat, FindExInfoBasic, &f, FindExSearchNameMatch, NULL, 0);
     // ASI plugins and the DLL names the ASI loaders and wrappers use (the game ships none of these in Bin [inferred])
     static const wchar_t* const kProxies[] = {L"d3d9.dll", L"dinput8.dll", L"dsound.dll", L"version.dll", L"winmm.dll", L"wininet.dll",
@@ -348,13 +354,13 @@ static void UdBinLines(const wchar_t* bin) {
         bool want = ext && (!_wcsicmp(ext, L".asi") || !_wcsicmp(ext, L".orig"));
         for (const wchar_t* x : kProxies) want = want || !_wcsicmp(f.cFileName, x);
         if (!want) continue;
-        swprintf_s(p, L"%s\\%s", bin, f.cFileName);
+        PathFmt(p, L"%s\\%s", bin, f.cFileName);
         char name[MAX_PATH * 3], ver[40], item[MAX_PATH * 3 + 96];
         CrUtf8(f.cFileName, name, sizeof(name));
         UdFileVersion(p, ver, sizeof(ver));
         const u64 sz = ((u64)f.nFileSizeHigh << 32) | f.nFileSizeLow;
         const bool dxvk = !_wcsicmp(f.cFileName, L"d3d9.dll") && UdFileHas(p, "DXVK");
-        sprintf_s(item, "%s %llu KB%s%s%s", name, sz >> 10, ver[0] ? " v" : "", ver, dxvk ? " (DXVK)" : "");
+        SFmt(item, "%s %llu KB%s%s%s", name, sz >> 10, ver[0] ? " v" : "", ver, dxvk ? " (DXVK)" : "");
         UdListAdd(l, item);
     }
     if (h != INVALID_HANDLE_VALUE) FindClose(h);
@@ -362,18 +368,29 @@ static void UdBinLines(const wchar_t* bin) {
     UdListFlush(l);
 }
 
+// CC String Merge (SmellyMods, docs/304) outputs by the names its source writes: 1 = CCStringMerge_Strings.package,
+// 2 = CCStringMerge_Merged_NNN.package (--merge part), 0 = other.
+static int UdCcsmKind(const wchar_t* name) {
+    if (!_wcsicmp(name, L"CCStringMerge_Strings.package")) return 1;
+    static const wchar_t kPre[] = L"CCStringMerge_Merged_";
+    const size_t n = wcslen(kPre);
+    if (wcslen(name) != n + 3 + 8 || _wcsnicmp(name, kPre, n) || _wcsicmp(name + n + 3, L".package")) return 0;
+    for (int i = 0; i < 3; i++) if (name[n + i] < L'0' || name[n + i] > L'9') return 0;
+    return 2;
+}
+
 static const DWORD kUdIdxCap = 1 << 21;  // index read cap 2 MB (~65k entries); a bigger index counts as no script
-struct UdScan { int files, script, deep; u64 bytes; u8* idx; UdList names, scripts; };
+struct UdScan { int files, script, deep, cas, obj, ccsmStr, ccsmParts, bigIdx; u64 bytes; u8* idx; UdList names, scripts; };
 static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
     wchar_t pat[MAX_PATH], p[MAX_PATH];
-    if (swprintf_s(pat, L"%s\\*", dir) < 0) return;
+    if (!PathFmt(pat, L"%s\\*", dir)) return;
     WIN32_FIND_DATAW f;
     HANDLE h = FindFirstFileExW(pat, FindExInfoBasic, &f, FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
     if (h == INVALID_HANDLE_VALUE) return;
     static u8 hdr[96];
     do {
         if (f.cFileName[0] == L'.') continue;
-        if (swprintf_s(p, L"%s\\%s", dir, f.cFileName) < 0) continue;
+        if (!PathFmt(p, L"%s\\%s", dir, f.cFileName)) continue;
         if (f.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             if (depth >= 5) s.deep++;  // the game reads Packages\*\* only as deep as Resource.cfg says [community]
             else UdScanPackages(p, depth + 1, s);
@@ -386,6 +403,8 @@ static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
         char name[MAX_PATH * 3];
         CrUtf8(f.cFileName, name, sizeof(name));
         if (s.files <= 200) UdListAdd(s.names, name);
+        const int ccsm = UdCcsmKind(f.cFileName);
+        s.ccsmStr += ccsm == 1, s.ccsmParts += ccsm == 2;
         HANDLE fh = CreateFileW(p, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
         if (fh == INVALID_HANDLE_VALUE) continue;
         DWORD r = 0;
@@ -394,10 +413,14 @@ static void UdScanPackages(const wchar_t* dir, int depth, UdScan& s) {
             LARGE_INTEGER at;
             at.QuadPart = pos;
             DWORD got = 0;
-            if (s.idx && size && size <= kUdIdxCap && SetFilePointerEx(fh, at, NULL, FILE_BEGIN) && ReadFile(fh, s.idx, size, &got, NULL) &&
-                UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdS3SA) > 0) {
-                s.script++;
-                if (s.script <= 100) UdListAdd(s.scripts, name);
+            s.bigIdx += size > kUdIdxCap;
+            if (s.idx && size && size <= kUdIdxCap && SetFilePointerEx(fh, at, NULL, FILE_BEGIN) && ReadFile(fh, s.idx, size, &got, NULL)) {
+                if (UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdS3SA) > 0) {
+                    s.script++;
+                    if (s.script <= 100) UdListAdd(s.scripts, name);
+                }
+                s.cas += UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdCASP) > 0;
+                s.obj += UdDbpfCount(hdr, sizeof(hdr), s.idx, got, kUdOBJD) > 0;
             }
         }
         CloseHandle(fh);
@@ -409,13 +432,13 @@ static u64 UdTreeBytes(const wchar_t* dir, int depth, int* files) {
     wchar_t pat[MAX_PATH], p[MAX_PATH];
     WIN32_FIND_DATAW f;
     u64 b = 0;
-    if (swprintf_s(pat, L"%s\\*", dir) < 0) return 0;
+    if (!PathFmt(pat, L"%s\\*", dir)) return 0;
     HANDLE h = FindFirstFileExW(pat, FindExInfoBasic, &f, FindExSearchNameMatch, NULL, FIND_FIRST_EX_LARGE_FETCH);
     if (h == INVALID_HANDLE_VALUE) return 0;
     do {
         if (f.cFileName[0] == L'.') continue;
         if (f.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            if (depth < 6 && swprintf_s(p, L"%s\\%s", dir, f.cFileName) > 0) b += UdTreeBytes(p, depth + 1, files);
+            if (depth < 6 && PathFmt(p, L"%s\\%s", dir, f.cFileName)) b += UdTreeBytes(p, depth + 1, files);
         } else {
             b += ((u64)f.nFileSizeHigh << 32) | f.nFileSizeLow;
             if (files) (*files)++;
@@ -427,8 +450,8 @@ static u64 UdTreeBytes(const wchar_t* dir, int depth, int* files) {
 
 static void UdSavesLine(const wchar_t* user) {
     wchar_t dir[MAX_PATH], pat[MAX_PATH], p[MAX_PATH];
-    swprintf_s(dir, L"%s\\Saves", user);
-    swprintf_s(pat, L"%s\\*", dir);
+    PathFmt(dir, L"%s\\Saves", user);
+    PathFmt(pat, L"%s\\*", dir);
     WIN32_FIND_DATAW f;
     int saves = 0, backups = 0, files = 0;
     u64 bytes = 0, biggest = 0;
@@ -438,7 +461,7 @@ static void UdSavesLine(const wchar_t* user) {
         const wchar_t* ext = wcsrchr(f.cFileName, L'.');
         if (ext && !_wcsicmp(ext, L".sims3")) saves++;
         else if (ext && !_wcsicmp(ext, L".backup")) backups++;
-        if (swprintf_s(p, L"%s\\%s", dir, f.cFileName) < 0) continue;
+        if (!PathFmt(p, L"%s\\%s", dir, f.cFileName)) continue;
         const u64 b = UdTreeBytes(p, 0, &files);
         bytes += b;
         if (ext && !_wcsicmp(ext, L".sims3") && b > biggest) biggest = b;
@@ -449,8 +472,8 @@ static void UdSavesLine(const wchar_t* user) {
 
 static void UdModsLines(const wchar_t* user) {
     wchar_t mods[MAX_PATH], p[MAX_PATH];
-    swprintf_s(mods, L"%s\\Mods", user);
-    swprintf_s(p, L"%s\\Resource.cfg", mods);
+    PathFmt(mods, L"%s\\Mods", user);
+    PathFmt(p, L"%s\\Resource.cfg", mods);
     HANDLE h = CreateFileW(p, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     char cfg[8192];
     DWORD r = 0;
@@ -464,7 +487,7 @@ static void UdModsLines(const wchar_t* user) {
         UdList l;
         UdListBegin(l, "diag: Mods\\Resource.cfg");
         char head[64];
-        sprintf_s(head, "%lu bytes, hash %08lx, PackedFile:", r, (DWORD)hash);
+        SFmt(head, "%lu bytes, hash %08lx, PackedFile:", r, (DWORD)hash);
         UdListAdd(l, head);
         if (!UdCfgPatterns(cfg, r, l)) UdListAdd(l, "none");
         UdListFlush(l);
@@ -472,19 +495,25 @@ static void UdModsLines(const wchar_t* user) {
     UdScan s = {};
     UdListBegin(s.names, "diag: packages (first 200 names):");
     UdListBegin(s.scripts, "diag: script mods (S3SA packages):");
-    swprintf_s(p, L"%s\\Packages", mods);
+    PathFmt(p, L"%s\\Packages", mods);
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     s.idx = (u8*)VirtualAlloc(NULL, kUdIdxCap, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);  // freed after: no address space kept
     UdScanPackages(p, 0, s);
     if (s.idx) VirtualFree(s.idx, 0, MEM_RELEASE);
     // shortcut: *.package directly in Mods (not loaded by the usual Resource.cfg) and Overrides are not counted
-    Log("diag: Mods\\Packages %d .package files, %llu MB, %d with scripts (S3SA), %d other (CC, tuning), %d folders deeper than 5 not read; scan %ld ms",
-        s.files, s.bytes >> 20, s.script, s.files - s.script, s.deep, UsSince(t0) / 1000);
+    Log("diag: Mods\\Packages %d .package files, %llu MB, %d with scripts (S3SA), %d other (CC, tuning), %d folders deeper than 5 not read; scan %ld ms; "
+        "CC by kind: %d with CAS parts (CASP), %d with objects (OBJD)",
+        s.files, s.bytes >> 20, s.script, s.files - s.script, s.deep, UsSince(t0) / 1000, s.cas, s.obj);
+    // separate lines, only when they apply: the Mods\Packages line above keeps its format (player-log-digest.ts parses it)
+    if (s.ccsmStr || s.ccsmParts)
+        Log("diag: CC String Merge output in Mods\\Packages: strings package %s, merged parts %d (offline STBL merge tool, docs/304)",
+            s.ccsmStr ? "yes" : "no", s.ccsmParts);
+    if (s.bigIdx) Log("diag: %d packages with an index over %lu KB: script and CC-kind counts skip them", s.bigIdx, kUdIdxCap >> 10);
     UdListFlush(s.scripts);
     UdListFlush(s.names);
     if (s.files > 200) Log("diag: packages: %d more names not listed", s.files - 200);
-    sprintf_s(g_udSum, "mods %d packages (%d script) %llu MB", s.files, s.script, s.bytes >> 20);
+    SFmt(g_udSum, "mods %d packages (%d script) %llu MB", s.files, s.script, s.bytes >> 20);
 }
 
 static void UdPacksLine() {  // HKLM\SOFTWARE\Sims (a 32-bit process reads WOW6432Node): one key per installed pack [inferred]
@@ -504,7 +533,7 @@ static void UdPacksLine() {  // HKLM\SOFTWARE\Sims (a 32-bit process reads WOW64
     }
     if (!l.items) UdListAdd(l, "none found");
     char c[24];
-    sprintf_s(c, "(%d keys)", l.items);
+    SFmt(c, "(%d keys)", l.items);
     UdListAdd(l, c);
     UdListFlush(l);
 }
@@ -521,7 +550,7 @@ static void UdGpuLines() {
         bool dup = false;
         for (int k = 0; k < ns; k++) dup = dup || !strcmp(seen[k], name);
         if (dup) continue;
-        strcpy_s(seen[ns++], name);
+        SCpy(seen[ns++], name);
         char drv[64] = "?";
         DWORD vramMB = 0;
         // DeviceKey: \Registry\Machine\System\CurrentControlSet\Control\Video\{GUID}\0000
@@ -566,9 +595,9 @@ static DWORD WINAPI UdHeaderMain(LPVOID) {
     char sha[65] = "?";
     CrFileSha(exe, sha);
     sha[12] = 0;
-    swprintf_s(p, L"%s.orig", exe);
+    PathFmt(p, L"%s.orig", exe);
     const u64 orig = UdFileSize(p);
-    swprintf_s(p, L"%s\\steam_api.dll", bin);
+    PathFmt(p, L"%s\\steam_api.dll", bin);
     char sv[40] = "";
     const u64 steamApi = UdFileSize(p);
     if (steamApi != ~0ull) UdFileVersion(p, sv, sizeof(sv));
@@ -581,7 +610,7 @@ static DWORD WINAPI UdHeaderMain(LPVOID) {
     wchar_t user[MAX_PATH];
     UserSims3Dir(user);
     wchar_t lower[MAX_PATH], prof[MAX_PATH] = L"";
-    wcscpy_s(lower, user);
+    WCpy(lower, user);
     _wcslwr_s(lower);
     GetEnvironmentVariableW(L"USERPROFILE", prof, MAX_PATH);
     _wcslwr_s(prof);
@@ -623,7 +652,7 @@ static void UdModulesLines() {
         char a[MAX_PATH * 3], ver[40], item[MAX_PATH * 3 + 64];
         CrUtf8(name, a, sizeof(a));
         UdModVersion(mods[i], ver, sizeof(ver));
-        sprintf_s(item, "%s%s%s%s", a, ver[0] ? " v" : "", ver, inBin ? "" : " (outside Bin)");
+        SFmt(item, "%s%s%s%s", a, ver[0] ? " v" : "", ver, inBin ? "" : " (outside Bin)");
         if (!inBin) other++;
         UdListAdd(l, item);
     }
@@ -645,7 +674,7 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
     if (n == 1) UdModulesLines();
     CpWorldLoad();
     char ev[32];
-    sprintf_s(ev, "world load #%ld", n);
+    SFmt(ev, "world load #%ld", n);
     GcCapWindow(true, ev);  // gcgrow.cpp: [GC] BlackListCapKB strict while the world plays
     InterlockedIncrement(&g_utbWorlds);  // unseentable.cpp: a new [UnseenTable] generation at the next ask
     FpgCensus((int)n);  // discourage.cpp: one pass inside the load screen (docs/89 §17)
@@ -654,30 +683,76 @@ static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
 // ts3fixes text channel (UserDiag.cs): Route.GetOption2 with optHi = 0x87000000 | op << 16, 4 ASCII bytes in optLo.
 // op 0 = begin a line, 1 = append (NUL pads), 2 = end: log it as "ts3fixes: <line>". Answer 1 = accepted; with [UserDiag]
 // off 0, so ts3fixes stops at the first message. Without ts3native the game answers false (no RouteOption2 name there).
-// Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204); op 8 [AutShadow] Unseen.
+// Every op has a row in docs/registry.md "UserDiag ops" (node tools/registry.ts --self-check). Ops 3-5 memdiag.cpp; op 6 and "played: " lines played.cpp (docs/14 section 8.6); op 7 compaction.cpp (docs/204); op 8 [AutShadow] Unseen.
 // docs/247 §11.1: test-only hitch-cause lines (HitchCause.cs, 120 a minute at most) lost to the shared 400: ufplan: and play: use those up.
 static const LONG kUdHitchLines = 6000;
 static const LONG kUdUfPlanLines = 30000;  // ufplan: disk guard (~3 MB); ts3fixes sends at most 120 a minute (UnseenFallback.cs)
+// Test-only hitch and lock lines from ts3fixes (kHitchCauseHooks): their own, larger cap. The shared 400-line cap below
+// silently cut syncwait/socialfinish/hourlypass lines after ~1,000 sync waits (docs/546 §9, 2026-11-14).
 static bool UdHitchLine(const char* s) {
-    return !strncmp(s, "boatreplan:", 11) || !strncmp(s, "owreset:", 8) || !strncmp(s, "alarmtime:", 10) || !strncmp(s, "lotpass:", 8);
+    static const char* const kPrefixes[] = {"boatreplan:", "gangway:", "owreset:", "alarmtime:", "lotpass:", "syncwait",
+                                            "socialfinish:", "socialreceivefail:", "hourlypass:", "spawnplace:",
+                                            "replanlog",   // replanlog: docs/261 L1, ts3fixes caps its own (2000 lines a session)
+                                            "ufplansplit:", "planwait:"};  // ufplansplit fell under the shared 400 before (the A/B arms got ~100 lines each)
+    for (const char* p : kPrefixes)
+        if (!strncmp(s, p, strlen(p))) return true;
+    return false;
 }
 static const DWORD kUdTextHi = 0x87000000;  // 0x86000000 exact = the stuck-check PROBE mark (docs/163 §10)
 static int g_udTxtN;
-static LONG g_udTxtLines;
+static LONG g_udTxtLines;  // all "other" lines this session (disk guard kUdTxtTotal)
+// Other lines: one cap per prefix (text up to the first ':' or 24 chars) so one chatty sender (ufplansplit, callcensus,
+// syncwait) cannot drop every later fix's lines. Fixed table, no allocation; keys past kUdKeyMax share one bucket.
+static const int kUdKeyMax = 64, kUdKeyLen = 24;
+static const LONG kUdTxtTotal = 50000;
+static LONG g_udPerKey = 400;  // [UserDiag] LinesPerPrefix
+static char g_udKey[kUdKeyMax][kUdKeyLen + 1];
+static LONG g_udKeyLines[kUdKeyMax + 1];  // [kUdKeyMax] = overflow bucket
+static int g_udKeys;
+static void UdOtherLine(const char* t) {
+    int n = 0;
+    while (n < kUdKeyLen && t[n] && t[n] != ':') n++;
+    int k = 0;
+    while (k < g_udKeys && (strncmp(g_udKey[k], t, n) || g_udKey[k][n])) k++;
+    if (k == g_udKeys && k < kUdKeyMax) memcpy(g_udKey[k], t, n), g_udKey[k][n] = 0, g_udKeys++;
+    const LONG c = g_udKeyLines[k];
+    if (c <= g_udPerKey) g_udKeyLines[k]++;  // saturates one past the cap: the capped line is logged once
+    if (g_udTxtLines >= kUdTxtTotal) {
+        if (g_udTxtLines == kUdTxtTotal) g_udTxtLines++, Log("ts3fixes: other lines capped at %ld in total (later ones dropped)", kUdTxtTotal);
+        return;
+    }
+    if (c < g_udPerKey) g_udTxtLines++, Log("ts3fixes: %s", t);
+    else if (c == g_udPerKey) Log("ts3fixes: %s lines capped at %ld", k < kUdKeyMax ? g_udKey[k] : "(overflow keys)", g_udPerKey);
+}
 static void MdMark(const char* tag);  // memdiag.cpp
 static void MsLine(const char* line);  // memdiag.cpp: [MemDiag] suspect counters from ts3fixes
 static u8 MsOp(int op);                // memdiag.cpp: ops 3-5 (on / sample wanted / self-test wanted)
 static u8 CtOp(int op, DWORD lo);      // castrim.cpp: ops 14-19, the save sweep's keep list and pump (docs/539 §6)
+static u8 MdtOp(DWORD lo, DWORD hi);   // modtime.cpp: op 61, [Diag] ModTime (docs/298)
+static u8 PcOp(DWORD lo, DWORD hi);  // pccheck.cpp: op 62, [PcCheck] (docs/299)
+static u8 FglInsideOp(DWORD lo);  // fglprof.cpp: op 48, ts3fixes fglinbound arms / ends the indoors stage's search (docs/682 §9)
+static u8 AdOp(DWORD lo, DWORD hi);  // adaptdiag.cpp: op 63, [AdaptDiag] (docs/316)
 static u8 UdTextMsg(DWORD lo, DWORD hi) {
     if (!g_udOn) return 0;
     switch ((hi >> 16) & 0xFF) {
+        case 61: return MdtOp(lo, hi);  // docs/298 [Diag] ModTime: on? / sim hour starts / world quit / notice ready? / notice bit
         case 3: case 4: case 5: return MsOp((hi >> 16) & 0xFF);
         case 6: return PlAnswer();  // played.cpp: store ready / household played (docs/14 section 8.6)
         case 7: return CpOp(lo);    // compaction.cpp: [Compaction] verdict and steps (docs/204)
+        case 50: return g_ilpTuneIso ? 1 : 0;  // docs/339 ilpatch.cpp: [IlPatch] ilp_tuneisolate armed (ts3fixes late init of ts3agent)
         case 8: return (u8)g_asLiveUnseen;  // autshadow-run.cpp: [AutShadow] Unseen=1 (docs/222); no icalls when [AutShadow] is off
-        case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan
-        case 12: KdScopeClear(lo); return 1;  // docs/197 §7: route lo's plan is over
-        case 13: KdScopeSet(lo, 3); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
+        case 10: case 11: KdScopeSet(lo, ((hi >> 16) & 0xFF) == 10 ? 1 : 2, hi & 0xFFFF); return 1;  // docs/197 §7: UfWhy of route lo, before its START or sync plan; hi 0-15: its routefail interaction id (docs/226)
+        case 12: KdScopeClear(lo); GvaPlanEnd(); if (g_pfH == lo) g_pfH = 0; if (g_dsH == lo) g_dsH = 0; return 1;  // docs/631: a sync plan's PlayerFirst mark ends with it too  // docs/197 §7: route lo's plan is over (docs/250 §7.0: gvattr's plan end)
+        case 35: return GvaSrcMsg(lo);  // docs/250 §7.0 (gvro.cpp): the next plan's source class and scope, or "gvattr on?"
+        case 63: return AdOp(lo, hi);  // docs/316 [AdaptDiag]: activity tag / install check missing / world quit / swapinvokediag wanted
+        case 62: return PcOp(lo, hi);  // docs/299 [PcCheck]: problem flag lo set? / sim hour ended / world quit (62: same op as the docs/298 diag branch)
+        case 37: PfSet(lo); return g_pfMode == 1 ? 1 : 0;  // docs/631 [RouteAsync] PlayerFirst: route lo is the player's (ts3fixes playerfirst), before its START; 1 = honoured
+        case 36: return DmxScriptOp(lo, hi & 0xFFFF);  // hostcalls.cpp: DoorMemoX=3 managed door-input generation (ts3fixes DoorGen.cs)
+        case 40: return DsClassOp(lo, hi);  // docs/674 doorshare.cpp: route lo's Sim class (hi 0-15), before its START; 1 = DoorShare on
+        case 48: return FglInsideOp(lo);    // docs/682 §9: lo 1 = this thread's next FindGoodLocation search is the indoors stage, 0 = over; 1 = [FglInside] installed
+        case 49: return LhOp(hi & 0xFFFF);  // docs/321 §9 (lotstream.cpp): ts3fixes LotHub.cs lot event queue (pop / id bit / kind / ready)
+        case 41: return DsNoteOp(lo, hi);   // docs/674: the door answer just given is shareable (lo = hash of the ask, hi 0-15 = kind)
+        case 13: KdScopeSet(lo, 3, hi & 0xFFFF); return 1;  // docs/197 §7: a seen NPC (KdSeenNpcCeilMs); an old package never sends it
         case 14: case 15: case 16: case 17: case 18: case 19: return CtOp((hi >> 16) & 0xFF, lo);
         case 20: case 21: case 22: case 23: case 24: case 25: case 26: case 27: case 28: case 29:
 #ifdef TS3N_RFTEST
@@ -708,6 +783,7 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 g_udTxtN = 0;
                 return 1;
             }
+            if (!strncmp(g_udTxt, "rfia: ", 6)) { g_udTxtN = 0; RfIaName(g_udTxt); return 1; }  // docs/226: a routefail interaction name, not logged
             if (!strncmp(g_udTxt, "routefail", 9) || !strncmp(g_udTxt, "gohere", 6)) {  // docs/197 §7: own cap (disk guard only), the job's fields appended
                 static LONG s_rfLines;
                 char job[320];
@@ -730,9 +806,9 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 g_udTxtN = 0;
                 return 1;
             }
-            if (g_udTxtLines++ < 400) Log("ts3fixes: %s", g_udTxt);  // cap: a looping sender cannot fill the disk
-            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds);  // F5wEvent: docs/539 §21
-            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
+            UdOtherLine(g_udTxt);  // per-prefix cap + total disk guard: a looping sender cannot fill the disk or starve others
+            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds), LotHubFire(LH_WORLD_LOAD, NULL);  // F5wEvent: docs/539 §21; LotHubFire: lotstream.cpp CP-1
+            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), LotHubFire(LH_WORLD_QUIT, NULL), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
             g_udTxtN = 0;
             return 1;
@@ -772,7 +848,7 @@ static void UdWait(const char* what) {  // what = NULL: the wait ended
     g_udWaitWhat = what;
 }
 
-static void UdSaveDir(const wchar_t* dir) { if (UdOnSaveThread()) wcscpy_s(g_udSaveDir, dir); }
+static void UdSaveDir(const wchar_t* dir) { if (UdOnSaveThread()) WCpy(g_udSaveDir, dir); }
 
 static int UdJobs(int state) {
     int n = 0;
@@ -784,11 +860,11 @@ static int UdJobs(int state) {
 static void UdRouteState(char* out, size_t cap) {
     const LONG owner = ts3native_counters.rgOwnerTid;
     char o[48];
-    if (!owner) strcpy_s(o, "free");
-    else sprintf_s(o, "tid %ld%s", owner, (DWORD)owner == g_async.owner ? " (sim)" : (DWORD)owner == g_workerTid ? " (route worker)" : "");
+    if (!owner) SCpy(o, "free");
+    else SFmt(o, "tid %ld%s", owner, (DWORD)owner == g_async.owner ? " (sim)" : (DWORD)owner == g_workerTid ? " (route worker)" : "");
     char job[48] = "none";
-    if (g_async.state == A_RUNNING) sprintf_s(job, "running (handle 0x%08lX)", g_async.handle);
-    sprintf_s(out, cap, "route job %s, queued %d, parked %d, deferred footprints %d, +0x918 %s, gates open %ld", job, UdJobs(J_QUEUED),
+    if (g_async.state == A_RUNNING) SFmt(job, "running (handle 0x%08lX)", g_async.handle);
+    SFmt(out, cap, "route job %s, queued %d, parked %d, deferred footprints %d, +0x918 %s, gates open %ld", job, UdJobs(J_QUEUED),
               UdJobs(J_PEND), g_discCount, o, g_rgOffSimOpen);
 }
 
@@ -799,10 +875,16 @@ static DWORD WINAPI UdDogMain(LPVOID) {
         const char* p = g_udPhase;
         const char* w = g_udWaitWhat;
         char wt[96] = "", rs[200];
-        if (w) sprintf_s(wt, ", waiting for %s for %lu s", w, (now - g_udWaitTick) / 1000);
+        if (w) SFmt(wt, ", waiting for %s for %lu s", w, (now - g_udWaitTick) / 1000);
         UdRouteState(rs, sizeof(rs));
-        Log("save: still running after %lu s: phase %s for %lu s%s; %s; backup worker %s %ld files %ld MB", (now - g_udSaveTick) / 1000,
-            p ? p : "?", (now - g_udPhaseTick) / 1000, wt, rs, g_sjActive ? "copying," : "idle,", g_sjFiles, g_sjKb >> 10);
+        // docs/188 §6: the address-space state of a stuck save (a walk on this thread, ~5-20 ms per 5 s line)
+        UdMemStat ms;
+        UdMemWalk(ms, NULL);
+        const DWORD big = (DWORD)(ms.big1 >> 20);
+        char low[48] = "";
+        if (big < g_udLowMB) SFmt(low, " - LOW (under %lu MB)", g_udLowMB);
+        Log("save: still running after %lu s: phase %s for %lu s%s; %s; backup worker %s %ld files %ld MB; largest free %lu MB%s", (now - g_udSaveTick) / 1000,
+            p ? p : "?", (now - g_udPhaseTick) / 1000, wt, rs, g_sjActive ? "copying," : "idle,", g_sjFiles, g_sjKb >> 10, big, low);
     }
     if (g_udSaveDir[0]) {  // after the save: its folder size, off the sim thread
         int files = 0;
@@ -857,7 +939,7 @@ static void UdSaveEnd(DWORD r) {
 // Save_WritePackage 0xAAC110 (thiscall) calls the native pre-save listeners 0xAABB80 at 0xAAC2F3, World_Save 0xC6D460 at
 // 0xAAC320, the post-save listeners 0xAABBC0 at 0xAAC34A [verified disassembly 1.67.2: each listener loop is thiscall with
 // one stack argument, ret 4, returns al; a false result ends the write with 0xB / 0xD]. Ours only mark the phases.
-static const DWORD UD_PRE_SITE = 0x00AAC2F3, UD_PRE = 0x00AABB80, UD_POST_SITE = 0x00AAC34A, UD_POST = 0x00AABBC0;
+static const DWORD UD_PRE_SITE = TS3A(0x00AAC2F3), UD_PRE = TS3A(0x00AABB80), UD_POST_SITE = TS3A(0x00AAC34A), UD_POST = TS3A(0x00AABBC0);
 typedef DWORD(__fastcall* UdListenFn)(void* self, void* edx, void* arg);  // ret 4
 static UdListenFn g_udPreOrig = (UdListenFn)(uintptr_t)UD_PRE, g_udPostOrig = (UdListenFn)(uintptr_t)UD_POST;
 static DWORD __fastcall UdPreHook(void* self, void*, void* arg) {
@@ -881,10 +963,14 @@ static bool ApplyUserDiag(const wchar_t* ini) {
     g_udT0 = GetTickCount();
     if (!GetPrivateProfileIntW(L"UserDiag", L"Enabled", 1, ini)) { Log("user diag off (Enabled=0)"); return false; }
     g_udOn = true;
-    wcscpy_s(g_udIni, ini);
+    WCpy(g_udIni, ini);
+    const int lowMB = (int)GetPrivateProfileIntW(L"UserDiag", L"LowSpaceMB", 256, ini);
+    g_udLowMB = lowMB < 64 ? 64 : lowMB > 1024 ? 1024 : (DWORD)lowMB;
+    const int perKey = (int)GetPrivateProfileIntW(L"UserDiag", L"LinesPerPrefix", 400, ini);
+    g_udPerKey = perKey < 10 ? 10 : perKey > 10000 ? 10000 : perKey;
     wchar_t exe[MAX_PATH];
     GetModuleFileNameW(NULL, exe, MAX_PATH);
-    if (!g_crExe[0]) wcscpy_s(g_crExe, exe);  // scrubber needles (crashreport.cpp fills them only with [CrashReport] on)
+    if (!g_crExe[0]) WCpy(g_crExe, exe);  // scrubber needles (crashreport.cpp fills them only with [CrashReport] on)
     if (!g_crUser[0]) UserSims3Dir(g_crUser);
     CrInitNeedles();
     if (!g_crSys[0]) CrSysInit();
@@ -893,12 +979,22 @@ static bool ApplyUserDiag(const wchar_t* ini) {
     const int cls = UdInstallClass(exe);
     const bool steam = cls == UD_STEAM;
     Log("diag: ts3native " TS3NATIVE_VERSION " (built " __DATE__ "), send this whole file (ts3native.log next to TS3W.exe) with a report");
+#ifdef TS3A_TABLE
+    // EA build: supported = the exe the address table was made for (same PE timestamp + SizeOfImage as the host check)
+    (void)steam;
+    const u8* hb = (const u8*)GetModuleHandleW(NULL);
+    const IMAGE_NT_HEADERS* hn = (const IMAGE_NT_HEADERS*)(hb + ((const IMAGE_DOS_HEADER*)hb)->e_lfanew);
+    const bool host = Ts3HostImageOk(hn);
+    Log("diag: edition %s, game exe file version %s, install class %s%s", host ? TS3A_HOST_NAME : "unknown", ver[0] ? ver : "?", kUdClass[cls],
+        host ? " - supported" : " - UNSUPPORTED, this ts3native build supports " TS3A_HOST_NAME " only");
+#else
     Log("diag: edition %s, TS3W.exe file version %s, install class %s%s", steam ? "Steam" : "not Steam", ver[0] ? ver : "?", kUdClass[cls],
         steam ? "" : " - UNSUPPORTED, ts3native supports the Steam TS3W.exe only (other exes skip patches whose bytes differ)");
+#endif
     char sys[512];
     // g_crSys = "cpu: ...\r\nram: ...\r\nos: ...\r\nlarge address aware: ...\r\n": one log line each
     char* ctx2 = NULL;
-    strcpy_s(sys, g_crSys);
+    SCpy(sys, g_crSys);
     for (char* t = strtok_s(sys, "\r\n", &ctx2); t; t = strtok_s(NULL, "\r\n", &ctx2)) Log("diag: %s", t);
     if (ts3native_counters.saveReady) PatchCalls("user diag save phases", kUdSites, 2);
     else Log("user diag: save phase lines need [SaveWrite] Enabled=1 (the save entry hooks); header and world lines still on");
@@ -923,7 +1019,7 @@ static void UdInfoDir(const unsigned char* info) {  // SaveInfoHook: <Saves>\<na
     const wchar_t* nhd = (const wchar_t*)(info + kInfoNhdPath);
     if (!Readable(nhd, 520 * sizeof(wchar_t)) || wcsnlen(nhd, 520) >= MAX_PATH || !EndsWithI(nhd, L".nhd")) return;
     wchar_t d[MAX_PATH];
-    wcscpy_s(d, nhd);
+    WCpy(d, nhd);
     CutLast(d);
     if (EndsWithI(d, L".sims3")) UdSaveDir(d);
 }

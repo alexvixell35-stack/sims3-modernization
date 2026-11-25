@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Ts3Fixes
@@ -70,9 +71,13 @@ namespace Ts3Fixes
 
     // Answers of a bool method with two ref float outputs, per lot id, for one sim tick (Lot.GetHoursOfOperation). A
     // false answer leaves the outputs as the caller passed them, as the game's method does.
+    // Exact within a tick (docs/276 §1.3): an entry also keeps the lot's venue key (lot type, meta-autonomy type), and a
+    // different key is a miss. A bar entry keeps the bar's own hours; its closing hour is worked out on every hit from the
+    // live bachelor-party check in the hook, so a party that starts or ends mid-tick is seen at once.
     public sealed class HoursMemo
     {
-        struct Entry { public bool Result; public float Open, Close; }
+        public const int kMiss = 0, kHit = 1, kKeyChanged = 2;
+        struct Entry { public bool Result, Bar; public int Key; public float Open, Close; }
         sealed class IdComparer : IEqualityComparer<ulong> // explicit: the default one boxes in this Mono
         {
             public bool Equals(ulong a, ulong b) { return a == b; }
@@ -85,20 +90,34 @@ namespace Ts3Fixes
         public int Count { get { return mEntries.Count; } }
         public void Clear() { if (mEntries.Count > 0) mEntries.Clear(); }
 
-        public bool TryGet(ulong id, ref float open, ref float close, out bool result)
+        // kHit: result and (when true) the outputs; bar = a bar entry, whose closing hour the caller replaces with the party
+        // end when a bachelor party is started on the lot now (true answers only). kMiss / kKeyChanged: run the game's method.
+        public int TryGet(ulong id, int key, ref float open, ref float close, out bool result, out bool bar)
         {
             Entry e;
-            if (!mEntries.TryGetValue(id, out e)) { result = false; return false; }
-            result = e.Result;
+            result = false; bar = false;
+            if (!mEntries.TryGetValue(id, out e)) return kMiss;
+            if (e.Key != key) return kKeyChanged;
+            result = e.Result; bar = e.Bar;
             if (e.Result) { open = e.Open; close = e.Close; }
-            return true;
+            return kHit;
         }
 
-        public void Store(ulong id, bool result, float open, float close)
+        // bar: the game's answer came from the bar's hours (barOk with barOpen/barClose); kept only when the answer is the
+        // bar formula (open = bar open, close = bar close or the party end), else nothing is kept (another mod changed the
+        // method: always a miss, still exact). Returns false when nothing was kept.
+        public bool Store(ulong id, int key, bool result, float open, float close, bool barOk, float barOpen, float barClose, float partyEnd)
         {
             Entry e;
-            e.Result = result; e.Open = open; e.Close = close;
+            e.Key = key; e.Result = result; e.Bar = barOk;
+            if (barOk)
+            {
+                if (!result || open != barOpen || (close != barClose && close != partyEnd)) return false;
+                e.Open = barOpen; e.Close = barClose;
+            }
+            else { e.Open = open; e.Close = close; }
             mEntries[id] = e;
+            return true;
         }
     }
 
@@ -136,5 +155,301 @@ namespace Ts3Fixes
             int ms = (wholeFire ? SumUs : MaxTryUs) / 1000;
             if (ms > c[97]) c[97] = ms;
         }
+    }
+
+    // Lane L4 1115 exact memos (ExactMemos.cs, AutRoomMemo.cs, ScriptHotSpots.cs invcache). Game-independent tables.
+
+    // A direct-mapped ulong -> T table: one slot per hash, a store overwrites the slot's old key. Clear is O(1) (the
+    // generation moves on); stale values stay referenced until overwritten or Wipe.
+    public sealed class DirectMemo<T>
+    {
+        readonly ulong[] mKeys;
+        readonly T[] mVals;
+        readonly int[] mGen;
+        readonly int mMask;
+        int mCur = 1;
+        bool mUsed;
+
+        public DirectMemo(int slotsPow2)
+        {
+            if (slotsPow2 <= 0 || (slotsPow2 & (slotsPow2 - 1)) != 0) throw new ArgumentException("slots must be a power of two");
+            mKeys = new ulong[slotsPow2]; mVals = new T[slotsPow2]; mGen = new int[slotsPow2]; mMask = slotsPow2 - 1;
+        }
+
+        public static int Hash(ulong k)
+        {
+            uint h = (uint)k ^ (uint)(k >> 32);
+            h ^= h >> 16; h *= 0x7FEB352Du; h ^= h >> 15; h *= 0x846CA68Bu; h ^= h >> 16;
+            return (int)(h & 0x7FFFFFFF);
+        }
+
+        public bool TryGet(ulong k, out T v)
+        {
+            int i = Hash(k) & mMask;
+            if (mGen[i] == mCur && mKeys[i] == k) { v = mVals[i]; return true; }
+            v = default(T);
+            return false;
+        }
+
+        public void Store(ulong k, T v)
+        {
+            int i = Hash(k) & mMask;
+            mKeys[i] = k; mVals[i] = v; mGen[i] = mCur; mUsed = true;
+        }
+
+        // True when something was stored since the last clear.
+        public bool Clear()
+        {
+            bool any = mUsed;
+            mUsed = false;
+            if (++mCur == int.MaxValue) Wipe();
+            return any;
+        }
+
+        public void Wipe()
+        {
+            Array.Clear(mKeys, 0, mKeys.Length); Array.Clear(mVals, 0, mVals.Length); Array.Clear(mGen, 0, mGen.Length);
+            mCur = 1; mUsed = false;
+        }
+    }
+
+    // docs/245 §5 H permamemo: BuffManager.IsPermaMoodlet(name) = static buff table lookup -> instance.mBuff -> its
+    // PermaMoodlet flag. Kept per name with the instance and Buff it came from; the whole table is dropped when the static
+    // table's Count or the parse generation (bumped by every ParseBuffData call) moved. The caller checks on a hit that
+    // instance.mBuff is still the kept Buff (a public field). Not-found names keep a null instance.
+    public sealed class PermaMemo
+    {
+        sealed class Entry { public object Inst, Buff; public bool Ans; }
+        readonly DirectMemo<Entry> mTable = new DirectMemo<Entry>(256);
+        int mCount = -1, mParse = -1;
+
+        // True when the stamp moved and something was dropped.
+        public bool Stamp(int count, int parseGen)
+        {
+            if (count == mCount && parseGen == mParse) return false;
+            mCount = count; mParse = parseGen;
+            return mTable.Clear();
+        }
+
+        public bool TryGet(ulong name, out object inst, out object buff, out bool ans)
+        {
+            Entry e;
+            if (mTable.TryGet(name, out e)) { inst = e.Inst; buff = e.Buff; ans = e.Ans; return true; }
+            inst = null; buff = null; ans = false;
+            return false;
+        }
+
+        public void Store(ulong name, object inst, object buff, bool ans)
+        {
+            Entry e = new Entry(); e.Inst = inst; e.Buff = buff; e.Ans = ans;
+            mTable.Store(name, e);
+        }
+
+        public bool Clear() { mCount = -1; return mTable.Clear(); }
+    }
+
+    // docs/96 B2 catnamecache: UserToolUtils.GetProductCatalogName(product) per product object. A hit needs the same
+    // BuildBuyProduct object with the same native handle (Dispose sets it to 0, and a destroyed handle may be reused by
+    // another product object, which is then a miss). Handle 0 is never kept. Clear drops the references too.
+    public sealed class CatalogNameMemo
+    {
+        sealed class Entry { public object Product; public string Name; }
+        readonly DirectMemo<Entry> mTable = new DirectMemo<Entry>(1024);
+        bool mUsed;
+
+        public bool TryGet(object product, uint handle, out string name)
+        {
+            Entry e;
+            if (handle != 0 && mTable.TryGet(handle, out e) && ReferenceEquals(e.Product, product)) { name = e.Name; return true; }
+            name = null;
+            return false;
+        }
+
+        public void Store(object product, uint handle, string name)
+        {
+            if (handle == 0) return;
+            Entry e = new Entry(); e.Product = product; e.Name = name;
+            mTable.Store(handle, e);
+            mUsed = true;
+        }
+
+        public bool Clear() { bool any = mUsed; mUsed = false; mTable.Wipe(); return any; }
+    }
+
+    // docs/95 §5.5 buffremovenoop: BuffManager.RemoveElement(BuffNames) does nothing exactly when the buff is not active
+    // (mValues), no ref-count list is kept at all (mBuffCountList empty, so no ContainsKey hit) and no delayed buff is
+    // queued (mDelayedBuffs null or empty: the scan finds nothing). A null mBuffCountList is left to the game (it throws).
+    public static class BuffRemoveRule
+    {
+        public static bool IsNoOp(bool active, bool countListNull, int countListCount, bool delayedNull, int delayedCount)
+        {
+            return !active && !countListNull && countListCount == 0 && (delayedNull || delayedCount == 0);
+        }
+    }
+
+    // docs/115 invcache: the last few (handler field value -> GetInvocationList()) pairs, matched by reference only
+    // (Delegate.Equals and GetHashCode are value-based). A published delegate never changes its chain, and every add or
+    // remove makes a new reference, so a hit is the list the game would build now (I-105-10).
+    public sealed class InvListCache
+    {
+        public const int kSlots = 4;
+        readonly Delegate[] mKey = new Delegate[kSlots];
+        readonly Delegate[][] mList = new Delegate[kSlots][];
+        int mNext;
+
+        // c[hit]++ on a hit, c[miss]++ when the list is built and kept (oldest slot replaced).
+        public Delegate[] Get(Delegate h, int[] c, int hit, int miss)
+        {
+            for (int i = 0; i < kSlots; i++)
+                if (ReferenceEquals(mKey[i], h)) { c[hit]++; return mList[i]; }
+            Delegate[] l = h.GetInvocationList();
+            mKey[mNext] = h; mList[mNext] = l;
+            mNext = (mNext + 1) % kSlots;
+            c[miss]++;
+            return l;
+        }
+
+        // Verify: a fresh list; on any difference count it and use the fresh one (the game's answer).
+        public static Delegate[] Check(Delegate h, Delegate[] cached, int[] c, int mismatch)
+        {
+            Delegate[] fresh = h.GetInvocationList();
+            if (Same(fresh, cached)) return cached;
+            c[mismatch]++;
+            return fresh;
+        }
+
+        public static bool Same(Delegate[] a, Delegate[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+                if (!ReferenceEquals(a[i].Target, b[i].Target) || !a[i].Method.Equals(b[i].Method)) return false;
+            return true;
+        }
+
+        public void Clear() { Array.Clear(mKey, 0, kSlots); Array.Clear(mList, 0, kSlots); mNext = 0; }
+    }
+
+    // docs/97 §7 AM-1 H2: Sim.IsAllowedInRoom answers keyed (Sim reference, lot id, room id), kept only for one scoring
+    // segment (Bump starts a new one). The Sim's current lot at store time must still be the Sim's current lot on a hit
+    // (the game's answer reads it). Open addressing, linear probe; a full table stores nothing.
+    public sealed class RoomMemo
+    {
+        public const int kSlots = 64;
+        readonly object[] mSim = new object[kSlots], mLotCur = new object[kSlots];
+        readonly ulong[] mLot = new ulong[kSlots];
+        readonly int[] mRoom = new int[kSlots], mGen = new int[kSlots];
+        readonly bool[] mAns = new bool[kSlots];
+        int mCur = 1;
+
+        static int Start(ulong simId, ulong lot, int room)
+        {
+            uint h = unchecked((uint)simId * 0x9E3779B1u ^ ((uint)lot ^ (uint)(lot >> 32)) * 0x85EBCA77u ^ (uint)room * 0xC2B2AE3Du);
+            h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12;
+            return (int)(h & (kSlots - 1));
+        }
+
+        public void Bump() { if (++mCur == int.MaxValue) Wipe(); }
+
+        public void Wipe()
+        {
+            Array.Clear(mSim, 0, kSlots); Array.Clear(mLotCur, 0, kSlots); Array.Clear(mGen, 0, kSlots);
+            mCur = 1;
+        }
+
+        public bool TryGet(object sim, ulong simId, object lotCur, ulong lot, int room, out bool ans)
+        {
+            int i = Start(simId, lot, room);
+            for (int n = 0; n < kSlots; n++, i = (i + 1) & (kSlots - 1))
+            {
+                if (mGen[i] != mCur) break;
+                if (ReferenceEquals(mSim[i], sim) && mLot[i] == lot && mRoom[i] == room)
+                {
+                    if (!ReferenceEquals(mLotCur[i], lotCur)) break;
+                    ans = mAns[i];
+                    return true;
+                }
+            }
+            ans = false;
+            return false;
+        }
+
+        // False when the table is full (nothing stored).
+        public bool Store(object sim, ulong simId, object lotCur, ulong lot, int room, bool ans)
+        {
+            int i = Start(simId, lot, room);
+            for (int n = 0; n < kSlots; n++, i = (i + 1) & (kSlots - 1))
+            {
+                bool empty = mGen[i] != mCur;
+                if (empty || (ReferenceEquals(mSim[i], sim) && mLot[i] == lot && mRoom[i] == room))
+                {
+                    mSim[i] = sim; mLotCur[i] = lotCur; mLot[i] = lot; mRoom[i] = room; mAns[i] = ans; mGen[i] = mCur;
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    // docs/97 §7 H1: one scoring segment = one (Autonomy, sim tick, script task). Renew is true when a new one opens.
+    public sealed class PairScope
+    {
+        object mOwner;
+        long mTick = -1;
+        ulong mTask;
+        bool mOpen;
+        public int Depth;
+
+        public bool Open { get { return mOpen; } }
+
+        // Inside a pair of the open segment, on its tick and task (a yield inside a pair must not leak the memo to the
+        // task that runs next, nor to a later tick).
+        public bool Inside(long tick, ulong task) { return mOpen && Depth > 0 && tick == mTick && task == mTask; }
+
+        public bool Renew(object owner, long tick, ulong task)
+        {
+            if (mOpen && tick == mTick && task == mTask && ReferenceEquals(owner, mOwner)) return false;
+            mOpen = true; mOwner = owner; mTick = tick; mTask = task;
+            return true;
+        }
+
+        public void Reset() { mOpen = false; mOwner = null; mTick = -1; Depth = 0; }
+    }
+
+    // docs/97 §7 H5: segment scoring time buckets < 1, 1-2, 2-5, 5-10, >= 10 ms at c[b..b+4], max us at c[b+5].
+    public static class SliceHistogram
+    {
+        public static int Bucket(long us) { return us < 1000 ? 0 : us < 2000 ? 1 : us < 5000 ? 2 : us < 10000 ? 3 : 4; }
+
+        public static void Add(int[] c, int b, long us)
+        {
+            if (us < 0) return;
+            c[b + Bucket(us)]++;
+            int u = us > int.MaxValue ? int.MaxValue : (int)us;
+            if (u > c[b + 5]) c[b + 5] = u;
+        }
+    }
+
+    // docs/275 Z1 zdemptyout (WriterMemos.cs): a private table read once per owner object (its field is written only by the
+    // owner's constructor). Empty = the table exists and has no entry; a null table is never empty (the game's method runs).
+    public sealed class TableKeeper
+    {
+        object mOwner;
+        ICollection mTable;
+        public bool Same(object owner) { return owner != null && ReferenceEquals(owner, mOwner); }
+        public void Keep(object owner, ICollection table) { mOwner = owner; mTable = table; }
+        public ICollection Table { get { return mTable; } }
+        public static bool Empty(ICollection t) { return t != null && t.Count == 0; }
+        public void Clear() { mOwner = null; mTable = null; }
+    }
+
+    // docs/275 M1 decaymemo (WriterMemos.cs): one owner (a buff manager) whose watched entries were all absent at add
+    // generation mGen. A hit needs the same owner and no add since; anything else is a miss and the caller stores again.
+    public sealed class AbsentMemo
+    {
+        object mOwner;
+        int mGen;
+        public bool Hit(object owner, int gen) { return owner != null && ReferenceEquals(owner, mOwner) && gen == mGen; }
+        public void Store(object owner, int gen, bool allAbsent) { mOwner = allAbsent ? owner : null; mGen = gen; }
+        public void Clear() { mOwner = null; }
     }
 }

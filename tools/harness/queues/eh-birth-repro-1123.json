@@ -1,0 +1,176 @@
+{
+  "note": "eh-birth-repro-1123 (docs/328 §7, Enhanced Hospitals birthroute precedence; correctness only, no timing): ts3fixes compat-resolve-1122e with mod set compat-resolve-1122 (Enhanced Hospitals 666384 in it). Jobs 1-3 run the repros eh-donor-birth-loop (on, NPC mom: 3-8 birth attempts in 180 sim-min = FIXED), -off (birthroute off: the uncapped 1-minute re-have, >= 30 attempts = the bug is reproduced) and -hh (on, household mom: the 1-minute re-have stays = household untouched). Job 4 is the 10-min BP play run with the hooks on. Every job: the four \"compat precedence: birthroute ... ok\" lines and the assembly line, none refused, 0 script errors. Queued after the running chains (waiter eh-birth-repro-1123); never preempts.",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBaby\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+      "match": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBaby.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ],
+      "noMatch": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBaby.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBaby.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabyX.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ]
+    },
+    "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBabySurrogate\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+      "match": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogate.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ],
+      "noMatch": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogate.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogate.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+CreateDonorBabySurrogateX.HaveTheBaby (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ]
+    },
+    "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospitalDonor\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+      "match": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonor.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ],
+      "noMatch": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonor.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonor.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalDonorX.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ]
+    },
+    "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospital\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": {
+      "match": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospital.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ],
+      "noMatch": [
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospital.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): not a Pregnancy subclass, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospital.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): no BabyShouldBeBorn / mNewborns on the type, left alone",
+        "ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital.DemoClass+HaveBabyHospitalX.Cleanup (PuddingFace_EnhancedHospital 1a2b3c4d): ok"
+      ]
+    },
+    "^ts3fixes: script assemblies \\(\\d+\\): .*\\bPuddingFace_EnhancedHospital\\b": {
+      "match": [
+        "ts3fixes: script assemblies (32): NRaasErrorTrap 1.0.0.0 1a2b3c4d, PuddingFace_EnhancedHospital 1.0.0.0 0badf00d"
+      ],
+      "noMatch": [
+        "ts3fixes: script assemblies (32): NRaasErrorTrap 1.0.0.0 1a2b3c4d, PuddingFace_EnhancedVampires 1.0.0.0 0badf00d"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "ip-eh-birth-on",
+      "note": "[est 12-16 min] repro eh-donor-birth-loop: switch read-back birthroute on, NPC mom, verdict FIXED",
+      "save": "Baseline-IP",
+      "asi": "game-copy/ts3native.asi.m1122",
+      "iniBase": "game-copy/ts3native.ini.m1122",
+      "fixesPackage": "game-copy/ts3fixes.package.compat-resolve-1122e",
+      "pinReason": "compat-resolve-1122e (builds.json ts3fixes.package.compat-resolve-1122e, commit 32097f1d4: master m1122 sources + docs/328 §7 incl. the NRaas copy hooks and the Enhanced Hospitals birthroute hooks) with ts3native + ini m1122, release defaults",
+      "releaseDefaults": true,
+      "modSet": "game-copy/mod-sets/compat-resolve-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBaby\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBabySurrogate\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospitalDonor\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospital\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bPuddingFace_EnhancedHospital\\b": 1,
+        "^ts3native 0\\.36\\.299-m1122 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+      },
+      "timeoutMin": 30,
+      "run": {
+        "repro": "eh-donor-birth-loop"
+      }
+    },
+    {
+      "id": "ip-eh-birth-off",
+      "note": "[est 10-14 min] repro eh-donor-birth-loop-off: switch read-back off, the mod's uncapped re-have reproduced (>= 30 attempts)",
+      "save": "Baseline-IP",
+      "asi": "game-copy/ts3native.asi.m1122",
+      "iniBase": "game-copy/ts3native.ini.m1122",
+      "fixesPackage": "game-copy/ts3fixes.package.compat-resolve-1122e",
+      "pinReason": "compat-resolve-1122e (builds.json ts3fixes.package.compat-resolve-1122e, commit 32097f1d4: master m1122 sources + docs/328 §7 incl. the NRaas copy hooks and the Enhanced Hospitals birthroute hooks) with ts3native + ini m1122, release defaults",
+      "releaseDefaults": true,
+      "modSet": "game-copy/mod-sets/compat-resolve-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBaby\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBabySurrogate\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospitalDonor\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospital\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bPuddingFace_EnhancedHospital\\b": 1,
+        "^ts3native 0\\.36\\.299-m1122 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+      },
+      "timeoutMin": 30,
+      "run": {
+        "repro": "eh-donor-birth-loop-off"
+      }
+    },
+    {
+      "id": "ip-eh-birth-hh",
+      "note": "[est 10-14 min] repro eh-donor-birth-loop-hh: switch on, household mom keeps the 1-minute re-have (household untouched)",
+      "save": "Baseline-IP",
+      "asi": "game-copy/ts3native.asi.m1122",
+      "iniBase": "game-copy/ts3native.ini.m1122",
+      "fixesPackage": "game-copy/ts3fixes.package.compat-resolve-1122e",
+      "pinReason": "compat-resolve-1122e (builds.json ts3fixes.package.compat-resolve-1122e, commit 32097f1d4: master m1122 sources + docs/328 §7 incl. the NRaas copy hooks and the Enhanced Hospitals birthroute hooks) with ts3native + ini m1122, release defaults",
+      "releaseDefaults": true,
+      "modSet": "game-copy/mod-sets/compat-resolve-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBaby\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBabySurrogate\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospitalDonor\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospital\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bPuddingFace_EnhancedHospital\\b": 1,
+        "^ts3native 0\\.36\\.299-m1122 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+      },
+      "timeoutMin": 30,
+      "run": {
+        "repro": "eh-donor-birth-loop-hh"
+      }
+    },
+    {
+      "id": "bp-eh-play-on",
+      "note": "[est 18-22 min] BP 10 min play with the set and the hooks on (release defaults): no script error, no crash or hang",
+      "save": "Baseline-BP",
+      "asi": "game-copy/ts3native.asi.m1122",
+      "iniBase": "game-copy/ts3native.ini.m1122",
+      "fixesPackage": "game-copy/ts3fixes.package.compat-resolve-1122e",
+      "pinReason": "compat-resolve-1122e (builds.json ts3fixes.package.compat-resolve-1122e, commit 32097f1d4: master m1122 sources + docs/328 §7 incl. the NRaas copy hooks and the Enhanced Hospitals birthroute hooks) with ts3native + ini m1122, release defaults",
+      "releaseDefaults": true,
+      "modSet": "game-copy/mod-sets/compat-resolve-1122",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBaby\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+CreateDonorBabySurrogate\\.HaveTheBaby \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospitalDonor\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: compat precedence: birthroute on PuddingFace_EnhancedHospital\\.DemoClass\\+HaveBabyHospital\\.Cleanup \\(PuddingFace_EnhancedHospital \\w+\\): ok$": 1,
+        "^ts3fixes: script assemblies \\(\\d+\\): .*\\bPuddingFace_EnhancedHospital\\b": 1,
+        "^ts3native 0\\.36\\.299-m1122 ": 1
+      },
+      "logForbid": {
+        "^ts3fixes: compat precedence: .*: (refused|no hook slot|method not declared)": 0
+      },
+      "timeoutMin": 35,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true
+        }
+      }
+    }
+  ]
+}

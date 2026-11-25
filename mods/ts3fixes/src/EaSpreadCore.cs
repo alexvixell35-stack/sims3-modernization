@@ -5,7 +5,7 @@ namespace Ts3Fixes
 {
     // The game's mscorlib (.NET 2.0) has no Func or plain Action.
     public delegate long ElapsedUs();
-    public delegate void Job();
+    public delegate void SpreadUnit();  // one unit of spread work (was "Job", which shadowed Sims3.Gameplay.Careers.Job in namespace Ts3Fixes)
     public delegate bool Gate();
     public delegate int ListCount();
     public delegate T ListItem<T>(int index);
@@ -23,7 +23,7 @@ namespace Ts3Fixes
         // Units for the game's two-step "find every object that needs it, then act on each" loop over a list read at the
         // owner's turn: one unit per object to test, then one per object to act on (only the found ones act, in list
         // order), so one big lot continues mid-list in the next tick. An object gone by its act unit is skipped.
-        public static void AddFindThenAct<T>(List<Job> into, IList<T> items, Predicate<T> find, Action<T> act, Predicate<T> stillThere)
+        public static void AddFindThenAct<T>(List<SpreadUnit> into, IList<T> items, Predicate<T> find, Action<T> act, Predicate<T> stillThere)
         {
             bool[] found = new bool[items.Count];
             for (int i = 0; i < items.Count; i++)
@@ -41,7 +41,7 @@ namespace Ts3Fixes
         // Units for a loop over a list's items from the last to the first (NRaas' inventory check order): each unit finds
         // its item again (at its old index first, else by a search; the list may have changed while we slept) and checks
         // it there; an item gone, or all of them once stop() says so, is skipped.
-        public static void AddItemUnits<T>(List<Job> into, ListCount count, ListItem<T> itemAt, ItemCheck check, Gate stop) where T : class
+        public static void AddItemUnits<T>(List<SpreadUnit> into, ListCount count, ListItem<T> itemAt, ItemCheck check, Gate stop) where T : class
         {
             for (int i = count() - 1; i >= 0; i--)
             {
@@ -65,6 +65,10 @@ namespace Ts3Fixes
 
         public static bool SliceFull(int items, long elapsedUs, int maxItems, long maxUs) { return items >= maxItems || elapsedUs >= maxUs; }
 
+        // SlicedPass.RunSliceEvery (docs/330): the clock is read after every `every`-th item (never before the first), so a
+        // slice runs at most every - 1 items past maxUs.
+        public static bool ClockDue(int itemsDone, int every) { return every <= 1 || itemsDone % every == 0; }
+
         // The pet pool keeps one alarm handle. EA's callback clears it without removing a pending alarm, so a fire while the
         // stored alarm is still due later comes from a second chain; running it would keep both chains alive (docs/147 §3.1).
         public static bool ExtraPoolFire(float storedAlarmMinutesLeft) { return storedAlarmMinutesLeft > 0f; }
@@ -87,12 +91,12 @@ namespace Ts3Fixes
         List<P> mPartners;
         PartnersOf<K, P> mPartnersOf;
         PairStep<K, P> mStep;
-        Job mEnd;
+        SpreadUnit mEnd;
 
         public bool Running { get { return mKeys != null; } }
 
         // True when the previous day's pass had to be finished first.
-        public bool Begin(IEnumerable<K> keys, PartnersOf<K, P> partnersOf, PairStep<K, P> step, Job end)
+        public bool Begin(IEnumerable<K> keys, PartnersOf<K, P> partnersOf, PairStep<K, P> step, SpreadUnit end)
         {
             bool finishedOld = Running;
             Finish();
@@ -175,6 +179,20 @@ namespace Ts3Fixes
             return n;
         }
 
+        // RunSlice that reads the clock only every `every` items (docs/330: one StopWatch call per item was a fifth of
+        // deadrefsweep's samples); the same items in the same order, a slice at most every - 1 items longer.
+        public int RunSliceEvery(Action<T> work, int maxItems, long maxUs, ElapsedUs elapsedUs, int every)
+        {
+            int n = 0;
+            while (mNext < mItems.Count && (n == 0 || !EaSpreadCore.ClockDue(n, every) || !EaSpreadCore.SliceFull(n, elapsedUs(), maxItems, maxUs)))
+            {
+                if (n >= maxItems) break;
+                work(mItems[mNext++]);
+                n++;
+            }
+            return n;
+        }
+
         public int RunRest(Action<T> work)
         {
             int n = 0;
@@ -189,12 +207,12 @@ namespace Ts3Fixes
     {
         SlicedPass<T> mPass;
         Action<T> mWork;
-        Job mEnd;
+        SpreadUnit mEnd;
 
         public bool Running { get { return mPass != null; } }
 
         // True when the previous day's pass had to be finished first.
-        public bool Begin(IEnumerable<T> items, Action<T> work, Job end)
+        public bool Begin(IEnumerable<T> items, Action<T> work, SpreadUnit end)
         {
             bool finishedOld = Running;
             Finish();

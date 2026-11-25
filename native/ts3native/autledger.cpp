@@ -21,8 +21,8 @@
 
 static bool g_asLedger;                     // [AutShadow] Ledger=1, read before the guards are written
 static char g_asLgWatch[AS_MAXIC];          // per guard index: watched IC + 1 (0 = not watched)
-static volatile LONG* g_lgTrack = (volatile LONG*)(uintptr_t)0x011DC18C;  // EA memory tracking mode (docs/120 §2.2)
-static const DWORD* g_lgTlsIdx = (const DWORD*)(uintptr_t)0x011F4160;      // interpreter context TLS index
+static volatile LONG* g_lgTrack = (volatile LONG*)(uintptr_t)TS3A(0x011DC18C);  // EA memory tracking mode (docs/120 §2.2)
+static const DWORD* g_lgTlsIdx = (const DWORD*)(uintptr_t)TS3A(0x011F4160);      // interpreter context TLS index
 struct AsLgScope { AsU64 task; LONG depth; LARGE_INTEGER t0; };
 static AsLgScope g_lgScope[8];
 static LONG g_lgOpen;                       // scopes with depth > 0

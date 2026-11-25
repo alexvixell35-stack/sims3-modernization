@@ -89,8 +89,8 @@ namespace Ts3Fixes
             {
                 f = new VmLot();
                 f.Lot = lot;
-                f.NumSims = (LotIntFn)Delegate.CreateDelegate(typeof(LotIntFn), lot, sVmNumSims);
-                f.Celebs = (LotIntFn)Delegate.CreateDelegate(typeof(LotIntFn), lot, sVmCelebs);
+                f.NumSims = (LotIntFn)Fixes.Bind(typeof(LotIntFn), lot, sVmNumSims);
+                f.Celebs = (LotIntFn)Fixes.Bind(typeof(LotIntFn), lot, sVmCelebs);
             }
             catch (Exception) { return null; }
             if (sVmLots.Count >= kVmLotsMax) sVmLots.Clear();

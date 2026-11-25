@@ -22,8 +22,8 @@ struct FgSite {
     const char* what;
 };
 static const FgSite kFgSites[2] = {
-    {0x00ECA9E2, {0x74, 0x09}, {0xEB, 0x09}, 2, "MainLoop inactive Sleep(10) gate"},
-    {0x00EC9FD1, {0xE8, 0x4A, 0x73, 0x61, 0xFF}, {0x0F, 0x1F, 0x44, 0x00, 0x00}, 5, "SleepEx(30) after Present"},
+    {TS3A(0x00ECA9E2), {0x74, 0x09}, {0xEB, 0x09}, 2, "MainLoop inactive Sleep(10) gate"},
+    {TS3A(0x00EC9FD1), {0xE8, 0x4A, 0x73, 0x61, 0xFF}, {0x0F, 0x1F, 0x44, 0x00, 0x00}, 5, "SleepEx(30) after Present"},
 };
 static u8* g_fgAt[2];  // patched sites, for the revert on detach
 
@@ -35,7 +35,7 @@ static int FgPatch(u8* const at[2]) {
     for (int i = 0; i < 2; i++) {
         const FgSite& s = kFgSites[i];
         if (!Matches(at[i], s.orig, s.len)) {
-            if (Readable(at[i], s.len)) Hex(at[i], s.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+            if (Readable(at[i], s.len)) Hex(at[i], s.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP foreground render: %s at 0x%08X differs (found %s)", s.what, s.addr, hex);
             continue;
         }

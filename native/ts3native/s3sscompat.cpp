@@ -18,6 +18,9 @@
 struct S3cBuild { const char* sha; const char* ver; DWORD call; DWORD fn; };
 static const S3cBuild kS3cBuggy[] = {
     {"69ce87ee84528748ee1f19c1f7cb2183e8e8cb7f7cae57cdb64098a7ebcdc13a", "1.6.3", 0x28CDB, 0x28760},  // official 1.6.3 release asset
+    // 1.6.3 as installed on a test machine since 2026-07-21: 16 bytes differ from the asset (PE header and debug-directory
+    // timestamps, CodeView record), no .text byte, so the same code. Before this row the guard stood aside there in every game.
+    {"69abfe6279d721cd537e8e2bfb90873fab64665194004ebbe2729218e16acc25", "1.6.3", 0x28CDB, 0x28760},
 };
 // S3SS+0x28CD0..+0x28CE5 in OnSettingsRefired's loop: mov eax,[edi+8]; mov edx,[edi+4]; sub eax,edx; mov ecx,[edi]; push eax;
 // call SafeReassert (E8 at +11); add edi,0x10; add esp,4
@@ -55,7 +58,7 @@ static DWORD __cdecl S3cFix(DWORD addr, const u8* data, DWORD size) {
     InterlockedIncrement(to ? &g_s3cRedir : &g_s3cSkip);
     if (g_s3cLog && (n <= 20 || n % 100 == 0)) {
         char dst[16] = "skipped";
-        if (to) sprintf_s(dst, "0x%08lX", to);
+        if (to) SFmt(dst, "0x%08lX", to);
         Log("s3ss compat: stale maintained write 0x%08lX -> %s (value 0x%08lX, size %lu); WorldManager 0x%08lX; world load #%ld; stale %ld "
             "(redirected %ld, skipped %ld), calls %ld", addr, dst, v, size, wm, g_udWorlds, n, g_s3cRedir, g_s3cSkip, g_s3cCalls);
     }

@@ -1,0 +1,154 @@
+{
+  "note": "RUN FIRST relative to any further rewind or bridge build (docs/270 §12). The rewind tool on the patched RTX Remix bridge: Bin state apex-rewind = the install copy game-copy/rewind-bridge-1115/install (latest Apex Radiance release + the bridge pair built from Apex's own bridge source with patch 0015 + rewindMode = True in both bridge.conf; made by `node tools/turbo-compat.ts install-copy`, set and restored by the chain, never by queue.ts). Jobs: (1) the read-only census of TS3W.exe and NvRemixBridge.exe on that arm (the chain starts rewind-census.ts watch --tag bridge-rewind-1115 before it); (2) bridge-plan: the bridge client parks the game at a Present, the server takes its snapshot (op 1) and reports what a rewind would do (op 3), the tool lists every reason it would refuse; nothing in the game process is changed; (3) bridge-apply: one real rewind on both sides (ops 1, 3, 2), checked equal to the snapshot before the game resumes. A refusal is a valid result and is read from the rows; a FAIL is a game that ended or no longer answers. Correctness only, no timing. Rows: probe-out/rewind/bridge-1115-<mode>.jsonl, the server's [Rewind] lines: Bin\\rtx-remix\\logs\\bridge64.log (the chain copies it). node tools/harness/queue.ts tools/harness/queues/rewind-bridge-1115.json --no-smoke",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "ip-rewind-bridge-census",
+      "note": "[est 15 min] [natural play, no cheats] Bin state apex-rewind. IP world, 10 min profile with rewind mode on in the bridge and nobody asking for a park: proves the patched pair plays as the stock one (no crash, 0 script errors) and gives the TS3W / NvRemixBridge churn numbers on this arm. Census diffs land in probe-out/rewind (judged by hand into docs/270 §12).",
+      "asi": "game-copy/ts3native.asi.rewind-park2-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "ini": { "Rewind.Park": 1, "Rewind.Offline": 1 },
+      "callSites": false,
+      "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+      "pinReason": "rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs/270 §19-§20; Offline covers 18 of 19 wininet imports, §22)",
+      "releaseDefaults": true,
+      "save": "Baseline-IP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0.36.261-lanes1 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10
+        }
+      },
+      "timeoutMin": 30
+    },
+    {
+      "id": "bp-rewind-bridge-plan",
+      "note": "[est 6 min] [natural play, no cheats] Bin state apex-rewind. Plan only: 2 plans, 20 s of play before each. Numbers to read: bridgeKept / bridgeRevive / bridgeDrop / bridgeBuffers / bridgeSurfaces / bridgeSavedKB / bridgeNotRestored / bridgeRefused, viewsBridge, viewsShared and every refuse line. Pass: tool exit 0 or 2, game answers after, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.rewind-park2-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "ini": { "Rewind.Park": 1, "Rewind.Offline": 1 },
+      "callSites": false,
+      "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+      "pinReason": "rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs/270 §19-§20; Offline covers 18 of 19 wininet imports, §22)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0.36.261-lanes1 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "script": [
+          "rewind-smoke.ts",
+          "--mode",
+          "bridge-plan",
+          "--tag",
+          "bridge-1115",
+          "--renderer",
+          "bridge-rewind"
+        ]
+      },
+      "timeoutMin": 20
+    },
+    {
+      "id": "bp-rewind-bridge-apply",
+      "note": "[est 6 min] [stress: experimental] Bin state apex-rewind. One real snapshot and rewind with the bridge server following (2 rewinds when the first goes through). Outcomes: refused (nothing changed, game plays on: PASS, read the reasons), rewound (bridgeRewound 1, hashEqual 1, game answers after: PASS), or the tool or the game ends (FAIL, read the rows and bridge64.log).",
+      "asi": "game-copy/ts3native.asi.rewind-park2-1115",
+      "iniBase": "game-copy/ts3native.ini.master-merge-1115",
+      "ini": { "Rewind.Park": 1, "Rewind.Offline": 1 },
+      "callSites": false,
+      "fixesPackage": "game-copy/ts3fixes.package.master-merge-1115",
+      "pinReason": "rewind-park2-1115 (builds.json, 0.36.261-lanes1) = master-merge-1115, the set the 11-15 census ran with (docs/270 §3), + #408 + [Rewind] Park / Offline on (docs/270 §19-§20; Offline covers 18 of 19 wininet imports, §22)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^ts3native 0.36.261-lanes1 ": 1,
+        "^compat: Apex Radiance found ": 1
+      },
+      "regexCases": {
+        "^ts3native 0.36.261-lanes1 ": {
+          "match": [
+            "ts3native 0.36.261-lanes1 2026-11-15 09:44:15"
+          ],
+          "noMatch": [
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        }
+      },
+      "run": {
+        "script": [
+          "rewind-smoke.ts",
+          "--mode",
+          "bridge-apply",
+          "--tag",
+          "bridge-1115",
+          "--renderer",
+          "bridge-rewind"
+        ]
+      },
+      "timeoutMin": 20
+    }
+  ]
+}

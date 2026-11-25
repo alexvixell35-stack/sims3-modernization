@@ -1,0 +1,2810 @@
+{
+ "note": "rebaseline-1116b (set master-1116b, 0.36.266-mb1116; run by chain-rebaseline-1116b.sh after chain-correct-1116b.sh): copy of rebaseline-1116.json. Was: rebaseline-1116: copy of rebaseline-apex401-1115.json repinned to master-1116b (0.36.266-mb1116); timing, rewind off (every job starts fresh). Run by chain-rebaseline-1116.sh after chain-followup-1116.sh (re-baseline last). rebaseline-apex401-1115 (Rodney 2026-11-15 \"Queue those baselines tonight\"; probe-out/apex-cpu-claims-1115.md): timing re-baseline of the shipped stack. Arm off = A plain DXVK x32, no Apex; arm on = B Apex Radiance 4.0.1 + RTX Remix bridge (+ S3SS, S3PP as in Bin). Both arms: master-mono-1115 set, release ini ON bundle. Separate loads, 10 min each, seed 12345, story progression off, noise check on (high = rerun once at the end of the same queue.ts call, same Bin state). queue.ts never changes Bin: run ONLY through probe-out/queue/chain-night-rebaseline-1115.sh, which sets each block's Bin state with tools/turbo-compat.ts (snapshot -> state apex|base -> restore with a whole-Bin sha256 compare) and calls queue.ts --only per block: B (8 jobs, the declared smoke runs first, Apex state) | A (16) | B (8). Per world slot the order is B B A A A A B B (balanced; IP is two slots: BP 8, IP 16, SV 8 jobs). 32 jobs x ~14 min + smoke ~15 min = ~7.7 h. Not measured by any collector: per-thread main CPU % (only TS3W total); no per-arm frame-time summary tool (frames.csv is recorded). Optional lamp-drag Instant vs Classic job left out: no repro for it in tools/harness/repros.json.",
+ "rewind": "off",
+ "smoke": {
+  "note": "Measurement smoke (AGENTS.md): BP 10 min in the B arm (Apex + bridge, the new stack): version, ON bundle and Apex/bridge lines read back, heavy tools off (noSamplers; frames + prof-stages are light), machine line names NvRemixBridge; also warms the bridge shader cache before the first B arm. B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+  "asi": "game-copy/ts3native.asi.master-1116b",
+  "iniBase": "game-copy/ts3native.ini.master-1116b",
+  "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+  "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+  "releaseDefaults": true,
+  "minCounters": 1,
+  "save": "Baseline-BP-Spring",
+  "gameArgs": [
+   "-disablestoryprogression"
+  ],
+  "scriptErrorsMax": 0,
+  "timeoutMin": 30,
+  "stopQueueOnFail": true,
+  "run": {
+   "profile": {
+    "seed": 12345,
+    "minutes": 10,
+    "noSamplers": true
+   }
+  },
+  "logRequire": {
+   "^ts3native 0\\.36\\.266-mb1116 ": 1,
+   "^OK   lost removal fix": 1,
+   "ghost census at world load: GhostSweep=2": 1,
+   "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+   "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+   "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+  },
+  "regexCases": {
+   "^ts3native 0\\.36\\.266-mb1116 ": {
+    "match": [
+     "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+    ],
+    "noMatch": [
+     "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+     "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+    ]
+   },
+   "^OK   lost removal fix": {
+    "match": [
+     "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+    ],
+    "noMatch": [
+     "SKIP lost removal fix: off"
+    ]
+   },
+   "ghost census at world load: GhostSweep=2": {
+    "match": [
+     "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+    ],
+    "noMatch": [
+     "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+    ]
+   },
+   "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+    "match": [
+     "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+    ],
+    "noMatch": [
+     "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+     "SKIP mono jit: off"
+    ]
+   },
+   "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+    "match": [
+     "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+    ],
+    "noMatch": [
+     "compat: Apex Radiance not loaded at start"
+    ]
+   },
+   "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+    "match": [
+     "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+    ],
+    "noMatch": [
+     "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+     "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+    ]
+   }
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-apex-on-1",
+   "note": "BP 10 min separate-load arm on-1: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-1",
+   "note": "IP 10 min separate-load arm on-1: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-on-1",
+   "note": "SV 10 min separate-load arm on-1: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-2",
+   "note": "IP 10 min separate-load arm on-2: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-apex-on-2",
+   "note": "BP 10 min separate-load arm on-2: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-3",
+   "note": "IP 10 min separate-load arm on-3: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-on-2",
+   "note": "SV 10 min separate-load arm on-2: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-4",
+   "note": "IP 10 min separate-load arm on-4: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-apex-off-1",
+   "note": "BP 10 min separate-load arm off-1: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-1",
+   "note": "IP 10 min separate-load arm off-1: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-off-1",
+   "note": "SV 10 min separate-load arm off-1: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-2",
+   "note": "IP 10 min separate-load arm off-2: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-apex-off-2",
+   "note": "BP 10 min separate-load arm off-2: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-3",
+   "note": "IP 10 min separate-load arm off-3: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-off-2",
+   "note": "SV 10 min separate-load arm off-2: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-4",
+   "note": "IP 10 min separate-load arm off-4: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-apex-off-3",
+   "note": "BP 10 min separate-load arm off-3: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-5",
+   "note": "IP 10 min separate-load arm off-5: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-off-3",
+   "note": "SV 10 min separate-load arm off-3: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-6",
+   "note": "IP 10 min separate-load arm off-6: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-apex-off-4",
+   "note": "BP 10 min separate-load arm off-4: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-7",
+   "note": "IP 10 min separate-load arm off-7: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-off-4",
+   "note": "SV 10 min separate-load arm off-4: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-off-8",
+   "note": "IP 10 min separate-load arm off-8: A = plain DXVK x32 d3d9.dll in Bin, no Apex (old baseline stack, Bin as found: S3SS + S3PP + MonoPatcher); Bin state base (tools/turbo-compat.ts) set by probe-out/queue/chain-night-rebaseline-1115.sh. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance not loaded at start": 1,
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance not loaded at start": {
+     "match": [
+      "compat: Apex Radiance not loaded at start"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ]
+    },
+    "^diag: Bin add-ons: d3d9\\.dll 7672 KB v[\\d.]+ \\(DXVK\\)": {
+     "match": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-apex-on-3",
+   "note": "BP 10 min separate-load arm on-3: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-5",
+   "note": "IP 10 min separate-load arm on-5: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-on-3",
+   "note": "SV 10 min separate-load arm on-3: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-6",
+   "note": "IP 10 min separate-load arm on-6: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "bp-apex-on-4",
+   "note": "BP 10 min separate-load arm on-4: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-7",
+   "note": "IP 10 min separate-load arm on-7: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "sv-apex-on-4",
+   "note": "SV 10 min separate-load arm on-4: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ip-apex-on-8",
+   "note": "IP 10 min separate-load arm on-8: B = Apex Radiance 4.0.1 + RTX Remix bridge (manual-install zip = Apex release asset, tools/turbo-compat.ts state apex) + the same S3SS/S3PP/MonoPatcher (shipped stack); ts3native stands down its Apex-owned switches (ApexStandDown=1) as shipped. Same asi, ini (release defaults), ts3fixes, agent, save and seed 12345 in every job; no --ab, no samplers. Read: node tools/harness/arm-ms.ts rebaseline-apex401-1115 (per world, pooled on - off = Apex - DXVK: script/route/animPose/locomotion/sum ms/s, threaded ms/iter), node tools/harness/hitch-ab.ts + run-verdict.ts (p99, p99.9, max, >=300/>=1000 counts, it/s), row largestFreeMB (/memory before/after), the machine load line (TS3W %, NvRemixBridge % + its GPU 3D, other CPU, clock), <tag>-<secs>-frames.csv (main-thread presented-frame times, frame-times.js).",
+   "asi": "game-copy/ts3native.asi.master-1116b",
+   "iniBase": "game-copy/ts3native.ini.master-1116b",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1116b",
+   "pinReason": "repinned 2026-11-16 to the master-1116b set (merge/master-1116b, 0.36.266-mb1116: asi + ini + ts3fixes + agent from one merge; agent installed to build/ by chain-followup-1116.sh, kept by chain-rebaseline-1116.sh). Was: ts3native.asi.master-mono-1115 (master-mono-1115 set (builds.json, merge/mono-1115, 0.36.264-mono1: asi + ini + ts3fixes from one build; agent master-mono-1115 installed to build/ by chain-mon)",
+   "releaseDefaults": true,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.266-mb1116 ": 1,
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.266-mb1116 ": {
+     "match": [
+      "ts3native 0.36.266-mb1116 2026-11-16 17:40:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+      "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+     ]
+    },
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "^OK   mono jit \\(docs/527\\): Mode=1, ": {
+     "match": [
+      "OK   mono jit (docs/527): Mode=1, 254 templates (Groups=1023), 117 list rows, VerifyEvery=16, code region 8192 KB (CodeKB), 4096 methods (MaxMethods), Direct=2 (docs/537), Trap=0"
+     ],
+     "noMatch": [
+      "OK   mono jit (docs/527): Mode=2, 140 templates (Groups=3), 119 list rows, VerifyEvery=16",
+      "SKIP mono jit: off"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0",
+      "diag: Bin add-ons: ApexRadiance.asi 13550 KB v3.1.1.0, d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1440 KB"
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -25,7 +25,7 @@
 
 static const DWORD GR_BUCKETS = 101;
 static const int GR_STATES_MAX = 8192;  // per walk over the container (real: ~400); a cyclic bucket list stops here
-static const DWORD* g_grDesc = (const DWORD*)(uintptr_t)0x011F424C;  // EA's arena chunk descriptor (0xE695E8), selftest: a fake
+static const DWORD* g_grDesc = (const DWORD*)(uintptr_t)TS3A(0x011F424C);  // EA's arena chunk descriptor (0xE695E8), selftest: a fake
 
 // append to d (room bytes) at *n, truncating (sprintf_s would abort on overflow)
 static void GrAp(char* d, int room, int* n, const char* fmt, ...) {
@@ -155,12 +155,12 @@ static void GrStateText(char* d, int room, int* n, const char* what, DWORD state
 
 // docs/67 §22.4: the task line after "mono fault:" (interpreter range only, as MonoFaultText)
 static bool GrFaultText(const CONTEXT* c, char* d, int room) {
-    if (c->Eip < 0x00E51000 || c->Eip >= 0x00E5A600) return false;
+    if (c->Eip < TS3A(0x00E51000) || c->Eip >= TS3A(0x00E5A600)) return false;
     const DWORD* tbl = GrTable();
     DWORD cur = 0, outer = 0, recv = 0, cnt = 0, id[2] = {0, 0};
     __try { cur = *g_curState; } __except (EXCEPTION_EXECUTE_HANDLER) {}
     __try { outer = *(const DWORD*)(uintptr_t)(c->Ebp - 0x60); } __except (EXCEPTION_EXECUTE_HANDLER) {}
-    if (c->Eip >= 0x00E51FC0 && c->Eip < 0x00E520C0) {
+    if (c->Eip >= TS3A(0x00E51FC0) && c->Eip < TS3A(0x00E520C0)) {
         __try { recv = *(const DWORD*)(uintptr_t)(c->Ebp - 0x28); } __except (EXCEPTION_EXECUTE_HANDLER) {}
     }
     __try { if (tbl) cnt = tbl[0x198 / 4]; } __except (EXCEPTION_EXECUTE_HANDLER) {}
@@ -315,7 +315,7 @@ static LONG g_grWindow;
 static LONG g_grDescChecks, g_grDescBadEv1, g_grDescPool, g_grDescFixed, g_grDescLines, g_grDescPoolCapped;
 static LONG g_grEv1Us, g_grEv1MaxUs, g_grEv1Slow;  // event-1 handler time (EA's stopped-mark budget ~1000 us, docs/13 Q3)
 static int g_grRestoreDesc;
-static DWORD* g_grPool = (DWORD*)(uintptr_t)0x011EE508;  // EA's chunk pool: sentinel node, node {next, prev, chunk}
+static DWORD* g_grPool = (DWORD*)(uintptr_t)TS3A(0x011EE508);  // EA's chunk pool: sentinel node, node {next, prev, chunk}
 
 static DWORD GrDescAt(DWORD chunk) {  // address of chunk's last word (block size from its header); caller holds SEH
     const DWORD* bot = (const DWORD*)(uintptr_t)g_mx.top[chunk >> 22];
@@ -483,8 +483,8 @@ static bool ApplyGcRootCheck(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"GcRootCheck", L"Enabled", 0, ini)) { Log("gc root check disabled (Enabled=0)"); return false; }
     g_grRestoreDesc = GetPrivateProfileIntW(L"GcRootCheck", L"RestoreDesc", 0, ini) ? 1 : 0;  // docs/67 §22.6
     static const u8 kStore[6] = {0xC7, 0x05, 0x60, 0x43, 0x23, 0x01};  // mov [GC_notify_event], imm32 (0xD7E62A)
-    u8* site = (u8*)(uintptr_t)0x00D7E62A;
-    DWORD* slot = (DWORD*)(uintptr_t)0x01234360;
+    u8* site = (u8*)(uintptr_t)TS3A(0x00D7E62A);
+    DWORD* slot = (DWORD*)(uintptr_t)TS3A(0x01234360);
     const DWORD mine = (DWORD)(uintptr_t)GrNotify;
     bool ok = false;
     if (Readable(slot, 4) && *slot) g_grNext = (GrNotifyFn)(uintptr_t)*slot, ok = Write(slot, &mine, 4);

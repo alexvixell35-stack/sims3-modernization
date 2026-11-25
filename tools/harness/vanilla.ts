@@ -15,6 +15,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFile
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { BIN } from './game-exe.ts';
+import { QUEUE_DIR } from './hold.ts';
 
 export const vanilla = () => process.env.TS3_VANILLA === '1';
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -59,7 +60,7 @@ export function install(s: Spec) {
   const pre = problems({ ...s, stash: join(s.stash, 'none') }).filter(p => /not a game Bin/.test(p));
   if (pre.length) throw new Error(pre[0]);
   if (existsSync(mfile(s))) throw new Error(`stash manifest exists (${mfile(s)}): restore first`);
-  if (!s.ourModsOnly && existsSync(join(ROOT, 'probe-out', 'queue', 'job-running'))) throw new Error('probe-out/queue/job-running exists'); // ourModsOnly: the running job is the caller
+  if (!s.ourModsOnly && existsSync(join(QUEUE_DIR, 'job-running'))) throw new Error(`${join(QUEUE_DIR, 'job-running')} exists`); // ourModsOnly: the running job is the caller
   const list = items(s), entries: Entry[] = [];
   const manifest: Manifest = { entries, time: new Date().toISOString() };
   for (const i of list) entries.push({ rel: i.rel, from: i.from, to: join(s.stash, i.rel), size: statSync(i.from).size, sha: sha(i.from) });
@@ -97,7 +98,7 @@ export function restore(s: Spec) {
   for (const e of all) if (existsSync(e.to)) move(e.to, e.from);
   const bad = all.filter(e => !existsSync(e.from) || sha(e.from) !== e.sha).map(e => e.rel);
   if (bad.length) throw new Error(`restore read-back failed: ${bad.join(', ')}; stash kept`);
-  rmSync(s.stash, { recursive: true, force: true });
+  rmSync(s.stash, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); // a scanner can hold a file for a moment (EPERM)
   return all.length;
 }
 

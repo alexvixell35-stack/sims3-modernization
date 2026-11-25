@@ -92,12 +92,17 @@ Log lines start with the switch name (`ts3native.log` via `ShortcutLog`).
 - Rows 6/7 need an adult holding an opportunity at the pickup. The repro does not create one, so check the `start`
   line, and add an opportunity by hand on a test save if the counters stay 0.
 - An opportunity with more than three listeners throws `IndexOutOfRange` in both the store (`vacstoreguard` drops that
-  slot) and the import (not hooked: the read is mid-body of `AcceptOpportunityFromTravel`) [inferred: no tuning count].
+  slot) and the import [inferred: no tuning count]. **Import built 2026-11-15 (lane L6, not run):** `vaclistenerpad`
+  (default off, needs `vaclistenernull`) pads `ListenerStates` with nulls to the opportunity's event count for the
+  `AddOpportunityFromTravel` call only (the outer method, already hooked by `vacimportfix`), so both index reads stay in
+  range and the extra listeners start fresh. No mid-body patch needed. Counters 1038-1039. Repro `vacation-listener-pad`
+  counts the opportunities with more than 3 events: 0 means the throw cannot happen with EA's tuning.
 - The `vacexitreturn` quit flag assumes `World.OnWorldQuitEventHandler` fires before `AutonomyManager.Shutdown` exits
   the situations [inferred]. If it does not, the adults are re-created during shutdown, which the reporter saw as harmless
   (run 107) [community].
 - A trip teen who travels (world change) while the parents are away: EA's `CleanUp` loses the parents, and we skip
-  while travelling. Not fixed.
+  while travelling. Not fixed. Lane L6 (2026-11-15) skipped it: no design yet. It needs a read of what travel saves and
+  reloads for the home world's situations and `[PersistableStatic]` dictionaries, then a test save with a teen travelling.
 - `Situation.GetSituations<ParentsLeavingTownSituation>()` at world-load finish is assumed to list the loaded trip
   [inferred]. `bp-vacation-saves` checks it.
 - The reporter's side finding (phone chat portrait from a missing Everyday outfit, `Sim.DoOneRoundOfRemoteChat`) is not

@@ -7,7 +7,7 @@ namespace Ts3Fixes
     {
         // docs/202 §2: the first failing test of the scope rule, 0 = unseen (act). Order = the doc's table, so counters and
         // logs name the cheapest reason first.
-        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8, kGoalHousehold = 9;  // 9: from UfGoalWhy only, never Why or UfWhy
+        public const int kSeen = 0, kNotLive = 1, kGone = 2, kHousehold = 3, kActiveLot = 4, kOnScreen = 5, kNearViewers = 6, kHeld = 7, kSocialSeen = 8, kGoalHousehold = 9, kBirth = 10;  // 9: from UfGoalWhy only, 10: from UfBirthWhy only (birthroute, docs/558); never Why or UfWhy
         public static int Why(bool live, bool exists, bool household, bool activeLot, bool onScreen, bool far, bool held, bool targetSeen)
         {
             if (!live) return kNotLive;
@@ -29,7 +29,8 @@ namespace Ts3Fixes
 
         // docs/197 §7 KdSeenNpcCeilMs: the reasons that prove a known NPC the player sees. Household, not live, gone, -1 (a failed
         // check) and anything else stay on the household ceiling.
-        public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kGoalHousehold; }
+        // kBirth (docs/558 birthroute): an unseen NPC's birth route (Pregnancy priority) gets the seen-NPC ceiling, never a cut.
+        public static bool SeenNpc(int why) { return why >= kActiveLot && why <= kBirth; }
         // the UserDiag op that tells native a route's scope: 11 unseen, 13 seen NPC, 10 household or unknown
         public static int KdScopeOp(int why) { return why == kSeen ? 11 : SeenNpc(why) ? 13 : 10; }
         // a kHeld Sim held only by the vehicle it sits in (not riding, carried-by or carrying, no household or selectable occupant)
@@ -81,6 +82,158 @@ namespace Ts3Fixes
         public const int kSitesPerTick = 8;
     }
 
+    // iafailmemo (RouteBackoff.cs IaAnswer / IaNote): failed plans with an empty path, keyed by Sim + interaction type name + start
+    // lot + goal lot + route options. Start lot (2026-11-18): without it a GoHome replan that failed inside a Bridgeport apartment
+    // building answered the Sim's GoHome from venues hundreds of metres away (24,523 answers for 733 failures in one game).
+    public sealed class IaFailMemo
+    {
+        public const int kWindowMs = 120000, kMax = 256;
+        struct E { public int At, Ms; public object Result; }
+        readonly Dictionary<string, E> mRows = new Dictionary<string, E>();
+        readonly Dictionary<ulong, int> mSims = new Dictionary<ulong, int>();
+        public int Count { get { return mRows.Count; } }
+        // household, selected and no-household (unknown scope) Sims are never remembered or answered
+        public static bool Eligible(bool selectable, bool hasHousehold, bool inActiveHousehold) { return !selectable && hasHousehold && !inActiveHousehold; }
+        // a failed plan with an empty path, made for an interaction, to a goal on a lot (one failed street spot must not block every street spot)
+        public static bool Remembers(bool failed, float pathM, string interaction, ulong goalLot) { return failed && !(pathM > 0f) && !string.IsNullOrEmpty(interaction) && goalLot != 0UL; }
+        static string Key(ulong sim, string interaction, ulong startLot, ulong goalLot, ulong opts) { return sim + ":" + interaction + ":" + startLot + ":" + goalLot + ":" + opts; }
+        public bool HasSim(ulong sim) { return mSims.ContainsKey(sim); }
+        public void Remember(ulong sim, string interaction, ulong startLot, ulong goalLot, ulong opts, int now, int ms, object result)
+        {
+            string k = Key(sim, interaction, startLot, goalLot, opts);
+            if (!mRows.ContainsKey(k) && mRows.Count >= kMax)
+            {
+                string oldest = null; int at = 0;
+                foreach (KeyValuePair<string, E> p in mRows) if (oldest == null || unchecked(p.Value.At - at) < 0) { oldest = p.Key; at = p.Value.At; }
+                if (oldest != null) Drop(oldest);
+            }
+            E e;
+            if (!mRows.TryGetValue(k, out e)) { int n; mSims.TryGetValue(sim, out n); mSims[sim] = n + 1; }
+            e.At = now; e.Ms = ms; e.Result = result;
+            mRows[k] = e;
+        }
+        // true = the same failure inside the window (result, ms of the remembered plan); an expired entry is dropped
+        public bool Answer(ulong sim, string interaction, ulong startLot, ulong goalLot, ulong opts, int now, out object result, out int ms)
+        {
+            result = null; ms = 0;
+            string k = Key(sim, interaction, startLot, goalLot, opts);
+            E e;
+            if (!mRows.TryGetValue(k, out e)) return false;
+            if (!NoStartCore.Within(now, e.At, kWindowMs)) { Drop(k); return false; }
+            result = e.Result; ms = e.Ms;
+            return true;
+        }
+        void Drop(string key)
+        {
+            if (!mRows.Remove(key)) return;
+            ulong sim = ulong.Parse(key.Substring(0, key.IndexOf(':')));
+            int n;
+            if (mSims.TryGetValue(sim, out n)) { if (n <= 1) mSims.Remove(sim); else mSims[sim] = n - 1; }
+        }
+    }
+
+    // docs/202 §3.10 (unseenfbghost): the three routing tiers for townies and the pure parts of the ghost walk (§3.8). Game-independent.
+    public static class UfGhostCore
+    {
+        // seen = exactly the game's (also every household or unknown-scope Sim); medium = unseen, close to the camera: ghosts;
+        // far = unseen and far: the stand-still hold, then placed at the goal (D, UfHold)
+        public const int kSeen = 0, kMedium = 1, kFar = 2;
+        // start values [inferred]: the scope rule's "not visible" reach is 80 m (docs/202 §2.1 rule 5, floor of max(80 m, 2 |cam y - target y|)); a camera turn
+        // brings a Sim 80-200 m away into view within a few seconds, so the Sim's medium radius is 2.5 x the floor and the goal's (where a snap
+        // would land the last leg) 1.5 x. Leaving medium needs 1.2 x the radius (hysteresis), so a Sim on the border keeps its tier.
+        public const float kSimMediumM = 200f, kGoalMediumM = 120f, kLeaveFactor = 1.2f;
+
+        // the tier's "unseen" input: a selectable Sim, a Sim in the active household and a Sim with no household (unknown scope) are never unseen
+        public static bool UnseenForTier(bool selectable, bool hasHousehold, bool inActiveHousehold) { return !selectable && hasHousehold && !inActiveHousehold; }
+        // unseenfbnosync: only medium and far Sims may skip a sim-thread search for the recovery (seen = the game plans)
+        public static bool NoSyncTier(int tier) { return tier == kMedium || tier == kFar; }
+
+        public static float HDist(float x1, float z1, float x2, float z2)
+        {
+            float dx = x1 - x2, dz = z1 - z2;
+            return (float)System.Math.Sqrt(dx * dx + dz * dz);
+        }
+
+        // unseen = the scope rule said 0 and the Sim is no household member (the caller's job; false = seen). simD / goalD = horizontal
+        // distance of the Sim / its goal to the nearer of camera position and camera target. prevMedium = the Sim's last tier was medium.
+        public static int Tier(bool unseen, bool prevMedium, float simD, float goalD, float simR, float goalR)
+        {
+            if (!unseen) return kSeen;
+            float k = prevMedium ? kLeaveFactor : 1f;
+            return simD <= simR * k || goalD <= goalR * k ? kMedium : kFar;
+        }
+
+        // polyline: a point every kPointStepM on the straight line (UfGhostPolyline in UnseenFallback.cs is the one place to swap
+        // for a path over the world waypoint graph, docs/99), at least start and end
+        public const float kPointStepM = 2.5f;
+        public static int Points(float lenM)
+        {
+            int n = (int)System.Math.Ceiling(lenM / kPointStepM) + 1;
+            return n < 2 ? 2 : n;
+        }
+        // route shape: kShapeSamples interior points are tested; more than 1 in 4 bad = refused (§3.8.4 step 1, without the sidewalk fallback)
+        public const int kShapeSamples = 12;
+        public static int ShapeIndex(int i, int samples, int points) { return (i + 1) * (points - 1) / (samples + 1); }
+        public static bool ShapeOk(int bad, int samples) { return bad * 4 <= samples; }
+
+        // hand-off point H: i-th candidate, 8-15 m before the goal on the line; 0 = candidate too close to the start (skip it), -1 = no more
+        public const float kMinLegM = 5f;
+        static readonly float[] kBackM = { 8f, 10f, 12f, 15f };
+        public static float HandOffM(float lenM, int i)
+        {
+            if (i < 0 || i >= kBackM.Length) return -1f;
+            float d = lenM - kBackM[i];
+            return d < kMinLegM ? 0f : d;
+        }
+
+        // virtual progress: share of the hold done (0..1) and the polyline point it has reached
+        public static float Frac(float elapsedMin, float holdMin) { return holdMin <= 0f ? 1f : elapsedMin <= 0f ? 0f : elapsedMin >= holdMin ? 1f : elapsedMin / holdMin; }
+        public static int IndexAt(float frac, int points)
+        {
+            int i = (int)(frac * (points - 1) + 0.5f);
+            return i < 0 ? 0 : i > points - 1 ? points - 1 : i;
+        }
+        // physical steps: one placed step per sim-minute while the Sim's virtual point is within kNearM of the camera (a visible jump would be
+        // 2.5 m), else one per kStepFarMin sim-minutes (~12 m, §3.8.4 step 4)
+        public const float kNearM = 150f, kStepFarMin = 5f;
+        public static float StepEveryMin(float camDistM) { return camDistM <= kNearM ? 1f : kStepFarMin; }
+        public static bool StepDue(float elapsedMin, float lastStepMin, float camDistM) { return elapsedMin - lastStepMin >= StepEveryMin(camDistM); }
+        // snap (§3.8.5 rule 5): the camera turned to the Sim; it goes to its virtual point when that point is outdoor routable ground, else
+        // stays on the last point it was placed at (the jump is never more than the steps since)
+        public static int SnapIndex(int progressIdx, bool virtualOk, int lastPlacedIdx) { return virtualOk && progressIdx > lastPlacedIdx ? progressIdx : lastPlacedIdx; }
+        public static float SnapJumpM(int snapIdx, int lastPlacedIdx) { return (snapIdx - lastPlacedIdx) * kPointStepM; }
+    }
+
+    // §3.8.6 no-loop: a Sim whose ghost's last leg failed or was cut does not ghost again for kNoLoopMs (wall ms), so a failing last leg
+    // never turns into ghost, fail, retry, ghost
+    public sealed class UfGhostGuard
+    {
+        public const int kNoLoopMs = 10000, kMaxSims = 512;
+        readonly Dictionary<ulong, int> mAt = new Dictionary<ulong, int>();
+        public void Mark(ulong sim, int now)
+        {
+            if (mAt.Count >= kMaxSims) mAt.Clear();  // shortcut: a burst starts over; entries are short-lived
+            mAt[sim] = now;
+        }
+        public bool Blocked(ulong sim, int now)
+        {
+            int at;
+            return mAt.TryGetValue(sim, out at) && NoStartCore.Within(now, at, kNoLoopMs);
+        }
+    }
+
+    // unseenhouseboatview (UnseenFallback.cs UfHbvSeen): a houseboat lot's coordinates are a hidden spot (z ~2060, all boats stacked), the boat
+    // shows elsewhere. For a townie on a houseboat lot that is not the active household's and not the camera's, the scope rule's position test
+    // (camera frustum / reach, 80 m from active-household Sims) is asked at the SHOWN position, with EA's on-screen byte first.
+    public static class HbvCore
+    {
+        public static bool Applies(bool houseboatLot, bool activeHouseholdLot, bool cameraLot) { return houseboatLot && !activeHouseholdLot && !cameraLot; }
+        // 0 = unseen; else the scope rule's seen reason: on screen (EA's byte), or the shown position fails the position test
+        public static int Why(bool onScreenByte, bool shownUnseen) { return onScreenByte ? UnseenFallbackCore.kOnScreen : shownUnseen ? 0 : UnseenFallbackCore.kNearViewers; }
+        // counters: 0 = still seen, 1 = judged unseen that the old rule called seen, 2 = unseen both ways
+        public static int Class(int why, bool oldSeen) { return why != 0 ? 0 : oldSeen ? 1 : 2; }
+    }
+
     public sealed class UfSitesPass
     {
         int mNext, mCount = 0;
@@ -117,6 +270,59 @@ namespace Ts3Fixes
             return m < kMinHoldMin ? kMinHoldMin : m > kMaxHoldMin ? kMaxHoldMin : m;
         }
 
+        // docs/267 F1: the unseen teleport's goal (a cut plan never proved it reachable). 0 = the Sim may be placed there; else the
+        // refusal, also the offset of its counter. In order: a tomb or hidden room never; outdoor ground always (the pre-plan
+        // path's rule); indoors or raised only on a lot UfLotOpen passes; raised outdoor (deck, roof: stairs the flood does not
+        // see) never; an indoor room only when EA's allowed-room flood (HrReachesOutside, the Sim's own door rights) reaches
+        // outside; unknown (null, a portal threw) refuses.
+        public const int kTpOk = 0, kTpTombOrHidden = 1, kTpLotClosed = 2, kTpNoWayOut = 3, kTpRaised = 4;
+
+        // docs/584 §7 tpdoorrights: one door's verdict for F1's lot test, judged with the teleporting Sim's own door rights instead
+        // of "any lock closes the lot". lockType is CommonDoor.tLock as an int; oneWayRoom is CommonDoor.OneWayRoomDestinationId,
+        // which EA sets to kNoOneWayRoom (0x8FFF) on every door that is not one-way (its field initializer and
+        // SetLockTypeAndOwner(lock, owner)); upstream's "!= 0" read that sentinel as one-way, so every lot with a door was closed.
+        // simPasses = EA's CommonDoor.IsAllowedThrough(sim) (both directions); householdPasses = the lock's owner (or one owner
+        // on the list) is in the Sim's household; homeLot = the lot is that household's home. Returns kTpDoorClosed (the lot is
+        // closed), kTpDoorFree (no lock in the way), kTpDoorOwn (the Sim's own rights pass it) or kTpDoorHome (only its household's
+        // access passes it: a resident going home past a family member's locked room; the room flood still uses the Sim's rights).
+        public const int kNoOneWayRoom = 36863;
+        public const int kLockNobody = 0, kLockSelectedActor = 1, kLockSelectedHousehold = 2, kLockAnybody = 3, kLockPets = 4, kLockOwnerList = 5, kLockVipRoom = 6;
+        public const int kTpDoorClosed = -1, kTpDoorFree = 0, kTpDoorOwn = 1, kTpDoorHome = 2;
+        public static int TpDoor(int lockType, bool gendered, int oneWayRoom, bool simPasses, bool homeLot, bool householdPasses)
+        {
+            if (oneWayRoom != kNoOneWayRoom) return kTpDoorClosed;  // a real one-way room: never (upstream's rule, with EA's sentinel)
+            if (lockType == kLockAnybody && !gendered) return kTpDoorFree;
+            if (lockType == kLockNobody) return kTpDoorClosed;      // locked for everyone, residents too
+            if (simPasses) return kTpDoorOwn;
+            bool shared = lockType == kLockSelectedActor || lockType == kLockSelectedHousehold || lockType == kLockOwnerList;
+            return homeLot && householdPasses && shared && !gendered ? kTpDoorHome : kTpDoorClosed;
+        }
+        // upstream's rule (tpdoorrights off): any lock, a single-gender door or "one-way" (as upstream reads it) closes the lot
+        public static bool TpDoorUpstreamCloses(int lockType, bool gendered, int oneWayRoom) { return lockType != kLockAnybody || gendered || OneWay(oneWayRoom, false); }
+        // is the door one-way? sentinel true (tpdoorrights) = EA's test (!= 0x8FFF); false = upstream's "!= 0", true for every door
+        public static bool OneWay(int oneWayRoom, bool sentinel) { return sentinel ? oneWayRoom != kNoOneWayRoom : oneWayRoom != 0; }
+        // docs/584 §8 tpaptgoal: F1's lot verdict for an apartment or shell lot (Lot.IsApartmentLot, BuildableShells), which both
+        // lot tests close outright. kTpAptNone = not such a lot (the usual lot test applies); kTpAptClosed = closed as upstream has
+        // it (switch off, not the Sim's home lot, a special lot that stays closed: houseboat, resort, diving); kTpAptRoom = the
+        // Sim's own home apartment lot with the switch on: the lot counts as open and only the goal room decides (TpGoal: tomb or
+        // hidden refused first, then the room flood with the Sim's own rights plus TpDoor per door on the way out).
+        public const int kTpAptNone = 0, kTpAptClosed = 1, kTpAptRoom = 2;
+        public static int TpAptLot(bool aptOrShell, bool otherSpecial, bool homeLot, bool on)
+        {
+            if (!aptOrShell) return kTpAptNone;
+            return on && homeLot && !otherSpecial ? kTpAptRoom : kTpAptClosed;
+        }
+        // the openLot argument of TpGoal: kTpAptRoom opens, kTpAptClosed closes, kTpAptNone keeps the usual lot test's answer
+        public static bool TpAptOpen(int aptLot, bool usualOpen) { return aptLot == kTpAptRoom || (aptLot == kTpAptNone && usualOpen); }
+        public static int TpGoal(bool tombOrHidden, bool outdoorGround, bool openLot, bool roomOutside, bool? reachesOutside)
+        {
+            if (tombOrHidden) return kTpTombOrHidden;
+            if (outdoorGround) return kTpOk;
+            if (!openLot) return kTpLotClosed;
+            if (roomOutside) return kTpRaised;
+            return reachesOutside == true ? kTpOk : kTpNoWayOut;
+        }
+
         // docs/202 §3.6.4 lot trips: 0 = no shortcut, 1 = place at once (the trip shortcuts as shipped), 2 = D's walk-time hold, then
         // place. Kinds the shortcuts already cover (newKind false; their own switch was checked by the caller) keep 1 unless
         // unseenfbtriphold; kinds they miss (mod subclasses that override the trip's Run) act only with unseenfbtrip, always held.
@@ -129,6 +335,7 @@ namespace Ts3Fixes
         // assemblies scanned for mod subclasses of the trip interactions: not the game's, not the runtime's, not ours
         static readonly string[] kGameAssemblies = { "mscorlib", "System", "System.Xml", "ScriptCore", "SimIFace", "Sims3GameplaySystems",
             "Sims3GameplayObjects", "Sims3StoreObjects", "Sims3Metadata", "UI" };
+        public static bool GameAssembly(string name) { return System.Array.IndexOf(kGameAssemblies, name) >= 0; }
         public static bool TripScanAssembly(string name, string ours)
         {
             if (name == null || name == ours) return false;
@@ -140,6 +347,15 @@ namespace Ts3Fixes
         // Definition classes included); every NRaas interaction too (GoHere's own walks, Overwatch/ErrorTrap helpers).
         static readonly string[] kDeny = { "Jog", "Walk", "GoHere", "Stroll", "Sightsee", "Sneak", "Haunt", "Parade", "Chase", "Follow",
             "Wander", "Leash", "Patrol", "Tour", "Explore", "Flee", "Swim", "Dive", "Trick", "Mount", "Ride", "Carry", "Stalk" };
+        // docs/328 §7.5 (switch unseenfbgohere, off): NRaas GoHere's plain trips, exact names only (kDeny's "GoHere" matches its
+        // namespace): VisitLotEx runs EA's VisitLot.Run after its teleport check; VisitCommunityLotEx is a near copy of EA's Run whose
+        // route still ends in EA's DoSingleRouteEx [verified source + V46; safe for D / the finish: inferred]
+        public static readonly string[] kGoHereTrips = { "NRaas.GoHereSpace.Interactions.VisitLotEx", "NRaas.GoHereSpace.Interactions.VisitCommunityLotEx" };
+        public static bool Denied(string fullTypeName, bool goHereTrips)
+        {
+            if (goHereTrips && System.Array.IndexOf(kGoHereTrips, fullTypeName) >= 0) return false;
+            return Denied(fullTypeName);
+        }
         public static bool Denied(string fullTypeName)
         {
             if (fullTypeName == null || fullTypeName.StartsWith("NRaas")) return true;
@@ -379,6 +595,7 @@ namespace Ts3Fixes
         // GoHere stay denied (groups, its own walks)
         public const string kTerrainGoHere = "Sims3.Gameplay.Core.Terrain+GoHere";
         public static bool Denied(string fullTypeName) { return fullTypeName != kTerrainGoHere && UfPreCore.Denied(fullTypeName); }
+        public static bool Denied(string fullTypeName, bool goHereTrips) { return fullTypeName != kTerrainGoHere && UfPreCore.Denied(fullTypeName, goHereTrips); }
 
         // a claimed hold at a check: 0 keep holding, 1 finish now, 2 give up (the Sim walks on from where it stood)
         public const int kKeep = 0, kFinish = 1, kGiveUp = 2;
@@ -445,7 +662,8 @@ namespace Ts3Fixes
         // that route [verified, decompiled]; UbAlone reads its private followers, the goal verdict stays in UbGate.
         static readonly string[] kFollowers = { "Sims3.Gameplay.Core.GoHome.Run", "Sims3.Gameplay.Core.GoToLot.Run", "Sims3.Gameplay.Core.GoToCommunityLot.Run",
             "Sims3.Gameplay.Core.VisitCommunityLot.Run", "Sims3.Gameplay.Core.VisitLot.Run", "Sims3.Gameplay.Abstracts.RabbitHole.RouteOutside", "Ts3Fixes.Fixes+GoHomeHook.Run", "Ts3Fixes.Fixes+GoToLotHook.Run",
-            "Ts3Fixes.Fixes+GoToCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitLotHook.Run", "Ts3Fixes.Fixes+VclSubHook0.Run", "Ts3Fixes.Fixes+VclSubHook1.Run", "Ts3Fixes.Fixes+VclSubHook2.Run" };
+            "Ts3Fixes.Fixes+GoToCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitCommunityLotHook.Run", "Ts3Fixes.Fixes+VisitLotHook.Run", "Ts3Fixes.Fixes+VclSubHook0.Run", "Ts3Fixes.Fixes+VclSubHook1.Run", "Ts3Fixes.Fixes+VclSubHook2.Run",
+            "Ts3Fixes.Fixes+VclSubHook3.Run", "Ts3Fixes.Fixes+VclSubHook4.Run", "Ts3Fixes.Fixes+VclSubHook5.Run" };
         // Lot helpers between a trip's Run and the plan; each plans once [verified, decompiled]. No proof alone: RouteToDoor with doRoute
         // false only hands the route back, so the frame above them decides
         static readonly string[] kLotHelpers = { "PlanToLot", "PlanToLotEx", "PlanRouteIntoLot", "RouteToDoor", "RouteToFrontDoor", "RouteToFrontDoorOrMailbox", "RouteToMailbox", "PlanToMailbox" };

@@ -12,44 +12,186 @@
 #include <emmintrin.h>
 #include <intrin.h>  // _ReturnAddress (vfG11CloseBy)
 #include <psapi.h>  // K32GetMappedFileNameW (XcptOtherModule)
+#include "ts3addr.h"  // TS3A(x): TS3W.exe addresses by Steam 1.67 value (tools/addr-codemod.ts)
 #include "uaftag.h"  // docs/539 §17: [UafCheck] free tags (before every tagged site: p5c, discourage, routesnap, eafix, ServeAsync, MonoThread)
 
 #ifdef TS3N_RFTEST
 #define TS3NATIVE_VERSION "0.36.189-rftest1"  // docs/89 §18: repro ops 30-34, never a release
 #else
-#define TS3NATIVE_VERSION "0.36.240"  // launcherfix-1110: 0.36.239 + [LauncherFix] (docs/255, launcher host only, Enabled default 1): TSLHost.dll telemetry upload skipped (byte-checked call at +0x34535), so the job no longer busy-waits for Sims3Logs.xml; launcher host logs to ts3native.launcher.log, no work at detach; TS3W path unchanged; 0.36.239 = wdfix2-1110: 0.36.238 + [RouteAsync] WatchdogKind2 (docs/250 §7.1, default 0): PlanFromPoint hooked for the watchdog's A1 check only, own kind-2 STARTs accepted only with the watchdog tag, every other kind-2 call straight to the game (arWdPass, the old arReserved slot), GetOption2 q 9 for ts3fixes; 0.36.238 = rc1110c: 0.36.237 + the sync side of the same hole (docs/197 §7): KdSyncCeilUs gives a sync plan with no scope answer yet the household ceiling (KdSeenCeilMs) instead of its usual caps, KdKnownUnseen returns false with no answer (ReplanDedupe holds footprint repeats); ts3fixes marks (uf) unchanged; 0.36.237 = rc1110b: 0.36.236 + KdExempt household hole (docs/197 §7, docs/249): with KdExemptSeen=1 and no scope answer from ts3fixes yet (session start, older package) an unmarked route is unknown = household = exempt, not cut; 0.36.236 = s3ssguard-1109: 0.36.235 + docs/539 §22 [S3SSCompat] StaleWriteGuard (S3SS 1.6.3 SafeReassert call retargeted: its stale camera-threshold write goes to the live WorldManager+0xEC, not freed heap; stands aside for other S3SS builds); 0.36.235 = float5catch-1109b: 0.36.234 + docs/539 §21 DR own-write safety (WpVeh takes a hit on an address its slot just dropped and rewrites the thread's DRs to the slot table, ts3native-eip hits counted not handed on unless float 5, nested hits counted; bp-float5-catch-1 died of a declined single-step from our UafCheck fill under a rotating Float5Watch DR); 0.36.234 = float5catch-1109: 0.36.233 + docs/539 §21 [Float5Sticky] (DR write watch kept on the first float-5 address all session, save / world load checks, Portal_Save portal vector check), [Float5Watch] (last-OK windows, 250 ms sweep of outfits / SlotComponents, DR watches on the newest records around travel), [UafCheck] TravelHold; 0.36.233 = float5mono-1109b: 0.36.232 + [Float5Free] range rule (a 0x40A00000..0x40A0FFFF pointer is bad only with an unreadable / freed / zero-size chunk header; in-use blocks there pass, docs/539 §19.1), [MonoSigGuard] lines only for param_count 0 (docs/539 §20); 0.36.232 = float5mono-1109: 0.36.231 + [MonoSigGuard] (docs/539 §20, EA bug: 0xD70F90 read params[0] of a zero-parameter delegate signature (SwapLoadScreen) before its param_count check; release ini on); 0.36.231 = float5free-1109: 0.36.230 + [Float5Free] (docs/539 §19, float-5 pointers at EA Free 0x4E5920 sharing [UafCheck]'s detour, SACS Walker deque dtor 0x727E10 check, Guard skips); 0.36.230 = float5slot-1109: 0.36.229 + [SlotGuard] (docs/539 §18, SlotComponent slot arrays at clear / load / clone), [UafCheck] Object blocks (ObjectService free 0x935E1B, ObjectMaxSize, Object id) and foreign-jmp refusal, AsDetourCore NULL trampoline fix (UafCheck without AllocSites crashed at load); 0.36.229 = float5uaf-1109b: 0.36.228 + [UafCheck] free tags (uaftag.h: which of our paths freed a quarantined block), recently-freed ring, float5 near-our-free lookups, P5c released ring 64 -> 4096; 0.36.228 = float5uaf-1109: 0.36.227 + docs/539 §17 [UafCheck] delayed-free quarantine (counters v183 uaf*); 0.36.227 = float5trap-1109: 0.36.226 (master1109c) + docs/539 §16 [CasTrim] WriteTrap (DR write watches on [outfit+0xBC] cells, counters v181 tr*)
+#define TS3NATIVE_VERSION "0.36.302-drainlog1125"  // fix/drainlog-1125: [UnseenAnim] DrainNodeLog drain fault node / head / owner log (docs/67 §47, off)
+// was "0.36.301-m1124"  // master set m1124 (RC maintenance release): m1123c + harness-lenovo-bugs, night-run-codified, tune-assemblies-isolate, scene-cull-race (CullDrainWait ON), cp1-lotgen + cp2-lothook, lc1-exact-cuts, xcpt-offstack, players-skip-log
+// was "0.36.300-tuneiso1"  // tune-isolate-1123: [IlPatch] ilp_tuneisolate (docs/339, off) + leave-out relocator rule, on m1123c
+// was "0.36.299-xos1124"  // xos1124: m1123c + crash log off-stack esp line (docs/67 §46); master set m1123c (m1123 + Dalexlol 625, 651-659, 672, 680, 681); m1123: m1122 + overflow-fixes-1122 (docs/323 lanes A-F) + unbounded-caps-1122 (docs/321 lanes 0, B, C) + watergrid-next-1122 ([WaterGrid] Diff + Par, docs/100 §14, off) + nonsim-split-1122 ([Diag] NonSimSplit, docs/329, off) + compat, Dalexlol 637-653 and loop-cost merges (ts3fixes only)
+// was "0.36.299-cp2"  // feature/cp2-lothook-1123: CP-2 op 49 lot event queue for ts3fixes LotHub (docs/321 §9, armed only by a managed subscriber) on cp1 (CP-1 lot hub, docs/321 §8)
+// was "0.36.299-cullrace2"  // (cullrace2: crRace counts job state 4 only) bugfix/scene-cull-race-1123 (docs/338: [CrashForensics] CullRaceWatch on, [EaCrashFixes] CullDrainWait off) on master set m1123c (m1123 + Dalexlol 625, 651-659, 672, 680, 681); m1123: m1122 + overflow-fixes-1122 (docs/323 lanes A-F) + unbounded-caps-1122 (docs/321 lanes 0, B, C) + watergrid-next-1122 ([WaterGrid] Diff + Par, docs/100 §14, off) + nonsim-split-1122 ([Diag] NonSimSplit, docs/329, off) + compat, Dalexlol 637-653 and loop-cost merges (ts3fixes only)
+// was "0.36.299-m1123c"  // master set m1123c (m1123 + Dalexlol 625, 651-659, 672, 680, 681); m1123: m1122 + overflow-fixes-1122 (docs/323 lanes A-F) + unbounded-caps-1122 (docs/321 lanes 0, B, C) + watergrid-next-1122 ([WaterGrid] Diff + Par, docs/100 §14, off) + nonsim-split-1122 ([Diag] NonSimSplit, docs/329, off) + compat, Dalexlol 637-653 and loop-cost merges (ts3fixes only)
+// was "0.36.299-m1122"  // master set m1122: e1122 + unseen-distance-probe-1122 ([UnseenProbe] Bands, TaskSeam 65536/4096, docs/322, off) + world-scale-perf-1122 ([WaterGrid] Prof, LoadProf counter-clear fix, docs/100 §13, off) (2026-11-22); was uband2 / wgprof1 on the branches; e1122: m1121b + Dalexlol 1122 imports
+// was "0.36.297-m1120n" (the same merges on 0.36.295-mdt1, before TaskSeam)
+// was "0.36.295-tsk1"  // feature/mod-seam-budget-1120: [Diag] TaskSeam (docs/308, off) on 0.36.295-mdt1; feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
+// was "0.36.295-mdt1"  // feature/modtime-master-1120: [Diag] ModTime on master (docs/298: own + with-game owners, load block, 10 Hz, mod cost report; off) on master 0.36.295-rc1119b
+// was "0.36.295-rc1119b"  // RC set rc-1119b (v0.3.0 final candidate): master 0.36.293-m1119s + bugfix/gohere-gotopoint-boatlist-1119 (ts3fixes) + bugfix/verify-s3mm-standdown-1119 ([Verify] S3MM stand-down at 0xE59FD0) + docs/s3mm-profiler-incompatible-1119 (harness); 0.36.294 is taken by feature/keep-options-gpu-1119
+// + bugfix/rewind-ab-1119 ([Rewind] PoolPark, test-only); its own builds keep "0.36.296-rwab1119"
+// + bugfix/hostmap-iter-fix-1120 ([HostMapIterFix], default off); its own builds keep "0.36.295-hostmapiter1"
+// + bugfix/doormemox-privacy-1117 (DoorMemoX=3 holds lots with a privacy / mod door handler); its own builds keep "0.36.295-dmxp1120"
+// + feature/pccheck-1120 ([PcCheck] read-only PC check, docs/299, Notify default 0); its own builds keep "0.36.295-pccheck3"
+// + feature/keep-options-gpu-1119 ([EaCrashFixes] KeepOptionsOnGpuChange, docs/37 §12, default 0); its own builds keep "0.36.296-keepopt2"
 #endif
 
 typedef unsigned char u8;
 
 static HANDLE g_log = INVALID_HANDLE_VALUE;
+static void (*volatile g_logTap)(const char*);  // adaptdiag.cpp AdTap ([AdaptDiag], docs/316): each line, before it is written
 
 static void Log(const char* fmt, ...) {
-    char buf[1536];  // docs/67 §22.4: was 512, which cut the "mono fault:" script stack after 6 of 16 frames
+    char buf[2048];  // docs/67 §22.4: was 512, which cut the "mono fault:" script stack after 6 of 16 frames; docs/323 M1: 1536 cut the longest (~1552)
     va_list ap;
     va_start(ap, fmt);
     int n = _vsnprintf_s(buf, sizeof(buf) - 2, _TRUNCATE, fmt, ap);
     va_end(ap);
     if (n < 0) n = (int)strlen(buf);
+    if (g_logTap) g_logTap(buf);
     buf[n++] = '\r';
     buf[n++] = '\n';
     DWORD w;
     if (g_log != INVALID_HANDLE_VALUE) WriteFile(g_log, buf, (DWORD)n, &w, NULL);
 }
 
+// docs/323 lane A: the DLL links the static CRT (/MT) and installs no _set_invalid_parameter_handler, so a swprintf_s /
+// wcscat_s that does not fit kills the game on the spot (its "< 0" return is never seen). Paths are built here instead:
+// false, and out = "" (never a cut path that names another file), when the text does not fit in cap chars, or when a
+// "%s\..." format gets an empty first directory (that path would land in the drive root).
+static volatile LONG g_pathLong;  // paths that did not fit (entry skipped / write not done)
+static void PathLongNote(size_t cap) {
+    const LONG k = InterlockedIncrement(&g_pathLong);
+    if (k <= 4) Log("path: longer than %u chars, skipped (%ld so far; docs/323)", (unsigned)cap - 1, k);  // no folder names (docs/188)
+}
+static bool PathFmtV(wchar_t* out, size_t cap, const wchar_t* fmt, va_list ap) {
+    if (!out || !cap) return false;
+    if (!wcsncmp(fmt, L"%s\\", 3)) {  // "<dir>\..." with dir "" would name the drive root: fail, no file
+        va_list c;
+        va_copy(c, ap);
+        const wchar_t* dir = va_arg(c, const wchar_t*);
+        va_end(c);
+        if (!dir || !dir[0]) { out[0] = 0; return false; }
+    }
+    if (_vsnwprintf_s(out, cap, _TRUNCATE, fmt, ap) >= 0) return true;
+    out[0] = 0;
+    PathLongNote(cap);
+    return false;
+}
+static bool PathFmt(wchar_t* out, size_t cap, const wchar_t* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const bool ok = PathFmtV(out, cap, fmt, ap);
+    va_end(ap);
+    return ok;
+}
+template <size_t N> static bool PathFmt(wchar_t (&out)[N], const wchar_t* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const bool ok = PathFmtV(out, N, fmt, ap);
+    va_end(ap);
+    return ok;
+}
+
+// docs/323 lane B (Rodney 2026-11-22: per call, no module-wide invalid-parameter handler): every sprintf_s / strcpy_s /
+// strcat_s / wcscpy_s / wcscat_s of this module goes through these. When the text fits: the CRT call's text and return.
+// Past the end they never kill the game: SFmt keeps what fits (returns its length, so "n += SFmt(b + n, cap - n, ...)"
+// chains stay inside b); SCpy / SCat keep what fits (STRUNCATE); WCpy / WCat leave "" and return STRUNCATE (wide strings
+// here are paths: never a cut one), and WCat onto "" stays "" (a failed copy before it never turns into a relative path).
+static int SFmtV(char* d, size_t cap, const char* fmt, va_list ap) {
+    if (!d || !cap) return 0;
+    const int n = _vsnprintf_s(d, cap, _TRUNCATE, fmt, ap);
+    return n >= 0 ? n : (int)strlen(d);
+}
+static int SFmt(char* d, size_t cap, const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const int n = SFmtV(d, cap, fmt, ap);
+    va_end(ap);
+    return n;
+}
+template <size_t N> static int SFmt(char (&d)[N], const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    const int n = SFmtV(d, N, fmt, ap);
+    va_end(ap);
+    return n;
+}
+static errno_t SCpy(char* d, size_t cap, const char* s) { return d && cap ? strncpy_s(d, cap, s ? s : "", _TRUNCATE) : EINVAL; }
+template <size_t N> static errno_t SCpy(char (&d)[N], const char* s) { return SCpy(d, N, s); }
+static errno_t SCat(char* d, size_t cap, const char* s) {
+    if (!d || !cap) return EINVAL;
+    if (strnlen(d, cap) == cap) d[cap - 1] = 0;  // an unterminated destination is the CRT's kill too
+    return strncat_s(d, cap, s ? s : "", _TRUNCATE);
+}
+template <size_t N> static errno_t SCat(char (&d)[N], const char* s) { return SCat(d, N, s); }
+static errno_t WCpy(wchar_t* d, size_t cap, const wchar_t* s) {
+    if (!d || !cap) return EINVAL;
+    const size_t n = s ? wcslen(s) : 0;
+    if (n >= cap) { d[0] = 0; PathLongNote(cap); return STRUNCATE; }
+    if (n) memmove(d, s, n * sizeof(wchar_t));
+    d[n] = 0;
+    return 0;
+}
+template <size_t N> static errno_t WCpy(wchar_t (&d)[N], const wchar_t* s) { return WCpy(d, N, s); }
+static errno_t WCat(wchar_t* d, size_t cap, const wchar_t* s) {
+    if (!d || !cap) return EINVAL;
+    const size_t dl = wcsnlen(d, cap), n = s ? wcslen(s) : 0;
+    if (!dl || dl + n >= cap) { d[0] = 0; if (dl) PathLongNote(cap); return STRUNCATE; }
+    memmove(d + dl, s, n * sizeof(wchar_t));
+    d[dl + n] = 0;
+    return 0;
+}
+template <size_t N> static errno_t WCat(wchar_t (&d)[N], const wchar_t* s) { return WCat(d, N, s); }
+
 static void Hex(const u8* p, size_t n, char* out, size_t cap) {
     out[0] = 0;
-    for (size_t i = 0; i < n && (i * 3 + 3) < cap; i++) sprintf_s(out + i * 3, cap - i * 3, "%02X ", p[i]);
+    for (size_t i = 0; i < n && (i * 3 + 3) < cap; i++) SFmt(out + i * 3, cap - i * 3, "%02X ", p[i]);
 }
 
 static bool Readable(const void* p, size_t n) {
     MEMORY_BASIC_INFORMATION mbi;
+#ifdef TS3A_TABLE
+    // EA: a span may cross regions. A written copy-on-write image page turns PAGE_READWRITE, so .data splits into regions by
+    // write history: the [MonoThread] GC thread table (0x127B380, 0x1400 bytes, 2 pages) failed in some starts ("SKIP mono
+    // thread: GC globals unreadable"). Walk them; every region must be committed and readable.
+    for (const u8 *a = (const u8*)p, *end = a + n;;) {
+        if (!VirtualQuery(a, &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT || (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return false;
+        const u8* next = (const u8*)mbi.BaseAddress + mbi.RegionSize;
+        if (end <= next) return true;
+        a = next;
+    }
+#else
     if (!VirtualQuery(p, &mbi, sizeof(mbi)) || mbi.State != MEM_COMMIT) return false;
     if (mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)) return false;
     return (const u8*)p + n <= (const u8*)mbi.BaseAddress + mbi.RegionSize;
+#endif
 }
 
-#ifdef TS3N_TEST_EXPECTED
+#ifdef TS3A_TABLE
+#ifdef TS3A_RETAIL
+#include "ts3bytes-retail167.h"  // same, retail 1.67 (docs/273)
+#else
+#include "ts3bytes-ea169.h"  // ts3bytes_rows[] sorted by (addr, len), ts3bytes_pool[], ts3bytes_count (tools/patch-bytes-check.ts --table)
+#endif
+// EA build: the bytes the game itself has at an already translated site replace the caller's Steam literal (they differ
+// only in rel32 / absolute-pointer operands, docs/68 7.3). Same address and length required, else the literal stays.
+// set around a check whose literal already holds this build's bytes with a changed operand (gcgrow.cpp GcCapWindow): no swap
+static __declspec(thread) bool t_expLiteral;
+static const u8* ExpectedAt(const void* addr, const u8* lit, size_t n) {
+    if (t_expLiteral) return lit;
+    const DWORD a = (DWORD)(uintptr_t)addr, len = (DWORD)n;
+    int lo = 0, hi = ts3bytes_count - 1;
+    while (lo <= hi) {
+        const int mid = (lo + hi) / 2;
+        const DWORD ra = ts3bytes_rows[mid].a, rl = ts3bytes_rows[mid].len;
+        if (ra == a && rl == len) return ts3bytes_pool + ts3bytes_rows[mid].off;
+        if (ra < a || (ra == a && rl < len)) lo = mid + 1; else hi = mid - 1;
+    }
+    return lit;
+}
+#elif defined(TS3N_TEST_EXPECTED)
 // selftest: one fake table row (address + live bytes), so a test can make the live bytes differ from the literal, as the
 // EA port's translated-bytes table does (TestDetourCallRel)
 static DWORD g_testExpAt;
@@ -87,7 +229,7 @@ static bool PatchImm32(const char* name, const Site* sites, int count, DWORD val
     for (int i = 0; i < count; i++) {
         const u8* p = (const u8*)(uintptr_t)sites[i].addr;
         if (!Matches(p, sites[i].expect, sites[i].len)) {
-            if (Readable(p, sites[i].len)) Hex(p, sites[i].len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+            if (Readable(p, sites[i].len)) Hex(p, sites[i].len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
             Log("SKIP %s: bytes at 0x%08X differ (found %s), nothing written", name, sites[i].addr, hex);
             return false;
         }
@@ -128,6 +270,32 @@ static bool Write5(u8* t, const u8* five) {
     return true;
 }
 
+// Detour trampolines and small code stubs share 64 KB RWX blocks (a new block when one is full): a VirtualAlloc of
+// 32 bytes reserved a whole 64 KB of the 32-bit address space (issue #40). Slots are 16-byte aligned, zero-filled (fresh
+// pages) and never freed or re-protected. The lock: detours are also installed late from other threads.
+static SRWLOCK g_trampLock = SRWLOCK_INIT;
+static u8* g_trampBlk;
+static size_t g_trampUsed;
+static LONG g_trampBlocks;  // blocks made (selftest)
+static u8* TrampAlloc(size_t n, const char* name) {
+    n = (n + 15) & ~(size_t)15;
+    AcquireSRWLockExclusive(&g_trampLock);
+    if (!g_trampBlk || g_trampUsed + n > 0x10000) {
+        u8* const b = (u8*)VirtualAlloc(NULL, 0x10000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        if (!b) {
+            const DWORD err = GetLastError();
+            ReleaseSRWLockExclusive(&g_trampLock);
+            Log("FAIL trampoline for %s: no 64 KB code block (err %lu)", name, err);
+            return NULL;
+        }
+        g_trampBlk = b, g_trampUsed = 0, g_trampBlocks++;
+    }
+    u8* const r = g_trampBlk + g_trampUsed;
+    g_trampUsed += n;
+    ReleaseSRWLockExclusive(&g_trampLock);
+    return r;
+}
+
 // 5-byte jmp detour at `target`. `prologue` is the verified original code, `len` >= 5 and ending on an instruction
 // boundary, with no relative operands (it is copied verbatim into the trampoline). Returns the trampoline that runs the
 // original function, or NULL. A leading call rel32 is re-targeted in the trampoline at the original callee. `slot` (the caller's trampoline pointer, read by the hook) is stored before the jmp goes
@@ -138,7 +306,7 @@ static void* DetourCore(const char* name, DWORD target, const u8* prologue, size
         Log("SKIP detour %s at 0x%08X: prologue differs", name, target);
         return NULL;
     }
-    u8* tramp = (u8*)VirtualAlloc(NULL, 32, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    u8* tramp = TrampAlloc(32, name);
     if (!tramp) return NULL;
     memcpy(tramp, t, len);  // the live bytes (Matches checked them against the expected ones)
     tramp[len] = 0xE9;
@@ -157,8 +325,7 @@ static void* DetourCore(const char* name, DWORD target, const u8* prologue, size
     // instruction there runs it intact, where a non-atomic nop tail would hand it half-written bytes)
     if (!Write5(t, jmp)) {  // fails before writing anything (VirtualProtect), so undoing is safe
         if (slot) *slot = prev;
-        VirtualFree(tramp, 0, MEM_RELEASE);
-        return NULL;
+        return NULL;  // shortcut: the 32-byte slot stays unused (pool slots are never freed); fine for a failed VirtualProtect
     }
     Log("OK   detour %s at 0x%08X", name, target);
     return tramp;
@@ -175,19 +342,19 @@ static void* InstallDetour(const char* name, DWORD target, const u8* prologue, s
 static DWORD g_mainTid;  // thread that loaded us (Run)
 
 // --- Phase 1: Boehm GC (docs/13-gc-tuning.md) ---
-static const DWORD GC_IS_INITIALIZED = 0x011F30D0;  // set at the end of GC_init (0xE4E160)
+static const DWORD GC_IS_INITIALIZED = TS3A(0x011F30D0);  // set at the end of GC_init (0xE4E160)
 static const DWORD BLOCKS_PER_MB = 256;              // GC heap blocks are 4 KB
 
 static const Site kInitialHeap[] = {
-    {0x00E4E168, {0xBD, 0x00, 0x28, 0x00, 0x00}, 5, 1},  // GC_init: mov ebp,0x2800 (40 MB default)
+    {TS3A(0x00E4E168), {0xBD, 0x00, 0x28, 0x00, 0x00}, 5, 1},  // GC_init: mov ebp,0x2800 (40 MB default)
 };
 static const Site kGrowthStep[] = {
-    {0x00E4A1D8, {0x3D, 0x00, 0x08, 0x00, 0x00, 0x76, 0x2C}, 7, 1},  // GC_collect_or_expand: cmp eax,0x800 ; jbe
-    {0x00E4A1FF, {0x3D, 0x00, 0x08, 0x00, 0x00, 0x77, 0x05}, 7, 1},  // cmp eax,0x800 ; ja
-    {0x00E4A206, {0xB8, 0x00, 0x08, 0x00, 0x00, 0x50}, 6, 1},        // mov eax,0x800 ; push eax
+    {TS3A(0x00E4A1D8), {0x3D, 0x00, 0x08, 0x00, 0x00, 0x76, 0x2C}, 7, 1},  // GC_collect_or_expand: cmp eax,0x800 ; jbe
+    {TS3A(0x00E4A1FF), {0x3D, 0x00, 0x08, 0x00, 0x00, 0x77, 0x05}, 7, 1},  // cmp eax,0x800 ; ja
+    {TS3A(0x00E4A206), {0xB8, 0x00, 0x08, 0x00, 0x00, 0x50}, 6, 1},        // mov eax,0x800 ; push eax
 };
 static const Site kBudgetCeiling[] = {
-    {0x01192324, {0xDC, 0x05, 0x00, 0x00}, 4, 0},  // .data dword 1500, per-frame GC budget ceiling
+    {TS3A(0x01192324), {0xDC, 0x05, 0x00, 0x00}, 4, 0},  // .data dword 1500, per-frame GC budget ceiling
 };
 
 static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -199,6 +366,19 @@ static int Clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; 
 // handled AVs at 1-2 addresses before the world loads took every slot, so a later TS3W crash had no line); repeats are counted.
 static volatile LONG g_xcptN, g_xcptCpp, g_xcptOtherN, g_xcptOtherHits[8];
 static DWORD g_selfLo, g_selfHi, g_xcptOther[8];
+// docs/67 §39 (2026-11-16 bp-seen-smoke): every run spends the 16 slots before the world loads (start-up AVs in spfileq /
+// setupapi / Frida, then Apex Radiance's handled AVs), so the fault that ended the game had no line. Past the cap, an
+// exception at an eip not seen past the cap still gets its lines, 64 addresses at most.
+static volatile LONG g_xcptLateN;
+static DWORD g_xcptLate[64];
+static bool XcptLateNew(DWORD eip) {
+    for (LONG i = 0, n = g_xcptLateN < 64 ? g_xcptLateN : 64; i < n; i++)
+        if (g_xcptLate[i] == eip) return false;
+    const LONG k = InterlockedIncrement(&g_xcptLateN);
+    if (k > 64) return false;
+    g_xcptLate[k - 1] = eip;  // a racing thread with the same eip may log it twice: harmless
+    return true;
+}
 // "name+0xoffset" when a is in a loaded image other than TS3W.exe (base 0x400000) and this module. No loader lock.
 static bool XcptOtherModule(DWORD a, char* out, int cap) {
     MEMORY_BASIC_INFORMATION mbi;
@@ -206,9 +386,9 @@ static bool XcptOtherModule(DWORD a, char* out, int cap) {
     const DWORD base = (DWORD)(uintptr_t)mbi.AllocationBase;
     if (base == 0x00400000 || base == g_selfLo) return false;
     wchar_t w[MAX_PATH];
-    if (!K32GetMappedFileNameW(GetCurrentProcess(), mbi.AllocationBase, w, MAX_PATH)) wcscpy_s(w, L"?");
+    if (!K32GetMappedFileNameW(GetCurrentProcess(), mbi.AllocationBase, w, MAX_PATH)) WCpy(w, L"?");
     const wchar_t* s = wcsrchr(w, L'\\');
-    sprintf_s(out, cap, "%ls+0x%lX", s ? s + 1 : w, a - base);
+    SFmt(out, cap, "%ls+0x%lX", s ? s + 1 : w, a - base);
     return true;
 }
 // up to `max` code addresses (game .text or this module) in the first 512 stack words, as " %08lX" each
@@ -219,10 +399,31 @@ static void XcptRefs(const CONTEXT* c, char* refs, int cap, int max) {
     for (int i = 0; i < 512 && k < max && Readable(sp + i, 4); i++) {
         const DWORD v = sp[i];
         if ((v >= 0x00401000 && v < 0x00F00000) || (v >= g_selfLo && v < g_selfHi)) {
-            len += sprintf_s(refs + len, cap - len, " %08lX", v);
+            len += SFmt(refs + len, cap - len, " %08lX", v);
             k++;
         }
     }
+}
+// docs/67 §46 (2026-11-24 C0000029): esp outside this thread's TEB stack (main thread at esp 0x12998A68, eip ASCII "righ", ebp 0):
+// a pivot or a longjmp through a bad jmp_buf; RtlUnwind then refuses the SEH frames on the real stack. One line: stack range,
+// the esp region, the SEH chain head with its handler (whose __except unwinds), 8 words at esp. Reads guarded.
+static void XcptOffStack(const CONTEXT* c) {
+    const u8* teb = (const u8*)NtCurrentTeb();
+    const NT_TIB* tib = (const NT_TIB*)teb;
+    const DWORD hi = (DWORD)(uintptr_t)tib->StackBase, lo = *(const DWORD*)(teb + 0xE0C);  // DeallocationStack
+    if (c->Esp >= lo && c->Esp < hi) return;
+    MEMORY_BASIC_INFORMATION mb = {};
+    VirtualQuery((LPCVOID)(uintptr_t)c->Esp, &mb, sizeof(mb));
+    const DWORD* reg = (const DWORD*)tib->ExceptionList;
+    const DWORD h = Readable(reg, 8) ? reg[1] : 0;
+    char w[96] = "", m[MAX_PATH + 16] = "";
+    int len = 0;
+    const DWORD* sp = (const DWORD*)(uintptr_t)c->Esp;
+    for (int i = 0; i < 8 && Readable(sp + i, 4); i++) len += SFmt(w + len, sizeof(w) - len, " %08lX", sp[i]);
+    XcptOtherModule(h, m, sizeof(m));
+    Log("  off-stack esp: thread stack %08lX-%08lX, esp region base %08lX alloc %08lX type %lX protect %lX state %lX; seh head %08lX "
+        "handler %08lX%s%s; esp words:%s", lo, hi, (DWORD)(uintptr_t)mb.BaseAddress, (DWORD)(uintptr_t)mb.AllocationBase, mb.Type,
+        mb.Protect, mb.State, (DWORD)(uintptr_t)reg, h, m[0] ? " " : "", m, w);
 }
 // docs/67 §22 (Crash S): a fault inside the mint interpreter names nothing managed. Interpreter frame [verified, docs/130 §1]:
 // ebp = 0xE53EB0's frame (its helpers keep ebp), [ebp-0x10] = current RuntimeMethod (+8 MonoMethod). In the callvirt miss
@@ -231,11 +432,65 @@ static void XcptRefs(const CONTEXT* c, char* refs, int cap, int max) {
 static int FbName(char* d, int room, DWORD method);   // below (LogFallbackStack names)
 static int FbStackText(char* d, int room, int frames);
 static bool GrFaultText(const CONTEXT* c, char* d, int room);  // gcroots.cpp: the task line (docs/67 §22.4)
+// round 2 (mcname2): the words around the fault say which op pushed the bad receiver. One line each, guarded:
+// code = 28 transformed-code words before ip + 6 from it, stack = dwords from first argument - 0x20 to sp + 8,
+// frame = 12 dwords of the frame record [ebp-8] (+0 parent, +4 rm, +8 return slot, +0xC this, +0x14 args), locals = 16 dwords at [ebp-0xC].
+static void McFaultDump(const CONTEXT* c) {
+    char b[700]; int n;
+    __try {
+        const WORD* ip = (const WORD*)(uintptr_t)c->Edi;
+        n = SFmt(b, "mono fault: code before ip:");
+        for (int i = -28; i < 6; i++) n += SFmt(b + n, sizeof(b) - n, i == 0 ? " |%04X" : " %04X", ip[i]);
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: code unreadable"); }
+    __try {
+        const DWORD* sp = (const DWORD*)(uintptr_t)(c->Ecx - 0x20);
+        n = SFmt(b, "mono fault: eval stack from %08lX:", (DWORD)(uintptr_t)sp);
+        for (int i = 0; sp + i < (const DWORD*)(uintptr_t)(c->Esi + 8) && i < 24; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", sp[i]);
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: eval stack unreadable"); }
+    __try {
+        const DWORD* fr = *(const DWORD* const*)(uintptr_t)(c->Ebp - 8);
+        n = SFmt(b, "mono fault: frame record %08lX:", (DWORD)(uintptr_t)fr);
+        for (int i = 0; i < 12; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", fr[i]);
+        const DWORD* par = (const DWORD*)(uintptr_t)fr[0];
+        n += SFmt(b + n, sizeof(b) - n, "; parent %08lX:", (DWORD)(uintptr_t)par);
+        for (int i = 0; par && i < 8; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", par[i]);
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: frame record unreadable"); }
+    __try {
+        const DWORD* lo = *(const DWORD* const*)(uintptr_t)(c->Ebp - 0xC);
+        n = SFmt(b, "mono fault: locals %08lX:", (DWORD)(uintptr_t)lo);
+        for (int i = 0; i < 16; i++) n += SFmt(b + n, sizeof(b) - n, " %08lX", lo[i]);
+        n += SFmt(b + n, sizeof(b) - n, "; c-frame [ebp-0x48] %08lX [ebp-0x50] %08lX [ebp-0x54] %08lX [ebp-0x14] %08lX",
+                       *(const DWORD*)(uintptr_t)(c->Ebp - 0x48), *(const DWORD*)(uintptr_t)(c->Ebp - 0x50),
+                       *(const DWORD*)(uintptr_t)(c->Ebp - 0x54), *(const DWORD*)(uintptr_t)(c->Ebp - 0x14));
+        Log("  %s", b);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("  mono fault: locals unreadable"); }
+}
+static bool McFaultEip(DWORD eip);  // below mintcall.cpp: eip in our call / callvirt handlers (they run in EA's interpreter frame)
 static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
-    if (c->Eip < 0x00E51000 || c->Eip >= 0x00E5A600) return false;
+    // Crash 2026-11-19 (rc-1118n, ts3native+0x4862): McCall makes EA's remoting read (0xE549BA) of the receiver first, so a bad
+    // receiver faults in our module and this line stayed silent. Same frame: name the caller, the callee (ebx) and the il offset.
+    if (McFaultEip(c->Eip)) {
+        char caller[120] = "?", callee[120] = "?", st[1100] = "unreadable";
+        DWORD rm = 0, code = 0;
+        __try {
+            rm = *(const DWORD*)(uintptr_t)(c->Ebp - 0x10);
+            if (rm) { FbName(caller, sizeof(caller), *(const DWORD*)(uintptr_t)(rm + 8)); code = *(const DWORD*)(uintptr_t)rm; }
+        } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        __try { FbName(callee, sizeof(callee), *(const DWORD*)(uintptr_t)(c->Ebx + 8)); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        if (FbStackText(st, sizeof(st), 16) <= 0) SCpy(st, "unreadable");
+        SFmt(d, room, "mono fault: call handler: in %s (rm %08lX, ip +0x%lX of the transformed code), callee %s (rm %08lX; valid for a call, "
+                  "a callvirt reads it later), receiver %08lX, first argument at %08lX; script stack: %s",
+                  caller, rm, code ? c->Edi - code : 0, callee, c->Ebx, c->Edx, c->Ecx, st);
+        McFaultDump(c);
+        return true;
+    }
+    if (c->Eip < TS3A(0x00E51000) || c->Eip >= TS3A(0x00E5A600)) return false;
     char caller[120] = "?", callee[120] = "-", st[1100] = "unreadable";
     DWORD rm = 0, obj = 0, vt = 0, kl = 0;
-    const bool miss = c->Eip >= 0x00E51FC0 && c->Eip < 0x00E520C0;
+    const bool miss = c->Eip >= TS3A(0x00E51FC0) && c->Eip < TS3A(0x00E520C0);
     __try {
         rm = *(const DWORD*)(uintptr_t)(c->Ebp - 0x10);
         if (rm) FbName(caller, sizeof(caller), *(const DWORD*)(uintptr_t)(rm + 8));
@@ -248,13 +503,15 @@ static bool MonoFaultText(const CONTEXT* c, char* d, int room) {
             kl = vt ? *(const DWORD*)(uintptr_t)vt : 0;
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
     }
-    if (FbStackText(st, sizeof(st), 16) <= 0) strcpy_s(st, "unreadable");
-    sprintf_s(d, room, "mono fault: in %s (rm %08lX)%s%s, receiver %08lX vtable %08lX klass %08lX; script stack: %s", caller, rm,
+    if (FbStackText(st, sizeof(st), 16) <= 0) SCpy(st, "unreadable");
+    SFmt(d, room, "mono fault: in %s (rm %08lX)%s%s, receiver %08lX vtable %08lX klass %08lX; script stack: %s", caller, rm,
               miss ? ", callvirt of " : "", miss ? callee : "", obj, vt, kl, st);
     return true;
 }
 static DWORD P5cRelMatch(const CONTEXT* c);  // p5c.cpp: registers in an object our graveyard flush released (crash I)
 static void CfOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] dump (off unless Enabled=1)
+static void VbOnFault(const EXCEPTION_POINTERS* x);  // crashfx.cpp: [CrashForensics] VbGuard=1 register lookup (docs/67 §44)
+static void CfModInit();  // crashfx.cpp: TS3W.exe / MSVCR80.dll ranges for the CtOsFault gate (docs/254 R2)
 static void P5cRelDump();  // p5c.cpp: the whole released ring (docs/67 §15), once
 static bool AtOwnsXcpt(const EXCEPTION_POINTERS* e);  // arenatail.cpp: [GcRootCheck] TailWatch arm requests and hits (docs/67 §22.7)
 static bool JitOwnsXcpt(const EXCEPTION_POINTERS* e);  // monojit.cpp: [MonoJit] Trap arm requests and hits (docs/537)
@@ -263,6 +520,12 @@ static void AsCrashLine();  // autshadow-run.cpp: the last [AutShadow] search an
 static void AaDrainFaultDump(const CONTEXT* c);  // unseenanim.cpp: wild call from the render-message destroy 0x59386B (docs/144 §3.5)
 // a call into data: illegal or privileged instruction (2026-11-02 crash: C0000096 at a heap eip, missed by the forensics dump)
 static bool XcptWild(DWORD code) { return code == EXCEPTION_ILLEGAL_INSTRUCTION || code == EXCEPTION_PRIV_INSTRUCTION; }
+// EA's pure-call handler 0x58D990 (`push ecx; mov byte [esp+3], 0A5h; int3`, registered at 0x58DC2A by _set_purecall_handler):
+// a virtual call on an object whose destructor already ran. As fatal as an AV, but before 2026-11-17 it got no forensics dump
+// (bg2 IP crash, docs/143 §8.11 site; the AV that follows is in EA's reporter at eip 0, outside TS3W.exe)
+static bool XcptPure(const EXCEPTION_RECORD* r) {
+    return r->ExceptionCode == EXCEPTION_BREAKPOINT && (DWORD)(uintptr_t)r->ExceptionAddress == TS3A(0x0058D996);
+}
 static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     const EXCEPTION_RECORD* r = e->ExceptionRecord;
     const DWORD code = r->ExceptionCode;
@@ -273,17 +536,18 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     if (code == 0xE06D7363 && InterlockedIncrement(&g_xcptCpp) > 2) return EXCEPTION_CONTINUE_SEARCH;
     // [CrashForensics] dump before the 16-line cap; not for our own probes' guarded reads (caught in ts3native)
     // docs/67 §17: an illegal instruction too (a wild call into the heap, Crash M / O)
-    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e);
+    const bool pure = XcptPure(r);
+    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code) || pure) && !(e->ContextRecord->Eip >= g_selfLo && e->ContextRecord->Eip < g_selfHi)) CfOnFault(e), VbOnFault(e);
     const CONTEXT* c = e->ContextRecord;
     if (code == EXCEPTION_ACCESS_VIOLATION)  // docs/172 §7: another module's address already logged
         for (LONG i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8; i < n; i++)
             if (g_xcptOther[i] == c->Eip) return InterlockedIncrement(&g_xcptOtherHits[i]), EXCEPTION_CONTINUE_SEARCH;
-    if (InterlockedIncrement(&g_xcptN) > 16) return EXCEPTION_CONTINUE_SEARCH;
+    if (InterlockedIncrement(&g_xcptN) > 16 && !XcptLateNew(c->Eip)) return EXCEPTION_CONTINUE_SEARCH;
     char refs[128], mod[MAX_PATH + 16] = "", in[MAX_PATH + 24] = "";
     if (code == EXCEPTION_ACCESS_VIOLATION && XcptOtherModule(c->Eip, mod, sizeof(mod))) {
         const LONG k = InterlockedIncrement(&g_xcptOtherN);
         if (k <= 8) g_xcptOther[k - 1] = c->Eip;
-        sprintf_s(in, " (%s)", mod);
+        SFmt(in, " (%s)", mod);
     }
     XcptRefs(c, refs, sizeof(refs), 8);
     Log("exception %08lX at 0x%08lX%s (info %08lX %08lX) thread %lu eip %08lX esp %08lX; stack code refs:%s", code,
@@ -292,16 +556,17 @@ static LONG CALLBACK XcptLog(EXCEPTION_POINTERS* e) {
     // docs/67 §15: every register (the 2026-10-25 crash pair logged only eip / esp), for the crash's own exceptions too
     Log("  registers eax %08lX ebx %08lX ecx %08lX edx %08lX esi %08lX edi %08lX ebp %08lX esp %08lX eip %08lX efl %08lX", c->Eax,
         c->Ebx, c->Ecx, c->Edx, c->Esi, c->Edi, c->Ebp, c->Esp, c->Eip, c->EFlags);
-    if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) P5cRelMatch(c);
+    XcptOffStack(c);
+    if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code) || pure) P5cRelMatch(c);
     if (code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) AsCrashLine();
-    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && (c->Eip < 0x00401000 || c->Eip >= 0x00F95000)) AaDrainFaultDump(c);
-    char mono[1500];
+    if ((code == EXCEPTION_ACCESS_VIOLATION || XcptWild(code)) && (c->Eip < TS3A(0x00401000) || c->Eip >= TS3A(0x00F95000))) AaDrainFaultDump(c);
+    char mono[2048];  // docs/323 M1: the longest fault text is ~1552 chars (2 x 119 names + 1099 stack text + ~215); SFmt cuts past it
     if (code == EXCEPTION_ACCESS_VIOLATION && MonoFaultText(c, mono, sizeof(mono))) {
         Log("  %s", mono);
         if (GrFaultText(c, mono, sizeof(mono))) Log("  %s", mono);  // docs/67 §22.4: is the task rooted, is the frame scanned
     }
     // TS3W.exe code (not the start-up AVs in other modules): the released ring once; an illegal instruction counts (wild call)
-    if ((code == EXCEPTION_ACCESS_VIOLATION && c->Eip >= 0x00401000 && c->Eip < 0x00F95000) || XcptWild(code))
+    if ((code == EXCEPTION_ACCESS_VIOLATION && c->Eip >= TS3A(0x00401000) && c->Eip < TS3A(0x00F95000)) || XcptWild(code))
         P5cRelDump();
     return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -313,7 +578,8 @@ static void InstallXcptLog(const wchar_t* ini) {
     const IMAGE_NT_HEADERS* nt = self ? (const IMAGE_NT_HEADERS*)((const u8*)self + ((const IMAGE_DOS_HEADER*)self)->e_lfanew) : NULL;
     g_selfLo = (DWORD)(uintptr_t)self;
     g_selfHi = nt ? g_selfLo + nt->OptionalHeader.SizeOfImage : g_selfLo;
-    if (AddVectoredExceptionHandler(1, XcptLog)) Log("crash log: first 16 first-chance exceptions, an AV in another module once per address (module 0x%08lX-0x%08lX)", g_selfLo, g_selfHi);
+    CfModInit();
+    if (AddVectoredExceptionHandler(1, XcptLog)) Log("crash log: first 16 first-chance exceptions, an AV in another module once per address, then one per new eip up to 64 (module 0x%08lX-0x%08lX)", g_selfLo, g_selfHi);
 }
 
 static void ApplyGc(const wchar_t* ini) {
@@ -342,7 +608,7 @@ static void ApplyGc(const wchar_t* ini) {
 }
 
 // --- Phase 2: negative cache for failed route plans (docs/11 Q5, docs/15 phase 2) ---
-// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 6112 int32 (v184 [MonoSigGuard] msg* at 0x5F70 after v183, v183 [UafCheck] delayed-free quarantine uaf* at 0x5F58 after v182, v182 [CasTrim] realm shape check rl* at 0x5F48 after v181, v181 [CasTrim] WriteTrap tr* at 0x5F38 after v180, v180 [CasTrim] outfit save string check os* at 0x5F28 after v179, v179 watchdog-check job time wd* at 0x5F18 after v913, v913 [LotPool] Trim lp* at 0x5EF8 after v178, contributor block, v178 [CasTrim] ModelBuilder check mb* at 0x5EE8, v177 [PkgLock] pk* at 0x5EC8, v176 [CasTrim] CellGuard ctCellSeen / ctCellSkip at 0x5EC0 after the gap held for v174-v175, v173 [UnseenFallback] HostLate and [HitchAttr] JobNameMs at 0x5E38, v172 [Discourage] LostRemovalFix and GhostSweep at 0x5DE8, v171 [CasTrim] Mode 3 / 4 and docs/539 probes at 0x5D80, v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
+// Counters for test tools: Frida `Module.findExportByName('ts3native.asi', 'ts3native_counters')`, read 6883 int32 (v225 CullRaceWatch / CullDrainWait cr* / cdw* at 0x6B74 after the v224 hold resV224[5] at 0x6B60 (docs/338); v223 CP-1 lot hub lh* at 0x6B48 (docs/321 §8); v222 [Diag] TaskSeam tsk* at 0x6AF8 after the v221 hold resV221 at 0x6A38 (docs/308); v220 [Diag] ModTime mdt* at 0x6A18 after v219 [EaCrashFixes] KeepOptionsOnGpuChange ko* at 0x6A08 (docs/37 §12) and the v215-v218 hold resV215_218[64] at 0x6908 (docs/298); v214 [GC] MarkHelpers g5* at 0x68A8 after v213 A10 own Kinds gate arScopeRefused / arPrereqRefused at 0x68A0 (docs/288 §4) (docs/287 §6); v212 [LotStream] Thumb thumb* at 0x6890 after v211 [GC] SubTimers gct* at 0x6850 (docs/287 §2); v210 unseen measure un/anx/aa/utRate at 0x6810 (docs/286 §5); v209 [AnimPhase] Split part 2 anx* at 0x6790; v208 [AnimPhase] Split anx* at 0x6590 (docs/22 §6.1); v207 [Startup] DxDiagCache ddc* at 0x6580 (docs/284); v206 [MonoJit] HotReserve jitHot* at 0x6578 (docs/537 §32); v205 [GC] IdleGate gcg* at 0x6538 (docs/281 §8); v204 [Experimental] HouseholdToo hhTooLift at 0x6534 (docs/271); v203 [MonoJit] FaultRecover fr* at 0x6524 after the v921 placeholder resV921[64] at 0x6424 (docs/537 §29); v201 [AnimPhase] an* at 0x63A4 and v202 [Compat] ap* / [StallWatch] ss* at 0x63E4 after v200 (lane L9, docs/22 §6, docs/148 §7, docs/67 §25); v200 [MemDiag] AllocSitesOwners ao* at 0x637C after v199 (docs/190 phase 3); v199 [MemDiag] Access ma* at 0x6354 after v919 (docs/190 phase 2); v919 [AudioStateDup] ad* / [PkgProbe] pp* at 0x6304 after v198, contributor block, docs/549; v198 [RouteAsync] KdUncutCeilMs kdUncut* at 0x62F4 after the v196/v197 placeholder resV196_197[10] at 0x62CC (docs/264); v918 [EaCrashFixes] BridgeHeightNaN bhnHits at 0x62C8 after the v195 placeholder, contributor block, version field stays 912; v195 placeholder resV195[8] at 0x62A8 after v194, held for [MonoJit] ClauseLazy guards (feature/monojit-clauselazy-guards); v194 [MonoJit] BoundCall bc* at 0x6278 after v193, v193 [Crash2Diag] c2* at 0x6258 after v192, v192 drain / LostRemovalFix waits by site ds* lrs* at 0x6178 after v191, v191 ReplanFromPosition START refusals arRf3 at 0x60C8 after v190, v190 FbApplyPending fbAp* at 0x60A8 after v189, v189 [GoalValidRO] UnseenDefer gvu* + gvattr diagnostics at 0x6018 after v188, v188 [MonoJit] R1 jitFull* / jitRegionKB and [Binder] TypeHandleDirect tdOn at 0x6008 after v187, v187 [AutShadow] Races R2c r2c* at 0x5FD0 after v186, v186 [EqualsFast] eq* at 0x5F90 after v185, v185 [AutShadow] Satb struct this sb* at 0x5F80 after v184, v184 [MonoSigGuard] msg* at 0x5F70 after v183, v183 [UafCheck] delayed-free quarantine uaf* at 0x5F58 after v182, v182 [CasTrim] realm shape check rl* at 0x5F48 after v181, v181 [CasTrim] WriteTrap tr* at 0x5F38 after v180, v180 [CasTrim] outfit save string check os* at 0x5F28 after v179, v179 watchdog-check job time wd* at 0x5F18 after v913, v913 [LotPool] Trim lp* at 0x5EF8 after v178, contributor block, v178 [CasTrim] ModelBuilder check mb* at 0x5EE8, v177 [PkgLock] pk* at 0x5EC8, v176 [CasTrim] CellGuard ctCellSeen / ctCellSkip at 0x5EC0 after v175, v175 [SteerRO] Retry srr* at 0x5E94, v174 [GoalValidRO] Attr gva* at 0x5E4C (docs/250 §7.0, §8), v173 [UnseenFallback] HostLate and [HitchAttr] JobNameMs at 0x5E38, v172 [Discourage] LostRemovalFix and GhostSweep at 0x5DE8, v171 [CasTrim] Mode 3 / 4 and docs/539 probes at 0x5D80, v169 [UnseenAnim] held table kdAaHeld* at 0x5D68 after the gap held for v167-v168, v165 [RouteAsync] KdExemptSeen kd* at 0x5D18, version field stays 912; v912 [CasTrim] ct* at 0x5CF0, v164 [MintFuse] Sub mf* at 0x5C98 in the block held for it, version field stays 912; v911 [MonoJit] Inline, Wide jitInlined at 0x5CE0, v910 [MonoJit] jit* at 0x5CA8, v909 [MonoJit] jitDirect at 0x5C6C, contributor block, docs/527, docs/537; v908 [MemDiag] RcRefCallers rrc* at 0x5C34 after v907, contributor block; v907 [IlPatch] ilp* at 0x5C14 after v906, contributor block; v906 [IdleCheckRO] SiteCLoopJump icJumpMode / icJumped at 0x5C0C after v905, contributor block; v905 [IdleCheckRO] SiteCLoop icLoop* at 0x5BD8 after v904, contributor block; v904 [Discourage] DestroyParkDx dx* at 0x5BCC after v903, contributor block; v903 [IdleCheckRO] SiteC ic* at 0x5B84 after v902, contributor block; v902 [RouteToObjRO] Tail rtoTail* at 0x5B78 after v901, contributor block; v901 [FootstepRO] fs* at 0x5B30 after v163, contributor block; v163 [GC] BlackListCapKB window gcLenientN / gcSwitchSec at 0x5B28 after v162, version field 163; v162 [GC] BlackListCapKB gc* at 0x5B10 after v161, version field 162; v161 [GcGrowLog] gw* at 0x5AE8 after v160, version field 161; v160 [SaveSlim] slimFails after v159, version field 160; v159 [UnseenRootMotion] Mode 2 SacsHold=3 bound-actor classes rm2SacsCls after v158, version field 159; v158 [UnseenRootMotion] Mode 1 walk-1 rescan rmSlW1Late after v157, version field 158; v157 [UnseenRootMotion] Mode 2 SacsHold + SACS driver / actor histograms after v156, version field 157; v156 [UnseenAnim] aaSlotReset / aaStale + [UnseenRootMotion] rmSlMissHold after v155, version field 156; v155 [UnseenRootMotion] Mode 2 script camera IC hooks after v154, version field 155; v154 [UnseenRootMotion] Mode 2 coarse unseen Sims after v153, version field 154; v153 [UnseenRootMotion] Mode 1 late starts after v152, version field 153; v152 [UnseenTable] lazy rows after v151, version field 152; v151 [UnseenRootMotion] after v150, version field 151; v147 [UnseenAnim] after v146, version field 147; v146 [EaCrashFixes] WorldAStarRefs + PortalFlagRefs after v145, version field 146; v145 [UnseenGhost] after v144; v144 [EaCrashFixes] MintDivGuard after v143, version field 144; v143 [MonoFast] CallPath after v142, version field 143; v142 [RouteAsync] WorkerWait after v141; v141 [EaCrashFixes] after v140, version field 141; v140 [UnseenFallback] FinishWalk holds after v139, version field 140; v139 [UnseenFallback] C1-C4 site fallbacks after v138, version field 139; v138 [UnseenFallback] after v137, version field 138; v137 [MemDiag] TypeGrowth + [GC] SqrtHeapLimit after v136 [ResourceCache] trim, version field 137; v135 PlanDeadlineMs sync-path exemptions after v134, version field 135; v134 [RouteAsync] KindDeadlines after v133; v133 [RouteSnap] LotUseReadout after v132; v132 [RouteSnap] PoolChunkMB / EpochHeap after v131; v129 [RouteSnap] StaleLotFp after reserved v126-v128, version field 129; v125 [RouteSnap] StaleLot after reserved v123 / v124, version field 125; v119 [IdleCheckRO] after v118, version field 119; v118 [GoalValidRO] slots kept, other branch; v117 CrashForensics ObjResLog after v116, version field 117; v116 CrashForensics EffectLog after v115, version field 116; v115 CrashForensics DrawGuards / OurEvents after v114, version field 115; v114 CrashForensics after v113, version field 114; v113 DeferPrivateFp after v112, version field 113; v112 P6 take kinds + Mode=2 cut sharing + per-job phase split after v111, version field 112; v111 watchpoint constructor-pair count + follow + replay audit rebase hold after v110, version field 111; v110 [Watchpoint] lot arm + child z / parent +0x30 writer probes after v109, version field 110; v109 job yield + sim job waits by site after v108, version field 109; v108 gate site 16 after v107; v107 PlanDrain after v106; v106 P5 steps 2-4 after v105 (layout of merge eaef8a1b; zeros without it); v105 RecsUnlocked after v104, version field 105; v104 refcount guard after v103; v103 job deadline + own waits + goal-step split after v102; v102 goal split + GoalGen D1 + H2 IC window after v101, version field 102; v101 foreign kinds after v100; v100 placement RO after v99; v99 plan deadline + fail memo after v98; v98 lock holders after v97; v97 sync plan phases after v96; v96 host-call split + DoorMemo after v93; v93 route-to-object RO appended after v95 at the 2026-10-22 0325 merge, version field stays 95; v95 F-G held-out count after v94, v94 design U phase 2 after v92, v92 route allocator sites after v91, v91 [Gate0RO] after v90, v90 replan dedupe after v88, all at the 2026-10-22 integration merge; version field 95; v88 cell memo probe appended after v89; v89 tail unlock; v87 route job phases; v86; v77 AvoidRO before v78, v79 unseen probe + throttle after v78, v80 unseen throttle phase 2, v81 foreign job cap, v83 unseen diagnostics, v84 foreign job split, v85 H2 counters, v86 acting early-out, no v52, v58 or v82 fields in this build).
 struct Ts3nCounters {
     LONG version;      // layout version, 4
     LONG enabled;      // 1 when the Route_PlanLocked detour is installed
@@ -2213,7 +2479,7 @@ struct Ts3nCounters {
     LONG pdCutSc;                      // +0x52C4, tripwire: cut sessions (skip / capped > 0) holding such a plan (nested in an open session)
     LONG pdSpare[2];                   // +0x52C8, reserved with native-v135 (4 int32)
     // v136 (0.36.80, docs/198 §4, rctrim.cpp): [ResourceCache] TrimAfterCleanup experiment (off)
-    LONG rtOn;                         // +0x52D0, 1 = service slot hook installed
+    LONG rtOn;                          // +0x52D0, 1 = service slot hook installed
     LONG rtTrims;                      // +0x52D4, shrink-both calls made
     LONG rtFreedKB;                    // +0x52D8, idle cache KB dropped over all trims (both caches)
     LONG rtLastFreedKB;                // +0x52DC, ... by the last trim
@@ -2630,7 +2896,13 @@ struct Ts3nCounters {
     LONG rrcSampled;                       // +0x5C48, new compositors sampled for their event lists
     LONG rrcRegistry;                      // +0x5C4C, entries in the CAS compositor service's registry at the last line
     LONG rrcHookNs;                        // +0x5C50, our measured work per hooked call, ns (rounded)
-    LONG resv5C54[6];                      // +0x5C54, free
+    LONG resv5C54[1];                      // +0x5C54, free
+    // v922 [RouteAsync] CutOnWait (plandeadline.cpp, docs/850): 5 of the 6 free words at +0x5C54, the version field stays 912
+    volatile LONG cowMode;                 // +0x5C58, --ab cutonwait: 1 = a sim-thread wait on a running townie job (unseen, seen NPC) moves its deadline to its start + the scope's minimum run
+    volatile LONG cowAsks;                 // +0x5C5C, jobs a wait asked to end (one per job)
+    volatile LONG cowCut;                  // +0x5C60, of them, jobs that ended cut (capped)
+    LONG cowLateMaxUs;                     // +0x5C64, longest time from an ask to the end of the sim's wait, us
+    volatile LONG cowNpcCut;               // +0x5C68, of cowCut, seen-NPC jobs (scope 3)
     LONG jitDirect;                        // +0x5C6C, v909 [MonoJit] Direct (docs/537): 0 off, 1 leaf lazy bodies, 2 chains and guarded callvirt
     LONG jitLazyBodies;                    // +0x5C70, methods with a lazy body
     LONG jitLazySites;                     // +0x5C74, lazy call sites compiled
@@ -2697,7 +2969,7 @@ struct Ts3nCounters {
     LONG kdCeilNpc;                        // +0x5D4C, jobs and sync plans cut at it, also counted in kdCeilCut ("KD NPC CEILING CUT" lines)
     LONG kdCutNpc;                         // +0x5D50, KindDeadlines cuts of a seen NPC (scope 3), not in kdCutSeen, which is now the household side only
     // v168 (0.36.186, docs/197 §7, plandeadline.cpp): [RouteAsync] KdCutCamRecheck
-    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on
+    volatile LONG kdCamMode;               // +0x5D54, switch (native_set kdcutcamrecheck / --ab kdcutcamrecheck, start value KdCutCamRecheck): 1 = a route known unseen in view at its cut runs on; 2 = as 1, and a ceiling cut after that answers VIEW? 1 (no unseen recovery)
     LONG kdCamChecks;                      // +0x5D58, cuts of a route known unseen tested against the camera (either mode)
     LONG kdCamHeld;                        // +0x5D5C, mode 1: in view, cut held to the NPC ceiling
     LONG kdCamStale;                       // +0x5D60, no fresh snapshot (either mode; mode 1 holds them too)
@@ -2762,7 +3034,24 @@ struct Ts3nCounters {
     volatile LONG rjnMinUs;                // +0x5E40, [HitchAttr] JobNameMs in us (native_set jobnameus), 0 = off: a sim-thread wait for the running route job this long logs "rtjob wait:"
     volatile LONG rjnLines;                // +0x5E44, "rtjob wait:" lines written
     volatile LONG rjnDropped;              // +0x5E48, waits over JobNameMs whose line the 20-a-minute cap dropped
-    LONG resv5E4C[29];                     // +0x5E4C, held for v174 / v175 (native-v174 gvattr, native-v175 steerretry: g2pair1108c)
+    // v174 (0.36.192, docs/250 §7.0, gvro.cpp): [GoalValidRO] Attr, who calls GoalPoint_Validate's 0x82EDB0 during a job.
+    // Source class (ts3fixes UserDiag op 35 before each plan): 0 none, 1 watchdog check, 2 stuck check, 3 own task, 4 foreign
+    // task, 5 other own check. Scope: 0 household / selected / unknown, 1 seen NPC, 2 unseen non-household.
+    volatile LONG gvaMode;                 // +0x5E4C, switch (native_set gvattr, start value [GoalValidRO] Attr, default 0)
+    LONG gvaSrcN[6];                       // +0x5E50, sim-thread calls while a job runs, by source class
+    LONG gvaSrcWaitUs[6];                  // +0x5E68, us in the game's 0x82EDB0 (the fallbacks: the +0x918 wait), by class
+    LONG gvaScopeWaitUs[3];                // +0x5E80, the same us by scope
+    LONG gvaAtStart;                       // +0x5E8C, calls from inside AsyncStart (expected 0: the START plans nothing)
+    LONG gvaLaterTakeUs;                   // +0x5E90, job waits of the same plan after its last fallback, to the plan's end (op 12): the moved-wait meter
+    // v175 (0.36.192, docs/250 §8, steerro.cpp): [SteerRO] Retry, the clone rerun on QL busy / tripwire before the game's call.
+    // Site 0 = the steering query (wait key 0x85FE10), 1 = the EditPath goal gather (0x85F6CB), by where the clone failed.
+    volatile LONG srrMode;                 // +0x5E94, switch (native_set steerretry, start value [SteerRO] Retry, default 0)
+    LONG srrN[2];                          // +0x5E98, fallbacks that were retried, by site
+    LONG srrOk[2];                         // +0x5EA0, of them answered by a rerun
+    LONG srrFb[2];                         // +0x5EA8, of them given up (cap, job end, other reason): the game's call
+    LONG srrFbWaitUs[2];                   // +0x5EB0, job waits inside LocoHook's fallback game calls (both arms), by the wait's key 0x85FE10 / 0x85F6CB
+    LONG srrUs;                            // +0x5EB8, us spent in retry loops (SwitchToThread + reruns)
+    LONG srrMaxUs;                         // +0x5EBC, the longest retry loop
     // v176 (0.36.198, docs/539 §13.7): [CasTrim] CellGuard at the outfit release sites 0x5E6E60 / 0x5E7633
     volatile LONG ctCellSeen;              // +0x5EC0, untagged non-null [outfit+0xBC] cells checked at the release sites
     volatile LONG ctCellSkip;              // +0x5EC4, of them not a valid object (0x40A00000, first dword < 0x10000, vtable outside TS3W .rdata): nulled, not released
@@ -2821,7 +3110,359 @@ struct Ts3nCounters {
     volatile LONG msgSkip;                 // +0x5F74, delegate signatures with param_count != 1: params[0] not read, EA's "no" answer
     volatile LONG msgParamCount;           // +0x5F78, param_count of the last one
     volatile LONG msgSpare;                // +0x5F7C
+    // v185 [AutShadow] Satb struct `this` (satb.cpp, docs/206 §17, #352)
+    volatile LONG sbVtGiveUp;              // +0x5F80, worker binder calls on a shared value-type `this`: object given up, body run on a worker copy
+    volatile LONG sbLowHdr;                // +0x5F84, SatbObjFields refusals: vtable or class word below 0x10000 (not an object)
+    volatile LONG sbSpare[2];              // +0x5F88
+    // v186 [EqualsFast] (equalsfast.cpp, docs/258 option C): ValueType.InternalEquals 0xE7A590 compare plans per MonoClass.
+    // Plain (non-interlocked) increments: the sim thread and the AutShadow worker can lose a count when they hit at once.
+    volatile LONG eqOn;                    // +0x5F90, 1 = the 0xE7A590 detour is installed
+    volatile LONG eqMode;                  // +0x5F94, switch (--ab equalsfast): 1 = cached plans answer, 0 = every call to EA's icall
+    volatile LONG eqHits;                  // +0x5F98, calls answered from a plan (no field walk, no loader lock); wraps past 2^31
+    volatile LONG eqPlans;                 // +0x5F9C, classes with a compare plan (instance fields all I4/U4/I8/U8)
+    volatile LONG eqRejects;               // +0x5FA0, classes cached as not eligible (eqRejGeneric + eqRejKind + eqRejMany)
+    volatile LONG eqFtNull;                // +0x5FA4, fall-through: second argument null (EA's ArgumentNullException path)
+    volatile LONG eqFtType;                // +0x5FA8, fall-through: different vtables (EA answers false at once)
+    volatile LONG eqFtKind;                // +0x5FAC, fall-through: class cached as not eligible
+    volatile LONG eqFtNew;                 // +0x5FB0, fall-through: no entry yet (EA's call, then one plan build through EA's field walk)
+    volatile LONG eqFtBusy;                // +0x5FB4, fall-through, no build: this thread holds the loader lock (class setup may be in flight)
+    volatile LONG eqFtFull;                // +0x5FB8, fall-through, no build: plan pool or table probe window full
+    volatile LONG eqRejGeneric;            // +0x5FBC, not eligible: byval_arg type not VALUETYPE (generic instance, ...)
+    volatile LONG eqRejKind;               // +0x5FC0, not eligible: a field of another kind (R4/R8, I1-U2, bool, char, string, ref, struct, I/U)
+    volatile LONG eqRejMany;               // +0x5FC4, not eligible: more than 8 instance fields
+    volatile LONG eqSmall;                 // +0x5FC8, of eqPlans: 1- or 2-byte enum plans ([EqualsFast] SmallEnums=1, docs/258 §5)
+    volatile LONG eqSpare[1];              // +0x5FCC
+    // v187 (0.36.244, docs/data/races-handoff.md R2c, autraces.cpp): [AutShadow] Races bit 2, the worker drain at world load / travel / quit
+    volatile LONG r2cOn;                   // +0x5FD0, 1 = Races bit 2 in force
+    volatile LONG r2cDrainMs;              // +0x5FD4, [AutShadow] DrainMs read back (the bounded wait)
+    volatile LONG r2cCloses;               // +0x5FD8, worker gate closes (world events 2, 3, 4, 5, 8 with the gate open)
+    volatile LONG r2cIdle;                 // +0x5FDC, going-away world events that found no worker job in flight
+    volatile LONG r2cDrainReq;             // +0x5FE0, going-away world events that found a job in flight (stop set, wait started)
+    volatile LONG r2cDrained;              // +0x5FE4, of them the job left the worker within DrainMs
+    volatile LONG r2cAborted;              // +0x5FE8, of them still inside after DrainMs: abort fallback (stop flag + gate, results dropped)
+    volatile LONG r2cSatb;                 // +0x5FEC, of r2cDrainReq, jobs running concurrently under Satb act (never stopped before R2c)
+    volatile LONG r2cWaitUs;               // +0x5FF0, drain waits, sum us
+    volatile LONG r2cWaitMaxUs;            // +0x5FF4, the longest drain wait
+    volatile LONG r2cLate;                 // +0x5FF8, aborted jobs that left the worker later (finished as an epoch drop)
+    volatile LONG r2cGateAborts;           // +0x5FFC, worker IC answers refused while the gate was closed
+    volatile LONG r2cHeld;                 // +0x6000, posted requests dropped at the cut while the gate was closed (no cut, no worker)
+    volatile LONG r2cReopens;              // +0x6004, gate reopens (world event 7, after the R1 pre-warm)
+    // v188 [MonoJit] R1 code region (monojit.cpp, docs/537 §20.0) + [Binder] TypeHandleDirect (bindertd.cpp, docs/537 §20.3)
+    volatile LONG jitFullN;                // +0x6008, listed bodies refused with "code region full"
+    volatile LONG jitFullBytes;            // +0x600C, the code bound (`need`) those refusals asked for, summed
+    volatile LONG jitRegionKB;             // +0x6010, the code region in force ([MonoJit] CodeKB)
+    volatile LONG tdOn;                    // +0x6014, 1 = GetTypeFromHandle's EA body 0xDB0940 reads the handle directly (no 0xD8A8E0 call)
+    // v189 (0.36.245, docs/250 §7.3 B2, §12.3, §13.3; gvro.cpp)
+    volatile LONG gvuMode;                 // +0x6018, switch (native_set gvunseen, start value [GoalValidRO] UnseenDefer, default 0)
+    volatile LONG gvuMaxMs;                // +0x601C, longest deferral streak of one route, ms ([GoalValidRO] UnseenDeferMaxMs, default 2000); then the plan runs as vanilla
+    LONG gvuAsks;                          // +0x6020, DEFER? asks with the switch on (ts3fixes: marked unseen sync plans, all four plan ICs)
+    LONG gvuN;                             // +0x6024, plans deferred (not run; ts3fixes answers the failure and the CUT? recovery runs)
+    LONG gvuNo[4];                         // +0x6028, asks not deferred, by reason: 0 scope (no mark / not known unseen), 1 no unseen fallback, 2 no other job holds +0x918, 3 streak past gvuMaxMs
+    LONG gvuKind[4];                       // +0x6038, deferrals by IC: Plan, Replan, PlanFromPoint, ReplanFromPosition
+    LONG gvaPlansN;                        // +0x6048, gvattr: plans with a job-time validator fallback that ended (op 12)
+    LONG gvaNoLaterN;                      // +0x604C, of them, no sim-thread +0x918 acquire after the last fallback (docs/250 §13.3)
+    LONG gvaNoLaterUs;                     // +0x6050, the validator waits of those plans: the B1 gate
+    LONG gvaWhyWaitUs[20];                 // +0x6054, job-time validator waits by SyncIc reason (kRfbName 0-18; 19 = not under SyncIc)
+    LONG gvuSpare;                         // +0x60A4
+    // v190 (0.36.245, docs/247 §13.1 L): FbApplyPending, EA's ApplyPendingUpdates 0x82C420 run on the sim thread at START / READY
+    volatile LONG fbApN;                   // +0x60A8, applies timed (= fbPendApplied growth)
+    volatile LONG fbApUs;                  // +0x60AC, their time, us (+0x918 held, sim thread)
+    LONG fbApMaxUs;                        // +0x60B0, longest
+    volatile LONG fbApLong;                // +0x60B4, of them >= 100 ms
+    LONG fbApLog;                          // +0x60B8, [RouteAsync] FbApplyLog: 1 = per-lot split + "fbapply:" line >= 100 ms
+    volatile LONG fbApLots;                // +0x60BC, FbApplyLog=1: lots whose pending update was applied (0x82B590 calls)
+    LONG fbApLotMaxUs;                     // +0x60C0, FbApplyLog=1: the slowest single lot's 0x82B590 call, us
+    volatile LONG fbApSpare;               // +0x60C4
+    // v191 (0.36.245, docs/247 §13.3 R1): ReplanFromPosition (A10 kind 3) STARTs that got no job, [0 own, 1 foreign][reason]:
+    // reason = RFB_* code 0-18 (kRfbName), 19 own START with kind 3 not in [RouteAsync] Kinds, 20 no reason recorded (ArRf3)
+    volatile LONG arRf3[2][21];            // +0x60C8
+    volatile LONG arRf3Spare[2];           // +0x6170
+    // v192 (0.36.245, docs/247 §13.4 C): forced DiscDrain waits for the running route job, by drain point (DS_* in ts3native.cpp:
+    // 0 other, 1 START, 2 A10-channel START, 3 READY, 4 CANCEL, 5 PlanDrain, 6 D1 add, 7 D1 remove, 8 Usf, 9 Fp2, 10 Fp2 reader,
+    // 11 private footprint, 12 GhostSweep census, 13 GhostTest op, 14 world close, 15 save); their sum = discForced growth
+    volatile LONG dsN[16];                 // +0x6178, waits
+    volatile LONG dsUs[16];                // +0x61B8, their time, us (sum = discDrainWaitUs of the waits that met a job)
+    volatile LONG dsYield[16];             // +0x61F8, of them with CanYield() true (task at its root interpreter state)
+    // LostRemovalFix flushes (UolFlushFor) by EA's event-9 call site: [0] 0x9462D4, [1] 0x94630A (selftest calls count as [0])
+    volatile LONG lrsN[2];                 // +0x6238, flushes
+    volatile LONG lrsUs[2];                // +0x6240, their job wait, us (sum = fp2lrFlushUs growth)
+    volatile LONG lrsYieldN;               // +0x6248, flushes with CanYield() true
+    volatile LONG lrsYieldUs;              // +0x624C, their wait, us
+    volatile LONG dsSpare[2];              // +0x6250
+    // v193 [Crash2Diag] (c2diag.cpp, docs/259 §9): route destination list lifetime detector, crash triage
+    volatile LONG c2On;                    // +0x6258, detours installed (of 4)
+    volatile LONG c2Clears;                // +0x625C, DestList_Clear 0x74FC30 calls walked
+    volatile LONG c2ClearBad;              // +0x6260, list elements with a non-destination vtable (or an unreadable list) at a clear
+    volatile LONG c2Frees;                 // +0x6264, destination deleting dtor calls (0x74A830, 0x751450)
+    volatile LONG c2FreeLinked;            // +0x6268, of them a destination a list neighbour still pointed at
+    volatile LONG c2Destroys;              // +0x626C, IC_Route_DestroyRoute 0x750400 calls
+    volatile LONG c2LinesDropped;          // +0x6270, lines past MaxLines (counted only)
+    volatile LONG c2Spare;                 // +0x6274
+    // v194 (0.36.250, docs/537 §22): [MonoJit] BoundCall, guarded sites call EA bound bodies (monojit-bound.h JitBoundStats)
+    LONG bcOn;                             // +0x6278, the allow-list mask in force (BoundCall + BoundCallMask, rows whose EA bytes match)
+    LONG bcFills;                          // +0x627C, guard fills that found an allowed bound body
+    LONG bcHits;                           // +0x6280, bound bodies called from compiled code
+    LONG bcExc;                            // +0x6284, of them, an exception in the frame (the site exited, EA's call ran it again)
+    LONG bcNotAllowed;                     // +0x6288, guard fills that found an EA native body not on the list
+    LONG bcVtThis;                         // +0x628C, guard fills refused: bound target with a value-type this
+    LONG bcCallee[4];                      // +0x6290, hits by kJitBound row (0 String.GetHashCode(), 1 String.Equals(string))
+    LONG bcSpare[2];                       // +0x62A0
+    // v195 (docs/537 §24): [MonoJit] ClauseLazy guards (monojit.cpp)
+    LONG clOn;                             // +0x62A8, 1 = ClauseLazy in force; 0 after the session kill switch (clKillWhy says why)
+    LONG clBodies;                         // +0x62AC, clause lazy bodies published (allow-listed methods only)
+    LONG clNotListed;                      // +0x62B0, clause methods that got no lazy body: not on the allow list or IL bytes differ
+    LONG clKillWhy;                        // +0x62B4, 0 none, 1 verify mismatch after a clause lazy body ran, 2 fault in a clause method's code
+    LONG clFaults;                         // +0x62B8, faults (first-chance, any code) with eip inside a clause method's compiled code
+    volatile LONG clVerRuns;               // +0x62BC, Mode=2 only: clause lazy body entries (the emitted inc; none in Mode=1)
+    LONG clSpare[2];                       // +0x62C0
+    // v918 (contributor block, docs/registry.md; docs/67 §37, wastar.cpp): [EaCrashFixes] BridgeHeightNaN (Dalexlol PR #394)
+    volatile LONG bhnHits;                 // +0x62C8, bridge heights (0xB745A0) not finite or above 1e6 in magnitude: ignored, terrain used
+    // v196 [MonoJit] T4096 method table (monojit.cpp, docs/537 §26)
+    volatile LONG jitTableFull;            // +0x62CC, compiles refused with "method table full"
+    volatile LONG jitMethCap;              // +0x62D0, the method table in force ([MonoJit] MaxMethods, or 2048 after the fallback)
+    // v197 [MonoJit] RetTeardown (monojit-ret.h, docs/537 §27)
+    volatile LONG rtdOn;                    // +0x62D4, 1 = compiled ret / ret.void run the frame return natively; 0 after the kill switch
+    volatile LONG rtdSites;                 // +0x62D8, ret sites emitted as a jump to the block
+    volatile LONG rtdBails;                 // +0x62DC, block entries that took EA's handler (an EA special case, or every ret after the kill)
+    volatile LONG rtdVerified;              // +0x62E0, Mode=2: rets run both ways and equal
+    volatile LONG rtdMismatch;              // +0x62E4, Mode=2: rets that differed (the first one kills the piece)
+    volatile LONG rtdVSkipped;              // +0x62E8, Mode=2: sampled rets not compared (block bailed, snapshot did not fit)
+    volatile LONG rtdFaults;                // +0x62EC, system faults with eip in the block
+    volatile LONG rtdKillWhy;               // +0x62F0, 0 none, 1 verify mismatch, 2 fault
+    // v198 (docs/264, issue #338): [RouteAsync] KdUncutCeilMs, the long hard ceiling of a route job that has no other deadline
+    volatile LONG kdUncutMode;             // +0x62F4, switch (native_set / --ab kduncutceil): 1 = on (ini KdUncutCeilMs > 0)
+    LONG kdUncutCeilUs;                    // +0x62F8, KdUncutCeilMs in us, 0 = no ceiling; native_set kduncutceilus writes it raw (no 5 s clamp: test repros)
+    LONG kdUncutHit;                       // +0x62FC, jobs cut at that ceiling ("uncut ceiling hit" lines)
+    LONG kdUncutMaxUs;                     // +0x6300, the longest job that hit it (us)
+    // v919 (contributor block, docs/registry.md; docs/549 §4-§5): [AudioStateDup] (audiodup.cpp) and [PkgProbe] (pkgprobe.cpp)
+    LONG adMode;                           // +0x6304, [AudioStateDup] 0 off, 1 count only, 2 Fix (skip EA's duplicate add); -1 detour not installed
+    volatile LONG adCalls;                 // +0x6308, AudioState_Add 0x862CC0 calls
+    volatile LONG adDups;                  // +0x630C, of them, a key the table already holds (EA leaks a 48-byte node each)
+    volatile LONG adSkipped;               // +0x6310, of them, EA's add skipped (Fix=1): nodes kept
+    LONG ppMode;                           // +0x6314, [PkgProbe] bits: 1 Resolve counted, 2 RegisterDatabase, 4 SetDatabasePriority, 8 RemoveFix
+    volatile LONG ppResolve;               // +0x6318, Resolve 0x7D80E0 calls
+    volatile LONG ppTagged;                // +0x631C, of them, keys with type-tag bits (no lookup)
+    volatile LONG ppMiss;                  // +0x6320, first lookups (manager slot 17) that found no database
+    volatile LONG ppRetry;                 // +0x6324, fallback-key (group bit 0x08000000) lookups run
+    volatile LONG ppRetryHit;              // +0x6328, of them, found a database (Resolve answers the fallback key)
+    LONG ppMounted;                        // +0x632C, databases in the manager list at the last summary line (-1 unknown)
+    volatile LONG ppAdds;                  // +0x6330, RegisterDatabase 0x4B2D00 adds
+    volatile LONG ppRemoves;               // +0x6334, RegisterDatabase removes (add = 0)
+    volatile LONG ppRepos;                 // +0x6338, SetDatabasePriority 0x4B2EC0 calls (EA bug: drops the database)
+    volatile LONG ppOffMain;               // +0x633C, adds / removes / repositions not on the main thread
+    volatile LONG ppOverlap;               // +0x6340, adds / removes / repositions while a Resolve was in flight (finding 2 window)
+    volatile LONG ppRfMoved;               // +0x6344, RemoveFix: the pair had moved during the unlock (erased at its new place)
+    volatile LONG ppRfGone;                // +0x6348, RemoveFix: the database was gone after the unlock (no erase)
+    volatile LONG ppNoMgr;                 // +0x634C, Resolve calls with no resource manager yet
+    LONG ppSpare;                          // +0x6350
+    // v199 (docs/190 phase 2, memaccess.cpp; at 0x6354 after the v919 contributor block): [MemDiag] Access, cache finds and package reads (cumulative; updated at each diag: memaccess line)
+    LONG maOn;                             // +0x6354, bit 0 = cache Find slot hook in, bit 1 = ReadDecompress detour in
+    LONG maRcNs;                           // +0x6358, our measured work per hooked Find, ns
+    LONG maRdNs;                           // +0x635C, our measured work per hooked read, ns
+    LONG maRcGets;                         // +0x6360, Finds counted, every cache object
+    LONG maRcHits;                         // +0x6364, of those, found
+    LONG maRdN;                            // +0x6368, ReadDecompress calls
+    LONG maRdMB;                           // +0x636C, decoded MB read (memSize sum)
+    LONG maRdMaxKB;                        // +0x6370, largest single read (fileSize + memSize), KB
+    LONG maRdFlyMaxKB;                     // +0x6374, peak read bytes in flight over all threads, KB
+    LONG maLines;                          // +0x6378, diag: memaccess lines written
+    // v200 (docs/190 phase 3, allocsites.cpp; at 0x637C after v199): [MemDiag] AllocSitesOwners owner buckets + AllocSitesWithApex (values at the last owner lines)
+    LONG aoOn;                             // +0x637C, bit 0 owner lines on, bit 1 installed with Apex Radiance loaded (AllocSitesWithApex=1), bit 2 Apex image range known
+    LONG aoRows;                           // +0x6380, owner range rows in the table (TS3W.exe 1.67 code ranges)
+    LONG aoRowsVer;                        // +0x6384, of those, rows tagged verified
+    LONG aoLines;                          // +0x6388, owner line sets written (one per allocsites sample)
+    LONG aoApexPass;                       // +0x638C, reserves / views whose Apex frame was passed through to the EA allocator caller
+    LONG aoApexRefused;                    // +0x6390, hook sites refused in Apex mode (a jmp into another module: never chained)
+    LONG aoHeapKB;                         // +0x6394, heap live KB (estimated) at the last owner line
+    LONG aoHeapUnkKB;                      // +0x6398, of those, callers in TS3W.exe outside every owner range
+    LONG aoEaCoreKB;                       // +0x639C, EA cores and direct blocks (reserves made by the EA allocator) at the last owner line
+    LONG aoUntrKB;                         // +0x63A0, untracked private allocations >= 1 MB at the last owner line
+    // v201 (lane L9 2026-11-15, docs/22 §6, unseenanim.cpp): [AnimPhase] G10 timers inside rig pose 0x940430; per phase n, us, max us
+    LONG anReady;                          // +0x63A4, 1 = the four call sites patched
+    LONG anAdvN, anAdvUs, anAdvMaxUs;      // +0x63A8, TrackManager Advance 0x583D00 (call 0x940569)
+    LONG anNotN, anNotUs, anNotMaxUs;      // +0x63B4, routing notify 0x947590 (call 0x94059E)
+    LONG anEvalN, anEvalUs, anEvalMaxUs;   // +0x63C0, pose Evaluate 0x5833C0 (call 0x940742): n / anAdvN = share reaching step 6
+    LONG anPubN, anPubUs, anPubMaxUs;      // +0x63CC, transform publish 0x959670 (call 0x94118B)
+    LONG anSpare[3];                       // +0x63D8
+    // v202 (lane L9 2026-11-15): [Compat] Apex stand-down state (apex.cpp, docs/148 §7) and [StallWatch] (stallwatch.cpp, docs/67 §25)
+    LONG apFound;                          // +0x63E4, bits: 1 ApexRadiance.asi, 2 zzApexRadiance.asi, 4 instance mutex (0 = not loaded)
+    LONG apOn;                             // +0x63E8, AXF_* bits of the Apex switches that are on (toml or defaults)
+    LONG apStood;                          // +0x63EC, our modules and [Verify] probes that stood down for Apex
+    LONG apStandDown;                      // +0x63F0, [Compat] ApexStandDown (1 = stand down)
+    LONG apLate;                           // +0x63F4, 1 = Apex found by the late thread (zzApexRadiance.asi)
+    LONG apSpare[3];                       // +0x63F8
+    LONG ssReady;                          // +0x6404, 1 = the iteration stamp and the watchdog thread run
+    LONG ssStalls;                         // +0x6408, stalls logged (no Simulate iteration for StallS with Simulate on the sim stack)
+    LONG ssLines;                          // +0x640C, stack lines written
+    LONG ssMaxMs;                          // +0x6410, longest stall seen at a logged check (ms)
+    LONG ssOpenMs;                         // +0x6414, age of the open Simulate iteration at the last check (ms), docs/67 §25 (d)
+    LONG ssSpare[3];                       // +0x6418
+    // v921 placeholder (import-395-1115, Dalexlol PR #395 [DoorFast] df*, 64 int32; docs/registry.md): filled by that merge
+    LONG resV921[64];                      // +0x6424
+    // v203 (mono-jitfault-1115, docs/537 §29): [MonoJit] FaultRecover (monojit.cpp JitFrVeh)
+    LONG frOn;                             // +0x6524, 1 = the fault handler is installed
+    LONG frRecovered;                      // +0x6528, faults in a compiled normal body resumed in EA's interpreter at that word (method off for the session)
+    LONG frPassed;                         // +0x652C, faults ours (eip or a return address in a compiled body) passed on to the game's handlers (method off)
+    volatile LONG frTestCalls;             // +0x6530, [MonoJit] FaultTest only: calls of the test method's normal body
+    // v204 (householdtoo-1116, docs/271): [Experimental] HouseholdToo
+    volatile LONG hhTooLift;               // +0x6534, household / selected / unknown-scope asks HhExempt let through (flag on)
+    // v205 (gc-idle-gate-1117, docs/281 §8): [GC] IdleGate (gcgate.cpp), the per-tick GC_try_to_collect call 0xD819AA
+    volatile LONG gcgMode;                 // +0x6538, switch (--ab gcidlegate): 1 = skip idle ticks, 0 = always call (counters only)
+    LONG gcgReady;                         // +0x653C, bit 0 call site retargeted, bit 1 forced-collection thunk 0xD70800 retargeted
+    LONG gcgCalls;                         // +0x6540, per-tick calls seen
+    LONG gcgSkipped;                       // +0x6544, of those, skipped (no mark, no pending finish/sweep, allocation below threshold)
+    LONG gcgRan;                           // +0x6548, of those, passed to the game
+    LONG gcgCycles;                        // +0x654C, collections completed inside passed calls (GC_gc_no delta)
+    LONG gcgOutside;                       // +0x6550, collections completed between per-tick calls (forced, explicit GC.Collect)
+    LONG gcgForced;                        // +0x6554, forced full collections (GC_collect_or_expand -> 0xE4A320, incremental mode)
+    LONG gcgForcedMs;                      // +0x6558, ms in those
+    LONG gcgMs;                            // +0x655C, ms in passed per-tick calls
+    LONG gcgMaxUs;                         // +0x6560, longest passed per-tick call (us)
+    LONG gcgThreshKB;                      // +0x6564, allocation threshold at the last call (KB, after backoff)
+    LONG gcgHeapMaxKB;                     // +0x6568, GC_heapsize high-water (KB)
+    LONG gcgBackoff;                       // +0x656C, threshold halvings (forced collection right after a skipped tick), max 8
+    LONG gcgSpare[2];                      // +0x6570
+    // v206 (jit-hot-reserve-1117, docs/537 §32): [MonoJit] HotReserve
+    volatile LONG jitHotHeld;              // +0x6578, general compiles refused because the YRows reserve holds the room ("... (HotReserve)")
+    volatile LONG jitHotKB;                // +0x657C, the code reserve in force (KB); 0 = off (YRows=0 or HotReserve=0) or released
+    // v207 (dxdiag-skip-1117, docs/284): [Startup] DxDiagCache (dxdiagcache.cpp), VRAM_DxDiag 0x612640 replaced
+    LONG ddcMode;                          // +0x6580, 0 off / not hooked, 1 cache, 2 zero (or [Rewind] Park=1), 3 refresh
+    LONG ddcPath;                          // +0x6584, 0 not called yet, 1 sidecar hit, 2 miss probed + written, 3 miss failed, 4 zero
+    LONG ddcMB;                            // +0x6588, VRAM MB returned to DeviceCaps_Probe (stored at DeviceConfigManager +0xC4)
+    LONG ddcSavedMs;                       // +0x658C, the sidecar's ProbeMs: DxDiag time this start did not pay (0 on a miss)
+    // v208 (animsplit-1118, docs/22 §6.1, unseenanim.cpp): [AnimPhase] Split=1, measurement only. Classes [8]: 0 household Sim (or
+    // unknown: no fresh household table), 1 NPC on screen, 2 NPC off screen within the camera reach, 3 NPC unseen, 4 object on
+    // screen, 5 object off screen within reach, 6 object unseen, 7 not classified (no owner / transform, or outside a pose call).
+    // Pose kinds [3]: 0 whole tick 0x571C3C (no root motion), 1 root-motion sub-steps 0x571D20 / 0x571DDC, 2 sub-step loop 0x942C50.
+    LONG anxReady;                          // +0x6590, bit 0 pose sites, 1 clip sites, 2 0x571C3C rides behind [UnseenAnim], 3 locomotion split, 4 0x571D20/DDC left to [UnseenRootMotion]
+    LONG anxPoseN[3][8];                    // +0x6594, rig pose 0x940430 calls [kind][class] (actors visited; / aaPasses = per pass)
+    LONG anxPoseUs[3][8];                   // +0x65F4, their time, us
+    LONG anxPhN[4][8];                      // +0x6654, phase calls [advance, notify, evaluate, publish][class of the enclosing pose call]
+    LONG anxPhUs[4][8];                     // +0x66D4, their time, us
+    LONG anxClipN[2];                       // +0x6754, clip event dispatches 0x568710 [inside a pose call, outside]
+    LONG anxClipUs[2];                      // +0x675C, their time, us
+    LONG anxLocoN[3];                       // +0x6764, locomotion agent updates of Sims ([UnseenProbe] on) [household, seen NPC, unseen NPC]
+    LONG anxLocoUs[3];                      // +0x6770, their time, us (Locomotion_UpdateAgent 0x957210, whole call)
+    LONG anxSpare[5];                       // +0x677C, spare (drawn pose: main thread, EA skips it off camera, docs/22 §8)
+    // v209 (animsplit-1118 part 2, docs/22 §6.1): the rest of the anim pass 0x571B90 and the locomotion pass 0x83CED0
+    LONG anxTsN[8];                         // +0x6790, time step 0x942C00 at 0x571BF3 [class as anxPoseN]
+    LONG anxTsUs[8];                        // +0x67B0, their time, us
+    LONG anxDrainN[2];                      // +0x67D0, anim pass end: list drain 0x577060 (0x571E0F), actor list 0x571A50 (0x571E1A)
+    LONG anxDrainUs[2];                     // +0x67D8, their time, us
+    LONG anxEvN[2];                         // +0x67E0, SACS event push 0x742710 at 0x801E51 [inside a pose call, outside]
+    LONG anxEvUs[2];                        // +0x67E8, their time, us
+    LONG anxLocoPassN, anxLocoPassUs;       // +0x67F0, Locomotion_Update 0x83CED0 whole pass (rest = pass - unAgentUs)
+    LONG anxSpare2[6];                      // +0x67F8
+    // v210 (unseen-measure-1118, docs/286 §5): our own work inside the anim / locomotion passes, the loco pass split, Rate=1
+    LONG unThunkN, unThunkUs;               // +0x6810, UnAgentThunk 0x83CF52 whole call (ours + EA); pass rest = anxLocoPassUs - unThunkUs
+    LONG anxOwnN[2], anxOwnUs[2];           // +0x6818, [AnimPhase] Split wrappers' own work: [0] pose (camera + class), [1] time step (class)
+    LONG aaChkN, aaChkUs;                   // +0x6828, [UnseenAnim] AaPoseThunk Sim checks (class, held table, slot, hold rule) before EA's call or the skip
+    LONG aaPreUs;                           // +0x6830, AaPassThunk pass start (AoWalk + camera), n = aaPasses
+    LONG utRateHh;                          // +0x6834, Rate=1 runs held by the household table (AnxHousehold: no fresh table = household)
+    LONG utRateCatchUpUs;                   // +0x6838, Rate=1 owed time run in catch-ups, us (sum; utRateCatchUp = count)
+    LONG v210Spare[5];                      // +0x683C
+    // v211 (gc-offload-1118, docs/287 §2): [GC] SubTimers (gcgate.cpp), the GC step split. [0] = inside the per-tick call
+    // 0xD819AA, [1] = outside it (forced / explicit collections, another thread)
+    LONG gctReady;                          // +0x6850, 1 = all ten call sites retargeted
+    LONG gctMarkN, gctMarkUs[2];            // +0x6854, incremental GC_mark_some calls from GC_collect_a_little_inner
+    LONG gctStopN, gctStopUs[2];            // +0x6860, GC_stopped_mark (stop-the-world finish attempt, incl. its own mark loop)
+    LONG gctFinN, gctFinUs[2];              // +0x686C, GC_finalize inside GC_finish_collection (finalization + weak-link marking)
+    LONG gctSweepN, gctSweepUs[2];          // +0x6878, sweep: reclaim start in GC_finish_collection + lazy sweep steps
+    LONG gctRunN, gctRunUs;                 // +0x6884, GC_notify_or_invoke_finalizers at the start of GC_try_to_collect (per-tick call)
+    LONG gctClearUs;                        // +0x688C, GC_clear_marks at a cycle start (count = collections)
+    // v212 (offload-a-1118, [LotStream] Thumb=1, lotstream.cpp): CreateThumbnailTexture 0xD5D910 on the sim thread
+    LONG thumbCalls, thumbUs, thumbMaxUs;   // +0x6890, sim-thread calls, their time (us), longest
+    LONG thumbOffSim;                       // +0x689C, calls on any other thread (not timed)
+    // v213 (offload-a2-1118, docs/288 §4): own-task [RouteAsync] Kinds STARTs refused by the unseen-only gate (ArOwnGateOk)
+    LONG arScopeRefused;                    // +0x68A0, the route was not known unseen (household, selected, seen NPC, unknown, no answer)
+    LONG arPrereqRefused;                   // +0x68A4, KindsMode 1 without H2Ic (7 slots, Mode 1) + RefcountGuard (Mode 1)
+    // v214 (gc-markhelpers-p2-1118, [GC] MarkHelpers P2, gcmark.cpp, docs/287 §6): helper pool library; nothing installed in P2
+    LONG g5Mode;                            // +0x68A8, run-time switch (later --ab gcmarkhelpers): 0 = G5ParMarkFrom hands back and runs serially
+    LONG g5Ready, g5Threads;                // +0x68AC, G5Init started helpers / helpers alive
+    LONG g5Windows, g5WindowUs;             // +0x68B4, windows opened (G5WindowEnter) and their coordinator time
+    LONG g5HelperUs;                        // +0x68BC, helper time inside windows (sum over helpers)
+    LONG g5Donated, g5Taken, g5HandBack;    // +0x68C0, chunks into the pool / helper takes / coordinator takes (pool + parked private)
+    LONG g5SimWaits, g5SimWaitUs;           // +0x68CC, coordinator waits under invariant I1 (empty stack, work outside) and their time
+    LONG g5PrivOverflow;                    // +0x68D4, helper fn calls that raised the overflow flag (state 5)
+    LONG g5HelperAv;                        // +0x68D8, helper access violations (stack dropped, coordinator rescans)
+    LONG g5Fallback;                        // +0x68DC, helper / pool creation failures (later: byte mismatches, latches)
+    LONG g5VerifyN, g5VerifyBad;            // +0x68E0, [GC] MarkHelpersVerify cycles / mismatches (P4)
+    LONG g5PoolHigh, g5Resets;              // +0x68E8, deepest pool (entries), G5Reset calls
+    // P3 (gc-markhelpers-p3-1118, docs/287 §7) takes three spares:
+    LONG g5StateApply;                      // +0x68F0, coordinator writes of state 5 for a helper overflow / fault (G5ApplyLk)
+    LONG g5GrowDrop;                        // +0x68F4, mark-stack growths that dropped entries outside the game's stack (state 5 site: exact)
+    LONG g5Anomaly;                         // +0x68F8, I1 broken: helper flag after the mark ended, or entries at the mark-done growth (must stay 0)
+    // P4 (gc-markhelpers-p4-1118, docs/287 §8, [GC] MarkHelpersVerify) takes two spares:
+    LONG g5VerifySub;                       // +0x68FC, checks where the serial mark set a bit the cycle's marks lack (missed object or a root that differs)
+    LONG g5VerifySkip;                      // +0x6900, checks not done (mark not idle, no memory, time limit, fault)
+    LONG g5Spare;                           // +0x6904
+    // v215-v218 reserved by unmerged lanes (gengc-1118, lane-CW, jit-yieldbodies-1118, jit-ybclauses-1118; docs/registry.md)
+    LONG resV215_218[64];                   // +0x6908
+    // v219 (keep-options-gpu-1119, docs/37 §12): [EaCrashFixes] KeepOptionsOnGpuChange (keepopts.cpp)
+    LONG koMode;                            // +0x6A08, 1 = hook installed
+    LONG koFires;                           // +0x6A0C, option loads that met a new device
+    LONG koKept;                            // +0x6A10, options that kept the player's value on a new device
+    LONG koRedetected;                      // +0x6A14, hardware-detected options reset to the new card's default
+    // v220 (modtime-master-1120, docs/298): [Diag] ModTime, read-only sampler of the sim thread's script stack
+    LONG mdtOn;                             // +0x6A18, 1 = sampler running ([Diag] ModTime=1 read back)
+    LONG mdtHz;                             // +0x6A1C, ModTimeHz in force (10-200)
+    LONG mdtSamples, mdtLoadSamples;        // +0x6A20, samples while a world is live / in the load and menu phase
+    LONG mdtOverheadUs;                     // +0x6A28, sim thread stopped by the sampler, us (sum)
+    LONG mdtAsm;                            // +0x6A2C, assemblies seen on the stack
+    LONG mdtHitches;                        // +0x6A30, live Simulate iterations >= 250 ms with samples
+    LONG mdtBusyPct;                        // +0x6A34, sim thread CPU / wall while a world is live, %
+    LONG resV221[48];                       // +0x6A38, v221 held by offload-other-1120 ([OtherSplit] timers)
+    // v222 (mod-seam-budget-1120, docs/308): [Diag] TaskSeam per-task-run attribution (+ 8 spares)
+    LONG tskOn;                             // +0x6AF8, 1 = [Diag] TaskSeam=1 in force (switch read-back)
+    LONG tskSites;                          // +0x6AFC, bit 0 the 4 RunTask call sites hooked, bit 1 the 2 invoke sites
+    LONG tskRuns, tskRunMs;                 // +0x6B00, task runs timed / their ms (ms written by the summary thread)
+    LONG tskInvRuns, tskInvMs;              // +0x6B08, OneShot / ScriptTick invoke runs / ms
+    LONG tskOwners;                         // +0x6B10, owners with runs
+    LONG tskModMs, tskNpcMs;                // +0x6B14, mod-owned task run ms / of them npc-candidate scope
+    LONG tskSelfNs;                         // +0x6B1C, seam overhead per run, ns (every 64th run measured)
+    LONG tskMaxRunMs;                       // +0x6B20, longest single task run, ms
+    LONG tskIters;                          // +0x6B24, Simulate iterations seen
+    LONG tskSpare[8];                       // +0x6B28, v222 spares (held for the [ModBudget] handoff, docs/302 §3 #4)
+    // v223 (cp1-lotgen-1123, docs/321 §8, lotstream.cpp): CP-1 lot hub, always on, no behaviour change
+    LONG lhReady;                           // +0x6B48, bits: 1 add execute 0xABD3C0, 2 remove execute 0xABD3E0 hooked (0 = [LotHub] Enabled=0 or a prologue differs)
+    volatile LONG lhLotGen;                 // +0x6B4C, lot generation: +1 per lot add / remove run and per world event
+    volatile LONG lhWorldGen;               // +0x6B50, world generation: +1 per world load ("world:" line) and world quit
+    volatile LONG lhAdds, lhRemoves;        // +0x6B54, add fn 0xAC1130 / remove fn 0xAB4C00 runs seen by the hub
+    volatile LONG lhFired;                  // +0x6B5C, subscriber calls made
+    LONG resV224[5];                        // +0x6B60, v224 (pausegate-native-1123) hold, not merged here
+    // v225 (cullrace-1123, docs/338): [CrashForensics] CullRaceWatch + [EaCrashFixes] CullDrainWait (cullrace.cpp)
+    LONG crOn;                              // +0x6B74, bit 0 watch, 1 main-cull thread recorded, 2 CullDrainWait, 3 drain site hooked
+    LONG crDrains;                          // +0x6B78, DrawScene drains seen (0x6F401B)
+    LONG crRace;                            // +0x6B7C, drains with +0x28F set and job 318 running, state 4 (drainRace)
+    LONG crBadIdx;                          // +0x6B80, drains whose index list holds an idx >= object count, or is unreadable (drainBadIdx)
+    LONG cdwWaits, cdwWaitUs;               // +0x6B84, CullDrainWait JobManager_Wait(318) calls / their us (sum)
 };
+// [RouteAsync] ReadyDrain (default 0, docs: issue "why off-screen plans take 500-800 ms"): on the READY poll of the job the worker
+// runs now, serve every managed call it posts within a small budget (not one per poll), and answer "done" in the same poll when
+// the job ended meanwhile. Same calls, same order, same thread (the job's owner); only sooner. Own exported block, so the
+// counters layout (docs/registry.md) is unchanged: polls that drained, calls served past the first, polls answered done by
+// the drain (a frame each, saved), budget ends with the job still running.
+// Frame guard: the spin is shared per sim-thread frame (approximated as a 33 ms wall window: the owner has no frame counter
+// here) up to frameUs; past it a poll only serves calls already queued (no spin) and frameHits counts the window once. The
+// spin also stops gapUs after the last served call (the job is computing, not calling back: not near its end).
+struct ReadyDrainCounters { volatile LONG mode, budgetUs, polls, served, saved, budgetHits; LONG maxUs; volatile LONG frameUs, gapUs, frameHits, idleStops; };
+// [RouteSnap] DoorMemoX=3 (hostcalls.cpp): the managed door-input generation ts3fixes DoorGen.cs bumps through UserDiag op 36
+// + why the cross-job memo missed (any DoorMemoX mode): no row for the key, a row of another generation / delegate set, a row past
+// DoorMemoXMs, and live answers that are not "unlocked" (never stored)
+// + exempt: acting-mode (1, 3) asks of a household, selected or unknown-scope job (only unseen and seen-NPC jobs use the memo)
+struct DmxScriptGen { volatile LONG gen, armed, bumps, unarmedAsks, missCold, missGen, missAge, notUnlocked, exempt, held; };
+extern "C" __declspec(dllexport) DmxScriptGen ts3native_doorgen = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+extern "C" __declspec(dllexport) ReadyDrainCounters ts3native_readydrain = {0, 2000, 0, 0, 0, 0, 0, 3000, 300, 0, 0};
+// [RouteAsync] TaskServe (default 0, taskserve.cpp, docs/637): after every script task run (the four call sites of
+// ScriptHost_RunTask 0xD7F000) the job owner serves the managed call the route worker has posted, instead of leaving it for
+// the waiting task's next READY poll a sim tick later. Own exported block (counters layout unchanged): mode (ini, runtime),
+// ready (call sites patched), checks (task runs that found a call posted), served, skipped (posted but not servable here:
+// not the owner, inside a served call, no running job), queueUs / maxQueueUs (post -> pick-up of the calls served here).
+struct TaskServeCounters { volatile LONG mode, ready, checks, served, skipped, queueUs; LONG maxQueueUs; };
+extern "C" __declspec(dllexport) TaskServeCounters ts3native_taskserve = {0, 0, 0, 0, 0, 0, 0};
+// [RouteAsync] ClosestWpsCut (plandeadline.cpp CowFindSkip): mode 1 = cut, 0 = count only (set at install); cuts; would (count only)
+struct ClosestWpsCounters { volatile LONG mode, cuts, would; };
+extern "C" __declspec(dllexport) ClosestWpsCounters ts3native_closestwps = {0, 0, 0};
 extern "C" __declspec(dllexport) Ts3nCounters ts3native_counters = {912,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -2912,10 +3553,29 @@ static void KdLogCounters();   // plandeadline.cpp (docs/197)
 static void UfLogCounters();   // unseenfb.cpp (docs/202)
 static void AgLogCounters();   // monothread-m5.cpp: [ArenaGuard] (docs/67 §22.2)
 static void GrLogCounters();   // gcroots.cpp: [GcRootCheck] (docs/67 §22.4)
+static void SfLogCounters();   // saveframes.cpp (docs/293)
 static void AtLogCounters();   // arenatail.cpp: [ArenaGuard] TailPad, [GcRootCheck] TailWatch (docs/67 §22.7)
 static void UfcLogCounters();  // unseenfbc.cpp (docs/202 §3.4)
+static void RsLogCounters();   // routespeed.cpp (docs/663)
+static void WhLogCounters();   // workerhold.cpp (docs/673)
+static void WxLogCounters();   // worldpre.cpp (docs/676)
+static void PelLogCounters();  // tailunlock.cpp (docs/673 §9: [RouteAsync] PlanEndLend / LendWake)
+static void PtLogCounters();   // placero.cpp (docs/670)
+static void FglLogCounters();   // fglprof.cpp (docs/671)
+static void EpLogCounters();   // epro.cpp (docs/670 §8)
+static void SrLogCounters();   // steerro.cpp (docs/670 §7)
+static void CnLogCounters();   // connro.cpp (docs/670 §15)
+static void GvhLogCounters();   // gvhits.cpp (docs/670 §11)
+static void DsLogCounters();   // doorshare.cpp (docs/674)
+static void PfaLogCounters();  // discourage.cpp (docs/670 §16)
+static void ScLogCounters();   // smoothcut.cpp (docs/676 §15)
+static void UbLogCounters();   // unseenband.cpp (docs/322)
+static void PccLogCounters();  // plancand.cpp (docs/644)
 
 static void DiscRfLog();  // discourage.cpp (docs/89 §18)
+// docs/183 §7 (jobyield.cpp): [RouteAsync] JobYieldFollowed and the minute line's counts (the sim thread writes them)
+static LONG g_jyFollowed;
+static LONG g_jyParkedN, g_jyBackN, g_jyDropN, g_jyLostN, g_jyActiveN;  // records parked / put back / dropped / expired or no slot; asks on a followed route
 static void MaybeLogCounters(ULONGLONG now) {
     LONG64 next = g_nextLog;
     if ((LONG64)now < next || InterlockedCompareExchange64(&g_nextLog, (LONG64)now + 60000, next) != next) return;
@@ -2968,14 +3628,20 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.ufReady) UfLogCounters();  // docs/202
     AgLogCounters();  // docs/67 §22.2 (logs only with [ArenaGuard] on)
     GrLogCounters();  // docs/67 §22.4 (logs only with [GcRootCheck] on)
+    SfLogCounters();  // docs/293 (saveframes.cpp)
     AtLogCounters();  // docs/67 §22.7 (logs only with TailPad or TailWatch on)
     if (c.ufcReady) UfcLogCounters();  // docs/202 §3.4
+    DsLogCounters();   // docs/674 (nothing until [RouteSnap] DoorShare is installed)
+    PfaLogCounters();  // docs/670 §16 (nothing until DeferPrivateFpAdd is installed)
+    ScLogCounters();   // docs/676 §15 (nothing until [WorldPrecompute] SmoothCut is installed)
+    UbLogCounters();   // docs/322 (nothing until [UnseenProbe] Bands is set)
     if (c.asyncReady)  // docs/183: n / ms / yieldable per site
         Log("route jobs sim waits: runplan %ld/%ld/%ld rtwait %ld/%ld/%ld disc %ld/%ld/%ld collect %ld/%ld/%ld drop %ld/%ld/%ld "
-            "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
+            "other %ld/%ld/%ld, max %ld ms; job yield mode %ld asks %ld busy %ld, records parked %ld back %ld dropped %ld lost %ld, "
+            "followed routes not yielded %ld", c.swN[0], c.swUs[0] / 1000, c.swYieldable[0],
             c.swN[1], c.swUs[1] / 1000, c.swYieldable[1], c.swN[2], c.swUs[2] / 1000, c.swYieldable[2], c.swN[3],
             c.swUs[3] / 1000, c.swYieldable[3], c.swN[4], c.swUs[4] / 1000, c.swYieldable[4], c.swN[5], c.swUs[5] / 1000,
-            c.swYieldable[5], c.swMaxUs / 1000, c.jyMode, c.jyAsks, c.jyBusy);
+            c.swYieldable[5], c.swMaxUs / 1000, c.jyMode, c.jyAsks, c.jyBusy, g_jyParkedN, g_jyBackN, g_jyDropN, g_jyLostN, g_jyActiveN);
     if (c.avReady)  // docs/137
         Log("avoid RO: mode %ld shadow %ld hit %ld miss %ld (site %ld) B %ld fallbacks %ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld/%ld T-AV %ld "
             "shadow %ld (mismatch %ld B %ld query %ld order %ld simscan %ld) writeInRo %ld", c.avMode, c.avShadow, c.avTakenHit,
@@ -2985,13 +3651,51 @@ static void MaybeLogCounters(ULONGLONG now) {
     if (c.eoReady) EoLogCounters();
     if (c.mwReady || c.gvReady || c.ikReady) MwLogCounters();  // docs/178 §9
     if (c.p6wReady) P6wLogCounters();  // docs/189 phase 0
+    RsLogCounters();   // docs/663 (nothing until NeighbourMemo is installed)
+    WhLogCounters();   // docs/673 (nothing until HoldProbe is installed)
+    WxLogCounters();   // docs/676 (nothing until [WorldPrecompute] is installed)
+    PelLogCounters();  // docs/673 §9 (nothing until PlanEndLend / LendWake is installed)
+    PtLogCounters();   // docs/670 (nothing until [PlaceTestRO] is installed)
+    FglLogCounters();   // docs/671 (nothing until [FglProf] is installed)
+    EpLogCounters();   // docs/670 §8 (nothing until [EditPathRO] is installed)
+    SrLogCounters();   // docs/670 §7 (nothing until [SteerRO] is installed)
+    CnLogCounters();   // docs/670 §15 (nothing until [ConnRoomsRO] is installed)
+    GvhLogCounters();   // docs/670 §11 (nothing until [GoalValidRO] Hits is installed)
+    PccLogCounters();  // docs/644 (nothing until a part is on)
+    if (ts3native_readydrain.mode)
+        Log("route ready drain: budget %ld us, frame %ld us, gap %ld us, polls %ld, calls served past the first %ld, done in the same "
+            "poll %ld, budget ends %ld, idle stops %ld, frames at the frame budget %ld, max %ld us", ts3native_readydrain.budgetUs,
+            ts3native_readydrain.frameUs, ts3native_readydrain.gapUs, ts3native_readydrain.polls, ts3native_readydrain.served,
+            ts3native_readydrain.saved, ts3native_readydrain.budgetHits, ts3native_readydrain.idleStops, ts3native_readydrain.frameHits,
+            ts3native_readydrain.maxUs);
+    if (ts3native_closestwps.cuts || ts3native_closestwps.would)  // [RouteAsync] ClosestWpsCut
+        Log("closest waypoint cut: mode %ld, ClosestWaypoints_Find calls answered none %ld, would have been (count only) %ld",
+            ts3native_closestwps.mode, ts3native_closestwps.cuts, ts3native_closestwps.would);
+    if (ts3native_taskserve.ready)  // docs/637
+        Log("route task serve: mode %ld, task runs with a call posted %ld, served %ld (queue %ld ms, max %ld us), not servable there %ld",
+            ts3native_taskserve.mode, ts3native_taskserve.checks, ts3native_taskserve.served, ts3native_taskserve.queueUs / 1000,
+            ts3native_taskserve.maxQueueUs, ts3native_taskserve.skipped);
+    if (c.dmxMode == 3 || ts3native_doorgen.armed)
+        Log("door memo x mode 3: armed %ld, managed input bumps %ld, asks before arming %ld, hits %ld miss %ld inval %ld shadow %ld "
+            "mismatch %ld, household / unknown asks not answered from it %ld", ts3native_doorgen.armed, ts3native_doorgen.bumps, ts3native_doorgen.unarmedAsks, c.dmxHit, c.dmxMiss,
+            c.dmxInval, c.dmxShadow, c.dmxMismatch, ts3native_doorgen.exempt);
+    if (c.dmxMode)
+        Log("door memo x misses: no row %ld, other generation %ld, older than DoorMemoXMs %ld; live answers not unlocked (not stored) %ld; "
+            "asks on lots with a privacy / mod door handler (live, not kept) %ld",
+            ts3native_doorgen.missCold, ts3native_doorgen.missGen, ts3native_doorgen.missAge, ts3native_doorgen.notUnlocked, ts3native_doorgen.held);
+    if (c.hcReady & 1)  // [RouteJobPhases] HostSplit=1 (hostcalls.cpp): per serve site n / queue ms; serve, return, nested ms
+        Log("route host calls: pump918 %ld/%ld pumpOther %ld/%ld ready %ld/%ld asyncDone %ld/%ld jobDone %ld/%ld runPlan %ld/%ld, "
+            "queue max %ld ms, serve %ld ms (max %ld), return %ld ms, nested %ld ms", c.hcN[0], c.hcQueueUs[0] / 1000, c.hcN[1],
+            c.hcQueueUs[1] / 1000, c.hcN[2], c.hcQueueUs[2] / 1000, c.hcN[3], c.hcQueueUs[3] / 1000, c.hcN[4], c.hcQueueUs[4] / 1000,
+            c.hcN[5], c.hcQueueUs[5] / 1000, c.hcQueueMaxUs / 1000, c.hcServeUs / 1000, c.hcServeMaxUs / 1000, c.hcReturnUs / 1000,
+            c.hcNestedUs / 1000);
     if (c.workerReady || c.asyncReady)
         Log("route plans: off %ld (fails %ld) on %ld (fails %ld) hostCalls %ld", c.planOffCalls, c.planOffFails, c.planOnCalls, c.planOnFails, c.hostCalls);
     static LONG xcptSkipLogged;  // docs/172 §7: repeats per logged address, only when the total moved
     LONG xcptSkip = 0;
     char xcptBy[8 * 24] = "";
     for (int i = 0, n = g_xcptOtherN < 8 ? g_xcptOtherN : 8, len = 0; i < n; i++)
-        xcptSkip += g_xcptOtherHits[i], len += sprintf_s(xcptBy + len, sizeof(xcptBy) - len, " %08lX x%ld", g_xcptOther[i], g_xcptOtherHits[i]);
+        xcptSkip += g_xcptOtherHits[i], len += SFmt(xcptBy + len, sizeof(xcptBy) - len, " %08lX x%ld", g_xcptOther[i], g_xcptOtherHits[i]);
     if (xcptSkip != xcptSkipLogged)
         Log("crash log: %ld more AVs at logged addresses in other modules (not logged):%s", xcptSkipLogged = xcptSkip, xcptBy);
 }
@@ -3002,6 +3706,29 @@ static LONG UsSince(LARGE_INTEGER t0) {
     LARGE_INTEGER t1;
     QueryPerformanceCounter(&t1);
     return (LONG)((t1.QuadPart - t0.QuadPart) * 1000000 / g_qpf.QuadPart);
+}
+
+// docs/286 §3.2: UsSince floors each call to whole us, so a sub-us call (time step ~0.6 us) adds 0. UsTk keeps the floored
+// rest per counter field (in 1e6 x QPC ticks, < qpf) and carries it into the next call: the sum stays exact over many calls.
+// shortcut: the rest is a plain read-modify-write; two threads adding to the same field at once may lose < 1 us (counts never).
+static LONG g_usRest[sizeof(Ts3nCounters) / sizeof(LONG)];
+static LONGLONG TicksSince(LARGE_INTEGER t0) {
+    LARGE_INTEGER t1;
+    QueryPerformanceCounter(&t1);
+    return t1.QuadPart - t0.QuadPart;
+}
+static LONG UsTk(LONG* field, LONGLONG ticks) {
+    const size_t i = ((uintptr_t)field - (uintptr_t)&ts3native_counters) / sizeof(LONG);
+    LONGLONG x = ticks * 1000000;
+    if (i < _countof(g_usRest)) x += g_usRest[i];
+    const LONGLONG us = x / g_qpf.QuadPart;
+    if (i < _countof(g_usRest)) g_usRest[i] = (LONG)(x - us * g_qpf.QuadPart);
+    return (LONG)us;
+}
+static LONG UsAdd(LONG* field, LONGLONG ticks) {  // field += carried us; returns the us added
+    const LONG us = UsTk(field, ticks);
+    InterlockedExchangeAdd(field, us);
+    return us;
 }
 
 static void Max(LONG* m, LONG v) {
@@ -3084,11 +3811,25 @@ static __declspec(thread) LONG t_fbjdCut[3];
 // camera, 2 in view: t_kdCamDl is its deadline now. Points = x, z of the plan's start and goals, copied at Route_PlanLocked (they die with it)
 enum { KD_CAM_PTS = 9 };
 static __declspec(thread) LONG t_kdCam, t_kdCamN, t_kdCamNote;
+static __declspec(thread) LONG t_kdCamView;  // KdCutCamRecheck=2: this job / plan was seen in view (or untestable) at its first cut
 static __declspec(thread) LONGLONG t_kdCamDl;
 static __declspec(thread) float t_kdCamP[KD_CAM_PTS][2];
 static bool KdCamHold(LONGLONG now, LONGLONG* dl);
 static void KdCamPlanArgs(const int* starts, const int* goals);
 static void KdCamJobArm();
+// [RouteAsync] CutOnWait (docs/850; plandeadline.cpp CowJobBegin / CowAsk): the sim thread, about to wait for this worker job
+// (or for +0x918 while it runs), asked to end it: g_cowReq = the job's seq. From then on the worker's own deadline checks
+// use the job's start + its scope's minimum run (t_cowDl) when that is earlier than the job's deadline. Only the worker writes
+// its deadlines; the sim writes one LONG keyed by the seq, so an ask that lands after the job ended reaches no later job.
+static __declspec(thread) LONG t_cowSeq;     // worker: the running job's seq while a wait may end it, else 0
+static __declspec(thread) LONGLONG t_cowDl;  // worker: QPC of the earliest end an ask gives this job
+static volatile LONG g_cowReq;               // sim: the seq of the job it asked to end
+static __forceinline bool CowAsked() { return t_cowSeq && g_cowReq == t_cowSeq; }
+static __forceinline void PdCowApply(LONGLONG* dl) {  // t_kdCam 2: held in view at its first cut, runs to its ceiling
+    if (!CowAsked() || t_kdCam == 2) return;
+    if (t_fbDeadline > t_cowDl) t_fbDeadline = t_cowDl;
+    if (*dl > t_cowDl) *dl = t_cowDl;
+}
 static const float kWall = 1e9f;  // >= the planner's 1e8 blocked-edge constant at 0x00FEF678
 
 static void BudgetCap(Budget& b) {
@@ -3111,6 +3852,7 @@ static int __cdecl BudgetStep(DWORD costArg5) {
     if (b.dl && (b.calls++ & 3) == 0) {
         LARGE_INTEGER n;
         QueryPerformanceCounter(&n);
+        PdCowApply(&b.dl);  // [RouteAsync] CutOnWait
         if (n.QuadPart >= b.dl && !KdCamHold(n.QuadPart, &b.dl)) {
             BudgetCap(b);
             return costArg5 == 1;
@@ -3143,8 +3885,8 @@ __declspec(naked) static void CostGate() {
     }
 }
 
-static const DWORD kCostFns[] = {0x00674E40, 0x00673850, 0x00674250, 0x00675800, 0x006734E0};  // travel modes 1-4, default
-static const DWORD kCostSites[] = {0x00676340, 0x0067634A, 0x00676354, 0x0067635E, 0x00676368};  // mov [esp+0x60], fn
+static const DWORD kCostFns[] = {TS3A(0x00674E40), TS3A(0x00673850), TS3A(0x00674250), TS3A(0x00675800), TS3A(0x006734E0)};  // travel modes 1-4, default
+static const DWORD kCostSites[] = {TS3A(0x00676340), TS3A(0x0067634A), TS3A(0x00676354), TS3A(0x0067635E), TS3A(0x00676368)};  // mov [esp+0x60], fn
 
 // Builds the stubs and writes their addresses into the five sites (all verified first). Parameters let the selftest use local memory.
 static bool PatchCostSites(const DWORD* sites, const DWORD* fns) {
@@ -3156,7 +3898,7 @@ static bool PatchCostSites(const DWORD* sites, const DWORD* fns) {
             return false;
         }
     }
-    u8* stubs = (u8*)VirtualAlloc(NULL, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    u8* stubs = TrampAlloc(64, "route budget cost stubs");
     if (!stubs) return false;
     for (int i = 0; i < 5; i++) {
         u8* s = stubs + i * 10;
@@ -3197,8 +3939,18 @@ static DWORD g_scSyncH;  // route handle of the last own START with a stuck-chec
 struct AsyncJob;
 static DWORD g_ufH;     // docs/202: route handle of the last UnseenFallback MARK (sim thread only), taken by its next START or sync IC
 static DWORD g_ufCutH;  // docs/202: route handle whose marked plan or job was cut, read once by CUT?
+static DWORD g_ufCutViewH;  // KdCutCamRecheck=2: that cut came in view (or no fresh camera), read once by VIEW? (optLo 4)
 static __declspec(thread) bool t_ufSess, t_pdHitLast;
 static __declspec(thread) LONG t_ufJob;
+static __declspec(thread) bool t_ucJob;  // docs/264 (issue #338): this job runs under KdUncutCeilMs, the only deadline it has
+// docs/264 §4 (issue #338 logging): why a job had no deadline of its own (UC_*; KdJobBegin sets the KindDeadlines reasons, the worker
+// the rest), and the work a job did after its cut fired (post-cut tail: plans started after t_jobCapAt, their time, host time)
+enum { UCW_NONE, UCW_BACKOFF, UCW_SCLAST, UCW_WATCHDOG, UCW_KIND0, UCW_KDOFF, UCW_N };
+static const char* const kUcWhy[UCW_N] = {"-", "backoff", "sc-last", "watchdog", "kind-0", "kd-off"};
+static __declspec(thread) LONG t_kdWhy, t_ucWhy;
+static __declspec(thread) LONG t_pcPlans, t_pcCapped, t_pcPlanUs, t_pcHostUs;
+static const AsyncJob* volatile g_runJob;  // the job the worker runs now (the sim thread reads it for its wait lines, log only)
+static volatile LONG g_runWhy;             // that job's UC_* (0 = it has a deadline of its own)
 // docs/202 §3.1.1: this marked job's Proxy waits past its deadline (QPC ticks): the sim thread's time, not overrun a cut can shorten
 static __declspec(thread) LONGLONG t_ufHostLateQ;
 // docs/202 §3.1.1: the last closed session's time past its deadline (us) and the exits that cut it (bit 0 world A*, 1 cell,
@@ -3216,6 +3968,7 @@ static void UfLockRelease(void* world);
 static void UfSyncEnd(DWORD handle, const u8* out, LONG us);
 static void UfJobEnd(AsyncJob* j, bool capped, LONG us, LONG lateUs, unsigned mask);
 static u8 UfMsg(DWORD handle, DWORD lo);
+static u8 GvuMsg(DWORD handle, DWORD kind);  // gvro.cpp: docs/250 §7.3 B2 DEFER? (optLo 3 | kind << 8)
 static u8 UfCamMsg(DWORD lo, DWORD hi);
 static bool PdPlanBegin();
 static void PdPlanEnd(u8 r);
@@ -3256,6 +4009,10 @@ static u8 CallPlanBudget0(void* world, void* edx, int* outList, int* starts, int
     u8 r = g_planOrig(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
     LONG us = UsSince(t0), nodes = t_budget.nodes;
     if (t_jobT0) t_jobPlanUs += us;  // shortcut: a plan nested in this one counts twice; nesting is rare (docs/134 §4)
+    if (t_jobT0 && t_jobCapAt && t0.QuadPart >= t_jobCapAt) {  // docs/264 §4.3: a plan that started after the job's cut
+        t_pcPlans++, t_pcPlanUs += us;
+        if (t_budget.capped) t_pcCapped++;
+    }
     t_jobNodes += nodes, t_jobPlans++;  // routefail logging (plandeadline.cpp RfJobNote); shortcut: no budget (an uncut job) = 0 nodes
     if (t_budget.capped) InterlockedExchangeAdd(&ts3native_counters.budgetCapUs, us);
     if (t_budget.capped && cap) t_fbCapHit = 1;
@@ -3319,20 +4076,53 @@ struct AsyncJob {
     u64 kdId;         // docs/197: the route's follower (route +0x40/+0x44) read at START with KindDeadlines on, 0 = unknown
     LONG uf;          // docs/202: 1 = an unseen Sim's route (UnseenFallback MARK right before its START): ufUs deadline
     LONG ufCut;       // docs/202: that job was cut (worker, before J_DONE); IcCollect hands it to the CUT? answer
+    LONG ufCutView;   // KdCutCamRecheck=2: that cut came in view (worker); IcCollect hands it to the VIEW? answer
     LONG kdScope;     // docs/197 §7: 0 unknown, 1 seen household side, 2 unseen (UfWhy 0), 3 seen NPC, from ts3fixes right before START
     u64 rfGoal;       // docs/197 §7: hash of the route's destinations at START (routefail retry: same request?)
+    LONG rfIa;        // docs/226: routefail interaction id from ts3fixes' scope op (RfIaName), 0 = unknown
+    LONG pf;          // docs/631 [RouteAsync] PlayerFirst: 1 = a route the player ordered (ts3fixes playerfirst, UserDiag op 37)
+    LONG dsBits;      // docs/674 [RouteSnap] DoorShare: the route's Sim class from ts3fixes doorshare (UserDiag op 40), 0 = none
 };
+#include "caps.h"  // docs/321 lane 0: high water of our fixed-size tables (CapSee / CapFull, `caps:` log line)
 // docs/134: 32 slots; with [RouteAsync] FallbackAsync off only the first kJobsBase are handed out (QueueFull as before)
 static const int kJobs = 32, kJobsBase = 8;
 static const DWORD kDoneKeepMs = 5000;  // a Sim collects within a tick or two; older results lost their caller (reset)
 static AsyncSlot g_async;
 static AsyncJob g_jobs[kJobs];
 static DWORD g_jobSeq;  // sim thread only
+// docs/631 [RouteAsync] PlayerFirst (default 0): the worker runs a queued job marked by ts3fixes playerfirst (a household or
+// selected Sim's route, or one of a user-directed interaction: UserDiag op 37 right before its START) before older unmarked
+// ones; among marked and among unmarked jobs it stays oldest first. Each job is the same IC call on the same START snapshot
+// (its world lock, its RtQuietWorld check at claim), so only the order of the worker's jobs changes, never a job's answer.
+// No starvation: a household has at most 8 Sims and a route has one job at a time, so an unmarked job waits at most 8 more jobs.
+static LONG g_pfMode;                   // the ini switch
+static DWORD g_pfH;                     // sim thread: route of the last op 37, good for its next START only
+static volatile LONG g_pfJumps, g_pfAhead;  // worker: marked jobs run ahead of an older unmarked one / unmarked jobs passed
+static void PfSet(DWORD handle) { g_pfH = handle; }
+static LONG PfTake(DWORD handle) {
+    const LONG r = handle && g_pfH == handle ? 1 : 0;
+    g_pfH = 0;
+    return r;
+}
+// does queued job a run before queued job b? (EA order and PlayerFirst=0: oldest START first)
+static bool PfBefore(LONG mode, LONG aPf, DWORD aSeq, LONG bPf, DWORD bSeq) {
+    if (mode == 1 && aPf != bPf) return aPf != 0;
+    return (LONG)(aSeq - bSeq) < 0;
+}
 #include "crashev.h"  // docs/186 §8: [CrashForensics] OurEvents ring (CeRec), recorded by the feature files below
 // routegate.cpp / rtsites.cpp: guarded routing calls open now on threads other than the worker (gate leaves, quadtree
 // mutators, destroys, saves). The worker does not start a job while > 0: it sets A_RUNNING, then reads this, and backs
 // off if set; those callers add 1, then read A_RUNNING (Dekker order, both interlocked).
 static volatile LONG g_rgOffSimOpen;
+// docs/673 [RouteJobPhases] HoldProbe (workerhold.cpp), counting only: > 0 while the sim thread waits on +0x918 behind the worker
+// (LockAcquireAsync's pump loop); the job hooks of ServeAsync
+static volatile LONG g_whSimWait;
+static void WhJobBegin();
+static void WhJobEnd(DWORD handle, int kind, LONG us, LONG gameUs);
+static void WhHost(LONGLONG fromQ);  // Proxy: a host-call wait of the job
+static void WhIcDone();              // the job's IC returned
+static void WhRelease();             // right before the job's +0x918 release
+static void PelJobEnd();             // tailunlock.cpp ([RouteAsync] PlanEndLend): the same point
 // [LocoWindow] (locowin.cpp, design H2): g_g0wIn = 1 while the sim thread is inside Locomotion_Update (both modes);
 // g_g0Win = 1 meanwhile in Mode 1 only: the worker starts no queued job (ServeAsync, same Dekker order as g_rgOffSimOpen).
 // Written by the sim thread only; every sim wait that needs a not yet started job clears g_g0Win first (G0wDrop).
@@ -3382,6 +4172,28 @@ static __declspec(thread) int t_p5bSite;     // routegate.cpp / p5b.cpp (0.34.2)
 enum { HA_LOCK, HA_OTHERLOCK, HA_JOB, HA_PLANWAIT, HA_N };
 static void HaNote(DWORD key, LONG us, int cls);  // hitchattr.cpp ([HitchAttr], per-frame sim waits)
 static void RjnWait(DWORD key, LONG us, DWORD handle);  // hitchattr.cpp ([HitchAttr] JobNameMs, docs/247 §12.4)
+// [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (hitchsum.cpp, docs/666 §5), log only: the sim frame's waits and sync plans
+// behind the "hitch:" line, and the +0x918 wait line. Off (default): one test of these globals at each call site.
+static volatile LONG g_hsOn, g_hsLockLogUs;                    // HitchMs set / RouteLockMs in us
+static LONG g_hsJobLogUs = 300000, g_hsJobLinesPerMin = 20;    // JobWaitLogMs in us / JobWaitLinesPerMin (SwNote's line)
+static void HsJob(int site, LONG us, DWORD handle);
+static void HsOtherLock(LONG us);
+static void HsGc(LONG us);
+static void HsSync(const LONG* ph, LONG us);
+static void HsSyncMs(LONG ms);
+static void HsJobEnd(DWORD handle, DWORD seq, LONG us, LONG kind, LONG who);
+static void HsLock(DWORD key, LONG us, LONGLONG t0, DWORD holder, bool pump);
+static LONG HsLockTimed(void* lock, void* edx, const DWORD* deadline, DWORD key);
+// docs/250: every owner-thread job wait HaNote sees (lock, plan wait, job), summed always (owner thread only, plain writes),
+// with the key of the last one; gvro.cpp ([GoalValidRO] Attr) and steerro.cpp ([SteerRO] Retry) read differences of it
+static LONG g_w918Us;
+static DWORD g_w918Key;
+// docs/250 §13.3 (gvro.cpp gvaNoLater*): owner-thread acquires of the routing lock while gvattr watches a plan (LockAcquireHook);
+// §12.3 gvaWhyWaitUs: the SyncIc reason of the plan running on the sim thread (GVA_WHY_NONE = not under SyncIc)
+static bool g_gvaWatch;
+static LONG g_gvaTakes;
+enum { GVA_WHY_NONE = 19 };
+static LONG g_gvaWhy = GVA_WHY_NONE;
 // [UnseenProbe] (unseen.cpp, docs/143): keyed waits and +0x918 acquires split by the agent class of the sim thread
 static bool g_unOn;
 static void UnWait(DWORD key, LONG us);
@@ -3424,9 +4236,9 @@ static void WaitNote(DWORD key, LONG us, DWORD mwTok = 0) {
 // removes its key from the warm-up slice on (AvoidRO, SlotEnabledRO, DeferFootprint) so hid that key's off-half wait
 // (2026-10-22 pairs, docs/51 §218). The A/B keys get their slots at start.
 static void SeedWaitKeys() {
-    static const DWORD kKeys[] = {0x0085FE10, 0x0062EF7A, 0x0062F782, 0x00833593, 0x02000003, 0x00846D21, 0x008334CC,
-                                  0x00760BFF, 0x0062FB74, 0x00631814, 0x00631F40, 0x0083156D, 0x0082D296, 0x0085B50C,
-                                  0x00755990, 0x0075A64C};  // 2026-11-04: idle check site C, GoalValidRO site
+    static const DWORD kKeys[] = {TS3A(0x0085FE10), TS3A(0x0062EF7A), TS3A(0x0062F782), TS3A(0x00833593), 0x02000003, TS3A(0x00846D21), TS3A(0x008334CC),
+                                  TS3A(0x00760BFF), TS3A(0x0062FB74), TS3A(0x00631814), TS3A(0x00631F40), TS3A(0x0083156D), TS3A(0x0082D296), TS3A(0x0085B50C),
+                                  TS3A(0x00755990), TS3A(0x0075A64C)};  // 2026-11-04: idle check site C, GoalValidRO site
     for (int i = 0; i < (int)(sizeof(kKeys) / sizeof(kKeys[0])); i++) ts3native_counters.blockKey[i] = (LONG)kKeys[i];
 }
 static HANDLE g_asyncReady, g_asyncDone;
@@ -3457,6 +4269,12 @@ static u8* CallIc(int kind, u8* out, DWORD handle, const float* pt) {
     return CallIcRaw(kind, out, handle, pt);
 }
 enum { SW_RUNPLAN, SW_RTWAIT, SW_DISC, SW_COLLECT, SW_DROP, SW_OTHER, SW_N };  // docs/183: sim job wait sites (swN etc.)
+// [RouteAsync] CutOnWait (plandeadline.cpp): one sim-thread wait's ask. SW_LOCK = the +0x918 pump (not a job-wait site: no sw counters)
+enum { SW_LOCK = SW_N };
+struct CowWait { LONG seq, scope; LONGLONG at, jobT0; DWORD handle; int site; };
+static void CowAsk(int site, CowWait* w);
+static void CowDone(CowWait* w);
+static bool CowPoll();
 static void WaitAsyncDone(int site = SW_OTHER);
 // P5c (p5c.cpp, [RouteSnap] FreeLock=1, docs/94 §22.11): the sim may own the job's +0x918 inside a window; it never waits for
 // the job holding it (P5cHandBegin / P5cHandEnd around a wait, P5cPlanHere in RunPlan, P5cNrEnter at the D2 entries)
@@ -3492,8 +4310,8 @@ static volatile LONG g_auAsk;
 // Each such call goes back to the waiting caller thread and runs there, as it would have without the worker. Only one
 // of the two threads runs at a time, so a plan started inside that managed call goes to the worker the same way.
 typedef void*(__cdecl* InvokeFn)(void* method, void* obj, void** params, void** exc);
-static DWORD* g_invokeSlot = (DWORD*)(uintptr_t)0x01195B60;  // set by mono_install_runtime_invoke 0xEA1470; 0xEA1080 before
-static DWORD g_invokeExpect = 0x00E5A600;  // the interpreter's runtime_invoke, installed by mono_interp_init 0xE5A680
+static DWORD* g_invokeSlot = (DWORD*)(uintptr_t)TS3A(0x01195B60);  // set by mono_install_runtime_invoke 0xEA1470; 0xEA1080 before
+static DWORD g_invokeExpect = TS3A(0x00E5A600);  // the interpreter's runtime_invoke, installed by mono_interp_init 0xE5A680
 static bool g_invokeCheckBytes = true;     // selftest turns it off (its fake invoke has another prologue)
 static const u8 kInvokePrologue[] = {0x81, 0xEC, 0x50, 0x01, 0x00, 0x00, 0x68, 0x50, 0x01, 0x00, 0x00};  // sub esp,150h; push 150h
 // prologue as read at load ([RouteAsync] start), before the Frida profiler can attach: its task attribution hooks 0xEA1090
@@ -3506,6 +4324,10 @@ static InvokeFn g_invokeOrig;
 struct InvokeJob { void* a[4]; void* self; void* result; LONGLONG tPost, tPick, tDone, nested; };
 static InvokeJob* volatile g_invJob;
 static HANDLE g_invReady, g_invDone;
+// docs/637 [RouteAsync] TaskServe: 1 from Proxy's post until a serve site picks the call up (ServeInvoke clears it first), so
+// the between-tasks check reads a flag and makes no wait call while nothing is posted; g_invPostAt = the post's QPC (mode on)
+static volatile LONG g_invPosted;
+static volatile LONGLONG g_invPostAt;
 
 // Host delegate call (docs/18 "Crash: async route assert"): MonoScriptHost vtable slot 0x108B7C4 -> 0xD75FA0, thiscall, hidden
 // out pointer + 3 args, ret 10h, returns out. It boxes the callback arguments (mono_value_box), clears the running task's
@@ -3514,9 +4336,9 @@ static HANDLE g_invReady, g_invDone;
 // from 0xD70F60 -> interp.c:3595 assert). So the whole call goes to the caller/owner thread, as it runs without the worker.
 typedef void*(__fastcall* HostCallFn)(void* self, void* edx, void* out, void* a2, void* a3, void* a4);
 static HostCallFn g_hostCallOrig;
-static const DWORD HOST_CALL = 0x00D75FA0;
+static const DWORD HOST_CALL = TS3A(0x00D75FA0);
 static const u8 kHostCallPrologue[] = {0x55, 0x8D, 0x6C, 0x24, 0x98, 0x81, 0xEC, 0x84, 0x00, 0x00, 0x00};  // push ebp; lea ebp,[esp-68h]; sub esp,84h
-static DWORD* g_hostPtr = (DWORD*)(uintptr_t)0x011EE514;    // MonoScriptHost (ctor 0xD7E010)
+static DWORD* g_hostPtr = (DWORD*)(uintptr_t)TS3A(0x011EE514);    // MonoScriptHost (ctor 0xD7E010)
 
 // The caller's FPU state goes with the job: D3D9 can leave the game thread's x87 at single precision, and the
 // search must round the same way to find the same path.
@@ -3549,9 +4371,25 @@ static void ServePlan() {
 }
 
 // [RouteJobPhases] HostSplit (hostcalls.cpp, docs/159 §5): serve sites, stamps; t_hcJob = the job the worker runs (0 = none)
-enum { HC_PUMP918, HC_PUMPOTHER, HC_READY, HC_ASYNCDONE, HC_JOBDONE, HC_RUNPLAN, HC_SITES };
+// HC_TASK: [RouteAsync] TaskServe (taskserve.cpp, docs/637), between two script task runs; outside the hcN rows (layout kept)
+enum { HC_PUMP918, HC_PUMPOTHER, HC_READY, HC_ASYNCDONE, HC_JOBDONE, HC_RUNPLAN, HC_SITES, HC_TASK = HC_SITES };
 static __declspec(thread) LONG t_hcJob;
+// DoorMemoX: the running job's scope (kdScope from ts3fixes UfWhy, 2 when marked uf): 0 unknown, 1 household or unknown, 2 unseen, 3 seen NPC
+static __declspec(thread) LONG t_hcScope;
 static LONG g_hcJobSeq;  // worker only
+// docs/674 [RouteSnap] DoorShare (doorshare.cpp): the running job's Sim class (op 40 of its route, 0 = none) and where the job
+// is: open Route_PlanLocked calls and finished outermost ones (door asks by part of the job, counting only)
+static __declspec(thread) LONG t_dsBits, t_dsPlDepth, t_dsPlans;
+static void DsIcBump(int ic, const DWORD* slot);  // routesnap.cpp's IC slots and World_FireEvent detour -> doorshare.cpp
+static void DsWevBump(DWORD id);
+static DWORD g_dsH;   // sim thread: route of the last op 40, good for its next START only
+static LONG g_dsBits;
+static void DsClassSet(DWORD handle, LONG bits) { g_dsH = handle, g_dsBits = bits; }
+static LONG DsClassTake(DWORD handle) {
+    const LONG r = handle && g_dsH == handle ? g_dsBits : 0;
+    g_dsH = 0;
+    return r;
+}
 static LONGLONG HcNow();
 static void HcPost(InvokeJob& v);
 static void HcPick(InvokeJob& v, int site);
@@ -3560,6 +4398,7 @@ static void HcWake(InvokeJob& v);
 // Caller side: runs the worker's managed call on this (Mono-attached) thread. site = HC_* (who picked it up)
 static void ServeInvoke(int site) {
     InvokeJob& v = *g_invJob;
+    g_invPosted = 0;  // docs/637: before the call runs; the worker posts its next call only after g_invDone
     if (v.tPost) HcPick(v, site);
     static void* seen[8];  // first distinct MonoMethod pointers, logged once each, to name the callbacks later
     static int nSeen;
@@ -3584,6 +4423,9 @@ static void ServeInvoke(int site) {
     SetEvent(g_invDone);
 }
 
+// docs/644 (plancand.cpp PCC_HOST): the candidate split's host frame (the worker's wait in Proxy, or the script itself on the sim thread)
+static bool PccHostEnter(const void* mark);
+static void PccHostLeave(const void* mark);
 // [RouteJobPhases] (routephases.cpp, docs/150 §7): job and host-wait frames on the worker
 static void RjpJobBegin(int kind);
 static void RjpJobEnd(LONG us);
@@ -3610,6 +4452,8 @@ static void* Proxy(InvokeJob& v) {
     const bool rjp = RjpHostBegin((DWORD*)&t0);  // [RouteJobPhases]: the wait is phase host, nested plans its children
     HcPost(v);                                   // HostSplit: post stamp (worker in a job only)
     LONGLONG ufAt = t_ufJob ? HcNow() : 0;
+    if (ts3native_taskserve.mode) g_invPostAt = HcNow();  // docs/637: queue time of a call TaskServe picks up
+    InterlockedExchange(&g_invPosted, 1);
     SetEvent(g_invReady);
     HANDLE h[2] = {g_invDone, g_jobReady};
     while (WaitForMultipleObjects(2, h, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {  // a plan from inside the call
@@ -3621,6 +4465,8 @@ static void* Proxy(InvokeJob& v) {
     }
     if (t_ufJob) UfHostLate(ufAt);
     if (t_jobT0) t_jobHostUs += UsSince(t0);  // docs/134 §11: the job waits for the sim thread to run its managed call
+    if (t_jobT0) WhHost(t0.QuadPart);         // docs/673 §9 HoldProbe: by the part of the job it was posted in
+    if (t_jobT0 && t_jobCapAt && t0.QuadPart >= t_jobCapAt) t_pcHostUs += UsSince(t0);  // docs/264 §4.3: a host call after the cut
     if (p6) t_p6.doorN++, t_p6.doorUs += UsSince(p6t);
     if (v.tPost) HcWake(v);
     if (rjp) RjpHostEnd((DWORD*)&t0);
@@ -3641,9 +4487,17 @@ static void* __cdecl InvokeHook(void* method, void* obj, void** params, void** e
 static void* __fastcall HostCallHook(void* self, void* edx, void* out, void* a2, void* a3, void* a4) {
     QlSharedTrip(SLD_MANAGED);
     if (t_snapRun) P4Abort(P4_AB_MANAGED);
-    if (!ForCaller()) return g_hostCallOrig(self, edx, out, a2, a3, a4);
-    InvokeJob v = {{out, a2, a3, a4}, self, NULL};
-    return Proxy(v);
+    const void* const mark = _AddressOfReturnAddress();
+    const bool timed = PccHostEnter(mark);  // docs/644 CandidateSplit: split column "host" (false outside a planner call)
+    void* r;
+    if (!ForCaller()) {
+        r = g_hostCallOrig(self, edx, out, a2, a3, a4);
+    } else {
+        InvokeJob v = {{out, a2, a3, a4}, self, NULL};
+        r = Proxy(v);
+    }
+    if (timed) PccHostLeave(mark);
+    return r;
 }
 
 // Hooks the slot once, from the first worker plan (it comes from script, so Mono is up). false: plans stay inline.
@@ -3786,18 +4640,44 @@ static void JobLongNote(const AsyncJob* j, LONG us, bool capped, const JobSplit*
     if (lines++ >= 20) return;
     // arm, scope (kdScope from ts3fixes UfWhy at START: 1 = household or another seen Sim, 3 = seen NPC, 0 = no answer) and
     // wall stamp (GetTickCount, the same clock as the ufplan: lines' "at"; the native log has no time column)
-    char tag[64];
-    _snprintf_s(tag, sizeof(tag), _TRUNCATE, ", arm %s, scope %s, at %lu ms", AbArmTag(), KdScopeTag(j->kdScope), now);
+    char tag[128];
+    char uw[64] = "";  // docs/264 §4.1: a job with no deadline of its own names why, and the ceiling it ran under
+    if (t_ucWhy > 0 && t_ucWhy < UCW_N) _snprintf_s(uw, sizeof(uw), _TRUNCATE, ", uncut: %s (%s)", kUcWhy[t_ucWhy], t_ucJob ? "KdUncutCeilMs" : "no ceiling");
+    _snprintf_s(tag, sizeof(tag), _TRUNCATE, "%s, arm %s, scope %s, at %lu ms", uw, AbArmTag(), KdScopeTag(j->kdScope), now);
     if (!s) {
         char sc[48] = "";
         if (!j->fb && !j->af) ScTagText(sc, sizeof(sc), j->sc);
         Log("route async: long job %ld ms, %s START, IC kind %d, route %08lX%s%s%s", us / 1000, j->fb ? "foreign" : j->af ? "A10 foreign" : "own", j->kind,
-            j->handle, !capped ? "" : j->uf ? ", capped (UnseenFallback)" : t_kdKind ? ", capped (KindDeadlines)" : j->probe ? ", capped (stuck-check probe, PlanDeadlineMs)" : ", capped (FbJobCapMs)", sc, tag);
+            j->handle, !capped ? "" : t_ucJob ? ", capped (KdUncutCeilMs)" : j->uf ? ", capped (UnseenFallback)" : t_kdKind ? ", capped (KindDeadlines)" : j->probe ? ", capped (stuck-check probe, PlanDeadlineMs)" : ", capped (FbJobCapMs)", sc, tag);
         return;
     }
     Log("route async: long job %ld ms, foreign START, IC kind %d, route %08lX%s, capAt %ld ms tail %ld ms, plan %ld ms host %ld ms "
-        "other %ld ms%s", us / 1000, j->kind, j->handle, !capped ? "" : j->uf ? ", capped (UnseenFallback)" : t_kdKind ? ", capped (KindDeadlines)" : ", capped (FbJobCapMs)", s->capAtUs < 0 ? -1 : s->capAtUs / 1000,
+        "other %ld ms%s", us / 1000, j->kind, j->handle, !capped ? "" : t_ucJob ? ", capped (KdUncutCeilMs)" : j->uf ? ", capped (UnseenFallback)" : t_kdKind ? ", capped (KindDeadlines)" : ", capped (FbJobCapMs)", s->capAtUs < 0 ? -1 : s->capAtUs / 1000,
         s->tailUs < 0 ? -1 : s->tailUs / 1000, s->planUs / 1000, s->hostUs / 1000, (us - s->planUs - s->hostUs) / 1000, tag);
+}
+
+// docs/264 §4.3 (issue #338): a job that ran >= 300 ms past its cut: what it did there. Plans started after the cut (and how
+// many of them were capped at once: their deadline was already past), their time, host calls after the cut, the rest
+// (a search already running when the cut came, the IC's own failure handling). 20 lines a minute.
+static void PostCutTailNote(const AsyncJob* j, LONG us, LONG capAtUs, LONG tailUs) {
+    static DWORD minute, lines;
+    const DWORD now = GetTickCount();
+    if (now - minute >= 60000) minute = now, lines = 0;
+    if (lines++ >= 20) return;
+    Log("route async: post-cut tail %ld ms, route %08lX (%s START, IC kind %d, scope %s), job %ld ms, cut at %ld ms; plans after the cut %ld "
+        "(capped at once %ld) %ld ms, host after the cut %ld ms, other %ld ms", tailUs / 1000, j->handle, j->fb ? "foreign" : j->af ? "A10 foreign" : "own",
+        j->kind, KdScopeTag(j->uf ? 2 : j->kdScope), us / 1000, capAtUs / 1000, t_pcPlans, t_pcCapped, t_pcPlanUs / 1000, t_pcHostUs / 1000,
+        (tailUs - t_pcPlanUs - t_pcHostUs) / 1000);
+}
+// docs/264 §4.2: the job the worker runs now, for the sim thread's wait lines (reads a live slot: log text only)
+static void RunJobText(char* b, size_t n) {
+    const AsyncJob* r = g_runJob;
+    if (!r || g_async.state != A_RUNNING) { _snprintf_s(b, n, _TRUNCATE, "no job running"); return; }
+    char sc[48] = "";
+    if (!r->fb && !r->af) ScTagText(sc, sizeof(sc), r->sc);
+    const LONG w = g_runWhy;
+    _snprintf_s(b, n, _TRUNCATE, "%s START, IC kind %d, scope %s%s, uncut: %s", r->fb ? "foreign" : r->af ? "A10 foreign" : "own", r->kind,
+                KdScopeTag(r->uf ? 2 : r->kdScope), sc, w > 0 && w < UCW_N ? kUcWhy[w] : "no");
 }
 
 // docs/134 §11 buckets: <100, <300, <500, <1000, <2000, >=2000 ms
@@ -3841,15 +4721,22 @@ static void OwSimWait(LONG us, bool own, DWORD handle) {
     Log("route jobs: sim waited %ld ms behind an own job (route %08lX%s)", us / 1000, handle, sc);
 }
 static void FbjdJobEnd(LONG us, LONGLONG end, LONGLONG dl);  // plandeadline.cpp (docs/178 T1)
+static LONG UcCapUs(LONG capUs);                                   // plandeadline.cpp (docs/264): KdUncutCeilMs for a job with no deadline
+static void UcJobEnd(const AsyncJob* j, bool capped, LONG us);    // plandeadline.cpp (docs/264): counter + line when it hit
 static LONG KdJobBegin(const AsyncJob* j);                          // plandeadline.cpp (docs/197): -1 = KindDeadlines off
 static void KdJobEnd(const AsyncJob* j, bool capped, LONG us, LONGLONG end, LONGLONG dl);
 static u64 KdFollower(DWORD handle);  // sim thread, at START
 static u64 RfGoal(DWORD handle);      // sim thread, at START: destinations hash for routefail retry
+static LONG RfIaPeek(DWORD handle);   // sim thread, at START: the routefail interaction id ts3fixes sent with the scope (docs/226)
 static LONG KdScopeTake(DWORD handle);
-static void KdScopeSet(DWORD handle, LONG scope);
+static LONG KdScopePeek(DWORD handle);  // sim thread, at START: the scope ts3fixes sent for this route, 0 = none (not taken)
+static void KdScopeSet(DWORD handle, LONG scope, LONG ia = 0);
 static void RfJobNote(const AsyncJob* j, bool capped, LONG us, const JobSplit& s, LONG capUs, int cutMask);
 static void KdStuckMark(DWORD handle);
 static LONG ScProbeUs();              // the stuck-check probe's deadline: KindDeadlines' probe kind, else PlanDeadlineMs
+static void CowJobBegin(const AsyncJob* j, LONGLONG t0);  // plandeadline.cpp ([RouteAsync] CutOnWait)
+static void CowJobEnd(bool capped);
+static void ReadCutOnWait(const wchar_t* ini);
 
 // Worker side: runs every queued job, oldest first. Each job: the whole original route IC of its kind (IC_Route_Plan, or
 // with A10 Replan / PlanFromPoint / ReplanFromPosition: start points, Route_PlanCommon, Route_PlanLocked, result mapping)
@@ -3860,8 +4747,19 @@ static void ServeAsync() {
     static const DWORD kInfinite = 0xFFFFFFFF;
     for (;;) {
         AsyncJob* j = NULL;
+        const LONG pfMode = g_pfMode;
+        int passed = 0;  // PlayerFirst: unmarked queued jobs older than the marked one picked
         for (int i = 0; i < kJobs; i++)
-            if (g_jobs[i].state == J_QUEUED && (!j || (LONG)(g_jobs[i].seq - j->seq) < 0)) j = &g_jobs[i];
+            if (g_jobs[i].state == J_QUEUED && (!j || PfBefore(pfMode, g_jobs[i].pf, g_jobs[i].seq, j->pf, j->seq))) j = &g_jobs[i];
+        if (j && pfMode == 1 && j->pf)
+            for (int i = 0; i < kJobs; i++)
+                passed += g_jobs[i].state == J_QUEUED && !g_jobs[i].pf && (LONG)(g_jobs[i].seq - j->seq) < 0;
+        if (passed) {
+            const LONG n = InterlockedIncrement(&g_pfJumps);
+            InterlockedExchangeAdd(&g_pfAhead, passed);
+            if ((n & (n - 1)) == 0)  // 1, 2, 4, ...: a trail, not a line per job
+                Log("route async: PlayerFirst: job %08lX ran ahead of %d older queued job(s); jumps %ld, jobs passed %ld", j->handle, passed, n, g_pfAhead);
+        }
         if (!j) {
             g_p4Phase = 2;
             P4ShadowIdle();  // a shadow parked behind the job that just ran (0.34.1)
@@ -3891,6 +4789,7 @@ static void ServeAsync() {
             LockAcquireHook(j->lock, NULL, &kInfinite);
             g_async.handle = j->handle;
             g_async.lock = j->lock;
+            g_runWhy = 0, g_runJob = j;  // docs/264 §4.2: the sim's wait lines name this job
             g_asyncSeq = j->seq;  // [MovedWaits]: which job a skip and a wait were behind
             InterlockedExchange(&g_async.state, A_RUNNING);
             inPass = g_g0wIn != 0;  // before the window check (G0wStarted)
@@ -3941,25 +4840,38 @@ static void ServeAsync() {
             const LONG ufUs = UfEffUs(1);  // unseenfb.cpp: the setting minus the learned job overrun (docs/202 §3.1.1)
             t_fbCapUs = t_fbCapUs && t_fbCapUs < ufUs ? t_fbCapUs : ufUs;
         }
+        // docs/264 (issue #338) [RouteAsync] KdUncutCeilMs: a job left with no deadline at all (backoff level 2, stuck-check or
+        // watchdog tag, a 0 ms kind, KindDeadlines off) gets the long hard ceiling, every scope: it ends through the same exits
+        t_ucWhy = t_fbCapUs ? UCW_NONE : t_kdWhy ? t_kdWhy : kdUs < 0 ? UCW_KDOFF : UCW_KIND0;  // docs/264 §4.1
+        g_runWhy = t_ucWhy;
+        const LONG ucUs = UcCapUs(t_fbCapUs);
+        t_ucJob = ucUs != t_fbCapUs;
+        t_fbCapUs = ucUs;
         t_fbDeadline = t_fbCapUs ? t0.QuadPart + (LONGLONG)t_fbCapUs * g_qpf.QuadPart / 1000000 : 0;
         t_jobT0 = t0.QuadPart;  // docs/197 §7: every job, routefail logging reads its split (the clock only, nothing branches on it)
         t_jobCapAt = 0;
         t_jobPlanUs = t_jobHostUs = t_jobNodes = t_jobPlans = 0;
+        t_pcPlans = t_pcCapped = t_pcPlanUs = t_pcHostUs = 0;
         t_ufHostLateQ = 0;
         t_fbCapHit = 0;
         t_fbjdCut[0] = t_fbjdCut[1] = t_fbjdCut[2] = 0;
         KdCamJobArm();
         // docs/178 T1: the cell A* / water deadline exits (plandeadline.cpp) also answer this thread while the job has a
         // deadline; PdSkip reads fbjdMode per call (runtime switch)
-        if (t_fbDeadline && ((k.fbjdReady & 3) || ((t_scProbe || kdUs > 0 || t_ufJob) && (k.pdReady & 6))))
+        if (t_fbDeadline && ((k.fbjdReady & 3) || ((t_scProbe || kdUs > 0 || t_ufJob || t_ucJob) && (k.pdReady & 6))))
             InterlockedExchange((volatile LONG*)&g_pdWkTid, (LONG)GetCurrentThreadId());
+        CowJobBegin(j, t0.QuadPart);  // [RouteAsync] CutOnWait: may a sim wait end this job early (townie scopes only)?
         RjpJobBegin(j->fb ? 2 : j->kind ? 1 : 0);  // [RouteJobPhases] (routephases.cpp): own START, own A10, foreign
+        WhJobBegin();                               // docs/673 HoldProbe (workerhold.cpp), counting only
         t_hcJob = ++g_hcJobSeq;                     // hostcalls.cpp: door keys and the memo are per job
+        t_hcScope = j->uf ? 2 : j->kdScope;         // hostcalls.cpp: DoorMemoX answers only unseen / seen-NPC jobs
+        t_dsBits = j->dsBits, t_dsPlDepth = 0, t_dsPlans = 0;  // docs/674 DoorShare
         t_p6wOut = j->p4 >= 2 ? P6O_REFUSED : P6O_PLAIN;  // [P6Waits]: armed until P5Plan says taken / stale
         t_p6wArm = P6wArmNow();                            // [P6Waits]: the arm at the job's start
         UafTagScope uafTag(UT_ROUTE_JOB, (const void*)&ServeAsync);  // [UafCheck] frees during the worker job and its end
         CallIc(j->kind, j->result, j->handle, j->pt);
-        t_hcJob = 0;
+        WhIcDone();  // docs/673 §9 HoldProbe: the tail ends here, our own job end begins
+        t_hcJob = 0, t_hcScope = 0, t_dsBits = 0;
         LendBackstop();  // CE-4 (docs/154): a lend window an unwind left open is closed before the release below
         P5EarlyEnd();    // P6EarlyCopy (docs/94 §24.14): an early clone the IC never planned with (no Route_PlanLocked)
         InterlockedExchange((volatile LONG*)&g_pdWkTid, 0);
@@ -3976,6 +4888,7 @@ static void ServeAsync() {
         if (j->fb) FbjdJobEnd(us, t0.QuadPart + (LONGLONG)us * g_qpf.QuadPart / 1000000, dl);
         KdJobEnd(j, capped, us, t0.QuadPart + (LONGLONG)us * g_qpf.QuadPart / 1000000, dl);  // docs/197
         RjpJobEnd(us);  // reads t_fbjdCut for the per-phase long-job line (docs/178 T1)
+        WhJobEnd(j->handle, j->kind, us, t_jobPlanUs);  // docs/673 HoldProbe
         JobSplit split = {-1, -1, t_jobPlanUs, t_jobHostUs};
         if (t_jobCapAt) {
             split.capAtUs = (LONG)((t_jobCapAt - t0.QuadPart) * 1000000 / g_qpf.QuadPart);
@@ -3986,6 +4899,10 @@ static void ServeAsync() {
         P4LiveEnd(j);
         SetX87(cw);
         _mm_setcsr(csr);
+        CowJobEnd(capped);  // before the release: a waiting sim reads whether the asked job ended cut
+        if (g_hsOn | g_hsLockLogUs) HsJobEnd(j->handle, j->seq, us, j->kind, j->fb ? 1 : j->af ? 2 : 0);  // docs/666: before the release
+        WhRelease();  // docs/673 §9 HoldProbe: our own job end under the lock, counted
+        PelJobEnd();  // docs/673 §9 PlanEndLend: what was left of the job after its window
         LockReleaseHook(j->lock, NULL);
         MwJobEnd(j->seq);
         P6wJobEnd(j->seq, us);
@@ -4000,7 +4917,7 @@ static void ServeAsync() {
         TwArm(false);
         InterlockedExchangeAdd(&k.asyncUs, us);
         Max(&k.asyncMaxUs, us);
-        if (capped && !j->probe && !t_kdKind && !t_ufJob) InterlockedIncrement(&k.fbjcCapped);  // docs/163 §10 probe / docs/197 kd cuts: own lines and kdCut
+        if (capped && !j->probe && !t_kdKind && !t_ufJob && !t_ucJob) InterlockedIncrement(&k.fbjcCapped);  // docs/163 §10 probe / docs/197 kd cuts: own lines and kdCut
         if (t_ufJob) {  // docs/202: ufCut before J_DONE (set below), counters; §3.1.1 overrun = end - deadline less host waits, by exit
             const LONGLONG lateQ = dl ? t0.QuadPart + (LONGLONG)us * g_qpf.QuadPart / 1000000 - dl : -1;
             const unsigned mask = (t_fbjdCut[0] ? 1u : 0u) | (t_fbjdCut[1] ? 2u : 0u) | (t_fbjdCut[2] ? 4u : 0u);
@@ -4026,6 +4943,10 @@ static void ServeAsync() {
             }
         }
         if (us >= 200000) JobLongNote(j, us, capped, j->fb ? &split : NULL);
+        UcJobEnd(j, capped, us);
+        if (split.tailUs >= 300000) PostCutTailNote(j, us, split.capAtUs, split.tailUs);  // docs/264 §4.3
+        t_ucJob = false;
+        t_ucWhy = t_kdWhy = 0;
         RfJobNote(j, capped, us, split, rfCapUs, (t_fbjdCut[0] ? 1 : 0) | (t_fbjdCut[1] ? 2 : 0) | (t_fbjdCut[2] ? 4 : 0));
         j->doneTick = GetTickCount();
         InterlockedExchange(&j->state, J_DONE);
@@ -4036,10 +4957,148 @@ static void ServeAsync() {
     }
 }
 
+// [Rewind] Park (docs/270 §19, default 0; only the rewind test queues turn it on): the rewind tool (tools/harness/rewind)
+// asks through the mapping Local\rewind-ts3n-<pid> that this worker sit in its idle wait below while it snapshots or
+// rewinds. While asked, no async job starts (AsyncStartBody: the plan runs inline, as with async off); running and queued
+// jobs finish as usual (their managed calls need the sim thread, so a job left running would hold the worker in Proxy's
+// deeper wait), and the worker comes back here. idle says the worker is in this wait.
+struct RwPark { DWORD magic, version; volatile LONG request, idle, held; };
+static RwPark* g_rwPark;  // NULL = off
+static DWORD WINAPI RewindKeepAsync(LPVOID);
+static void RewindParkInit(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"Rewind", L"Park", 0, ini)) return;
+    wchar_t name[64];
+    PathFmt(name, L"Local\\rewind-ts3n-%lu", GetCurrentProcessId());
+    HANDLE m = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(RwPark), name);
+    RwPark* p = m ? (RwPark*)MapViewOfFile(m, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(RwPark)) : NULL;
+    if (!p) { Log("FAIL [Rewind] Park: mapping %ls (err %lu)", name, GetLastError()); return; }
+    p->version = 1;
+    p->magic = 0x4E545752;  // 'RWTN', written last: the tool reads the block only with it
+    g_rwPark = p;
+    Log("[Rewind] Park on: the route worker parks in its idle wait when %ls asks", name);
+    if (HANDLE t = CreateThread(NULL, 64 * 1024, RewindKeepAsync, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, NULL)) CloseHandle(t);
+}
+// [Rewind] Park=1 only (docs/270 §32): keeps mswsock's async thread from ending during a long job. A rewind refuses a
+// thread that ended after the snapshot, and SockAsyncThread (mswsock.dll) ends after 300 s idle when its reference count
+// is 1. One WSAAsyncSelect registration holds a reference while its AFD poll is pending (SockAsyncSelectHelper ->
+// SockCheckAndReferenceAsyncThread; dropped only in SockAsyncSelectCompletion when the select ends), and with the count
+// above 1 SockAsyncThread waits in NtRemoveIoCompletion with no timeout. The socket listens on 127.0.0.1 at a free port
+// and nobody connects: no traffic, so [Rewind] Offline holds. Window and socket exist before any snapshot. Everything is
+// loaded by name: ts3native does not import ws2_32 or user32.
+// [Rewind] Park=1 only (docs/270 §32): combase's RPC cache workers (CRpcThreadCache::RpcWorkerThreadEntry) end after 30 s
+// idle, and a rewind refuses a thread that ended after the snapshot. CRpcThread::WorkerLoop waits for work with
+// WaitCoalesced(timer, 1, &event, 30000, 30000, TRUE, &r) (coalescable timer, due -30000 * 10000 as 64-bit) or, when the
+// timer cannot be made, WaitForSingleObjectEx(event, 30000, TRUE); a timeout makes the worker leave the cache and exit.
+// The pattern covers the whole block from the WaitCoalesced arguments to the fallback call (register use, the cmovs on
+// the result, the branch to the fallback), not only the constant, so it finds the block wherever the function moves;
+// only the two imm32 30000 values are written: +5 (mov ecx, 7530h: WaitCoalesced's due time and tolerance) and +47
+// (push 7530h: the fallback's timeout), both to 0xFFFFFFFF. WaitCoalesced then sets its timer ~49.7 days out (no overflow:
+// the multiply is 64-bit), the fallback waits INFINITE. In this process's memory only; the file is never touched.
+static const char kCbPat[] = "8D 44 24 ?? B9 30 75 00 00 50 33 C0 40 50 51 51 56 8B D0 8B CF E8 ?? ?? ?? ?? 85 C0 0F B6 DB 6A 01 58 "
+                             "0F 48 D8 89 5C 24 ?? 84 DB 74 ?? 50 68 30 75 00 00 FF 36 FF 15";
+static const int kCbPatch[2] = {5, 47};
+// matches of a "AB ?? CD" pattern in [p, p + n); *at = the first one
+static int PatScan(const BYTE* p, size_t n, const char* pat, size_t* at) {
+    BYTE v[128]; bool any[128]; int m = 0;
+    for (const char* c = pat; *c && m < 128;) {
+        if (*c == ' ') { ++c; continue; }
+        any[m] = c[0] == '?';
+        v[m] = any[m] ? 0 : (BYTE)strtoul(c, NULL, 16);
+        ++m;
+        c += 2;
+    }
+    int hits = 0;
+    for (size_t i = 0; m && i + m <= n; ++i) {
+        int k = 0;
+        while (k < m && (any[k] || p[i + k] == v[k])) ++k;
+        if (k == m && hits++ == 0 && at) *at = i;
+    }
+    return hits;
+}
+// .text of a PE image: loaded (section RVA) or a file read into memory (raw offset)
+static bool PeText(const BYTE* b, size_t size, bool loaded, const BYTE** text, size_t* len) {
+    if (size < 0x40 || *(const WORD*)b != 0x5A4D) return false;
+    const DWORD pe = *(const DWORD*)(b + 0x3C);
+    if (pe + 0x18 > size || *(const DWORD*)(b + pe) != 0x4550) return false;
+    const IMAGE_FILE_HEADER* fh = (const IMAGE_FILE_HEADER*)(b + pe + 4);
+    const IMAGE_SECTION_HEADER* sh = (const IMAGE_SECTION_HEADER*)(b + pe + 0x18 + fh->SizeOfOptionalHeader);
+    for (int i = 0; i < fh->NumberOfSections; ++i)
+        if (!memcmp(sh[i].Name, ".text", 6)) {
+            const DWORD off = loaded ? sh[i].VirtualAddress : sh[i].PointerToRawData;
+            const DWORD n = loaded ? sh[i].Misc.VirtualSize : sh[i].SizeOfRawData;
+            if (!loaded && (size_t)off + n > size) return false;
+            *text = b + off; *len = n;
+            return true;
+        }
+    return false;
+}
+static void ModVersion(HMODULE m, char* out, size_t n) {
+    _snprintf_s(out, n, _TRUNCATE, "?");
+    HRSRC r = FindResourceW(m, MAKEINTRESOURCEW(1), MAKEINTRESOURCEW(16) /*RT_VERSION*/);
+    const BYTE* v = r ? (const BYTE*)LockResource(LoadResource(m, r)) : NULL;
+    const DWORD sz = r ? SizeofResource(m, r) : 0;
+    for (DWORD i = 0; v && i + sizeof(VS_FIXEDFILEINFO) <= sz; i += 4)
+        if (*(const DWORD*)(v + i) == 0xFEEF04BD) {
+            const VS_FIXEDFILEINFO* f = (const VS_FIXEDFILEINFO*)(v + i);
+            _snprintf_s(out, n, _TRUNCATE, "%u.%u.%u.%u", HIWORD(f->dwFileVersionMS), LOWORD(f->dwFileVersionMS), HIWORD(f->dwFileVersionLS), LOWORD(f->dwFileVersionLS));
+            return;
+        }
+}
+static void RewindCombaseKeep() {
+    const HMODULE cb = LoadLibraryW(L"combase.dll");
+    char ver[48] = "not loaded";
+    if (cb) ModVersion(cb, ver, sizeof ver);
+    const BYTE* text = NULL; size_t len = 0, at = 0;
+    const int hits = cb && PeText((const BYTE*)cb, ~(size_t)0, true, &text, &len) ? PatScan(text, len, kCbPat, &at) : 0;
+    bool ok = hits == 1;
+    for (int k = 0; ok && k < 2; ++k) {
+        BYTE* imm = (BYTE*)text + at + kCbPatch[k];
+        DWORD old = 0;
+        ok = VirtualProtect(imm, 4, PAGE_EXECUTE_READWRITE, &old) != 0;
+        if (ok) { *(volatile DWORD*)imm = 0xFFFFFFFF; VirtualProtect(imm, 4, old, &old); }
+    }
+    if (hits == 1) FlushInstructionCache(GetCurrentProcess(), text + at, 64);
+    if (ok) Log("[Rewind] combase keepalive: patched (combase %s, CRpcThread::WorkerLoop idle wait at +%zx: 30 s -> INFINITE, this process only)", ver, (size_t)(text - (const BYTE*)cb) + at);
+    else Log("[Rewind] combase keepalive: pattern not found, settle wait used (combase %s, %d matches)", ver, hits);
+}
+static DWORD WINAPI RewindKeepAsync(LPVOID) {
+    RewindCombaseKeep();  // first: before any cache worker of the game waits (docs/270 §32)
+    const HMODULE ws = LoadLibraryW(L"ws2_32.dll"), us = LoadLibraryW(L"user32.dll");
+    auto wsaStartup = ws ? (int(WINAPI*)(WORD, void*))GetProcAddress(ws, "WSAStartup") : NULL;
+    auto sock = ws ? (UINT_PTR(WINAPI*)(int, int, int))GetProcAddress(ws, "socket") : NULL;
+    auto bindF = ws ? (int(WINAPI*)(UINT_PTR, const void*, int))GetProcAddress(ws, "bind") : NULL;
+    auto listenF = ws ? (int(WINAPI*)(UINT_PTR, int))GetProcAddress(ws, "listen") : NULL;
+    auto asyncSel = ws ? (int(WINAPI*)(UINT_PTR, HWND, UINT, long))GetProcAddress(ws, "WSAAsyncSelect") : NULL;
+    auto lastErr = ws ? (int(WINAPI*)())GetProcAddress(ws, "WSAGetLastError") : NULL;
+    auto mkWnd = us ? (HWND(WINAPI*)(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID))GetProcAddress(us, "CreateWindowExW") : NULL;
+    auto getMsg = us ? (BOOL(WINAPI*)(MSG*, HWND, UINT, UINT))GetProcAddress(us, "GetMessageW") : NULL;
+    if (!wsaStartup || !sock || !bindF || !listenF || !asyncSel || !lastErr || !mkWnd || !getMsg) { Log("FAIL [Rewind] keepalive: ws2_32/user32 exports"); return 0; }
+    BYTE wsaData[512];
+    struct { short family; unsigned short port; DWORD addr; char zero[8]; } sa = {2 /*AF_INET*/, 0, 0x0100007F /*127.0.0.1*/, {}};
+    const HWND w = wsaStartup(0x0202, wsaData) ? NULL : mkWnd(0, L"STATIC", NULL, 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
+    const UINT_PTR s = w ? sock(2 /*AF_INET*/, 1 /*SOCK_STREAM*/, 6 /*IPPROTO_TCP*/) : ~(UINT_PTR)0;
+    if (!w || s == ~(UINT_PTR)0 || bindF(s, &sa, sizeof sa) || listenF(s, 1) || asyncSel(s, w, WM_APP, 8 /*FD_ACCEPT*/)) {
+        Log("FAIL [Rewind] keepalive: loopback async select (window %p, wsa error %d)", w, w ? lastErr() : 0);
+        return 0;
+    }
+    Log("[Rewind] keepalive on: one async select on a loopback listen socket holds mswsock's async thread (no idle end)");
+    MSG m;
+    while (getMsg(&m, NULL, 0, 0) > 0) {}  // FD_ACCEPT never comes: nobody connects
+    return 0;
+}
+static bool RewindHold() {
+    if (!g_rwPark || !g_rwPark->request) return false;
+    InterlockedIncrement(&g_rwPark->held);
+    return true;
+}
+
 static DWORD WINAPI WorkerMain(LPVOID) {
     for (;;) {
         HANDLE h[2] = {g_jobReady, g_asyncReady};
-        if (WaitForMultipleObjects(2, h, FALSE, INFINITE) == WAIT_OBJECT_0) ServePlan();
+        if (g_rwPark) InterlockedExchange(&g_rwPark->idle, 1);
+        const DWORD w = WaitForMultipleObjects(2, h, FALSE, INFINITE);
+        if (g_rwPark) InterlockedExchange(&g_rwPark->idle, 0);
+        if (w == WAIT_OBJECT_0) ServePlan();
         else ServeAsync();
     }
 }
@@ -4181,18 +5240,31 @@ static bool PrBegin(PrTok& t, const void* world, const int* starts, const int* g
                     DWORD guidLo, DWORD guidHi);
 static void PrEnd(bool on, const PrTok& t, const int* outList, u8 r);
 
+static void WhPlEnter();              // workerhold.cpp (docs/673 §9): the detour's outermost call on the worker in a job
+static void WhPlLeave();
+static void PelPlanEnd(DWORD ret);    // tailunlock.cpp ([RouteAsync] PlanEndLend, docs/673 §9)
 // noinline: P10 reads this frame's own return slot (selftest calls it directly)
 static __declspec(noinline) u8 __fastcall PlanLockedHook(void* world, void* edx, int* outList, int* starts, int* goals,
                                                          DWORD agent, DWORD doPlan, u8* opts, int* out1, int* out2,
                                                          DWORD guidLo, DWORD guidHi) {
     if (t_p6.act) t_p6.plans++;  // P6 split: planner calls per job (count only)
     if (t_kdCam == 1) KdCamPlanArgs(starts, goals);
-    if (t_p4Cap) return P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    if (!t_p10) return PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    LARGE_INTEGER t0;  // P10: a sim-thread plan inside one of the four route ICs
-    const DWORD tag = P10PlanBegin((const DWORD*)_AddressOfReturnAddress(), &t0);
-    const u8 r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
-    P10PlanEnd(tag, t0);
+    t_dsPlDepth++;  // docs/674: door asks by part of the job (counting only)
+    WhPlEnter();  // docs/673 §9 HoldProbe (nothing outside a probed worker job)
+    u8 r = 0;
+    if (t_p4Cap) {
+        r = P4LivePlan(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    } else if (!t_p10) {
+        r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+    } else {
+        LARGE_INTEGER t0;  // P10: a sim-thread plan inside one of the four route ICs
+        const DWORD tag = P10PlanBegin((const DWORD*)_AddressOfReturnAddress(), &t0);
+        r = PlanLockedBody(world, edx, outList, starts, goals, agent, doPlan, opts, out1, out2, guidLo, guidHi);
+        P10PlanEnd(tag, t0);
+    }
+    if (!--t_dsPlDepth) t_dsPlans++;
+    WhPlLeave();
+    PelPlanEnd((DWORD)(uintptr_t)_ReturnAddress());  // docs/673 §9: the job's +0x918 lent to a waiting sim taker at the plan's end
     return r;
 }
 
@@ -4225,7 +5297,7 @@ static u8 PlanLockedBody(void* world, void* edx, int* outList, int* starts, int*
     return r;
 }
 
-static const DWORD ROUTE_PLAN_LOCKED = 0x0082C6E0;
+static const DWORD ROUTE_PLAN_LOCKED = TS3A(0x0082C6E0);
 static const u8 kPlanLockedPrologue[] = {0x81, 0xEC, 0xD8, 0x00, 0x00, 0x00};  // sub esp,0xD8
 
 // --- Async route plan (docs/18 "Async plan"): the C# hook on ScriptCore.Route.Plan (mods/ts3fixes RouteBackoff.cs) asks
@@ -4246,7 +5318,7 @@ static const DWORD kAsyncOptHi = 0x04000000, kAsyncCancelHi = 0x40000000, kNoYie
 // state, 0xD70F60), then asserts yieldReturn on the *current* state (0xE59763). The current state is the innermost
 // ves_exec's (0xE53EB0 keeps it in 0x11F4170); a native->managed call (runtime_invoke 0xE5A600, or 0xD8A8E0) runs on a
 // fresh one. So a yield is only safe when the current state is the task's root state.
-static DWORD* g_curState = (DWORD*)(uintptr_t)0x011F4170;   // current interpreter state
+static DWORD* g_curState = (DWORD*)(uintptr_t)TS3A(0x011F4170);   // current interpreter state
 static bool CanYield() {
     const u8* host = (const u8*)(uintptr_t)*g_hostPtr;
     if (!host) return false;
@@ -4260,7 +5332,13 @@ static GetOptionFn g_getOptOrig;
 static LockAcquireFn g_lockOrig;
 static bool RtM1Allows(void** lock, int* why = NULL);  // rtsites.cpp; *why = the refusal's asyncRefusedM1 index
 static int RtM1Why();                                  // rtsites.cpp; the same test, no counter: refusal index or -1
-static void DiscPoll();               // discourage.cpp
+// docs/247 §13.4 C (counters v192 ds*): which drain point a forced DiscDrain wait happened at. START / A10-channel START (kinds 1-3 and the foreign kind 0) / READY /
+// CANCEL are our GetOptionHook points (a managed caller at task root could sleep there); the rest run inside EA native calls
+// (D1 add / remove, Usf, Fp2, the Fp2 reader flush, private footprint remove, GhostTest census / ops) or world close / save.
+enum { DS_OTHER, DS_START, DS_A10START, DS_READY, DS_CANCEL, DS_PLAN, DS_ADD, DS_REMOVE, DS_USF, DS_FP2, DS_FP2READ, DS_PF,
+       DS_FPGCENSUS, DS_FPGOP, DS_WORLD, DS_SAVE, DS_N };
+static void DiscPoll(int site = DS_OTHER);  // discourage.cpp
+static void DiscDrain(bool force, int site = DS_OTHER);  // discourage.cpp
 static bool DiscRfStart();            // discourage.cpp (docs/89 §18 RemovalFirst)
 static bool DiscRfWait(LONG ticks, LONG cap);
 static DWORD g_collect;  // handle whose READY said "done": the owner's next IC_Route_Plan for it takes the stored result
@@ -4273,30 +5351,25 @@ static void SwNote(int site, LONG us, bool yieldable, DWORD handle, bool own) {
     InterlockedExchangeAdd(&k.swUs[site], us);
     Max(&k.swMaxUs, us);
     if (yieldable) InterlockedIncrement(&k.swYieldable[site]);
-    if (us < 300000) return;
+    if (g_hsOn) HsJob(site, us, handle);  // docs/666: the frame's job-wait sum
+    if (us < g_hsJobLogUs) return;         // [HitchAttr] JobWaitLogMs (300)
     static const char* const kSite[SW_N] = {"runplan", "rtwait", "disc", "collect", "drop", "other"};
     static DWORD minute, lines;
     const DWORD now = GetTickCount();
     if (now - minute >= 60000) minute = now, lines = 0;
-    if (lines++ >= 20) return;
+    if (lines++ >= (DWORD)g_hsJobLinesPerMin) return;
     InterlockedIncrement(&k.swLines);
     Log("route jobs: sim waited %ld ms for a job at %s (route %08lX, %s job, task could yield %s)", us / 1000, kSite[site], handle,
         own ? "own" : "foreign", yieldable ? "yes" : "no");
 }
 
-// docs/183 JOBBUSY (ts3fixes RouteBackoff.cs StepAside, GetOption2 with optHi 0x85000000 on any route; bit 63 has no name, so
-// the game and older builds answer false and the plan goes on as before): true = a job runs that this plan would wait for
-// here, and the caller may sleep a tick instead. Serves one pending managed call of the job, as READY does.
+// docs/183 JOBBUSY (ts3fixes RouteBackoff.cs StepAside, GetOption2 with optHi 0x85000000; bit 63 has no name, so the game and
+// older builds answer false and the plan goes on as before): jobyield.cpp. op 0 = poll (true = a job runs that this plan
+// would wait for here, and the caller may sleep a tick instead), 1 = the caller stops stepping aside and plans now, 2 = the
+// caller left its sleep by an exception.
 static const DWORD kJobBusyHi = 0x85000000;
-static u8 JyBusy() {
-    Ts3nCounters& k = ts3native_counters;
-    if (k.jyMode != 1) return 0;
-    InterlockedIncrement(&k.jyAsks);
-    if (GetCurrentThreadId() != g_async.owner || g_inInvoke || g_async.state != A_RUNNING || !CanYield()) return 0;
-    if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-    InterlockedIncrement(&k.jyBusy);
-    return 1;
-}
+static u8 JyBusy(DWORD handle, DWORD op);
+static void JyDrop(DWORD handle);
 
 // Owner side: runs the running job's managed calls until no job runs (2 s watchdog: log and keep waiting, as RunPlan does).
 static void WaitAsyncDone(int site) {
@@ -4307,17 +5380,24 @@ static void WaitAsyncDone(int site) {
     const DWORD handle = g_async.handle;
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
-    for (DWORD s = 0; g_async.state == A_RUNNING;) {
+    CowWait cow = {};
+    for (DWORD s = 0, next = GetTickCount() + 2000; g_async.state == A_RUNNING;) {
+        CowAsk(site, &cow);  // [RouteAsync] CutOnWait
         HANDLE h[2] = {g_asyncDone, g_invReady};
-        const DWORD w = WaitForMultipleObjects(2, h, FALSE, 2000);
+        // CutOnWait: the worker says whether a job may be asked a moment after A_RUNNING; until then look again every 5 ms
+        const DWORD tmo = CowPoll() ? 5 : 2000;
+        const DWORD w = WaitForMultipleObjects(2, h, FALSE, tmo);
         if (w == WAIT_OBJECT_0 + 1) ServeInvoke(HC_ASYNCDONE);
-        else if (w == WAIT_TIMEOUT) {
+        // the 2 s watchdog line also comes while the 5 ms polls run (a job that stays undecided must not hide a stuck wait)
+        else if (w == WAIT_TIMEOUT && (tmo == 2000 || (LONG)(GetTickCount() - next) >= 0)) {
+            next = GetTickCount() + 2000;
             s += 2;
             InterlockedIncrement(&ts3native_counters.watchdogs);
             Log("route async: thread %lu waited %lu s for the job of route %08lX, still waiting", GetCurrentThreadId(), s, g_async.handle);
         }
     }
     P5cHandEnd(hand);
+    CowDone(&cow);
     if (waits) SwNote(site, UsSince(t0), yieldable, handle, own);
 }
 
@@ -4392,8 +5472,8 @@ static const char* const kRfbName[] = {"NoStart", "NoYield", "M1NoLock", "M1Busy
 // (lot +0x39C, level group bit 0x10000) from inside the plan; on the worker that races the sim's level writers. Those plans
 // stay on the sim thread (refusal "Los"). Route lookup as the route ICs: RouteHandle_Lookup 0x74B2C0 on [0x11D40C4].
 typedef const u8*(__fastcall* AsRouteFn)(const void* rm, void* edx, DWORD handle);
-static AsRouteFn g_asRoute = (AsRouteFn)(uintptr_t)0x0074B2C0;
-static const u8* const* g_asRmSlot = (const u8* const*)(uintptr_t)0x011D40C4;
+static AsRouteFn g_asRoute = (AsRouteFn)(uintptr_t)TS3A(0x0074B2C0);
+static const u8* const* g_asRmSlot = (const u8* const*)(uintptr_t)TS3A(0x011D40C4);
 static bool AsyncLosRoute(DWORD handle) {
     __try {
         const u8* rm = *g_asRmSlot;
@@ -4456,8 +5536,23 @@ static void RfbStackLine(DWORD handle) {
 }
 
 // kind 0 adds to the v35 counters; A10 kinds only log (v35 stays Route.Plan's)
+// [RouteAsync] LogFallbackCaller=N (docs/666 §5): the sync plan lines name their managed caller themselves: the innermost N
+// script frames (the frame records name a method whether [MonoJit] compiled it or not) and, when the IC's return address
+// lies in [MonoJit] code, that compiled method (", managed caller A < B [compiled M +0x1A]"). 0 = off.
+static LONG g_fbCaller;
+static bool FbJitName(DWORD a, char* out, int n);  // hitchsum.cpp (after monojit.cpp)
+static void RfbCallerText(char* d, int room, const void* ret) {
+    d[0] = 0;
+    if (!g_fbCaller || room < 200) return;
+    int n = SFmt(d, room, ", managed caller ");
+    if (FbStackText(d + n, room - n - 120, g_fbCaller) <= 0) SCpy(d + n, room - n, "?");
+    n = (int)strlen(d);
+    char jm[112];
+    if (ret && FbJitName((DWORD)(uintptr_t)ret, jm, sizeof(jm))) _snprintf_s(d + n, room - n, _TRUNCATE, " [compiled %s]", jm);
+}
 static void RfbNote(int why, LONG ms, const char* entry, DWORD handle, const void* ret, int kind = 0) {
     Ts3nCounters& k = ts3native_counters;
+    if (g_hsOn) HsSyncMs(ms);  // docs/666: the frame's sync plan time when no SyncPlans session splits it
     if (!kind) {
         const int g = why >= RFB_NOYIELD && why < RFB_RUNNING ? 0 : why >= RFB_RUNNING && why <= RFB_UNSTARTED ? 1 : 2;
         InterlockedExchangeAdd(&k.rfbMs[g], ms);
@@ -4470,8 +5565,10 @@ static void RfbNote(int why, LONG ms, const char* entry, DWORD handle, const voi
     if (now - g_rfbMinute >= 60000) { g_rfbMinute = now; g_rfbLines = 0; }
     if (g_rfbLines >= (DWORD)kRfbLinesPerMin) { g_rfbDropped++; return; }
     g_rfbLines++;
-    Log("route async: sync plan %ld ms, IC %s, reason %s, entry %s, route %08lX, caller %p (%lu lines rate-limited before)%s", ms,
-        kArIcName[kind], kRfbName[why], entry, handle, ret, g_rfbDropped, t_fbCapHit ? ", capped (SyncCapMs)" : "");
+    char mc[420];
+    RfbCallerText(mc, sizeof(mc), ret);
+    Log("route async: sync plan %ld ms, IC %s, reason %s, entry %s, route %08lX, caller %p (%lu lines rate-limited before)%s%s", ms,
+        kArIcName[kind], kRfbName[why], entry, handle, ret, g_rfbDropped, t_fbCapHit ? ", capped (SyncCapMs)" : "", mc);
     g_rfbDropped = 0;
     RfbStackLine(handle);
 }
@@ -4486,7 +5583,16 @@ static LONG KdSyncCeilUs(DWORD handle);
 static void PdIcBegin(LONG us, int kind, int why, const char* entry, DWORD handle);
 static void PdIcEnd(const u8* out);
 static u8* SyncIc0(int kind, u8* out, DWORD handle, const float* pt, int why, const char* entry, const void* ret, LONG dlUs);
+static u8* SyncIcBody(int kind, u8* out, DWORD handle, const float* pt, int why, const char* entry, const void* ret);
+// docs/250 §12.3 gvaWhyWaitUs: the reason this sim-thread plan is sync, for the validator waits inside it (gvro.cpp GvaOrig)
 static u8* SyncIc(int kind, u8* out, DWORD handle, const float* pt, int why, const char* entry, const void* ret) {
+    const LONG why0 = g_gvaWhy;
+    g_gvaWhy = why >= 0 && why < GVA_WHY_NONE ? why : GVA_WHY_NONE;
+    u8* r = SyncIcBody(kind, out, handle, pt, why, entry, ret);
+    g_gvaWhy = why0;
+    return r;
+}
+static u8* SyncIcBody(int kind, u8* out, DWORD handle, const float* pt, int why, const char* entry, const void* ret) {
     if (SypIcWants()) return SypIcRun(kind, out, handle, pt, why, entry, ret);
     const bool scLast = !kind && handle && t_pdScH == handle;
     t_pdScH = 0;
@@ -4561,7 +5667,7 @@ static void ArTrip(LONG* n, const char* what, int kind, int jobKind, DWORD handl
 // Route_StopFollowingRoute 0x753230 [verified writers])? Locomotion reads such a route every tick, so it is never replanned
 // on the worker [inferred race, never tested]. cdecl(handle), bool in AL; selftest swaps it. docs/134: foreign STARTs too.
 typedef u8(__cdecl* RouteIsActiveFn)(DWORD handle);
-static RouteIsActiveFn g_routeIsActive = (RouteIsActiveFn)(uintptr_t)0x0074CFC0;
+static RouteIsActiveFn g_routeIsActive = (RouteIsActiveFn)(uintptr_t)TS3A(0x0074CFC0);
 
 // The collect side of every async route IC (IcPlanHook, a10.cpp hooks): hands the stored result over when READY armed it
 // for this route and the job is this IC's (kind, start point), else plans here. Sim thread only.
@@ -4608,7 +5714,7 @@ static u8* IcCollect(int kind, u8* out, DWORD handle, const float* pt, const voi
     if (done && collect) {
         memcpy(out, j->result, sizeof(j->result));
         InterlockedIncrement(&k.asyncCollected);
-        if (j->uf && j->ufCut) g_ufCutH = handle;  // docs/202: the C# caller asks CUT? right after this IC returns
+        if (j->uf && j->ufCut) g_ufCutH = handle, g_ufCutViewH = j->ufCutView ? handle : 0;  // docs/202: the C# caller asks CUT? (then VIEW?) right after this IC returns
         if (kind) {
             InterlockedIncrement(&k.arCollected[kind - 1]);
             InterlockedExchangeAdd(&k.arJobUs[kind - 1], j->us);
@@ -4646,16 +5752,71 @@ static u8 AsyncRefuse(DWORD handle, int why, int kind, bool total = true) {
 // Lock_Acquire / Lock_Release and so our detours), and the job then finds a quiet world. Selftest swaps the three pointers.
 typedef void(__fastcall* FbApplyFn)(void* world, void* edx);
 typedef LONG(__fastcall* FbRelFn)(void* lock, void* edx);
-static FbApplyFn g_fbApply = (FbApplyFn)(uintptr_t)0x0082C420;
-static LockAcquireFn g_fbAcq = (LockAcquireFn)(uintptr_t)0x004E16F0;
-static FbRelFn g_fbRel = (FbRelFn)(uintptr_t)0x004E17B0;
+static FbApplyFn g_fbApply = (FbApplyFn)(uintptr_t)TS3A(0x0082C420);
+static LockAcquireFn g_fbAcq = (LockAcquireFn)(uintptr_t)TS3A(0x004E16F0);
+static FbRelFn g_fbRel = (FbRelFn)(uintptr_t)TS3A(0x004E17B0);
+// docs/247 §13.1 L ([RouteAsync] FbApplyLog=1, default 0): the same walk as 0x82C420, written out so each lot is timed. Its body
+// [verified bytes 0x82C420..0x82C48E]: P = [world+0x95C]; P+0x10E clear = return; lots = 0xC68960(thiscall [world+0x964], 0)
+// (ret 4, returns {begin, end} of a lot pointer vector; end read once); per non-NULL lot, if 0x631A60(thiscall P, [lot+0x48],
+// [lot+0x4C]) (ret 8, the lot's pending test; P re-read each time) then ApplyLotUpdate 0x82B590(thiscall world, lot) (ret 4);
+// then [world+0x95C]+0x10E = 0. Same calls in the same order, so the world ends the same; only clocks are added. The lazy
+// LotGraph_Build 0x63CB90 runs inside 0x82B590 (docs/150 §2), so the slowest lot's time holds it.
+// shortcut: the split does not separate LotGraph_Build from the rest of 0x82B590; hook-free on purpose (five sections already
+// detour 0x63CB90). Upgrade to a routephases-style phase frame if the slow lot's line is not enough to pick W or S.
+typedef const u8* const*(__fastcall* FbLotsFn)(void* wm, void* edx, int which);
+typedef char(__fastcall* FbLotPendFn)(void* p, void* edx, DWORD a, DWORD b);
+typedef void(__fastcall* FbLotApplyFn)(void* world, void* edx, void* lot);
+static FbLotsFn g_fbLots = (FbLotsFn)(uintptr_t)TS3A(0x00C68960);
+static FbLotPendFn g_fbLotPend = (FbLotPendFn)(uintptr_t)TS3A(0x00631A60);
+static FbLotApplyFn g_fbLotApply = (FbLotApplyFn)(uintptr_t)TS3A(0x0082B590);
+static bool g_asInStart;  // sim thread: inside AsyncStart ([GoalValidRO] Attr gvaAtStart, docs/250 §7.0)
+struct FbApSplit { LONG lots, applied, maxUs; DWORD maxA, maxB; };
+static void FbApplySplit(u8* world, FbApSplit& s) {
+    if (!(*(u8**)(world + 0x95C))[0x10E]) return;
+    const u8* const* v = g_fbLots(*(void**)(world + 0x964), NULL, 0);
+    const u8* const* end = (const u8* const*)v[1];
+    for (const u8* const* it = (const u8* const*)v[0]; it != end; it++) {
+        const u8* lot = *it;
+        s.lots++;
+        if (!lot) continue;
+        const DWORD a = *(const DWORD*)(lot + 0x48), b = *(const DWORD*)(lot + 0x4C);
+        if (!g_fbLotPend(*(void**)(world + 0x95C), NULL, a, b)) continue;
+        LARGE_INTEGER t0;
+        QueryPerformanceCounter(&t0);
+        g_fbLotApply(world, NULL, (void*)lot);
+        const LONG us = UsSince(t0);
+        s.applied++;
+        if (us >= s.maxUs) s.maxUs = us, s.maxA = a, s.maxB = b;
+    }
+    (*(u8**)(world + 0x95C))[0x10E] = 0;
+}
 static bool FbApplyPending() {
+    Ts3nCounters& k = ts3native_counters;
     void* lock = g_rgLock;
     static const DWORD kTry = 0;
-    if (!lock || g_fbAcq(lock, NULL, &kTry) <= 0) { InterlockedIncrement(&ts3native_counters.fbPendBusy); return false; }
-    g_fbApply((u8*)lock - 0x918, NULL);
+    if (!lock || g_fbAcq(lock, NULL, &kTry) <= 0) { InterlockedIncrement(&k.fbPendBusy); return false; }
+    const bool split = k.fbApLog == 1;
+    FbApSplit s = {};
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    if (split) FbApplySplit((u8*)lock - 0x918, s);
+    else g_fbApply((u8*)lock - 0x918, NULL);
+    const LONG us = UsSince(t0);
     g_fbRel(lock, NULL);
-    InterlockedIncrement(&ts3native_counters.fbPendApplied);
+    InterlockedIncrement(&k.fbPendApplied);
+    InterlockedIncrement(&k.fbApN);
+    InterlockedExchangeAdd(&k.fbApUs, us);
+    Max(&k.fbApMaxUs, us);
+    if (us >= 100000) InterlockedIncrement(&k.fbApLong);
+    // HA_JOB: sim-thread route work at our START / READY point, not a lock wait; key 0x07000000 names it in hitches.jsonl rtMaxKey
+    HaNote(0x07000000, us, HA_JOB);
+    if (split) {
+        InterlockedExchangeAdd(&k.fbApLots, s.applied);
+        Max(&k.fbApLotMaxUs, s.maxUs);
+        if (us >= 100000)
+            Log("fbapply: %ld ms, lots %ld applied %ld, slowest lot %08lX:%08lX %ld ms (0x82B590, holds a lazy LotGraph_Build), at %s",
+                us / 1000, s.lots, s.applied, s.maxB, s.maxA, s.maxUs / 1000, g_asInStart ? "START" : "READY");
+    }
     return true;
 }
 
@@ -4666,8 +5827,17 @@ static bool JobQueue(AsyncJob* j, DWORD handle, int kind, const float* pt, bool 
 static DWORD g_scProbeH;  // docs/163 §10: route handle of the last PROBE mark (sim thread only), taken by its next START
 static DWORD g_scTagH;    // docs/163 §10.1: route handle and tag of the last stuck-check mark (cut or not), same rule
 static LONG g_scTag;
+static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign);
 static u8 AsyncStart(DWORD handle, int kind = 0, const float* pt = NULL, bool foreign = false) {
+    const bool outer = !g_asInStart;
+    g_asInStart = true;
+    const u8 r = AsyncStartBody(handle, kind, pt, foreign);
+    if (outer) g_asInStart = false;
+    return r;
+}
+static u8 AsyncStartBody(DWORD handle, int kind, const float* pt, bool foreign) {
     g_collect = 0;
+    JyDrop(handle);  // docs/183 §7: a new START of a route whose task stepped aside: the parked records are not this plan's
     const LONG probe = handle && g_scProbeH == handle && !kind && !foreign ? 1 : 0;  // a mark is good for one START only
     // docs/250 §7.1 (0.36.239): the watchdog tag labels an own PlanFromPoint job too (WatchdogKind2), so its time lands in wdJob*
     const LONG sc = handle && g_scTagH == handle && !foreign && (!kind || (kind == 2 && (g_scTag & 0x400))) ? g_scTag : 0;
@@ -4676,6 +5846,7 @@ static u8 AsyncStart(DWORD handle, int kind = 0, const float* pt = NULL, bool fo
     g_rfbHandle = 0;
     Ts3nCounters& k = ts3native_counters;
     if (k.asyncMode != 1 || !k.asyncReady) return 0;  // asyncMode is writable at runtime
+    if (RewindHold()) return 0;  // [Rewind] Park: the rewind tool waits for an idle worker, the plan runs inline
     if (kind && !(k.arReady & (1 << (kind - 1)))) return AsyncRefuse(handle, RFB_NOSTART, kind, false);  // that IC not hooked
     if (AsyncLosRoute(handle)) { InterlockedIncrement(&k.arLosRefused); return AsyncRefuse(handle, RFB_LOS, kind); }
     // the caller could not sleep (nested native->managed call: its yield would abort the game)
@@ -4715,14 +5886,17 @@ static u8 AsyncStart(DWORD handle, int kind = 0, const float* pt = NULL, bool fo
             if (g_jobs[i].state == J_DONE) NoteDrop(&g_jobs[i]);
             j = &g_jobs[i];
         }
-    if (!j) { InterlockedIncrement(&k.asyncQueueFull); return AsyncRefuse(handle, RFB_QFULL, kind); }
+    if (!j) { InterlockedIncrement(&k.asyncQueueFull); CapFull(CAP_JOBS); return AsyncRefuse(handle, RFB_QFULL, kind); }
     j->probe = probe;  // before J_PEND / J_QUEUED: the worker reads it once it claims the slot
     j->sc = sc;
     j->kdId = k.kdMode == 1 ? KdFollower(handle) : 0;  // docs/197: the backoff key, read here on the sim thread
     j->rfGoal = j->kdId ? RfGoal(handle) : 0;
+    j->rfIa = RfIaPeek(handle);  // before KdScopeTake: the same answer
     j->kdScope = KdScopeTake(handle);
+    j->pf = PfTake(handle);  // docs/631: before J_QUEUED, the worker reads it to pick
+    j->dsBits = DsClassTake(handle);  // docs/674: the class is good for this START only
     j->uf = UfTake(handle) ? 1 : 0;  // docs/202: the MARK is used up by the job it marks (a refused START leaves it to the sync IC)
-    j->ufCut = 0;
+    j->ufCut = j->ufCutView = 0;
     // docs/89 §18: a route not known unseen (household, unknown scope) does not plan past a queued removal; READY queues it
     j->rf = !park && j->kdScope != 2 && !j->uf && DiscRfStart();
     if (j->rf) park = true;
@@ -4767,6 +5941,8 @@ static bool JobQueue(AsyncJob* j, DWORD handle, int kind, const float* pt, bool 
     LONG queued = 0;
     for (int i = 0; i < kJobs; i++) queued += g_jobs[i].state == J_QUEUED || g_jobs[i].state == J_RUNNING;
     Max(&k.asyncQueueMax, queued);
+    CapSee(CAP_JOBS, queued, k.fbMode == 1 ? kJobs : kJobsBase);
+    CapLogTick();  // every route START: frequent enough for the minute line
     InterlockedIncrement(&k.asyncStarted);
     if (kind) InterlockedIncrement(&k.arStarted[kind - 1]);
     SetEvent(g_asyncReady);
@@ -4854,12 +6030,26 @@ static u8 ScProbeMark(DWORD handle, DWORD lo = 0) {
     return 1;
 }
 static u8 UdTextMsg(DWORD lo, DWORD hi);   // userdiag.cpp: ts3fixes text channel (optHi top byte 0x87 = bits 63 + 58 + 57 + 56, docs/188)
+static u8 BpMsg(DWORD lo, DWORD hi);   // boatprobe.cpp: ts3fixes boatplace / boattrip water-grid question (optHi top byte 0x89)
 // docs/247 §9 (ts3fixes boatreplanlog): would a foreign ReplanFromPoint START pass this check now? Same tests as the foreign
 // branch of GetOptionHook and AsyncStart, no side effect. GetOption2 with optHi 0x88000000 (no RouteOption2 name, so the game
 // and older ts3native answer false), optLo = question.
 // q 8 (0.36.191, docs/247 §12.4, ts3fixes watchdoglockskip): a route job runs now and holds world+0x918, so a plan here would
 // wait for it. Plain reads, no lock taken, nothing counted, no managed call served.
 static const DWORD kWouldHi = 0x88000000;
+// docs/271 [Experimental] HouseholdToo (default 0): 1 = the realistic-only household exemptions (docs/271 rows marked yes) let a
+// household, selected or unknown-scope ask through like a seen NPC's. Teleports, fakes, cuts, skips and every crash guard keep the
+// exemption (they never call HhExempt). Read once at start; ts3fixes asks it through q 14 (PlayerSims.cs HouseholdExempt).
+static int g_hhToo;
+// the shared native predicate: hh = this ask is household, selected or unknown scope. true = keep the exemption (vanilla);
+// flag on: false, counted. New household-exempt sites that stay realistic with the flag on call this; others keep their own test.
+static bool HhExempt(bool hh) {
+    if (!hh) return false;
+    if (g_hhToo != 1) return true;
+    InterlockedIncrement(&ts3native_counters.hhTooLift);
+    return false;
+}
+static int g_rlOn;  // docs/261 §6 L1 [RouteAsync] ReplanLog (default 0): ts3fixes logs own Replan calls; asked once through q 10
 static u8 ArWould(DWORD handle, DWORD q) {
     Ts3nCounters& k = ts3native_counters;
     switch (q) {
@@ -4874,18 +6064,58 @@ static u8 ArWould(DWORD handle, DWORD q) {
         // q 9 (0.36.239, docs/250 §7.1, ts3fixes watchdogasync): an own PlanFromPoint START tagged as the watchdog's check passes
         // the kind gate (kind 2 hooked, and in Kinds or WatchdogKind2); false: A1 is not chosen, the check runs sync
         case 9: return (k.arReady >> 1 & 1) && ((g_arOwnKinds >> 1 & 1) || g_arWdKind2);
+        // docs/261 §6 L1 (ts3fixes replanlog): q 10 = [RouteAsync] ReplanLog on; q 11-13 = the own Replan (kind 1) START's checks
+        // that GetOptionHook / AsyncStartBody run before NoYield, so the log can name every reason a START would meet now
+        case 10: return g_rlOn == 1;
+        case 11: return (g_arOwnKinds & 1) != 0;       // Kinds has Replan (release Kinds=0: refused NoStart first)
+        case 12: return (k.arReady & 1) != 0;          // the Replan IC is hooked (arReady bit 0)
+        case 13: return AsyncLosRoute(handle);         // true = LOS refusal
+        case 14: return g_hhToo == 1;                  // docs/271 [Experimental] HouseholdToo (ts3fixes HouseholdTooOn)
     }
     return 0;
 }
+// docs/247 §13.3 R1 (counters v191 arRf3): why a ReplanFromPosition (kind 3) START got no job, own (row 0) or foreign (row 1)
+// START: column = the RFB_* code its refusal recorded, kRf3KindsOff = an own START whose kind is not in [RouteAsync] Kinds (the
+// release ini's Kinds=0; recorded as NoStart), kRf3None = no reason recorded (asyncMode off or the worker not ready). Returns r.
+static const int kRf3KindsOff = RFB_FOREIGN + 1, kRf3None = RFB_FOREIGN + 2;
+static_assert(kRf3None == 20, "arRf3 rows are [21] (counters v191)");
+static u8 ArRf3(int idx, bool fgn, DWORD handle, u8 r, int why = -1) {
+    if (idx != 3 || r) return r;
+    if (why < 0) why = g_rfbHandle == handle ? g_rfbWhy : kRf3None;
+    InterlockedIncrement(&ts3native_counters.arRf3[fgn ? 1 : 0][why]);
+    return r;
+}
+static bool ReadyDrain(AsyncJob* j);  // [RouteAsync] ReadyDrain, below
+// docs/288 §4: own-task [RouteAsync] Kinds STARTs (kinds 1-3, not WatchdogKind2's tagged one) start only for a route known unseen
+// (ts3fixes scope 2, sent right before the START), and with KindsMode 1 only while H2Ic (all 7 slots, Mode 1) and RefcountGuard
+// (Mode 1) guard the footprint races a job opens (docs/177 §4/§7). Household, selected, seen-NPC, unknown and no-answer routes
+// plan synchronously (vanilla). [Experimental] HouseholdToo lifts the scope part (the worker runs the game's own IC: realistic,
+// docs/271), never the guard part. Set by InstallA10 whenever Kinds has a bit; 0 = ungated (selftest's A10 cases only).
+// The scope is peeked, not taken: a refused START's sync plan still needs it (KdSyncCeilUs), and ts3fixes clears it at every
+// plan end (UfPlan finally, op 12), so a later START of the route never reads a stale unseen answer.
+static int g_arOwnGate;
+static bool ArOwnGateOk(DWORD handle) {
+    Ts3nCounters& k = ts3native_counters;
+    if (!g_arOwnGate) return true;
+    if (k.arMode == 1 && (k.hxReady != 7 || k.hxMode != 1 || !k.rcReady || k.rcMode != 1)) {
+        InterlockedIncrement(&k.arPrereqRefused);
+        return false;
+    }
+    if (KdScopePeek(handle) == 2 || !HhExempt(true)) return true;
+    InterlockedIncrement(&k.arScopeRefused);
+    return false;
+}
 static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD options2) {
     if ((u8)options2 && optHi == kWouldHi) return ArWould(handle, optLo);
-    if ((u8)options2 && optHi == kJobBusyHi && !optLo) return JyBusy();  // docs/183
-    if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2)) return UfMsg(handle, optLo);  // docs/202
+    if ((u8)options2 && optHi == kJobBusyHi && optLo <= 2) return JyBusy(handle, optLo);  // docs/183
+    if ((u8)options2 && optHi == 0x83000000 && (optLo == 1 || optLo == 2 || optLo == 4)) return UfMsg(handle, optLo);  // docs/202; 4 = VIEW? (KdCutCamRecheck=2)
+    if ((u8)options2 && optHi == 0x83000000 && (optLo & 0xFFFF00FF) == 3) return GvuMsg(handle, optLo >> 8 & 0xFF);  // docs/250 §7.3 B2 DEFER?
     if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x83000000 && (optHi >> 16 & 0xFF) >= 3) return UfCamMsg(optLo, optHi);  // docs/202 §2.1
     if ((u8)options2 && optHi == kProbeHi && (!optLo || optLo >> 16 == 1)) return ScProbeMark(handle, optLo);  // docs/163 §10
     if ((u8)options2 && (optHi & 0xFF000000) == 0x84000000) return SpDoorMsg(optLo, optHi);
     if ((u8)options2 && (optHi & 0xFF000000) == 0x82000000) return UtViewerMsg(optLo, optHi);
     if ((u8)options2 && (optHi & 0xFF000000) == 0x87000000) return UdTextMsg(optLo, optHi);  // docs/188
+    if ((u8)options2 && (optHi & 0xFF00FFFF) == 0x89000000) return BpMsg(optLo, optHi);  // boatprobe.cpp (read only)
     if ((u8)options2 && (optHi & ~(kArKindHi | kArPtHi | kArFgnHi)) == (kAsyncOptHi | kArHi) &&
         !((optHi & kArFgnHi) && ((optHi & kArPtHi) || !(optHi & kArKindHi)))) {  // foreign bit: kind 1-3 STARTs only
         const int idx = (int)(optHi >> 24) & 3;
@@ -4894,7 +6124,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
             return 1;
         }
         if (ts3native_counters.asyncMode != 1) DropAllJobs();
-        DiscPoll();  // a script-IC point, as Route.Plan's START (docs/84 §2.4)
+        DiscPoll(DS_A10START);  // a script-IC point, as Route.Plan's START (docs/84 §2.4)
         P5cFlush();  // P5c: parked destroy references, when no job runs (docs/88 §5.1 flush points)
         const bool ptOk = idx == 1 || g_arPtSet == 7;  // kinds 2-3: all three components since the last START
         g_arPtSet = 0;
@@ -4905,10 +6135,10 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
             if (ts3native_counters.fbMode != 1) { g_collect = 0; return RfbRefuse(handle, RFB_FOREIGN); }
             return AsyncStart(handle, 0, NULL, true);
         }
-        if (!idx || !ptOk) { g_collect = 0; return idx ? AsyncRefuse(handle, RFB_NOSTART, idx, false) : 0; }
         // docs/176: foreign kind STARTs need ForeignKinds (afKinds) and afMode 1, else "Foreign" (the sync line names it);
         // own STARTs need the kind in Kinds (a kind hooked only for ForeignKinds keeps its own-task plans synchronous)
         const bool fgn = (optHi & kArFgnHi) != 0;
+        if (!idx || !ptOk) { g_collect = 0; return idx ? ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false)) : 0; }
         // docs/250 §7.1 [RouteAsync] WatchdogKind2: an own PlanFromPoint START whose route carries the watchdog tag (ScProbeMark
         // bit 10, sent by ts3fixes only for an A1 check, which never picks a household, selected or unknown-scope Sim)
         const bool wd2 = idx == 2 && !fgn && g_arWdKind2 && g_scTagH == handle && (g_scTag & 0x10400) == 0x10400;
@@ -4919,21 +6149,25 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
             if (ts3native_counters.afMode != 1 || !(ts3native_counters.afKinds >> (idx - 1) & 1)) {
                 g_collect = 0;
                 if (wdTagged) g_scTagH = 0;
-                return RfbRefuse(handle, RFB_FOREIGN);
+                return ArRf3(idx, fgn, handle, RfbRefuse(handle, RFB_FOREIGN));
             }
         } else if (!(g_arOwnKinds >> (idx - 1) & 1) && !wd2) {
             g_collect = 0;
             if (wdTagged) g_scTagH = 0;
-            return AsyncRefuse(handle, RFB_NOSTART, idx, false);
+            return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false), kRf3KindsOff);
+        } else if (!wd2 && !ArOwnGateOk(handle)) {  // docs/288 §4: unseen routes only, guards on
+            g_collect = 0;
+            if (wdTagged) g_scTagH = 0;
+            return ArRf3(idx, fgn, handle, AsyncRefuse(handle, RFB_NOSTART, idx, false));
         }
         float pt[3];
         memcpy(pt, g_arPt, sizeof(pt));
-        return AsyncStart(handle, idx, idx >= 2 ? pt : NULL, fgn);
+        return ArRf3(idx, fgn, handle, AsyncStart(handle, idx, idx >= 2 ? pt : NULL, fgn));
     }
     if (optLo != 0 || (optHi & ~(kAsyncCancelHi | kNoYieldHi)) != kAsyncOptHi) return g_getOptOrig(handle, optLo, optHi, options2);
     if (optHi & kNoYieldHi) return !CanYield();
     if (ts3native_counters.asyncMode != 1) DropAllJobs();  // switched off mid-job: READY then says "done", Route.Plan plans inline
-    DiscPoll();  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
+    DiscPoll(!(u8)options2 ? DS_START : (optHi & kAsyncCancelHi) ? DS_CANCEL : DS_READY);  // a script-IC point: deferred discourage footprints may be applied here (docs/84 §2.4)
     P5cFlush();
     if (!(u8)options2) return AsyncStart(handle);
     AsyncJob* j = GetCurrentThreadId() == g_async.owner ? JobFor(handle) : NULL;
@@ -4948,7 +6182,7 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     if (j && (j->state == J_QUEUED || j->state == J_RUNNING)) {
         if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) ServeInvoke(HC_READY);  // keep the running job moving
-        return 0;
+        if (!ReadyDrain(j)) return 0;
     }
     if (j && j->state == J_SKIPPED) {  // not planned (world changed): the plan runs synchronously
         InterlockedExchange(&j->state, J_FREE);
@@ -4957,6 +6191,47 @@ static u8 __cdecl GetOptionHook(DWORD handle, DWORD optLo, DWORD optHi, DWORD op
     }
     g_collect = j ? handle : 0;
     return 1;
+}
+
+// [RouteAsync] ReadyDrain (see ReadyDrainCounters): called by READY after its one serve, owner thread only. Drains only the job
+// the worker is running now (a queued job posts nothing yet); spins with Sleep(0) between checks, never blocks on an event the
+// other waits use. true = the job is DONE / SKIPPED now: READY goes on and reports it.
+static bool ReadyDrain(AsyncJob* j) {
+    ReadyDrainCounters& d = ts3native_readydrain;
+    if (!d.mode || j->state != J_RUNNING || g_async.state != A_RUNNING || g_async.handle != j->handle) return false;
+    static LARGE_INTEGER s_win;  // owner thread only: start of the current frame window
+    static LONG s_winUs;         // spin time used in it
+    static bool s_winHit;
+    LARGE_INTEGER t0;
+    QueryPerformanceCounter(&t0);
+    if (!s_win.QuadPart || UsSince(s_win) >= 33000) s_win = t0, s_winUs = 0, s_winHit = false;
+    const bool spin = s_winUs < d.frameUs;
+    if (!spin && !s_winHit) s_winHit = true, InterlockedIncrement(&d.frameHits);
+    InterlockedIncrement(&d.polls);
+    LONG lastServeUs = 0;
+    bool result = false;
+    for (;;) {
+        bool served = false;
+        if (WaitForSingleObject(g_invReady, 0) == WAIT_OBJECT_0) {
+            ServeInvoke(HC_READY);
+            InterlockedIncrement(&d.served);
+            served = true;
+        }
+        const LONG st = j->state;
+        const LONG us = UsSince(t0);
+        if (served) lastServeUs = us;
+        if (st == J_DONE || st == J_SKIPPED) { InterlockedIncrement(&d.saved); result = true; break; }
+        if (st != J_RUNNING) break;      // dropped or reused meanwhile: the poll answers "not yet", as before
+        if (served) continue;            // a call was waiting: look for the next one at once (queued calls, no spin)
+        if (!spin) break;                // frame budget used: queued calls only
+        if (us - lastServeUs >= d.gapUs) { InterlockedIncrement(&d.idleStops); break; }  // computing, not calling back
+        if (us >= d.budgetUs || s_winUs + us >= d.frameUs) { InterlockedIncrement(&d.budgetHits); break; }
+        Sleep(0);
+    }
+    const LONG used = UsSince(t0);
+    s_winUs += used;
+    Max(&d.maxUs, used);
+    return result;
 }
 
 // Every Lock_Acquire in the game passes through here; only the job owner's waits during a job are changed (INFINITE and
@@ -4986,6 +6261,7 @@ static __declspec(noinline) LONG __fastcall LockAcquireHook(void* lock, void* ed
         if (InterlockedIncrement(&ts3native_counters.ulLockTrip) <= 8)
             Log("snap replay: +0x918 acquire inside a RecsUnlocked round: caller 0x%08lX, record type %ld", t_waitKey, (g_rpPhase >> 8) & 0xFF);
     }
+    if (g_gvaWatch && lock == g_rgLock && GetCurrentThreadId() == g_async.owner) g_gvaTakes++;  // docs/250 §13.3, waited or not
     if (g_hoOn) return HoAcquire(lock, edx, deadline, ret);
     return LockAcquirePlain(lock, edx, deadline, ret);
 }
@@ -5043,13 +6319,18 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
     static const DWORD kTry = 0;
     if (*deadline == 0 || GetCurrentThreadId() != g_async.owner || !AsyncBusy()) {
         // v85: a +0x918 wait inside the locomotion pass with no job at all (who else holds it: EA threads, sync worker plans)
-        if (*deadline == 0 || lock != g_rgLock || !H2InPass()) return P5bLock(lock, edx, deadline);
+        if (*deadline == 0 || lock != g_rgLock) return P5bLock(lock, edx, deadline);
+        // docs/666: with HitchMs / RouteLockMs the sim / main thread's acquire is timed (the same single call)
+        if (!H2InPass()) return (g_hsOn | g_hsLockLogUs) ? HsLockTimed(lock, edx, deadline, key) : P5bLock(lock, edx, deadline);
         LONG r = P5bLock(lock, edx, &kTry);
         if (r != -2) return r;
+        const DWORD h2Holder = (g_hsOn | g_hsLockLogUs) ? LockOwnerTid(lock) : 0;
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
         r = P5bLock(lock, edx, deadline);
-        H2LockWait(false, UsSince(t0));
+        const LONG h2Us = UsSince(t0);
+        H2LockWait(false, h2Us);
+        if (g_hsOn | g_hsLockLogUs) HsLock(key, h2Us, t0.QuadPart, h2Holder, false);
         return r;
     }
     const int p6wSite = t_p5bSite;  // [P6Waits]: before P5bLock, which clears it on a gate-0 miss
@@ -5058,16 +6339,22 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     const DWORD mwTok = MwSeqNow();
+    const DWORD hsHolder = (g_hsOn | g_hsLockLogUs) && lock == g_rgLock ? LockOwnerTid(lock) : 0;  // docs/666: who holds +0x918
     LONG serveN = 0, serveUs = 0;  // [P6Waits]: the job's host calls served inside this wait
     const bool h2Running = g_async.state == A_RUNNING;  // v85 split: a running job vs one queued / held by the window
     InterlockedIncrement(&ts3native_counters.asyncPumpWaits);
     // waiting for the routing lock: the worker starts no further job until this thread has had it (g_rgOffSimOpen)
     const bool hold = lock == g_rgLock;
-    if (hold) InterlockedIncrement(&g_rgOffSimOpen);
+    if (hold) InterlockedIncrement(&g_rgOffSimOpen), InterlockedIncrement(&g_whSimWait);
     bool fb = false, own = false;  // docs/134 §11: a foreign job ran during this wait; docs/178 T4: an own one
+    DWORD lwHandle = 0;  // docs/264 §4.2: the last job seen running during this wait, and its fields
+    char lwJob[160] = "";
     DWORD ownHandle = 0;
+    CowWait cow = {};
     for (DWORD start = GetTickCount(), next = 2000;;) {
+        if (hold) CowAsk(SW_LOCK, &cow);  // [RouteAsync] CutOnWait: a +0x918 wait behind a townie's job asks too (CutOnWaitLock)
         fb = fb || (g_async.state == A_RUNNING && g_jobFb);
+        if (hold && g_async.state == A_RUNNING && g_async.handle != lwHandle) lwHandle = g_async.handle, RunJobText(lwJob, sizeof(lwJob));  // docs/264 §4.2
         if (!own && g_async.state == A_RUNNING && g_jobOwn) own = true, ownHandle = g_async.handle;
         if (!AsyncBusy()) { r = P5bLock(lock, edx, deadline); break; }  // no job left: wait as the game would
         HANDLE h[2] = {g_invReady, g_asyncDone};
@@ -5088,15 +6375,29 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
             InterlockedIncrement(&ts3native_counters.watchdogs);
             // 0.33.2: who holds it (the lock is a CRITICAL_SECTION at +0) and where the P4 worker / replay consumer are
             const DWORD owner = LockOwnerTid(lock);
+            char rj[160];
+            RunJobText(rj, sizeof(rj));  // docs/264 §4.2: which job, before it ends (a killed game never prints its long-job line)
             Log("route async: lock %p busy for %lu s during the job of route %08lX, still waiting (owner thread %lu: worker %lu, "
-                "replay consumer %lu, last gate acquirer %ld; async state %ld, P4 phase %ld, replay phase 0x%lX)", lock, next / 1000 - 2,
+                "replay consumer %lu, last gate acquirer %ld; async state %ld, P4 phase %ld, replay phase 0x%lX; job: %s)", lock, next / 1000 - 2,
                 g_async.handle, owner,
-                g_workerTid, g_rpTid, ts3native_counters.rgOwnerTid, g_async.state, g_p4Phase, g_rpPhase);
+                g_workerTid, g_rpTid, ts3native_counters.rgOwnerTid, g_async.state, g_p4Phase, g_rpPhase, rj);
         }
     }
-    if (hold) RgOffSimDrop();
+    if (hold) RgOffSimDrop(), InterlockedDecrement(&g_whSimWait);
+    CowDone(&cow);
     const LONG waited = UsSince(t0);
+    if (hold && waited >= 1000000) {  // docs/264 §4.2 (issue #338): the busy line starts at 2 s; every wait >= 1 s gets one line, 20 a minute
+        static DWORD lwMinute, lwLines;
+        const DWORD now = GetTickCount();
+        if (now - lwMinute >= 60000) lwMinute = now, lwLines = 0;
+        if (lwLines++ < 20)
+            Log("route async: sim waited %ld ms on lock %p (route lock), last job seen route %08lX: %s", waited / 1000, lock, lwHandle, lwHandle ? lwJob : "none");
+    }
     InterlockedExchangeAdd(&ts3native_counters.asyncPumpUs, waited);
+    if (g_hsOn | g_hsLockLogUs) {  // docs/666: the frame's lock sums and the "route lock wait:" line
+        if (hold) HsLock(key, waited, t0.QuadPart, hsHolder, true);
+        else if (!g_hoOn) HsOtherLock(waited);  // with Holders on, HoAcquire counts it
+    }
     WaitNote(key, waited, mwTok);
     HaNote(key, waited, hold ? HA_LOCK : HA_OTHERLOCK);
     if (hold && serveN) InterlockedExchangeAdd(&ts3native_counters.p6wServeN, serveN), InterlockedExchangeAdd(&ts3native_counters.p6wServeUs, serveUs);
@@ -5107,7 +6408,7 @@ static LONG LockAcquireAsync(void* lock, void* edx, const DWORD* deadline, DWORD
     return r;
 }
 
-static const DWORD IC_ROUTE_PLAN = 0x00765160, ROUTE_GET_OPTION = 0x0074D040, LOCK_ACQUIRE = 0x004E16F0;
+static const DWORD IC_ROUTE_PLAN = TS3A(0x00765160), ROUTE_GET_OPTION = TS3A(0x0074D040), LOCK_ACQUIRE = TS3A(0x004E16F0);
 static const u8 kIcPlanPrologue[] = {0x0F, 0x57, 0xC0, 0x8B, 0x0D, 0xC4, 0x40, 0x1D, 0x01};     // xorps xmm0,xmm0; mov ecx,[0x11D40C4]
 static const u8 kGetOptionPrologue[] = {0x8B, 0x0D, 0xC4, 0x40, 0x1D, 0x01};                     // mov ecx,[0x11D40C4]
 static const u8 kLockAcquirePrologue[] = {0x53, 0x55, 0x56, 0x8B, 0xF1, 0x80, 0x7E, 0x24, 0x00};  // push ebx/ebp/esi; mov esi,ecx; cmp byte [esi+24h],0
@@ -5124,12 +6425,22 @@ static int ReadRouteAsync(const wchar_t* ini) {
     const int capMs = GetPrivateProfileIntW(L"RouteAsync", L"SyncCapMs", 0, ini);
     ts3native_counters.fbCapUs = capMs > 0 ? Clamp(capMs, 50, 60000) * 1000 : 0;
     g_fbStackFrames = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"LogFallbackStack", 0, ini), 0, 16);
+    g_fbCaller = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"LogFallbackCaller", 0, ini), 0, 8);  // docs/666 §5
+    if (g_fbCaller) Log("route async: LogFallbackCaller=%ld: sync plan lines name their managed caller", g_fbCaller);
     ts3native_counters.fbRetryMode = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"M1Retry", 0, ini), 0, 1);
     const int jobCapMs = GetPrivateProfileIntW(L"RouteAsync", L"FbJobCapMs", 0, ini);  // docs/134 §10
     ts3native_counters.fbjcCapUs = jobCapMs > 0 ? Clamp(jobCapMs, 50, 60000) * 1000 : 0;
     ts3native_counters.fbjcMode = ts3native_counters.fbjcCapUs ? 1 : 0;
-    Log("route async: FallbackAsync=%ld SyncCapMs=%ld LogFallbackStack=%ld M1Retry=%ld FbJobCapMs=%ld", ts3native_counters.fbMode,
-        ts3native_counters.fbCapUs / 1000, g_fbStackFrames, ts3native_counters.fbRetryMode, ts3native_counters.fbjcCapUs / 1000);
+    ts3native_counters.fbApLog = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"FbApplyLog", 0, ini), 0, 1);  // docs/247 §13.1 L
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has the rows (docs/273)
+    if (ts3native_counters.fbApLog) Log("SKIP route async FbApplyLog ([RouteAsync] FbApplyLog): no EA 1.69 address, docs/232 §8");
+    ts3native_counters.fbApLog = 0;
+#endif
+    Log("route async: FallbackAsync=%ld SyncCapMs=%ld LogFallbackStack=%ld M1Retry=%ld FbJobCapMs=%ld FbApplyLog=%ld", ts3native_counters.fbMode,
+        ts3native_counters.fbCapUs / 1000, g_fbStackFrames, ts3native_counters.fbRetryMode, ts3native_counters.fbjcCapUs / 1000,
+        ts3native_counters.fbApLog);
+    g_rlOn = Clamp(GetPrivateProfileIntW(L"RouteAsync", L"ReplanLog", 0, ini), 0, 1);  // docs/261 §6 L1, read by ts3fixes (q 10)
+    Log("route async: ReplanLog=%d (docs/261, ts3fixes replanlog lines)", g_rlOn);
     ReadPlanDeadline(ini);  // docs/164 §7 (plandeadline.cpp): PlanDeadlineMs / PlanDeadlineOwnMs / FailMemo
     return Clamp(GetPrivateProfileIntW(L"RouteAsync", L"Mode", 1, ini), 0, 1);
 }
@@ -5222,6 +6533,7 @@ static void SlimNote(const unsigned char* info);
 static void SlimStart(DWORD r);
 static void SlimWait();
 #include "apex.cpp"
+#include "s3mm.cpp"  // docs/291 §6: [Compat] S3mmStandDown (before mintcall, monojit, autshadow)
 #include "savewrite.cpp"
 #include "decompress.cpp"
 #include "saveslim.cpp"  // docs/15 phase 11: [SaveSlim] (after savewrite.cpp and decompress.cpp)
@@ -5230,11 +6542,23 @@ static void SlimWait();
 #include "savecompress.cpp"
 #include "footprint.cpp"
 #include "heightcache.cpp"
+#include "boatprobe.cpp"  // [BoatProbe]: water-grid answers and probe lines for ts3fixes boatplace / boattrip (read only)
 #include "gcthreads.cpp"
 #include "memexp.cpp"  // docs/199: [MemDiag] TypeGrowth, [GC] SqrtHeapLimit (off)
 #include "gcgrow.cpp"  // docs/232 Run 8l/8n: [GcGrowLog] + [GC] BlackListCapKB (after memexp.cpp: g_mx; savewrite.cpp: PatchCalls)
+#include "dxdiagcache.cpp"  // docs/284: [Startup] DxDiagCache, cached start-up VRAM answer (default 0)
+#include "cullrace.cpp"  // docs/338: [CrashForensics] CullRaceWatch (default 1, log only) + [EaCrashFixes] CullDrainWait (default 1 since m1124)
+#include "keepopts.cpp"  // docs/37 §12: [EaCrashFixes] KeepOptionsOnGpuChange (default 0: opt-in, keeps player options on a new GPU)
+#include "gcgate.cpp"  // docs/281 §8: [GC] IdleGate (default off; after memexp.cpp: g_mx, MxStep; savewrite.cpp: PatchCalls)
+#include "gcmark.cpp"  // docs/287 §6-§7: [GC] MarkHelpers helper pool + live wiring (default 0: nothing created or patched)
+
+#ifdef TS3N_EA_PORT
+#include "imgguard.cpp"  // docs/232 Run 8d: [ImageGuard], EA build only (after savewrite.cpp: PatchCalls)
+#endif
 #include "threadstack.cpp"
 #include "iclock.cpp"
+#define EQ_CTR ts3native_counters
+#include "equalsfast.cpp"  // docs/258 option C: [EqualsFast] InternalEquals compare plans (default off)
 #include "routegate.cpp"
 #include "rtsites.cpp"
 #include "discourage.cpp"
@@ -5245,6 +6569,7 @@ static void SlimWait();
 #include "slotro.cpp"
 #include "gate0ro.cpp"
 #include "locowin.cpp"
+#include "taskserve.cpp"  // docs/637: [RouteAsync] TaskServe (after savewrite.cpp: PatchCalls; after hostcalls.cpp: HcNow)
 #include "goalgen.cpp"  // docs/177 §3: [GoalGen] SameRing (D1)
 #include "rcguard.cpp"  // docs/177 §7: [RouteAsync] RefcountGuard
 #include "p10.cpp"
@@ -5262,8 +6587,15 @@ static void SlimWait();
 #include "routesnap.cpp"
 #define MC_CTR ts3native_counters
 #include "mintcall.cpp"  // docs/139 §8 [MonoFast] CallPath (before autshadow.cpp: Satb chains over its callvirt entry)
+// the two naked handlers are ~0x110 / ~0x100 bytes; the range only gates a guarded log line (MonoFaultText)
+static bool McFaultEip(DWORD eip) {
+    const DWORD a = (DWORD)(uintptr_t)(void*)McCall, b = (DWORD)(uintptr_t)(void*)McCallvirt;
+    return (eip >= a && eip < a + 0x110) || (eip >= b && eip < b + 0x100);
+}
 #define MF_CTR ts3native_counters
 #include "mintfuse.cpp"  // docs/139 §4 [MintFuse] Sub
+static_assert(offsetof(Ts3nCounters, cowMode) == 0x5C58 && offsetof(Ts3nCounters, cowNpcCut) == 0x5C68 && offsetof(Ts3nCounters, jitDirect) == 0x5C6C,
+              "v922 [RouteAsync] CutOnWait layout (5 of the 6 free words at +0x5C54)");
 static_assert(offsetof(Ts3nCounters, mfReady) == 0x5C98 && offsetof(Ts3nCounters, mfInner) == 0x5CA4, "v164 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, mcSwitch) == 0x54E0 && offsetof(Ts3nCounters, mcSpare) == 0x5514, "v143 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, mdSpare) == 0x552C, "v144 layout (docs/registry.md)");
@@ -5283,12 +6615,12 @@ static_assert(offsetof(Ts3nCounters, aoReady) == 0x56D0 && offsetof(Ts3nCounters
 static_assert(offsetof(Ts3nCounters, rmReady) == 0x5830 && offsetof(Ts3nCounters, rmK) == 0x5840 && offsetof(Ts3nCounters, rmTailN) == 0x5890 &&
               offsetof(Ts3nCounters, rmZoneN) == 0x58C0 && offsetof(Ts3nCounters, rmDeltaN) == 0x5900 &&
               offsetof(Ts3nCounters, rmSlFallback) == 0x5928 && offsetof(Ts3nCounters, rmSpare) == 0x5944 &&
-              sizeof(Ts3nCounters) == 6112 * 4, "v151 layout (docs/registry.md)");
+              sizeof(Ts3nCounters) == 6883 * 4, "v151 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, utbRowCalc) == 0x5950 && offsetof(Ts3nCounters, utbForced) == 0x5960, "v152 layout (docs/registry.md)");
-static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6112 * 4,
+static_assert(offsetof(Ts3nCounters, rmSlIns) == 0x5964 && offsetof(Ts3nCounters, rmSlCandFull) == 0x5980 && sizeof(Ts3nCounters) == 6883 * 4,
               "v153 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, gwMode) == 0x5AE8 && offsetof(Ts3nCounters, gwXmlMaxKB) == 0x5B0C && offsetof(Ts3nCounters, gcCapKB) == 0x5B10 &&
-                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6112 * 4,
+                  offsetof(Ts3nCounters, gcExpandStreakMax) == 0x5B20 && offsetof(Ts3nCounters, gcSwitchSec) == 0x5B2C && sizeof(Ts3nCounters) == 6883 * 4,
               "v161 + v162 + v163 layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, fsReady) == 0x5B30 && offsetof(Ts3nCounters, fsMode) == 0x5B34 && offsetof(Ts3nCounters, fsNearDiff) == 0x5B74,
               "v901 [FootstepRO] layout");
@@ -5302,14 +6634,37 @@ static_assert(offsetof(Ts3nCounters, icJumpMode) == 0x5C0C && offsetof(Ts3nCount
               "v906 [IdleCheckRO] SiteCLoopJump layout");
 static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30, "v907 [IlPatch] layout");
 static_assert(offsetof(Ts3nCounters, rrcOn) == 0x5C34 && offsetof(Ts3nCounters, rrcHookNs) == 0x5C50, "v908 [MemDiag] RcRefCallers layout");
+static_assert(offsetof(Ts3nCounters, maOn) == 0x6354 && offsetof(Ts3nCounters, maLines) == 0x6378, "v199 [MemDiag] Access layout");
+static_assert(offsetof(Ts3nCounters, aoOn) == 0x637C && offsetof(Ts3nCounters, aoUntrKB) == 0x63A0 && sizeof(Ts3nCounters) == 6883 * 4, "v200 [MemDiag] AllocSitesOwners layout");
+static_assert(offsetof(Ts3nCounters, resV921) == 0x6424 && offsetof(Ts3nCounters, frOn) == 0x6524 && offsetof(Ts3nCounters, frTestCalls) == 0x6530 && sizeof(Ts3nCounters) == 6883 * 4, "v203 [MonoJit] FaultRecover layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, hhTooLift) == 0x6534 && sizeof(Ts3nCounters) == 6883 * 4, "v204 [Experimental] HouseholdToo layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, gcgMode) == 0x6538 && offsetof(Ts3nCounters, gcgSpare) == 0x6570 && sizeof(Ts3nCounters) == 6883 * 4, "v205 [GC] IdleGate layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, anxReady) == 0x6590 && offsetof(Ts3nCounters, anxPhUs) == 0x66D4 && offsetof(Ts3nCounters, anxLocoUs) == 0x6770 && offsetof(Ts3nCounters, anxSpare) == 0x677C && sizeof(Ts3nCounters) == 6883 * 4, "v208 [AnimPhase] Split layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, anxTsN) == 0x6790 && offsetof(Ts3nCounters, anxEvN) == 0x67E0 && offsetof(Ts3nCounters, anxLocoPassUs) == 0x67F4 && offsetof(Ts3nCounters, anxSpare2) == 0x67F8, "v209 [AnimPhase] Split part 2 layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, unThunkN) == 0x6810 && offsetof(Ts3nCounters, aaPreUs) == 0x6830 && offsetof(Ts3nCounters, utRateCatchUpUs) == 0x6838 && offsetof(Ts3nCounters, v210Spare) == 0x683C, "v210 unseen measure layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, gctReady) == 0x6850 && offsetof(Ts3nCounters, gctStopN) == 0x6860 && offsetof(Ts3nCounters, gctSweepN) == 0x6878 && offsetof(Ts3nCounters, gctClearUs) == 0x688C && offsetof(Ts3nCounters, thumbCalls) == 0x6890 && offsetof(Ts3nCounters, thumbOffSim) == 0x689C, "v212 [LotStream] Thumb layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, arScopeRefused) == 0x68A0 && offsetof(Ts3nCounters, arPrereqRefused) == 0x68A4 && offsetof(Ts3nCounters, g5Mode) == 0x68A8 && offsetof(Ts3nCounters, g5Donated) == 0x68C0 && offsetof(Ts3nCounters, g5VerifyN) == 0x68E0 && offsetof(Ts3nCounters, g5StateApply) == 0x68F0 && offsetof(Ts3nCounters, g5VerifySub) == 0x68FC && offsetof(Ts3nCounters, g5Spare) == 0x6904 && sizeof(Ts3nCounters) == 6883 * 4, "v214 [GC] MarkHelpers layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, jitHotHeld) == 0x6578 && offsetof(Ts3nCounters, jitHotKB) == 0x657C && sizeof(Ts3nCounters) == 6883 * 4, "v206 [MonoJit] HotReserve layout (docs/registry.md)");
 static_assert(offsetof(Ts3nCounters, jitOn) == 0x5CA8 && offsetof(Ts3nCounters, jitCodeKB) == 0x5CDC, "v910 [MonoJit] layout");
 static_assert(offsetof(Ts3nCounters, jitInlined) == 0x5CE0 && offsetof(Ts3nCounters, jitWideNo) == 0x5CEC, "v911 [MonoJit] Inline, Wide layout");
 static_assert(offsetof(Ts3nCounters, jitDirect) == 0x5C6C && offsetof(Ts3nCounters, jitTrapUnknown) == 0x5C94, "v909 [MonoJit] Direct, Trap layout");
 static_assert(offsetof(Ts3nCounters, ctMode) == 0x5CF0 && offsetof(Ts3nCounters, ctOtherThread) == 0x5D14, "v912 [CasTrim] layout");
 static_assert(offsetof(Ts3nCounters, pkMode) == 0x5EC8 && offsetof(Ts3nCounters, pkDeferMax) == 0x5EE4, "v177 [PkgLock] layout");
+static_assert(offsetof(Ts3nCounters, adMode) == 0x6304 && offsetof(Ts3nCounters, ppMode) == 0x6314 && offsetof(Ts3nCounters, ppSpare) == 0x6350 && sizeof(Ts3nCounters) == 6883 * 4, "v919 [AudioStateDup] / [PkgProbe] layout");
+static_assert(offsetof(Ts3nCounters, fbApN) == 0x60A8 && offsetof(Ts3nCounters, fbApSpare) == 0x60C4, "v190 FbApplyPending layout");
+static_assert(offsetof(Ts3nCounters, arRf3) == 0x60C8 && offsetof(Ts3nCounters, arRf3Spare) == 0x6170, "v191 arRf3 layout");
+static_assert(offsetof(Ts3nCounters, dsN) == 0x6178 && offsetof(Ts3nCounters, lrsN) == 0x6238 && offsetof(Ts3nCounters, dsSpare) == 0x6250 &&
+              DS_N == 16, "v192 drain sites layout");
+static_assert(offsetof(Ts3nCounters, resV215_218) == 0x6908 && offsetof(Ts3nCounters, koMode) == 0x6A08 && offsetof(Ts3nCounters, mdtOn) == 0x6A18 && offsetof(Ts3nCounters, mdtBusyPct) == 0x6A34, "v220 [Diag] ModTime layout");
+static_assert(offsetof(Ts3nCounters, resV221) == 0x6A38 && offsetof(Ts3nCounters, tskOn) == 0x6AF8 && offsetof(Ts3nCounters, tskIters) == 0x6B24 && offsetof(Ts3nCounters, tskSpare) == 0x6B28 && sizeof(Ts3nCounters) == 6883 * 4, "v222 [Diag] TaskSeam layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, lhReady) == 0x6B48 && offsetof(Ts3nCounters, lhLotGen) == 0x6B4C && offsetof(Ts3nCounters, lhWorldGen) == 0x6B50 && offsetof(Ts3nCounters, lhFired) == 0x6B5C, "v223 CP-1 lot hub layout (docs/registry.md)");
+static_assert(offsetof(Ts3nCounters, resV224) == 0x6B60 && offsetof(Ts3nCounters, crOn) == 0x6B74 && offsetof(Ts3nCounters, cdwWaitUs) == 0x6B88 && sizeof(Ts3nCounters) == 6883 * 4, "v225 CullRaceWatch layout (docs/registry.md)");
 #include "ilpatch.cpp"    // docs/506 §2, docs/526: [IlPatch] mid-method core fixes at the IL transform (before autshadow.cpp: satb.cpp's cold site 0 is its client)
 #include "autshadow.cpp"
 #include "monojit.cpp"  // docs/527: [MonoJit] the method compiler (after autshadow.cpp: its stores call Satb; before crashreport.cpp: it names compiled methods)
+#include "saveframes.cpp"  // docs/293: [EaCrashFixes] SavedFrameGuard, a saved task frame inside an instruction is repaired or dropped at load
+#include "yielddiag.cpp"  // [MonoDiag] YieldDiag (log only): resume ips and repeat transforms, detector for the McCall+0x42 crash
+#include "mintpairs.cpp"  // docs/139 §3: [MonoFast] PairCount, the in-game mint pair census (TEST-RUN TOOL, default off; needs simloop.cpp)
 #include "gcroots.cpp"  // docs/67 §22.4: Crash S task-rooting line + [GcRootCheck] (after autshadow.cpp: autledger's g_lgCtx; memexp.cpp: g_mx)
 #include "snap.cpp"
 #include "pools.cpp"
@@ -5324,10 +6679,16 @@ static_assert(offsetof(Ts3nCounters, pkMode) == 0x5EC8 && offsetof(Ts3nCounters,
 #include "tailunlock.cpp"
 #include "rtoro.cpp"
 #include "fgro.cpp"  // docs/174: [PlacementRO] (after rtoro.cpp: S2's QL and SrQuery, AvMayRun, PatchCalls)
+#include "gvhits.cpp"  // docs/670 §11: [GoalValidRO] Hits (before gvro.cpp: GvStub calls it; S2 types, OrPtFn)
 #include "gvro.cpp"  // docs/178 §7 T6: [GoalValidRO] (after fgro.cpp: same S2 pieces)
+#include "placero.cpp"  // docs/670: [PlaceTestRO] (after gvro.cpp: S2's QL, SrEntry / SrCell / SrVisit, AvMayRun, PatchCalls)
+#include "fglprof.cpp"  // docs/671: [FglProf] FindGoodLocation profile, measurement only (after savewrite.cpp: PatchCalls; FbStackText)
+#include "epro.cpp"  // docs/670 §8: [EditPathRO] (S2's QL, SrWalk2, SrConsume, AvMayRun, PatchCalls)
 #include "fsro.cpp"  // issue #156: [FootstepRO] footstep surface cache
 #include "idlero.cpp"  // docs/178 §8: [IdleCheckRO] (after fgro.cpp: S2's QL and SrEntry, AvMayRun, PatchCalls)
+#include "connro.cpp"  // docs/670 §15: [ConnRoomsRO] (after idlero.cpp: IkEnter / IkMoved; S2's SrEntry, AvMayRun, PatchCalls)
 #include "loadprof.cpp"
+#include "watergrid.cpp"  // docs/100 §13: [WaterGrid] Prof, G build phase split + hash (after values.cpp: PvRSum; savewrite.cpp: PatchCalls)
 #include "planrepeat.cpp"
 #include "replandedupe.cpp"
 #include "optsinit.cpp"
@@ -5336,14 +6697,114 @@ static_assert(offsetof(Ts3nCounters, pkMode) == 0x5EC8 && offsetof(Ts3nCounters,
 #include "p6wait.cpp"  // docs/189 phase 0: [P6Waits] (after movedwait.cpp)
 #include "unseencost.cpp"    // docs/227: [UnseenCost] probe (before unseen.cpp: its sites use UcTime)
 #include "unseen.cpp"
+#include "unseenband.cpp"  // docs/322: [UnseenProbe] Bands (after unseen.cpp: its hooks, camera, viewer and household tables)
 #include "worldimage.cpp"
 #include "crashreport.cpp"
+// [Rewind] Offline (docs/270 §20, default 0; only the rewind test queues turn it on): EA's online code in TS3W.exe (store,
+// news, Exchange, login; docs/16) gets no internet session, so the system wininet behind the ASI loader's wininet.dll never
+// asks urlmon's zone manager, which maps the cross-process section UrlZonesSM_<user> that a rewind cannot put back.
+// Every wininet import of TS3W.exe except InternetCrackUrlA (pure string parsing) is turned away with
+// ERROR_INTERNET_DISCONNECTED: InternetOpenA alone (0.36.261) still let a call on a NULL handle start the system wininet's
+// 30 s pool work item (callback rva 0x1d4760, Sleep(30000) debounce loop; docs/270 §22), which a snapshot sees as a
+// thread-pool worker inside a work item. Close succeeds, ErrorDlg cancels, the status callback setter reports none.
+// shortcut: TS3W.exe's import table only (TSLHost.dll too if it is already loaded); a module loaded later keeps its imports.
+static const DWORD kOffErr = 12163;  // ERROR_INTERNET_DISCONNECTED
+static BOOL WINAPI OffConnected(DWORD* flags, DWORD) { if (flags) *flags = 0; SetLastError(kOffErr); return FALSE; }
+static BOOL WINAPI OffClose(void*) { return TRUE; }
+static DWORD WINAPI OffErrorDlg(HWND, void*, DWORD, DWORD, void**) { return ERROR_CANCELLED; }
+static void* WINAPI OffCallback(void*, void*) { return NULL; }
+static UINT_PTR WINAPI Off3(UINT_PTR, UINT_PTR, UINT_PTR) { SetLastError(kOffErr); return 0; }
+static UINT_PTR WINAPI Off4(UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR) { SetLastError(kOffErr); return 0; }
+static UINT_PTR WINAPI Off5(UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR) { SetLastError(kOffErr); return 0; }
+static UINT_PTR WINAPI Off8(UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR, UINT_PTR) {
+    SetLastError(kOffErr);
+    return 0;
+}
+// stdcall: the stub's argument count must match the import's, or the caller's stack breaks
+static const struct { const char* name; const void* fn; } kOffImports[] = {
+    {"InternetOpenA", (const void*)Off5}, {"InternetGetConnectedState", (const void*)OffConnected},
+    {"InternetSetCookieA", (const void*)Off3}, {"InternetGetCookieW", (const void*)Off4},
+    {"InternetCloseHandle", (const void*)OffClose}, {"InternetErrorDlg", (const void*)OffErrorDlg},
+    {"InternetSetStatusCallback", (const void*)OffCallback}, {"HttpAddRequestHeadersA", (const void*)Off4},
+    {"InternetSetOptionA", (const void*)Off4}, {"InternetQueryOptionA", (const void*)Off4},
+    {"InternetReadFile", (const void*)Off4}, {"InternetWriteFile", (const void*)Off4}, {"HttpEndRequestA", (const void*)Off4},
+    {"HttpQueryInfoA", (const void*)Off5}, {"HttpSendRequestA", (const void*)Off5}, {"HttpSendRequestExA", (const void*)Off5},
+    {"InternetConnectA", (const void*)Off8}, {"HttpOpenRequestA", (const void*)Off8}};
+// returns the imports turned away; *left counts wininet imports left alone (InternetCrackUrlA, unknown names, ordinals)
+static int OffPatch(HMODULE mod, int* left = nullptr) {
+    const u8* b = (const u8*)mod;
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
+    const IMAGE_DATA_DIRECTORY& d = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    int n = 0, l = 0;
+    if (d.VirtualAddress)
+        for (const IMAGE_IMPORT_DESCRIPTOR* i = (const IMAGE_IMPORT_DESCRIPTOR*)(b + d.VirtualAddress); i->Name; i++) {
+            if (_stricmp((const char*)(b + i->Name), "wininet.dll") || !i->OriginalFirstThunk) continue;
+            const DWORD* names = (const DWORD*)(b + i->OriginalFirstThunk);
+            DWORD* slots = (DWORD*)(b + i->FirstThunk);
+            for (int k = 0; names[k]; k++) {
+                bool hit = false;
+                if (!(names[k] & 0x80000000)) {
+                    const char* fn = (const char*)(b + names[k] + 2);
+                    for (const auto& o : kOffImports) {
+                        const DWORD v = (DWORD)(uintptr_t)o.fn;
+                        if (!strcmp(fn, o.name) && Write(&slots[k], &v, 4)) hit = true;
+                    }
+                }
+                hit ? n++ : l++;
+            }
+        }
+    if (left) *left = l;
+    return n;
+}
+static void RewindOfflineInit(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"Rewind", L"Offline", 0, ini)) return;
+    int left = 0, tleft = 0;
+    const int n = OffPatch(GetModuleHandleW(NULL), &left);
+    const HMODULE tsl = GetModuleHandleW(L"TSLHost.dll");
+    const int t = tsl ? OffPatch(tsl, &tleft) : 0;
+    char tb[96];
+    if (tsl) _snprintf_s(tb, sizeof tb, _TRUNCATE, ", TSLHost.dll %d turned away, %d left", t, tleft);
+    Log("[Rewind] Offline on: %d wininet imports of TS3W.exe turned away, %d left (InternetCrackUrlA only expected)%s "
+        "(no internet session, no wininet pool work for EA online code)", n, left, tsl ? tb : "; TSLHost.dll not loaded");
+}
+// [Rewind] PoolPark (docs/270 §40; default 0, test-only: only harness rewind queues set it, tools/release-defaults-check.ts refuses it
+// in a shipped ini). EA's SIGS thread-pool worker EAThreadPool_WorkerProc 0x4E1DF0 waits for a job until now + 500 ms
+// (deadline DWORD at [esp+14], `lea eax,[esp+14]; push eax` at +0xFE) and ends on the timeout, so a worker alive at a
+// rewind snapshot can end during the job and the rewind must refuse it. The patch pushes the address of a -1 deadline
+// instead (EA's own "no timeout" constant is -1 too, 0xFB8960): idle workers wait until a job comes. Their handles are only
+// polled (GetExitCodeThread 0x4E2A87) and closed, never waited on [verified, static]. The pool runs store/online jobs only
+// ([Rewind] Offline turns their wininet calls away): no sim-thread work changes. Exported (own block, counters layout
+// unchanged): 0 off, 1 patched, 2 skipped (bytes differ or edition not verified).
+extern "C" __declspec(dllexport) volatile LONG ts3native_poolpark = 0;
+static const DWORD kPoolParkNoDeadline[2] = {0xFFFFFFFF, 0xFFFFFFFF};
+static const u8 kPoolParkWas[] = {0x8D, 0x44, 0x24, 0x14, 0x50};  // lea eax,[esp+14h]; push eax
+static void RewindPoolParkInit(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"Rewind", L"PoolPark", 0, ini)) return;
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)
+    ts3native_poolpark = 2;
+    Log("SKIP [Rewind] PoolPark: EA 1.69 site not verified (no EA exe checked), pool workers end after 500 ms idle as before");
+    return;
+#else
+    u8* at = (u8*)(uintptr_t)TS3A(0x004E1DF0) + 0xFE;  // same bytes at +0xFE on Steam and retail 1.67 [verified, file bytes]
+    if (!Matches(at, kPoolParkWas, sizeof kPoolParkWas)) { ts3native_poolpark = 2; Log("SKIP [Rewind] PoolPark: EAThreadPool_WorkerProc+0xFE bytes differ, nothing written"); return; }
+    u8 push[5] = {0x68};  // push imm32
+    const DWORD p = (DWORD)(uintptr_t)kPoolParkNoDeadline;
+    memcpy(push + 1, &p, 4);
+    if (!Write5(at, push)) { ts3native_poolpark = 2; Log("FAIL [Rewind] PoolPark: VirtualProtect at %p (err %lu)", at, GetLastError()); return; }
+    ts3native_poolpark = 1;
+    Log("[Rewind] PoolPark on: EA thread-pool workers wait for a job without the 500 ms idle end (%p, test-only)", at);
+#endif
+}
 #include "watchpt.cpp"  // docs/157 §8: [Watchpoint] hardware data watchpoints (default off)
 #include "arenatail.cpp"  // docs/67 §22.7: Crash S fix [ArenaGuard] TailPad + writer watch [GcRootCheck] TailWatch (after crashreport.cpp: CrStack)
 #include "crashfx.cpp"  // docs/157 §11.7: [CrashForensics] guarded sites + crash dump (default off)
 #include "earlyout.cpp"
 #include "plandeadline.cpp"  // docs/164 §7: [RouteAsync] PlanDeadlineMs / FailMemo (routephases.cpp takes its trampolines)
+#include "plancand.cpp"      // docs/644: [RouteAsync] CandidateCut / WaterGoalCheck, [RouteJobPhases] CandidateSplit (after plandeadline.cpp)
+#include "workerhold.cpp"    // docs/673: [RouteJobPhases] HoldProbe (after plancand.cpp: PCC_*, g_pccSplit)
+#include "worldpre.cpp"      // docs/676: [WorldPrecompute] (after waterjps.cpp: WjCtx, WJ_CALL; plancand.cpp: PccScopeNow, g_pccSplit)
 #include "unseenfb.cpp"      // docs/202: [UnseenFallback] (after plandeadline.cpp: PdSess, the exits)
+#include "jobyield.cpp"      // docs/183 §7: JOBBUSY and the records of a sleeping plan (after plandeadline.cpp: g_kdScope*; unseenfb.cpp)
 #include "unseenfbc.cpp"     // docs/202 §3.4: [UnseenFallback] Sites C1-C4 (after unseen.cpp, rtoro.cpp, fgro.cpp)
 #include "ghost.cpp"         // docs/202 §3.9.5: [UnseenGhost] (after unseenfbc.cpp: agent site, 0x833560 layers)
 #include "unseenanim.cpp"    // docs/144 §3.4: [UnseenAnim] U-A1 (after unseen.cpp: classifier, household table)
@@ -5360,11 +6821,16 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "routephases.cpp"
 #include "syncphases.cpp"  // docs/164: [RouteJobPhases] SyncPlans (needs routephases.cpp)
 #include "cellmemo.cpp"
+#include "routespeed.cpp"  // docs/663: [RouteSpeed] NeighbourMemo (after routesnap.cpp: g_snTreeSeq; plandeadline.cpp: t_pd.scope)
+#include "smoothcut.cpp"   // docs/676 §15: [WorldPrecompute] SmoothCut (no dependencies beyond the helpers above)
+#include "doorshare.cpp"   // docs/674: [RouteSnap] DoorShare (before hostcalls.cpp: the door stub calls it)
 #include "hostcalls.cpp"
 #include "fgrender.cpp"  // docs/162 §7: [Harness] ForegroundRender (TEST ONLY)
+#include "thumbstall.cpp"  // [ThumbStall]: timeout for state 0x11 of the Sim thumbnail queue (EXPERIMENT, off)
 #include "played.cpp"    // docs/14 section 8.6: played-household sidecar store for ts3fixes (op 6 + "played:" lines on the 0x87 channel)
 #include "userdiag.cpp"  // docs/188: [UserDiag] player-report lines (header, world load, save trail)
 #include "memdiag.cpp"   // docs/190 phase 1, docs/191: [MemDiag] "diag: mem" lines + self-test (needs userdiag.cpp)
+#include "memaccess.cpp"  // docs/190 phase 2: [MemDiag] Access, "diag: memaccess" cache find + package read counters (needs memdiag.cpp)
 #include "compaction.cpp"  // docs/204: [Compaction] quiet save-reload verdict for ts3fixes (needs userdiag.cpp, apex.cpp)
 #include "rctrim.cpp"    // docs/198 §4: [ResourceCache] TrimAfterCleanup experiment (needs userdiag.cpp, memdiag.cpp, apex.cpp)
 #include "castrim.cpp"   // docs/191 step 2: [CasTrim] part compositor registry trim (off by default)
@@ -5374,11 +6840,24 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 #include "slotguard.cpp"   // docs/539 §18: [SlotGuard] float-5 SlotComponent slot arrays, CRASH-TRIAGE (needs uafcheck.cpp, castrim.cpp)
 #include "float5free.cpp"  // docs/539 §19: [Float5Free] float-5 pointers at EA Free / deque dtor 0x727E10, CRASH-TRIAGE (needs uafcheck.cpp, slotguard.cpp)
 #include "f5watch.cpp"     // docs/539 §21: [Float5Sticky] / [Float5Watch] float-5 writer catch, CRASH-TRIAGE (needs uafcheck, slotguard, float5free, watchpt, crashev)
+#include "stallwatch.cpp"  // docs/67 §25: [StallWatch] sim stall sampler (needs crashreport.cpp, castrim.cpp, simloop.cpp, userdiag.cpp)
+#include "modtime.cpp"   // docs/298: [Diag] ModTime, sim-thread script sampler per mod (off; needs simloop.cpp, apex.cpp, decompress.cpp, userdiag.cpp)
+#include "pccheck.cpp"     // docs/299: [PcCheck] read-only CPU / power / PC check (on; log, pccheck-summary.txt, UserDiag op 62)
+#include "taskseam.cpp"  // docs/308: [Diag] TaskSeam (off; after modtime.cpp, taskserve.cpp, unseen.cpp)
+#include "nonsim.cpp"    // docs/329: [Diag] NonSimSplit (off; after taskseam.cpp: its seam, side table and writer thread)
+#include "hitchsum.cpp"    // docs/666 §5: [HitchAttr] HitchMs / RouteLockMs / JobWaitLogMs (needs stallwatch.cpp, hitchattr.cpp, syncphases.cpp, memexp.cpp)
+#include "adaptdiag.cpp"   // docs/316: [AdaptDiag] adaptive diag kit (off; needs hitchsum.cpp, modtime.cpp, pccheck.cpp, stallwatch.cpp, userdiag.cpp, apex.cpp)
+#include "c2diag.cpp"      // docs/259 §9: [Crash2Diag] route destination list lifetime detector, CRASH-TRIAGE (after autshadow.cpp: g_arGate; values.cpp: PvSwClass)
 #include "monosig.cpp"     // docs/539 §20: [MonoSigGuard] EA bug, delegate signature param_count before params[0] at 0xD70F90 (release ini on)
+#include "hostmapiter.cpp"  // docs/67 §43: [HostMapIterFix] EA bug, ProcessTaskState host id map iterator stale after a rehash in 0xD80460 (off)
+#include "bindertd.cpp"    // docs/537 §20.3 E1: [Binder] TypeHandleDirect, GetTypeFromHandle's EA body reads the handle (no n2m call)
 #include "s3sscompat.cpp"  // docs/539 §22: [S3SSCompat] StaleWriteGuard, S3SS 1.6.3 stale camera-threshold write (after crashreport.cpp: CrFileSha; release ini on)
 #include "eafix.cpp"       // docs/67 §26.4 / §27.5 / §28: [EaCrashFixes] ConformActor, ThumbPose, GeomBoneIndex (needs footprint.cpp's FpCallOk / FpRedirect)
 #include "pkglock.cpp"     // docs/539 §13.9: [PkgLock] EA package-lock ABBA (after routegate.cpp: LockReleaseFn), off by default
+#include "pkgprobe.cpp"    // docs/549 §4: [PkgProbe] resource manager probe (log only) + RemoveFix, off by default
+#include "audiodup.cpp"    // docs/549 §5: [AudioStateDup] audio state duplicate-key node leak, off by default
 #include "wastar.cpp"      // docs/67 §30: [EaCrashFixes] WorldAStarRefs
+#include "eadiag.cpp"      // docs/234: [EaDiag] ProductGate log-only hooks, EA app 1.69.47 build only (empty on Steam)
 
 // [D3DMultithreaded] (PLAN #4, docs/37 C5, docs/43 §1): Device_Create 0x611080 passes `esi` as the CreateDevice behaviour
 // flags: 0x40 (software VP) at 0x6112A4, replaced by 0x20 (hardware VP) at 0x6112B9 when the caps allow [verified]. Adding
@@ -5386,8 +6865,8 @@ static bool CostStubsWanted(bool routeBudget, int asyncMode) {
 // on the sim thread (0xD5D910) no longer race the main thread's rendering. The deferral to the device thread is not built:
 // the IC callers wait for the result, and a sim-to-main wait can deadlock against the frame lock (docs/41 S1) [inferred].
 static const Site kD3dFlags[] = {
-    {0x006112A4, {0xBE, 0x40, 0x00, 0x00, 0x00}, 5, 1},  // mov esi,40h (D3DCREATE_SOFTWARE_VERTEXPROCESSING)
-    {0x006112B9, {0xBE, 0x20, 0x00, 0x00, 0x00}, 5, 1},  // mov esi,20h (D3DCREATE_HARDWARE_VERTEXPROCESSING)
+    {TS3A(0x006112A4), {0xBE, 0x40, 0x00, 0x00, 0x00}, 5, 1},  // mov esi,40h (D3DCREATE_SOFTWARE_VERTEXPROCESSING)
+    {TS3A(0x006112B9), {0xBE, 0x20, 0x00, 0x00, 0x00}, 5, 1},  // mov esi,20h (D3DCREATE_HARDWARE_VERTEXPROCESSING)
 };
 static bool ApplyD3dMultithreaded(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"D3DMultithreaded", L"Enabled", 0, ini)) { Log("d3d multithreaded disabled (Enabled=0)"); return false; }
@@ -5401,6 +6880,11 @@ static bool ApplyD3dMultithreaded(const wchar_t* ini) {
 
 #include "launcherfix.cpp"  // docs/255: [LauncherFix] EA launcher telemetry busy-wait (launcher host only)
 static bool g_otherHost;  // not TS3W.exe (the launcher also loads the ASI loader): no exit work at DLL_PROCESS_DETACH
+// docs/230: the build this asi's addresses belong to (PE timestamp + SizeOfImage, appended sections allowed: Ts3HostImageOk)
+static bool HostBuildOk(const void* base) {
+    const IMAGE_NT_HEADERS* nt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
+    return Ts3HostImageOk(nt);
+}
 
 static void Run(HMODULE self) {
     wchar_t path[MAX_PATH], ini[MAX_PATH], log[MAX_PATH], exe[MAX_PATH];
@@ -5413,9 +6897,19 @@ static void Run(HMODULE self) {
     GetModuleFileNameW(NULL, exe, MAX_PATH);
     HMODULE base = GetModuleHandleW(NULL);
     const wchar_t* name = wcsrchr(exe, L'\\');
+#ifdef TS3A_TABLE
+    // docs/228: the table names the build (PE timestamp + SizeOfImage), any file name: the EA game may run as Sims3Launcher.exe
+    g_otherHost = base != (HMODULE)0x400000 || !HostBuildOk(base);
+    const bool wrongBuild = false;
+#else
     g_otherHost = base != (HMODULE)0x400000 || _wcsicmp(name ? name + 1 : exe, L"TS3W.exe") != 0;
-    swprintf_s(ini, L"%s.ini", path);
-    swprintf_s(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);  // a launcher start must not truncate the game's log
+    // a TS3W.exe of another build (retail 1.67 moves every address, docs/230): the game's log says so, nothing installs
+    const bool wrongBuild = !g_otherHost && !HostBuildOk(base);
+#endif
+    PathFmt(ini, L"%s.ini", path);  // fits: path lost its ".asi"
+    if (!g_otherHost && !wrongBuild) AdOverlay(ini);  // docs/316: [AdaptDiag] next-session turn-ons (a copy of the ini); before anything reads it
+    // a launcher start must not truncate the game's log; docs/323 L5: ".launcher.log" can pass MAX_PATH ("" = no log)
+    PathFmt(log, g_otherHost ? L"%s.launcher.log" : L"%s.log", path);
     if (!g_otherHost) CrPreLog(ini, log);  // [CrashReport]: the previous session's last lines, before the log is truncated
     char priorLog[64] = "";  // the version that wrote the old log: the only trace of the last installed build
     HANDLE oldLog = CreateFileW(log, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -5431,22 +6925,42 @@ static void Run(HMODULE self) {
     GetLocalTime(&st);
     Log("ts3native " TS3NATIVE_VERSION " %04d-%02d-%02d %02d:%02d:%02d", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
     if (!strncmp(priorLog, "ts3native ", 10)) Log("prior log: %s", priorLog);
+#if defined(TS3A_TABLE) && defined(TS3A_RETAIL)
+    Log("release: " TS3NATIVE_VERSION " retail");  // own line: log parsers read the header version as digits; never a stale release name
+#elif defined(TS3A_TABLE)
+    Log("release: " TS3NATIVE_VERSION " EA");  // own line: log parsers read the header version as digits; never a stale release name
+#endif
     // file name only: players send this log (docs/188 privacy); PE timestamp + SizeOfImage name the build (Steam 1.67
     // = 52DEC247 / 0xE5A000, EA app 1.69.47 TS3.exe = 6707155C / 0xEB5000) so a SKIP line from another edition is identifiable
     const IMAGE_NT_HEADERS* hostNt = (const IMAGE_NT_HEADERS*)((const u8*)base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
     Log("host %ls base 0x%p pe %08lX size 0x%lX", name ? name + 1 : exe, base, hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
-    if (g_otherHost) {
+    if (wrongBuild) {
+        g_otherHost = true;  // nothing installed: no exit work either
+        Log("unsupported TS3W.exe build %08lX/%lX: all patches off; retail 1.67 needs ts3native-retail167.asi", hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
+    } else if (g_otherHost) {
+#ifdef TS3A_TABLE
+        Log("SKIP all: host is not " TS3A_HOST_NAME " (pe %08lX size 0x%lX)", hostNt->FileHeader.TimeDateStamp, hostNt->OptionalHeader.SizeOfImage);
+#else
         Log("SKIP all: host is not TS3W.exe at 0x400000");
+#endif
         if (!_wcsicmp(name ? name + 1 : exe, L"Sims3LauncherW.exe") || !_wcsicmp(name ? name + 1 : exe, L"Sims3Launcher.exe"))
             keepLog = ApplyLauncherFix(ini, hostNt->FileHeader.TimeDateStamp);
     } else {
+#ifdef TS3A_TABLE
+        Log("host build: " TS3A_HOST_NAME);
+#endif
         SeedWaitKeys();
         InstallXcptLog(ini);
         ApexDetect(ini);  // docs/148 §7: before every install (stand-downs, crash report line)
+        S3mmDetect(ini);  // docs/291 §6: before [MonoFast], [MonoJit], [AutShadow]
+        RewindParkInit(ini);  // before the route worker starts
+        RewindOfflineInit(ini);  // before the game's online code runs
         InstallCrashReport(ini, log);
         ApplyGc(ini);
         bool cache = ApplyRouteCache(ini);
         bool worker = ApplyRouteWorker(ini);
+        g_hhToo = Clamp(GetPrivateProfileIntW(L"Experimental", L"HouseholdToo", 0, ini), 0, 1);  // docs/271
+        if (g_hhToo) Log("EXPERIMENTAL HouseholdToo=1 (docs/271): memo / worker answers also for household, selected and unknown-scope Sims; teleports, cuts and fakes stay exempt");
         const int asyncMode = ReadRouteAsync(ini);
         if (asyncMode >= 0 && !worker && !(worker = StartWorker())) Log("FAIL route async: worker thread start (err %lu)", GetLastError());
         const bool gate = ReadRouteGate(ini);  // checks every prologue first: nothing is hooked if one differs
@@ -5467,13 +6981,21 @@ static void Run(HMODULE self) {
         InstallSlotRo(ini);
         InstallGate0Ro(ini);  // docs/152 §G1: after SteerRO and AvoidRO (reads their ready state for the log)
         InstallLocoWindow(ini);
+        InstallYieldDiag(ini);
+        InstallSavedFrameGuard(ini);  // docs/293
+        InstallTaskServe(ini);  // docs/637: after InstallAsync (g_async.owner, the invoke events)
         InstallH2Ic(ini);     // docs/177 §4: the same start hold around the script ICs that write footprint refcounts
         InstallGoalGen(ini);  // docs/177 §3: D1, the duplicate ring of a radius route
         InstallRefcountGuard(ini);  // docs/177 §7: after the steering frames (InstallRtSites) and AvoidRO's A-site
         InstallTailUnlock(ini);  // docs/150 §11: after the steering frames (InstallRtSites)
+        InstallPlanEndLend(ini);  // docs/673 §9: TailUnlock's window at the plan's end, LendWake
         InstallRouteToObjRO(ini);  // docs/140 §12: after [SteerRO] (QL, W1-W6) and [SlotEnabledRO] (SH)
         InstallPlacementRO(ini);   // docs/174: S2's writer set, like [RouteToObjRO]
         InstallGoalValidRO(ini);   // docs/178 §7 T6: S2's writer set, like [PlacementRO]
+        InstallPlaceTestRO(ini);   // docs/670: S2's writer set, like [PlacementRO]
+        InstallFglProf(ini);       // docs/671: measurement only; its sites differ from [PlaceTestRO]'s 0xB462B7
+        InstallEditPathRO(ini);    // docs/670 §8: S2's writer set, like [PlaceTestRO]
+        InstallConnRoomsRO(ini);   // docs/670 §15: gate 11 + the call at 0x792A55
         InstallFootstepRO(ini);    // issue #156: footstep surface cache
         InstallIdleCheckRO(ini);    // docs/178 §8: S2's writer set, like [PlacementRO]
         InstallMovedWaits(ini);     // docs/178 §9: observe only
@@ -5481,6 +7003,7 @@ static void Run(HMODULE self) {
         InstallP10(ini);
         InstallReplanDedupe(ini);  // docs/150 §13: after A10 (its collect detours) and P10 (probe stubs keep their ICs)
         InstallPlanDeadline();     // docs/164 §7: after the plan detour, the cost stubs and InstallAsync (SyncIc); before [RouteJobPhases]
+        InstallPlanCand(ini);      // docs/644: after InstallPlanDeadline (chains into its water stub); before [RouteJobPhases]
         keepLog = ApplySaveWrite(ini) || keepLog;
         ApplySaveFlush(ini);
         ApplySaveSlim(ini);  // after [SaveFlush] (shares its load-copy hook when that is on)
@@ -5488,6 +7011,7 @@ static void Run(HMODULE self) {
         ApplyCompaction(ini);  // docs/204: after [UserDiag] (its text channel and save end) and ApexDetect
         ApplyRcTrim(ini);  // docs/198 §4: EXPERIMENT, off ([ResourceCache] TrimAfterCleanup)
         ApplyCasTrim(ini);  // docs/191 step 2: off ([CasTrim] Mode)
+        ApplyMemAccess(ini);  // docs/190 phase 2: off ([MemDiag] Access); after ApplyUserDiag (needs g_mdOn), chains the Find slot
         ApplyLotPoolTrim(ini);  // docs/541: off ([LotPool] Trim; needs [UserDiag])
         // the NOYIELD query guards ts3fixes' other yields too, so it is answered with async off (START then says no)
         if (!g_getOptOrig)
@@ -5500,6 +7024,12 @@ static void Run(HMODULE self) {
         keepLog = ApplyHeightCache(ini) || keepLog;
         keepLog = ApplyGcThreadCheck(ini) || keepLog;
         keepLog = ApplyMemExp(ini) || keepLog;  // docs/199 (default off)
+        keepLog = ApplyGcIdleGate(ini) || keepLog;  // docs/281 §8 (default off): after ApplyMemExp, chains its MxStep call-site retarget
+        keepLog = ApplyGcMarkHelpers(ini) || keepLog;  // docs/287 §7 (default off): after ApplyGcIdleGate, chains SubTimers' 0xE49FDF
+        ApplyDxDiagCache(ini);  // docs/284 (default off): before DeviceCaps_Probe runs
+        ApplyCullRace(ini);  // docs/338: render call-site retargets, before the first frame
+        ApplyKeepOptions(ini);  // docs/37 §12 (default 0): before DeviceConfig_Init reads Options.ini
+        RewindPoolParkInit(ini);  // docs/270 §40 (test-only, default off): before the first pool worker idles
         keepLog = ApplyGcGrowLog(ini) || keepLog;  // docs/232 Run 8l/8n: [GcGrowLog] log + [GC] BlackListCapKB (both off by default)
         keepLog = ApplyGcRootCheck(ini) || keepLog;  // docs/67 §22.4 (off): after ApplyMemExp, chains its GC_notify_event hook
         keepLog = ApplyThreadStack(ini) || keepLog;  // docs/66 §6: exe IAT CreateThread/_beginthreadex (default off)
@@ -5510,24 +7040,40 @@ static void Run(HMODULE self) {
         keepLog = ApplySlotGuard(ini) || keepLog;  // docs/539 §18 (off): float-5 site 0x951A00
         keepLog = ApplyFloat5Free(ini) || keepLog;  // docs/539 §19 (off): after [UafCheck] (shares its EA Free detour)
         keepLog = ApplyFloat5Watch(ini) || keepLog;  // docs/539 §21 (off): [Float5Sticky], [Float5Watch]
+        keepLog = ApplyCrash2Diag(ini) || keepLog;  // docs/259 §9 (off): route destination detours, before the game runs
         keepLog = ApplyMonoSigGuard(ini) || keepLog;  // docs/539 §20 (EA bug fix, default on): before Mono starts
+        keepLog = ApplyHostMapIterFix(ini) || keepLog;  // docs/67 §43 (EA bug fix + detector, default off): before the sim thread runs
+        keepLog = ApplyBinderTypeHandle(ini) || keepLog;  // docs/537 §20.3 E1 (default 0): before Mono starts
         keepLog = ApplyS3ssCompat(ini) || keepLog;  // docs/539 §22 (default on): S3SS 1.6.3 stale maintained write, stands aside for other S3SS builds
+        keepLog = ApplyEqualsFast(ini) || keepLog;  // docs/258 option C (off): before [AutShadow] / [MonoJit] start Mono work
         keepLog = ApplyIcLockCheck(ini) || keepLog;
         keepLog = ApplyMonoThread(ini) || keepLog;
         keepLog = ApplyArenaGuard(ini) || keepLog;  // docs/67 §22.2: after [MonoThread] (skips when its P3 owns the arena sites)
         keepLog = ApplyArenaTail(ini) || keepLog;  // docs/67 §22.7: TailPad (EA arena byte patches) + TailWatch (0xE563B2)
         keepLog = ApplyWorldImage(ini) || keepLog;  // after [MonoThread]: second callback on the Simulate loop-back hook
+        keepLog = ApplyLotHub(ini) || keepLog;  // docs/321 §8 CP-1 (always on): before [LotStream], which reuses its two detours
         keepLog = ApplyLotStream(ini) || keepLog;
         keepLog = ApplyJobQueue(ini) || keepLog;
         ApplyD3dMultithreaded(ini);
         ApplyForegroundRender(ini);  // TEST ONLY (docs/162 §7): unfocused harness runs pace like focused ones
+        ApplyThumbStall(ini);  // EXPERIMENT, off: start-up patch
+        ApplyOutfitFirst(ini);  // docs/684 §9, off: live outfit swaps' build jobs measured / built first
+        ApplyThumbCallers(ini);  // LOG ONLY, off: who asks for thumbnails
         keepLog = ApplyLotSinCos(ini) || keepLog;
         keepLog = ApplyIdCache(ini) || keepLog;
         keepLog = ApplyEaCrashFixes(ini) || keepLog;  // docs/67 §26.4 / §27.5 / §28: off by default; before any game object exists
+#ifdef TS3N_EA_PORT
+        keepLog = ApplyImageGuard(ini) || keepLog;  // docs/232 Run 8d: off by default, EA build only
+#endif
         keepLog = ApplyPkgLock(ini) || keepLog;  // docs/539 §13.9: off by default ([PkgLock] Mode=0); vtable slots only
+        keepLog = ApplyPkgProbe(ini) || keepLog;  // docs/549 §4: off by default ([PkgProbe] Enabled=0, RemoveFix=0)
+        keepLog = ApplyAudioStateDup(ini) || keepLog;  // docs/549 §5: off by default ([AudioStateDup] Enabled=0, Fix=0)
         keepLog = ApplyWorldAStarRefs(ini) || keepLog;  // docs/67 §30: off by default
         keepLog = ApplyPortalFlagRefs(ini) || keepLog;  // docs/67 §30.5: off by default
         keepLog = ApplyLotGridMiss(ini) || keepLog;  // docs/67 §31.8
+        keepLog = ApplyHeightsInfLoop(ini) || keepLog;  // docs/67 §36: off by default
+        keepLog = ApplyBridgeHeightNaN(ini) || keepLog;  // docs/67 §37: off by default
+        keepLog = ApplyFglStaleObject(ini) || keepLog;  // docs/67 §44: off by default
         keepLog = ApplyProbeValues(ini) || keepLog;  // after every behaviour section: it counts inside their stubs or skips
         keepLog = ApplyRouteSnap(ini) || keepLog;  // after [ProbeValues]: counts inside its, [SteerRO]'s and [RouteGate]'s stubs
         InstallLotRemoveGuard(ini);                 // after [RouteSnap]: its stub at 0x635700 runs the same guard
@@ -5536,6 +7082,7 @@ static void Run(HMODULE self) {
         PcRegister();                               // P4 part B: the replay clone as P4's clone provider
         keepLog = ApplyProbeSnap(ini) || keepLog;
         keepLog = ApplyLoadProf(ini) || keepLog;  // measurement: skips every site another section already hooked
+        keepLog = ApplyWaterGrid(ini) || keepLog;  // docs/100 §13: measurement only (off by default)
         keepLog = ApplyPlanRepeat(ini) || keepLog;  // after [RouteSnap] (its world version) and the plan detour
         keepLog = ApplyOptsInit(ini) || keepLog;    // I-94-322: the planner options' hub references start at 0 (default off)
         keepLog = ApplyHitchAttr(ini) || keepLog;   // docs/96 §9: per-frame sim waits for the route job (observe only)
@@ -5544,19 +7091,36 @@ static void Run(HMODULE self) {
         keepLog = ApplyUnseenGhost(ini) || keepLog;  // docs/202 §3.9.5: last, a layer below every 0x833560 owner
         keepLog = ApplyUnseenCost(ini) || keepLog;   // docs/227: before the unseen hooks fire (no call sites of its own)
         keepLog = ApplyUnseenAnim(ini) || keepLog;   // docs/144 §3.4: the animation pass and pose call sites (no other owner)
+        keepLog = ApplyAnimPhase(ini) || keepLog;    // docs/22 §6 G10: timers at four call sites inside 0x940430 (off)
+        keepLog = ApplyStallWatch(ini) || keepLog;   // docs/67 §25: sim stall sampler (off; simloop.cpp iteration hook)
+        keepLog = ApplyModTime(ini) || keepLog;      // docs/298: [Diag] ModTime (off; one more simloop.cpp callback + a sampler thread)
+        keepLog = ApplyPcCheck(ini) || keepLog;      // docs/299: [PcCheck] (on, read-only; one 10 s sampler thread)
+        keepLog = ApplyTaskSeam(ini) || keepLog;     // docs/308: [Diag] TaskSeam (off; after InstallTaskServe: chains its RunTask sites)
+        keepLog = ApplyNonSimSplit(ini) || keepLog;  // docs/329: [Diag] NonSimSplit (off; needs the task seam just above)
         keepLog = ApplyUnseenRootMotion(ini) || keepLog;   // docs/228: needs [UnseenAnim]'s pass hook (applied just above)
         keepLog = ApplyUnseenTable(ini) || keepLog;  // docs/227 §6: no call sites; a sim-pump callback and the UnObjClass hook
         keepLog = ApplyRouteJobPhases(ini) || keepLog;  // docs/150 §7: after every owner of a phase site (observe only)
         keepLog = ApplyCellMemoProbe(ini) || keepLog;   // docs/150 §12: after [RouteJobPhases] (its job window and cell A* frame)
+        keepLog = ApplyHitchSum(ini) || keepLog;        // docs/666 §5: after [RouteJobPhases] (SyncPlans) and [HitchAttr] Holders (log only, off)
+        keepLog = ApplyAdaptDiag(ini) || keepLog;       // docs/316: after hitch summary / stall watch / ModTime / PcCheck (turns their thresholds; off)
+        InstallRouteSpeed(ini);  // docs/663: after [RouteSnap] (tree-write sequence) and [RouteGate] (the Q table clear stub)
+        InstallSmoothCut(ini);   // docs/676 §15: one call site of its own (0x6676CE), nobody else's
+        InstallWorkerHold(ini);  // docs/673: after InstallPlanCand (g_pccSplit) and [RouteAsync] (g_lockOrig)
+        InstallWorldPre(ini);    // docs/676: after ApplyWaterJps (the jump hook), InstallPlanCand and InstallTailUnlock (it chains its sites)
         keepLog = ApplyHostCalls(ini) || keepLog;       // docs/159: after [RouteJobPhases] (rjpReady) and P4 / [ProbeValues] (door chain)
         keepLog = ApplyVerify(ini) || keepLog;  // last: probes skip whatever another section already hooked
         P5Snapshot();                           // P5 M2-1: the code bytes of every site the clone run passes, after every install
         keepLog = ApplyIlPatch(ini) || keepLog;    // docs/506 §2: the transform-entry detour, before Satb (its cold site 0 then registers as a client)
+        ApplyIlpGuard(ini);                        // docs/51 §537: the same detour for the no-IL-header guard when [IlPatch] did not install it
         keepLog = ApplyMintFuse(ini) || keepLog;   // docs/139 §4: matcher call 0xE5C8CA, before MonoScriptHost_Init transforms anything
         keepLog = ApplyMintCall(ini) || keepLog;   // docs/139 §8: after every code patch (checks EA's call path bytes), before Satb
         keepLog = ApplyMonoJit(ini) || keepLog;    // docs/527 §4.1: after every code patch, before [AutShadow]
+        keepLog = ApplyMintPairs(ini) || keepLog;  // docs/139 §3: dispatch head 0xE544D5 (no other owner), diagnostics only
         g_asJobState = &g_async.state;  // E3 level gate: no lot-table lookup while a job runs (autshadow.cpp AsLevelGate)
         keepLog = ApplyAutShadow(ini) || keepLog;  // docs/122 part 1: guard thunks after every other table owner (routesnap)
+#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)
+        keepLog = ApplyEaDiag(ini) || keepLog;  // docs/234: EA 1.69.47 product/entitlement gate, log only (default off)
+#endif
         ApexStartLate();  // zzApexRadiance.asi loads after us (its lines reach the log only while it stays open)
     }
     Log("done");
@@ -5572,10 +7136,13 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID) {
     } else if (reason == DLL_PROCESS_DETACH) {
         if (g_otherHost) return TRUE;  // launcher host: nothing was installed, nothing to wait for
         JcnExit();  // [MonoJit] Count: the last count report
+        MpExit();   // [MonoFast] PairCount: the last pair report
         LuExit();  // [RouteSnap] LotUseReadout: the exit summary (last walk's bytes, final job counts)
         UdExit();
+        AdExit();  // docs/316: final report, Clean=1
         CrCleanExit();
         FgRevert();  // [Harness] ForegroundRender: original bytes back
+        TsRevert();  // [ThumbStall]: original bytes back
     }
     return TRUE;
 }

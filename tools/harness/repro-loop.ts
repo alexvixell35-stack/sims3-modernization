@@ -179,15 +179,22 @@ export async function runStep(s: LoopStep, io: StepIO, read: string[] = []): Pro
 // A repro's plain steps in order (profile-world). After the window end (io.halted) every until / waitUntil is skipped, so the
 // steps stop at the first step that needs one, or right after one whose wait the end may have cut: a later step would act on an
 // unsettled game (2026-11-10 bp-dfguard-release-1111: the window ended in cycle 7, cycle 8's place until was skipped and its fire
-// hit Sims mid-teleport). Fixed-wait steps still run to the end, as before. Returns the number of steps run.
+// hit Sims mid-teleport). A fixed waitS ends at the window end too (2026-11-18 etl14c af19-tb-31371-h: error-trap-window's
+// 1380 s wait in a 15-min window kept the child 8 min past the end with upkeep off; the mode guard then voided the job); the
+// fixed-wait steps after it still run as before (end-of-window reads, cleanups), only without their waits.
+// Returns the number of steps run.
 export async function runSteps(steps: LoopStep[], io: StepIO): Promise<number> {
-  let n = 0;
+  let n = 0, cut = false, ended = false;
+  const wio: StepIO = { ...io, sleep: async ms => {
+    for (let left = ms; left > 0; left -= POLL_MS) { if (io.halted()) { cut = true; return; } await io.sleep(Math.min(POLL_MS, left)); }
+  } };
   for (const s of steps) {
     const waits = !!(s.until || s.waitUntil);
     if (waits && io.halted()) break;
-    await runStep(s, io);
+    await runStep(s, wio);
     n++;
     if (waits && io.halted()) break;
+    if (cut && !ended) { ended = true; (io.log ?? (l => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`)))(`step ${s.cmd}: wait cut at the window end`); }
   }
   if (n < steps.length) (io.log ?? (l => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`)))(
     `repro steps stop at the window end: ${n} of ${steps.length} run (an until / waitUntil after the end is skipped, the next step would act unsettled)`);
@@ -479,6 +486,13 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
     ran.length = 0;  // halted already: fixed-wait steps still run, the first until step stops them
     assert.equal(await runSteps([{ cmd: 'x', waitS: 1 }, { cmd: 'place2', until: u }, { cmd: 'fire2' }], io), 1);
     assert.deepEqual(ran, ['x']);
+    // a fixed wait past the window end is cut there; the fixed-wait steps after it run without waiting, an until step stops them
+    ran.length = 0; logs.length = 0; halt = false;
+    let naps = 0;
+    const cio: StepIO = { ...io, sleep: async () => { if (++naps >= 3) halt = true; } };
+    assert.equal(await runSteps([{ cmd: 'trap', waitS: 1380 }, { cmd: 'read' }, { cmd: 'b', waitS: 5 }, { cmd: 'c' }, { cmd: 'place', until: u }, { cmd: 'd' }], cio), 4);
+    assert.deepEqual([ran, naps], [['trap', 'read', 'b', 'c'], 3]);
+    assert.deepEqual(logs, ['step trap: wait cut at the window end', 'repro steps stop at the window end: 4 of 6 run (an until / waitUntil after the end is skipped, the next step would act unsettled)']);
   }
   // taskDone: needs the profiler's records
   await assert.rejects(runStep(fire({ waitUntil: { taskDone: 'Ts3Fixes.EaSpreadNow' }, maxS: 5 }), game({}).io), /io.taskDone/);

@@ -17,9 +17,8 @@ namespace Ts3Fixes
     // without asking that machine to exit; EA's own carry exits (CarrySystem.ExitAndKeepHolding, CarryUtils.ExitCarry)
     // request "ExitNoPut" or "Exit" first. The machine keeps its engine driver until the garbage collector finalizes the
     // script client. (Not the cause of the stuck-arm pose a player reported: tested live, docs/515 §1.)
-    // Fix, switch on: after EA's method, a dropped machine is ended as ExitAndKeepHolding does (RequestState "x"
-    // "ExitNoPut"), then disposed, which releases its driver. [2043] machines dropped (also with the switch off), [2044]
-    // ended.
+    // Fix, switch on: after EA's method, a dropped machine is disposed, which releases its driver (no exit request: see
+    // BcEnd). [2043] machines dropped (also with the switch off), [2044] ended.
     public static partial class Fixes
     {
         public class BookCarryHook
@@ -28,10 +27,9 @@ namespace Ts3Fixes
             {
                 StateMachineClient before = null;
                 try { before = Actor != null ? Actor.CarryStateMachine : null; } catch (Exception) { }
-                string bhCtx = null;
-                try { if (Actor != null) bhCtx = BhStopStart(Actor); } catch (Exception) { } // bookhand logging (BookHand.cs, docs/251)
+                try { if (Actor != null) BhStopStart(Actor); } catch (Exception) { } // bookhand logging (BookHand.cs, docs/251)
                 bool r = StopOrig(Actor, smcRead, bPutInInventory);
-                try { if (Actor != null) BhStopEnd(Actor, bhCtx); } catch (Exception) { }
+                try { if (Actor != null) BhStopAfter(Actor, (Book)(object)this, bPutInInventory); } catch (Exception) { } // bookhand repro stress (BookHand.cs)
                 try
                 {
                     if (BookCarryCore.Dropped(before, smcRead, Actor.CarryStateMachine))
@@ -51,11 +49,10 @@ namespace Ts3Fixes
 
         static bool BcEnd(StateMachineClient m)
         {
-            // StopUsingBook runs in the reading interaction, where RequestState may wait for the state; anywhere else the
-            // waiting form throws NotSupportedException, so the request is made without waiting
-            try { m.RequestState("x", "ExitNoPut"); }
-            catch (NotSupportedException) { try { m.RequestState(false, "x", "ExitNoPut"); } catch (Exception) { } }
-            catch (Exception) { }
+            // No "ExitNoPut" request: the waiting RequestState("x", "ExitNoPut") this method made threw SacsErrorException("")
+            // at every drop (docs/515 §2). StateMachineClient.RequestState throws it before it calls the engine when a task
+            // makes a waiting request on a machine that is not handling its events asynchronously, so the state was never
+            // requested. Dispose alone is what docs/515's check and the 2026-11-17 runs tested.
             try { m.Dispose(); PatchCounters()[2044]++; return true; } catch (Exception) { return false; }
         }
 
@@ -70,11 +67,14 @@ namespace Ts3Fixes
 
         // The machine's engine driver handle (StateMachineClient.mDriver.mHandle): nonzero while the engine still runs the
         // machine, 0 once Dispose released it. IsValid is no test of that: it asks whether the event queue is valid.
+        static readonly FieldInfo sBcDriver = typeof(StateMachineClient).GetField("mDriver", kInstAll);
+        static FieldInfo sBcHandle;  // mDriver's mHandle, looked up again only when the driver's type changes
+        static Type sBcHandleType;
         static long BcHandle(StateMachineClient m)
         {
-            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            object d = typeof(StateMachineClient).GetField("mDriver", inst).GetValue(m);
-            return Convert.ToInt64(d.GetType().GetField("mHandle", inst).GetValue(d));
+            object d = sBcDriver.GetValue(m);
+            if (d.GetType() != sBcHandleType) { sBcHandleType = d.GetType(); sBcHandle = sBcHandleType.GetField("mHandle", kInstAll); }
+            return Convert.ToInt64(sBcHandle.GetValue(d));
         }
 
         static Sim BcSim(string name)
@@ -182,47 +182,10 @@ namespace Ts3Fixes
         {
             if (arg.StartsWith("read "))
             {
-                int max = int.Parse(arg.Substring(5));
-                Household active = Household.ActiveHousehold;
-                Lot activeLot = active != null ? active.LotHome : null;
-                Dictionary<Bookshelf, int> perShelf = new Dictionary<Bookshelf, int>();
-                Dictionary<Sim, int> crowd = new Dictionary<Sim, int>();
-                List<string> lots = new List<string>();
-                int refused = 0;
-                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
-                {
-                    if (crowd.Count >= max) break;
-                    SimDescription sd = s.SimDescription;
-                    Lot home = s.LotHome;
-                    if (sd == null || s.HasBeenDestroyed || s.IsSelectable || s.Household == null || s.Household == active || home == null || home == activeLot) continue;
-                    if (!sd.IsHuman || !sd.TeenOrAbove || s.Parent != null) continue;
-                    Bookshelf shelf = null;
-                    foreach (Bookshelf b in home.GetObjects<Bookshelf>())
-                    {
-                        int n; perShelf.TryGetValue(b, out n);
-                        if (n < 2 && b.Inventory != null && b.Inventory.Find<BookGeneral>() != null) { shelf = b; break; }
-                    }
-                    if (shelf == null) continue;
-                    s.InteractionQueue.CancelAllInteractions();
-                    foreach (CommodityKind k in new CommodityKind[] { CommodityKind.Hunger, CommodityKind.Bladder, CommodityKind.Energy, CommodityKind.Hygiene, CommodityKind.Social, CommodityKind.Fun })
-                        if (s.Motives != null && s.Motives.HasMotive(k)) s.Motives.SetMax(k);
-                    Vector3 spot = shelf.Position + shelf.ForwardVector * 1.2f;
-                    float dx = s.Position.x - spot.x, dz = s.Position.z - spot.z;
-                    if (s.LotCurrent != home || dx * dx + dz * dz > 9f)
-                    {
-                        // EA's own teleport, as the agent's setup_sims (a bare SetPosition leaves LotCurrent on the old lot)
-                        TerrainInteraction tp = new Terrain.TeleportMeHere.Definition(false).CreateInstance(Terrain.Singleton, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as TerrainInteraction;
-                        typeof(TerrainInteraction).GetField("Destination", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(tp, spot);
-                        if (!s.InteractionQueue.Add(tp)) { refused++; continue; }
-                    }
-                    if (!s.InteractionQueue.Add(Bookshelf_ReadSomething.Singleton.CreateInstance(shelf, s, new InteractionPriority(InteractionPriorityLevel.High), false, true))) { refused++; s.InteractionQueue.CancelAllInteractions(); continue; }
-                    crowd[s] = 0;
-                    int had; perShelf.TryGetValue(shelf, out had); perShelf[shelf] = had + 1;
-                    if (!lots.Contains(home.Name)) lots.Add(home.Name);
-                }
-                if (crowd.Count == 0) throw new InvalidOperationException("bookcarry crowd read: no non-household Sim with a bookshelf (with a book) on its home lot; refused " + refused);
+                string sum;
+                Dictionary<Sim, int> crowd = BcCrowdRead(int.Parse(arg.Substring(5)), out sum);
                 sBcCrowd = crowd; sBcSim = null; sBcLast = null; sBcSeen = 0; sBcEnded = 0;
-                return "crowd: " + crowd.Count + " Sims at " + perShelf.Count + " shelves on " + lots.Count + " lots (" + string.Join(", ", lots.ToArray()) + "), refused " + refused;
+                return "crowd: " + sum;
             }
             if (sBcCrowd == null) throw new InvalidOperationException("bookcarry crowd " + arg + ": no crowd armed");
             if (arg == "state")
@@ -271,6 +234,54 @@ namespace Ts3Fixes
                 return BcExpect(arg, "crowd " + hit + " of " + sims + " Sims dropped", seen, ended, m);
             }
             return "bookcarry crowd <read N|state|stop|expect left|expect ended>";
+        }
+
+        // "crowd read N" (also bookhand's crowd check, BookHand.cs): up to max non-household Sims sent to read at a bookshelf on
+        // their own home lot (see BcCrowdCheck). Returns them (value 0); throws when none qualifies.
+        static Dictionary<Sim, int> BcCrowdRead(int max, out string summary)
+        {
+            {
+                Household active = Household.ActiveHousehold;
+                Lot activeLot = active != null ? active.LotHome : null;
+                Dictionary<Bookshelf, int> perShelf = new Dictionary<Bookshelf, int>();
+                Dictionary<Sim, int> crowd = new Dictionary<Sim, int>();
+                List<string> lots = new List<string>();
+                int refused = 0;
+                foreach (Sim s in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                {
+                    if (crowd.Count >= max) break;
+                    SimDescription sd = s.SimDescription;
+                    Lot home = s.LotHome;
+                    if (IsPlayerSim(s) || home == null || home == activeLot) continue;  // household rule (PlayerSims.cs): sd != null after it
+                    if (!sd.IsHuman || !sd.TeenOrAbove || s.Parent != null) continue;
+                    Bookshelf shelf = null;
+                    foreach (Bookshelf b in home.GetObjects<Bookshelf>())
+                    {
+                        int n; perShelf.TryGetValue(b, out n);
+                        if (n < 2 && b.Inventory != null && b.Inventory.Find<BookGeneral>() != null) { shelf = b; break; }
+                    }
+                    if (shelf == null) continue;
+                    s.InteractionQueue.CancelAllInteractions();
+                    foreach (CommodityKind k in new CommodityKind[] { CommodityKind.Hunger, CommodityKind.Bladder, CommodityKind.Energy, CommodityKind.Hygiene, CommodityKind.Social, CommodityKind.Fun })
+                        if (s.Motives != null && s.Motives.HasMotive(k)) s.Motives.SetMax(k);
+                    Vector3 spot = shelf.Position + shelf.ForwardVector * 1.2f;
+                    float dx = s.Position.x - spot.x, dz = s.Position.z - spot.z;
+                    if (s.LotCurrent != home || dx * dx + dz * dz > 9f)
+                    {
+                        // EA's own teleport, as the agent's setup_sims (a bare SetPosition leaves LotCurrent on the old lot)
+                        TerrainInteraction tp = new Terrain.TeleportMeHere.Definition(false).CreateInstance(Terrain.Singleton, s, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true) as TerrainInteraction;
+                        typeof(TerrainInteraction).GetField("Destination", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(tp, spot);
+                        if (!s.InteractionQueue.Add(tp)) { refused++; continue; }
+                    }
+                    if (!s.InteractionQueue.Add(Bookshelf_ReadSomething.Singleton.CreateInstance(shelf, s, new InteractionPriority(InteractionPriorityLevel.High), false, true))) { refused++; s.InteractionQueue.CancelAllInteractions(); continue; }
+                    crowd[s] = 0;
+                    int had; perShelf.TryGetValue(shelf, out had); perShelf[shelf] = had + 1;
+                    if (!lots.Contains(home.Name)) lots.Add(home.Name);
+                }
+                if (crowd.Count == 0) throw new InvalidOperationException("bookcarry crowd read: no non-household Sim with a bookshelf (with a book) on its home lot; refused " + refused);
+                summary = crowd.Count + " Sims at " + perShelf.Count + " shelves on " + lots.Count + " lots (" + string.Join(", ", lots.ToArray()) + "), refused " + refused;
+                return crowd;
+            }
         }
     }
 }

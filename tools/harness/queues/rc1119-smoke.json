@@ -1,0 +1,72 @@
+{
+  "note": "rc1119-smoke (2026-11-18 plan): first game run of the rc-1119 set, before release-verify / repro-check / apex compat. Copy of master-smoke-1117c repinned to placeholder rc-1119. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2, removal first mode 1 read back, 0 script errors. [source note] master-smoke-1117c: smoke of the master-1117c set (0.36.271-mc1117): master a7ceaa3e with the Dalexlol batch #452-#518 imported and its 232 ts3fixes switches ON (2fb19b7e9) + harness merges; first game run of that batch on our machine. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2, removal first mode 1 read back, 0 script errors. Run by probe-out/queue/chain-1117g.sh (stop on FAIL). Was: master-smoke-1116c: copy of master-smoke-1115-mm.json repinned to master-1116c (0.36.267-mc1116), run by probe-out/queue/chain-1116c.sh. Was: master-smoke-1115-mm: copy of master-smoke-1115.json, repinned to master-mono-1115 (0.36.264-mono1). master-merge-1115 smoke: repinned 2026-11-15 to the master-merge-1115 set (builds.json, master 5d5a581f, 0.36.261-lanes1: asi + ini + ts3fixes from one build; agent game-copy/ts3agent.package.master-merge-1115 installed to build/ by chain-reruns-1115.sh). One 5 min BP job, correctness only. Pass = no crash, no hang, version, LostRemovalFix, GhostSweep=2, removal first mode 1 read back.",
+  "jobs": [
+    {
+      "id": "bp-rc1119-smoke",
+      "note": "[rc-1119 set smoke, version RC1119VER] [natural play, no cheats] master-1117c (0.36.271-mc1117) smoke, Baseline-BP-Spring: Dalexlol batch switches ON; version, LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back, 0 script errors.",
+      "asi": "game-copy/ts3native.asi.rc-1119",
+      "pinReason": "[pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1119 + ini game-copy/ts3native.ini.rc-1119 + ts3fixes game-copy/ts3fixes.package.rc-1119; RC1119VER = the rc ts3native version. Thu 11-19 after the build: replace RC1119VER (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119",
+      "iniBase": "game-copy/ts3native.ini.rc-1119",
+      "releaseDefaults": true,
+      "noiseCheck": false,
+      "stopQueueOnFail": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^OK   lost removal fix": 1,
+        "ghost census at world load: GhostSweep=2": 1,
+        "removal first: mode 1": 1,
+        "^ts3native RC1119VER ": 1
+      },
+      "save": "Baseline-BP-Spring",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 15,
+      "regexCases": {
+        "^ts3native RC1119VER ": {
+          "match": [
+            "ts3native RC1119VER 2026-11-17 16:30:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.267-mc1116 2026-11-16 22:30:00",
+            "ts3native 0.36.264-mono1 2026-11-15 21:44:15",
+            "ts3native 0.36.189 2026-11-07 09:44:15"
+          ]
+        },
+        "^OK   lost removal fix": {
+          "match": [
+            "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+          ],
+          "noMatch": [
+            "SKIP lost removal fix: off"
+          ]
+        },
+        "ghost census at world load: GhostSweep=2": {
+          "match": [
+            "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+          ],
+          "noMatch": [
+            "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+          ]
+        },
+        "removal first: mode 1": {
+          "match": [
+            "footprint removal first: mode 1 parked 0 capped 0 max ticks 0"
+          ],
+          "noMatch": [
+            "footprint removal first: mode 0 parked 0 capped 0 max ticks 0"
+          ]
+        }
+      },
+      "scriptErrorsMax": 0
+    }
+  ],
+  "rewind": "auto"
+}

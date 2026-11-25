@@ -18,6 +18,14 @@ static void TestUserDiag() {
     assert(UdInstallClass(L"C:\\Program Files (x86)\\Electronic Arts\\The Sims 3\\Game\\Bin\\TS3W.exe") == UD_RETAIL);
     assert(UdInstallClass(L"E:\\Games\\TS3\\Game\\Bin\\TS3W.exe") == UD_OTHER);
 
+    // CC String Merge output names (docs/304): matches and non-matches
+    assert(UdCcsmKind(L"CCStringMerge_Strings.package") == 1 && UdCcsmKind(L"ccstringmerge_strings.PACKAGE") == 1);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_001.package") == 2 && UdCcsmKind(L"ccstringmerge_merged_999.Package") == 2);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_1.package") == 0 && UdCcsmKind(L"CCStringMerge_Merged_0001.package") == 0);
+    assert(UdCcsmKind(L"CCStringMerge_Merged_00a.package") == 0 && UdCcsmKind(L"CCStringMerge_Merged_001.package.part") == 0);
+    assert(UdCcsmKind(L"CCStringMerge_Strings_old.package") == 0 && UdCcsmKind(L"MyCCStringMerge_Strings.package") == 0);
+    assert(UdCcsmKind(L"objects.package") == 0 && UdCcsmKind(L"") == 0);
+
     // DBPF index: per-entry types, constant type, bad header, short index
     static u8 hdr[96], idx[4 + 32 * 3];
     memcpy(hdr, "DBPF", 4);
@@ -27,6 +35,8 @@ static void TestUserDiag() {
     *(DWORD*)(idx + 4) = 0x0333406C, *(DWORD*)(idx + 36) = kUdS3SA, *(DWORD*)(idx + 68) = kUdS3SA;
     assert(UdDbpfCount(hdr, 96, idx, sizeof(idx), kUdS3SA) == 2);
     assert(UdDbpfCount(hdr, 96, idx, sizeof(idx) - 1, kUdS3SA) == -1);  // index shorter than 3 entries
+    *(DWORD*)(idx + 4) = kUdCASP;  // CC split by kind: one CAS part, one script, one other
+    assert(UdDbpfCount(hdr, 96, idx, sizeof(idx), kUdCASP) == 1 && UdDbpfCount(hdr, 96, idx, sizeof(idx), kUdOBJD) == 0);
     *(DWORD*)idx = 5;  // type and instance high constant: 8 header bytes, 24-byte entries
     *(DWORD*)(idx + 4) = kUdS3SA;
     assert(UdDbpfCount(hdr, 96, idx, 12 + 24 * 3, kUdS3SA) == 3 && UdDbpfCount(hdr, 96, idx, 12 + 24 * 3, 0x1234) == 0);
@@ -84,7 +94,7 @@ static void TestUserDiag() {
     g_asLiveUnseen = 0;
     UdtLog(buf, sizeof(buf), h);
     assert(strstr(buf, "ts3fixes: switches on: a?b\r\n"));
-    // hitch-cause lines survive the shared cap (docs/247 §11.1), other lines stop there
+    // hitch-cause lines survive the other-lines caps (docs/247 §11.1), other lines stop at their prefix cap or the total guard
     {
         const auto send = [](const char* s) {
             UdTextMsg(0, kUdTextHi | 0 << 16);
@@ -95,12 +105,20 @@ static void TestUserDiag() {
             }
             UdTextMsg(0, kUdTextHi | 2 << 16);
         };
-        assert(UdHitchLine("boatreplan: 9 ms") && UdHitchLine("owreset: x") && UdHitchLine("alarmtime: x") && UdHitchLine("lotpass: x") && !UdHitchLine("ufplan: x") && !UdHitchLine("play: x"));
+        assert(UdHitchLine("boatreplan: 9 ms") && UdHitchLine("gangway: 4 ms, Exit") && !UdHitchLine("gangways: x") && UdHitchLine("owreset: x") && UdHitchLine("alarmtime: x") && UdHitchLine("lotpass: x") && !UdHitchLine("ufplan: x") && !UdHitchLine("play: x"));
         const LONG lines = g_udTxtLines;
-        g_udTxtLines = 400;
+        // per-prefix cap: one prefix at its cap logs one capped line, another prefix still logs (key = text up to ':')
+        const LONG perKey = g_udPerKey;
+        g_udPerKey = 2;
+        send("chatty: 1"), send("chatty: 2"), send("chatty: 3"), send("chatty: 4"), send("quiet: kept");
+        g_udPerKey = perKey;
+        UdtLog(buf, sizeof(buf), h);
+        assert(strstr(buf, "ts3fixes: chatty: 2\r\n") && !strstr(buf, "chatty: 3") && !strstr(buf, "chatty: 4"));
+        assert(strstr(buf, "ts3fixes: chatty lines capped at 2\r\n") && strstr(buf, "ts3fixes: quiet: kept\r\n"));
+        g_udTxtLines = kUdTxtTotal;  // total disk guard
         send("play: past the cap");
         ts3native_ab_arm = 2;
-        send("ufplan: kind 1 300 ms why 0");  // own cap, not the shared 400: arm and wall stamp appended
+        send("ufplan: kind 1 300 ms why 0");  // own cap, not the other-lines guard: arm and wall stamp appended
         ts3native_ab_arm = 0;
         send("boatreplan: 91 ms");
         send("owreset: Perform");
@@ -125,6 +143,9 @@ static void TestUserDiag() {
         char mline[480];
         assert(!UdMemLow(mline, sizeof(mline), 256) && UdMemLow(mline, sizeof(mline), 255));
         assert(!strcmp(mline, "diag: low address space: largest free block 255 MB (under 256) - risk of Error 12 / crash on save"));
+        g_udLowMB = 300;  // [UserDiag] LowSpaceMB
+        assert(UdMemLow(mline, sizeof(mline), 299) && !UdMemLow(mline, sizeof(mline), 300) && strstr(mline, "(under 300)"));
+        g_udLowMB = 256;
         UdMemFormat(mline, sizeof(mline), "save: memory at start #3", s, 0x100000000ull, 1851ull << 20, 120, 410);
         assert(!strcmp(mline, "save: memory at start #3: private 1851 MB, committed 540 MB; limit 4 GB (large address aware, 64-bit Windows), free 650 MB, "
                              "largest free 300 MB (2nd 200), session low 120 MB; modules 32 MB, mapped files 10 MB, heaps and other private 596 MB; "
@@ -196,7 +217,7 @@ static void TestUserDiag() {
     put(L"Saves\\A.sims3\\x.nhd", pkg, 100);
     UdModsLines(user);
     UdSavesLine(user);
-    UdBinLines(tmp);  // read-only: nothing to list there is fine
+    UdBinLines(user);  // the test's own folder, not the shared temp folder: a stray *.orig / *.asi there is not ours
     UdGpuLines();
     UdPacksLine();
     UdtLog(buf, sizeof(buf), h);

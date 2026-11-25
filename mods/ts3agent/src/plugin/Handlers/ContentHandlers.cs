@@ -35,6 +35,7 @@ namespace Ts3Agent
             Dispatcher.Register("remove_sims", RemoveSims);
             Dispatcher.Register("camera", CameraView);
             Dispatcher.Register("camera_pan", CameraPan);
+            Dispatcher.Register("camera_sweep", CameraSweep);
             Dispatcher.Register("camera_to_tagged", CameraToTagged);
         }
 
@@ -284,13 +285,34 @@ namespace Ts3Agent
             r["tracked"] = SpawnedSims().Count;
         }
 
-        // spawn_sims {count}: the debug `spawn <n>` command (Commands.OnSpawn) but tracked: each new YA/adult/elder joins a
+        // Horses only go where they can walk in: a household whose lot has a box stall first; else a lot with no elevator,
+        // no apartment shell and its outside door on the ground floor (IsApartmentLot is only University's subtype, so a
+        // Late Night tower unit passed it; a horse there fails GoHome with result 16/18). Dogs and cats may live anywhere.
+        static List<Household> HorseHomes(List<Household> room)
+        {
+            List<Household> stall = room.FindAll(delegate(Household x) { return x.LotHome.GetObjects<Sims3.Gameplay.Objects.Pets.BoxStall>().Length > 0; });
+            if (stall.Count > 0) return stall;
+            return room.FindAll(delegate(Household x)
+            {
+                Lot l = x.LotHome;
+                return !l.IsApartmentLot && l.GetLevelOfOutsideDoor() <= 0 && l.GetObjects<Sims3.Gameplay.Objects.Elevator.ElevatorDoors>().Length == 0
+                    && l.GetObjects<Sims3.Gameplay.Abstracts.BuildableShell>().Length == 0;
+            });
+        }
+
+        // spawn_sims {count, species?: "Human"}: the debug `spawn <n>` command (Commands.OnSpawn) but tracked: each new YA/adult/elder joins a
         // random non-active household with a home lot and is instantiated near its lot corner. Returns ids for remove_sims.
+        // species Dog / LittleDog / Cat / Horse: an adult or elder pet (GeneticsPet.MakeRandomPet + AssignRandomTraits, as
+        // Sim.MakePet) into a non-active household with room for it (CanAddSpeciesToHousehold): NPC pets, never the player's;
+        // a horse only on a lot it can walk into, one with a box stall first (HorseHomes).
         static object SpawnSims(Args a)
         {
             RequireLive();
             int n = (int)a.Long("count");
             if (n < 1 || n > 50) throw new McpException("count must be 1..50");
+            CASAgeGenderFlags species = Util.ParseEnum<CASAgeGenderFlags>(a.Str("species", "Human"));
+            bool pet = species == CASAgeGenderFlags.Dog || species == CASAgeGenderFlags.LittleDog || species == CASAgeGenderFlags.Cat || species == CASAgeGenderFlags.Horse;
+            if (!pet && species != CASAgeGenderFlags.Human) throw new McpException("species must be Human, Dog, LittleDog, Cat or Horse");
             List<Household> homes = new List<Household>();
             foreach (Household h in Household.sHouseholdList)
                 if (!h.IsActive && !h.IsSpecialHousehold && h.LotHome != null) homes.Add(h);
@@ -299,11 +321,27 @@ namespace Ts3Agent
             List<object> made = new List<object>();
             for (int i = 0; i < n; i++)
             {
-                Household h = RandomUtil.GetRandomObjectFromList(homes);
-                SimUtils.SimCreationSpec spec = new SimUtils.SimCreationSpec();
-                spec.Age = CASAgeGenderFlags.YoungAdult | CASAgeGenderFlags.Adult | CASAgeGenderFlags.Elder;
-                spec.Normalize();
-                SimDescription sd = spec.Instantiate();
+                SimDescription sd;
+                Household h;
+                if (pet)
+                {
+                    List<Household> room = homes.FindAll(delegate(Household x) { return x.CanAddSpeciesToHousehold(species); });
+                    if (species == CASAgeGenderFlags.Horse) room = HorseHomes(room);
+                    if (room.Count == 0) { Dictionary<string, object> full = Util.Obj(); full["error"] = "no non-active household with room for a " + species + (species == CASAgeGenderFlags.Horse ? " on a ground-floor lot" : ""); made.Add(full); break; }
+                    h = RandomUtil.GetRandomObjectFromList(room);
+                    sd = GeneticsPet.MakeRandomPet(RandomUtil.CoinFlip() ? CASAgeGenderFlags.Adult : CASAgeGenderFlags.Elder,
+                        RandomUtil.CoinFlip() ? CASAgeGenderFlags.Male : CASAgeGenderFlags.Female, species);
+                    if (sd == null) throw new McpException("the game made no " + species + " (Pets not installed?)");
+                    GeneticsPet.AssignRandomTraits(sd);
+                }
+                else
+                {
+                    h = RandomUtil.GetRandomObjectFromList(homes);
+                    SimUtils.SimCreationSpec spec = new SimUtils.SimCreationSpec();
+                    spec.Age = CASAgeGenderFlags.YoungAdult | CASAgeGenderFlags.Adult | CASAgeGenderFlags.Elder;
+                    spec.Normalize();
+                    sd = spec.Instantiate();
+                }
                 h.Add(sd);
                 Vector3 pos = h.LotHome.Corners[RandomUtil.GetInt(3)];
                 pos.x += RandomUtil.GetFloat(-10f, 10f);
@@ -314,6 +352,7 @@ namespace Ts3Agent
                 d["id"] = Util.Id(sd.SimDescriptionId);
                 d["name"] = sd.FullName;
                 d["household"] = h.Name;
+                d["species"] = sd.Species.ToString();
                 if (!ok) d["error"] = "not instantiated";
                 made.Add(d);
             }
@@ -329,18 +368,32 @@ namespace Ts3Agent
         // its partner's steering agent with a link to a destroyed agent and the game hit a pure virtual call in avoidance
         // (2026-10-21 ip-ut2-boats crash at remove_sims, docs/143 §8.11). Such Sims are reset first (SetObjectToReset gets
         // them out of the vehicle with the game's own reset path) and disposed by a task 30 ticks later ("deferred").
+        // raw: true (2026-11-18, crash repro only): dispose riding / routing Sims in place anyway, the 10-21 trigger of
+        // EA's dangling slave link (ts3native [EaCrashFixes] SlaveUnlink); "riding" lists the ones disposed mid-ride.
+        // ridingOnly: true (implies raw; repro ip-boat-raw-dispose2, poll it with an "until" on riding.length): disposes in place only
+        // the Sims sitting in a vehicle (boat, car) right now, never the active household's; the rest stay tracked. Their removed
+        // entries read "riding <vehicle type> <id>", so the cut log line shows the trigger happened.
         static object RemoveSims(Args a)
         {
+            bool ridingOnly = a.Bool("ridingOnly", false), raw = ridingOnly || a.Bool("raw", false);
             List<ulong> spawned = SpawnedSims();
-            List<object> removed = new List<object>(), deferred = new List<object>();
+            List<object> removed = new List<object>(), deferred = new List<object>(), riding = new List<object>();
             List<SimDescription> later = new List<SimDescription>();
             foreach (ulong id in spawned.ToArray())
             {
                 SimDescription sd = SimDescription.Find(id);
+                Sim s = sd != null ? sd.CreatedSim : null;
+                if (ridingOnly && (s == null || s.HasBeenDestroyed || !(s.Parent is Sims3.Gameplay.Objects.Vehicles.Vehicle)
+                    || sd.Household == Household.ActiveHousehold)) continue;  // not riding: stays tracked for a later remove_sims
                 spawned.Remove(id);
                 if (sd == null) { removed.Add(Util.Id(id) + " (already gone)"); continue; }
-                Sim s = sd.CreatedSim;
-                if (s != null && !s.HasBeenDestroyed && (s.Parent != null || s.IsRouting))
+                string tag = Util.Id(id);
+                if (raw && s != null && !s.HasBeenDestroyed && (s.Parent != null || s.IsRouting))
+                {
+                    riding.Add(Util.Id(id) + (s.Parent != null ? " parent " + s.Parent.GetType().Name : " routing"));
+                    if (ridingOnly) tag = "riding " + s.Parent.GetType().Name + " " + tag;
+                }
+                else if (s != null && !s.HasBeenDestroyed && (s.Parent != null || s.IsRouting))
                 {
                     s.SetObjectToReset();
                     later.Add(sd);
@@ -349,7 +402,7 @@ namespace Ts3Agent
                 }
                 if (sd.Household != null) sd.Household.Remove(sd);
                 sd.Dispose(true, false, true);
-                removed.Add(Util.Id(id));
+                removed.Add(tag);
             }
             if (later.Count > 0)
                 Simulator.AddObject(new Sims3.Gameplay.OneShotFunctionTask(delegate
@@ -368,6 +421,7 @@ namespace Ts3Agent
             Dictionary<string, object> r = Util.Obj();
             r["removed"] = removed;
             r["deferred"] = deferred;
+            if (raw) r["riding"] = riding;
             AddSimCounts(r);
             return r;
         }
