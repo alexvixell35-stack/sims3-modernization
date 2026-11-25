@@ -485,7 +485,6 @@ static void AaHex(const char* what, DWORD at, int n) {
 // [0x11D9128] with head - world (0x13654 in the 11-25 run) and up to 8 words that hold the head address in the 256 KB
 // below it (the list object's head pointer: names the owner). It also finds the return address in the first 4 stack
 // words (the 11-22 run had pushed one word before the fault, docs/144 §3.5.1). Crash path only; reads guarded.
-static bool g_aaDrainNode;
 static int AaDrainRetSlot(const DWORD* sp, int n, DWORD ra, DWORD rb) {  // index of the destroy's return address, or -1
     for (int i = 0; i < n; i++)
         if (sp[i] == ra || sp[i] == rb) return i;
