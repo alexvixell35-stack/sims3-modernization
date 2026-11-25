@@ -2803,3 +2803,16 @@ Elevskip's household test uses `FarFromViewers`, which counts every active-house
 household Sim at home it is never true (the Sim is a viewer of itself); FridgeFf uses the camera half only.
 Swaps `Fridge_Have.Run`, `Fridge_EatLeftovers.Run` (internal type, by name). Check `FacilityPlanCheck("fridgeff")`;
 repro `fridge-line-full` third arm (camera far away).
+Results, forced repro `fridge-line-full` s594 (Sunset Valley, Bunch house, 3 Sims click Have at once, 2 rounds per arm,
+40 sim-min each) [verified, one run]:
+
+| arm | fridge use sim-min (uses) | post-use stands (sim-min) | stalls on the slot (sim-min, max) | fast grabs | errors |
+|---|---|---|---|---|---|
+| off | 18.3 (5) | 5 (5.4) | 8 (7.9, 1.1) | - | 0 |
+| clipwait + clipwaithh | 20.5 (6) | 6 (6.6) | 8 (7.6, 1.1) | - | 0 |
+| fridgeff + fridgeffunseen, camera on a far lot | 10.2 (6) | 2 (0.9) | 0 (0.0) | 4 (Jack, Judy x2), the selected Sim on EA's line | 0 |
+
+The fast-grab Sims went on with EA's `FoodTray_Prepare` -> `CuttingBoard_Prepare` -> clean-up as after a normal grab
+(queue snapshots). Side effect: the three Sims now reach the counters together; Judy's `FoodTray_Prepare` replanned 7
+times for a counter spot ("FailedBecauseNoDestinationSpecified") in the ff arm. s593 (camera pose off the world) gave 0
+fast grabs: the target stayed on the house, so every start was "seen" (the camera rule works as meant).
