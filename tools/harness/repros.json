@@ -128772,18 +128772,9 @@
       {
         "cmd": "camera",
         "args": {
-          "pos": {
-            "x": 100,
-            "y": 60,
-            "z": 100
-          },
-          "target": {
-            "x": 150,
-            "y": 0,
-            "z": 150
-          }
+          "lot": "far"
         },
-        "note": "ff: camera far from the Bunch house (unseen)",
+        "note": "ff: camera on the farthest community lot (s593: a pose off the world kept the target on the house)",
         "waitS": 2,
         "max": 300
       },
@@ -128869,6 +128860,15 @@
         },
         "note": "ff: Judy Bunch hungry",
         "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "far"
+        },
+        "note": "ff: camera away again before the round",
+        "waitS": 2,
         "max": 300
       },
       {
@@ -129005,6 +129005,15 @@
         },
         "note": "ff: Judy Bunch hungry",
         "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "lot": "far"
+        },
+        "note": "ff: camera away again before the round",
+        "waitS": 2,
         "max": 300
       },
       {
