@@ -537,6 +537,7 @@ namespace Ts3Fixes
             ApplyReadWalk();           // docs/686 §22 (ReadWalk.cs): readwalk, off by default (counts either way); swaps Sim.LoopIdle and Sim.RouteToObjectRadialRange
             ApplySlotRetry();          // docs/686 §24 (SlotRetry.cs): slotretry, off by default (counts either way); swaps RoutingComponent.RouteToSlot (Slot[] core) and SimRoutingComponent.RouteToUnusedPart
             ApplyFacilityPlan();       // docs/686 §36 (FacilityPlan.cs): facilityplan / facilityquick / facilitychain and their household switches, off by default (counts either way); swaps GameObject.GetInUseAutonomyMultiplier, InteractionInstance.Begin/EndCommodityUpdates; its wait step is in ApplyLineSwitch's hook
+            ApplyFridgeFf();           // docs/686 §36.11 (FridgeFf.cs): fridgeff / fridgeffunseen, off; swaps Fridge_Have.Run, Fridge_EatLeftovers.Run
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
             ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyReactOverlay();       // docs/686 §26 (ReactOverlay.cs): reactoverlay / reactoverlayhh, off by default (counts either way); swaps Sim.PlayReaction
@@ -1428,7 +1429,8 @@ namespace Ts3Fixes
         // facilityquick ended / would / exempt / facilitychain chained / would / exempt / wait checks / quick ends for privacy waiters /
         // showerpeeplan fills (ShowerShare.cs) / showerpeeplan would / showerdirty after shower-pee / partner shower offers / bladder
         // failures seen / line wait sim-min x10 / facility waits / toilet line to a shower (showerpeeplan) / showerdirty shared /
-        // showerdirty would; 4770-4779 spare.
+        // showerdirty would; [4770-4776] fridgeff (FridgeFf.cs, §36.11): food taken at once / leftovers taken at once / would, off /
+        // seen, EA's line / selected Sim exempt / errors / busy starts; 4777-4779 spare.
         const int kCounterSlots = 4780;
         static int[] sCountersCache;
         static int[] PatchCounters()
@@ -1799,6 +1801,9 @@ namespace Ts3Fixes
                 case "showerpeeplan": return Instantiator.kShowerPeePlan;  // ShowerShare.cs (docs/686 §36.6): a shower fills the bladder of an NPC that has to pee soon, toilets or not, off
                 case "showerpeeplanhh": return Instantiator.kShowerPeePlanHh;  // ShowerShare.cs: household and selected Sims too, off
                 case "showerdirty": return Instantiator.kShowerDirty;  // ShowerShare.cs (docs/686 §36.6): shower-pee and shared showers leave Hygiene at 88 % / 90 %, off  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "fridgeff": return Instantiator.kFridgeFf;  // FridgeFf.cs (docs/686 §36.11): an unseen NPC at a busy fridge takes its food at once, off
+                case "fridgeffunseen": return Instantiator.kFridgeFfUnseen;  // FridgeFf.cs: the same for unseen household Sims (not the selected Sim), the player's opt-in, off
+                case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
                 case "linestale": return Instantiator.kLineStale;  // LineStale.cs (docs/686 §29): a line head whose action ended or sits queued behind another action leaves the line after 5 sim-min, NPC heads, off
                 case "linestalehh": return Instantiator.kLineStaleHh;  // LineStale.cs (docs/686 §29): household and selected heads too, off
                 case "linestalelog": return Instantiator.kLineStaleLog;  // LineStale.cs (docs/686 §29): one line per case, off

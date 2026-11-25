@@ -477,6 +477,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kShowerPeePlan = false;  // showerpeeplan (docs/686 §36.6): a shower fills the bladder of an NPC that has to pee within 2 sim-hours whatever the toilets; the planner may send a toilet waiter to a shower
         [Tunable] public static bool kShowerPeePlanHh = false;  // showerpeeplanhh: household and selected Sims too
         [Tunable] public static bool kShowerDirty = false;  // showerdirty (docs/686 §36.6): a shower that also filled the bladder ends at Hygiene 76, a shared one at 80 (user-approved cost)
+        [Tunable] public static bool kFridgeFf = false;  // fridgeff (docs/686 §36.11): an NPC whose Fridge_Have / Fridge_EatLeftovers starts at a busy fridge and that nobody sees takes its food at once (EA's own steps, no walk, line or animation)
+        [Tunable] public static bool kFridgeFfUnseen = false;  // fridgeffunseen: the same for household Sims other than the selected Sim, off screen and away from viewers (the player's opt-in)
+        [Tunable] public static bool kFridgeFfLog = false;  // fridgefflog: one ts3native.log line per fast grab
         [Tunable] public static bool kLineStale = false;  // linestale (docs/686 §29): the head of an object's line whose turn-taking action ended or waits in its queue behind another action leaves the line after kLineStaleMinutes; NPC heads
         [Tunable] public static bool kLineStaleHh = false;  // linestalehh: household and selected heads too
         [Tunable] public static bool kLineStaleLog = false;  // linestalelog: one ts3native.log line per case

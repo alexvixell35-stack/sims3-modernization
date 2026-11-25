@@ -54,10 +54,11 @@ static class FacilityPlanTest
         Check(FacilityPlanCore.Urgent(20f, 10f) && !FacilityPlanCore.Urgent(26f, 10f), "urgent: within the wait plus 15");
 
         // pick factor: eta, bestEta, urgent
-        Check(FacilityPlanCore.PickFactor(12f, 2f, false) == FacilityPlanCore.kPickLow, "pick: a clearly sooner object: x0.1");
-        Check(FacilityPlanCore.PickFactor(2f, 2f, false) == 1f && FacilityPlanCore.PickFactor(4f, 2f, true) == 1f, "pick: the best one (or close): EA's score");
-        Check(FacilityPlanCore.PickFactor(12f, 9f, false) == FacilityPlanCore.kPickDefer, "pick: all late, not urgent: another action first");
-        Check(FacilityPlanCore.PickFactor(11f, 9f, true) == 1f && FacilityPlanCore.PickFactor(20f, 9f, true) == FacilityPlanCore.kPickLow, "pick: urgent: never deferred, still the sooner one");
+        Check(FacilityPlanCore.PickFactor(12f, 2f, 0f, false) == FacilityPlanCore.kPickLow, "pick: a clearly sooner object: x0.1");
+        Check(FacilityPlanCore.PickFactor(2f, 2f, 0f, false) == 1f && FacilityPlanCore.PickFactor(4f, 2f, 0f, true) == 1f, "pick: the best one (or close): EA's score");
+        Check(FacilityPlanCore.PickFactor(12f, 9f, 9f, false) == FacilityPlanCore.kPickDefer, "pick: all busy past the walk, not urgent: another action first");
+        Check(FacilityPlanCore.PickFactor(12f, 12f, 0f, false) == 1f, "pick: a long walk to a free one is not late (s590: free toilets 10 sim-min away were deferred)");
+        Check(FacilityPlanCore.PickFactor(11f, 9f, 9f, true) == 1f && FacilityPlanCore.PickFactor(20f, 9f, 9f, true) == FacilityPlanCore.kPickLow, "pick: urgent: never deferred, still the sooner one");
 
         // facilityquick: kind, value, minutes so far, waiterUrgent
         Check(FacilityPlanCore.QuickEnd(FacilityPlanCore.kShower, 70f, 5f, true) && FacilityPlanCore.QuickEnd(FacilityPlanCore.kBath, 90f, 12f, true), "quick: good enough and old enough");

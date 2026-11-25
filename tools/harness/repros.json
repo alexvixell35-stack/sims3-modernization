@@ -137343,13 +137343,13 @@
     "bug": "Household Sims wait for each other at the toilet and shower in a morning rush: EA's autonomy sees 'in use' but not for how long, prefers an empty line once at the pick, then waits up to 15 sim-min in place (docs/686 §36.1)",
     "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
     "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
-    "note": "Morning rush: Lisa, Jack and Judy with low Bladder and Hygiene, household autonomy on for 150 sim-min per arm. Off arm first (all planner switches off, log on), then on. FacilityPlanCheck household gives per-Sim line wait, trips per kind, accidents and the final Bladder/Hygiene.",
+    "note": "Rush after school (16:00; s590a at 07:00 lost the Sims to work and school): Lisa, Jack and Judy with low Bladder and Hygiene, household autonomy on for 150 sim-min per arm. Off arm first (all planner switches off, log on), then on. FacilityPlanCheck household gives per-Sim line wait, trips per kind, accidents and the final Bladder/Hygiene.",
     "expect": "on vs off: less total line wait, no more accidents, final motives as high; facilityplan lines (pick / switched / something else first / came back), facilityquick and facilitychain lines when they apply; errors 0.",
     "steps": [
       {
         "cmd": "clock_hour",
         "args": {
-          "hour": 7
+          "hour": 16
         },
         "note": "everybody home",
         "waitS": 1,
@@ -137901,7 +137901,7 @@
       {
         "cmd": "clock_hour",
         "args": {
-          "hour": 10
+          "hour": 17
         },
         "note": "everybody home",
         "waitS": 1,
