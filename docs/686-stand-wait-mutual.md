@@ -2816,3 +2816,13 @@ The fast-grab Sims went on with EA's `FoodTray_Prepare` -> `CuttingBoard_Prepare
 (queue snapshots). Side effect: the three Sims now reach the counters together; Judy's `FoodTray_Prepare` replanned 7
 times for a counter spot ("FailedBecauseNoDestinationSpecified") in the ff arm. s593 (camera pose off the world) gave 0
 fast grabs: the target stayed on the house, so every start was "seen" (the camera rule works as meant).
+
+### 36.12 Planner runs and proof status (s590, s592; one run each)
+- s590 (Twinbrook storm 10 min, Sunset Valley repros at 07:00/10:00): no `facilityplan: error`, no script error, Bin pair
+  restored every load. Found: the pick's "all late" counted the walk as lateness and lowered free toilets 10 sim-min away
+  (x0.02); fixed (36.3: the wait after the walk decides). The 07:00/10:00 repros lost the Sims to work and school.
+- s592 (repros at 16:00/17:00/20:00, Sunset Valley storm 20 min, planner all on): errors 0. Rush: off total line wait 0,
+  on 4.1 sim-min (one wait), accidents 0 / 0, final Bladder and Hygiene alike; defer and urgent: no planner move was
+  needed (one 3.1 sim-min wait). Storm: 372 pick factors, 4 chains, no switch, no defer, 4 bathroom line waits, 61 sim-min.
+- Proof status: runs clean, decisions logged; no measured wait gain yet. The Bunch house (three toilets, two
+  bath/shower rooms) rarely makes a line; a house with one shared bathroom per floor is the next repro.
