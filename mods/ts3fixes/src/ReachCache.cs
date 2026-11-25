@@ -52,13 +52,15 @@ namespace Ts3Fixes
         static readonly RcMemo sRcMemo = new RcMemo();
         static readonly LineCapCore sRcCap = new LineCapCore(20, 60000, 300);
         static bool sRcAny, sRcLog;
-        static int sRcSwitchCalls;
+        static int sRcSwitchCalls, sRcSwitchTick;
         static string sRcLastWrong = "";
         static int sRcSumTick;
 
         static void RcSwitches()
         {
-            if ((sRcSwitchCalls++ & 63) != 0) return;
+            int now = System.Environment.TickCount;
+            if ((sRcSwitchCalls++ & 63) != 0 && NoStartCore.Within(now, sRcSwitchTick, 1000)) return;  // re-read every 64 calls or 1 s (a switch flipped mid-session took up to 64 plans to show)
+            sRcSwitchTick = now;
             sRcLog = ShortcutOn("reachcachelog");
             sRcAny = sRcLog || ShortcutOn("reachcache") || ShortcutOn("reachcachehh");
             if (!sRcAny && (sRcDests.Count > 0 || sRcMemo.Count > 0)) { sRcDests.Clear(); sRcMemo.Clear(); sRcFloods.Clear(); sRcPending.Clear(); }
