@@ -35,23 +35,24 @@ namespace Ts3Fixes
 
         public class PrivacyRoomHook
         {
+            // EA's body folded in (Participants or OtherSims), so the hook adds no interpreter frame: it runs inside route
+            // planning's portal checks (issue #92, the 63-frame limit). InOrig is only the fallback after an error.
             public bool InHook(Sim actor)
             {
-                if (PrOn())
+                try
                 {
-                    try
-                    {
-                        GenericPrivacySituation g = (GenericPrivacySituation)(object)this;
-                        bool inP = g.Participants.Contains(actor);
-                        // the first kPrLogMax answers that differ from EA's: shows the fix firing and for which rooms
-                        if (!inP && sPrChanged < kPrLogMax && InOrig(actor))
-                            DiagLine("privacyroom: " + actor.FullName + " kept out of " + g.GetType().Name + " (" + (g.Participants.Count > 0 && g.Participants[0] != null ? g.Participants[0].FullName : "?")
-                                + "), EA would let in, change " + (++sPrChanged));
-                        return inP;
-                    }
-                    catch (ResetException) { throw; }
-                    catch (Exception) { }
+                    GenericPrivacySituation g = (GenericPrivacySituation)(object)this;
+                    if (g.Participants.Contains(actor)) return true;
+                    if (!g.OtherSims.Contains(actor)) return false;
+                    if (!PrOn()) return true;  // EA's answer
+                    // the first kPrLogMax answers that differ from EA's: shows the fix firing and for which rooms
+                    if (sPrChanged < kPrLogMax)
+                        DiagLine("privacyroom: " + actor.FullName + " kept out of " + g.GetType().Name + " (" + (g.Participants.Count > 0 && g.Participants[0] != null ? g.Participants[0].FullName : "?")
+                            + "), EA would let in, change " + (++sPrChanged));
+                    return false;
                 }
+                catch (ResetException) { throw; }
+                catch (Exception) { }
                 return InOrig(actor);
             }
             public bool InOrig(Sim actor) { return false; }  // receives GenericPrivacySituation.SimIsInPrivacySituation's body
