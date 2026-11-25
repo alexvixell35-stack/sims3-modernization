@@ -402,6 +402,7 @@ namespace Ts3Fixes
                 case "roundupreturn": return EpLive(typeof(B13RuHook), 1);
                 case "routableasync": return EpLive(typeof(RouteBackoffHook), 4);
                 case "routablecache": return EpLive(typeof(RoutableCacheHook), 1);
+                case "routefaillog": return EpLive(typeof(SafeSpotCapHook), 1);
                 case "routesrc": return EpJoin(EpJoin(EpLive(typeof(BoatLegHook), 1), EpLive(typeof(BouncerHook), 1)), EpLive(typeof(VehicleLegHook), 1));
                 case "royaltyorphan": return EpLive(typeof(RoyaltyOrphanHook), 0, "sRoAlarm", sRoAlarm, null);
                 case "rummagebcast": return EpJoin(EpLive(typeof(RmbCleanupHook), 1), EpLive(typeof(RmbCreateHook), 1));
