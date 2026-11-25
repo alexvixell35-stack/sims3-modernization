@@ -2508,6 +2508,95 @@ the stop anim 25 (would 130), without the start anim 23 (would 123), kept 6, err
   no stair lane wait left, no stair strand. Safe to turn on by those runs; `angleentry` changes nothing measurable at
   Colonial Casa (the approach is already on the lane line).
 
+## 33. Elevator waits: the car is elsewhere (`elevskip`, `elevskiphh`, `elevtriplog`; 2026-11-25, `post/elevskip-1125`, built, default off, storm s562)
+
+`ElevSkip.cs`, rules in `ElevSkipCore.cs`, counters 4700-4710 (`kCounterSlots` 4721), check `ElevSkipCheck result | run`,
+selftest `tools/selftest/elevskip`, repro `elevskip-check`. The line step is in `CrowdPort.cs` `CpLineHook`, before
+crowdport's own.
+
+### 33.1 Why Sims wait at elevators [verified, decompiled `ElevatorDoors`, `ElevatorInterior`, `PortalComponent.AcquireLaneRouteAction`; storm logs]
+
+Storm logs s532-s560 (48 logs, `lanewait` / `linewait` lines) give these totals, ranked:
+
+| Cause | Waits | Sim-min | Kind |
+| --- | --- | --- | --- |
+| Car in use on another floor: the doors give no lane (`GetStartSlotsForApproachingSim` answers no slots while `InUseIgnoringWooHoo`), the Sim loops in `WaitInLine` (a quarter sim-minute per ask, 30 sim-min `kElevatorGiveupTime`); lane waits with no holder | 667 NPC (341 gave up, mean 13.4) | 6,647 | capacity: one car per column |
+| The same behind a Sim that holds the doors lane (boarding at closed doors sleeps 7 sim-min `kLongEffectsTime` holding it) | 885 NPC | 3,747 | capacity + the parked-car flaw (§34) |
+| Line waits (`SimQueue`, crowdport's short timeout) | 783 NPC | 901 | queue around the above |
+| Household and selected | 117 | 712 | same causes |
+
+One trip keeps the whole column busy: a boarder joins the use list of every other floor's car object
+(`AddElevatorColumnToUseList`), then 7 sim-min of arrive effects when the doors are closed, a 5 sim-min hold for more
+riders (`kMinutesToHoldElevator`, renewed by each rider), 7 of leave effects and 7 more on the far floor.
+`elevtriplog` in s562a (Bridgeport, off): **400 launches, 1.08 riders per launch** (368 with one rider, 30 with two,
+2 with three), 6.1 sim-min in the car before launch. So the car's 6 slots are almost never used: the riders of one
+column rarely board on the same floor within the hold. Not found: a re-queue loop that loses time (`WaitInLine`'s
+remove and re-add each quarter minute is EA design and cheap), a long way round (the car hops one floor per portal, ticks
+each). EA's own skip (`TryTeleportSkip`) helps only when the car on the Sim's floor is free with open doors.
+
+Real limits: one car, many Sims. Poor logic: the parked-car call (§34), and a hold that waits for riders who are
+on other floors and cannot join.
+
+### 33.2 Fix
+
+A Sim the doors refused, whose route rides this column, is set at the outer slot of the doors its ride ends at (EA's
+exit spot: `FindGoodLocation` routable, empty tiles first, that room) and the game replans from there: the line answers
+"timed out", EA's `WaitInLine` calls `TryTeleportSkip`, our hook places the Sim and answers true, so EA's own
+after-skip path runs (`ContinueAndPopPathAndReplan`). The car, its use lists, riders and doors are untouched. An
+elevator is a portal: a player's rule allows clipping at portals, no teleport on ordinary walks.
+
+- `elevskip`: unseen NPCs (the Sim and the far doors off screen and away from viewers), at once, no fade.
+- `elevskiphh`: household and selected Sims and NPCs in view too, after `kElevSkipHhWait` (1) sim-minutes, with EA's fade.
+- A Sim set through in the last `kElevSkipRepeatMin` (5) sim-minutes keeps the game's wait; horses, pets, carriers,
+  toddlers, WooHoo and the elevator's own interactions keep EA's code.
+- `elevtriplog`: one line per car launch (riders, wait in the car) and per Sim set through.
+
+### 33.3 Proof (storm s562, Bridgeport seed 156, s560 setup, 30 min, new game from the world file)
+
+S562_TABLE
+
+## 34. A car parked on the Sim's floor is called for 7 sim-minutes (`elevparked`, `elevparkedhh`; 2026-11-25, `post/elevparked-1125`, built, default off)
+
+`ElevParked.cs`, rules in `ElevParkedCore.cs`, counters 4711-4715, check `ElevParkedCheck`, selftest
+`tools/selftest/elevparked`, repro `elevparked-check`.
+
+[verified, decompiled `ElevatorDoorsPortalComponent.OnApproachingPortalObject`] A boarder at closed doors sleeps
+`kLongEffectsTime` (7 sim-min) with the arrive effects, so the car may come from another floor. EA keeps no car
+position, and the doors close when the last rider steps out (`IsElevatorEmpty && !IsElevatorRequested`) and 30
+sim-min after an empty call. So the next Sim boarding where the car stands waits 7 minutes for it, and every other floor
+of the column waits too (crowdport's "doors closed, car free" lines).
+
+Fix: the column (its lowest car) remembers the doors of the car's last stop (a ride ended there, or a boarding there
+was its last call). A boarder there at closed doors with the car empty gets EA's own `OpenElevatorDoors` first (door
+animation and muzak), so EA's open-doors branch runs: no arrive sleep, the hold as always. A car on another floor, or
+any car after a load until its next stop, keeps EA's 7 minutes. `elevparkedhh`: household and selected Sims too.
+
+Proof: S562_PARKED
+
+## 35. Pool ladders shared in both directions (`poolshare`, `poolsharehh`; 2026-11-25, `post/poolshare-1125`, built, default off)
+
+`PoolShare.cs` plus the pool ladder kind in `ShareLanes.cs` / `ShareLanesCore.cs` (sharelanes' search), counters
+4716-4720, check `PoolShareCheck result | run | lot`, selftest `tools/selftest/poolshare`, repro `poolshare-check`.
+
+[verified, decompiled `PoolPortalComponent`, `PoolLadder`, `PortalComponent.GetFreeRoutingLane`] A pool ladder has one
+lane (outside and inside slot). EA's table shares it with a Sim entering at the same end and refuses one coming the
+other way, which waits at a spot. The climb is one state machine per Sim (`PoolLadder.GetStateMachine` acquires it on
+the Sim, the ladder is only an actor; EA already runs two at once from the same end), and each climb turns on the
+footprint of its own lane end. Storm logs: 7 NPC waits that gave up, 14 sim-min (s550f, s558g, s560b: NPCs routing home
+across a pool, a follower behind its leader).
+
+Fix: a pool ladder lane refused only because it is held from the other end is searched again with the game's own steps
+(nearest start slot, the pool's extra checks and obstruction test, its fallback lane), as sharelanes does for stairs
+and doors; the two Sims may clip at the ladder. The pool's own edge portal and fountains keep EA's table.
+`poolsharehh`: household and selected Sims too.
+
+Proof: S562_POOL
+
+### 35.1 Checks (§33-35)
+
+- `node tools/selftest/elevskip/run.ts` (17), `elevparked` (7), `poolshare` (9), `sharelanes` (kind names updated);
+  `build-fixes.ts`; `swap-stack-audit.ts` (three new swaps, all yield, stub remap: `TryTeleportSkip`,
+  `ElevatorPortalComponent.OnPortalStart`, `ElevatorDoorsPortalComponent.OnApproachingPortalObject`); `fix-repro-check.ts`.
 ## 36. The facility planner: who is in which bathroom until when (`facilityplan`, `facilityquick`, `facilitychain`, `showerpeeplan`, `showerdirty`; 2026-11-25, `post/facilityplan-1125`, built, default off, forced repros s590a-c, storms s590d/e)
 
 User (2026-11-25): "not only checking when the bathroom will be free but when the sims really needs it, or having both
