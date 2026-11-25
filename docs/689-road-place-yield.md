@@ -1,0 +1,69 @@
+# 689: the remaining route-plan hitches of the 30-min heap-512 soaks; Bridgeport's is upstream's `jobyieldroad` (docs/800) missing from the combo branch
+
+2026-11-25. Logs: 30-min heap-512 soaks s560c/d, s562a-c, s570a-f (combo asi ci-45550816174, `[HitchAttr]`, `[StallWatch]`,
+ufplan / ufplansplit lines), decompiled C#, our native source. Result: the top routing cause was already fixed upstream
+(docs/800 `jobyieldroad` + `jobyieldroadow`, ON since the import of 2026-11-19, Bridgeport runplan waits 30.4 s -> 0.2 s);
+the combo branch (`work/combo-1117`) predates that import, so every combo soak ran without it. §4 ports the road and traffic
+sites to the combo branch (default off there, counters 4860-4871, `kCounterSlots` 4880). A/B s597a / s598 (§5).
+
+Not redone here: docs/142 (early-out), 164 (phase split), 202 (unseen fallback), 640 (disc yield), 672, 676, routedefer,
+RouteAsync, crowdport, docs/682 fglinbound.
+
+## 1. Method (token-free)
+
+Per hitch frame >= 300 ms: the native `hitch: frame` split (sync plan ms by phase world / water / post / insert / cell /
+lot, job wait ms and site, lock918, gc, cpu), the stall watch's innermost script frame, and the ufplan / ufplansplit
+lines of the frame (`pre / wait / post`, polls). Per run: every `route jobs: sim waited N ms for a job at <site>` line by
+site, own/foreign job and "task could yield". Scripts: `h150.py` (ts3-runs) for the old labels, a cause split per frame
+(scratch, not committed).
+
+## 2. Classified table
+
+| World, runs | Label in h150 | Who / for what | Phase, thread | Real cause | Frames >= 300 ms, ms per run |
+|---|---|---|---|---|---|
+| Bridgeport s560d, s562a-c | "slow plan: marked" (6-14 a run, 300-700 ms) | unseen NPCs (`why 0 marked`), kind 0 async plans, own task, short trips (dist 9 m...) | worker job; the ufplan wall time is `pre 0 wait N post 0`, 1 poll | **victims**: they wait through a frame that the sim spends in the next row | - |
+| Bridgeport s560d, s562a-c | (same frames) | `World_FindPlaceOnRoadOffScreen`: `TrafficManager` parked-traffic spawn, `CarNpcManager.FindOffScreenPlaceOnRoad` (taxis, NPC cars), `Service`, food / ice-cream trucks; non-Sim tasks mostly | **sim thread**: the call's own plan enters our `RunPlan`, finds the sim's own async job running (`A_RUNNING`, owner = sim thread) and waits in `WaitAsyncDone(SW_RUNPLAN)`; "task could yield yes" | **top cause** (§3) | 22 / 16 / 19 / 31 frames, 8.8 / 6.5 / 7.0 / 14.0 s; all such waits 480 / 467 / 473 / 480, 30.8 / 27.3 / 28.0 / 33.6 s |
+| Bridgeport s560d | "other (fglinbound)" 1.4 s | `FindGoodLocationNearby` for a `SocialJigTwoPerson` | sim thread, placement, leaf `World_FindGoodLocation` | docs/682's lot-wide indoors stage (fglinbound was off in s560) | 1 frame, 1.4 s |
+| Sims University s560c, s570a-c | "slow plan: own task" 0.9-1.2 s | NPC async plans (`why 4`, Ann Conners, dist 268 m) | worker; `pre 0 wait 1182 (2 polls)` | **victims** of script-CPU frames (`DreamsAndPromises`, `Query_GetObjects` after `Skewer.OnHouseholdChanged`); sync plans of those frames <= 173 ms | 0 routing frames |
+| Sims University s560c | "other (crowdport)" 1.4 s | class end at 2 PM, crowdport rabbit-hole exits | 22 sync `PlanFromPoint` plans, 116 ms (cell 59, post 36) | mostly script CPU (`DreamsAndPromises`); routing ~8% of the frame | 1 frame |
+| Sunset Valley s570e/f | - | runplan 20 / 18 waits, 1.5 / 1.1 s; disc 140 / 100, 7.4 / 4.8 s | - | small; disc = docs/640 | - |
+
+So in these soaks only Bridgeport has a routing-caused hitch class that matters, and it is not a plan's own cost: it is
+the sim thread waiting for a job.
+
+## 3. Root cause [verified in our source; caller set verified, decompiled; leaf share measured]
+
+`World.FindPlaceOnRoadOffScreen` (SimIFace) -> `World_FindPlaceOnRoadOffScreen` (native) plans on the calling thread.
+Our planner hook `RunPlan` (ts3native.cpp): when `g_async.state == A_RUNNING && me == g_async.owner` and the plan is not
+nested in the job's managed call, it waits for the job (`WaitAsyncDone(SW_RUNPLAN)`), because the job holds the routing
+lock (+0x918). The job is one the sim itself started a moment before (a Sim's async plan, often 300-700 ms on Bridgeport's
+large graph), so the sim thread sits idle for the rest of it. JobYield (docs/183, RouteBackoff.cs `StepAside`) avoids
+this wait for `Route.Plan` paths by sleeping the task on JOBBUSY, but `FindPlaceOnRoadOffScreen` never goes through a
+Route object, so nothing yields. Stall leaf of the waits >= 150 ms: `World_FindPlaceOnRoadOffScreen` 52 of 60 (s560d),
+56 of 66 (s562c). Bridgeport has the most traffic (`GeneratedTrafficTuning`, taxis), which is why the class is
+Bridgeport's.
+
+## 4. Fix: upstream's `jobyieldroad` / `jobyieldroadow`, ported to the combo branch
+
+A first design (`roadyield`: sleep before `Sims3.SimIFace.World.FindPlaceOnRoadOffScreen` on JOBBUSY) was dropped before it
+ran: it is docs/800's `jobyieldroad` again, without the car fix that docs/800 found necessary (a `CarNpcWithNoDriver`'s
+LiteDriver task destroys its out-of-world car during the sleep; upstream saw 294 of 297 slept cars lost). The combo branch now
+carries upstream's JobYieldRoad.cs road and traffic parts (`RoadOffScreenHook` on `ScriptCore.World.FindPlaceOnRoadOffScreen`,
+`TrafficCreateHook` on `GlobalFunctions.CreateObjectOutOfWorld(string, ProductVersion)`, `RouteBackoffHook.StepAside()` with
+no route, handle 0), same names, logic and household rule (`YieldTownie`: a car with any non-townie occupant is left out).
+Not ported: `jobyieldspawn`, `jobyieldready`, `jobyieldfp`, `turnjigskip`. Default off on the combo branch; upstream has them
+on, so no upstream PR is needed for the fix.
+
+- Result: the same IC with the same arguments, a few ticks later; "better, not identical" (timing only); with
+  `jobyieldroadow` a car destroyed during the sleep gets "no place", the callers' own failure path.
+- Counters (upstream 1270-1274 / 1285-1291 renumbered, combo uses 1270-1275 for other fixes): 4860 road asks for a taken
+  car, 4861 slept, 4862 ms slept, 4863 car gone after the sleep, 4864 left out (occupant not a townie), 4865 roadow (1) taken,
+  4866 (3) taken, 4867 cars gone that were out of the world, 4868 pre-create asks, 4869 slept, 4870 ms slept, 4871 pre-create
+  calls. The JobYield totals stay in 248-250.
+
+## 5. A/B
+
+`~/dev/ts3-runs/s597-run.sh` (off arm only, s597a Bridgeport) and `s598-run.sh` (b Bridgeport on, c / d Sims University
+off / on; on = `jobyieldroad jobyieldroadow`), both cloned from s560-run.sh: s560 setup, heap 512, 30 min, seed 156, new
+games from world files. Measure: `route jobs: sim waited ... at runplan` lines (count, sum, >= 150 ms), hitch frames >= 300
+ms by cause, counters 4860-4871.

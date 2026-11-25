@@ -247,6 +247,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLineSwitch value="False" />
     <kLineSwitchHh value="False" />
     <kLineSwitchLog value="False" />
+    <kJobYieldRoad value="False" />
+    <kJobYieldRoadOw value="False" />
     <kRhSkipUnseen value="False" />
     <kRhSkipHhUnseen value="False" />
     <kLineSwitchPc value="False" />

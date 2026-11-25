@@ -224,6 +224,8 @@ namespace Ts3Fixes
                 case "invnotyet": return EpLive(typeof(InvNotYetHook), 1);
                 case "jazzparam": return EpLive(typeof(JazzParamHook), 1);
                 case "jetpackflyingbuff": return EpLive(typeof(JetpackBuffHook), 1);
+                case "jobyieldroad": return EpJoin(EpLive(typeof(RoadOffScreenHook), 1), EpLive(typeof(TrafficCreateHook), 1));
+                case "jobyieldroadow": return EpLive(typeof(TrafficCreateHook), 1);
                 case "jogterrain": return EpLive(typeof(B12JtHook), 1, "sJtDest", sJtDest, null, "sJtRoad", sJtRoad, typeof(bool), "sJtLast", sJtLast, typeof(float), "sJtLast", sJtLast, null, "sJtTime", sJtTime, null, "sJtTime", sJtTime, typeof(float));
                 case "joyridecostume": return EpJoin(EpLive(typeof(JcJoyrideHook), 1), EpLive(typeof(JcRouteHook), 1));
                 case "kegbreakage": return EpLive(typeof(B12KbHook), 1, "sKbChance", sKbChance, 0, "sKbDorm", sKbDorm, typeof(float), "sKbDorm", sKbDorm, "static");

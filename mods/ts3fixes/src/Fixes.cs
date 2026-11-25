@@ -1437,7 +1437,11 @@ namespace Ts3Fixes
         // would; bookskip NPC / household / seen kept / would / no spot; gymtwin switched / would / unseen at once; servingsharehhunseen runs;
         // slidehang ended NPC / household / would / kept; errors; line waits begun unseen / their sim-min x10; rhdoor waits begun unseen /
         // their sim-min x10; 4804-4819 spare.
-        const int kCounterSlots = 4820;
+        // [4820-4859] other branches.
+        // [4860-4871] jobyieldroad / jobyieldroadow (JobYieldRoad.cs, docs/800 port, docs/689; upstream 1270-1274 / 1285-1291): road asks
+        // for a taken car / slept / ms slept / car gone after the sleep / left out, occupant not a townie / roadow (1) taken / (3) taken /
+        // cars gone that were out of the world / pre-create asks / slept / ms slept / pre-create calls; 4872-4879 spare.
+        const int kCounterSlots = 4880;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1807,6 +1811,8 @@ namespace Ts3Fixes
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
                 case "lineswitchlog": return Instantiator.kLineSwitchLog;
+                case "jobyieldroad": return Instantiator.kJobYieldRoad;  // JobYieldRoad.cs (docs/800 port, docs/689): NPC cars' road-spot IC steps aside from a running route job, off on this branch (ON upstream)
+                case "jobyieldroadow": return Instantiator.kJobYieldRoadOw;  // JobYieldRoad.cs (docs/800 port): with jobyieldroad, no sleep that lets a traffic car's LiteDriver destroy it, off on this branch (ON upstream)
                 case "facilityplan": return Instantiator.kFacilityPlan;  // FacilityPlan.cs (docs/686 §36): NPCs pick and wait for the toilet, shower, bath or sink that frees soonest, or do something else first, off
                 case "facilityplanhh": return Instantiator.kFacilityPlanHh;  // FacilityPlan.cs (docs/686 §36): household and selected Sims too, off
                 case "facilityplanlog": return Instantiator.kFacilityPlanLog;  // FacilityPlan.cs (docs/686 §36): one line per case, off

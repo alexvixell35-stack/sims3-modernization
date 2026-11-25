@@ -466,6 +466,8 @@ namespace Ts3Fixes
         [Tunable] public static bool kSlotRetryLog = false;  // slotretrylog: one ts3native.log line per case
         [Tunable] public static bool kLineSwitch = false;  // lineswitch (docs/686 §25): an NPC waiting in a toilet, sink, shower or bath line takes a free, reachable object of the same kind on the lot after kLineSwitchMinutes
         [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
+        [Tunable] public static bool kJobYieldRoad = false;  // jobyieldroad (docs/800, ported from upstream where it is ON; docs/689): NPC cars' road-spot IC (World.FindPlaceOnRoadOffScreen) steps aside from a running route job
+        [Tunable] public static bool kJobYieldRoadOw = false;  // jobyieldroadow: with jobyieldroad, no sleep that lets a traffic car's LiteDriver destroy it (use both)
         [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
         [Tunable] public static bool kRhSkipUnseen = false;  // rhskipunseen (docs/686 §37): an NPC whose rabbit hole enter slot is held, unseen when it asks, walks to the slot now and goes in (rhshare's walk, any holder; clipping at the door)
         [Tunable] public static bool kRhSkipHhUnseen = false;  // rhskiphhunseen (docs/686 §37): the same for unseen household Sims (not the selected Sim); explicit opt-in that lifts the household-never-unseen rule (CLAUDE.md) for rabbit hole enter slots only

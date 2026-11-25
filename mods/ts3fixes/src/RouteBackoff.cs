@@ -20,6 +20,7 @@ namespace Ts3Fixes
             Patch(typeof(ScriptCore.Route), "Replan", typeof(RouteBackoffHook), "ReplanHook", "ReplanOrig");
             Patch(typeof(ScriptCore.Route), "PlanFromPoint", typeof(RouteBackoffHook), "PlanFromPointHook", "PlanFromPointOrig");
             Patch(typeof(ScriptCore.Route), "ReplanFromPoint", typeof(RouteBackoffHook), "ReplanFromPointHook", "ReplanFromPointOrig");
+            ApplyJobYieldRoad();  // jobyieldroad / jobyieldroadow step-asides (JobYieldRoad.cs, docs/800 + docs/689)
         }
 
         // Route-failure backoff (docs/11 recommendation 3): a failed plan expands every reachable node, then runs a native
@@ -532,6 +533,22 @@ namespace Ts3Fixes
                     if (op != StepAsideLoop.kOpNone) GetOption2(kJobBusy | (Sims3.SimIFace.Route.RouteOption2)(ulong)op);
                 }
                 StepAsideNote(ic, l, unchecked(System.Environment.TickCount - t0), rs, ts, fp);
+            }
+            // The step-asides with no route of their own (JobYieldRoad.cs road / traffic sites, docs/800, ported from upstream):
+            // the poll goes through sYieldProbe (handle 0), so ts3native holds no records for them and the old loop stays as it was.
+            static void StepAside()
+            {
+                if (!ShortcutOn("jobyield") || !MayYield() || !sYieldProbe.GetOption2(kJobBusy)) return;
+                int[] c = PatchCounters();
+                c[248]++;
+                int t0 = System.Environment.TickCount;
+                do
+                {
+                    c[249]++;
+                    Simulator.Sleep(0);
+                    // shortcut: a fixed real-time cap; a job queue that stays busy longer than this gets the old native wait
+                    if (unchecked(System.Environment.TickCount - t0) >= kStepAsideMaxMs) { c[250]++; return; }
+                } while (sYieldProbe.GetOption2(kJobBusy));
             }
             static int sJyJig, sJyReset, sJyLogMinute, sJyLogged;
             const int kJyLinesPerMin = 30;
