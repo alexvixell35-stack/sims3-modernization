@@ -7,6 +7,7 @@ using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.Objects.Appliances;
+using Sims3.Gameplay.Objects.Plumbing;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
 
@@ -177,6 +178,7 @@ namespace Ts3Fixes
             try
             {
                 if (ii.Autonomous) { sFglAutoQuiet++; return false; }
+                if (FglFill(ii, a)) return false;  // this fridge action ends quietly; WashHands, then a fresh one, are next in the queue
                 a.RemoveExitReason(ExitReason.ObjectInUse | ExitReason.TimedOut);
                 a.LoopIdle();
                 if (a.WaitForExitReason(kFglPauseMin, exitReasons)) { a.AddExitReason(ExitReason.ObjectInUse); sFglLeft++; return false; }
@@ -187,6 +189,53 @@ namespace Ts3Fixes
             }
             catch (ResetException) { throw; }
             catch (Exception) { sFglErrors++; return false; }
+        }
+
+        // fridgelinefill (stage 2, user 11-24: waiting Sims "washing their hands" / do something useful): instead of idling
+        // where it stands, a clicked Sim whose fridge wait failed softly washes its hands at the nearest free sink (EA's
+        // Sink.WashHands, the one EA queues after the toilet), then runs a fresh instance of the same fridge action (same
+        // definition, target, priority: a fresh instance, since Fridge_Have.Cleanup nulls its ImpassableRegion). Both go in
+        // with EA's InteractionQueue.AddNext (no duplicate check on that path), so the player sees them queued and can cancel
+        // them; only EA types are queued. At most kFglFillMax fills per Sim within kFglFillWindowMin; then stage 1's idle
+        // retry. No fill for a hydrophobic Sim or when no sink is free and passes EA's test.
+        const int kFglFillMax = 2;
+        const float kFglFillWindowMin = 120f;
+        static readonly Dictionary<Sim, float[]> sFglFills = new Dictionary<Sim, float[]>();  // Sim -> {fills, first fill sim-min}
+        static int sFglFilled;
+
+        static bool FglFill(InteractionInstance ii, Sim a)
+        {
+            if (!ShortcutOn("fridgelinefill") || a.InteractionQueue == null || a.LotCurrent == null || a.HasTrait(TraitNames.Hydrophobic)) return false;
+            float now = SimClock.ElapsedTime(TimeUnit.Minutes);
+            float[] fl;
+            if (!sFglFills.TryGetValue(a, out fl) || now - fl[1] > kFglFillWindowMin) { fl = new float[] { 0f, now }; sFglFills[a] = fl; }
+            if (fl[0] >= kFglFillMax) return false;
+            InteractionPriority pr = ii.GetPriority();
+            InteractionInstance wash = null;
+            Sink sink = null;
+            float best = float.MaxValue;
+            foreach (Sink s in a.LotCurrent.GetObjects<Sink>())
+            {
+                if (s == null || s.HasBeenDestroyed || s.InUse) continue;
+                float d = (s.Position - a.Position).LengthSqr() + (s.Level != a.Level ? 400f : 0f);  // another floor counts as 20 m
+                if (d >= best) continue;
+                InteractionInstanceParameters p = new InteractionInstanceParameters(new InteractionObjectPair(Sink.WashHands.Singleton, s), a, pr, false, true);
+                GreyedOutTooltipCallback cb = null;
+                if (!InteractionDefinitionUtilities.IsPass(Sink.WashHands.Singleton.Test(ref p, ref cb))) continue;
+                best = d;
+                sink = s;
+            }
+            if (sink == null) return false;
+            InteractionInstance fresh = ii.InteractionDefinition.CreateInstance(ii.Target, a, pr, false, ii.CancellableByPlayer);
+            wash = Sink.WashHands.Singleton.CreateInstance(sink, a, pr, false, true);
+            if (fresh == null || wash == null || !a.InteractionQueue.AddNext(fresh)) return false;
+            a.InteractionQueue.AddNext(wash);  // ahead of the fresh one; if refused, the fresh one alone is a plain retry
+            fl[0]++;
+            sFglFilled++;
+            if (++sFglLog <= kFglLogMax)
+                DiagLine("fridgeline: " + a.FullName + " " + ShlWho(a) + ": washes hands at " + sink.GetType().Name + " " + Math.Sqrt(best).ToString("0.0")
+                    + " m, then " + ii.GetType().Name + " again (fill " + fl[0] + ")");
+            return true;
         }
 
         // every route-fail balloon EA still plays at a fridge's line (switch on or off: the A/B's count)
@@ -222,6 +271,7 @@ namespace Ts3Fixes
                 && !FglSoft(ExitReason.ObjectInUse, d, d) && !FglSoft(ExitReason.None, 0f, d);
             return "fridgeline " + (ShortcutOn("fridgeline") ? "on" : "off") + ", fridgelinehh " + (ShortcutOn("fridgelinehh") ? "on" : "off")
                 + ": quiet soft fails " + sFglQuiet + ", retries " + sFglRetries + ", got the fridge after a retry " + sFglGot
+                + ", fridgelinefill " + (ShortcutOn("fridgelinefill") ? "on" : "off") + " washed hands first " + sFglFilled
                 + ", autonomous ended quietly " + sFglAutoQuiet + ", left during the pause " + sFglLeft + ", balloons played " + sFglBalloons + ", errors " + sFglErrors
                 + ", open waits " + sFglWaits.Count + ", self-check " + (self ? "ok" : "FAILED");
         }

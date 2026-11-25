@@ -2349,6 +2349,7 @@ namespace Ts3Fixes
                 case "stairwaitend": return Instantiator.kStairWaitEnd;  // docs/612 §2 (StairDup82.cs), EA bug fix, off
                 case "fridgeline": return Instantiator.kFridgeLine;  // FridgeBusy.cs, NPCs, off
                 case "fridgelinehh": return Instantiator.kFridgeLineHousehold;  // FridgeBusy.cs, household and selected Sims, off
+                case "fridgelinefill": return Instantiator.kFridgeLineFill;  // FridgeBusy.cs, wash hands while the line is full, off
                 case "simdisposelink": return Instantiator.kSimDisposeLink;  // docs/612 §3 (StairDup82.cs), EA bug fix, off
                 case "rhexitunseen": return Instantiator.kRhExitUnseen;  // docs/613 §2 (StuckJobs83.cs), EA bug fix, off
                 case "routefailprobe": return Instantiator.kRouteFailProbe;  // docs/627 §2 (RhEntry627.cs), log attribution fix, off

@@ -127,6 +127,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStairWaitEnd value="True" />
     <kFridgeLine value="False" />
     <kFridgeLineHousehold value="False" />
+    <kFridgeLineFill value="False" />
     <kSimDisposeLink value="True" />
     <kWakeHooks value="False" />
     <kWakePark value="False" />
