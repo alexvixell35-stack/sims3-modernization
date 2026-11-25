@@ -410,6 +410,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kLadderShareHousehold = false;  // laddersharehh: laddershare for household and selected Sims too
         [Tunable] public static bool kSpiralShare = true;   // spiralshare (docs/686 §8): a spiral staircase's one lane is given to a Sim coming the other way too, and the walk does not wait for its turn in the staircase's line; Sims walk it at the same time and through each other
         [Tunable] public static bool kSpiralShareHousehold = false;  // spiralsharehh: spiralshare for household and selected Sims too
+        [Tunable] public static bool kStairFlow = false;  // stairflow (docs/686 §32): straight stairs, the planned lane: the approach is walked without the stop animation and the walk after them starts without the start animation when the heading is within kStairFlowDeg of the lane (flags EA clears for other portals); NPCs
+        [Tunable] public static bool kStairFlowHousehold = false;  // stairflowhh: stairflow for household and selected Sims too
+        [Tunable] public static float kStairFlowDeg = 30f;  // stairflow: largest angle between the walk's heading and the lane at which the stop / start animation is dropped
+        [Tunable] public static bool kStairTimeLog = false;  // stairtimelog: one ts3native.log line per stair, ladder or spiral stair use (either switch state)
         [Tunable] public static bool kSimPass = false;  // simpass (docs/686 §8): a walking Sim that meets only Sims (none of them at the route's end) starts the game's ignore-obstacles timer and walks through them instead of running the obstacle stand-and-wait
         [Tunable] public static bool kSimPassHousehold = false;  // simpasshh: simpass for household and selected Sims too, as the walker and as a Sim walked through
         [Tunable] public static float kSimPassMinutes = 3f;  // simpass: sim-minutes the ignore-obstacles timer runs per start (the game's own value after a portal is 5)

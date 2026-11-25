@@ -1843,3 +1843,84 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
 - r6-rp1 found one bug, fixed in r6c: a queued reaction that became safe after the stale time was still played (Startled
   `overlaid from the queue after 9151 ms`); the stale test now comes first.
 - PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.
+
+## 32. Stairs that never hold a route up, and stairs for one Sim alone (`stairflow`, `stairflowhh`, `stairtimelog`; 2026-11-25, `post/stairflow-1125`, built, default off, forced repro s561: no gain measured)
+
+The goal: stairs, ladders and spiral stairs should not block, delay or strand a route unless the portal is locked, the
+same as doors. Also, a single Sim should get onto and off the stairs without a visible stop or turn. `StairFlow.cs`,
+rules in `StairFlowCore.cs`, counters 4692-4699 (`kCounterSlots` 4700), check `StairFlowCheck result | run | plan`,
+selftest `tools/selftest/stairflow`, repro `stairflow-ladderfp`.
+
+### 32.1 Audit: every way a stair portal can hold a route up [storm logs s532-s560, 46 logs, read-only; decompiled C#]
+
+| Case | What the player sees | Switch (upstream state) | Logs s532-s560 | Gap |
+|---|---|---|---|---|
+| Lane held from the other end (stairs, ladder: two lanes; one-lane portals) | Sim walks to a spot 0.75-3 m from the stairs and stands there | `sharelanes` (on), `sharelaneshh` (off) | stairs 1 lane wait (s544a, NPC, 1.6 sim-min, an arm with the fixes off); ladder 0; spiral 0 | none for stairs, ladders or spiral stairs. Pool ladders (`PoolLadder`, kind "other"): 7 NPC waits that gave up, 14 sim-min (s550f, s558g, s560b), not covered. Elevators: 1,462 waits, 9,730 sim-min (not stairs) |
+| Ladder line (one climber at a time, `Ladder.Line`) | second climber stands on the lane end | `laddershare` (on), `laddersharehh` (off) | no ladder wait line | none |
+| Spiral stairs (one lane + `SimQueue` line) | Sim waits for the whole line | `spiralshare` (on), `spiralsharehh` (off) | 0 | none |
+| Sims standing on a lane end close the portal (`DestinationPortalLocked` in the stand-and-wait) | Sim stands and replans every cycle | `sharelanes` pass, `ladderfootshoo` (on) / `ladderfootshoohh` (off), `standwaitfix(hh)` | 47 `standwait:` lines; the stair-top ones (Bunch lot, y 52.8, s534/s535/s558g/s560b) say `pass cycle 0 (4 plans)`: the people-free plans fail too, and the strand lines name a privacy situation (toilet, bath) | none: a privacy lock is a lock (`standwaitlocked(hh)` ends those waits early) |
+| A lane end closed by a footprint, discourage area or object | `NoPathToDestination` with the lanes free | `strandprobe` (diagnostic, off) | 81 `routefail strand:` lines in 10 runs, all with every lane end free: a bookshelf goal that cannot be reached (Bunch, goal 1217.2,53.9,1188.3 from three levels), a room with no room-graph link (Bunch room 13), fire scenes (Fox, Racket), a privacy lock; none closes a stair | the ladder lead, §32.2: ruled out in the forced repro |
+| Stand-and-wait at a stair top or foot | Sim stands 20 sim-min | `standwaitfix(hh)`, `simpass(hh)` (at once near a portal, §8.7) | see above | none |
+| Replans with no destination | "Replan FailedBecauseNoDestinationSpecified" | none | 190, e.g. s543c Bill Racket at the top of the stairs to a stove: lanes free, rooms 28>25>4>1 connected; the goal went away | not a stair case |
+| `PlanFromPoint` side plans | none (planning only) | none | 18,091 `PlanFromPoint ... DestinationPortalLocked`: all spot probes for NPC placement (`stand-in for a placed NPC`), fires | not a stair case |
+| Lane switch: the Sim did not get its planned lane | the game replans the approach (`GetPathToLane`) and replans after the portal (`ContinueAndPopPathAndReplan`) | `sharelanes` makes the planned lane free more often | s561: 0 of 95 stair uses, 7 of 7 ladder uses (ladders always: the slot plan) | small: one async plan after the climb |
+| Angle and entry rules | none visible: the approach ends on the lane line | `angleentry`, `angleentryhh` (off) | s561: 95 stair uses, end heading over 30 deg 0, first step over 5 deg 0, offset 0.00 m | none |
+| Pets and children | toddlers, puppies and kittens never take stairs (EA: `OnPortalStart` refuses them, they are carried); pets and toddlers never take ladders (portal flags) | none | the pet strands are fire scenes (Fox lot, `ReactToFire`, `PetRunAwayFromFire`) with both stairs free | EA design, no gap |
+| A stair walk that never ends | Sim frozen on the stairs | `stairwaitend` (off, docs/612 §2) | none | none |
+
+### 32.2 The ladder lead (docs/670 §29.3 on the combo branch) [verified, forced repro s561, Isla Paradiso new game, Collins, RO set on, `JobYield=1`]
+
+Three cycles: Omar climbs down Colonial Casa's ladder (927.3,61.0,1205.2 top) and stands at its foot, then climbs up
+again and stands 2.8 m from the top; Rosemarie stands on level 2. At 0, 3, 6, 10, 15 and 25 s of each climb a
+`StairFlowCheck plan` read `Route.IsPointRoutable` at both ends of both ladder lanes and both stair lanes for Rosemarie
+(her own route, Sims included), and after each cycle Rosemarie walked to the ground for real.
+
+- Lane ends: `A yes, B yes` on both ladder lanes in all 30 reads, with Omar on the lane end (`fp off routing`), during
+  the climb and idle at the foot or on level 2.
+- Real walks down after the climbs: 3 of 3 `route ok`, 10.50 / 10.53 / 10.56 s, `plans 3 failed 0`.
+- The test plans themselves are void: their goal (936.4,55.0,1206.5) is not routable (`goal NO`), go_here lands 0.7 m
+  away. The repro uses 936.2,55.0,1207.1 since.
+
+**Ruled out** for a climber: the ladder's down portal stays open while and after a Sim climbs either way. The
+strand of docs/670 §29.3 (combo branch) keeps an unknown cause; it was not seen in s532-s560 (no Collins strand line in 46 logs).
+
+### 32.3 One Sim alone on stairs [verified, decompiled `Sims3.Gameplay.Routing`, `Stairs`; measured s561]
+
+How the game does it: `PortalAnimateThroughAction.DoPortal` walks the approach with `RouteStartFlags.UseStopAnim` unless
+the portal is an `IPortalIgnoreStartStopAnim` (horse jumps, houseboats); the walk after a portal gets `UseStartAnim`
+while `UseStartAnimWhenExitingPortal` is true (false for horse jumps, the ocean, houseboats); the stair walk
+(`Route.StartStairTraversal`) places the Sim at the lane start facing along the lane; `HandleStairsCompleted` wakes the
+script task at once (no sleep latency); a replan after the portal only for a lane that was not the planned one.
+
+`stairflow` drops the two flags on straight stairs when the heading is within `kStairFlowDeg` (30) of the lane.
+`stairtimelog` writes one line per use. Repro part B: Rosemarie alone, up and down twice per arm, off/on/off/on.
+
+| Item (one Sim, Colonial Casa stairs) | Measured off | Measured on |
+|---|---|---|
+| approach, start of the portal action to the first step | 0.45 / 1.17 / 0.64 / 2.85 s (0.9-2.5 m) | 0.45 / 1.17 / 0.64 / 2.85-2.88 s, the same |
+| heading at the end of the approach, against the lane | 0 deg | 0 deg |
+| angle and offset left at the first step (a snap or slide) | 0 deg, 0.00 m | 0 deg, 0.00 m |
+| on the stairs (EA's animation) | 3.47 up, 3.60 down | the same |
+| heading of the walk after the stairs | 2-11 deg | the same |
+| replan after the stairs | none (`ContinueAndPopPath`) | none |
+| whole go_here, 4 walks | 10.87, 9.86, 11.47 (+ 1 failed on a door, a goal behind it) / 11.33, 10.87, 9.87, 11.46 s | 11.40, 10.76, 10.03, 11.60 / 11.39, 11.27, 9.96, 11.57 s |
+
+Ranked by visible time: the stair animation itself (3.5-3.6 s, EA's, not changed), the ladder's approach and climb (7.3
+s for 1.9 m, the climb animation, plus a replan after every climb), then nothing: the approach already ends on the lane
+line facing it, the first step needs no turn and no move, and the flags change no time at all (within 0.03 s per
+approach, trip times within the spread). The other 95 stair uses of the session: end heading over 30 deg 0, first step
+over 5 deg 0. Spiral stairs: 8 uses, all approached at over 30 deg (their walk is an interaction that turns the Sim).
+
+**Verdict.** No gap for one Sim on straight stairs at this lot: nothing to make smoother without changing the
+animation. `stairflow` is kept default off with no gain measured; whether the walk looks different without the stop
+and start animation was not checked by eye. `stairtimelog` stays as the measure. Counters in s561: uses 187, without
+the stop anim 25 (would 130), without the start anim 23 (would 123), kept 6, errors 0; no script error; `Bin pair restored`.
+
+### 32.4 Checks
+
+- `node tools/selftest/stairflow/run.ts` (13 checks), `build-fixes.ts`, `swap-stack-audit.ts` (two new swaps:
+  `FollowRouteAction.PerformRoute` with a stub, it can yield; the getter, no yield), `fix-repro-check.ts`.
+- Existing default-off stair switches: `sharelaneshh`, `laddersharehh`, `spiralsharehh`, `angleentry`, `angleentryhh`,
+  `simpasshh`, `standwaitfixhh` ran on in every storm s540-s560 (5-30 min, 10 worlds): no `sharelanes: error` line,
+  no stair lane wait left, no stair strand. Safe to turn on by those runs; `angleentry` changes nothing measurable at
+  Colonial Casa (the approach is already on the lane line).

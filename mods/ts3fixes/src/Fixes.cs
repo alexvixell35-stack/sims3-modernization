@@ -564,6 +564,7 @@ namespace Ts3Fixes
             ApplyAutLiveB14();
             ApplyHitchCause();
             ApplyStandWait();          // docs/686 (StandWait.cs): standwaitfix / standwaitfixhh, off by default (counts either way)
+            ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyReactOverlay();       // docs/686 §26 (ReactOverlay.cs): reactoverlay / reactoverlayhh, off by default (counts either way); swaps Sim.PlayReaction
             ApplyShareLanes();         // docs/686 §8 (ShareLanes.cs): sharelanes / laddershare / spiralshare ON, simpass / angleentry and the household switches off by default (counts either way)
             ApplyBlockedUse();         // docs/686 §10 (BlockedUse.cs): blockeduse ON, blockedusehh off by default (counts either way)
@@ -1729,10 +1730,14 @@ namespace Ts3Fixes
         // wildflowertask / disposespread / aptleave RemoveGuest / boattrip sweep; [1743] go-live searches whose later slice started frozen or
         // not live and ran the game's B14 for the rest (autlivelate refusal / direct snap).
         // [4615-4619] lineswitch (LineSwitch.cs, docs/686 §25): switched to a free twin object / would, off / kept (waited past the switch time, not
-        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
+        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).
+        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
-        const int kCounterSlots = 4680;
+        // [4680-4691] left to the pending linestale / standwaitsocial PRs (post/linestale-1124, post/standwaitsocial-1124).
+        // [4692-4699] stairflow / stairtimelog (StairFlow.cs, docs/686 §32): stair, ladder and spiral uses timed / approaches without the
+        // stop anim / would, off / kept (angle over kStairFlowDeg) / exits without the start anim / exit would, off / exempt / errors.
+        const int kCounterSlots = 4700;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2221,6 +2226,9 @@ namespace Ts3Fixes
                 case "laddershare": return Instantiator.kLadderShare;  // ShareLanes.cs (docs/686 §8): a ladder climb does not wait for its turn in the ladder's line, off
                 case "laddersharehh": return Instantiator.kLadderShareHousehold;  // ShareLanes.cs: laddershare for household and selected Sims too, off
                 case "spiralshare": return Instantiator.kSpiralShare;  // ShareLanes.cs (docs/686 §8): a spiral staircase's one lane is shared in both directions and its walk does not wait for its turn in the staircase's line, off
+                case "stairflow": return Instantiator.kStairFlow;  // StairFlow.cs (docs/686 §32): straight stairs walked into and out of without the stop / start animation when the walk already heads along the lane, NPCs, off
+                case "stairflowhh": return Instantiator.kStairFlowHousehold;  // StairFlow.cs (docs/686 §32): household and selected Sims too, off
+                case "stairtimelog": return Instantiator.kStairTimeLog;  // StairFlow.cs (docs/686 §32): one line per stair, ladder or spiral use with approach, first-step and on-stairs times, off
                 case "spiralsharehh": return Instantiator.kSpiralShareHousehold;  // ShareLanes.cs: spiralshare for household and selected Sims too, off
                 case "simpass": return Instantiator.kSimPass;  // ShareLanes.cs (docs/686 §8): a walking Sim with only Sims in its way walks through them (the game's ignore-obstacles timer) instead of the stand-and-wait, off
                 case "simpasshh": return Instantiator.kSimPassHousehold;  // ShareLanes.cs: simpass for household and selected Sims too (as walker and as the Sim walked through), off

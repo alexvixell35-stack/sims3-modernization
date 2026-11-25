@@ -32,6 +32,7 @@
 #   fglinbound fglinboundhh
 #   standwaitfix standwaitfixhh standwaitlog reactoverlayhh reactoverlaylog
 #   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
+#   stairflow stairflowhh stairtimelog
 #   blockedusehh
 #   makebedbothhh makebedbothlog
 #   petrelaxhh petrelaxlog

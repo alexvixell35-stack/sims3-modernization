@@ -149,6 +149,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/standwait/run.ts': CSC,
   'tools/selftest/reactoverlay/run.ts': CSC,
   'tools/selftest/sharelanes/run.ts': CSC,
+  'tools/selftest/stairflow/run.ts': CSC,
   'tools/selftest/blockeduse/run.ts': CSC,
   'tools/selftest/makebedboth/run.ts': CSC,
   'tools/selftest/clipwait/run.ts': CSC,

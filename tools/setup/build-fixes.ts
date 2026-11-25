@@ -836,6 +836,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLadderShareHousehold value="False" />
     <kSpiralShare value="True" />
     <kSpiralShareHousehold value="False" />
+    <kStairFlow value="False" />
+    <kStairFlowHousehold value="False" />
+    <kStairFlowDeg value="30" />
+    <kStairTimeLog value="False" />
     <kSimPass value="False" />
     <kSimPassHousehold value="False" />
     <kSimPassMinutes value="3" />

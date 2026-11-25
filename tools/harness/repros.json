@@ -126364,5 +126364,1328 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "stairflow-ladderfp",
+    "bug": "Two leads at Colonial Casa (Isla Paradiso): (A) docs/670 §29.3: the household's strands from the third floor, both ladder lanes free, cause not found; hypothesis: a footprint left on the ladder's top end (a climber's own) closes the down portal for planning. (B) one Sim alone on straight stairs stops (stop animation) before the first step and starts (start animation) after the last, even walking straight in and out (docs/686 §32).",
+    "fix": "ts3fixes StairFlow.cs: stairtimelog (log), stairflow + stairflowhh (default off), docs/686 §32; StairFlowCheck plan is the lead's probe",
+    "save": "IslaParadiso.world fresh start, largest household (Collins) active (lf-run.sh load, as ladderfoot-force-down)",
+    "area": "[930, 1205]",
+    "note": "A: per cycle a test plan (nobody moves) from Rosemarie on level 2 to the ground before, during and after Omar climbs down and up the ladder; 'stairflow plan:' lines say SUCCEEDS / fails with the lane ends' Route.IsPointRoutable and the Sims near them. B: Rosemarie alone walks up and down the stairs twice per arm (straight on and turning off at the top), arms off/on/off/on; 'stairtime:' and 'gohere end: ... N ms' lines per walk.",
+    "expect": "A, lead confirmed: a plan fails NoPathToDestination after the climb while 'A yes/B yes' ends and no Sim near; ruled out: every plan SUCCEEDS. B: on arms 'stop anim no' on the straight approaches and 'start anim no' on the straight exits, first step <= 30 deg and offset < 0.1 m (no snap, no slide), gohere ms lower than off; errors 4699 = 0.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "stairflow": false,
+          "stairflowhh": false
+        }
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "normal speed: 1 sim-min = 1 s"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairtimelog": true,
+          "stairflow": false,
+          "stairflowhh": false,
+          "routefaillog": true
+        },
+        "note": "stairtimelog on in every arm",
+        "waitS": 1
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "settle: queues cancelled, autonomy off",
+        "max": 400,
+        "waitS": 15
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfp-lead1"
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "lead1 queues cancelled",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 932.4,
+          "y": 61.0,
+          "z": 1203.1
+        },
+        "note": "lead1 planner Rosemarie on level 2"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 930.5,
+          "y": 61.0,
+          "z": 1203.6
+        },
+        "note": "lead1 climber Omar on level 2, 2.8 m from the ladder top"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 936.0,
+          "y": 55.0,
+          "z": 1209.5
+        },
+        "note": "lead1 Cristobel on the ground, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 937.0,
+          "y": 55.0,
+          "z": 1210.5
+        },
+        "note": "lead1 Christopher on the ground, away",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 baseline: nobody near the ladder",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 928.8,
+          "y": 58.0,
+          "z": 1203.4,
+          "exact": true
+        },
+        "note": "lead1 Omar down the ladder to level 1",
+        "max": 300,
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 Omar on his way / climbing, 3 s",
+        "max": 1500,
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 6 s",
+        "max": 1500,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 10 s",
+        "max": 1500,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 15 s",
+        "max": 1500,
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 25 s: Omar idle at the foot",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 930.5,
+          "y": 61.0,
+          "z": 1203.6,
+          "exact": true
+        },
+        "note": "lead1 Omar up the ladder again",
+        "max": 300,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 Omar going up, 4 s",
+        "max": 1500,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 8 s",
+        "max": 1500,
+        "waitS": 6
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 14 s",
+        "max": 1500,
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead1 24 s: Omar idle on level 2",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "lead1 Rosemarie walks down for real (ladder, stairs)",
+        "max": 300,
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "lead1 planner after 30 s",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfp-lead2"
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "lead2 queues cancelled",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 932.4,
+          "y": 61.0,
+          "z": 1203.1
+        },
+        "note": "lead2 planner Rosemarie on level 2"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 930.5,
+          "y": 61.0,
+          "z": 1203.6
+        },
+        "note": "lead2 climber Omar on level 2, 2.8 m from the ladder top"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 936.0,
+          "y": 55.0,
+          "z": 1209.5
+        },
+        "note": "lead2 Cristobel on the ground, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 937.0,
+          "y": 55.0,
+          "z": 1210.5
+        },
+        "note": "lead2 Christopher on the ground, away",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 baseline: nobody near the ladder",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 928.8,
+          "y": 58.0,
+          "z": 1203.4,
+          "exact": true
+        },
+        "note": "lead2 Omar down the ladder to level 1",
+        "max": 300,
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 Omar on his way / climbing, 3 s",
+        "max": 1500,
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 6 s",
+        "max": 1500,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 10 s",
+        "max": 1500,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 15 s",
+        "max": 1500,
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 25 s: Omar idle at the foot",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 930.5,
+          "y": 61.0,
+          "z": 1203.6,
+          "exact": true
+        },
+        "note": "lead2 Omar up the ladder again",
+        "max": 300,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 Omar going up, 4 s",
+        "max": 1500,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 8 s",
+        "max": 1500,
+        "waitS": 6
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 14 s",
+        "max": 1500,
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead2 24 s: Omar idle on level 2",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "lead2 Rosemarie walks down for real (ladder, stairs)",
+        "max": 300,
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "lead2 planner after 30 s",
+        "max": 900
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "ladderfp-lead3"
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "lead3 queues cancelled",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 932.4,
+          "y": 61.0,
+          "z": 1203.1
+        },
+        "note": "lead3 planner Rosemarie on level 2"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 930.5,
+          "y": 61.0,
+          "z": 1203.6
+        },
+        "note": "lead3 climber Omar on level 2, 2.8 m from the ladder top"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 936.0,
+          "y": 55.0,
+          "z": 1209.5
+        },
+        "note": "lead3 Cristobel on the ground, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 937.0,
+          "y": 55.0,
+          "z": 1210.5
+        },
+        "note": "lead3 Christopher on the ground, away",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 baseline: nobody near the ladder",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 928.8,
+          "y": 58.0,
+          "z": 1203.4,
+          "exact": true
+        },
+        "note": "lead3 Omar down the ladder to level 1",
+        "max": 300,
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 Omar on his way / climbing, 3 s",
+        "max": 1500,
+        "waitS": 3
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 6 s",
+        "max": 1500,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 10 s",
+        "max": 1500,
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 15 s",
+        "max": 1500,
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 25 s: Omar idle at the foot",
+        "max": 1500,
+        "waitS": 1
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 930.5,
+          "y": 61.0,
+          "z": 1203.6,
+          "exact": true
+        },
+        "note": "lead3 Omar up the ladder again",
+        "max": 300,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 Omar going up, 4 s",
+        "max": 1500,
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 8 s",
+        "max": 1500,
+        "waitS": 6
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 14 s",
+        "max": 1500,
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "plan 374A00554313DD00 936.2 55.0 1207.1"
+          ]
+        },
+        "note": "lead3 24 s: Omar idle on level 2",
+        "max": 1500
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "lead3 Rosemarie walks down for real (ladder, stairs)",
+        "max": 300,
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.HiddenRoomCheck",
+          "args": [
+            "sim 374A00554313DD00"
+          ]
+        },
+        "note": "lead3 planner after 30 s",
+        "max": 900
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairflow": false,
+          "stairflowhh": false,
+          "stairtimelog": true
+        },
+        "note": "arm off1",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "stairflow-off1"
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "off1 queues cancelled",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 931.5,
+          "y": 61.0,
+          "z": 1203.0
+        },
+        "note": "off1 Omar on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 932.5,
+          "y": 61.0,
+          "z": 1202.5
+        },
+        "note": "off1 Cristobel on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 931.0,
+          "y": 61.0,
+          "z": 1202.0
+        },
+        "note": "off1 Christopher on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5
+        },
+        "note": "off1 Rosemarie on the ground",
+        "waitS": 4
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 926.3,
+          "y": 58.0,
+          "z": 1205.6,
+          "exact": true
+        },
+        "note": "off1 up the stairs, straight on",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "off1 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.0,
+          "y": 58.0,
+          "z": 1203.5,
+          "exact": true
+        },
+        "note": "off1 up the stairs, turn off",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "off1 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off1 counters",
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairflow": true,
+          "stairflowhh": true,
+          "stairtimelog": true
+        },
+        "note": "arm on1",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "stairflow-on1"
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "on1 queues cancelled",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 931.5,
+          "y": 61.0,
+          "z": 1203.0
+        },
+        "note": "on1 Omar on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 932.5,
+          "y": 61.0,
+          "z": 1202.5
+        },
+        "note": "on1 Cristobel on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 931.0,
+          "y": 61.0,
+          "z": 1202.0
+        },
+        "note": "on1 Christopher on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5
+        },
+        "note": "on1 Rosemarie on the ground",
+        "waitS": 4
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 926.3,
+          "y": 58.0,
+          "z": 1205.6,
+          "exact": true
+        },
+        "note": "on1 up the stairs, straight on",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "on1 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.0,
+          "y": 58.0,
+          "z": 1203.5,
+          "exact": true
+        },
+        "note": "on1 up the stairs, turn off",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "on1 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on1 counters",
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairflow": false,
+          "stairflowhh": false,
+          "stairtimelog": true
+        },
+        "note": "arm off2",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "stairflow-off2"
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "off2 queues cancelled",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 931.5,
+          "y": 61.0,
+          "z": 1203.0
+        },
+        "note": "off2 Omar on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 932.5,
+          "y": 61.0,
+          "z": 1202.5
+        },
+        "note": "off2 Cristobel on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 931.0,
+          "y": 61.0,
+          "z": 1202.0
+        },
+        "note": "off2 Christopher on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5
+        },
+        "note": "off2 Rosemarie on the ground",
+        "waitS": 4
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 926.3,
+          "y": 58.0,
+          "z": 1205.6,
+          "exact": true
+        },
+        "note": "off2 up the stairs, straight on",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "off2 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.0,
+          "y": 58.0,
+          "z": 1203.5,
+          "exact": true
+        },
+        "note": "off2 up the stairs, turn off",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "off2 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off2 counters",
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "stairflow": true,
+          "stairflowhh": true,
+          "stairtimelog": true
+        },
+        "note": "arm on2",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "stairflow-on2"
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Rosemarie Collins",
+            "Omar Collins",
+            "Cristobel Collins",
+            "Christopher Collins"
+          ],
+          "x": 930,
+          "y": 61,
+          "z": 1202,
+          "teleport": false,
+          "autonomy": false
+        },
+        "note": "on2 queues cancelled",
+        "max": 400,
+        "waitS": 6
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Omar Collins",
+          "x": 931.5,
+          "y": 61.0,
+          "z": 1203.0
+        },
+        "note": "on2 Omar on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Cristobel Collins",
+          "x": 932.5,
+          "y": 61.0,
+          "z": 1202.5
+        },
+        "note": "on2 Cristobel on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Christopher Collins",
+          "x": 931.0,
+          "y": 61.0,
+          "z": 1202.0
+        },
+        "note": "on2 Christopher on level 2, away"
+      },
+      {
+        "cmd": "place_sim",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5
+        },
+        "note": "on2 Rosemarie on the ground",
+        "waitS": 4
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 926.3,
+          "y": 58.0,
+          "z": 1205.6,
+          "exact": true
+        },
+        "note": "on2 up the stairs, straight on",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "on2 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 929.0,
+          "y": 58.0,
+          "z": 1203.5,
+          "exact": true
+        },
+        "note": "on2 up the stairs, turn off",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Rosemarie Collins",
+          "x": 936.4,
+          "y": 55.0,
+          "z": 1206.5,
+          "exact": true
+        },
+        "note": "on2 down again",
+        "max": 300,
+        "waitS": 16
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StairFlowCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on2 counters",
+        "max": 1500
+      }
+    ]
   }
 ]

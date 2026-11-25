@@ -146,6 +146,7 @@ namespace Ts3Fixes
                 }
                 catch (ResetException) { throw; }
                 catch (Exception) { PatchCounters()[3449]++; }
+                SflStep((object)this as Stairs.StairsPortalComponent, s);  // stairflow / stairtimelog (StairFlow.cs, docs/686 §32): the first step
                 try { return StartOrig(s); }
                 finally
                 {
