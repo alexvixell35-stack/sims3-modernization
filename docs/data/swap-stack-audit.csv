@@ -1044,6 +1044,7 @@ B12PoHook.CheckHook,Sims3.Gameplay.Situations.GenericPrivacySituation+Undisturbe
 B12GmHook.DoneHook,RockBand,get_OppGigMasterCompleted,Batch591Logic.cs,DoneOrig,no,no path to a yield in 1 overload(s),Batch591Logic,keep
 B12ImHook.MultHook,RandomUtil,GetIntMultiple,Batch591Logic.cs,MultOrig,no,no path to a yield in 1 overload(s),Batch591Logic,keep
 B12DpHook.UpdateHook,Lot,UpdateDoorPrivacy,Batch591Logic.cs,UpdateOrig,no,no path to a yield in 1 overload(s),Batch591Logic,keep
+PrivacyRoomHook.InHook,GenericPrivacySituation,SimIsInPrivacySituation,PrivacyRoom.cs,InOrig,no,no path to a yield in 1 overload(s),PrivacyRoom,keep
 B12LbHook.RunHook,Sims3.Gameplay.Objects.Environment.LeafPile+Burn,Run,Batch591Logic.cs,RunOrig,yes,LeafPile+Burn::Run > InteractionInstance::AnimateSim > StateMachineClient::RequestState,Batch591Logic,"keep, stub remap (SavedStacks.cs)"
 B12CpHook.RollHook,Sims3.Gameplay.ObjectComponents.CatHuntingComponent+CatchPrey,RollDiceForCatchingPrey,Batch591Logic.cs,RollOrig,no,no path to a yield in 1 overload(s),Batch591Logic,keep
 B12PaHook.HideHook,PicnicBasket,HideAnts,Batch591Logic.cs,HideOrig,no,no path to a yield in 1 overload(s),Batch591Logic,keep
