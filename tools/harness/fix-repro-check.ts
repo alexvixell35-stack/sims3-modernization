@@ -28,6 +28,8 @@ export const EXEMPT: Record<string, string> = {
   unseenfbgohere: 'docs/328 §7.5 (2026-11-23): natural-play switch, no forced GoHere visit repro; judged by compat-switchon-1122g-1123 bp-gohere-ab (--ab unseenfbgohere, eligibility log line)',
   petrelaxlog: 'log only (one petrelax: line per act, docs/686 §11): on in the forced repro petrelax-force (docs/686 §11.6), which needs agent steps that are not upstream yet',
   clipwaitlog: 'log only (one clipwait: line per wait, docs/686 §9); clipwait is here as petrelax plumbing',
+  bathroomwait: 'storm proof (#741, 2026-11-24 A/B on the other PC: 79 waits); no forced repro yet',
+  privacyroom: 'EA bug fix (#741): judged by the 11-24 A/B runs\' privacyroom: lines; no forced repro yet',
   showersharelog: 'log only (one showertogether: / showerpee: line per act, docs/686 §15): on in the forced repro showershare-force (docs/686 §15.5), whose agent steps and harness flag are not upstream yet',
   spiralshare: 'no forced repro yet: judged by the route storms of docs/686 §8.7 (spiral stair waits of 7-12 sim-min gone); its hooks are the ones sharelanes-check reads',
   spiralsharehh: 'as spiralshare (household scope of the same hooks)',
