@@ -1844,7 +1844,7 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   `overlaid from the queue after 9151 ms`); the stale test now comes first.
 - PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.
 
-## 37. Skip when nobody sees it: rabbit hole slots, bookshelves, twin computers and gym machines, platters; the slide hang-out (`rhskipunseen`, `bookskipunseen`, `lineswitchpc`, `gymtwin`, `servingsharehhunseen`, `slidehang`; 2026-11-25, `post/unseenskip-1125`, built, default off)
+## 37. Skip when nobody sees it: rabbit hole slots, bookshelves, twin computers and gym machines, platters; the slide hang-out (`rhskipunseen`, `bookskipunseen`, `lineswitchpc`, `gymtwin`, `servingsharehhunseen`, `slidehang`; 2026-11-25, `post/unseenskip-1125`, built, default off, rabbit hole doors PROVEN s570 with rhshare)
 
 `UnseenSkip.cs`, rules in `UnseenSkipCore.cs`, counters 4780-4803 (`kCounterSlots` 4820), check `UnseenSkipCheck result | run`,
 selftest `tools/selftest/unseenskip`. The log audit of s532-s562 (`linewait:` lines) ranked the waits: rabbit hole enter slots
@@ -1887,3 +1887,35 @@ down and leaves through EA's code. Only with a Sim waiting behind it; the select
 
 `linewaitlog` and `lanewaitlog` lines get `view <start>><end>` (seen / unseen, for the Sim and its object). Counters
 4800-4803 split line and rhdoor waits by the view at their start (with the log off too, and not capped like the log).
+
+### 37.3 Storm s570 (2026-11-25, Deck, new games from the world file, 30 min, seed 156, s562 setup, pkg r9f-unseen-1125) [verified in logs]
+
+a/d = off (logs only), b/e = NPC (`rhshare servingshare rhskipunseen lineswitchpc gymtwin bookskipunseen slidehang`),
+c/f = b + `rhskiphhunseen bookskiphhunseen servingsharehhunseen slidehanghh`. The s562 base list already has `lineswitch`,
+`lineswitchhh` and `petfireplan` on in every arm. Totals from the last `unscount:` line (uncapped counters). Bin pair
+restored after all six.
+
+| | SU a off | SU b NPC | SU c +hh | SV d off | SV e NPC | SV f +hh |
+| --- | --- | --- | --- | --- | --- | --- |
+| rhdoor waits / sim-min | 200 / 768.4 | 176 / 0.0 | 261 / 0.0 | 49 / 196.6 | 29 / 0.0 | 39 / 0.0 |
+| rhshare walked / rhskipunseen walked | would 200 / would 21 | 176 / 0 | 261 / 0 | would 49 / would 42 | 28 / 1 | 39 / 0 |
+| rhdoor waits begun unseen (NPC, logged) | 55 of 150 (228 of 521 sim-min) | | | 48 of 49 | | |
+| lineswitchpc switched | would 1 | 0 | 0 | 0 | 0 | 0 |
+| gymtwin switched | 0 | 0 | 0 | would 1 | 0 | 2 |
+| bookskip acts | seen kept 1 | 0 | 0 | 0 | 0 | 1 (NPC) |
+| servingshare lines skipped | would 2 | 2 | 1 | 0 | 1 | 0 |
+| slidehang | - | - | - | - | kept 1 (selected head) | - |
+| unseenskip / objshare / lineswitch errors | 0 | 0 | 0 | 0 | 0 | 0 |
+
+- Rabbit hole doors: **PROVEN**, every held-slot wait gone (768 and 197 sim-min to 0). rhshare does nearly all of it:
+  in these storms every holder was an NPC in scope, so `rhskipunseen` (which adds holders out of scope) acted once.
+- `lineswitchpc`: no gain measured (one would in 6 runs; the computer waits left are household Sims in view, no free twin).
+- `gymtwin`: acts (2 switches in f, 1 would in d); gym waits are few (10-28 sim-min a run), gain not measurable here.
+- `bookskipunseen`: acts (1 in f, EA's pick-up beside the slot, no error); too rare to measure.
+- `servingsharehhunseen`: 0 runs (no unseen household Sim at a busy platter); `servingshare` skipped 1-2 lines per run.
+- `slidehang`: the Bunch slide case came back in e (Lisa Bunch, HangOutOn, 138 sim-min, Darlene waiting); Lisa was the
+  selected Sim, so the rule kept it, as designed. Not proven. Note: the game's tuning has `HangOutTimeMax` = 2 for the
+  slide (the C# default 20 is overridden), so PlayOn ends its hang-around after 1-2 sim-min and slidehang ends a
+  HangOutOn after 2 sim-min with someone waiting.
+- Other line waits (fridge, dishwasher, toilets) differ run to run by up to 2x with the same seed; no switch here acts on
+  them. The `C0000005` lines in a, d (off) and the on arms are the known autshadow worker fault, also in s562.
