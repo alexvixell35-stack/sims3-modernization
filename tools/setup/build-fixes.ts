@@ -300,6 +300,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kFridgeFf value="False" />
     <kFridgeFfUnseen value="False" />
     <kFridgeFfLog value="False" />
+    <kReachCache value="False" />
+    <kReachCacheHh value="False" />
+    <kReachCacheLog value="False" />
     <kLineStale value="False" />
     <kLineStaleHh value="False" />
     <kLineStaleLog value="False" />

@@ -105,6 +105,7 @@ namespace Ts3Fixes
             {
                 if (!sArmPairReady || OnWorker()) { PairOrig(iop); return; }
                 if (OfmRefuse((Sims3.Gameplay.Autonomy.Autonomy)(object)this, iop)) return;  // objfailmemo (ObjFailMemo.cs, docs/650): blocked (NPC, object) pair
+                if (RcRefusePair((Sims3.Gameplay.Autonomy.Autonomy)(object)this, iop)) return;  // reachcache (ReachCache.cs, docs/688): a pair whose route it refused, lot portals unchanged
                 ArmSwitches();
                 if (!sArmMemoOn && !sArmSliceOn) { PairOrig(iop); return; }
                 int[] c = PatchCounters();

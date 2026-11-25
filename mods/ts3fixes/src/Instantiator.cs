@@ -536,6 +536,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kFridgeFf = false;  // fridgeff (docs/686 §36.11): an NPC whose Fridge_Have / Fridge_EatLeftovers starts at a busy fridge and that nobody sees takes its food at once (EA's own steps, no walk, line or animation)
         [Tunable] public static bool kFridgeFfUnseen = false;  // fridgeffunseen: the same for household Sims other than the selected Sim, off screen and away from viewers (the player's opt-in)
         [Tunable] public static bool kFridgeFfLog = false;  // fridgefflog: one ts3native.log line per fast grab
+        [Tunable] public static bool kReachCache = false;  // reachcache (docs/688): an NPC's route plan whose every destination room is behind portals the planner answers locked fails at once (no balloon); autonomy skips that pair until the lot's portals change
+        [Tunable] public static bool kReachCacheHh = false;  // reachcachehh: household and selected Sims too (a player's order is never refused)
+        [Tunable] public static bool kReachCacheLog = false;  // reachcachelog: run the real plan for every refusal verdict and count EA's answer (WRONG = it succeeded)
         [Tunable] public static bool kLineStale = false;  // linestale (docs/686 §29): the head of an object's line whose turn-taking action ended or waits in its queue behind another action leaves the line after kLineStaleMinutes; NPC heads
         [Tunable] public static bool kLineStaleHh = false;  // linestalehh: household and selected heads too
         [Tunable] public static bool kLineStaleLog = false;  // linestalelog: one ts3native.log line per case

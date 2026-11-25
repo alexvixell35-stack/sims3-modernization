@@ -1809,7 +1809,8 @@ namespace Ts3Fixes
         // errors / retried cases at parts (seats, beds).
         // [4610-4614] free on the combo branch (upstream's pending npcloops PR holds them).
         // [4615-4619] lineswitch (LineSwitch.cs, docs/686 §25): switched to a free twin object / would, off / kept (waited past the switch time, not
-        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
+        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).
+        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // switched) / plans to candidates / errors.
         // [4620-4669] free on the combo branch (upstream uses 4620-4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
@@ -1837,7 +1838,9 @@ namespace Ts3Fixes
         // would; bookskip NPC / household / seen kept / would / no spot; gymtwin switched / would / unseen at once; servingsharehhunseen runs;
         // slidehang ended NPC / household / would / kept; errors; line waits begun unseen / their sim-min x10; rhdoor waits begun unseen /
         // their sim-min x10; 4804-4819 spare.
-        // [4820-4859] other branches.
+        // [4820-4839] reachcache (ReachCache.cs, docs/688): verdicts / refuse / acted / right / WRONG / missed locked / unknown dest /
+        // start unplaced / order exempt / out of scope / autonomy pairs left out / memo records / memo stale / floods / flood hits /
+        // errors / household acted / right with locked / dest overflow; 4839 spare. [4840-4859] other branches.
         // [1270-1291] jobyieldroad / jobyieldroadow (JobYieldRoad.cs, docs/800 port, docs/689; upstream 1270-1274 / 1285-1291): road asks
         // for a taken car / slept / ms slept / car gone after the sleep / left out, occupant not a townie / roadow (1) taken / (3) taken /
         // cars gone that were out of the world / pre-create asks / slept / ms slept / pre-create calls; 4872-4879 spare.
@@ -2242,6 +2245,9 @@ namespace Ts3Fixes
                 case "fridgeff": return Instantiator.kFridgeFf;  // FridgeFf.cs (docs/686 §36.11): an unseen NPC at a busy fridge takes its food at once, off
                 case "fridgeffunseen": return Instantiator.kFridgeFfUnseen;  // FridgeFf.cs: the same for unseen household Sims (not the selected Sim), the player's opt-in, off
                 case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
+                case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
+                case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
+                case "reachcachelog": return Instantiator.kReachCacheLog;  // ReachCache.cs: verify every refusal verdict against the real plan (WRONG count), off
                 case "linestale": return Instantiator.kLineStale;  // LineStale.cs (docs/686 §29): a line head whose action ended or sits queued behind another action leaves the line after 5 sim-min, NPC heads, off
                 case "linestalehh": return Instantiator.kLineStaleHh;  // LineStale.cs (docs/686 §29): household and selected heads too, off
                 case "linestalelog": return Instantiator.kLineStaleLog;  // LineStale.cs (docs/686 §29): one line per case, off
