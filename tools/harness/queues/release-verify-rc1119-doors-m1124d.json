@@ -1,0 +1,423 @@
+{
+  "note": "m1124d door / routing subset (2026-11-24, merge/m1124d): pinned to RC set m1124d (0.36.305-m1124d: m1124c + lineswitch rerun5 + DoorMemoX fix 2); version read-back and its regexCases moved to 0.36.305-m1124d. Jobs kept: routing repros and natural routing loads (unseen boats, houseboat leave, watchdog async stuck + shadow on BP, natural IP combined); the S3SS travel, save matrix, memtravel, book carry, outfit wait and dance floor jobs touch no door or route code changed since m1124c. [previous] m1124c repin (2026-11-24, merge/m1124c, final RC): release-verify-rc1119-m1124b.json pinned to set m1124c (asi/ini/agent bytes of m1124b, ts3fixes of hookflat-1124); version read-back stays 0.36.303-m1124b (Steam asi bytes unchanged). Home-path guard regexCase from the EA copy (scrub-safe sample path). [previous] m1124b repin (2026-11-24, merge/m1124b): v0.3.2 RC release gate, copy of release-verify-rc1119-m1124.json pinned to master set m1124b (0.36.303-m1124b); version read-backs and their regexCases moved to 0.36.303-m1124b. [previous] m1124 repin (2026-11-24, merge/rc-1124): copy of release-verify-rc1119-rc-1119b.json pinned to master set m1124 (0.36.301-m1124); version read-backs and their regexCases moved to 0.36.301-m1124. [previous] rc-1119b (2026-11-19): release candidate v0.3.0 set rc-1119b (0.36.295-rc1119b), chain-release-verify-rc1119b. release-verify (12 jobs) [previous] release-verify-rc1119 (2026-11-18 plan, run Thu night 11-19): copy of release-verify-1113g (v0.2.12 gate, 9 PASS / 3 test-side FAIL) repinned to placeholder rc-1119. Runs on Bin state apex (Apex + bridge, the only test baseline since 11-15), not WITHOUT Apex as 1113g did. Same 12 jobs and pass rules; ids -1113g -> -rc1119. Before running: fix the three 1113g test-side FAILs (boat watcher 0,0 false positive, stale wdasync forbid rule, known EA Boat.GetOutIntoWater) or list them as known. [source note] release-verify-1113g (2026-11-13): copy of release-verify-1112e (already re-pinned to rc1111g by 997e00c2) for release candidate rc1111g WITHOUT Apex: asi game-copy/ts3native.asi.rc-1119b (0.36.295-rc1119b, sha256 432ab1b2a191) + ini game-copy/ts3native.ini.rc-1119b (91b007e72c3f) + ts3fixes.package.rc1111e (a563cf8fcf05); no ApexRadiance / RTX Remix install in any job. Job ids renamed -1112e to -1113g. [source note] release-verify-1112e (2026-11-12, Sat 11-14 release): copy of release-verify-1111 on the final pair rc1111d asi/ini + ts3fixes.package.rc1111e (rc1111c + kBookHand ON only, Rodney 11-12 after bookhand-fix-1112: ON seen +14 fixed +14, 0 script errors). Same 12 correctness jobs and pass rules; ids -1112e; bp-rel-matrix-1112e and bookcarry-crowd-check-1112e also require kBookHand in the ts3fixes \"settings on\" read-back. Harness fixes after 1111: the queue.ts/profile-world.ts ones are on master and apply by themselves; the HANDOFF-2026-11-11 wdasync-stuck fixes (requireStanding, drop logForbid True line) are NOT on master and NOT applied here. node tools/harness/queue.ts tools/harness/queues/release-verify-1112e.json > probe-out/release-verify-1112e-run.log 2>&1",
+  "agentPackage": "game-copy/ts3agent.package.m1124d",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.m1124d",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "RC set m1124d (merge/m1124d e711f266f): asi 6c0a0087d744 (0.36.305-m1124d), ini 0a7cccaceef8, ts3fixes 4f55ae3d01d8, agent 18852232f1d7 (agentPackage) [previous] final RC set m1124c (merge/m1124c 94ca4729a): asi d03869b4f9bf (0.36.303-m1124b), ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 (hookflat), agent 891a73c45f1a [previous] master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay [previous] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.m1124 + ini game-copy/ts3native.ini.m1124 + ts3fixes game-copy/ts3fixes.package.m1124; 0.36.295-rc1119b = the rc ts3native version. Thu 11-19 after the build: replace 0.36.295-rc1119b (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "id": "ip-ubrel-boat-repro-rc1119",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1109 ip-ubrel-boat-repro on pair rc1111] [est 20 min] (b) Forced repro ip-unseen-boat-loop (unseenboat_shortcuts>=1 from repros.json, unseen_water_watch: none stranded), unseenboatstart on too as in release.",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat,boatreplan_",
+          "minutes": 12,
+          "fixesOn": "unseenboatstart",
+          "repro": "ip-unseen-boat-loop"
+        }
+      },
+      "timeoutMin": 25,
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124d ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.305-m1124d ": {
+          "match": [
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00",
+            "ts3native 0.36.305-dmx2b-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.305-m1124d2 2026-11-24 13:40:00",
+            "ts3native 0.36.304-dmx2-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        }
+      }
+    },
+    {
+      "asi": "game-copy/ts3native.asi.m1124d",
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "pinReason": "RC set m1124d (merge/m1124d e711f266f): asi 6c0a0087d744 (0.36.305-m1124d), ini 0a7cccaceef8, ts3fixes 4f55ae3d01d8, agent 18852232f1d7 (agentPackage) [previous] final RC set m1124c (merge/m1124c 94ca4729a): asi d03869b4f9bf (0.36.303-m1124b), ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 (hookflat), agent 891a73c45f1a [previous] master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay [previous] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.m1124 + ini game-copy/ts3native.ini.m1124 + ts3fixes game-copy/ts3fixes.package.m1124; 0.36.295-rc1119b = the rc ts3native version. Thu 11-19 after the build: replace 0.36.295-rc1119b (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "id": "ip-ubrel-hbstart-repro-rc1119",
+      "save": "Baseline-IP-Spring",
+      "noiseCheck": false,
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of release-verify-1110 ip-ubrel-hbstart-repro on pair rc1111] [est 20 min] (c) Forced repro ip-houseboat-leave-loop (residents home, then every townie on a houseboat leaves): judged on left_dirty 0, houseboat_leave {check}, houseboats moved none, 0 stuck; the shortcut count is reported (11 on 11-07), not a floor.",
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesReport": "unseenboat,boatreplan_",
+          "minutes": 12,
+          "repro": "ip-houseboat-leave-loop"
+        }
+      },
+      "timeoutMin": 25,
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "logRequire": {
+        "^ts3native 0\\.36\\.305-m1124d ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.305-m1124d ": {
+          "match": [
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00",
+            "ts3native 0.36.305-dmx2b-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.305-m1124d2 2026-11-24 13:40:00",
+            "ts3native 0.36.304-dmx2-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        }
+      }
+    },
+    {
+      "asi": "game-copy/ts3native.asi.m1124d",
+      "pinReason": "RC set m1124d (merge/m1124d e711f266f): asi 6c0a0087d744 (0.36.305-m1124d), ini 0a7cccaceef8, ts3fixes 4f55ae3d01d8, agent 18852232f1d7 (agentPackage) [previous] final RC set m1124c (merge/m1124c 94ca4729a): asi d03869b4f9bf (0.36.303-m1124b), ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 (hookflat), agent 891a73c45f1a [previous] master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay [previous] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.m1124 + ini game-copy/ts3native.ini.m1124 + ts3fixes game-copy/ts3fixes.package.m1124; 0.36.295-rc1119b = the rc ts3native version. Thu 11-19 after the build: replace 0.36.295-rc1119b (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1
+      },
+      "logRequire": {
+        "route async A10: .*WatchdogKind2=1": 1,
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1,
+        "^ts3native 0\\.36\\.305-m1124d ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-stuck-repro-rc1119",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3 on pair rc1111] [est 18 min] [retry of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3, which FAILed in setup: \"no unroutable spot in 40 samples\"; repro bp-idle-unroutable sim_strand now samples tries 400 (repros.json); pass criteria unchanged] PASS rule (wdfix3): watchdog_idle_unroutable>=1 AND a \"watchdog idle verdict: Wogan Hemlock (A1|sync) False\" line (his own spot judged unroutable, not any Sim) (the no-True-verdict forbid was dropped 2026-11-13 as in release-verify-1111: True verdicts are normal at load and after the fix moves him); unseenfbteleport off for this job so \"unseenfb route goal\" cannot move him first. docs/250 §7.1 correctness (3): repro bp-idle-unroutable (Wogan Hemlock stranded on an unroutable diner spot, unseen, ultra speed) with watchdogasync + watchdogasyncshadow on: the watchdog must still catch him (watchdog_idle_unroutable >= 1, the repro's expect line). watchdogasync_* shows whether his check went through A1 (only when a job held +0x918 at that moment).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bp-idle-unroutable",
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdog_idle_unroutable>=1,watchdogasync_shadow_mismatch<1,watchdogasync_started>=1,wdLockSkip>=0",
+          "fixesOff": "unseenfbteleport"
+        }
+      },
+      "timeoutMin": 20,
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": {
+          "match": [
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.55999755859375,1495.1800537109375 on Community Lot",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock sync False stale @307.56,1495.18 on Community Lot"
+          ],
+          "noMatch": [
+            "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
+            "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ]
+        },
+        "^ts3native 0\\.36\\.305-m1124d ": {
+          "match": [
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00",
+            "ts3native 0.36.305-dmx2b-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.305-m1124d2 2026-11-24 13:40:00",
+            "ts3native 0.36.304-dmx2-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+      "scriptErrorsReport": [
+        "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+      ]
+    },
+    {
+      "asi": "game-copy/ts3native.asi.m1124d",
+      "pinReason": "RC set m1124d (merge/m1124d e711f266f): asi 6c0a0087d744 (0.36.305-m1124d), ini 0a7cccaceef8, ts3fixes 4f55ae3d01d8, agent 18852232f1d7 (agentPackage) [previous] final RC set m1124c (merge/m1124c 94ca4729a): asi d03869b4f9bf (0.36.303-m1124b), ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 (hookflat), agent 891a73c45f1a [previous] master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay [previous] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.m1124 + ini game-copy/ts3native.ini.m1124 + ts3fixes game-copy/ts3fixes.package.m1124; 0.36.295-rc1119b = the rc ts3native version. Thu 11-19 after the build: replace 0.36.295-rc1119b (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1
+      },
+      "logRequire": {
+        "route async A10: .*WatchdogKind2=1": 1,
+        "^ts3native 0\\.36\\.305-m1124d ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-shadow-rc1119",
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix3-1110 bp-wdasync-shadow-wdfix3 on pair rc1111] [est 22 min] docs/250 §7.1 correctness (2): the same on BP (15 min, shadow on).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 15,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdogasync_shadow_mismatch<1,watchdogasync_shadow_runs>=1,watchdogasync_started>=1,wdLockSkip>=0"
+        }
+      },
+      "timeoutMin": 27,
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "^ts3native 0\\.36\\.305-m1124d ": {
+          "match": [
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00",
+            "ts3native 0.36.305-dmx2b-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.305-m1124d2 2026-11-24 13:40:00",
+            "ts3native 0.36.304-dmx2-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+      "scriptErrorsReport": [
+        "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+      ]
+    },
+    {
+      "id": "ip-natural-combined-rc1119",
+      "save": "Baseline-IP",
+      "noiseCheck": false,
+      "releaseDefaults": true,
+      "minCounters": 912,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "RouteAsync.ForeignKinds": 4,
+        "RouteAsync.ForeignKindsMode": 1,
+        "RouteAsync.KdA10ForeignMs": 1000,
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1,
+        "RouteAsync.LogFallbackMs": 20
+      },
+      "note": "[release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix2-1110 ip-natural-combined-wdfix2 on pair rc1111] [est 38 min] Correctness, one Baseline-IP natural load replacing ip-ubrel-hbstart-verify (unseenboat-release), ip-wdasync-shadow (wdasync-verify) and ip-foreignscope-natural (foreignscope-verify); all three were Baseline-IP natural, release config. Pass = all of: (a) unseenboatstart ((c) Natural houseboat starts on Baseline-IP (15 tries in 28 min on 11-07): --soft-tries runs the full 30 min and reports the count; FAIL only on stuck teleported, left_dirty or a dead game.) verify-shortcut.ts --soft-tries 30 min; (b) watchdog A1 shadow (docs/250 §7.1 correctness (1): IP natural play 15 min, watchdogasync + watchdogasyncshadow on. Pass: fixesRequire (0 mismatches, shadow ran, A1 started), 0 new script errors, no crash; read watchdogasync_stale and watchdog_* (against the ABBA off arms), and grep the run log for \"watchdog .* -> watchdog reset\": no active-household or selectable Sim. Correctness, not timing (the shadow re-check waits on +0x918 like today).) rules kept: --require watchdogasync_shadow_mismatch<1, _shadow_runs>=1, _started>=1, logForbid \"watchdogasync shadow mismatch:\", 0 script errors; (c) foreign scope (Correctness, IP natural play 10 min, pair foreignscope-1109 (ts3native 0.36.222 + ts3fixes from bugfix/foreign-job-scope). Copy of correctness-1109 ip-foreign-natural-on-1 (ForeignKinds=4 Mode=1 KdA10ForeignMs=1000). Pass: A10 foreign long jobs of NPC-only boat riders now log scope unseen (logRequire), no household-or-seen or unknown scope cut (logForbid on the kind-deadline summary), no watchdog. Then read: grep \"A10 foreign START\" lines by scope (gangway / boat stacks should be unseen, the rest seen-npc or household-or-seen) and node tools/harness/kd-arm-cuts.ts <ts3native.log>.) rules kept: logRequire \"A10 foreign START.*scope unseen\" >= 1, logForbid unknown-scope cuts, nativeRequire kdScopeN>=1, watchdogs<=0. Why sharing is safe: the shadow re-checks each A1 verdict sync on the same Sim, so which routes run does not change its mismatch rule; foreign scope is a per-START label; unseenboat/unseenboatstart remove some boat replans, so (c) can see fewer boat riders: if (c) alone fails with scope unseen 0 while unseenboat_shortcuts is high, rerun ip-foreignscope-natural from foreignscope-verify.json (git history) on master1109c, not a fix FAIL. Config change vs the old foreign-scope job: release ini (Mono stack, AutShadow Unseen=1 on) instead of its pre-autunseen pins; ForeignKinds 4 / Mode 1 / KdA10ForeignMs 1000 and LogFallbackMs 20 kept (long-job lines carry the scope).",
+      "run": {
+        "script": [
+          "verify-shortcut.ts",
+          "--name",
+          "unseenboatstart",
+          "--on",
+          "unseenboat,unseenboatstart,boatreplanlog,watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "--tries",
+          "15",
+          "--minutes",
+          "30",
+          "--soft-tries",
+          "--require",
+          "watchdogasync_shadow_mismatch<1,watchdogasync_shadow_runs>=1,watchdogasync_started>=1"
+        ]
+      },
+      "logRequire": {
+        "A10 foreign START.*scope unseen": 1,
+        "route async A10: .*WatchdogKind2=1": 1,
+        "^ts3native 0\\.36\\.305-m1124d ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0,
+        "cuts by scope unknown [1-9]": 0,
+        "cuts by scope unknown \\d+ seen [1-9]": 0
+      },
+      "nativeRequire": "kdScopeN>=1,watchdogs<=0,arStartedPlanFromPoint>=1,wdJobN>=1",
+      "timeoutMin": 45,
+      "asi": "game-copy/ts3native.asi.m1124d",
+      "pinReason": "RC set m1124d (merge/m1124d e711f266f): asi 6c0a0087d744 (0.36.305-m1124d), ini 0a7cccaceef8, ts3fixes 4f55ae3d01d8, agent 18852232f1d7 (agentPackage) [previous] final RC set m1124c (merge/m1124c 94ca4729a): asi d03869b4f9bf (0.36.303-m1124b), ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 (hookflat), agent 891a73c45f1a [previous] master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay [previous] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.m1124 + ini game-copy/ts3native.ini.m1124 + ts3fixes game-copy/ts3fixes.package.m1124; 0.36.295-rc1119b = the rc ts3native version. Thu 11-19 after the build: replace 0.36.295-rc1119b (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "regexCases": {
+        "A10 foreign START.*scope unseen": {
+          "match": [
+            "route async: long job 249 ms, A10 foreign START, IC kind 3, route 25A37C23, arm -, scope unseen, at 342546203 ms"
+          ],
+          "noMatch": [
+            "route async: long job 249 ms, A10 foreign START, IC kind 3, route 25A37C23, arm -, scope household, at 342546203 ms"
+          ]
+        },
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "cuts by scope unknown [1-9]": {
+          "match": [
+            "cuts by scope unknown 2 seen 0 unseen 5 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ],
+          "noMatch": [
+            "cuts by scope unknown 0 seen 0 unseen 0 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ]
+        },
+        "cuts by scope unknown \\d+ seen [1-9]": {
+          "match": [
+            "cuts by scope unknown 0 seen 3 unseen 5 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ],
+          "noMatch": [
+            "cuts by scope unknown 0 seen 0 unseen 0 npc 0; npc ceiling 2000 ms cuts 0; camera recheck"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "^ts3native 0\\.36\\.305-m1124d ": {
+          "match": [
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00",
+            "ts3native 0.36.305-dmx2b-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.305-m1124d2 2026-11-24 13:40:00",
+            "ts3native 0.36.304-dmx2-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d"
+    }
+  ],
+  "regexCases": {}
+}

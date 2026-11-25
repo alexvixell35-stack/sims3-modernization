@@ -38,6 +38,12 @@
       "sha256": "0e12755d31b300aff22800a7a732bf8f6cccaeb1062ed6a74b8197c8a6607071",
       "tokens": {},
       "patchedSha256": "9f9c63b08a91b4137abdf29eb708c5fa91e50065b0c1dd87a72fd7da6764d1d4"
+    },
+    "ea-1.69": {
+      "size": 321,
+      "sha256": "9fd23f1be5f6fb70d120b1e10504a0d734fd9ff030f984fa914fd9c6b33937b1",
+      "tokens": {},
+      "patchedSha256": "f37e9ffc7491284e680b47a8d926ad37fb1fa6b40ed52c2db0c2e716d60f2a8b"
     }
   },
   "ilHashG6": "9c722804162a549d"

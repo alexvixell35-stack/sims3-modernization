@@ -356,7 +356,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     // hand-verified rows (evidence written by a person, not by this tool's --csv) and unresolved probe-only rows
     const manual = new Map([...readFileSync(join(repo, "docs/data/retail167-overrides.csv"), "utf8").matchAll(/^(0x[0-9A-F]+),(0x[0-9A-F]+),[^\n]*?,"(?!retail-port-check)/gm)].map((m) => [parseInt(m[1], 16), parseInt(m[2], 16)]));
     const probeOnly = new Set([...tableText.matchAll(/\/\/ unresolved: (0x[0-9A-F]+) \S+ native\/ts3native\/vcallsites\d*\.h/g)].map((m) => parseInt(m[1], 16)));
-    const used = uses(repo, true);
+    const used = uses(repo);
     for (const x of res) {
         if (x.kind === "FAIL" && manual.get(x.s) === x.r) x.kind = "manual", x.note = "docs/data/retail167-overrides.csv";
         if (x.kind === "unresolved" && probeOnly.has(x.s)) x.kind = "probe-only", x.note = "vcallsites*.h (probe builds only)";

@@ -287,7 +287,9 @@ static bool RpUlGate(int site, const DWORD* slot) {  // true = pass through
     return false;
 }
 
+static void DiscDrainBb();  // discourage.cpp: docs/205 §2.3e deferred records applied before a Build/Buy exit / lot rebuild
 static void __cdecl RgEnter(int site, DWORD* slot) {
+    if (site == 13 || site == 14) RtEpochBump();  // docs/205 §2.3e: Build/Buy exit, lot routing rebuild: older route results are stale
     if (t_tuOpen) TuTrip(1);  // TailUnlock: no gate leaf in passes 16-19 (docs/150 §11)
     if (t_rpUl && RpUlGate(site, slot)) return;  // docs/182 §8: the clone's lot table inside a RecsUnlocked round: no gate
     if (g_snRg[site]) SnEnter(g_snRg[site] - 1, slot);  // first: reads the caller's return address before a probe swaps it
@@ -299,6 +301,7 @@ static void __cdecl RgEnter(int site, DWORD* slot) {
     }
     Ts3nCounters& k = ts3native_counters;
     if (k.rgReady != 7 || !g_rgLock) return;  // before the lock is known nobody's hold can be told apart
+    if (site == 13 && k.rgEnforce) DiscDrainBb();  // docs/205 §2.3e: footprints deferred before the exit land before its rebuild
     InterlockedIncrement(&k.rgEntries);
     RgThread& t = t_rg;
     RgDrop(t, slot);

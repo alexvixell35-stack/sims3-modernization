@@ -1,0 +1,74 @@
+{
+ "note": "Verify of bugfix/deadref-travel-return-1124 (docs/336 §16, LC-7g) on the EA laptop (EA app 1.69.47): arm E of lc7-travel-triage-ea-1124 (eafinal2 asi + ini, the five bp-lc7-travel switches on) with ts3fixes deadref-travel-1124, two BP -> France -> BP trips (repro travel-roundtrip-bp-lc7on-x2). Each return waits 120 s, then FAILs with the stall snapshot (cleanup: travel_state, patches, clock_state, game_state). PASS = both returns reach live mode at Normal speed, 4 'PostTravelingFixUp reached' lines (2 out, 2 home), no 'deadref travel FAIL'. FAIL: the last 'deadref travel step:' line in the ts3native.log copy is the last of our travel-import hooks that ran; no step line after 'ImportTravellingHousehold load finished' = none of our hooks ran in the import (then the cause is elsewhere). Run from a worktree of bugfix/deadref-travel-return-1124 (cycle.ts builds the agent from it) with a game-copy link.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.300-eafinal2 ": {
+   "match": [
+    "ts3native 0.36.300-eafinal2 2026-11-23 16:20:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00",
+    "ts3native 0.36.300-eafinal 2026-11-23 12:00:00",
+    "ts3native 0.36.300-eafinal2x 2026-11-23 16:20:00"
+   ]
+  },
+  "^ts3fixes: deadref travel step: PostTravelingFixUp reached": {
+   "match": [
+    "ts3fixes: deadref travel step: PostTravelingFixUp reached (import done)"
+   ],
+   "noMatch": [
+    "ts3fixes: deadref travel step: ImportTravellingHousehold load finished",
+    "ts3fixes: deadref travel step: Occupation.ImportContent done"
+   ]
+  },
+  "^ts3fixes: deadref travel FAIL: ": {
+   "match": [
+    "ts3fixes: deadref travel FAIL: Occupation.ImportContent: NullReferenceException: Object reference not set to an instance of an object; deadref cadence work off for the session (full walks, as deadrefcadence off)"
+   ],
+   "noMatch": [
+    "ts3fixes: deadref travel step: Occupation.ImportContent enter",
+    "ts3fixes: deadrefdescrev scan: 10 assemblies, 10288 methods, 0 unreadable, 0 unresolvable-token, 0 reflection, pins 2 hooked / 0 no-hook / 0 mismatch / 0 refused, 842151 us; untrusted none"
+   ]
+  },
+  "^ts3fixes: deadrefdescrev scan: .* pins 1 hooked / 1 no-hook / 0 mismatch / 0 refused": {
+   "match": [
+    "ts3fixes: deadrefdescrev scan: 10 assemblies, 10288 methods, 0 unreadable, 0 unresolvable-token, 0 reflection, pins 1 hooked / 1 no-hook / 0 mismatch / 0 refused, 842151 us; untrusted none"
+   ],
+   "noMatch": [
+    "ts3fixes: deadrefdescrev scan: 10 assemblies, 10288 methods, 0 unreadable, 0 unresolvable-token, 0 reflection, pins 2 hooked / 0 no-hook / 0 mismatch / 0 refused, 842151 us; untrusted none"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-trip-lc7on-x2-fix",
+   "note": "[est 14 min] E with the fix: eafinal2 asi + ini, ts3fixes deadref-travel-1124, the five bp-lc7-travel switches on, a live sweep before each trip (the writer scan runs in live BP, the simler90Extras pin is no-hook), two trips. Before: lc7f stalled 3/3 on the first return (in_travel true, inworld_post_init false, Pause).",
+   "asi": "game-copy/eafinal2-1123/ts3native.asi",
+   "iniBase": "game-copy/eafinal2-1123/ts3native.ini",
+   "fixesPackage": "game-copy/deadref-travel-1124/ts3fixes.package",
+   "pinReason": "EA laptop: eafinal2 EA asi + rc ini (0\\.36\\.300-eafinal2, sha256 071c251f64cc) with ts3fixes.package deadref-travel-1124 (bugfix/deadref-travel-return-1124: lc7f + LC-7g, managed only; same tuning as lc7f, so the package is read back by its log lines: the scan's 'pins 1 hooked / 1 no-hook' and the 'deadref travel step:' lines exist only in this build)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 40,
+   "run": {
+    "repro": "travel-roundtrip-bp-lc7on-x2"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-eafinal2 ": 1,
+    "^ts3fixes: deadref travel step: PostTravelingFixUp reached": 4,
+    "^ts3fixes: deadrefdescrev scan: .* pins 1 hooked / 1 no-hook / 0 mismatch / 0 refused": 1
+   },
+   "logForbid": {
+    "^ts3fixes: deadref travel FAIL: ": 0
+   }
+  }
+ ]
+}

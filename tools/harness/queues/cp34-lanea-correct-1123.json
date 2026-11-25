@@ -1,0 +1,109 @@
+{
+  "note": "cp34-lanea-correct-1123 (2026-11-23, WRITTEN, NOT RUN): CP-3/CP-4 lane A consumers (docs/321 §10, docs/332 CP-3, CP-4) correctness + no-leak check, bundle style (one BP load, a France round trip, a save-reload). Build ts3native.asi.cp34-lanea-1123 (0.36.299-cp34 = cp2 + lanea.cpp) with ini cp34-lanea-1123 ([LaneA] all 0 as shipped; this job turns on every key but EarlyOut, which needs [RouteEarlyOut]) and ts3fixes.package.cp34-lanea-1123 (cp2 + LaneA.cs; switches laneaenvlist, lanealoop, laneatp, laneadoorgen on here). Bin state apex, release defaults. Pass: every world quit / load resets every table ('reset ok', >= 3 each), the autshadow tables reset at the next cut, managed world-load lines with envlist 0, loop 0, subscribers 2 (flat), doorgen per-lot sends > 0, no FAIL / SKIP lane a, 0 script errors, 0 watchdogs, household untouched. ~30 min.",
+  "rewind": "auto",
+  "regexCases": {
+    "^ts3native 0\\.36\\.299-cp34 ": {
+      "match": ["ts3native 0.36.299-cp34 2026-11-23 18:40:00"],
+      "noMatch": ["ts3native 0.36.299-cp2 2026-11-23 16:40:00", "ts3native 0.36.299-cp341 2026-11-23 15:00:00"]
+    },
+    "^OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd ": {
+      "match": ["OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd (docs/321 §10; rows cleared on world change, dropped on lot remove)"],
+      "noMatch": ["OK   lane a consumers: asSimIds asTier (docs/321 §10; rows cleared on world change, dropped on lot remove)", "lane a consumers: off ([LaneA] all 0)"]
+    },
+    "^lane a: world quit, .*, reset ok; ": {
+      "match": ["lane a: world quit, spDoor 12->0 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, reset ok; autshadow at the next cut"],
+      "noMatch": ["lane a: world load, spDoor 0->0 (slots 14), doorHold 0->0, rd 0->0, eo 0->0, reset ok; autshadow at the next cut", "lane a: world quit, spDoor 12->1 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, FAIL rows left; autshadow at the next cut"]
+    },
+    "^lane a: world load, .*, reset ok; ": {
+      "match": ["lane a: world load, spDoor 0->0 (slots 14), doorHold 0->0, rd 0->0, eo 0->0, reset ok; autshadow at the next cut"],
+      "noMatch": ["lane a: world quit, spDoor 12->0 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, reset ok; autshadow at the next cut"]
+    },
+    "^lane a: autshadow reset at cut, .*, reset ok$": {
+      "match": ["lane a: autshadow reset at cut, simIds 220->0, tier 180->0, lotTier 40->0, lite 60->0, reset ok"],
+      "noMatch": ["lane a: autshadow reset at cut, simIds 220->3, tier 180->0, lotTier 40->0, lite 60->0, FAIL rows left"]
+    },
+    "^ts3fixes: lanea: world load, envlist 0/\\d+, tp \\d+/\\d+, loop 0/\\d+, .*, lots live True, subscribers 2$": {
+      "match": ["ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"],
+      "noMatch": ["ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 4/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2", "ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live False, subscribers 2"]
+    },
+    "^ts3fixes: lanea: world quit, .*, loop 0/\\d+, .*subscribers 2$": {
+      "match": ["ts3fixes: lanea: world quit, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 40, envlist drops 0, lots live False, subscribers 2"],
+      "noMatch": ["ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"]
+    },
+    "^ts3fixes: lanea: .*, doorgen lots [1-9]\\d*, ": {
+      "match": ["ts3fixes: lanea: world quit, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 40, envlist drops 0, lots live False, subscribers 2"],
+      "noMatch": ["ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"]
+    },
+    "^ts3fixes: lanea: .*, subscribers (?!2$)\\d+$": {
+      "match": ["ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 4"],
+      "noMatch": ["ts3fixes: lanea: world load, envlist 0/0, tp 3/3, loop 0/12, doorgen lots 0, envlist drops 0, lots live True, subscribers 2"]
+    },
+    "^(FAIL|SKIP) lane a|FAIL rows left": {
+      "match": ["SKIP lane a consumers: lot hub not installed (lhReady 0), tables as today", "lane a: world quit, spDoor 12->1 (slots 14), doorHold 3->0, rd 5->0, eo 0->0, FAIL rows left; autshadow at the next cut"],
+      "noMatch": ["OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd (docs/321 §10; rows cleared on world change, dropped on lot remove)"]
+    },
+    "^OK   lot hub: ready 0x3 ": {
+      "match": ["OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"],
+      "noMatch": ["FAIL lot hub: ready 0x1 (lot generation counter + world event, docs/321 §8)"]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": ["compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex; ApexStandDown=1"],
+      "noMatch": ["compat: Apex Radiance not found at start; ApexStandDown=1"]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-lanea-travel-reload",
+      "note": "[est 30 min] Bridgeport, one load, seed-12345 play with repro lanea-travel-reload (community lot + pan, France vacation and home, pan, save to a scratch save and reload it, pan). Correctness + no-leak only: every consumer only clears its own cache rows.",
+      "asi": "game-copy/ts3native.asi.cp34-lanea-1123",
+      "iniBase": "game-copy/ts3native.ini.cp34-lanea-1123",
+      "fixesPackage": "game-copy/ts3fixes.package.cp34b",
+      "pinReason": "feature/cp34-lanea-consumers-1123 (0.36.299-cp34): CP-3/CP-4 lane A consumers on cp2; ts3fixes cp2 + LaneA.cs; ts3fixes.package.cp34b-lanea-1123 (copy game-copy/ts3fixes.package.cp34b: + cp2b LotHub poll task across mode changes)",
+      "releaseDefaults": true,
+      "ini": {
+        "LaneA.AsSimIds": 1,
+        "LaneA.AsTier": 1,
+        "LaneA.AsLotTier": 1,
+        "LaneA.AsLite": 1,
+        "LaneA.SpDoor": 1,
+        "LaneA.DoorHold": 1,
+        "LaneA.ReplanDedupe": 1
+      },
+      "gameArgs": ["-disablestoryprogression"],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 55,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 28,
+          "noSamplers": true,
+          "repro": "lanea-travel-reload",
+          "fixesOn": "laneaenvlist,lanealoop,laneatp,laneadoorgen",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.299-cp34 ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^OK   lane a consumers: asSimIds asTier asLotTier asLite spDoor doorHold rd ": 1,
+        "^lane a: world quit, .*, reset ok; ": 3,
+        "^lane a: world load, .*, reset ok; ": 3,
+        "^lane a: autshadow reset at cut, .*, reset ok$": 3,
+        "^ts3fixes: lanea: world load, envlist 0/\\d+, tp \\d+/\\d+, loop 0/\\d+, .*, lots live True, subscribers 2$": 3,
+        "^ts3fixes: lanea: world quit, .*, loop 0/\\d+, .*subscribers 2$": 3,
+        "^ts3fixes: lanea: .*, doorgen lots [1-9]\\d*, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1
+      },
+      "logForbid": {
+        "^(FAIL|SKIP) lane a|FAIL rows left": 0,
+        "^ts3fixes: lanea: .*, subscribers (?!2$)\\d+$": 0
+      }
+    }
+  ]
+}

@@ -704,7 +704,7 @@ every Sim and pet walks its own route. `PetRelax.cs`, rules in `PetRelaxCore.cs`
    game makes for the pet itself). A pet that lies anywhere else is walked around as the game has it (§8.8); when
    there is no way around (the plan fails and names the pet's jig as its blocker, a pet across a hallway), the
    walker stands where it is for `kClipGraceMinutes`, then the route is planned again with the jig ignored and
-   walked (`PrxPlanFailed`, from `PrxRouteHook`, a swap of `SimRoutingComponent.DoRoute` for routes that come in
+   walked (`PrxPlanFailed`, from `BuRouteHook.RouteHook` since 2026-11-24 (was `PrxRouteHook`; docs/130 §11), the swap of `SimRoutingComponent.DoRoute` for routes that come in
    with a failed plan; up to 3 lying pets per plan; a cancelled Sim or a plan that fails without the pet too gets
    the game's answer). The pet itself is then passed without a second grace. `blockeduse` (#649) swaps the same
    method: whichever lands second calls `PrxPlanFailed` from the other's failed-plan step instead of a second swap. The
@@ -1718,3 +1718,128 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
+## 25. A Sim in a toilet, sink, shower or bath line takes a free twin object (`lineswitch`; 2026-11-24, `post/lineswitch-1124`, built, default off, run §25.4-§25.5)
+
+### 25.1 The line [verified, decompiled `SimQueue.cs`, `Toilet.cs`, `Sink.cs`, `Shower.cs`, `Bathtub.cs`]
+- `SimQueue.WaitForTurn(interaction, target, behavior, exitReasons, timeout)`: the Sim is inserted in the object's
+  `mQueue` (`FindNewPlaceInLine`), walks to the head of the line or behind the Sim ahead, then loops `LoopIdle` +
+  `WaitForExitReasonOnSim(sim, kCheckPeriodInMinutes = 1, ...)` until it is first, evicted, cancelled or past the timeout
+  (then `ObjectInUse` + `TimedOut` and `PlayRouteFail`: balloon with the user's thumbnail).
+- EA's only substitution: on the first pass of that loop, with `TryAnotherObjectIfLineExists` or
+  `TryAnotherObjectIfNewLineExists` (toilets: `DefaultAllowSubstitution`, `!WasInUse`), `TryReplacementInteraction`
+  asks autonomy for the best action of the tradeoff's most positive motive on the lot and pushes it as a continuation
+  when its object has no line (`WasInUse = true`, `ExitReason.FailedToStart`, break). It never looks again, so an object
+  that frees up later is not used. Sinks (`CutAheadOfLowerPrioritySims`), showers and baths (`DefaultEvict`) never ask.
+- Storms s533-s536 (Sunset Valley, the Bunch house has ToiletCheap, ToiletModerate, ToiletExpensive): toilet waits of
+  1.9-20.3 sim-min (5 waits), a 17.1 sim-min shower wait, sink waits of 4.0-13.1 sim-min (3).
+
+### 25.2 What is built
+- `lineswitch`, `lineswitchhh`, `lineswitchlog` (`LineSwitch.cs`, `LineSwitchCore.cs`, counters 4615-4619 (`kCounterSlots` 4620 on the combo branch, 4660 here),
+  `kLineSwitchMinutes` 2, `LineSwitchCheck`, selftest `tools/selftest/lineswitch`, repro `lineswitch-force`).
+  Swap: `SimQueue.WaitForExitReasonOnSim` (stub); `LdsQueueHook.WaitHook` (ShareLanes.cs) records the wait.
+- From 2 sim-min in the line, each per-minute check looks for an object of the same kind (Toilet, Sink, a shower
+  for shower actions, Bathtub) on the lot: not the one waited for, standing, `InUse` false, no user, no line, no Sim
+  with it as the target of a running or queued action, the same interaction definition's `Test` passes, and a plan to
+  1.5 m of it in its room works (2 plans per check at most). Order: the same room, the same level, the nearest.
+- Then EA's own substitution: that definition on the twin pushed as a continuation, `WasInUse`, `FailedToStart`, the
+  loop breaks into EA's tail; that tail's route-fail balloon is skipped for this Sim on this tick (`SrfPlayHook`).
+- Scope: human Sims, actions they picked themselves (a player's order keeps its object); NPCs with `lineswitch`,
+  household and selected Sims also with `lineswitchhh` (a visible change, so its own switch, docs/271 rule).
+  Off = compare mode: `would`. Lines: `lineswitch: switched | would switch | kept, <why>: <who> <Sim>, <Interaction>
+  <object> -> <twin> (same room | other room, m, waited sim-min)`.
+
+### 25.3 Limits [inferred]
+- Lot objects only; a public lot's toilets are covered, rabbit holes and portals are not lines of this kind.
+- A player-ordered wait is kept (r5-rp2: Lisa Bunch waited 18.6 sim-min on her own order).
+
+### 25.4 Storm (2026-11-24, Deck, Sunset Valley new game, s537 on, 5 min, seed 152; off arm s532) [verified]
+- s537 had no toilet, sink, shower or bath wait (other lines: laptop 9.9, chair 11.2, bookshelf 14.9 and 6.7, workout
+  bench 9.1 sim-min), so lineswitch: switched 0, would 0, kept 0, errors 0, swap found. The storms give 0-4 such waits
+  each; the forced repro proves it.
+
+### 25.5 Forced repro (repro `lineswitch-force`, Bunch house, runs r5-rp2, r5-rp3) [verified]
+- Lisa Bunch uses ToiletCheap (order), Jack Bunch ToiletModerate (order), Judy Bunch picks ToiletCheap as her own
+  action (agent `do_interaction` `autonomous: true`, new in this round) and waits in Lisa's line.
+- r5-rp3 off: `would switch ... -> ToiletExpensive (other room, 4.1 m, waited 7.1 sim-min)`; Judy waited 9.3 sim-min
+  for her turn. On: `switched: household Judy Bunch, UseToilet ToiletCheap -> ToiletExpensive (other room, 8.7 m,
+  waited 4.9 sim-min)`; her line wait ended at 5.0 sim-min and she used the other toilet. r5-rp2 on: switched after
+  2.0 sim-min, Judy used ToiletExpensive and washed her hands. Errors 0 in both runs, no route-fail balloon, a walk.
+- PROVEN by forced repro (toilets). Sinks, showers and baths: same code path, not yet seen in a run.
+
+### 25.6 Partnerpull busy rules and queuewake in s537 (combo branch, on, r5 build; off arm s532; those switches are their own PRs) [verified]
+- partnerpull: waits past the grace 24, pulled 9 (read to sleep 1, socials 8), kept: player's action or queue 4, busy
+  or outranking head 11 (s533: 1); errors 0. The new busy rules (§21.2) hold: every lot-trip partner (Visit Central
+  Park, Visit the Clavell household, Go to Lot x2) and every partner in a conversation (Flatter, Chat, Listen to
+  Request x3, Start Water Balloon Fight) was kept; no pull of such a partner.
+- queuewake: woken 48 (s533: 42), loop ticks saved 480, left past the deadline 94, errors 0.
+- s537 vs s532: route fails 14 (`routefail:` lines); nothing new or odd seen in the lines.
+
+## 26. A busy Sim reacts at once instead of after its action (`reactoverlay`; 2026-11-24, `post/reactoverlay-1124`, built, default off, run §26.4-§26.5)
+
+### 26.1 The late reaction [verified, decompiled `Sim.PlayReaction`, `OverlayComponent.RequestOverlay`, `ReactionInteraction`, `IdleManager.PlayReactionAnimation`]
+- `Sim.PlayReaction(..., ReactionSpeed, ...)`: with `Immediate` in the speed, EA plays `OverlayComponent.PlayReaction(type,
+  target, yield: false)` (an overlay over the running animation, with look-at and thought balloon) only while the Sim
+  idles in a posture (`mIsAlreadyIdling`, not standing idle) or walks a long enough route. Otherwise `NowOrLater` and
+  `AfterInteraction` create a `ReactionInteraction` and `InteractionQueue.AddNext` it behind the current action, with a
+  `kReactionTimeout` of 60 sim-min. It plays when that action ends (`ReactionInteraction.Run` ->
+  `IdleManager.PlayReactionAnimation`, the same overlay component, standing idle only), often long after its cause.
+- The overlay asks for body parts (`RequestOverlay` level 6: all, else both arms and head, else head, else face); the
+  current clip's SACS events hold parts (`InteractionPartLevelCallback`, `mInteractionPartsUsedFlags`,
+  `mAwarenessPartsUsedFlags`). That is EA's own gate for a natural look.
+- s537 (combo, off): ReactionInteraction actdelay n=99, mean 170 ms, max 3393 ms; 5 instances over 500 ms (household
+  Jack Bunch 1009 and 1029 ms, Ethan Bunch 791 ms, Arlo Bunch 1173 ms; NPC Beau Andrews 3393 ms). r6-rp1 off arm
+  (Sunset Valley, the queued ones watched by the compare mode): 8 queued reactions ran after mean 2328 ms, max 6823 ms;
+  13 waited past 2 s.
+
+### 26.2 What is built
+- `reactoverlay`, `reactoverlayhh`, `reactoverlaylog` (`ReactOverlay.cs`, `ReactOverlayCore.cs`, counters 4670-4679,
+  `kCounterSlots` 4680, `kReactOverlayStaleMs` 2000, `ReactOverlayCheck` (`run`, `result`, `force:Sim|Reaction`),
+  selftest `tools/selftest/reactoverlay`, repro `reactoverlay-force`).
+  Swap: `Sim.PlayReaction` (13 arguments, stub); a 0.1 sim-minute alarm from the world load.
+- A `NowOrLater` / `AfterInteraction` reaction (not `ImmediateWithoutOverlay`, not `CriticalWithRoute`, not
+  watch-until-exit, not a double balloon) of a human Sim busy with an action, standing or seated (`Sim.StandingPosture`,
+  `SittingPosture`, the posture allows reaction overlays), not routing, not in a posture transition, carrying nothing,
+  not at a toilet, sink, shower, bath, bed or pool, not in a conversation or a social, with both arms and the head free
+  in the current clip and an overlay clip of EA's (`sReactionEnumToStringCache`, `TestReactionAnimation(..., overlay)`):
+  EA's Now path runs (before callback, overlay, look-at, balloon, callback), nothing is queued.
+- Any other case runs EA's `PlayReaction`; a reaction it queued is watched: at the first safe moment within the stale
+  time it is played as the overlay and removed from the queue (`RemoveInteractionByRef`, its `Cleanup` hands the
+  callback "played"); one that waited 2000 ms real time is dropped. The queue head (the next or running action) is never
+  touched. A Sim with no action keeps EA's way (the queued reaction runs at once).
+- Scope: human Sims; NPCs with `reactoverlay`, household and selected Sims also with `reactoverlayhh` (docs/271 rule).
+  Off = compare mode: `would overlay`, `would drop`. Lines: `reactoverlay: overlaid now | overlaid from the queue after
+  N ms | dropped stale after N ms (<why>) | queued reaction ran after N ms | would ...: <who> <Sim>, <Reaction> during
+  <Interaction> (<Posture>)`.
+
+### 26.3 Limits [inferred]
+- No turn to face the target (EA's overlay path never turns either; the queued `ReactionInteraction` did).
+- A dropped reaction is gone: the Sim does not react to an event it was busy for more than 2 s (EA played it late).
+- Socials are kept out after s538 showed Wave overlays over a social's start (`SocialInteractionA/B`, Conversation not yet
+  set).
+
+### 26.4 Storm (2026-11-24, Deck, Sunset Valley new game, s538 on, 5 min, seed 152; off arm s537, same switches but reactoverlay) [verified]
+- reactoverlay (r6 build): overlaid now 14, from the queue 10, dropped stale 8, queued by EA and watched 31 (of them ran
+  11: mean 257 ms, max 1947 ms from the queue to the start), errors 0. EA's way at the call: routing 29, conversation 18,
+  arms or head busy 6, posture 4, carrying 3, not a human 3, toilet/bath/bed/pool 1.
+- ReactionInteraction actdelay: s537 n=99, mean 170 ms, max 3393 ms, 5 over 500 ms (4 household: 791-1173 ms); s538:
+  not in the top 15 any more, 2 over 500 ms (NPC 514 ms, household Ethan Bunch 2522 ms: a reaction at the queue head,
+  which the fix never removes).
+- Overlays seen: Wave, Surprise, JoyousCrying during WatchTV (seated), Wave during PracticeChess, EatHeldFood, Fridge_Have,
+  FoodTray_Prepare, CheckSelfOutInMirror, Mwah during GrabAServing; NPC BadNoise in WaitOutsideRabbitHole, Embarrassed
+  during PerformerPerformForTips. Drops: household Waves and Surprise while reading (carrying the book, RelaxingPosture),
+  routing, in a vehicle or a conversation.
+- Looked wrong: 5 Wave overlays during `SocialInteractionA/B` (the social's start, before the Conversation is set):
+  socials are now kept out (r6b build). No pop seen in the lines; the overlay gate is EA's part flags, a clip holding the
+  arms keeps EA's way (6 such cases).
+
+### 26.5 Forced repro (repro `reactoverlay-force`, runs r6-rp1 (r6b build), r6-rp2 (r6c)) [verified]
+- Bea Jig watches TV (standing, `TV+WatchTV`), `ReactOverlayCheck force:Bea Jig|<Reaction>` calls EA's `PlayReaction`
+  with NowOrLater.
+- Off: `would overlay`, a ReactionInteraction queued behind Watch TV (`queues`), `would drop after 2036 ms`. The town's
+  queued reactions in the off arm ran after mean 2328 ms, max 6823 ms (r6-rp1) and mean 7147 ms, max 43591 ms (r6-rp2).
+- On (r6-rp2): Embarrassed and Startled `overlaid now`, nothing queued; the off arm's Startled `dropped stale after
+  9152 ms`. Kit (in bed, RelaxingPosture) kept EA's way. Errors 0.
+- r6-rp1 found one bug, fixed in r6c: a queued reaction that became safe after the stale time was still played (Startled
+  `overlaid from the queue after 9151 ms`); the stale test now comes first.
+- PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.

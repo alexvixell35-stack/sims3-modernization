@@ -1,8 +1,8 @@
 # Compatibility with other mods
 
-Date: 2026-11-22 (scan of our v0.3.1 mods with their release settings; updated 2026-11-23 with the ranks 101-500 tuning set, the code audit, NRaas copies and "Their fix or ours"). Data: [`docs/data/compat-matrix.csv`](data/compat-matrix.csv) (1451 rows; with ranks 101-500 of the most downloaded mods, see Coverage).
+Date: 2026-11-22 (scan of our v0.3.1 mods with their release settings; updated 2026-11-23 with the ranks 101-500 tuning set, the code audit, NRaas copies and "Their fix or ours"; updated 2026-11-25 with the in-game results of 2026-11-24). Data: [`docs/data/compat-matrix.csv`](data/compat-matrix.csv) (1451 rows; with ranks 101-500 of the most downloaded mods, see Coverage).
 
-**Every verdict here comes from a static code-overlap scan, not from playing the game with the mod. "No overlap" does not guarantee that a mod works with ours, and "overlap" does not mean it is broken.**
+**Every verdict here comes from a static code-overlap scan, not from playing the game with the mod. Only the `status` value `in our test setup` comes from game runs. "No overlap" does not guarantee that a mod works with ours, and "overlap" does not mean it is broken.**
 
 ## Check your own Mods folder
 
@@ -34,11 +34,11 @@ The scan reads a mod file (it never runs it) and compares it with what our mods 
 | `kind` | `script`, `tuning`, `script+tuning`, `cc`, `archive` (could not be read here) or `empty` |
 | `overlap` | Which of our features (and their switches) touch the same code; `[off by default]` marks features whose switches are off in the release |
 | `verdict` | `no overlap` (1226 rows), `overlap` (223), `overlap, off by default` (1: the mod only touches features that are off), `unknown` (1) |
-| `status` | Overlap rows only: `in our test setup` (7), `same code, not tested together` (215), `known limit` (1) |
+| `status` | Overlap rows only: `in our test setup` (28), `same code, not tested together` (194), `known limit` (1) |
 | `note` | Our reading of the row, when there is one |
 | `evidence` | What the scan saw (for example "overrides X::Y" or "replaces module Z"), tagged with the scan it came from |
 
-An overlap means a mod and one of our features reach the same game code. It shows where to look and is not a bug report. Only `in our test setup` is based on game runs: those files are in the install that every one of our game tests uses.
+An overlap means a mod and one of our features reach the same game code. It shows where to look and is not a bug report. Only `in our test setup` is based on game runs: those files are in the install that every one of our game tests uses (7 rows), or passed an in-game check together with our mods (21 rows, 2026-11-24).
 
 ## Coverage
 
@@ -47,7 +47,7 @@ An overlap means a mod and one of our features reach the same game code. It show
 - Our own test install: NRaas ErrorTrap and Overwatch, the Sims 3 Store packages, simler90's core mod and other fixes.
 - A player's Mods folder of 108 files (Dalexlol, issue #165, scanned 2026-11-02). These rows were not rescanned and still reflect our mods as of 2026-11-02.
 
-Counts for our own scan (609 rows): no overlap 519, overlap 90 (7 in our test setup, 83 same code, not tested together), unknown 0.
+Counts for our own scan (609 rows): no overlap 519, overlap 90 (28 in our test setup, 62 same code, not tested together), unknown 0.
 
 ## What changed since 2026-11-05
 
@@ -60,13 +60,24 @@ Counts for our own scan (609 rows): no overlap 519, overlap 90 (7 in our test se
   - XCAS now meets more of our UI fixes.
 - **Known conflicts** found by game runs were added (below).
 
-## The overlap rows (2026-11-22)
+## The overlap rows (2026-11-22, in-game results 2026-11-24)
 
-Nobody has found a fault in any of these pairs. We do not call any pair "works" or "compatible". In-game checks for the rows that are not in our test setup are written up as queue `compat-overlap-1122` but have not run yet. This page updates when they finish.
+Nobody has found a fault in any of these pairs. We do not call any pair "works" or "compatible". 21 of the overlap mods passed an in-game check together with our mods on 2026-11-24 (next section); the others are not tested in game yet.
 
-### Harmless overlap (read the code, not tested in game)
+### Overlap, passed in game with our mods (2026-11-24)
 
-"Harmless" means we read the code and found that our hooks and the mod do not get in each other's way. It is not an in-game test.
+The 21 top-100 mods whose code overlaps a default-on feature of ours and that are not in our test install were loaded **all together** with our v0.3.1 release build and its release settings (Steam 1.67, Apex Radiance + RTX Remix bridge, an Isla Paradiso test save; queue `compat-overlap-1122`, run 2026-11-24): the world loaded with every mod started, 10 minutes of play at speed 3, no new script errors, no crash, no hang. The same set with our mods off also passed. Result pages: `docs/data/results/2026-11-2[34]-queue-compat-overlap-1122*.md`.
+
+Weapons System, Death Note, Housecleaning For All Sims, Buy Takeout And Order Food At Restaurants, Scribbling Pad, Moar Interactions, XCAS (Steam 1.67 full build), Non-Core Global Online Banking, Gardener Service v2.3, Study Skills Online V37, Toddler Interactions (Cherry), More Alchemy Potions, Cook With Any Ingredient (Wood Fire Oven add-on, with its base package), The Sims 3 Passion And Romance, Castable RabbitHole Replacements, Napping Mat, Children can care for their lil' siblings, More Baby / Toddler / Pregnancy / Romantic Interactions (TSS).
+
+- Only the file we ran (the newest Steam build of each mod, one CSV row per mod) moved to `in our test setup`. Other builds and editions of the same mods keep `same code, not tested together`.
+- The run plays normally; it does not force every interaction of every mod. For Moar Interactions this means its visit interactions were loaded, not exercised (see below).
+- Earlier runs of this check failed for reasons in our test set and test tool, not in the mods: the first run had the Wood Fire Oven add-on without its base package, and a later one used a log check that missed a line split in two. With the base package in place and the check fixed, it passed.
+- **Cook With Any Ingredient add-ons need their base package.** An add-on installed alone stops every script mod loaded after it from starting, ours included. This is an EA bug in the game's mod start-up; a fix of ours is built but not tested in game yet ([docs/339](339-tune-isolate.md)).
+
+### Harmless overlap (read the code)
+
+"Harmless" means we read the code and found that our hooks and the mod do not get in each other's way. The files of these mods that ran in game are in the section above.
 
 - **Interaction mods (27 rows, 18 mods):** Weapons System and Death Note (Desecrate), Housecleaning For All Sims, Buy Takeout, Scribbling Pad (Buzz), Non-Core Global Online Banking, Study Skills Online, Toddler Interactions (Cherry), More Alchemy Potions, Cook With Any Ingredient, The Sims 3 Passion And Romance, Napping Mat, Children can care for their lil' siblings, More Baby / Toddler / Pregnancy / Romantic Interactions (TSS), Gardener Service. Their interactions override `InteractionInstance.Cleanup` / `Init` (and Gardener and Buy Takeout also override `ServiceSituation`). Our EA fixes in those base methods run when the mod's override calls the base method. When it does not, that interaction keeps EA's original behaviour. Either way the mod's own code runs as written.
 - **XCAS (cmar), 4 files:** replaces the UI module. An IL diff of its Steam 1.67 builds (`tools/mod-method-diff.ts`) found 51 changed methods, and none of them is one of the 28 UI methods our default-on features patch.
@@ -83,7 +94,7 @@ These files are in our test install, so every game test of ours ran with them lo
 
 ### Real overlap, game test pending
 
-- **Moar Interactions (Buzz):** its visit interactions override the `Run` methods we patch without calling the base method, so our visit hooks skip them (queue `compat-top`). It also has the interaction base-method overlap above.
+- **Moar Interactions (Buzz):** its visit interactions override the `Run` methods we patch without calling the base method, so our visit hooks skip them (queue `compat-top`). It also has the interaction base-method overlap above. It passed the 2026-11-24 in-game check (loaded and played), but that run did not use its visit interactions.
 - **Overrides.package** (Lyn, player folder): overrides `VisitCommunityLot::Run`, which our hook wraps.
 - **2x Weight and Fitness Integration Core Mod (Consort), 47 files** (every version and edition): a core mod with its own `Sims3GameplaySystems`, like simler90's. Every `ts3fixes` patch on that module lands on its copy. It cannot be used together with another core mod, and we have not tested it.
 
@@ -93,6 +104,12 @@ These files are in our test install, so every game test of ours ran with them lo
 - **Sims3MonoModder (S3MM, ASI)** (source read, docs/291): it shares Mono call paths with our JIT, fast call path and AutShadow. `ts3native` turns those three off by itself when `Sims3MonoModder.asi` is installed (`[Compat] S3mmStandDown=1`, the default). We have not tested the two together in game.
   - **S3MM's profiler is not compatible with ts3native.** S3MM always installs the profiler at start, and it hooks Mono functions we also hook. Whether it crashes depends on which mod loads first. It also clashes with our `[Verify]` probe, and its numbers are wrong under our JIT. S3MM has no setting to turn the profiler off yet (we proposed one upstream).
   - The rest of S3MM works with the stand-down. We do not ship or install S3MM.
+
+### Sims 3 Performance Patch beta (tester build)
+
+A plugin (`.asi`), so it has no row in the CSV. Checked in game with our mods and their release settings (2026-11-24):
+- **Steam 1.67:** passed a 5-minute check at speed 3 (no new script errors, no crash or hang). The longer save-and-reload check did not finish, so there is no result for it yet.
+- **EA app 1.69.47:** passed in game, but this tester build needs an update from its author for EA app 1.69. One of its 11 patches (`ShortWaitSpin`) is not supported there.
 
 ### Known conflicts (seen in game runs, not ours)
 

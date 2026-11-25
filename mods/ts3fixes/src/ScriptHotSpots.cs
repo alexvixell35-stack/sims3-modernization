@@ -397,6 +397,8 @@ namespace Ts3Fixes
                     // Stored anyway, the flower would count toward the 20 cap until its lifespan alarm removes it (docs/110 7.3)
                     if (WildflowerFire.MustStop(SaveInProgress(), GameStates.IsTravelling)) { WfFinish(flower, lot, f, start, false, "save"); return; }
                     Simulator.Sleep(0);
+                    // docs/205 §2.3c: paused, clock stopped or out of live mode: no try; a save or the world going away ends the wait
+                    SfWait(1739, true);
                     if (WildflowerFire.MustStop(SaveInProgress(), GameStates.IsTravelling)) { WfFinish(flower, lot, f, start, false, "save"); return; }
                     if (flower.HasBeenDestroyed || lot.HasBeenDestroyed || GameStates.IsWorldShuttingDown || !GameStates.IsInWorld())
                     { WfFinish(flower, lot, f, start, false, "world gone"); return; }

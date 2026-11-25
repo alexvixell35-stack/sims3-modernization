@@ -65,13 +65,20 @@ export function codeDrift(tuning: Record<string, string>, defaults: Record<strin
 // test-only ini keys (harness rewind queues set them): never on in a shipped or master default ini (docs/270 §40)
 export const TEST_ONLY = ['Rewind.Park', 'Rewind.Offline', 'Rewind.PoolPark'];
 export const testOnlyOn = (ini: Record<string, string>, where: string) => TEST_ONLY.filter(k => iniOn(ini[k] ?? '0')).map(k => `ini ${k}=${ini[k]} in ${where}: test-only key, must be 0 in a player ini`);
+// safety keys pinned to one value in any player ini (missing = the code default, which is the pinned value). build.yml's release
+// job checks the same key. [UnseenThrottle] NeedViewers: [UnseenAnim] / [UnseenTable] read the household table through it; 0 = a
+// missing table would count as "no household near" (docs/205 §2.3e)
+export const PINNED: Record<string, string> = { 'UnseenThrottle.NeedViewers': '1' };
+export const pinnedOff = (ini: Record<string, string>, where: string) => Object.entries(PINNED)
+  .filter(([k, v]) => ini[k] !== undefined && ini[k] !== v).map(([k, v]) => `ini ${k}=${ini[k]} in ${where}: pinned to ${v}`);
 export function check(prevIni: string, prevPkg: string, root = ROOT): string[] {
   const rd = (f: string) => readFileSync(f).toString('latin1');
   const rel = { ini: parseIni(rd(prevIni)), tuning: parseTuning(rd(prevPkg)) };
   if (!Object.keys(rel.tuning).length) throw new Error(`${prevPkg}: no <kName value=...> tuning found (is it a ts3fixes.package?)`);
   const master = { ini: parseIni(rd(join(root, 'native/ts3native/ts3native.ini'))), tuning: parseTuning(rd(join(root, 'tools/setup/build-fixes.ts'))),
     defaults: parseDefaults(rd(join(root, 'mods/ts3fixes/src/Instantiator.cs'))) };
-  return [...testOnlyOn(rel.ini, prevIni), ...testOnlyOn(master.ini, 'native/ts3native/ts3native.ini'), ...compare(rel, master, loadAllow(join(root, 'docs/data/release-default-exceptions.json')))];
+  return [...testOnlyOn(rel.ini, prevIni), ...testOnlyOn(master.ini, 'native/ts3native/ts3native.ini'),
+    ...pinnedOff(master.ini, 'native/ts3native/ts3native.ini'), ...compare(rel, master, loadAllow(join(root, 'docs/data/release-default-exceptions.json')))];
 }
 
 function selfCheck() {
@@ -99,6 +106,9 @@ function selfCheck() {
   assert.deepEqual(testOnlyOn(parseIni('[Rewind]\r\nPark=0\r\nOffline=0\r\nPoolPark=0\r\n'), 'x'), [], 'test-only keys off: ok');
   assert.deepEqual(testOnlyOn(parseIni('[Rewind]\nPoolPark=1\n'), 'rel.ini'), ['ini Rewind.PoolPark=1 in rel.ini: test-only key, must be 0 in a player ini']);
   assert.deepEqual(testOnlyOn(parseIni(readFileSync(join(ROOT, 'native/ts3native/ts3native.ini'), 'latin1')), 'master'), [], 'master default ini has every test-only key at 0');
+  assert.deepEqual(pinnedOff(parseIni('[UnseenThrottle]\nNeedViewers=0 ; x\n'), 'x'), ['ini UnseenThrottle.NeedViewers=0 in x: pinned to 1']);
+  assert.deepEqual(pinnedOff(parseIni('[UnseenThrottle]\nEvery=4\n'), 'x'), [], 'missing = code default 1');
+  assert.deepEqual(pinnedOff(parseIni(readFileSync(join(ROOT, 'native/ts3native/ts3native.ini'), 'latin1')), 'master'), [], 'master default ini keeps every pinned key');
   assert.deepEqual(codeDrift({ kA: 'True', kB: 'False', kC: '7' }, { kA: 'True', kB: 'True', kD: 'False' }), ['kB: Instantiator.cs True, build-fixes.ts tuning False']);
   // the repo itself: every Instantiator.cs bool default equals the shipped tuning value
   const rd = (f: string) => readFileSync(join(ROOT, f), 'utf8');

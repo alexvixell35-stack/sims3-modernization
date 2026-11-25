@@ -954,9 +954,6 @@ static u8* __fastcall SlTripGet(u8* part, void*, int i) {
 
 static bool ApplySlaveLink(const wchar_t* ini) {
     bool keep = false;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP ea fix SlaveUnlink / DeadSlaveTrip: no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     if (GetPrivateProfileIntW(L"EaCrashFixes", L"SlaveUnlink", 1, ini)) {
         if (FpCallOk(SL_SET_SITE, SL_SET) && FpCallOk(SL_DTOR_SITE, SL_DTOR) && FpRedirect(SL_SET_SITE, (const void*)&SlSetHook) &&
             FpRedirect(SL_DTOR_SITE, (const void*)&SlDtorHook)) {
@@ -977,66 +974,183 @@ static bool ApplySlaveLink(const wchar_t* ini) {
     return keep;
 }
 
-// [EaCrashFixes] VbFreeDelayMs (docs/67 §44, default 0 = off, Steam 1.67 only): EA use after free of a vertex buffer wrapper.
+// [EaCrashFixes] VbFreeDelayMs (docs/67 §44, default 0 = off; Steam 1.67 and EA 1.69): EA use after free of a vertex buffer wrapper.
 // 0xA85DF0 releases the wrapper at +0x70 of its owner (0xEC17A0, last ref: deleting dtor 0x61A410 / 0x61A340, then free
 // 0x4E3F70) while a queued draw item still runs the draw callback 0xA84D00 with the old pointer (VbGuard caught it 23-894 ms
 // after the release, same thread). Freed memory reused = Device_SetStreamSource 0x60F020 hands garbage to the device (the
 // bridge crashes at d3d9.dll+0x3A91D / +0x2789B). Fix: the two deleting dtors run without their free; the wrapper (base
 // vtable, D3D VB +0x14 = 0, the game's own released state) is freed VbFreeDelayMs later, so a late draw binds a NULL stream,
 // as the not yet reused memory already did in the caught cases. Its refcount is pinned high so a late Release cannot free it twice.
-#ifndef TS3A_TABLE
-static const DWORD kVqDelA = 0x0061A340, kVqDelB = 0x0061A410, kVqFree = 0x004E3F70;
+// [EaCrashFixes] VbOwnerDelay (docs/67 §44.1, default 1, needs VbFreeDelayMs > 0): the draw item holds the OWNER without a
+// reference too, and 0xA85DF0(owner, 1) frees the owner at once (2026-11-22 tester crash: owner reused, +0x70 = a string).
+// 0xA85DF0 runs with flags & ~1 and the owner joins the same queue (no pin: +4 is no refcount in this class); +0x70 is set to
+// 0 (EA clears it only when it released the wrapper, byte +0 == 0), so a late 0xA84D00 binds a NULL stream (0x60F020's NULL
+// branch). Only caller: 0xA891CA (rel32 scan of .text, no vtable or pointer reference).
+// Aliases (I-604-5, verified): 0xA8963F allocates a 0x80 owner, 0xA89696 copies an existing owner into it with 0xA89030 (raw copy,
+// +0x70 included, no AddRef) and sets byte +0 = 1. Its dtor never releases +0x70, so when the owning owner (byte +0 == 0) is
+// deleted the alias keeps drawing the released wrapper (§44's VB BAD hits), and once VbFreeDelayMs has passed it reads freed
+// memory. VbOwnerDelay tracks aliases (call 0xA89696) and clears +0x70 of every live alias of a wrapper its owner releases:
+// the late alias draw binds NULL, what vanilla binds while the freed wrapper is not reused (+0x14 = 0).
+struct VbDelayCounters { volatile LONG ownerOn, wrappers, owners, ownerZeroed, freed, forced, queued, hw, flushes, aliasOn, aliases, aliasHw,
+                         aliasCleared, aliasFull; };
+// Own export block (counters layout unchanged, docs/registry.md): switch read-back, wrappers / owners queued, owners whose +0x70
+// we cleared, blocks freed, freed early (ring full), queued now, most queued at once, world load / quit flushes.
+extern "C" __declspec(dllexport) VbDelayCounters ts3native_vbdelay = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static DWORD g_vqMs;
+// EA 1.69.47: the owner dtor, the game free and the alias copy are mapped (docs/51 V-604-1, Lenovo session); the VB wrapper
+// dtors are mapped since feature/ea169-parity-a (0x61B500 / 0x61B5D0, docs/51 §588), so EA gets the wrapper delay, owner delay and alias clear.
+static const DWORD kVqFree = TS3A(0x004E3F70), kVoDtor = TS3A(0x00A85DF0);  // retail 1.67: row 0 (SKIP below)
+#ifndef TS3A_RETAIL  // retail 1.67: the two dtor rows are not mapped yet (docs/314 §5), wrapper part SKIPs below
+// EA 1.69.47: 0x61B500 / 0x61B5D0, same bytes (docs/51 §588, docs/232 §8.1)
+static const DWORD kVqDelA = TS3A(0x0061A340), kVqDelB = TS3A(0x0061A410);
+#endif
+static const DWORD kAlSite = TS3A(0x00A89696), kAlCopy = TS3A(0x00A89030);  // EA 1.69 mapped (V-604-1); retail rows 0 = untracked
 static const u8 kVqPro[] = {0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x7E, 0x08};  // push esi ; mov esi,ecx ; push edi ; lea edi,[esi+8]
+static const u8 kVoPro[] = {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x70};        // push esi ; mov esi,ecx ; mov ecx,[esi+70h]
 typedef void*(__fastcall* VqDelFn)(u8* self, void* edx, DWORD flags);
-static VqDelFn g_vqOrig[2];
+static VqDelFn g_vqOrig[2], g_voOrig;
+static void(__cdecl* g_vqFree)(void*) = (void(__cdecl*)(void*))(uintptr_t)kVqFree;  // selftest swaps it
 static const DWORD kVqCap = 8192;
 static u8* g_vqPtr[kVqCap];
-static DWORD g_vqTick[kVqCap], g_vqHead, g_vqN, g_vqMs;
+static DWORD g_vqTick[kVqCap], g_vqHead, g_vqN;
 static SRWLOCK g_vqLock = SRWLOCK_INIT;
-static volatile LONG g_vqForced;
-static void VqPush(u8* self) {
-    *(volatile LONG*)(self + 4) = 0x40000000;  // refcount (0xEC17A0 left 1): a late Release never reaches 0
-    u8* due[16];
-    int n = 0;
-    const DWORD now = GetTickCount();
-    AcquireSRWLockExclusive(&g_vqLock);
-    while (g_vqN && n < 16 && (now - g_vqTick[g_vqHead] >= g_vqMs || g_vqN == kVqCap)) {
-        if (g_vqN == kVqCap && InterlockedIncrement(&g_vqForced) == 1) Log("ea fix: VbFreeDelay: queue full (%lu), freeing early", kVqCap);
-        due[n++] = g_vqPtr[g_vqHead], g_vqHead = (g_vqHead + 1) % kVqCap, g_vqN--;
+// frees up to max blocks whose delay is over, outside the lock
+static DWORD VqDrain(DWORD now, DWORD max) {
+    DWORD total = 0;
+    for (;;) {
+        u8* due[64];
+        DWORD n = 0;
+        AcquireSRWLockExclusive(&g_vqLock);
+        while (g_vqN && n < 64 && total + n < max && now - g_vqTick[g_vqHead] >= g_vqMs)
+            due[n++] = g_vqPtr[g_vqHead], g_vqHead = (g_vqHead + 1) % kVqCap, g_vqN--;
+        ts3native_vbdelay.queued = (LONG)g_vqN;
+        ReleaseSRWLockExclusive(&g_vqLock);
+        for (DWORD i = 0; i < n; i++) g_vqFree(due[i]);
+        total += n;
+        if (n < 64 || total >= max) break;
     }
+    if (total) InterlockedExchangeAdd(&ts3native_vbdelay.freed, (LONG)total);
+    return total;
+}
+static void VqPush(u8* self, bool pin) {
+    if (pin) *(volatile LONG*)(self + 4) = 0x40000000;  // refcount (0xEC17A0 left 1): a late Release never reaches 0
+    const DWORD now = GetTickCount();
+    VqDrain(now, 16);
+    u8* early = NULL;
+    AcquireSRWLockExclusive(&g_vqLock);
+    if (g_vqN == kVqCap) early = g_vqPtr[g_vqHead], g_vqHead = (g_vqHead + 1) % kVqCap, g_vqN--;
     const DWORD t = (g_vqHead + g_vqN) % kVqCap;
     g_vqPtr[t] = self, g_vqTick[t] = now, g_vqN++;
+    ts3native_vbdelay.queued = (LONG)g_vqN;
+    if ((LONG)g_vqN > ts3native_vbdelay.hw) ts3native_vbdelay.hw = (LONG)g_vqN;
     ReleaseSRWLockExclusive(&g_vqLock);
-    for (int i = 0; i < n; i++) ((void(__cdecl*)(void*))kVqFree)(due[i]);
+    if (early) {
+        if (InterlockedIncrement(&ts3native_vbdelay.forced) == 1) Log("ea fix: VbFreeDelay: queue full (%lu), freeing early", kVqCap);
+        g_vqFree(early), InterlockedIncrement(&ts3native_vbdelay.freed);
+    }
 }
+#ifndef TS3A_RETAIL
 static void* __fastcall VqDelA(u8* self, void* edx, DWORD flags) {
     void* r = g_vqOrig[0](self, edx, flags & ~1u);
-    if (flags & 1) VqPush(self);
+    if (flags & 1) VqPush(self, true), InterlockedIncrement(&ts3native_vbdelay.wrappers);
     return r;
 }
 static void* __fastcall VqDelB(u8* self, void* edx, DWORD flags) {
     void* r = g_vqOrig[1](self, edx, flags & ~1u);
-    if (flags & 1) VqPush(self);
+    if (flags & 1) VqPush(self, true), InterlockedIncrement(&ts3native_vbdelay.wrappers);
     return r;
+}
+#endif
+static const DWORD kAlCap = 65536;  // live aliases; full = new ones untracked (logged once, wrapper delay still covers 2 s)
+static u8** g_alPtr;               // dense: [alias, wrapper] pairs, swap-remove
+static DWORD g_alN;
+static SRWLOCK g_alLock = SRWLOCK_INIT;
+typedef u8*(__fastcall* AlCopyFn)(u8* self, void* edx, const u8* src);
+static AlCopyFn g_alCopy = (AlCopyFn)(uintptr_t)kAlCopy;  // selftest swaps it
+static u8* __fastcall AlCopyHook(u8* self, void* edx, const u8* src) {
+    u8* r = g_alCopy(self, edx, src);
+    u8* w = *(u8**)(self + 0x70);
+    if (!w || !g_alPtr) return r;
+    AcquireSRWLockExclusive(&g_alLock);
+    if (g_alN < kAlCap) {
+        g_alPtr[2 * g_alN] = self, g_alPtr[2 * g_alN + 1] = w, g_alN++;
+        ts3native_vbdelay.aliases = (LONG)g_alN;
+        if ((LONG)g_alN > ts3native_vbdelay.aliasHw) ts3native_vbdelay.aliasHw = (LONG)g_alN;
+    } else if (InterlockedIncrement(&ts3native_vbdelay.aliasFull) == 1) Log("ea fix: VbOwnerDelay: alias table full (%lu), new aliases untracked", kAlCap);
+    ReleaseSRWLockExclusive(&g_alLock);
+    return r;
+}
+// an alias is deleted: drop it; an owner releases wrapper w: clear +0x70 of its live aliases and drop them
+static void AlOnDelete(u8* self, bool owned, u8* w) {
+    if (!g_alPtr) return;
+    LONG cleared = 0;
+    AcquireSRWLockExclusive(&g_alLock);
+    for (DWORD i = 0; i < g_alN;) {
+        const bool me = g_alPtr[2 * i] == self, share = owned && w && g_alPtr[2 * i + 1] == w;
+        if (!me && !share) { i++; continue; }
+        if (share && !me && *(u8**)(g_alPtr[2 * i] + 0x70) == w) *(u8* volatile*)(g_alPtr[2 * i] + 0x70) = NULL, cleared++;
+        g_alN--, g_alPtr[2 * i] = g_alPtr[2 * g_alN], g_alPtr[2 * i + 1] = g_alPtr[2 * g_alN + 1];
+    }
+    ts3native_vbdelay.aliases = (LONG)g_alN;
+    ReleaseSRWLockExclusive(&g_alLock);
+    if (cleared && InterlockedExchangeAdd(&ts3native_vbdelay.aliasCleared, cleared) == 0)
+        Log("ea fix: VbOwnerDelay: first alias +0x70 cleared (%ld aliases of wrapper 0x%08lX, owner 0x%08lX)", cleared, (DWORD)(uintptr_t)w, (DWORD)(uintptr_t)self);
+}
+static void* __fastcall VoDtor(u8* self, void* edx, DWORD flags) {
+    const bool owned = self[0] == 0;
+    u8* const w0 = *(u8**)(self + 0x70);
+    void* r = g_voOrig(self, edx, flags & ~1u);
+    AlOnDelete(self, owned, w0);
+    if (flags & 1) {
+        const DWORD w = *(volatile DWORD*)(self + 0x70);
+        if (w) *(volatile DWORD*)(self + 0x70) = 0, InterlockedIncrement(&ts3native_vbdelay.ownerZeroed);  // byte +0 != 0: EA kept it
+        VqPush(self, false);
+        if (InterlockedIncrement(&ts3native_vbdelay.owners) == 1)
+            Log("ea fix: VbFreeDelay: first draw owner 0x%08lX delayed (%lu ms; +0x70 was 0x%08lX, now 0)", (DWORD)(uintptr_t)self, g_vqMs, w);
+    }
+    return r;
+}
+// world load / quit (userdiag.cpp, sim thread): every block whose delay is over is freed (the ring otherwise drains only on new deletes)
+static void VqFlush(const char* why) {
+    if (!g_vqMs) return;
+    const DWORD n = VqDrain(GetTickCount(), kVqCap);
+    const LONG f = InterlockedIncrement(&ts3native_vbdelay.flushes);
+    const VbDelayCounters& k = ts3native_vbdelay;
+    if (f <= 50)
+        Log("ea fix: VbFreeDelay flush at %s: %lu freed, %ld still queued; totals: %ld wrappers, %ld owners (%ld +0x70 cleared), %ld freed, "
+            "high water %ld, early %ld", why, n, k.queued, k.wrappers, k.owners, k.ownerZeroed, k.freed, k.hw, k.forced);
 }
 static bool ApplyVbFreeDelay(const wchar_t* ini) {
     g_vqMs = GetPrivateProfileIntW(L"EaCrashFixes", L"VbFreeDelayMs", 0, ini);
     if (!g_vqMs) return false;
     if (g_vqMs > 10000) g_vqMs = 10000;
+#ifndef TS3A_RETAIL
     g_vqOrig[0] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A340", kVqDelA, kVqPro, sizeof(kVqPro), (void*)VqDelA, &g_vqOrig[0]);
     g_vqOrig[1] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A410", kVqDelB, kVqPro, sizeof(kVqPro), (void*)VqDelB, &g_vqOrig[1]);
     const bool ok = g_vqOrig[0] && g_vqOrig[1];
     Log("%s ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed %lu ms after their destructor (late draw 0xA84D00 binds NULL, "
         "not reused memory)", ok ? "OK  " : "PARTIAL", g_vqMs);
-    return ok;
-}
 #else
-static bool ApplyVbFreeDelay(const wchar_t* ini) {  // EA 1.69: the VB wrapper dtor sites are unmapped
-    if (GetPrivateProfileIntW(L"EaCrashFixes", L"VbFreeDelayMs", 0, ini))
-        Log("SKIP ea fix: VbFreeDelay (docs/67 §44): Steam 1.67 only, no EA 1.69 rows: not installed");
-    return false;
-}
+    const bool ok = false;
+    Log("SKIP ea fix: VbFreeDelay (docs/67 §44): VB wrapper dtors not mapped on " TS3A_HOST_NAME ": wrapper part not installed (VbOwnerDelay below still uses the %lu ms ring)", g_vqMs);
 #endif
+    bool own = false;
+    if (!kVoDtor) Log("SKIP ea fix: VbOwnerDelay (docs/67 §44.1): owner dtor not mapped on this exe build");
+    else if (GetPrivateProfileIntW(L"EaCrashFixes", L"VbOwnerDelay", 1, ini)) {
+        g_voOrig = (VqDelFn)InstallDetour("ea fix VbOwnerDelay draw owner dtor 0xA85DF0", kVoDtor, kVoPro, sizeof(kVoPro), (void*)VoDtor, &g_voOrig);
+        own = g_voOrig != NULL;
+        ts3native_vbdelay.ownerOn = own ? 1 : 0;
+        if (own && kAlSite) {
+            g_alPtr = (u8**)VirtualAlloc(NULL, kAlCap * 2 * sizeof(u8*), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+            const CallSite al = {kAlSite, kAlCopy, (void*)AlCopyHook};
+            ts3native_vbdelay.aliasOn = g_alPtr && PatchCalls("ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030", &al, 1) ? 1 : 0;
+            if (!ts3native_vbdelay.aliasOn) Log("ea fix: VbOwnerDelay: aliases not tracked (call site differs or no memory): wrapper delay only for them");
+        } else if (own) Log("ea fix: VbOwnerDelay: aliases not tracked (alias copy site not mapped on this exe build)");
+        Log("%s ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed %lu ms after their destructor, +0x70 cleared "
+            "(late draw 0xA84D00 binds NULL, not a reused owner)", own ? "OK  " : "SKIP", g_vqMs);
+    } else Log("ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)");
+    return ok || own;
+}
 
 static bool ApplyEaCrashFixes(const wchar_t* ini) {
     bool keep = ApplyConformActor(ini);

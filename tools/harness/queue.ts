@@ -307,7 +307,7 @@ import { jsonlRows, queueFile, rowTiming, timingText } from './run-verdict.ts';
 import { loadRun as hitchRun, runIters, toolCosts, toolsOn, withBaseIni } from './hitch-ab.ts';
 import { mergeFile as mergeCallsites } from '../callsite-db.ts';
 import { asiCheck, asiVersion, fixesCheck, loadDb, logVersionCheck, packageTuning, testedBuild, type Build } from '../builds.ts';
-import { COMMUNITY, defaultSpec as vanillaSpec, install as vanillaInstall, mfile as vanillaMf, ourModsSpec, problems as vanillaProblems, restore as vanillaRestore, vanilla as vanillaEnv } from './vanilla.ts';
+import { community, defaultSpec as vanillaSpec, install as vanillaInstall, mfile as vanillaMf, ourModsSpec, problems as vanillaProblems, restore as vanillaRestore, vanilla as vanillaEnv } from './vanilla.ts';
 import { inventory as modInventory, modClash, MOD_SET_RE, scriptAsmLine } from '../mod-set.ts';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: {
@@ -997,6 +997,9 @@ export function lastSave(text: string): { result: number; totalMs: number } | nu
 // age-save.ts "HH:MM:SS saved <name>" -> name (checkpoints <name>-dayN, then the final <name>)
 export const savedName = (line: string) => line.match(/^\d\d:\d\d:\d\d saved (\S+)\s*$/)?.[1] ?? null;
 // nativeRequire: flatDelta (fixes-require.ts, shared with the native_mark / native_check repro steps)
+// logRequire / logForbid text: the early and end checks read the log the same way (utf8: ts3native writes "§" as C2 A7; a latin1
+// read made it "Â§" and the early check missed every "§44" rule, bp-vbowner-correct-1 m1124b 2026-11-24)
+export const ruleLogText = (f: string) => readFileSync(f, 'utf8');
 // logRequire: { "<regex>": min lines } over this job's ts3native.log copy; failed rules as text
 export function logFails(text: string, req: Record<string, number>): string[] {
   return Object.entries(req).flatMap(([re, min]) => { const n = text.split(/\r?\n/).filter(l => new RegExp(re).test(l)).length; return n >= min ? [] : [`log /${re}/ ${n} lines (want >= ${min})`]; });
@@ -2523,6 +2526,13 @@ if (values['self-check']) {
     assert.deepEqual(earlyLogFails(log, req, 'end', '*end'), [], 'job checkAt end: no early check');
     assert.deepEqual(earlyLogFails(log, req, undefined, '["^gcsize: "]'), ['log /^gcsize: / 1 lines (want >= 20) at an expectLog step'], 'named step: full count');
     assert.equal(earlyLogFails(log, req, undefined, '*').length, 2, 'expectLog true: every early rule, full count');
+    { // m1124b vbowner-correct-1: a UTF-8 "§" line read back by the shared reader matches the § rule, a line without "on:" does not
+      const d = mkdtempSync(join(tmpdir(), 'q-rulelog-')), f = join(d, 'ts3native.log'), re = '^crash forensics: VB guard .docs/67 §44. on: release ring 2048';
+      writeFileSync(f, 'crash forensics: VB guard (docs/67 §44) on: release ring 2048, owner delete ring 2048\ncrash forensics: VB guard (docs/67 §44) off\n', 'utf8');
+      assert.deepEqual(earlyLogFails(ruleLogText(f), { [re]: 1 }, undefined, '*end'), [], '§ line matches after the shared read');
+      assert.equal(logFails(ruleLogText(f), { [re]: 2 }).length, 1, 'the "off" line does not match');
+      rmSync(d, { recursive: true, force: true });
+    }
     const pj = (x: object) => parseQueue([{ id: 'n', asi: 'x', save: 'S', logRequire: { a: 1 }, run: { soak: { minutes: 1 } }, ...x }])[0];
     assert.equal(pj({ checkAt: { a: 'end' } }).checkAt!['a' as never], 'end');
     assert.throws(() => pj({ checkAt: { b: 'end' } }), /checkAt \/b\//);
@@ -2810,9 +2820,9 @@ if (values['dry-run']) {
     console.log(`  1 node tools/harness/cycle.ts --restart`);
     if (VANILLA) console.log('  2 vanilla read-back (no *.asi, no ts3native.*, no ts3fixes, agent/wininet/d3d9 sha): a miss FAILs before the game starts; no asi, ini or ts3fixes copy');
     else if (j.ourMods === false) {
-      const miss = COMMUNITY.filter(c => !existsSync(join(BIN, c)));
+      const miss = community().filter(c => !existsSync(join(BIN, c)));
       console.log(`  2 ourMods false: move Bin/ts3native.asi + .ini + .log + autshadow.jsonl, Mods/Packages/ts3fixes*.package, scriptCache.package to ${ourModsSpec().stash} (manifest first, sha read back); no asi, ini or ts3fixes copy`);
-      console.log(`  2 stays loaded: ${COMMUNITY.join(', ')}, the other Mods, ts3agent + ts3-nointro packages, Frida probe${miss.length ? `  ** MISSING: ${miss.join(', ')}: the job refuses **` : ''}`);
+      console.log(`  2 stays loaded: ${community().join(', ')}, the other Mods, ts3agent + ts3-nointro packages, Frida probe${miss.length ? `  ** MISSING: ${miss.join(', ')}: the job refuses **` : ''}`);
       console.log('  8 proof: FAIL if Bin/ts3native.log appears, /native answers, ts3fixes.applied is set or a patches counter rises; moved back + sha read back in every outcome');
     } else {
     console.log(`  2 asi ${j.asi === 'tested' ? 'tested build' : j.asi}${existsSync(a) ? '' : '  ** MISSING: the job refuses before touching the game **'}${staleAsi(j) ? `  ** STALE: ${staleAsi(j)}; the job refuses **` : ''} -> Bin/ts3native.asi`);
@@ -2943,7 +2953,7 @@ function earlyLogGuard(j: Job): (line: string) => string {
   return line => {
     const m = line.match(CHECKPOINT_RE);
     if (!m) return '';
-    let text = ''; try { text = readFileSync(LOG, 'latin1'); } catch { return ''; } // no log: the end check names it
+    let text = ''; try { text = ruleLogText(LOG); } catch { return ''; } // no log: the end check names it
     const fails = earlyLogFails(text, j.logRequire!, j.checkAt, m[1]);
     return fails.length ? `FAIL early: ${fails.join('; ')}` : '';
   };
@@ -3574,10 +3584,10 @@ for (const [n, j] of jobs.entries()) {
       if (vp.length) throw new Error(`vanilla read-back: ${vp.join('; ')}; refused before the game started`);
     } else if (j.ourMods === false) { // after --restart, which installs build/ts3fixes.package; install read-back failing leaves the manifest for restoreStart
       if (gameRunning()) throw new Error(`ourMods false: ${GAME_EXE} still running, nothing moved`);
-      const miss = COMMUNITY.filter(c => !existsSync(join(BIN, c)));
+      const miss = community().filter(c => !existsSync(join(BIN, c)));
       if (miss.length) throw new Error(`ourMods false: community file ${miss.join(', ')} missing from Bin; refused before the game started`);
       const m = vanillaInstall(ourModsSpec());
-      row.ourMods = { removed: m.entries.map(e => e.rel), kept: [...COMMUNITY, 'other Mods', 'ts3agent.package', 'ts3-nointro.package', 'Frida probe'], na: OURMODS_NA };
+      row.ourMods = { removed: m.entries.map(e => e.rel), kept: [...community(), 'other Mods', 'ts3agent.package', 'ts3-nointro.package', 'Frida probe'], na: OURMODS_NA };
       log(`${j.id}: ourMods false: ${row.ourMods.removed.join(', ')} moved to ${ourModsSpec().stash}, read back ok`);
     } else {
     installFixesPackage(j);
@@ -4024,7 +4034,7 @@ for (const [n, j] of jobs.entries()) {
   const logGone = (j.logRequire || j.logForbid) && !(row.nativeLog && existsSync(row.nativeLog));
   // log rules read every copy of the job: a save matrix restarts the game for its reloads, and the final copy only has the last
   // load (2026-11-04: the matrix phase's verdict lines were in the -matrix- copy and the rule saw 0)
-  const ruleLog = (j.logRequire || j.logForbid) ? ruleLogs(row).map(f => readFileSync(f, 'utf8')).join('\n') : '';
+  const ruleLog = (j.logRequire || j.logForbid) ? ruleLogs(row).map(ruleLogText).join('\n') : '';
   if (logGone) { row.verdict.push('FAIL: UNKNOWN: no ts3native.log copy, log rules not checked'); row.pass = false; } // docs/236: absent log is not "no lines"
   if (j.nativeRequire || j.logRequire) {
     const fails = [...(j.nativeRequire ? checkRequire(j.nativeRequire, row.nativeDelta) : []),

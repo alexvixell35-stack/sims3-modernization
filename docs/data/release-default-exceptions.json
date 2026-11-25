@@ -8,6 +8,22 @@
     {
       "key": "AutShadow.Races",
       "reason": "v0.3.0: 4 -> 7 adds bits 0+1 (cache warm-up after a world load + unchanged check) to the shipped bit 2; bit 2 stays on (Rodney 2026-11-13, release plan N11). Not a value drop."
+    },
+    {
+      "key": "RouteAsync.KdOwnPlanFromPointMs",
+      "reason": "v0.3.2: 250 -> 0 with [RouteAsync] Kinds=2 (routableasync, PR #589 family): a cut routableasync job answers not routable and SpotVerdict caches that cell for a sim-day, so own PlanFromPoint jobs are never cut (docs/584 §3). Not a feature drop."
+    },
+    {
+      "key": "RouteSnap.DoorMemoX",
+      "reason": "v0.3.2: v0.3.0 and v0.3.1 shipped -1 (off, privacy-door wrong answer); master 3 after the fix (docs/585 §9, DoorMemoX verify). -1 reads as non-zero here; it was off in the release."
+    },
+    {
+      "key": "MonoJit.CodeKB",
+      "reason": "v0.3.2: 8192 -> 12288, a larger compiled-code table (raised, not dropped)."
+    },
+    {
+      "key": "MonoJit.MaxMethods",
+      "reason": "v0.3.2: 4096 -> 8192, a larger compiled-method table (raised, not dropped)."
     }
   ]
 }

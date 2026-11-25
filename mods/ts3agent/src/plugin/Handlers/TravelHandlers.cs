@@ -727,12 +727,35 @@ namespace Ts3Agent
             return d != null ? d.Count : 0;
         }
 
+        // Where EA's return flow stands while in_travel stays true (2026-11-24 EA BP stall: Pause, no sub-state, in_travel
+        // true after the home load). InWorldState.Startup runs ImportTravellingHousehold, then creates mPostWorldInitializers,
+        // then PostTravelingFixUp clears the travel flag; its body is one try / catch (Exception) {}, so a throw or a wait there
+        // leaves no sub-state and no script error. travel_phase = GameStates.sTravelData.mState (null: no travel data);
+        // inworld_post_init = Startup got past ImportTravellingHousehold. EA privates by reflection: "?" when a name is missing.
+        static void TravelInternals(Dictionary<string, object> r)
+        {
+            const BindingFlags kF = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
+            try
+            {
+                FieldInfo td = typeof(GameStates).GetField("sTravelData", kF);
+                object d = td != null ? td.GetValue(null) : null;
+                FieldInfo st = d != null ? d.GetType().GetField("mState", kF) : null;
+                r["travel_phase"] = td == null ? "?" : d == null ? null : st != null ? st.GetValue(d).ToString() : "?";
+                FieldInfo si = typeof(GameStates).GetField("sSingleton", kF), iw = typeof(GameStates).GetField("mInWorldState", kF);
+                object gs = si != null ? si.GetValue(null) : null, w = gs != null && iw != null ? iw.GetValue(gs) : null;
+                FieldInfo pi = w != null ? w.GetType().GetField("mPostWorldInitializers", kF) : null;
+                r["inworld_post_init"] = w == null ? null : pi != null ? (object)(pi.GetValue(w) != null) : "?";
+            }
+            catch (Exception e) { r["travel_phase"] = "error: " + e.Message; }
+        }
+
         // travel_state: where the game is and how the trip stands; readable during most of a switch (check in_travel).
         static object TravelState(Args a)
         {
             Dictionary<string, object> r = Util.Obj();
             r["in_world"] = GameStates.IsInWorld();
             r["in_travel"] = GameStates.IsTravelling;
+            TravelInternals(r);
             r["world"] = GameUtils.GetCurrentWorld().ToString();
             r["world_type"] = GameUtils.GetCurrentWorldType().ToString();
             r["world_file"] = World.GetWorldFileName();

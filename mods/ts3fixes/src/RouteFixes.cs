@@ -225,6 +225,8 @@ namespace Ts3Fixes
                 uint wait = (uint)SimClock.ConvertToTicks(kWatchMinutes, TimeUnit.Minutes);
                 while (true)
                 {
+                    // docs/205 §2.3c: no scan while paused, clock stopped or out of live mode (the first wake after a load, Edit Town)
+                    if (SimFrozenOrNotLive()) { PatchCounters()[1735]++; Simulator.Sleep(0); continue; }
                     // docs/622 §4 stuckwatchscan: both passes walk one world scan (Check resets or fades, it destroys nothing, and
                     // no yield runs between the two; destroyed Sims are skipped in the shared one) and reuse their dictionaries.
                     bool shared = ShortcutOn("stuckwatchscan");

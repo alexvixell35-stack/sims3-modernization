@@ -281,7 +281,9 @@ namespace Ts3Fixes
         // the queued sweep; the hourly call in VehicleLeaks.cs runs BtSweep directly and must not clear the queued flag
         static void BtSweepTask()
         {
+            SfWait(1742);  // docs/205 §2.3c: runs on the next unpaused live frame (the queued flag stays set while it waits)
             sBtSweepQueued = false;
+            if (SfLeaving()) return;
             BtSweep();
         }
 

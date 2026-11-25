@@ -59,7 +59,7 @@ namespace Ts3Fixes
                 RabbitHole hospital = RabbitHole.GetClosestRabbitHoleOfType(RabbitHoleType.Hospital, mom.Position);
                 if (ctor == null || single == null || bf == null || hospital == null) { r["error"] = "CreateDonorBaby constructor / HaveBabyHospitalDonor / a hospital not found"; return r; }
                 Pregnancy p = (Pregnancy)ctor.Invoke(new object[] { mom, donors[0].SimDescription, donors[0].SimDescription, donors[1].SimDescription });
-                mom.SimDescription.Pregnancy = p;
+                DdSetPregnancy(mom.SimDescription, p); // noted for deadrefdescrev (docs/336 §11)
                 mom.InteractionQueue.CancelAllInteractions();
                 sBmrMom = mom; sBmrCancels = 0; sBmr2469 = PatchCounters()[2469]; sBmrStart = SimClock.CurrentTicks;
                 // the first birth as the mod queues it (its HaveTheBaby is protected), ended at once: the mod's own Cleanup arms

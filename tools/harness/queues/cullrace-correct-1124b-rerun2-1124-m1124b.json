@@ -1,0 +1,91 @@
+{
+ "note": "m1124b repin (2026-11-24, merge/m1124b): pinned to master set m1124b (0.36.303-m1124b). On m1124b the asi also logs SKIP (not FAIL) for route gate closures when [RouteAsync] Enabled=0 (f5ecd4583); the arm sets Enforce=0 anyway. [previous] RERUN1 of cullrace-correct-1124b-rest2-1124-m1124 job ip-cullrace-async-off (VOID 14:26 PHT): arm set [RouteAsync] Enabled=0 but kept the m1124 default [RouteGate] Enforce=1, so rtsites.cpp logged FAIL route gate closures (async ready 0) and hookFailLine voided the run; CullDrainWait was not set and ran at the m1124 default 1 (log: CullDrainWait 1), which also broke @crOn==11. Now RouteGate.Enforce=0, EaCrashFixes.CullDrainWait=0. Same pins (m1124). m1124 repin (2026-11-24, merge/rc-1124): copy of cullrace-correct-1124b-rest2-1124.json pinned to master set m1124 (0.36.301-m1124); version read-backs and their regexCases moved to 0.36.301-m1124. [previous] RERUN1 of cullrace-correct-1124b: agent.js now names the v221-v225 counters (@crOn was read as missing), smoke sets lighting 1 / reflections 0 so multithreaded cull (+0x28F) is on. cullrace-correct-1124b on cullrace2 (crRace = job state 4 only; same jobs as cullrace-correct-1124 which stays on cullrace1).  (PREPARED, NOT RUN; correctness + repro, no timing, noiseCheck false; Apex latest + RTX Remix bridge: Bin state apex via tools/turbo-compat.ts snapshot -> state apex -> restore). docs/338: suspected EA scene-list race (v0.3.1 EA 1.69 crash at the drain 0x6E4720). Build ts3native 0.36.299-cullrace2 (m1123c + [CrashForensics] CullRaceWatch=1 default, [EaCrashFixes] CullDrainWait=0 default). 1) bp-cullrace-smoke: BP 10 min, release defaults, switch read-back crOn=11 (watch + cull thread record + drain hook), version line, scriptErrorsMax 0; the first-drain line says whether multithreaded cull (+0x28F) is on (0 = no race possible: stop and tell Rodney). 2-3) IP with lighting 1 / reflections 0 (optionsIni, put back after the job), repro ip-cullrace-pan (30 Sims + far Go Here + 9 min of camera pans), RouteAsync on vs off; early gate stops at the first crBadIdx hit (crRace, state 4 only, is not gated: EA saw ~590 overlaps in 4 jobs with no crash) (that FAIL is the repro). 4) the same with CullDrainWait=1: no crash, crBadIdx 0, cost from cdwWaitUs. Household: renderer only, no Sim state written, household results equal vanilla by construction; the repro moves no household Sim (crowd_go household false). | 11-24 09:30: +0x28F reads 0 on Steam+Apex at lighting 1 yet 109 RACE lines (job 318 state 4 on another tid): flag not the gate, rule accepts 0 or 1. | 11-24 09:30: +0x28F reads 0 on Steam+Apex at lighting 1, yet the smoke logged 109 RACE lines (job 318 state 4 on another tid): the flag is not the gate; rule accepts 0 or 1. | 11-24 09:30: +0x28F reads 0 on Steam+Apex at lighting 1, yet the smoke logged 109 RACE lines (job 318 state 4 on another tid): the flag is not the gate; rule accepts 0 or 1. | REST of rerun1 after the 11-24 smoke PASS (paused at the 80% AI line).",
+ "stopQueueOnFail": false,
+ "rewind": "off",
+ "jobs": [
+  {
+   "id": "ip-cullrace-async-off",
+   "note": "[est 15 min] IP, lightingquality 1, generalreflections 0, repro ip-cullrace-pan ~9 min, [RouteAsync] Enabled=0, CullDrainWait=0 (set explicitly: m1124 default is 1), [RouteGate] Enforce=0 (Enforce=1 without async logs \"FAIL route gate closures\" and the harness voids the run). A BADIDX early-gate FAIL or a crash at 0x6E4735 IS the repro: read the cullrace: line (draw tid, cull tid, sim tid, job state). ",
+   "asi": "game-copy/ts3native.asi.m1124b",
+   "iniBase": "game-copy/ts3native.ini.m1124b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124b",
+   "pinReason": "master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay",
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "minCounters": 1,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "optionsIni": {
+    "options.lightingquality": 1,
+    "options.generalreflections": 0
+   },
+   "timeoutMin": 30,
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-m1124b ": 1,
+    "^OK   cull race: drain site hooked": 1,
+    "^cullrace: first DrawScene drain on tid [0-9]+, multithreaded cull \\(\\+0x28F\\) [01]": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.303-m1124b ": {
+     "match": [
+      "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+      "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+      "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+      "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+     ]
+    },
+    "^OK   cull race: drain site hooked": {
+     "match": [
+      "OK   cull race: drain site hooked, watch 1 (cull thread recorded), CullDrainWait 0, log every 64"
+     ],
+     "noMatch": [
+      "SKIP cull race drain 0x6F401B: call at 0x006F401B is not a call to 0x006E4720, nothing written"
+     ]
+    },
+    "^cullrace: first DrawScene drain on tid [0-9]+, multithreaded cull \\(\\+0x28F\\) [01]": {
+     "match": [
+      "cullrace: first DrawScene drain on tid 1234, multithreaded cull (+0x28F) 1, shadow 0, reflection 0, shadow2 0",
+      "cullrace: first DrawScene drain on tid 1234, multithreaded cull (+0x28F) 0, shadow 0, reflection 0, shadow2 0"
+     ],
+     "noMatch": [
+      "cullrace: first DrawScene drain on tid 1234, multithreaded cull (+0x28F) 2, shadow 0"
+     ]
+    }
+   },
+   "nativeRequire": "@crOn==11,crDrains>=1000",
+   "earlyGates": [
+    {
+     "afterSec": 5,
+     "counter": "crBadIdx",
+     "op": "==",
+     "value": 0,
+     "why": "bad index in the scene drain list (cullrace: BADIDX line)"
+    }
+   ],
+   "report": [
+    "cr",
+    "cdw"
+   ],
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "repro": "ip-cullrace-pan",
+     "noSamplers": true
+    }
+   },
+   "ini": {
+    "Crash.Log": 1,
+    "RouteAsync.Enabled": 0,
+    "RouteGate.Enforce": 0,
+    "EaCrashFixes.CullDrainWait": 0
+   }
+  }
+ ],
+ "regexCases": {}
+}

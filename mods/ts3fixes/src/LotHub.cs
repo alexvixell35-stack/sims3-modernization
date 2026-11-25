@@ -34,6 +34,46 @@ namespace Ts3Fixes
             LotHubCore.World(true);
             if (!sLhModeHooked) { InWorldState.InWorldSubStateChanging += LhModeChanging; sLhModeHooked = true; }
             LhEnsureTask();
+            // docs/321 §11.3: the shared game-state gate. Only when a native consumer asks (op 49 sub 6, e.g. [LaneA]
+            // GhostSweepLot): one task per world pushes the state on each change; no consumer = no task.
+            if (sLhNative && DiagSend(kLhOp, 0, 6)) Simulator.AddObject(new SsTask(++sSsGen));
+        }
+
+        static int sSsGen;
+        // SS_* in lotstream.cpp: 1 live, 2 paused, 3 CAS, 4 Build/Buy, 5 Edit Town, 6 travel (0 unknown = native default)
+        static uint SsState()
+        {
+            if (GameStates.IsTravelling || GameStates.IsWorldShuttingDown || GameStates.IsGameShuttingDown) return 6;
+            if (GameStates.IsCasState) return 3;
+            if (GameStates.IsEditTownState) return 5;
+            if (GameStates.IsBuildBuyLikeState) return 4;
+            if (!GameStates.IsLiveState) return 0;
+            if (Sims3.Gameplay.Gameflow.CurrentGameSpeed == Sims3.SimIFace.Gameflow.GameSpeed.Pause) return 2;
+            return 1;
+        }
+
+        class SsTask : Task
+        {
+            readonly int mGen;
+            public SsTask(int gen) { mGen = gen; }
+            public override void Simulate()
+            {
+                uint last = 0xFF;
+                int next = 0;
+                while (mGen == sSsGen && !GameStates.IsWorldShuttingDown)
+                {
+                    try
+                    {
+                        // on each change, else every 500 ms: native treats a push older than 2 s as not live (a stopped task)
+                        uint s = SsState();
+                        int now = System.Environment.TickCount;
+                        if ((s != last || now - next >= 0) && DiagSend(kLhOp, 0, (ushort)(5 | s << 8))) { last = s; next = now + 500; }
+                    }
+                    catch (Exception) { LotHubCore.Faults++; }
+                    Simulator.Sleep(0);  // every frame, also while paused
+                }
+                if (mGen == sSsGen) DiagSend(kLhOp, 0, 5);  // unknown: nothing of ours runs until the next world pushes again
+            }
         }
 
         // Every in-world mode change (Edit Town, CAS, Build / Buy and back): on the way back to live mode the task is re-armed
@@ -47,6 +87,7 @@ namespace Ts3Fixes
         {
             sLhWorld = false;
             sLhTaskGen++;  // the running task ends
+            sSsGen++;      // so does the state task (native resets to unknown at world quit)
             sLhTaskOn = false;
             if (sLhModeHooked) { InWorldState.InWorldSubStateChanging -= LhModeChanging; sLhModeHooked = false; }
             LotHubCore.World(false);

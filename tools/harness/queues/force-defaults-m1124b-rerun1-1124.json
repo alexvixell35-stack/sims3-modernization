@@ -1,0 +1,154 @@
+{
+ "note": "force-defaults-m1124b-rerun1-1124 (2026-11-24): rerun of force-defaults-m1124b, same pins (0.36.303-m1124b). lineswitch-force FAILed in 3.2 min: the Bunches were not at home at 20:00 on Baseline-SV-Spring, @type:ToiletCheap (nearest the selected Sim) was \"Bargain John\" with an empty menu, do_interaction use failed; reactoverlay-force never ran (stopQueueOnFail). Fix bugfix/lineswitch-defaults-home-1124: setup_sims teleports Jack, Lisa, Judy home next to their ToiletCheap; end mustMatch wanted switched>=1 (the hh-on arm), now switched 0 + kept>=1. Both jobs.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {},
+ "jobs": [
+  {
+   "id": "lineswitch-force",
+   "note": "[est 12 min] Release defaults (no ini or switch overrides; only the repro's log switches): kLineSwitch on, kLineSwitchHh off, read back in the ts3fixes settings line. Repro lineswitch-force-defaults: the forced case is a household Sim, so the exemption must hold and the switch must still see it (counters lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1). 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1124b",
+   "iniBase": "game-copy/ts3native.ini.m1124b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124b",
+   "pinReason": "master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "stopQueueOnFail": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-m1124b ": 1,
+    "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": 1,
+    "^lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": 1
+   },
+   "save": "Baseline-SV-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 5,
+     "repro": "lineswitch-force-defaults",
+     "fixesRequire": "lineswitch_kept>=1,lineswitch_switched<1,lineswitch_errors<1"
+    }
+   },
+   "timeoutMin": 20,
+   "regexCases": {
+    "^ts3native 0\\.36\\.303-m1124b ": {
+     "match": [
+      "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+      "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+      "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+      "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kLineSwitch(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kLineSwitch, kZzz",
+      "ts3fixes: settings on: kLineSwitch"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kLineSwitchHh, kZzz",
+      "ts3fixes: settings on: kLineSwitchLog",
+      "ts3fixes: settings off: kLineSwitch"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kLineSwitchHh, kZzz",
+      "ts3fixes: settings on: kLineSwitchHh"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kLineSwitchHhHh, kZzz",
+      "ts3fixes: settings on: kLineSwitchHhLog",
+      "ts3fixes: settings off: kLineSwitchHh"
+     ]
+    },
+    "^lineswitch: kept, household without lineswitchhh: household Judy Bunch, ": {
+     "match": [
+      "lineswitch: kept, household without lineswitchhh: household Judy Bunch, UseToilet ToiletCheap, waited 4.9 sim-min"
+     ],
+     "noMatch": [
+      "lineswitch: switched: household Judy Bunch, UseToilet ToiletCheap -> ToiletModerate (other room, 8.7 m, waited 2.0 sim-min)",
+      "lineswitch: kept, player's action: household Lisa Bunch, UseToilet ToiletCheap, waited 2.1 sim-min"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "logForbid": {
+    "^ts3fixes: settings on: (.*, )?kLineSwitchHh(, |$)": 0
+   }
+  },
+  {
+   "id": "reactoverlay-force",
+   "note": "[est 12 min] Release defaults (no ini or switch overrides; only the repro's log switches): kReactOverlay on, kReactOverlayHh off, read back in the ts3fixes settings line. Repro reactoverlay-force-defaults: the forced case is a household Sim, so the exemption must hold and the switch must still see it (counters reactoverlay_queued>=1,reactoverlay_now<1,reactoverlay_later<1,reactoverlay_dropped<1,reactoverlay_errors<1). 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1124b",
+   "iniBase": "game-copy/ts3native.ini.m1124b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124b",
+   "pinReason": "master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "stopQueueOnFail": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-m1124b ": 1,
+    "^ts3fixes: settings on: (.*, )?kReactOverlay(, |$)": 1
+   },
+   "save": "Baseline-SV-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 5,
+     "repro": "reactoverlay-force-defaults",
+     "fixesRequire": "reactoverlay_queued>=1,reactoverlay_now<1,reactoverlay_later<1,reactoverlay_dropped<1,reactoverlay_errors<1"
+    }
+   },
+   "timeoutMin": 20,
+   "regexCases": {
+    "^ts3native 0\\.36\\.303-m1124b ": {
+     "match": [
+      "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+      "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+      "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+      "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kReactOverlay(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kReactOverlay, kZzz",
+      "ts3fixes: settings on: kReactOverlay"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kReactOverlayHh, kZzz",
+      "ts3fixes: settings on: kReactOverlayLog",
+      "ts3fixes: settings off: kReactOverlay"
+     ]
+    },
+    "^ts3fixes: settings on: (.*, )?kReactOverlayHh(, |$)": {
+     "match": [
+      "ts3fixes: settings on: kAgeUpAbort, kReactOverlayHh, kZzz",
+      "ts3fixes: settings on: kReactOverlayHh"
+     ],
+     "noMatch": [
+      "ts3fixes: settings on: kReactOverlayHhHh, kZzz",
+      "ts3fixes: settings on: kReactOverlayHhLog",
+      "ts3fixes: settings off: kReactOverlayHh"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "logForbid": {
+    "^ts3fixes: settings on: (.*, )?kReactOverlayHh(, |$)": 0
+   }
+  }
+ ]
+}

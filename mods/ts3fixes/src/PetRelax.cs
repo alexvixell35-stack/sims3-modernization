@@ -102,7 +102,8 @@ namespace Ts3Fixes
         {
             sPrxMissing = "";
             if (!Patch(typeof(PetSurfacePosture.LayDownHere), "Run", Type.EmptyTypes, typeof(PrxLieHook), "RunHook", "RunOrig")) sPrxMissing = "PetSurfacePosture.LayDownHere.Run";
-            if (!Patch(typeof(SimRoutingComponent), "DoRoute", new Type[] { typeof(Route) }, typeof(PrxRouteHook), "RouteHook", "RouteOrig")) sPrxMissing = (sPrxMissing + " SimRoutingComponent.DoRoute").Trim();
+            // the DoRoute step (PrxPlanFailed) runs in ApplyBlockedUse's hook, the only DoRoute hook (issue #92, docs/130 §11)
+            if (sBuMissing.IndexOf("SimRoutingComponent.DoRoute", StringComparison.Ordinal) >= 0) sPrxMissing = (sPrxMissing + " SimRoutingComponent.DoRoute").Trim();
             if (sShlMissing.IndexOf("HandleEventEncounteredObstacles", StringComparison.Ordinal) >= 0 || sSpsSim == null || sSpsAction == null)
                 sPrxMissing = (sPrxMissing + " obstacle event (sharelanes hooks)").Trim();
             if (sClwMissing.Length > 0) sPrxMissing = (sPrxMissing + " waits (clipwait hooks)").Trim();
@@ -434,19 +435,6 @@ namespace Ts3Fixes
             }
             if (waited) sPrxPlanStill++;
             return false;
-        }
-
-        // `this` is the game's SimRoutingComponent. Kept this small on purpose: a Sim saved mid-route has a frame in it,
-        // and a build that changes its IL resets those Sims once at the first load (docs/242 §2). One swap per method:
-        // a branch that brings another DoRoute hook (blockeduse) calls PrxPlanFailed from its failed-plan step instead.
-        public class PrxRouteHook : SimRoutingComponent
-        {
-            public bool RouteHook(Route r)
-            {
-                if (r != null && r.PlanResult.mType != RoutePlanResultType.Succeeded) PrxPlanFailed(OwnerSim, r);
-                return RouteOrig(r);
-            }
-            public bool RouteOrig(Route r) { return false; }  // receives DoRoute's original body
         }
 
         // ---- 3. not on a lane end ---------------------------------------------------------------------------------------

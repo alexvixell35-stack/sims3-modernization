@@ -2,47 +2,68 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
-## Unreleased
+## v0.3.2 (2026-11-25, maintenance release)
 
-Maintenance release: mostly fixes for stuck Sims, crashes and mod compatibility, plus a smaller per-tick cost of our own script fixes.
+A maintenance release on top of v0.3.1: mostly fixes for stuck Sims, crashes and mod compatibility, plus many fixes for Sims you do not control (townies, pets, boats, firefighters). Sims you play keep the game's own behavior. There is no new overall speed number in this release: no timing run was made for it, so the v0.3.1 table in the README stands. Everything from v0.3.0 and v0.3.1 stays.
 
-Credit: Dalexlol (PRs #637, #638, #639, #640, #643, #644). New fixes, all on by default except where noted:
+### Download
 
-- Firefighter emergencies end when their last rescue or window-fire task cannot be done any more (`fireleftover`).
-- Earthquake gas leaks and ghost-hunter spirit hops no longer pick spots inside hidden apartment units (`aptgasleak`, `aptpossess`).
-- A large fire no longer unlocks every door on the lot; door locks the job did not set come back (`firedoorkeep`).
-- Sims playing horseshoes alone are sent on their way after 2 sim-hours, and lost players leave the court's queue (`horseshoesolo`; Sims you control are never cut).
-- Burglars on apartment lots no longer go for loot nobody can reach (`burglarapt`).
-- Sims standing on a ladder's ends are asked to step aside when a plan needs the ladder (`ladderfootshoo`; for household and selected Sims `ladderfootshoohh` stays off).
+- `ts3native-v0.3.2.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both. The log shows `ts3native 0.36.305-m1124d`.
+- `ts3native-ea169-v0.3.2.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3fixes.package` (sha256 starts `f7c58a9c`): replace the v0.3.1 file.
+- Same setup as before (Apex Radiance with its RTX Remix bridge recommended), and nothing of ours is written into your save.
 
-By Dalexlol and twopointjj (PRs #645, #646, #647, #648, #649, #650, #653). On by default except where noted:
+### Fixed
 
-- Firefighter emergencies no longer abort on two EA script errors (a pregnant firefighter on the lot at setup, and a second one), and the "free N Sims" count only counts real rescues (`firenre`, `firecount`).
-- Make Simbot shows on the invention workbench in every world, not only outside Bridgeport (`simbotworld`).
-- A Sim whose toilet, shower or other object is boxed in by furniture walks up and uses it instead of failing the route (`blockeduse`).
-- Making a double bed makes both halves (`makebedboth`).
-- NPC Sims share narrow lanes, ladders and spiral stairs instead of waiting one by one (`sharelanes`, `laddershare`, `spiralshare`).
-- Off by default: the household variants, `simpass`, `angleentry`, the stand-and-wait fix and the empty-notification diagnostic (`blanktns`, experimental only).
+- **A rare crash while drawing the scene.** The game's main-view job could still be adding to a list the renderer was already reading. The renderer now waits for that job first, as the game's other draw passes already do.
+- **Freed draw data in Buy mode.** The game could draw a deleted object with memory that was already freed. Freeing is now delayed by two seconds, and the object that owned the draw is kept as long. Tested on Steam and on the EA app with repeated Buy-mode deletes; this is a different guard from the one in v0.3.1, so a rare Buy-mode crash on Apex Radiance may still happen.
+- **One broken script mod no longer breaks the rest.** An add-on installed without its base mod used to stop tuning and start-up for every script mod loaded after it. The log now names the broken mod and the missing file.
+- **Background tidy-ups wait while the game is paused,** while the clock is stopped, and in Buy, Build and Create-a-Sim. They used to keep working then.
+- **A faster door check is on again,** with the wrong answer on lots with privacy doors fixed. It keeps an answer only when the script fixes vouched for it.
+- A Sim deleted while waiting to leave a jungle gym no longer stays on our waiting list.
+- Fewer script frames on the route and rabbit hole path (a rare script stack overflow). Built and tested offline; not yet confirmed in the game.
 
-By Dalexlol and twopointjj (PRs #625, #651, #652, #654, #655, #656, #657, #658, #659, #672, #680, #681). On by default except where noted:
+### Sims you do not control
 
-- A Sim who changes clothes waits less: the outfit job that is ready is built first (`[OutfitFirst]` Mode 2; the same jobs, only the order changes).
-- NPC pets and Sims walk through a lying pet or each other instead of waiting at a one-tile corridor (`petrelax`).
-- Chores whose spot is closed (a trash pile behind a door, a puddle ringed by furniture) are done from within reach (`reachuse`).
-- NPC Sims share a rabbit hole door and a serving platter instead of queuing one by one, and the last serving is taken once (`rhshare`, `servingshare`).
-- Partners shower together, and a Sim with no usable toilet takes a shower instead of wetting themselves (`showertogether`, `showerpee`).
-- Contemplating, viewing and watching no longer show a route-fail balloon (`viewlenient`); boxed-in Sims walk out and talk socials work from a distance (`unstuck`, `socialreach`); crowded elevators and rabbit hole doors are skipped (`crowdport`).
-- Unseen NPC pets on long trips are placed at their goal; generated NPC boats stop being refused as "owned" (`petlonghome`, `petlongvisit`, `unseenboatgenboat`).
-- The water plan's jump-point search runs from a table: boats and swimming cost less planner time (`[WorldPrecompute] WaterScanTable`).
-- Off by default: WooHoo partners and paired socials snapped onto their spots (`woohoosnap`, `pairsnap`), and the household variants of all of the above.
+Fixes by Dalexlol (PRs #478 to #592, #605 to #618, #622, #623, #632) unless noted. Each was tested by him in soak runs and repros; our side only checked that they are exact for your household. On by default:
 
-Our fixes:
+- Townies you cannot see: drive off and park without long walks, enter rabbit holes without the trip, arrive at visits and community lots at once, skip repeated safe-spot searches, snap to the planned lane or trip end, choose a nearer community lot, and relax a failed plan instead of looping.
+- Boats: boat trips, placing and unsticking boats, houseboat gangway rescue and a cap on endless boat roaming.
+- Spawn and festival fixes: crowd spawning no longer runs useless handler calls, and festival objects skip needless work.
+- Smaller script costs: bouncers, unseen townies' outfit changes, the autonomy fail cooldown and a few checks cost less per tick.
+- Routing: a short cut for stalled routes of unseen Sims on the worker thread.
+- A rare crash when a Sim's slave object is removed in the middle of a call is stopped.
 
-- A broken script mod (an add-on installed without its base mod) no longer stops tuning and startup for every script mod loaded after it; the log names the broken mod and the missing assembly (`[IlPatch] ilp_tuneisolate`, on by default).
-- Groundwork for cheaper per-lot upkeep in big worlds: the game keeps a lot change count and a world-change event as lots stream in and out (`[LotHub]`, on; no gameplay change).
-- Our script fixes can be told when a lot loads or unloads and when the world changes, instead of scanning for it every pass (CP-2 lot hook, on; armed only when a fix subscribes).
-- A Sim deleted while waiting to leave a jungle gym no longer stays on our waiting list until the next alarm or world quit (`kJungleGymExitQueue`, on).
-- Fixed a rare crash while drawing the scene: EA's main-view cull job could still be adding to a list the renderer was already reading; the renderer now waits for that job first, as EA's other draw passes do (`[EaCrashFixes] CullDrainWait`, on by default; `[CrashForensics] CullRaceWatch` logs the race).
+### More fixes by Dalexlol and twopointjj
+
+PRs #625, #637 to #659, #672, #680, #681, #715, #716. On by default except where noted:
+
+- Firefighter emergencies end when their last rescue cannot be done, no longer abort on two game errors, and the "free N Sims" count only counts real rescues. A large fire no longer unlocks every door on the lot.
+- Earthquake gas leaks, ghost-hunter spirit hops and burglars no longer pick spots inside hidden apartment units or loot nobody can reach.
+- Sims playing horseshoes alone are sent on their way after 2 sim-hours. Sims standing on a ladder's ends are asked to step aside. NPC Sims share narrow lanes, ladders, spiral stairs, rabbit hole doors and serving platters instead of waiting one by one.
+- A Sim whose object is boxed in by furniture walks up and uses it. Chores whose spot is closed are done from within reach. Contemplating, viewing and watching no longer show a route-fail balloon. Boxed-in Sims walk out and talk socials work from a distance.
+- Making a double bed makes both halves. Partners shower together, and a Sim with no usable toilet takes a shower instead of wetting themselves. Make Simbot shows on the workbench in every world.
+- A Sim waiting in a toilet, sink, shower or bath line uses a free twin object of the lot (NPC Sims only).
+- A busy NPC Sim reacts to a social at once instead of after its action.
+- A Sim who changes clothes waits less: the ready outfit job is built first.
+- NPC pets walk through a lying pet instead of waiting; unseen pets on long trips are placed at their goal; generated NPC boats are no longer refused as owned. Boats and swimming cost less planner time.
+- Off by default: the household variants of all of the above, WooHoo and paired-social snapping, and a few experimental diagnostics.
+
+### Also
+
+- Far-view pictures of lots refresh in a queue when the season changes, instead of all at once (rare-case fix, checked in a before/after run).
+- Groundwork for cheaper upkeep in big worlds: the game keeps a lot change count and a world-change event as lots stream in and out. No gameplay change.
+- A bigger table for compiled script methods, so heavy mod setups stay compiled longer.
+- EA app: more of the Steam fixes now run on 1.69.47 (route and compiler groups, tuning isolation).
+
+### Known issues
+
+- Apex Radiance 4.1.0: a lamp-related crash is fixed on the Apex side (Apex pull requests #153 and #154, not ours). Update Apex if you see it.
+- Everything listed under v0.3.0's and v0.3.1's known issues still applies.
+
+### Tested
+
+Steam 1.67 with Apex Radiance and its RTX Remix bridge, on the exact files above: a Bridgeport smoke test (passed, 7.1 minutes, no script errors), the door-memo and Buy-mode delete checks, and the stuck-Sim checks. EA app 1.69.47 (laptop run): Buy-mode deletes 6 of 6, the release checks, venue clocks 2 of 2. Some EA runs ended in game or harness failures that are not in the code above and are listed in `docs/release-notes/v0.3.2-dev.md`. We do not publish new speed numbers for this release.
 
 ## v0.3.1 (2026-11-21, hotfix)
 

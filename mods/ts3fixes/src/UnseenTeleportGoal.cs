@@ -28,7 +28,7 @@ namespace Ts3Fixes
     {
         const int kUfTpSlot = 1040;
 
-        struct UfTpPlace { public Vector3 At; public string World; }
+        struct UfTpPlace : LaneACore.IWorldRow { public Vector3 At; public string World; public string WorldName { get { return World; } } }
         // our teleports' placements this game session (SimDescriptionId -> spot); static, so it outlives a world load but not the game
         static readonly Dictionary<ulong, UfTpPlace> sUfTpPlaced = new Dictionary<ulong, UfTpPlace>();
 
@@ -167,7 +167,7 @@ namespace Ts3Fixes
         static void UfTpNote(Sim sim, Vector3 at)
         {
             if (sim.SimDescription == null) return;
-            if (sUfTpPlaced.Count >= 4096) sUfTpPlaced.Clear();  // shortcut: forgets older placements; a later trapped one is only counted
+            if (sUfTpPlaced.Count >= 4096 && !LaTpPrune(World.GetWorldFileName())) sUfTpPlaced.Clear();  // shortcut: forgets older placements; a later trapped one is only counted (laneatp, LaneA.cs: other worlds' rows go first)
             sUfTpPlaced[sim.SimDescription.SimDescriptionId] = new UfTpPlace { At = at, World = World.GetWorldFileName() };
         }
 
@@ -187,6 +187,7 @@ namespace Ts3Fixes
             sUfTpLogAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { try { UfTpLogPass(); } catch (Exception) { } }, 1f, TimeUnit.Hours, "Ts3Fixes.UnseenTpLog", AlarmType.NeverPersisted, null);
             CallCensusWorldLoad();  // callcensus (CallCensus.cs): its hourly line rides on this world-load call
             DormantProbeWorldLoad();  // dormantprobe (DormantProbe.cs, docs/630): its hourly line, same ride
+            ReactOverlayWorldLoad();  // reactoverlay (ReactOverlay.cs, docs/686 §26): its 0.1 sim-minute pass, same ride
         }
 
         // returns "moved m, left l" (the harness reads it)

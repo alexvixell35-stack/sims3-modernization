@@ -169,6 +169,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kPairSnap value="False" />
     <kPairSnapHousehold value="False" />
     <kPairSnapLog value="False" />
+    <kLineSwitch value="True" />
+    <kLineSwitchHh value="False" />
+    <kLineSwitchLog value="False" />
+    <kLineSwitchMinutes value="2" />
     <kSafeSpotYield value="False" />
     <kSafeSpotPlanYield value="True" />
     <kDisposeSpread value="False" />
@@ -223,7 +227,7 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kBoatRoamCapMotive value="-50" />
     <kPosturePopCycle value="False" />
     <kOverwatchIgnoreStuckProbes value="True" />
-    <kSeasonImposter value="False" />
+    <kSeasonImposter value="True" />
     <kSeasonImposterCold value="False" />
     <kPreferredService value="False" />
     <kSocialWorkerOnLot value="False" />
@@ -329,6 +333,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kDeadRefCooking value="True" />
     <kDeadRefCadence value="True" />
     <kDeadRefExact value="False" />
+    <kDeadRefDelta value="False" />
+    <kDeadRefSlimUse value="False" />
+    <kDeadRefPerLot value="False" />
+    <kDeadRefDescRev value="False" />
     <kViewerPushDelta value="True" />
     <kDeadRefConvo value="True" />
     <kTakeARiskGuard value="True" />
@@ -814,6 +822,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStandWaitFix value="False" />
     <kStandWaitFixHousehold value="False" />
     <kStandWaitLog value="False" />
+    <kReactOverlay value="True" />
+    <kReactOverlayHh value="False" />
+    <kReactOverlayLog value="False" />
+    <kReactOverlayStaleMs value="2000" />
     <kStandWaitPassCycle value="2" />
     <kStandWaitPassEvery value="3" />
     <kStandWaitPassMinutes value="5" />

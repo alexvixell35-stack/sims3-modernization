@@ -118,7 +118,7 @@ namespace Ts3Fixes
         {
             sRheMissing = typeof(RabbitHole).GetMethod("AnimateEnterRabbitHole", kInstAll, null,
                 new Type[] { typeof(Sim), typeof(Slot), typeof(bool), typeof(Route.RouteMetaType) }, null) == null ? "RabbitHole.AnimateEnterRabbitHole" : "";
-            if (sRheMissing.Length > 0) { AppliedLog().Add("rhentryrelax: not found: " + sRheMissing); return; }
+            if (sRheMissing.Length > 0) AppliedLog().Add("rhentryrelax: not found: " + sRheMissing);  // the hook still carries RabbitHoleHook's trip steps
             Patch(typeof(RabbitHole), "RouteNearEntranceAndEnterRabbitHole", typeof(RheEnterHook), "EnterHook", "EnterOrig");
         }
 
@@ -132,19 +132,28 @@ namespace Ts3Fixes
             return nearOn ? kRheNear : kRheEa;
         }
 
-        public class RheEnterHook : RabbitHole
+        // The only hook on RouteNearEntranceAndEnterRabbitHole (issue #92, docs/130 §11): RabbitHoleHook's trip steps
+        // (EnterPre: rabbitholedirect, the rabbithole shortcut) run first, as when they were a second hook under this one.
+        // A Sim saved inside the old two-layer bodies is refused once at the first load after the update (docs/242 §2).
+        public class RheEnterHook : RabbitHoleHook
         {
             public override RabbitHoleTuningClass RabbitHoleTuning { get { return null; } } // never instantiated; required by the base class
 
             public bool EnterHook(Sim a, IRabbitHoleFollowers inst, BeforeEnteringRabbitHoleDelegate beforeEntering, bool canUseCar, Route.RouteMetaType routeMetaType, bool playRouteFailure)
             {
-                // switch off: EA's body only (no wrapper delegate, no extra game calls)
+                // switch off: RabbitHoleHook's steps and EA's body only (no wrapper delegate, no extra game calls)
+                int d;
                 if (sRheMissing.Length > 0 || a == null || !ShortcutOn("rhentryrelax"))
+                {
+                    d = EnterPre(a, inst, beforeEntering, routeMetaType);
+                    if (d != kRhdPass) return d == kRhdEntered;
                     return EnterOrig(a, inst, beforeEntering, canUseCar, routeMetaType, playRouteFailure);
+                }
                 bool acted = false;
                 BeforeEnteringRabbitHoleDelegate wrapped = beforeEntering == null ? null
                     : (BeforeEnteringRabbitHoleDelegate)delegate { acted = true; return beforeEntering(); };
-                if (EnterOrig(a, inst, wrapped, canUseCar, routeMetaType, playRouteFailure)) return true;
+                d = EnterPre(a, inst, wrapped, routeMetaType);
+                if (d != kRhdPass ? d == kRhdEntered : EnterOrig(a, inst, wrapped, canUseCar, routeMetaType, playRouteFailure)) return true;
                 try { return Relaxed(a, inst, beforeEntering, routeMetaType, acted); }
                 catch (ResetException) { throw; }
                 catch (Exception) { PatchCounters()[3587]++; return false; }
@@ -224,7 +233,7 @@ namespace Ts3Fixes
             }
 
             public bool EnterOrig(Sim a, IRabbitHoleFollowers inst, BeforeEnteringRabbitHoleDelegate beforeEntering, bool canUseCar, Route.RouteMetaType routeMetaType, bool playRouteFailure)
-            { return false; } // receives RabbitHole.RouteNearEntranceAndEnterRabbitHole (after RabbitHoleHook's body)
+            { return false; } // receives RabbitHole.RouteNearEntranceAndEnterRabbitHole's original body
         }
 
         // RhEntryRelaxCheck run: the tier decision with controls (off arm: EA only; household / selected / on screen / not a

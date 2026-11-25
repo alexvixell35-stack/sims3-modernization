@@ -271,6 +271,39 @@ static void TestUnseenFallbackSites() {
         assert(g_ufcFkNext == 1 && k.ufwFull == full0 + 1);
         t_unAgent = NULL, t_unCls = 0;
         memset(g_ufw, 0, sizeof(g_ufw)), g_ufwN = 0;
+        // docs/205 §2.3e pause gate: frozen (code 27) = the list age and the hold timers stand still; the thaw moves the stamps
+        // by the span; with no frozen word for 3 s the freeze ends at its last word (old behaviour from there)
+        static_assert(offsetof(Ts3nCounters, pgFrozenSpans) == 0x6B60 && offsetof(Ts3nCounters, pgBbSkips) == 0x6B70, "counters v224 layout");
+        {
+            assert(PushF(true) == 1);
+            Hold();
+            const LONG sp0 = k.pgFrozenSpans, fh0 = k.pgFrozenHolds, exp1 = k.ufwRelease[UFW_R_EXPIRED];
+            assert(Send(27, 1) == 1 && Send(27, 1) == 1 && k.pgFrozenSpans == sp0 + 1 && g_ufcFrzAt);
+            // a 60 s pause with ts3fixes saying frozen all along: list and hold were stamped at the freeze start
+            DWORD now = GetTickCount();
+            g_ufcFrzAt = g_ufcList.at = now - 60000, g_ufcFrzSeen = now;
+            for (auto& h : g_ufw) if (h.agent) h.at = now - 60000;
+            assert(UfcFresh() && UfwHoldSkip(agentBuf, 1) && g_ufwN == 1 && k.ufwRelease[UFW_R_EXPIRED] == exp1);
+            assert(PushF(true) == 1 && g_ufwN == 1);  // a push meanwhile is stamped on the stopped clock and keeps the hold
+            assert(Send(27, 0) == 1 && !g_ufcFrzAt && k.pgFrozenHolds == fh0 + 1);
+            assert(UfcFresh() && UfwHoldSkip(agentBuf, 1) && g_ufwN == 1);  // after the unpause: still fresh, still held (no jump)
+            for (auto& h : g_ufw) if (h.agent) assert(GetTickCount() - h.at < kUfwClaimMs);
+            // without the fix (no code 27) the same 60 s expire it: the control
+            now = GetTickCount();
+            g_ufcList.at = now - 60000;
+            assert(!UfwHoldSkip(agentBuf, 1) && g_ufwN == 0 && k.ufwRelease[UFW_R_EXPIRED] == exp1 + 1);
+            // ts3fixes went silent while frozen: the freeze ends at its last word (4 s ago), the list then counts as 4 s old
+            assert(PushF(true) == 1);
+            Hold();
+            assert(Send(27, 1) == 1 && k.pgFrozenSpans == sp0 + 2);
+            now = GetTickCount();
+            g_ufcFrzAt = g_ufcList.at = now - 10000, g_ufcFrzSeen = now - 4000;
+            for (auto& h : g_ufw) if (h.agent) h.at = now - 10000;
+            assert(!UfcFresh() && !g_ufcFrzAt && !UfwHoldSkip(agentBuf, 1) && g_ufwN == 0 && k.ufwRelease[UFW_R_EXPIRED] == exp1 + 2);
+            assert(Send(27, 0) == 1 && k.pgFrozenHolds == fh0 + 2);  // the timed-out thaw carried the hold; a late thaw word is harmless
+            assert(PushF(true) == 1);
+            printf("pause gate unseen holds: a 60 s freeze keeps the list fresh and the hold held, a silent freeze ends after 3 s\n");
+        }
         // FinishWalk not installed: codes refused
         g_ufwOn = false;
         assert(Send(16, farLo) == 0 && Send(20, 0) == 0);

@@ -96,6 +96,8 @@ namespace Ts3Fixes
                 {
                     int state = DisposeSpreadState();
                     if (state == 2) { c[288] += sDisposeQueue.Clear(); return; }
+                    // docs/205 §2.3c: live but paused or the clock stopped: hold (state 1, a save or leaving live mode, still flushes)
+                    if (state == 0 && SimFrozenOrNotLive()) { c[1740]++; Simulator.Sleep(0); continue; }
                     sDisposeWatch.Restart();
                     GameObject o;
                     for (int n = 0; (state == 1 || n < kDisposeSpreadPerTick) && sDisposeQueue.Next(Simulator.TicksElapsed(), out o); n++)

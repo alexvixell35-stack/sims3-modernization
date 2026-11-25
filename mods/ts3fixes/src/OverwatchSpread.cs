@@ -114,6 +114,7 @@ namespace Ts3Fixes
         // spacing the types (OwAlarmHook).
         static void OwChainTheirs()
         {
+            if (WaitWhileFrozen(1731, WorldGone) < 0) { OwLog("chain dropped: world gone"); return; } // live and running only (docs/205 §2.3d)
             PatchCounters()[244]++;
             sOwChaining = true;
             sOwChainStop = false;
@@ -144,6 +145,7 @@ namespace Ts3Fixes
                 {
                     Simulator.Sleep(0);
                     PatchCounters()[245]++;
+                    WaitWhileFrozen(1731, WorldGone); // paused, clock stopped or out of live mode: the next type waits (docs/205 §2.3d)
                     if (WorldGone()) { sOwChainStop = true; OwLog("chain stopped: world gone"); return; }
                 }
                 object option = this;
@@ -233,7 +235,7 @@ namespace Ts3Fixes
 
         static void OwStartTask(object option, bool ours)
         {
-            Simulator.AddObject(new LoopTask(delegate { OwRunType(option, ours); }));
+            Simulator.AddObject(new LoopTask(delegate { if (WaitWhileFrozen(1731, WorldGone) >= 0) OwRunType(option, ours); }));
         }
 
         // Our alarm: Overwatch's option list, one alarm per type, gapMinutes apart (the first one right away).
@@ -393,14 +395,14 @@ namespace Ts3Fixes
             Simulator.Sleep(0);
             ticks++;
             if (WorldGone() || !RunSliced(new SlicedPass<GameObject>(objects), delegate(GameObject o) { if (!o.HasBeenDestroyed && o.Inventory != null) all.Add(o.Inventory); },
-                    OverwatchSpreadCore.kMaxScanPerSlice, ref ticks, ref maxUs))
+                    OverwatchSpreadCore.kMaxScanPerSlice, 1731, ref ticks, ref maxUs))
             {
                 OwLog("inventory pass stopped: world gone");
                 return;
             }
             OwHouseholdInventories(all);
             // the budget counts items, not inventories: one inventory with hundreds of items continues in the next tick
-            if (!RunUnits(all, delegate(Inventory inv) { return OwInventoryUnits(inv, n); }, OverwatchSpreadCore.kMaxItemsPerSlice, n, ref ticks, ref maxUs, ref mostItems))
+            if (!RunUnits(all, delegate(Inventory inv) { return OwInventoryUnits(inv, n); }, OverwatchSpreadCore.kMaxItemsPerSlice, n, 1731, ref ticks, ref maxUs, ref mostItems))
             {
                 OwLog("inventory pass stopped: world gone");
                 return;
@@ -452,7 +454,11 @@ namespace Ts3Fixes
                     return "ours, " + gapMinutes + " sim-minutes apart";
                 }
                 // with a spreading Overwatch build nothing is patched: its own OnTimer is the alarm
-                Simulator.AddObject(new LoopTask(delegate { if (sOwSpreadReady) OverwatchSpreadHook.TimerHook(); else sOwTimer.Invoke(null, null); }));
+                Simulator.AddObject(new LoopTask(delegate
+                {
+                    if (WaitWhileFrozen(1731, WorldGone) < 0) return;
+                    if (sOwSpreadReady) OverwatchSpreadHook.TimerHook(); else sOwTimer.Invoke(null, null);
+                }));
                 return mode.ToString();
             }
             if (sOwFind == null) return "option list not found";

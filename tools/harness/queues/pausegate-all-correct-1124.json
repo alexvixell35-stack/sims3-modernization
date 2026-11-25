@@ -1,0 +1,155 @@
+{
+ "note": "pausegate-all-correct-1124 (WRITTEN 2026-11-23, NOT RUN): correctness of the combined pause-gate round on bugfix/pausegate-all-1123, set pausegate-all1 (ts3native 0.36.300-pausegateall1, ts3fixes/ts3agent pausegate-all1). Jobs from deadref-pause-correct-1123, pausegate-spread-correct-1123 (its bp-deadref-pause-cas-buy duplicate dropped), pausegate-drains-correct-1123, pausegate-native-correct-1123; the four BP jobs bundled in one load, SV separate. Smoke first, stops the queue on fail. Apex latest + RTX Remix bridge only (Bin state apex, chain-pausegate-all-1124.sh). Est ~80 min game time.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.300-pausegateall1 ": {
+   "match": [
+    "ts3native 0.36.300-pausegateall1 2026-11-24 22:10:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.300-pausegate4 2026-11-23 22:10:00",
+    "ts3native 0.36.299-m1123 2026-11-23 05:16:37",
+    "ts3native 0.36.300-pausegateall12 2026-11-24 22:10:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-pausegate-all-smoke",
+   "note": "[est 9 min] SMOKE (stops the queue on fail): BP 3 min natural play, release defaults on set pausegate-all1. Pass: version 0.36.300-pausegateall1 read back, Apex + bridge lines, 0 script errors. A FAIL here stops the queue: the build or the Bin state is wrong, nothing else is worth running.",
+   "asi": "game-copy/ts3native.asi.pausegate-all1",
+   "iniBase": "game-copy/ts3native.ini.pausegate-all1",
+   "fixesPackage": "game-copy/ts3fixes.package.pausegate-all1",
+   "pinReason": "bugfix/pausegate-all-1123 (docs/205 §2.3b-§2.3e): deadref + spread + drains + native pause gate on one branch, ts3native 0.36.300-pausegateall1 (counters v224 pg*) + ts3fixes.package.pausegate-all1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 15,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "noSamplers": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-pausegateall1 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "bp-pausegate-all-bundle",
+   "note": "[est 50 min] BP bundle, one load, four repro windows back to back (queue.ts profile.repros; each window its own tag, log slice and verdict row): (1) pause-cas-buy-check = bp-deadref-pause-cas-buy ([est 15 min] Repro pause-cas-buy-check (BP 10 min, release defaults). Pass: every mustMatch step holds: sweep started while paused, after 60 s paused slices +0 ...); (2) pausegate-spread-check = bp-pausegate-spread; (3) pausegate-drains-check = bp-pausegate-drains; (4) pausegate-buildbuy-epoch = bp-pausegate-buildbuy-epoch (nativeRequire per window). fixesOn = the union of the source jobs' (all released switches, ON by default anyway); items carry each source job's fixesRequire / nativeRequire; carry-over check between windows (reloads if it fails). Source notes: queues deadref-pause-correct-1123, pausegate-spread-correct-1123, pausegate-drains-correct-1123, pausegate-native-correct-1123.",
+   "asi": "game-copy/ts3native.asi.pausegate-all1",
+   "iniBase": "game-copy/ts3native.ini.pausegate-all1",
+   "fixesPackage": "game-copy/ts3fixes.package.pausegate-all1",
+   "pinReason": "bugfix/pausegate-all-1123 (docs/205 §2.3b-§2.3e): deadref + spread + drains + native pause gate on one branch, ts3native 0.36.300-pausegateall1 (counters v224 pg*) + ts3fixes.package.pausegate-all1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 80,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefsweep,deadrefcadence,easpreadlots,easpreadpets,easpreaddecay,errortrapspread,overwatchchain,stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread",
+     "repros": [
+      {
+       "id": "pause-cas-buy-check",
+       "minutes": 10
+      },
+      {
+       "id": "pausegate-spread-check",
+       "minutes": 10
+      },
+      {
+       "id": "pausegate-drains-check",
+       "minutes": 10
+      },
+      {
+       "id": "pausegate-buildbuy-epoch",
+       "minutes": 10,
+       "nativeRequire": "asyncStarted>=1,pgEpochStale>=1,watchdogs<=0"
+      }
+     ]
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-pausegateall1 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-pausegate-unseen-hold-pause",
+   "note": "[est 12 min] Repro pausegate-unseen-hold-pause (SV-Spring, 30 far walkers, FinishWalk on through ini + fixesOn). Pass: native_check steps hold (pgFrozenSpans >= 1 while paused 60 s; ufwRelease_3 +0 from the pause to 3 s after the unpause; pgFrozenHolds >= 1), household count unchanged (DeadRefCheck pausestate), ScriptErrors 0, no watchdog. FAIL ufwRelease_3 > 0 = a hold expired over the pause (BROKEN). pgFrozenHolds 0 = hollow (no hold at the pause): rerun before judging.",
+   "asi": "game-copy/ts3native.asi.pausegate-all1",
+   "iniBase": "game-copy/ts3native.ini.pausegate-all1",
+   "fixesPackage": "game-copy/ts3fixes.package.pausegate-all1",
+   "pinReason": "bugfix/pausegate-all-1123 (docs/205 §2.3b-§2.3e): deadref + spread + drains + native pause gate on one branch, ts3native 0.36.300-pausegateall1 (counters v224 pg*) + ts3fixes.package.pausegate-all1",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-SV-Spring",
+   "ini": {
+    "UnseenFallback.Sites": 1,
+    "UnseenFallback.SiteWaitMs": 0,
+    "UnseenFallback.FinishWalk": 1
+   },
+   "nativeRequire": "ufcReady>=63,ufwReady>=1,ufwHolds>=1,pgFrozenSpans>=1,watchdogs<=0",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "pausegate-unseen-hold-pause",
+     "fixesOn": "unseenfbsites,unseenfbfinish",
+     "fixesRequire": "unseenfbsites_lists>=20"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-pausegateall1 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ]
+}

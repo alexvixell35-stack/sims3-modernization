@@ -87,6 +87,7 @@ namespace Ts3Agent
                 finally
                 {
                     r["state"] = SubState();
+                    if (label == "buy_open" && sBuyRetries > 0) { r["retries"] = sBuyRetries; r["block"] = sBuyBlock; }
                     try
                     {
                         if (CasUp())
@@ -559,7 +560,41 @@ namespace Ts3Agent
             if (SubState() != "LiveModeState") throw new McpException("not in live mode (state " + SubState() + ")");
             Lot lot = HomeLot();
             if (lot == null) throw new McpException("no home lot for the active household");
-            return Measure("buy_open", delegate { GameStates.TransitionToBuyMode(lot, null); }, BuyUp, BuyItems, 180000);
+            // GotoBuyMode returns silently while a sub-state switch is pending or Buy is disabled (InWorldState.GotoBuyMode); a
+            // player clicks again, so the wait re-asks every 3 s while still in live mode and keeps the gate values for the row.
+            int last = System.Environment.TickCount;
+            sBuyRetries = 0; sBuyBlock = null;
+            return Measure("buy_open", delegate { GameStates.TransitionToBuyMode(lot, null); }, delegate
+            {
+                if (BuyUp()) return true;
+                if (SubState() == "LiveModeState" && System.Environment.TickCount - last >= 3000)
+                {
+                    last = System.Environment.TickCount;
+                    sBuyRetries++;
+                    sBuyBlock = BuyBlock();
+                    GameStates.TransitionToBuyMode(lot, null);
+                }
+                return false;
+            }, BuyItems, 180000);
+        }
+
+        static int sBuyRetries;
+        static string sBuyBlock;
+
+        // The GotoBuyMode gates: mEnableBuyMode, sStateChangeDialogUp, the sub-state machine's pending state.
+        static string BuyBlock()
+        {
+            try
+            {
+                object gs = typeof(GameStates).GetField("sSingleton", kPriv).GetValue(null);
+                object iw = gs == null ? null : typeof(GameStates).GetField("mInWorldState", kPriv).GetValue(gs);
+                if (iw == null) return "no InWorldState";
+                StateMachine sm = typeof(InWorldState).GetField("mStateMachine", kPriv).GetValue(iw) as StateMachine;
+                return "enableBuy=" + typeof(InWorldState).GetField("mEnableBuyMode", kPriv).GetValue(iw)
+                    + " dialogUp=" + typeof(InWorldState).GetField("sStateChangeDialogUp", kPriv).GetValue(null)
+                    + " pending=" + (sm == null ? "?" : sm.PendingStateId.ToString()) + " cur=" + (sm == null ? "?" : sm.CurStateId.ToString());
+            }
+            catch (Exception e) { return "gate read failed: " + e.GetType().Name; }
         }
 
         static void FindTagged(WindowBase w, string tagType, List<Button> found, int depth)

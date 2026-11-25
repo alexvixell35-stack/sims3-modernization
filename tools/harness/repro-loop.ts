@@ -53,7 +53,9 @@ export type LoopStep = {
   cmd: string; args?: unknown; waitS?: number; note?: string; optional?: boolean; count?: { counter: string } | { result: string }; tally?: string;
   waitUntil?: WaitUntil; minS?: number; maxS?: number; between?: 'normal' | 'fast'; setup?: boolean; until?: Until1;
 };
-export type Until1 = { cmd: string; args?: unknown; all: { path: string; equals?: unknown; atLeast?: number; atMost?: number }[]; everyS?: number; maxS?: number; failOn?: string };
+// hollow: "<text>": a timed-out poll means the condition under test never happened ("hollow repro: <text>; ..."), not a fix result
+export type Until1 = { cmd: string; args?: unknown; all: { path: string; equals?: unknown; atLeast?: number; atMost?: number }[]; everyS?: number; maxS?: number; failOn?: string; hollow?: string };
+export const HOLLOW = /^hollow repro: /;
 // one `until` (see top): resolves with the last answer once met, null when the window ended first; throws when not met in maxS
 export async function untilMet(u: Until1, io: Pick<StepIO, 'ag' | 'sleep' | 'now' | 'halted'>): Promise<any> {
   const t0 = io.now(), get = (o: any, path: string) => path.split('.').reduce((x, k) => x?.[k], o);
@@ -64,7 +66,7 @@ export async function untilMet(u: Until1, io: Pick<StepIO, 'ag' | 'sleep' | 'now
     if (ok(last)) return last;
     if (io.halted()) return null;
     if (u.failOn && get((last as any)?.result, u.failOn)) throw new Error(`${u.cmd} ${u.failOn}: ${JSON.stringify((last as any).result).slice(0, 400)}`);
-    if (io.now() - t0 > (u.maxS ?? 300) * 1000) throw new Error(`${u.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify((u.show && last?.result ? Object.fromEntries(Object.entries(last.result).filter(([k]) => k.startsWith(u.show))) : null) ?? last?.result ?? last?.error).slice(0, u.show ? 1200 : 200)}`); // show: key prefix, as repro.ts
+    if (io.now() - t0 > (u.maxS ?? 300) * 1000) throw new Error(`${u.hollow ? `hollow repro: ${u.hollow}; ` : ''}${u.cmd} until ${JSON.stringify(u.all)} not met in ${u.maxS ?? 300} s: ${JSON.stringify((u.show && last?.result ? Object.fromEntries(Object.entries(last.result).filter(([k]) => k.startsWith(u.show))) : null) ?? last?.result ?? last?.error).slice(0, u.show ? 1200 : 200)}`); // show: key prefix, as repro.ts
     await io.sleep((u.everyS ?? 5) * 1000);
   }
 }
@@ -162,7 +164,7 @@ export async function runStep(s: LoopStep, io: StepIO, read: string[] = []): Pro
     }
   }
   if (s.until && why !== 'window') {
-    const met = await untilMet(s.until, io).catch((e: Error) => { throw new Error(`step ${s.cmd}: ${e.message}`); });
+    const met = await untilMet(s.until, io).catch((e: Error) => { throw new Error(HOLLOW.test(e.message) ? `${e.message} (step ${s.cmd})` : `step ${s.cmd}: ${e.message}`); });
     if (met) (io.log ?? (l => console.log(`${new Date().toISOString().slice(11, 19)} ${l}`)))(`  until met after ${((io.now() - t0) / 1000).toFixed(0)} s: ${JSON.stringify(met.result).slice(0, 160)}`);
   }
   if (s.between) await io.ag('set_speed', { speed: s.between });
@@ -468,6 +470,9 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/').replace(
     await runStep({ cmd: 'loop', waitS: 5, until: { cmd: 'loop', all: [{ path: 'done', equals: true }], everyS: 3, maxS: 60 } }, io);
     assert.deepEqual([polls, tu], [4, 5000 + 3 * 3000]);
     await assert.rejects(runStep({ cmd: 'loop', until: { cmd: 'never', all: [{ path: 'done', equals: true }], everyS: 3, maxS: 9 } }, io), /step loop: never until .* not met in 9 s/);
+    // "hollow": the timeout names the condition under test that never happened (profile-world prints "FAIL: hollow repro: ...")
+    await assert.rejects(runStep({ cmd: 'loop', until: { cmd: 'never', all: [{ path: 'done', equals: true }], everyS: 3, maxS: 9, hollow: 'no line formed' } }, io),
+      /^Error: hollow repro: no line formed; never until .* not met in 9 s: .*\(step loop\)$/);
   }
   g = game({}); d = await runStep({ cmd: 'strand_many', waitS: 3, between: 'normal' }, g.io);
   assert.deepEqual([d.why, d.secs, g.calls], ['fixed', 3, ['set_speed ultra', 'set_speed normal']]);

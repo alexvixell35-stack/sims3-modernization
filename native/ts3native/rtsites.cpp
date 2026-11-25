@@ -324,6 +324,11 @@ static void InstallRtSites(const wchar_t* ini, bool gate) {
     Log("%s route gate sites: %d of %d docs/60 2.2/2.5 sites, ready 0x%lX", n == RT_N ? "OK  " : "PART", n, RT_N, ready);
     // S3b: closures on only with every site and the async path in place; otherwise count only and async START stays refused
     if (!GetPrivateProfileIntW(L"RouteGate", L"Enforce", 0, ini)) { Log("route gate closures off (Enforce=0)"); return; }
+    // async switched off by config: nothing to hold the gate for, a refusal by choice (not a failed hook) is no FAIL
+    if (ready == RT_ALL && !ts3native_counters.asyncReady && !GetPrivateProfileIntW(L"RouteAsync", L"Enabled", 0, ini)) {
+        Log("SKIP route gate closures: [RouteAsync] Enabled=0, no async jobs to close the gate for (Enforce=1 has no effect)");
+        return;
+    }
     if (ready != RT_ALL || !ts3native_counters.asyncReady) {
         Log("FAIL route gate closures: sites 0x%lX of 0x%lX, async ready %ld; async START stays refused", ready, RT_ALL,
             ts3native_counters.asyncReady);

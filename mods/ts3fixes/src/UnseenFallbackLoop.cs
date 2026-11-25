@@ -82,12 +82,16 @@ namespace Ts3Fixes
 
         static bool UfLive() { return GameStates.IsLiveState && !GameStates.IsTravelling && !GameStates.IsWorldShuttingDown; }
 
+        // live mode but paused or the clock stopped (docs/205 §2.3b, SimFrozen.cs): wait, do not act and do not drop
+        static bool UfFrozen() { return UfLive() && SimFrozenOrNotLive(); }
+
         static void UfBreakDrain()
         {
             try
             {
                 while (sUfBreaks.Count > 0)
                 {
+                    if (UfFrozen()) { Simulator.Sleep(0); continue; }  // paused / clock stopped: keep the queue; out of live mode UfBreakOne drops it
                     UfBreak b = sUfBreaks.Dequeue();
                     try { UfBreakOne(b); } catch (Exception) { }
                     Simulator.Sleep(0);  // one Sim per tick
@@ -124,7 +128,7 @@ namespace Ts3Fixes
             bool stopped = false;
             while (i < work.Count || (puddles != null && p < puddles.Length))
             {
-                if (!sUfBreakBudget.Try(Sims3.Gameplay.Utilities.SimClock.CurrentTicks)) { Simulator.Sleep(0); continue; }
+                if (UfFrozen() || !sUfBreakBudget.Try(Sims3.Gameplay.Utilities.SimClock.CurrentTicks)) { Simulator.Sleep(0); continue; }
                 if (!UfLotFixOk(sim, lot)) { stopped = true; break; }
                 c[352]++;
                 if (i < work.Count)

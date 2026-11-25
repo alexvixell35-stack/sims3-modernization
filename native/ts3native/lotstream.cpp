@@ -59,7 +59,7 @@ static double g_lsUsPerTick;
 static LONG g_lsObjLogUs = 5000;
 
 struct LsEvent { ULONGLONG t; const char* kind; DWORD lot, idLo, idHi, obj; LONG objs, us; };
-static LsEvent g_lsBuf[64];   // events of the current pump pass (sim thread, inside the pass only)
+static LsEvent g_lsBuf[256];  // events of the current pump pass (sim thread, inside the pass only); 256, was 64 (docs/321 O11: bursts dropped)
 static int g_lsBufN;
 static DWORD g_lsPumpTid;     // sim thread while it is inside a measured pass, else 0
 static LONG g_lsPumpLots;     // lot add/remove calls in the current pass
@@ -110,7 +110,7 @@ static void LsEmit(const char* kind, const u8* lot, LONG objs, LONG us, DWORD ob
     if (g_lsLog == INVALID_HANDLE_VALUE) return;
     LsEvent e = {LsUnixMs(), kind, (DWORD)(uintptr_t)lot, *(const DWORD*)(lot + 0x48), *(const DWORD*)(lot + 0x4C), obj, objs, us};
     if (g_lsPumpTid && g_lsPumpTid == GetCurrentThreadId()) {
-        if (g_lsBufN < 64) g_lsBuf[g_lsBufN++] = e; else ts3native_counters.lsLogDropped++;
+        if (g_lsBufN < 256) g_lsBuf[g_lsBufN++] = e; else ts3native_counters.lsLogDropped++;
         return;
     }
     LsWrite(&e, 1, -1);
@@ -170,8 +170,30 @@ static void LhQPush(int kind, const u8* lot) {
     e.kind = kind;
     e.id = *(const DWORD*)(lot + 0x48);
 }
+// Shared game-state gate (docs/321 §11.3, Rodney 2026-11-23): sim-state work of ours runs only in live mode. ts3fixes LotHub.cs
+// pushes its state (op 49 sub 5) on every change while a native consumer asked for it (sub 6); world load / quit reset it to
+// unknown. Unknown, paused, CAS, Build/Buy, Edit Town, travel, load screens and the main menu = not live. Build/Buy is also read
+// from the routing world's own byte world+0x97B (unseenfbc.cpp UfcBuildBuy, docs/100 §65, verified), so a late push cannot
+// open it. Callers keep their bookkeeping (queue a lot id) and do the work after the state is live again.
+enum { SS_UNKNOWN = 0, SS_LIVE = 1, SS_PAUSED = 2, SS_CAS = 3, SS_BUILDBUY = 4, SS_EDITTOWN = 5, SS_TRAVEL = 6, SS_N = 7 };
+static volatile LONG g_simState;      // SS_*, sim thread writes (op 49), any thread reads
+static volatile LONG g_simStateWant;  // > 0: a native consumer needs the pushes (set at install, before the game runs)
+static volatile LONG g_simStatePushes;
+static volatile DWORD g_simStateAt;  // GetTickCount of the last push; ts3fixes re-sends every 500 ms
+// A push older than 2 s = not live: scripts stop in Build/Buy (and the task with them), so a stale "live" never opens the gate.
+static const DWORD kSimStateStaleMs = 2000;
+static bool SimLiveNow() {
+    if (g_simState != SS_LIVE || GetTickCount() - g_simStateAt > kSimStateStaleMs) return false;
+    const u8* lock = (const u8*)g_async.lock;
+    if (!lock) return true;
+    __try { return lock[0x97B - 0x918] == 0; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+static u8 LaGateOp(DWORD what);  // lanea.cpp (included later)
+
 // op 49, hi & 0xFF: 0 pop the next event into the current one (1 = popped; arms the queue), 1 bit (hi >> 8) of the current
-// lot's id, 2 current is a remove, 3 current is the overflow event, 4 hub installed (lhReady != 0).
+// lot's id, 2 current is a remove, 3 current is the overflow event, 4 hub installed (lhReady != 0), 5 game state = hi >> 8
+// (SS_*), 6 a native consumer wants the state pushes.
 static u8 LhOp(DWORD hi) {
     switch (hi & 0xFF) {
         case 0:
@@ -186,6 +208,15 @@ static u8 LhOp(DWORD hi) {
         case 2: return g_lhQCur.kind == LH_REMOVE ? 1 : 0;
         case 3: return g_lhQCur.kind == 0 ? 1 : 0;
         case 4: return ts3native_counters.lhReady ? 1 : 0;
+        case 5: {
+            const LONG s = (LONG)((hi >> 8) & 0xFF);
+            if (s >= SS_N) return 0;
+            g_simStateAt = GetTickCount();
+            InterlockedExchange(&g_simState, s), InterlockedIncrement(&g_simStatePushes);
+            return 1;
+        }
+        case 6: return g_simStateWant > 0 ? 1 : 0;
+        case 7: return LaGateOp((hi >> 8) & 0xFF);  // lanea.cpp: the queue's window checks (mark / still / skipped / drained / ok)
     }
     return 0;
 }
@@ -193,7 +224,7 @@ static u8 LhOp(DWORD hi) {
 static void LotHubFire(int kind, const u8* lot) {
     Ts3nCounters& k = ts3native_counters;
     LhQPush(kind, lot);
-    if (kind >= LH_WORLD_LOAD) InterlockedIncrement(&k.lhWorldGen);
+    if (kind >= LH_WORLD_LOAD) InterlockedExchange(&g_simState, SS_UNKNOWN), InterlockedIncrement(&k.lhWorldGen);  // ts3fixes pushes again
     else InterlockedIncrement(kind == LH_ADD ? &k.lhAdds : &k.lhRemoves);
     const LONG gen = InterlockedIncrement(&k.lhLotGen);
     const LONG n = g_lhSubN;

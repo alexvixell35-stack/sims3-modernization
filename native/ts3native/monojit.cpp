@@ -3307,12 +3307,7 @@ static bool ApplyMonoJit(const wchar_t* ini) {
     if (g_jitCallExit && !g_jitPureIcalls) Log("jit: CallExit: the Array icall bytes differ, pure icalls stay EA calls");
     g_jitNewVt = GetPrivateProfileIntW(L"MonoJit", L"NewVt", 0, ini) != 0;  // docs/537 §20 B2b (needs Direct=1)
     g_jitBc = (JitBoundStats*)&C.bcOn;  // docs/537 §22: BoundCall=1 (needs Direct=1, DirectLeaf=0 for guards), BoundCallMask = kJitBound rows
-#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has the rows (docs/273)
-    if (GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) Log("SKIP jit BoundCall ([MonoJit] BoundCall, monojit-bound.h rows): no EA 1.69 address, docs/232 §8");
-    if (!ts3a_noaddr && GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) {
-#else
     if (GetPrivateProfileIntW(L"MonoJit", L"BoundCall", 0, ini)) {
-#endif
         const unsigned want = (unsigned)GetPrivateProfileIntW(L"MonoJit", L"BoundCallMask", (1 << JIT_BOUND_N) - 1, ini);
         const unsigned on = JitBoundInit(want);
         if (on != want) Log("jit: BoundCall: mask 0x%X asked, 0x%X in force (a row's EA bytes differ, or no such row)", want, on);

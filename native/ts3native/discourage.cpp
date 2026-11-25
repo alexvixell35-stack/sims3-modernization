@@ -401,6 +401,22 @@ static void DiscDrain(bool force, int site) {
 
 static bool DiscPending() { return g_discCount != 0; }  // records still deferred (docs/134 §2.6 order check)
 
+// docs/205 §2.3e pause gate (Rodney 2026-11-23): RoutingSystem_OnExitBuildBuy 0x835240 (gate site 13, reached only from the
+// script IC IC_RouteManager_OnExitBuildBuy 0x74B6B0, docs/100 §65) rebuilds lot routing from the world as it is. A record
+// deferred before the exit and applied at the next drain point would land after that rebuild, out of EA's order. So the
+// gate entry drains first, on the owner thread: an IC point, so an Add's World_FireEvent 0x11 is allowed (as at START).
+// Skipped (pgBbSkips; the records then drain at the next point as before) inside a job callback (the job wait would wait
+// for the job that waits on us), with +0x918 already held here (nested in a gate frame), with the P5c lent lock, or while
+// draining. pgBbDrains = drains that applied records.
+static void DiscDrainBb() {
+    Ts3nCounters& k = ts3native_counters;
+    const DWORD me = GetCurrentThreadId();
+    if (!g_discCount || me != g_async.owner || t_snapRun) return;
+    if (g_inInvoke || k.rgOwnerTid == (LONG)me || P5cLent(me) || g_discDraining) { InterlockedIncrement(&k.pgBbSkips); return; }
+    DiscDrain(true, DS_WORLD);
+    InterlockedIncrement(&k.pgBbDrains);
+}
+
 // A drain point that is not a D1/D2 call: apply when no job runs, or when the oldest record is too old.
 static void DiscPoll(int site) {
     if (g_pfaProbeN && !g_discDraining && GetCurrentThreadId() == g_async.owner && g_async.state != A_RUNNING) PfaProbeCheck();

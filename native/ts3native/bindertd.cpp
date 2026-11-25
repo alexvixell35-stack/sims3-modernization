@@ -23,9 +23,7 @@ static const u8 kTdBody[0x56] = {
 };
 static const u8 kTdNew[32] = {0x8B, 0x45, 0x18, 0x89, 0x45, 0xBC, 0x83, 0xC4, 0x0C, 0xEB, 0x15, 0x90, 0x90, 0x90, 0x90, 0x90,
                               0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
-#ifndef TS3A_TABLE  // EA 1.69: both rows are 0 (docs/232 §8), ApplyBinderTypeHandle SKIPs there
 static_assert(TD_SITE - TD_BODY == 0x1E && TD_SITE - TD_BODY + sizeof(kTdNew) <= sizeof(kTdBody), "the window lies inside the checked body");
-#endif
 
 static bool TdPatch(u8* body) {
     if (!Matches(body, kTdBody, sizeof(kTdBody))) return false;
@@ -34,9 +32,6 @@ static bool TdPatch(u8* body) {
 
 static bool ApplyBinderTypeHandle(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"Binder", L"TypeHandleDirect", 0, ini) <= 0) return false;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP binder type handle direct ([Binder] TypeHandleDirect): no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     if (!TdPatch((u8*)(uintptr_t)TD_BODY)) {
         Log("SKIP binder type handle direct: bytes at 0x%08lX differ (another owner or another exe): not installed", TD_BODY);
         return false;

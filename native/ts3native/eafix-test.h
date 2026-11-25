@@ -402,6 +402,82 @@ static void TestSlaveLink() {
            "DeadSlaveTrip live slaves passed, destroyed / unreadable slave answered null: ok\n");
 }
 
+// [EaCrashFixes] VbFreeDelay + VbOwnerDelay (docs/67 §44 / §44.1): the delayed-free ring with a fake free and fake dtors,
+// VbGuard's owner lookup from a fake 0xA84D00 stack.
+static LONG g_vqtFrees, g_vqtDtorFlags = -1;
+static void* g_vqtLastFree;
+static void __cdecl VqtFree(void* p) { g_vqtFrees++, g_vqtLastFree = p; }
+static void* __fastcall VqtOwnerDtor(u8* self, void*, DWORD flags) {  // EA 0xA85DF0: wrapper released only when byte +0 == 0
+    g_vqtDtorFlags = (LONG)flags;
+    if (!self[0] && *(DWORD*)(self + 0x70)) *(DWORD*)(self + 0x70) = 0;
+    return self;
+}
+static u8* __fastcall VqtAlCopy(u8* self, void*, const u8* src) { memcpy(self, src, 0x80); return self; }  // EA 0xA89030: raw copy
+static void* __fastcall VqtWrapDtor(u8* self, void*, DWORD flags) { g_vqtDtorFlags = (LONG)flags, *(DWORD*)self = 0xFF39F8; return self; }
+static void TestVbDelay() {
+    VbDelayCounters& k = ts3native_vbdelay;
+    void (__cdecl* free0)(void*) = g_vqFree;
+    const VqDelFn own0 = g_voOrig, wrap0 = g_vqOrig[0];
+    g_vqFree = VqtFree, g_voOrig = VqtOwnerDtor, g_vqOrig[0] = VqtWrapDtor, g_vqMs = 10000;
+    alignas(4) static u8 a[0x80], b[0x80], w[0x30];
+    a[0] = 0, *(DWORD*)(a + 0x70) = 0x1234;  // EA releases and clears +0x70
+    b[0] = 1, *(DWORD*)(b + 0x70) = 0x5678;  // EA keeps +0x70: we clear it
+    VoDtor(a, NULL, 1);
+    assert(g_vqtDtorFlags == 0 && *(DWORD*)(a + 0x70) == 0 && g_vqtFrees == 0 && k.owners == 1 && k.ownerZeroed == 0 && k.queued == 1);
+    VoDtor(b, NULL, 1);
+    assert(*(DWORD*)(b + 0x70) == 0 && k.owners == 2 && k.ownerZeroed == 1 && k.queued == 2 && g_vqtFrees == 0);
+    *(DWORD*)(w + 4) = 1;
+    VqDelA(w, NULL, 1);
+    assert(g_vqtDtorFlags == 0 && *(DWORD*)(w + 4) == 0x40000000 && k.wrappers == 1 && k.queued == 3);  // pinned, owners are not
+    VoDtor(a, NULL, 0);  // non-deleting call: nothing queued
+    assert(k.owners == 2 && k.queued == 3);
+    const DWORD now = GetTickCount();
+    assert(VqDrain(now, kVqCap) == 0 && g_vqtFrees == 0);                       // delay not over
+    assert(VqDrain(now + 10000, 1) == 1 && g_vqtLastFree == a && k.queued == 2);  // oldest first, max honoured
+    assert(VqDrain(now + 10000, kVqCap) == 2 && g_vqtLastFree == w && k.queued == 0 && k.freed == 3 && g_vqtFrees == 3);
+    // ring full: the oldest is freed early, never more than kVqCap held
+    for (DWORD i = 0; i < kVqCap + 3; i++) VqPush((u8*)(uintptr_t)(0x10000 + i * 16), false);
+    assert(k.queued == (LONG)kVqCap && k.hw == (LONG)kVqCap && k.forced == 3 && g_vqtFrees == 6 && g_vqtLastFree == (void*)(uintptr_t)(0x10000 + 2 * 16));
+    // flush at world load: everything past the delay goes
+    g_vqMs = 1;
+    Sleep(20);
+    VqFlush("selftest");
+    assert(k.queued == 0 && k.flushes == 1 && g_vqtFrees == 6 + (LONG)kVqCap);
+    // aliases (I-604-5): copies hold the owner's wrapper; the owner's delete clears theirs, an alias delete only drops itself
+    static u8* alTab[2 * 16];
+    alignas(4) static u8 own[0x80], al1[0x80], al2[0x80], other[0x80];
+    const AlCopyFn copy0 = g_alCopy;
+    g_alPtr = alTab, g_alCopy = VqtAlCopy, g_vqMs = 10000;
+    own[0] = 0, *(DWORD*)(own + 0x70) = 0xAB00;
+    other[0] = 0, *(DWORD*)(other + 0x70) = 0xCD00;
+    AlCopyHook(al1, NULL, own), al1[0] = 1;
+    AlCopyHook(al2, NULL, own), al2[0] = 1;
+    u8 al3[0x80];
+    AlCopyHook(al3, NULL, other), al3[0] = 1;
+    assert(k.aliases == 3 && k.aliasHw == 3 && *(DWORD*)(al1 + 0x70) == 0xAB00);
+    VoDtor(al2, NULL, 1);  // alias deleted first: it leaves the table, its own +0x70 cleared by the owner path
+    assert(k.aliases == 2 && k.aliasCleared == 0 && *(DWORD*)(al2 + 0x70) == 0);
+    VoDtor(own, NULL, 1);  // owner releases 0xAB00: al1 cleared, al3 (other wrapper) kept
+    assert(k.aliases == 1 && k.aliasCleared == 1 && *(DWORD*)(al1 + 0x70) == 0 && *(DWORD*)(al3 + 0x70) == 0xCD00);
+    VoDtor(al3, NULL, 0);
+    assert(k.aliases == 0 && k.aliasCleared == 1);
+    for (int i = 0; i < 9; i++) AlCopyHook(al1, NULL, other);  // a 16-pair test table: all 9 tracked
+    assert(k.aliases == 9 && k.aliasFull == 0);
+    g_alN = 0, g_alPtr = NULL, g_alCopy = copy0;
+    VqDrain(GetTickCount() + 20000, kVqCap);
+    // VbGuard: the owner from a 0xA84D00 frame, nothing from another caller
+    DWORD item[2] = {0x1111, 0x22334450}, sp[9] = {kVbDrawRet, 0, 0, 0, 0, 0, 0, 0x7A0AD9, (DWORD)(uintptr_t)item};
+    assert(VbOwnerOf(sp) == 0x22334450);
+    sp[0] = 0x0068F5EB;
+    assert(VbOwnerOf(sp) == 0);
+    g_vqFree = free0, g_voOrig = own0, g_vqOrig[0] = wrap0, g_vqMs = 0, g_vqHead = g_vqN = 0;
+    memset(&k, 0, sizeof(k));
+    g_vqtFrees = 0, g_vqtDtorFlags = -1;
+    printf("EaCrashFixes VbFreeDelay + VbOwnerDelay: owner dtor run without its free, +0x70 cleared (ours when EA keeps it), "
+           "owners queued unpinned, wrappers pinned, freed after the delay oldest first, ring full frees early (cap %lu), "
+           "flush frees all due; VbGuard owner from the 0xA84D00 frame: ok\n", kVqCap);
+}
+
 static void TestEaCrashFixes() {
     static_assert(offsetof(Ts3nCounters, caOn) == 0x5480 && offsetof(Ts3nCounters, caSkip) == 0x5484 &&
                       offsetof(Ts3nCounters, caOther) == 0x5490 && offsetof(Ts3nCounters, caOverflow) == 0x549C &&
@@ -795,4 +871,5 @@ static void TestEaCrashFixes() {
            "MintDivGuard 18 normal div/rem cases on the game's path, INT_MIN / -1 to the overflow stub, INT_MIN %% -1 = 0, "
            "table patched once: ok\n");
     TestSlaveLink();
+    TestVbDelay();
 }

@@ -667,6 +667,7 @@ static void __cdecl SnIcEnter(int i, DWORD* slot) {
     if (i <= 3 || (i >= 12 && i <= 15)) SnRecord(i <= 3 ? RK_LOCKKEY : RK_PORTAL, sim && SnInRebase(t));
     if (!sim) { InterlockedIncrement(&k.snIcOffSim); return; }
     if (i == 22 || i == 23) AsEpochBump();  // [AutShadow]: build/buy boundary (OnExitBuildBuy, LotClusterTrees), docs/122 §2.1
+    if (i == 22) RtEpochBump();  // docs/205 §2.3e: Build/Buy exit, route results from before it are stale (also without [RouteGate])
     if (t.objDepth) { k.snObjOpenAtIc++; t.objDepth = 0; }  // a chain that stopped before our tail node
     SpIcNote(i);
     if (i >= SN_IC_START) {

@@ -620,9 +620,6 @@ static bool ApplyGcMarkHelpers(const wchar_t* ini) {
     const int n = Clamp(want, 1, 4);
     LONG every = Clamp(GetPrivateProfileIntW(L"GC", L"MarkHelpersVerify", 0, ini), 0, 1000000);
     const LONG minSplit = Clamp(GetPrivateProfileIntW(L"GC", L"MarkHelpersMinSplit", 64, ini), 8, 4096);
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { k.g5Fallback++; Log("SKIP GC mark helpers ([GC] MarkHelpers): no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     if (GetPrivateProfileIntW(L"MonoThread", L"Enabled", 0, ini) && GetPrivateProfileIntW(L"MonoThread", L"Mode", 0, ini) >= 1 &&
         !GetPrivateProfileIntW(L"MonoThread", L"GcLock", 0, ini)) {
         k.g5Fallback++;

@@ -164,13 +164,147 @@ gone. Our sweeps never run at load. On top of that every pass stands down when:
   - Cleanup: phases 10-12 found 0 in both runs; the other phases found similar counts (react times 129 vs 81, Sim fields
     36 vs 38, passengers 12 vs 2, topics 1 vs 1, celebrity 4 vs 5). Stuck Sims at the end 11 vs 21, no exception.
 
+### 2.3b Pause, minimized window and modes: the pass waits (2026-11-23, built, NOT RUN)
+
+Audit 2026-11-23: the released pass (`deadrefsweep` + `deadrefcadence` ON) kept removing dead refs while the game was
+paused. Its script task runs every frame (`Simulator.Sleep(0)`), and ScriptTick and TaskObjects run while the sim takes
+0 steps (docs/85 I-85-2), but `DeadRefUnsafe` checked live mode and travel, not pause. A minimized window stops the clock
+through GameClock pause bit 2 without `CurrentGameSpeed == Pause` (docs/85 I-85-1, repro `clock-minimize-pause` PASS
+2026-10-17; docs/162 §7). Rule (Rodney 2026-11-23): nothing of ours does sim-state work while paused, in CAS, Buy/Build,
+Edit Town or menus.
+
+- Shared gate `Fixes.SimFrozenOrNotLive()` (`SimFrozen.cs`, offline part `SimFrozenCore.cs`): true when not
+  `GameStates.IsLiveState` (in-world substate LiveMode only, so Buy, Build, CAS and Edit Town are out **[verified,
+  decompiled GameStates.cs / InWorldState.SubState]**), travelling or shutting down, `Gameflow.CurrentGameSpeed ==
+  Pause`, or `SimClock.CurrentTicks` unchanged for 100 ms of real time (`Environment.TickCount`). One sim step is 1/30 s
+  and a frame of >= 33 ms posts at least one, so 100 ms without a move is a stopped clock, not a gap between steps
+  **[inferred, docs/51 I-596-1]**. Shortcut: a clock that stopped before the first call is seen 100 ms after it.
+- `DrWaitWhileFrozen` before every slice: unsafe (`DeadRefUnsafe`, so leaving live mode) ends the pass as before
+  ([410], the groups stay due); live but paused or clock stopped waits a frame at a time without a slice, keeping the
+  pass's place and its due flags (`sDeadRefObjDue`, group dirty flags), so the same pass goes on after the unpause.
+  Counter [1727] `deadref_paused_waits` = frames waited. Gathers (read-only walks) may still run paused; no holder is
+  changed until the next slice.
+- The save-time pass (`DisposeSaveHook`, phases 1-3) is unchanged: it runs inside EA's save, which a player usually
+  starts while paused.
+- Other per-frame gates checked: `UfLive` (UnseenFallbackLoop.cs) feeds `ufloopbreak`, which maxes motives, removes
+  moodlets and cleans lots in a `LoopTask`: its drain and lot loop now wait while live and frozen (`UfFrozen`), out of
+  live mode the break is still dropped. `UfSitesLive` (UnseenFallbackSites.cs) only builds the Sim list pushed to
+  ts3native: read-only, unchanged. `LiveGuard` (AutLive.cs) is a load-time check of swapped consumer methods, not a
+  state gate: unchanged.
+- No new switch: an EA-like bug fix on released code, ON with `deadrefsweep`.
+- Repro `pause-cas-buy-check` (DeadRefCheck `pausemark` / `pausestate`), queue
+  `tools/harness/queues/deadref-pause-correct-1123.json` (~15 min, not run). Build `ts3fixes.package.pausegate1`.
+
+### 2.3c Pause gate, group 2: drains and one-shot tasks (2026-11-23, built, NOT RUN)
+
+Same rule, the other released per-frame tasks of the audit. `IsInWorld()` is `CurState is InWorldState`, so it stays
+true in in-world CAS, Buy, Build and Edit Town (they are InWorldState substates) **[verified, decompiled GameStates.cs]**;
+gates that only test `IsInWorld` therefore act in those modes. Leaving live mode pauses the clock (`LiveModeState.Shutdown`
+calls `GameUtils.Pause`, `EditTownState` too) **[verified, decompiled]**, so EA's alarms do not fire there.
+
+Shared helper `SfWait(slot[, saveExits])` (SimFrozen.cs; decision `SimFrozenCore.Hold`, selftest `tools/selftest/deadrefs`):
+while `SimFrozenOrNotLive()` the task waits a frame at a time with its work kept; the world going away (shutdown,
+travel, out of the world) or, for wildflowers, a save ends the wait so the caller's existing exit runs. No new switch:
+each fix is ON with its released switch.
+
+| Site | Switch | Before | Now | Counter |
+|---|---|---|---|---|
+| FewerPlans.cs `StuckCheckDrain` | `stuckcheckasync` | live checked at enqueue only; drain ran paused / in Buy | held entry waits (`SfWait`) before the run; travel / shutdown still drop it | [1734] |
+| RouteFixes.cs `StuckWatchdog` | `watchdog` (+`watchdogidle`) | first scan at task start (load, Edit Town) ungated | no `Check` / `CheckIdle` while frozen or not live (tick sleeps only end while the clock runs, so the start was the gap) | [1735] |
+| ReplanDefer.cs `SpreadReplay` | `replanspread` | replayed paused / during the Buy-exit transition; household held too (playerfirst first) | queue held while frozen or not live; household, selected, unknown-scope and non-Sim callers (`IsPlayerSim(rc.Owner as Sim)`) are not held: EA's `ForceRouteReplan(false)` runs at EA's time (inside `ExitBuildBuyMode` / `ForceReplanOfAllSimRoutes`), exact | [1736] waits, [1737] run at once |
+| AutLive.cs go-live wait | `kAutLive` | a worker answer arriving paused was applied; paused frames counted toward `sLiveMaxWait` | frozen while waiting = abandon, drop (`kSDropOther`), the game's own search runs (`MetaOrig`): exact for every Sim, household included | [1738] |
+| AutLive.cs apply slices (`LateSliceOk`, `DirectB14`) | `kAutLive` | a later B13 slice after a pause could still consume worker answers (autlivelate within its age window, direct path) | a later slice that starts frozen or not live consumes nothing: autlivelate refusal (sticky `L.Late`) / direct snap (`L.Snapped`), so the rest of the search is the game's own B14; no wait is added inside EA's search and no frame limit is touched | [1743] |
+| ScriptHotSpots.cs `WfPlaceSliced` | `wildflowertask` | gates lacked `IsLiveState` | `SfWait(…, saveExits: true)` after each yield; save / travel / world-gone exits unchanged | [1739] |
+| DisposeSpread.cs drain | `disposespread` | destroyed paused | live but frozen = hold; save and non-live still flush (state 1) | [1740] |
+| AptLeave.cs RemoveGuest task | `kAptLeave` | one-shot ran at once | waits for the next unfrozen live frame; world gone = skip | [1741] |
+| BoatTrip.cs `BtSweepTask` | `kBoatTrip` | one-shot ran at once | same; queued flag stays set while it waits | [1742] |
+| UnseenOutfitDefer.cs `OdSweep` | `kUnseenOutfitDefer` | applies paused / flushes out of live mode | **unchanged on purpose**: every waiting outfit is one EA already set at its own time, so an apply while paused or in CAS only catches the model up to EA's state (a camera pan while paused must show it); holding it would move further from EA | - |
+
+EA timing for the replans **[verified, decompiled]**: `BuyModeState` / `BuildModeState` shutdown call
+`LotManager.ExitBuildBuyMode`, which calls `OnBuildBuyExit` (`ForceRouteReplan(false)`) for every actor before live mode
+starts; Edit Town and the options call `ForceReplanOfAllSimRoutes`. `ForceRouteReplan(false)` inserts a replan action that
+the Sim follows only when it moves again **[inferred, docs/51 I-598-1]**; townie replays now start on the first unfrozen
+live frame.
+
+Repro `pausegate-drains-check` (`Fixes.PauseGateCheck` mark / state / replan / boatsweep): paused 60 s, in CAS and in
+Buy/Build the action counters (stuck checks run [128], replans replayed [135], spread destroys [281], watchdog resets
+[31]) stay +0, the replan queue holds and drains after the unpause, every household Sim keeps position and interaction.
+Queue `tools/harness/queues/pausegate-drains-correct-1123.json` (~20 min, not run). Build `ts3fixes.package.pausegate3b` (pausegate3 + the apply-slice gate [1743]).
+### 2.3d Pause gate, group 1: the other spread passes (2026-11-23, built, NOT RUN)
+
+Audit 2026-11-23, released switches ON: the other spread passes had the same gap. One shared wait,
+`Fixes.WaitWhileFrozen(slot, stop)` (SpreadGate.cs; `DrWaitWhileFrozen` now calls it): while `SimFrozenOrNotLive()`, wait a
+frame at a time with the pass's place kept and count the frame; `stop()` true = the caller's existing end. Two stops:
+`WorldGone` (our own pass tasks: wait through pause, clock stop, CAS, Buy/Build, Edit Town and travel; the world going
+away still drops the rest as before, nothing queued is lost while the world exists) and `NotLiveOrGone` (a yield
+inside Overwatch's or ErrorTrap's own code: wait only while paused or clock stopped in live mode, act as before out of
+live mode, so a load-time caller never waits for a live mode that only comes after it returns; loading has no
+in-world substate, so `IsLiveState` is false there **[verified, docs/202 §2 table, decompiled GameStates.IsLiveState]**).
+
+| Site | Switch (released) | Was | Now | Counter |
+|---|---|---|---|---|
+| EaSpread.cs `RunSliced` / `RunUnits` (venue cleanup lots + actors, Overwatch inventory) | `easpreadlots`, `overwatchchain` | after each slice `WorldGone` only | `WaitWhileFrozen(WorldGone)` before every slice, the first too | 1728 lots, 1731 Overwatch |
+| EaSpread.cs `LotCleanupTask` stage ticks (simler90 aging, missing Sims, hot-spot pick) | `easpreadlots` | `whole = !WorldGone()` | `whole = WaitWhileFrozen(1728, WorldGone) >= 0` | 1728 |
+| EaSpread.cs `PetTask` | `easpreadpets` | no gate | waits before the build starts | 1729 |
+| EaSpread.cs `PetSleepHook` on `GeneticsPet.SleepIfPossible` (EA's sleep points between the outfit steps) | `easpreadpets` | EA's sleep only: a pause mid-build let the rest finish | EA's body through the stub, then in our pet task only a wait (`WorldGone`); other callers (CAS, adoption) EA's body only | 1729 |
+| EaSpread.cs `DecayTask` (household relationships) | `easpreaddecay` | after each slice `WorldGone` only | before every slice | 1730 |
+| OverwatchSpread.cs `OwChainTheirs`, `OwStartTask`, agent "all" task | `overwatchchain` | no gate | waits before Overwatch's code starts | 1731 |
+| OverwatchSpread.cs chain sleep between types | `overwatchchain` | Sleep, `WorldGone` | Sleep, wait (`WorldGone`), `WorldGone` | 1731 |
+| OverwatchStuck.cs StuckCheck slice sleep (`SelectHook`) and per-plan yield (`RoutableHook`) | `overwatchstuckslice`, `overwatchstuck` | Sleep | Sleep, wait (`NotLiveOrGone`) | 1731 |
+| ErrorTrapSpread.cs `EtSleep` in `EtPass` (household inventories) | `errortrapspread` | Sleep, `WorldGone` | Sleep, wait (`WorldGone`) | 1732 |
+| ErrorTrapSpread.cs `EtSleep` in `CheckHook` (ErrorTrap's load-up chain) | `errortrapspread` | Sleep | Sleep, wait (`NotLiveOrGone`) | 1732 |
+| SaveCleanupSpread.cs phase loop | `savecleanup` | `SpreadCleanupUnsafe` after each slice (ends out of live mode, not on pause) | before every phase and slice: paused waits, unsafe ends as before ([43], [415]) | 1733 |
+
+- Pet build: the game's path runs it in the pool alarm, which may not yield, so it is one tick and never spans a pause
+  **[verified, decompiled `GeneticsPet.SleepIfPossible`: sleeps only when `CheckYieldingContext`; docs/147 §3]**. Ours
+  spans ticks at those sleep points, so each one now waits while frozen (`PetSleepHook`, swap-stack row with stub). The
+  part between two sleep points (`CASLogic.RandomizePet`, outfit steps) still runs whole in one tick, as in the game.
+- Overwatch / ErrorTrap code run out of live mode acts as before.
+- Helper vs group 2 (`bugfix/pausegate-drains-1123`, §2.3c there): its `SfWait(slot[, saveExits])` in SimFrozen.cs is the
+  same loop with a fixed stop (`SfLeaving`: also ends on travel and game shutdown) and returns bool. Ours lives in
+  SpreadGate.cs (`WaitWhileFrozen(slot, stop)`, -1/0/1) because these passes need their own stop (WorldGone waits through
+  travel; the save cleanup stops on `SpreadCleanupUnsafe`; `NotLiveOrGone`). Group 2's agent check is `PauseGateCheck` /
+  `Pg*`; ours is `SpreadGateCheck` / `Sg*`, so the two merge without duplicate members. Merger: keep both helpers; text
+  conflicts only in docs (both sections after §2.3b, this one is §2.3d), registry, Fixes.cs counter comments, PLAN.md,
+  index line and ledger tail: keep both sides.
+- Gathers (read-only lists) may still run on the first frame; no sim state changes until the gate opens.
+- No new switch: bug fix on released code, ON with each pass's switch.
+- Agent check `SpreadGateCheck` (SpreadGate.cs, with `WaitWhileFrozen`): `start` runs every pass now without its alarm (`lots`, `pets` = a
+  test stray cat, `decay`, `owinv` / `et` with NRaas Overwatch / ErrorTrap loaded, `sc`), `mark` / `state` print per
+  group passes finished and frames waited since the mark plus the active household fingerprint (relationship pairs,
+  summed liking, items in member / family / fridge inventories). Repro `pausegate-spread-check`, queue
+  `tools/harness/queues/pausegate-spread-correct-1123.json` (bundle: the new repro + `pause-cas-buy-check` on the same
+  build, ~30 min, not run). Build `ts3fixes.package.pausegate2b` (2 without the pet sleep hook). Inferences: docs/51 §599.
+### 2.3e Native timers and route results across a pause or a mode (2026-11-23, built, NOT RUN)
+
+Same rule, second round of the audit (branch `bugfix/pausegate-native-1123`, builds `ts3native.asi` 0.36.300-pausegate4
+and `ts3fixes.package.pausegate4`, counters v224 `pg*` at 0x6B60). No new switch: bug fixes on released code, ON.
+
+| # | Gap | Fix | Counter |
+|---|---|---|---|
+| 1 | `[UnseenFallback]` Sites / FinishWalk (`unseenfbc.cpp`): list age 3 s and hold timers (3 s unclaimed, 10 min) ran on wall clock. A pause over 3 s expired every hold; the held unseen Sim walked on after the unpause while ts3fixes still placed it at its path end (a jump). | ts3fixes `UfSitesLoop` sends code 27 on the 0x83 channel while live mode is frozen (`SimFrozenOrNotLive`; 1 again every 0.5 s, 0 at the thaw) and pushes no list. ts3native `UfcNow` stands at the freeze start, so neither age nor hold timers advance; the thaw moves every stamp by the frozen span. No word for 3 s = the freeze ends at the last word (a dead loop never keeps an old list fresh). Out of live mode the empty list goes out as before. Older ts3native refuses code 27: ts3fixes stops asking for that load. | `pgFrozenSpans`, `pgFrozenHolds` |
+| 1b | `UrPlacedSweep` (`unseenroute` repair placement, UnseenFallback.cs) could place a Sim while paused. | waits while `SimFrozenOrNotLive()` (the placed map is kept). | - |
+| 2 | `[UnseenThrottle] NeedViewers` could silently become 0; `[UnseenAnim]` / `[UnseenTable]` read the household table through it. | pinned to 1: `tools/release-defaults-check.ts` `PINNED` (self-check reads master's ini) and build.yml's release job. | - |
+| 3 | `[PcCheck] Enabled=1` was not in build.yml's stable list (the release job would fail "Not stable") nor in docs/PLAYERS.md. | added to both (Rodney keeps it on). | - |
+| 4a | `[RouteAsync]`: a J_DONE result (kept up to 5 s) collected after a Build/Buy edit handed out a path from the pre-edit world. | routing epoch `g_rtEpoch` moves at the gate entries of `RoutingSystem_OnExitBuildBuy 0x835240` (site 13) and `RoutingSystem_RebuildLotRouting 0x835110` (site 14) and at the `RouteManager_OnExitBuildBuy` IC (routesnap E13). A job stores the epoch at START; the worker skips an older one at claim, `IcCollect` plans an older result again synchronously, as EA plans after the exit. Shortcut: with `[RouteGate]` and `[RouteSnap]` both off nothing moves the epoch (both on in release). | `pgEpochStale` |
+| 4b | `[Discourage]` records deferred before the exit were applied after 0x835240's rebuild. | `DiscDrainBb` drains at the site-13 gate entry (owner thread, an IC point, I-600-4); skipped inside a job callback, with +0x918 held, with the P5c lent lock or while draining (then the next drain point applies them, as before). Site 14 is not drained: it also runs from save and lot paths that drain already or are not IC points. | `pgBbDrains`, `pgBbSkips` |
+| 4c | Is `GameStates.IsLiveState` false in CAS and Edit Town? | yes **[verified, decompiled]**: `StateId == 0` (LiveMode) only; CAS / CAB substates 3-11 and 17-19, EditTown 14 (I-600-1). | - |
+
+Not changed: `UfWhy` (read-only; its callers gate), `UnseenViewers.ViewerPushLoop` (a stale household table counts as near
+the household, the safe side, I-600-3 for why it goes stale while paused), `AutLive.LiveCheck` (owned by the
+pausegate-drains lane). Native selftest: `TestUnseenFallbackSites` (60 s freeze keeps list and hold, control without the
+word expires it, a silent freeze ends after 3 s) and the async test (stale finished result and stale claim planned again,
+same epoch collected). Queue `tools/harness/queues/pausegate-native-correct-1123.json` (2 jobs, ~25 min, dry-run ok, NOT
+RUN): `pausegate-unseen-hold-pause` (SV, 60 s pause with FinishWalk holds: `ufwRelease_3` +0, `pgFrozenHolds` >= 1) and
+`pausegate-buildbuy-epoch` (BP, three Buy/Build round trips with route jobs in flight: `pgEpochStale` >= 1). Ledger §600.
+
 ### 2.4 Counters
 
 [393] Get refusals, [394] aging states refused, [395] relationship keys removed, [396] relationship entries removed,
 [397] aging states removed, [398] alarm owners cleared, [399] react-time entries, [400] coworker / former boss / chess
 entries, [401] topics, [402] fishers, [403] Sim fields (pusher, talking partner, vehicle, pregnancy dad), [404] passenger
 and horseshoe entries, [2045] dartboard entries (docs/516), [2046] use-list entries (docs/517), [2047] owner entries (docs/519), [2048] disposed handlers (docs/522), [2049] celebrity reactors (docs/523), [2055] object walks of phases 10-12, [2056] ms in them, [2057] walks asked by an event (§2.3a), [405] passes finished, [406] slices, [407] longest slice us, [408] total pass ms, [409] longest
-save pass us, [410] passes refused or stopped, and items that threw. Agent names `deadrefguards_*`, `deadrefsweep_*`.
+save pass us, [410] passes refused or stopped, and items that threw, [1727] frames a pass waited while paused or with the clock stopped (§2.3b). Agent names `deadrefguards_*`, `deadrefsweep_*`.
 
 ## 3. Switches
 
@@ -198,6 +332,12 @@ Queue `tools/harness/queues/deadrefs-ageup.json` (correctness and save matrix, n
    save-data change with all three switches on: new save, overwrite twice, back-to-back, unpaused, reload in
    the same session + 60 s play, save after reload.
 5. `bp-deadrefs-travel`: travel to France with the switches on; both passes refuse while away, the guards still answer.
+6. `deadref-pause-correct-1123` (repro `pause-cas-buy-check`, §2.3b): pass started paused, 60 s paused = slices +0 with
+   paused waits rising, the same pass completes after the unpause; in CAS and Buy/Build slices +0.
+7. `pausegate-spread-correct-1123` (repro `pausegate-spread-check`, §2.3d): every spread pass started paused, 60 s
+   paused = done +0 with every pass waiting and the household fingerprint unchanged, all finish after the unpause; in CAS
+   and Buy/Build done +0, household unchanged.
+8. `pausegate-native-correct-1123` (§2.3e): unseen holds through a 60 s pause, stale route results after Buy/Build.
 
 The matrix's byte-identical cases do not apply: these switches change the save by design. The reporter's long Bridgeport
 save chain (ErrorTrap load scans, "SimDescription Removed" per load) is the end-to-end measure; we have no such save.

@@ -95,6 +95,7 @@ namespace Ts3Fixes
                     {
                         OwStuckStretch();
                         Simulator.Sleep(0);
+                        WaitWhileFrozen(1731, NotLiveOrGone); // paused / clock stopped in live mode: the walk waits (docs/205 §2.3d)
                         c[255]++;
                         sOwStuckWatch.Restart();
                         if (OverwatchSpreadCore.SkipAfterSlice(sim == null || sim.HasBeenDestroyed, sim != null && sim.InWorld, sim != null && sim.Proxy != null)) return true;
@@ -121,6 +122,7 @@ namespace Ts3Fixes
                     c[45]++;
                     if (sOwInStuck) OwStuckStretch();
                     Simulator.Sleep(0);
+                    WaitWhileFrozen(1731, NotLiveOrGone); // paused / clock stopped in live mode: the walk waits (docs/205 §2.3d)
                     if (sOwInStuck) sOwStuckWatch.Restart();
                 }
                 else if (!sOwNoYieldLogged)

@@ -179,6 +179,12 @@ namespace Ts3Fixes
             return r;
         }
 
+        // portals with their own rule in Sim.OnPortalPathPlan (age, posture, traits, the running interaction)
+        static bool DshSpecial(GameObject p)
+        {
+            return p is FirefighterPole || p is IBoxStall || p is IHorseJump || p is ElevatorDoors || p is DivingBoard || p is Ladder;
+        }
+
         // the ask (lot, routing object, portal object, rooms) was just answered "unlocked" by the game's callback
         static void DshNote(ulong lotId, ulong simId, ulong portalId, int from, int to)
         {
@@ -198,7 +204,7 @@ namespace Ts3Fixes
                     return;
                 }
                 if (p == null || DshWhy(actor) != 0) return;
-                bool special = p is FirefighterPole || p is IBoxStall || p is IHorseJump || p is ElevatorDoors || p is DivingBoard || p is Ladder;
+                bool special = DshSpecial(p);
                 Door door = p as Door;
                 bool lotPure = DshLotPure(lot), worldPure = lotPure && DshWorldPure();
                 int kind = DoorShareCore.Kind(lotPure, worldPure, special, door != null, door != null && DshCommonRule(door.GetType()),
@@ -219,6 +225,8 @@ namespace Ts3Fixes
                 uint r = CbOrig(lotId, routingObjectId, portalObjectId, roomFrom, roomTo, initialLocked);
                 if (sDoorShareOn && sDoorShareNative && r == (uint)PortalLockedCallbackResults.PortalUnlocked)
                     DshNote(lotId, routingObjectId, portalObjectId, roomFrom, roomTo);
+                if (sDoorGenOn && r == (uint)PortalLockedCallbackResults.PortalUnlocked)
+                    DoorGenMemoNote(lotId, routingObjectId, portalObjectId, roomFrom, roomTo);  // DoorGen.cs, docs/585 §9
                 return r;
             }
             public static uint CbOrig(ulong lotId, ulong routingObjectId, ulong portalObjectId, short roomFrom, short roomTo, bool initialLocked) { return 0; }

@@ -886,7 +886,7 @@ namespace Ts3Fixes
         static void UrPlacedSweep()
         {
             var placed = sUrPlaced;
-            if (placed.Count == 0 || !GameStates.IsLiveState) return;
+            if (placed.Count == 0 || SimFrozenOrNotLive()) return;  // docs/205 §2.3e: no repair placement while paused; the map waits
             System.Collections.Generic.List<ulong> ids = new System.Collections.Generic.List<ulong>(placed.Keys);
             foreach (ulong id in ids)
             {

@@ -249,10 +249,6 @@ static bool ApplyMonoThread(const wchar_t* ini) {
         (DWORD)(uintptr_t)g_mtOrigPush, MT_SIM_SLOT, (k.mtReady & 2) ? "hooked" : "not hooked", k.mtMode, g_mtWantP3, g_mtWantP4);
     // QuitStop (docs/30 §17): the worker stops and our GC hooks go back at the Mono shutdown entry
     g_mtQuitStop = GetPrivateProfileIntW(L"MonoThread", L"QuitStop", 1, ini) != 0;
-#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has the row (docs/273)
-    if (g_mtQuitStop) Log("SKIP mono thread QuitStop ([MonoThread] QuitStop, Mono shutdown entry): no EA 1.69 address, docs/232 §8");
-    g_mtQuitStop = false;
-#endif
     g_mtQuitWaitMs = (DWORD)Clamp(GetPrivateProfileIntW(L"MonoThread", L"QuitWaitMs", 2000, ini), 100, 10000);
     if (g_mtQuitStop && (g_mtShutT = InstallDetour("Mono shutdown 0xE534D0 (QuitStop)", MT_SHUTDOWN, kMtShutdown, sizeof(kMtShutdown),
                                                    (void*)&MtShutdownHook, &g_mtShutT)) != NULL)

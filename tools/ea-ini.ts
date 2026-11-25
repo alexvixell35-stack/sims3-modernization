@@ -34,9 +34,15 @@ const rcZeroKey = (sec: string, key: string) => (RC_ZERO_KEYS[sec] ?? []).includ
 export const KEY_ADDRS: Record<string, number[]> = {
     "EaCrashFixes.ThumbPoseBones": [0x00D5B708, 0x00D5B768, 0x00D5B7A1, 0x00FC2D30], "EaCrashFixes.LotGridMiss": [0x0082B608, 0x0082B7F4],
     "RouteToObjRO.Tail": [0x00686A90, 0x0082A780, 0x01003D7C],
+    // v0.3.1 EA run 2026-11-23: both ON in the EA ini while the asi logged SKIP at 0x00000000 (rows unresolved, docs/293 §6)
+    "EaCrashFixes.SavedFrameGuard": [0x00D84360, 0x00E52B90],
+    "RouteAsync.TaskServe": [0x00D7F000, 0x00D7FA74, 0x00D7FB53, 0x00D7FE01, 0x00D800FC],
+    // [OutfitFirst] (docs/684 §9, master 1123c): its own 3 rows, unresolved on EA (it SKIPs); without this, thumbstall.cpp counts as
+    // bad and zeroes [ThumbStall] too
+    "OutfitFirst.Enabled": [0x005E4EB0, 0x006DD160, 0x006F4926],
     "IdleCheckRO.SiteC": [0x00620D20, 0x00624F70, 0x00652470, 0x0075598B, 0x00755A12, 0x00755A6D, 0x00755A82, 0x00755A97],
     // master fold 2026-11-15 (docs/232 §8): master code newer than rc1111g, no EA 1.69 rows yet; each feature also SKIPs in the EA
-    // asi. RacesBits01 and SatbColdPark name no ini key (the code masks Races to bit 2, EA_SET ships Races=4; the cold park is not
+    // asi. RacesBits01 and SatbColdPark name no ini key (RacesBits01 resolved 2026-11-23, kept as a guard; the cold park is not
     // switched): they only keep autraces.cpp and satb.cpp from zeroing the whole [AutShadow]
     "AutShadow.RacesBits01": [0x004D9AD0, 0x007935B0, 0x008A79B0, 0x009B0530, 0x00C88D80, 0x00D79CA0, 0x0114C908, 0x0114CA08, 0x0114CA0C, 0x011AF670, 0x011C7984, 0x011CB928, 0x011CC928, 0x011CC964, 0x011CDD00, 0x011CE2D0, 0x011CF490, 0x011D3E28, 0x011D4068, 0x011D4BC0, 0x011D6A78, 0x011D7518, 0x011D8888, 0x011D9848, 0x011DA058, 0x011E8FA8, 0x011E8FC0, 0x011E8FC4, 0x011E90F8, 0x011E9290, 0x011E92A8, 0x011E94F8, 0x011E96C1, 0x011EB490, 0x011EBAE0, 0x011ECEED, 0x011ED780, 0x011EE140, 0x011EE520, 0x011EE528, 0x011EE54C, 0x011EE550, 0x011EE554, 0x011EE558, 0x011EE55C, 0x011EE560, 0x011EE564, 0x011EE568, 0x011EE56C, 0x011EE570, 0x011EE574, 0x011EE578, 0x011EE57C, 0x011EE580, 0x011EE584, 0x011EE588],
     "AutShadow.SatbColdPark": [0x011F4130, 0x011F43E4, 0x011F4574, 0x011F45A0],
@@ -50,6 +56,23 @@ export const KEY_ADDRS: Record<string, number[]> = {
     "EaCrashFixes.LotLevelPastEnd": [0x00AB70B0, 0x010652D4],
     "EaCrashFixes.FglStaleObject": [0x00B11A95, 0x00B11A9C, 0x00B11ABF],
 };
+// Keys whose code the EA asi compiles out or stands down (#ifdef TS3A_TABLE / ts3a_noaddr): the EA asi logs SKIP, so every EA
+// ini writes them 0, never on. Found by eaSkipKeys in the cpp SKIP lines that name "([Section] Key / Key2)" and say
+// "no EA 1.69 address" or "Steam 1.67 only" (no key = Enabled); EA_SKIP_KEYS holds the SKIP lines that name no section:
+// [SKIP text in the source, why]. A key is zeroed only while its SKIP text is still in a cpp, so mapping the site for EA
+// (which removes that SKIP line) turns the key back on without editing this list.
+export const EA_SKIP_KEYS: Record<string, [string, string]> = {
+    "EaCrashFixes.SlaveUnlink": ["SKIP ea fix SlaveUnlink / DeadSlaveTrip: no EA 1.69 address", "eafix.cpp ApplySlaveLink: ts3a_noaddr return on EA (docs/232 §8)"],
+    "EaCrashFixes.DeadSlaveTrip": ["SKIP ea fix SlaveUnlink / DeadSlaveTrip: no EA 1.69 address", "eafix.cpp ApplySlaveLink: ts3a_noaddr return on EA (docs/232 §8)"],
+    "EaCrashFixes.VbFreeDelayMs": ["Steam 1.67 only, no EA 1.69 rows", "eafix.cpp ApplyVbFreeDelay: #ifndef TS3A_TABLE (docs/67 §44)"],
+    "CrashForensics.VbGuard": ["SKIP crash forensics VB guard: Steam 1.67 only", "crashfx.cpp VbInstall: #ifndef TS3A_TABLE (docs/67 §44)"],
+    "WaterGrid.Prof": ["SKIP water grid prof: Steam 1.67 only", "watergrid.cpp ApplyWaterGrid: #ifdef TS3A_TABLE SKIP"],
+};
+// EA_SKIP_KEYS entries whose SKIP text is in the given source text
+export const handSkipKeys = (src: string) => Object.entries(EA_SKIP_KEYS).filter(([, [m]]) => src.includes(m)).map(([k]) => k);
+// "Section.Key" named by EA SKIP lines in one cpp file's text; EA_SET keys are skipped (AutShadow.Races: bits 0-1 SKIP, bit 2 runs)
+export const eaSkipKeys = (cpp: string) => new Set([...cpp.matchAll(/Log\("SKIP [^"\n]*?\(\[(\w+)\](?: (\w+(?: \/ \w+)*))?[^)"\n]*\)[^"\n]*(?:no EA 1\.69 address|Steam 1\.67 only)/g)]
+    .flatMap((m) => (m[2] ?? "Enabled").split(" / ").map((k) => m[1] + "." + k)).filter((k) => EA_SET[k] === undefined));
 const keyed = new Set(Object.values(KEY_ADDRS).flat());
 const unresolvedRows = (addrHdr: string) => [...addrHdr.matchAll(/^\/\/ unresolved: (\S+) \S+ (?:native\/ts3native\/)?([\w-]+\.(?:cpp|h))/gm)];
 // "Section.Key" of every key with an unresolved address
@@ -57,8 +80,8 @@ export const keysOff = (addrHdr: string) => { const un = new Set(unresolvedRows(
 // EA-only shipped defaults: values both EA inis take in place of the Steam ini's (sections that are not zeroed only); the Steam
 // ts3native.ini keeps its own value (main ships 1024 too since Run 8q, window mode). BlackListCapKB: docs/232 Run 8n/8o, Run 8p (no leak).
 // ThreadStack.Skip: SimulatorThread_Proc, a runtime string the address table cannot rewrite; the Steam value left the EA sim thread capped.
-// AutShadow.Races: bit 2 (R2c) only, as v0.2.12 EA shipped it; bits 0-1 have no EA 1.69 rows (docs/232 §8)
-export const EA_SET: Record<string, string> = { "GC.BlackListCapKB": "1024", "ThreadStack.Skip": "0x76C360", "AutShadow.Races": "4" };
+// AutShadow.Races left 2026-11-23 (ea169-parity-a): bits 0-1 have EA 1.69 rows now, the rc ini ships the Steam value
+export const EA_SET: Record<string, string> = { "GC.BlackListCapKB": "1024", "ThreadStack.Skip": "0x76C360" };
 // EA-port-only keys (TS3N_EA_PORT in ts3addr.h: compiled into the EA asi only, so the Steam ts3native.ini has no line for them):
 // appended to the end of their section; a section ts3native.ini lacks goes at the end of the file. Values as the v0.2.10 EA
 // rc ini shipped them: SimNoTexture on (player crash, deterministic repro, the fix passes it, docs/67 §34.5), ImageGuard off
@@ -161,11 +184,18 @@ function load() {
     const sections: string[] = [], enabled: Record<string, string> = {};
     let sec = "";
     for (const l of ini) { const m = /^\[(\w+)\]/.exec(l); if (m) { sec = m[1]; sections.push(sec); } const e = /^Enabled=(-?\d+)/.exec(l); if (e && sec) enabled[sec] = e[1]; }
-    const includes = new Map<string, string[]>();
-    for (const f of readdirSync(SRC).filter((f) => f.endsWith(".cpp"))) for (const m of readFileSync(join(SRC, f), "utf8").matchAll(/^#include "([\w-]+\.h)"/gm)) includes.set(m[1], [...(includes.get(m[1]) ?? []), f]);
+    const includes = new Map<string, string[]>(), skip = new Set<string>();
+    let all = "";
+    for (const f of readdirSync(SRC).filter((f) => f.endsWith(".cpp"))) {
+        const t = readFileSync(join(SRC, f), "utf8");
+        for (const m of t.matchAll(/^#include "([\w-]+\.h)"/gm)) includes.set(m[1], [...(includes.get(m[1]) ?? []), f]);
+        for (const k of eaSkipKeys(t)) skip.add(k);
+        all += t;
+    }
+    for (const k of handSkipKeys(all)) skip.add(k);
     const map = JSON.parse(readFileSync(join(repo, "tools", "ini-sections.json"), "utf8"));
     const addrHdr = readFileSync(join(SRC, "ts3addr-ea169.h"), "utf8"), bad = badFiles(addrHdr, readFileSync(join(SRC, "ts3bytes-ea169.h"), "utf8"), includes);
-    return { ini, sections, enabled, map, bad, off: keysOff(addrHdr) };
+    return { ini, sections, enabled, map, bad, off: keysOff(addrHdr), skip };
 }
 
 function selfCheck() {
@@ -191,6 +221,15 @@ function selfCheck() {
     ok(addEaKeys(["[A]", "x=1", "", "[B]", "y=1"], { A: ["k=2"], C: ["z=3"] }).join() === "[A],x=1,k=2,,[B],y=1,,[C],z=3", "addEaKeys");
     const eaRc = render(addEaKeys(readFileSync(join(SRC, "ts3native.ini"), "utf8").split(/\r?\n/)), () => false, () => false, rcZeroKey, EA_SET);
     ok(/^SimNoTexture=1\s*$/m.test(eaRc) && /\r\n\[ImageGuard\]\r\n(;[^\r]*\r\n)*Enabled=0\r\n/.test(eaRc), "EA rc ini: SimNoTexture=1, [ImageGuard] Enabled=0");
+    const sk = eaSkipKeys('Log("SKIP a ([A] X / Y): no EA 1.69 address");\nLog("SKIP b ([B]): Steam 1.67 only");\nLog("SKIP c ([C] Z): bytes differ");\nLog("SKIP r ([GC] BlackListCapKB, cap): no EA 1.69 address");');
+    ok([...sk].sort().join() === "A.X,A.Y,B.Enabled", "eaSkipKeys " + [...sk]);
+    // the real sources: keys the EA asi SKIPs come out 0 in the rc ini (they were on until 2026-11-23)
+    const L = load(), z = (s: string, k: string) => L.off.has(s + "." + k) || L.skip.has(s + "." + k);
+    ok(L.skip.has("Startup.DxDiagCache") && L.skip.has("ResourceCache.TrimEveryMin"), "scan finds the named SKIP keys");
+    const eaFix = render(L.ini, () => false, () => false, (s, k) => rcZeroKey(s, k) || z(s, k), EA_SET).split("\r\n[EaCrashFixes]\r\n")[1].split("\r\n[")[0];
+    ok(handSkipKeys('Log("SKIP crash forensics VB guard: Steam 1.67 only");').join() === "CrashForensics.VbGuard", "hand list follows its SKIP text");
+    ok(handSkipKeys("mapped now, no SKIP line").length === 0, "hand list retires once the SKIP line is gone");
+    for (const k of ["SlaveUnlink", "DeadSlaveTrip", "VbFreeDelayMs"]) if (L.skip.has("EaCrashFixes." + k)) ok(new RegExp("^" + k + "=0\\s*$", "m").test(eaFix), "EA rc ini [EaCrashFixes] " + k + " must be 0");
     console.log("ea-ini self-check: ok");
 }
 
@@ -198,11 +237,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     const { values: v } = parseArgs({ options: { out: { type: "string" }, md: { type: "string" }, "self-check": { type: "boolean" } } });
     if (v["self-check"]) selfCheck();
     else {
-        const { ini, sections, enabled, map, bad, off } = load();
+        const { ini, sections, enabled, map, bad, off, skip } = load();
         // a raw TS3W address in __asm keeps its Steam value on EA (ThumbStall 0xD5A9D2 crash): no EA ini until it is per-build
         const asm = rawAsmRows(sourceFiles().flatMap((f) => { const t = readFileSync(join(SRC, f), "utf8"); return generated(t) || eaOnly(t) ? [] : scanText(t, f); }));
         if (asm.length) throw new Error("raw TS3W address in inline asm (per-build literal under #ifdef TS3A_TABLE + static_assert, as mintcall.cpp): " + asm.map((r) => `${r.file}:${r.line} ${r.lit}`).join(", "));
-        const zeroKey = (s: string, k: string) => off.has(s + "." + k);
+        const zeroKey = (s: string, k: string) => off.has(s + "." + k) || skip.has(s + "." + k);
         const on = (process.env.ALLOW_ON ?? "").split(" ").filter(Boolean), allow = (process.env.ALLOW ?? "").split(" ").filter(Boolean).concat(on);
         for (const s of allow) {
             if (!map[s]) throw new Error(`[${s}] is not in tools/ini-sections.json`);
@@ -218,6 +257,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
         writeFileSync(join(out, "ts3native-ea169-test.ini"), render(ini, (s) => zeroed.has(s), () => false, (s, k) => rcZeroKey(s, k) || zeroKey(s, k), { ...EA_SET, ...TEST_SET }));
         for (const r of plan) console.log(`rc [${r.section}] shipped Enabled=${r.shipped}: ${r.state}${r.state === "zeroed" ? " (" + r.reason + ")" : ""}`);
         console.log(`keys off for unresolved rows: ${[...off].join(" ") || "none"}`);
+        console.log(`keys off for EA SKIP code paths: ${[...skip].join(" ")}`);
         console.log(`rc ini: ${plan.length - zeroed.size} sections kept as shipped (Enabled=1: ${plan.filter((r) => r.state === "kept" && r.shipped === "1").map((r) => r.section).join(" ")}), ${zeroed.size} zeroed`);
         if (v.md) writeFileSync(v.md, "| section | shipped Enabled | rc state | reason |\n|---|---|---|---|\n" + plan.map((r) => `| [${r.section}] | ${r.shipped} | ${r.state} | ${r.reason} |`).join("\n") + "\n");
     }

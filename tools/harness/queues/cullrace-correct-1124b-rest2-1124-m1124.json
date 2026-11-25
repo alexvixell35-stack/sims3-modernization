@@ -5,7 +5,7 @@
  "jobs": [
   {
    "id": "ip-cullrace-async-off",
-   "note": "[est 15 min] IP, lightingquality 1, generalreflections 0, repro ip-cullrace-pan ~9 min, [RouteAsync] Enabled=0, CullDrainWait=0. A BADIDX early-gate FAIL or a crash at 0x6E4735 IS the repro: read the cullrace: line (draw tid, cull tid, sim tid, job state). ",
+   "note": "[est 15 min] IP, lightingquality 1, generalreflections 0, repro ip-cullrace-pan ~9 min, [RouteAsync] Enabled=0, CullDrainWait=0 (set explicitly: m1124 default is 1), [RouteGate] Enforce=0 (Enforce=1 without async logs \"FAIL route gate closures\" and the harness voids the run). A BADIDX early-gate FAIL or a crash at 0x6E4735 IS the repro: read the cullrace: line (draw tid, cull tid, sim tid, job state). ",
    "asi": "game-copy/ts3native.asi.m1124",
    "iniBase": "game-copy/ts3native.ini.m1124",
    "fixesPackage": "game-copy/ts3fixes.package.m1124",
@@ -78,7 +78,9 @@
    },
    "ini": {
     "Crash.Log": 1,
-    "RouteAsync.Enabled": 0
+    "RouteAsync.Enabled": 0,
+    "RouteGate.Enforce": 0,
+    "EaCrashFixes.CullDrainWait": 0
    }
   },
   {

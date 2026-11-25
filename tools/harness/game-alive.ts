@@ -406,7 +406,18 @@ export function lockWaits(file: string, read: typeof analyzeDump = analyzeDump):
 
 // clock-stuck trip that gets a hang capture (pure, covered by --self-check): clock not natively paused and no dialog open
 // (rc1111d bookcarry 2026-11-11: native_paused false, pause_bits 0, one core busy, no stacks). No reply counts as running.
-export const stuckRunning = (cs: { native_paused?: boolean } | null, pd: { open?: boolean } | null) => cs?.native_paused !== true && pd?.open !== true;
+// A paused trip with no in-world sub-state (a world switch that never reached live mode: lc7 EA travel 2026-11-24, Pause, no
+// dialog, memory flat for 60 s after the home load) is captured too: the stacks show what LiveModeState.Startup waits on.
+export const stuckRunning = (cs: { native_paused?: boolean | null } | null, pd: { open?: boolean } | null, transit = false) =>
+  pd?.open !== true && (cs?.native_paused !== true || transit);
+
+// device pause fail-fast (pure, covered by --self-check), one clock_state reply per clock-guard check (30 s apart): pause bit 4
+// (device +0x8D: lost D3D device or minimized window, docs/41 §2.1, I-85-6) set on 2 checks in a row = '' -> why. The agent
+// cannot clear it (MainLoop sets it every frame while the device says so), so waiting out the timeout gains nothing.
+export function devicePauseStep(st: { misses: number }, cs: { device_pause?: boolean; window?: { iconic?: boolean; foreground?: boolean } } | null): string {
+  st.misses = cs?.device_pause === true ? st.misses + 1 : 0;
+  return st.misses < 2 ? '' : `device pause (clock bit 4: lost D3D device or minimized window) held for ~60 s (window iconic ${cs!.window?.iconic ?? '?'}, foreground ${cs!.window?.foreground ?? '?'}); the agent cannot clear it`;
+}
 
 if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-check')) {
   const assert = (await import('node:assert')).strict;
@@ -414,6 +425,14 @@ if (process.argv[1]?.endsWith('game-alive.ts') && process.argv.includes('--self-
   assert.equal(stuckRunning({ native_paused: true }, { open: false }), false); // paused: old behaviour
   assert.equal(stuckRunning({ native_paused: false }, { open: true }), false); // dialog holds the clock
   assert.equal(stuckRunning(null, null), true); // no reply: capture
+  assert.equal(stuckRunning({ native_paused: true }, { open: false }, true), true); // paused mid world switch: capture
+  assert.equal(stuckRunning({ native_paused: true }, { open: true }, true), false); // a dialog still explains it
+  assert.equal(stuckRunning({ native_paused: null }, { open: false }), true); // unreadable clock (unknown exe): capture
+  const dps = { misses: 0 }, win = { iconic: false, foreground: false };
+  assert.equal(devicePauseStep(dps, { device_pause: true, window: win }), '');
+  assert.match(devicePauseStep(dps, { device_pause: true, window: win }), /^device pause \(clock bit 4.*held for ~60 s \(window iconic false, foreground false\)/);
+  assert.equal(devicePauseStep(dps, { device_pause: false }), ''); assert.equal(dps.misses, 0);
+  assert.equal(devicePauseStep(dps, { device_pause: true }), ''); assert.equal(devicePauseStep(dps, null), ''); assert.equal(dps.misses, 0, 'no reply resets');
   const st = { last: null as string | null, misses: 0 }, smp = (mark: string, running = true, answering = true) => ({ running, answering, mark });
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // first sample is progress
   assert.equal(stallStep(st, smp('1|true|900|10|')), ''); // one miss

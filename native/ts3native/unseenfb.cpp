@@ -304,6 +304,7 @@ static u8 UfSphereUnseen(const float* s) {
 }
 static u8 UfcListMsg(int code, DWORD lo);
 static u8 UfcC4LogMsg(DWORD lo);
+static u8 UfcFrozenMsg(DWORD lo);  // unseenfbc.cpp: code 27, docs/205 §2.3e pause gate
 static u8 UfwMsg(int code, DWORD lo);  // unseenfbc.cpp: codes 7-10, the unseen-Sim list for the C1-C4 sites (docs/202 §3.4)
 // docs/202 §3.5 (1): the game's flood colours of the world graph R near a point, for D's same-component test (ts3fixes UfPre).
 // R = world+0x54 (world = the RoutingWorld_Get slot 0x11D9128): w, h, chunk offsets +0x08, records +0x0C, size +0x10, colours
@@ -381,6 +382,7 @@ static u8 UfCamMsg(DWORD lo, DWORD hi) {
     if (code >= 7 && code <= 10) return UfcListMsg(code, lo);
     if (code == 14) return UfcC4LogMsg(lo);  // docs/202 §5.6: the last Sim C4 answered "not free"
     if (code >= 15 && code <= 20) return UfwMsg(code, lo);  // docs/202 §3.4.2 FinishWalk (unseenfbc.cpp)
+    if (code == 27) return UfcFrozenMsg(lo);  // docs/205 §2.3e: live mode paused / clock stopped (1) or running again (0)
     float f;
     memcpy(&f, &lo, 4);
     if (code >= 3 && code <= 5) {

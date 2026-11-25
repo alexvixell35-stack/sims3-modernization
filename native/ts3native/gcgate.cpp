@@ -207,7 +207,7 @@ static void ApplyGcSubTimers() {
     if (PatchCalls("GC sub-timers", sites, _countof(sites))) ts3native_counters.gctReady = 1;
 }
 
-// EA 1.69: the byte checks below embed Steam 1.67 data addresses, so that build logs SKIP until the gate is ported.
+// The byte checks below embed Steam 1.67 data addresses; the EA 1.69 asi compares its own bytes (ts3bytes-ea169.h, docs/334 §7).
 static const u8 kGcgInProgress[12] = {0x33, 0xC0, 0x39, 0x05, 0x78, 0x30, 0x1F, 0x01, 0x0F, 0x95, 0xC0, 0xC3};  // 0xE4C060
 static const u8 kGcgPendingSet[10] = {0xC7, 0x05, 0x94, 0x2F, 0x1F, 0x01, 0x01, 0x00, 0x00, 0x00};              // 0xE4A022
 static const u8 kGcgAllocdZero[6] = {0x89, 0x35, 0xC4, 0x25, 0x22, 0x01};                                       // 0xE49AD9
@@ -221,9 +221,6 @@ static bool ApplyGcIdleGate(const wchar_t* ini) {
     const int sub = GetPrivateProfileIntW(L"GC", L"SubTimers", 0, ini);
     if (!mode && sub) mode = 2;  // the sub-timers need the per-tick wrapper (thread tag, whole-step time): gate installed open
     if (!mode) { Log("GC idle gate off (IdleGate=0)"); return false; }
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP GC idle gate ([GC] IdleGate): no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     g_gcgCap = (DWORD)Clamp(GetPrivateProfileIntW(L"GC", L"IdleGateMB", 64, ini), 1, 512) << 20;
     g_gcgPct = Clamp(GetPrivateProfileIntW(L"GC", L"IdleGateHeapPct", 15, ini), 1, 50);
     if (!Matches((void*)(uintptr_t)TS3A(0x00E4C060), kGcgInProgress, sizeof(kGcgInProgress)) ||

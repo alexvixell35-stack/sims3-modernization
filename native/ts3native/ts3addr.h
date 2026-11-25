@@ -9,6 +9,7 @@
 // code and features at other addresses; EA-only blocks (`#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)`) stay out.
 // TS3A_PICK(steam, ea, retail): a per-build constant that is not an address (code hash, operand byte); retail values are
 // checked against the retail exe by tools/retail-port-check.ts.
+// No raw-on-EA escape (the old TS3A_R): every literal needs a row in both tables, 0 if unresolved (tools/ts3addr-check.ts).
 #pragma once
 #ifndef TS3A_TABLE
 #define TS3A(x) (x)
@@ -17,7 +18,6 @@
 #define TS3A_HOST_SIZE 0x00E5A000
 #define TS3A_HOST_NAME "Steam 1.67"
 #define TS3A_PICK(steam, ea, retail) steam
-#define TS3A_R(x) (x)
 #else
 #ifdef TS3A_RETAIL
 #include "ts3addr-retail167.h"  // ts3addr_pairs[][2] sorted by Steam address, ts3addr_count, TS3A_HOST_*
@@ -25,8 +25,6 @@
 // every TS3A row a feature reads is checked against the retail exe (tools/retail-port-check.ts), so the features EA 1.69
 // stands down for lack of rows run here; one whose retail row is 0 has its own TS3A_RETAIL stand-down (docs/273 §8)
 static volatile bool ts3a_noaddr = false;
-// TS3A_R(x): a literal with a retail row but none in ts3addr-ea169.h (raw there as on Steam, as before); retail translates it
-#define TS3A_R(x) TS3A(x)
 #else
 #include "ts3addr-ea169.h"  // ts3addr_pairs[][2] sorted by Steam address, ts3addr_count, TS3A_HOST_*
 #define TS3A_PICK(steam, ea, retail) ea
@@ -37,7 +35,6 @@ static volatile bool ts3a_noaddr = false;
 // a feature whose addresses have a 0 row (`// unresolved` in ts3addr-ea169.h, docs/232 §8) returns early behind this runtime
 // flag, so /W4 /WX sees no unreachable code; its SKIP line names the feature and "no EA 1.69 address"
 static volatile bool ts3a_noaddr = true;
-#define TS3A_R(x) (x)
 #endif
 constexpr unsigned long ts3addr_find(unsigned long x, int lo, int hi) {
     return lo > hi ? throw "TS3A: address not in the build's table (rerun tools/port-run.ts --table, docs/228)"

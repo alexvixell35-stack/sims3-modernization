@@ -516,6 +516,9 @@ namespace Ts3Fixes
                 // the game's YieldIfPossible after its own Sleep: the same two returns
                 if ((bool)fInterrupted.GetValue(a)) { fInterrupted.SetValue(a, false); LiveAbandon(L); LiveStat(kSInterrupted); return 1; }
                 if (a.Actor == null || a.Actor.HasBeenDestroyed) { LiveAbandon(L); LiveStat(kSDestroyed); return 2; }
+                // docs/205 §2.3c: paused, clock stopped or out of live mode while waiting: no worker answer is taken; the game's own
+                // search runs, as for an answer that never came (exact for every Sim; no paused frame counts toward sLiveMaxWait)
+                if (SimFrozenOrNotLive()) { uk[1738]++; if (L.Direct) uk[kCUnDropped]++; LiveAbandon(L); LiveDrop(L, kSDropOther); AutShadowNative.LiveStat(kSWaitTicks, waited); WorkerWait(a.Actor, waited); return h.MetaOrig(c); }
                 if (L.Ready) break;
                 if (waited >= sLiveMaxWait) { GuardAdd(L, 0); if (L.Direct) uk[kCUnDropped]++; LiveAbandon(L); LiveDrop(L, kSDropWait); AutShadowNative.LiveStat(kSWaitTicks, waited); WorkerWait(a.Actor, waited); return h.MetaOrig(c); }
             }
@@ -785,6 +788,9 @@ namespace Ts3Fixes
             L.SliceFrame = f;
             int[] k = PatchCounters();
             k[kCLateSlices]++;
+            // docs/205 §2.3c: a slice that starts paused, with the clock stopped or out of live mode consumes nothing: the rest
+            // of the search is the game's own B14 (the caller makes the refusal sticky), no worker answer is held across a pause
+            if (!L.Late && SimFrozenOrNotLive()) { k[1743]++; L.LateOk = false; return false; }
             int chk = 0;
             if (!L.Late && f - L.ResumeFrame >= 0 && f - L.ResumeFrame <= Instantiator.kAutLiveLateTicks)
             {
@@ -1315,6 +1321,8 @@ namespace Ts3Fixes
                 L.SliceFrame = f;
                 if (L.Pace.Forced) k[kCUnPaceForced]++;
                 L.Pace.Slice();
+                // docs/205 §2.3c: a later slice that starts frozen or not live: the rest of the search is the game's B14
+                if (!L.Snapped && f != L.ResumeFrame && SimFrozenOrNotLive()) { L.Snapped = true; k[1743]++; }
                 if (!L.Snapped && f != L.ResumeFrame && !AutLiveCore.Unseen.Stay(SafeUfWhy(L.Actor))) { L.Snapped = true; k[kCUnSnapSlice]++; }
             }
             if (L.Snapped) { k[kCUnObjGame]++; B14Timed(L, m, c, h, kCLateGameUs); return; }

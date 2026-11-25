@@ -1,0 +1,172 @@
+{
+ "note": "lc5-delta-time-1123 (docs/336, WRITTEN, NOT RUN; TIMING, needs quiet machine: Spotify, IDE and java closed, other CPU < 10%): deadrefdelta off vs on (deadrefslimuse ON in both arms; it acts only with deadrefdelta on; build lc5delta2) in one load per world (BP / IP / SV), deadrefcadence ON in both arms. Run only after lc5-delta-correct-1123 passed. Smoke first. Each job: 25 min, 5-min slices, ABBA. Each on slice starts unseeded (the off arm adds nothing to the index), so its first object pass is a full seed walk: the on arm understates the gain. Read: node tools/harness/loopcost-report.ts --arm deadrefdelta <tag>-ab-fixes.jsonl; node tools/harness/hitch-ab.ts <tag>. Gate (docs/333 §6): no regression in our ms/s or hitch p99 / p99.9 / max beyond noise. Est ~1 h 50 min.",
+ "rewind": "off",
+ "stopQueueOnFail": true,
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1123 ": {
+   "match": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1122 2026-11-22 15:00:00",
+    "ts3native 0.36.299-nsplit1 2026-11-22 12:17:42",
+    "ts3native 0.36.299-m1123x 2026-11-23 15:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc5-ab-smoke",
+   "note": "[est 10 min] SMOKE as the first job (stops the queue on fail): BP 5 min, 1-min slices, --ab deadrefdelta (per-slice read-back by profile-world; a switch that does not stick fails the run). Pass: both arms counted (node tools/harness/loopcost-report.ts --arm deadrefdelta prints both), a seed walk in the on arm, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 5,
+     "slice": 1,
+     "noSamplers": true,
+     "ab": "deadrefdelta",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdelta_seeds>=1",
+     "fixesOn": "deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc5-ab",
+   "note": "[est 32 min] BP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefdelta (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefdelta probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefdelta_passes / _stepped / _index per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §5]: p10 per object ~3.65 us -> ~1-1.5 us on delta passes, a small ms/s cut at 1x (each on slice re-seeds once), no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefdelta",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdelta_seeds>=1,deadrefdelta_passes>=1,deadrefdelta_slim_passes>=1",
+     "fixesOn": "deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc5-ab",
+   "note": "[est 32 min] IP 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefdelta (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefdelta probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefdelta_passes / _stepped / _index per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §5]: p10 per object ~3.65 us -> ~1-1.5 us on delta passes, a small ms/s cut at 1x (each on slice re-seeds once), no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefdelta",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdelta_seeds>=1,deadrefdelta_passes>=1,deadrefdelta_slim_passes>=1",
+     "fixesOn": "deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc5-ab",
+   "note": "[est 32 min] SV 25 min in-load ABBA (5-min slices: warm-up on, then off,on,on,off = 10 min per arm), --ab deadrefdelta (deadrefcadence ON in both arms). Per-arm ms/s: node tools/harness/loopcost-report.ts --arm deadrefdelta probe-out/profile/<tag>-ab-fixes.jsonl (deadrefsweep_total_ms, p10 object step; deadrefdelta_passes / _stepped / _index per arm); hitch p99 / p99.9 / max per arm: node tools/harness/hitch-ab.ts <tag>. Expected [inferred, docs/336 §5]: p10 per object ~3.65 us -> ~1-1.5 us on delta passes, a small ms/s cut at 1x (each on slice re-seeds once), no hitch regression. needs quiet machine.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": true,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 45,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 25,
+     "slice": 5,
+     "noSamplers": true,
+     "ab": "deadrefdelta",
+     "fixesRequire": "deadrefsweep_passes>=2,deadrefdelta_seeds>=1,deadrefdelta_passes>=1,deadrefdelta_slim_passes>=1",
+     "fixesOn": "deadrefslimuse"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ]
+}

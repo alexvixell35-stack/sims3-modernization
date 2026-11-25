@@ -169,9 +169,6 @@ static bool __cdecl EqHook(const u8* self, const u8* that, void** fields) {
 // [EqualsFast] Enabled=1: the detour, switch eqMode on. Default off (code and repo ini) until measured (docs/258 §6).
 static bool ApplyEqualsFast(const wchar_t* ini) {
     if (GetPrivateProfileIntW(L"EqualsFast", L"Enabled", 0, ini) <= 0) { Log("equals fast off (Enabled=0)"); return false; }
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP equals fast ([EqualsFast]): no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     if (!InstallDetour("ValueType.InternalEquals (equals fast)", EQ_ICALL, kEqPrologue, sizeof(kEqPrologue), (void*)EqHook, &g_eqOrig))
         return false;  // DetourCore logged the SKIP
     g_eqSmallEnums = GetPrivateProfileIntW(L"EqualsFast", L"SmallEnums", 0, ini) == 1;

@@ -50,7 +50,7 @@ static double MaHllCount(const MaHll& s) {
 // ---- ResourceCache Find (vtable slot) ----
 typedef bool(__fastcall* MaFindFn)(void* self, void* edx, const void* key, void** out);
 static MaFindFn g_maFind;  // the slot's value before ours (0x7324E0, or another module's hook)
-static DWORD g_maRcVt = TS3A_R(0x00FFDD94);  // selftest: its own
+static DWORD g_maRcVt = TS3A(0x00FFDD94);  // selftest: its own
 static const int MA_CACHES = 4;      // cache objects told apart (ResourceCache, AnimationCache, spare); more go to "other"
 static volatile LONG g_maSelf[MA_CACHES], g_maGet[MA_CACHES + 1], g_maHit[MA_CACHES + 1], g_maScan[MA_CACHES + 1], g_maScanHit[MA_CACHES + 1];
 static MaHll g_maKeys[MA_CACHES + 1];
@@ -83,7 +83,7 @@ static bool __fastcall MaFind(void* self, void* edx, const void* key, void** out
 }
 
 // ---- DBPF ReadDecompress (detour) ----
-static const DWORD MA_READ = TS3A_R(0x004A8380);
+static const DWORD MA_READ = TS3A(0x004A8380);
 static const u8 kMaReadPro[] = {0x53, 0x32, 0xDB, 0x83, 0x7C, 0x24, 0x0C, 0x00};  // push ebx; xor bl,bl; cmp dword [esp+0Ch],0
 typedef bool(__fastcall* MaReadFn)(void* self, void* edx, DWORD comp, DWORD off, DWORD fileSize, DWORD memSize, void* buf);
 static MaReadFn g_maRead;
@@ -231,6 +231,9 @@ static void ApplyMemAccess(const wchar_t* ini) {
     DWORD* slot = (DWORD*)(uintptr_t)g_maRcVt + 6;
     DWORD prev = 0;
     if (!Readable(slot, 4) || !(prev = *slot)) Log("FAIL mem access: cache vtable 0x%08lX slot 6 not readable, rc counters off", g_maRcVt);
+    // EA's Find or another module's hook (outside the exe image); any other exe value = not the vtable this build expects
+    else if (prev != TS3A(0x007324E0) && prev >= 0x400000 && prev < 0x400000 + (DWORD)TS3A_HOST_SIZE)
+        Log("SKIP mem access: cache vtable 0x%08lX slot 6 holds 0x%08lX, not Find 0x%08lX, rc counters off", g_maRcVt, prev, (DWORD)TS3A(0x007324E0)), prev = 0;
     else {
         g_maFind = (MaFindFn)(uintptr_t)prev;  // set before the slot points at us
         const DWORD ours = (DWORD)(uintptr_t)&MaFind;

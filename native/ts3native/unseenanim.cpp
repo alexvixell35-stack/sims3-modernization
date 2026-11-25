@@ -710,9 +710,6 @@ static LONG ApplyAnimSplit(const wchar_t* ini) {
 // [AnimPhase] Enabled=1 (default 0, a test-run timer): all four sites or none; Split=1 (default 0) adds ApplyAnimSplit
 static bool ApplyAnimPhase(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"AnimPhase", L"Enabled", 0, ini)) return false;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP anim phase ([AnimPhase]): no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
     const CallSite sites[] = {{TS3A(0x00940569), TS3A(0x00583D00), (void*)AnAdvHook}, {TS3A(0x0094059E), TS3A(0x00947590), (void*)AnNotHook},
                               {TS3A(0x00940742), TS3A(0x005833C0), (void*)AnEvalHook}, {TS3A(0x0094118B), TS3A(0x00959670), (void*)AnPubHook}};

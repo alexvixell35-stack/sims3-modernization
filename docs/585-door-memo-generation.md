@@ -118,3 +118,139 @@ bathroom, toilet forced twice, Go Here back in through the door) and `hhsearch-s
 on current code = the same FAIL on the master build with that repro; run it as the pre-fix arm only after the branch merges (the
 repro entry is not on master). Until then SV timing queues that do not test DoorMemoX set `RouteSnap.DoorMemoX` 0
 (`gc-idle-gate-time-1117-rerun4-1120`).
+
+## 8. Third hit: EA 1.69, no privacy handler, a fresh Sim (2026-11-24, bundle-day-1124-correct EA, job bp-vbowner-correct-5)
+
+Build 0.36.301-eabundle1124b (test/bundle-day-1124 b8ba526 + eafinal2 EA rows), EA app 1.69.47, Baseline-BP, repro
+`vb-owner-delete-stress` (4 rounds of 25 objects placed on the home lot in live mode, deleted in Buy mode). `DoorMemoX=3`,
+`DoorMemoXMs=250`, doorgen armed. After 1274 clean compares: `door memo x shadow: answer 1, other job's 2 (7 ms before), key
+BEC1DF80 28590035 A70A1940 7AB100F5 C1469290 28590035 0019 0016 00`, i.e. lot 0x28590035BEC1DF80 (the home lot: vbowner-1 logs
+`routefail buildbuy: lot 0x28590035BEC1DF80 object removed`), actor 0x7AB100F5A70A1940, door 0x28590035C1469290, rooms 25 -> 22,
+initialLocked 0. Totals: hits 6321, miss 9647, inval 712, shadow 1275, mismatch 1. vbowner-1..4: 0 mismatches.
+
+What it is not [verified, log]:
+- Not an EA port gap: the door stub (`OK door stub 0x00650AB3 -> 0x00792D90`), `World_FireEvent` (`OK detour ... 0x00790440`), all
+  39 routesnap IC slots (each slot checked against its expected function before it is hooked) and the event 59 slot
+  (`0x011D72C4` -> `0x01231374`) are in place on this build; DoorMemoX has no other address.
+- Not the privacy case of §6/§7: `asks on lots with a privacy / mod door handler (live, not kept) 0` in this session while
+  vbowner-2..4 on the same build count 81..465, so the EA hold works and this lot had no extra handler.
+- Not a placed object: the actor id is not one of the 4 rounds' first objects and object placement feeds no door rule.
+
+Actor [inferred]: 0x7AB100F5A70A1940 is newer than round 3's objects (A70A0B10, 03:49:21) and older than round 4's (A70A5C60,
+03:50:19): a Sim instantiated in between. The line before the FAIL is `ufplan: kind 0 172 ms why -1 src pet Stray Cat` (same tick).
+
+Untracked inputs found [verified, static, EA Sims3GameplaySystems; same code on Steam]:
+- `SimDescription.Household`: DoorGen bumped `Household.Add` / `Remove(SimDescription)` only. `Household.AddTemporary`,
+  `RemoveTemporary`, `RemoveSimKeepHousehold` and `PetPool.AddPet` (`AddSilent` + `OnHouseholdChanged`) / `RemovePet` change it
+  with no bump; 45 call sites use the silent / temporary forms. It feeds `IsStray` (pet household + pool), `IsGreetedOnLot`
+  (null household = not greeted), `SelectedHousehold` locks and `CanSimTreatAsHome`. A stray that routes before its pool add
+  gets "unlocked" (no stray rule), then "locked" once it is a stray: the 2 -> 1 seen here.
+- `Sim.Service` (CommonDoor: police, firefighter, reaper, burglar, repoman, social worker ignore locks): no bump.
+- Routing ICs outside slots 4-14: `DestroyPortalHandle` (16), `OnExitBuildBuy` (22, rooms may get new numbers: DoorShare already
+  clears on it), `DoorLockStateChanged` (24, `RotatingWallDoor` calls it without `SetLockTypeAndOwner`), `BuildRoutingData` (29),
+  `BulldozeLot` (30), houseboat lot create / delete (31, 32).
+
+Fix (bugfix/ea-doormemox-1124): DoorGen.cs hooks `SimDescription.OnHouseholdChanged` (the only writer of `mHousehold` besides
+`Delete`, which calls `Household.Remove` first) and `Sim.set_Service` (every `Worker.Service = x`; `Service.EndService` writes the
+field after `value.EndService()`, whose situations clear it through the setter [inferred]), and logs the first 40 such
+changes of instantiated Sims as `doorgen: household|service <name> 0x<sim id> household <kind>, stray <b>, service <type>`, so the
+next mismatch's actor can be matched. Native `DmxGen` adds the 7 IC slots above (selftest `TestAskLent`: each one invalidates a
+row). The self-check (every 8th valid row re-asked, one mismatch turns the memo off) stays. Which input flipped this ask is not
+proven: the next mismatch, if any, names the actor through the new lines. Steam runs the same managed code and ships
+`DoorMemoX=3`: the gap is on both editions.
+
+Household: the memo answers only scope 2 / 3 jobs (unseen, seen NPC); household, selected and unknown scope ask live
+[verified, `HcDoorEnter` and selftest]. A stale "unlocked" can let an NPC plan through a door it may not use, once, until the
+re-ask or age cap ends the row; no household Sim gets a memo answer. Verify queue: `doormemox-verify-ea-1124`.
+
+
+## 9. Fourth hit: the same door and Sim, a time-dependent door rule (2026-11-24, eam1124c, bp-vbowner-correct-1)
+
+Build eam1124c (rc/m1124c ba7618c1 + EA port, includes the §8 fix), EA app 1.69.47, Baseline-BP, repro `vb-owner-delete-stress`.
+After 1578 clean compares: `door memo x shadow: answer 1, other job's 2 (25 ms before), key BEC1DF80 28590035 AA219C80 7AB100F5
+C1469290 28590035 0019 0016 00`. Totals: shadow 1579, mismatch 1, hits 8260, miss 10272, held 0. No `doorgen:` line names the actor.
+
+Who the actor is [verified, agent `sims` reply in the guard-kill dump `ts3w-26244-20261124T125124.dmp` and in the §8 dump
+`ts3w-22868-20261124T035031.dmp`]: both actors are **Becca Bijou**, a community townie (not active household), interaction
+`Watch Door`, lot `The Prosper Room`, at (693.5, 1705.5): the Bouncer role of the velvet ropes there. Ids 0x7AB100F5AA219C80 (this
+run) and 0x7AB100F5A70A1940 (§8) are new object ids because the role instantiates her fresh each session, at the same game time of
+the same repro (both between round 3 and round 4). So both mismatches are the same Sim, door, rooms and moment of the save.
+§8 was wrong twice [verified, log]: lot 0x28590035BEC1DF80 is not the home lot (the home lot is 0x6C1100337657B720, the lot of
+every `routefail buildbuy` line in both runs), and the actor was no stray (I-608-1 refuted).
+
+Cause [the rule verified, static; that it fired here inferred]: `Sim.OnPortalPathPlan` asks the door's virtual
+`IsAllowedThrough`. `DoorSingleGender.IsAllowedThrough` (restroom doors) restricts a human of the other gender only while
+`lot.IsResidentialLot || lot.IsOpenVenue()`, and `Lot.IsOpenVenue()` reads `SimClock.HoursPassedOfDay` against the venue's hours
+(and, for a gig venue, the gig start). The answer for the same Sim, door and rooms flips from 2 (closed venue: anyone) to 1
+(open: restricted) when the clock crosses the opening hour. Nothing is written at that moment, so no hook can bump it: the input
+is the clock. A bouncer is created just before opening and walks the club's rooms while the venue opens: the 2 -> 1 seen twice [inferred: door type, Becca's gender and the venue hours are not in the logs; the `doorgen: memo skips` line of the verify run names the door type].
+The §8 fix (household / service hooks, 7 IC slots) is right but does not touch this; the first mismatch (§8) had this same cause
+[inferred: same Sim, door, rooms, repro phase].
+
+Other untracked inputs found in the same read [verified, static]: `SimDescription.Service` is a public field;
+`Service.CreateNpcSim` (assign), `Service.EndService`, `Service.CheckIfSimsShouldBeRemovedFromPool` and two `TimeTravelerSituation`
+paths write it without `Sim.set_Service` (I-608-2 refuted). `CommonDoor.HouseholdSimChanged` removes owner-list ids directly.
+`PetPool.UpdateSimDescriptionId` / `Copy` put ids in a pool without a household change. Doors with their own rule:
+`DoorSingleGender` (clock), `NonAnimatedDoor` (`mIsOpen`), `SecretDoor`, store `Turnstile`; resort VIP rooms read real estate
+(`Lot.IsControllable`) and services.
+
+Fix (bugfix/doormemox-mismatch2-1124, 0.36.304-dmx2-1124): an allow rule instead of more bumps. DoorMemoX=3 keeps a row only for
+an answer ts3fixes vouched for **during that very ask**: DoorShare.cs's hook after `LotManager.PortalLockedCallback` (the game's
+event 59 callback, inside the served call) calls `DoorGenMemoNote` for every "unlocked" answer and sends op 36 hi 3 (vouched) or
+hi 4 (not) with `DsNoteHash` of the ask. Vouched = the lot runs the game's handler alone and event 59 the game's callback alone,
+the router is a Sim of DoorShare's ordinary class (no horse, stray, tomb mummy, proprietor, service, IgnoreDoorLocks), and the
+portal is a `Door` whose `IsAllowedThrough` is `CommonDoor`'s own on a non-resort lot, or a portal no rule of the handler names.
+Native `HcDoorEnter` clears the note before its live ask and calls `DmxPut` only when the note is hi 3 with the ask's hash;
+otherwise the answer is live and not kept (`ts3native_doorgen.unnoted`, new last field; on the `door memo x misses:` line). No
+note (an older package) = nothing kept: fail closed. The first 40 portal types skipped are logged once each as
+`doorgen: memo skips <Type> 0x<id> on lot 0x<lot> (<why>)`, so the verify run names door 0x28590035C1469290's type.
+
+Why ordinary-only puts close the Sim side without hooking every service / role writer: leaving the class (service ends, role
+ends, flag cleared) only returns the Sim to the answer it had while ordinary; entering the class from outside starts with no row.
+The only ordinary -> locked paths are becoming a stray (household change: `OnHouseholdChanged`; pool: `AddPet` calls it,
+`UpdateSimDescriptionId` / `Copy` now bump) and becoming a tomb mummy (`AddOccultType`, bumped). Door side for a plain door:
+lock type / owner / one-way (`SetLockTypeAndOwner` both, owner-list methods, now `HouseholdSimChanged`), the lock owner's or
+actor's household (`OnHouseholdChanged`, `Household.Remove` before `Dispose` clears it), hidden rooms (`WorldBuilderSetHiddenRoom`,
+`UpdateRoomMarkers`), fire (pets), lot handlers (held), portal ICs and world events (native).
+
+Writers list (no-gaps check, decompiled Steam = EA 1.69 code):
+
+| Input | Writers | Covered by |
+|---|---|---|
+| door lock type, owner, one-way room | `SetLockTypeAndOwner` (2), `ImportContent` (load) | bump; load = arm |
+| owner list | `SetLockTypeOwnerList`, `AddToOwnerList`, `RemoveFromOwnerList`, `HouseholdSimChanged`, ts3fixes Batch582b (`RemoveAll` then `SetLockTypeAndOwner`) | bump (new: `HouseholdSimChanged`) |
+| actor / owner household | `OnHouseholdChanged`; `Dispose` after `Household.Remove` | bump |
+| stray (pool) | `AddPet` (then `OnHouseholdChanged`), `UpdateSimDescriptionId`, `Copy`; removals only unlock | bump (new: 2) |
+| tomb mummy | `AddOccultType` / `RemoveOccultType` (+ NRaas helpers via CompatResolve) | bump |
+| service, proprietor role, IgnoreDoorLocks, horse | many, incl. direct field writes | not needed: such Sims never get a row, leaving the class never locks |
+| gender, age, pregnancy, venue hours, clock | setters, CAS, `SimClock` | not needed: their doors (single-gender, diving board) never get a row |
+| resort VIP data, `IsControllable` | resort hooks, real estate | not needed: resort lots never get a row |
+| hidden rooms | `WorldBuilderSetHiddenRoom`, `UpdateRoomMarkers` | bump (DoorShareLotHook) |
+| lot / event 59 handlers | `add/remove_PortalPathPlan`, the delegate slot | held / native generation; and not vouched |
+
+Not covered [inferred]: a mod that replaces `Sim.OnPortalPathPlan` or `CommonDoor.IsAllowedThrough` by method swap (the rule it
+reads is not ours to see); a lot type change (base camp) in Edit Town for a stray (strays never get a row, so only the door side,
+which reads no lot type). The 1-in-8 re-ask and the self-disable stay.
+
+Test-only `[RouteSnap] DoorMemoXCheckEvery=1` (1-8, default 8): every valid row is asked live and compared (no memo answers), for
+verify runs that need many compares; logs `door memo x: test: every 1. valid row asked live and compared`.
+
+Selftest `TestAskLent` [verified]: an "unlocked" answer with a hi 4 note, no note, or a note for another ask is not kept and a
+later "locked" answer meets no row (no mismatch); a hi 3 note keeps it and the next job hits; CheckEvery=1 compares every row.
+
+Household: unchanged; household, selected and unknown scope always ask live and are compared [verified, selftest].
+Edition: the managed rule and the native change are the same on Steam and EA; the Steam asi compiles (0.36.304-dmx2-1124).
+
+Writer-hook counters (0.36.305-dmx2b-1124): each new hook also sends op 36 hi 5 / 6 / 7; native counts them in
+`ts3native_doorgen.writers[3]` and logs `door memo x writer hooks: CommonDoor.HouseholdSimChanged N, PetPool.UpdateSimDescriptionId N,
+PetPool.Copy N` at session end. Triggers [verified, static]: `HouseholdSimChanged` runs on `Household.HouseholdSimsChanged` of a lot
+that has doors (`SetHouseholdCallback`): repro step `pet_adopt` (a dog into a townie home lot). `PetPool.UpdateSimDescriptionId` is
+called only from `CharacterImportOnGameLoad.PopulateDescriptionsInWorldMap` (world load) and `PetPool.Copy` only from
+`PetPoolManager.FixupPools` (world-builder command `CharacterImportCommands.FixupPetPools`): no in-session player action reaches
+them, so the verify reads 0 there and only requires the line.
+m1124d (0.36.305-m1124d) [verified, static]: `SetHouseholdCallback` is called only from `SetLockTypeOwnerList`, so a loaded save has no door subscribed to `HouseholdSimsChanged` until something sets an owner-list lock; the counter for hi 5 now sits in the `HouseholdSimChanged` hook (it was in the `SetLockTypeOwnerList` hook), and the repro's `pet_adopt` passes `ownerLockDoor: true` (agent: only townie homes with a `CommonDoor`; one door gets an owner-list lock of the household first).
+
+Forced repro `doormemox-venue-clock` (rewritten): agent `venue_hours` with `lot` reads The Prosper Room's hours
+(`Lot.GetHoursOfOperation`: Bartending extended hours or the venue's MetaAutonomy tuning, data, not code) and with `jump` moves
+the clock (`SimClock.TicksAdvanced`, as `AddOneHour` does) to the open / close hour + `offsetMin`: -3, Sims sent through door
+0x28590035C1469290 (4 townies + Becca Bijou), then +1 (`open_now` flips, read back), the same Sims sent again; 5 crossings.

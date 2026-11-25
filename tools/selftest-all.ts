@@ -57,6 +57,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/offload-override-scan.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/ScriptCore.dll' },
   'tools/mod-method-diff.ts': { why: 'game script assemblies', needs: 'game-copy/assemblies/ScriptCore.dll' },
   'tools/offload3-closure.ts': { why: 'managed call graph index', needs: 'game-copy/analysis/callgraph/index.json' },
+  'tools/uselist-writers.ts': { why: 'managed call graph index', needs: 'game-copy/analysis/callgraph/index.json' },
   'tools/selftest/autlive/run.ts': CSC,
   'tools/selftest/kitbench/run.ts': { why: 'Windows .NET Framework csc + Windows PowerShell (kit benchmark runner)' },
   'tools/selftest/boatroamcap/run.ts': CSC,
@@ -93,6 +94,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/preplancb/run.ts': CSC,
   'tools/selftest/asyncjigsync/run.ts': CSC,
   'tools/selftest/lothub/run.ts': CSC,
+  'tools/selftest/lanea/run.ts': CSC,
   'tools/selftest/commodmapfast/run.ts': CSC,
   'tools/selftest/kitarm/run.ts': CSC,
   'tools/selftest/stepaside/run.ts': CSC,
@@ -145,6 +147,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/venuememo/run.ts': CSC,
   'tools/selftest/wakepark/run.ts': CSC,
   'tools/selftest/standwait/run.ts': CSC,
+  'tools/selftest/reactoverlay/run.ts': CSC,
   'tools/selftest/sharelanes/run.ts': CSC,
   'tools/selftest/blockeduse/run.ts': CSC,
   'tools/selftest/makebedboth/run.ts': CSC,
@@ -165,6 +168,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/petstartleskip/run.ts': CSC,
   'tools/selftest/strayleave/run.ts': CSC,
   'tools/selftest/wildlotskip/run.ts': CSC,
+  'tools/selftest/lineswitch/run.ts': CSC,
 };
 
 // No self-check, on purpose (the gap stays visible here). A new script needs a self-check or an entry with its reason.
@@ -183,6 +187,7 @@ const NO_SELF_CHECK: Record<string, string> = {
   'tools/autshadow-guard-lists.ts': ONE_OFF,
   'tools/emu/ts-ref.ts': 'stdin helper of the tools/emu specs, checked by them',
   'tools/extract-assemblies.ts': 'readIndex, decryptS3SA and peImage covered by the tools/dbpf.ts self-test',
+  'tools/static/desc-writer-scan.ts': 'offline report tool over local game files (game-copy); the scanner it runs (DescWriterScan.cs) is checked by tools/selftest/deadrefs',
   'tools/frida/cold-paths.js': FRIDA,
   'tools/frida/f4b-reads.js': `${FRIDA}; its logic block runs in tools/harness/f4b-report.ts --self-check`,
   'tools/frida/inroom-reads.js': `${FRIDA}; its walker runs in tools/harness/inroom-report.ts --self-check`,
@@ -237,6 +242,7 @@ const NO_SELF_CHECK: Record<string, string> = {
 
 const TIMEOUT_S: Record<string, number> = {
   'tools/harness/rewind-smoke.ts': 300, // two cl builds + ~25 toy processes
+  'tools/selftest/deadrefs/run.ts': 180, // csc of DeadRefs + the LC-5..7 cores: ~50 s alone, over 60 s with 4 in parallel
 };
 
 // args that run the self-check, or undefined when the script has none

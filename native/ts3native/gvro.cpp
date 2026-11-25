@@ -264,9 +264,6 @@ static __declspec(naked) void GvThunk() {
 static const CallSite kGvSite = {GV_SITE, GV_TARGET, (void*)GvStub};
 static const CallSite kGvThunkSite = {GV_SITE, GV_TARGET, (void*)GvThunk};
 static bool GvhMayInstall() {
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP goal hits RO: no EA 1.69 address, docs/670 §11"); return false; }
-#endif
     if (!GvhCodeOk()) { Log("SKIP goal hits RO: GoalPoint_Validate's hit loop is not the code read (docs/670 §11)"); return false; }
     return true;
 }

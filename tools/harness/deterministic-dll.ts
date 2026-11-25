@@ -1,7 +1,7 @@
 // Makes a csc-built .NET DLL reproducible. The .NET Framework 4 csc.exe (C# 5, the only compiler every machine has) has no
 // /deterministic: every compile differs in the PE TimeDateStamp, the module MVID and the random GUID in the type name
 // `<PrivateImplementationDetails>{GUID}`, so the ts3agent package hash changed on every rebuild and wrote noise into
-// docs/data/change-ledger.jsonl (Lenovo 2026-11-23). Same code -> same bytes: those three fields are zeroed, a hash of the
+// docs/data/change-ledger/ (Lenovo 2026-11-23). Same code -> same bytes: those three fields are zeroed, a hash of the
 // rest is taken, and a GUID derived from it goes back into the MVID and the type name (unique per content, as before).
 //   node tools/harness/deterministic-dll.ts --self-check
 import { createHash } from 'node:crypto';

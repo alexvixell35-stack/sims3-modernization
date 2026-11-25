@@ -228,7 +228,7 @@ function dumpFiles(dir: string, out: string[] = []): string[] {
 }
 function docsText(main: string): string {
   let t = ''; const add = (d: string) => { try { for (const f of readdirSync(d)) if (/\.(md|json|jsonl)$/.test(f)) t += readFileSync(join(d, f), 'utf8').toLowerCase(); } catch { /* none */ } };
-  add(join(main, 'docs')); add(join(main, 'docs', 'data')); return t;
+  add(join(main, 'docs')); add(join(main, 'docs', 'data')); add(join(main, 'docs', 'data', 'change-ledger')); return t;
 }
 // Worktree guard: a dump is touched only under one of the dump roots, with no junction/symlink from the root down to it
 // (game-copy is a junction in worktrees; a link could point the delete at a real game or another checkout). Returns the root.
@@ -344,7 +344,7 @@ function doTemp(x: Ctx, refs: string): number {
 // Raw per-job data in probe-out/{profile,queue}; results (<queue>-<date>.jsonl), logs, reports, json, gifs, chain scripts stay.
 export const RAW_OUT = /-(frames\.csv|hitches\.jsonl|seconds\.csv|freezes\.jsonl|simstack\.jsonl|activity\.jsonl|moved\.jsonl|shadow\.jsonl|autshadow\.jsonl|machine\.jsonl|samplers\.jsonl|probe\.log)$/i;
 // Tokens of docs/, docs/data (any depth, results and crashes included), PLAN.md, README.md: a raw file whose name or job stem
-// (name without the raw suffix) is a token is linked and stays. Tokens, not substring search: change-ledger.jsonl is ~90 MB.
+// (name without the raw suffix) is a token is linked and stays. Tokens, not substring search: change-ledger/*.jsonl is ~50 MB a month.
 export function docTokens(main: string): Set<string> {
   const t = new Set<string>();
   const add = (f: string) => { for (const m of read(f).toLowerCase().matchAll(/[a-z0-9][\w.-]{7,}/g)) t.add(m[0].replace(/[.-]+$/, '')); };

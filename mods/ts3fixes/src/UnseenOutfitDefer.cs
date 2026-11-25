@@ -322,6 +322,9 @@ namespace Ts3Fixes
             sOdFresh.Clear();
         }
 
+        // docs/205 §2.3c (pause audit): no pause gate on purpose. Every waiting outfit is one EA had already put on at its own
+        // time, so an apply while paused or in CAS / Buy-Build only catches the model up to EA's state (a camera pan while
+        // paused must show EA's outfit); holding it there would leave the model further from EA than now.
         static void OdSweep()
         {
             try

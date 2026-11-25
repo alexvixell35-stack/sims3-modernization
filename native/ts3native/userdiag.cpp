@@ -664,6 +664,7 @@ static void UdModulesLines() {
 }
 
 static const char* MdWorldEvent(const char* worldLine);  // memdiag.cpp: "travel,world-switch" / "world-switch" / NULL
+static void VqFlush(const char* why);  // eafix.cpp: [EaCrashFixes] VbFreeDelay ring, blocks past their delay freed (docs/67 §44.1)
 static char g_udTxt[480];  // the ts3fixes text line being received (UdTextMsg below)
 static void UdWorldLoad() {  // sim thread, from the ts3fixes "world:" line
     const LONG n = InterlockedIncrement(&g_udWorlds);
@@ -807,8 +808,8 @@ static u8 UdTextMsg(DWORD lo, DWORD hi) {
                 return 1;
             }
             UdOtherLine(g_udTxt);  // per-prefix cap + total disk guard: a looping sender cannot fill the disk or starve others
-            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds), LotHubFire(LH_WORLD_LOAD, NULL);  // F5wEvent: docs/539 §21; LotHubFire: lotstream.cpp CP-1
-            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), LotHubFire(LH_WORLD_QUIT, NULL), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits);  // gcgrow.cpp: lenient on the load screen
+            if (!strncmp(g_udTxt, "world:", 6)) UdWorldLoad(), UafVerifyAll("world load"), F5wEvent("world load", g_udWorlds), VqFlush("world load"), LotHubFire(LH_WORLD_LOAD, NULL);  // F5wEvent: docs/539 §21; LotHubFire: lotstream.cpp CP-1
+            else if (!strcmp(g_udTxt, "world quit")) InterlockedIncrement(&g_udQuits), LotHubFire(LH_WORLD_QUIT, NULL), GcCapWindow(false, "world quit"), UafVerifyAll("world quit"), F5wEvent("world quit", g_udQuits), VqFlush("world quit");  // gcgrow.cpp: lenient on the load screen
             else if (!strncmp(g_udTxt, "mem: ", 5)) MdMark(g_udTxt + 5);  // [MemDiag] event mark (ts3agent mem_mark)
             g_udTxtN = 0;
             return 1;

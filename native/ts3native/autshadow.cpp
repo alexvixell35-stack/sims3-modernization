@@ -1152,6 +1152,7 @@ static bool AsSetAdd(AsSet& s, AsU64 id) {
     CapFull(CAP_ASSET);
     return false;
 }
+static void LaAsApply();  // lanea.cpp (included later)
 static void AsSetClear(AsSet& s) {
     for (LONG i = 0; i < s.n; i++) s.k[s.at[i]] = 0;
     s.n = 0;
@@ -2963,6 +2964,7 @@ LONG AsCut() {
     LARGE_INTEGER tp[6];  // phase ends: learn, prep, refresh, age, audit (publish = t1)
     QueryPerformanceCounter(&tp[0]);
     // what changed: the epoch (or no tracking) refreshes everything; else dirty objects, their children, list generation
+    LaAsApply();  // docs/321 §10 [LaneA] (lanea.cpp): lot / world events since the last cut clear or drop rows here, at the cut
     const LONG epoch = g_asEpoch;
     const bool full = epoch != g_asEpochSeen || !g_asTracked;
     const bool newEpoch = epoch != g_asEpochSeen;

@@ -44,7 +44,7 @@ const refs = REFS.map(r => `/reference:${join(REF_DIR, `${r}.dll`)}`);
 function csc(out: string, files: string[], extra: string[] = []) {
   execFileSync(CSC, ['/nologo', '/nostdlib+', '/noconfig', '/target:library', '/optimize+', '/langversion:5', '/warn:4',
     '/nowarn:414,169,649', `/out:${out}`, ...refs, ...extra, ...files], { stdio: 'inherit' });
-  writeFileSync(out, deterministicDll(readFileSync(out))); // csc 4.0 has no /deterministic: fixed timestamp, MVID and type GUID from the content (docs/data/change-ledger.jsonl noise)
+  writeFileSync(out, deterministicDll(readFileSync(out))); // csc 4.0 has no /deterministic: fixed timestamp, MVID and type GUID from the content (docs/data/change-ledger/ noise)
 }
 const loaderDll = join(outDir, `${ASSEMBLY}.dll`);
 const hot = process.argv.includes('--hot');

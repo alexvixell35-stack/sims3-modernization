@@ -75,7 +75,9 @@ static const DWORD GVH_LEAVE_AT = TS3A(0x0075AAC4);  // LEAVE after its footprin
 static const DWORD GVH_LEAVE_LBL = TS3A(0x0075AAA1), GVH_TABLE = TS3A(0x0075AF4C), GVH_FRAME_SUB = TS3A(0x00759B26);
 static const DWORD GVH_SITE_END = TS3A(0x0075A950), GVH_SITE_LEAVE = GVH_LEAVE_AT + 7;  // the observers' call sites
 static const DWORD GVH_SLOT_FALSE = TS3A(0x00620D60), GVH_SLOT_TRUE = TS3A(0x007EAEA0);
-static const DWORD kGvhCodeFnv = 0xB6EAEA97;  // FNV-1a over the four ranges of GvhCodeOk (Steam 1.67)
+// FNV-1a over the four ranges of GvhCodeOk: Steam 1.67, EA app 1.69.47 (docs/334 §5; same bytes but pointer operands), retail
+// (no rows yet: Steam value kept)
+static const DWORD kGvhCodeFnv = TS3A_PICK(0xB6EAEA97, 0xA3548D56, 0xB6EAEA97);
 
 typedef const u8*(__fastcall* GvhFindFn)(const void* svc, void* edx, DWORD lo, DWORD hi);           // ObjectService_FindById 0x939560, ret 8
 typedef void(__fastcall* GvhToLotFn)(const u8* lot, void* edx, const float* pt, float* out);         // 0xAB88A0, ret 8 (movaps both)

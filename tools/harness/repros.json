@@ -1183,20 +1183,39 @@
       {
         "cmd": "test_env",
         "args": {
+          "mode": "fixed",
+          "season": "spring",
+          "weather": "sunny",
+          "weather_hours": 12,
           "hour": 10
         },
         "waitS": 3,
-        "note": "2026-11-10: clock to 10:00 first. In release-verify-1111 he was stranded at 3:41 AM, the game queued GoHome and StuckWatchdog.Check (60 sim-minutes, GoHome) reset him home before the idle case (CheckIdle) could fire"
+        "note": "2026-11-10: clock to 10:00 first. In release-verify-1111 he was stranded at 3:41 AM, the game queued GoHome and StuckWatchdog.Check (60 sim-minutes, GoHome) reset him home before the idle case (CheckIdle) could fire v7 2026-11-25: mode fixed (spring, sunny 12 h), then poll until the weather reads Sunny: in release-verify-rc1119-doors-m1124d (2117) the realistic snow -> sun request had not ended the snow ~6 s later and he stood in posture HoldingUmbrella at the strand (CheckIdle judges only Posture == Standing, RouteFixes.cs); rain in a spring save had no guard at all.",
+        "until": {
+          "cmd": "test_env",
+          "args": {
+            "mode": "read"
+          },
+          "all": [
+            {
+              "path": "weather",
+              "equals": "Sunny"
+            }
+          ],
+          "everyS": 3,
+          "maxS": 90,
+          "hollow": "the weather never turned Sunny (an umbrella posture blocks the idle check)"
+        }
       },
       {
         "cmd": "place_sim",
         "args": {
           "sim": "Wogan Hemlock",
-          "x": 312.4,
-          "z": 1496.7
+          "x": 389.4,
+          "z": 1360.1
         },
         "waitS": 2,
-        "note": "puts him on Hogan's diner lot: in-game lot names do not match 'Hogan'"
+        "note": "v6 2026-11-25: East Tradewinds Shipping Co., not the Community Lot diner (312.4,1496.7). On Steam no Community Lot strand ever got a 'Wogan Hemlock A1 False' verdict (8 runs 11-09..11-24: never judged at the spot, or moved ~7 m first, m1124c; EA m1124d: an EA RouteAway took him home); every PASS with his False line had the strand on another lot (East Tradewinds 1111b and rc-1119b: False at the spot, then the fix moved him ~7 m; Mike's Cornerstore v3-noapex)"
       },
       {
         "cmd": "autonomy",
@@ -1216,35 +1235,34 @@
         "note": "v4 2026-11-10: game running (the profile unpaused it), so a sitting Sim stands up and anything queued ends before the strand. v3 paused across sim_strand: sim_where then read standing=false at the strand spot in both runs, and CheckIdle only judges a standing Sim (TownieUnseen also needs standing), so he was never judged there; no pause again (1111b, the one PASS, had none)"
       },
       {
-        "cmd": "sim_strand",
+        "cmd": "strand_box",
         "args": {
           "sim": "Wogan Hemlock",
-          "tries": 400
+          "lot": "East Tradewinds Shipping Co.",
+          "tries": 200
         },
-        "note": "samples the lot for a spot failing the game's routability check and stands him there; keep the camera away (unseen townie = 60 sim-minute rule, else one sim-day). tries 400 (default 40): wdasync-fix3-1110 failed setup with 'no unroutable spot in 40 samples' (one route plan per sample, a one-off setup hitch)"
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Wogan Hemlock"
-        },
-        "waitS": 1,
-        "note": "v4: right after the strand, as 1111b (this cancel caught a queued Go Home there)"
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Wogan Hemlock"
-        },
-        "waitS": 1,
-        "note": "v4: two more within ~2 s (~15 sim-minutes at Triple): 1110c queued Go Home just after the first cancel"
-      },
-      {
-        "cmd": "cancel_interactions",
-        "args": {
-          "sim": "Wogan Hemlock"
-        },
-        "waitS": 1
+        "timeoutS": 30,
+        "note": "v8 2026-11-25 (TEST-ONLY STRESS setup): a room he cannot walk out of. strand_box puts 8 EA counters on the tiles around an open tile of East Tradewinds Shipping Co., checks the game now judges the centre unroutable (Sim.IsPointInLotSafelyRoutable false) while it stays a standing spot, and stands him there. v7 (m1124d-repro-fixes-rerun1-1125) held the open-ground unroutable spot at setup but he was 13.6 m off it 30 s later with no verdict line for him at all; rc1119 2117 had an autonomous Move Away (target Terrain) queued at the strand: EA pushed him off before the 60 sim-minute idle rule. strand_box_end (cleanup) removes the counters. Then poll sim_strand {hold: true} every 1 s until he held the spot 2 polls in a row (re-strands him otherwise, 60 s cap).",
+        "until": {
+          "cmd": "sim_strand",
+          "args": {
+            "sim": "Wogan Hemlock",
+            "hold": true
+          },
+          "all": [
+            {
+              "path": "held",
+              "equals": true
+            },
+            {
+              "path": "streak",
+              "atLeast": 2
+            }
+          ],
+          "everyS": 1,
+          "maxS": 60,
+          "hollow": "Wogan never held the boxed strand spot (moved, routing, queued or not standing on every poll)"
+        }
       },
       {
         "cmd": "sim_where",
@@ -1254,8 +1272,42 @@
           "notRouting": true,
           "requireStanding": true
         },
-        "waitS": 30,
-        "note": "v5 2026-11-12: requireStanding (bp-wdasync-stuck-repro-1111 failed 3x with standing:false after sim_strand, so CheckIdle never judged him; sim_strand now forces standing) and waitS 30 here (the old waitS on the next step ran after it, so both checks ran in the same second). v4: FAILS SETUP when he is > 1 m from the strand spot or routing, ~3 s after the strand (before the 60 sim-minutes, ~8 s at Triple). No later held check: the fix itself moves him once it judges the spot, and v3's 12 cancels over 6 real min spanned ~45 sim-hours (inferred from 7.6 sim-min/s) (the sim-day rules then reset him and he ended at home, 560 m away)"
+        "waitS": 0,
+        "note": "v8: setup check (within 1 m, not routing, standing) right after the hold poll. v5 2026-11-12: requireStanding (bp-wdasync-stuck-repro-1111 failed 3x with standing:false after sim_strand, so CheckIdle never judged him; sim_strand now forces standing) and waitS 30 here (the old waitS on the next step ran after it, so both checks ran in the same second). v4: FAILS SETUP when he is > 1 m from the strand spot or routing, ~3 s after the strand (before the 60 sim-minutes, ~8 s at Triple). No later held check: the fix itself moves him once it judges the spot, and v3's 12 cancels over 6 real min spanned ~45 sim-hours (inferred from 7.6 sim-min/s) (the sim-day rules then reset him and he ended at home, 560 m away)"
+      },
+      {
+        "cmd": "watchdog_idle_now",
+        "args": {
+          "sim": "Wogan Hemlock"
+        },
+        "note": "v9 2026-11-25 TEST-ONLY (Rodney: forced idle check): sim clock +1 h while he is still on the boxed spot, so the next StuckWatchdog pass runs CheckIdle (queue, A1 / sync verdict, Act) unchanged with only the 60 sim-minute idle timer skipped; the timer itself is NOT covered by this repro. v8 (wdasync-stuck-rerun2-1125, 3/3) lost him 1-5 s after the strand: interaction Go Home, routing, 50-61 m off, HoldingUmbrella in 2 of 3; who moved him (from the logs): EA Go Home (no ts3fixes watchdog / go-home-shortcut moved line for him in any ts3native.log; try 1 has one unseen-fallback plan mark for his route, ufplan kind 0 203 ms marked Wogan Hemlock own task); how he left the counter ring is not shown."
+      },
+      {
+        "cmd": "sim_strand",
+        "args": {
+          "sim": "Wogan Hemlock",
+          "hold": true,
+          "watch": true
+        },
+        "note": "v9: after watchdog_idle_now: observe only, poll every 1 s until watchdog_idle_unroutable rose since the strand (judged); off the spot (> 1 m) before that FAILs (left_unjudged). 60 s cap (the next watchdog pass is ~10 sim-minutes, about 1 s at Triple). v8 was: the idle window. Observe only (no put-back): poll every 1 s until watchdog_idle_unroutable rose since the strand (judged: the watchdog logged his verdict and acted); off the spot (> 1 m) before that FAILs (left_unjudged). 60 sim-minutes unseen is ~8 s at Triple; 240 s cap covers the seen one sim-day rule.",
+        "until": {
+          "cmd": "sim_strand",
+          "args": {
+            "sim": "Wogan Hemlock",
+            "hold": true,
+            "watch": true
+          },
+          "all": [
+            {
+              "path": "judged",
+              "equals": true
+            }
+          ],
+          "everyS": 1,
+          "maxS": 60,
+          "failOn": "left_unjudged",
+          "hollow": "the watchdog never judged Wogan after the forced idle check (no watchdog_idle_unroutable rise in 60 s)"
+        }
       },
       {
         "cmd": "sim_where",
@@ -1272,15 +1324,18 @@
       "min": 1,
       "minutes": 6
     },
-    "expect": "(setup: Wogan is within 1 m of the strand spot and not routing ~3 s after it; queue jobs require a 'Wogan Hemlock (A1|sync) False' verdict line. True verdicts for him are normal: at load, from his home spot, and after the fix moved him) within ~70 sim-minutes recent/moved show 'Wogan Hemlock -> watchdog reset (idle on unroutable spot)' and he stands on a routable spot of the lot (or at its front door); watchdog_idle_verdicts >= 1, safespot_checks rises by at most one per pass for him; with --set watchdogidle=false he stays put (counter flat)",
+    "expect": "v9: as v8, with the 60 sim-minute idle timer skipped by watchdog_idle_now (TEST-ONLY clock +1 h; the timer is not covered). v8: strand_box encloses him (8 counters), the hold poll holds 2 polls, sim_where passes, then within the idle window watchdog_idle_unroutable rises with him still within 1 m until then (a \"Wogan Hemlock A1 False\" or \"sync False\" verdict line), and the fix moves him; cleanup removes the counters. (setup: Wogan is within 1 m of the strand spot and not routing ~3 s after it; queue jobs require a 'Wogan Hemlock (A1|sync) False' verdict line. True verdicts for him are normal: at load, from his home spot, and after the fix moved him) within ~70 sim-minutes recent/moved show 'Wogan Hemlock -> watchdog reset (idle on unroutable spot)' and he stands on a routable spot of the lot (or at its front door); watchdog_idle_verdicts >= 1, safespot_checks rises by at most one per pass for him; with --set watchdogidle=false he stays put (counter flat)",
     "area": [
-      312.4,
-      1497
+      389.4,
+      1360.1
     ],
     "switches": [
       "watchdogidle"
     ],
     "cleanup": [
+      {
+        "cmd": "strand_box_end"
+      },
       {
         "cmd": "autonomy",
         "args": {
@@ -25528,154 +25583,6 @@
     }
   },
   {
-    "id": "sv-crowd-foreign-p6-loop",
-    "bug": "docs/189 §1 M5/M6 + §3.3: FallbackAsync foreign Route.Plan jobs (stuck-check alarm plans in SV crowds) are never armed for the P6 clone answer, so each holds +0x918 for its whole plan (A_RUNNING span = the plan) and the own tasks that plan sync behind a running job wait for it",
-    "fix": "docs/189 §4 phase 4 arm: ts3native [RouteSnap] TakeForeign (native switch routesnapforeign: foreign STARTs armed take-only, FbJobCapMs kept in the clone run) + JobYield (native jobyield + ts3fixes patch jobyield) per loop",
-    "save": "Baseline-SV-Spring",
-    "note": "UNVERIFIED (static only, 2026-10-25): never run. sv-crowd-foreign-loop with the arm moved from fbjobdeadline to the phase-4 trio. The job ini sets RouteSnap Mode=2 with TakeKinds=9, ShareCuts=1, VerifyEvery=0, P5b/P5c on, FallbackAsync=1, FbJobCapMs=300, FbJobDeadline=1 in both arms; only routesnapforeign and jobyield flip.",
-    "steps": [
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "normal"
-        },
-        "waitS": 2
-      },
-      {
-        "cmd": "spawn_sims",
-        "args": {
-          "count": 10
-        },
-        "waitS": 20
-      },
-      {
-        "cmd": "spawn_sims",
-        "args": {
-          "count": 10
-        },
-        "waitS": 20
-      },
-      {
-        "cmd": "spawn_sims",
-        "args": {
-          "count": 10
-        },
-        "waitS": 20
-      },
-      {
-        "cmd": "set_speed",
-        "args": {
-          "speed": "ultra"
-        },
-        "waitS": 2
-      }
-    ],
-    "expect": "no crash, 0 watchdog lines; on arms: p6fbArmed and p6fbTaken rise with fbForeignStarted, p6fbCloneCapped <= fbjcCapped, every foreign long-job line still capped near 300 ms, jyBusy / jobyield_steps grow and jobyield_capped 0; off arms: p6fbArmed flat. Judge with hitch-ab.ts (>= 1 s counts per arm) and wait-ab.ts (sim waits behind foreign jobs). m2Off 0.",
-    "loop": {
-      "steps": [
-        {
-          "cmd": "native_set",
-          "setup": true,
-          "args": {
-            "routesnapforeign": "$on",
-            "jobyield": "$on"
-          },
-          "waitS": 1,
-          "note": "arm (native: TakeForeign + JobYield)"
-        },
-        {
-          "cmd": "patches",
-          "setup": true,
-          "args": {
-            "jobyield": "$on"
-          },
-          "waitS": 1,
-          "note": "arm (ts3fixes StepAside)"
-        },
-        {
-          "cmd": "crowd_go",
-          "setup": false,
-          "args": {
-            "to": "far",
-            "household": true
-          },
-          "waitS": 60,
-          "waitUntil": {
-            "quiet": 4000
-          },
-          "minS": 20,
-          "maxS": 60,
-          "note": "fire: crowd to the far lot (30+ async plans)"
-        },
-        {
-          "cmd": "stuck_check_fire",
-          "setup": false,
-          "args": {
-            "attempt": 1,
-            "delay_min": 1,
-            "lot": "any"
-          },
-          "waitS": 30,
-          "waitUntil": [
-            {
-              "counter": [
-                "stuckcheckasync_run",
-                "stuckcheckasync_dropped"
-              ],
-              "of": "stuckcheckasync_queued"
-            },
-            {
-              "quiet": 4000
-            }
-          ],
-          "minS": 6,
-          "maxS": 30,
-          "note": "fire: one stuck check per spawned Sim (10 plans each: foreign jobs)"
-        },
-        {
-          "cmd": "crowd_go",
-          "setup": true,
-          "args": {
-            "target": "home",
-            "household": true
-          },
-          "waitS": 40,
-          "waitUntil": {
-            "quiet": 4000
-          },
-          "minS": 10,
-          "maxS": 40,
-          "note": "home (fixed)"
-        }
-      ],
-      "arms": [
-        "off",
-        "on",
-        "on",
-        "off"
-      ],
-      "until": {
-        "perArm": 10
-      },
-      "maxMinutes": 45
-    },
-    "cleanup": [
-      {
-        "cmd": "patches",
-        "args": {
-          "jobyield": false
-        }
-      },
-      {
-        "cmd": "native_set",
-        "args": {
-          "routesnapforeign": 0,
-          "jobyield": 0
-        }
-      }
-    ]
-  },
-  {
     "id": "route-queuefull-p6int-p6-loop",
     "bug": "docs/94 §24.11: P6-taken Route.Plan jobs hold +0x918 only ~2 ms but keep A_RUNNING through their copy, so gate 10 0x760BFF, gate-0 misses, gate-12 writers and job waits still wait for the whole job",
     "fix": "docs/189 integration ladder rung \"p6\": P6 take + P6EarlyCopy (docs/94 §24.14). native_set per arm: off = the rungs below on, on = those + this rung (one 2-arm in-load ABBA per rung; the ladder is cumulative across jobs)",
@@ -27001,6 +26908,653 @@
       }
     ],
     "expect": "if the leak is real: wpl (and wq for IceCreamMaker / DeepFryerVegas) +1 per round, not dropping at gc-after; equal counts across rounds = no subscription per purchase for this object"
+  },
+  {
+    "id": "travel-roundtrip-bp",
+    "bug": "EA 1.69 BP stall after travel home (lc7-desc-correct-1124-ea bp-lc7-travel 2/2, 2026-11-24): Bridgeport loaded, household in the world, then speed Pause, sub_state none, in_travel true, no dialog; EA BP round trips never ran before (EA SV and Steam BP passed)",
+    "fix": "triage only (lc7-travel-triage-ea-1124): one BP -> France -> BP trip through repro.ts, no profile-world upkeep (keep_alive / decline_requests / test_env guard), no mem_mark / mem_gc, so it also runs with our mods out",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-24). Agent commands only (ourMods false OK). PASS = home, live mode, clock at Normal. Travel saves go to the travel slot, Baseline-BP is hash-checked by queue.ts.",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "none",
+          "dialogs": true
+        },
+        "waitS": 2,
+        "note": "popups answered as in profile-world (speed none: never touches the clock)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household"
+        },
+        "waitS": 2,
+        "note": "needs at max (a tired Sim drops the queued trip)"
+      },
+      {
+        "cmd": "travel_vacation",
+        "args": {
+          "world": "france",
+          "days": 2
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": true
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 600
+        },
+        "note": "out: queued car on the world lot"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "as bp-lc7-travel: the trip home 2 s after arrival"
+      },
+      {
+        "cmd": "travel_home",
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": false
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 300
+        },
+        "note": "back to Bridgeport: the step that stalled (Pause, no sub-state, in_travel true); travel_state then shows travel_phase and inworld_post_init"
+      },
+      {
+        "cmd": "game_state",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "live mode entered (InWorldState.Startup finished)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 20,
+        "note": "the clock runs at home"
+      },
+      {
+        "cmd": "time",
+        "until": {
+          "cmd": "time",
+          "all": [
+            {
+              "path": "speed",
+              "equals": "Normal"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 30
+        }
+      }
+    ],
+    "expect": "trip out and home; game_state LiveModeState after the return; time speed Normal"
+  },
+  {
+    "id": "travel-roundtrip-bp-lc7on",
+    "bug": "EA 1.69 BP stall after travel home (lc7-desc-correct-1124-ea bp-lc7-travel 2/2, 2026-11-24): Bridgeport loaded, household in the world, then speed Pause, sub_state none, in_travel true, no dialog; EA BP round trips never ran before (EA SV and Steam BP passed)",
+    "fix": "triage only (lc7-travel-triage-ea-1124): one BP -> France -> BP trip through repro.ts, no profile-world upkeep (keep_alive / decline_requests / test_env guard), no mem_mark / mem_gc, so it also runs with our mods out",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-24). travel-roundtrip-bp with the five bp-lc7-travel switches on in the load (patches read-back); needs ts3fixes lc7f.",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "none",
+          "dialogs": true
+        },
+        "waitS": 2,
+        "note": "popups answered as in profile-world (speed none: never touches the clock)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefdelta": true,
+          "deadrefslimuse": true,
+          "deadrefperlot": true,
+          "deadrefdescrev": true,
+          "deadrefdeltaverify": true
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "patches",
+          "all": [
+            {
+              "path": "deadrefdelta",
+              "equals": true
+            },
+            {
+              "path": "deadrefslimuse",
+              "equals": true
+            },
+            {
+              "path": "deadrefperlot",
+              "equals": true
+            },
+            {
+              "path": "deadrefdescrev",
+              "equals": true
+            },
+            {
+              "path": "deadrefdeltaverify",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 10
+        },
+        "note": "the five switches bp-lc7-travel turns on (profile-world --fixes-on), read back"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household"
+        },
+        "waitS": 2,
+        "note": "needs at max (a tired Sim drops the queued trip)"
+      },
+      {
+        "cmd": "travel_vacation",
+        "args": {
+          "world": "france",
+          "days": 2
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": true
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 600
+        },
+        "note": "out: queued car on the world lot"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "as bp-lc7-travel: the trip home 2 s after arrival"
+      },
+      {
+        "cmd": "travel_home",
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": false
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 300
+        },
+        "note": "back to Bridgeport: the step that stalled (Pause, no sub-state, in_travel true); travel_state then shows travel_phase and inworld_post_init"
+      },
+      {
+        "cmd": "game_state",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "live mode entered (InWorldState.Startup finished)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 20,
+        "note": "the clock runs at home"
+      },
+      {
+        "cmd": "time",
+        "until": {
+          "cmd": "time",
+          "all": [
+            {
+              "path": "speed",
+              "equals": "Normal"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 30
+        }
+      }
+    ],
+    "expect": "as travel-roundtrip-bp, with deadrefdelta, deadrefslimuse, deadrefperlot, deadrefdescrev, deadrefdeltaverify on"
+  },
+  {
+    "id": "travel-roundtrip-bp-lc7on-x2",
+    "bug": "EA 1.69 BP stall after travel home (lc7-desc-correct-1124-ea bp-lc7-travel 2/2, 2026-11-24): Bridgeport loaded, household in the world, then speed Pause, sub_state none, in_travel true, no dialog; EA BP round trips never ran before (EA SV and Steam BP passed)",
+    "fix": "ts3fixes deadref-travel-1124 (docs/336 §16, LC-7g): the simler90Extras travel-merge pin no longer swaps SimDescriptionMergeTravelInfoCareer (its kinds count as untrusted only in travel-based worlds), the writer scan and its pin swaps never run inside a travel load, and the deadref hooks that run in the travel import log their first enter / done per load and degrade (cadence work off for the session) on a throw",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-24). travel-roundtrip-bp-lc7on twice (BP -> France -> BP x2) with the five bp-lc7-travel switches on; each return waits 120 s, then FAILs with the stall snapshot from cleanup.",
+    "steps": [
+      {
+        "cmd": "autopilot",
+        "args": {
+          "enabled": true,
+          "speed": "none",
+          "dialogs": true
+        },
+        "waitS": 2,
+        "note": "popups answered as in profile-world (speed none: never touches the clock)"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefdelta": true,
+          "deadrefslimuse": true,
+          "deadrefperlot": true,
+          "deadrefdescrev": true,
+          "deadrefdeltaverify": true
+        },
+        "waitS": 2,
+        "until": {
+          "cmd": "patches",
+          "all": [
+            {
+              "path": "deadrefdelta",
+              "equals": true
+            },
+            {
+              "path": "deadrefslimuse",
+              "equals": true
+            },
+            {
+              "path": "deadrefperlot",
+              "equals": true
+            },
+            {
+              "path": "deadrefdescrev",
+              "equals": true
+            },
+            {
+              "path": "deadrefdeltaverify",
+              "equals": true
+            }
+          ],
+          "everyS": 2,
+          "maxS": 10
+        },
+        "note": "the five switches bp-lc7-travel turns on (profile-world --fixes-on), read back"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "patches",
+          "all": [
+            {
+              "path": "deadrefdescrev_scan_assemblies",
+              "atLeast": 2
+            },
+            {
+              "path": "deadrefdescrev_pins_nohook",
+              "atLeast": 1
+            },
+            {
+              "path": "deadrefdescrev_pins_refused",
+              "atMost": 0
+            },
+            {
+              "path": "deadrefdescrev_seeds",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "one sweep in live BP before trip 1: the writer scan runs here (never in a travel load), the simler90Extras pin counts as no-hook (pins_nohook >= 1 is the read-back of this build: lc7f had 0), the desc index seeds"
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household"
+        },
+        "waitS": 2,
+        "note": "needs at max (a tired Sim drops the queued trip)"
+      },
+      {
+        "cmd": "travel_vacation",
+        "args": {
+          "world": "france",
+          "days": 2
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": true
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 600
+        },
+        "note": "out: queued car on the world lot"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "as bp-lc7-travel: the trip home 2 s after arrival"
+      },
+      {
+        "cmd": "travel_home",
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": false
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 120
+        },
+        "note": "back to Bridgeport: the step that stalled; 120 s, then FAIL with the stall snapshot (cleanup: travel_state, patches with the deadref counters, clock_state, game_state)"
+      },
+      {
+        "cmd": "game_state",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "live mode entered (InWorldState.Startup finished)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 20,
+        "note": "the clock runs at home"
+      },
+      {
+        "cmd": "time",
+        "until": {
+          "cmd": "time",
+          "all": [
+            {
+              "path": "speed",
+              "equals": "Normal"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 30
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "patches",
+          "all": [
+            {
+              "path": "deadrefdescrev_seeds",
+              "atLeast": 2
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "a sweep at home before trip 2: the index is seeded again when the trip starts"
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "household"
+        },
+        "waitS": 2,
+        "note": "trip 2: needs at max again"
+      },
+      {
+        "cmd": "travel_vacation",
+        "args": {
+          "world": "france",
+          "days": 2,
+          "clear_recovery": true
+        },
+        "note": "STRESS shortcut: trip 2 right after trip 1, so the WentToLocation recovery buff is cleared (EA refuses with 'still recovering from the previous vacation')",
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": true
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 600
+        },
+        "note": "out: queued car on the world lot"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2,
+        "note": "as bp-lc7-travel: the trip home 2 s after arrival"
+      },
+      {
+        "cmd": "travel_home",
+        "waitS": 5,
+        "until": {
+          "cmd": "travel_state",
+          "all": [
+            {
+              "path": "on_vacation",
+              "equals": false
+            },
+            {
+              "path": "in_travel",
+              "equals": false
+            },
+            {
+              "path": "household"
+            }
+          ],
+          "everyS": 10,
+          "maxS": 120
+        },
+        "note": "back to Bridgeport: the step that stalled; 120 s, then FAIL with the stall snapshot (cleanup: travel_state, patches with the deadref counters, clock_state, game_state)"
+      },
+      {
+        "cmd": "game_state",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 120
+        },
+        "note": "live mode entered (InWorldState.Startup finished)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 20,
+        "note": "the clock runs at home"
+      },
+      {
+        "cmd": "time",
+        "until": {
+          "cmd": "time",
+          "all": [
+            {
+              "path": "speed",
+              "equals": "Normal"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 30
+        }
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "travel_state",
+        "max": 2000
+      },
+      {
+        "cmd": "patches",
+        "max": 6000
+      },
+      {
+        "cmd": "clock_state",
+        "max": 600
+      },
+      {
+        "cmd": "game_state",
+        "max": 600
+      }
+    ],
+    "expect": "2 trips out and home, live mode and Normal speed after each return; ts3native.log has 2 x \"deadref travel step: PostTravelingFixUp reached\" and no \"deadref travel FAIL\""
   },
   {
     "id": "leak-travel-roundtrip-x3",
@@ -56761,6 +57315,36 @@
           ]
         },
         "note": "old-way pair broken, KeepVirtual pair and the real Destroy dispatch"
+      }
+    ]
+  },
+  {
+    "id": "hookflat-readback",
+    "bug": "issue #92 (docs/130 §11): two hooks on one method cost two interpreter frames on every call; the SimRoutingComponent.DoRoute and RabbitHole.RouteNearEntranceAndEnterRabbitHole pairs pushed EA chains past the 63-frame limit",
+    "fix": "ts3fixes hookflat-1124 (no switch): one hook per method (BuRouteHook carries petrelax, RheEnterHook carries RabbitHoleHook.EnterPre), failed-plan rules answer with step codes",
+    "save": "Baseline-BP",
+    "note": "Read-back that the m1124c ts3fixes is the one loaded: Fixes.StackedHooks lists every method with more than one of our hooks; none of the folded hook classes may appear. Then SavedStackCheck hooks (GetMethods on every hook class, stubs, remap counters). An m1124b package has no StackedHooks method: the first step fails.",
+    "expect": "stacked hooks: N methods, none of BuRouteHook / PrxRouteHook / RheEnterHook / RabbitHoleHook; GetMethods ok on every hook class",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.StackedHooks",
+          "args": []
+        },
+        "note": "methods with 2+ of our hooks",
+        "mustMatch": "^stacked hooks: \\d+ methods(?!.*(BuRouteHook|PrxRouteHook|RheEnterHook|RabbitHoleHook))"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SavedStackCheck",
+          "args": [
+            "hooks"
+          ]
+        },
+        "note": "GetMethods on every hook class (RheEnterHook now derives from RabbitHoleHook)",
+        "mustMatch": "^GetMethods ok on \\d+ hook classes"
       }
     ]
   },
@@ -113186,6 +113770,936 @@
     "expect": "ON arm: 'OK   host map iter fix' with 'TestRehash', no crash, 'host map iter:' lines up to 20, each 're-found by id % buckets' (or by scan) and 'fixed'; 'in no chain' 0 expected. OFF arm (Repair=0): the same lines with 'passed to EA (Repair=0)', then most likely the 0xD71E7D AV (erase chain walk) or a later heap fault from the write into the freed bucket array"
   },
   {
+    "id": "doormemox-venue-clock",
+    "bug": "DoorMemoX=3 (docs/585 §9): door 0x28590035C1469290 (The Prosper Room, rooms 25 -> 22) answered 1 for the bouncer Becca Bijou 25 ms after another job kept 2 (eam1124c bp-vbowner-correct-1, and the same Sim / door in §8); inferred cause a door rule that reads the clock (DoorSingleGender: Lot.IsOpenVenue()), no writer to bump",
+    "fix": "bugfix/doormemox-mismatch2-1124 (416adf7a): native keeps a row only for an unlocked answer ts3fixes vouched for in that ask (op 36 hi 3, DoorGenMemoNote); own door rules, special portals, non-ordinary Sims, resort lots answered live (ts3native_doorgen.unnoted)",
+    "save": "Baseline-BP",
+    "regexCases": {
+      "\"adopted\":\\[\\{": {
+        "match": [
+          "{\"adopted\":[{\"instantiated\":true,\"ownerLockDoor\":\"0x28590035C1469290\",\"path\":\"pool AdoptDog\"}],\"skipped\":[],\"locked_doors\":[\"0x28590035C1469290\"]}"
+        ],
+        "noMatch": [
+          "{\"adopted\":[],\"skipped\":[\"no adoptable pet: adoption pools empty and AdoptDogCreator.CreatePet made none\"],\"locked_doors\":[]}"
+        ]
+      }
+    },
+    "note": "Repro rules (docs/TESTING.md): forced, no waiting. The Prosper Room (lot 0x28590035BEC1DF80): venue_hours reads its hours (Lot.GetHoursOfOperation: Bartending extended hours or the venue's MetaAutonomy tuning, data, not in the decompiled code) and moves the clock (SimClock.TicksAdvanced) to 3 min before the open / close hour; 4 townies teleported next to door 0x28590035C1469290 and Becca Bijou (when instantiated) sent through it and across the club; clock 10 min before the hour (room for the door asks before it), paused, then 1 min past the hour (never a day wrap), unpaused, the same Sims sent again. Each after step must report flipped true (its open_now against the before step's; mustMatch, else FAIL: hollow repro). 5 boundary crossings (open, close, open, close, open). pet_adopt (2 dogs into a townie home) triggers the writer hook CommonDoor.HouseholdSimChanged; one vbowner churn round (place 25 objects, delete them in buy mode: the P5c park + destroy) before the last crossing. PetPool.UpdateSimDescriptionId / Copy run only at world load (CharacterImportOnGameLoad) and in the world-builder command FixupPetPools: not reachable in a session. Read: venue_hours after replies (pair_open_before, open_now, flipped true), doorgen: memo skips line naming the door type, door memo x writer hooks line, shadow > 0 mismatch 0.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 8
+        },
+        "waitS": 5,
+        "note": "background NPC door asks for memo rows"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "age": "youngadult,adult",
+          "count": 4,
+          "townies": true,
+          "noPets": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "normal speed: the clock moves ~1 game min per real s, so each side of the boundary lasts seconds"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216"
+        },
+        "waitS": 1,
+        "note": "read back The Prosper Room's open / close hours and IsOpenVenue (evidence in the repro jsonl)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@obj:2907355265320260240"
+        },
+        "waitS": 3,
+        "note": "townies (NPC scope) next to door 0x28590035C1469290"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "normal speed for the crossing (the vbowner round leaves it on ultra): ~1 game min per real s"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "open",
+          "offsetMin": -10
+        },
+        "waitS": 1,
+        "note": "clock to 10 min before The Prosper Room's open hour (Lot.GetHoursOfOperation): room for the ~5 game min of door asks before the boundary; this step records the before state (pair_role before)"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 4,
+        "note": "door asks before the boundary: rows kept from these (if vouched) are the old hour's",
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 1,
+        "pausesClock": true,
+        "note": "paused between the before and after steps: the clock moves only by the jump"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "open",
+          "offsetMin": 1
+        },
+        "waitS": 0,
+        "note": "paused: clock to 1 min past the open hour, never a day wrap (already past: stays); flipped = before step's open state != this one's, both logged",
+        "mustMatch": "\"flipped\":true",
+        "hollow": "venue hour crossed without an open-state flip"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 0,
+        "pausesClock": false,
+        "note": "unpaused for the door asks after the boundary"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 6,
+        "note": "door asks right after the boundary, within DoorMemoXMs of the rows above where routes overlap",
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@obj:2907355265320260240"
+        },
+        "waitS": 3,
+        "note": "townies (NPC scope) next to door 0x28590035C1469290"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "normal speed for the crossing (the vbowner round leaves it on ultra): ~1 game min per real s"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "close",
+          "offsetMin": -10
+        },
+        "waitS": 1,
+        "note": "clock to 10 min before The Prosper Room's close hour (Lot.GetHoursOfOperation): room for the ~5 game min of door asks before the boundary; this step records the before state (pair_role before)"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 4,
+        "note": "door asks before the boundary: rows kept from these (if vouched) are the old hour's",
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 1,
+        "pausesClock": true,
+        "note": "paused between the before and after steps: the clock moves only by the jump"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "close",
+          "offsetMin": 1
+        },
+        "waitS": 0,
+        "note": "paused: clock to 1 min past the close hour, never a day wrap (already past: stays); flipped = before step's open state != this one's, both logged",
+        "mustMatch": "\"flipped\":true",
+        "hollow": "venue hour crossed without an open-state flip"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 0,
+        "pausesClock": false,
+        "note": "unpaused for the door asks after the boundary"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 6,
+        "note": "door asks right after the boundary, within DoorMemoXMs of the rows above where routes overlap",
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@obj:2907355265320260240"
+        },
+        "waitS": 3,
+        "note": "townies (NPC scope) next to door 0x28590035C1469290"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "normal speed for the crossing (the vbowner round leaves it on ultra): ~1 game min per real s"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "open",
+          "offsetMin": -10
+        },
+        "waitS": 1,
+        "note": "clock to 10 min before The Prosper Room's open hour (Lot.GetHoursOfOperation): room for the ~5 game min of door asks before the boundary; this step records the before state (pair_role before)"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 4,
+        "note": "door asks before the boundary: rows kept from these (if vouched) are the old hour's",
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 1,
+        "pausesClock": true,
+        "note": "paused between the before and after steps: the clock moves only by the jump"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "open",
+          "offsetMin": 1
+        },
+        "waitS": 0,
+        "note": "paused: clock to 1 min past the open hour, never a day wrap (already past: stays); flipped = before step's open state != this one's, both logged",
+        "mustMatch": "\"flipped\":true",
+        "hollow": "venue hour crossed without an open-state flip"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 0,
+        "pausesClock": false,
+        "note": "unpaused for the door asks after the boundary"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 6,
+        "note": "door asks right after the boundary, within DoorMemoXMs of the rows above where routes overlap",
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@obj:2907355265320260240"
+        },
+        "waitS": 3,
+        "note": "townies (NPC scope) next to door 0x28590035C1469290"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "normal speed for the crossing (the vbowner round leaves it on ultra): ~1 game min per real s"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "close",
+          "offsetMin": -10
+        },
+        "waitS": 1,
+        "note": "clock to 10 min before The Prosper Room's close hour (Lot.GetHoursOfOperation): room for the ~5 game min of door asks before the boundary; this step records the before state (pair_role before)"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 4,
+        "note": "door asks before the boundary: rows kept from these (if vouched) are the old hour's",
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 1,
+        "pausesClock": true,
+        "note": "paused between the before and after steps: the clock moves only by the jump"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "close",
+          "offsetMin": 1
+        },
+        "waitS": 0,
+        "note": "paused: clock to 1 min past the close hour, never a day wrap (already past: stays); flipped = before step's open state != this one's, both logged",
+        "mustMatch": "\"flipped\":true",
+        "hollow": "venue hour crossed without an open-state flip"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 0,
+        "pausesClock": false,
+        "note": "unpaused for the door asks after the boundary"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 6,
+        "note": "door asks right after the boundary, within DoorMemoXMs of the rows above where routes overlap",
+        "optional": true
+      },
+      {
+        "cmd": "pet_adopt",
+        "args": {
+          "count": 2,
+          "species": "dog",
+          "ownerLockDoor": true
+        },
+        "waitS": 5,
+        "note": "writer hook trigger, a stand-in for phone adoption (story-progression adoption): ownerLockDoor locks a door of the home first, then Household.Add raises HouseholdSimsChanged and CommonDoor.HouseholdSimChanged runs (counter writers[0]). Asked pool empty: any adoption pool; all empty: STRESS direct create by EA's pool factory (AdoptDogCreator / AdoptCatCreator.CreatePet); each row names its path",
+        "mustMatch": "\"adopted\":\\[\\{",
+        "hollow": "no adoptable pet"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {
+          "sim": "active",
+          "height": 12,
+          "back": 12
+        },
+        "waitS": 2,
+        "note": "camera on the active Sim at home: the objects placed next are in view"
+      },
+      {
+        "cmd": "place_objects",
+        "timeoutS": 120,
+        "args": {
+          "filter": "ea",
+          "lot": "home",
+          "count": 25,
+          "skip": 0
+        },
+        "waitS": 20,
+        "note": "round 1: 25 EA objects on the home lot, in view"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #1",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_delete_objects",
+        "args": {
+          "max": 30
+        },
+        "waitS": 10,
+        "note": "round 1: the 25 deleted in Buy mode through the hand tool callbacks (CanBeSold, Pickup, Sold, Edit Deleted, Destroy) while in view: 0xA85DF0 owner deletes"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #1",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4"
+          ],
+          "near": "@obj:2907355265320260240"
+        },
+        "waitS": 3,
+        "note": "townies (NPC scope) next to door 0x28590035C1469290"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1,
+        "note": "normal speed for the crossing (the vbowner round leaves it on ultra): ~1 game min per real s"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "open",
+          "offsetMin": -10
+        },
+        "waitS": 1,
+        "note": "clock to 10 min before The Prosper Room's open hour (Lot.GetHoursOfOperation): room for the ~5 game min of door asks before the boundary; this step records the before state (pair_role before)"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 4,
+        "note": "door asks before the boundary: rows kept from these (if vouched) are the old hour's",
+        "optional": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 1,
+        "pausesClock": true,
+        "note": "paused between the before and after steps: the clock moves only by the jump"
+      },
+      {
+        "cmd": "venue_hours",
+        "args": {
+          "lot": "2907355265278009216",
+          "jump": "open",
+          "offsetMin": 1
+        },
+        "waitS": 0,
+        "note": "paused: clock to 1 min past the open hour, never a day wrap (already past: stays); flipped = before step's open state != this one's, both logged",
+        "mustMatch": "\"flipped\":true",
+        "hollow": "venue hour crossed without an open-state flip"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 0,
+        "pausesClock": false,
+        "note": "unpaused for the door asks after the boundary"
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "Becca Bijou",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "note": "the bouncer of both mismatches (instantiated by her role; optional when not in the world)",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:1",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:2",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 0,
+        "note": "across the club: lot centre",
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:3",
+          "target": "@obj:2907355265320260240"
+        },
+        "waitS": 0,
+        "optional": true
+      },
+      {
+        "cmd": "go_here",
+        "args": {
+          "sim": "picked:4",
+          "target": "lot:2907355265278009216"
+        },
+        "waitS": 6,
+        "note": "door asks right after the boundary, within DoorMemoXMs of the rows above where routes overlap",
+        "optional": true
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {},
+        "waitS": 10
+      }
+    ],
+    "expect": "venue_hours: has_hours true and open_now flips on every +1 step; no FAIL door memo x and no door memo x shadow line; a doorgen: memo skips line naming the type of door 0x28590035C1469290; door memo x writer hooks: HouseholdSimChanged >= 1; unnoted > 0; shadow > 0 mismatch 0; no script errors"
+  },
+  {
     "id": "doormemox-privacy",
     "bug": "DoorMemoX=3 (docs/585 §6): PrivacySituation's Lot.PortalPathPlan handler answers from the asking Sim's current interaction, which no generation tracks; sv-hhsearch 2026-11-16 logged FAIL door memo x (household dog, room 1 -> 4)",
     "fix": "bugfix/doormemox-privacy-1117: DoorGen.cs sends op 36 hi 1/2 per lot handler add / remove and at arm; native asks on held lots skip the memo (ts3native_doorgen.held)",
@@ -113836,6 +115350,278 @@
           ],
           "maxS": 180
         }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #4",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      }
+    ]
+  },
+  {
+    "id": "vb-owner-delete-stress",
+    "bug": "2026-11-22 tester crash with VbFreeDelay on: the draw owner of 0xA85DF0 was freed and reused while a queued draw 0xA84D00 still read its +0x70 (bridge SetStreamSource AV on a string); docs/67 §44.1",
+    "fix": "[EaCrashFixes] VbOwnerDelay=1 (0.36.299-vbowner1, needs VbFreeDelayMs > 0): owner freed VbFreeDelayMs after its dtor, +0x70 cleared",
+    "save": "any world with an active household on a home lot (Baseline-BP)",
+    "note": "apex-buy-entry-stress with a delete round at each of its 4 Buy entries: 25 EA objects placed on the home lot in view (live), then deleted right after the Buy entry with buy_delete_objects (ts3agent vbowner2: EA's hand-tool delete callbacks, then Destroy). Owner deletes show in the flush lines and the VbGuard owner ring.",
+    "expect": "no crash, 0 VB BAD, ea fix: VbFreeDelay first draw owner line, flush line owners > 0; VbGuard \"VB late owner draw\" lines = late draws the fix turned into NULL streams",
+    "steps": [
+      {
+        "cmd": "cas_state",
+        "waitS": 1,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {
+          "sim": "active",
+          "height": 12,
+          "back": 12
+        },
+        "waitS": 2,
+        "note": "camera on the active Sim at home: the objects placed next are in view"
+      },
+      {
+        "cmd": "place_objects",
+        "timeoutS": 120,
+        "args": {
+          "filter": "ea",
+          "lot": "home",
+          "count": 25,
+          "skip": 0
+        },
+        "waitS": 20,
+        "note": "round 1: 25 EA objects on the home lot, in view"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #1",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_delete_objects",
+        "args": {
+          "max": 30
+        },
+        "waitS": 10,
+        "note": "round 1: the 25 deleted in Buy mode through the hand tool callbacks (CanBeSold, Pickup, Sold, Edit Deleted, Destroy) while in view: 0xA85DF0 owner deletes"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #1",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {
+          "sim": "active",
+          "height": 12,
+          "back": 12
+        },
+        "waitS": 2,
+        "note": "camera on the active Sim at home: the objects placed next are in view"
+      },
+      {
+        "cmd": "place_objects",
+        "timeoutS": 120,
+        "args": {
+          "filter": "ea",
+          "lot": "home",
+          "count": 25,
+          "skip": 25
+        },
+        "waitS": 20,
+        "note": "round 2: 25 EA objects on the home lot, in view"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #2",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_delete_objects",
+        "args": {
+          "max": 30
+        },
+        "waitS": 10,
+        "note": "round 2: the 25 deleted in Buy mode through the hand tool callbacks (CanBeSold, Pickup, Sold, Edit Deleted, Destroy) while in view: 0xA85DF0 owner deletes"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #2",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {
+          "sim": "active",
+          "height": 12,
+          "back": 12
+        },
+        "waitS": 2,
+        "note": "camera on the active Sim at home: the objects placed next are in view"
+      },
+      {
+        "cmd": "place_objects",
+        "timeoutS": 120,
+        "args": {
+          "filter": "ea",
+          "lot": "home",
+          "count": 25,
+          "skip": 50
+        },
+        "waitS": 20,
+        "note": "round 3: 25 EA objects on the home lot, in view"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #3",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_delete_objects",
+        "args": {
+          "max": 30
+        },
+        "waitS": 10,
+        "note": "round 3: the 25 deleted in Buy mode through the hand tool callbacks (CanBeSold, Pickup, Sold, Edit Deleted, Destroy) while in view: 0xA85DF0 owner deletes"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 8,
+        "note": "back to live #3",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "camera_to_tagged",
+        "args": {
+          "sim": "active",
+          "height": 12,
+          "back": 12
+        },
+        "waitS": 2,
+        "note": "camera on the active Sim at home: the objects placed next are in view"
+      },
+      {
+        "cmd": "place_objects",
+        "timeoutS": 120,
+        "args": {
+          "filter": "ea",
+          "lot": "home",
+          "count": 25,
+          "skip": 75
+        },
+        "waitS": 20,
+        "note": "round 4: 25 EA objects on the home lot, in view"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 12,
+        "note": "Buy entry #4",
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "buy_delete_objects",
+        "args": {
+          "max": 30
+        },
+        "waitS": 10,
+        "note": "round 4: the 25 deleted in Buy mode through the hand tool callbacks (CanBeSold, Pickup, Sold, Edit Deleted, Destroy) while in view: 0xA85DF0 owner deletes"
       },
       {
         "cmd": "build_mode",
@@ -116353,6 +118139,385 @@
     ]
   },
   {
+    "id": "lc6a-buy-edit-verify",
+    "bug": "LC-6a per-lot lists must follow objects that live mode and Buy mode move and Buy mode sells (a car and a dartboard); a stale or missing per-lot entry is a verify miss / extra",
+    "fix": "ts3fixes DeadRefsPerLot.cs (deadrefperlot, default off), docs/336 section 9",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-23, never run). With deadrefdelta, deadrefslimuse, deadrefperlot and deadrefdeltaverify ON: a dartboard and a car are made in live mode (place_objects name match, own_vehicle) and moved next to the home lot in live mode, then moved again inside Buy mode (agent lc6a2: move_object replays the hand tool pickup / movement / placed callbacks), Buy mode closed for a delta pass, reopened and both are sold (sell_object destroys them), Buy mode closed, spread passes run. Targets: @type:Dartboard / @vehicle. The queue gate is the verify counters (deadrefperlot_verify_miss, _verify_extra, _verify_over_live, deadrefdelta_verify_miss 0); deadrefperlot_gathers must rise so a hollow run fails. Needs agent ts3agent.package.lc6a2 or later (older agents refuse move_object in Buy mode; the step is optional so the run would only lose the Buy-mode move).",
+    "expect": "no step error (optional ones may skip); after the sell the verify counters stay 0; deadrefperlot_gathers >= 2 over the run.",
+    "steps": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "count"
+          ]
+        },
+        "note": "before"
+      },
+      {
+        "cmd": "place_objects",
+        "args": {
+          "name": "Dartboard",
+          "count": 1
+        },
+        "note": "a dartboard on the home lot (name match; skipped when no match)",
+        "waitS": 3,
+        "optional": true
+      },
+      {
+        "cmd": "own_vehicle",
+        "args": {
+          "kind": "car"
+        },
+        "note": "an owned car next to the selected Sim, set as @vehicle",
+        "waitS": 3,
+        "optional": true
+      },
+      {
+        "cmd": "move_object",
+        "args": {
+          "target": "@type:Dartboard",
+          "near": "home"
+        },
+        "note": "live-mode move of the dartboard",
+        "waitS": 2,
+        "optional": true
+      },
+      {
+        "cmd": "move_object",
+        "args": {
+          "target": "@vehicle",
+          "near": "home"
+        },
+        "note": "live-mode move of the car",
+        "waitS": 2,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "a delta pass with both objects in the per-lot lists (verify compares them to the snapshot gather)",
+        "waitS": 20
+      },
+      {
+        "cmd": "buy_open",
+        "args": {},
+        "note": "Buy mode",
+        "waitS": 10
+      },
+      {
+        "cmd": "move_object",
+        "args": {
+          "target": "@type:Dartboard",
+          "near": "@vehicle"
+        },
+        "note": "Buy-mode move of the dartboard (hand tool pickup / movement / placed callbacks, agent lc6a2)",
+        "waitS": 2,
+        "optional": true
+      },
+      {
+        "cmd": "move_object",
+        "args": {
+          "target": "@vehicle",
+          "near": "home"
+        },
+        "note": "Buy-mode move of the car",
+        "waitS": 2,
+        "optional": true
+      },
+      {
+        "cmd": "buy_close",
+        "args": {},
+        "note": "back to live mode after the Buy-mode moves",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "a delta pass after the Buy-mode moves (verify miss / extra 0)",
+        "waitS": 20
+      },
+      {
+        "cmd": "buy_open",
+        "args": {},
+        "note": "Buy mode again for the sells",
+        "waitS": 10
+      },
+      {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@type:Dartboard"
+        },
+        "note": "Buy mode: the dartboard is sold and destroyed",
+        "waitS": 3,
+        "optional": true
+      },
+      {
+        "cmd": "sell_object",
+        "args": {
+          "target": "@vehicle"
+        },
+        "note": "Buy mode: the car is sold and destroyed",
+        "waitS": 3,
+        "optional": true
+      },
+      {
+        "cmd": "buy_close",
+        "args": {},
+        "note": "back to live mode",
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "a pass after the deletes: per-lot lists drop both ids (verify extra 0)",
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "count"
+          ]
+        },
+        "note": "after: 0 gone, safe"
+      }
+    ]
+  },
+  {
+    "id": "lc6a-save-in-hook",
+    "bug": "LC-6a pins (17 hooked use-list writers) must be closed or dropped when a save runs while a pinned interaction is mid-body, and be cleared at the reload",
+    "fix": "ts3fixes DeadRefsPin.cs (pins reset at load), docs/336 section 9",
+    "save": "Baseline-BP",
+    "note": "UNVERIFIED (static only, 2026-11-23, never run). Forces one pinned yielding interaction (LemonadeStand Sell, DrPinLemonSellHook), saves while it is mid-body (wait 8 s after the start), reloads the save in the same session, plays 60 s. Gates in the queue: deadrefpin_opens >= 1 (the hook ran, so a hollow run fails), deadrefpin_open <= 0 at the end (pins cleared at load, none left open), verify misses 0, scriptErrorsMax 0. If no stand is placed or the interaction label does not match the optional steps skip and deadrefpin_opens fails the job.",
+    "expect": "save written, reload reaches live mode, no script error, deadrefpin_open 0 afterwards.",
+    "steps": [
+      {
+        "cmd": "place_objects",
+        "args": {
+          "name": "Lemonade",
+          "count": 1
+        },
+        "note": "a lemonade stand on the home lot",
+        "waitS": 3,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "target": "@type:LemonadeStand",
+          "interaction": "Sell"
+        },
+        "note": "start Sell (pinned, yielding body)",
+        "waitS": 8,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "count"
+          ]
+        },
+        "note": "before the save (pin open)"
+      },
+      {
+        "cmd": "save_game",
+        "args": {
+          "name": "LC6A-PinSave"
+        },
+        "waitS": 30,
+        "note": "save while the interaction is mid-body; until saved",
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "save_in_progress",
+              "equals": false
+            },
+            {
+              "path": "modal",
+              "equals": false
+            }
+          ],
+          "everyS": 1,
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "load_save",
+        "args": {
+          "file": "LC6A-PinSave.sims3",
+          "reload": true
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "game_state",
+          "all": [
+            {
+              "path": "in_world",
+              "equals": true
+            },
+            {
+              "path": "load_file",
+              "equals": "LC6A-PinSave.sims3"
+            },
+            {
+              "path": "sub_state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "everyS": 5,
+          "maxS": 300
+        },
+        "note": "reload in the same session: pins cleared at load"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "count"
+          ]
+        },
+        "note": "right after the load",
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "note": "60 s play after the reload",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "a pass after the reload",
+        "waitS": 20
+      }
+    ]
+  },
+  {
+    "id": "lc7-modwrite",
+    "bug": "docs/336 §11 (LC-7b): description references written by mods (NRaas StoryProgression / Woohooer) or by any writer the deadrefdescrev hooks do not see; a missed holder keeps a gone reference past the delta runs",
+    "fix": "ts3fixes DeadRefsDescRev.cs + DescWriterScan.cs: load-time IL writer scan, untrusted kinds stepped on every description; kGotPregnant listener; import hold",
+    "save": "Baseline-BP",
+    "note": "NPCs only (household untouched). pick: an NPC male (ref), an NPC female (mom), an NPC with a job (holder). boss: FormerBoss = ref by reflection (no hook, no scan sees it, as an unknown mod would). preg: NRaas Pregnancies.Start(mom, ref) (needs Woohooer or SP; sends kGotPregnant). dispose: the ref is disposed (its Sim destroyed). The sweep is started; state prints the holder / mom state, untrusted kinds, verify miss / extra.",
+    "steps": [
+      {
+        "cmd": "cas_state",
+        "waitS": 1,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DdModWriteCheck",
+          "args": [
+            "pick"
+          ]
+        },
+        "note": "NPC ref / mom / holder chosen"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DdModWriteCheck",
+          "args": [
+            "boss"
+          ]
+        },
+        "note": "formerboss_is_ref True"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DdModWriteCheck",
+          "args": [
+            "preg"
+          ]
+        },
+        "note": "started True, mom_pregnant True, dad_is_ref True, preg_notes +1",
+        "waitS": 10
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DdModWriteCheck",
+          "args": [
+            "dispose"
+          ]
+        },
+        "note": "ref_gone True, dad_destroyed True",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "note": "a pass right away",
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DdModWriteCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "note": "after the pass: formerboss_is_ref False (cleared by the formerboss kind walk), dad_destroyed False; verify_miss 0, verify_extra 0",
+        "waitS": 1
+      }
+    ]
+  },
+  {
     "id": "clipwait-check",
     "bug": "A Sim waits because another Sim or a pet is in its way outside portals: the obstacle stand-and-wait (ObstacleEncounteredRouteInterruptAction) and the destination wait (DestinationObstructedRouteInterruptAction) stand for up to 20 sim-minutes while the game pushes and replans; a Sim in an interaction or a conversation cannot be pushed, so the walker stands until it leaves or the route fails (docs/686 §9)",
     "fix": "ts3fixes ClipWait.cs: clipwait (clipwaithh for household and selected Sims), default off, docs/686 §9",
@@ -117575,6 +119740,1242 @@
     ]
   },
   {
+    "id": "pause-cas-buy-check",
+    "bug": "audit 2026-11-23: the released dead-ref sweep (deadrefsweep + deadrefcadence ON) kept removing dead refs while the game was paused: DeadRefUnsafe checked live mode and travel, not pause; a minimized window stops the clock without CurrentGameSpeed == Pause (docs/85 I-85-1, docs/162 §7)",
+    "fix": "ts3fixes SimFrozen.cs Fixes.SimFrozenOrNotLive (shared gate) + DeadRefs.cs DrWaitWhileFrozen: paused or clock stopped = the pass waits with its place kept (deadref_paused_waits, slot 1727); leaving live mode still ends it. docs/205 §2.3b",
+    "save": "Baseline-BP",
+    "note": "Release defaults (deadrefsweep ON). DeadRefCheck pausemark / pausestate print slices, passes, refused and paused-wait counts since the mark. The sweep is started while paused, so its first slice must wait. CAS and Buy/Build: a pass started (paused) before the mode opens must run no slice inside it.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "deadrefsweep": true
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "cas_state",
+        "waitS": 1,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 3,
+        "note": "paused from here until the unpause step"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausemark"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "mustMatch": "started True",
+        "waitS": 60,
+        "note": "pass started while paused; 60 s paused follow"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausestate"
+          ]
+        },
+        "mustMatch": "slices \\+0, passes \\+0, refused \\+0, pausedwaits \\+[1-9]\\d*, household (\\d+)->\\1, task alive, frozen True",
+        "note": "paused 60 s: no slice, the task waits (FAIL with slices > 0 = BROKEN: sweep acts while paused)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 40,
+        "note": "unpause: the same pass resumes"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausestate"
+          ]
+        },
+        "mustMatch": "slices \\+[1-9]\\d*, passes \\+[12], refused \\+0, pausedwaits \\+\\d+, household (\\d+)->\\1, task none",
+        "note": "the pass finished after the unpause, never refused"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "mustMatch": "started True",
+        "waitS": 2,
+        "note": "a pass waiting (paused) when CAS opens"
+      },
+      {
+        "cmd": "cas_open",
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausemark"
+          ]
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausestate"
+          ]
+        },
+        "mustMatch": "slices \\+0, passes \\+0, ",
+        "note": "in CAS 15 s: no slice (the pass ends on leaving live mode, refused +0/+1)"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "sweep"
+          ]
+        },
+        "mustMatch": "started True",
+        "waitS": 2,
+        "note": "a pass waiting (paused) when Buy opens"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausemark"
+          ]
+        },
+        "waitS": 10
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 10,
+        "note": "Buy -> Build"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausestate"
+          ]
+        },
+        "mustMatch": "slices \\+0, passes \\+0, ",
+        "note": "in Buy and Build 20 s: no slice"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausestate"
+          ]
+        },
+        "note": "back in live, unpaused: the household kept every member since the Buy mark and the state is safe (no active member invalid)",
+        "mustMatch": "household (\\d+)->\\1, .*\\| safe$"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ],
+    "expect": "PASS when every mustMatch holds: paused 60 s = slices +0 with pausedwaits rising and the task alive; after the unpause the same pass completes (passes +1 or +2 with the cadence pass, refused +0); in CAS and in Buy/Build slices +0. Slices > 0 while paused or in a mode = BROKEN"
+  },
+  {
+    "id": "pausegate-spread-check",
+    "bug": "audit 2026-11-23: released spread passes acted while paused or out of live mode: venue cleanup and relationship decay (easpreadlots / easpreaddecay) checked only that the world exists, the pet build (easpreadpets) and Overwatch / ErrorTrap task starts had no gate, Overwatch chain / StuckCheck slices and ErrorTrap slices resumed while paused, the save cleanup spread ended out of live mode but not on pause",
+    "fix": "ts3fixes SpreadGate.cs WaitWhileFrozen before every slice of EaSpread.cs, OverwatchSpread.cs, OverwatchStuck.cs, ErrorTrapSpread.cs, SaveCleanupSpread.cs: paused or clock stopped = wait with the place kept (counters 1728-1733); out of live mode our own pass tasks wait too, the save cleanup ends as before, yields inside Overwatch / ErrorTrap code act as before. docs/205 §2.3d",
+    "save": "Baseline-BP",
+    "note": "Release defaults. SpreadGateCheck start runs every spread pass now without its alarm (lots, pets = test stray cat, decay, owinv / et only with NRaas Overwatch / ErrorTrap loaded, sc); mark / state print passes finished and frames waited per group since the mark, and the active household fingerprint (relationship pairs / summed liking, inventory items). Started paused, so every first slice must wait.",
+    "steps": [
+      {
+        "cmd": "cas_state",
+        "waitS": 1,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 3,
+        "note": "paused from here until the unpause step"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "mark"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "mustMatch": "^start: lots pets decay (owinv )?(et )?(sc )?\\| safe",
+        "waitS": 60,
+        "note": "every pass started while paused; 60 s paused follow"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "started ([4-6]), done \\+0, waited \\1 of \\1 .*\\| household (rel \\S+ inv \\d+) -> \\2, frozen True",
+        "note": "paused 60 s: no pass finished, every one waited, household relationships and inventories unchanged (FAIL = a pass acts while paused)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 90,
+        "note": "unpause: the same passes resume"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "started ([4-6]), done \\+\\1, ",
+        "note": "every pass finished after the unpause"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "mustMatch": "^start: lots pets decay ",
+        "waitS": 2,
+        "note": "passes waiting (paused) when CAS opens"
+      },
+      {
+        "cmd": "cas_open",
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "mark"
+          ]
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "done \\+0, .*\\| household (rel \\S+ inv \\d+) -> \\1, frozen True",
+        "note": "in CAS 15 s: no pass finished, household unchanged"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "started ([4-6]), done \\+[3-6], ",
+        "note": "unpaused 60 s: the passes that waited through the mode finish (save cleanup ends on leaving live mode, as before)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "start"
+          ]
+        },
+        "mustMatch": "^start: lots pets decay ",
+        "waitS": 2,
+        "note": "passes waiting (paused) when Buy opens"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "mark"
+          ]
+        },
+        "waitS": 10
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 10,
+        "note": "Buy -> Build"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "done \\+0, .*\\| household (rel \\S+ inv \\d+) -> \\1, frozen True",
+        "note": "in Buy and Build 20 s: no pass finished, household unchanged"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 60
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.SpreadGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "started ([4-6]), done \\+[3-6], ",
+        "note": "unpaused 60 s: the passes that waited through the mode finish (save cleanup ends on leaving live mode, as before)"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ],
+    "expect": "PASS when every mustMatch holds: paused 60 s = done +0 with every started pass waiting and the household fingerprint unchanged; after the unpause every pass finishes; in CAS and Buy/Build done +0 and household unchanged, the passes finish after returning to live. done > 0 while paused or in a mode = BROKEN"
+  },
+  {
+    "id": "pausegate-drains-check",
+    "bug": "audit 2026-11-23 group 2: released drains and one-shot tasks (stuck-check drain, stuck watchdog, replanspread replay, go-live wait, wildflowertask, disposespread, aptleave RemoveGuest, boattrip sweep) acted while paused, with the clock stopped or out of live mode (CAS, Buy/Build, Edit Town)",
+    "fix": "ts3fixes SimFrozen.cs SfWait (+ SimFrozenCore.Hold) at each site: paused / clock stopped / not live = hold the queued work a frame at a time, act on the next unfrozen live frame; replanspread runs household, selected, unknown-scope and non-Sim calls at once (EA time); go-live drops to the game search when frozen. Counters 1734-1742. docs/205 §2.3c",
+    "save": "Baseline-BP",
+    "note": "Release defaults. PauseGateCheck mark / state print action counters (stuck checks run [128], replans replayed [135], spread destroys [281], watchdog resets [31]) and the group 2 wait counters since the mark, the replanspread queue depth, and whether every active-household Sim kept its position and current interaction. replan = LotManager.ForceReplanOfAllSimRoutes (EA's own call, as Edit Town / options do); boatsweep = BtSweepSoon. Paths with no trigger verb (stuck check, watchdog, go-live, wildflower, dispose, aptleave) are watched through their action counters only.",
+    "steps": [
+      {
+        "cmd": "cas_state",
+        "waitS": 1,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 120,
+        "note": "2 min live: queues and tasks fill naturally"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 3,
+        "note": "paused from here until the unpause step"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "mark"
+          ]
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "replan"
+          ]
+        },
+        "mustMatch": "replan: queued [1-9]\\d*",
+        "waitS": 1,
+        "note": "townie replans held; household ones ran at once (EA time)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "boatsweep"
+          ]
+        },
+        "waitS": 60,
+        "note": "60 s paused"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "acted stuckrun \\+0 replayed \\+0 destroyed \\+0 wdresets \\+0, waits .*replan \\+[1-9]\\d* replanhh \\+[1-9]\\d* .*spreadq [1-9]\\d*, household same, frozen True",
+        "note": "paused 60 s: nothing acted, the replay waits with its queue, household Sims unchanged (FAIL = a gate missed a path)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 30,
+        "note": "unpause: held work drains"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "spreadq 0, ",
+        "note": "the held replans were replayed after the unpause"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 2
+      },
+      {
+        "cmd": "cas_open",
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "cas_ready",
+              "equals": true
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "mark"
+          ]
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "acted stuckrun \\+0 replayed \\+0 destroyed \\+0 wdresets \\+0, ",
+        "note": "in CAS 15 s: nothing acted"
+      },
+      {
+        "cmd": "cas_close",
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 180
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "mark"
+          ]
+        },
+        "waitS": 10
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 10,
+        "note": "Buy -> Build"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "acted stuckrun \\+0 replayed \\+0 destroyed \\+0 wdresets \\+0, ",
+        "note": "in Buy and Build 20 s: nothing acted"
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 10,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 180
+        },
+        "note": "the speed stays Pause across Buy/Build (set before buy_open); unpaused here = hollow, not a gate miss"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "acted stuckrun \\+0 replayed \\+0 destroyed \\+0 wdresets \\+0, waits .*replan \\+[1-9]\\d* .*spreadq [1-9]\\d*, ",
+        "note": "back in live, paused: the Buy/Build exit replans of townies are held (EA's ExitBuildBuyMode call), nothing replayed yet"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PauseGateCheck",
+          "args": [
+            "state"
+          ]
+        },
+        "mustMatch": "spreadq 0, .*frozen False",
+        "note": "unpaused: the held replans drained"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ],
+    "expect": "PASS when every mustMatch holds: paused 60 s, in CAS and in Buy/Build the action counters stay +0, the replanspread queue holds its townie replans (household ran at once, replanhh > 0) and drains after the unpause, and the active household keeps every Sim's position and interaction across the paused window. An action counter > 0 in a frozen window = BROKEN (a gate missed a path)."
+  },
+  {
+    "id": "pausegate-unseen-hold-pause",
+    "bug": "audit 2026-11-23: [UnseenFallback] Sites / FinishWalk kept a 3 s wall-clock list age and 3 s / 10 min hold timers; a pause longer than 3 s expired every hold, so after the unpause the held unseen Sim walked on while ts3fixes still placed it at its path end (a jump)",
+    "fix": "ts3fixes UnseenFallbackSites.cs sends code 27 (frozen / thawed) while live mode is paused or the clock stands (Fixes.SimFrozenOrNotLive); ts3native unseenfbc.cpp UfcNow stops the list and hold clock while frozen and moves the stamps by the span at the thaw (pgFrozenSpans, pgFrozenHolds). docs/205 §2.3e",
+    "save": "Baseline-SV-Spring",
+    "note": "Needs [UnseenFallback] Sites=1 FinishWalk=1 (job ini) and unseenfbsites + unseenfbfinish (fixesOn). 30 far walkers at ultra speed hold FinishWalk holds; paused 60 s; the window from the pause to 3 s after the unpause must show no expired hold (ufwRelease_3) and at least one hold carried through the freeze (pgFrozenHolds). pgFrozenHolds 0 = hollow (no hold at the pause): rerun, not a PASS.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "unseenfbsites": true,
+          "unseenfbfinish": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausemark"
+          ]
+        },
+        "waitS": 1,
+        "note": "before the walk: household member mark (read-only)"
+      },
+      {
+        "cmd": "native_mark",
+        "args": {
+          "name": "live"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 5,
+        "note": "away from the household and the camera: holds start"
+      },
+      {
+        "cmd": "native_check",
+        "args": {
+          "name": "live",
+          "require": "@ufwHeldNow>=1",
+          "untilS": 120
+        },
+        "note": "pause only while a FinishWalk hold is live (ufwHolds - ufwRelease_0..3); none in 120 s = hollow. A fixed 40 s wait paused with 0 held on EA 1.69 (bundle-day-1124-rest-rerun1-ea: pgFrozenHolds 0) and on Steam (rerun2: walks ended, every hold released)"
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Ts3Fixes.Fixes.sUfFrozenSent"
+        },
+        "note": "diag (read-only, bundle1124b FAIL pgFrozenSpans +0 twice): True here = a freeze span was already open at the mark, so the pause span cannot count"
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Ts3Fixes.Fixes.sUfFrozenAt"
+        },
+        "note": "diag: TickCount of the last code-27 word before the pause"
+      },
+      {
+        "cmd": "native_mark",
+        "args": {
+          "name": "pause"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "pause"
+        },
+        "pausesClock": true,
+        "waitS": 60,
+        "note": "paused 60 s with holds active (20x the 3 s list age)"
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Ts3Fixes.Fixes.sUfFrozenAt"
+        },
+        "note": "diag: moved since the read before the pause = UfSitesLoop is alive and sends code 27 while paused; unchanged = the loop is dead or asleep"
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Ts3Fixes.Fixes.sUfFrozenNo"
+        },
+        "note": "diag: True = a code-27 word was refused, the loop stopped sending and went back to tick sleeps"
+      },
+      {
+        "cmd": "reflect_get",
+        "args": {
+          "path": "Ts3Fixes.Fixes.sUfSitesGen"
+        },
+        "note": "diag: loop generation (1 per world load)"
+      },
+      {
+        "cmd": "native_check",
+        "args": {
+          "name": "pause",
+          "require": "pgFrozenSpans>=1,ufwRelease_3<=0"
+        },
+        "note": "paused: ts3fixes said frozen, no hold expired"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "pausesClock": false,
+        "waitS": 3,
+        "note": "unpause: the first agent updates would expire stale holds without the fix"
+      },
+      {
+        "cmd": "native_check",
+        "args": {
+          "name": "pause",
+          "require": "ufwRelease_3<=0,pgFrozenHolds>=1"
+        },
+        "note": "FAIL ufwRelease_3 > 0 = a hold expired over the pause (BROKEN); pgFrozenHolds 0 = hollow"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "ultra"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausestate"
+          ]
+        },
+        "mustMatch": "household (\\d+)->\\1, ",
+        "note": "the household kept every member (read-only check)"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ],
+    "expect": "PASS: paused 60 s with FinishWalk holds = pgFrozenSpans >= 1, no ufwRelease_3 (expired) from the pause to 3 s after the unpause, pgFrozenHolds >= 1 (carried), household count unchanged, ScriptErrors 0"
+  },
+  {
+    "id": "pausegate-buildbuy-epoch",
+    "bug": "audit 2026-11-23: a finished async route job (J_DONE, kept 5 s) collected after a Build/Buy edit could hand out a path planned in the pre-edit world; [Discourage] records deferred before RoutingSystem_OnExitBuildBuy 0x835240 applied after its rebuild",
+    "fix": "ts3native: routing epoch bumped at the OnExitBuildBuy / RebuildLotRouting gate entries and the RouteManager_OnExitBuildBuy IC; a job of an older epoch is skipped at claim or planned again synchronously at collect (pgEpochStale); deferred discourage records drained at the OnExitBuildBuy gate entry (pgBbDrains / pgBbSkips). docs/205 §2.3e",
+    "save": "Baseline-BP",
+    "note": "Release defaults ([RouteAsync], [RouteGate] Enforce=1, [Discourage], [RouteSnap]). 30 spawned Sims routing far, then Buy -> Build -> live three times while their jobs are in flight. pgEpochStale >= 1 proves a stale result was planned again (0 = hollow: no job in flight at an exit, rerun); pgBbDrains / pgBbSkips are read only.",
+    "steps": [
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "spawn_sims",
+        "args": {
+          "count": 10
+        },
+        "waitS": 15
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausemark"
+          ]
+        },
+        "waitS": 1,
+        "note": "before Build/Buy: household member mark (read-only)"
+      },
+      {
+        "cmd": "native_mark",
+        "args": {
+          "name": "bb"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 1,
+        "note": "round 1: route jobs in flight"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far2"
+        },
+        "waitS": 1,
+        "note": "round 2: route jobs in flight"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "crowd_go",
+        "args": {
+          "to": "far"
+        },
+        "waitS": 1,
+        "note": "round 3: route jobs in flight"
+      },
+      {
+        "cmd": "buy_open",
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "buy_catalog"
+            }
+          ],
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": true
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "build_mode",
+        "args": {
+          "on": false
+        },
+        "waitS": 5,
+        "until": {
+          "cmd": "cas_state",
+          "all": [
+            {
+              "path": "state",
+              "equals": "LiveModeState"
+            }
+          ],
+          "maxS": 120
+        }
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 20
+      },
+      {
+        "cmd": "native_check",
+        "args": {
+          "name": "bb",
+          "require": "pgEpochStale>=1,pgBbDrains>=0,pgBbSkips>=0"
+        },
+        "note": "stale route results planned again (0 = hollow)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DeadRefCheck",
+          "args": [
+            "pausestate"
+          ]
+        },
+        "mustMatch": "household (\\d+)->\\1, ",
+        "note": "the household kept every member (read-only check)"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        }
+      }
+    ],
+    "expect": "PASS: pgEpochStale >= 1 over three Buy/Build round trips with route jobs in flight, ScriptErrors 0, no crash, household count unchanged; read pgBbDrains / pgBbSkips"
+  },
+  {
     "id": "ip-cullrace-pan",
     "bug": "docs/338: suspected EA scene-list race (v0.3.1 crash on EA 1.69 at the drain 0x6E4720 / EA 0x6E54F5): DrawScene 0x6F3F90 drains the scene index list (scene+0x40) without waiting for render job 318 (main-view cull, appends to that list without a lock; growth frees the old buffer) when shadows, reflections and the second shadow view are off",
     "fix": "[EaCrashFixes] CullDrainWait=1 (cullrace.cpp): JobManager_Wait(318) before the drain; detector [CrashForensics] CullRaceWatch=1 (default) counts crRace / crBadIdx and logs `cullrace:` lines with the thread running the cull",
@@ -117679,6 +121080,107 @@
     ],
     "watch": {"kind": "stuck", "sims": [], "minutes": 1},
     "expect": "'lot hub:' lines with world gen >= 1 and removes >= 1; no script errors; household untouched (the hub changes nothing)"
+  },
+  {
+    "id": "lanea-travel-reload",
+    "bug": "none (feature check): CP-3/CP-4 lane A consumers (docs/321 §10) must clear their tables on every world load / quit and drop the rows of unloaded lots, so no table grows across travel, return and a save-reload",
+    "fix": "ts3native lanea.cpp ([LaneA] keys) and ts3fixes LaneA.cs (laneaenvlist, lanealoop, laneatp, laneadoorgen) on the CP-1 hub / CP-2 hook",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "streams lots in and out: lot drops"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75},
+      {"cmd": "set_motive", "args": {"sim": "household"}, "waitS": 2, "note": "a tired Sim drops the queued trip"},
+      {"cmd": "travel_vacation", "args": {"world": "france", "days": 2}, "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": true}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "world quit + load: every table reset"},
+      {"cmd": "camera_pan", "args": {"lots": 6, "height": 25, "seconds": 20, "passes": 1}, "waitS": 25, "note": "lot events in France"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "travel_home", "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": false}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "back to Bridgeport: tables as after the first load, not the sum"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 1}, "waitS": 35},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "save_game", "args": {"name": "LaneA-cp34-1123"}, "waitS": 5,
+        "until": {"cmd": "game_state", "all": [{"path": "save_in_progress", "equals": false}], "everyS": 2, "maxS": 180}, "note": "a scratch save, never the baseline"},
+      {"cmd": "load_save", "args": {"file": "LaneA-cp34-1123.sims3", "reload": true}, "waitS": 10,
+        "until": {"cmd": "game_state", "all": [{"path": "in_world", "equals": true}, {"path": "load_file", "equals": "LaneA-cp34-1123.sims3"}, {"path": "sub_state", "equals": "LiveModeState"}], "everyS": 5, "maxS": 300},
+        "note": "save-reload: one more world quit + load"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 1}, "waitS": 35},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "switches": ["laneaenvlist", "lanealoop", "laneatp", "laneadoorgen"],
+    "expect": "'lane a: world quit / load ... reset ok' at every world event (>= 3 each), 'lane a: autshadow reset at cut ... reset ok' at the cuts that follow (>= 2: a cut needs an autshadow search, events coalesce), 'ts3fixes: lanea: world load' lines with envlist 0 and loop 0 and subscribers 2 at every load; no FAIL / SKIP lane a; no script errors; household untouched"
+  },
+  {
+    "id": "lanea-gate-travel-reload",
+    "bug": "none (feature check): L3 GhostSweepLot and M8 ReplanDedupeLot (docs/321 §11) must do no work while the game is paused, in CAS or in Build/Buy, drain their queued work after unpause, and stay bounded across lot unloads in play, travel, return and a save-reload",
+    "fix": "ts3native lanea.cpp GhostSweepLot / ReplanDedupeLot behind the shared game-state gate (lotstream.cpp SimLiveNow, pushed by ts3fixes LotHub.cs); window checks through reflect_call Fixes.LaneAGate",
+    "save": "Baseline-BP-Spring",
+    "steps": [
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "far"}, "waitS": 90, "note": "the selected Sim goes to the farthest community lot"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 2}, "waitS": 65, "note": "lots unload while playing: per-lot sweeps run live"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "set_speed", "args": {"speed": "pause"}, "pausesClock": true, "waitS": 3, "note": "paused on purpose until the unpause step (clock guard excused)"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["requeue"]}, "waitS": 1, "mustMatch": "requeue True", "note": "one whole-map pass waiting, queued after the pause: queued while live it ran and drained in ~1 s (bundle1124: drained True, all lots done before the mark)"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["mark"]}, "waitS": 60, "mustMatch": "mark True", "note": "~60 s paused"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["still"]}, "waitS": 1, "mustMatch": "still True", "note": "no sweep slice, job, removal or dedupe refusal while paused"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["skipped"]}, "waitS": 1, "note": "informational [inferred]: GsTick runs at the end of a Simulate iteration, and none run while paused, so skipNotLive need not move here (night 1124: skipped False twice with still True); the gate is proven by still True and drained False"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["drained"]}, "waitS": 1, "mustMatch": "drained False", "note": "still queued"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["mark"]}, "waitS": 1, "mustMatch": "mark True"},
+      {"cmd": "cas_open", "waitS": 30, "until": {"cmd": "cas_state", "all": [{"path": "cas_ready", "equals": true}], "maxS": 180}},
+      {"cmd": "cas_close", "waitS": 20, "until": {"cmd": "cas_state", "all": [{"path": "state", "equals": "LiveModeState"}], "maxS": 180}},
+      {"cmd": "buy_open", "waitS": 15, "until": {"cmd": "cas_state", "all": [{"path": "buy_catalog"}], "maxS": 180}},
+      {"cmd": "buy_close", "waitS": 10, "until": {"cmd": "cas_state", "all": [{"path": "state", "equals": "LiveModeState"}], "maxS": 180}},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["still"]}, "waitS": 1, "mustMatch": "still True", "note": "nothing in CAS or Build/Buy either (game still paused)"},
+      {"cmd": "set_speed", "args": {"speed": "normal"}, "pausesClock": false, "waitS": 90, "note": "unpaused: the queued pass drains"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["drained"]}, "waitS": 1, "mustMatch": "drained True"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["still"]}, "waitS": 1, "mustMatch": "still False", "note": "work ran after the unpause"},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "sim_visit_lot", "args": {"lot": "home"}, "waitS": 75},
+      {"cmd": "set_motive", "args": {"sim": "household"}, "waitS": 2, "note": "a tired Sim drops the queued trip"},
+      {"cmd": "travel_vacation", "args": {"world": "france", "days": 2}, "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": true}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900},
+        "note": "world quit + load: queue cleared"},
+      {"cmd": "camera_pan", "args": {"lots": 6, "height": 25, "seconds": 20, "passes": 1}, "waitS": 25, "note": "lot unloads in France"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "travel_home", "waitS": 5,
+        "until": {"cmd": "travel_state", "all": [{"path": "on_vacation", "equals": false}, {"path": "in_travel", "equals": false}, {"path": "household"}], "everyS": 10, "maxS": 900}},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 1}, "waitS": 35},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "save_game", "args": {"name": "LaneA-cp4b-1123"}, "waitS": 5,
+        "until": {"cmd": "game_state", "all": [{"path": "save_in_progress", "equals": false}], "everyS": 2, "maxS": 180}, "note": "a scratch save, never the baseline"},
+      {"cmd": "load_save", "args": {"file": "LaneA-cp4b-1123.sims3", "reload": true}, "waitS": 10,
+        "until": {"cmd": "game_state", "all": [{"path": "in_world", "equals": true}, {"path": "load_file", "equals": "LaneA-cp4b-1123.sims3"}, {"path": "sub_state", "equals": "LiveModeState"}], "everyS": 5, "maxS": 300}},
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 30, "passes": 1}, "waitS": 40},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["ok"]}, "waitS": 1, "mustMatch": "ok True", "note": "verifyLeft, verifyOther, workNotLive, gaveUp, rdLotNotLive all 0"},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["m8"]}, "waitS": 1, "mustMatch": "m8 True", "note": "M8 A vs B report: m8: ... and m8 B-gain: X% of lookups lines into ts3native.log (docs/321 §11.2)"}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "switches": ["laneaenvlist", "lanealoop", "laneatp", "laneadoorgen"],
+    "expect": "every LaneAGate step answers as its mustMatch; 'ghost sweep lot: lot ... done' lines; 'lane a: world quit / load ... reset ok' >= 3 each; no FAIL / SKIP lane a, no 'FAIL left', no 'given up'; no script errors; household untouched"
+  },
+  {
+    "id": "lanea-m8-ip-pan",
+    "bug": "none (measurement): M8 ReplanDedupeLot design A vs B decision number (docs/321 §11.2) needs many lot events while NPCs replan; the BP gate repro has too few",
+    "fix": "ts3native lanea.cpp / replandedupe.cpp m8 counters (cp4b2); report through reflect_call Fixes.LaneAGate(\"m8\")",
+    "save": "Baseline-IP-Spring",
+    "steps": [
+      {"cmd": "set_speed", "args": {"speed": "ultra"}, "waitS": 2, "note": "speed 3: busy NPC routing"},
+      {"cmd": "camera_pan", "args": {"lots": 8, "height": 25, "seconds": 40, "dwellS": 3, "passes": 4}, "waitS": 260, "note": "densest cluster, 3 s still at each lot so lots activate, there and back twice (~256 s)"},
+      {"cmd": "camera_pan", "args": {"lots": 24, "height": 25, "seconds": 60, "dwellS": 2, "passes": 2}, "waitS": 220, "note": "the 24 lots nearest the densest one, in x order: spans the neighbouring clusters (~216 s)"},
+      {"cmd": "camera_pan", "args": {"stop": true}, "optional": true},
+      {"cmd": "reflect_call", "args": {"path": "Ts3Fixes.Fixes.LaneAGate", "args": ["m8"]}, "waitS": 1, "mustMatch": "m8 True", "note": "m8: report ... and m8 B-gain: X% of lookups into ts3native.log"}
+    ],
+    "watch": {"kind": "stuck", "sims": [], "minutes": 1},
+    "expect": "lot adds / removes all through the pans; the m8: report line has m8Hits + m8Misses >= 200 on the report (lookup floor) and lhLotGen >= 20 over the window (lot-event floor); m8LotDrops and m8WouldHit informational"
   },
   {
     "id": "lothook-travel",
@@ -117916,6 +121418,1764 @@
             "result"
           ]
         }
+      }
+    ]
+  },
+  {
+    "id": "lineswitch-force",
+    "bug": "A Sim waiting in a toilet's line keeps waiting while a second toilet on the lot is free: EA's substitution (SimQueue.TryReplacementInteraction) looks only once, on the first pass of the wait loop (docs/686 §25.1)",
+    "fix": "ts3fixes LineSwitch.cs: lineswitch, lineswitchhh (default off), lineswitchlog, docs/686 §25",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap and ToiletModerate on one lot, as in storms s533-s536)",
+    "note": "Jack uses the moderate toilet, Lisa the cheap one, Judy (autonomous pick) queues for the cheap one while both are taken; Jack finishes first. Off: Judy waits for Lisa. On: from 2 sim-min of waiting Judy takes the free moderate toilet. (An empty lot did not work: the game found no outdoor spot for a toilet.)",
+    "expect": "off: LineSwitchCheck 'would 1', Judy waits in line until Lisa is done; on: 'switched 1' and a 'lineswitch: switched' line, Judy uses ToiletModerate; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 20
+        },
+        "note": "evening: everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitchlog": true,
+          "linewaitlog": true,
+          "routefaillog": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "log lines on, arm off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap"
+        },
+        "note": "Judy's menu on the cheap toilet",
+        "waitS": 1,
+        "max": 1500,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "lineswitch: swap applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -30
+        },
+        "note": "off: Jack needs the toilet a little (a short use of the moderate toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "off: Lisa needs it (-80: -100 makes her pee herself first, r5-rp2) (a long use of the cheap toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -70
+        },
+        "note": "off: Judy needs it",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lineswitch-off"
+        },
+        "note": "log marker lineswitch-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "off: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "off: Jack uses the moderate toilet",
+        "waitS": 4,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "off: Judy's own pick: the cheap toilet; both toilets taken, so EA's first-pass substitution finds nothing and she waits in Lisa's line",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy in the cheap toilet's line, Jack on the moderate one",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (20 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Jack done; on: Judy on the moderate toilet, off: Judy still in line",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (50 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: lineswitch counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: end of the arm",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitch": true,
+          "lineswitchhh": true
+        },
+        "note": "arm on: lineswitch + lineswitchhh",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -30
+        },
+        "note": "on: Jack needs the toilet a little (a short use of the moderate toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "on: Lisa needs it (-80: -100 makes her pee herself first, r5-rp2) (a long use of the cheap toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -70
+        },
+        "note": "on: Judy needs it",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lineswitch-on"
+        },
+        "note": "log marker lineswitch-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "on: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "on: Jack uses the moderate toilet",
+        "waitS": 4,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "on: Judy's own pick: the cheap toilet; both toilets taken, so EA's first-pass substitution finds nothing and she waits in Lisa's line",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy in the cheap toilet's line, Jack on the moderate one",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (20 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Jack done; on: Judy on the moderate toilet, off: Judy still in line",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (50 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: lineswitch counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: end of the arm",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: switched 1 (on arm), would 1 (off arm), errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "switched [1-9].*errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitch": true,
+          "lineswitchhh": false
+        },
+        "note": "back to the shipped defaults (lineswitch on, lineswitchhh off)",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
+    "id": "lineswitch-force-defaults",
+    "bug": "A Sim waiting in a toilet's line keeps waiting while a second toilet on the lot is free: EA's substitution (SimQueue.TryReplacementInteraction) looks only once, on the first pass of the wait loop (docs/686 §25.1)",
+    "fix": "ts3fixes LineSwitch.cs: lineswitch, lineswitchhh (default off), lineswitchlog, docs/686 §25",
+    "save": "Baseline-SV-Spring (Keaton active): the Bunch house made active first (ToiletCheap, ToiletModerate, ToiletExpensive on one lot)",
+    "note": "lineswitch-force on the release defaults (lineswitch on, lineswitchhh off, only the log switches set): Judy Bunch (household) waits in Lisa's line while Jack frees the moderate toilet. The household exemption must hold: no switch, the wait counted as kept (household without lineswitchhh). Jack uses the moderate toilet, Lisa the cheap one, Judy (autonomous pick) queues for the cheap one while both are taken; Jack finishes first. Off: Judy waits for Lisa. On: from 2 sim-min of waiting Judy takes the free moderate toilet. (An empty lot did not work: the game found no outdoor spot for a toilet.)",
+    "expect": "lineswitch_kept >= 1 with a \"lineswitch: kept, household without lineswitchhh: household Judy Bunch\" line, lineswitch_switched 0, lineswitch_errors 0; Judy waits for Lisa (EA's way).",
+    "steps": [
+      {
+        "cmd": "set_aging",
+        "args": {
+          "enabled": false
+        },
+        "note": "rerun2: aging off before the clock moves (Lisa Bunch's birthday is on day 15: rerun1 had a locked Have Birthday in her queue, the 1047 try Birthday Party pushes ahead of Judy's Use, so Judy never stood in the line and kept stayed 0)",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Bunch"
+        },
+        "note": "Edit Town: Change Active Household to the Bunches (their house has three toilets)",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 20
+        },
+        "note": "evening: everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitchlog": true,
+          "linewaitlog": true,
+          "routefaillog": true
+        },
+        "note": "log lines on; lineswitch / lineswitchhh stay at the release defaults (on / off)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap"
+        },
+        "note": "Judy's menu on the cheap toilet",
+        "waitS": 1,
+        "max": 1500,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "lineswitch: swap applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Lisa Bunch"
+          ],
+          "lot": "home",
+          "near": "ToiletCheap",
+          "autonomy": false
+        },
+        "note": "rerun3: only Lisa (the toilet's user) is teleported to the home's cheap toilet. Before, all three stood in a 0.5 m row centred on the toilet: rerun3 had Jack 0.5 m from the toilet on its slot, Lisa's Replan FailedBecauseNoDestinationSpecified, her Use dropped and Judy took the free toilet (no line, kept 0, plans 0). STRESS shortcut: Teleport Me Here (testingcheats) instead of the walk home (rerun1: on Baseline-SV-Spring they were not at home at 20:00); fails loudly when the home lot has no ToiletCheap",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "set_active_sim",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "select Lisa (home now, at the cheap toilet): @type:ToiletCheap / ToiletModerate resolve nearest the SELECTED Sim, so they are the toilets of her bathroom side; switch_household selects whoever the game picks (EA SV-Spring 2026-11-24: Ethan, away from home, so @type:ToiletCheap was a public 'Bargain John'). Lisa only occupies the toilet; the Sim under test is Judy (not selected)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Jack Bunch"
+          ],
+          "lot": "home",
+          "near": "@type:ToiletModerate",
+          "autonomy": false
+        },
+        "note": "rerun3: Jack alone at the moderate toilet he will use (off the cheap toilet's slot). STRESS shortcut: Teleport Me Here",
+        "waitS": 4,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Judy Bunch"
+          ],
+          "lot": "home",
+          "near": "Mailbox",
+          "autonomy": false
+        },
+        "note": "rerun3: Judy home but away from both toilets (the mailbox) until Lisa is on the cheap toilet. STRESS shortcut: Teleport Me Here",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "include_disabled": true
+        },
+        "note": "rerun2: Judy's menu on the home's cheap toilet, disabled entries too (why 'Use' is greyed out if it is), then poll until 'Use' is enabled (rerun1: the fixed 8 s after the teleports still gave an empty menu)",
+        "waitS": 1,
+        "max": 1500,
+        "optional": true,
+        "until": {
+          "cmd": "list_interactions",
+          "args": {
+            "sim": "Judy Bunch",
+            "target": "@type:ToiletCheap",
+            "query": "use"
+          },
+          "all": [
+            {
+              "path": "interactions.0.interaction",
+              "equals": "Use"
+            }
+          ],
+          "everyS": 2,
+          "maxS": 60
+        }
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -30
+        },
+        "note": "defaults: Jack needs the toilet a little (a short use of the moderate toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "defaults: Lisa needs it (-80: -100 makes her pee herself first, r5-rp2) (a long use of the cheap toilet)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -70
+        },
+        "note": "defaults: Judy needs it",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "lineswitch-defaults"
+        },
+        "note": "log marker lineswitch-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "defaults: Lisa uses the cheap toilet; rerun3: then poll until she is on it (the toilet's users list), so the line Judy joins exists",
+        "waitS": 1,
+        "max": 300,
+        "until": {
+          "cmd": "object_details",
+          "args": {
+            "target": "@type:ToiletCheap"
+          },
+          "all": [
+            {
+              "path": "used_by.0",
+              "equals": "Lisa Bunch"
+            }
+          ],
+          "everyS": 1,
+          "maxS": 45,
+          "hollow": "Lisa never got on the cheap toilet in 45 s (her Use dropped: no line can form)"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "defaults: Jack uses the moderate toilet; rerun5: poll until he is on it, so it is taken when Judy picks (EA's first-pass substitution finds nothing)",
+        "waitS": 1,
+        "max": 300,
+        "until": {
+          "cmd": "object_details",
+          "args": {
+            "target": "@type:ToiletModerate"
+          },
+          "all": [
+            {
+              "path": "used_by.0",
+              "equals": "Jack Bunch"
+            }
+          ],
+          "everyS": 1,
+          "maxS": 45,
+          "hollow": "Jack never got on the moderate toilet in 45 s (the twin is free when Judy picks: EA substitutes at once)"
+        }
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "defaults: Judy's own pick: the cheap toilet; both toilets taken, so EA's first-pass substitution finds nothing and she waits in Lisa's line. rerun4: she walks there from the mailbox (rerun3 teleported her into the bathroom Lisa was using: EA's privacy made Lisa TurnToFaceAndAskToLeave and put a locked 'Ask to Leave Home' at the head of Judy's queue). rerun5: poll until she stands still in her Use (= waiting in the line: Lisa is on the toilet); rerun4 had her in the line (linewait: waited 8.6 sim-min, line length 1, got turn) but polled lineswitch_plans, which needs a free twin while she waits, and Jack's moderate toilet was never freed on cue",
+        "waitS": 1,
+        "max": 300,
+        "until": {
+          "cmd": "sim_where",
+          "args": {
+            "sim": "Judy Bunch"
+          },
+          "all": [
+            {
+              "path": "interaction",
+              "equals": "Use"
+            },
+            {
+              "path": "routing",
+              "equals": false
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "hollow": "Judy never stood in the cheap toilet's line in 120 s"
+        }
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "rerun5: Jack gets off the moderate toilet now, while Judy waits: the free twin exists from here on (deterministic, not Jack's own use time)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "object_details",
+        "args": {
+          "target": "@type:ToiletModerate"
+        },
+        "note": "rerun5: evidence: the moderate toilet is free (used_by empty)",
+        "waitS": 0,
+        "max": 400,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "rerun5: poll until LineSwitch found the free twin for Judy (lineswitch_plans counts for household Sims too, before the exemption decides). Not hollow on a timeout: a waiting Sim and a free twin exist, so plans 0 here means LineSwitch never checked the wait (the fix result)",
+        "waitS": 0,
+        "max": 300,
+        "until": {
+          "cmd": "patches",
+          "args": {},
+          "all": [
+            {
+              "path": "lineswitch_plans",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 2,
+          "maxS": 120,
+          "show": "lineswitch_"
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {},
+        "note": "rerun5: poll until Judy's wait ended and was counted (kept: household without lineswitchhh) when Lisa is done",
+        "waitS": 0,
+        "max": 300,
+        "until": {
+          "cmd": "patches",
+          "args": {},
+          "all": [
+            {
+              "path": "lineswitch_kept",
+              "atLeast": 1
+            }
+          ],
+          "everyS": 2,
+          "maxS": 300,
+          "show": "lineswitch_"
+        }
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "defaults: Judy in the cheap toilet's line, Jack on the moderate one",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "defaults: Judy (20 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "defaults: Jack done; on: Judy on the moderate toilet, off: Judy still in line",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "defaults: Judy (50 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "defaults: lineswitch counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "defaults: end of the arm",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.LineSwitchCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: kept 1 (household without lineswitchhh), switched 0, errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "switched 0; .*kept [1-9]\\d*( \\([^)]*\\))?; .*errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "lineswitchlog": false,
+          "linewaitlog": false,
+          "routefaillog": false
+        },
+        "note": "log lines off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
+    "id": "reactoverlay-force",
+    "bug": "A Sim busy with a still action (Watch TV) reacts seconds late: Sim.PlayReaction NowOrLater / AfterInteraction queues a ReactionInteraction behind the action (household queue up to 6.9 s in s496-s529, docs/686 §26.1)",
+    "fix": "ts3fixes ReactOverlay.cs (reactoverlay, reactoverlayhh, reactoverlaylog) docs/686 §26",
+    "save": "Sunset Valley new game: 18 Maywood Lane (the places are that lot's, as pairsnap-force)",
+    "note": "The readwalk-force lot (Jig household, Sunset Valley new game) plus a TV; the same steps are the tail of readwalk-force, so one load runs both.",
+    "expect": "off: 'would overlay' and 'would drop', the ReactionInteraction queued behind Watch TV. on: 'overlaid now' x2, nothing queued; Kit (idle) not a case; errors 0.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedSingle",
+          "name": "bed",
+          "x": 1193.6,
+          "y": 49.1,
+          "z": 1182.8
+        },
+        "note": "a single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "x": 1197.5,
+          "y": 49.1,
+          "z": 1192.5
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedSingle"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "readwalk: Bea (parent) at the front mailbox, far from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit next to Bea at the mailbox (the ask is a social; the bed is far)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired (Read to Sleep needs Tired)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "reactoverlay part: queues empty",
+        "waitS": 3
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "TVCheap",
+          "name": "tv",
+          "x": 1191.5,
+          "y": 49.1,
+          "z": 1190.5
+        },
+        "note": "a TV in the yard: Watch TV is a still action with the arms free",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "x": 1189.5,
+          "z": 1192.5,
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea near the TV",
+        "waitS": 6
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlay": false,
+          "reactoverlayhh": false,
+          "reactoverlaylog": true
+        },
+        "note": "reactoverlay off: compare mode",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-off"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "@type:TVCheap",
+          "interaction": "watch"
+        },
+        "note": "Bea watches TV",
+        "waitS": 15
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "Bea in front of the TV",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "off: a NowOrLater reaction while she watches: EA queues it behind Watch TV (would 1)",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "past the 2 s stale time",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: would drop 1 (EA keeps the reaction queued)",
+        "waitS": 2
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "the ReactionInteraction still queued behind Watch TV",
+        "waitS": 1
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlay": true,
+          "reactoverlayhh": true
+        },
+        "note": "reactoverlay on, household too",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-on"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Embarrassed"
+          ]
+        },
+        "note": "on: the overlay plays at once, nothing queued (overlaid now 1)",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "on: again",
+        "waitS": 2
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "no ReactionInteraction behind Watch TV (the off arm's one is overlaid or dropped)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Kit Jig|Startled"
+          ]
+        },
+        "note": "control: Kit idle (no action): EA's way, not a case",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: overlaid now, from the queue or dropped stale; errors 0",
+        "waitS": 2,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "readwalk": false,
+          "reactoverlay": true,
+          "reactoverlayhh": false
+        },
+        "note": "back to the shipped defaults (readwalk off, reactoverlay on, reactoverlayhh off)",
+        "waitS": 1
+      }
+    ]
+  },
+  {
+    "id": "reactoverlay-force-defaults",
+    "bug": "A Sim busy with a still action (Watch TV) reacts seconds late: Sim.PlayReaction NowOrLater / AfterInteraction queues a ReactionInteraction behind the action (household queue up to 6.9 s in s496-s529, docs/686 §26.1)",
+    "fix": "ts3fixes ReactOverlay.cs (reactoverlay, reactoverlayhh, reactoverlaylog) docs/686 §26",
+    "save": "Baseline-SV-Spring: a new Jig household on a vacant lot (made active), the reactoverlay-force places",
+    "note": "reactoverlay-force on the release defaults (reactoverlay on, reactoverlayhh off, only the log switch set): every forced reaction is a household one, so EA keeps it queued behind Watch TV and the watcher never overlays or drops it. The readwalk-force lot (Jig household, Sunset Valley new game) plus a TV; the same steps are the tail of readwalk-force, so one load runs both.",
+    "expect": "reactoverlay_queued >= 1; errors 0; each forced Bea reaction answers overlaid now 0, would 0, queued 1 (the household exemption at the call; the watcher's skip is covered by the household-without-reactoverlayhh why count); the ReactionInteraction stays queued behind Watch TV. reactoverlay_now / _later / _dropped are world-wide: NPCs of the save react on their own and are in scope (rerun1: later 2 = 'overlaid from the queue after 484 ms: npc Marty Keaton, PumpFist during PlayGame'), so they are no FAIL rule here.",
+    "noKeepAlive": true,
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlaylog": true
+        },
+        "note": "log on from the start: every overlay / drop of the whole job is logged with its Sim scope (npc / household / selected), so the job-wide counters can be told apart",
+        "waitS": 1
+      },
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Jig",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Bea",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Bo",
+              "last": "Jig",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "c",
+              "first": "Kit",
+              "last": "Jig",
+              "age": "Child",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "note": "Edit Town: two young adults and a child on a vacant empty lot",
+        "waitS": 5
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Jig"
+        },
+        "note": "Edit Town: Change Active Household",
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 19
+        },
+        "note": "evening: after school, before bedtime",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig",
+            "Bo Jig",
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "all three at the mailbox, queues empty",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "BedSingle",
+          "name": "bed",
+          "near": "home"
+        },
+        "note": "placed by the game near the home lot centre (was fixed x/z from the contributor lot: on another save the cheapest vacant lot differs, so the objects could land off the household lot = hollow). A single bed on the back lawn by Bo's ring (the pillow fight jig goes by it: within the 6 m clip walk)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "Bookshelf",
+          "name": "shelf",
+          "near": "home"
+        },
+        "note": "a bookshelf (its starter books: Read to Sleep needs a book)",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "bed_setup",
+        "args": {
+          "target": "@type:BedSingle"
+        },
+        "note": "the bed's part and routing slots (where sit and entry slots lie)",
+        "waitS": 1,
+        "max": 900,
+        "optional": true
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "readwalk: Bea (parent) at the front mailbox, far from the bed",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Kit Jig"
+          ],
+          "near": "@type:Mailbox",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Kit next to Bea at the mailbox (the ask is a social; the bed is far)",
+        "waitS": 6,
+        "max": 300
+      },
+      {
+        "cmd": "moodlet",
+        "args": {
+          "sim": "Kit Jig",
+          "action": "add",
+          "moodlet": "Tired"
+        },
+        "note": "Kit gets the Tired moodlet (Read to Sleep needs Sleepy, Tired or Exhausted)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_interactions",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "Kit Jig"
+        },
+        "note": "Bea's whole menu for Kit (where Read to Sleep is)",
+        "waitS": 1,
+        "max": 4000,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Kit Jig",
+          "motive": "Energy",
+          "value": -60
+        },
+        "note": "Kit tired (Read to Sleep needs Tired)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off again",
+        "waitS": 1
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "reactoverlay part: queues empty",
+        "waitS": 3
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Kit Jig"
+        },
+        "waitS": 3
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "TVCheap",
+          "name": "tv",
+          "near": "home"
+        },
+        "note": "a TV in the yard: Watch TV is a still action with the arms free",
+        "waitS": 3,
+        "max": 300
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "Bea Jig"
+          ],
+          "lot": "home",
+          "near": "TVCheap",
+          "autonomy": false,
+          "motives": true
+        },
+        "note": "Bea next to the home lot TV (lot + type: never another lot TV)",
+        "waitS": 6
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlaylog": true
+        },
+        "note": "log line on; reactoverlay / reactoverlayhh stay at the release defaults (on / off)",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-defaults"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Bea Jig",
+          "target": "@type:TVCheap",
+          "interaction": "watch"
+        },
+        "note": "Bea watches TV",
+        "waitS": 15
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "Bea in front of the TV",
+        "waitS": 5
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "defaults (household): a NowOrLater reaction while she watches: EA queues it behind Watch TV (would 1)",
+        "waitS": 2,
+        "mustMatch": "^force: (selected|household) Bea Jig, \\w+ during WatchTV \\(\\w+\\): PlayReaction True, overlaid now 0, would 0, queued 1"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "past the 2 s stale time",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "defaults (household): would drop 1 (EA keeps the reaction queued)",
+        "waitS": 2
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "the ReactionInteraction still queued behind Watch TV",
+        "waitS": 1
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "reactoverlay-defaults"
+        },
+        "waitS": 0
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Embarrassed"
+          ]
+        },
+        "note": "defaults (household): EA's way again, queued behind Watch TV (the household exemption: overlaid now 0)",
+        "waitS": 2,
+        "mustMatch": "^force: (selected|household) Bea Jig, \\w+ during WatchTV \\(\\w+\\): PlayReaction True, overlaid now 0, would 0, queued 1"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Bea Jig|Startled"
+          ]
+        },
+        "note": "defaults (household): again",
+        "waitS": 2,
+        "mustMatch": "^force: (selected|household) Bea Jig, \\w+ during WatchTV \\(\\w+\\): PlayReaction True, overlaid now 0, would 0, queued 1"
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Bea Jig"
+        },
+        "note": "wait",
+        "waitS": 4
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "no ReactionInteraction behind Watch TV (the off arm's one is overlaid or dropped)",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "force:Kit Jig|Startled"
+          ]
+        },
+        "note": "control: Kit idle (no action): EA's way, not a case",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReactOverlayCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "defaults (household): overlaid now, from the queue or dropped stale; errors 0",
+        "waitS": 2,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "reactoverlaylog": false,
+          "readwalk": false
+        },
+        "note": "log line off again",
+        "waitS": 1
       }
     ]
   },

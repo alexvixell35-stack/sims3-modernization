@@ -25,7 +25,7 @@
 //     (SavedTaskContext.Restore false: the object starts a fresh task, the Sim is reset).
 // Code it cannot walk (a compiled method's entry word, an unknown opcode) is left alone. Any Sim: a dropped stack on a
 // household Sim replaces a certain bad resume, never a healthy one.
-// EA 1.69 / retail: 0xD84360 and 0xE52B90 are 0 rows (unresolved, docs/293 §6): the detour finds no prologue and logs SKIP.
+// EA 1.69: rows since docs/334 §8. Retail: 0xD84360 and 0xE52B90 are 0 rows (docs/293 §6): the detour finds no prologue and logs SKIP.
 static const DWORD SF_SET = TS3A(0x00D84360), SF_RM = TS3A(0x00E52B90), SF_XFORM = TS3A(0x00E643B0), SF_DOMAIN = TS3A(0x00E75260);
 static const BYTE kSfSetPro[9] = {0x81, 0xEC, 0xC8, 0x00, 0x00, 0x00, 0x53, 0x55, 0x56};  // sub esp, 0xC8; push ebx; push ebp; push esi
 typedef BYTE(__cdecl* SfSetFn)(DWORD idLo, DWORD idHi, BYTE* ctx);

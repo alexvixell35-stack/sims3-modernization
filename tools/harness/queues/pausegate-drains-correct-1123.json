@@ -1,0 +1,66 @@
+{
+ "note": "pausegate-drains-correct-1123 (docs/205 §2.3c, WRITTEN, not run): correctness of the pause gate group 2 (stuck-check drain, watchdog, replanspread replay, go-live wait, wildflowertask, disposespread, aptleave, boattrip) on ts3fixes.package.pausegate3b (bugfix/pausegate-drains-1123, on top of pausegate1): master set m1123 asi + ini (0.36.299-m1123, no native change), release defaults. Bin state apex (Apex latest + RTX Remix bridge). Correctness only, no timing. Est ~20 min.",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "bp-pausegate-drains",
+   "note": "[est 20 min] Repro pausegate-drains-check (BP 10 min, release defaults). Pass: every mustMatch step holds: paused 60 s, in CAS and in Buy/Build acted stuckrun/replayed/destroyed/wdresets +0; replan held (replan waits > 0, spreadq > 0) with household replans run at once (replanhh > 0); after the unpause spreadq 0; household same (every active-household Sim kept position and interaction across the paused window); ScriptErrors 0; the save guard keeps Baseline-BP unchanged. FAIL with an action counter > 0 in a frozen window = a gate missed a path. The post-Buy step needs the speed to stay Pause across Buy/Build (set before buy_open); unpaused there = hollow, not a gate miss.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.pausegate3b",
+   "pinReason": "bugfix/pausegate-drains-1123 (docs/205 §2.3c): master set m1123 asi + ini with ts3fixes.package.pausegate3b (m1123 master source + pausegate1 + SfWait group 2 gates + go-live apply-slice gate [1743], PauseGateCheck); agent: master m1123 (reflect_call only, no new verbs)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 24,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "pausegate-drains-check",
+     "fixesOn": "stuckcheckasync,watchdog,replanspread,wildflowertask,disposespread"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.299-m1123 ": {
+     "match": [
+      "ts3native 0.36.299-m1123 2026-11-23 05:16:37"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 06:55:20",
+      "ts3native 0.36.299-pausegate1 2026-11-23 20:00:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+     ]
+    }
+   }
+  }
+ ]
+}

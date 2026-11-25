@@ -350,9 +350,6 @@ static bool HiPatch(u8* at) {
 
 static bool ApplyHeightsInfLoop(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"EaCrashFixes", L"HeightsInfLoop", 0, ini)) return false;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP ea fix HeightsInfLoop ([EaCrashFixes] HeightsInfLoop): no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     if (!Matches((u8*)(uintptr_t)HI_LOOP, kHiLoop, sizeof(kHiLoop)) || !HiPatch((u8*)(uintptr_t)HI_SITE)) {
         Log("SKIP ea fix: HeightsInfLoop: bytes at 0x%08X / 0x%08X differ (another mod or a probe build owns them): not installed", HI_SITE, HI_LOOP);
         return false;
@@ -476,9 +473,6 @@ static bool BhPatch(u8* at, int i) {
 
 static bool ApplyBridgeHeightNaN(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"EaCrashFixes", L"BridgeHeightNaN", 0, ini)) return false;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP ea fix BridgeHeightNaN ([EaCrashFixes] BridgeHeightNaN): no EA 1.69 address, docs/232 §8"); return false; }
-#endif
     memcpy(g_bhBack, BH_BACK, sizeof(g_bhBack)), memcpy(g_bhSkip, BH_SKIP, sizeof(g_bhSkip));
     int n = 0;
     for (int i = 0; i < 3; i++) {  // each query is patched on its own

@@ -375,7 +375,7 @@ static void TestRouteBudget() {
 
 // --- async route plan: START/READY/CANCEL handshake, collect, drop, refuse, lock pump, plans queued behind a job ---
 static CRITICAL_SECTION g_fakeLock;  // stands in for the routing lock world+0x918
-static volatile LONG g_icHoldLock, g_icLockTaken, g_icInvoke, g_icSleepMs;
+static volatile LONG g_icHoldLock, g_icLockTaken, g_icInvoke, g_icSleepMs, g_icEntered;  // g_icEntered: FakeIc bodies started (after the worker's claim and epoch check)
 static volatile LONG g_icInClose;  // CE-1 (docs/154): IC bodies run while rtClosing is set (a world close already drained)
 static LONG __fastcall FakeLockAcquire(void* lock, void*, const DWORD* deadline) {
     if (*deadline == 0xFFFFFFFF) { EnterCriticalSection((CRITICAL_SECTION*)lock); return 1; }
@@ -388,6 +388,7 @@ static u8* __cdecl FakeIc(u8* out, DWORD handle) {
     *(DWORD*)out = 1;  // Succeeded
     *(DWORD*)(out + 4) = handle;
     *(DWORD*)(out + 0x40) = GetCurrentThreadId();
+    InterlockedIncrement(&g_icEntered);
     if (ts3native_counters.rtClosing) InterlockedIncrement(&g_icInClose);
     if (g_icHoldLock) { EnterCriticalSection(&g_fakeLock); g_icLockTaken = 1; }
     if (g_icInvoke) {  // the portal-lock query: runs on the owner even though it is not waiting for us
@@ -2093,6 +2094,34 @@ static void TestRouteAsync() {
     ts3native_counters.asyncDropped = 3;
     ts3native_counters.asyncCollected = 2;
 
+    // docs/205 §2.3e pause gate: a Build/Buy exit / lot rebuild (routing epoch) after START. A finished result is not handed out
+    // (planned again on this thread, pgEpochStale); a job the worker claims after the bump is skipped (J_SKIPPED, sync plan)
+    {
+        const LONG ep0 = g_rtEpoch, drop0 = c.asyncDropped, coll0 = c.asyncCollected, skip0 = c.asyncSkipped, st0 = c.pgEpochStale;
+        g_icSleepMs = 0;
+        assert(Start(kH1));
+        WaitReady(kH1);
+        RtEpochBump();
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me && c.pgEpochStale == st0 + 1 && c.asyncCollected == coll0 && !JobFor(kH1));
+        g_icSleepMs = 50;
+        const LONG in0 = g_icEntered;
+        assert(Start(kH1) && Start(kH2));  // kH1 runs, kH2 waits in the queue
+        // the worker sets J_RUNNING before it checks the epoch, so state alone races the bump: wait until kH1's body has started
+        while (g_icEntered == in0) Sleep(0);  // the bump lands after the worker claimed kH1 in the old epoch (its 50 ms body is running)
+        RtEpochBump();
+        WaitReady(kH1);
+        WaitReady(kH2);
+        assert(IcPlanHook(out, kH1) == out && *(DWORD*)(out + 0x40) == me && c.pgEpochStale == st0 + 3 && c.asyncSkipped == skip0 + 1);
+        assert(IcPlanHook(out, kH2) == out && *(DWORD*)(out + 0x40) == me && c.asyncCollected == coll0 && !AsyncBusy());
+        // same epoch: collected as before
+        g_icSleepMs = 0;
+        assert(Start(kH2));
+        WaitReady(kH2);
+        assert(IcPlanHook(out, kH2) == out && *(DWORD*)(out + 0x40) == g_workerTid && c.asyncCollected == coll0 + 1 && c.pgEpochStale == st0 + 3);
+        g_rtEpoch = ep0, ts3native_counters.asyncDropped = drop0, ts3native_counters.asyncCollected = coll0, ts3native_counters.asyncSkipped = skip0;
+        printf("pause gate route epoch: stale results and claims planned again, same-epoch results collected\n");
+    }
+
     // lock pump: the job holds the routing lock and makes a managed call; the owner, blocked on that lock, runs it meanwhile
     g_icHoldLock = g_icInvoke = 1;
     g_icSleepMs = 20;
@@ -3635,6 +3664,7 @@ static void LhFakeSub(int kind, const u8* lot, LONG gen, void* ctx) {
     LhSeen* s = (LhSeen*)ctx;
     s->n++, s->kind = kind, s->lot = lot, s->gen = gen, s->ctx = ctx;
 }
+#include "lanea-test.h"  // docs/321 §10 [LaneA]
 static void TestLotHub() {
     Ts3nCounters& k = ts3native_counters;
     memset(&k.lhReady, 0, offsetof(Ts3nCounters, lhFired) - offsetof(Ts3nCounters, lhReady) + 4);
@@ -14886,6 +14916,9 @@ int main(int argc, char** argv) {
     TestArenaTail();  // docs/67 §22.7
     TestLotStream();
     TestLotHub();  // CP-1 (docs/321 §8)
+    TestLaneA();  // CP-3/CP-4 (docs/321 §10)
+    TestGsLot();  // L3 GhostSweepLot + the game-state gate (docs/321 §11)
+    TestGsLot();  // L3 GhostSweepLot + the game-state gate (docs/321 §11)
     TestVerify();
     TestRouteSites();
     TestRouteEnforce();
@@ -15081,6 +15114,7 @@ int main(int argc, char** argv) {
     TestThumbLod();
     TestOutfitFirstCore();   // docs/684 §9
     TestOutfitFirstPick();
+    TestTsCallBytes();       // per-build rel32 in the pick / outfit-swap check bytes
     TestCombasePattern();
     puts("selftest ok");
     return 0;

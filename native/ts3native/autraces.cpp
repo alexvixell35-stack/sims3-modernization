@@ -217,11 +217,6 @@ static void ArCut() {
 
 static void ApplyAutRaces(const wchar_t* ini) {
     g_arOn = GetPrivateProfileIntW(L"AutShadow", L"Races", 0, ini) & 7;
-#if defined(TS3A_TABLE) && !defined(TS3A_RETAIL)  // retail 1.67 has every row (docs/273)
-    // bits 0 (R1b pre-warm, kArPw) and 1 (R2b/R3a witness, kArWit) read globals with no EA row; bit 2 (R2c gate) is mapped
-    if (g_arOn & 3) Log("SKIP autshadow races bits 0-1 ([AutShadow] Races %d, R1b / R2b / R3a): no EA 1.69 address, docs/232 §8; bit 2 stays", g_arOn);
-    g_arOn &= 4;
-#endif
     g_arDrainMs = max(1, min(5000, (int)GetPrivateProfileIntW(L"AutShadow", L"DrainMs", 250, ini)));
     ts3native_autshadow.r1On = g_arOn, ts3native_autshadow.r2Rows = (g_arOn & 2) ? AR_NWIT : 0;
     ts3native_counters.r2cOn = (g_arOn & 4) ? 1 : 0, ts3native_counters.r2cDrainMs = g_arDrainMs;

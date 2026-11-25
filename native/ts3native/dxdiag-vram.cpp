@@ -11,7 +11,7 @@ int wmain(int argc, wchar_t** argv) {
     bool force = false, check = false;
     for (int i = 2; i < argc; i++) force |= !wcscmp(argv[i], L"--force"), check |= !wcscmp(argv[i], L"--check");
     wchar_t path[MAX_PATH], sig[24], by[16];
-    swprintf_s(path, L"%s\ts3native-vram.ini", argv[1]);
+    swprintf_s(path, L"%s\\ts3native-vram.ini", argv[1]);
     DdcSig(sig, 24);
     DdcDev d[DDC_MAX];
     int n = 0;

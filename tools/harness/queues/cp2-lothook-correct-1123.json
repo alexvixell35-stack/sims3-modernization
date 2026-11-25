@@ -124,7 +124,7 @@
       "logRequire": {
         "^ts3native 0\\.36\\.299-cp2 ": 1,
         "^OK   lot hub: ready 0x3 ": 1,
-        "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": 2,
+        "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": 1,
         "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
         "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
         "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,

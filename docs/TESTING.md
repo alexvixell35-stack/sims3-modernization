@@ -99,7 +99,7 @@ Rule since 2026-11-07 (docs/537 §17): per-method correctness and gain of `[Mono
 - **Game alive:** `profile-world.ts`, `tests-be.ts` and `repro.ts` watch the game (`game-alive.ts`): TS3W.exe gone, agent heartbeat frozen or probe unreachable for 60 s prints `FAIL: game died ...` with the last crash triage and exits 1. Without it a crashed game reads as "no stuck Sims".
 - **Watchdog** for long runs: `node tools/harness/watchdog.ts [--every 1]` checks game, probe, sim clock, dialogs and address space, recovers simple cases and exits non-zero with a diagnosis.
 - **Focus:** `node tools/harness/focus-game.ts` brings the game to the front (`cycle.ts --save` and `profile-world.ts` call it). Unfocused, the game drops below 60 FPS and runs do not compare.
-- **Change ledger:** every `cycle.ts --save` appends the active change set (git hash, dirty flag, installed fixes, note) to `docs/data/change-ledger.jsonl` (`crash-ledger.ts snapshot --note "why"` by hand).
+- **Change ledger:** every `cycle.ts --save` appends the active change set (git hash, dirty flag, installed fixes, note) to `docs/data/change-ledger/YYYY-MM.jsonl` (`crash-ledger.ts snapshot --note "why"` by hand).
 - **Fail-fast guards:** see below; no wait sits for long when nothing is happening.
 - **Clock guard** (`profile-world.ts`): game minutes unchanged at 2 checks 30 s apart while not paused = `FAIL`; on the trip it logs `clock_state` (pause bits: 2 = window minimized, 4 = device; `window.iconic`) to the run log (docs/85). The probe also logs `game window minimized` / `restored` events with UTC to `events.jsonl`, and the stutter profiler writes `simPaused` / `stepAcc` per second.
 - **Build verification:** see below; a queue job never runs a build other than the one it names.

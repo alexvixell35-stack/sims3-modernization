@@ -45,6 +45,7 @@ namespace Ts3Agent
             Dispatcher.Register("catalog_search", CatalogSearch);
             Dispatcher.Register("buy_object", BuyObject);
             Dispatcher.Register("sell_object", SellObject);
+            Dispatcher.Register("buy_delete_objects", BuyDeleteObjects);
             Dispatcher.Register("move_object", MoveObject);
             Dispatcher.Register("footprint_nudge", FootprintNudge);
             Dispatcher.Register("place_object", PlaceObject);
@@ -204,21 +205,44 @@ namespace Ts3Agent
         // +0x40 and +0x68 under its lock; single aligned dword reads here, no lock), the managed speed and game time, and the
         // game minutes since the previous clock_state call. The probe server adds the window state (iconic, foreground):
         // the game's Mono resolves DllImport through its internal-call table, so user32 is out of reach here (docs/06).
-        const int kGameClock = 0x11CDD48;
+        // Steam 1.67 0x11CDD48 [verified]; EA app 1.69.47 0x1227DC8 (.data delta +0x5A080, I-570-2 [inferred]). Picked by PE stamp + size
+        // as Alloc87Comparers does: 2026-11-24 lc7 EA travel read the Steam address on EA (pause_bits 0x3F46BFFD, a float) and
+        // reported device_pause true. Unknown exe: 0, no clock fields.
+        static int sGameClock = -2;
         static double sLastClockMinutes = -1;
+
+        static int GameClock()
+        {
+            if (sGameClock != -2) return sGameClock;
+            sGameClock = 0;
+            try
+            {
+                int nt = 0x400000 + Marshal.ReadInt32(new IntPtr(0x40003C));
+                int stamp = Marshal.ReadInt32(new IntPtr(nt + 8)), size = Marshal.ReadInt32(new IntPtr(nt + 0x50));
+                if (stamp == 0x52DEC247 && size == 0x00E5A000) sGameClock = 0x11CDD48;
+                else if (stamp == 0x6707155C && size == 0x00EB5000) sGameClock = 0x1227DC8;
+            }
+            catch (Exception) { }
+            return sGameClock;
+        }
 
         static float ReadF32(int addr) { return BitConverter.ToSingle(BitConverter.GetBytes(Marshal.ReadInt32(new IntPtr(addr))), 0); }
 
         static object ClockState(Args a)
         {
             Dictionary<string, object> d = Util.Obj();
+            int kGameClock = GameClock();
+            d["clock_addr"] = kGameClock == 0 ? "unknown exe" : "0x" + kGameClock.ToString("X");
+            if (kGameClock == 0) { d["game_speed"] = GF.CurrentGameSpeed.ToString(); return d; }
             int bits = Marshal.ReadInt32(new IntPtr(kGameClock + 0x40));
             float speed = ReadF32(kGameClock + 0x68);
             d["pause_bits"] = bits;
-            d["script_pause"] = (bits & 1) != 0;   // IC_GameUtils_PauseImpl, modal pump
-            d["minimize_pause"] = (bits & 2) != 0; // window minimized (0x1EE1008), unless SimWhileMinimized
-            d["device_pause"] = (bits & 4) != 0;   // MainLoop while device +0x8D is set
-            d["native_paused"] = bits != 0 || Math.Abs(speed) <= 1.2e-7; // GameClock_IsPaused 0x594540
+            bool valid = (bits & ~7) == 0; // only masks 1/2/4 exist (docs/41 §2.1): other bits = a wrong clock address
+            d["pause_bits_valid"] = valid;
+            d["script_pause"] = valid && (bits & 1) != 0;   // IC_GameUtils_PauseImpl, modal pump
+            d["minimize_pause"] = valid && (bits & 2) != 0; // window minimized (0x1EE1008), unless SimWhileMinimized
+            d["device_pause"] = valid && (bits & 4) != 0;   // MainLoop while device +0x8D is set (lost device or minimized, I-85-6)
+            d["native_paused"] = valid ? (object)(bits != 0 || Math.Abs(speed) <= 1.2e-7) : null; // GameClock_IsPaused 0x594540; null = unreadable
             d["game_dt"] = ReadF32(kGameClock + 0x64);
             d["speed"] = speed;
             d["scale"] = ReadF32(kGameClock + 0x74);
@@ -628,9 +652,11 @@ namespace Ts3Agent
                 }
             }
 
+            // "autonomous": true queues the action as the Sim's own pick (autonomous priority and flag), as autonomy would
+            bool auto = a.Bool("autonomous", false);
             InteractionInstanceParameters p = new InteractionInstanceParameters(e.Iop, actor,
-                new InteractionPriority(InteractionPriorityLevel.UserDirected), AutonomySearchType.None,
-                InteractionFlags.UserDirected, hit, picked, false);
+                new InteractionPriority(auto ? InteractionPriorityLevel.Autonomous : InteractionPriorityLevel.UserDirected), AutonomySearchType.None,
+                auto ? InteractionFlags.Autonomous : InteractionFlags.UserDirected, hit, picked, false);
             InteractionInstance inst = e.Iop.InteractionDefinition.CreateInstanceFromParameters(ref p);
             if (inst == null) throw new McpException("the game could not create '" + e.Label + "'");
             bool queued;
@@ -1205,9 +1231,50 @@ namespace Ts3Agent
             return false;
         }
 
+        // buy_delete_objects {max?: 30}: Buy mode only (GateHandlers, kBuyOnly). Deletes up to max objects that place_objects created,
+        // the way the player's hand tool deletes a placed object (docs/67 §44.1): the script callbacks the native hand tool sends,
+        // in its order [order inferred; handlers verified in LotManager]: HandToolCanBeSold (CanBeSoldBase), OnHandToolPickup
+        // kPickupTypeGrabbed, OnHandToolSold (NotifySellBase), OnHandToolEdit kEditTypeDeleted (OnHandToolDeletedBase), then the
+        // object is destroyed (Destroy: native object removal, scene node and draw owner teardown). No funds change (place_objects
+        // objects are free). Objects a Sim is using, or whose AllowUserPickup refuses (the hand tool asks it first), are skipped and reported.
+        static object BuyDeleteObjects(Args a)
+        {
+            int max = Math.Max(1, (int)a.Long("max", 30));
+            List<ulong> created = CreatedObjects();
+            List<object> deleted = new List<object>(), skipped = new List<object>();
+            foreach (ulong id in new List<ulong>(created))
+            {
+                if (deleted.Count >= max) break;
+                GameObject o = GameObject.GetObject(new ObjectGuid(id));
+                if (o == null || o.HasBeenDestroyed) { created.Remove(id); continue; }
+                if (o.InUse || o.InInventory) { skipped.Add(Util.Id(id) + " " + Util.ObjectName(o)); continue; }
+                World.HandToolEventArgs ev = new World.HandToolEventArgs(id);
+                // The native hand tool asks AllowUserPickup before any pickup (e.g. Stereo refuses while TurnedOn: a dancer on it
+                // is not InUse); skipping it destroyed a playing stereo and EA's DanceSolo threw in Stereo.ToggleStereo.
+                if (!LotManager.HandToolAllowUserPickup(null, ev)) { skipped.Add(Util.Id(id) + " pickup refused"); continue; }
+                if (!LotManager.HandToolCanBeSold(null, ev)) { skipped.Add(Util.Id(id) + " cannot be sold"); continue; }
+                string name = Util.ObjectName(o);
+                LotManager.OnHandToolPickup(null, new World.HandToolPickupEventArgs(id, ePickupTypeHandTool.kPickupTypeGrabbed, o.GetResourceKey()));
+                LotManager.OnHandToolSold(null, ev);
+                LotManager.OnHandToolEdit(null, new World.HandToolEditEventArgs(id, World.eEditTypeHandTool.kEditTypeDeleted));
+                o.Destroy();
+                created.Remove(id);
+                deleted.Add(Util.Id(id) + " " + name);
+            }
+            Dictionary<string, object> r = Util.Obj();
+            r["deleted"] = deleted;
+            r["count"] = deleted.Count;
+            r["skipped"] = skipped;
+            r["left"] = created.Count;
+            return r;
+        }
+
+        // Live or Buy mode (GateHandlers wraps it, kLiveOrBuy). In Buy mode it replays the hand tool's script callbacks around the move,
+        // the order the native hand tool sends them (World.OnHandToolPickup, OnHandToolMovement, OnHandToolEdit kEditTypePlaced) [verified static].
         static object MoveObject(Args a)
         {
-            RequireLive();
+            bool buy = SubState() == "BuyModeState";
+            if (!buy) RequireLive();
             GameObject o = FindTarget(a, "target");
             if (o is Sim || o is Lot) throw new McpException("use go_here to move sims");
             Vector3 pos;
@@ -1216,9 +1283,17 @@ namespace Ts3Agent
             Vector3 fwd = o.ForwardVector;
             if (!GlobalFunctions.FindGoodLocationNearby(o, ref pos, ref fwd))
                 throw new McpException("no free spot found there");
+            ulong id = o.ObjectId.Value;
+            if (buy) LotManager.OnHandToolPickup(null, new World.HandToolPickupEventArgs(id, ePickupTypeHandTool.kPickupTypeGrabbed, o.GetResourceKey()));
             o.SetPosition(pos);
             o.SetForward(fwd);
+            if (buy)
+            {
+                LotManager.OnHandToolMovement(null, new World.HandToolEventArgs(id));
+                LotManager.OnHandToolEdit(null, new World.HandToolEditEventArgs(id, World.eEditTypeHandTool.kEditTypePlaced));
+            }
             Dictionary<string, object> r = Util.Obj();
+            r["mode"] = buy ? "buy" : "live";
             r["moved"] = Util.ObjectName(o);
             r["position"] = Pos(o.Position);
             return r;

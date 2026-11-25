@@ -80,6 +80,8 @@ namespace Ts3Fixes
         {
             RoutingComponent rc = self as RoutingComponent;
             if (sSpreadReplaying || rc == null || !ShortcutOn("replanspread") || !GameStates.IsInWorld() || GameStates.IsWorldShuttingDown) return false;
+            // docs/205 §2.3c: household, selected, unknown-scope and non-Sim routing objects replan at EA's time (the call runs now)
+            if (IsPlayerSim(rc.Owner as Sim)) { PatchCounters()[1737]++; return false; }
             bool first = PfSpreadFirst(rc);  // docs/631 playerfirst: a player Sim's replan is replayed first
             if (sSpread.Add(rc, first)) { PatchCounters()[134]++; if (first) PatchCounters()[3662]++; }
             if (!(sSpreadTask.IsValid && Simulator.GetTask(sSpreadTask) != null))
@@ -94,6 +96,9 @@ namespace Ts3Fixes
                 while (sSpread.Count > 0)
                 {
                     if (GameStates.IsWorldShuttingDown || !GameStates.IsInWorld()) { sSpread.Clear(); return; }
+                    // docs/205 §2.3c: paused, clock stopped or out of live mode (Buy/Build exit runs before live mode starts): hold
+                    // the queue (townies only); a paused Sim does not follow its route either [inferred, docs/51]
+                    if (SimFrozenOrNotLive()) { PatchCounters()[1736]++; Simulator.Sleep(0); continue; }
                     PatchCounters()[135] += sSpread.DrainTick(kSpreadPerTick, SpreadAlive, SpreadRouting, SpreadCall);
                     if (sSpread.Count > 0) Simulator.Sleep(0);
                 }

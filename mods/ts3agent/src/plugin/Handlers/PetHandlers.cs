@@ -111,7 +111,9 @@ namespace Ts3Agent
         // (kPetAdoption / kArkBuilder / kNewPet / kPetBeAdopted events, liking) with a YA+ household Sim in the world,
         // MakeSimGoHome for grown pets. The pool removal starts EA's refill alarm (RemovePet startAutoFilling: a new pool pet
         // from EA's creators every 30 sim-min), where AdoptPet's GetPetOutOfPool does not: the pools would run dry. A
-        // household needs room (CanAddSpeciesToHousehold: 6 pets, 10 members). Returns adopted, skipped and the pool sizes.
+        // household needs room (CanAddSpeciesToHousehold: 6 pets, 10 members). The asked pool empty: any adoption pool with a pet;
+        // all empty: STRESS, a new pet from EA's pool factory (AdoptDogCreator / AdoptCatCreator.CreatePet). Each adopted row
+        // names its "path". Returns adopted, skipped, locked_doors (ownerLockDoor) and the pool sizes.
         static object PetAdopt(Args a)
         {
             RequireLive();
@@ -120,17 +122,54 @@ namespace Ts3Agent
             string sp = a.Str("species", "any").ToLowerInvariant();
             if (sp != "any" && sp != "dog" && sp != "cat") throw new McpException("species: dog, cat or any");
             List<Household> homes = TownieHomes();
-            List<object> adopted = new List<object>(), skipped = new List<object>();
+            // ownerLockDoor (docs/585 §9 verify): only homes with a CommonDoor; one door per home gets an owner-list lock of its
+            // household first (CommonDoor.SetLockTypeOwnerList, the only place EA subscribes HouseholdSimChanged), so the
+            // adoption's HouseholdSimsChanged reaches that hook. Townie homes only, never the active household.
+            bool lockDoor = a.Bool("ownerLockDoor", false);
+            if (lockDoor) homes = homes.FindAll(delegate(Household h) { return h.LotHome.GetObjects<CommonDoor>().Length > 0; });
+            List<object> adopted = new List<object>(), skipped = new List<object>(), locks = new List<object>();
             for (int i = 0; i < n; i++)
             {
+                // the asked pool first, then any adoption pool with a pet (docs/585 §9 verify: AdoptDog 0, AdoptCat 1 left it hollow)
                 PetPoolType t = sp == "dog" ? PetPoolType.AdoptDog : sp == "cat" ? PetPoolType.AdoptCat : kAdoptPools[RandomUtil.GetInt(kAdoptPools.Length - 1)];
-                List<SimDescription> pool = PetPoolManager.GetPetsByType(t);
-                if (pool == null || pool.Count == 0) { skipped.Add(t + " pool empty"); continue; }
-                SimDescription pet = RandomUtil.GetRandomObjectFromList(pool);
-                List<Household> room = homes.FindAll(delegate(Household h) { return h.CanAddSpeciesToHousehold(pet.Species); });
-                if (room.Count == 0) { skipped.Add("no townie household with room for a " + pet.Species); continue; }
+                SimDescription pet = null;
+                bool fromPool = false;
+                foreach (PetPoolType p in new PetPoolType[] { t, t == PetPoolType.AdoptDog ? PetPoolType.AdoptCat : PetPoolType.AdoptDog })
+                {
+                    List<SimDescription> pool = PetPoolManager.GetPetsByType(p);
+                    if (pool == null || pool.Count == 0) continue;
+                    pet = RandomUtil.GetRandomObjectFromList(pool); t = p; fromPool = true;
+                    break;
+                }
+                // STRESS (not a player route): every pool empty, so the pet comes straight from EA's own pool factory
+                // (AdoptDogCreator / AdoptCatCreator.CreatePet, what the pool refill runs), then joins the home as an adoption does
+                string path = fromPool ? "pool " + t : null;
+                if (pet == null)
+                {
+                    PetPoolPetCreator maker = t == PetPoolType.AdoptCat ? (PetPoolPetCreator)new AdoptCatCreator() : new AdoptDogCreator();
+                    pet = maker.CreatePet();
+                    if (pet == null) { skipped.Add("no adoptable pet: adoption pools empty and " + maker.GetType().Name + ".CreatePet made none"); continue; }
+                    path = "STRESS: direct create " + maker.GetType().Name + ".CreatePet (adoption pools empty)";
+                }
+                SimDescription cand = pet;
+                List<Household> room = homes.FindAll(delegate(Household h) { return h.CanAddSpeciesToHousehold(cand.Species); });
+                if (room.Count == 0)
+                {
+                    if (!fromPool) pet.Dispose();
+                    skipped.Add("no townie household with room for a " + pet.Species);
+                    continue;
+                }
                 Household home = RandomUtil.GetRandomObjectFromList(room);
-                if (!PetPoolManager.RemovePet(t, pet, true)) { skipped.Add(pet.FullName + ": not removed from " + t); continue; }
+                // ownerLockDoor runs before the adoption and whatever it does: the lock is what subscribes the hook
+                string locked = null;
+                if (lockDoor)
+                {
+                    CommonDoor door = home.LotHome.GetObjects<CommonDoor>()[0];
+                    door.SetLockTypeOwnerList(new List<SimDescription>(home.AllSimDescriptions));
+                    locked = "0x" + door.ObjectId.Value.ToString("X16");
+                    locks.Add(locked);
+                }
+                if (fromPool && !PetPoolManager.RemovePet(t, pet, true)) { skipped.Add(pet.FullName + ": not removed from " + t); continue; }
                 home.Add(pet);
                 pet.IsNeverSelectable = false;
                 pet.WasAdopted = true;
@@ -145,12 +184,15 @@ namespace Ts3Agent
                 if (ps != null && !ps.IsKitten && !ps.IsPuppy) Sim.MakeSimGoHome(ps, false);
                 Dictionary<string, object> d = PetRow(pet, home);
                 d["instantiated"] = ps != null;
+                d["ownerLockDoor"] = locked;
                 d["adult"] = adult != null ? adult.FullName : null;
+                d["path"] = path;
                 adopted.Add(d);
             }
             Dictionary<string, object> r = Util.Obj();
             r["adopted"] = adopted;
             r["skipped"] = skipped;
+            r["locked_doors"] = locks;
             r["pools"] = PetPoolSizes();
             return r;
         }

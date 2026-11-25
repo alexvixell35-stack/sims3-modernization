@@ -11,6 +11,7 @@ namespace Ts3Agent
     {
         static readonly string[] kLiveOnly = { "LiveModeState" };
         static readonly string[] kLiveOrBuy = { "LiveModeState", "BuyModeState" };
+        static readonly string[] kBuyOnly = { "BuyModeState" };
 
         static Handler Gate(string[] states, Handler h)
         {
@@ -53,6 +54,7 @@ namespace Ts3Agent
             Dispatcher.Register("portal_prepare", Gate(kLiveOnly, PortalPrepare));
             Dispatcher.Register("buy_object", Gate(kLiveOrBuy, BuyObject));
             Dispatcher.Register("sell_object", Gate(kLiveOrBuy, SellObject));
+            Dispatcher.Register("buy_delete_objects", Gate(kBuyOnly, BuyDeleteObjects));
             Dispatcher.Register("move_object", Gate(kLiveOrBuy, MoveObject));
             Dispatcher.Register("place_object", Gate(kLiveOrBuy, PlaceObject));
             Dispatcher.Register("replace_object", Gate(kLiveOrBuy, ReplaceObject));

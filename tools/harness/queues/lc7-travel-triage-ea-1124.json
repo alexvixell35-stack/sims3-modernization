@@ -1,0 +1,141 @@
+{
+ "note": "Triage of the EA BP travel-home stall (lc7-desc-correct-1124-ea bp-lc7-travel, 2/2 runs 2026-11-24: Bridgeport loaded, household in the world, then Pause, no sub-state, in_travel true, no dialog, no script error; EA InWorldState.Startup did not finish). EA laptop, EA app 1.69.47, run from a worktree of bugfix/ea-travel-home-pause-1124 (agent built by cycle.ts from it: travel_state adds travel_phase + inworld_post_init) with a game-copy link. One BP -> France -> BP trip per job through repro.ts (no profile-world upkeep). Read in order: A vanilla FAIL = EA or harness, not ours (stop there). A PASS: E lc7 on FAIL + C lc7 off PASS = the LC-5/6a/7 switches (our bug); C FAIL + B PASS = the lc7f ts3fixes package; B FAIL = the eafinal2 build (asi / release ts3fixes). E PASS + D FAIL = profile-world upkeep during the world switch (harness). Each FAIL row: the travel_home until line holds travel_phase / inworld_post_init (null travel data / false = stopped in ImportTravellingHousehold, true = in PostWorldInitializers or PostTravelingFixUp).",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.300-eafinal2 ": {
+   "match": [
+    "ts3native 0.36.300-eafinal2 2026-11-23 16:20:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00",
+    "ts3native 0.36.300-eafinal 2026-11-23 12:00:00",
+    "ts3native 0.36.300-eafinal2x 2026-11-23 16:20:00"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-trip-vanilla",
+   "scriptErrorsMax": 0,
+   "note": "[est 12 min] A, harness baseline: our mods out (no ts3native, no ts3fixes), repro travel-roundtrip-bp. PASS = the flow works on EA BP vanilla; FAIL with the same stall = EA or harness, not ours.",
+   "asi": "none",
+   "ourMods": false,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "shadowCheck": false,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 30,
+   "run": {
+    "repro": "travel-roundtrip-bp"
+   }
+  },
+  {
+   "id": "bp-trip-lc7on",
+   "note": "[est 12 min] E: the failing build (eafinal2 asi + ini, ts3fixes lc7f) with the five bp-lc7-travel switches on in the load (patches read-back), repro.ts flow. FAIL = the stall without profile-world; PASS = see D.",
+   "asi": "game-copy/eafinal2-1123/ts3native.asi",
+   "iniBase": "game-copy/eafinal2-1123/ts3native.ini",
+   "fixesPackage": "game-copy/lc7f-ea-1124/ts3fixes.package",
+   "pinReason": "EA laptop: eafinal2 EA asi + rc ini (0.36.300-eafinal2, sha256 071c251f64cc) with ts3fixes.package lc7f built from c9523dd7 (LC-7 desc reverse index, managed only); agent lc7 from c9523dd7",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 30,
+   "run": {
+    "repro": "travel-roundtrip-bp-lc7on"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-eafinal2 ": 1
+   }
+  },
+  {
+   "id": "bp-trip-lc7off",
+   "note": "[est 12 min] C: same build, lc7 switches at their defaults (off). E FAIL + C PASS = the LC-5 / LC-6a / LC-7 switches.",
+   "asi": "game-copy/eafinal2-1123/ts3native.asi",
+   "iniBase": "game-copy/eafinal2-1123/ts3native.ini",
+   "fixesPackage": "game-copy/lc7f-ea-1124/ts3fixes.package",
+   "pinReason": "EA laptop: eafinal2 EA asi + rc ini (0.36.300-eafinal2, sha256 071c251f64cc) with ts3fixes.package lc7f built from c9523dd7 (LC-7 desc reverse index, managed only); agent lc7 from c9523dd7",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 30,
+   "run": {
+    "repro": "travel-roundtrip-bp"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-eafinal2 ": 1
+   }
+  },
+  {
+   "id": "bp-trip-eafinal2",
+   "note": "[est 12 min] B: eafinal2 as shipped (asi + ini + its own ts3fixes, no lc7). C FAIL + B PASS = the lc7f package; B FAIL = the eafinal2 build.",
+   "asi": "game-copy/eafinal2-1123/ts3native.asi",
+   "iniBase": "game-copy/eafinal2-1123/ts3native.ini",
+   "fixesPackage": "game-copy/eafinal2-1123/ts3fixes.package",
+   "pinReason": "EA laptop: eafinal2 EA asi + rc ini (0.36.300-eafinal2, sha256 071c251f64cc) with its own ts3fixes.package (no lc7); agent from bugfix/ea-travel-home-pause-1124",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 30,
+   "run": {
+    "repro": "travel-roundtrip-bp"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-eafinal2 ": 1
+   }
+  },
+  {
+   "id": "bp-lc7-travel-diag",
+   "note": "[est 20 min] D: bp-lc7-travel unchanged (profile-world, repro leak-travel-roundtrip-x3, switches on). Known to stall 2/2; this run adds travel_phase / inworld_post_init to the transit travel_state line. Needed only when E PASSes (then E PASS + D FAIL = profile-world upkeep). Skip with --skip bp-lc7-travel-diag when E failed.",
+   "asi": "game-copy/eafinal2-1123/ts3native.asi",
+   "iniBase": "game-copy/eafinal2-1123/ts3native.ini",
+   "fixesPackage": "game-copy/lc7f-ea-1124/ts3fixes.package",
+   "pinReason": "EA laptop: eafinal2 EA asi + rc ini (0.36.300-eafinal2, sha256 071c251f64cc) with ts3fixes.package lc7f built from c9523dd7 (LC-7 desc reverse index, managed only); agent lc7 from c9523dd7",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 35,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true,
+     "repro": "leak-travel-roundtrip-x3",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot,deadrefdescrev,deadrefdeltaverify",
+     "fixesRequire": "deadrefdescrev_seeds>=2,deadrefdescrev_resets>=2,deadrefdescrev_verify_miss<=0,deadrefdescrev_verify_extra<=0,deadrefdescrev_overflows<=0,deadrefdescrev_scan_assemblies>=2,deadrefdescrev_scan_unreadable<=0,deadrefdescrev_untrusted<=0,deadrefdescrev_pins_mismatch<=0,deadrefdescrev_pins_refused<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta,deadrefperlot,deadrefdescrev",
+     "noProf": true
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-eafinal2 ": 1
+   }
+  }
+ ]
+}

@@ -35,6 +35,7 @@ struct RdEntry {
     const void* lock;
     LONG us;
     bool fail;
+    LONG lotGen;  // lhLotGen at the plan's end ([LaneA] ReplanDedupeLot, docs/321 §11.2)
     u8 res[0x48];
 };
 struct RdKey {
@@ -45,6 +46,24 @@ struct RdKey {
     u8* route;
 };
 static RdEntry g_rdTab[RD_N];
+// [LaneA] ReplanDedupeLot (docs/321 §11.2, lanea.cpp sets it, default 0): a row is served only while no lot event (add, remove,
+// world) came since its plan ended (lhLotGen unchanged; any thread reads the interlocked counter, docs/321 §8.2). Refusing = the
+// plan runs as without the dedupe. Counters in ts3native_lanea row rdLot: drops = refusals, notLive = refusals while the game
+// state was not live (no replan runs there: expected 0).
+static volatile LONG g_laRdLot;
+static volatile LONG g_laRdLotDrops, g_laRdLotNotLive;
+// Design A vs B data (Rodney 2026-11-23, docs/321 §11.2), counted while ReplanDedupeLot is on: m8Hits = keyed lookups served,
+// m8Misses = keyed lookups planned; g_laRdLotDrops is m8WouldHit (a miss whose row passed every other check inside its 500 ms
+// window and was refused only for a lot event since its plan: the most dropping only that lot's rows (B) could serve).
+// m8LotDrops / m8RowsDropped (lanea.cpp LaHub): lot events that refused live failed rows, and how many.
+static volatile LONG g_m8Hits, g_m8Misses;
+// design A: a row that passed every other check is refused when a lot event came since its plan (the plan runs: vanilla answer)
+static bool RdLotStale(const RdEntry& prev) {
+    if (!g_laRdLot || !ts3native_counters.lhReady || prev.lotGen == ts3native_counters.lhLotGen) return false;
+    InterlockedIncrement(&g_laRdLotDrops);  // m8WouldHit
+    if (!SimLiveNow()) InterlockedIncrement(&g_laRdLotNotLive);
+    return true;
+}
 static SRWLOCK g_rdLock = SRWLOCK_INIT;
 static void* g_rdOrig[4];  // own detours' trampolines ([1] Replan, [3] ReplanFromPosition) when A10 does not hook the kind
 // Route_GetFollowerPosition 0x752480: thiscall(route; pos16*, dir16*, ids*), ret 0xC; 1 = ok, 5 = no follower [verified]
@@ -164,7 +183,7 @@ static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, RdInner inner
                         : ver0 != prev.ver && key.dyn                                                      ? 1
                                                                                                            : -1;
         if (why >= 0) InterlockedIncrement(&inval[why]);
-        else elig = ver0 == prev.ver ? 0 : 1;
+        else if (!RdLotStale(prev)) elig = ver0 == prev.ver ? 0 : 1;
         if (fm) InterlockedIncrement(&k.fmRep);
     }
     // docs/249: elig 0 = nothing changed; elig 1 = object footprints moved, the old failure may not be the plan's answer: known unseen only
@@ -175,8 +194,10 @@ static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, RdInner inner
         InterlockedIncrement(calls);
         InterlockedIncrement(fm ? &k.fmServed : &k.rdServed);
         InterlockedExchangeAdd(fm ? &k.fmServedUs : &k.rdServedUs, prev.us);
+        if (g_laRdLot) InterlockedIncrement(&g_m8Hits);
         return out;  // the entry keeps the real plan's end: the window never extends past 500 ms from a plan
     }
+    const LONG lotGen1 = ts3native_counters.lhLotGen;  // before the plan: a lot event during it refuses the row later
     LARGE_INTEGER t0;
     QueryPerformanceCounter(&t0);
     u8* r = inner(kind, out, handle, pt);
@@ -186,6 +207,7 @@ static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, RdInner inner
     const bool fail = *(const DWORD*)out != 1;
     if (fail) InterlockedIncrement(fm ? &k.fmFails : &k.rdFails[ic]);
     if (!keyed) return r;
+    if (g_laRdLot) InterlockedIncrement(&g_m8Misses);  // a keyed lookup the table did not answer
     if (rep) {
         const bool same = memcmp(out, prev.res, 0x44) == 0;  // +0x44 is stale stack (docs/93 §2)
         const int cls = same ? (fail ? 0 : 1) : 2;
@@ -206,7 +228,7 @@ static u8* RdRun(int kind, u8* out, DWORD handle, const float* pt, RdInner inner
     e.lo = key.lo, e.hi = key.hi, e.kind = kind, e.goal = key.goal, e.state = state;
     memcpy(e.pt, key.pt, sizeof(e.pt));
     e.ms = GetTickCount64();
-    e.ver = ver1, e.sver = sver1, e.lock = g_rgLock, e.us = us, e.fail = fail;
+    e.ver = ver1, e.sver = sver1, e.lock = g_rgLock, e.us = us, e.fail = fail, e.lotGen = lotGen1;
     memcpy(e.res, out, sizeof(e.res));
     ReleaseSRWLockExclusive(&g_rdLock);
     return r;

@@ -10,17 +10,18 @@
 # +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
 # +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
 # +3 2026-11-19, moved to default ON at the 2026-11-20 import (so no longer listed: houseboatlegmemo houseboatgangwayrescue boatroamcap): s128 Isla Paradiso, one load off then on (repro-off/on, roam-off/on), off BROKEN / on FIXED, 0 errors (docs/853 §1).
+# -1 2026-11-25: seasonimposter moved to default ON as a rare-case fix after a static review (docs/44 §6.1, docs/51 §610), so no longer listed.
 
 # ---- excluded (default off, not in the set), by reason
 # perf experiments / sim-thread offload and caching (not EA gameplay fixes):
 #   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted
 #   hoursmemo idlememo legreplanskip preplancb replandefer replanspread routablecache safespotcap safespotreuse safespotyield
-#   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
+#   seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
 #   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
 #   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
-#   iafailmemo deadrefexact
+#   iafailmemo deadrefexact deadrefdelta deadrefslimuse deadrefperlot deadrefdescrev
 # measurement / diagnostics / test aids:
-#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc swapinvokediag wildflowerprobe deadrefexactverify
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc swapinvokediag wildflowerprobe deadrefexactverify deadrefdeltaverify
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
 #   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
 # leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
@@ -29,7 +30,7 @@
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   firegreet
 #   fglinbound fglinboundhh
-#   standwaitfix standwaitfixhh standwaitlog
+#   standwaitfix standwaitfixhh standwaitlog reactoverlayhh reactoverlaylog
 #   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
 #   blockedusehh
 #   makebedbothhh makebedbothlog
@@ -41,6 +42,7 @@
 #   viewlenienthh viewlenientlog
 #   socialreachhh socialreachlog
 #   unstuckhh unstucklog
+#   lineswitchhh lineswitchlog
 #   woohoosnap woohoosnaphh pairsnap pairsnaphh woohoosnaplog pairsnaplog
 #   crowdporthh crowdportlog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap

@@ -67,19 +67,18 @@
 // range, but RequestSim raises it to MinSimLOD (1 below SimQuality VeryHigh) and the job is still the same queue.
 static const DWORD TS_SITE = TS3A(0x00D5A9C8), TS_KEEP = TS3A(0x00D5A9D2), TS_GO = TS3A(0x00D5A9DD), TS_ABORT = TS3A(0x00D5AA25);
 // inline asm takes no constexpr: its five addresses are literals per build, tied to the table by the static_assert (as mintcall.cpp).
-// EA 1.69: no rows yet (docs/232 §8), so 0 there; ApplyThumbStall / ApplyThumbCallers SKIP on EA and the stubs never run.
 #if defined(TS3A_TABLE) && defined(TS3A_RETAIL)  // retail 1.67 (docs/273)
 #define TS_ASM_KEEP 0x00D5AB12
 #define TS_ASM_ABORT 0x00D5AB65
 #define TS_ASM_GO 0x00D5AB1D
 #define TC_ASM_CALL 0x0044C4F0
 #define TC_ASM_RET 0x005A88E9
-#elif defined(TS3A_TABLE)
-#define TS_ASM_KEEP 0
-#define TS_ASM_ABORT 0
-#define TS_ASM_GO 0
-#define TC_ASM_CALL 0
-#define TC_ASM_RET 0
+#elif defined(TS3A_TABLE)  // EA app 1.69.47 (docs/334 §2)
+#define TS_ASM_KEEP 0x00D5A9F2
+#define TS_ASM_ABORT 0x00D5AA45
+#define TS_ASM_GO 0x00D5A9FD
+#define TC_ASM_CALL 0x0044C5D0
+#define TC_ASM_RET 0x005A8759
 #else
 #define TS_ASM_KEEP 0x00D5A9D2
 #define TS_ASM_ABORT 0x00D5AA25
@@ -172,6 +171,14 @@ static void TsLodLog(const u8* blk) {
 // 0x5EDB30. Same thread (main), same list, one job per call as before.
 static const DWORD TS_PICK_AT = TS3A(0x005F12A3), TS_PICK = TS3A(0x005EDB30);
 static const u8 kTsPickSite[12] = {0x8B, 0xCF, 0xE8, 0x86, 0xC8, 0xFF, 0xFF, 0x85, 0xC0, 0x89, 0x47, 0x68};  // mov ecx,edi; call; test; mov [edi+68h],eax
+// A call site template with this build's own rel32 at `at` (the call ends at `next`): the literals above hold Steam's
+// offsets, EA 1.69 / retail 1.67 call the same target from another distance (check and revert both use this).
+static void TsCallBytes(u8* out, const u8* tmpl, size_t n, size_t at, DWORD target, DWORD next) {
+    memcpy(out, tmpl, n);
+    const DWORD rel = target - next;
+    memcpy(out + at, &rel, 4);
+}
+static void TsPickBytes(u8 out[12]) { TsCallBytes(out, kTsPickSite, 12, 3, TS_PICK, TS_PICK_AT + 7); }
 // The manager's Update (vtable 0x1088F2C +0x1C = 0xD61670, thiscall, 2 arguments) steps the front request through
 // 0xD5C6D0 -> 0xD59C10. Its slot is swapped so the fallback sees, after each step, whether the request left state 0x11.
 static const DWORD TS_TM_SLOT = TS3A(0x01088F48), TS_TM_UPDATE = TS3A(0x00D61670);
@@ -226,6 +233,7 @@ static TsPickFn g_tsPickOrig = (TsPickFn)(uintptr_t)TS_PICK;  // selftest: its o
 static const DWORD OF_CALL_AT = TS3A(0x006F4926), OF_SWAP = TS3A(0x006DD160), OF_REQ = TS3A(0x005E4EB0);
 // lea ecx,[esi+210h]; call 0x6DD160; and byte ptr [esi+29Ch],0FEh
 static const u8 kOfSite[18] = {0x8D, 0x8E, 0x10, 0x02, 0x00, 0x00, 0xE8, 0x2F, 0x88, 0xFE, 0xFF, 0x80, 0xA6, 0x9C, 0x02, 0x00, 0x00, 0xFE};
+static void OfSiteBytes(u8 out[18]) { TsCallBytes(out, kOfSite, 18, 7, OF_SWAP, OF_CALL_AT + 11); }
 static int g_ofMode;                 // 0 = off, 1 = measure, 2 = first
 static DWORD g_ofLogMs = 100, g_ofMaxAgeMs = 60000, g_ofSumAt;
 static OfTable g_of;
@@ -506,14 +514,18 @@ static void TsRevert() {
     if (g_ofInstalled) {
         u8* const call = (u8*)(uintptr_t)OF_CALL_AT;
         const DWORD ours = (DWORD)(uintptr_t)&OfSwap - (OF_CALL_AT + 6 + 5);
-        if (Readable(call, sizeof(kOfSite)) && *(const DWORD*)(call + 7) == ours) Write(call, kOfSite, sizeof(kOfSite));
+        u8 orig[sizeof(kOfSite)];
+        OfSiteBytes(orig);
+        if (Readable(call, sizeof(orig)) && *(const DWORD*)(call + 7) == ours) Write(call, orig, sizeof(orig));
         g_ofInstalled = false;
         g_ofMode = 0;
     }
     if (g_tsPickPatched) {
         u8* const pick = (u8*)(uintptr_t)TS_PICK_AT;
         const DWORD ours = (DWORD)(uintptr_t)&TsPick - (TS_PICK_AT + 2 + 5);
-        if (Readable(pick, sizeof(kTsPickSite)) && *(const DWORD*)(pick + 3) == ours) Write(pick, kTsPickSite, sizeof(kTsPickSite));
+        u8 orig[sizeof(kTsPickSite)];
+        TsPickBytes(orig);
+        if (Readable(pick, sizeof(orig)) && *(const DWORD*)(pick + 3) == ours) Write(pick, orig, sizeof(orig));
         g_tsPickPatched = false;
     }
     if (g_tsTmHooked) {
@@ -527,7 +539,9 @@ static void TsRevert() {
 static bool TsPickInstall(const char* who) {
     if (g_tsPickPatched) return true;
     u8* const site = (u8*)(uintptr_t)TS_PICK_AT;
-    if (!Matches((u8*)(uintptr_t)TS_PICK_AT, kTsPickSite, sizeof(kTsPickSite))) {
+    u8 want[sizeof(kTsPickSite)];
+    TsPickBytes(want);
+    if (!Matches((u8*)(uintptr_t)TS_PICK_AT, want, sizeof(want))) {
         Log("SKIP %s: the ready-job pick at 0x%08X differs", who, TS_PICK_AT + 2);
         return false;
     }
@@ -560,9 +574,6 @@ static bool TsInstallFallback() {
 
 static void ApplyThumbStall(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"ThumbStall", L"Enabled", 0, ini)) return;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP thumb stall ([ThumbStall]): no EA 1.69 address, docs/232 §8"); return; }
-#endif
     const int t = GetPrivateProfileIntW(L"ThumbStall", L"TimeoutMs", 10000, ini), a = GetPrivateProfileIntW(L"ThumbStall", L"Action", 1, ini);
     g_tsTimeoutMs = (DWORD)(t < 1000 ? 1000 : t > 600000 ? 600000 : t);
     g_tsAction = a < 0 ? 0 : a > 4 ? 4 : a;
@@ -593,9 +604,6 @@ static void ApplyThumbStall(const wchar_t* ini) {
 // [OutfitFirst]: after ApplyThumbStall (a failed [ThumbStall] install reverts the shared pick site; this puts it back).
 static void ApplyOutfitFirst(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"OutfitFirst", L"Enabled", 1, ini)) return;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP outfit first ([OutfitFirst]): no EA 1.69 address, docs/232 §8"); return; }
-#endif
 #if defined(TS3A_TABLE) && defined(TS3A_RETAIL)
     // its three rows are 0 in ts3addr-retail167.h too (not mapped yet); a runtime flag, as ts3a_noaddr, keeps /W4 /WX quiet
     static volatile bool noRetailRow = true;
@@ -606,7 +614,9 @@ static void ApplyOutfitFirst(const wchar_t* ini) {
     g_ofLogMs = (DWORD)(logMs < 0 ? 0 : logMs);
     g_ofMaxAgeMs = (DWORD)(age < 1000 ? 1000 : age > 600000 ? 600000 : age);
     u8* const site = (u8*)(uintptr_t)OF_CALL_AT;
-    if (!Matches((u8*)(uintptr_t)OF_CALL_AT, kOfSite, sizeof(kOfSite))) {
+    u8 want[sizeof(kOfSite)];
+    OfSiteBytes(want);
+    if (!Matches((u8*)(uintptr_t)OF_CALL_AT, want, sizeof(want))) {
         Log("SKIP outfit first: the delayed-swap call at 0x%08X differs: not installed", OF_CALL_AT + 6);
         return;
     }
@@ -787,9 +797,6 @@ static __declspec(naked) void TcStubSwap() {
 
 static void ApplyThumbCallers(const wchar_t* ini) {
     if (!GetPrivateProfileIntW(L"ThumbCallers", L"Enabled", 0, ini)) return;
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP thumb callers ([ThumbCallers]): no EA 1.69 address, docs/232 §8"); return; }
-#endif
     g_tcLogEach = GetPrivateProfileIntW(L"ThumbCallers", L"LogEach", 1, ini) != 0;
     g_tcTopAt = GetTickCount();
     InstallDetour("ThumbHouseholdSimRequest", TC_HH, kTcHhPro, sizeof(kTcHhPro), (void*)TcStubHh, &g_tcOrig[0]);

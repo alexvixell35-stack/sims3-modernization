@@ -244,7 +244,7 @@ namespace Ts3Fixes
         static ulong MixTok(ulong h, string name, int tok) { return name != null ? MixS(Mix(h, 0x10001), name) : Mix(Mix(h, 0x10002), (uint)tok); }
 
         // Operand bytes of an opcode (ECMA-335 III): -1 = 4-byte token, -2 = switch table.
-        static int Operand(int op)
+        internal static int Operand(int op) // also DescWriterScan
         {
             if (op >= 0xFE00)
             {

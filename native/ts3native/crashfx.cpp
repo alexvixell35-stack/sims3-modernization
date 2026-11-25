@@ -544,6 +544,9 @@ static void CdInstall() {
 // later access violation the registers are looked up.
 #ifndef TS3A_TABLE
 static const DWORD kVbSsAt = 0x0060F020, kVbRelA = 0x00619E10, kVbRelB = 0x00619F10, kVbVtBase = 0x00FF39F8;
+// docs/67 §44.1: the draw owner. 0xA84D00 (return 0xA84D2E) reads [owner+0x70] from its item [arg+4]; 0xA85DF0(owner, 1)
+// is its deleting dtor, called only at 0xA891CA (rel32 scan of .text)
+static const DWORD kVbDrawRet = 0x00A84D2E, kVbOwnDtor = 0x00A85DF0, kVbOwnSite = 0x00A891CA;
 static const u8 kVbSsPro[] = {0x53, 0x8B, 0x5C, 0x24, 0x14, 0x57};         // push ebx ; mov ebx,[esp+14h] ; push edi
 static const u8 kVbRelProA[] = {0x56, 0x8B, 0xF1, 0x8D, 0x4E, 0x08};        // push esi ; mov esi,ecx ; lea ecx,[esi+8]
 static const u8 kVbRelProB[] = {0x56, 0x8B, 0xF1, 0x83, 0x7E, 0x14, 0x00};  // push esi ; mov esi,ecx ; cmp dword ptr [esi+14h],0
@@ -553,8 +556,8 @@ static VbDelFn g_vbDelOrig[2];
 static VbSsFn g_vbSsOrig;
 struct VbEnt { LONG seq; DWORD w, vb, tid; LONGLONG qpc; DWORD code[8]; };
 static const DWORD kVbRing = 2048;  // power of two
-static VbEnt g_vbRing[kVbRing];
-static volatile LONG g_vbSeq, g_vbBadN, g_vbOn;
+static VbEnt g_vbRing[kVbRing], g_vbOwnRing[kVbRing];  // owner ring: w = owner, vb = its +0x70 before the dtor
+static volatile LONG g_vbSeq, g_vbBadN, g_vbOn, g_vbOwnSeq, g_vbLateN;
 static DWORD g_vbModLo[8], g_vbModHi[8], g_vbModN, g_vbDevLo, g_vbDevHi;
 static void VbAddMod(const void* p) {
     MEMORY_BASIC_INFORMATION m;
@@ -569,11 +572,11 @@ static bool VbIsCode(DWORD v) {
     for (DWORD i = 0; i < g_vbModN; i++) if (v >= g_vbModLo[i] && v < g_vbModHi[i]) return true;
     return false;
 }
-static void __fastcall VbRecord(const u8* self, const DWORD* sp) {
-    const LONG s = InterlockedIncrement(&g_vbSeq);
-    VbEnt& e = g_vbRing[(DWORD)(s - 1) & (kVbRing - 1)];
+static void VbRecordTo(VbEnt* ring, volatile LONG* seq, DWORD w, DWORD vb, const DWORD* sp) {
+    const LONG s = InterlockedIncrement(seq);
+    VbEnt& e = ring[(DWORD)(s - 1) & (kVbRing - 1)];
     e.seq = 0;
-    e.w = (DWORD)(uintptr_t)self, e.vb = *(const DWORD*)(self + 0x14), e.tid = GetCurrentThreadId();
+    e.w = w, e.vb = vb, e.tid = GetCurrentThreadId();
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
     e.qpc = q.QuadPart;
@@ -584,6 +587,14 @@ static void __fastcall VbRecord(const u8* self, const DWORD* sp) {
     for (; n < 8; n++) e.code[n] = 0;
     e.seq = s;
 }
+static void __fastcall VbRecord(const u8* self, const DWORD* sp) {
+    VbRecordTo(g_vbRing, &g_vbSeq, (DWORD)(uintptr_t)self, *(const DWORD*)(self + 0x14), sp);
+}
+// call site 0xA891CA: record the owner delete, then the dtor (detoured by [EaCrashFixes] VbOwnerDelay when that is on)
+static void* __fastcall VbOwnDelHook(u8* self, void* edx, DWORD flags) {
+    VbRecordTo(g_vbOwnRing, &g_vbOwnSeq, (DWORD)(uintptr_t)self, *(const DWORD*)(self + 0x70), (const DWORD*)_AddressOfReturnAddress());
+    return ((void*(__fastcall*)(u8*, void*, DWORD))(uintptr_t)kVbOwnDtor)(self, edx, flags);
+}
 static void __fastcall VbDelHookA(u8* self, void* edx) {
     if (*(const DWORD*)(self + 0x14)) VbRecord(self, (const DWORD*)_AddressOfReturnAddress());
     g_vbDelOrig[0](self, edx);
@@ -593,25 +604,35 @@ static void __fastcall VbDelHookB(u8* self, void* edx) {
     g_vbDelOrig[1](self, edx);
 }
 // the newest ring entry whose wrapper or D3D VB holds v (+-0x40: a register may point into the object): "freed N ms ago ..."
-static bool VbExplain(DWORD v, char* out, size_t cap) {
-    const LONG top = g_vbSeq;
+static bool VbExplainIn(const VbEnt* ring, LONG top, const char* what, DWORD v, char* out, size_t cap) {
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
     for (LONG s = top; s > 0 && top - s < (LONG)kVbRing; s--) {
-        const VbEnt& e = g_vbRing[(DWORD)(s - 1) & (kVbRing - 1)];
+        const VbEnt& e = ring[(DWORD)(s - 1) & (kVbRing - 1)];
         if (e.seq != s) continue;
-        const bool isW = v >= e.w && v < e.w + 0x40, isVb = e.vb && v >= e.vb && v < e.vb + 0x40;
+        const bool isW = v >= e.w && v < e.w + (ring == g_vbRing ? 0x40u : 0x80u), isVb = e.vb && v >= e.vb && v < e.vb + 0x40;
         if (!isW && !isVb) continue;
-        size_t o = (size_t)SFmt(out, cap, "%s of VB wrapper 0x%08lX (D3D VB 0x%08lX) released %.1f ms ago, #%ld of %ld, thread %lu, by:",
-                                     isW ? "inside" : "D3D VB", e.w, e.vb, g_cfQpf ? (double)(q.QuadPart - e.qpc) * 1000.0 / (double)g_cfQpf : -1.0,
+        size_t o = (size_t)SFmt(out, cap, "%s of %s 0x%08lX (%s 0x%08lX) released %.1f ms ago, #%ld of %ld, thread %lu, by:",
+                                     isW ? "inside" : ring == g_vbRing ? "D3D VB" : "VB wrapper", what, e.w,
+                                     ring == g_vbRing ? "D3D VB" : "+0x70 VB wrapper", e.vb, g_cfQpf ? (double)(q.QuadPart - e.qpc) * 1000.0 / (double)g_cfQpf : -1.0,
                                      s, top, e.tid);
         char c[96];
         for (int i = 0; i < 8 && e.code[i] && o + 100 < cap; i++)
             o += (size_t)SFmt(out + o, cap - o, " %s", CdCode(e.code[i], c, sizeof(c)) ? c : "?");
         return true;
     }
-    SFmt(out, cap, "not in the VB release ring (%ld releases)", top);
+    SFmt(out, cap, "not in the %s release ring (%ld releases)", what, top);
     return false;
+}
+static bool VbExplain(DWORD v, char* out, size_t cap) { return VbExplainIn(g_vbRing, g_vbSeq, "VB wrapper", v, out, cap); }
+static bool VbOwnExplain(DWORD v, char* out, size_t cap) { return VbExplainIn(g_vbOwnRing, g_vbOwnSeq, "draw owner", v, out, cap); }
+// from 0xA84D00 (sp[0] = 0xA84D2E): sp[1..4] its 4 pushes, sp[5] / sp[6] saved edi / esi, sp[7] its return, sp[8] the item
+static DWORD VbOwnerOf(const DWORD* sp) {
+    DWORD o = 0;
+    __try {
+        if (sp[0] == kVbDrawRet && sp[8] >= 0x10000) o = *(const DWORD*)(uintptr_t)(sp[8] + 4);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { o = 0; }
+    return o;
 }
 static void VbBad(const char* why, const u8* dev, DWORD stream, DWORD w, DWORD vt, DWORD vb, DWORD vbvt, const DWORD* sp) {
     const LONG n = InterlockedIncrement(&g_vbBadN);
@@ -635,8 +656,22 @@ static void VbBad(const char* why, const u8* dev, DWORD stream, DWORD w, DWORD v
             if (CdCode(sp[i], c, sizeof(c))) o += (size_t)SFmt(st + o, sizeof(st) - o, "%s[+0x%X] ", c, i * 4), k++;
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     Log("crash forensics:   stack code words (the draw callback first): %s", st);
+    if (const DWORD own = VbOwnerOf(sp)) {  // docs/67 §44.1: the owner the draw item points at, and its delete if recent
+        CdWords(own, 8, ws, sizeof(ws));
+        VbOwnExplain(own, d1, sizeof(d1));
+        Log("crash forensics:   draw owner 0x%08lX (item 0x%08lX) words: %s; %s", own, sp[8], ws, d1);
+    }
 }
 static HRESULT __fastcall VbSsHook(u8* dev, void* edx, DWORD stream, u8* w, DWORD off, DWORD stride) {
+    if (!w && g_vbOwnSeq) {  // docs/67 §44.1: a NULL stream from 0xA84D00 whose owner was deleted (VbOwnerDelay cleared +0x70)
+        const DWORD* sp = (const DWORD*)_AddressOfReturnAddress();
+        char d[400];
+        if (const DWORD own = VbOwnerOf(sp))
+            if (VbOwnExplain(own, d, sizeof(d))) {
+                const LONG n = InterlockedIncrement(&g_vbLateN);
+                if (n <= 8 || n % 100 == 0) Log("crash forensics: VB late owner draw #%ld: NULL stream, owner 0x%08lX: %s", n, own, d);
+            }
+    }
     if (w) {
         DWORD vt = 0, vb = 0, vbvt = 0;
         const char* why = NULL;
@@ -671,8 +706,11 @@ static void VbInstall() {
     g_vbDelOrig[0] = (VbDelFn)InstallDetour("crash forensics VB release 0x619E10 (check only)", kVbRelA, kVbRelProA, sizeof(kVbRelProA), (void*)VbDelHookA, &g_vbDelOrig[0]);
     g_vbDelOrig[1] = (VbDelFn)InstallDetour("crash forensics VB release 0x619F10 (check only)", kVbRelB, kVbRelProB, sizeof(kVbRelProB), (void*)VbDelHookB, &g_vbDelOrig[1]);
     g_vbSsOrig = (VbSsFn)InstallDetour("crash forensics VB guard Device_SetStreamSource 0x60F020 (check only)", kVbSsAt, kVbSsPro, sizeof(kVbSsPro), (void*)VbSsHook, &g_vbSsOrig);
-    g_vbOn = g_vbDelOrig[0] && g_vbDelOrig[1] && g_vbSsOrig;
-    Log("crash forensics: VB guard (docs/67 §44) %s: release ring %lu, %lu mod images for the release stacks", g_vbOn ? "on" : "PARTIAL", kVbRing, g_vbModN);
+    const CallSite own = {kVbOwnSite, kVbOwnDtor, (void*)VbOwnDelHook};
+    const bool ownOk = PatchCalls("crash forensics VB owner delete ring 0xA891CA -> 0xA85DF0 (check only)", &own, 1);
+    g_vbOn = g_vbDelOrig[0] && g_vbDelOrig[1] && g_vbSsOrig && ownOk;
+    Log("crash forensics: VB guard (docs/67 §44) %s: release ring %lu, owner delete ring %lu, %lu mod images for the release stacks",
+        g_vbOn ? "on" : "PARTIAL", kVbRing, kVbRing, g_vbModN);
 }
 // any access violation (eip anywhere): the fault address and registers against the VB free ring
 static void VbOnFault(const EXCEPTION_POINTERS* x) {
@@ -686,7 +724,7 @@ static void VbOnFault(const EXCEPTION_POINTERS* x) {
     char d[400];
     int hits = 0;
     for (const auto& g : regs)
-        if (g.v >= 0x10000 && VbExplain(g.v, d, sizeof(d)) && InterlockedIncrement(&logged) <= 8)
+        if (g.v >= 0x10000 && (VbExplain(g.v, d, sizeof(d)) || VbOwnExplain(g.v, d, sizeof(d))) && InterlockedIncrement(&logged) <= 8)
             hits++, Log("crash forensics: VB guard: %s 0x%08lX: %s", g.n, g.v, d);
     if (hits) Log("crash forensics: VB guard at AV eip 0x%08lX: %d register hits, %ld VB BAD before, %ld VB releases", c->Eip, hits, g_vbBadN, g_vbSeq);
 }

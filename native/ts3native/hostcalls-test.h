@@ -2,8 +2,13 @@
 // shadow / pass-through paths, per-site stamps, a real two-thread proxy round trip, limiter overlap. Included by selftest.cpp.
 static volatile DWORD g_hcFakeAns;
 static volatile LONG g_hcFakeCalls;
-static DWORD __cdecl HcFakeDoor(DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD) {
+// docs/585 §9: what ts3fixes' callback hook sends for an "unlocked" answer: 3 = doorgen vouches (sub 3), 4 = it does not
+// (sub 4), 0 = no note (an older package), 5 = a note for another ask (sub 3 with a different hash)
+static volatile DWORD g_hcFakeNote = 3;
+static DWORD __cdecl HcFakeDoor(DWORD, DWORD, DWORD simLo, DWORD simHi, DWORD portalLo, DWORD portalHi, DWORD from, DWORD to, DWORD) {
     InterlockedIncrement(&g_hcFakeCalls);
+    const DWORD n = g_hcFakeNote, h = DsNoteHash(portalLo, portalHi, simLo, simHi, from & 0xFFFF, to & 0xFFFF);
+    if (g_hcFakeAns == 2 && n) DmxScriptOp(n == 5 ? h + 1 : h, n == 5 ? 3 : n);
     return g_hcFakeAns;
 }
 static DWORD HcAsk(DWORD lot, DWORD roomJunk = 0) {

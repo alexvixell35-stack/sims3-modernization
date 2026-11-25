@@ -195,7 +195,37 @@ namespace Ts3Fixes
             for (int k = 0; k < want.Length; k++) { c[1669]++; if (!LoopCostCore.SameItems(want[k], parts[k])) c[1670]++; }
         }
 
-        static bool DrCadence() { return ShortcutOn("deadrefcadence"); }
+        static bool DrCadence() { return !sDrTravelOff && ShortcutOn("deadrefcadence"); }
+
+        // LC-7g (docs/336 §16): our deadref hooks that run inside EA's travel import (InWorldState.Startup:
+        // ImportTravellingHousehold .. PostTravelingFixUp, one catch (Exception) {} in EA, so a throw or a stop there leaves
+        // the return home half done). Each logs its first enter / done per travel load to ts3native.log, so the last line is
+        // the last step reached. A throw of our bookkeeping is logged once and turns the cadence work (delta, per-lot, desc
+        // index) off for the session: the sweep then walks everything, as with deadrefcadence off. The game's call is unchanged.
+        static readonly Dictionary<string, bool> sDrTravelSteps = new Dictionary<string, bool>();
+        static bool sDrTravelOff;
+        static void DrTravelStep(string hook, string step)
+        {
+            try
+            {
+                if (!GameStates.IsTravelling || sDrTravelSteps.Count >= 64 || !DrIndexSwitches()) return;
+                string k = hook + " " + step;
+                if (sDrTravelSteps.ContainsKey(k)) return;
+                sDrTravelSteps[k] = true;
+                if (!DiagLine("deadref travel step: " + k)) ShortcutLog("deadref travel step: " + k);
+            }
+            catch (Exception) { PatchCounters()[410]++; }
+        }
+        static bool DrIndexSwitches() { return ShortcutOn("deadrefdelta") || ShortcutOn("deadrefperlot") || ShortcutOn("deadrefdescrev"); } // steps only with an index switch on
+        static void DrTravelImported() { DrTravelStep("PostTravelingFixUp", "reached (import done)"); } // GameStates.TravelComplete
+        static void DrTravelFail(string hook, Exception e)
+        {
+            PatchCounters()[410]++;
+            if (sDrTravelOff) return;
+            sDrTravelOff = true;
+            string l = "deadref travel FAIL: " + hook + ": " + e.GetType().Name + ": " + e.Message + "; deadref cadence work off for the session (full walks, as deadrefcadence off)";
+            try { if (!DiagLine(l)) ShortcutLog(l); } catch (Exception) { ShortcutLog(l); }
+        }
         static bool DrDescPhase(int p) { return p <= 2 || p == 5; }
 
         // every removal counter of the sweep's phases: a run that moved one found something
@@ -222,6 +252,9 @@ namespace Ts3Fixes
             Patch(typeof(Relationship), "Get", new Type[] { typeof(SimDescription) }, typeof(RelGetHook), "GetHook", "GetOrig");
             Patch(typeof(AgingManager), "IsAgingStateValid", typeof(AgingValidHook), "ValidHook", "ValidOrig");
             Patch(typeof(Political), "PoliticalTakeARisk", typeof(TakeARiskHook), "Hook", "Orig");  // TakeARiskGuard.cs, docs/529 §4
+            ApplyDeadRefDelta();  // DeadRefsDelta.cs, docs/336
+            ApplyDeadRefPerLot();  // DeadRefsPerLot.cs, docs/336 §9
+            ApplyDeadRefDescRev();  // DeadRefsDescRev.cs, docs/333 LC-7
         }
 
         static bool DescGone(SimDescription d) { return d == null || !d.IsValidDescription; }
@@ -270,6 +303,11 @@ namespace Ts3Fixes
             if (sDeadRefDisposedListener != null) EventTracker.RemoveListener(sDeadRefDisposedListener);
             sDeadRefDestroyedListener = EventTracker.AddListener(EventTypeId.kSimDestroyed, OnDeadRefObjEvent);
             sDeadRefDisposedListener = EventTracker.AddListener(EventTypeId.kSimDescriptionDisposed, OnDeadRefDescEvent);
+            if (sDdPregListener != null) EventTracker.RemoveListener(sDdPregListener);
+            sDdPregListener = EventTracker.AddListener(EventTypeId.kGotPregnant, OnDdPregEvent); // LC-7b: a pregnancy start notes the mother
+            sDrTravelSteps.Clear(); // LC-7g: steps are logged once per load
+            if (GameStates.IsTravelling && DrIndexSwitches()) { DrTravelStep("ImportTravellingHousehold", "load finished"); GameStates.TravelComplete += DrTravelImported; } // EA clears the event with the travel data
+            DrIdxLoadReset(); DdLoadReset(); // docs/336, docs/333 LC-7: a new world; the first object pass walks every object and seeds the index
             DrAllDue(); // descriptions a load left invalid (no Fixup) sent no event: the first pass runs everything
             sDeadRefAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Hours, delegate { DeadRefSweepStart(); }, 1f, TimeUnit.Hours, "Ts3Fixes.DeadRefSweep", AlarmType.NeverPersisted, null);
         }
@@ -287,6 +325,14 @@ namespace Ts3Fixes
             return null;
         }
 
+        // docs/205 §2.3b (audit 2026-11-23): paused, or the clock stopped (minimized window), the pass waits a frame at a time and
+        // keeps its place and due flags, so it resumes after unpause; leaving live mode (CAS, Buy/Build, Edit Town, travel)
+        // still ends it. -1 = unsafe (stop), 0 = act now, 1 = acted after waiting. [1727] frames waited.
+        static int DrWaitWhileFrozen(int[] c)
+        {
+            return WaitWhileFrozen(1727, delegate { return DeadRefUnsafe(false) != null; });
+        }
+
         // Starts the spread pass (the hourly alarm, or the agent). False when one is running or the state is unsafe.
         public static bool DeadRefSweepStart()
         {
@@ -299,6 +345,7 @@ namespace Ts3Fixes
         // Sim.Destroy (a townie leaving, a reset) and SimDescription.Dispose: the next pass walks the objects.
         static ListenerAction OnDeadRefObjEvent(Sims3.Gameplay.EventSystem.Event e)
         {
+            DrIdxMarkEvent(e); DdMarkEvent(e); // docs/336, LC-7: that Sim's holders are due on the next delta pass
             sDeadRefObjDue = true;
             sDrSimDirty = true;
             return ListenerAction.Keep;
@@ -306,6 +353,7 @@ namespace Ts3Fixes
 
         static ListenerAction OnDeadRefDescEvent(Sims3.Gameplay.EventSystem.Event e)
         {
+            DrIdxMarkEvent(e); DdMarkEvent(e); // docs/336, LC-7
             sDeadRefObjDue = true;
             sDrSimDirty = sDrDescDirty = true;
             return ListenerAction.Keep;
@@ -318,10 +366,37 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             if (sDeadRefWatch == null) sDeadRefWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
             bool cad = DrCadence(), exact = cad && DrExact();
+            bool delta = cad && ShortcutOn("deadrefdelta"); // docs/336
+            if (!delta && (sDrIdx.Seeded || sDrIdx.Seeding)) sDrIdx.Reset(); // the hooks add nothing while off
+            bool deltaPass = false;
             List<object> objs = null, sims = null;
             List<object>[] parts = exact ? new List<object>[5] : null; // filled by DrPartition before the first typed phase
-            Gather objWalk = delegate { if (objs == null) { objs = Objects<GameObject>(); if (cad) { c[1575]++; c[1576] = objs.Count; } else c[2055]++; } return objs; };
-            Gather simList = delegate { if (!cad) return Objects<Sim>(); if (exact && parts[0] != null) return parts[0]; if (sims == null) sims = DrOfType<Sim>(objWalk()); return sims; };
+            bool perlot = cad && ShortcutOn("deadrefperlot"); // docs/336 §9: typed phases gather from per-lot lists
+            if (!perlot && sPl.Seeded) { sPl.Reset(); DrPlGauges(c); }
+            List<object>[] typed = null, snapTyped = null;
+            Gather objWalk = delegate
+            {
+                if (objs == null)
+                {
+                    objs = Objects<GameObject>();
+                    if (cad) { c[1575]++; c[1576] = objs.Count; } else c[2055]++;
+                    if (perlot) snapTyped = DrPlSeed(objs); // every snapshot re-seeds: the floor walk catches bypass writers
+                }
+                return objs;
+            };
+            Converter<int, List<object>> typedOf = delegate(int k)
+            {
+                if (typed == null)
+                {
+                    bool verify = ShortcutOn("deadrefdeltaverify");
+                    if (!sPl.Seeded || objs != null) { objWalk(); typed = snapTyped; } // unseeded, or this pass already has the snapshot
+                    else if (!verify) typed = DrPlGather();
+                    else { List<object>[] mine = DrPlGather(); objWalk(); typed = snapTyped; DrPlVerify(mine, typed, objs.Count); }
+                    if (sPl.Seeded && c[1576] > 0 && sPl.OverCap(c[1576])) DrPlGauges(c); // the next typed gather takes a snapshot
+                }
+                return typed[k];
+            };
+            Gather simList = delegate { if (!cad) return Objects<Sim>(); if (exact && parts[0] != null) return parts[0]; if (perlot) return typedOf(0); if (sims == null) sims = DrOfType<Sim>(objWalk()); return sims; };
             bool objByEvent = sDeadRefObjDue, objOpen = false;
             float nowH = SimClock.ElapsedTime(TimeUnit.Hours);
             bool objRun = objByEvent || nowH - sDeadRefObjLastH >= kDeadRefObjHours;
@@ -336,17 +411,18 @@ namespace Ts3Fixes
                 delegate { return ToObjects(Relationship.sAllRelationships.Keys); },
                 delegate { return AgingStatesToCheck(); },
                 delegate { return AlarmOwnersToCheck(); },
-                delegate { return ToObjects(Household.EverySimDescription()); },
+                delegate { return DdGather(cad); }, // docs/333 LC-7: every description, or only the holders due (deadrefdescrev)
                 simList,
-                delegate { return exact && parts[0] != null ? parts[1] : cad ? DrOfType<Fish>(objWalk()) : Objects<Fish>(); },
+                delegate { return exact && parts[0] != null ? parts[1] : cad ? (perlot ? typedOf(1) : DrOfType<Fish>(objWalk())) : Objects<Fish>(); },
                 delegate
                 {
                     if (exact && parts[0] != null) return parts[2];
+                    if (perlot) return typedOf(2);
                     if (cad) { List<object> v = new List<object>(); foreach (object o in objWalk()) if (o is CarOwnable || o is BoatOwnable) v.Add(o); return v; }
                     List<object> l = Objects<CarOwnable>(); l.AddRange(Objects<BoatOwnable>()); return l;
                 },
-                delegate { return exact && parts[0] != null ? parts[3] : cad ? DrOfType<HorseshoeCourt>(objWalk()) : Objects<HorseshoeCourt>(); },
-                delegate { return exact && parts[0] != null ? parts[4] : cad ? DrOfType<Dartboard>(objWalk()) : Objects<Dartboard>(); },
+                delegate { return exact && parts[0] != null ? parts[3] : cad ? (perlot ? typedOf(3) : DrOfType<HorseshoeCourt>(objWalk())) : Objects<HorseshoeCourt>(); },
+                delegate { return exact && parts[0] != null ? parts[4] : cad ? (perlot ? typedOf(4) : DrOfType<Dartboard>(objWalk())) : Objects<Dartboard>(); },
                 objWalk,
                 objWalk,
                 objWalk,
@@ -363,6 +439,13 @@ namespace Ts3Fixes
                         if (!objRun) continue;
                         if (cad && p > 9) continue; // run inside phase 10's merged step
                         if (p == 9) { sDeadRefObjDue = false; objOpen = true; objUs0 = sDeadRefTotalUs; if (cad) c[2055]++; } // an event from here on asks again
+                        if (p == 9 && delta)
+                        {
+                            bool slim = ShortcutOn("deadrefslimuse");
+                            deltaPass = DeadRefsCore.UseIndex(true, sDrIdx.Seeded && sDrIdx.SeedSlim == slim, objByEvent); // a use set kept for the other slim setting re-seeds
+                            if (deltaPass) DrDeltaBegin(slim, c[1576]);
+                            else sDrIdx.BeginSeed(slim); // first pass after a load, 24 h floor, or unseeded
+                        }
                     }
                     else if (cad)
                     {
@@ -376,7 +459,7 @@ namespace Ts3Fixes
                     sDeadRefWatch.Restart();
                     // only when the Sim group runs: a description-only pass needs the fish list alone and keeps its one filter
                     if (exact && simRun && parts[0] == null && DrTypedPhase(p) && !DrPartition(objWalk(), parts, c)) { c[410]++; return; }
-                    List<object> items = phases[p]();
+                    List<object> items = deltaPass && p == 9 ? DrDeltaItems(objWalk) : phases[p]();
                     if (p < 3)
                     {
                         int gone = 0;
@@ -388,9 +471,12 @@ namespace Ts3Fixes
                     SlicedPass<object> pass = new SlicedPass<object>(items);
                     int phase = p;
                     bool merged = cad && p == 9;
-                    Action<object> step = merged ? (exact ? (Action<object>)DrObjectStepExact : DrObjectStep) : delegate(object o) { DeadRefStep(phase, o); };
+                    Action<object> step = merged ? (deltaPass ? (Action<object>)DrDeltaStep : exact ? (Action<object>)DrObjectStepExact : DrObjectStep) : delegate(object o) { DeadRefStep(phase, o); };
                     while (true)
                     {
+                        int w = DrWaitWhileFrozen(c);
+                        if (w < 0) { c[410]++; return; } // left live mode (or unsafe): stop; the finally keeps the groups due
+                        if (w > 0) sDeadRefWatch.Restart(); // the wait is not slice time
                         if (merged && exact) { sDrCookOn = ShortcutOn("deadrefcooking"); sDrC = c; } // (c): once per slice
                         int n = cad ? pass.RunSliceEvery(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); }, kDeadRefClockEvery)
                                     : pass.RunSlice(step, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sDeadRefWatch.GetElapsedTime(); });
@@ -398,13 +484,12 @@ namespace Ts3Fixes
                         DeadRefSliceDone(c);
                         if (pass.Done) break;
                         Simulator.Sleep(0);
-                        if (DeadRefUnsafe(false) != null) { c[410]++; return; } // re-check before acting again
-                        sDeadRefWatch.Restart();
+                        sDeadRefWatch.Restart(); // the re-check before acting again is DrWaitWhileFrozen at the loop top
                     }
                     sDrPhase = -1;
                     int got = DrRemovedSum(c) - got0;
                     if (DrDescPhase(p)) descGot += got; else if (p < 9 || p > 12) simGot += got;
-                    if (p == 3) c[392] = sNoOutfitSeen; // #100 end state, counted here so the count is spread too
+                    if (p == 3) { if (!DdDeltaOpen()) c[392] = sNoOutfitSeen; DdPhaseEnd(); } // #100 end state (full walks only), counted here so the count is spread too
                     if (p == 12 || merged)
                     {
                         objOpen = false;
@@ -412,6 +497,8 @@ namespace Ts3Fixes
                         sDeadRefObjUs += sDeadRefTotalUs - objUs0;
                         c[2056] = (int)(sDeadRefObjUs / 1000);
                         if (objByEvent) c[2057]++;
+                        if (sDrIdx.Seeding) { if (ShortcutOn("deadrefdelta")) { sDrIdx.EndSeed(); c[1676]++; } else sDrIdx.Reset(); DrIdxGauges(c); }
+                        if (deltaPass) DrDeltaEnd();
                     }
                     Simulator.Sleep(0);
                     if (DeadRefUnsafe(false) != null) { c[410]++; return; }
@@ -426,6 +513,9 @@ namespace Ts3Fixes
                 sDeadRefTask = ObjectGuid.InvalidObjectGuid;
                 sDrPhase = -1;
                 if (objOpen) sDeadRefObjDue = true; // stopped inside phases 10-12 or 14: walk again next pass
+                DdStopped(); // LC-7: a stopped phase 4 leaves its index unseeded
+                if (sDrIdx.Seeding) sDrIdx.Reset(); // a stopped seed walk leaves the index unseeded: the next pass walks again
+                if (objOpen && deltaPass) { sDrIdx.Reset(); DrDeltaEnd(); } // a stopped delta pass took keys it did not finish: walk again
                 if (descOpen) sDrDescDirty = true;  // stopped inside a group: it runs again next pass
                 if (simOpen) sDrSimDirty = true;
             }
@@ -442,6 +532,7 @@ namespace Ts3Fixes
             try { OwnerBody(o); } catch (Exception) { c[410]++; }
             try { HandlerBody(o); } catch (Exception) { c[410]++; }
             try { if (ShortcutOn("deadrefcooking")) CookingBody(o); } catch (Exception) { c[410]++; }
+            try { if (sDrIdx.Seeding) DrIdxSeedNote(o); } catch (Exception) { c[410]++; } // docs/336 seed walk
         }
 
         // DrObjectStep with the deadrefexact cuts (b) and (c): the same holders in the same order and the same tries.
@@ -516,7 +607,7 @@ namespace Ts3Fixes
                     case 0: if (DescGone(o as SimDescription)) RelRemoveKey(o as SimDescription); else RelDropGoneEntries(o as SimDescription); break;
                     case 1: AgingRemove(o as AgingState); break;
                     case 2: AlarmOwnerClear(o as SimDescription); break;
-                    case 3: DescriptionHolders(o as SimDescription); break;
+                    case 3: DdStep(o as SimDescription); break; // DescriptionHolders + LC-7 bookkeeping
                     case 4: SimHolders(o as Sim); break;
                     case 5: FishHolder(o as Fish); break;
                     case 6: VehicleHolders(o); break;
@@ -579,26 +670,30 @@ namespace Ts3Fixes
             PatchCounters()[398]++;
         }
 
-        static void DescriptionHolders(SimDescription d)
+        static void DescriptionHolders(SimDescription d) { DescriptionHolders(d, DescWriterScan.KAll); }
+
+        // kinds: DescWriterScan.K* bits (docs/336 §11: an untrusted kind is stepped alone on every description); KAll also
+        // counts the #100 empty outfit
+        static void DescriptionHolders(SimDescription d, int kinds)
         {
             if (DescGone(d)) return;
             int[] c = PatchCounters();
-            CareerManager cm = d.CareerManager;
+            CareerManager cm = (kinds & (DescWriterScan.KCoworkers | DescWriterScan.KFormerBoss)) != 0 ? d.CareerManager : null;
             if (cm != null)
             {
                 foreach (Occupation job in new Occupation[] { cm.Occupation, cm.School })
                 {
                     if (job == null) continue;
-                    c[400] += DeadRefsCore.DropAll(job.Coworkers, DescGone); // not RemoveCoworker: its other side reaches the dead one's CareerManager
-                    if (job.FormerBoss != null && DescGone(job.FormerBoss)) { job.FormerBoss = null; c[400]++; }
+                    if ((kinds & DescWriterScan.KCoworkers) != 0) c[400] += DeadRefsCore.DropAll(job.Coworkers, DescGone); // not RemoveCoworker: its other side reaches the dead one's CareerManager
+                    if ((kinds & DescWriterScan.KFormerBoss) != 0 && job.FormerBoss != null && DescGone(job.FormerBoss)) { job.FormerBoss = null; c[400]++; }
                 }
             }
-            if (d.SkillManager != null)
+            if ((kinds & DescWriterScan.KChess) != 0 && d.SkillManager != null)
             {
                 LogicSkill logic = d.SkillManager.GetSkill<LogicSkill>(SkillNames.Logic);
                 if (logic != null && logic.mChessRankingNextChallenger != null && DescGone(logic.mChessRankingNextChallenger)) { logic.mChessRankingNextChallenger = null; c[400]++; } // the getter repicks
             }
-            Pregnancy preg = d.Pregnancy;
+            Pregnancy preg = (kinds & DescWriterScan.KPregnancy) != 0 ? d.Pregnancy : null;
             if (preg != null && sPregDad != null)
             {
                 Sim dad = sPregDad.GetValue(preg) as Sim;
@@ -609,7 +704,7 @@ namespace Ts3Fixes
                     c[403]++;
                 }
             }
-            if (d.IsValidDescription && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Naked) == 0 && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Everyday) == 0)
+            if (kinds == DescWriterScan.KAll && d.IsValidDescription && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Naked) == 0 && d.GetOutfitCount(Sims3.SimIFace.CAS.OutfitCategories.Everyday) == 0)
                 sNoOutfitSeen++;
         }
         static int sNoOutfitSeen;
@@ -888,6 +983,7 @@ namespace Ts3Fixes
         {
             if (!jig.AddComponent<ObjectOwnerComponent>(new object[0]) || jig.ObjectOwnerComponent == null) throw new InvalidOperationException("owner seed: AddComponent<ObjectOwnerComponent> refused on " + jig.GetType().Name);
             sOwnerOwner.SetValue(jig.ObjectOwnerComponent, s);
+            DrIdxNote(jig); // our own writer bypasses SetRewardGiver: index it as the hooks do (docs/336)
         }
 
         public static object DeadRefOwnerCheck(string what)
@@ -1485,8 +1581,25 @@ namespace Ts3Fixes
                 }
                 case "sweep": DrAllDue(); return "sweep: started " + DeadRefSweepStart() + " (" + (DeadRefUnsafe(false) ?? "safe") + ")";
                 case "savepass": return DeadRefSavePass();
-                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck, cooking handlers: DeadRefCookingCheck, conversations: DeadRefConversationCheck)";
+                case "pausemark": sDrPauseMark = DrPauseNow(); return "pausemark: " + DrPauseState();
+                case "pausestate": return "pausestate: " + DrPauseState(); // pause-cas-buy-check: counts since the last pausemark
+                default: return "unknown check " + what + " (count, relget, aging, sweep, savepass, pausemark, pausestate; dartboards: DeadRefDartCheck, use lists: DeadRefUseListCheck, owner components: DeadRefOwnerCheck, disposed handlers: DeadRefHandlerCheck, celebrity reactors: DeadRefCelebrityCheck, cooking handlers: DeadRefCookingCheck, conversations: DeadRefConversationCheck)";
             }
+        }
+
+        static int[] sDrPauseMark = new int[5];
+        static int[] DrPauseNow()
+        {
+            int[] k = PatchCounters();
+            Household hh = Household.ActiveHousehold;
+            return new int[] { k[406], k[405], k[410], k[1727], hh != null ? hh.AllSimDescriptions.Count : -1 };
+        }
+
+        static string DrPauseState()
+        {
+            int[] n = DrPauseNow(), m = sDrPauseMark;
+            return "slices +" + (n[0] - m[0]) + ", passes +" + (n[1] - m[1]) + ", refused +" + (n[2] - m[2]) + ", pausedwaits +" + (n[3] - m[3]) + ", household " + m[4] + "->" + n[4]
+                + ", task " + (TaskAlive(sDeadRefTask) ? "alive" : "none") + ", frozen " + SimFrozenOrNotLive() + " | " + (DeadRefUnsafe(false) ?? "safe");
         }
 
         static string DeadRefCounts()

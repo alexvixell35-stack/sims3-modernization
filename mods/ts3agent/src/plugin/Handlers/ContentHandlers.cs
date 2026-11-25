@@ -183,7 +183,9 @@ namespace Ts3Agent
                 Dictionary<string, object> d = Util.Obj();
                 AddOrigin(d, k);
                 placed.Add(d);
-                GameObject go = GlobalFunctions.CreateObjectOutOfWorld(k) as GameObject;
+                GameObject go;
+                try { go = GlobalFunctions.CreateObjectOutOfWorld(k) as GameObject; }
+                catch (NullReferenceException e) { d["error"] = "skipped, no script proxy for this product: " + e.Message; continue; } // catalog product whose script is missing: the game throws
                 if (go == null) { d["error"] = "the game could not create it"; continue; }
                 created.Add(go.ObjectId.Value);
                 d["id"] = Util.Id(go.ObjectId);

@@ -1,0 +1,172 @@
+{
+  "note": "cp2-lothook-edit-town-m1124b-rerun1-1124 (2026-11-24): rerun of bp-lothook-edit-town from cp2-lothook-correct-1123-m1124, pinned to master set m1124b (0.36.303-m1124b). The m1124 run FAILed only on the arm count: the queue wanted 2 'lothub: arm' lines (copied from bp-lothook-travel, which arms twice) but repro lothook-edit-town arms once; harness bug, now 1. The m1124 log met every other lothub requirement (6 result lines, mode returns 3, rearms 2, faults 0, subscribers 2), 0 watchdogs, no crash. Append to chain-m1124b. [previous] m1124 repin (2026-11-24, merge/rc-1124): copy of cp2-lothook-correct-1123.json pinned to master set m1124 (0.36.301-m1124); version read-backs and their regexCases moved to 0.36.301-m1124. [previous] cp2-lothook-correct-1123 (2026-11-23, WRITTEN, NOT RUN): CP-2 managed lot hook (docs/321 §9, docs/332 CP-2) correctness + no-leak check, bundle style (one BP load, one vacation round trip). Build ts3native.asi.cp2-lothook-1123 (0.36.299-cp2 = cp1 + op 49 queue + duplicate-subscribe guard) with ini cp1-lotgen-1123 (unchanged: [LotHub] Enabled=1, rest as m1123) and ts3fixes.package.cp2-lothook-1123 (m1123 + LotHub.cs); Bin state apex, release defaults. Repro lothook-travel: reflect_call arms the test consumer, community lot + camera pan, vacation to France and home, arm again, pan. Pass: lot add and remove events reach ts3fixes with ids, world quit / load dispatched, every read-back 'subscribers 2' (flat across travel and the second arm), faults 0, 0 script errors, 0 watchdogs, household untouched. ~25 min.",
+  "rewind": "auto",
+  "regexCases": {
+    "^ts3native 0\\.36\\.303-m1124b ": {
+      "match": [
+        "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+        "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00"
+      ]
+    },
+    "^OK   lot hub: ready 0x3 ": {
+      "match": [
+        "OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"
+      ],
+      "noMatch": [
+        "FAIL lot hub: ready 0x1 (lot generation counter + world event, docs/321 §8)"
+      ]
+    },
+    "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: arm, native True, polling True, world gen 1, lot events 0, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: arm, native False, polling False, world gen 1, lot events 0, faults 0, subscribers 2",
+        "ts3fixes: lothub: arm, native True, polling True, world gen 3, lot events 40, faults 0, subscribers 4"
+      ]
+    },
+    "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": {
+      "match": [
+        "ts3fixes: lothub: add lot 0x1A2, events 3, world gen 1"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: remove lot 0x1A2, events 3, world gen 1",
+        "ts3fixes: lothub: overflow lot 0x0, events 9, world gen 1"
+      ]
+    },
+    "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": {
+      "match": [
+        "ts3fixes: lothub: remove lot 0x1A2, events 3, world gen 1"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: add lot 0x1A2, events 3, world gen 1"
+      ]
+    },
+    "^ts3fixes: lothub: world quit, .*subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: world quit, world gen 2, lot events 50, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: world load, world gen 3, lot events 50, faults 0, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: world load, world gen [3-9]\\d*, .*subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: world load, world gen 3, lot events 50, faults 0, subscribers 2",
+        "ts3fixes: lothub: world load, world gen 5, lot events 90, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: world load, world gen 1, lot events 0, faults 0, subscribers 2",
+        "ts3fixes: lothub: world quit, world gen 3, lot events 50, faults 0, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: (arm|result|world).*, subscribers (?!2$)\\d+$": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 0, subscribers 4",
+        "ts3fixes: lothub: world load, world gen 3, lot events 50, faults 0, subscribers 3"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 0, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: .*, faults [1-9]": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 1, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 5, lot events 90, faults 0, subscribers 2"
+      ]
+    },
+    "^(SKIP|FAIL) lot hub": {
+      "match": [
+        "SKIP lot hub: add / remove execute prologue differs (another hook?), lhLotGen stays 0, consumers keep today's behaviour"
+      ],
+      "noMatch": [
+        "OK   lot hub: ready 0x3 (lot generation counter + world event, docs/321 §8)"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not found at start; ApexStandDown=1"
+      ]
+    },
+    "^ts3fixes: lothub: result, native True, polling True, .*, faults 0, subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 2, lot events 9, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling False, world gen 2, lot events 9, faults 0, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: result, .*, mode returns [1-9]\\d*, rearms \\d+, faults 0, subscribers 2$": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 1, lot events 12, mode returns 2, rearms 0, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 1, lot events 12, mode returns 0, rearms 0, faults 0, subscribers 2",
+        "ts3fixes: lothub: result, native True, polling True, world gen 1, lot events 12, mode returns 2, rearms 0, faults 1, subscribers 2"
+      ]
+    },
+    "^ts3fixes: lothub: .*polling False": {
+      "match": [
+        "ts3fixes: lothub: result, native True, polling False, world gen 2, lot events 9, faults 0, subscribers 2"
+      ],
+      "noMatch": [
+        "ts3fixes: lothub: result, native True, polling True, world gen 2, lot events 9, faults 0, subscribers 2"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "bp-lothook-edit-town",
+      "note": "[est 15 min] Audit 2026-11-23: Bridgeport, one load, repro lothook-edit-town (two Edit Town enter / exit rounds between lot pans). Pass: every 'lothub: result' reads polling True, faults 0, subscribers 2 (cp2b: the poll task waits outside live mode, drains on return and is re-armed on the return to live mode if it was destroyed; 'mode returns' counts the returns, at least one result line must show >= 1), lot add lines keep arriving, 0 script errors, 0 watchdogs, household untouched. UNVERIFIED repro.",
+      "asi": "game-copy/ts3native.asi.m1124b",
+      "iniBase": "game-copy/ts3native.ini.m1124b",
+      "fixesPackage": "game-copy/ts3fixes.package.m1124b",
+      "pinReason": "master set m1124b (0.36.303-m1124b, merge/m1124b 8ffcad942): same CP-2 LotHub code as m1124",
+      "releaseDefaults": true,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "save": "Baseline-BP-Spring",
+      "minCounters": 1,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "noiseCheck": false,
+      "timeoutMin": 30,
+      "stopQueueOnFail": false,
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 12,
+          "noSamplers": true,
+          "repro": "lothook-edit-town",
+          "fixesRequire": "autliveseen_hh_post<1,householdtoo_lift<1"
+        }
+      },
+      "nativeRequire": "watchdogs<=0",
+      "logRequire": {
+        "^ts3native 0\\.36\\.303-m1124b ": 1,
+        "^OK   lot hub: ready 0x3 ": 1,
+        "^ts3fixes: lothub: arm, native True, polling True, .*, faults 0, subscribers 2$": 1,
+        "^ts3fixes: lothub: add lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^ts3fixes: lothub: remove lot 0x[0-9A-F]+, events [1-9]\\d*, ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^ts3fixes: lothub: result, native True, polling True, .*, faults 0, subscribers 2$": 6,
+        "^ts3fixes: lothub: result, .*, mode returns [1-9]\\d*, rearms \\d+, faults 0, subscribers 2$": 1
+      },
+      "logForbid": {
+        "^(SKIP|FAIL) lot hub": 0,
+        "^ts3fixes: lothub: (arm|result|world).*, subscribers (?!2$)\\d+$": 0,
+        "^ts3fixes: lothub: .*, faults [1-9]": 0,
+        "^ts3fixes: lothub: .*polling False": 0
+      }
+    }
+  ]
+}

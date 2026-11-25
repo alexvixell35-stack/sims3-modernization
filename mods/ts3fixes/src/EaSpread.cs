@@ -61,6 +61,8 @@ namespace Ts3Fixes
             else Patch(typeof(LotManager), "CleanUpLotsAndInventories", Type.EmptyTypes, typeof(LotCleanupHook), "CleanHook", "CleanOrig");
 
             Patch(typeof(PetPoolManager), "AlarmCallBack", Type.EmptyTypes, typeof(PetPoolHook), "AlarmHook", "AlarmOrig");
+            if (!Patch(typeof(GeneticsPet), "SleepIfPossible", Type.EmptyTypes, typeof(PetSleepHook), "SleepHook", "SleepOrig"))
+                AppliedLog().Add("easpreadpets: GeneticsPet.SleepIfPossible not hooked, a pause mid-build lets EA's outfit steps finish (docs/205 §2.3d)");
             sCreatePet = typeof(PetPoolManager).GetMethod("CreatePetByType", st, null, new Type[] { typeof(PetPoolType) }, null);
             sPoolAlarm = typeof(PetPoolManager).GetField("sPoolAlarm", st);
             if (sPoolAlarm == null || sPoolAlarm.FieldType != typeof(AlarmHandle)) { sPoolAlarm = null; AppliedLog().Add("easpreadpets: PetPoolManager.sPoolAlarm not found, no duplicate-chain guard"); }
@@ -93,12 +95,14 @@ namespace Ts3Fixes
             return sEaWatch;
         }
 
-        // Runs the pass a slice per tick. False when the world went away meanwhile (the rest is dropped).
-        static bool RunSliced<T>(SlicedPass<T> pass, Action<T> work, int maxItems, ref int ticks, ref long maxUs)
+        // Runs the pass a slice per tick. False when the world went away meanwhile (the rest is dropped). Paused, clock stopped
+        // or out of live mode: waits before the slice with its place kept (docs/205 §2.3d), c[waitSlot] frames.
+        static bool RunSliced<T>(SlicedPass<T> pass, Action<T> work, int maxItems, int waitSlot, ref int ticks, ref long maxUs)
         {
             StopWatch w = EaWatch();
             while (true)
             {
+                if (WaitWhileFrozen(waitSlot, WorldGone) < 0) return false;
                 w.Restart();
                 pass.RunSlice(work, maxItems, EaSpreadCore.kSliceUs, delegate { return w.GetElapsedTime(); });
                 long us = w.GetElapsedTime();
@@ -106,19 +110,19 @@ namespace Ts3Fixes
                 if (pass.Done) return true;
                 Simulator.Sleep(0);
                 ticks++;
-                if (WorldGone()) return false;
             }
         }
 
         // Runs every owner's units (built at its turn) a slice per tick: kMaxLotUnits units or kSliceUs, resuming mid-owner.
-        // False when the world went away meanwhile. n[6] counts units that threw.
-        static bool RunUnits<K>(List<K> owners, PartnersOf<K, SpreadUnit> unitsOf, int maxUnits, int[] n, ref int ticks, ref long maxUs, ref int mostUnits)
+        // False when the world went away meanwhile. n[6] counts units that threw. Waits as RunSliced.
+        static bool RunUnits<K>(List<K> owners, PartnersOf<K, SpreadUnit> unitsOf, int maxUnits, int[] n, int waitSlot, ref int ticks, ref long maxUs, ref int mostUnits)
         {
             DailyPairPass<K, SpreadUnit> pass = new DailyPairPass<K, SpreadUnit>();
             pass.Begin(owners, unitsOf, delegate(K owner, SpreadUnit unit) { try { unit(); } catch (Exception) { n[6]++; } return true; }, delegate { });
             StopWatch w = EaWatch();
             while (true)
             {
+                if (WaitWhileFrozen(waitSlot, WorldGone) < 0) { pass.Abandon(); return false; }
                 w.Restart();
                 int units;
                 bool done = pass.Slice(maxUnits, EaSpreadCore.kSliceUs, delegate { return w.GetElapsedTime(); }, out units);
@@ -128,7 +132,6 @@ namespace Ts3Fixes
                 if (done) return true;
                 Simulator.Sleep(0);
                 ticks++;
-                if (WorldGone()) { pass.Abandon(); return false; }
             }
         }
 
@@ -365,17 +368,17 @@ namespace Ts3Fixes
             FindSimlerExtras();
             List<Lot> lotList = AllLots();
             int maxUnits = 0;
-            bool whole = RunUnits(lotList, delegate(Lot lot) { return LotUnits(lot, active, n); }, EaSpreadCore.kMaxLotUnits, n, ref ticks, ref maxUs, ref maxUnits);
+            bool whole = RunUnits(lotList, delegate(Lot lot) { return LotUnits(lot, active, n); }, EaSpreadCore.kMaxLotUnits, n, 1728, ref ticks, ref maxUs, ref maxUnits);
             if (whole)
             {
                 Simulator.Sleep(0);
                 ticks++;
-                whole = !WorldGone();
+                whole = WaitWhileFrozen(1728, WorldGone) >= 0;
             }
             if (whole)
             {
                 SlicedPass<Sim> actors = new SlicedPass<Sim>(new List<Sim>(LotManager.Actors));
-                whole = RunSliced(actors, delegate(Sim s) { ActorStep(s, n); }, EaSpreadCore.kMaxActors, ref ticks, ref maxUs);
+                whole = RunSliced(actors, delegate(Sim s) { ActorStep(s, n); }, EaSpreadCore.kMaxActors, 1728, ref ticks, ref maxUs);
             }
             // simler90 runs these two after the Sim loop, before the hot-spot pick. shortcut: the aging fix runs whole in one
             // tick (its per-townie body is inline, no method to call per item), spread it later if it shows as a hitch.
@@ -383,7 +386,7 @@ namespace Ts3Fixes
             {
                 Simulator.Sleep(0);
                 ticks++;
-                whole = !WorldGone();
+                whole = WaitWhileFrozen(1728, WorldGone) >= 0;
                 if (whole)
                 {
                     StopWatch aw = EaWatch();
@@ -396,14 +399,14 @@ namespace Ts3Fixes
             {
                 Simulator.Sleep(0);
                 ticks++;
-                whole = !WorldGone();
+                whole = WaitWhileFrozen(1728, WorldGone) >= 0;
                 if (whole) SimlerCall(sSimMissing, null, n, 10); // sleeps between households itself
             }
             if (whole)
             {
                 Simulator.Sleep(0); // the hot-spot pick gets a tick of its own, timed into the longest tick (docs/147 §6)
                 ticks++;
-                whole = !WorldGone();
+                whole = WaitWhileFrozen(1728, WorldGone) >= 0;
             }
             if (!whole) { c[183]++; EaLog("venue cleanup stopped: world gone"); return; }
             StopWatch w = EaWatch();
@@ -467,16 +470,33 @@ namespace Ts3Fixes
             c[184]++;
             sPetTask = Simulator.AddObject(new LoopTask(delegate
             {
-                int before = PetsInPools();
+                // the build starts only live and running, and waits again at each of EA's sleep points (PetSleepHook, docs/205 §2.3d)
+                if (WaitWhileFrozen(1729, WorldGone) < 0) { EaLog(what + " (ours) dropped: world gone"); return; }
+                int before = PetsInPools(), waits0 = c[1729];
                 long t0 = Simulator.TicksElapsed();
                 try { body(); }
                 catch (Exception e) { EaLog(what + " (ours) failed: " + e.Message); }
-                int ticks = (int)(Simulator.TicksElapsed() - t0) + 1, made = PetsInPools() - before;
+                int ticks = (int)(Simulator.TicksElapsed() - t0) + 1 - (c[1729] - waits0), made = PetsInPools() - before; // waited frames are not build ticks
                 c[185] += Math.Max(0, made);
                 c[186] += ticks;
                 if (ticks > c[187]) c[187] = ticks;
                 EaLog(what + " (ours): pets in pools " + before + " -> " + (before + made) + ", " + ticks + " ticks");
             }));
+        }
+
+        // GeneticsPet.SleepIfPossible (private static, EA's sleep points between the pet build's outfit steps): EA's body (sleep
+        // when the caller may yield [verified, decompiled]) through the stub, then, only in our pet task, a wait while paused / clock stopped /
+        // out of live mode, so a pause mid-build holds the rest of the build (docs/205 §2.3d). The game's own path runs it in
+        // an alarm, which may not yield: one tick, never across a pause. Any other caller (CAS pet creation, adoption) gets
+        // EA's body only. Stub kept (a Sim's saved stack may sit in it: SavedStacks.cs remap, docs/242).
+        public static class PetSleepHook
+        {
+            public static void SleepHook()
+            {
+                SleepOrig();
+                if (sPetTask.IsValid && Simulator.CurrentTask.Value == sPetTask.Value && Simulator.CheckYieldingContext(false)) WaitWhileFrozen(1729, WorldGone);
+            }
+            public static void SleepOrig() { } // receives GeneticsPet.SleepIfPossible's original body
         }
 
         public static class PetPoolHook
@@ -687,6 +707,7 @@ namespace Ts3Fixes
             StopWatch w = EaWatch();
             while (true)
             {
+                if (WaitWhileFrozen(1730, WorldGone) < 0) { sDecay.Abandon(); EaLog("relationship decay stopped: world gone"); return; }
                 w.Restart();
                 int stepped;
                 bool done = sDecay.Slice(EaSpreadCore.kMaxDecayPairs, EaSpreadCore.kSliceUs, delegate { return w.GetElapsedTime(); }, out stepped);
@@ -696,7 +717,6 @@ namespace Ts3Fixes
                 if (done) break;
                 Simulator.Sleep(0);
                 ticks++;
-                if (WorldGone()) { sDecay.Abandon(); EaLog("relationship decay stopped: world gone"); return; }
             }
             c[193] += ticks;
             if (maxUs > c[194]) c[194] = (int)maxUs;

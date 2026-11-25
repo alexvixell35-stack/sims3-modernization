@@ -84,6 +84,15 @@ namespace Ts3Fixes
             public CleanupPhase(Gather items, Action<object> step) { Items = items; Step = step; }
         }
 
+        // docs/205 §2.3d: paused or the clock stopped = wait with the pass's place kept ([1733] frames); unsafe (not live,
+        // travel, invalid household member) = stop as before, counted refused.
+        static int ScWaitWhileFrozen(int[] c)
+        {
+            int w = WaitWhileFrozen(1733, delegate { return SpreadCleanupUnsafe() != null; });
+            if (w < 0) { c[43]++; c[415]++; }
+            return w;
+        }
+
         static void SaveCleanupSpreadRun()
         {
             int[] c = PatchCounters();
@@ -166,6 +175,7 @@ namespace Ts3Fixes
             {
                 foreach (CleanupPhase phase in phases)
                 {
+                    if (ScWaitWhileFrozen(c) < 0) return;
                     sCleanupWatch.Restart();
                     SlicedPass<object> pass = new SlicedPass<object>(phase.Items()); // the gather is part of the first slice
                     CleanupPhase p = phase;
@@ -174,7 +184,7 @@ namespace Ts3Fixes
                         pass.RunSlice(delegate(object o) { try { p.Step(o); } catch (Exception) { c[415]++; } }, int.MaxValue, EaSpreadCore.kSliceUs, delegate { return sCleanupWatch.GetElapsedTime(); });
                         CleanupSliceDone(c);
                         Simulator.Sleep(0);
-                        if (SpreadCleanupUnsafe() != null) { c[43]++; c[415]++; return; } // re-check before acting again
+                        if (ScWaitWhileFrozen(c) < 0) return; // re-check before acting again
                         if (pass.Done) break;
                         sCleanupWatch.Restart();
                     }
