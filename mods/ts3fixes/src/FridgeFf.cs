@@ -73,24 +73,11 @@ namespace Ts3Fixes
             bool selected = a == PlumbBob.SelectedActor;
             if (!npc && selected) { c[kFfExempt]++; return false; }  // the selected Sim never counts as unseen
             bool unseen = npc ? TownieUnseen(a, null) && !UcOnScreen(f) && FarFromViewers(slot)
-                : !selected && !UcOnScreen(a) && FfFarFromCamera(a.Position) && !UcOnScreen(f) && FfFarFromCamera(slot);
+                : !selected && !UcOnScreen(a) && FarFromCamera(a.Position) && !UcOnScreen(f) && FarFromCamera(slot);
             if (!unseen) { c[kFfSeen]++; return false; }
             FfLine("fridgeff: " + (npc ? "npc " : "household ") + a.FullName + " takes its " + what + " at once, " + f.GetType().Name + " busy (users " + f.ActorsUsingMe.Count
                 + ", line " + (f.Line == null ? 0 : f.Line.MemberCount()) + "), " + (a.Position - slot).Length().ToString("0.0") + " m from the slot");
             return true;
-        }
-
-        // The camera half of FarFromViewers: FarFromViewers also counts every active-household Sim as a viewer within 80 m, so
-        // for a household Sim at home (itself a viewer at distance 0) it is never true. The household opt-in asks only
-        // whether the player can see the spot: off screen (UcOnScreen) and away from the camera's target and eye.
-        static bool FfFarFromCamera(Vector3 p)
-        {
-            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
-            if (now != sViewTick) RefreshViewers(now);
-            float dx = p.x - sCamTarget.x, dy = p.y - sCamTarget.y, dz = p.z - sCamTarget.z;
-            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
-            dx = p.x - sCamPos.x; dy = p.y - sCamPos.y; dz = p.z - sCamPos.z;
-            return dx * dx + dy * dy + dz * dz >= sReach2;
         }
 
         public abstract class FfHaveHook : Fridge_Have
