@@ -145,7 +145,7 @@ namespace Ts3Fixes
         {
             public void BuDestHook(RouteDestination destination)
             {
-                try { BuNoteDest(Handle, destination); }
+                try { BuNoteDest(Handle, destination); RcNoteDest(Handle, destination); }  // RcNoteDest: reachcache (ReachCache.cs)
                 catch (Exception e) { BuError(3, e); }
                 BuDestOrig(destination);
             }
@@ -154,7 +154,7 @@ namespace Ts3Fixes
 
             public void BuClearHook()
             {
-                try { BuNoteClear(Handle); }
+                try { BuNoteClear(Handle); RcNoteClear(Handle); }
                 catch (Exception e) { BuError(3, e); }
                 BuClearOrig();
             }

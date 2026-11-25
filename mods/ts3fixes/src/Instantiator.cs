@@ -399,6 +399,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kReactOverlay = true;  // reactoverlay (docs/686 §26): an NPC busy standing or seated reacts at once as EA's overlay instead of a ReactionInteraction queued behind its action; a queued one is dropped after kReactOverlayStaleMs
         [Tunable] public static bool kReactOverlayHh = false;  // reactoverlayhh: household and selected Sims too
         [Tunable] public static bool kReactOverlayLog = false;  // reactoverlaylog: one ts3native.log line per case
+        [Tunable] public static bool kReachCache = false;  // reachcache (docs/688): an NPC's route plan whose every destination room is behind portals the planner answers locked fails at once (no balloon); autonomy skips that pair until the lot's portals change
+        [Tunable] public static bool kReachCacheHh = false;  // reachcachehh: household and selected Sims too (a player's order is never refused)
+        [Tunable] public static bool kReachCacheLog = false;  // reachcachelog: run the real plan for every refusal verdict and count EA's answer (WRONG = it succeeded)
         [Tunable] public static int kReactOverlayStaleMs = 2000;  // reactoverlay: ms of real time after which a queued reaction with no safe overlay moment is dropped (500-10000)
         [Tunable] public static int kStandWaitPassCycle = 2;  // blocked cycle from which the route is planned once without people (0 = never)
         [Tunable] public static int kStandWaitPassEvery = 3;  // blocked cycles between two such plans

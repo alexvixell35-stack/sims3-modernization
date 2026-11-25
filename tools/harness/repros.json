@@ -123180,6 +123180,283 @@
     ]
   },
   {
+    "id": "reachcache-locked-bath",
+    "bug": "Household Sims plan routes (and show the RouteFail balloon) to rooms behind doors the planner answers locked for them: locked doors, privacy-locked bathrooms; 54 household locked-portal fails an hour in storms s560-s594, a third of them the same Sim and target again (docs/688)",
+    "fix": "ts3fixes ReachCache.cs: reachcache, reachcachehh, reachcachelog (default off), docs/688",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; toilets in two rooms)",
+    "note": "Forced: every door of the toilet rooms locked (Nobody) by ReachCacheCheck lock, then a plan probe from the selected Sim and 30 sim-min of household autonomy with low Bladder, off (verify only) then on (acting + verify). reachcachelog runs the real plan for every refusal verdict, so WRONG counts any refused plan EA would have found.",
+    "expect": "off: refuse verdicts > 0, verified right = refuse verdicts, WRONG 0; on: refusals acted > 0 (household), autonomy pairs left out > 0, no RouteFail balloons for the locked toilets, WRONG 0, errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 16
+        },
+        "note": "everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "setup: autonomy off",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "reachcache: hooks found, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachcache": false,
+          "reachcachehh": false,
+          "reachcachelog": true,
+          "routefaillog": true
+        },
+        "note": "off arm: verify only (log on, refusals not acted)",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "lock"
+          ]
+        },
+        "note": "lock every door of the toilet rooms (Nobody)",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "locked [1-9]"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "probe"
+          ]
+        },
+        "note": "off: plans from the selected Sim to toilets, showers, beds, fridges; refusal verdicts verified",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "WRONG 0,"
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -60
+        },
+        "note": "Lisa needs the (locked) toilet",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -60
+        },
+        "note": "Jack too",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "off: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: 30 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "off: autonomy off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters (refuse verdicts verified, WRONG 0)",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "WRONG 0,"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachcache": true,
+          "reachcachehh": true,
+          "reachcachelog": true,
+          "routefaillog": true
+        },
+        "note": "on arm: reachcache + reachcachehh acting, log verifies",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "probe"
+          ]
+        },
+        "note": "on: same plans",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "WRONG 0,"
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -60
+        },
+        "note": "Lisa again",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -60
+        },
+        "note": "Jack again",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "on: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: 30 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "on: autonomy off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: acted refusals, autonomy pairs left out; WRONG 0, errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "WRONG 0,.*errors 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "unlock"
+          ]
+        },
+        "note": "doors back",
+        "waitS": 1,
+        "max": 1500
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ReachCacheCheck",
+          "args": [
+            "unlock"
+          ]
+        },
+        "note": "doors back",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "reachcache": false,
+          "reachcachehh": false,
+          "reachcachelog": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

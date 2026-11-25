@@ -1729,10 +1729,14 @@ namespace Ts3Fixes
         // wildflowertask / disposespread / aptleave RemoveGuest / boattrip sweep; [1743] go-live searches whose later slice started frozen or
         // not live and ran the game's B14 for the rest (autlivelate refusal / direct snap).
         // [4615-4619] lineswitch (LineSwitch.cs, docs/686 §25): switched to a free twin object / would, off / kept (waited past the switch time, not
-        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
+        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).
+        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
-        const int kCounterSlots = 4680;
+        // [4680-4819] other pending branches. [4820-4839] reachcache (ReachCache.cs, docs/688): verdicts / refuse / acted / right /
+        // WRONG / missed locked / unknown dest / start unplaced / order exempt / out of scope / autonomy pairs left out / memo
+        // records / memo stale / floods / flood hits / errors / household acted / right with locked / dest overflow; 4839 spare.
+        const int kCounterSlots = 4840;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2250,6 +2254,9 @@ namespace Ts3Fixes
                 case "reactoverlay": return Instantiator.kReactOverlay;  // ReactOverlay.cs (docs/686 §26): a busy NPC standing or seated reacts at once as EA's overlay, a stale queued reaction is dropped, off
                 case "reactoverlayhh": return Instantiator.kReactOverlayHh;  // ReactOverlay.cs (docs/686 §26): household and selected Sims too, off
                 case "reactoverlaylog": return Instantiator.kReactOverlayLog;  // ReactOverlay.cs (docs/686 §26): one line per case, off
+                case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
+                case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
+                case "reachcachelog": return Instantiator.kReachCacheLog;  // ReachCache.cs: verify every refusal verdict against the real plan (WRONG count), off
                 case "blockeduse": return Instantiator.kBlockedUse;  // BlockedUse.cs (docs/686 §10): an NPC whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards, off
                 case "blockedusehh": return Instantiator.kBlockedUseHousehold;  // BlockedUse.cs: the same for household and selected Sims (stands alone), off
                 case "makebedboth": return Instantiator.kMakeBedBoth;  // MakeBedBoth.cs (docs/686 §13): an NPC makes a bed half it cannot reach from the other side, off

@@ -39,7 +39,8 @@ namespace Ts3Fixes
                 if (IaAnswer(0, Vector3.Invalid, out iam)) { NotePlanResult(Follower, false, this, true); RouteSrcEnd(this, src, false); return iam; }  // iafailmemo: the detectors still count the failure
                 byte urx = UrxBegin();
                 RoutePlanResult r;
-                try { r = UfPlan(0, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); } // docs/202 unseenfbplan wraps the whole plan (UnseenFallback.cs)
+                if (RcBefore(this, 0)) r = FailFast(RoutePlanResultType.FailedBecauseDestinationPortalLocked);  // reachcache (ReachCache.cs, docs/688): every destination room is behind a locked portal
+                else { try { r = UfPlan(0, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); } RcAfter(this, r); } // docs/202 unseenfbplan wraps the whole plan (UnseenFallback.cs)
                 if (!UfTakeNotFail()) NotePlanResult(Follower, r.mType == RoutePlanResultType.Succeeded, this); // the stuck watchdog's route-fail count and success memo (RouteFixes.cs); docs/202: not for a cut plan
                 StuckCheckPlanned(r.mType == RoutePlanResultType.Succeeded); // docs/163 §10 stuck-check outcome counters (FewerPlans.cs)
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
@@ -358,7 +359,8 @@ namespace Ts3Fixes
                 if (IaAnswer(1, Vector3.Invalid, out iam)) { RouteSrcEnd(this, src, false); return iam; }
                 byte urx = UrxBegin();
                 RoutePlanResult r;
-                try { r = UfPlan(1, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); }
+                if (RcBefore(this, 1)) r = FailFast(RoutePlanResultType.FailedBecauseDestinationPortalLocked);  // reachcache (ReachCache.cs, docs/688)
+                else { try { r = UfPlan(1, Vector3.Invalid); } finally { if (urx != 0) UrxEnd(urx); } RcAfter(this, r); }
                 RouteSrcEnd(this, src, r.mType == RoutePlanResultType.Succeeded);
                 RflPlan(this, 1, rflT0, r);
                 IaNote(1, Vector3.Invalid, r, rflT0);

@@ -826,6 +826,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kReactOverlayHh value="False" />
     <kReactOverlayLog value="False" />
     <kReactOverlayStaleMs value="2000" />
+    <kReachCache value="False" />
+    <kReachCacheHh value="False" />
+    <kReachCacheLog value="False" />
     <kStandWaitPassCycle value="2" />
     <kStandWaitPassEvery value="3" />
     <kStandWaitPassMinutes value="5" />
