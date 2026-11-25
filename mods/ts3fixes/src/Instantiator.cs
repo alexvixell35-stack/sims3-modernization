@@ -458,6 +458,16 @@ namespace Ts3Fixes
         [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
         [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
         [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
+        [Tunable] public static bool kFacilityPlan = false;  // facilityplan (docs/686 §36): NPCs pick the toilet, shower, bath or sink that frees soonest including the walk, move from a slow line to a sooner object or do something else first when not urgent
+        [Tunable] public static bool kFacilityPlanHh = false;  // facilityplanhh: household and selected Sims too (a visible change; a player's order keeps its object)
+        [Tunable] public static bool kFacilityPlanLog = false;  // facilityplanlog: one ts3native.log line per case (picks, waits, uses, quick ends, chains)
+        [Tunable] public static bool kFacilityQuick = false;  // facilityquick (docs/686 §36.5): an NPC user ends its shower, bath or toilet use through EA's finish at 85 % of the motive when a waiter is urgent
+        [Tunable] public static bool kFacilityQuickHh = false;  // facilityquickhh: household and selected users too
+        [Tunable] public static bool kFacilityChain = false;  // facilitychain (docs/686 §36.4): toilet then shower or bath (or the reverse) in one visit when the other need is due within 2 sim-hours, NPCs
+        [Tunable] public static bool kFacilityChainHh = false;  // facilitychainhh: household and selected Sims too
+        [Tunable] public static bool kShowerPeePlan = false;  // showerpeeplan (docs/686 §36.6): a shower fills the bladder of an NPC that has to pee within 2 sim-hours whatever the toilets; the planner may send a toilet waiter to a shower
+        [Tunable] public static bool kShowerPeePlanHh = false;  // showerpeeplanhh: household and selected Sims too
+        [Tunable] public static bool kShowerDirty = false;  // showerdirty (docs/686 §36.6): a shower that also filled the bladder ends at Hygiene 76, a shared one at 80 (user-approved cost)
         [Tunable] public static bool kLineStale = false;  // linestale (docs/686 §29): the head of an object's line whose turn-taking action ended or waits in its queue behind another action leaves the line after kLineStaleMinutes; NPC heads
         [Tunable] public static bool kLineStaleHh = false;  // linestalehh: household and selected heads too
         [Tunable] public static bool kLineStaleLog = false;  // linestalelog: one ts3native.log line per case

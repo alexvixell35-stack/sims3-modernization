@@ -53,6 +53,7 @@ namespace Ts3Fixes
                 if (!gate || ps.OtherSimCanIgnorePrivacy(sim)) continue;
                 if (locking == 0) who = ps.GetType().Name + " of " + owner.FullName + (ps.RoomId != room ? ", begun in room " + ps.RoomId : "");
                 locking++;
+                if (sFpUses.Count > 0) FpPrivacyWaiter(sim, owner);  // docs/686 §36 (FacilityPlan.cs): facilityquick for an urgent Sim held at the door
             }
         }
 

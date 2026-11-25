@@ -69,6 +69,22 @@ static class ShowerShareTest
         Check(ShowerShareCore.PeeHolds(true, true, 120f), "filling: held however long the shower takes");
         Check(ShowerShareCore.kPeeFillMinutes > 0f && ShowerShareCore.kExitCapMinutes > 0f, "times are positive");
 
+        // showerpeeplan / showerdirty (docs/686 §36.6): baseOn, baseScope, planOn, planScope, simOk, low, minutesToUrgent, toiletUsable
+        bool plan;
+        Check(ShowerShareCore.PeeAtShower(true, true, false, false, true, true, 0f, false, out plan) == Go && !plan, "base: has to pee, no toilet: fills");
+        Check(ShowerShareCore.PeeAtShower(true, true, false, false, true, true, 0f, true, out plan) == W && !plan, "base with a toilet: plan off would");
+        Check(ShowerShareCore.PeeAtShower(true, true, true, true, true, true, 0f, true, out plan) == Go && plan, "plan: has to pee, toilet free: fills");
+        Check(ShowerShareCore.PeeAtShower(false, false, true, true, true, false, 90f, true, out plan) == Go && plan, "plan: urgent within 2 sim-hours: fills");
+        Check(ShowerShareCore.PeeAtShower(false, false, true, true, true, false, 200f, true, out plan) == N, "plan: not soon: the game's way");
+        Check(ShowerShareCore.PeeAtShower(false, false, true, false, true, true, 0f, true, out plan) == Ex && !plan, "plan: household without its switch");
+        Check(ShowerShareCore.PeeAtShower(true, true, true, true, false, true, 0f, false, out plan) == N, "plan: a toddler or robot: never");
+        Check(ShowerShareCore.PeeAtShower(false, false, false, false, true, false, 90f, true, out plan) == N, "all off, not low: nothing counted");
+        Check(ShowerShareCore.DirtyCap(true, 100f, ShowerShareCore.kPeeHygieneCap) == ShowerShareCore.kPeeHygieneCap, "dirty: a full shower ends at the cap");
+        Check(ShowerShareCore.DirtyCap(true, 50f, ShowerShareCore.kPeeHygieneCap) == 50f, "dirty: below the cap stays");
+        Check(ShowerShareCore.DirtyCap(false, 100f, ShowerShareCore.kPeeHygieneCap) == 100f, "dirty off: EA's value");
+        Check(ShowerShareCore.kPeeHygieneCap > 70f && ShowerShareCore.kPeeHygieneCap < 81f && ShowerShareCore.kShareHygieneCap >= ShowerShareCore.kPeeHygieneCap && ShowerShareCore.kShareHygieneCap < 100f,
+            "caps: 85-90 % of the bar, above EA's neutral band, below SqueakyClean for shower-pee");
+
         Console.WriteLine(sFail == 0 ? "showershare selftest: " + sRun + " checks ok" : "showershare selftest: " + sFail + " of " + sRun + " FAILED");
         return sFail == 0 ? 0 : 1;
     }

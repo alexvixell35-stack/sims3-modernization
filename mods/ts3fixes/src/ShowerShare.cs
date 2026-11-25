@@ -54,12 +54,18 @@ namespace Ts3Fixes
     //
     // Scope: the plain switch = Sims the player does not control, hh = household and selected Sims too (both Sims of a
     // pair must be in scope). Off = compare mode: counted, nothing done. Counters 4494-4509. Check: ShowerShareCheck.
+    //
+    // docs/686 §36.6 (facility planner): showerpeeplan / showerpeeplanhh fill the bladder in any shower a Sim starts that has
+    // to pee or will within 2 sim-hours, toilets or not (a user-approved behaviour change); showerdirty leaves Hygiene at
+    // ShowerShareCore.kPeeHygieneCap after such a shower and at kShareHygieneCap after a shared one (both partners).
+    // Counters 4760-4762, 4768-4769.
     public static partial class Fixes
     {
         const int kShsJoins = 4494, kShsWould = 4495, kShsExempt = 4496, kShsKeptRomance = 4497, kShsKeptAge = 4498, kShsKeptOther = 4499,
             kShsExitWaits = 4500, kShsErrors = 4501,
             kShpPeed = 4502, kShpPushed = 4503, kShpAvoided = 4504, kShpNoShower = 4505, kShpWould = 4506, kShpExempt = 4507, kShpFellBack = 4508,
-            kShsAioJoins = 4509;
+            kShsAioJoins = 4509,
+            kShpPlanFills = 4760, kShpPlanWould = 4761, kShwDirtyPee = 4762, kShwDirtyShare = 4768, kShwDirtyWould = 4769;  // docs/686 §36.6
         const uint kShsExitFootprint = 824351308u;  // the shower's exit footprint (Shower.WaitToLeaveShower)
         const int kShsShower = 1, kShsAio = 2;
         const float kShsStepAwayMinutes = 2f;  // after a partner left: time for it to step off the slot before the next walk
@@ -67,7 +73,7 @@ namespace Ts3Fixes
         const float kShpCoolMinutes = 60f;
 
         sealed class ShsPair { public GameObject Obj; public int Kind; public Sim A, B; public int StateA, StateB; public long ExitStart; public bool Waited; }
-        sealed class ShpRun { public Sim Sim; public InteractionInstance Inst; public GameObject Target; public long Start; public int State; public bool Pushed; }
+        sealed class ShpRun { public Sim Sim; public InteractionInstance Inst; public GameObject Target; public long Start; public int State; public bool Pushed, Plan; }
 
         static readonly Dictionary<ulong, ShsPair> sShs = new Dictionary<ulong, ShsPair>();  // pairs, by shower
         static readonly Dictionary<ulong, ShpRun> sShp = new Dictionary<ulong, ShpRun>();    // showers that fill a bladder, by Sim
@@ -105,7 +111,7 @@ namespace Ts3Fixes
         static void ShsActLine(string switchName, string text)
         {
             sShsLast = switchName + ": " + text;
-            if (ShortcutOn("showersharelog") && sShsCap.Take(System.Environment.TickCount)) DiagLine(sShsLast);
+            if ((ShortcutOn("showersharelog") || ShortcutOn("facilityplanlog")) && sShsCap.Take(System.Environment.TickCount)) DiagLine(sShsLast);
         }
 
         // ---- showertogether ---------------------------------------------------------------------------------------------
@@ -323,6 +329,7 @@ namespace Ts3Fixes
                 if (sShpArmed > 0) ShpLeave(actor, obj);
                 ShsPair p = ShsMember(actor, obj);
                 if (p == null) return exceptions;
+                ShwDirty(actor, ShowerShareCore.kShareHygieneCap, kShwDirtyShare, "a shared shower");  // docs/686 §36.6
                 bool isA = p.A == actor;
                 Sim other = isA ? p.B : p.A;
                 if (!ShsActive(other, obj)) { ShsDrop(p); return exceptions; }  // the partner has left: the game's own exit
@@ -463,16 +470,20 @@ namespace Ts3Fixes
         static bool ShpToiletOnLot(Sim s, out GameObject shower)
         {
             shower = null;
-            float best = float.MaxValue;
-            foreach (GameObject o in s.LotCurrent.GetObjects<GameObject>())
+            Lot lot = s.LotCurrent;
+            // typed lists (before: every object of the lot, for each call)
+            foreach (IToiletOrUrinal t in lot.GetObjects<IToiletOrUrinal>())
             {
-                if (o == null || o.HasBeenDestroyed) continue;
-                if (o is IToiletOrUrinal || o is AllInOneBathroom)
-                {
-                    if (ShpToiletUsable(s, o)) { shower = null; return true; }
-                    continue;
-                }
-                if (!(o is IShowerable)) continue;
+                GameObject o = t as GameObject;
+                if (o != null && !o.HasBeenDestroyed && ShpToiletUsable(s, o)) return true;
+            }
+            foreach (AllInOneBathroom o in lot.GetObjects<AllInOneBathroom>())
+                if (o != null && !o.HasBeenDestroyed && ShpToiletUsable(s, o)) return true;
+            float best = float.MaxValue;
+            foreach (IShowerable sh in lot.GetObjects<IShowerable>())
+            {
+                GameObject o = sh as GameObject;
+                if (o == null || o.HasBeenDestroyed || o is AllInOneBathroom) continue;
                 ShowerTub tub = o as ShowerTub;
                 if (tub != null && tub.IsCatPlaying()) continue;
                 Sim other;
@@ -503,21 +514,35 @@ namespace Ts3Fixes
             return r;
         }
 
-        // A Sim starts a shower (the line hook): when it has to pee and the lot has no usable toilet, this shower
-        // refills its bladder motive.
+        // A Sim starts a shower (the line hook): when it has to pee and the lot has no usable toilet (showerpee), or with
+        // showerpeeplan when it has to pee or will soon whatever the toilets (docs/686 §36.6), this shower refills its
+        // bladder motive.
         static void ShpNote(Sim a, InteractionInstance ia, GameObject obj)
         {
-            if (!ShortcutOn("showerpee")) return;
+            bool baseOn = ShortcutOn("showerpee"), planOn = ShortcutOn("showerpeeplan");
+            if (!baseOn && !planOn && !ShortcutOn("facilityplanlog")) return;
             ShpRun r;
             if (sShp.TryGetValue(a.ObjectId.Value, out r))
             {
                 if (object.ReferenceEquals(r.Inst, ia)) return;
-                if (r.State == kShpFailed) return;  // the cool-down of a shower that never began
-                ShpDrop(r);
+                if (r.State == kShpFailed && OjsMinutes(r.Start) < kShpCoolMinutes) return;  // the cool-down of a shower that never began
+                ShpDrop(r);  // (before: a failed entry stayed until the next bladder failure and blocked every later shower)
             }
+            if (!ShpSimOk(a)) return;
+            Motive m = a.Motives.GetMotive(CommodityKind.Bladder);
+            if (m == null) return;
+            bool low = ShpLow(a);
+            float soon = FacilityPlanCore.MinutesTo(m.Value, FacilityPlanCore.kBladderUrgent, m.Decay);
+            if (!low && soon > ShowerShareCore.kPeeSoonMinutes) return;
             GameObject unused;
-            if (!ShpSimOk(a) || !ShlScope(a, ShortcutOn("showerpeehh")) || !ShpLow(a) || ShpToiletOnLot(a, out unused)) return;
-            ShpAdd(a, ia, obj, false);
+            bool toilet = ShpToiletOnLot(a, out unused);
+            bool plan;
+            int d = ShowerShareCore.PeeAtShower(baseOn, ShlScope(a, ShortcutOn("showerpeehh")), planOn, ShlScope(a, ShortcutOn("showerpeeplanhh")), true, low, soon, toilet, out plan);
+            if (d == ShowerShareCore.kWould) { PatchCounters()[kShpPlanWould]++; return; }
+            if (d != ShowerShareCore.kGo) return;
+            ShpAdd(a, ia, obj, false).Plan = plan;
+            if (plan) ShsActLine("showerpeeplan", a.FullName + " " + ShlWho(a) + ", bladder " + m.Value.ToString("0") + (low ? " (has to pee)" : " (urgent in " + soon.ToString("0") + " sim-min)")
+                + ", " + (toilet ? "a toilet is free but the shower is here" : "no toilet free") + ": the shower in " + obj.GetType().Name + " fills the bladder too");
         }
 
         static bool ShpHasPlayerOrders(Sim s)
@@ -634,8 +659,25 @@ namespace Ts3Fixes
             ShpRun r;
             if (!sShp.TryGetValue(actor.ObjectId.Value, out r) || !object.ReferenceEquals(r.Target, obj) || r.State == kShpFailed) return;
             if (r.State == kShpPending) PatchCounters()[kShpPeed]++;  // the start was not seen; the Sim showered all the same
+            if (r.Plan) PatchCounters()[kShpPlanFills]++;
             ShpFull(r);
             ShpDrop(r);
+            ShwDirty(actor, ShowerShareCore.kPeeHygieneCap, kShwDirtyPee, r.Plan ? "shower-pee (showerpeeplan)" : "shower-pee");
+        }
+
+        // showerdirty (docs/686 §36.6): the Sim steps out of a shower that also filled its bladder, or of a shared one: its
+        // Hygiene ends at the cap (EA's Motives.SetValue; the commodity updates are over by now: WaitToLeaveShower).
+        static void ShwDirty(Sim s, float cap, int counter, string why)
+        {
+            if (s == null || s.Motives == null) return;
+            float h = s.Motives.GetValue(CommodityKind.Hygiene);
+            bool on = ShortcutOn("showerdirty");
+            float to = ShowerShareCore.DirtyCap(on, h, cap);
+            if (h <= cap) return;
+            if (!on) { PatchCounters()[kShwDirtyWould]++; return; }
+            s.Motives.SetValue(CommodityKind.Hygiene, to);
+            PatchCounters()[counter]++;
+            ShsActLine("showerdirty", s.FullName + " " + ShlWho(s) + " after " + why + ": hygiene " + h.ToString("0") + " -> " + to.ToString("0") + ", bladder " + s.Motives.GetValue(CommodityKind.Bladder).ToString("0"));
         }
 
         public class ShpDistressHook
@@ -643,6 +685,13 @@ namespace Ts3Fixes
             public void DistressHook(Sim sim, CommodityKind commodity)
             {
                 if (commodity == CommodityKind.Bladder && sim != null && ShpDistress(sim)) return;
+                // docs/686 §36: bladder failures the game queues (the repro's accident count; once per failure)
+                if (commodity == CommodityKind.Bladder && sim != null && sim.InteractionQueue != null && !sim.InteractionQueue.HasInteractionOfType(Sim.BladderFailure.Singleton))
+                {
+                    PatchCounters()[kFpBladderDistress]++;
+                    FpAccident(sim);
+                    if (ShortcutOn("facilityplanlog")) DiagLine("facilityplan: bladder failure: " + ShlWho(sim) + " " + sim.FullName + " at " + V(sim.Position));
+                }
                 DistressOrig(sim, commodity);
             }
             public void DistressOrig(Sim sim, CommodityKind commodity) { }  // receives MotiveDistress's original body

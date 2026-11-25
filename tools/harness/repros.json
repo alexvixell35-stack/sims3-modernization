@@ -137103,5 +137103,1597 @@
         "max": 1500
       }
     ]
+  },
+  {
+    "id": "facilityplan-rush",
+    "bug": "Household Sims wait for each other at the toilet and shower in a morning rush: EA's autonomy sees 'in use' but not for how long, prefers an empty line once at the pick, then waits up to 15 sim-min in place (docs/686 §36.1)",
+    "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
+    "note": "Morning rush: Lisa, Jack and Judy with low Bladder and Hygiene, household autonomy on for 150 sim-min per arm. Off arm first (all planner switches off, log on), then on. FacilityPlanCheck household gives per-Sim line wait, trips per kind, accidents and the final Bladder/Hygiene.",
+    "expect": "on vs off: less total line wait, no more accidents, final motives as high; facilityplan lines (pick / switched / something else first / came back), facilityquick and facilitychain lines when they apply; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 7
+        },
+        "note": "everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "who lives here (names for the log)",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "facilityplan: swaps applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm off: the planner switches off, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "off: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fprush-off"
+        },
+        "note": "log marker fprush-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -55
+        },
+        "note": "off: Lisa Bunch Bladder -55",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -50
+        },
+        "note": "off: Lisa Bunch Hygiene -50",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -45
+        },
+        "note": "off: Jack Bunch Bladder -45",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hygiene",
+          "value": -70
+        },
+        "note": "off: Jack Bunch Hygiene -70",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -65
+        },
+        "note": "off: Judy Bunch Bladder -65",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -30
+        },
+        "note": "off: Judy Bunch Hygiene -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "off: the rush: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 30 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 60 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 90 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 120 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: rush, 150 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "off: rush over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "off: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "showerdirty": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm on: the planner switches on, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "on: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fprush-on"
+        },
+        "note": "log marker fprush-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -55
+        },
+        "note": "on: Lisa Bunch Bladder -55",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -50
+        },
+        "note": "on: Lisa Bunch Hygiene -50",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -45
+        },
+        "note": "on: Jack Bunch Bladder -45",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hygiene",
+          "value": -70
+        },
+        "note": "on: Jack Bunch Hygiene -70",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -65
+        },
+        "note": "on: Judy Bunch Bladder -65",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -30
+        },
+        "note": "on: Judy Bunch Hygiene -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "on: the rush: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 30 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 60 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 90 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 120 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: rush, 150 sim-min",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "on: rush over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "on: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "end: errors 0",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "facilityplanlog": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
+    "id": "facilityplan-defer",
+    "bug": "A Sim that is not urgent stands in a long shower line instead of doing something useful first (docs/686 §36.1)",
+    "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
+    "note": "Lisa takes a long shower (Hygiene -80, an order); Judy (Hygiene -20, not urgent) picks the same shower herself and waits in Lisa's line. On: the planner sees the wait (EA's GetShowerTime) and that Judy is not urgent, she leaves the line, autonomy gives her another action (the pick factor keeps the shower out while it is busy), and she comes back once it is predicted free.",
+    "expect": "off: 'would do something else first', Judy waits in line; on: 'something else first' then 'came back', Judy's line wait shorter; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 10
+        },
+        "note": "everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "who lives here (names for the log)",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "facilityplan: swaps applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm off: the planner switches off, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "off: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpdefer-off"
+        },
+        "note": "log marker fpdefer-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -80
+        },
+        "note": "off: Lisa Bunch Hygiene -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -20
+        },
+        "note": "off: Judy Bunch Hygiene -20",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": 60
+        },
+        "note": "off: Judy Bunch Bladder 60",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -30
+        },
+        "note": "off: Judy Bunch Hunger -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower"
+        },
+        "note": "off: Lisa showers (a long shower from -80)",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower",
+          "autonomous": true
+        },
+        "note": "off: Judy's own pick: the same shower; not urgent (Hygiene -20)",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy in Lisa's line (off) or left it (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": true
+        },
+        "note": "off: Judy's autonomy on: she picks her next action",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy's action",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Lisa done? Judy back at the shower (on)",
+        "waitS": 60,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: end",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": false
+        },
+        "note": "off: Judy's autonomy off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "off: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "showerdirty": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm on: the planner switches on, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "on: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpdefer-on"
+        },
+        "note": "log marker fpdefer-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hygiene",
+          "value": -80
+        },
+        "note": "on: Lisa Bunch Hygiene -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hygiene",
+          "value": -20
+        },
+        "note": "on: Judy Bunch Hygiene -20",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": 60
+        },
+        "note": "on: Judy Bunch Bladder 60",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -30
+        },
+        "note": "on: Judy Bunch Hunger -30",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower"
+        },
+        "note": "on: Lisa showers (a long shower from -80)",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:BathtubShowerModern",
+          "interaction": "def:TakeShower",
+          "autonomous": true
+        },
+        "note": "on: Judy's own pick: the same shower; not urgent (Hygiene -20)",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy in Lisa's line (off) or left it (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": true
+        },
+        "note": "on: Judy's autonomy on: she picks her next action",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy's action",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Lisa done? Judy back at the shower (on)",
+        "waitS": 60,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: end",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "Judy Bunch",
+          "enabled": false
+        },
+        "note": "on: Judy's autonomy off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "on: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 1,
+        "max": 1500
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "facilityplanlog": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
+  },
+  {
+    "id": "facilityplan-urgent",
+    "bug": "An urgent Sim waits in the line of the toilet it picked while another frees sooner or is free (docs/686 §36.1)",
+    "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
+    "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
+    "note": "Jack and Lisa on two toilets (orders, Jack first), Judy (Bladder -88) picks Lisa's toilet herself. On: from the first check the planner sends her to the toilet with the soonest start including the walk (ToiletExpensive in the other room is free; else Jack's); facilityquick may end Lisa's use early for her (Lisa at 70 after 5 sim-min).",
+    "expect": "off: 'would switch', Judy waits; on: 'switched' within 1-2 sim-min, no accident; errors 0.",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 20
+        },
+        "note": "everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "who lives here (names for the log)",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "facilityplan: swaps applied, rules",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "members found=True"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm off: the planner switches off, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "off: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpurgent-off"
+        },
+        "note": "log marker fpurgent-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -40
+        },
+        "note": "off: Jack Bunch Bladder -40",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "off: Lisa Bunch Bladder -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -88
+        },
+        "note": "off: Judy Bunch Bladder -88",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "off: Jack uses the moderate toilet first (frees first)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "off: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "off: Judy's own pick: the cheap toilet (Lisa's); Bladder -88: urgent",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: Judy in line (off) or on her way to the soonest-free toilet (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "off: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: which toilet Judy uses",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off: end",
+        "waitS": 40,
+        "max": 800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "off: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: counters",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplanlog": true,
+          "linewaitlog": true,
+          "showersharelog": true,
+          "routefaillog": true,
+          "facilityplan": true,
+          "facilityplanhh": true,
+          "facilityquick": true,
+          "facilityquickhh": true,
+          "facilitychain": true,
+          "facilitychainhh": true,
+          "showerpeeplan": true,
+          "showerpeeplanhh": true,
+          "showerdirty": true,
+          "lineswitch": false,
+          "lineswitchhh": false
+        },
+        "note": "arm on: the planner switches on, lineswitch off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "autonomy off for the setup",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "reset"
+          ]
+        },
+        "note": "on: per-Sim stats from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fpurgent-on"
+        },
+        "note": "log marker fpurgent-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Bladder",
+          "value": -40
+        },
+        "note": "on: Jack Bunch Bladder -40",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Bladder",
+          "value": -80
+        },
+        "note": "on: Lisa Bunch Bladder -80",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Bladder",
+          "value": -88
+        },
+        "note": "on: Judy Bunch Bladder -88",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Jack Bunch",
+          "target": "@type:ToiletModerate",
+          "interaction": "use"
+        },
+        "note": "on: Jack uses the moderate toilet first (frees first)",
+        "waitS": 15,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Lisa Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use"
+        },
+        "note": "on: Lisa uses the cheap toilet",
+        "waitS": 8,
+        "max": 300
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "Judy Bunch",
+          "target": "@type:ToiletCheap",
+          "interaction": "use",
+          "autonomous": true
+        },
+        "note": "on: Judy's own pick: the cheap toilet (Lisa's); Bladder -88: urgent",
+        "waitS": 20,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: Judy in line (off) or on her way to the soonest-free toilet (on)",
+        "waitS": 1,
+        "max": 800
+      },
+      {
+        "cmd": "sim_where",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "on: Judy (30 s)",
+        "waitS": 30,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: which toilet Judy uses",
+        "waitS": 30,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on: end",
+        "waitS": 40,
+        "max": 800
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "household"
+          ]
+        },
+        "note": "on: per-Sim motives, waits, trips, accidents",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "waitS": 1,
+        "max": 1500
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "facilityplan": false,
+          "facilityplanhh": false,
+          "facilityquick": false,
+          "facilityquickhh": false,
+          "facilitychain": false,
+          "facilitychainhh": false,
+          "showerpeeplan": false,
+          "showerpeeplanhh": false,
+          "showerdirty": false,
+          "facilityplanlog": false
+        },
+        "note": "default off again",
+        "waitS": 1,
+        "max": 300
+      }
+    ]
   }
 ]

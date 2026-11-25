@@ -2507,3 +2507,122 @@ the stop anim 25 (would 130), without the start anim 23 (would 123), kept 6, err
   `simpasshh`, `standwaitfixhh` ran on in every storm s540-s560 (5-30 min, 10 worlds): no `sharelanes: error` line,
   no stair lane wait left, no stair strand. Safe to turn on by those runs; `angleentry` changes nothing measurable at
   Colonial Casa (the approach is already on the lane line).
+
+## 36. The facility planner: who is in which bathroom until when (`facilityplan`, `facilityquick`, `facilitychain`, `showerpeeplan`, `showerdirty`; 2026-11-25, `post/facilityplan-1125`, built, default off, forced repros s590a-c, storms s590d/e)
+
+User (2026-11-25): "not only checking when the bathroom will be free but when the sims really needs it, or having both
+or sending to other bathroom, maybe be more holistic"; "if sims are needy they know what rooms are with sims until when
+and go do something else or somewhere else". Kept from the earlier rules: first-come order in a line, no walking
+reaction that interrupts the current action, no wait filler or idle animation, no walk-and-talk, EA's childcare carry
+walk, and no cut of another Sim's private use except by `facilityquick` (user, same day: "make sims be quicker at
+showering when someone is in a rush").
+
+### 36.1 What EA does [verified, decompiled; Motives XML from GameplayData.package]
+- Pick: `Autonomy` multiplies each candidate's score by `GameObject.GetInUseAutonomyMultiplier(actor)`: 0.2
+  (`kAutonomyMultiplierForObjectSelectionWhenInUse`) while `InUse`, else a route-pending factor, else 1. No object of the
+  plumbing namespace overrides it. Autonomy knows "busy now", never "busy until".
+- Wait: `SimQueue.WaitForTurn` (docs/686 §25.1): one substitution on the first pass (toilets only), then 1 sim-min
+  checks up to the timeout (15 sim-min and more). `privacyroom` (#741) found that `GenericPrivacySituation.
+  SimIsInPrivacySituation` counts every OtherSim as in the situation, so autonomy picks objects in a locked room.
+- Use lengths: `Toilet.UseToilet`: `Motives.LerpToFill(Bladder, kMaxLengthUseToilet = 30)`: the bladder fills in
+  30 sim-min from any start (`AddMotiveDelta((max - value) / 30 * 60)`), the loop ends on EA's exit reasons, then flush,
+  seat, `WashHands` pushed as a continuation. `Shower.TakeShower`: `GetShowerTime() = (max - Hygiene) / gain * 60`
+  sim-min (public: the planner reads EA's own number), `DuringShower` adds `ExitReason.Finished` at full Hygiene, then
+  `EndCommodityUpdates`, `WaitToLeaveShower`, post-shower effects, `StandardExit`. `TakeBath` the same loop shape
+  (`DoLoop(ExitReason.Default, DuringBath)`). Sinks: fixed animations, no motive fill to time.
+- No shorter-shower variant or duration parameter exists: the `TimedStage` is display only; the length is the motive.
+- Privacy: `ToiletSituation`, `ShowerPrivacySituation`, the bath's and the sponge bath's lock the room. `WashHands` and
+  `BrushTeeth` start no privacy situation: **a sink-only use does not lock the room** [verified, Sink.cs]; a sink in a
+  room someone holds for the toilet or shower is locked by that use.
+- Pass-through: `Portal_LockState 0x64F2C0` asks script for every portal the portal search tries (docs/105 §2), and
+  `PrivacySituation.OnPortalPathPlan` locks any portal whose `RoomTo` is the private room for an autonomous (or
+  below-UserDirected) Sim that may not ignore privacy. So a route **through** a private bathroom is locked too, not only
+  one into it: an en-suite or Jack-and-Jill bedroom whose only door is the bathroom's is unreachable (and cannot be left)
+  while somebody else uses the toilet or shower. Not changed: opening the lock for a passer makes the user react
+  (`ReactToPrivacyIntrusion` -> `TurnToFaceAndAskToLeave`), which ends the private use: a cut the user ruled out. The
+  planner counts a locked room's objects as busy until its user is done (36.3), and `facilityquick` ends the use early
+  for an urgent Sim held at that door (StandWaitLocked's privacy cycle).
+- Pee elsewhere: Island Paradise's `BuffWarmWetsuit.PeeInWetsuit` (`Motives.SetMax(Bladder)` in the sea) is EA's only
+  "pee without a toilet" interaction; there is none for showers. Toilet training is the toddler's `PottyChair`; children
+  and older use the toilet without a skill, so a child's shower-pee breaks nothing.
+
+### 36.2 EA's motive numbers (base game Motives XML; nothing here is changed)
+| Motive | Decay | Bands (buffs) | Urgent / end |
+|---|---|---|---|
+| Bladder, adult/teen/child (`VariableDecayByMoodlet`) | 13.33 pts/sim-h above -60, 14.5 in -61..-90, 9 in -91..-100 (elder, toddler: 16 above -60; baby 17.8) | HasToPee -61..-90, ReallyHasToPee -91..-100 | Intensity knee at -60 (0.25 -> 0.995): autonomy's "must"; `MotiveDistress` at -100: `Sim.BladderFailure` |
+| Hygiene, human (`FixedDecay` 42 h for the bar): 4.76 pts/sim-h; pets 84 h | Grungy -61..-80, Smelly -81..-100, SqueakyClean 81..100 | no accident |
+From -60 a bladder accident is 2.1 + 1.1 = 3.2 sim-hours away, so most lines (2-20 sim-min) are not urgent at all; a
+Sim at -91 has 1.1 sim-h. The planner reads the live `Motive.Decay` for the current band (it includes EA's trait and
+buff multipliers) and EA's band rates below it.
+
+### 36.3 The planner (FacilityPlan.cs, FacilityPlanCore.cs)
+State per facility object (toilet, shower, bath, sink; fridge for the pick only): the current use (user, interaction,
+start, motive at start: `InteractionInstance.Begin/EndCommodityUpdates`), its busy-until (`GetShowerTime` for a shower,
+else `(max - value) / gain-so-far`, else the learned mean length of the kind, prior toilet 30, shower 15, bath 30, sink
+2, fridge 2 sim-min), the line ahead (one mean use each), Sims that have the object queued behind their current action
+(a chained hand-off), and for a room another Sim holds with privacy, that user's rest. A romantic partner's running
+shower counts as free when `showertogether` would let the Sim join. Per Sim: minutes to its urgent level (Bladder -60,
+Hygiene -60, Hunger -60) and to a bladder accident, walk time = distance / 1.5 m per sim-min + 1.5 sim-min per floor.
+ETA of an object = max(walk, busy + line).
+- Pick (`GameObject.GetInUseAutonomyMultiplier`, cached per Sim, kind and tick): an object whose ETA is clearly worse
+  than the best of its kind on the lot (3 sim-min and 25 %) scores x0.1; when every one is 8 sim-min or more away and
+  the Sim is not urgent, x0.02: autonomy picks another real action now and the facility again once it is predicted free
+  (the factor goes back to 1 by itself). An accident that comes before the best ETA anyway: EA's score.
+- Wait (each sim-minute of a toilet, shower, bath or sink line, LineSwitch.cs's hook, before lineswitch's rule): move to
+  the object with the clearly best ETA (busy or free, other room, other floor; for a toilet line also a free shower with
+  `showerpeeplan` when Hygiene is below 70), through EA's own continuation + `FailedToStart` as lineswitch does; else, not
+  urgent and 8 sim-min or more to wait: leave the line (something else first, logged "came back" when it returns); else
+  wait. An accident before the turn with nothing better: EA's way (the accident stays). Per-Sim cooldown 20 sim-min
+  after a move; a failed plan or test leaves that object out of the wait's later checks. Player's orders: kept, unless
+  10 sim-min of wait and an identical free object (lineswitch's rule); never deferred.
+- `facilityquick` (36.5) and `facilitychain` (36.4) run on the same records.
+Scope: `facilityplan` NPCs, `facilityplanhh` household and selected Sims (a visible change: own switch, docs/271).
+Off: the waits are compare mode (`would` lines and counters); the pick hook runs only with `facilityplan` or
+`facilityplanlog` on (or `showertogether`, for the partner offer).
+
+### 36.4 `facilitychain` / `facilitychainhh`
+After a finished toilet use, a Sim whose Hygiene is below 0 or reaches -60 within 2 sim-hours takes a free shower (else
+bath) of the same room and level next; after a shower or bath, a due Bladder the same room's free toilet (not when
+`showerpee` filled it). EA's `PushAsContinuation` with EA's definitions (UseToilet's own, seen at the first toilet use;
+`Shower.TakeShower`, `Bathtub.TakeBath`); EA's `WashHands` continuation, pushed after ours, runs first. Only when nothing
+else is queued. The queued use counts in that object's busy-until for the others (36.3), so nobody is sent into the gap.
+Which comes first is EA's own pick (the more urgent need wins its score); the chain adds the other one.
+
+### 36.5 `facilityquick` / `facilityquickhh`
+A waiter (line check, or StandWaitLocked's privacy-locked cycle) whose need is urgent within 30 sim-min asks the current
+user of a shower, bath or toilet to end through EA's own `ExitReason.Finished` (the normal tail: rinse, step out, towel /
+flush, seat, wash hands) once the user's motive is at 70 (85 % of the bar, top of EA's neutral band; Hygiene stays far
+from Grungy) and the use is 5 sim-min old. Never without an urgent waiter, so a player's shower with nobody in a rush
+stays whole. The toilet qualifies: its loop end is the same tail as a full use (the bladder ends at 70 instead of 100).
+Scope is the user's (household users need `facilityquickhh`). Logged with the waiter, both motives and the time saved.
+
+### 36.6 Shower-pee and shared showers (`showerpeeplan`, `showerdirty`; ShowerShare.cs)
+- `showerpeeplan` / `showerpeeplanhh`: a shower that starts while the Sim has to pee, or will within 2 sim-hours, fills
+  the bladder whatever the toilets (base `showerpee` needs no usable toilet). The planner may send a long toilet line's
+  Sim to a free shower (36.3). User-approved behaviour change ("if they really need to piss").
+- `showerdirty`: a shower that filled the bladder ends at Hygiene 76 (`kPeeHygieneCap`, 88 %), a shared shower at 80
+  (`kShareHygieneCap`, 90 %) for both partners: `Motives.SetValue` as the Sim steps out (EA's commodity updates are over
+  by then). One switch for both; base `showerpee` and `showertogether` keep their old result with it off.
+- Tidy-ups found while there: a shower-pee entry that failed to begin stayed in `sShp` until the next bladder failure and
+  blocked every later shower of that Sim (the cool-down had no time check); `ShpToiletOnLot` walked every object of the
+  lot per call (now the typed toilet, all-in-one and shower lists).
+- Why `showertogether` rarely fires [verified]: it decides only when the second Sim's own Take Shower asks the line
+  while the partner showers, and autonomy almost never picks a shower that is in use (score x0.2). The planner's pick
+  hook now scores a partner's running shower as free for a Sim showertogether would let in (romantic, both young adult
+  or older, not disliked, nobody else in the line): the existing rules, more chances.
+
+### 36.7 Overlap with #738 (`fridgeline`) and #741 (`privacyroom`, `bathroomwait`)
+`bathroomwait` sends a waiting household Sim (Bladder at or below -20, all toilets busy) to the nearest toilet that
+frees; with `facilityplan` on it uses the planner: waiting starts at -20 or when the urgent level is within 2 sim-hours,
+Sims are served most urgent first, the target is the toilet (or with `showerpeeplan` the shower) with the best ETA
+including the walk and other floors, and a toilet that some Sim already has queued (not only one bathroomwait sent) is
+not free. `fridgeline` stays as it is; the pick hook covers the fridge (a 3-Sim line makes a needy Sim eat or cook
+elsewhere first). Details and bugs per branch: §36.9.
+
+### 36.8 Counters, checks, tests
+Counters 4740-4779 (registry), `FacilityPlanCheck run|result|reset|household`, selftests `facilityplan` (45) and
+`showershare` (+12), repros `facilityplan-rush`, `facilityplan-defer`, `facilityplan-urgent` (Sunset Valley, Bunch house:
+three toilets in two rooms, BathtubShowerModern). Swaps: `GameObject.GetInUseAutonomyMultiplier`,
+`InteractionInstance.BeginCommodityUpdates`, `InteractionInstance.EndCommodityUpdates` (stubs, swap-stack-audit).
+Limits [inferred]: walk speed is a constant, not a route plan (a plan is made before a move only); the fridge has no use
+record (busy = users and line); a route through a private room is not costed.

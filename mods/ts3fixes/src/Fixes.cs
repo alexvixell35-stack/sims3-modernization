@@ -536,6 +536,7 @@ namespace Ts3Fixes
             ApplyPartnerPull();        // docs/686 §21 (PartnerPull.cs): partnerpull, off by default (counts either way); a 0.5 sim-minute alarm started at world load, no swap
             ApplyReadWalk();           // docs/686 §22 (ReadWalk.cs): readwalk, off by default (counts either way); swaps Sim.LoopIdle and Sim.RouteToObjectRadialRange
             ApplySlotRetry();          // docs/686 §24 (SlotRetry.cs): slotretry, off by default (counts either way); swaps RoutingComponent.RouteToSlot (Slot[] core) and SimRoutingComponent.RouteToUnusedPart
+            ApplyFacilityPlan();       // docs/686 §36 (FacilityPlan.cs): facilityplan / facilityquick / facilitychain and their household switches, off by default (counts either way); swaps GameObject.GetInUseAutonomyMultiplier, InteractionInstance.Begin/EndCommodityUpdates; its wait step is in ApplyLineSwitch's hook
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
             ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyReactOverlay();       // docs/686 §26 (ReactOverlay.cs): reactoverlay / reactoverlayhh, off by default (counts either way); swaps Sim.PlayReaction
@@ -1415,7 +1416,14 @@ namespace Ts3Fixes
         // would, off / exempt (household without standwaitsocialhh) / errors.
         // [4692-4699] stairflow / stairtimelog (StairFlow.cs, docs/686 §32): stair, ladder and spiral uses timed / approaches without the
         // stop anim / would, off / kept (angle over kStairFlowDeg) / exits without the start anim / exit would, off / exempt / errors.
-        const int kCounterSlots = 4700;
+        // [4700-4739] the elevator block (ElevSkip / ElevParked / PoolShare, docs/686 §33-§35, another branch) and its spare.
+        // [4740-4779] facility planner (FacilityPlan.cs, docs/686 §36): switched / would switch / something else first / would / kept EA
+        // (urgent, nothing better) / exempt / picks lowered / picks all late / picks would / uses timed / errors / came back after a defer /
+        // facilityquick ended / would / exempt / facilitychain chained / would / exempt / wait checks / quick ends for privacy waiters /
+        // showerpeeplan fills (ShowerShare.cs) / showerpeeplan would / showerdirty after shower-pee / partner shower offers / bladder
+        // failures seen / line wait sim-min x10 / facility waits / toilet line to a shower (showerpeeplan) / showerdirty shared /
+        // showerdirty would; 4770-4779 spare.
+        const int kCounterSlots = 4780;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1767,7 +1775,17 @@ namespace Ts3Fixes
                 case "queuewake": return Instantiator.kQueueWake;  // QueueWake.cs (docs/686 §23): the first entry of an idle household or selected Sim wakes its loop at once, off
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
-                case "lineswitchlog": return Instantiator.kLineSwitchLog;  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "lineswitchlog": return Instantiator.kLineSwitchLog;
+                case "facilityplan": return Instantiator.kFacilityPlan;  // FacilityPlan.cs (docs/686 §36): NPCs pick and wait for the toilet, shower, bath or sink that frees soonest, or do something else first, off
+                case "facilityplanhh": return Instantiator.kFacilityPlanHh;  // FacilityPlan.cs (docs/686 §36): household and selected Sims too, off
+                case "facilityplanlog": return Instantiator.kFacilityPlanLog;  // FacilityPlan.cs (docs/686 §36): one line per case, off
+                case "facilityquick": return Instantiator.kFacilityQuick;  // FacilityPlan.cs (docs/686 §36.5): an NPC's shower, bath or toilet use ends at 85 % for an urgent waiter, off
+                case "facilityquickhh": return Instantiator.kFacilityQuickHh;  // FacilityPlan.cs: household and selected users too, off
+                case "facilitychain": return Instantiator.kFacilityChain;  // FacilityPlan.cs (docs/686 §36.4): toilet and shower or bath in one visit, NPCs, off
+                case "facilitychainhh": return Instantiator.kFacilityChainHh;  // FacilityPlan.cs: household and selected Sims too, off
+                case "showerpeeplan": return Instantiator.kShowerPeePlan;  // ShowerShare.cs (docs/686 §36.6): a shower fills the bladder of an NPC that has to pee soon, toilets or not, off
+                case "showerpeeplanhh": return Instantiator.kShowerPeePlanHh;  // ShowerShare.cs: household and selected Sims too, off
+                case "showerdirty": return Instantiator.kShowerDirty;  // ShowerShare.cs (docs/686 §36.6): shower-pee and shared showers leave Hygiene at 88 % / 90 %, off  // LineSwitch.cs (docs/686 §25): one line per case, off
                 case "linestale": return Instantiator.kLineStale;  // LineStale.cs (docs/686 §29): a line head whose action ended or sits queued behind another action leaves the line after 5 sim-min, NPC heads, off
                 case "linestalehh": return Instantiator.kLineStaleHh;  // LineStale.cs (docs/686 §29): household and selected heads too, off
                 case "linestalelog": return Instantiator.kLineStaleLog;  // LineStale.cs (docs/686 §29): one line per case, off
