@@ -603,6 +603,8 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLightningWeights value="True" />
     <kPlantDormantFlip value="True" />
     <kPlantDormantTime value="True" />
+    <kPlantRoofShelter value="False" />
+    <kPlantBuildRecheck value="False" />
     <kHarvestExtras value="True" />
     <kShroomSlots value="True" />
     <kHarvestRegion value="True" />

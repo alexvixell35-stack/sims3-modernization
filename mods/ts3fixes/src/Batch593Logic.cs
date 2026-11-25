@@ -172,6 +172,8 @@ namespace Ts3Fixes
         {
             public bool SeasonHook()
             {
+                bool roofed;
+                if (PrSheltered((Plant)(object)this, out roofed)) return roofed;
                 bool r = SeasonOrig();
                 try
                 {
@@ -192,6 +194,88 @@ namespace Ts3Fixes
             }
 
             public bool SeasonOrig() { return false; }
+        }
+
+        // ---- plantroofshelter + plantbuildrecheck (player question 2026-11-25) --------------------------------------------
+        // [verified, decompiled; in game 2026-11-25 repro plant-shelter-probe] Plant.UpdateSeasonalState shelters a plant only
+        // in a greenhouse or when !IsOutside && IsShelteredFromPrecipitation (roof or floor above). A plant under the roof of a
+        // porch, carport, patio or balcony reads outside, so it goes dormant at the first frost although no rain reaches it
+        // (EA's rain watering, Plant line `!IsShelteredFromPrecipitation`, already treats it as covered). plantroofshelter: a
+        // roof or floor above shelters. It runs in the plantdormantflip hook (B13PfHook) before EA's body, so EA never marks
+        // the plant dormant and never deletes its fruit (CheckForDeleteHarvestables). Counters: [4000] roofed outside
+        // evaluations sheltered, [4001] seen (switch off), [4002] errors.
+        // EA re-checks the state only at load and in the daily EvaluatePlantGrowth alarm (5:00 + random), so a roof or walls
+        // built over a garden leave it dormant until the next morning. plantbuildrecheck: SeasonsManager.OnExitBuildBuy
+        // (LotManager.ExitBuildBuyMode, Seasons on, back to live mode) re-checks the lot's plants as EvaluatePlantGrowth does
+        // (UpdateSeasonalState, then UpdateMaterialState on a visual change; not UpdateVisuals, whose UpdateSoilDampness costs
+        // a ForbiddenFruitTree quality). Counters: [4003] plants re-checked, [4004] dormant state changed, [4005] plants not
+        // re-checked (switch off), [4006] errors.
+        static readonly FieldInfo sPrLeafless = B12F(typeof(Plant), "mLeaflessState");
+        static readonly FieldInfo sPrFall = B12F(typeof(Plant), "mFallColorState");
+        static readonly MethodInfo sPrSeason = B12M(typeof(Plant), "UpdateSeasonalState");
+        static readonly MethodInfo sPrMaterial = B12M(typeof(Plant), "UpdateMaterialState");
+
+        static void ApplyPlantShelter()
+        {
+            string m = SpNames("Plant.mLeaflessState", sPrLeafless, "Plant.mFallColorState", sPrFall, "Plant.mDormant", sPfDormant);
+            if (m.Length > 0) AppliedLog().Add("plantroofshelter: not found: " + m);
+            m = SpNames("UpdateSeasonalState", sPrSeason, "UpdateMaterialState", sPrMaterial, "Plant.mDormant", sPfDormant);
+            if (m.Length > 0) { AppliedLog().Add("plantbuildrecheck: not found: " + m); return; }
+            Patch(typeof(SeasonsManager), "OnExitBuildBuy", new Type[] { typeof(Lot) }, typeof(PrExitHook), "ExitHook", "ExitOrig");
+        }
+
+        // True when plantroofshelter took this evaluation; changed is then UpdateSeasonalState's result (EA's sheltered branch).
+        static bool PrSheltered(Plant p, out bool changed)
+        {
+            changed = false;
+            try
+            {
+                if (sPrLeafless == null || sPrFall == null || sPfDormant == null || !SeasonsManager.Enabled || !p.IsOutside
+                    || World.IsPosInsideGreenhouse(p.Position) || !SeasonsManager.IsShelteredFromPrecipitation(p)) return false;
+                if (!ShortcutOn("plantroofshelter")) { PatchCounters()[4001]++; return false; }
+                PatchCounters()[4000]++;
+                if ((bool)sPrLeafless.GetValue(p) || (bool)sPrFall.GetValue(p) || (bool)sPfDormant.GetValue(p))
+                {
+                    sPrLeafless.SetValue(p, false); sPrFall.SetValue(p, false); sPfDormant.SetValue(p, false);
+                    changed = true;
+                }
+                return true;
+            }
+            catch (Exception) { PatchCounters()[4002]++; return false; }
+        }
+
+        // UpdateSeasonalState is swapped (B13PfHook): MethodInfo.Invoke on it throws TargetException, a bound delegate does not.
+        delegate bool PrSeasonFn();
+        delegate void PrVoidFn();
+
+        public class PrExitHook
+        {
+            public static void ExitHook(Lot lot)
+            {
+                ExitOrig(lot);
+                Plant[] plants;
+                try
+                {
+                    if (lot == null) return;
+                    plants = lot.GetObjects<Plant>();
+                    if (!ShortcutOn("plantbuildrecheck")) { PatchCounters()[4005] += plants.Length; return; }
+                }
+                catch (Exception) { PatchCounters()[4006]++; return; }
+                foreach (Plant p in plants)
+                {
+                    try
+                    {
+                        if (p == null || p.HasBeenDestroyed || !p.InWorld) continue;
+                        bool was = (bool)sPfDormant.GetValue(p);
+                        PatchCounters()[4003]++;
+                        if (((PrSeasonFn)Bind(typeof(PrSeasonFn), p, sPrSeason))()) ((PrVoidFn)Bind(typeof(PrVoidFn), p, sPrMaterial))();
+                        if ((bool)sPfDormant.GetValue(p) != was) PatchCounters()[4004]++;
+                    }
+                    catch (Exception) { PatchCounters()[4006]++; }
+                }
+            }
+
+            public static void ExitOrig(Lot lot) { }
         }
 
         // ---- B13 §4 plantdormanttime (docs/593 G2) -------------------------------------------------------------------

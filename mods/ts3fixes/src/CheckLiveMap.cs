@@ -355,6 +355,7 @@ namespace Ts3Fixes
                 case "photosubjectstars": return EpLive(typeof(BPsHook), 1);
                 case "picnicants": return EpLive(typeof(B12PaHook), 3, "sPaFx", sPaFx, null);
                 case "picniccamera": return EpLive(typeof(PcHook), 1);
+                case "plantbuildrecheck": return EpLive(typeof(PrExitHook), 1, "sPfDormant", sPfDormant, typeof(bool));
                 case "plantdormantflip": return EpLive(typeof(B13PfHook), 1, "sPfLeafless", sPfLeafless, 0, "sPfFrost", sPfFrost, typeof(float), "sPfFrost", sPfFrost, "static", "sPfLeaves", sPfLeaves, typeof(float), "sPfLeaves", sPfLeaves, "static", "sPfDormant", sPfDormant, typeof(bool), "sPfDormant", sPfDormant, null, "sPfFrosted", sPfFrosted, 0, "sPfDelete", sPfDelete, 0);
                 case "plantdormanttime": return EpLive(typeof(B13PtHook), 1, "sPfDormant", sPfDormant, typeof(bool), "sPtLast", sPtLast, null);
                 case "plumbotfacelistener": return EpLive(typeof(PlumbotFaceHook), 0, "sPfOwner", sPfOwner, null);
