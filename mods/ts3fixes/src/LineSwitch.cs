@@ -44,6 +44,8 @@ namespace Ts3Fixes
             public long Start;
             public bool Due, Would, Done;
             public int Why;
+            public bool FpSeen, FpWould, FpKept;  // docs/686 §36 (FacilityPlan.cs): the planner's own once-per-wait flags
+            public List<GameObject> FpBad;     // docs/686 §36: objects this wait could not plan to (left out of its later checks)
         }
 
         static readonly Dictionary<Sim, LswWait> sLswWaits = new Dictionary<Sim, LswWait>();
@@ -123,6 +125,7 @@ namespace Ts3Fixes
             {
                 LswWait cur;
                 if (s != null && sLswWaits.TryGetValue(s, out cur) && object.ReferenceEquals(cur, w)) sLswWaits.Remove(s);
+                FpWaitEnd(w);  // docs/686 §36: the line wait's length
                 if (w.Due && !w.Done && !w.Would)
                 {
                     PatchCounters()[kLswKept]++;
@@ -247,6 +250,15 @@ namespace Ts3Fixes
             {
                 if (sLswWaits.Count > 0)
                 {
+                    // docs/686 §36 (FacilityPlan.cs): the facility planner first (a sooner object, or something else first);
+                    // lineswitch's free-twin rule after it
+                    try
+                    {
+                        LswWait fw;
+                        if (sim != null && sLswWaits.TryGetValue(sim, out fw) && object.ReferenceEquals(fw.Queue, this) && FpWait(this, sim, fw)) return true;
+                    }
+                    catch (ResetException) { throw; }
+                    catch (Exception e) { FpError(e); }
                     try { if (LswCheck(this, sim)) return true; }
                     catch (ResetException) { throw; }
                     catch (Exception e) { LswError(e); }

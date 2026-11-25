@@ -178,6 +178,16 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLineSwitchHh value="False" />
     <kLineSwitchLog value="False" />
     <kLineSwitchMinutes value="2" />
+    <kFacilityPlan value="False" />
+    <kFacilityPlanHh value="False" />
+    <kFacilityPlanLog value="False" />
+    <kFacilityQuick value="False" />
+    <kFacilityQuickHh value="False" />
+    <kFacilityChain value="False" />
+    <kFacilityChainHh value="False" />
+    <kShowerPeePlan value="False" />
+    <kShowerPeePlanHh value="False" />
+    <kShowerDirty value="False" />
     <kSafeSpotYield value="False" />
     <kSafeSpotPlanYield value="True" />
     <kDisposeSpread value="False" />

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Autonomy;
@@ -27,9 +28,13 @@ namespace Ts3Fixes
     // to the active Sim, washing, already queued for the toilet, or away from home. Without privacyroom, RoomLockedByPrivacy reads
     // EA's "everyone is in the situation" answer and a busy bathroom can look free, so the push can fail at the door.
     // Each wait, push and give-up is logged ("bathroomwait: ...") up to kBwLogMax lines a session.
-    // Fixes (2026-11-25): a toilet with a line no longer counts as free (the push used to end in that line); one loop
-    // per world (a second world load used to start a second loop beside the first); the switch is read every pass (it
-    // used to be read only at world load); the first errors are logged.
+    // With facilityplan + facilityplanhh on (docs/686 §36.7) the facility planner decides: a Sim waits from kBwNeed or when
+    // its bladder reaches EA's urgent level (-60) within 2 sim-hours; the most urgent Sim is served first; the target is the
+    // toilet (or, with showerpeeplan, a shower that also fills the bladder) with the best ETA including the walk and other
+    // floors, and the Sim is sent only when that best one is free now (a nearer toilet about to free beats a far free one).
+    // Fixes (2026-11-25): a toilet with a line, or one some other Sim has queued, no longer counts as free (the push used
+    // to end in that line); one loop per world (a second world load used to start a second loop beside the first);
+    // the switch is read every pass (it used to be read only at world load); the first errors are logged.
     public static partial class Fixes
     {
         const int kBwLogMax = 400, kBwSleepTicks = 10;
@@ -67,7 +72,10 @@ namespace Ts3Fixes
                 {
                     Toilet[] toilets = null;
                     float now = SimClock.ElapsedTime(TimeUnit.Minutes);
-                    foreach (Sim s in h.AllActors)
+                    bool plan = ShortcutOn("facilityplan") && ShortcutOn("facilityplanhh");
+                    List<Sim> order = new List<Sim>(h.AllActors);
+                    if (plan) order.Sort(BwByBladder);  // the most urgent first
+                    foreach (Sim s in order)
                     {
                         if (s == null || s.HasBeenDestroyed || s.InteractionQueue == null || s.Motives == null) continue;
                         ulong id = s.ObjectId.Value;
@@ -75,7 +83,7 @@ namespace Ts3Fixes
                         bool waiting = wait.TryGetValue(id, out w);
                         string skip = BwSkip(s, h.LotHome);
                         float need = skip == null ? s.Motives.GetMotiveValue(CommodityKind.Bladder) : 0f;
-                        if (skip != null || need > kBwNeed)
+                        if (skip != null || (need > kBwNeed && !(plan && FpBwSoon(s))))
                         {
                             if (waiting)
                             {
@@ -86,7 +94,7 @@ namespace Ts3Fixes
                         }
                         if (toilets == null) toilets = h.LotHome.GetObjects<Toilet>();
                         if (toilets.Length == 0) continue;
-                        Toilet free = BwFree(s, h.LotHome, toilets, claim, now);
+                        GameObject free = plan ? FpBwPick(s, h.LotHome) : BwFree(s, h.LotHome, toilets, claim, now);
                         InteractionInstance cur = s.CurrentInteraction;
                         string doing = cur == null ? "nothing" : cur.GetType().Name;
                         if (!waiting)
@@ -102,7 +110,7 @@ namespace Ts3Fixes
                             continue;
                         }
                         string use;
-                        InteractionInstance ii = BwUse(free, s, out use);
+                        InteractionInstance ii = free is Toilet ? BwUse((Toilet)free, s, out use) : FpBwShower(free, s, out use);
                         if (ii == null)
                         {
                             // keeps waiting: the toilet's own test can refuse for a moment (11-24 A/B: 2 of 79 waits ended here);
