@@ -123,9 +123,9 @@ namespace Ts3Fixes
         // saved: an entry of the static sFglWaits lives inside one WaitForTurn call and the map is cleared at world load.
         const float kFglMaxMin = 45f, kFglPauseMin = 2f;
         const int kFglLogMax = 200;
-        sealed class FglWait { public Fridge F; public float Deadline; public bool Soft; public int Tries; }
+        sealed class FglWait { public Fridge F; public float Deadline; public bool Soft, Filled; public int Tries; }
         static readonly Dictionary<Sim, FglWait> sFglWaits = new Dictionary<Sim, FglWait>();
-        static int sFglQuiet, sFglRetries, sFglGot, sFglAutoQuiet, sFglLeft, sFglErrors, sFglLog;
+        static int sFglQuiet, sFglRetries, sFglGot, sFglNoFridge, sFglAutoQuiet, sFglLeft, sFglErrors, sFglLog;
 
         // Pure: is this fail soft (only the line's own reasons) with time left?
         internal static bool FglSoft(ExitReason r, float now, float deadline)
@@ -178,7 +178,7 @@ namespace Ts3Fixes
             try
             {
                 if (ii.Autonomous) { sFglAutoQuiet++; return false; }
-                if (FglFill(ii, a)) return false;  // this fridge action ends quietly; WashHands, then a fresh one, are next in the queue
+                if (FglFill(ii, a)) { w.Filled = true; return false; }  // this fridge action ends quietly; WashHands, then a fresh one, are next in the queue
                 a.RemoveExitReason(ExitReason.ObjectInUse | ExitReason.TimedOut);
                 a.LoopIdle();
                 if (a.WaitForExitReason(kFglPauseMin, exitReasons)) { a.AddExitReason(ExitReason.ObjectInUse); sFglLeft++; return false; }
@@ -201,7 +201,7 @@ namespace Ts3Fixes
         const int kFglFillMax = 2;
         const float kFglFillWindowMin = 120f;
         static readonly Dictionary<Sim, float[]> sFglFills = new Dictionary<Sim, float[]>();  // Sim -> {fills, first fill sim-min}
-        static int sFglFilled;
+        static int sFglFilled, sFglGotAfterFill;
 
         static bool FglFill(InteractionInstance ii, Sim a)
         {
@@ -258,7 +258,19 @@ namespace Ts3Fixes
             FglWait w;
             if (a == null || sFglWaits.Count == 0 || !sFglWaits.TryGetValue(a, out w)) return;
             sFglWaits.Remove(a);
-            if (!got || w.Tries == 0) return;
+            if (w.Filled) return;  // handed to fridgelinefill (WashHands, then a fresh instance with its own wait)
+            if (got && sFglFills.Remove(a))  // the fresh instance after a fill got it; removing also resets the Sim's fill cap
+            {
+                sFglGotAfterFill++;
+                if (++sFglLog <= kFglLogMax) DiagLine("fridgeline: " + a.FullName + " " + ShlWho(a) + ": got the fridge after washing hands");
+            }
+            if (w.Tries == 0) return;
+            if (!got)
+            {
+                sFglNoFridge++;  // retried, then the action ended without the fridge (cancel, exit reason, replaced, fridge gone)
+                if (++sFglLog <= kFglLogMax) DiagLine("fridgeline: " + a.FullName + " " + ShlWho(a) + ": ended without the fridge after " + w.Tries + " quiet retries (" + a.ExitReason + ")");
+                return;
+            }
             sFglGot++;
             if (++sFglLog <= kFglLogMax) DiagLine("fridgeline: " + a.FullName + " " + ShlWho(a) + ": got the fridge after " + w.Tries + " quiet retries");
         }
@@ -270,8 +282,8 @@ namespace Ts3Fixes
                 && !FglSoft(ExitReason.ObjectInUse | ExitReason.UserCanceled, 0f, d) && !FglSoft(ExitReason.TimedOut | ExitReason.HigherPriorityNext, 0f, d)
                 && !FglSoft(ExitReason.ObjectInUse, d, d) && !FglSoft(ExitReason.None, 0f, d);
             return "fridgeline " + (ShortcutOn("fridgeline") ? "on" : "off") + ", fridgelinehh " + (ShortcutOn("fridgelinehh") ? "on" : "off")
-                + ": quiet soft fails " + sFglQuiet + ", retries " + sFglRetries + ", got the fridge after a retry " + sFglGot
-                + ", fridgelinefill " + (ShortcutOn("fridgelinefill") ? "on" : "off") + " washed hands first " + sFglFilled
+                + ": quiet soft fails " + sFglQuiet + ", retries " + sFglRetries + ", got the fridge after a retry " + sFglGot + ", ended without it after a retry " + sFglNoFridge
+                + ", fridgelinefill " + (ShortcutOn("fridgelinefill") ? "on" : "off") + " washed hands first " + sFglFilled + ", got the fridge after washing " + sFglGotAfterFill
                 + ", autonomous ended quietly " + sFglAutoQuiet + ", left during the pause " + sFglLeft + ", balloons played " + sFglBalloons + ", errors " + sFglErrors
                 + ", open waits " + sFglWaits.Count + ", self-check " + (self ? "ok" : "FAILED");
         }
