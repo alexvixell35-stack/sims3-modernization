@@ -308,7 +308,7 @@ namespace Ts3Fixes
                     }
                     Sim was = sHeActor;
                     sHeActor = actor;
-                    try { sHeJournal.Invoke(hp, new object[] { skill, hp.PlantDef, list }); }  // virtual: OmniPlant / MoneyTree keep theirs
+                    try { HeJournal(hp, skill, list); }
                     finally { sHeActor = was; }
                 }
                 if (!hasHarvested)
@@ -321,10 +321,31 @@ namespace Ts3Fixes
                 return true;
             }
 
+            // UpdateGardeningSkillJournal is virtual (OmniPlant and MoneyTree override it), and its HarvestPlant body is our
+            // JournalHook. Mono refuses MethodInfo.Invoke of a swapped instance method ("TargetException: Unable to invoke an
+            // invalid target": the target is checked against the hook class), so v0.3.2's sHeJournal.Invoke threw on every
+            // harvest by a Sim with the Gardening skill: the fruit was taken, the plant stayed ripe and EA reset the Sim
+            // (player report 2026-11-25, repro garden-tend-reset). Now an override runs through a bound delegate and the
+            // HarvestPlant body runs as a direct call. The swapped method carries our hook's header (klass included), so its
+            // DeclaringType reads as the hook class: an override is told apart by its handle, not by DeclaringType.
+            delegate void HeJournalFn(Sims3.Gameplay.Skills.Gardening gardeningSkill, PlantDefinition def, List<GameObject> harvested);
+            static void HeJournal(HarvestPlant hp, Sims3.Gameplay.Skills.Gardening skill, List<GameObject> list)
+            {
+                MethodInfo m = hp.GetType().GetMethod("UpdateGardeningSkillJournal", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                    new Type[] { typeof(Sims3.Gameplay.Skills.Gardening), typeof(PlantDefinition), typeof(List<GameObject>) }, null);
+                if (m != null && m.MethodHandle.Value != sHeJournal.MethodHandle.Value) ((HeJournalFn)Fixes.Bind(typeof(HeJournalFn), hp, m))(skill, hp.PlantDef, list);
+                else HeJournalFixed(hp, skill, hp.PlantDef, list);
+            }
+
             public void JournalHook(Sims3.Gameplay.Skills.Gardening gardeningSkill, PlantDefinition def, List<GameObject> harvested)
             {
                 if (!ShortcutOn("harvestextras")) { JournalOrig(gardeningSkill, def, harvested); return; }
-                HarvestPlant hp = (HarvestPlant)(object)this;
+                HeJournalFixed((HarvestPlant)(object)this, gardeningSkill, def, harvested);
+            }
+
+            // The fixed journal body (harvestextras on): mushroom collecting credits the harvester.
+            static void HeJournalFixed(HarvestPlant hp, Sims3.Gameplay.Skills.Gardening gardeningSkill, PlantDefinition def, List<GameObject> harvested)
+            {
                 Sim credit = HeCredit(true, sHeActor, PlumbBob.SelectedActor);
                 foreach (GameObject item in harvested)
                 {

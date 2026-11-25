@@ -100,7 +100,7 @@ namespace Ts3Fixes
                 case "catnamecache": return EpJoin(EpLive(typeof(BuffParseHook), 0), EpLive(typeof(CatalogNameHook), 0));
                 case "celebalarmnull": return EpLive(typeof(BCaHook), 2);
                 case "ceremonyspot": return EpJoin(EpLive(typeof(CeremonySpotHook), 1), EpLive(typeof(EventCrowdRingHook), 1));
-                case "chessdefeated": return EpLive(typeof(B12CdHook), 1, "sCdRank", sCdRank, typeof(int), "sCdBest", sCdBest, typeof(int), "sCdWho", sCdWho, null, "sCdBest", sCdBest, null, "sCdFind", sCdFind, 0);
+                case "chessdefeated": return EpLive(typeof(B12CdHook), 1, "sCdRank", sCdRank, typeof(int), "sCdBest", sCdBest, typeof(int), "sCdWho", sCdWho, null, "sCdBest", sCdBest, null);
                 case "chestuselist": return EpLive(typeof(ChestUseListHook), 0);
                 case "cleanflag": return EpJoin(EpLive(typeof(CfBasketHook), 0), EpLive(typeof(CfPitHook), 0));
                 case "cleanupvfx": return EpLive(typeof(B12CvHook), 1, "sCvList", sCvList, null);
@@ -217,7 +217,7 @@ namespace Ts3Fixes
                 case "grouptalkstale": return EpLive(typeof(GtHook), 2, "sGtField", sGtField, null, "sGtMembers", sGtMembers, "get");
                 case "guitargnomeboost": return EpLive(typeof(BGgHook), 1);
                 case "handsetreset": return EpLive(typeof(HandsetResetHook), 1, "sOuSetState", sOuSetState, 1);
-                case "harvestextras": return EpLive(typeof(B13HeHook), 2, "sHeHarvest", sHeHarvest, 3, "sHeManip", sHeManip, 2, "sHeJournal", sHeJournal, 3);
+                case "harvestextras": return EpLive(typeof(B13HeHook), 2, "sHeHarvest", sHeHarvest, 3, "sHeManip", sHeManip, 2);
                 case "harvestregion": return EpLive(typeof(B13HrHook), 1);
                 case "hauntedumbrella": return EpLive(typeof(HauntedUmbrellaHook), 0, "sHuFlag", sHuFlag, typeof(bool));
                 case "heartbrokenbcast": return EpLive(typeof(HbBcastHook), 1);

@@ -93,6 +93,10 @@ namespace Ts3Fixes
         static readonly FieldInfo sCdBest = B12F(typeof(LogicSkill), "mRankOfHighestRankingDefeatedOpponent");
         static readonly FieldInfo sCdWho = B12F(typeof(LogicSkill), "mChessHighestRankingDefeatedOpponent");
         static readonly MethodInfo sCdFind = B12M(typeof(LogicSkill), "FindSuitableChessRankOpponent");
+        // FindSuitableChessRankOpponent is swapped too (DeadRefsDescRev.cs DdChessHook), so MethodInfo.Invoke on it throws
+        // TargetException (the target is checked against the hook class): before, every win with the switch on counted an
+        // error [3120] and never picked the next challenger. A bound delegate has no target check (EaFixes.cs PrefRemoveFn).
+        delegate void CdFindFn();
         static string sCdM12 = "";
 
         static void ApplyChessDefeated()
@@ -119,7 +123,7 @@ namespace Ts3Fixes
                         if (CdBetter((int)sCdBest.GetValue(this), rank)) { sCdWho.SetValue(this, sd); sCdBest.SetValue(this, rank); }
                     }
                     PatchCounters()[3118]++;
-                    sCdFind.Invoke(this, null);
+                    ((CdFindFn)Bind(typeof(CdFindFn), this, sCdFind))();
                 }
                 catch (Exception) { PatchCounters()[3120]++; }
             }

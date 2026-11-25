@@ -141,9 +141,34 @@ namespace Ts3Fixes
 
         public static object ChessDefeatedCheck(string what)
         {
+            if (what == "live") return ChessDefeatedLive();
             bool f = false, c = false;
             try {  f = CdBetter(3, 3) && CdBetter(3, 5); c = !CdBetter(5, 3); } catch (Exception) { }
             return B12Check(what, "chessdefeated", 1784, new string[] { "wins recorded our way", "EA's record (switch off)", "errors" }, sCdM12, "equal or stronger opponent stored", f, "weaker opponent not stored", c);
+        }
+
+        // live: EA's public UpdateChessTournamentStatistics on the selected Sim's LogicSkill with another Sim as the beaten
+        // opponent, so the hook runs end to end, its FindSuitableChessRankOpponent call included (v0.3.2 reached it through
+        // MethodInfo.Invoke: TargetException, counted [3120]). Writes that Sim's tournament record and gives both Sims the
+        // Logic skill if they lack it: test saves only.
+        static object ChessDefeatedLive()
+        {
+            Sim s = Sims3.Gameplay.Core.PlumbBob.SelectedActor;
+            if (s == null || s.SkillManager == null) return "chessdefeated live: no selected Sim";
+            Sim opp = null;
+            foreach (Sim o in Sims3.Gameplay.Queries.GetObjects<Sim>())
+                if (o != s && o.SkillManager != null && o.SimDescription != null && !o.HasBeenDestroyed) { opp = o; break; }
+            if (opp == null) return "chessdefeated live: no other Sim in the world";
+            Sims3.Gameplay.Skills.LogicSkill mine = s.SkillManager.GetSkill<Sims3.Gameplay.Skills.LogicSkill>(Sims3.Gameplay.Skills.SkillNames.Logic) ?? s.SkillManager.AddElement(Sims3.Gameplay.Skills.SkillNames.Logic) as Sims3.Gameplay.Skills.LogicSkill;
+            if (opp.SkillManager.GetSkill<Sims3.Gameplay.Skills.LogicSkill>(Sims3.Gameplay.Skills.SkillNames.Logic) == null) opp.SkillManager.AddElement(Sims3.Gameplay.Skills.SkillNames.Logic);
+            if (mine == null) return "chessdefeated live: no LogicSkill on " + s.FullName;
+            System.Reflection.FieldInfo next = typeof(Sims3.Gameplay.Skills.LogicSkill).GetField("mChessRankingNextChallenger", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            int[] pc = PatchCounters();
+            int ours = pc[3118], ea = pc[3119], err = pc[3120];
+            mine.UpdateChessTournamentStatistics(opp.SimDescription);
+            Sims3.Gameplay.CAS.SimDescription ch = next == null ? null : next.GetValue(mine) as Sims3.Gameplay.CAS.SimDescription;
+            return "chessdefeated live: switch " + (ShortcutOn("chessdefeated") ? "on" : "off") + ", beat " + opp.FullName + ": ours +" + (pc[3118] - ours)
+                + ", EA's +" + (pc[3119] - ea) + ", errors +" + (pc[3120] - err) + ", next challenger " + (ch == null ? "none" : ch.FullName);
         }
 
         public static object PrivacyOthersCheck(string what)
