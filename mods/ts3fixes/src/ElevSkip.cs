@@ -43,6 +43,20 @@ namespace Ts3Fixes
     // the game's code. Counters 4700-4710 and 4721 (household, unseen). Check: ElevSkipCheck.
     public static partial class Fixes
     {
+        // The camera half of FarFromViewers, for household opt-ins (elevskiphhunseen, fridgeffunseen): FarFromViewers also
+        // counts every active-household Sim within reach as a viewer, so for a household Sim at home (its own viewer at
+        // distance 0) it is never true. This asks only whether the player can see the spot: away from the camera's target
+        // and eye (callers also test UcOnScreen).
+        static bool FarFromCamera(Sims3.SimIFace.Vector3 p)
+        {
+            long now = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            if (now != sViewTick) RefreshViewers(now);
+            float dx = p.x - sCamTarget.x, dy = p.y - sCamTarget.y, dz = p.z - sCamTarget.z;
+            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
+            dx = p.x - sCamPos.x; dy = p.y - sCamPos.y; dz = p.z - sCamPos.z;
+            return dx * dx + dy * dy + dz * dz >= sReach2;
+        }
+
         const int kEskNpc = 4700, kEskHh = 4701, kEskWould = 4702, kEskSeen = 4703, kEskExempt = 4704, kEskRepeat = 4705,
             kEskNoExit = 4706, kEskErrors = 4707, kEskLaunches = 4708, kEskRiders = 4709, kEskSolo = 4710,
             kEskHhUnseen = 4721;
@@ -171,7 +185,7 @@ namespace Ts3Fixes
                 // rejects household Sims by design, so its off-screen test is done here directly.
                 bool selected = a == PlumbBob.SelectedActor;
                 bool unseen = npc ? TownieUnseen(a, null) && !UcOnScreen(exit) && FarFromViewers(want)
-                    : hhUnseenOn && !selected && !UcOnScreen(a) && FarFromViewers(a.Position) && !UcOnScreen(exit) && FarFromViewers(want);
+                    : hhUnseenOn && !selected && !UcOnScreen(a) && FarFromCamera(a.Position) && !UcOnScreen(exit) && FarFromCamera(want);
                 int d = ElevSkipCore.Decide(on, hhOn, hhUnseenOn, true, npc, selected, unseen, waited, Instantiator.kElevSkipHhWait, recent);
                 if (d != ElevSkipCore.kGo)
                 {
