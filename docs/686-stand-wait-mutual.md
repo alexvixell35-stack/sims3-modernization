@@ -2405,3 +2405,24 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   Status: built, default off, PROVEN by storm (one case on, three off).
 - partnerpull's "pulled" lines now name the partner's posture and position and the starter's distance (kept from the
   seat-rule test above).
+
+## 31. Round 13 leads from storm s550 (2026-11-25, Deck, new games, 5 min) [verified in logs; A PROVEN]
+
+**A. Appaloosa fire route spam (s550a).** Not an EA replan loop and not a new bug of ours: the horses' `ReactToFire`
+plans (thrown away, docs/546 §10) fail every time the fire re-pushes the reaction, NRaas Overwatch's Stuck Check V2 then
+resets the standing horses ("Unroutable"), and each reset's `AttemptToPutInSafeLocation` searches the front door with
+~200 failing plans. Existing switch `petfireplan` removes the whole chain. Forced indoor fire (`PetFireCheck startin`),
+s552a off / s552b on: routefail lines 11,498 -> 12, hitches >= 150 ms 49 (23.9 s) -> 3 (1.1 s, none routing), 519 plans
+skipped, errors 0. Details and caller stacks: docs/546 §10.1. Action: add `petfireplan` to the all-on storm list.
+(The two "spot probe" lines from `Handlers.UnroutableSpots` are the storm agent's own `nopath` target search.)
+
+**B. Twinbrook queue bucket 64.9 s (s550f).** 55.5 s of it is one entry: Max Racket's `SimRoutingComponent+BePushed`
+(a "move out of the way" request) queued at night behind his sleep and run after `GetOutOfBed` at 7:02 AM (16,460
+ticks before Run). EA does not push a sleeping Sim; the Sim that asked routes around him. Accounting, not a visible wait;
+no fix. The next largest is a 6.5 s `ReactionInteraction` behind `EatHeldFood`.
+
+**C. Bridgeport elevator lines (s550e).** 139 of the 183 lines are `crowdport` NPC log lines ("stays in the line, doors
+closed, car in use" / EA's teleport skip after 1.1 sim-min). Household: Indie Girl waited in one ElevatorDoors line 8
+times (1.1 sim-min each, timed out and re-queued, then got her turn; later a 15.2 sim-min wait ended by the game's
+teleport skip) behind a queue of 5-6 apartment Sims going to the same upper floor, while the single car served other
+floors. Elevator throughput as designed; no stale holder seen (the car's user changed every turn). No fix.
