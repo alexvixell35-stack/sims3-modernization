@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Autonomy;
 using Sims3.Gameplay.CAS;
 using Sims3.Gameplay.Core;
@@ -26,21 +27,25 @@ namespace Ts3Fixes
     // to the active Sim, washing, already queued for the toilet, or away from home. Without privacyroom, RoomLockedByPrivacy reads
     // EA's "everyone is in the situation" answer and a busy bathroom can look free, so the push can fail at the door.
     // Each wait, push and give-up is logged ("bathroomwait: ...") up to kBwLogMax lines a session.
+    // Fixes (2026-11-25): a toilet with a line no longer counts as free (the push used to end in that line); one loop
+    // per world (a second world load used to start a second loop beside the first); the switch is read every pass (it
+    // used to be read only at world load); the first errors are logged.
     public static partial class Fixes
     {
         const int kBwLogMax = 400, kBwSleepTicks = 10;
         const float kBwNeed = -20f, kBwMaxWaitMin = 180f, kBwClaimMin = 30f;
-        static int sBwN;
+        static int sBwN, sBwGen, sBwErrors;
 
         sealed class BwWait { public float T0; public float Need0; public bool TestFailLogged; }
         sealed class BwClaim { public Sim S; public float T0; }
 
         public static void BathroomWaitWorldLoad()
         {
+            int gen = ++sBwGen;  // a loop of an older world load sees the new generation and ends
             if (!ShortcutOn("bathroomwait")) return;
             Dictionary<ulong, BwWait> wait = new Dictionary<ulong, BwWait>();
             Dictionary<ulong, BwClaim> claim = new Dictionary<ulong, BwClaim>();
-            Simulator.AddObject(new LoopTask(delegate { BathroomWaitLoop(wait, claim); }));
+            Simulator.AddObject(new LoopTask(delegate { BathroomWaitLoop(wait, claim, gen); }));
         }
 
         static void BwLog(Sim s, string what)
@@ -50,11 +55,12 @@ namespace Ts3Fixes
         }
 
         // shortcut: Sims are served in household order, not the most urgent first; sort by Bladder if two often wait for one toilet
-        static void BathroomWaitLoop(Dictionary<ulong, BwWait> wait, Dictionary<ulong, BwClaim> claim)
+        static void BathroomWaitLoop(Dictionary<ulong, BwWait> wait, Dictionary<ulong, BwClaim> claim, int gen)
         {
-            while (true)
+            while (gen == sBwGen)
             {
                 Simulator.Sleep(kBwSleepTicks);
+                if (!ShortcutOn("bathroomwait")) { wait.Clear(); continue; }
                 Household h = Household.ActiveHousehold;
                 if (h == null || h.LotHome == null) continue;
                 try
@@ -112,7 +118,7 @@ namespace Ts3Fixes
                     }
                 }
                 catch (ResetException) { throw; }
-                catch (Exception) { }  // a Sim or toilet gone mid-loop: next sample
+                catch (Exception e) { if (sBwErrors++ < 3) DiagLine("bathroomwait: error: " + e.GetType().Name + ": " + e.Message); }  // a Sim or toilet gone mid-loop: next sample
             }
         }
 
@@ -141,6 +147,8 @@ namespace Ts3Fixes
             foreach (Toilet t in toilets)
             {
                 if (t == null || t.HasBeenDestroyed || t.InUse) continue;
+                SimQueue line = t.SimLine;
+                if (line != null && line.HasMembers()) continue;  // somebody is in its line: the push would only join it
                 if (t.Repairable != null && t.Repairable.Broken) continue;
                 if (home.RoomLockedByPrivacy(s, t.RoomId)) continue;
                 BwClaim c;
