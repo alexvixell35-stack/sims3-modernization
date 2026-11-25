@@ -54,6 +54,7 @@ namespace Ts3Fixes
         static bool sRcAny, sRcLog;
         static int sRcSwitchCalls;
         static string sRcLastWrong = "";
+        static int sRcSumTick;
 
         static void RcSwitches()
         {
@@ -185,6 +186,8 @@ namespace Ts3Fixes
             RcSwitches();
             if (!sRcAny || OnWorker()) return false;
             int[] c = PatchCounters();
+            int now0 = System.Environment.TickCount;
+            if (!NoStartCore.Within(now0, sRcSumTick, 600000)) { sRcSumTick = now0; if (c[4820] > 0) DiagLine(RcCounters()); }  // a counters line every 10 min
             try
             {
                 IScriptProxy f = r.Follower;
@@ -278,6 +281,7 @@ namespace Ts3Fixes
                     // the plan ran (verify mode); acting still drops the balloon and records the pair
                     if (lot != null) RcActed(r, p.Sim, ia, lot, IsPlayerSim(p.Sim), c, p.Text + " (verified " + res.mType + ")");
                 }
+                else RcLine("would refuse (verified " + res.mType + ") " + p.Text);
             }
             catch (Exception e) { c[4835]++; RcLine("error after " + e.GetType().Name); }
         }
