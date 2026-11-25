@@ -25,22 +25,27 @@ namespace Ts3Fixes
     // elevator lane waits, 9,730 sim-min, most of them NPCs in Bridgeport towers; 341 of them gave up after a mean of 13
     // sim-min with no Sim holding the doors lane (the car was elsewhere).
     //
-    // elevskip (NPCs) / elevskiphh (household and selected Sims, and NPCs in view)
+    // elevskip (NPCs) / elevskiphh (household and selected Sims, and NPCs in view) / elevskiphhunseen (unseen household Sims)
     //   Fix: a Sim in the doors' line (the line hook, CrowdPort.cs CpLineHook) whose route rides this column is set at the
     //   doors of the floor its ride ends on: the line answers "timed out", so EA's WaitInLine runs TryTeleportSkip, and our
     //   hook of TryTeleportSkip places the Sim (EA's FindGoodLocation near the far doors' outer slot, as the game's own exit
     //   does) and answers true, so the game replans from there exactly as after its own skip. The car, its use lists,
     //   its riders and the doors are not touched. An unseen NPC (the Sim and the far doors off screen and away from
     //   viewers) goes at once with no fade; with elevskiphh the others go after kElevSkipHhWait sim-minutes with EA's fade.
+    //   elevskiphhunseen (default off, only with elevskip + elevskiphh) is an explicit player opt-in that lifts the household
+    //   rule (household Sims never count as unseen) for elevator skips only: a household Sim that is not the selected Sim,
+    //   off screen itself, with the far doors off screen and away from viewers, goes at once with no fade like an unseen NPC.
+    //   The selected Sim never counts as unseen; a household Sim on screen keeps elevskiphh's wait and fade.
     //   A Sim set through an elevator in the last kElevSkipRepeatMin sim-minutes keeps the game's wait.
     // elevtriplog: one line per car launch (riders, the wait in the car) and per Sim set through; either switch state.
     //
     // Horses, pets, Sims carrying a child, toddlers and rides for the elevator's own sake (its interactions, WooHoo) keep
-    // the game's code. Counters 4700-4710. Check: ElevSkipCheck.
+    // the game's code. Counters 4700-4710 and 4721 (household, unseen). Check: ElevSkipCheck.
     public static partial class Fixes
     {
         const int kEskNpc = 4700, kEskHh = 4701, kEskWould = 4702, kEskSeen = 4703, kEskExempt = 4704, kEskRepeat = 4705,
-            kEskNoExit = 4706, kEskErrors = 4707, kEskLaunches = 4708, kEskRiders = 4709, kEskSolo = 4710;
+            kEskNoExit = 4706, kEskErrors = 4707, kEskLaunches = 4708, kEskRiders = 4709, kEskSolo = 4710,
+            kEskHhUnseen = 4721;
 
         sealed class EskArm { public ElevatorDoors Exit; public Vector3 Pos, Fwd; public bool Fade; public long At; }
         sealed class EskLaunch { public long At; }
@@ -136,7 +141,7 @@ namespace Ts3Fixes
                 bool plain = a.IsHuman && !a.IsInRidingPosture && a.CarryingChildPosture == null && a.SimDescription.ChildOrAbove
                     && a.ExitReason == ExitReason.None && !(interaction.Target is ElevatorDoors) && !(a.CurrentInteraction is ElevatorDoors.WooHoo);
                 if (!plain) return false;
-                bool on = ShortcutOn("elevskip"), hhOn = ShortcutOn("elevskiphh");
+                bool on = ShortcutOn("elevskip"), hhOn = ShortcutOn("elevskiphh"), hhUnseenOn = hhOn && ShortcutOn("elevskiphhunseen");
                 CpElev e;
                 float waited = CpElevWaited(a, doors, out e);
                 if (!on)
@@ -160,8 +165,14 @@ namespace Ts3Fixes
                     return false;
                 }
                 Vector3 want = exit.GetPositionOfSlot(Slot.RoutingSlot_0);
-                bool unseen = npc && TownieUnseen(a, null) && !UcOnScreen(exit) && FarFromViewers(want);
-                int d = ElevSkipCore.Decide(on, hhOn, true, npc, unseen, waited, Instantiator.kElevSkipHhWait, recent);
+                // Household rule (CLAUDE.md): household Sims never count as unseen. elevskiphhunseen (default off) is the player's
+                // explicit opt-in that lifts it for elevator skips only: a household Sim other than the selected Sim, off screen
+                // itself, with the far doors off screen and away from viewers, then goes at once with no fade. TownieUnseen
+                // rejects household Sims by design, so its off-screen test is done here directly.
+                bool selected = a == PlumbBob.SelectedActor;
+                bool unseen = npc ? TownieUnseen(a, null) && !UcOnScreen(exit) && FarFromViewers(want)
+                    : hhUnseenOn && !selected && !UcOnScreen(a) && FarFromViewers(a.Position) && !UcOnScreen(exit) && FarFromViewers(want);
+                int d = ElevSkipCore.Decide(on, hhOn, hhUnseenOn, true, npc, selected, unseen, waited, Instantiator.kElevSkipHhWait, recent);
                 if (d != ElevSkipCore.kGo)
                 {
                     if (!e.EskCounted)
@@ -184,7 +195,7 @@ namespace Ts3Fixes
                 }
                 if (fwd == Vector3.Invalid || fwd.LengthSqr() < 1e-4f) fwd = exit.GetForwardOfSlot(Slot.RoutingSlot_0) * -1f;
                 EskArm arm = new EskArm();
-                arm.Exit = exit; arm.Pos = pos; arm.Fwd = fwd; arm.Fade = ElevSkipCore.Fade(npc, unseen); arm.At = SimClock.CurrentTicks;
+                arm.Exit = exit; arm.Pos = pos; arm.Fwd = fwd; arm.Fade = ElevSkipCore.Fade(hhOn, hhUnseenOn, npc, selected, unseen); arm.At = SimClock.CurrentTicks;
                 if (sEskArmed.Count > 64) sEskArmed.Clear();
                 sEskArmed[id] = arm;
                 a.AddExitReason(ExitReason.TimedOut);
@@ -224,9 +235,9 @@ namespace Ts3Fixes
                     if (sEskLastSkip.Count > 256) sEskLastSkip.Clear();
                     sEskLastSkip[s.ObjectId.Value] = SimClock.CurrentTicks;
                     bool npc = !IsPlayerSim(s);
-                    c[arm.Fade ? kEskHh : kEskNpc]++;
+                    c[arm.Fade ? kEskHh : npc ? kEskNpc : kEskHhUnseen]++;
                     EskLine(s.FullName + " " + ShlWho(s) + " goes through the elevator from level " + (doors == null ? -1 : EskLevel(doors)) + " to level " + EskLevel(arm.Exit)
-                        + " after " + waited.ToString("0.0") + " sim-min (" + (arm.Fade ? "fade" : "unseen") + (npc ? "" : ", household") + "), car "
+                        + " after " + waited.ToString("0.0") + " sim-min (" + (arm.Fade ? (npc ? "fade" : "fade, household") : (npc ? "unseen" : "household, unseen")) + "), car "
                         + (doors != null && doors.InteriorObj != null && doors.InteriorObj.InUse ? "in use" : "free") + ", doors " + (doors != null && doors.mIsOpen ? "open" : "closed") + ", at " + V(arm.Pos));
                     return true;
                 }
@@ -276,7 +287,7 @@ namespace Ts3Fixes
         static string EskCounters()
         {
             int[] c = PatchCounters();
-            return "elevskip: set through " + c[kEskNpc] + " unseen NPCs, " + c[kEskHh] + " with fade; would, off " + c[kEskWould] + ", NPC in view kept " + c[kEskSeen]
+            return "elevskip: set through " + c[kEskNpc] + " unseen NPCs, " + c[kEskHhUnseen] + " household, unseen, " + c[kEskHh] + " with fade; would, off " + c[kEskWould] + ", NPC in view kept " + c[kEskSeen]
                 + ", household exempt " + c[kEskExempt] + ", repeat kept " + c[kEskRepeat] + ", no exit spot " + c[kEskNoExit] + ", errors " + c[kEskErrors]
                 + "; car launches " + c[kEskLaunches] + " (riders " + c[kEskRiders] + ", one rider " + c[kEskSolo] + ")"
                 + (sEskMissing.Length > 0 ? "; not found: " + sEskMissing : "") + (sEskLast.Length > 0 ? "; last: " + sEskLast : "") + (sEskLastError.Length > 0 ? "; " + sEskLastError : "");
@@ -297,6 +308,11 @@ namespace Ts3Fixes
                         && ElevSkipCore.Decide(true, true, true, false, false, 1f, 1f, false) == ElevSkipCore.kGo
                         && ElevSkipCore.Decide(true, true, true, true, true, 0f, 1f, true) == ElevSkipCore.kRepeat
                         && ElevSkipCore.Decide(true, true, false, true, true, 9f, 1f, false) == ElevSkipCore.kNone
+                        && ElevSkipCore.Decide(true, true, true, true, false, false, true, 0f, 1f, false) == ElevSkipCore.kGo
+                        && !ElevSkipCore.Fade(true, true, false, false, true)
+                        && ElevSkipCore.Decide(true, true, false, true, false, false, true, 0f, 1f, false) == ElevSkipCore.kWait
+                        && ElevSkipCore.Decide(true, true, true, true, false, true, true, 0f, 1f, false) == ElevSkipCore.kWait
+                        && ElevSkipCore.Fade(true, true, false, true, true)
                         && ElevSkipCore.ExitDoors(new int[] { 1, 1, 2, 0 }, 4) == 2 && ElevSkipCore.ExitDoors(new int[] { 2 }, 1) == -1;
                     bool on = ShortcutOn("elevskip");
                     return "ElevSkipCheck run: verdict " + (on ? (fix ? "FIXED" : "BROKEN") : (off ? "BROKEN" : "?")) + ", controls ok=" + ctl + "; " + EskCounters();

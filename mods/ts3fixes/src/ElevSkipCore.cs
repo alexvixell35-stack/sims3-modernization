@@ -1,6 +1,6 @@
 namespace Ts3Fixes
 {
-    // Game-independent rules of elevskip / elevskiphh (ElevSkip.cs, docs/686 §33). Offline selftest: tools/selftest/elevskip.
+    // Game-independent rules of elevskip / elevskiphh / elevskiphhunseen (ElevSkip.cs, docs/686 §33). Offline selftest: tools/selftest/elevskip.
     //
     // A Sim the elevator doors refused stands in the doors' line loop (EA: AcquireLaneRouteAction.WaitInLine, asked again
     // every quarter sim-minute) until the one car of the column is free on its floor. The fix lets such a Sim go through the
@@ -18,16 +18,33 @@ namespace Ts3Fixes
         // elevator less than kElevSkipRepeatMin sim-minutes ago (a replan that wants the elevator again keeps EA's wait).
         public static int Decide(bool on, bool hhOn, bool plain, bool npc, bool unseen, float waited, float wait, bool recent)
         {
+            return Decide(on, hhOn, false, plain, npc, false, unseen, waited, wait, recent);
+        }
+
+        // hhUnseenOn: elevskiphhunseen (acts only with elevskip + elevskiphh). selected: the selected Sim, never unseen.
+        // With it, an unseen household Sim goes at once like an unseen NPC; the caller then computes `unseen` for household
+        // Sims too (the Sim and the far doors off screen, away from viewers).
+        public static int Decide(bool on, bool hhOn, bool hhUnseenOn, bool plain, bool npc, bool selected, bool unseen, float waited, float wait, bool recent)
+        {
             if (!plain) return kNone;
             if (!on) return kWould;
             if (recent) return kRepeat;
-            if (npc && unseen) return kGo;
+            if (GoesUnseen(hhOn, hhUnseenOn, npc, selected, unseen)) return kGo;
             if (!hhOn) return npc ? kSeen : kExempt;
             return waited >= wait ? kGo : kWait;
         }
 
+        // The Sim goes at once with no fade: an unseen NPC, or with elevskiphh + elevskiphhunseen an unseen household Sim
+        // that is not the selected Sim.
+        public static bool GoesUnseen(bool hhOn, bool hhUnseenOn, bool npc, bool selected, bool unseen)
+        {
+            if (!unseen || selected) return false;
+            return npc || (hhOn && hhUnseenOn);
+        }
+
         // A Sim set through the elevator fades out and in (EA's skip does) unless nobody can see it.
-        public static bool Fade(bool npc, bool unseen) { return !(npc && unseen); }
+        public static bool Fade(bool npc, bool unseen) { return !GoesUnseen(false, false, npc, false, unseen); }
+        public static bool Fade(bool hhOn, bool hhUnseenOn, bool npc, bool selected, bool unseen) { return !GoesUnseen(hhOn, hhUnseenOn, npc, selected, unseen); }
 
         // The route's elevator part: kinds of the portal paths after the Sim's own doors, in order. 1 = a car (interior)
         // hop of this column, 2 = elevator doors, 0 = anything else (another portal or a walk). The ride ends at the first
