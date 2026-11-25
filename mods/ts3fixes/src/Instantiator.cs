@@ -483,6 +483,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kShowerPeePlan = false;  // showerpeeplan (docs/686 §36.6): a shower fills the bladder of an NPC that has to pee within 2 sim-hours whatever the toilets; the planner may send a toilet waiter to a shower
         [Tunable] public static bool kShowerPeePlanHh = false;  // showerpeeplanhh: household and selected Sims too
         [Tunable] public static bool kShowerDirty = false;  // showerdirty (docs/686 §36.6): a shower that also filled the bladder ends at Hygiene 76, a shared one at 80 (user-approved cost)
+        [Tunable] public static bool kFridgeFf = false;  // fridgeff (docs/686 §36.11): an NPC whose Fridge_Have / Fridge_EatLeftovers starts at a busy fridge and that nobody sees takes its food at once (EA's own steps, no walk, line or animation)
+        [Tunable] public static bool kFridgeFfUnseen = false;  // fridgeffunseen: the same for household Sims other than the selected Sim, off screen and away from viewers (the player's opt-in)
+        [Tunable] public static bool kFridgeFfLog = false;  // fridgefflog: one ts3native.log line per fast grab
         [Tunable] public static bool kSocialReachHousehold = false;  // socialreachhh: socialreach for pairs with a household or selected Sim (stands alone)
         [Tunable] public static bool kSocialReachLog = false;  // socialreachlog: one ts3native.log line per act
         [Tunable] public static bool kUnstuck = true;  // unstuck (docs/686 §18): a Sim or pet the player does not control that failed 3 plans from one spot over 2.5 sim-minutes (or that the game's nightly stuck check found no way for) and has no normal way to a place 3 m away walks out through the objects to the nearest open place (a real walk, never through walls, at most 12 m); never a Sim that sits, lies, swims, rides or is carried

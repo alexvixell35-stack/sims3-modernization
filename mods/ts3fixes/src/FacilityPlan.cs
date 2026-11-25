@@ -51,7 +51,7 @@ namespace Ts3Fixes
 
         sealed class FpUse { public Sim User; public InteractionInstance Ia; public GameObject Obj; public int Kind; public long Start; public float V0; public bool Quick, QuickWould; }
         sealed class FpDefer { public int Kind; public long Start; public float Eta; }
-        sealed class FpPickCache { public long Tick; public float Best; public bool Urgent, EaWay, Counted; public readonly Dictionary<ulong, float> Eta = new Dictionary<ulong, float>(); public readonly List<ulong> Join = new List<ulong>(); }
+        sealed class FpPickCache { public long Tick; public float Best, BestWait; public bool Urgent, EaWay, Counted; public readonly Dictionary<ulong, float> Eta = new Dictionary<ulong, float>(); public readonly List<ulong> Join = new List<ulong>(); }
 
         static readonly Dictionary<ulong, FpUse> sFpUses = new Dictionary<ulong, FpUse>();         // by object
         static readonly Dictionary<ulong, long> sFpCool = new Dictionary<ulong, long>();           // by Sim: last move
@@ -239,6 +239,7 @@ namespace Ts3Fixes
             if (kind < 0 || actor == null || !LswHuman(actor)) return orig;
             bool on = ShortcutOn("facilityplan"), log = ShortcutOn("facilityplanlog"), share = kind == FacilityPlanCore.kShower && ShortcutOn("showertogether");
             if (!on && !log && !share) return orig;
+            if (log && sFsGen == 0) FacilitySlotCheck("start");  // docs/686 §36.10: the slot probe runs with the planner's log (storms)
             Lot lot = o.LotCurrent;
             if (lot == null || lot.IsWorldLot) return orig;
             bool scope = ShlScope(actor, ShortcutOn("facilityplanhh"));
@@ -250,7 +251,7 @@ namespace Ts3Fixes
                 if (sFpPick.Count > 256) sFpPick.Clear();
                 if (c == null) { c = new FpPickCache(); sFpPick[key] = c; }
                 c.Tick = now; c.Eta.Clear(); c.Join.Clear(); c.Counted = false;
-                c.Best = FacilityPlanCore.kInfinite;
+                c.Best = FacilityPlanCore.kInfinite; c.BestWait = FacilityPlanCore.kInfinite;
                 GameObject[] objs = FpObjects(lot, kind);
                 if (objs != null)
                     foreach (GameObject x in objs)
@@ -258,8 +259,10 @@ namespace Ts3Fixes
                         if (x == null || x.HasBeenDestroyed || !x.InWorld) continue;
                         bool join; Sim user;
                         float busy = FpBusy(x, actor, kind, out join, out user);
-                        float eta = FacilityPlanCore.Eta(FpTravel(actor, x), busy, 0f);
+                        float walk = FpTravel(actor, x);
+                        float eta = FacilityPlanCore.Eta(walk, busy, 0f);
                         c.Eta[x.ObjectId.Value] = eta;
+                        if (eta - walk < c.BestWait) c.BestWait = eta - walk;
                         if (join) c.Join.Add(x.ObjectId.Value);
                         if (eta < c.Best) c.Best = eta;
                     }
@@ -277,7 +280,7 @@ namespace Ts3Fixes
             if (!on && !log) return orig;
             float mine;
             if (c.EaWay || !c.Eta.TryGetValue(o.ObjectId.Value, out mine)) return orig;
-            float f = FacilityPlanCore.PickFactor(mine, c.Best, c.Urgent);
+            float f = FacilityPlanCore.PickFactor(mine, c.Best, c.BestWait, c.Urgent);
             if (f >= 1f) return orig;
             bool act = on && scope;
             if (!c.Counted)
@@ -288,7 +291,7 @@ namespace Ts3Fixes
                 else if (f <= FacilityPlanCore.kPickDefer) k[kFpPickDefer]++;
                 else k[kFpPickLow]++;
                 FpLine("facilityplan: pick" + (act ? "" : " (would)") + ": " + BuWho(actor) + " " + actor.FullName + ", " + FacilityPlanCore.kKindNames[kind] + " " + FpObjName(o)
-                    + " eta " + mine.ToString("0.0") + " vs best " + c.Best.ToString("0.0") + " sim-min" + (f <= FacilityPlanCore.kPickDefer ? ": all late, another action first" : ": a sooner one exists") + " (x" + f.ToString("0.00") + ")");
+                    + " eta " + mine.ToString("0.0") + " vs best " + c.Best.ToString("0.0") + " sim-min, least wait after the walk " + c.BestWait.ToString("0.0") + (f <= FacilityPlanCore.kPickDefer ? ": all busy, another action first" : ": a sooner one exists") + " (x" + f.ToString("0.00") + ")");
             }
             return act ? orig * f : orig;
         }
@@ -641,6 +644,8 @@ namespace Ts3Fixes
             if (what == "result") return FpCounters();
             if (what == "reset") { sFpStats.Clear(); return "facilityplan: per-Sim stats cleared"; }
             if (what == "household") return FpHousehold();
+            if (what == "fridgeff") return FridgeFfCheck(what);  // docs/686 §36.11 (FridgeFf.cs)
+            if (what != null && what.StartsWith("slots")) return FacilitySlotCheck(what.Length > 6 ? what.Substring(6) : "");  // docs/686 §36.10 (FacilitySlot.cs)
             if (what != "run") return "facilityplan <run|result>";
             bool on = ShortcutOn("facilityplan");
             int why;
@@ -648,7 +653,7 @@ namespace Ts3Fixes
             bool fixedNow = on
                 && FacilityPlanCore.Decide(true, true, true, true, true, 12f, 4f, false, 300f, inf, out why) == FacilityPlanCore.kSwitch
                 && FacilityPlanCore.Decide(true, true, true, true, true, 12f, inf, false, 300f, inf, out why) == FacilityPlanCore.kDefer
-                && FacilityPlanCore.PickFactor(12f, 2f, false) == FacilityPlanCore.kPickLow
+                && FacilityPlanCore.PickFactor(12f, 2f, 0f, false) == FacilityPlanCore.kPickLow
                 && FacilityPlanCore.QuickEnd(FacilityPlanCore.kShower, 75f, 6f, true);
             bool controls = FacilityPlanCore.Decide(true, false, true, true, true, 12f, 4f, false, 300f, inf, out why) == FacilityPlanCore.kWait
                 && FacilityPlanCore.Decide(true, true, false, true, true, 12f, 4f, false, 300f, inf, out why) == FacilityPlanCore.kWait && why == FacilityPlanCore.kWhyPlayer

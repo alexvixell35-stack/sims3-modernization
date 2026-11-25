@@ -126370,13 +126370,13 @@
     "bug": "Household Sims wait for each other at the toilet and shower in a morning rush: EA's autonomy sees 'in use' but not for how long, prefers an empty line once at the pick, then waits up to 15 sim-min in place (docs/686 §36.1)",
     "fix": "ts3fixes FacilityPlan.cs + ShowerShare.cs: facilityplan, facilityplanhh, facilityquick(hh), facilitychain(hh), showerpeeplan(hh), showerdirty, facilityplanlog (default off), docs/686 §36",
     "save": "Sunset Valley new game: the Bunch house (the default active household; ToiletCheap, ToiletModerate, ToiletExpensive in two rooms, BathtubShowerModern)",
-    "note": "Morning rush: Lisa, Jack and Judy with low Bladder and Hygiene, household autonomy on for 150 sim-min per arm. Off arm first (all planner switches off, log on), then on. FacilityPlanCheck household gives per-Sim line wait, trips per kind, accidents and the final Bladder/Hygiene.",
+    "note": "Rush after school (16:00; s590a at 07:00 lost the Sims to work and school): Lisa, Jack and Judy with low Bladder and Hygiene, household autonomy on for 150 sim-min per arm. Off arm first (all planner switches off, log on), then on. FacilityPlanCheck household gives per-Sim line wait, trips per kind, accidents and the final Bladder/Hygiene.",
     "expect": "on vs off: less total line wait, no more accidents, final motives as high; facilityplan lines (pick / switched / something else first / came back), facilityquick and facilitychain lines when they apply; errors 0.",
     "steps": [
       {
         "cmd": "clock_hour",
         "args": {
-          "hour": 7
+          "hour": 16
         },
         "note": "everybody home",
         "waitS": 1,
@@ -126928,7 +126928,7 @@
       {
         "cmd": "clock_hour",
         "args": {
-          "hour": 10
+          "hour": 17
         },
         "note": "everybody home",
         "waitS": 1,
@@ -127954,6 +127954,1216 @@
         "note": "default off again",
         "waitS": 1,
         "max": 300
+      }
+    ]
+  },
+  {
+    "id": "fridge-line-full",
+    "bug": "After Fridge_Have the last user stays on the fridge's routing slot; the next Sim's route stands and waits until EA pushes the blocker 1-3 sim-min later (#738)",
+    "fix": "ts3fixes FacilitySlot.cs probe (docs/686 §36.10); clipwait / clipwaithh walk into the slot after the grace; slotleave (default off): the done user steps off at once",
+    "save": "Sunset Valley new game: the Bunch house (one fridge, kitchen sink)",
+    "note": "Three hungry Sims click Have on the one fridge at once, twice per arm, household autonomy on 40 sim-min per round. Off arm first, then on. Third arm ff: camera far away, fridgeff + fridgeffunseen (the selected Sim stays on EA's line).",
+    "expect": "off vs on (clipwait): stall sim-min about equal (the post-use stand is 1 sim-min, under the 2.5 grace); ff: the second and third Sim take their food at once (fridgeff lines, errors 0), fridge stalls and line waits lower, each still eats (Hunger up).",
+    "steps": [
+      {
+        "cmd": "clock_hour",
+        "args": {
+          "hour": 12
+        },
+        "note": "lunch, everybody home",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "nothing but the orders moves the Sims",
+        "waitS": 1,
+        "max": 300,
+        "setup": true
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "note": "speed x1",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "list_sims",
+        "args": {},
+        "note": "names",
+        "waitS": 2,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots start"
+          ]
+        },
+        "note": "facilityslot probe on the home lot",
+        "waitS": 1,
+        "max": 300,
+        "mustMatch": "probe started"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "fridgeline": false,
+          "fridgelinehh": false,
+          "facilityplanlog": true,
+          "clipwaitlog": true,
+          "routefaillog": true,
+          "standwaitlog": true
+        },
+        "note": "off: clip and slot switches off; fridgeline off in both arms",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots reset"
+          ]
+        },
+        "note": "off: totals from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fslot-off"
+        },
+        "note": "log marker fslot-off",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "off round 1: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "off round 1: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "off round 1: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "off: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 1: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 1: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "off: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "off: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "off round 2: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "off round 2: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "off round 2: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "off: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 2: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "off round 2: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "off: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots"
+          ]
+        },
+        "note": "off: post-use stands and stalls",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "off: clipwait counters",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": true,
+          "clipwaithh": true,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "fridgeline": false,
+          "fridgelinehh": false,
+          "facilityplanlog": true,
+          "clipwaitlog": true,
+          "routefaillog": true,
+          "standwaitlog": true
+        },
+        "note": "on: clipwait, clipwaithh",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots reset"
+          ]
+        },
+        "note": "on: totals from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fslot-on"
+        },
+        "note": "log marker fslot-on",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "on round 1: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "on round 1: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "on round 1: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "on: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 1: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 1: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "on: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "on: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "on round 2: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "on round 2: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "on round 2: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "on: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 2: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "on round 2: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "on: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots"
+          ]
+        },
+        "note": "on: post-use stands and stalls",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: clipwait counters",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false,
+          "standwaitfix": false,
+          "standwaitfixhh": false,
+          "fridgeline": false,
+          "fridgelinehh": false,
+          "fridgeff": true,
+          "fridgeffunseen": true,
+          "fridgefflog": true,
+          "facilityplanlog": true,
+          "clipwaitlog": true,
+          "routefaillog": true,
+          "standwaitlog": true
+        },
+        "note": "ff: fridgeff + fridgeffunseen on, clip switches off",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "pos": {
+            "x": 100,
+            "y": 60,
+            "z": 100
+          },
+          "target": {
+            "x": 150,
+            "y": 0,
+            "z": 150
+          }
+        },
+        "note": "ff: camera far from the Bunch house (unseen)",
+        "waitS": 2,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots reset"
+          ]
+        },
+        "note": "ff: totals from here",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "fslot-ff"
+        },
+        "note": "log marker fslot-ff",
+        "waitS": 0,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "ff round 1: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "ff round 1: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "ff round 1: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "ff: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 1: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 1: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "ff: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Lisa Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Lisa Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Jack Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Jack Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "set_motive",
+        "args": {
+          "sim": "Judy Bunch",
+          "motive": "Hunger",
+          "value": -50
+        },
+        "note": "ff: Judy Bunch hungry",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Lisa Bunch"
+          ]
+        },
+        "note": "ff round 2: Lisa Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Jack Bunch"
+          ]
+        },
+        "note": "ff round 2: Jack Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FridgeBusyCheck",
+          "args": [
+            "push Judy Bunch"
+          ]
+        },
+        "note": "ff round 2: Judy Bunch clicks Have on the fridge",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": true
+        },
+        "note": "ff: household autonomy on",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 2: 20 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "queues",
+        "args": {},
+        "note": "ff round 2: 40 sim-min",
+        "waitS": 20,
+        "max": 800
+      },
+      {
+        "cmd": "autonomy",
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "note": "ff: round over",
+        "waitS": 1,
+        "max": 300
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Lisa Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Jack Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "cancel_interactions",
+        "args": {
+          "sim": "Judy Bunch"
+        },
+        "note": "queues empty",
+        "waitS": 3,
+        "max": 60,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "slots"
+          ]
+        },
+        "note": "ff: post-use stands and stalls",
+        "waitS": 1,
+        "max": 1500
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ClipWaitCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "ff: clipwait counters",
+        "waitS": 1,
+        "max": 300,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.FacilityPlanCheck",
+          "args": [
+            "fridgeff"
+          ]
+        },
+        "note": "ff: fast grabs, seen, exempt, errors",
+        "waitS": 1,
+        "max": 1500,
+        "mustMatch": "errors 0"
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "clipwait": false,
+          "clipwaithh": false,
+          "facilityplanlog": false,
+          "clipwaitlog": false,
+          "standwaitlog": false,
+          "fridgeff": false,
+          "fridgeffunseen": false,
+          "fridgefflog": false
+        },
+        "note": "cleanup",
+        "waitS": 1,
+        "max": 300,
+        "cleanup": true
       }
     ]
   }

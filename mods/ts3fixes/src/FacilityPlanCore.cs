@@ -124,10 +124,12 @@ namespace Ts3Fixes
         }
 
         // The autonomy score factor for one object at pick time (multiplies EA's GetInUseAutonomyMultiplier).
-        //   eta: this object; bestEta: the best object of the kind; urgent: the Sim's need comes before bestEta plus the margin
-        public static float PickFactor(float eta, float bestEta, bool urgent)
+        //   eta: this object; bestEta: the best object of the kind; bestWait: the least time any object of the kind keeps the
+        //   Sim waiting after its walk (the walk is spent on any other action too, so it never makes a facility "late");
+        //   urgent: the Sim's need comes before bestEta plus the margin
+        public static float PickFactor(float eta, float bestEta, float bestWait, bool urgent)
         {
-            if (!urgent && bestEta >= kDeferMinutes) return kPickDefer;  // all late: do something else first, come back
+            if (!urgent && bestWait >= kDeferMinutes) return kPickDefer;  // all busy past the walk: do something else first, come back
             if (eta > bestEta && Better(bestEta, eta)) return kPickLow;   // another object frees clearly sooner
             return 1f;
         }

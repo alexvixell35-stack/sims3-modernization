@@ -188,6 +188,9 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kShowerPeePlan value="False" />
     <kShowerPeePlanHh value="False" />
     <kShowerDirty value="False" />
+    <kFridgeFf value="False" />
+    <kFridgeFfUnseen value="False" />
+    <kFridgeFfLog value="False" />
     <kSafeSpotYield value="False" />
     <kSafeSpotPlanYield value="True" />
     <kDisposeSpread value="False" />

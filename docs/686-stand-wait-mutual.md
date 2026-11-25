@@ -1975,3 +1975,45 @@ record (busy = users and line); a route through a private room is not costed.
   "something useful first" case of a full fridge line.
 - `post/facilityplan-1125`: both branches merged plus the planner; with `facilityplan` + `facilityplanhh` on, bathroomwait
   takes the planner's start, order and target (36.7, FacilityPlanBathroomWait.cs). Every PR switch keeps its meaning.
+
+### 36.10 Who stands on a fridge's or sink's slot, and for how long (FacilitySlot.cs probe; s591, s592d) [verified by logs + decompiled]
+Probe: `FacilityPlanCheck("slots start|slots|slots reset")` (starts by itself with `facilityplanlog`): every 3 ticks per fridge
+and sink of the home lot, the use length, the stand on the routing slot after the use (what the Sim does), and stalls
+(a Sim that does not use the object on its slot while another wants it).
+- After `Fridge_Have` the user stands on the slot **1.0-1.2 sim-min** (forced repro s591, 11 uses) and **1.6-2.4 sim-min**
+  under storm load (s592d, Sunset Valley 20 min: 33 fridge stands, 90 sim-min), "doing nothing, holding" and then
+  `FoodTray_Prepare` routing to a counter. No ReactionInteraction, no extra autonomy think and no seat wait: the gap is
+  EA's own start of the pushed continuation (queue hand-off, carry posture, `Food.RouteToFreeSurface` with
+  `GetClosestObject` + `GetNearestEmptySurfaceSlot` + the route plan), the general queued-to-moving delay of docs/684
+  (`actdelay` lines 650-1060 ms) that `queuewake` (§23) shortens for idle Sims. Not a fridge bug; nothing built for it.
+- It costs little: stalls s591 off 9 / 8.6 sim-min (max 1.1), clipwait on 8 / 7.8; s592d 6 stalls, 8 sim-min (max 2.4).
+  The stand is shorter than the user's clip grace (`kClipGraceMinutes` 2.5), so `clipwait` / `clipwaithh` (which already walk
+  into an object's slot through a non-user, `kClipWaitObjectDest` true) never act there, and an earlier clip would break
+  the 2-3 s rule. Kept as EA's; `fridgeff` (36.11) removes the wait for unseen Sims instead.
+- Sinks: after `WashHands` at a pedestal sink the user stands 5-7.5 sim-min "doing nothing" on the slot before EA's
+  `RouteAway` (s592d, 7 stands, 37 sim-min); nobody waited there in the run. WashDishes uses are 8.5-16 sim-min.
+- The 10-34 sim-min fridge line heads of the s532-s562 audit (linestale "kept ... counts as coming") were not reproduced:
+  forced uses 1-3.4 sim-min, storm `Fridge_Have` 5-6 sim-min (`Fridge_CleanOutBadFood` 10.4). In the one traced case
+  (s532-s562 Best household) the head ran other actions (a social, a toilet) during the hold and its `Fridge_Have`
+  instance was running when linestale looked, so linestale counted it as coming. EA releases a head's line record at
+  `StandardExit` (`RemoveFromUseList`) or at `Cleanup` (`RemoveFromLine`), also for an interrupted action
+  (`DeQueue` cleans it up unless `SuspensionRequested`, which only hobby objects set): no EA path that keeps the record
+  while another action runs was found [inferred]. Not fixed; the 19 sim-min mean wait of that audit is the line itself
+  (EatLeftovers behind EatLeftovers, 5-6 sim-min uses under load plus the walk), which `fridgeff` takes for unseen Sims.
+- Also seen in EA's `SimQueue.FindNewPlaceInLine`: the `OrderByProximity` branch compares a distance with a squared
+  distance (no fridge, toilet or sink line uses that flag; not fixed).
+
+### 36.11 `fridgeff` / `fridgeffunseen` / `fridgefflog` (FridgeFf.cs; counters 4770-4776)
+A Sim whose `Fridge_Have` or `Fridge_EatLeftovers` starts while the fridge is busy (another Sim uses it or heads its line)
+and that nobody sees takes its food at once: EA's own steps of the two Run bodies (ingredients used, the item created and
+initialised for the recipe, the cooking process to its next step, the item in hand through
+`CarrySystem.EnterWhileHolding`, the follow-up pushed as EA pushes it, the cooking skill element, the "Has Made Food" topic,
+the leftovers grab's commodity updates), without the walk to the slot, the line and the animations. The Sim stays where it
+stands, so it never steps onto a slot in use. Camera: decided once at the start (seen = EA's line); the grab takes no
+time, so a camera that arrives later finds the end state. NPCs: `fridgeff`, `TownieUnseen` + the fridge off screen and its
+slot away from viewers. Household: `fridgeffunseen` (the player's opt-in, CLAUDE.md household rule lifted for this case
+only), not the selected Sim, the Sim and the fridge off screen and both away from the **camera** (target and eye).
+Elevskip's household test uses `FarFromViewers`, which counts every active-household Sim as a viewer within 80 m, so for a
+household Sim at home it is never true (the Sim is a viewer of itself); FridgeFf uses the camera half only.
+Swaps `Fridge_Have.Run`, `Fridge_EatLeftovers.Run` (internal type, by name). Check `FacilityPlanCheck("fridgeff")`;
+repro `fridge-line-full` third arm (camera far away).
