@@ -30,7 +30,10 @@ namespace Ts3Fixes
             {
                 ScriptAdaptor before = mScriptAdaptor;
                 AneStairs(mRoutingSim, mRoute, mPortalObject, mPortalStartPos, ref laneInfo, preferredLaneSelected);  // angleentry (ShareLanes.cs, docs/686 §8), off by default
-                ActionResult r = DoPortalOrig(ref laneInfo, preferredLaneSelected);
+                SflBefore(this, mRoutingSim, mRoute, mPortalObject, ref laneInfo, preferredLaneSelected);  // stairflow / stairtimelog (StairFlow.cs, docs/686 §32), off by default
+                ActionResult r = ActionResult.Terminate;
+                try { r = DoPortalOrig(ref laneInfo, preferredLaneSelected); }
+                finally { SflAfter(this, mRoutingSim, r.ToString()); }
                 ScriptAdaptor a = mScriptAdaptor;
                 if (a != null && a != before && ShortcutOn("portaladaptorleak") && Unsubscribe(a.GetAssociatedSim(this), a))
                     PatchCounters()[54]++;

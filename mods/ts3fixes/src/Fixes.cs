@@ -537,6 +537,7 @@ namespace Ts3Fixes
             ApplyReadWalk();           // docs/686 §22 (ReadWalk.cs): readwalk, off by default (counts either way); swaps Sim.LoopIdle and Sim.RouteToObjectRadialRange
             ApplySlotRetry();          // docs/686 §24 (SlotRetry.cs): slotretry, off by default (counts either way); swaps RoutingComponent.RouteToSlot (Slot[] core) and SimRoutingComponent.RouteToUnusedPart
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
+            ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyReactOverlay();       // docs/686 §26 (ReactOverlay.cs): reactoverlay / reactoverlayhh, off by default (counts either way); swaps Sim.PlayReaction
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
@@ -1412,7 +1413,9 @@ namespace Ts3Fixes
         // stale kind: queued behind another action / ended without leaving the line / errors / ended, still in the use list, away from it.
         // [4687-4691] standwaitsocial (StandWaitSocial.cs, docs/686 §30): social waits with a failed people-free pass / gave up /
         // would, off / exempt (household without standwaitsocialhh) / errors.
-        const int kCounterSlots = 4692;
+        // [4692-4699] stairflow / stairtimelog (StairFlow.cs, docs/686 §32): stair, ladder and spiral uses timed / approaches without the
+        // stop anim / would, off / kept (angle over kStairFlowDeg) / exits without the start anim / exit would, off / exempt / errors.
+        const int kCounterSlots = 4700;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1708,6 +1711,9 @@ namespace Ts3Fixes
                 case "standwaitlocked": return Instantiator.kStandWaitLocked;  // StandWaitLocked.cs (docs/686 §7): a stand-and-wait at a privacy-locked room ends after kStandWaitLockedCycles cycles, off
                 case "standwaitlockedhh": return Instantiator.kStandWaitLockedHousehold;  // StandWaitLocked.cs (docs/686 §7): standwaitlocked for household and selected Sims too, off
                 case "standwaitsocial": return Instantiator.kStandWaitSocial;  // StandWaitSocial.cs (docs/686 §30): a social half whose spot cannot be reached without people either ends its stand-and-wait after 2 failed passes, NPCs, off
+                case "stairflow": return Instantiator.kStairFlow;  // StairFlow.cs (docs/686 §32): straight stairs walked into and out of without the stop / start animation when the walk already heads along the lane, NPCs, off
+                case "stairflowhh": return Instantiator.kStairFlowHousehold;  // StairFlow.cs (docs/686 §32): household and selected Sims too, off
+                case "stairtimelog": return Instantiator.kStairTimeLog;  // StairFlow.cs (docs/686 §32): one line per stair, ladder or spiral use with approach, first-step and on-stairs times, off
                 case "standwaitsocialhh": return Instantiator.kStandWaitSocialHh;  // StandWaitSocial.cs (docs/686 §30): household and selected Sims too, off
                 case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
                 case "ladderfootshoohh": return Instantiator.kLadderFootShooHousehold;  // LadderFoot.cs (docs/183 §9): ladderfootshoo for household and selected Sims too (as planner and as the Sim asked), off

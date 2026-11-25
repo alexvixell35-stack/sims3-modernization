@@ -171,6 +171,10 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kStandWaitSocial value="False" />
     <kStandWaitSocialHh value="False" />
     <kStandWaitSocialPasses value="2" />
+    <kStairFlow value="False" />
+    <kStairFlowHousehold value="False" />
+    <kStairFlowDeg value="30" />
+    <kStairTimeLog value="False" />
     <kLadderFootShoo value="False" />
     <kLadderFootShooHousehold value="False" />
     <kLadderFootWaitMinutes value="5" />

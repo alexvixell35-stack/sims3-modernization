@@ -393,6 +393,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kStandWaitSocial = false;  // standwaitsocial (docs/686 §30): an NPC social half (SocialInteractionA/B) whose stand-and-wait failed kStandWaitSocialPasses people-free passes ends the wait as the timeout does (needs standwaitfix)
         [Tunable] public static bool kStandWaitSocialHh = false;  // standwaitsocialhh: household and selected Sims too
         [Tunable] public static int kStandWaitSocialPasses = 2;  // standwaitsocial: failed people-free passes before the wait ends (1-10)
+        [Tunable] public static bool kStairFlow = false;  // stairflow (docs/686 §32): straight stairs, the planned lane: the approach is walked without the stop animation and the walk after them starts without the start animation when the heading is within kStairFlowDeg of the lane (flags EA clears for other portals); NPCs
+        [Tunable] public static bool kStairFlowHousehold = false;  // stairflowhh: stairflow for household and selected Sims too
+        [Tunable] public static float kStairFlowDeg = 30f;  // stairflow: largest angle between the walk's heading and the lane at which the stop / start animation is dropped
+        [Tunable] public static bool kStairTimeLog = false;  // stairtimelog: one ts3native.log line per stair, ladder or spiral stair use (either switch state)
         [Tunable] public static bool kLadderFootShoo = false;  // ladderfootshoo (docs/183 §9): a plan to another level that fails with no path because Sims stand on the lane ends of the ladder or stair it needs asks them to step away (the game's own push, as at doors), waits for them and plans once more
         [Tunable] public static bool kLadderFootShooHousehold = false;  // ladderfootshoohh: ladderfootshoo for household and selected Sims too, as the planning Sim and as the Sim asked to step away
         [Tunable] public static float kLadderFootWaitMinutes = 5f;  // sim-minutes the planning Sim waits for the asked Sims before it gives up (never above the game's own wait for pushed Sims; 0 = ask, do not wait)
