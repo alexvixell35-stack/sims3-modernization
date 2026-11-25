@@ -347,6 +347,7 @@ enum { UTW_KIND = UTW_N, UTW_TIMER, UTW_NEWPATH, UTW_CAP, UTW_SLOT, UTW_N2 };
 static bool g_utOn;
 static bool g_utNeedViewers = true;
 static bool g_aaOn;  // [UnseenAnim] installed (unseenanim.cpp): it reads the household table below too
+static bool g_aaDrainNode;  // [UnseenAnim] DrainNodeLog (unseenanim.cpp, docs/67 §47): the drain fault dump logs the list node, head, owner
 static bool g_utbOn;  // [UnseenTable] installed (unseentable.cpp): same
 static u8 UtbReadyMsg(DWORD code);  // unseentable.cpp: viewer-channel codes 25 (ICs ready) / 26 (Check on)
 static float g_utNearM = 15.0f, g_utPortalM = 3.0f;  // 15 m = [0xF9A62C], the avoidance near-goal default
