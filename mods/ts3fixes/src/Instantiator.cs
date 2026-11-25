@@ -472,6 +472,15 @@ namespace Ts3Fixes
         [Tunable] public static bool kLineSwitch = true;  // lineswitch (docs/686 §25): an NPC waiting in a toilet, sink, shower or bath line takes a free, reachable object of the same kind on the lot after kLineSwitchMinutes
         [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
         [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
+        [Tunable] public static bool kRhSkipUnseen = false;  // rhskipunseen (docs/686 §37): an NPC whose rabbit hole enter slot is held, unseen when it asks, walks to the slot now and goes in (rhshare's walk, any holder; clipping at the door)
+        [Tunable] public static bool kRhSkipHhUnseen = false;  // rhskiphhunseen (docs/686 §37): the same for unseen household Sims (not the selected Sim); explicit opt-in that lifts the household-never-unseen rule (CLAUDE.md) for rabbit hole enter slots only
+        [Tunable] public static bool kLineSwitchPc = false;  // lineswitchpc (docs/686 §37): lineswitch's free-twin rule for computers, laptops and bookshelves (NPCs; household with lineswitchhh); a running use is never shortened
+        [Tunable] public static bool kBookSkipUnseen = false;  // bookskipunseen (docs/686 §37): an unseen NPC that would wait in a bookshelf's line takes its book from a free spot beside the slot (EA's pick-up, no line)
+        [Tunable] public static bool kBookSkipHhUnseen = false;  // bookskiphhunseen (docs/686 §37): the same for unseen household Sims (not the selected Sim); explicit opt-in that lifts the household-never-unseen rule (CLAUDE.md) for bookshelf pick-ups only
+        [Tunable] public static bool kGymTwin = false;  // gymtwin (docs/686 §37): an NPC in a workout bench or treadmill line takes a free twin (at once when unseen, after kLineSwitchMinutes otherwise); a workout is never ended
+        [Tunable] public static bool kServingShareHhUnseen = false;  // servingsharehhunseen (docs/686 §37): with servingshare, unseen household Sims (not the selected Sim) at a platter off screen count as in scope; explicit opt-in that lifts the household-never-unseen rule (CLAUDE.md) for serving grabs only
+        [Tunable] public static bool kSlideHang = false;  // slidehang (docs/686 §37, EA bug): an NPC on a slide's HangOutOn that holds the ladder line past EA's HangOutTimeMax with a Sim waiting behind slides down (ExitReason.Finished, as PlayOn)
+        [Tunable] public static bool kSlideHangHh = false;  // slidehanghh: slidehang for household heads on an autonomous hang-out too (not the selected Sim)
         [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
         [Tunable] public static bool kSocialReachHousehold = false;  // socialreachhh: socialreach for pairs with a household or selected Sim (stands alone)
         [Tunable] public static bool kSocialReachLog = false;  // socialreachlog: one ts3native.log line per act

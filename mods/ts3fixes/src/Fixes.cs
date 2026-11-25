@@ -573,6 +573,7 @@ namespace Ts3Fixes
             ApplySocialReach();        // docs/686 §17 (SocialReach.cs): socialreach / socialreachhh, off by default (counts either way); its DoRoute step is in ApplyBlockedUse's hook, as unstuck's (§18, Unstuck.cs)
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
+            ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins, off by default (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
             ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
@@ -1729,10 +1730,15 @@ namespace Ts3Fixes
         // wildflowertask / disposespread / aptleave RemoveGuest / boattrip sweep; [1743] go-live searches whose later slice started frozen or
         // not live and ran the game's B14 for the rest (autlivelate refusal / direct snap).
         // [4615-4619] lineswitch (LineSwitch.cs, docs/686 §25): switched to a free twin object / would, off / kept (waited past the switch time, not
-        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
+        // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).
+        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
-        const int kCounterSlots = 4680;
+        // [4780-4803] unseenskip (UnseenSkip.cs, docs/686 §37): rhskipunseen NPC / household / seen kept / would; lineswitchpc switched /
+        // would; bookskip NPC / household / seen kept / would / no spot; gymtwin switched / would / unseen at once; servingsharehhunseen runs;
+        // slidehang ended NPC / household / would / kept; errors; line waits begun unseen / their sim-min x10; rhdoor waits begun unseen /
+        // their sim-min x10; 4804-4819 spare.
+        const int kCounterSlots = 4820;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2672,6 +2678,15 @@ namespace Ts3Fixes
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
                 case "lineswitchlog": return Instantiator.kLineSwitchLog;  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "rhskipunseen": return Instantiator.kRhSkipUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "rhskiphhunseen": return Instantiator.kRhSkipHhUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "lineswitchpc": return Instantiator.kLineSwitchPc;  // UnseenSkip.cs (docs/686 §37), off
+                case "bookskipunseen": return Instantiator.kBookSkipUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "bookskiphhunseen": return Instantiator.kBookSkipHhUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "gymtwin": return Instantiator.kGymTwin;  // UnseenSkip.cs (docs/686 §37), off
+                case "servingsharehhunseen": return Instantiator.kServingShareHhUnseen;  // UnseenSkip.cs (docs/686 §37), off
+                case "slidehang": return Instantiator.kSlideHang;  // UnseenSkip.cs (docs/686 §37), off
+                case "slidehanghh": return Instantiator.kSlideHangHh;  // UnseenSkip.cs (docs/686 §37), off
                 case "pairsnaplog": return Instantiator.kPairSnapLog;  // WooHooSnap.cs (docs/686 §20): one line per act, off
                 case "birthroute": return Instantiator.kBirthRoute;
                 case "putdownplace": return Instantiator.kPutDownPlace;

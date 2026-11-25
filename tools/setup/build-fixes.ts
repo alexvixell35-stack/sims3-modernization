@@ -172,6 +172,15 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLineSwitch value="True" />
     <kLineSwitchHh value="False" />
     <kLineSwitchLog value="False" />
+    <kRhSkipUnseen value="False" />
+    <kRhSkipHhUnseen value="False" />
+    <kLineSwitchPc value="False" />
+    <kBookSkipUnseen value="False" />
+    <kBookSkipHhUnseen value="False" />
+    <kGymTwin value="False" />
+    <kServingShareHhUnseen value="False" />
+    <kSlideHang value="False" />
+    <kSlideHangHh value="False" />
     <kLineSwitchMinutes value="2" />
     <kSafeSpotYield value="False" />
     <kSafeSpotPlanYield value="True" />

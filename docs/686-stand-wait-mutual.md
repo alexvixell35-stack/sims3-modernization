@@ -1843,3 +1843,47 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
 - r6-rp1 found one bug, fixed in r6c: a queued reaction that became safe after the stale time was still played (Startled
   `overlaid from the queue after 9151 ms`); the stale test now comes first.
 - PROVEN by forced repro and storm (household and NPCs). Seated overlays seen in s538 only.
+
+## 37. Skip when nobody sees it: rabbit hole slots, bookshelves, twin computers and gym machines, platters; the slide hang-out (`rhskipunseen`, `bookskipunseen`, `lineswitchpc`, `gymtwin`, `servingsharehhunseen`, `slidehang`; 2026-11-25, `post/unseenskip-1125`, built, default off)
+
+`UnseenSkip.cs`, rules in `UnseenSkipCore.cs`, counters 4780-4803 (`kCounterSlots` 4820), check `UnseenSkipCheck result | run`,
+selftest `tools/selftest/unseenskip`. The log audit of s532-s562 (`linewait:` lines) ranked the waits: rabbit hole enter slots
+780 NPC waits / 3,489 sim-min (College of Business 1,101) and 78 / 303 household; computers and laptops 177 / 806 household
+(mostly cancelled long uses), 36 / 139 NPC; bookshelves ~225 household; workout bench and treadmill 20 / 452 NPC; serving
+platters and bowls 41 / 220 household.
+
+Camera rule for every part: the view is decided once, at the start of the wait (the Sim and its object off screen, the Sim
+away from the camera and from viewers). Seen then: EA's wait, unchanged. No walk is skipped or teleported; the second Sim
+never stands on a slot in use; nothing touches motives, skills or saves.
+
+Household rule (CLAUDE.md: household Sims never count as unseen). Each `...hhunseen` switch (`rhskiphhunseen`,
+`bookskiphhunseen`, `servingsharehhunseen`) is an explicit player opt-in, default off, that lifts that rule for its own case
+only: a household Sim that is not the selected Sim, off screen, with its object off screen and no other household Sim near.
+The selected Sim never counts as unseen.
+
+| Switch | Scope | What it does |
+| --- | --- | --- |
+| `rhskipunseen` / `rhskiphhunseen` | NPC / household opt-in | A Sim whose rabbit hole enter slot is held (any holder; rhshare only walks when the holder is in scope), unseen when it asks, walks to the slot now and goes in: rhshare's walk (§14), no reservation taken. A door portal: the two may clip at the door. |
+| `lineswitchpc` | NPC; household with `lineswitchhh` | lineswitch's free-twin rule (§25) for `Computer` (laptops too) and `Bookshelf`: a free, unclaimed, reachable object of the same kind on the lot, same room first. A running use is never shortened. |
+| `gymtwin` | NPC only | The same for `WorkoutBench` and `Treadmill`: an NPC that was unseen when its wait began takes the twin at the first check, others after `kLineSwitchMinutes`. A workout is never ended. |
+| `bookskipunseen` / `bookskiphhunseen` | NPC / household opt-in | `Bookshelf_ReadSomething.Run` for a Sim that would wait (line or other users): a walk to a free spot 0.6-1.3 m from the shelf's `Route` slot, facing it, then EA's own pick-up (`ChooseBook`, `Read_GetBook`: StandardEntry, take animation, carry, `ReadBook` pushed). No spot: EA's run. |
+| `servingsharehhunseen` | household opt-in, with `servingshare` | servingshare (§14) counts an unseen household Sim at an off-screen platter (and unseen household Sims in its line) as in scope. |
+| `slidehang` / `slidehanghh` | NPC heads / household heads on an autonomous hang-out | EA bug, below. |
+
+### 37.1 The slide hang-out [verified, decompiled `JungleGym`, `JungleGymSlide`, `SimQueue`, `InteractionInstance`]
+
+`JungleGymSlide.RouteToJungleGymLadder` waits in `mLineToGoUpTheLadder` (`SimQueueBehindSlot`, 4 long, `TimeToWaitInQueue` 20
+sim-min). The head keeps its place for the whole interaction: `SimQueue` removes a Sim only in `RemoveFromQueue`, and the
+interaction's own call is `InteractionInstance.Cleanup` -> `RemoveFromLine`. `PlayOn` ends its hang-around loop after
+`RandomUtil.GetFloat(HangOutTimeMin 10, HangOutTimeMax 20)` sim-min (`PlayOnLoopDelegate` adds `ExitReason.Finished`).
+`HangOutOn` runs the same `DoLoop(ExitReason.Default, ...)` with a delegate that only calls `TryGroupTalk`: it never reads
+the `HangOut*` tuning that names it, so a child on HangOutOn holds the ladder until something else ends it. Storm logs: Lisa
+Bunch (HangOutOn) held the Bunch slide 70-92 sim-min four times while Arlo and Darlene (PlayOn) timed out behind her.
+Fix (`slidehang`): the line hook records who took a jungle gym line's turn and when; a waiter's per-minute check (LineSwitch.cs `LswExitHook`) sees a head on
+`HangOutOn` that took the turn `HangOutTimeMax` sim-min ago and adds `ExitReason.Finished`, PlayOn's own exit: the head slides
+down and leaves through EA's code. Only with a Sim waiting behind it; the selected Sim and player orders keep theirs.
+
+### 37.2 Logging
+
+`linewaitlog` and `lanewaitlog` lines get `view <start>><end>` (seen / unseen, for the Sim and its object). Counters
+4800-4803 split line and rhdoor waits by the view at their start (with the log off too, and not capped like the log).
