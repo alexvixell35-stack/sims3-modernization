@@ -439,6 +439,15 @@ namespace Ts3Fixes
         [Tunable] public static bool kUnstuckHousehold = false;  // unstuckhh: unstuck for household and selected Sims and pets (stands alone)
         [Tunable] public static bool kUnstuckLog = false;  // unstucklog: one ts3native.log line per act
         [Tunable] public static bool kCrowdPort = false;  // crowdport (docs/686 §19): a Sim the player does not control at a crowded elevator or rabbit hole door (kCrowdPortMin Sims there, or kCrowdPortWait sim-minutes behind another Sim) skips the queue: the game's elevator teleport skip at once, set on the rabbit hole's enter slot; NPCs waiting to leave a rabbit hole or station go together. Horses, riders, carriers and toddlers keep the game's wait
+        [Tunable] public static bool kElevSkip = false;  // elevskip (docs/686 §33): an unseen NPC the elevator doors refused (car in use, line) is set at the doors of the floor its ride ends on (EA's exit spot, no fade) and the game replans, as after its own teleport skip
+        [Tunable] public static bool kElevSkipHousehold = false;  // elevskiphh: household and selected Sims and NPCs in view too, after kElevSkipHhWait sim-minutes, with EA's fade
+        [Tunable] public static float kElevSkipHhWait = 1f;  // elevskiphh: sim-minutes at the doors before a Sim in view goes through (0-15)
+        [Tunable] public static float kElevSkipRepeatMin = 5f;  // elevskip: a Sim set through an elevator less than this many sim-minutes ago keeps the game's wait
+        [Tunable] public static bool kElevTripLog = false;  // elevtriplog: one ts3native.log line per car launch, per Sim set through and per parked-car boarding (either switch state)
+        [Tunable] public static bool kElevParked = false;  // elevparked (docs/686 §34): an NPC boarding at closed doors where the column's car last stopped gets the doors opened at once (EA's OpenElevatorDoors) instead of the 7 sim-minute call
+        [Tunable] public static bool kElevParkedHousehold = false;  // elevparkedhh: elevparked for household and selected Sims too
+        [Tunable] public static bool kPoolShare = false;  // poolshare (docs/686 §35): a pool ladder lane held from the other end is given to the swimmer too (sharelanes' search); the two climb at once
+        [Tunable] public static bool kPoolShareHousehold = false;  // poolsharehh: poolshare for household and selected Sims too
         [Tunable] public static bool kCrowdPortHousehold = false;  // crowdporthh: crowdport for household and selected Sims too
         [Tunable] public static bool kWooHooSnap = false;  // woohoosnap (docs/686 §20): a Sim the player does not control whose route to its WooHoo spot (bed side, shower, wardrobe, any WooHoo object on the lot) fails is put on the slot and the WooHoo goes on; the game's own tests stay
         [Tunable] public static bool kWooHooSnapHousehold = false;  // woohoosnaphh: woohoosnap for pairs with a household or selected Sim (stands alone)

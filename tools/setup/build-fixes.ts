@@ -217,6 +217,15 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kUnstuck value="False" />
     <kUnstuckHousehold value="False" />
     <kUnstuckLog value="False" />
+    <kElevSkip value="False" />
+    <kElevSkipHousehold value="False" />
+    <kElevSkipHhWait value="1" />
+    <kElevSkipRepeatMin value="5" />
+    <kElevTripLog value="False" />
+    <kElevParked value="False" />
+    <kElevParkedHousehold value="False" />
+    <kPoolShare value="False" />
+    <kPoolShareHousehold value="False" />
     <kCrowdPort value="False" />
     <kCrowdPortHousehold value="False" />
     <kCrowdPortLog value="False" />

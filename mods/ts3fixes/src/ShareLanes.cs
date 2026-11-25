@@ -9,6 +9,7 @@ using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Interfaces;
 using Sims3.Gameplay.ObjectComponents;
+using Sims3.Gameplay.Pools;
 using Sims3.Gameplay.Objects;
 using Sims3.Gameplay.Routing;
 using Sims3.Gameplay.Utilities;
@@ -164,6 +165,7 @@ namespace Ts3Fixes
             if (t == typeof(NonAnimatedDoor.NonAnimatedDoorPortalComponent)) return ShareLanesCore.kGate;
             if (t == typeof(Ladder.LadderPortalComponent)) return ShareLanesCore.kLadder;
             if (t == typeof(StaircaseSpiral.StaircaseSpiralPortalComponent)) return ShareLanesCore.kSpiral;
+            if (t == typeof(PoolPortalComponent) && pc.Owner != null && pc.Owner.GetType() == typeof(PoolLadder)) return ShareLanesCore.kPoolLadder;  // poolshare (docs/686 §35)
             return ShareLanesCore.kOther;
         }
 
@@ -200,9 +202,12 @@ namespace Ts3Fixes
                 {
                     int kind = s == null || sShlLocked == null ? ShareLanesCore.kOther : ShlKind(this);
                     if (kind == ShareLanesCore.kOther) return false;
-                    bool spiral = kind == ShareLanesCore.kSpiral;  // own switch pair and counters, same search
-                    c[spiral ? kSpiFails : kShlFails]++;
-                    bool on = ShortcutOn(spiral ? "spiralshare" : "sharelanes"), hhOn = ShortcutOn(spiral ? "spiralsharehh" : "sharelaneshh");
+                    bool spiral = kind == ShareLanesCore.kSpiral, pool = kind == ShareLanesCore.kPoolLadder;  // own switch pairs and counters, same search
+                    int iFails = pool ? kPlsFails : spiral ? kSpiFails : kShlFails, iSharable = pool ? kPlsSharable : spiral ? kSpiSharable : kShlSharable,
+                        iShared = pool ? kPlsShared : spiral ? kSpiShared : kShlShared, iWould = pool ? kPlsWould : spiral ? kSpiWould : kShlWould,
+                        iExempt = pool ? kPlsExempt : spiral ? kSpiExempt : kShlExempt;
+                    c[iFails]++;
+                    bool on = ShortcutOn(pool ? "poolshare" : spiral ? "spiralshare" : "sharelanes"), hhOn = ShortcutOn(pool ? "poolsharehh" : spiral ? "spiralsharehh" : "sharelaneshh");
                     int n; string names;
                     ShareLanesCore.Holder[] h = ShlHolders(this, hhOn || !on, out n, out names);  // off: count what both switches would do
                     bool pref = true;
@@ -213,9 +218,9 @@ namespace Ts3Fixes
                             if (st != Slot.None && ShareLanesCore.Lane(h, n, GetLaneIndexFromSlot(st), (uint)st) == ShareLanesCore.kLaneOpposite) { sharable = true; break; }
                     int d = ShareLanesCore.Decide(on, ShlScope(s, hhOn), true, sharable);
                     if (d == ShareLanesCore.kNone) return false;  // refused for another reason (the portal's extra checks, an elevator lane)
-                    c[spiral ? kSpiSharable : kShlSharable]++;
-                    if (d == ShareLanesCore.kWould) { c[spiral ? kSpiWould : kShlWould]++; return false; }
-                    if (d == ShareLanesCore.kExempt) { c[spiral ? kSpiExempt : kShlExempt]++; return false; }
+                    c[iSharable]++;
+                    if (d == ShareLanesCore.kWould) { c[iWould]++; return false; }
+                    if (d == ShareLanesCore.kExempt) { c[iExempt]++; return false; }
 
                     List<Slot> list = new List<Slot>(starts.Count);
                     foreach (Slot st in starts) if (st != Slot.None) list.Add(st);
@@ -236,7 +241,7 @@ namespace Ts3Fixes
                         if (ShareLanesCore.Take(extraOk, free, li.NoLanesAvailableSkipsAdditionalLaneChecks, ref haveFallback, out isFallback))
                         {
                             laneInfo = li; preferredLaneSelected = pref;
-                            c[spiral ? kSpiShared : kShlShared]++;
+                            c[iShared]++;
                             return true;
                         }
                         if (isFallback) fallback = li;
@@ -245,7 +250,7 @@ namespace Ts3Fixes
                     if (haveFallback)
                     {
                         laneInfo = fallback; preferredLaneSelected = false;
-                        c[spiral ? kSpiShared : kShlShared]++;
+                        c[iShared]++;
                         return true;
                     }
                 }

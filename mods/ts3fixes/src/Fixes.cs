@@ -540,6 +540,8 @@ namespace Ts3Fixes
             ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyReactOverlay();       // docs/686 §26 (ReactOverlay.cs): reactoverlay / reactoverlayhh, off by default (counts either way); swaps Sim.PlayReaction
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
+            ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
+            ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh, off by default (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyClipWait();           // docs/686 §9 (ClipWait.cs): clipwait / clipwaithh, off by default (counts either way); after ApplyStandWait and ApplyShareLanes
@@ -1415,7 +1417,12 @@ namespace Ts3Fixes
         // would, off / exempt (household without standwaitsocialhh) / errors.
         // [4692-4699] stairflow / stairtimelog (StairFlow.cs, docs/686 §32): stair, ladder and spiral uses timed / approaches without the
         // stop anim / would, off / kept (angle over kStairFlowDeg) / exits without the start anim / exit would, off / exempt / errors.
-        const int kCounterSlots = 4700;
+        // [4700-4710] elevskip / elevtriplog (ElevSkip.cs, docs/686 §33): set through, unseen NPCs / with fade / would, off / NPC in view kept /
+        // household exempt / repeat kept / no exit spot / errors / car launches / riders at launch / one-rider launches.
+        // [4711-4715] elevparked (ElevParked.cs, docs/686 §34): doors opened at once / would, off / household exempt / car stops seen / errors.
+        // [4716-4720] poolshare (PoolShare.cs + ShareLanes.cs, docs/686 §35): pool ladder refusals / held from the other end / shared /
+        // would, off / household exempt.
+        const int kCounterSlots = 4721;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -1713,6 +1720,13 @@ namespace Ts3Fixes
                 case "standwaitsocial": return Instantiator.kStandWaitSocial;  // StandWaitSocial.cs (docs/686 §30): a social half whose spot cannot be reached without people either ends its stand-and-wait after 2 failed passes, NPCs, off
                 case "stairflow": return Instantiator.kStairFlow;  // StairFlow.cs (docs/686 §32): straight stairs walked into and out of without the stop / start animation when the walk already heads along the lane, NPCs, off
                 case "stairflowhh": return Instantiator.kStairFlowHousehold;  // StairFlow.cs (docs/686 §32): household and selected Sims too, off
+                case "elevskip": return Instantiator.kElevSkip;  // ElevSkip.cs (docs/686 §33): an unseen NPC the elevator doors refused is set at the doors its ride ends at, and the game replans, off
+                case "elevskiphh": return Instantiator.kElevSkipHousehold;  // ElevSkip.cs (docs/686 §33): household and selected Sims and NPCs in view too, after kElevSkipHhWait sim-minutes, with EA's fade, off
+                case "elevtriplog": return Instantiator.kElevTripLog;  // ElevSkip.cs (docs/686 §33): one line per car launch (riders, wait in the car), per Sim set through and per parked-car boarding, off
+                case "elevparked": return Instantiator.kElevParked;  // ElevParked.cs (docs/686 §34): an NPC boarding at closed doors where the column's car stands gets the doors opened at once instead of EA's 7 sim-minute call, off
+                case "elevparkedhh": return Instantiator.kElevParkedHousehold;  // ElevParked.cs (docs/686 §34): household and selected Sims too, off
+                case "poolshare": return Instantiator.kPoolShare;  // PoolShare.cs (docs/686 §35): a pool ladder lane held from the other end is shared (sharelanes' search), NPCs, off
+                case "poolsharehh": return Instantiator.kPoolShareHousehold;  // PoolShare.cs (docs/686 §35): household and selected Sims too, off
                 case "stairtimelog": return Instantiator.kStairTimeLog;  // StairFlow.cs (docs/686 §32): one line per stair, ladder or spiral use with approach, first-step and on-stairs times, off
                 case "standwaitsocialhh": return Instantiator.kStandWaitSocialHh;  // StandWaitSocial.cs (docs/686 §30): household and selected Sims too, off
                 case "ladderfootshoo": return Instantiator.kLadderFootShoo;  // LadderFoot.cs (docs/183 §9): Sims standing on the lane ends of a ladder or stair that a failed plan needs are asked to step away the game's way, then the plan is made once more, off
