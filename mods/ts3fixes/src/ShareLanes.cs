@@ -117,7 +117,7 @@ namespace Ts3Fixes
             return r.Length > 0 ? " (" + r + "; last: " + sShlLastError + ")" : "";
         }
 
-        class ShlWait { public long Start; public string Holders; public int Kind; }
+        class ShlWait { public long Start; public string Holders; public int Kind; public string View; }  // View: docs/686 §37, seen / unseen at the refusal (lanewaitlog)
         static readonly Dictionary<ulong, ShlWait> sShlWaitOf = new Dictionary<ulong, ShlWait>();
 
         static void ApplyShareLanes()
@@ -298,6 +298,7 @@ namespace Ts3Fixes
                 w.Kind = ShlKind(pc);
                 int n;
                 ShlHolders(pc, true, out n, out w.Holders);
+                if (ShortcutOn("lanewaitlog")) w.View = UnsViewNow(s, pc.Owner as IHasScriptProxy);  // docs/686 §37
                 sShlWaitOf[s.ObjectId.Value] = w;
             }
             catch (ResetException) { throw; }
@@ -320,7 +321,8 @@ namespace Ts3Fixes
                 if (!got) c[kShlWaitGaveUp]++;
                 sShlLast = "lanewait: " + s.FullName + " " + ShlWho(s) + ", " + SwfIa(s) + ": " + (portal == null ? "?" : portal.GetType().Name + " 0x" + portal.ObjectId.Value.ToString("X"))
                     + " (" + ShareLanesCore.kKindNames[w.Kind] + "), " + min.ToString("0.0") + " sim-min from the refusal, " + (got ? "got a lane" : "gave up")
-                    + ", held then by: " + (w.Holders.Length > 0 ? w.Holders : "nobody") + ", at " + V(s.Position);
+                    + ", held then by: " + (w.Holders.Length > 0 ? w.Holders : "nobody") + ", at " + V(s.Position)
+                    + (w.View == null ? "" : ", view " + w.View + ">" + UnsViewNow(s, portal));
                 if (ShortcutOn("lanewaitlog") && sShlCap.Take(System.Environment.TickCount)) DiagLine(sShlLast);
             }
             catch (ResetException) { throw; }
@@ -390,12 +392,16 @@ namespace Ts3Fixes
                 long start = SimClock.CurrentTicks;
                 int length = MemberCount();
                 string ahead = ShortcutOn("linewaitlog") ? OjsAhead(this, interaction, target) : null;  // who holds the line when this Sim asks
+                // docs/686 §37 (UnseenSkip.cs): the view when the Sim asks a line with somebody in it (counters 4800-4801, linewaitlog)
+                bool unsStart = length > 0 && interaction != null && UnsUnseenRaw(interaction.InstanceActor, target as IHasScriptProxy);
+                string viewStart = ahead == null ? null : UnseenSkipCore.View(unsStart);
                 LswWait lsw = LswBegin(this, interaction, target);  // docs/686 §25 (LineSwitch.cs): a free twin object is used after a while
                 bool got;
                 try { got = WaitOrig(interaction, target, behavior, exitReasons, timeoutInMinutes); }
                 finally { if (lsw != null) LswEnd(interaction.InstanceActor, lsw); }
-                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes, ahead == null ? null : ahead + "; at end " + OjsAhead(this, interaction, target));
+                OjsLineWaitEnd(interaction, target, start, length, got, timeoutInMinutes, ahead == null ? null : ahead + "; at end " + OjsAhead(this, interaction, target), unsStart, viewStart);
                 if (got) LstGranted(this, interaction, target);  // docs/686 §29 (LineStale.cs): who holds the line and through which action
+                if (got && target is Sims3.Gameplay.Objects.Environment.JungleGym) UnsSlideGranted(this, interaction, target);  // docs/686 §37 (UnseenSkip.cs): slidehang
                 return got;
             }
             public bool WaitOrig(InteractionInstance interaction, IGameObject target, WaitBehavior behavior, ExitReason exitReasons, float timeoutInMinutes) { return false; }  // receives WaitForTurn's original body

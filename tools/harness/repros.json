@@ -137105,6 +137105,100 @@
     ]
   },
   {
+    "id": "unseenskip-check",
+    "bug": "Sims wait for things nobody sees: a held rabbit hole enter slot (s532-s562: 780 NPC waits / 3,489 sim-min, College of Business 1,101), computers and bookshelves with a free twin on the lot, workout benches and treadmills, serving platters; and an EA bug: JungleGymSlide's HangOutOn never reads HangOutTimeMin/Max, so its head holds the ladder line 70-92 sim-min while the children behind time out (docs/686 §37)",
+    "fix": "ts3fixes UnseenSkip.cs (+ ObjShare.cs, LineSwitch.cs, ShareLanes.cs): rhskipunseen / rhskiphhunseen, bookskipunseen / bookskiphhunseen, lineswitchpc, gymtwin, servingsharehhunseen, slidehang / slidehanghh; the hhunseen switches are explicit opt-ins that lift the household-never-unseen rule for their own case; default off, docs/686 §37",
+    "save": "any world (pure check); storm proof: Sims University and Sunset Valley (docs/686 §37)",
+    "note": "UnseenSkipCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4780-4803 (skips, twins, slide hang-outs ended, waits begun unseen) and the last line.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls' true in both. No 'unseenskip: error' line.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhskipunseen": false,
+          "rhskiphhunseen": false,
+          "lineswitchpc": false,
+          "bookskipunseen": false,
+          "bookskiphhunseen": false,
+          "gymtwin": false,
+          "servingsharehhunseen": false,
+          "slidehang": false,
+          "slidehanghh": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "rhskipunseen": false,
+          "rhskiphhunseen": false,
+          "lineswitchpc": false,
+          "bookskipunseen": false,
+          "bookskiphhunseen": false,
+          "gymtwin": false,
+          "servingsharehhunseen": false,
+          "slidehang": false,
+          "slidehanghh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "rhskipunseen": true,
+          "rhskiphhunseen": true,
+          "lineswitchpc": true,
+          "bookskipunseen": true,
+          "bookskiphhunseen": true,
+          "gymtwin": true,
+          "servingsharehhunseen": true,
+          "slidehang": true,
+          "slidehanghh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.UnseenSkipCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
+  },
+  {
     "id": "elevskip-check",
     "bug": "Sims stand at elevator doors while the column's one car is in use on another floor: the doors give no lane, the Sim loops in the doors' line (a quarter sim-minute per ask, up to 30 sim-minutes); EA's teleport skip needs the car free with open doors on the Sim's floor. Storm logs s532-s560: 1,462 elevator lane waits, 9,730 sim-min, mostly NPCs in Bridgeport towers (docs/686 §33)",
     "fix": "ts3fixes ElevSkip.cs: elevskip (unseen NPCs at once), elevskiphh (household, selected and NPCs in view after kElevSkipHhWait, with fade), elevskiphhunseen (with both: off-screen household Sims other than the selected Sim at once, no fade), elevtriplog; line step in CrowdPort.cs CpLineHook; default off, docs/686 §33",
