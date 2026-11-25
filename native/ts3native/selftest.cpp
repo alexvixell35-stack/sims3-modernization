@@ -15208,6 +15208,7 @@ int main() {
     TestUnseenGhost();
     TestUnseenAnim();
     TestAnimPhase();
+    TestAaDrainNode();
     TestStallWatch();
     TestStallWatchDeep();
     TestHitchSum();
