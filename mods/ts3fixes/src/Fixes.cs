@@ -577,6 +577,8 @@ namespace Ts3Fixes
             ApplyObjShare();           // docs/686 §14 (ObjShare.cs): rhshare / servingshare and their household switches, linewaitlog, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplyShowerShare();        // docs/686 §15 (ShowerShare.cs): showertogether / showerpee and their household switches, off by default (counts either way); the line hook is ApplyShareLanes's
             ApplySmcSetActor();        // SmcSetActor.cs: StateMachineClient.SetActor for servingshare (docs/686 §14), a one-int test while nothing is armed
+            ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
+            ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh, off by default (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
             ApplyCrowdPort();          // docs/686 §19 (CrowdPort.cs): crowdport / crowdporthh, off by default; its line and enter-slot steps are in ApplyShareLanes's and ApplyObjShare's hooks
             ApplyPetStartleSkip();     // docs/656 §8.1 (PetStartleSkip.cs), off by default
             ApplyPetArrivePoint();     // docs/656 §4.1 (PetArrivePoint.cs), off by default
@@ -1732,7 +1734,12 @@ namespace Ts3Fixes
         // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
-        const int kCounterSlots = 4680;
+        // [4700-4710] elevskip / elevtriplog (ElevSkip.cs, docs/686 §33): set through, unseen NPCs / with fade / would, off / NPC in view kept /
+        // household exempt / repeat kept / no exit spot / errors / car launches / riders at launch / one-rider launches.
+        // [4711-4715] elevparked (ElevParked.cs, docs/686 §34): doors opened at once / would, off / household exempt / car stops seen / errors.
+        // [4716-4720] poolshare (PoolShare.cs + ShareLanes.cs, docs/686 §35): pool ladder refusals / held from the other end / shared /
+        // would, off / household exempt.
+        const int kCounterSlots = 4721;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2243,6 +2250,13 @@ namespace Ts3Fixes
                 case "showerpee": return Instantiator.kShowerPee;  // ShowerShare.cs (docs/686 §15): an NPC that has to pee with no usable toilet on the lot takes a shower that refills its bladder, off
                 case "showerpeehh": return Instantiator.kShowerPeeHousehold;  // ShowerShare.cs: the same for household and selected Sims, off
                 case "showersharelog": return Instantiator.kShowerShareLog;  // ShowerShare.cs: one line per showertogether / showerpee act, off
+                case "elevskip": return Instantiator.kElevSkip;  // ElevSkip.cs (docs/686 §33): an unseen NPC the elevator doors refused is set at the doors its ride ends at, and the game replans, off
+                case "elevskiphh": return Instantiator.kElevSkipHousehold;  // ElevSkip.cs (docs/686 §33): household and selected Sims and NPCs in view too, after kElevSkipHhWait sim-minutes, with EA's fade, off
+                case "elevtriplog": return Instantiator.kElevTripLog;  // ElevSkip.cs (docs/686 §33): one line per car launch (riders, wait in the car), per Sim set through and per parked-car boarding, off
+                case "elevparked": return Instantiator.kElevParked;  // ElevParked.cs (docs/686 §34): an NPC boarding at closed doors where the column's car stands gets the doors opened at once instead of EA's 7 sim-minute call, off
+                case "elevparkedhh": return Instantiator.kElevParkedHousehold;  // ElevParked.cs (docs/686 §34): household and selected Sims too, off
+                case "poolshare": return Instantiator.kPoolShare;  // PoolShare.cs (docs/686 §35): a pool ladder lane held from the other end is shared (sharelanes' search), NPCs, off
+                case "poolsharehh": return Instantiator.kPoolShareHousehold;  // PoolShare.cs (docs/686 §35): household and selected Sims too, off
                 case "crowdport": return Instantiator.kCrowdPort;  // CrowdPort.cs (docs/686 §19): an NPC at a crowded elevator, rabbit hole door or station skips the queue by the game's own teleport paths; NPC exits leave together, off
                 case "crowdporthh": return Instantiator.kCrowdPortHousehold;  // CrowdPort.cs: the same for household and selected Sims, off
                 case "crowdportlog": return Instantiator.kCrowdPortLog;  // CrowdPort.cs (docs/686 §19): one line per act, off

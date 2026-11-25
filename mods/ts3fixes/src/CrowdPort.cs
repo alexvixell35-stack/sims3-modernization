@@ -55,7 +55,7 @@ namespace Ts3Fixes
             kCpWould = 4557, kCpExempt = 4558, kCpNotPlain = 4559, kCpElevShort = 4560, kCpElevNoSkip = 4561, kCpRhHolderKept = 4562,
             kCpRhEnded = 4563, kCpOutWaits = 4564, kCpOutPaced = 4565;
 
-        sealed class CpElev { public ulong Doors; public long First, Last; public bool Counted; }
+        sealed class CpElev { public ulong Doors; public long First, Last; public bool Counted, EskCounted; }  // EskCounted: elevskip's own count (ElevSkip.cs)
         sealed class CpExit { public int Pending; public long Burst; }
 
         static readonly Dictionary<ulong, CpElev> sCpElev = new Dictionary<ulong, CpElev>();  // a Sim's wait at an elevator, by Sim
@@ -179,7 +179,7 @@ namespace Ts3Fixes
             ElevatorDoors doors = target as ElevatorDoors;
             if (doors != null)
                 return behavior == (SimQueue.WaitBehavior.DontPlayRouteFail | SimQueue.WaitBehavior.OrderByProximity) && object.ReferenceEquals(doors.Line, line)
-                    && CpElevatorLine(a, doors, line, ref timeoutInMinutes);
+                    && (EskLineAsk(interaction, a, doors) || CpElevatorLine(a, doors, line, ref timeoutInMinutes));  // elevskip first (ElevSkip.cs, docs/686 §33)
             if (target is TubeElevator || target is FirefighterPole) CpOtherLine(a, target, line);
             return false;
         }

@@ -126364,5 +126364,239 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "elevskip-check",
+    "bug": "Sims stand at elevator doors while the column's one car is in use on another floor: the doors give no lane, the Sim loops in the doors' line (a quarter sim-minute per ask, up to 30 sim-minutes); EA's teleport skip needs the car free with open doors on the Sim's floor. Storm logs s532-s560: 1,462 elevator lane waits, 9,730 sim-min, mostly NPCs in Bridgeport towers (docs/686 §33)",
+    "fix": "ts3fixes ElevSkip.cs: elevskip (unseen NPCs at once), elevskiphh (household, selected and NPCs in view after kElevSkipHhWait, with fade), elevtriplog; line step in CrowdPort.cs CpLineHook; default off, docs/686 §33",
+    "save": "any world (pure check); the storm proof is Bridgeport seed 156 (s562, docs/686 §33.5)",
+    "note": "ElevSkipCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4700-4710 (set through, kept, car launches with their riders) and the last elevskip: line.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls ok=True' in both. No 'elevskip: error' line.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevskip": false,
+          "elevskiphh": false,
+          "elevtriplog": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevskip": false,
+          "elevskiphh": false,
+          "elevtriplog": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevskip": true,
+          "elevskiphh": true,
+          "elevtriplog": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevSkipCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevSkipCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
+  },
+  {
+    "id": "elevparked-check",
+    "bug": "A Sim boarding at closed elevator doors waits 7 sim-minutes of 'the car arrives' effects (ElevatorDoors.kLongEffectsTime) even when the column's car stands on its floor (the doors close when the last rider steps out); the whole column waits with it (docs/686 §34)",
+    "fix": "ts3fixes ElevParked.cs: elevparked (NPCs), elevparkedhh (household and selected Sims), default off, docs/686 §34",
+    "save": "any world (pure check); the storm proof is Bridgeport seed 156 (s562, docs/686 §34)",
+    "note": "ElevParkedCheck 'run' evaluates the rules with controls (read-only); 'result' shows counters 4711-4715 and the last elevparked: line.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls ok=True' in both. No 'elevparked: error' line.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevparked": false,
+          "elevparkedhh": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "elevparked": false,
+          "elevparkedhh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevParkedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "elevparked": true,
+          "elevparkedhh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevParkedCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.ElevParkedCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
+  },
+  {
+    "id": "poolshare-check",
+    "bug": "A swimmer refused at a pool ladder held from the other end (one lane per ladder; the game shares it only for Sims entering at the same end) waits at a spot until it gives up: 7 NPC waits, 14 sim-min in storms s550f, s558g, s560b (docs/686 §35)",
+    "fix": "ts3fixes PoolShare.cs + ShareLanes.cs (sharelanes' search, pool ladder kind): poolshare (NPCs), poolsharehh, default off, docs/686 §35",
+    "save": "any world (pure check); lot arm: a selected Sim on a lot with a pool",
+    "note": "PoolShareCheck 'run' evaluates the table rule with controls (read-only); 'lot' lists the pool ladders of the selected Sim's lot with their lane holders; 'result' shows counters 4716-4720.",
+    "expect": "off: 'verdict BROKEN'. on: 'verdict FIXED'. 'controls ok=True' in both.",
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "poolshare": false,
+          "poolsharehh": false
+        }
+      }
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "poolshare": false,
+          "poolsharehh": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: the game's answer",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "note": "the selected Sim's lot now",
+        "max": 4000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "poolshare": true,
+          "poolsharehh": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the fix",
+        "max": 2500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.PoolShareCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "note": "on: counters",
+        "max": 2500,
+        "waitS": 2
+      }
+    ]
   }
 ]

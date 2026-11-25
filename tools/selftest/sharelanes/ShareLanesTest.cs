@@ -158,7 +158,7 @@ static class ShareLanesTest
         Check(ShareLanesCore.AngleLadder(false, true, true, true, true) == W && ShareLanesCore.AngleLadder(true, false, true, true, true) == X, "ladder approach: off, exempt");
         Check(ShareLanesCore.Tenths(0f) == 0 && ShareLanesCore.Tenths(-3f) == 0 && ShareLanesCore.Tenths(float.NaN) == 0 && ShareLanesCore.Tenths(1.24f) == 12
             && ShareLanesCore.Tenths(20f) == 200 && ShareLanesCore.Tenths(1e9f) == 6000, "wait counter: tenths, never negative, capped");
-        Check(ShareLanesCore.kKindNames.Length == 6 && ShareLanesCore.kKindNames[ShareLanesCore.kSpiral] == "spiral", "a name per portal kind (spiral stairs: switch spiralshare)");
+        Check(ShareLanesCore.kKindNames.Length == 7 && ShareLanesCore.kKindNames[ShareLanesCore.kPoolLadder] == "pool ladder" && ShareLanesCore.kKindNames[ShareLanesCore.kSpiral] == "spiral", "a name per portal kind (spiral stairs: switch spiralshare; pool ladders: poolshare)");
     }
 
     // docs/686 §8.8: at once only near a portal, elsewhere after the shared grace; the near-portal test
