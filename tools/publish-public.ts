@@ -127,7 +127,8 @@ export function enabledSections(ini: string): string[] {
 }
 
 // 0.36.295-rc1119b -> 0.36.295; other versions unchanged
-export const rcBase = (v: string) => v.replace(/-rc[0-9a-z]+$/, '');
+// RC builds carry -rc<date> or the master build tag -m<date> (0.36.305-m1124d); CI builds the tag as the base version
+export const rcBase = (v: string) => v.replace(/-(rc|m)\d[0-9a-z]*$/, '');
 
 // the draft's ts3native-<tag>.zip: asi version, ini = tested ini; returns the enabled sections
 export function verifyZip(z: Buffer, nativeVersion: string, testedIni: Buffer): string[] {
@@ -438,11 +439,13 @@ function selfCheck(): void {
   assert.deepEqual(verifyZip(z('0.36.37a'), '0.36.37a', ini), ['[GC]', '[RouteAsync]'], 'hotfix letter suffix ok');
   assert.throws(() => verifyZip(z('0.36.37a'), '0.36.37', ini), /asi version 0.36.37a/, 'hotfix asi is not the base release');
   assert.throws(() => verifyZip(z('0.36.40', Buffer.from('[GC]\nEnabled=0\n')), '0.36.40', ini), /ini sha256/, 'other ini refused');
-  // regexCases rcBase: match '0.36.295-rc1119b'; non-match '0.36.37a', '0.36.295-rc', '0.36.295-beta1'
+  // regexCases rcBase: match '0.36.295-rc1119b', '0.36.305-m1124d'; non-match '0.36.37a', '0.36.295-rc', '0.36.295-beta1', '0.36.305-m'
   assert.equal(rcBase('0.36.295-rc1119b'), '0.36.295', 'rc suffix stripped');
   assert.equal(rcBase('0.36.37a'), '0.36.37a', 'hotfix letter kept');
   assert.equal(rcBase('0.36.295-rc'), '0.36.295-rc', 'bare -rc kept');
   assert.equal(rcBase('0.36.295-beta1'), '0.36.295-beta1', 'other suffix kept');
+  assert.equal(rcBase('0.36.305-m1124d'), '0.36.305', 'master build tag stripped');
+  assert.equal(rcBase('0.36.305-m'), '0.36.305-m', 'bare -m kept');
   assert.deepEqual(verifyZip(z('0.36.295'), '0.36.295-rc1119b', ini), ['[GC]', '[RouteAsync]'], 'CI base build of an RC tag ok');
   assert.deepEqual(verifyZip(z('0.36.295-rc1119b'), '0.36.295-rc1119b', ini), ['[GC]', '[RouteAsync]'], 'tested RC asi ok');
   assert.throws(() => verifyZip(z('0.36.294'), '0.36.295-rc1119b', ini), /asi version 0.36.294/, 'other base refused for an RC');
