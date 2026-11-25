@@ -2626,3 +2626,16 @@ three toilets in two rooms, BathtubShowerModern). Swaps: `GameObject.GetInUseAut
 `InteractionInstance.BeginCommodityUpdates`, `InteractionInstance.EndCommodityUpdates` (stubs, swap-stack-audit).
 Limits [inferred]: walk speed is a constant, not a route plan (a plan is made before a move only); the fridge has no use
 record (busy = users and line); a route through a private room is not costed.
+
+### 36.9 Per branch (#738, #741) [verified by reading and building; not run yet]
+- `post/bathroomwait-1125` (#741), fixed on that branch: a toilet with Sims in its line counted as free (the push only
+  joined that line); each world load started one more `while (true)` loop beside the old one (loops now end when a
+  newer load starts); the switch was read only at world load (now every pass, off clears the waits); errors were
+  swallowed (the first three are logged); `privacyroom` / `bathroomwait` were missing from the agent's switch names, so
+  `fix-repro-check` failed on the branch. Kept as found: the -20 start, nearest-free choice and household order with the
+  planner off.
+- `post/fridgeline-1125` (#738): no behaviour change; the three switches were missing from the agent's names
+  (`fix-repro-check` failed). The planner's pick hook covers the fridge's busy-until; `fridgelinefill` stays the
+  "something useful first" case of a full fridge line.
+- `post/facilityplan-1125`: both branches merged plus the planner; with `facilityplan` + `facilityplanhh` on, bathroomwait
+  takes the planner's start, order and target (36.7, FacilityPlanBathroomWait.cs). Every PR switch keeps its meaning.
