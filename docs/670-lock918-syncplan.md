@@ -2027,3 +2027,12 @@ s194, s260): not attributed to the set, cause unknown. Each run's `.out` has its
 
 **Verdict.** Kept. No wrong answer found, no strand in 7 serving loads, and the count over 300 storms does not separate
 set on from set off. Not proven harmless either: the strand is a 1-3% event and its cause is open.
+
+
+### 29.6 The ladder-top footprint lead: ruled out for a climber (2026-11-25, forced repro s561, docs/686 §32.2)
+
+Colonial Casa, new Isla Paradiso game, this set on, `JobYield=1`: three cycles of one Sim climbing the ladder down and up
+while another stands on level 2. Both ladder lanes `A yes, B yes` (`Route.IsPointRoutable` for the planner) in all 30
+reads during and after the climbs, the climber on the lane end with its footprint off; the planner's real walk to the
+ground after each cycle `route ok` 3 of 3 (10.5 s, no failed plan). The down portal is not closed by a climber. The
+strand of §29.3 keeps an unknown cause; none in the 46 storm logs s532-s560.

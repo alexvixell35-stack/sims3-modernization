@@ -223,6 +223,24 @@ namespace Ts3Fixes
                 + " m; " + GlMembers(sSflMissing) + (sSflLast.Length > 0 ? "; last: " + sSflLast : "");
         }
 
+        // Route.IsPointRoutable at both ends of each lane of the links (EA's answer for this Sim's route, Sims included).
+        static string SflEnds(Route p, List<LevelLink> links)
+        {
+            StringBuilder b = new StringBuilder("lane ends routable:");
+            foreach (LevelLink k in links)
+            {
+                b.Append(' ').Append(k.Type);
+                for (uint i = 0; k.Ends && i < k.Lanes && i < 3; i++)
+                {
+                    Slot[] s = LevelLinkLane(k, i);
+                    if (s == null) continue;
+                    b.Append(" [").Append(i).Append(": A ").Append(p.IsPointRoutable(k.Obj.GetSlotPosition(s[0])) ? "yes" : "NO")
+                        .Append(", B ").Append(p.IsPointRoutable(k.Obj.GetSlotPosition(s[1])) ? "yes" : "NO").Append(']');
+                }
+            }
+            return b.ToString();
+        }
+
         // StairFlowCheck result: counters and the session's timing. plan <sim hex id> x y z: a test plan from the Sim to the point
         // (nobody moves), with Route.IsPointRoutable at every lane end of the level links of the Sim's lot (the ladder lead of
         // docs/670 §29.3). run: the rules with controls.
@@ -266,7 +284,7 @@ namespace Ts3Fixes
                             if (o != null && o != sim) near.Append(' ').Append(o.FullName).Append('@').Append(V(o.Position)).Append(o.SimRoutingComponent != null && o.SimRoutingComponent.IsDynamicFootprintEnabled() ? " fp on" : " fp off")
                                 .Append(o.SimRoutingComponent != null && o.SimRoutingComponent.IsRouting ? " routing" : "");
                     string line = "stairflow plan: " + sim.FullName + " at " + V(sim.Position) + " to " + V(goal) + ": " + (res.Succeeded() ? "SUCCEEDS" : "fails " + res.mType)
-                        + "; " + StrandProbeEnds(p, sim, goal, links) + "; Sims within 1.5 m of the lane ends:" + (near.Length > 0 ? near.ToString() : " none");
+                        + "; " + SflEnds(p, links) + "; Sims within 1.5 m of the lane ends:" + (near.Length > 0 ? near.ToString() : " none");
                     DiagLine(line);
                     return line;
                 }
