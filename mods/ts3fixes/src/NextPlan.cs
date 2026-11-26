@@ -226,10 +226,11 @@ namespace Ts3Fixes
             if (sNpOurs.TryGetValue(who, out ours) && ours == ii) { sNpOurs.Remove(who); if (ii.Cancelled) c[kNpDropped]++; }
             GameObject t = ii.Target as GameObject;
             if (t != null && sNp.TargetOf(who) == t.ObjectId.Value) sNp.Release(who);
-            InteractionQueue q = s.InteractionQueue;
-            if (!isHead || q == null || q.Count > 1) return;  // called before the list removal: 1 = empty after
+            if (!isHead) return;
             bool hh = IsPlayerSim(s);
-            if (hh && ii.Autonomous && !ii.Cancelled) c[kNpHhDone]++;
+            if (hh && ii.Autonomous && !ii.Cancelled) c[kNpHhDone]++;  // every household autonomous head that ended
+            InteractionQueue q = s.InteractionQueue;
+            if (q == null || q.Count > 1) return;  // called before the list removal: 1 = empty after
             if (sNpGaps.Count >= 1024) sNpGaps.Clear();  // bounded; a cleared Sim just misses one pass
             NpGap g = new NpGap();
             g.Ms0 = System.Environment.TickCount; g.T0 = NpNow(); g.Hh = hh;
