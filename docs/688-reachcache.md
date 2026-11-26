@@ -109,11 +109,11 @@ Storm A/B (s596, Bridgeport 30 min, seed 156, the s562 setup, reachcachelog on i
   change; the visible gain in arm c is 8 RouteFail balloons fewer in 30 min. The memo entries all went stale (privacy
   ends bump the lot's portal version), so autonomy left out only 3 pairs.
 - Cost: about 9-10 k floods per 30-min storm (5 / s), not timed.
-- Stability: 4 of 9 launches with this package (two of arm c, one of arm a, and the first arm a, whose log was lost to
-  a relaunch) crashed or quit 1-2 min into live mode (one fault in EA's chunk free 0x004E5200); the reruns of a, c and
-  the all-off control z ran 30 min clean. The other agent's runs in the same hours also hung or quit, so this is not
-  pinned on reachcache, and not ruled out either.
+- Stability: 3 of 9 launches with this package failed 1-2 min into live mode (arm c crashed with a fault in EA's chunk
+  free 0x004E5200, arm a crashed, arm c quit); the first arm a lost its log to a harness relaunch after a clean 30 min.
+  The reruns of a, c and the all-off control z ran 30 min clean. The other agent's runs in the same hours also hung or
+  quit, so this is not pinned on reachcache, and not ruled out either.
 
-Proof status: exact so far (WRONG 0 in 45 refuse verdicts, forced and storm); stability NOT PROVEN (early crashes above);
+Proof status: exact so far (WRONG 0 in 45 refuse verdicts, forced and storm); stability NOT PROVEN (the early failures above);
 gain small (balloons only, about 16 an hour in arm c). Next: catch radial destinations (a social's radial range around
 a Sim in a locked room), time the flood, and a second clean c arm.
