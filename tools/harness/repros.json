@@ -123194,6 +123194,8 @@
         "args": {
           "skateloop": true
         },
+        "show": "skateloop",
+        "max": 100000,
         "waitS": 1,
         "note": "on: normal skating must never reach the guard ([4003] stays 0); the spin itself has no forced trigger yet"
       },
@@ -124271,6 +124273,13 @@
       {
         "cmd": "remove_sims",
         "args": {}
+      },
+      {
+        "cmd": "leak_census",
+        "show": "fix_counters",
+        "max": 100000,
+        "waitS": 2,
+        "note": "patch counters: 4003 spins ended, 4004 spins seen (off), 4005 errors; absent = 0"
       }
     ],
     "expect": "no heartbeat-frozen kill; Skate activity on the rink across the rounds; patch counter [4003] 0 and [4005] 0 (a spin shows as [4003] > 0 and the Sim leaving the rink, not a frozen game)"
