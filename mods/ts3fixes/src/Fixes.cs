@@ -310,7 +310,7 @@ namespace Ts3Fixes
             ApplyPetPoolGhost();   // docs/588 B10 §19
             ApplyEatPostOnce();   // docs/589 B11 §1
             ApplyMotiveMultOnce();   // docs/589 B11 §2
-            ApplyTermLenGuard();     // docs/691 §2 (TermLenGuard.cs): termlenguard, off; its decay step is in ApplyMotiveMultOnce's hook
+            ApplyTermLenGuard();     // docs/692 §2 (TermLenGuard.cs): termlenguard, off; its decay step is in ApplyMotiveMultOnce's hook
             ApplyFightBroadcastEnd();   // docs/589 B11 §3
             ApplyReactionCopy();   // docs/589 B11 §4
             ApplyCarpoolSchoolSkip();   // docs/589 B11 §5
@@ -1733,7 +1733,7 @@ namespace Ts3Fixes
         // switched) / plans to candidates / errors. 4610-4614 are left to the pending npcloops PR (post/npcloops-1123).        // [4660-4669] left to pending PRs (hotpaths 4660-4661, spotwaitattr up to 4665).
         // [4670-4679] reactoverlay (ReactOverlay.cs, docs/686 §26): overlaid now / from the queue / would, off / queued by EA / dropped stale /
         // would drop, off / queued that ran / their summed ms / max ms / errors.
-        // [4904-4908] termlenguard (TermLenGuard.cs, docs/691 §2): decay updates / test adjustments / skipped-class grants
+        // [4904-4908] termlenguard (TermLenGuard.cs, docs/692 §2): decay updates / test adjustments / skipped-class grants
         // guarded / would guard (off) / errors; 4900-4903 dnpcostlog on the combo branch; 4909-4919 spare.
         const int kCounterSlots = 4920;
         static int[] sCountersCache;
@@ -2485,7 +2485,7 @@ namespace Ts3Fixes
                 case "petpoolghost": return Instantiator.kPetPoolGhost;
                 case "eatpostonce": return Instantiator.kEatPostOnce;
                 case "motivemultonce": return Instantiator.kMotiveMultOnce;
-                case "termlenguard": return Instantiator.kTermLenGuard;  // TermLenGuard.cs (docs/691 §2): academic multipliers with an out-of-range term length / course load count as 1 instead of throwing (Sim reset), every Sim, off
+                case "termlenguard": return Instantiator.kTermLenGuard;  // TermLenGuard.cs (docs/692 §2): academic multipliers with an out-of-range term length / course load count as 1 instead of throwing (Sim reset), every Sim, off
                 case "fightbroadcastend": return Instantiator.kFightBroadcastEnd;
                 case "reactioncopy": return Instantiator.kReactionCopy;
                 case "carpoolschoolskip": return Instantiator.kCarpoolSchoolSkip;
