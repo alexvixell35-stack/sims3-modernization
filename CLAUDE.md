@@ -32,7 +32,7 @@ See `PLAN.md` ("Where things stand" and "Next tasks"): it is the source of truth
 - Always relevant: `PLAN.md` (resume here), `docs/04-re-findings.md` (verified findings), `docs/51` (inference ledger), `docs/registry.md` (counter slots), `CONTRIBUTING.md`, `docs/23-ideas-and-roadmap.md`.
 
 ## Working style
-- The main agent orchestrates; triage, static analysis, fixes and queue/doc work go to sub-agents (`AGENTS.md` Rules, "Main agent orchestrates").
+- **The main agent is only the orchestrator:** it hands work off to sub-agents as much as possible (triage, static analysis, fixes, builds, merges, syncs, releases, queue and doc work) and does the work itself only when a sub-agent cannot (`AGENTS.md` Rules, "Main agent orchestrates").
 - Rodney wants every avenue tried, including binary patches and DLL hooks.
 - Mark claims as verified, community-reported, or inferred, and confirm inferred ones in the disassembly or by measurement.
 - Change one thing at a time and compare against the baseline table.
