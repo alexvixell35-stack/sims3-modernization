@@ -502,6 +502,7 @@ namespace Ts3Agent
                 for (int i = 0; i < ur.Length; i++) r[ur[i]] = c[641 + i];
             }
             if (c.Length > 2001) { r["menumaven_reads"] = c[2000]; r["menumaven_done"] = c[2001]; } // MenuMaven.cs, docs/501
+            if (c.Length > 4005) { r["skateloop_ended"] = c[4003]; r["skateloop_seen_off"] = c[4004]; r["skateloop_errors"] = c[4005]; } // SkateLoop.cs: skating path spins ended / seen with the switch off / errors
             if (c.Length > 2253) { r["mooddrift_corrected"] = c[2251]; r["mooddrift_points"] = c[2252]; r["mooddrift_errors"] = c[2253]; } // MoodDrift.cs (corrected also counts with the switch off)
             if (c.Length > 2280) { r["moodpending_seen"] = c[2278]; r["moodpending_skipped"] = c[2279]; r["moodpending_errors"] = c[2280]; } // MoodPending.cs (seen also counts off)
             if (c.Length > 1059) { r["weddingcleanup_guarded"] = c[1058]; r["weddingcleanup_errors"] = c[1059]; } // WeddingCleanup.cs, registry fixes-1058
