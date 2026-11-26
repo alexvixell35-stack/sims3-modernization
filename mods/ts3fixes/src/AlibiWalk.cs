@@ -26,7 +26,7 @@ namespace Ts3Fixes
     {
         const int kAlwRoutes = 4920, kAlwLong = 4921, kAlwKind = 4922, kAlwScope = 4923, kAlwSeen = 4924, kAlwWould = 4925,
             kAlwCut = 4926, kAlwUndo = 4927, kAlwUndoFail = 4928, kAlwSkippedM = 4929, kAlwErrors = 4930, kAlwTailM = 4931,
-            kAlwLastNotWalk = 4932, kAlwTooShortCut = 4933, kAlwActiveLot = 4934, kAlwLongM = 4935, kAlwKindCar = 4936, kAlwKindWater = 4937, kAlwKindOther = 4938;
+            kAlwLastNotWalk = 4932, kAlwLateSeen = 4933, kAlwActiveLot = 4934, kAlwLongM = 4935, kAlwKindCar = 4936, kAlwKindWater = 4937, kAlwKindOther = 4938, kAlwUndoLong = 4939;
         const int kAlwMaxNames = 48;
         static readonly Dictionary<string, int[]> sAlwBy = new Dictionary<string, int[]>();  // interaction -> long, metres, would/cut, seen
         static string sAlwLast = "", sAlwLastError = "";
@@ -84,7 +84,7 @@ namespace Ts3Fixes
                     c[k]++; AlwNote(name, 0, (int)len); return;
                 }
                 if (v == AlibiWalkCore.kLastNotWalk) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
-                if (v == AlibiWalkCore.kTailTooLong) { c[kAlwTooShortCut]++; AlwNote(name, 0, (int)len); return; }
+                if (v == AlibiWalkCore.kTailTooLong) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
                 if (v != AlibiWalkCore.kAct) return;
                 // scope: on foot and alone (UfHeld: riding, ridden, in a vehicle, carried, carrying), no followers, no group walk
                 List<Sim> fol = inst is Sims3.Gameplay.Abstracts.RabbitHole.IRabbitHoleFollowers ? ((Sims3.Gameplay.Abstracts.RabbitHole.IRabbitHoleFollowers)inst).SimFollowers
@@ -119,12 +119,15 @@ namespace Ts3Fixes
                 if (res.Succeeded() && tl <= AlibiWalkCore.TailMax(Instantiator.kAlibiWalkTailM))
                 {
                     c[kAlwCut]++; c[kAlwSkippedM] += skipped; c[kAlwTailM] += (int)tl;
+                    CsWatch(sim.ObjectId.Value, System.Environment.TickCount, 3);  // camsafe's late-seen audit: on screen within kCamSafeAuditS s counts [4933]
                     AlwNote(name, 2, (int)len);
                     sAlwLast = sim.FullName + " " + name + ": " + (int)len + " m walk cut to " + (int)tl + " m at " + BuAt(p);
                     return;
                 }
                 // undo: back where it stood, the original walk planned again
                 c[kAlwUndo]++;
+                if (res.Succeeded()) c[kAlwUndoLong]++;
+                if (c[kAlwUndo] <= 20) DiagLine("alibiwalk: undo " + sim.FullName + " " + name + ": " + (int)len + " m route, tail start " + BuAt(p) + " (" + tail.ToString("0.0") + " m before the end " + BuAt(end) + ", last path " + lastLen.ToString("0") + " m of " + n + "), replan " + res.mType + (tl >= 0 ? " " + (int)tl + " m" : ""));
                 PlaceSim(sim, from, fwd, "alibiwalk undo " + name);
                 moved = false;
                 if (!r.Replan().Succeeded()) c[kAlwUndoFail]++;  // the game's DoRoute answers the failed plan as for any replan
@@ -150,9 +153,9 @@ namespace Ts3Fixes
                 string sw = "alibiwalk " + (ShortcutOn("alibiwalk") ? "on" : "off") + ", alibiwalklog " + (ShortcutOn("alibiwalklog") ? "on" : "off")
                     + ", camsafe " + (ShortcutOn("camsafe") ? "on" : "off") + ", min " + Instantiator.kAlibiWalkMinM + " m, tail " + Instantiator.kAlibiWalkTailM + " m";
                 string counts = "NPC routes followed " + c[kAlwRoutes] + ", long " + c[kAlwLong] + " (" + c[kAlwLongM] + " m), refused: path kind " + c[kAlwKind] + " (car " + c[kAlwKindCar] + ", boat / water " + c[kAlwKindWater] + ", other " + c[kAlwKindOther] + ")"
-                    + ", ends in a portal " + c[kAlwLastNotWalk] + ", little to cut " + c[kAlwTooShortCut] + ", scope " + c[kAlwScope] + ", active lot " + c[kAlwActiveLot]
+                    + ", ends in a portal or little to cut " + c[kAlwLastNotWalk] + ", scope " + c[kAlwScope] + ", active lot " + c[kAlwActiveLot]
                     + ", seen " + c[kAlwSeen] + "; would cut " + c[kAlwWould] + ", cut " + c[kAlwCut] + " (skipped " + c[kAlwSkippedM] + " m, tails walked " + c[kAlwTailM]
-                    + " m), undone " + c[kAlwUndo] + " (undo replan failed " + c[kAlwUndoFail] + "), errors " + c[kAlwErrors];
+                    + " m, on screen within the audit window after a cut " + c[kAlwLateSeen] + "), undone " + c[kAlwUndo] + " (undo replan failed " + c[kAlwUndoFail] + "), errors " + c[kAlwErrors];
                 if (what == "result")
                 {
                     List<KeyValuePair<string, int[]>> l = new List<KeyValuePair<string, int[]>>(sAlwBy);
