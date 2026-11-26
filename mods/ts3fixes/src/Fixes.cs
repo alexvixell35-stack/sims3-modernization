@@ -318,6 +318,7 @@ namespace Ts3Fixes
             ApplyPetPoolGhost();   // docs/588 B10 §19
             ApplyEatPostOnce();   // docs/589 B11 §1
             ApplyMotiveMultOnce();   // docs/589 B11 §2
+            ApplyTermLenGuard();     // docs/691 §2 (TermLenGuard.cs): termlenguard, off; its decay step is in ApplyMotiveMultOnce's hook
             ApplyFightBroadcastEnd();   // docs/589 B11 §3
             ApplyReactionCopy();   // docs/589 B11 §4
             ApplyCarpoolSchoolSkip();   // docs/589 B11 §5
@@ -1849,7 +1850,8 @@ namespace Ts3Fixes
         // watched verdicts / on screen soon after unseen / after a camsafe veto; speed max m/s; reach max m; samples; errors.
         // [4920-4939] alibiwalk / alibiwalklog (AlibiWalk.cs, docs/691): NPC routes followed / long / refused by path kind, scope,
         // seen, portal end, little to cut, active lot; would cut / cut / undone / undo failed; metres skipped / tails / long; errors.
-        // [4900-4919] dnpcostlog / dnpdrain (DnpCost.cs, DnpDrain.cs, docs/691): see the files; 4880-4899 other branches.
+        // [4900-4903] dnpcostlog (DnpCost.cs, docs/691 §1); [4904-4908] termlenguard (TermLenGuard.cs, docs/691 §2): decay updates /
+        // test adjustments / skipped-class grants guarded / would guard (off) / errors; 4909-4919 spare; 4880-4899 other branches.
         const int kCounterSlots = 4940;
         static int[] sCountersCache;
         static int[] PatchCounters()
@@ -2257,6 +2259,7 @@ namespace Ts3Fixes
                 case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
                 case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
                 case "camsafelog": return Instantiator.kCamSafeLog;  // CamSafe.cs: sample the camera and count what camsafe would say with camsafe off (the A/B off arm), off
+                case "termlenguard": return Instantiator.kTermLenGuard;  // TermLenGuard.cs (docs/691 §2): academic multipliers with an out-of-range term length / course load count as 1 instead of throwing (Sim reset), every Sim, off
                 case "reachcachelog": return Instantiator.kReachCacheLog;  // ReachCache.cs: verify every refusal verdict against the real plan (WRONG count), off
                 case "linestale": return Instantiator.kLineStale;  // LineStale.cs (docs/686 §29): a line head whose action ended or sits queued behind another action leaves the line after 5 sim-min, NPC heads, off
                 case "linestalehh": return Instantiator.kLineStaleHh;  // LineStale.cs (docs/686 §29): household and selected heads too, off

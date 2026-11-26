@@ -165,6 +165,12 @@ namespace Ts3Fixes
             {
                 Motive m = (Motive)(object)this;
                 CommodityKind c = m.Commodity;
+                if (c == CommodityKind.AcademicPerformance)  // termlenguard (TermLenGuard.cs): shared hook, one patch per method
+                {
+                    if (!TlBegin(sim, 4904)) return DecayOrig(hoursPassed, currentHours24, sim);
+                    try { return DecayOrig(hoursPassed, currentHours24, sim); }
+                    finally { TlEnd(); }
+                }
                 if ((c != CommodityKind.Fun && c != CommodityKind.BatteryPower) || sim == null || sim.IsHorse) return DecayOrig(hoursPassed, currentHours24, sim);
                 bool fun = c == CommodityKind.Fun;
                 bool carefree = false, lemon = false, chip = false;

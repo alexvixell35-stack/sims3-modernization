@@ -149912,5 +149912,86 @@
       }
     ],
     "expect": "no crash; final step passes (state done, rows >= 1); \"isweep done <pack> state done\" in ts3native.log; script errors from EA interactions are findings (scriptErrorsReport), a Ts3Fixes / Ts3Agent frame FAILs"
+  },
+  {
+    "id": "termlenguard-invalid-term",
+    "bug": "Motive.UpdateMotiveWithDecay, AcademicCourse.AdjustAcademicPerformanceForTest and GiveAcademicPerformanceAsIfSimDidThisInteraction index EA's academic multiplier tables with (uint)(AcademicCareer.sTermLengthEx - 1) and NumberOfCoursesPerDay - 1 unchecked: term length kInvalid (a new game from the Sims University world file), a 3- or 4-week term or 0 courses throw IndexOutOfRange and the Sim is reset (docs/691 §1-§2)",
+    "fix": "ts3fixes TermLenGuard.cs: termlenguard (default off), docs/691 §2",
+    "save": "a new game from Sims University.world (students with an AcademicCareer)",
+    "note": "TermLenGuardCheck 'run' calls EA's AdjustAcademicPerformanceForTest(true) on a throwaway course of the first Sim with an AcademicCareer, with the term length set to kInvalid for the call; the Sim's academic performance and the term length are put back. Nothing in the world stays changed.",
+    "expect": "off: threw IndexOutOfRangeException, 'verdict: BROKEN', 4907 +1. on: threw no, academic performance moved by 120 x the course-load factor, 'verdict: FIXED', 4905 +1, 4908 +0; no script errors.",
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": false
+        },
+        "note": "off first",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "off: EA's path",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": true
+        },
+        "note": "on",
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "note": "on: the guard",
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.TermLenGuardCheck",
+          "args": [
+            "result"
+          ]
+        }
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": false
+        },
+        "note": "back to the default"
+      }
+    ],
+    "cleanup": [
+      {
+        "cmd": "patches",
+        "args": {
+          "termlenguard": false
+        }
+      }
+    ]
   }
 ]

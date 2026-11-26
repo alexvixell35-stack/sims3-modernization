@@ -530,6 +530,7 @@ namespace Ts3Fixes
                 case "talkoccupationchance": return EpLive(typeof(BTaoHook), 1);
                 case "teleportcommunitylot": return EpLive(typeof(BTcHook), 1);
                 case "tempforecast": return EpLive(typeof(B13TfHook), 1, "sTfMin", sTfMin, null, "sTfMin", sTfMin, "static", "sTfMax", sTfMax, null, "sTfMax", sTfMax, "static", "sTfWeight", sTfWeight, 1, "sTfGet", sTfGet, 2);
+                case "termlenguard": return EpLive(typeof(TlCourseHook), 2);
                 case "timeralarmleak": return EpLive(typeof(W86TimerHook), 2);
                 case "tipsnpcend": return EpLive(typeof(TneLoopHook), 1);
                 case "tooltipthrottle": return EpLive(typeof(TooltipThrottleHook), 0);

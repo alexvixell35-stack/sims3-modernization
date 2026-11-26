@@ -550,6 +550,7 @@ namespace Ts3Fixes
         [Tunable] public static float kCamSafeJumpM = 25f;  // camsafe: a camera target, eye or reach change above this between two samples is a jump (portrait click, lot jump, map view)
         [Tunable] public static float kCamSafeJumpHoldS = 3f;  // camsafe: after a jump, everything counts as seen for this many real seconds
         [Tunable] public static float kCamSafeAuditS = 3f;  // camsafe / camsafelog: an unseen verdict's Sim on screen within this many real seconds counts as seen soon (late-seen audit)
+        [Tunable] public static bool kTermLenGuard = false;  // termlenguard (docs/691 §2): EA's unguarded academic-performance multiplier tables (term length kInvalid in a world-file Sims University game, 3-4 week terms, 0 courses) multiply by 1 instead of throwing and resetting the Sim
         [Tunable] public static bool kReachCache = false;  // reachcache (docs/688): an NPC's route plan whose every destination room is behind portals the planner answers locked fails at once (no balloon); autonomy skips that pair until the lot's portals change
         [Tunable] public static bool kReachCacheHh = false;  // reachcachehh: household and selected Sims too (a player's order is never refused)
         [Tunable] public static bool kReachCacheLog = false;  // reachcachelog: run the real plan for every refusal verdict and count EA's answer (WRONG = it succeeded)
