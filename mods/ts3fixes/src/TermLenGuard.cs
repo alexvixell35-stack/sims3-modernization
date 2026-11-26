@@ -5,7 +5,7 @@ using Sims3.Gameplay.Actors;
 
 namespace Ts3Fixes
 {
-    // termlenguard (docs/691 §2, EA bug fix, switch off by default; every Sim, it is a crash guard). [verified decompiled]
+    // termlenguard (docs/692 §2, EA bug fix, switch off by default; every Sim, it is a crash guard). [verified decompiled]
     // Three EA sites scale academic performance by
     //   AcademicCourse.kCourseLoadMultipliersToAcademicPerformance[NumberOfCoursesPerDay - 1] (4 entries) and
     //   AcademicCourse.kTermLengthMultipliersToAcademicPerformance[(uint)(AcademicCareer.sTermLengthEx - 1)] (2 entries)
@@ -17,7 +17,7 @@ namespace Ts3Fixes
     // the two-entry table: IndexOutOfRangeException. In Sim.Simulate that ends the Sim's update and the Sim is reset (EA's
     // handler, or NRaas ErrorTrap's ResetSimTask: a full re-instantiation, a new wish manager with every tree activated and
     // a new lifetime wish, a safe-location search). Soaks s570-s612 (SU): one reset per class change and household student,
-    // 0.3-1.8 s frames each, the biggest script-CPU hitches of SU (docs/691 §1). EA's own guarded copy of the same product
+    // 0.3-1.8 s frames each, the biggest script-CPU hitches of SU (docs/692 §1). EA's own guarded copy of the same product
     // (AcademicCourse.cs, the class-tone multiplier) skips a factor whose index is out of range, i.e. multiplies by 1;
     // NRaas Career sets kOneWeek at its own enrolment only. The guard: when an index is out of range, for the duration of
     // EA's call the table is a one-entry {1} array and the index source points at entry 0 (term length kOneWeek,

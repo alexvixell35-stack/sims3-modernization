@@ -1,6 +1,6 @@
 namespace Ts3Fixes
 {
-    // termlenguard (TermLenGuard.cs, docs/691 §2): the game-independent rule, checked offline by tools/selftest/termlenguard.
+    // termlenguard (TermLenGuard.cs, docs/692 §2): the game-independent rule, checked offline by tools/selftest/termlenguard.
     public static class TermLenGuardCore
     {
         // EA's index is (uint)(value - 1) into a table of len entries: out of range for value 0 (kInvalid term length, no

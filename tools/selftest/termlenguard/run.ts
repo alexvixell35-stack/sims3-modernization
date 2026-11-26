@@ -1,5 +1,5 @@
 // Offline self-check of the game-independent rules of termlenguard
-// (mods/ts3fixes/src/TermLenGuardCore.cs, docs/691). Windows (.NET Framework csc), or TS3_CSC on Linux.
+// (mods/ts3fixes/src/TermLenGuardCore.cs, docs/692). Windows (.NET Framework csc), or TS3_CSC on Linux.
 //   node tools/selftest/termlenguard/run.ts
 import { execFileSync, CSC } from '../csc-shim.ts';
 import { mkdirSync } from 'node:fs';

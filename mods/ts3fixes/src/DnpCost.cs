@@ -6,7 +6,7 @@ using Sims3.Gameplay.DreamsAndPromises;
 
 namespace Ts3Fixes
 {
-    // dnpcostlog (docs/691 §3, diagnostics only, switch off by default): times the wish managers' Updates that
+    // dnpcostlog (docs/692 §3, diagnostics only, switch off by default): times the wish managers' Updates that
     // EventTracker.SendEvent drains (sNeedToUpdateList, every manager queued since the last event, back to back) and the
     // ActiveDreamNode.Test calls inside them, by check function. Updates closer than 5 ms together are one burst; a burst
     // of 50 ms or more is one "dnpcost:" line (managers, full / partial updates, tests and their ms, the top check

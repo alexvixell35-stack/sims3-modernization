@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline checks of TermLenGuardCore (termlenguard, docs/691 §2): which indices EA's academic multiplier tables reject and
+// Offline checks of TermLenGuardCore (termlenguard, docs/692 §2): which indices EA's academic multiplier tables reject and
 // the factor the guard gives instead (EA's guarded copy: skip the factor, i.e. 1).
 static class TermLenGuardTest
 {

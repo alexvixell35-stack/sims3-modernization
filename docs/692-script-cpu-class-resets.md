@@ -1,4 +1,4 @@
-# 691. Script-CPU frames after the routing fixes: Sims University class-change resets (termlenguard)
+# 692. Script-CPU frames after the routing fixes: Sims University class-change resets (termlenguard)
 
 Written 2026-11-26 (UTC). Soak logs s570a-f, s598a-d, s603a-b (combo 35decac9, upstream defaults) and new runs s612b/d
 and s612a/c (A/B), decompiled C#, NRaas source (`game-copy/nraas-src`, cite only). Tags: [measured], [verified]
