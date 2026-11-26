@@ -84,3 +84,36 @@ Counters 4820-4839: see docs/registry.md. Check: `reflect_call Ts3Fixes.Fixes.Re
 ## Proof status
 
 See the end of this doc (updated with the A/B).
+
+### Results (2026-11-26)
+
+Forced repro `reachcache-locked-bath` (s596r, Sunset Valley, Bunch house, 5 doors of 4 toilet rooms locked to Nobody):
+off arm (log only) then on arm (reachcache + reachcachehh + log). On arm: 6 refusals acted (household), all 6 verified
+failures (NoPath: the selected Sim was itself inside a locked room), WRONG 0, errors 0, 1,674 autonomy pairs left out
+for the trapped Sim, 1 locked result missed. The off-arm probe showed 0 verdicts because the switches were re-read
+only every 64 calls (fixed: at least once a second).
+
+Storm A/B (s596, Bridgeport 30 min, seed 156, the s562 setup, reachcachelog on in every arm):
+
+| arm | refuse verdicts | verified right (locked) | WRONG | acted | missed locked | verdicts / floods | hh routefail lines (locked / all) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| z all off | - | - | - | - | - | - | 36 / 117 |
+| a log only | 10 | 10 (10) | 0 | 0 | 155 | 9,995 / 9,159 | 30 / 106 |
+| b NPC on | 19 | 19 (18) | 0 | 0 (all household, out of scope) | 22 | 10,904 / 10,235 | 68 / 126 |
+| c NPC + hh on | 10 | 10 (10) | 0 | 8 (all UseToilet, household) | 43 | 9,060 / 8,383 | 52 / 102 |
+
+- Every refuse verdict was a plan EA failed (39 / 39 over the three arms, 38 of them DestinationPortalLocked); WRONG 0.
+- NPCs had no refuse verdict at all: the NPC arm does nothing in storms, as the log measurement said.
+- Coverage is low: most destinations are radial or lot destinations (unknown, 23-29 k per arm), so about 10-45 % of
+  EA's locked failures are caught. With the log on the real plan still runs, so plan time and the routefail lines do not
+  change; the visible gain in arm c is 8 RouteFail balloons fewer in 30 min. The memo entries all went stale (privacy
+  ends bump the lot's portal version), so autonomy left out only 3 pairs.
+- Cost: about 9-10 k floods per 30-min storm (5 / s), not timed.
+- Stability: 4 of 9 launches with this package (two of arm c, one of arm a, and the first arm a, whose log was lost to
+  a relaunch) crashed or quit 1-2 min into live mode (one fault in EA's chunk free 0x004E5200); the reruns of a, c and
+  the all-off control z ran 30 min clean. The other agent's runs in the same hours also hung or quit, so this is not
+  pinned on reachcache, and not ruled out either.
+
+Proof status: exact so far (WRONG 0 in 45 refuse verdicts, forced and storm); stability NOT PROVEN (early crashes above);
+gain small (balloons only, about 16 an hour in arm c). Next: catch radial destinations (a social's radial range around
+a Sim in a locked room), time the flood, and a second clean c arm.
