@@ -2117,4 +2117,32 @@ cannot run inside the old action's exit without replacing it; it runs right afte
   `Sim.LoopIdle`, `GameObject.GetInUseAutonomyMultiplier`, `InteractionInstance.OnAddedToQueue` / `OnRemovedFromQueue`,
   `Autonomy.RunAutonomy(bool)`.
 
-### 38.4 Storm A/B (s660) [pending]
+### 38.4 Storm A/B (2026-11-26, Deck, s660 / s661 / s662; s606 setup: merged asi ci-45754579321 + its ini, heap 512, 30 min route storm, seed 156, new game from the world file, camsafe on, camera still) [measured]
+Off = nextplan off (compare mode), on = `nextplan nextplanhh nextplanlog`. Household rows (the active household; NextPlanCheck
+histograms are x2 bins, values are bin upper edges; actdelay `pick` has finer bins). 30 real minutes = ~240 sim-hours at
+storm speed (~8 sim-min per real second). s660a is left out (claims were never made: the single-use test read
+`DeclaringType`, which a swap rewrites; fixed and rerun as s661a). In these arms a single fridge made every family home
+"high" contention; fridges now count three Sims each (38.3).
+
+| arm | world, household | pick gap ms p50/p90 | sim-min p50/p90 | actdelay pick p50/p90 ms | wait before search ms p50/p90 (EA at once) | delay class sim-min p50 | search ms p50/p90 |
+|---|---|---|---|---|---|---|---|
+| s661a off | SV, Bunch (6) | 1024 / 2048 | 6.4 / 25.6 | 288 / 832 | 512 / 1024 | 12.8 | 1 / 113 |
+| s660b on | SV, Bunch | 256 / 2048 | 1.6 / 12.8 | 72 / 416 | 128 / 128 | 1.6 | 1 / 128 |
+| s662b on | SV, Bunch (8-Sim make failed, 38.5) | 256 / 1024 | 1.6 / 12.8 | 72 / 144 | 128 / 256 | 1.6 | 1 / 1 |
+| s660c off | SU, Malan Hall (7) | 1024 / 4096 | 6.4 / 25.6 | 416 / 1152 | 1024 / 2048 | 25.6 | 1 / 1 |
+| s660d on | SU, Malan Hall | 256 / 2048 | 1.6 / 12.8 | 104 / 704 | 128 / 1024 | 3.2 | 1 / 1 |
+
+- The gap falls about 4x at the median (household p50 6.4 -> 1.6 sim-min; actdelay pick 288-416 -> 72-104 ms) and the
+  delay class (after a player's action) from 12.8-25.6 to 1.6-3.2 sim-min. The search itself is ~1 ms at the median; the
+  wait was the manager queue and EA's delay. Passes: 1030-1310 per arm, 761-971 queued, 159-220 of them in EA's delay,
+  226-339 found nothing (EA's path then), 78-157 dropped by a higher-priority add (EA's rule, mostly the storm's own pushes).
+- Pick -> first step (actdelay household): wake 30/44-72, preroute 0-1/176-288, plan-job 26-30/72-104 ms in both arms.
+- Same target, household Sims (split counter, SV): off 71 claimed by another Sim + 22 in use (s661a), on 13 + 27 (s662b).
+  All Sims (NPC-dominated): SU 1372 + 240 off vs 1316 + 247 on; claimed objects scored down 1250-1860 per on arm.
+- Household autonomous actions done per sim-hour: SV 6.9 off vs 6.8 / 7.0 on; SU 7.3 off vs 7.8 on. Household motive mean
+  at the end: SV 27.2 vs 23.3 / 24.9, SU 26.7 vs 28.9 (one sample each: noise). No worse needs.
+- Errors: nextplan 0 in every arm; ErrorTrap 6-7 and 19 script exception lines in every arm (baseline). Hitch lines
+  (`hitchwatch` >= 100 ms): SV 8 off vs 11 / 6 on, SU 19 off vs 25 on: within run-to-run spread, no nextplan frame in them
+  [not traced per hitch].
+
+### 38.5 8-Sim household A/B (s662a off, s663b on) [pending]
