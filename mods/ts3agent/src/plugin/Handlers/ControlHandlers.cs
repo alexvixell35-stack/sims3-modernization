@@ -1034,13 +1034,18 @@ namespace Ts3Agent
             string pk;
             if (!sProductOfType.TryGetValue(tl, out pk))
             {
-                List<BuildBuyProduct> first = new List<BuildBuyProduct>(), rest = new List<BuildBuyProduct>();
+                List<BuildBuyProduct> named = new List<BuildBuyProduct>(), first = new List<BuildBuyProduct>(), rest = new List<BuildBuyProduct>();
                 foreach (BuildBuyProduct p in Catalog())
                     // the hint also matches the OBJD instance name: 2026-11-15 ShowStage (abstract; products are ShowStageSmall/Large) was not
                     // in the first 800 tries with the class name alone; repros give a hint such as "stage"
-                    if ((p.CatalogName ?? "").ToLowerInvariant().IndexOf(hint) >= 0 || (p.ObjectInstanceName ?? "").ToLowerInvariant().IndexOf(tl) >= 0
+                    // a catalogue-name hit goes first: 2026-11-26 type SkatingRink + name "ice" bought "Roller Skating Rink (Small)",
+                    // which also matched by instance name and came earlier in the catalogue
+                    if ((p.CatalogName ?? "").ToLowerInvariant().IndexOf(hint) >= 0) named.Add(p);
+                    else if ((p.ObjectInstanceName ?? "").ToLowerInvariant().IndexOf(tl) >= 0
                         || (p.ObjectInstanceName ?? "").ToLowerInvariant().IndexOf(hint) >= 0) first.Add(p); else rest.Add(p);
-                first.AddRange(rest);
+                named.AddRange(first);
+                named.AddRange(rest);
+                first = named;
                 int tries = 0, maxTries = (int)a.Long("max_tries", 800);
                 foreach (BuildBuyProduct p in first)
                 {

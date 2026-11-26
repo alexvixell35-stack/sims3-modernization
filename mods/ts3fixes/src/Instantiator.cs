@@ -639,6 +639,7 @@ namespace Ts3Fixes
         [Tunable] public static bool kLightningWeights = true;    // lightningweights (B13 §2, docs/593 L1): lightning can strike Sims and objects again after a strike that found none
         [Tunable] public static bool kPlantDormantFlip = true;    // plantdormantflip (B13 §3, docs/593 G1): a fruit tree with frost and leaf cover disagreeing stays dormant instead of flipping every evaluation
         [Tunable] public static bool kPlantDormantTime = true;    // plantdormanttime (B13 §4, docs/593 G2): a plant coming out of dormancy does not lose a whole dormant span of water at once
+        [Tunable] public static bool kSkateLoop = false;    // skateloop (2026-11-26): a skater whose path is rebuilt 20 times in one sim tick (EA's DoSkate loop spinning) leaves the rink
         [Tunable] public static bool kHarvestExtras = true;    // harvestextras (B13 §5, docs/593 H2, H5): Gatherer and Science extra harvestables reach the harvester's inventory, and mushroom collecting credits the harvester
         [Tunable] public static bool kShroomSlots = true;    // shroomslots (B13 §6, docs/593 H3): mushrooms fill their slots in order and get their harvest timeout instead of skipping slots and throwing
         [Tunable] public static bool kHarvestRegion = true;    // harvestregion (B13 §7, docs/593 H4): a poorly grown plant's harvest gets no quality bonus (EA's bottom growth region)

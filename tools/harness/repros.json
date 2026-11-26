@@ -123180,6 +123180,1102 @@
     ]
   },
   {
+    "id": "skate-rink-hammer",
+    "bug": "EA SkatingRink.Skate.DoSkate rebuilds its path (CreateIceSkatingPath, plan result forced to Succeeded) and calls DoRoute in a loop that never sleeps and ignores DoRoute's result: a DoRoute that returns at once spins the Sim's script thread and the whole simulation stops (one natural Sunset Valley run: heartbeat frozen 60 s in SkateEx.Run > DoSkate > CreateIceSkatingPath)",
+    "fix": "ts3fixes SkateLoop.cs skateloop (default off): the 20th CreateIceSkatingPath for one Sim in one sim tick gets a failed plan result, so EA's loop ends and the Sim leaves the rink as after any failed plan",
+    "save": "any world with a community lot (buys its own rink on the far lot)",
+    "note": "LOCAL 2026-11-26: one natural SV run hung 60 s with a Sim in NRaas Hybrid SkateEx > CreateIceSkatingPath > Route_InsertCustomPathAtIndex (RC m1124d asi). 8 Sims pushed to Skate / SkateBackward on one rink every ~58 s for 12 rounds; a hang shows as the heartbeat-frozen kill. Teleports Sims (setup_sims): not a play-like run. def:skate matches EA's rink definitions and NRaas Hybrid's SkateEx (both show as \"Definition\" in the menu).",
+    "switches": [
+      "skateloop"
+    ],
+    "steps": [
+      {
+        "cmd": "patches",
+        "args": {
+          "skateloop": true
+        },
+        "waitS": 1,
+        "note": "on: normal skating must never reach the guard ([4003] stays 0); the spin itself has no forced trigger yet"
+      },
+      {
+        "cmd": "pick_sims",
+        "args": {
+          "count": 8,
+          "age": "youngadult,adult,elder"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "buy_object",
+        "args": {
+          "type": "SkatingRink",
+          "free": true,
+          "near": "@far",
+          "must_place": true,
+          "name": "ice"
+        },
+        "waitS": 3,
+        "note": "an ICE rink (name hint \"ice\"; without it the catalogue gave a Roller Skating Rink)"
+      },
+      {
+        "cmd": "setup_sims",
+        "args": {
+          "sims": [
+            "picked:1",
+            "picked:2",
+            "picked:3",
+            "picked:4",
+            "picked:5",
+            "picked:6",
+            "picked:7",
+            "picked:8"
+          ],
+          "near": "@type:SkatingRink"
+        },
+        "waitS": 5
+      },
+      {
+        "cmd": "sim_gone_watch",
+        "args": {
+          "on": true
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "camera",
+        "args": {
+          "target": "@type:SkatingRink"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:1",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:2",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:3",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:4",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:5",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:6",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:7",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "do_interaction",
+        "args": {
+          "sim": "picked:8",
+          "target": "@type:SkatingRink",
+          "interaction": "def:skate"
+        },
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "time",
+        "waitS": 50
+      },
+      {
+        "cmd": "list_sims",
+        "args": {}
+      },
+      {
+        "cmd": "remove_sims",
+        "args": {}
+      }
+    ],
+    "expect": "no heartbeat-frozen kill; Skate activity on the rink across the rounds; patch counter [4003] 0 and [4005] 0 (a spin shows as [4003] > 0 and the Sim leaving the rink, not a frozen game)"
+  },
+  {
     "id": "sweep-ep1",
     "bug": "docs/267: EP1 World Adventures has 286 script types, 271 never seen in our runs; their interactions never ran under our routing / Mono changes",
     "fix": "measurement only: forced interaction sweep of every definition the pack brings (docs/268)",

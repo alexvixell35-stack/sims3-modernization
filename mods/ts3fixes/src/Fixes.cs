@@ -383,6 +383,7 @@ namespace Ts3Fixes
             ApplyLightningWeights();   // docs/593 L1 B13 §2
             ApplyPlantDormantFlip();   // docs/593 G1 B13 §3
             ApplyPlantDormantTime();   // docs/593 G2 B13 §4
+            ApplySkateLoop();   // SkateLoop.cs: skateloop (2026-11-26)
             ApplyHarvestExtras();   // docs/593 H2, H5 B13 §5
             ApplyShroomSlots();   // docs/593 H3 B13 §6
             ApplyHarvestRegion();   // docs/593 H4 B13 §7
@@ -1039,6 +1040,7 @@ namespace Ts3Fixes
         // [3199-3201] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
         // [3202-3204] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
         // [3205-3207] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [4003-4005] skateloop (SkateLoop.cs, 2026-11-26): skating path spins ended / spins seen (switch off) / errors.
         // [3208-3210] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
         // [3211-3213] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
         // [3214-3216] harvestregion (Batch593Logic.cs, B13 §7, docs/593 H4): regions our way / Average answered as Good (switch off) / errors.
@@ -1329,6 +1331,7 @@ namespace Ts3Fixes
         // [3199-3201] lightningweights (Batch593Logic.cs, B13 §2, docs/593 L1): weights restored / left zeroed (switch off) / errors.
         // [3202-3204] plantdormantflip (Batch593Logic.cs, B13 §3, docs/593 G1): flips undone / flips seen (switch off) / errors.
         // [3205-3207] plantdormanttime (Batch593Logic.cs, B13 §4, docs/593 G2): times refreshed / spans left to drain (switch off) / errors.
+        // [4003-4005] skateloop (SkateLoop.cs, 2026-11-26): skating path spins ended / spins seen (switch off) / errors.
         // [3208-3210] harvestextras (Batch593Logic.cs, B13 §5, docs/593 H2, H5): extras kept and journals to the harvester / extras lost (switch off) / errors.
         // [3211-3213] shroomslots (Batch593Logic.cs, B13 §6, docs/593 H3): mushroom loops our way / EA's loops (switch off) / errors.
         // [3214-3216] harvestregion (Batch593Logic.cs, B13 §7, docs/593 H4): regions our way / Average answered as Good (switch off) / errors.
@@ -2554,6 +2557,7 @@ namespace Ts3Fixes
                 case "lightningweights": return Instantiator.kLightningWeights;
                 case "plantdormantflip": return Instantiator.kPlantDormantFlip;
                 case "plantdormanttime": return Instantiator.kPlantDormantTime;
+                case "skateloop": return Instantiator.kSkateLoop;  // SkateLoop.cs, EA bug fix, off
                 case "harvestextras": return Instantiator.kHarvestExtras;
                 case "shroomslots": return Instantiator.kShroomSlots;
                 case "harvestregion": return Instantiator.kHarvestRegion;

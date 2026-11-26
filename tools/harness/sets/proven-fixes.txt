@@ -28,7 +28,7 @@
 #   casuihandlers deadrefguards firepitchair preferredservice
 #   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
-#   firegreet
+#   firegreet skateloop
 #   fglinbound fglinboundhh
 #   standwaitfix standwaitfixhh standwaitlog reactoverlayhh reactoverlaylog
 #   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
