@@ -76,6 +76,8 @@ namespace Ts3Fixes
         sealed class NpLot { public long At; public int Residents, Sims, Level; public float Ratio; public string Name; }
         static readonly Dictionary<ulong, NpLot> sNpLots = new Dictionary<ulong, NpLot>();
         static readonly int[] sNpLevelClaims = new int[3], sNpLevelDown = new int[3];
+        static readonly int[] sNpSameHh = new int[2];  // same-target picks of household Sims: [0] claimed by another Sim, [1] in use by another Sim
+        static int sNpResetDone;
         static string sNpLast = "", sNpLastError = "", sNpMissing = "";
 
         static NextPlanCore.Hist[] NpHists() { NextPlanCore.Hist[] h = new NextPlanCore.Hist[6]; for (int i = 0; i < h.Length; i++) h[i] = new NextPlanCore.Hist(); return h; }
@@ -245,8 +247,9 @@ namespace Ts3Fixes
             if (!NpSingleUse(t)) return;
             ulong tid = t.ObjectId.Value;
             ulong holder = sNp.Holder(tid, now);
-            if (holder != 0 && holder != who) c[kNpSameClaimed]++;
-            else if (t.InUse && !t.IsActorUsingMe(s)) c[kNpSameInUse]++;
+            bool phh = IsPlayerSim(s);
+            if (holder != 0 && holder != who) { c[kNpSameClaimed]++; if (phh) sNpSameHh[0]++; }
+            else if (t.InUse && !t.IsActorUsingMe(s)) { c[kNpSameInUse]++; if (phh) sNpSameHh[1]++; }
             int level = NpLevel(t.LotCurrent, now);
             long ttl = (long)(NextPlanCore.ClaimMinutes(level, Instantiator.kNextPlanClaimMinutes) * sNpTicksPerMin);
             int exp = sNp.Expired;
@@ -376,11 +379,11 @@ namespace Ts3Fixes
                 }
             }
             float hours = sNpStart == 0 ? 0f : (SimClock.CurrentTicks - sNpStart) / (float)(sNpTicksPerMin * 60);
-            int done = PatchCounters()[kNpHhDone];
+            int done = PatchCounters()[kNpHhDone] - sNpResetDone;
             string lv = "";
             NpLot hl;
             if (act.LotHome != null && sNpLots.TryGetValue(act.LotHome.LotId, out hl)) lv = "home contention " + NextPlanCore.LevelNames[hl.Level] + " (ratio " + hl.Ratio.ToString("0.0") + ", " + hl.Name + "); ";
-            lv += "claims by level low/mid/high " + sNpLevelClaims[0] + "/" + sNpLevelClaims[1] + "/" + sNpLevelClaims[2] + ", scored down " + sNpLevelDown[0] + "/" + sNpLevelDown[1] + "/" + sNpLevelDown[2] + "; ";
+            lv += "household same-target picks: claimed by another Sim " + sNpSameHh[0] + ", in use by another Sim " + sNpSameHh[1] + "; claims by level low/mid/high " + sNpLevelClaims[0] + "/" + sNpLevelClaims[1] + "/" + sNpLevelClaims[2] + ", scored down " + sNpLevelDown[0] + "/" + sNpLevelDown[1] + "/" + sNpLevelDown[2] + "; ";
             return lv + "household motives mean " + (n > 0 ? (sum / n).ToString("0.0") : "?") + " min " + min.ToString("0") + " (" + n + " values); household autonomous actions done "
                 + done + " in " + hours.ToString("0.00") + " sim-h (" + (hours > 0.01f ? (done / hours).ToString("0.0") : "?") + " per sim-h)";
         }
@@ -405,6 +408,7 @@ namespace Ts3Fixes
             if (what == "reset")
             {
                 foreach (NextPlanCore.Hist[] hs in sNpHist) foreach (NextPlanCore.Hist h in hs) h.Reset();
+                sNpStart = 0; sNpSameHh[0] = sNpSameHh[1] = 0; sNpResetDone = PatchCounters()[kNpHhDone];  // sim-hours and the per-hour rate from here
                 return "nextplan: histograms reset";
             }
             if (what != "run") return "nextplan <run|result|reset>";
