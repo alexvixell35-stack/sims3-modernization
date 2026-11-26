@@ -195,6 +195,7 @@ const LOCAL_ONLY: Record<string, { why: string; needs?: string }> = {
   'tools/selftest/ownbugs/run.ts': CSC,
   'tools/selftest/perfjobmissedlistener/run.ts': CSC,
   'tools/selftest/paparazzicooldown/run.ts': CSC,
+  'tools/selftest/algosweep/run.ts': CSC,
   'tools/selftest/petarrivepoint/run.ts': CSC,
   'tools/selftest/petlonghome/run.ts': CSC,
   'tools/selftest/picnicexit/run.ts': CSC,
