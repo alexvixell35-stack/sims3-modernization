@@ -67,3 +67,27 @@ on, so no upstream PR is needed for the fix.
 off / on; on = `jobyieldroad jobyieldroadow`), both cloned from s560-run.sh: s560 setup, heap 512, 30 min, seed 156, new
 games from world files. Measure: `route jobs: sim waited ... at runplan` lines (count, sum, >= 150 ms), hitch frames >= 300
 ms by cause, counters 4860-4871.
+
+## 6. Results (s598, 2026-11-26)
+
+s597a lost its log (ts3native.log was rewritten by the next game before the copy) and is not used; s598 keeps a live copy.
+Both Bridgeport games ended early: the off arm (s598a) with an access violation at 0xF6BA804F (main thread, outside our
+modules) after 25 min, the on arm (s598b) as an autotest HANG after 20 min; the harness then started a short second game
+whose log replaced `ts3native-full.log`, so the numbers come from the autotest copies (`auto-*/cycle-1.log`), cut at the
+"memory at 20 min" line for an equal window. Address space was as tight as in the 30-min runs that survived (s560d, s562c:
+22-25 MB free, largest block 0-2 MB), so neither stop is tied to the switch yet; an unexplained stop keeps it default off.
+
+| First 20 min, Bridgeport | s560d (r9d) | s562c (r9d) | s598a off | s598b on |
+|---|---|---|---|---|
+| sim waits at runplan (own job) | 295, 17.5 s | 305, 18.9 s | 296, 16.3 s | **15, 1.1 s** |
+| of them >= 150 ms | 25, 5.7 s | 24, 6.2 s | 17, 3.7 s | **2, 0.5 s** |
+| of them >= 300 ms | 3, 1.0 s | 6, 2.6 s | 3, 1.0 s | 1, 0.4 s |
+| stall leaf `World_FindPlaceOnRoadOffScreen` | 89 | 110 | 70 | 6 |
+| hitchwatch frames >= 300 ms | 12, 5.2 s | 15, 6.1 s | 5, 1.9 s | 2, 0.8 s |
+| storm waves | 110 | 110 | 110 | 101 |
+
+Sims University (s598c off / s598d on, full 30 min): no runplan waits >= 150 ms in either arm; h150 16 hitches 14.7 s vs 18
+hitches 13.3 s, all script-CPU frames; as expected, the switch does nothing there.
+
+Proof status: one Bridgeport A/B pair, sim-thread job waits at runplan -95%; not yet stable over a full 30 minutes (both
+Bridgeport arms stopped early, cause open). Upstream has had the same code ON since 2026-11-19 (docs/800).
