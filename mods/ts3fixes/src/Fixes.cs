@@ -561,6 +561,7 @@ namespace Ts3Fixes
             ApplyFridgeFf();           // docs/686 §36.11 (FridgeFf.cs): fridgeff / fridgeffunseen, off; swaps Fridge_Have.Run, Fridge_EatLeftovers.Run
             ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
+            ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
             ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins, off by default (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
             ApplyElevSkip();           // docs/686 §33 (ElevSkip.cs): elevskip / elevskiphh / elevskiphhunseen, elevtriplog, off by default (counts either way); swaps ElevatorDoorsPortalComponent.TryTeleportSkip and ElevatorPortalComponent.OnPortalStart, the line step is in CrowdPort.cs CpLineHook
             ApplyElevParked();         // docs/686 §34 (ElevParked.cs): elevparked / elevparkedhh, off by default (counts either way); swaps ElevatorDoorsPortalComponent.OnApproachingPortalObject
@@ -1852,7 +1853,10 @@ namespace Ts3Fixes
         // seen, portal end, little to cut, active lot; would cut / cut / undone / undo failed; metres skipped / tails / long; errors.
         // [4900-4903] dnpcostlog (DnpCost.cs, docs/692 §1); [4904-4908] termlenguard (TermLenGuard.cs, docs/692 §2): decay updates /
         // test adjustments / skipped-class grants guarded / would guard (off) / errors; 4909-4919 spare; 4880-4899 other branches.
-        const int kCounterSlots = 4940;
+        // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
+        // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
+        // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
+        const int kCounterSlots = 4960;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2258,6 +2262,9 @@ namespace Ts3Fixes
                 case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
                 case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
                 case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
+                case "nextplan": return Instantiator.kNextPlan;  // NextPlan.cs (docs/686 §38): a Sim whose queue ran empty runs EA's autonomy pass at once (NPCs, high LOD, per-tick budget), off
+                case "nextplanhh": return Instantiator.kNextPlanHh;  // NextPlan.cs: household and selected Sims too (the active Sim keeps EA's delay), off
+                case "nextplanlog": return Instantiator.kNextPlanLog;  // NextPlan.cs: one line per pass (capped), off
                 case "camsafelog": return Instantiator.kCamSafeLog;  // CamSafe.cs: sample the camera and count what camsafe would say with camsafe off (the A/B off arm), off
                 case "termlenguard": return Instantiator.kTermLenGuard;  // TermLenGuard.cs (docs/692 §2): academic multipliers with an out-of-range term length / course load count as 1 instead of throwing (Sim reset), every Sim, off
                 case "reachcachelog": return Instantiator.kReachCacheLog;  // ReachCache.cs: verify every refusal verdict against the real plan (WRONG count), off

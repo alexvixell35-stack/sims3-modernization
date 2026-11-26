@@ -107,3 +107,4 @@
 #   venueintensity minirelset caspropagateoutfits caspropagateextra casdefaultskin casoccultlog castintreset
 #   elevatorlightrig optionsnoopapply npmfuzzy npmhousehold
 #   camsafe camsafelog reachcache reachcachehh reachcachelog alibiwalk alibiwalklog termlenguard
+#   nextplan nextplanhh nextplanlog

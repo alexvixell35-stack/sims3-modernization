@@ -2883,3 +2883,109 @@ restored after all six.
   HangOutOn after 2 sim-min with someone waiting.
 - Other line waits (fridge, dishwasher, toilets) differ run to run by up to 2x with the same seed; no switch here acts on
   them. The `C0000005` lines in a, d (off) and the on arms are the known autshadow worker fault, also in s562.
+
+## 38. The next action is picked at once when the queue runs empty (`nextplan`, `nextplanhh`, `nextplanlog`; 2026-11-26, `post/nextplan-1126`, built, default off, storm A/B s660)
+
+User (2026-11-26): "we shouldn't notice the sims stopped waiting"; the next plan should be one "that would make more sense
+combining with others".
+
+### 38.1 The gap, from earlier runs [measured: actdelay `ActDelayCheck("result")` of s538-s558, 25 storm arms]
+actdelay's `pick` bucket is the time a Sim stood with an empty queue until an autonomous pick was in it; its other buckets
+run from the queue to the first step. Household Sims (n = 109-829 picks per arm; bins are x2 wide, so values are upper
+edges):
+
+| part | p50 ms | p90 ms | notes |
+|---|---|---|---|
+| queue empty -> autonomous pick queued (`pick`) | 288-480 (one arm 704) | 704-1408 | max 1.2-24 s |
+| pick -> loop wakes (`wake`) | 26-36 | 44-72 | queuewake already on |
+| posture transitions before Run (`preroute`) | 0-1 | 36-416 | stand up, put a child down |
+| route plan (`plan-job`) | 18-44 | 44-120 | worker job; `plan-cpu` 0-1 |
+
+Selected Sim: `pick` p50 208-704, p90 576-3840 ms. Storms run at ~296 sim ticks per real second (37.5 ticks a sim-minute):
+288 ms is ~2.3 sim-min, 832 ms ~6.6 sim-min. At game speed 1 (one sim-minute a second) the sim-time parts of the gap last
+that many seconds. So the gap is not tiny, and the pick step is 80-90 % of it; route plan and start-up are small.
+
+### 38.2 Why the pick waits [verified, decompiled `Sim.DoInteraction`, `Sim.CanRunAutonomyImmediately`, `AutonomyManager.Simulate`, `Autonomy.RunAutonomy`, `InteractionQueue.InsertInteraction` / `RemoveLowerPriorityInteractions`]
+1. Empty queue: `DistressIdle` / `PlayNonDistressIdleIfNecessary` (only queued idles), then `LoopIdle` (posture idle; can yield).
+2. The Sim adds itself to `AutonomyManager` at once only if `CanRunAutonomyImmediately` (last action autonomous and
+   succeeded; a non-selectable NPC also after a failure), its Service or an active role; else only after
+   `kAutonomyDelayNormal` = 5 sim-min since the queue ran empty (2 after a player's cancel, 7 while talking with the active
+   Sim, mounted its own). Every household Sim is selectable, so after any player-given action it stands 5 sim-min.
+3. `AutonomyManager.Simulate` runs **one** `TryFindBestAction` per frame, alternating the high-LOD and low-LOD queues: a
+   household Sim waits behind every high-LOD Sim queued before it, and every other frame goes to a low-LOD NPC.
+4. The search (`ScoreInteractionsOnObjects`) can yield; the pick is added (`ConsiderPerformingAutonomousAction` adds only to
+   an empty queue) and the Sim's 10-tick loop sleep ends (queuewake, §23).
+5. A user-directed add cancels lower-priority autonomous entries in front (`RemoveLowerPriorityInteractions`,
+   `HigherPriorityNext`): EA's own rule for "the player's order wins".
+EA exposes no "about to end" point for interactions in general (exit animations are inside `Run`), and `RunAutonomy`
+returns at once while a head exists unless `OverrideCurrentInteraction` (which means: replace the running one). So the pass
+cannot run inside the old action's exit without replacing it; it runs right after it, before any idle.
+
+### 38.3 What is built (NextPlan.cs, NextPlanCore.cs; counters 4940-4959, `kCounterSlots` 4960)
+- Once per "queue ran empty" (head removed, `OnRemovedFromQueue` hook), at the start of `LoopIdle` (hook, stacked over
+  queuewake's): a Sim that `NextPlanCore.Decide` lets go runs EA's own pass, `Autonomy.TryFindBestAction`, on its own task.
+  Same scoring, same probabilities, same `InteractionQueue.Add`; only the moment changes. With a pick in the queue the
+  posture idle is skipped (EA's loop never idles with a head). Nothing picked: EA's path (idle, manager queue). No retry.
+- Decide: household Sims always (switch `nextplanhh`); NPCs (switch `nextplan`) only in high LOD and at most
+  `kNextPlanNpcPerTick` (1) passes per sim tick, so the manager's one-a-frame throttle still bounds NPC search cost. EA's
+  delay is kept for the active Sim (the player's window), a Sim talking with it, after a player's cancel, while mounted,
+  and for every NPC; a non-active household Sim whose last action was the player's starts its next action at once.
+- Household-aware pick: every autonomous add of a Sim claims its target when that is a single-use object (its type keeps
+  `GameObject.GetInUseAutonomyMultiplier`: no seat, viewer or group logic of its own). While the claim lives (until the
+  entry leaves the queue, or `kNextPlanClaimMinutes` = 5 sim-min), another Sim's search scores the object with EA's own
+  route-pending factor (`GetRoutePendingAutonomyMultiplier`, what EA gives an object someone walks to). This closes the
+  window between one Sim's pick and its first step, in which EA sees the object free. The facility planner (§36,
+  `facilityplan`) scores inside the same search (its own hook on the same method), so busy-until, lines and booked
+  hand-offs count there too. Claims: one per Sim, two dictionaries, O(1) per call, a sweep of at most 256 entries at most
+  every 40 ticks, cleared at world load.
+- No weights change: EA's candidates and scores, plus EA's route-pending factor for a claimed object.
+- Scaled by how crowded the house is (user 2026-11-26: "different based on how many sims, utilities etc, so like a more
+  relaxed routing on a 8 sim household"; `NextPlanCore.Ratio` / `Level` / `ClaimMinutes` / `ClaimFactor`): per lot, Sims
+  (residents, or more when guests are there) per object of the scarcest kind (toilets, showers + baths, sinks, fridges,
+  beds at two a bed, fridges at three a fridge (a 2 sim-min grab; with one a fridge every family home read high in s660-s662); a kind with none counts as one), recounted once a sim-hour or when the residents change. Below 2 =
+  low (1-2 Sims, or plenty of facilities): claims live 2 sim-min (the pick -> first step window only). Below 4 = mid:
+  `kNextPlanClaimMinutes` (5). From 4 = high (8 Sims and 1-2 bathrooms): claims live 10 sim-min and a claimed object gets
+  EA's in-use factor (0.2) instead of the route-pending one, so the search takes a second-choice object or one in another
+  room or on another floor (the facility planner's ETA rule adds the walk). Both factors are EA's own constants; nothing
+  rises above EA's value. Not built: picking earlier than the queue-empty moment (38.2: EA's pass cannot run while a head
+  exists without replacing it) and a lookahead window. Clipping and timing rules (§9 and others) are unchanged.
+- Player's orders: never overridden (EA's add rules, 38.2 point 5); a pick cancelled that way is counted ("dropped by a
+  higher-priority add"). Walks stay walks: the route is the picked interaction's own plan in `Run`. No route pre-plan:
+  EA plans from the Sim's position after its exit, and a plan made earlier would start from the wrong spot.
+- Probe (both arms): gap "queue empty -> autonomous pick queued" per scope in ms and sim-min, split into the wait before the
+  search (EA "at once" class / EA delay class) and the search (`Autonomy.RunAutonomy(bool)` hook); same-target picks
+  (claimed by / in use by another Sim); household autonomous actions done per sim-hour and household motive mean/min.
+  `NextPlanCheck("run" | "result" | "reset")`, repro `nextplan-check`, selftest `tools/selftest/nextplan`.
+- Off = compare mode (`would`; claims tracked, never applied). Swaps (all stacked, with a stub, swap-stack table rows):
+  `Sim.LoopIdle`, `GameObject.GetInUseAutonomyMultiplier`, `InteractionInstance.OnAddedToQueue` / `OnRemovedFromQueue`,
+  `Autonomy.RunAutonomy(bool)`.
+
+### 38.4 Storm A/B (2026-11-26, Deck, s660 / s661 / s662; s606 setup: merged asi ci-45754579321 + its ini, heap 512, 30 min route storm, seed 156, new game from the world file, camsafe on, camera still) [measured]
+Off = nextplan off (compare mode), on = `nextplan nextplanhh nextplanlog`. Household rows (the active household; NextPlanCheck
+histograms are x2 bins, values are bin upper edges; actdelay `pick` has finer bins). 30 real minutes = ~240 sim-hours at
+storm speed (~8 sim-min per real second). s660a is left out (claims were never made: the single-use test read
+`DeclaringType`, which a swap rewrites; fixed and rerun as s661a). In these arms a single fridge made every family home
+"high" contention; fridges now count three Sims each (38.3).
+
+| arm | world, household | pick gap ms p50/p90 | sim-min p50/p90 | actdelay pick p50/p90 ms | wait before search ms p50/p90 (EA at once) | delay class sim-min p50 | search ms p50/p90 |
+|---|---|---|---|---|---|---|---|
+| s661a off | SV, Bunch (6) | 1024 / 2048 | 6.4 / 25.6 | 288 / 832 | 512 / 1024 | 12.8 | 1 / 113 |
+| s660b on | SV, Bunch | 256 / 2048 | 1.6 / 12.8 | 72 / 416 | 128 / 128 | 1.6 | 1 / 128 |
+| s662b on | SV, Bunch (8-Sim make failed, 38.5) | 256 / 1024 | 1.6 / 12.8 | 72 / 144 | 128 / 256 | 1.6 | 1 / 1 |
+| s660c off | SU, Malan Hall (7) | 1024 / 4096 | 6.4 / 25.6 | 416 / 1152 | 1024 / 2048 | 25.6 | 1 / 1 |
+| s660d on | SU, Malan Hall | 256 / 2048 | 1.6 / 12.8 | 104 / 704 | 128 / 1024 | 3.2 | 1 / 1 |
+
+- The gap falls about 4x at the median (household p50 6.4 -> 1.6 sim-min; actdelay pick 288-416 -> 72-104 ms) and the
+  delay class (after a player's action) from 12.8-25.6 to 1.6-3.2 sim-min. The search itself is ~1 ms at the median; the
+  wait was the manager queue and EA's delay. Passes: 1030-1310 per arm, 761-971 queued, 159-220 of them in EA's delay,
+  226-339 found nothing (EA's path then), 78-157 dropped by a higher-priority add (EA's rule, mostly the storm's own pushes).
+- Pick -> first step (actdelay household): wake 30/44-72, preroute 0-1/176-288, plan-job 26-30/72-104 ms in both arms.
+- Same target, household Sims (split counter, SV): off 71 claimed by another Sim + 22 in use (s661a), on 13 + 27 (s662b).
+  All Sims (NPC-dominated): SU 1372 + 240 off vs 1316 + 247 on; claimed objects scored down 1250-1860 per on arm.
+- Household autonomous actions done per sim-hour: SV 6.9 off vs 6.8 / 7.0 on; SU 7.3 off vs 7.8 on. Household motive mean
+  at the end: SV 27.2 vs 23.3 / 24.9, SU 26.7 vs 28.9 (one sample each: noise). No worse needs.
+- Errors: nextplan 0 in every arm; ErrorTrap 6-7 and 19 script exception lines in every arm (baseline). Hitch lines
+  (`hitchwatch` >= 100 ms): SV 8 off vs 11 / 6 on, SU 19 off vs 25 on: within run-to-run spread, no nextplan frame in them
+  [not traced per hitch].
+
+### 38.5 8-Sim household A/B (s662a off, s663b on) [pending]

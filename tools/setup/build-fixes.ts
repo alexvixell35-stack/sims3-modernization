@@ -310,6 +310,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCamSafeJumpM value="25" />
     <kCamSafeJumpHoldS value="3" />
     <kCamSafeAuditS value="3" />
+    <kNextPlan value="False" />
+    <kNextPlanHh value="False" />
+    <kNextPlanLog value="False" />
+    <kNextPlanNpcPerTick value="1" />
+    <kNextPlanClaimMinutes value="5" />
     <kReachCache value="False" />
     <kReachCacheHh value="False" />
     <kReachCacheLog value="False" />

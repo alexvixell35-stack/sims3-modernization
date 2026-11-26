@@ -551,6 +551,11 @@ namespace Ts3Fixes
         [Tunable] public static float kCamSafeJumpHoldS = 3f;  // camsafe: after a jump, everything counts as seen for this many real seconds
         [Tunable] public static float kCamSafeAuditS = 3f;  // camsafe / camsafelog: an unseen verdict's Sim on screen within this many real seconds counts as seen soon (late-seen audit)
         [Tunable] public static bool kTermLenGuard = false;  // termlenguard (docs/692 §2): EA's unguarded academic-performance multiplier tables (term length kInvalid in a world-file Sims University game, 3-4 week terms, 0 courses) multiply by 1 instead of throwing and resetting the Sim
+        [Tunable] public static bool kNextPlan = false;  // nextplan (docs/686 §38): a Sim whose queue ran empty runs EA's own autonomy pass on its own task at once, not after the manager's one-a-frame queue (NPCs: high LOD, kNextPlanNpcPerTick)
+        [Tunable] public static bool kNextPlanHh = false;  // nextplanhh: household and selected Sims too; a non-active household Sim also skips EA's 5 sim-min delay after a player's action (the active Sim keeps it)
+        [Tunable] public static bool kNextPlanLog = false;  // nextplanlog: one ts3native.log line per pass (capped)
+        [Tunable] public static int kNextPlanNpcPerTick = 1;  // nextplan: NPC passes per sim tick at most (household Sims are not counted)
+        [Tunable] public static float kNextPlanClaimMinutes = 5f;  // nextplan: a claimed single-use target expires after this many sim-min (or when its entry leaves the queue)
         [Tunable] public static bool kReachCache = false;  // reachcache (docs/688): an NPC's route plan whose every destination room is behind portals the planner answers locked fails at once (no balloon); autonomy skips that pair until the lot's portals change
         [Tunable] public static bool kReachCacheHh = false;  // reachcachehh: household and selected Sims too (a player's order is never refused)
         [Tunable] public static bool kReachCacheLog = false;  // reachcachelog: run the real plan for every refusal verdict and count EA's answer (WRONG = it succeeded)
