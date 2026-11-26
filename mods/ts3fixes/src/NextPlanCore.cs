@@ -28,6 +28,47 @@ namespace Ts3Fixes
             return kGo;
         }
 
+        // ---- contention (user 2026-11-26: "different based on how many sims, utilities etc, so like a more relaxed routing
+        // on a 8 sim household") ----
+        // Facility kinds counted per lot: toilet, shower or bath, sink, fridge, bed.
+        public const int kToilet = 0, kWash = 1, kSink = 2, kFridge = 3, kBed = 4, kKinds = 5;
+        public const int kLow = 0, kMid = 1, kHigh = 2;
+        public static readonly string[] LevelNames = { "low", "mid", "high" };
+
+        // Sims on the lot per object of its scarcest kind (a kind with none counts as one object: the Sims go elsewhere for it,
+        // which is not a line at home). sims: household Sims plus guests on the lot.
+        public static float Ratio(int sims, int[] counts)
+        {
+            if (sims <= 0 || counts == null) return 0f;
+            float r = 0f;
+            for (int k = 0; k < counts.Length && k < kKinds; k++)
+            {
+                int n = counts[k] < 1 ? 1 : counts[k];
+                // a double bed sleeps two
+                float per = k == kBed ? sims / (2f * n) : sims / (float)n;
+                if (per > r) r = per;
+            }
+            return r;
+        }
+
+        // low: 1-2 Sims or plenty of facilities (fewer than 2 Sims per object); mid: up to 4; high: more (8 Sims, 1-2 bathrooms)
+        public static int Level(float ratio) { return ratio < 2f ? kLow : ratio < 4f ? kMid : kHigh; }
+
+        // claim life in sim-min: low a short window (the pick -> first step gap only), mid the base, high twice the base
+        public static float ClaimMinutes(int level, float baseMin)
+        {
+            if (baseMin < 0.5f) baseMin = 0.5f;
+            return level == kLow ? Math.Min(baseMin, 2f) : level == kHigh ? baseMin * 2f : baseMin;
+        }
+
+        // the factor another Sim's search gives a claimed object: EA's route-pending factor, and at high contention EA's in-use
+        // factor (the object is as good as taken: a second-choice object or another room wins). Never above EA's own value.
+        public static float ClaimFactor(int level, float orig, float routePending, float inUse)
+        {
+            float f = level == kHigh ? Math.Min(routePending, inUse) : routePending;
+            return orig <= f ? orig : f;
+        }
+
         // ---- claims ----
         public const int kMaxClaims = 256;
         struct Claim { public ulong Sim; public long Until; }

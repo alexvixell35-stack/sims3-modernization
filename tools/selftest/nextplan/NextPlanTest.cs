@@ -46,6 +46,19 @@ static class NextPlanTest
         k.Add(1, 1, 3000, 100); k.Sweep(3001, false);
         Check(k.Count == 1, "a sweep within kSweepEvery is skipped, live claim kept");
 
+        // contention: 1, 4 and 8 Sims on a lot with one toilet / shower / sink / fridge / double bed each, and 8 with two bathrooms
+        int[] one = { 1, 1, 1, 1, 1 }, two = { 2, 2, 2, 2, 4 };
+        Check(NextPlanCore.Level(NextPlanCore.Ratio(1, one)) == NextPlanCore.kLow, "1 Sim: low");
+        Check(NextPlanCore.Level(NextPlanCore.Ratio(2, one)) == NextPlanCore.kMid, "2 Sims, one bathroom: mid");
+        Check(NextPlanCore.Level(NextPlanCore.Ratio(4, two)) == NextPlanCore.kMid && NextPlanCore.Level(NextPlanCore.Ratio(4, new int[] { 4, 4, 4, 3, 2 })) == NextPlanCore.kLow, "4 Sims: mid with two bathrooms, low with four");
+        Check(NextPlanCore.Level(NextPlanCore.Ratio(8, one)) == NextPlanCore.kHigh, "8 Sims, one bathroom: high");
+        Check(NextPlanCore.Level(NextPlanCore.Ratio(8, two)) == NextPlanCore.kHigh && Math.Abs(NextPlanCore.Ratio(8, two) - 4f) < 0.01f, "8 Sims, two bathrooms: high (4 per toilet)");
+        Check(NextPlanCore.Ratio(3, new int[] { 0, 0, 0, 0, 0 }) == 3f && NextPlanCore.Ratio(0, one) == 0f, "no objects of a kind count as one; no Sims: 0");
+        Check(NextPlanCore.ClaimMinutes(NextPlanCore.kLow, 5f) == 2f && NextPlanCore.ClaimMinutes(NextPlanCore.kMid, 5f) == 5f && NextPlanCore.ClaimMinutes(NextPlanCore.kHigh, 5f) == 10f, "claim life 2 / 5 / 10 sim-min");
+        Check(NextPlanCore.ClaimFactor(NextPlanCore.kLow, 1f, 0.5f, 0.2f) == 0.5f && NextPlanCore.ClaimFactor(NextPlanCore.kMid, 1f, 0.5f, 0.2f) == 0.5f, "low / mid: EA's route-pending factor");
+        Check(NextPlanCore.ClaimFactor(NextPlanCore.kHigh, 1f, 0.5f, 0.2f) == 0.2f, "high: EA's in-use factor");
+        Check(NextPlanCore.ClaimFactor(NextPlanCore.kHigh, 0.1f, 0.5f, 0.2f) == 0.1f, "never raises a lower factor");
+
         NextPlanCore.Hist h = new NextPlanCore.Hist();
         Check(h.P(50) == 0 && h.Text() == "n=0", "empty histogram");
         for (int i = 1; i <= 100; i++) h.Add(i * 10);

@@ -5,6 +5,11 @@ using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.ActorSystems;
 using Sims3.Gameplay.Autonomy;
+using Sims3.Gameplay.Core;
+using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Objects.Appliances;
+using Sims3.Gameplay.Objects.Beds;
+using Sims3.Gameplay.Objects.Plumbing;
 using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Utilities;
 using Sims3.SimIFace;
@@ -67,6 +72,10 @@ namespace Ts3Fixes
         static long sNpTick, sNpStart, sNpTicksPerMin = 1;
         static int sNpBudgetLeft;
         static IntPtr sNpBaseUse;
+        // contention per lot (NextPlanCore.Ratio / Level): recounted once a sim-hour or when the residents change
+        sealed class NpLot { public long At; public int Residents, Sims, Level; public float Ratio; public string Name; }
+        static readonly Dictionary<ulong, NpLot> sNpLots = new Dictionary<ulong, NpLot>();
+        static readonly int[] sNpLevelClaims = new int[3], sNpLevelDown = new int[3];
         static string sNpLast = "", sNpLastError = "", sNpMissing = "";
 
         static NextPlanCore.Hist[] NpHists() { NextPlanCore.Hist[] h = new NextPlanCore.Hist[6]; for (int i = 0; i < h.Length; i++) h[i] = new NextPlanCore.Hist(); return h; }
@@ -90,7 +99,7 @@ namespace Ts3Fixes
         }
 
         // world load: the old world's Sims, instances and objects are gone
-        static void NextPlanWorldLoad() { sNpGaps.Clear(); sNpOurs.Clear(); sNp.Clear(); sNpStart = 0; }
+        static void NextPlanWorldLoad() { sNpGaps.Clear(); sNpOurs.Clear(); sNp.Clear(); sNpLots.Clear(); sNpStart = 0; }
 
         static bool NpOn(Sim s, bool hh) { return ShortcutOn("nextplan") && (!hh || ShortcutOn("nextplanhh")); }
 
@@ -154,6 +163,29 @@ namespace Ts3Fixes
             return true;
         }
 
+        static int NpLevel(Lot lot, long now)
+        {
+            if (lot == null || lot.IsWorldLot) return NextPlanCore.kLow;
+            ulong id = lot.LotId;
+            Household h = lot.Household;
+            int residents = h != null && h.Sims != null ? h.Sims.Count : 0;
+            NpLot r;
+            if (sNpLots.TryGetValue(id, out r) && r.Residents == residents && now - r.At < 60 * sNpTicksPerMin) return r.Level;
+            if (r == null) { if (sNpLots.Count >= 64) sNpLots.Clear(); r = new NpLot(); sNpLots[id] = r; }
+            int[] n = new int[NextPlanCore.kKinds];
+            n[NextPlanCore.kToilet] = lot.GetObjects<Toilet>().Length;
+            n[NextPlanCore.kWash] = lot.GetObjects<Shower>().Length + lot.GetObjects<Bathtub>().Length;
+            n[NextPlanCore.kSink] = lot.GetObjects<Sink>().Length;
+            n[NextPlanCore.kFridge] = lot.GetObjects<Fridge>().Length;
+            n[NextPlanCore.kBed] = lot.GetObjects<Bed>().Length;
+            int sims = Math.Max(residents, lot.GetSimsCount());  // residents plus guests now on the lot
+            r.At = now; r.Residents = residents; r.Sims = sims;
+            r.Ratio = NextPlanCore.Ratio(sims, n);
+            r.Level = NextPlanCore.Level(r.Ratio);
+            r.Name = lot.Name + " (" + sims + " Sims; toilets " + n[0] + ", showers/baths " + n[1] + ", sinks " + n[2] + ", fridges " + n[3] + ", beds " + n[4] + ")";
+            return r.Level;
+        }
+
         // single-use: the object's type keeps GameObject's own in-use rule (no override for seats, viewers, groups)
         static bool NpSingleUse(GameObject o)
         {
@@ -169,18 +201,20 @@ namespace Ts3Fixes
             return s;
         }
 
-        static float NpPick(GameObject o, Sim actor, float m, float rp)
+        static float NpPick(GameObject o, Sim actor, float m, float rp, float inUse)
         {
             if (sNp.Count == 0 || actor == null) return m;
             long now = NpNow();
             sNp.Sweep(now, false);
             ulong id = o.ObjectId.Value, who = actor.ObjectId.Value;
             if (!sNp.HeldByOther(id, who, now)) return m;
-            if (m <= rp) return m;  // already in use / routed to: EA's factor is as low
+            int level = NpLevel(o.LotCurrent, now);
+            float f = NextPlanCore.ClaimFactor(level, m, rp, inUse);
+            if (f >= m) return m;  // already in use / routed to: EA's factor is as low
             int[] c = PatchCounters();
             if (!NpOn(actor, IsPlayerSim(actor))) { c[kNpClaimWould]++; return m; }
-            c[kNpClaimLow]++;
-            return rp;
+            c[kNpClaimLow]++; sNpLevelDown[level]++;
+            return f;
         }
 
         static void NpAdded(InteractionInstance ii)
@@ -213,9 +247,10 @@ namespace Ts3Fixes
             ulong holder = sNp.Holder(tid, now);
             if (holder != 0 && holder != who) c[kNpSameClaimed]++;
             else if (t.InUse && !t.IsActorUsingMe(s)) c[kNpSameInUse]++;
-            long ttl = (long)(Math.Max(0.5f, Instantiator.kNextPlanClaimMinutes) * sNpTicksPerMin);
+            int level = NpLevel(t.LotCurrent, now);
+            long ttl = (long)(NextPlanCore.ClaimMinutes(level, Instantiator.kNextPlanClaimMinutes) * sNpTicksPerMin);
             int exp = sNp.Expired;
-            if (sNp.Add(tid, who, now, ttl)) c[kNpClaims]++;
+            if (sNp.Add(tid, who, now, ttl)) { c[kNpClaims]++; sNpLevelClaims[level]++; }
             c[kNpExpired] += sNp.Expired - exp;
         }
 
@@ -274,7 +309,7 @@ namespace Ts3Fixes
             public float PickHook(Sim actor)
             {
                 float m = PickOrig(actor);
-                try { return sNp.Count == 0 ? m : NpPick(this, actor, m, GetRoutePendingAutonomyMultiplier()); }
+                try { return sNp.Count == 0 ? m : NpPick(this, actor, m, GetRoutePendingAutonomyMultiplier(), kAutonomyMultiplierForObjectSelectionWhenInUse); }
                 catch (ResetException) { throw; }
                 catch (Exception e) { NpError(e); return m; }
             }
@@ -342,7 +377,11 @@ namespace Ts3Fixes
             }
             float hours = sNpStart == 0 ? 0f : (SimClock.CurrentTicks - sNpStart) / (float)(sNpTicksPerMin * 60);
             int done = PatchCounters()[kNpHhDone];
-            return "household motives mean " + (n > 0 ? (sum / n).ToString("0.0") : "?") + " min " + min.ToString("0") + " (" + n + " values); household autonomous actions done "
+            string lv = "";
+            NpLot hl;
+            if (act.LotHome != null && sNpLots.TryGetValue(act.LotHome.LotId, out hl)) lv = "home contention " + NextPlanCore.LevelNames[hl.Level] + " (ratio " + hl.Ratio.ToString("0.0") + ", " + hl.Name + "); ";
+            lv += "claims by level low/mid/high " + sNpLevelClaims[0] + "/" + sNpLevelClaims[1] + "/" + sNpLevelClaims[2] + ", scored down " + sNpLevelDown[0] + "/" + sNpLevelDown[1] + "/" + sNpLevelDown[2] + "; ";
+            return lv + "household motives mean " + (n > 0 ? (sum / n).ToString("0.0") : "?") + " min " + min.ToString("0") + " (" + n + " values); household autonomous actions done "
                 + done + " in " + hours.ToString("0.00") + " sim-h (" + (hours > 0.01f ? (done / hours).ToString("0.0") : "?") + " per sim-h)";
         }
 

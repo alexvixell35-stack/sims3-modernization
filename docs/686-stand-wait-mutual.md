@@ -2096,6 +2096,16 @@ cannot run inside the old action's exit without replacing it; it runs right afte
   hand-offs count there too. Claims: one per Sim, two dictionaries, O(1) per call, a sweep of at most 256 entries at most
   every 40 ticks, cleared at world load.
 - No weights change: EA's candidates and scores, plus EA's route-pending factor for a claimed object.
+- Scaled by how crowded the house is (user 2026-11-26: "different based on how many sims, utilities etc, so like a more
+  relaxed routing on a 8 sim household"; `NextPlanCore.Ratio` / `Level` / `ClaimMinutes` / `ClaimFactor`): per lot, Sims
+  (residents, or more when guests are there) per object of the scarcest kind (toilets, showers + baths, sinks, fridges,
+  beds at two a bed; a kind with none counts as one), recounted once a sim-hour or when the residents change. Below 2 =
+  low (1-2 Sims, or plenty of facilities): claims live 2 sim-min (the pick -> first step window only). Below 4 = mid:
+  `kNextPlanClaimMinutes` (5). From 4 = high (8 Sims and 1-2 bathrooms): claims live 10 sim-min and a claimed object gets
+  EA's in-use factor (0.2) instead of the route-pending one, so the search takes a second-choice object or one in another
+  room or on another floor (the facility planner's ETA rule adds the walk). Both factors are EA's own constants; nothing
+  rises above EA's value. Not built: picking earlier than the queue-empty moment (38.2: EA's pass cannot run while a head
+  exists without replacing it) and a lookahead window. Clipping and timing rules (§9 and others) are unchanged.
 - Player's orders: never overridden (EA's add rules, 38.2 point 5); a pick cancelled that way is counted ("dropped by a
   higher-priority add"). Walks stay walks: the route is the picked interaction's own plan in `Run`. No route pre-plan:
   EA plans from the Sim's position after its exit, and a plan made earlier would start from the wrong spot.
