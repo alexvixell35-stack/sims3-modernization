@@ -26,7 +26,7 @@ namespace Ts3Fixes
     {
         const int kAlwRoutes = 4920, kAlwLong = 4921, kAlwKind = 4922, kAlwScope = 4923, kAlwSeen = 4924, kAlwWould = 4925,
             kAlwCut = 4926, kAlwUndo = 4927, kAlwUndoFail = 4928, kAlwSkippedM = 4929, kAlwErrors = 4930, kAlwTailM = 4931,
-            kAlwLastNotWalk = 4932, kAlwTooShortCut = 4933, kAlwActiveLot = 4934, kAlwLongM = 4935;
+            kAlwLastNotWalk = 4932, kAlwTooShortCut = 4933, kAlwActiveLot = 4934, kAlwLongM = 4935, kAlwKindCar = 4936, kAlwKindWater = 4937, kAlwKindOther = 4938;
         const int kAlwMaxNames = 48;
         static readonly Dictionary<string, int[]> sAlwBy = new Dictionary<string, int[]>();  // interaction -> long, metres, would/cut, seen
         static string sAlwLast = "", sAlwLastError = "";
@@ -74,9 +74,15 @@ namespace Ts3Fixes
                 for (uint i = 0; i < n; i++) types[i] = (uint)r.GetPathData(i).PathType;
                 float lastLen = r.GetPathLength(n - 1);
                 InteractionInstance inst = sim.CurrentInteraction;
-                string name = inst != null && inst.InteractionDefinition != null ? inst.InteractionDefinition.GetType().Name : "(none)";
+                string name = inst != null ? inst.GetType().Name : "(none)";
                 int v = AlibiWalkCore.Verdict(len, types, lastLen, Instantiator.kAlibiWalkMinM, Instantiator.kAlibiWalkTailM);
-                if (v == AlibiWalkCore.kKind) { c[kAlwKind]++; AlwNote(name, 0, (int)len); return; }
+                if (v == AlibiWalkCore.kKind)
+                {
+                    c[kAlwKind]++;
+                    int k = kAlwKindOther;
+                    foreach (uint t in types) { if (t == 4027457938u) { k = kAlwKindCar; break; } if (t == 2370016522u || t == 2583738316u || t == 3919275477u) k = kAlwKindWater; }
+                    c[k]++; AlwNote(name, 0, (int)len); return;
+                }
                 if (v == AlibiWalkCore.kLastNotWalk) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
                 if (v == AlibiWalkCore.kTailTooLong) { c[kAlwTooShortCut]++; AlwNote(name, 0, (int)len); return; }
                 if (v != AlibiWalkCore.kAct) return;
@@ -143,7 +149,7 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 string sw = "alibiwalk " + (ShortcutOn("alibiwalk") ? "on" : "off") + ", alibiwalklog " + (ShortcutOn("alibiwalklog") ? "on" : "off")
                     + ", camsafe " + (ShortcutOn("camsafe") ? "on" : "off") + ", min " + Instantiator.kAlibiWalkMinM + " m, tail " + Instantiator.kAlibiWalkTailM + " m";
-                string counts = "NPC routes followed " + c[kAlwRoutes] + ", long " + c[kAlwLong] + " (" + c[kAlwLongM] + " m), refused: path kind " + c[kAlwKind]
+                string counts = "NPC routes followed " + c[kAlwRoutes] + ", long " + c[kAlwLong] + " (" + c[kAlwLongM] + " m), refused: path kind " + c[kAlwKind] + " (car " + c[kAlwKindCar] + ", boat / water " + c[kAlwKindWater] + ", other " + c[kAlwKindOther] + ")"
                     + ", ends in a portal " + c[kAlwLastNotWalk] + ", little to cut " + c[kAlwTooShortCut] + ", scope " + c[kAlwScope] + ", active lot " + c[kAlwActiveLot]
                     + ", seen " + c[kAlwSeen] + "; would cut " + c[kAlwWould] + ", cut " + c[kAlwCut] + " (skipped " + c[kAlwSkippedM] + " m, tails walked " + c[kAlwTailM]
                     + " m), undone " + c[kAlwUndo] + " (undo replan failed " + c[kAlwUndoFail] + "), errors " + c[kAlwErrors];
