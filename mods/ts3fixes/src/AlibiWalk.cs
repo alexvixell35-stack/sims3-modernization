@@ -99,10 +99,15 @@ namespace Ts3Fixes
                 if (tail >= lastLen) { r.GetPathStartPoint(n - 1, ref p); r.GetPathStartDirection(n - 1, ref dir); }
                 else
                 {
-                    uint seg = r.GetSegmentAtDistanceBeforeEnd(tail, act);  // the log arm leaves the route as EA planned it
-                    if (!r.GetSegmentStartPoint(seg, out p) || !r.GetSegmentStartDirection(seg, out dir)) p = Vector3.Invalid;
+                    // GetSegmentAtDistanceBeforeEnd answers a segment id (EA's route callbacks take ids); the point getters take
+                    // an index. bCreate: a segment boundary at that distance (no change to the path, EA does the same for its
+                    // lead-in callbacks), in both arms so the log arm counts the same cuts.
+                    uint seg = r.GetSegmentAtDistanceBeforeEnd(tail, true), ns = r.GetNumSegments(), idx = uint.MaxValue;
+                    for (uint i = ns; i > 0 && ns <= 4096; i--) if (r.GetSegmentIdAtIndex(i - 1) == seg) { idx = i - 1; break; }
+                    if (idx == uint.MaxValue || !r.GetSegmentStartPoint(idx, out p) || !r.GetSegmentStartDirection(idx, out dir)) p = Vector3.Invalid;
                 }
-                if (!BuValid(p) || !BuValid(end)) { c[kAlwScope]++; AlwNote(name, 0, (int)len); return; }
+                // the tail start must be within the tail of the end (a straight line is never longer than the walk along it)
+                if (!BuValid(p) || !BuValid(end) || (p - end).Length() > tail + 2f) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
                 if (AlwActiveLot(sim.LotCurrent) || AlwActiveLot(LotManager.GetLotAtPoint(p)) || AlwActiveLot(LotManager.GetLotAtPoint(end)))
                 { c[kAlwActiveLot]++; AlwNote(name, 0, (int)len); return; }
                 if (!CsDecide(sim, false, r.DestObj as IHasScriptProxy, p, end)) { c[kAlwSeen]++; AlwNote(name, 3, (int)len); return; }
@@ -153,7 +158,7 @@ namespace Ts3Fixes
                 string sw = "alibiwalk " + (ShortcutOn("alibiwalk") ? "on" : "off") + ", alibiwalklog " + (ShortcutOn("alibiwalklog") ? "on" : "off")
                     + ", camsafe " + (ShortcutOn("camsafe") ? "on" : "off") + ", min " + Instantiator.kAlibiWalkMinM + " m, tail " + Instantiator.kAlibiWalkTailM + " m";
                 string counts = "NPC routes followed " + c[kAlwRoutes] + ", long " + c[kAlwLong] + " (" + c[kAlwLongM] + " m), refused: path kind " + c[kAlwKind] + " (car " + c[kAlwKindCar] + ", boat / water " + c[kAlwKindWater] + ", other " + c[kAlwKindOther] + ")"
-                    + ", ends in a portal or little to cut " + c[kAlwLastNotWalk] + ", scope " + c[kAlwScope] + ", active lot " + c[kAlwActiveLot]
+                    + ", ends in a portal, little to cut or no tail point " + c[kAlwLastNotWalk] + ", scope " + c[kAlwScope] + ", active lot " + c[kAlwActiveLot]
                     + ", seen " + c[kAlwSeen] + "; would cut " + c[kAlwWould] + ", cut " + c[kAlwCut] + " (skipped " + c[kAlwSkippedM] + " m, tails walked " + c[kAlwTailM]
                     + " m, on screen within the audit window after a cut " + c[kAlwLateSeen] + "), undone " + c[kAlwUndo] + " (undo replan failed " + c[kAlwUndoFail] + "), errors " + c[kAlwErrors];
                 if (what == "result")
