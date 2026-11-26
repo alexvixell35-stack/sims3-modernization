@@ -132,7 +132,7 @@ pending. Output is identical.
 
 ## 7. ShortcutOn on per-tick hooks (ours) [measured, verified]
 
-**Hot because.** Even after docs/603 §2, every call does `SwCurrent()` (two field compares) plus `SwitchCache.Get(name)`,
+**Hot because.** Even after docs/605 §2, every call does `SwCurrent()` (two field compares) plus `SwitchCache.Get(name)`,
 a string hash and probe. In s88 its 9 samples come from `HcLotHook.UpdateDoorPrivacy` / `UpdateDetailPriority`
 (per lot per tick), `DetailPriorityHook`, `BuffRemoveHook`, `EcHook.ProcessEvent` and `MotivesUpdateHook`. `LiveMeta`
 alone calls it up to 8 times per search.

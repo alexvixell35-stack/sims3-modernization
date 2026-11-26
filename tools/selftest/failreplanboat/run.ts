@@ -1,4 +1,4 @@
-// Offline self-check of failreplanboat's rule (mods/ts3fixes/src/FailReplanBoatCore.cs, docs/642 §10): which failed plans
+// Offline self-check of failreplanboat's rule (mods/ts3fixes/src/FailReplanBoatCore.cs, docs/851 §8): which failed plans
 // get the route-fail behaviour switched off, and that everything else is kept.
 // Windows (.NET Framework csc), or Linux with TS3_CSC (csc-shim).
 //   node tools/selftest/failreplanboat/run.ts

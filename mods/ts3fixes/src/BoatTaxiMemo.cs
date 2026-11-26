@@ -9,8 +9,8 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/642 boattaximemo (default off). Every boat a Sim rides comes from GetInBoatRouteAction on a route planned with
-    // EnablePlanningAsBoat: Sim.GetBoatForGetInBoatRouteAction gives an owned usable boat (GetOwnedAndUsableBoat), else for
+    // docs/851 boattaximemo (default on, proven in game 2026-11-19). Every boat a Sim rides comes from GetInBoatRouteAction
+    // on a route planned with EnablePlanningAsBoat: Sim.GetBoatForGetInBoatRouteAction gives an owned usable boat (GetOwnedAndUsableBoat), else for
     // an NPC GetNpcBoat (a BoatTaxi for pets and tourists, else a generated BoatOwnable), else a BoatTaxi. The action seats
     // the rider as the boat's driver and replans the same route with the boat as follower (kind 3). Any Boat subclass
     // (owned sail/speed/fishing boats, water scooters, the taxi) is handled alike below. When that replan finds no path,
@@ -26,7 +26,7 @@ namespace Ts3Fixes
     //     recorded no-path failure without searching; no blocker, so the route-fail replan is skipped too.
     // Any occupant household, selected or of unknown scope (IsPlayerSim, never lifted by HouseholdToo: a skip): untouched.
     // Successes are never memoed; an answered plan does not extend its entry (after the hours a real plan proves it again).
-    // Counters [3864-3869], see Fixes.cs; log lines "boattaximemo: recorded|answered|boat off <BoatType> ..." with a running
+    // Counters [1264-1269], see Fixes.cs; log lines "boattaximemo: recorded|answered|boat off <BoatType> ..." with a running
     // per-type hit count (answered + boat off).
     public static partial class Fixes
     {
@@ -130,10 +130,10 @@ namespace Ts3Fixes
                             || GetOption2(Sims3.SimIFace.Route.RouteOption2.EndAsBoat) || GetOption2(Sims3.SimIFace.Route.RouteOption2.DestinationMustBeInDeepWater)) return false;
                         Vector3 d = GetApproximateOriginalDestination();
                         if (!BtmDest(d) || !BtmLive(new BtmKey(sim.ObjectId.Value, d), out e)) return false;
-                        if (IsPlayerSim(sim)) { c[3869]++; return false; }
+                        if (IsPlayerSim(sim)) { c[1269]++; return false; }
                         SetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat, false);
                         sBtmLandRoute = this;
-                        c[3865]++;
+                        c[1265]++;
                         BtmLog("boat off " + e.Type + " #" + BtmHit(e.Type) + ", " + sim.FullName + ", dest " + (int)d.x + "," + (int)d.z);
                         return false;
                     }
@@ -143,9 +143,9 @@ namespace Ts3Fixes
                     Vector3 dt = GetApproximateOriginalDestination();
                     if (!BtmDest(dt) || !BtmLive(new BtmKey(rider.ObjectId.Value, dt), out e)) return false;
                     if ((boat.Position - e.Start).LengthSqr() > 0.25f) return false;  // the boat moved: not the proven start
-                    if (BtmBoatExempt(boat)) { c[3869]++; return false; }
-                    c[3867]++;
-                    c[3868] += e.Ms;
+                    if (BtmBoatExempt(boat)) { c[1269]++; return false; }
+                    c[1267]++;
+                    c[1268] += e.Ms;
                     string type = boat.GetType().Name;
                     BtmLog("answered " + type + " #" + BtmHit(type) + ", " + rider.FullName + ", stands for " + e.Ms + " ms, dest "
                         + (int)dt.x + "," + (int)dt.z);
@@ -153,7 +153,7 @@ namespace Ts3Fixes
                     answered = true;
                     return true;
                 }
-                catch (Exception) { c[3869]++; return false; }
+                catch (Exception) { c[1269]++; return false; }
             }
 
             // after the plan (not after an answered one): count the boat-off route, record a boat's no-path failure
@@ -165,7 +165,7 @@ namespace Ts3Fixes
                     if (sBtmLandRoute != null && ReferenceEquals(sBtmLandRoute, this))
                     {
                         sBtmLandRoute = null;
-                        if (r.mType == RoutePlanResultType.Succeeded) c[3866]++;
+                        if (r.mType == RoutePlanResultType.Succeeded) c[1266]++;
                         return;
                     }
                     if (r.mType != RoutePlanResultType.FailedBecauseNoPathToDestination) return;
@@ -194,11 +194,11 @@ namespace Ts3Fixes
                     e.Ms = ms;
                     e.Type = boat.GetType().Name;
                     sBtm[new BtmKey(rider.ObjectId.Value, d)] = e;
-                    c[3864]++;
+                    c[1264]++;
                     BtmLog("recorded " + e.Type + ", " + rider.FullName + ", boat plan " + ms + " ms no path, dest " + (int)d.x + "," + (int)d.z
                         + ", " + Instantiator.kBoatTaxiMemoHours + " sim-h");
                 }
-                catch (Exception ex) { c[3869]++; BtmLog("error " + ex.GetType().Name); }
+                catch (Exception ex) { c[1269]++; BtmLog("error " + ex.GetType().Name); }
             }
         }
     }

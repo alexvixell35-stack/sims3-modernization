@@ -24,8 +24,8 @@ namespace Ts3Fixes
     // where EA's body returns at the slave test (slave, and not the evil-gnome branch, which EA takes first when not
     // spooning), the same three checks run right after EA's body, which is the place EA runs them for everyone else (nothing
     // between that test and the checks reads or writes state the checks use). The hook is spoonreset's SrHook (one swap of
-    // LoopHandler, SpoonReset.cs). Counters: [1954] slave ticks given the checks, [1955] light-sleeper wakes delivered,
-    // [1956] slave ticks skipped (switch off), [1957] errors.
+    // LoopHandler, SpoonReset.cs). Counters: [2163] slave ticks given the checks, [2164] light-sleeper wakes delivered,
+    // [2165] slave ticks skipped (switch off), [2166] errors.
     //
     // queueproximity (kQueueProximity; docs/597 §2). [verified, decompiled] SimQueue.FindNewPlaceInLine's OrderByProximity
     // branch compares the waiting Sim's SQUARED distance to the target with each queued Sim's plain distance
@@ -33,7 +33,7 @@ namespace Ts3Fixes
     // than 1 m away is placed behind Sims nearer than its squared distance, and when the line is full (place >= max) it is
     // refused (ObjectInUse) where EA's own sort would have put it ahead and evicted the farthest. Lines: elevators
     // (PortalComponent, StayAtCurrentLocation), skating rink and greeting-card booth entrances. Fix: squared on both sides.
-    // Counters: [1958] places corrected, [1959] places that differ with the switch off, [1960] errors.
+    // Counters: [2760] places corrected, [2761] places that differ with the switch off, [2762] errors.
     public static partial class Fixes
     {
         static readonly FieldInfo sSsSlave = typeof(BedSleep).GetField("mSpooningSlave", kInstAll);
@@ -74,9 +74,9 @@ namespace Ts3Fixes
                 IMagicGnomeEvil g = sSsGnome.GetValue(st) as IMagicGnomeEvil;
                 if (!SsSlaveReturn(true, (bool)sSsSpooning.GetValue(st), g != null && !g.HasBeenDestroyed)) return false;
                 if (on) return true;
-                PatchCounters()[1956]++;
+                PatchCounters()[2165]++;
             }
-            catch (Exception) { PatchCounters()[1957]++; }
+            catch (Exception) { PatchCounters()[2166]++; }
             return false;
         }
 
@@ -88,11 +88,11 @@ namespace Ts3Fixes
                 BedSleep me = (BedSleep)st;
                 Sim actor = me.Actor;
                 if (actor == null || actor.HasBeenDestroyed || actor.BuffManager == null) return;
-                PatchCounters()[1954]++;
+                PatchCounters()[2163]++;
                 float num = SimClock.ElapsedTime(TimeUnit.Minutes, (DateAndTime)sSsStart.GetValue(st));
                 if (SsLightWake(actor.HasTrait(TraitNames.LightSleeper), num, TraitTuning.LightSleeperMinutesAbleToSleep))
                 {
-                    PatchCounters()[1955]++;
+                    PatchCounters()[2164]++;
                     actor.AddExitReason(ExitReason.Finished);
                     return;
                 }
@@ -104,7 +104,7 @@ namespace Ts3Fixes
                     nm.HasBeenReduced = true;
                 }
             }
-            catch (Exception) { PatchCounters()[1957]++; }
+            catch (Exception) { PatchCounters()[2166]++; }
         }
 
         // SpoonSlaveChecksCheck run: the slave tick gets the checks; controls: the master / unpaired tick (EA runs them
@@ -112,7 +112,7 @@ namespace Ts3Fixes
         public static object SpoonSlaveChecksCheck(string what)
         {
             string miss = SsMissing();
-            string counters = B582Counters("spoonslavechecks", 1954, new[] { "slave ticks checked", "light-sleeper wakes", "slave ticks skipped (switch off)", "errors" }, miss);
+            string counters = B582Counters("spoonslavechecks", 2163, new[] { "slave ticks checked", "light-sleeper wakes", "slave ticks skipped (switch off)", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "spoonslavechecks <run|result>";
             bool on = ShortcutOn("spoonslavechecks");
@@ -161,10 +161,10 @@ namespace Ts3Fixes
                     for (int i = 0; i < sq.Length; i++) sq[i] = mQueue[i].Sim.GetDistanceToObjectSquared(target);
                     ours = SqPlace(sq, record.Sim.GetDistanceToObjectSquared(target));
                 }
-                catch (Exception) { PatchCounters()[1960]++; return PlaceOrig(interaction, record, target); }
-                if (on) { PatchCounters()[1958]++; return ours; }
+                catch (Exception) { PatchCounters()[2762]++; return PlaceOrig(interaction, record, target); }
+                if (on) { PatchCounters()[2760]++; return ours; }
                 int ea = PlaceOrig(interaction, record, target);
-                if (ea != ours) PatchCounters()[1959]++;
+                if (ea != ours) PatchCounters()[2761]++;
                 return ea;
             }
             protected int PlaceOrig(InteractionInstance interaction, QueueRecord record, IGameObject target) { return 0; } // SimQueue.FindNewPlaceInLine
@@ -174,7 +174,7 @@ namespace Ts3Fixes
         // it between (1). Controls: empty line 0, one Sim 1 (EA's head is never passed), all nearer stays last.
         public static object QueueProximityCheck(string what)
         {
-            string counters = B582Counters("queueproximity", 1958, new[] { "places by squared distance", "places that differ (switch off)", "errors" }, "");
+            string counters = B582Counters("queueproximity", 2760, new[] { "places by squared distance", "places that differ (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "queueproximity <run|result>";
             bool on = ShortcutOn("queueproximity");

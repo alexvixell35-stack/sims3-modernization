@@ -10,6 +10,7 @@ using Sims3.Gameplay.Interactions;
 using Sims3.Gameplay.Situations;
 using Sims3.SimIFace;
 using Sims3.SimIFace.CAS;
+using Sims3.SimIFace.BuildBuy;
 
 namespace Ts3Agent
 {
@@ -24,6 +25,9 @@ namespace Ts3Agent
             Dispatcher.Register("sim_go_home", SimGoHome);
             Dispatcher.Register("sim_strand", SimStrand);
             Dispatcher.Register("sim_where", SimWhere);
+            Dispatcher.Register("strand_box", StrandBox);          // TEST-ONLY STRESS: counter ring room (bp-idle-unroutable v8)
+            Dispatcher.Register("strand_box_end", StrandBoxEnd);
+            Dispatcher.Register("watchdog_idle_now", WatchdogIdleNow); // TEST-ONLY: clock +1 h, skips only the 60 sim-minute idle timer (v9)
             Dispatcher.Register("strand_many", StrandMany); // HitchReproHandlers.cs
             Dispatcher.Register("posture_chain_check", PostureChainCheck); // HitchReproHandlers.cs, issue #89
             Dispatcher.Register("sim_visit_lot", SimVisitLot);
@@ -526,9 +530,13 @@ namespace Ts3Agent
         // Sim.IsPointInLotSafelyRoutable (an enclosed room, a fenced corner, a pool tile), the case NRaas Overwatch and the
         // ts3fixes watchdog reset as "unroutable". Samples up to `tries` (default 40) random lot positions, one route plan
         // each, in this one call (a test hitch is fine). Error if every sample is routable.
+        // hold: true (repro poll, bp-idle-unroutable v7): no new spot. Held = within 1 m of the recorded strand spot, standing,
+        // not routing, empty queue; answers held and streak (consecutive held polls). Not held: cancel all, back onto the spot,
+        // standing, streak 0 (2026-11-24 rc1119: Go Home walked him 20 m, then a HoldingUmbrella posture, both ~3 s after the strand).
         static object SimStrand(Args a)
         {
             Sim s = Util.FindSim(a, "sim");
+            if (a.Bool("hold", false)) return SimStrandHold(s, a.Bool("watch", false));
             Lot lot = a.Has("lot") ? FindLotByName(a.Str("lot")) : s.LotCurrent;
             if (lot == null || lot.IsWorldLot) throw new McpException("needs a non-world lot (pass lot)");
             int tries = a.Has("tries") ? (int)a.Double("tries") : 40;
@@ -541,6 +549,8 @@ namespace Ts3Agent
                 // a teleport keeps the old posture (sitting): CheckIdle only judges a standing Sim (bp-wdasync-stuck-repro-1111)
                 if (s.Posture != s.Standing) s.Posture = s.Standing;
                 sStrandSpot[s.SimDescription.SimDescriptionId] = p;
+                sStrandStreak[s.SimDescription.SimDescriptionId] = 0;
+                sStrandBase[s.SimDescription.SimDescriptionId] = WatchdogIdleUnroutable();
                 Dictionary<string, object> r = Util.Obj();
                 r["sim"] = s.FullName;
                 r["lot"] = lot.Name;
@@ -553,6 +563,187 @@ namespace Ts3Agent
         }
 
         static readonly Dictionary<ulong, Vector3> sStrandSpot = new Dictionary<ulong, Vector3>();
+        static readonly Dictionary<ulong, int> sStrandStreak = new Dictionary<ulong, int>();
+
+        // ts3fixes counter 46 (watchdog_idle_unroutable, PatchHandlers) at the strand: sim_strand hold watch reports a rise as judged
+        static readonly Dictionary<ulong, int> sStrandBase = new Dictionary<ulong, int>();
+        static int WatchdogIdleUnroutable()
+        {
+            int[] c = AppDomain.CurrentDomain.GetData("ts3fixes.counters") as int[];
+            return c != null && c.Length > 46 ? c[46] : 0;
+        }
+
+        // strand_box {sim, lot, tries?: 200} (TEST-ONLY STRESS setup, bp-idle-unroutable v8): a room he cannot walk out of. Picks an
+        // open routable 1 m tile of `lot` whose 8 neighbour tiles are free, puts one EA counter (buy subcategory Counters, free of
+        // charge, no buy-mode join) on each neighbour tile, checks the game now judges the centre unroutable
+        // (Sim.IsPointInLotSafelyRoutable false) while the centre itself stays a standing spot (Route.IsPointRoutable), else
+        // removes the ring and tries the next tile. Then stands the Sim there as sim_strand does (same spot record for sim_where
+        // and sim_strand hold). Townies only: refuses household, selected or unknown-scope Sims and the active household's lot.
+        // strand_box_end removes every counter it placed (repro cleanup). v7 found the open-ground strand spot left within 30 s
+        // by EA's autonomous Move Away (rc1119 2117 cancel answer), so the 60 sim-minute idle rule never judged him.
+        static object StrandBox(Args a)
+        {
+            RequireLive();
+            Sim s = Util.FindSim(a, "sim");
+            Household hh = Household.ActiveHousehold;
+            if (s.SimDescription == null || s.Household == null || s.Household == hh || s.IsSelectable || s == Util.ActiveSim())
+                throw new McpException("strand_box: " + s.FullName + " is household, selected or of unknown scope: townies only");
+            Lot lot = FindLotByName(a.Str("lot"));
+            if (lot == null || lot.IsWorldLot || (hh != null && lot == hh.LotHome)) throw new McpException("strand_box: needs a non-world lot that is not the active household's home");
+            BuildBuyProduct counter = null;
+            foreach (BuildBuyProduct p in SortedCatalog())
+                if (Placeable(p) && ContentOrigin(p.ProductResourceKey) == "ea" && (p.BuySubCategoryFlags & (ulong)BuildBuyProduct.eBuySubCategory.kBuySubCategoryCounters) != 0) { counter = p; break; }
+            if (counter == null) throw new McpException("strand_box: no EA counter in the buy catalog");
+            List<ulong> box = DomainState<List<ulong>>("ts3agent.strandbox");
+            Route probe = s.CreateRoute();
+            int tries = (int)a.Long("tries", 200), rings = 0;
+            for (int i = 0; i < tries; i++)
+            {
+                Vector3 p = lot.GetRandomPosition(true, true, TerrainType.LotTerrain);
+                if (p == Vector3.Invalid) continue;
+                p.x = (float)Math.Floor(p.x) + 0.5f; p.z = (float)Math.Floor(p.z) + 0.5f; p.y = World.GetTerrainHeight(p.x, p.z);
+                if (LotManager.GetLotAtPoint(p) != lot || !s.IsPointInLotSafelyRoutable(lot, p)) continue;
+                List<Vector3> ring = new List<Vector3>();
+                for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++)
+                    {
+                        if (dx == 0 && dz == 0) continue;
+                        Vector3 q = new Vector3(p.x + dx, 0f, p.z + dz);
+                        q.y = World.GetTerrainHeight(q.x, q.z);
+                        if (LotManager.GetLotAtPoint(q) == lot && probe.IsPointRoutable(q)) ring.Add(q);
+                    }
+                if (ring.Count < 8) continue;
+                rings++;
+                List<GameObject> made = new List<GameObject>();
+                foreach (Vector3 q in ring)
+                {
+                    GameObject go = Sims3.Gameplay.GlobalFunctions.CreateObjectOutOfWorld(counter.ProductResourceKey) as GameObject;
+                    if (go == null) break;
+                    Vector3 fwd = new Vector3(p.x - q.x, 0f, p.z - q.z);
+                    fwd.Normalize();
+                    go.SetPosition(q);
+                    go.SetForward(fwd);
+                    go.AddToWorld();
+                    made.Add(go);
+                }
+                if (made.Count == 8 && !s.IsPointInLotSafelyRoutable(lot, p) && s.CreateRoute().IsPointRoutable(p))
+                {
+                    List<object> ids = new List<object>();
+                    foreach (GameObject go in made) { box.Add(go.ObjectId.Value); ids.Add(Util.Id(go.ObjectId)); }
+                    s.InteractionQueue.CancelAllInteractions();
+                    s.SetPosition(p);
+                    if (s.Posture != s.Standing) s.Posture = s.Standing;
+                    ulong id = s.SimDescription.SimDescriptionId;
+                    sStrandSpot[id] = p;
+                    sStrandStreak[id] = 0;
+                    sStrandBase[id] = WatchdogIdleUnroutable();
+                    Dictionary<string, object> r = Util.Obj();
+                    r["sim"] = s.FullName;
+                    r["lot"] = lot.Name;
+                    r["x"] = Math.Round(p.x, 2); r["y"] = Math.Round(p.y, 2); r["z"] = Math.Round(p.z, 2);
+                    r["counter"] = counter.CatalogName;
+                    r["objects"] = ids;
+                    r["samples"] = i + 1;
+                    r["rings_tried"] = rings;
+                    r["enclosed"] = true;
+                    return r;
+                }
+                foreach (GameObject go in made) go.Destroy();
+            }
+            throw new McpException("strand_box: no enclosable tile on " + lot.Name + " in " + tries + " samples (" + rings + " rings placed and refused)");
+        }
+
+        // watchdog_idle_now {sim} (TEST-ONLY, bp-idle-unroutable v9): skip only the watchdog's 60 sim-minute idle timer. Jumps the
+        // sim clock one hour (SimClock.AddOneHour, the debug clock cheat test_env {hour} uses) while the Sim stands on its
+        // recorded strand spot, so the next StuckWatchdog pass finds him still >= 60 sim-minutes and runs CheckIdle's own
+        // queue, verdict (A1 or sync) and Act unchanged; ts3fixes is not touched. Needs one watchdog pass to have seen him on the
+        // spot first (the hold poll's >= 2 s at Triple is >= 15 sim-minutes, a pass every 10). Refuses household, selected and
+        // unknown-scope Sims, and a Sim off its spot (> 1 m), routing or not standing. The 60 sim-minute timer is not covered.
+        // v8 (wdasync-stuck-rerun2-1125) lost him 1-5 s after the strand: EA Go Home, routing, 50-61 m away, before the timer.
+        static object WatchdogIdleNow(Args a)
+        {
+            RequireLive();
+            Sim s = Util.FindSim(a, "sim");
+            Household hh = Household.ActiveHousehold;
+            if (s.SimDescription == null || s.Household == null || s.Household == hh || s.IsSelectable || s == Util.ActiveSim())
+                throw new McpException("watchdog_idle_now: " + s.FullName + " is household, selected or of unknown scope: townies only");
+            Vector3 spot;
+            if (!sStrandSpot.TryGetValue(s.SimDescription.SimDescriptionId, out spot)) throw new McpException("watchdog_idle_now: no strand spot recorded for " + s.FullName);
+            double d = (s.Position - spot).Length();
+            bool routing = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting;
+            if (d > 1 || routing || s.Posture != s.Standing)
+                throw new McpException("watchdog_idle_now: " + s.FullName + " is not still on the strand spot (" + Math.Round(d, 2) + " m, routing " + routing + ", posture " + (s.Posture != null ? s.Posture.GetType().Name : "none") + ")");
+            long t0 = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
+            Sims3.Gameplay.Utilities.SimClock.AddOneHour();
+            Dictionary<string, object> r = Util.Obj();
+            r["sim"] = s.FullName;
+            r["test_only"] = "clock +1 h: the watchdog's 60 sim-minute idle timer skipped, not tested";
+            r["advanced_min"] = Math.Round(Sims3.Gameplay.Utilities.SimClock.ConvertFromTicks(Sims3.Gameplay.Utilities.SimClock.CurrentTicks - t0, Sims3.Gameplay.Utilities.TimeUnit.Minutes), 1);
+            r["hour"] = Sims3.Gameplay.Utilities.SimClock.Hours24;
+            r["from_strand"] = Math.Round(d, 2);
+            return r;
+        }
+
+        // strand_box_end: remove every counter strand_box placed (cleanup step; idempotent)
+        static object StrandBoxEnd(Args a)
+        {
+            List<ulong> box = DomainState<List<ulong>>("ts3agent.strandbox");
+            int removed = 0;
+            foreach (ulong id in box)
+            {
+                GameObject go = GameObject.GetObject(new ObjectGuid(id));
+                if (go != null && !go.HasBeenDestroyed) { go.Destroy(); removed++; }
+            }
+            box.Clear();
+            Dictionary<string, object> r = Util.Obj();
+            r["removed"] = removed;
+            return r;
+        }
+
+        static object SimStrandHold(Sim s, bool watch)
+        {
+            ulong id = s.SimDescription.SimDescriptionId;
+            Vector3 spot;
+            if (!sStrandSpot.TryGetValue(id, out spot)) throw new McpException("sim_strand hold: no sim_strand spot recorded for " + s.FullName);
+            double d = (s.Position - spot).Length();
+            bool routing = s.SimRoutingComponent != null && s.SimRoutingComponent.IsRouting;
+            bool standing = s.Posture == s.Standing;
+            int queued = s.InteractionQueue.Count;
+            InteractionInstance cur = s.CurrentInteraction;
+            Dictionary<string, object> r = Util.Obj();
+            r["sim"] = s.FullName;
+            r["from_strand"] = Math.Round(d, 2);
+            r["posture"] = s.Posture != null ? s.Posture.GetType().Name : null;
+            r["interaction"] = cur != null ? cur.GetInteractionName() : null;
+            r["queued"] = queued;
+            r["routing"] = routing;
+            int streak;
+            sStrandStreak.TryGetValue(id, out streak);
+            // watch: true (v8): observe only, never put back: held = within 1 m; judged = watchdog_idle_unroutable rose since the
+            // strand (the fix acted, so a later move is the fix's); left_unjudged = off the spot before that (the repro's FAIL)
+            if (watch)
+            {
+                int b;
+                sStrandBase.TryGetValue(id, out b);
+                bool judged = WatchdogIdleUnroutable() > b, near = d <= 1;
+                streak = near ? streak + 1 : 0;
+                sStrandStreak[id] = streak;
+                r["held"] = near; r["streak"] = streak; r["judged"] = judged; r["left_unjudged"] = !near && !judged;
+                return r;
+            }
+            bool held = d <= 1 && standing && !routing && queued == 0;
+            if (held) streak++;
+            else
+            {
+                s.InteractionQueue.CancelAllInteractions();
+                s.SetPosition(spot);
+                if (s.Posture != s.Standing) s.Posture = s.Standing;
+                streak = 0;
+            }
+            sStrandStreak[id] = streak;
+            r["held"] = held;
+            r["streak"] = streak;
+            return r;
+        }
 
         // sim_where {sim, maxDist?, notRouting?, requireStanding?}: position, lot, current interaction, routing, posture. With maxDist (m) it is a check against
         // the spot sim_strand last put the Sim on: error when he is farther away (or, with notRouting, routing), so a repro step fails setup

@@ -371,12 +371,12 @@ namespace Ts3Fixes
 {
     public static partial class Fixes
     {
-        // docs/642 §8 unseenboatgenboat (default off): EA's BoatOwnable.Park puts a boat it generated for an NPC trip
+        // docs/851 §7 unseenboatgenboat (default off): EA's BoatOwnable.Park puts a boat it generated for an NPC trip
         // (GeneratedOwnableForNpc) into the driver's inventory instead of mooring it (BoatOwnable.cs:389-406), and
         // GetOwnedAndUsableBoat then returns it, so after its first boat trip every NPC counts as owning a boat and unseenboat /
         // unseenboatland refuse it for good ("owned boat"). With the switch on, such a boat (generated for an NPC, in that NPC's own
         // inventory, NPC not household, selected or of unknown scope) is not "its own boat"; any other boat still is.
-        // [4060] generated boats ignored, [4061] errors.
+        // [4640] generated boats ignored, [4641] errors.
         static bool UbOwnsBoat(Sim sim)
         {
             bool temporary = false;
@@ -389,10 +389,10 @@ namespace Ts3Fixes
                 BoatOwnable o = b as BoatOwnable;
                 if (o == null || !o.GeneratedOwnableForNpc || !sim.IsNPC || sim.Household == null || HouseholdExempt(sim)) return true;
                 if (sim.Inventory == null || !sim.Inventory.Contains(o)) return true;
-                PatchCounters()[4060]++;
+                PatchCounters()[4640]++;
                 return false;
             }
-            catch (Exception) { PatchCounters()[4061]++; return true; }
+            catch (Exception) { PatchCounters()[4641]++; return true; }
         }
     }
 }

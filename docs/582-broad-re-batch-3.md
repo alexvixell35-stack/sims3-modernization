@@ -373,7 +373,7 @@ It changes nothing. A fix follows only if a live run shows the state.
 Repros `<switch>-check`: `doorlockowner`, `elevatorkitten`, `elevatorresetriders`, `elevatorridertimeout`, `elevatorsavedlog`, `starlightreset`, `moondiallistener`, `snublistener`.
 
 Live confirmation:
-- **B4 §1**: lock a door to one Sim, then move that Sim out. Off, the door stays locked. On, it opens. On a saved game, counter 1149 is nonzero after load.
+- **B4 §1**: lock a door to one Sim, then move that Sim out. Off, the door stays locked. On, it opens. On a saved game, counter 2836 is nonzero after load.
 - **B4 §4**: log lines `elevatorsavedlog:` on a Late Night apartment save.
 - **B4 §6 and §7**: kMoonChangeEvent and kSimAgeTransition listener counts stay flat in the leak census.
 
@@ -428,7 +428,7 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 - The resident is then placed at an elevator or a lot corner instead of its own door.
 - phase-20261115-1831: 119 such failed plans attributed to Apollo Bloom (household), all with goal 815.1,29.4,1658.2 (a corner of lot 0xF590003595C3CD30) and 10 locked doors at rooms 10/7 on that lot. None was Apollo's own route.
 - `doors.json` in phase 1831 and 1935 covers only the household's own lot (Trawler Lodge, 14 doors, all Anybody), so the CD30 lock types are not on record. The agent `doors` command now reports, per door, the lock owner, whether that owner still lives there, the owner-list size and gone ids, hidden sides and NPC doors. Run `doors {"lot":"0xF590003595C3CD30"}` to tell which case applies. A lock to a gone owner is `doorlockowner`'s (B4 §1); a lock to the living residents is this one's.
-- Live doors for CD30 ("Founders Peace - Studio", household Shutter): 6 Anybody and 3 Nobody. The three refusing doors are NPC doors to hidden room 7 (rooms 10/7). No owner is gone, so `doorlockowner` does not apply. The resident is refused there too: `Door.CanGoThrough` is false for NPC doors, and `CommonDoor.IsAllowedThrough` refuses hidden rooms before it reads the lock. So `residentspawnslot` keeps EA's failure here ([1197]). EA already skips the hidden-side slots, so the open question is whether corridor room 10 (level 1) reaches outside. The tool to answer it is `HiddenRoomCheck "reach F590003595C3CD30 1 all"`, which prints out/closed per probe (selected, resident, NPC, or a named Sim) and each portal with IsAllowedThrough per probe. `lot` scans now list level-1 rooms too. If room 10 is closed, EA is right: the resident spawns at the ground elevator spot, and the failed plans are only a cost. If room 10 is out, the planner disagrees with the room walk, and a slot-test fix is due. Pending.
+- Live doors for CD30 ("Founders Peace - Studio", household Shutter): 6 Anybody and 3 Nobody. The three refusing doors are NPC doors to hidden room 7 (rooms 10/7). No owner is gone, so `doorlockowner` does not apply. The resident is refused there too: `Door.CanGoThrough` is false for NPC doors, and `CommonDoor.IsAllowedThrough` refuses hidden rooms before it reads the lock. So `residentspawnslot` keeps EA's failure here ([2884]). EA already skips the hidden-side slots, so the open question is whether corridor room 10 (level 1) reaches outside. The tool to answer it is `HiddenRoomCheck "reach F590003595C3CD30 1 all"`, which prints out/closed per probe (selected, resident, NPC, or a named Sim) and each portal with IsAllowedThrough per probe. `lot` scans now list level-1 rooms too. If room 10 is closed, EA is right: the resident spawns at the ground elevator spot, and the failed plans are only a cost. If room 10 is out, the planner disagrees with the room walk, and a slot-test fix is due. Pending.
 - `SimDescription.Instantiate` is not logged, so the spawn count is not known (each spawn tests every NPC-door slot).
 - `Service.cs:1123` (`GetPositionNearLotCorners`, `Sim.ActiveActor`) tests outdoor corner spots for visitors. A visitor's rights are about the same as anyone's there, so it is left alone. In a resident's spawn (its last fallback) the same re-judging applies.
 - simler90 ships `Service` unchanged at these lines; it does not touch `SimDescription.Instantiate`.
@@ -438,7 +438,7 @@ It changes none of the other methods below (`docs/data/mod-method-diff.csv` and 
 - `Sim.IsPointInLotSafelyRoutable` is already hooked by FewerPlans (`routablecache`), so one line there hands the selected Sim's verdict to `RsAdjust`. With the switch on, in a resident's context, the verdict cache is skipped, because a cached "false" has no door list to judge.
 - A failed verdict is re-judged from EA's `SimRoutingComponent.LockedDoorsDuringPlan`, which EA clears at each plan start. The spot counts as routable only if the plan found at least one locked door and the resident passes **every** one of them by `CommonDoor`'s lock rules: its own lock, its household's lock, or its owner list. Pets locks are passed by non-pets.
 - These stay blocking: hidden-room doors, one-way doors, Nobody and VIPRoom locks, horses at non-barn doors, and the four door types with their own `IsAllowedThrough` (SecretDoor, NonAnimatedDoor, gender doors, Turnstile). A failure with no locked door (no path at all) stays a failure.
-- The selected Sim is never routed, moved or changed; only where the NPC appears does. Switch off: EA's verdict, counted as "would accept" in [1196].
+- The selected Sim is never routed, moved or changed; only where the NPC appears does. Switch off: EA's verdict, counted as "would accept" in [2883].
 - Limit: the lock list shows why the planner was refused, not that a path exists with the doors open. A refused door that is the only obstacle is the logged case.
 
 ### B5 §9 talkoccupationchance: the Unemployment entry never appears by chance (lead 7)
@@ -466,7 +466,7 @@ Repros `<switch>-check`: `rolenullguard`, `homeworkskillbonus`, `horseranchchall
 Live confirmation:
 - **B5 §2**: a level-5 Homework Sim's homework rate before and after.
 - **B5 §7**: the journal shows 1-5 stars.
-- **B5 §8**: with Apollo's household selected, the count of `FailedBecauseDestinationPortalLocked` plans at the CD30 corners (off), then [1195] and residents fading in at their doors (on). First run `doors {"lot":"0xF590003595C3CD30"}`.
+- **B5 §8**: with Apollo's household selected, the count of `FailedBecauseDestinationPortalLocked` plans at the CD30 corners (off), then [2882] and residents fading in at their doors (on). First run `doors {"lot":"0xF590003595C3CD30"}`.
 - **B5 §9**: the Talk About Occupation menu offers Unemployment about 1 time in count+1.
 
 ## Batch 6 (Roslyn pass 2, docs/583 §6, user-approved)
@@ -541,14 +541,14 @@ With no entry, or with the buff still on the Sim, EA's add runs.
 Repros `<switch>-check`: `disposebase`, `boardingschoolmoney`, `freshclothingresume`, `twinbellyshape`.
 
 Live confirmation:
-- **B6 §1**: sell a junk pile or a register with a Sim's interaction queued on it; the queue is purged ([1205]).
-- **B6 §2**: [1208] after the world loads; check a need-money call's amount against the tuned range.
+- **B6 §1**: sell a junk pile or a register with a Sim's interaction queued on it; the queue is purged ([2892]).
+- **B6 §2**: [2895] after the world loads; check a need-money call's amount against the tuned range.
 - **B6 §3**: Fresh Clothing time before a swim and after changing back.
 
 
 ## Batch 7 (REA tranche 3, docs/584 §6, plus external lead NRaas #42)
 
-2026-11-15. Static only. Code: `Batch582fLogic.cs`, checks: `Batch582fChecks.cs`, slots 1218-1232. All switches are off by default.
+2026-11-15. Static only. Code: `Batch582fLogic.cs`, checks: `Batch582fChecks.cs`, slots 2905-2919. All switches are off by default.
 
 **simler90 first.** simler90 changes none of the methods below (`docs/data/mod-method-diff.csv`). It does change `BoatMultipleOccupancy.OnRouteFinished`, but not `OnRouteStarted`.
 
@@ -564,7 +564,7 @@ Live confirmation:
 **How each fix works.**
 - **B7 §1.** `OnRouteStarted` loops over the read-only key view of `mPassengersInTheWater`. When a passenger's Sim is gone, it removes that key and carries on, so the next step throws. As a result, base `OnRouteStarted` and the re-board wait are skipped.
   - The fix removes those stale keys first, then runs EA's body unchanged.
-  - With the switch off, [1219] counts the routes that would throw. That happens only when the stale key is not the last one.
+  - With the switch off, [2906] counts the routes that would throw. That happens only when the stale key is not the last one.
 - **B7 §2.** `AcceptOpportunity(toAdd, …)` adds FullFromOpportunities protection before its "category taken / no shared data" early return. Nothing removes it on that path, so the NPC is never culled.
   - On that path the fix skips the whole method. The protection was its only effect there.
 - **B7 §3.** `CarNpcWithNoDriver+LiteDriver.Simulate` picks a random "other commercial lot" with no emptiness test. With none to pick, the throw becomes a script error and the car is destroyed.
@@ -588,14 +588,14 @@ Live confirmation:
 ### Batch 7 tests (in game, off then on)
 
 Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercialcar`, `scavengernolot`, `partylotlistener`. Live confirmation:
-- **B7 §5:** [1231] with the switch off in a save that has had NPC parties.
-- **B7 §1:** [1219] after boat trips with swimmers.
+- **B7 §5:** [2918] with the switch off in a save that has had NPC parties.
+- **B7 §1:** [2906] after boat trips with swimmers.
 
 **Proven 2026-11-15 (s56, phase-20261115-2218 smallfix, off BROKEN / on FIXED):** `boardingschoolmoney`, `boatstaleswimmer`, `disposebase`, `freshclothingresume`, `homeworkskillbonus`, `nocommercialcar`, `oppcategoryprotect`, `partylotlistener`, `residentspawnslot`, `scavengernolot`, `shelldoorsummon`, `talkoccupationchance`, `twinbellyshape` (moved into `tools/harness/sets/proven-fixes.txt`). `dreamcleanup` was ERROR both ways; see B8 notes.
 
 ## Batch 8 (REA tranche 4, docs/584 §7; coverage sweep, docs/586; CD30 spawn walk)
 
-2026-11-15. Static only. Code: `Batch582gLogic.cs`, checks `Batch582gChecks.cs`; §8 in `ResidentSpawnSlot.cs`. Slots 1233-1257. All switches off by default. simler90 UPDATE242 changes none of these methods (its `Secrets.cs` has the same key bug), and none was hooked before (`docs/data/swap-stack-audit.csv`).
+2026-11-15. Static only. Code: `Batch582gLogic.cs`, checks `Batch582gChecks.cs`; §8 in `ResidentSpawnSlot.cs`. Slots 3545-3650. All switches off by default. simler90 UPDATE242 changes none of these methods (its `Secrets.cs` has the same key bug), and none was hooked before (`docs/data/swap-stack-audit.csv`).
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
@@ -640,11 +640,11 @@ Repros `<switch>-check`: `boatstaleswimmer`, `oppcategoryprotect`, `nocommercial
 
 ### Batch 8 tests (in game, off then on)
 
-Repros `<switch>-check` for all eight switches, and `dreamcleanup-check` again. Live confirmation: `residentspawnwalk` [1256] with the switch off on CD30 (Apollo Bloom), then the resident at his own door with it on.
+Repros `<switch>-check` for all eight switches, and `dreamcleanup-check` again. Live confirmation: `residentspawnwalk` [3649] with the switch off on CD30 (Apollo Bloom), then the resident at his own door with it on.
 
-## Batch 8b (coverage sweep, docs/586 §4-§5)
+## Batch 8b (coverage sweep, docs/639 §4-§5)
 
-2026-11-15. Static only. Code: `Batch582hLogic.cs`, checks `Batch582hChecks.cs`, slots 1258-1272 (below the EP batch range 1400-1499). All switches off by default. simler90 UPDATE242 changes none of these methods; none was hooked before.
+2026-11-15. Static only. Code: `Batch582hLogic.cs`, checks `Batch582hChecks.cs`, slots 3651-3692 (below the EP batch range 1400-1499). All switches off by default. simler90 UPDATE242 changes none of these methods; none was hooked before.
 
 | § | Lead | Switch | Slots | Scope | Status |
 |---|---|---|---|---|---|
@@ -702,7 +702,7 @@ The user's rule: every EA method we replaced or read for batches 3-8b, and its d
 
 ## Batch 9 (review queue, Imminent Nemesis)
 
-2026-11-15. Static only. Code: `Batch582iLogic.cs`, checks `Batch582iChecks.cs`, slots 1273-1293. All default off. simler90 UPDATE242 changes none of these methods.
+2026-11-15. Static only. Code: `Batch582iLogic.cs`, checks `Batch582iChecks.cs`, slots 3693-3834. All default off. simler90 UPDATE242 changes none of these methods.
 
 | § | Switch | Slots | Scope | Status |
 |---|---|---|---|---|

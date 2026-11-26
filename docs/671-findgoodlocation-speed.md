@@ -1,5 +1,7 @@
 # 671. The FindGoodLocation sim-cpu hitches: what the logs show, the search, and `[FglProf]`
 
+> **Carve-out note (post/route-lock-1120, 2026-11-20):** `[FglProf]`, `[FglFacing]` and `[FglMemo]` are ported to upstream in this branch, all default off. `[FglMemo]` serves only with `[Experimental] HouseholdToo=1` and is not provably exact.
+
 2026-11-20 (UTC). Inputs: the Isla Paradiso route storms s142-s149 (13 phase logs, stall watch with `Names`, `hitch:` lines;
 `sim.perf.data` of s142), Ghidra headless (DecompileTo) and capstone on the Steam 1.67 code, ilspycmd output of the game
 assemblies. Built: `[FglProf]` (ts3native, default off, **measurement only**). **Nothing here has run in the game.** Branch

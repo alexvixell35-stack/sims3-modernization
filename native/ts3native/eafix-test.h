@@ -286,11 +286,203 @@ static int GntCase(void* slot, void* builder) {
     return (int)g_gntKind;
 }
 
+// ---- SlaveUnlink + DeadSlaveTrip: fakes with the game's SetSlaves / base destructor / get-slave semantics ----
+static u8** TslSt(u8* part) { return (u8**)(part + 0x30); }  // each fake master's slave vector storage, inside its part
+static LONG g_tslDtors;
+static DWORD g_tslLive[8], g_tslDead[8];
+static void __fastcall TslSet(u8* part, void*, u8** arr, DWORD n, DWORD flag) {  // 0x83A650: copy in, or end = begin
+    if (arr && (LONG)n > 0) {
+        part[0x20] = (u8)flag, *(LONG*)(part + 0xC) = (LONG)n, *(u8***)(part + 0x10) = TslSt(part);
+        for (DWORD i = 0; i < n; i++) TslSt(part)[i] = arr[i];
+        *(u8***)(part + 0x14) = TslSt(part) + n;
+    } else *(u8***)(part + 0x14) = *(u8***)(part + 0x10), *(LONG*)(part + 0xC) = 0, part[0x20] = 0;
+}
+static void __fastcall TslDtor(u8* part, void*) { g_tslDtors++, *(DWORD*)part = (DWORD)(uintptr_t)g_tslDead; }  // 0x839E60: base vt
+static u8* __fastcall TslGet(u8* part, void*, int i) {  // 0x839CA0
+    u8** b = *(u8***)(part + 0x10);
+    return i < *(LONG*)(part + 0xC) && b + i < *(u8***)(part + 0x14) ? b[i] : NULL;
+}
+static void SlReset() {  // selftest: back to the image's 64 pairs, all free
+    if (g_slPairs != g_slPairs0) HeapFree(GetProcessHeap(), 0, g_slPairs);
+    g_slPairs = g_slPairs0, g_slCap = SL_CAP0, memset(g_slPairs0, 0, sizeof(g_slPairs0));
+    ts3native_slavelink.cap = SL_CAP0, ts3native_slavelink.hw = ts3native_slavelink.grows = 0;
+}
+static void TestSlaveLink() {
+    SlaveLinkCounters& c = ts3native_slavelink;
+    const SlSetFn s0 = g_slSet;
+    const SlDtorFn d0 = g_slDtor;
+    const SlGetFn g0 = g_slGet;
+    g_slSet = &TslSet, g_slDtor = &TslDtor, g_slGet = &TslGet;
+    SlReset(), c.sets = c.unlinks = c.overflow = c.tripHits = 0, g_tslDtors = 0;
+    g_tslLive[6] = 0x00401000, g_tslDead[6] = SL_PURECALL;
+    alignas(8) static u8 ag[5][0x60], own[5][0x10];  // agents M, A, B, X, N; part = agent+8, owner = agent+4, id at owner+8
+    u8* p[5];
+    for (int i = 0; i < 5; i++) {
+        memset(ag[i], 0, sizeof(ag[i]));
+        p[i] = ag[i] + 8, *(DWORD*)p[i] = (DWORD)(uintptr_t)g_tslLive, *(u8**)(ag[i] + 4) = own[i];
+        *(DWORD*)(own[i] + 8) = 0x100 + i, *(DWORD*)(own[i] + 0xC) = 0xA0000000;
+    }
+    u8 *m = p[0], *a = p[1], *b = p[2], *x = p[3];
+    auto relive = [&]() { for (int i = 1; i < 5; i++) *(DWORD*)p[i] = (DWORD)(uintptr_t)g_tslLive; };
+    u8* two[2] = {a, b};
+    // two slaves (a boat's driver and passenger): the first destroyed leaves the second listed, the last clears the list
+    SlSetHook(m, NULL, two, 2, 1);
+    assert(c.sets == 1 && *(LONG*)(m + 0xC) == 2 && m[0x20] == 1);
+    SlDtorHook(a, NULL);
+    assert(g_tslDtors == 1 && c.unlinks == 1 && *(LONG*)(m + 0xC) == 1 && TslSt(m)[0] == b && *(u8***)(m + 0x14) == TslSt(m) + 1 &&
+           m[0x20] == 1);
+    assert(SlTripGet(m, NULL, 0) == b && c.tripHits == 0);  // a live slave passes the tripwire
+    SlDtorHook(b, NULL);
+    assert(g_tslDtors == 2 && c.unlinks == 2 && *(LONG*)(m + 0xC) == 0 && *(u8***)(m + 0x14) == TslSt(m) && m[0x20] == 0);
+    // an entity on no list: only the destructor
+    SlDtorHook(x, NULL);
+    assert(g_tslDtors == 3 && c.unlinks == 2);
+    // the list EA cleared itself (route end), or replaced by a new route without that slave: unchanged
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    TslSet(m, NULL, NULL, 0, 0);
+    SlDtorHook(a, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 0);
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    SlSetHook(m, NULL, &x, 1, 1);
+    SlDtorHook(a, NULL);
+    assert(c.sets == 4 && c.unlinks == 2 && *(LONG*)(m + 0xC) == 1 && TslSt(m)[0] == x);
+    // the master destroyed first, or its memory reused (another vtable): the slave's later destruction writes nothing
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    SlDtorHook(m, NULL);
+    *(DWORD*)m = (DWORD)(uintptr_t)g_tslLive;
+    SlDtorHook(a, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 2);
+    relive();
+    SlSetHook(m, NULL, two, 2, 1);
+    *(DWORD*)m = 0x12345678;
+    SlDtorHook(b, NULL);
+    assert(c.unlinks == 2 && *(LONG*)(m + 0xC) == 2);
+    *(DWORD*)m = (DWORD)(uintptr_t)g_tslLive;
+    // a full table: pairs whose master no longer lists them are reused (no grow, as before docs/321)
+    TslSet(m, NULL, NULL, 0, 0);
+    SlReset();
+    for (int i = 0; i < SL_CAP0; i++) g_slPairs[i].master = m, g_slPairs[i].slave = x, g_slPairs[i].mPartVt = 0x12345678;
+    relive();
+    SlSetHook(p[4], NULL, &a, 1, 0);
+    assert(c.overflow == 0 && g_slCap == SL_CAP0 && c.grows == 0);
+    // docs/321 H4: every pair live: the table doubles and the new list is recorded and guarded (was: overflow, no guard)
+    TslSet(p[4], NULL, &a, 1, 0);
+    for (int i = 0; i < SL_CAP0; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
+    SlSetHook(m, NULL, &b, 1, 0);
+    assert(c.overflow == 0 && g_slCap == 2 * SL_CAP0 && c.grows == 1 && c.cap == 2 * SL_CAP0 && c.hw == SL_CAP0 + 1);
+    assert(g_slPairs[0].master == p[4] && g_slPairs[SL_CAP0 - 1].slave == a);  // the old pairs kept their slots
+    SlDtorHook(b, NULL);
+    assert(c.unlinks == 3 && *(LONG*)(m + 0xC) == 0);  // the pair past the old cap unlinks like any other
+    // at the ceiling, every pair live: overflow as before
+    relive();
+    g_slCapMax = 2 * SL_CAP0;
+    for (int i = 0; i < g_slCap; i++) g_slPairs[i].master = p[4], g_slPairs[i].slave = a, g_slPairs[i].mPartVt = *(DWORD*)p[4];
+    SlSetHook(m, NULL, &b, 1, 0);
+    assert(c.overflow == 1 && g_slCap == 2 * SL_CAP0 && c.grows == 1 && ts3native_caps.r[CAP_SLAVE].full >= 1);
+    g_slCapMax = 65536;
+    SlReset();
+    // tripwire: a destroyed slave 0 (the crash: base vtable, slot +0x18 the purecall thunk) and an unreadable one answer null
+    TslSet(m, NULL, two, 2, 1);
+    relive();
+    *(DWORD*)a = (DWORD)(uintptr_t)g_tslDead;
+    assert(SlTripGet(m, NULL, 0) == NULL && c.tripHits == 1);
+    assert(SlTripGet(m, NULL, 1) == b && SlTripGet(m, NULL, 2) == NULL && c.tripHits == 1);
+    u8* page = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    VirtualFree(page, 0, MEM_RELEASE);
+    TslSt(m)[0] = page;
+    assert(SlTripGet(m, NULL, 0) == NULL && c.tripHits == 2);
+    g_slSet = s0, g_slDtor = d0, g_slGet = g0;
+    SlReset(), c.sets = c.unlinks = c.overflow = c.tripHits = 0;
+    printf("EaCrashFixes: SlaveUnlink a destroyed slave taken off its master's list (one of two kept, the last through SetSlaves(0)), "
+           "unlisted / EA-cleared / replaced lists and destroyed or reused masters unchanged, full table reuses stale pairs, all-live table grows "
+           "(docs/321 H4), overflow only at the ceiling; "
+           "DeadSlaveTrip live slaves passed, destroyed / unreadable slave answered null: ok\n");
+}
+
+// [EaCrashFixes] VbFreeDelay + VbOwnerDelay (docs/67 §44 / §44.1): the delayed-free ring with a fake free and fake dtors,
+// VbGuard's owner lookup from a fake 0xA84D00 stack.
+static LONG g_vqtFrees, g_vqtDtorFlags = -1;
+static void* g_vqtLastFree;
+static void __cdecl VqtFree(void* p) { g_vqtFrees++, g_vqtLastFree = p; }
+static void* __fastcall VqtOwnerDtor(u8* self, void*, DWORD flags) {  // EA 0xA85DF0: wrapper released only when byte +0 == 0
+    g_vqtDtorFlags = (LONG)flags;
+    if (!self[0] && *(DWORD*)(self + 0x70)) *(DWORD*)(self + 0x70) = 0;
+    return self;
+}
+static u8* __fastcall VqtAlCopy(u8* self, void*, const u8* src) { memcpy(self, src, 0x80); return self; }  // EA 0xA89030: raw copy
+static void* __fastcall VqtWrapDtor(u8* self, void*, DWORD flags) { g_vqtDtorFlags = (LONG)flags, *(DWORD*)self = 0xFF39F8; return self; }
+static void TestVbDelay() {
+    VbDelayCounters& k = ts3native_vbdelay;
+    void (__cdecl* free0)(void*) = g_vqFree;
+    const VqDelFn own0 = g_voOrig, wrap0 = g_vqOrig[0];
+    g_vqFree = VqtFree, g_voOrig = VqtOwnerDtor, g_vqOrig[0] = VqtWrapDtor, g_vqMs = 10000;
+    alignas(4) static u8 a[0x80], b[0x80], w[0x30];
+    a[0] = 0, *(DWORD*)(a + 0x70) = 0x1234;  // EA releases and clears +0x70
+    b[0] = 1, *(DWORD*)(b + 0x70) = 0x5678;  // EA keeps +0x70: we clear it
+    VoDtor(a, NULL, 1);
+    assert(g_vqtDtorFlags == 0 && *(DWORD*)(a + 0x70) == 0 && g_vqtFrees == 0 && k.owners == 1 && k.ownerZeroed == 0 && k.queued == 1);
+    VoDtor(b, NULL, 1);
+    assert(*(DWORD*)(b + 0x70) == 0 && k.owners == 2 && k.ownerZeroed == 1 && k.queued == 2 && g_vqtFrees == 0);
+    *(DWORD*)(w + 4) = 1;
+    VqDelA(w, NULL, 1);
+    assert(g_vqtDtorFlags == 0 && *(DWORD*)(w + 4) == 0x40000000 && k.wrappers == 1 && k.queued == 3);  // pinned, owners are not
+    VoDtor(a, NULL, 0);  // non-deleting call: nothing queued
+    assert(k.owners == 2 && k.queued == 3);
+    const DWORD now = GetTickCount();
+    assert(VqDrain(now, kVqCap) == 0 && g_vqtFrees == 0);                       // delay not over
+    assert(VqDrain(now + 10000, 1) == 1 && g_vqtLastFree == a && k.queued == 2);  // oldest first, max honoured
+    assert(VqDrain(now + 10000, kVqCap) == 2 && g_vqtLastFree == w && k.queued == 0 && k.freed == 3 && g_vqtFrees == 3);
+    // ring full: the oldest is freed early, never more than kVqCap held
+    for (DWORD i = 0; i < kVqCap + 3; i++) VqPush((u8*)(uintptr_t)(0x10000 + i * 16), false);
+    assert(k.queued == (LONG)kVqCap && k.hw == (LONG)kVqCap && k.forced == 3 && g_vqtFrees == 6 && g_vqtLastFree == (void*)(uintptr_t)(0x10000 + 2 * 16));
+    // flush at world load: everything past the delay goes
+    g_vqMs = 1;
+    Sleep(20);
+    VqFlush("selftest");
+    assert(k.queued == 0 && k.flushes == 1 && g_vqtFrees == 6 + (LONG)kVqCap);
+    // aliases (I-604-5): copies hold the owner's wrapper; the owner's delete clears theirs, an alias delete only drops itself
+    static u8* alTab[2 * 16];
+    alignas(4) static u8 own[0x80], al1[0x80], al2[0x80], other[0x80];
+    const AlCopyFn copy0 = g_alCopy;
+    g_alPtr = alTab, g_alCopy = VqtAlCopy, g_vqMs = 10000;
+    own[0] = 0, *(DWORD*)(own + 0x70) = 0xAB00;
+    other[0] = 0, *(DWORD*)(other + 0x70) = 0xCD00;
+    AlCopyHook(al1, NULL, own), al1[0] = 1;
+    AlCopyHook(al2, NULL, own), al2[0] = 1;
+    u8 al3[0x80];
+    AlCopyHook(al3, NULL, other), al3[0] = 1;
+    assert(k.aliases == 3 && k.aliasHw == 3 && *(DWORD*)(al1 + 0x70) == 0xAB00);
+    VoDtor(al2, NULL, 1);  // alias deleted first: it leaves the table, its own +0x70 cleared by the owner path
+    assert(k.aliases == 2 && k.aliasCleared == 0 && *(DWORD*)(al2 + 0x70) == 0);
+    VoDtor(own, NULL, 1);  // owner releases 0xAB00: al1 cleared, al3 (other wrapper) kept
+    assert(k.aliases == 1 && k.aliasCleared == 1 && *(DWORD*)(al1 + 0x70) == 0 && *(DWORD*)(al3 + 0x70) == 0xCD00);
+    VoDtor(al3, NULL, 0);
+    assert(k.aliases == 0 && k.aliasCleared == 1);
+    for (int i = 0; i < 9; i++) AlCopyHook(al1, NULL, other);  // a 16-pair test table: all 9 tracked
+    assert(k.aliases == 9 && k.aliasFull == 0);
+    g_alN = 0, g_alPtr = NULL, g_alCopy = copy0;
+    VqDrain(GetTickCount() + 20000, kVqCap);
+    // VbGuard: the owner from a 0xA84D00 frame, nothing from another caller
+    DWORD item[2] = {0x1111, 0x22334450}, sp[9] = {kVbDrawRet, 0, 0, 0, 0, 0, 0, 0x7A0AD9, (DWORD)(uintptr_t)item};
+    assert(VbOwnerOf(sp) == 0x22334450);
+    sp[0] = 0x0068F5EB;
+    assert(VbOwnerOf(sp) == 0);
+    g_vqFree = free0, g_voOrig = own0, g_vqOrig[0] = wrap0, g_vqMs = 0, g_vqHead = g_vqN = 0;
+    memset(&k, 0, sizeof(k));
+    g_vqtFrees = 0, g_vqtDtorFlags = -1;
+    printf("EaCrashFixes VbFreeDelay + VbOwnerDelay: owner dtor run without its free, +0x70 cleared (ours when EA keeps it), "
+           "owners queued unpinned, wrappers pinned, freed after the delay oldest first, ring full frees early (cap %lu), "
+           "flush frees all due; VbGuard owner from the 0xA84D00 frame: ok\n", kVqCap);
+}
+
 static void TestEaCrashFixes() {
     static_assert(offsetof(Ts3nCounters, caOn) == 0x5480 && offsetof(Ts3nCounters, caSkip) == 0x5484 &&
                       offsetof(Ts3nCounters, caOther) == 0x5490 && offsetof(Ts3nCounters, caOverflow) == 0x549C &&
                       offsetof(Ts3nCounters, tpOn) == 0x54A0 && offsetof(Ts3nCounters, tpNoSlot) == 0x54AC &&
-                      sizeof(Ts3nCounters) == 6478 * 4,
+                      sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v141 layout after v140 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -503,6 +695,55 @@ static void TestEaCrashFixes() {
     VirtualFree(gcode, 0, MEM_RELEASE);
     g_gbBad = 0;
 
+    // ---- LotLevelPastEnd ----
+    // a fake lot: lowest level -1, a deque of 5 Groups that starts at entry 62 of its first block (so it spans two blocks)
+    {
+        static DWORD llBlk[2][64], *llNode[2] = {llBlk[0], llBlk[1]}, llId = 0x10, llGets;
+        alignas(4) static u8 llLot[0x400], llObj[0x60], llComp[0x40];
+        for (DWORD i = 0; i < 128; i++) llBlk[i / 64][i % 64] = 0xBAD00000 + i;  // entry 67 = the word past the table
+        for (DWORD i = 0; i < 5; i++) llBlk[(62 + i) / 64][(62 + i) % 64] = 0x6000 + i;
+        DWORD* q = (DWORD*)(llLot + 0x378);
+        q[0] = (DWORD)(uintptr_t)&llBlk[0][62], q[1] = (DWORD)(uintptr_t)llBlk[0], q[2] = (DWORD)(uintptr_t)(llBlk[0] + 64), q[3] = (DWORD)(uintptr_t)&llNode[0];
+        q[4] = (DWORD)(uintptr_t)&llBlk[1][3], q[5] = (DWORD)(uintptr_t)llBlk[1], q[6] = (DWORD)(uintptr_t)(llBlk[1] + 64), q[7] = (DWORD)(uintptr_t)&llNode[1];
+        *(LONG*)(llLot + 0x17C) = -1;
+        *(DWORD*)(llObj + 0x2C) = 0x10 | 0x4 | 0x1, *(u8**)(llObj + 0x34 + 2 * 4) = llComp;  // two components below the level's
+        assert(LlLevels(llLot) == 5);
+        struct LlT { static DWORD __fastcall Get(u8*, void*, u8*) { llGets++; return 0x77; } };  // the game's getter stand-in
+        const LlFn get0 = g_llGet;
+        const DWORD id0 = g_llIdLevel;
+        g_llGet = &LlT::Get, g_llIdLevel = (DWORD)(uintptr_t)&llId, g_llHits = 0;
+        const LONG in[] = {-5, -1, 0, 3, 0x7FFFFFFF};  // below the lowest (clamped), each end, "no level" = 0: the game's getter
+        for (LONG lv : in) { *(LONG*)(llComp + 0x18) = lv; assert(LlGroup(llLot, NULL, llObj) == 0x77); }
+        assert(llGets == 5 && g_llHits == 0);
+        *(LONG*)(llComp + 0x18) = 4;  // index 5 of 5 (a Bridgeport crash's ask): the top Group, not entry 67
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 1 && llGets == 5);
+        *(LONG*)(llComp + 0x18) = 3, *(DWORD*)(llComp + 0x2C) = 0x20;  // the +1 flag
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 2);
+        *(DWORD*)(llComp + 0x2C) = 0, *(LONG*)(llComp + 0x18) = 0x7FFFFFFE;  // far past; lv - lowest overflows: still a hit
+        assert(LlGroup(llLot, NULL, llObj) == 0x6004 && g_llHits == 3);
+        q[4] = q[0], q[5] = q[1], q[6] = q[2], q[7] = q[3];  // an empty table: the root Group (0)
+        *(LONG*)(llComp + 0x18) = 0;
+        assert(LlLevels(llLot) == 0 && LlGroup(llLot, NULL, llObj) == 0 && g_llHits == 4 && llGets == 5);
+        // no object, no level component, a null component: the game's getter (it answers 0 there)
+        *(DWORD*)(llObj + 0x2C) = 0x5;
+        assert(LlGroup(llLot, NULL, NULL) == 0x77 && LlGroup(llLot, NULL, llObj) == 0x77);
+        *(DWORD*)(llObj + 0x2C) = 0x15, *(u8**)(llObj + 0x34 + 2 * 4) = NULL;
+        assert(LlGroup(llLot, NULL, llObj) == 0x77 && llGets == 8 && g_llHits == 4);
+        // the patch: only over the game's getter bytes, once
+        u8* lcode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+        memcpy(lcode, kLlHead, sizeof(kLlHead)), memcpy(lcode + 0x4D, kLlLow, sizeof(kLlLow));
+        memcpy(lcode + 0x66, kLlDeq, sizeof(kLlDeq)), memcpy(lcode + 0x79, kLlBlk, sizeof(kLlBlk));
+        static DWORD lslot;
+        lslot = (DWORD)(uintptr_t)lcode;
+        lcode[0x68] = 0x80;  // another deque offset: nothing written
+        assert(!LlPatch(&lslot) && lslot == (DWORD)(uintptr_t)lcode);
+        lcode[0x68] = 0x7C;
+        assert(LlPatch(&lslot) && lslot == (DWORD)(uintptr_t)&LlGroup);
+        assert(!LlPatch(&lslot));  // ours now
+        VirtualFree(lcode, 0, MEM_RELEASE);
+        g_llGet = get0, g_llIdLevel = id0, g_llHits = 0;
+    }
+
     // ---- GeomNoMaterial ----
     const DWORD gn0[3] = {g_gnSkip, g_gnCont, g_gnGet};
     u8* ncode = (u8*)VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -624,8 +865,11 @@ static void TestEaCrashFixes() {
            "called, patched sequence run; ThumbPose reference kept across the evaluation and released by the stub; "
            "ThumbPoseBones short holders dropped at all three stubs, matching / longer / other holders unchanged, sites patched once; "
            "GeomBoneIndex in-range bones unchanged, past-the-list indices answered 0, key printed, vtable slot patched once; "
+           "LotLevelPastEnd in-range levels on the game's getter, past-the-table levels answered the top Group, empty table 0, slot patched once; "
            "GeomNoMaterial meshes with a material unchanged, no material skipped, other types and null meshes unchanged, "
            "site patched once; "
            "MintDivGuard 18 normal div/rem cases on the game's path, INT_MIN / -1 to the overflow stub, INT_MIN %% -1 = 0, "
            "table patched once: ok\n");
+    TestSlaveLink();
+    TestVbDelay();
 }

@@ -22,7 +22,7 @@ namespace Ts3Fixes
     //   Spooky Day sees a "valid" handle and adds no alarm (no NPC trick-or-treaters), and the removal can hit an unrelated
     //   alarm. Fix: SendNPCTrickOrTreaters does nothing unless today is the Fall holiday (so orphaned alarms, including
     //   those already in saves, have no effect), and the static is set back to invalid on world quit.
-    //   Counters [2588] handles reset at quit, [2589] off-holiday runs skipped, [2590] errors.
+    //   Counters [3969] handles reset at quit, [3970] off-holiday runs skipped, [3971] errors.
     // snowfightjoinwait (kSnowFightJoinWait, docs/571 §6) [verified, SnowWaterFight.cs / SnowWaterFightArena.cs]: the
     //   controller ends a game once mWaitForJoinsCounter (minutes with one player while invitees are still walking over)
     //   reaches 40. Only DoReset clears the counter; the festival arena is permanent and its DoEndOfGame does not, so the
@@ -103,9 +103,9 @@ namespace Ts3Fixes
             {
                 try
                 {
-                    if (TtSkip(ShortcutOn("trickortreatalarm"), TtFallHolidayToday())) { PatchCounters()[2589]++; return; }
+                    if (TtSkip(ShortcutOn("trickortreatalarm"), TtFallHolidayToday())) { PatchCounters()[3970]++; return; }
                 }
-                catch (Exception) { PatchCounters()[2590]++; }
+                catch (Exception) { PatchCounters()[3971]++; }
                 SendOrig();
             }
             public static void SendOrig() { }
@@ -117,9 +117,9 @@ namespace Ts3Fixes
             {
                 if (!ShortcutOn("trickortreatalarm") || TrickOrTreatSituation.NPCTrickOrTreatAlarm == AlarmHandle.kInvalidHandle) return;
                 TrickOrTreatSituation.NPCTrickOrTreatAlarm = AlarmHandle.kInvalidHandle;
-                PatchCounters()[2588]++;
+                PatchCounters()[3969]++;
             }
-            catch (Exception) { PatchCounters()[2590]++; }
+            catch (Exception) { PatchCounters()[3971]++; }
         }
 
         // ---- npcseasonalparty ----

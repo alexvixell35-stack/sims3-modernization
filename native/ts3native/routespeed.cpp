@@ -28,7 +28,7 @@
 // skipped writer row.
 //
 // Household rule: the answer is the game's own list, so it is exact for every router; still, until a shadow run shows 0
-// mismatches, a served answer goes only to routers of known NPC scope (unseen 2, seen NPC 3; PccScopeNow), unless
+// mismatches, a served answer goes only to routers of known NPC scope (unseen 2, seen NPC 3; NmScopeNow), unless
 // [RouteSpeed] NeighbourMemoAll=1 or [Experimental] HouseholdToo=1 (realistic-only: a cached exact answer). Other routers
 // run the game's function (their calls still fill the memo).
 //
@@ -84,10 +84,17 @@ static NmMemo* NmThreadMemo() {
     return t_nm;
 }
 
+// the router scope of the plan running on this thread: the sim session's (plandeadline.cpp t_pd.scope, read at its open) or
+// the worker job's (t_hcScope, set by ServeAsync for every job); anything else = 0 (unknown, treated as household)
+static LONG NmScopeNow() {
+    const DWORD tid = GetCurrentThreadId();
+    if (t_pd.open && tid == g_pdTid) return t_pd.scope;
+    if (tid == g_pdWkTid) return t_hcScope;
+    return t_jobT0 != 0 ? t_hcScope : 0;
+}
 static bool NmScopeOk() {
     if (g_nmAll) return true;
-    bool worker = false;
-    const LONG s = PccScopeNow(&worker);  // plancand.cpp: the sim session's or the worker job's router scope
+    const LONG s = NmScopeNow();
     return s == 2 || s == 3;
 }
 

@@ -30,7 +30,7 @@ namespace Ts3Fixes
             sOnaOld = typeof(OptionsDialog).GetField("mOldGraphicsData", kOnaI);
             sOnaList = typeof(OptionsDialog).GetField("mResolutionList", kOnaI);
             if (sOnaNew == null || sOnaOld == null) { AppliedLog().Add("optionsnoopapply: OptionsDialog graphics data not found"); return; }
-            Patch(typeof(OptionsDialog), "ApplyGraphicsChanges", Type.EmptyTypes, typeof(OnaHook), "ApplyHook", "ApplyOrig");
+            Patch(typeof(OptionsDialog), "ApplyGraphicsChanges", Type.EmptyTypes, typeof(OnaHook), "ApplyHook", "GraphicsOrig");
         }
 
         // dialog field, DeviceConfig key, offset (the dialog keeps value - 1 for these keys), bool field
@@ -103,9 +103,9 @@ namespace Ts3Fixes
             {
                 try { OnaBefore(this); }
                 catch (Exception ex) { PatchCounters()[4219]++; OnaLog("error " + ex.GetType().Name); }
-                ApplyOrig();
+                GraphicsOrig();
             }
-            public void ApplyOrig() { } // receives OptionsDialog.ApplyGraphicsChanges
+            public void GraphicsOrig() { } // receives OptionsDialog.ApplyGraphicsChanges
         }
     }
 }

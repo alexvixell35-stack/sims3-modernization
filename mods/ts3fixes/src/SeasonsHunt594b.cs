@@ -23,29 +23,29 @@ namespace Ts3Fixes
     // test after it extinguishes an unsheltered fire; Firefighter.Create allocates it only when the firefighter service is
     // valid for the world and DestroyFirefighter sets it to null, so a fire in the rain in such a world throws. Fix: the
     // lookup is skipped when the dictionary is null (nobody to mark RainAssisted). Audit of the rest of the loop: docs/594 §3.
-    // Counters: [1929] null-dictionary lookups skipped, [1930] null dictionary hit with the switch off (EA's throw kept),
-    // [1931] errors (fallback to EA's body).
+    // Counters: [2135] null-dictionary lookups skipped, [2136] null dictionary hit with the switch off (EA's throw kept),
+    // [2137] errors (fallback to EA's body).
     //
     // rainsheltercheap (kRainShelterCheap; docs/594 §4). Same pass: every Sim and every Soil gets
     // IsShelteredFromPrecipitation (LotManager.GetLotAtPoint + World.HasAnyRoofOrFloorAbovePos, both native) before the cheap
     // test that decides whether anything happens (Sim on fire / plant water below 100). Both tests are pure and nothing
     // yields between them, so testing the cheap one first gives the same result. A Sim without a BuffManager keeps EA's order
-    // (so the throw, if any, stays where EA has it). Counters: [1932] shelter tests skipped, [1933] shelter tests run,
-    // [1934] passes, [1935] errors.
+    // (so the throw, if any, stays where EA has it). Counters: [2138] shelter tests skipped, [2139] shelter tests run,
+    // [2140] passes, [2141] errors.
     //
     // pondclearscan (kPondClearScan; docs/594 §5). [verified, decompiled] TerrainCoverManager.UpdatePondFreezing calls
     // PondManager.AllPondsClear on every SeasonsManager tick while the pond state is TryingToMelt, it is warm enough to melt
     // and somebody is on a pond; each call is a world-wide GetObjects<LotPond> before the one-field world-pond test. Fix,
     // same answer: the world pond is tested first, then the lot pond the last scan found in use (still a live object);
-    // only when neither is in use does EA's scan run. Counters: [1936] scans skipped (world pond in use), [1937] scans
-    // skipped (remembered lot pond in use), [1938] scans run, [1939] errors.
+    // only when neither is in use does EA's scan run. Counters: [2142] scans skipped (world pond in use), [2143] scans
+    // skipped (remembered lot pond in use), [2144] scans run, [2145] errors.
     //
     // soakedstat (kSoakedStat; docs/594 §6). [verified, decompiled] SimTemperature.AddSimTemperatureBuffsIfNecessary adds
     // Soaked (Origin.FromRain) to every Sim outside in the rain on each environment update (every 2 sim-minutes), and
     // BuffSoaked.OnReAddition increments TombStats "times soaked" on every re-add, so one walk in the rain counts ~30 soaks an
     // hour. The first soak still counts (OnAddition); a rain re-add of a buff the Sim already has does not. Other re-adds
-    // (a trap or a balloon on a soaked Sim) count as before. Persisted stat, so opt-in. Counters: [1940] rain re-adds not
-    // counted, [1941] rain re-adds counted (switch off), [1942] errors.
+    // (a trap or a balloon on a soaked Sim) count as before. Persisted stat, so opt-in. Counters: [2146] rain re-adds not
+    // counted, [2147] rain re-adds counted (switch off), [2148] errors.
     public static partial class Fixes
     {
         // EA's private SeasonsManager.UpdateData, field for field (DateAndTime CurrentTime, float HoursElapsed): the hook
@@ -130,9 +130,9 @@ namespace Ts3Fixes
                     sRfSchedule.Invoke(me, new object[] { now });   // EA's SchedulePutOutFires(currentTime), first as in EA
                     sRfNext = (DateAndTime)sRfNextField.GetValue(me);
                 }
-                catch (Exception) { PatchCounters()[cheap ? 1935 : 1931]++; sRfLast = null; PutOutOrig(ud); return; }
+                catch (Exception) { PatchCounters()[cheap ? 2141 : 2137]++; sRfLast = null; PutOutOrig(ud); return; }
                 int[] c = PatchCounters();
-                if (cheap) c[1934]++;
+                if (cheap) c[2140]++;
                 // fires: EA's order (the leaf-pile test is not cheaper than the shelter test)
                 Fire[] fires = Sims3.Gameplay.Queries.GetObjects<Fire>();
                 foreach (Fire fire in fires)
@@ -143,8 +143,8 @@ namespace Ts3Fixes
                         System.Collections.Generic.Dictionary<ulong, Firefighter.FirefighterInformation> dict = Firefighter.sFirefighterDictionary;
                         if (dict == null)
                         {
-                            if (WmtSkip(guard, true)) { c[1929]++; continue; }
-                            c[1930]++;
+                            if (WmtSkip(guard, true)) { c[2135]++; continue; }
+                            c[2136]++;
                             throw new NullReferenceException();   // EA's throw with the switch off
                         }
                         Firefighter.FirefighterInformation value;
@@ -156,13 +156,13 @@ namespace Ts3Fixes
                 {
                     if (cheap && sim.BuffManager != null)
                     {
-                        if (!FirefighterSituation.IsSimOnFire(sim)) { c[1932]++; continue; }
-                        c[1933]++;
+                        if (!FirefighterSituation.IsSimOnFire(sim)) { c[2138]++; continue; }
+                        c[2139]++;
                         if (!SeasonsManager.IsShelteredFromPrecipitation(sim)) FirefighterSituation.PutFireOnSimOut(sim);
                     }
                     else
                     {
-                        if (cheap) c[1933]++;   // no BuffManager: EA's order, so a throw stays where EA has it
+                        if (cheap) c[2139]++;   // no BuffManager: EA's order, so a throw stays where EA has it
                         if (!SeasonsManager.IsShelteredFromPrecipitation(sim) && FirefighterSituation.IsSimOnFire(sim)) FirefighterSituation.PutFireOnSimOut(sim);
                     }
                 }
@@ -172,8 +172,8 @@ namespace Ts3Fixes
                     if (!cheap) { if (!SeasonsManager.IsShelteredFromPrecipitation(soil)) soil.OnSprinkled(); continue; }
                     // Soil.OnSprinkled: `if (plant in the Plant slot && plant.WaterLevel < 100) plant.WaterLevel = 100`
                     Plant plant = soil.GetContainedObject(Soil.ContainmentSlots.Plant) as Plant;
-                    if (plant == null || !(plant.WaterLevel < 100f)) { c[1932]++; continue; }
-                    c[1933]++;
+                    if (plant == null || !(plant.WaterLevel < 100f)) { c[2138]++; continue; }
+                    c[2139]++;
                     if (!SeasonsManager.IsShelteredFromPrecipitation(soil)) plant.WaterLevel = 100f;
                 }
             }
@@ -191,10 +191,10 @@ namespace Ts3Fixes
                 if (!ShortcutOn("pondclearscan")) { sMemo = null; return ClearOrig(); }
                 int[] c = PatchCounters();
                 WorldPondHelper w = PondManager.WorldPondSingleton;
-                if (w != null && w.UseCount > 0) { c[1936]++; return false; }
+                if (w != null && w.UseCount > 0) { c[2142]++; return false; }
                 LotPond m = sMemo;
-                if (m != null && PcsLive(m) && m.UseCount > 0) { c[1937]++; return false; }
-                c[1938]++;
+                if (m != null && PcsLive(m) && m.UseCount > 0) { c[2143]++; return false; }
+                c[2144]++;
                 return PcsScan();
             }
 
@@ -227,12 +227,12 @@ namespace Ts3Fixes
             {
                 bool on = ShortcutOn("soakedstat");
                 if (!on && origin != Origin.FromRain) return ReAddOrig(bm, existingBuff, newBuff, guid, origin, timeoutPaused);
-                if (!on) { PatchCounters()[1941]++; return ReAddOrig(bm, existingBuff, newBuff, guid, origin, timeoutPaused); }
+                if (!on) { PatchCounters()[2147]++; return ReAddOrig(bm, existingBuff, newBuff, guid, origin, timeoutPaused); }
                 // EA's body; the stat is counted unless this is a rain re-add
                 BuffSoaked.BuffInstanceSoaked soaked = newBuff as BuffSoaked.BuffInstanceSoaked;
                 if (soaked != null) soaked.AlarmOwner = bm.Actor;
                 if (SsCount(true, origin)) bm.Actor.SimDescription.TombStats.IncrementTimesSoaked();
-                else PatchCounters()[1940]++;
+                else PatchCounters()[2146]++;
                 return base.OnReAddition(bm, existingBuff, newBuff, guid, origin, timeoutPaused);
             }
 
@@ -246,7 +246,7 @@ namespace Ts3Fixes
         // Also prints whether this world has the dictionary (null = the throw is reachable here).
         public static object WeatherManagerThrowCheck(string what)
         {
-            string counters = B582Counters("weathermanagerthrow", 1929, new[] { "null-dictionary lookups skipped", "null dictionary hit (switch off)", "errors" }, sRfMissing);
+            string counters = B582Counters("weathermanagerthrow", 2135, new[] { "null-dictionary lookups skipped", "null dictionary hit (switch off)", "errors" }, sRfMissing);
             if (what == "result") return counters + "; dictionary null in this world=" + (Firefighter.sFirefighterDictionary == null);
             if (what != "run") return "weathermanagerthrow <run|result>";
             bool on = ShortcutOn("weathermanagerthrow");
@@ -262,7 +262,7 @@ namespace Ts3Fixes
         // cheap test on the active Sim (20 each).
         public static object RainShelterCheapCheck(string what)
         {
-            string counters = B582Counters("rainsheltercheap", 1932, new[] { "shelter tests skipped", "shelter tests run", "passes", "errors" }, sRfMissing);
+            string counters = B582Counters("rainsheltercheap", 2138, new[] { "shelter tests skipped", "shelter tests run", "passes", "errors" }, sRfMissing);
             if (what == "result") return counters + "; " + RscTiming();
             if (what != "run") return "rainsheltercheap <run|result>";
             bool on = ShortcutOn("rainsheltercheap");
@@ -312,7 +312,7 @@ namespace Ts3Fixes
         // scan when nothing is in use. 'result' times EA's scan against the shortcut path (20 each).
         public static object PondClearScanCheck(string what)
         {
-            string counters = B582Counters("pondclearscan", 1936, new[] { "scans skipped (world pond)", "scans skipped (remembered pond)", "scans run", "errors" }, "");
+            string counters = B582Counters("pondclearscan", 2142, new[] { "scans skipped (world pond)", "scans skipped (remembered pond)", "scans run", "errors" }, "");
             if (what == "result") return counters + "; " + PcsTiming();
             if (what != "run") return "pondclearscan <run|result>";
             bool on = ShortcutOn("pondclearscan");
@@ -352,7 +352,7 @@ namespace Ts3Fixes
         // SoakedStatCheck run: a rain re-add is not counted when on; controls: other re-adds count, off counts as EA.
         public static object SoakedStatCheck(string what)
         {
-            string counters = B582Counters("soakedstat", 1940, new[] { "rain re-adds not counted", "rain re-adds counted (switch off)", "errors" }, sSsTarget == null ? "BuffSoaked.OnReAddition" : "");
+            string counters = B582Counters("soakedstat", 2146, new[] { "rain re-adds not counted", "rain re-adds counted (switch off)", "errors" }, sSsTarget == null ? "BuffSoaked.OnReAddition" : "");
             if (what == "result") return counters;
             if (what != "run") return "soakedstat <run|result>";
             bool on = ShortcutOn("soakedstat");

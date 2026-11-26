@@ -17,6 +17,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { ensureVramSidecar, S3MM_RE } from '../harness/game-exe.ts';
 
 type FileSpec = string | { from: string; to: string };
 type Fix = {
@@ -128,6 +129,7 @@ function targetPath(f: Fix, rel: string): string {
 }
 
 function place(f: Fix, rec: Installed, dest: string, write: () => void) {
+  if (S3MM_RE.test(basename(dest))) throw new Error(`${f.id}: refusing ${dest}: we never install Sims3MonoModder (S3MM), docs/291`);
   let backup: string | null = null;
   if (existsSync(dest) && !rec.files.some(x => x.path === dest)) {
     backup = join(HOME, 'backup', f.id, basename(dest) + '.' + Date.now());
@@ -225,6 +227,7 @@ function generated(f: Fix, rec: Installed): boolean {
         const p = join(BIN, name);
         place(f, rec, p, () => copyFileSync(join(ROOT, 'native', 'ts3native', 'out', name), p));
       }
+      console.log(ensureVramSidecar(BIN));  // docs/284: [Startup] DxDiagCache sidecar, once per machine key (not a placed file: a cache, kept on uninstall)
       return true;
     }
     case 'stutter-fixes': {

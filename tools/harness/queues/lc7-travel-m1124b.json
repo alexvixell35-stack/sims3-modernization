@@ -1,0 +1,162 @@
+{
+ "note": "lc7-travel-m1124b (2026-11-24, merge/m1124b): LC-7 travel and save-reload with deadrefdelta / slimuse / perlot / descrev (+ verify) ON on master set m1124b (0.36.303-m1124b), Steam, Apex latest + bridge. bp-lc7-travel = the Steam lc7-desc-correct-1124 job (repro leak-travel-roundtrip-x3); bp-lc7-trip-x2 = the EA-verified two-trip return check of deadref-travel-verify-ea-1124 (EA 2 trips PASS); bp-lc7-save-reload = bp-deadrefs-saves (repro hole fixed in 08739c5e6). Without afe4fa7c the EA travel stall was ours (simler90 MergeTravelInfoCareer pin swap).",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.303-m1124b ": {
+   "match": [
+    "ts3native 0.36.303-m1124b 2026-11-25 00:30:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+    "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+    "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+    "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^ts3fixes: deadref travel step: PostTravelingFixUp reached": {
+   "match": [
+    "ts3fixes: deadref travel step: PostTravelingFixUp reached (import done)"
+   ],
+   "noMatch": [
+    "ts3fixes: deadref travel step: ImportTravellingHousehold load finished",
+    "ts3fixes: deadref travel step: Occupation.ImportContent done"
+   ]
+  },
+  "^ts3fixes: deadref travel FAIL: ": {
+   "match": [
+    "ts3fixes: deadref travel FAIL: Occupation.ImportContent: NullReferenceException: Object reference not set to an instance of an object; deadref cadence work off for the session (full walks, as deadrefcadence off)"
+   ],
+   "noMatch": [
+    "ts3fixes: deadref travel step: Occupation.ImportContent enter",
+    "ts3fixes: deadrefdescrev scan: 10 assemblies, 10288 methods, 0 unreadable, 0 unresolvable-token, 0 reflection, pins 2 hooked / 0 no-hook / 0 mismatch / 0 refused, 842151 us; untrusted none"
+   ]
+  },
+  "^ts3fixes: deadrefdescrev scan: .* pins 2 hooked / 2 no-hook / 0 mismatch / 0 refused": {
+   "match": [
+    "ts3fixes: deadrefdescrev scan: 12 assemblies, 13394 methods, 0 unreadable, 0 unresolvable-token, 0 reflection, pins 2 hooked / 2 no-hook / 0 mismatch / 0 refused, 1225394 us; untrusted none"
+   ],
+   "noMatch": [
+    "ts3fixes: deadrefdescrev scan: 10 assemblies, 10288 methods, 0 unreadable, 0 unresolvable-token, 0 reflection, pins 1 hooked / 1 no-hook / 0 mismatch / 0 refused, 842151 us; untrusted none",
+    "ts3fixes: deadrefdescrev scan: 12 assemblies, 13394 methods, 0 unreadable, 0 unresolvable-token, 0 reflection, pins 3 hooked / 1 no-hook / 0 mismatch / 0 refused, 1225394 us; untrusted none"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc7-travel",
+   "note": "[est 20 min] Travel round trip: repro leak-travel-roundtrip-x3 (BP -> France -> BP three times) with LC-5 / LC-6a / LC-7 + verify on. Pass: the index resets at every world load (resets >= 2) and re-seeds after the return (seeds >= 2), 0 misses / extras, no overflow, 0 script errors. The sweep stands down while travelling (DeadRefUnsafe).",
+   "asi": "game-copy/ts3native.asi.m1124b",
+   "iniBase": "game-copy/ts3native.ini.m1124b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124b",
+   "pinReason": "master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 35,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true,
+     "repro": "leak-travel-roundtrip-x3",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot,deadrefdescrev,deadrefdeltaverify",
+     "fixesRequire": "deadrefdescrev_seeds>=2,deadrefdescrev_resets>=2,deadrefdescrev_verify_miss<=0,deadrefdescrev_verify_extra<=0,deadrefdescrev_overflows<=0,deadrefdescrev_scan_assemblies>=2,deadrefdescrev_scan_unreadable<=0,deadrefdescrev_untrusted<=0,deadrefdescrev_pins_mismatch<=0,deadrefdescrev_pins_refused<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta,deadrefperlot,deadrefdescrev"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-m1124b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc7-trip-x2",
+   "note": "[est 14 min] Steam copy of the EA-verified deadref travel return check (afe4fa7c, docs/336 §16, LC-7g): the five bp-lc7-travel switches on (the repro sets them), a live sweep before each trip, two BP -> France -> BP trips (travel-roundtrip-bp-lc7on-x2). Pass: both returns reach live mode, 4 \"PostTravelingFixUp reached\" lines, the simler90Extras pin no-hook, no \"deadref travel FAIL\".",
+   "asi": "game-copy/ts3native.asi.m1124b",
+   "iniBase": "game-copy/ts3native.ini.m1124b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124b",
+   "pinReason": "master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 40,
+   "run": {
+    "repro": "travel-roundtrip-bp-lc7on-x2"
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-m1124b ": 1,
+    "^ts3fixes: deadref travel step: PostTravelingFixUp reached": 4,
+    "^ts3fixes: deadrefdescrev scan: .* pins 2 hooked / 2 no-hook / 0 mismatch / 0 refused": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^ts3fixes: deadref travel FAIL: ": 0
+   }
+  },
+  {
+   "id": "bp-lc7-save-reload",
+   "note": "[est 20 min] Save-reload: repro bp-deadrefs-saves (the docs/330 deadref save row: 7 saves, then a same-session reload; bp-deadrefs-check has no save or reload step, EA run 2026-11-24 resets 1 < 2) with LC-5 / LC-6a / LC-7 + verify on. Pass: the repro rows as in lc6a, a reset at each load (resets >= 2) and a fresh seed after the reload (seeds >= 2), 0 misses / extras, no overflow.",
+   "asi": "game-copy/ts3native.asi.m1124b",
+   "iniBase": "game-copy/ts3native.ini.m1124b",
+   "fixesPackage": "game-copy/ts3fixes.package.m1124b",
+   "pinReason": "master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 12,
+     "noSamplers": true,
+     "repro": "bp-deadrefs-saves",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefperlot,deadrefdescrev,deadrefdeltaverify",
+     "fixesRequire": "deadrefcadence_snapshots>=1,deadrefdescrev_seeds>=2,deadrefdescrev_resets>=2,deadrefdescrev_verify_miss<=0,deadrefdescrev_verify_extra<=0,deadrefdescrev_overflows<=0,deadrefdescrev_scan_assemblies>=2,deadrefdescrev_scan_unreadable<=0,deadrefdescrev_untrusted<=0,deadrefdescrev_pins_mismatch<=0,deadrefdescrev_pins_refused<=0",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta,deadrefperlot,deadrefdescrev"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.303-m1124b ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  }
+ ]
+}

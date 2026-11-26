@@ -60,7 +60,7 @@ under 10 ms per sim-hour, against pondclearscan's ~1 s per sim-hour while its co
 ## 5. Built: `hovertraintest` (2026-11-16, static, NOT RUN)
 
 Asked for by Rodney (hover trains are rarely used). Switch `hovertraintest` (tuning `kHoverTrainTest`), default off;
-`HoverTrain598.cs`; counters 1971-1976; repro `hovertraintest-check`; package r56.
+`HoverTrain598.cs`; counters 2157-2162; repro `hovertraintest-check`; package r56.
 
 **What EA does [verified, decompiled].** `Sim.NPCUseHoverTrain.Definition.Test`: `!isAutonomous || a.IsSelectable` → false,
 else `Queries.GetObjects<IHoverTrainStation>().Length >= 2`. The query is the native per-class map walk (docs/125 §4.1).
@@ -96,7 +96,7 @@ none event-forgotten, so not reused.
 **Run [verified, decompiled].** EA's Run lists the stations again (kept: once per trip, and the list order feeds the random
 pick). Defects: `GetClosestObject` skips charred objects and returns null when every station is charred, and Run
 dereferences it; the travel definition is dereferenced unchecked. With the switch on both answer EA's "no station" false
-(counter 1975), after the same calls in the same order (one `RandomUtil` draw). The `destination == origin` step is one
+(counter 2161), after the same calls in the same order (one `RandomUtil` draw). The `destination == origin` step is one
 increment with wrap, not a loop: it always exits and the list has no duplicates. Kept as EA: the bias toward the station
 after the closest one (it gets two of the N draws).
 
@@ -106,9 +106,9 @@ same tick; a difference counts 1974 (must be 0). Synthetic controls on a private
 `result`: counters and a `timing:` line (EA query µs vs memo answer µs, stations, world object count). The repro runs it off,
 on after 60 s of ultra speed, in buy mode, and after a placement.
 
-Counters: [1971] tests answered from the memo, [1972] tests that ran EA's query (switch off: every gated test, so the off
-arm measures the call rate this doc asked for), [1973] forgets, [1974] check mismatches, [1975] Run throws avoided,
-[1976] errors. Gain: up to the §3 estimate (~240 ms per sim-hour [inferred]); the off arm's 1972 and the timing line give the
+Counters: [2157] tests answered from the memo, [2158] tests that ran EA's query (switch off: every gated test, so the off
+arm measures the call rate this doc asked for), [2159] forgets, [2160] check mismatches, [2161] Run throws avoided,
+[2162] errors. Gain: up to the §3 estimate (~240 ms per sim-hour [inferred]); the off arm's 1972 and the timing line give the
 real figure.
 
 ## 6. Second sweep: Test-like methods with world queries; built `newcartest` (2026-11-16, static, NOT RUN)

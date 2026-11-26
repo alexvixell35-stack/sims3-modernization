@@ -37,11 +37,9 @@ namespace Ts3Fixes
     // object in the way) keeps the game's wait.
     //
     // Scope: standwaitfix covers Sims the player does not control; household and selected Sims (as waiter or as the
-    // pushed Sim) need standwaitfixhh as well (or [Experimental] HouseholdToo). With the switches off the hooks only
+    // pushed Sim) need standwaitfixhh as well. With the switches off the hooks only
     // count: blocked cycles, waits that ran to the timeout, and what the fix would have done (compare mode).
     // standwaitlog writes one line per wait that had blocked cycles. Counters 4300-4319. Check: StandWaitCheck.
-    // A blocked cycle whose plan failed on a locked destination portal goes to StandWaitLocked.cs first (standwaitlocked,
-    // docs/686 §7): a privacy lock ends the wait after kStandWaitLockedCycles cycles.
     public static partial class Fixes
     {
         const int kSwfWaits = 4300, kSwfBlockedCycles = 4301, kSwfBlockedWaits = 4302, kSwfTimeouts = 4303, kSwfYields = 4304, kSwfWouldYield = 4305,
@@ -111,7 +109,7 @@ namespace Ts3Fixes
             public bool CycleHook(object controller, object userData)
             {
                 bool failedBefore = SwfPlanFailed(mInterruptedPath);
-                // simpass (ShareLanes.cs, docs/686 §8.7) and clipwait (ClipWait.cs, §9), off by default: a wait that goes on past the grace with only Sims in the way ends
+                // simpass (ShareLanes.cs, docs/686 §8.8) and clipwait (ClipWait.cs, §9), off by default: a wait that goes on past the grace with only Sims in the way ends
                 return SwfCycle(this, mRoutingSim, mInterruptedPath, failedBefore, CycleOrig(controller, userData)) && SpsObstacleCycle(this, mRoutingSim, mInterruptedPath)
                     && ClwObstacleCycle(this, mRoutingSim, mInterruptedPath);
             }
@@ -164,7 +162,7 @@ namespace Ts3Fixes
             return st;
         }
 
-        static bool SwfInScope(Sim s, bool hhOn) { return hhOn || !HouseholdExempt(s); }
+        static bool SwfInScope(Sim s, bool hhOn) { return hhOn || !IsPlayerSim(s); }  // not HouseholdExempt: HouseholdToo never lifts pass or push
 
         static bool SwfPartner(Sim a, Sim b)
         {
@@ -232,8 +230,7 @@ namespace Ts3Fixes
                 RoutePlanResult res = path.PlanResult;
                 if (!keep || !failedBefore || res.Succeeded())
                 {
-                    if (st.LockRun > 0 && res.Succeeded()) SwlCleared(st, c);  // the lock ended while the Sim waited
-                    st.RunBlocked = 0; st.NamedN = 0; st.LockRun = 0;
+                    st.RunBlocked = 0; st.NamedN = 0;
                     return keep;
                 }
                 st.Blocked++; st.RunBlocked++;
@@ -246,10 +243,6 @@ namespace Ts3Fixes
                 bool on = fixOn && SwfInScope(sim, hhOn);
                 st.On = on;
                 if (fixOn && !on) { st.Exempt = true; c[kSwfExempt]++; }
-
-                if (res.mType != RoutePlanResultType.FailedBecauseDestinationPortalLocked) st.LockRun = 0;
-                else if (SwlCycle(st, sim, path, on && sim.HasExitReason(ExitReason.CancelExternal | ExitReason.MidRoutePushRequested), c))
-                    return false;  // not "elected to exit": the game's own end of a wait that ran out (route failed)
 
                 int n = SwfBlockers(sim, path, res, hhOn || !fixOn);  // compare mode counts what both switches would do
                 st.NamedN = n;
@@ -360,7 +353,7 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 float elapsed = SimClock.ElapsedTime(TimeUnit.Minutes, st.Start), duration = SimRoutingComponent.DefaultStandAndWaitDuration;
                 bool planOk = path != null && path.PlanResult.Succeeded();
-                int kind = StandWaitCore.EndKind(st.Blocked, st.Yielded, st.Passed, planOk, st.LastPushCycle, elapsed, duration, st.GaveUp);
+                int kind = StandWaitCore.EndKind(st.Blocked, st.Yielded, st.Passed, planOk, st.LastPushCycle, elapsed, duration, false);
                 int left = StandWaitCore.TimeoutCyclesLeft(st.Cycles, elapsed, duration);
                 if (kind == StandWaitCore.kEndTimeout) c[kSwfTimeouts]++;
                 if (kind == StandWaitCore.kEndYield || kind == StandWaitCore.kEndPass || kind == StandWaitCore.kEndPush) { c[kSwfResolved]++; c[kSwfCyclesLeft] += left; }

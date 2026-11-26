@@ -1,6 +1,6 @@
 # 587. Expansion and stuff pack function sweep (2026-11-15)
 
-Static only: decompiled scripts plus shipped tuning XML, no game run, nothing built. This is the EP/SP half of the docs/586 coverage sweep (upstream issue #422 makes EP/SP fixes the contributor's track). A parallel pass reads the base-game types from the same map, so the two passes do not overlap.
+Static only: decompiled scripts plus shipped tuning XML, no game run, nothing built. This is the EP/SP half of the docs/639 coverage sweep (upstream issue #422 makes EP/SP fixes the contributor's track). A parallel pass reads the base-game types from the same map, so the two passes do not overlap.
 
 ## 1. Method
 
@@ -120,7 +120,7 @@ Inferred and rarer (listed for the fix agent, not ranked):
 
 ## 6. Batch EP1: built (2026-11-15, branch `feat/ep-batch1-1115`, NOT RUN)
 
-Sources: `mods/ts3fixes/src/EpBatch1aLogic.cs` (§1-§10), `EpBatch1bLogic.cs` (§12-§20), `EpBatch1Checks.cs`. Counter slots 1400-1465 (pinned block `fixes-1400`, `docs/registry.md`; 1466-1499 kept for EP batch 2). Every switch is off by default. Each has a pure `Ts3Fixes.Fixes.<Name>Check("run"|"result")` and a repro `<switch>-check` in `tools/harness/repros.json` (off: `verdict: BROKEN`, on: `verdict: FIXED`). Swap rows are in `docs/data/swap-stack-audit.csv`; every hook has a stub.
+Sources: `mods/ts3fixes/src/EpBatch1aLogic.cs` (§1-§10), `EpBatch1bLogic.cs` (§12-§20), `EpBatch1Checks.cs`. Counter slots 3835-3898 (pinned block `fixes-3835`, `docs/registry.md`; 1466-1499 kept for EP batch 2). Every switch is off by default. Each has a pure `Ts3Fixes.Fixes.<Name>Check("run"|"result")` and a repro `<switch>-check` in `tools/harness/repros.json` (off: `verdict: BROKEN`, on: `verdict: FIXED`). Swap rows are in `docs/data/swap-stack-audit.csv`; every hook has a stub.
 
 The user rule for this batch was to fix loop, order and logic defects in every EA function read for a fix. Extras found that way are marked **RE**.
 
@@ -161,7 +161,7 @@ Next: one off/on run of the 22 repros.
 
 ## 7. Batch EP2: built (2026-11-15, same branch, NOT RUN)
 
-Source: `EpBatch2Logic.cs` and `EpBatch2Checks.cs`. Slots 1466-1477, inside the same pinned block. Every switch is off by default. The file follows the same pattern as §6: a check, a repro and audit rows for each switch.
+Source: `EpBatch2Logic.cs` and `EpBatch2Checks.cs`. Slots 3899-3910, inside the same pinned block. Every switch is off by default. The file follows the same pattern as §6: a check, a repro and audit rows for each switch.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|
@@ -190,7 +190,7 @@ Inferred leads from tranche 1:
 - CONFIRMED: DaycareWorkdaySituation late-parent alarm (built as 8.10); FutureDescendantService size-0 household (parked, below).
 - DROPPED: GeneSplicingExperiment.OnEpicSuccess (EP9 object always exists); TreasureComponent.GetAdventureTreasureInternal (keys validated by the caller and all present in shipped XML); Bird.FinalizeDeath null owner lot (world lot only, no normal-play path); PhilanthropistRecordData listener; AcademicCareer.SetNewProfessor; SoccerGoal; Houseboat autopilot; BuffEmbracingTheFuture (no reachable defect).
 
-**Batch EP3.** Source: `EpBatch3Logic.cs` and `EpBatch3Checks.cs`. Slots 1478-1498 (`fixes-1400`) and 1500-1520 (`fixes-1500`). Every switch is off by default, with a pure check, a repro and audit rows, as in §6.
+**Batch EP3.** Source: `EpBatch3Logic.cs` and `EpBatch3Checks.cs`. Slots 3911-3931 (`fixes-3835`) and 1500-1520 (`fixes-3932`). Every switch is off by default, with a pure check, a repro and audit rows, as in §6.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|
@@ -281,7 +281,7 @@ Parked or dropped:
 
 ## 11. Batch EP5: scan pass 4 effects and tranche 4 (2026-11-16, NOT RUN)
 
-Slots 1557-1598 (`fixes-1500`) and 1600-1608 (new pinned block `fixes-1600`, 1600-1699). Every switch is off by default and household-visible. Each `<switch>-check` repro runs the pure decision off, then on (`tools/harness/repros.json`).
+Slots 3283-3324 (`fixes-3932`) and 1600-1608 (new pinned block `fixes-3325`, 1600-1699). Every switch is off by default and household-visible. Each `<switch>-check` repro runs the pure decision off, then on (`tools/harness/repros.json`).
 
 ### 11.1 Effects started and dropped (docs/583 §8.1 P4-2)
 
@@ -335,7 +335,7 @@ Dropped or parked:
 
 ## 12. Tranche 5 and batch EP6 (2026-11-16, NOT RUN)
 
-Tranche 5 covers the next 120 unread EP types by scanner rank, read by four read-only agents. Filters: at least 4 methods, no interfaces, tooltips or markers, no store content and no StoryProgression. All ranks are 0 now, so the types are ordered by method count. Three leads were confirmed, one was found by grepping their siblings, and one parked lead was built. Slots 1609-1620 (`fixes-1600`). Every switch is off and household-visible, and none is fixed in simler90 UPDATE242.
+Tranche 5 covers the next 120 unread EP types by scanner rank, read by four read-only agents. Filters: at least 4 methods, no interfaces, tooltips or markers, no store content and no StoryProgression. All ranks are 0 now, so the types are ordered by method count. Three leads were confirmed, one was found by grepping their siblings, and one parked lead was built. Slots 3334-3345 (`fixes-3325`). Every switch is off and household-visible, and none is fixed in simler90 UPDATE242.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|
@@ -355,7 +355,7 @@ Dropped or parked:
 
 ## 13. Store content and store batch 1 (2026-11-16, NOT RUN)
 
-Sims3StoreObjects (79 decompiled files, namespace `Sims3.Store.Objects`) was read in full by five read-only agents; each lead below was then checked in the decompile, and against the shipped tuning where a value matters. simler90 ships no Store build, so there is no community diff. The other store DLLs are not covered: per docs/557 §1 the duplicate StoreObjects types in the store repacks never load. Slots 1621-1659 (`fixes-1600`). Every switch is off and household-visible.
+Sims3StoreObjects (79 decompiled files, namespace `Sims3.Store.Objects`) was read in full by five read-only agents; each lead below was then checked in the decompile, and against the shipped tuning where a value matters. simler90 ships no Store build, so there is no community diff. The other store DLLs are not covered: per docs/557 §1 the duplicate StoreObjects types in the store repacks never load. Slots 3346-3384 (`fixes-3325`). Every switch is off and household-visible.
 
 | § | Switch | Check | What changes | Evidence |
 |---|---|---|---|---|

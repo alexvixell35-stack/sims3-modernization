@@ -62,21 +62,31 @@ namespace Ts3Fixes
         static readonly FieldInfo sSvcQueue = typeof(BarAdvanced).GetField("mInteractions", kInstAll);
         static readonly FieldInfo sSvcDest = typeof(BarAdvanced.BarInteraction).GetField("mDestination", kInstAll);
         static readonly MethodInfo sSvcRunBehavior = typeof(BarAdvanced.BarInteraction).GetMethod("RunBehavior", kInstAll, null, Type.EmptyTypes, null);
-        // RunOrderBehavior is abstract on BarInteraction. A delegate made from the abstract MethodInfo calls that exact
-        // method with no virtual dispatch in the game's Mono: the interpreter then transforms a method with no body and
-        // faults on a null header (0xE6463F, three Bridgeport runs on 2026-11-20). So the override is looked up on the
-        // instance's own class chain first (DelegateTarget), and the compiled call is made on that (an override may be swapped, where
-        // MethodInfo.Invoke throws). No concrete override found: false, nothing is called and the caller keeps EA's hand-off
-        // (the server's instance would otherwise make the order with no description or recipe handed over).
-        delegate bool CompiledBoolFn();
+        // RunOrderBehavior is abstract on BarInteraction: the override on the instance's own class chain (SvcRunOrderOf) is
+        // called through Fixes.Bind (an override may be swapped, where MethodInfo.Invoke throws). No concrete override found:
+        // false, nothing is called and the caller keeps EA's hand-off.
         static bool SvcRunOrder(object ia)
         {
-            MethodInfo m = DelegateTarget(ia, sSvcRunOrder);
+            MethodInfo m = SvcRunOrderOf(ia.GetType());
             if (m == null) return false;
-            ((CompiledBoolFn)Delegate.CreateDelegate(typeof(CompiledBoolFn), ia, m))();
+            ((SvcRunOrderFn)Fixes.Bind(typeof(SvcRunOrderFn), ia, m))();
             return true;
         }
         static readonly MethodInfo sSvcRunOrder = typeof(BarAdvanced.BarInteraction).GetMethod("RunOrderBehavior", kInstAll, null, Type.EmptyTypes, null);
+        delegate bool SvcRunOrderFn();  // RunOrderBehavior through a delegate: MethodInfo.Invoke throws on a swapped method
+        // BarInteraction.RunOrderBehavior is abstract. A delegate made from the abstract MethodInfo is not dispatched to the
+        // override by the game's interpreter: it transforms the abstract method itself, which has no IL header, and the game
+        // dies at 0xE6463F (2026-11-18, 3 of 3 BP runs ~2 min after load). So: the override declared on the instance's own
+        // class chain, null when there is none.
+        static MethodInfo SvcRunOrderOf(Type t)
+        {
+            for (; t != null; t = t.BaseType)
+            {
+                MethodInfo m = t.GetMethod("RunOrderBehavior", kInstAll | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
+                if (m != null) return m.IsAbstract ? null : m;
+            }
+            return null;
+        }
         static readonly MethodInfo sSvcUseIngr = typeof(BarAdvanced).GetMethod("UseIngredients", kInstAll);
         static readonly MethodInfo sSvcCreateDrink = typeof(BarAdvanced).GetMethod("CreateDrink", kInstAll);
         static readonly Type sSvcOrderFood = typeof(BarAdvanced).GetNestedType("OrderFood", BindingFlags.Public | BindingFlags.NonPublic);

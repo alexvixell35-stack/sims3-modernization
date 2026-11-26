@@ -37,7 +37,7 @@ namespace Ts3Fixes
         // the two Future-trait tests reading the removed guid (what the dictionary clone's Guid is when it exists), and
         // EA's base step (mValues remove + OnRemoved) done through reflection. Every other case is EA's code.
         // Household-visible: yes (a household Sim with a missing-pack trait).
-        // Counters: [1273] removals finished, [1274] would have thrown (switch off), [1275] errors.
+        // Counters: [3693] removals finished, [3694] would have thrown (switch off), [3695] errors.
         static readonly FieldInfo sTnDesc = typeof(TraitManager).GetField("mSimDescription", kInstAll);
         static readonly FieldInfo sTnValues = typeof(GenericManager<TraitNames, Trait, Trait>).GetField("mValues", kInstAll);
         static readonly MethodInfo sTnOnRemoved = typeof(TraitManager).GetMethod("OnRemoved", kInstAll, null, new Type[] { typeof(Trait) }, null);
@@ -66,7 +66,7 @@ namespace Ts3Fixes
                 SimDescription sd = sTnDesc.GetValue(tm) as SimDescription;
                 Sim actor = sd == null ? null : sd.CreatedSim;
                 if (!TnThrows(TraitManager.GetTraitFromDictionary((TraitNames)guid) != null, actor != null)) return false;
-                if (!ShortcutOn("traitremovenull")) { PatchCounters()[1274]++; return false; }
+                if (!ShortcutOn("traitremovenull")) { PatchCounters()[3694]++; return false; }
                 actor.UpdateSacsParametersForTraitOrBuff(typeof(TraitNames), guid, YesOrNo.no);
                 if (actor.SocialComponent != null) actor.SocialComponent.UpdateTraits();
                 if ((TraitNames)guid == TraitNames.FutureSim && actor.BuffManager != null && !actor.BuffManager.HasElement(BuffNames.EmbracingTheFuture))
@@ -84,10 +84,10 @@ namespace Ts3Fixes
                     tm.AddDesireAlarm();
                     MetaAutonomyManager.UpdatePreferredVenuesForSim(actor);
                 }
-                PatchCounters()[1273]++;
+                PatchCounters()[3693]++;
                 return true;
             }
-            catch (Exception) { PatchCounters()[1275]++; return false; }
+            catch (Exception) { PatchCounters()[3695]++; return false; }
         }
 
         // ---- B9 §2 homeworkcopyold (tuning kHomeworkCopyOld) ---------------------------------------------------------------
@@ -97,7 +97,7 @@ namespace Ts3Fixes
         // never applies: copying a stale (old) homework is as fast as copying today's. Fix (switch on): the copy loop's rate
         // uses the multiplier of the homework being copied (Target), i.e. EA's rate times kOld / k when Target is old. The
         // rest of LoopDel is EA's, in EA's order. Household-visible: copying old homework takes twice as long, as tuned.
-        // Counters: [1276] loop ticks at the old rate, [1277] the same seen with the switch off, [1278] errors.
+        // Counters: [3696] loop ticks at the old rate, [3697] the same seen with the switch off, [3698] errors.
         static readonly Type sHcType = typeof(Homework).GetNestedType("CopyHomework", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sHcMine = sHcType == null ? null : sHcType.GetField("mMyHomework", kInstAll);
         static string sHcMissing = "";
@@ -132,14 +132,14 @@ namespace Ts3Fixes
                     mine = sHcMine.GetValue(this) as Homework;
                     differ = actor != null && mine != null && target != null && target.IsOld != mine.IsOld;
                 }
-                catch (Exception) { PatchCounters()[1278]++; differ = false; }
+                catch (Exception) { PatchCounters()[3698]++; differ = false; }
                 if (!differ) { LoopOrig(smc, loopData); return; }
-                if (!ShortcutOn("homeworkcopyold")) { PatchCounters()[1277]++; LoopOrig(smc, loopData); return; }
+                if (!ShortcutOn("homeworkcopyold")) { PatchCounters()[3697]++; LoopOrig(smc, loopData); return; }
                 // EA's LoopDel, the rate scaled
                 EventTracker.SendEvent(new HomeworkEvent(EventTypeId.kCopiedHomework, actor, null, target));
                 float rate = mine.GetCompletionRate(actor, true, false);
                 rate = HcRate(true, rate, target.IsOld, mine.IsOld, (float)sHwCopy.GetValue(null), (float)sHwCopyOld.GetValue(null));
-                PatchCounters()[1276]++;
+                PatchCounters()[3696]++;
                 mine.UpdateProgress(actor, rate, loopData.mDeltaTime);
                 if (mine.IsComplete())
                 {
@@ -159,7 +159,7 @@ namespace Ts3Fixes
         // hook; switch on): EA's add runs with the flag held set (EA multiplies nothing), then each Sim's buff is raised to
         // the buff's base value times the multiplier, never above it and never twice; EA's flag value is restored.
         // Household-visible: every Sim dressed from an expensive-washer load gets the stronger moodlet.
-        // Counters: [1279] buffs given the multiplier, [1280] Sims EA leaves without it (switch off), [1281] errors.
+        // Counters: [3820] buffs given the multiplier, [3821] Sims EA leaves without it (switch off), [3822] errors.
         static readonly FieldInfo sLmFlag = typeof(LaundryManager).GetField("mIsMoodMultiplierApplied", kInstAll);
         static readonly FieldInfo sLmMult = typeof(LaundryManager).GetField("mMoodMultiplier", kInstAll);
         static string sLmMissing = "";
@@ -191,13 +191,13 @@ namespace Ts3Fixes
                 bool on = ShortcutOn("laundrymoodeach");
                 if (!on)
                 {
-                    if (prevFlag && (float)sLmMult.GetValue(lm) != 1f) PatchCounters()[1280]++;  // EA skips this Sim
+                    if (prevFlag && (float)sLmMult.GetValue(lm) != 1f) PatchCounters()[3821]++;  // EA skips this Sim
                     return false;
                 }
                 sLmFlag.SetValue(lm, true);
                 return true;
             }
-            catch (Exception) { PatchCounters()[1281]++; return false; }
+            catch (Exception) { PatchCounters()[3822]++; return false; }
         }
 
         internal static void LmAfter(Sim actor, bool prevFlag)
@@ -212,9 +212,9 @@ namespace Ts3Fixes
                 BuffNames guid = b.Guid;
                 int baseValue = BuffManager.BuffDictionary[(ulong)guid].EffectValue;
                 int v = LmTarget(true, b.mEffectValue, baseValue, mult);
-                if (v != b.mEffectValue) { b.mEffectValue = v; PatchCounters()[1279]++; }
+                if (v != b.mEffectValue) { b.mEffectValue = v; PatchCounters()[3820]++; }
             }
-            catch (Exception) { PatchCounters()[1281]++; }
+            catch (Exception) { PatchCounters()[3822]++; }
         }
 
         // ---- B9 §4 partycleanupnull (tuning kPartyCleanupNull) -------------------------------------------------------------
@@ -226,7 +226,7 @@ namespace Ts3Fixes
         // throw): EA's steps in EA's order with each missing Sim skipped, then EA's base.CleanUp (the hook classes derive
         // from EA's base types, so `base.CleanUp()` is EA's non-virtual base call). WeddingParty's candidate list is copied
         // before the loop (buff removal can raise events that change it). Household-visible: yes (player-hosted parties).
-        // Counters: [1282] cleanups finished null-safe, [1283] would have thrown (switch off), [1284] errors.
+        // Counters: [3823] cleanups finished null-safe, [3824] would have thrown (switch off), [3825] errors.
         static readonly Type sPcHappen = typeof(NpcParty).GetNestedType("Happening", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sPcMotives = sPcHappen == null ? null : sPcHappen.GetField("mPartyMotives", kInstAll);
         static readonly FieldInfo sPcCandidates = typeof(WeddingParty).GetField("mWeddingCandidates", kInstAll);
@@ -266,10 +266,10 @@ namespace Ts3Fixes
                     if (PcThrows(hostOk, simsOk))
                     {
                         if (ShortcutOn("partycleanupnull")) safeCopy = true;
-                        else PatchCounters()[1283]++;
+                        else PatchCounters()[3824]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1284]++; safeCopy = false; }
+                catch (Exception) { PatchCounters()[3825]++; safeCopy = false; }
                 if (!safeCopy) { CleanOrig(); return; }
                 try
                 {
@@ -284,9 +284,9 @@ namespace Ts3Fixes
                         if (p.Guests != null) foreach (Sim s in p.Guests) PcBeAt(pm, s);
                         if (p.SimsWhoLeftParty != null) foreach (Sim s in p.SimsWhoLeftParty) PcBeAt(pm, s);
                     }
-                    PatchCounters()[1282]++;
+                    PatchCounters()[3823]++;
                 }
-                catch (Exception) { PatchCounters()[1284]++; }
+                catch (Exception) { PatchCounters()[3825]++; }
                 base.CleanUp();  // EA's base.CleanUp (Situation.CleanUp), non-virtual
             }
             public void CleanOrig() { } // receives NpcParty+Happening.CleanUp
@@ -311,7 +311,7 @@ namespace Ts3Fixes
                 Sim host = party.Host;
                 bool hostOk = host != null && host.Autonomy != null && host.Autonomy.SituationComponent != null;
                 if (!PcThrows(hostOk, PcSimsOk(cands, false))) return false;
-                if (!ShortcutOn("partycleanupnull")) { PatchCounters()[1283]++; return false; }
+                if (!ShortcutOn("partycleanupnull")) { PatchCounters()[3824]++; return false; }
                 List<AlarmHandle> alarms = sPcBuffAlarms.GetValue(party) as List<AlarmHandle>;
                 bool flag = false;
                 if (cands != null)
@@ -334,10 +334,10 @@ namespace Ts3Fixes
                     if (situations != null) foreach (Situation s in situations) { WeddingCeremony w = s as WeddingCeremony; if (w != null) list.Add(w); }
                     foreach (WeddingCeremony w in list) w.Exit();
                 }
-                PatchCounters()[1282]++;
+                PatchCounters()[3823]++;
                 return true;
             }
-            catch (Exception) { PatchCounters()[1284]++; return false; }
+            catch (Exception) { PatchCounters()[3825]++; return false; }
         }
 
         // ---- B9 §5 safelocunhide (tuning kSafeLocUnhide) -------------------------------------------------------------------
@@ -346,7 +346,7 @@ namespace Ts3Fixes
         // position of the home / virtual home / current lot) only moves it. A Sim hidden when it was reset (in a rabbit hole,
         // mid fade, hidden by a service) and placed by the fallback stays invisible. Fix (shares hiddenroomspawn's hook; switch
         // on): the fallback runs EA's same unhide steps after the move. Household Sims too (an EA bug fix).
-        // Counters: [1285] fallback placements unhidden, [1286] the same seen with the switch off, [1287] errors.
+        // Counters: [3826] fallback placements unhidden, [3827] the same seen with the switch off, [3828] errors.
         // Pure: unhide after the fallback move?
         internal static bool SuUnhide(bool on, bool fallbackMoved) { return on && fallbackMoved; }
 
@@ -356,14 +356,14 @@ namespace Ts3Fixes
         {
             try
             {
-                if (!SuUnhide(ShortcutOn("safelocunhide"), true)) { PatchCounters()[1286]++; return; }
+                if (!SuUnhide(ShortcutOn("safelocunhide"), true)) { PatchCounters()[3827]++; return; }
                 s.RemoveFromWorld();
                 s.AddToWorld();
                 s.SetHiddenFlags(HiddenFlags.Nothing);
                 s.SetOpacity(1f, 0f);
-                PatchCounters()[1285]++;
+                PatchCounters()[3826]++;
             }
-            catch (Exception) { PatchCounters()[1287]++; }
+            catch (Exception) { PatchCounters()[3828]++; }
         }
 
         // ---- B9 §6 midlifeuiending (tuning kMidlifeUiEnding) ---------------------------------------------------------------
@@ -373,7 +373,7 @@ namespace Ts3Fixes
         // happiness) from inside a UI property read. OnDayPassed ends it daily anyway. Fix (switch on): the getter returns
         // EA's value and changes nothing; the crisis ends through OnDayPassed (and OnBecameElder) as EA's other paths do.
         // Household-visible: the crisis ends at the day pass instead of when the player hovers the moodlet.
-        // Counters: [1288] reads that would have ended the crisis, [1289] the same seen with the switch off, [1290] errors.
+        // Counters: [3829] reads that would have ended the crisis, [3830] the same seen with the switch off, [3831] errors.
         static readonly MethodInfo sMuLeft = typeof(MidlifeCrisisManager).GetMethod("GetMinutesLeft", BindingFlags.Instance | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
         static readonly FieldInfo sMuOwner = typeof(MidlifeCrisisManager).GetField("mOwnerDescription", kInstAll);
         static readonly FieldInfo sMuLength = typeof(MidlifeCrisisManager).GetField("kCrisisLength", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
@@ -410,12 +410,12 @@ namespace Ts3Fixes
                         float num4 = num3 * 24f * 60f, num5 = now.Hour * 60f;
                         if (MuEnds(num4, num5))
                         {
-                            if (ShortcutOn("midlifeuiending")) { PatchCounters()[1288]++; return num4 - num5; }
-                            PatchCounters()[1289]++;
+                            if (ShortcutOn("midlifeuiending")) { PatchCounters()[3829]++; return num4 - num5; }
+                            PatchCounters()[3830]++;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1290]++; }
+                catch (Exception) { PatchCounters()[3831]++; }
                 return LeftOrig();
             }
             public float LeftOrig() { return 0f; } // receives MidlifeCrisisManager.GetMinutesLeft()
@@ -428,7 +428,7 @@ namespace Ts3Fixes
         // (switch on): where EA's only refusal is that test, EA's own CreateInstantNemesis and buff removal run. EA's
         // IsHuman test stays, and both Sims must be child or older (the forced "Fight!" social's own age set, C-E: a toddler
         // or baby cannot run it). Household-visible: yes.
-        // Counters: [1291] nemeses made where EA's romance test refused, [1292] the same seen with the switch off, [1293] errors.
+        // Counters: [3832] nemeses made where EA's romance test refused, [3833] the same seen with the switch off, [3834] errors.
         static readonly MethodInfo sInCreate = typeof(BuffImminentNemesis.BuffInstanceImminentNemesis).GetMethod("CreateInstantNemesis", kInstAll, null, new Type[] { typeof(Sim), typeof(Sim) }, null);
         static string sInMissing = "";
 
@@ -464,7 +464,7 @@ namespace Ts3Fixes
                             bool ages = ts.ChildOrAbove && partner.SimDescription.ChildOrAbove;
                             if (InFires(true, true, false, ages))
                             {
-                                if (!ShortcutOn("nemesisnoromance")) { PatchCounters()[1292]++; a = null; }
+                                if (!ShortcutOn("nemesisnoromance")) { PatchCounters()[3833]++; a = null; }
                             }
                             else a = null;
                         }
@@ -472,16 +472,16 @@ namespace Ts3Fixes
                     }
                     else a = null;
                 }
-                catch (Exception) { PatchCounters()[1293]++; a = null; }
+                catch (Exception) { PatchCounters()[3834]++; a = null; }
                 if (a == null || b == null) return SocialOrig(e);
                 try
                 {
                     BuffImminentNemesis.BuffInstanceImminentNemesis bi = (BuffImminentNemesis.BuffInstanceImminentNemesis)(object)this;
                     sInCreate.Invoke(bi, new object[] { a, b });  // EA's CreateInstantNemesis, not swapped
                     bi.TargetSim.CreatedSim.BuffManager.RemoveElement(bi.BuffGuid);
-                    PatchCounters()[1291]++;
+                    PatchCounters()[3832]++;
                 }
-                catch (Exception) { PatchCounters()[1293]++; }
+                catch (Exception) { PatchCounters()[3834]++; }
                 return ListenerAction.Keep;
             }
             public ListenerAction SocialOrig(Event e) { return ListenerAction.Keep; } // BuffInstanceImminentNemesis.OnSocialization

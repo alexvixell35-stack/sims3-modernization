@@ -88,6 +88,7 @@ namespace Ts3Fixes
                 int[] row = RflLot(lot);
                 row[slot]++;
                 if (!Sims3.Gameplay.GameStates.IsBuildBuyLikeState) return;
+                BtForget(lot);  // burnttilefloor: build/buy on this lot may have made a learned tile reachable (BurntTileFloor.cs)
                 row[slot + 2]++;
                 int now = System.Environment.TickCount;
                 if (unchecked(now - sRflBbAt) < 60000 && sRflBbAt != 0) return;
@@ -350,7 +351,9 @@ namespace Ts3Fixes
                 bool ok = res.mType == RoutePlanResultType.Succeeded;
                 IScriptProxy f = r.Follower;
                 Sim sim = f != null ? f.Target as Sim : null;
+                if (sNePending.Count > 0) NeLearn(r, f, res);  // npccarexit (UnseenTraffic.cs)
                 if (sim == null) return;
+                if (!ok) BtPlanFailed(r, sim, res);  // burnttilefloor: learn MopBurnt tiles EA's planner finds no destination for (BurntTileFloor.cs)
                 if (!ok) SrlReplan(r, sim, kind, res);  // socialreplanlog (SocialReplanLog.cs, docs/577 §2), logging only
                 if (!ok) RclPlan(r, sim, kind, res);  // routecauselog (RouteCauseLog.cs, docs/580), logging only
                 if (!ok) StrandPlan(r, sim, kind, res);  // strand lines (StrandLog.cs, docs/183 §8), logging only: the household's cross-level no-path plans
@@ -359,6 +362,7 @@ namespace Ts3Fixes
                 if (!ok) { TofPlan(sim, res); WlsPlan(sim, res); }  // trashoutsidefallback / wildlotskip (docs/646): note no-path plans
                 if (!ok && RfpPlan(sim, kind, res, r, t0)) return;  // routefailprobe (RhEntry627.cs, docs/627 §2): an NPC spot probe, not this Sim's route
                 if (!ok) OfmPlan(sim, res);  // objfailmemo (ObjFailMemo.cs, docs/650): (NPC, object) no-path memo
+                AfcPlan(sim, ok, res.mType);  // autonomyfailcooldown (AutonomyFailCooldown.cs): did the head's last plan fail
                 if (sim.IsInActiveHousehold) PatchCounters()[866]++;  // fails per plan: same four hooks as the routefail lines (issue #304, kd-household-ab.ts)
                 bool show = InShowOff(sim);
                 if (show && sim == sSoChild) { sSoSeen = true; sSoPlans++; if (!ok) sSoPlanFails++; if (async) sSoAsync++; }

@@ -74,7 +74,7 @@ array load; otherwise every slot is refilled through `ShortcutOn` (and the `swsl
 a local instead of up to four times), and every new switch in this doc. `tools/static/check-live-map.ts` now maps
 `SwOn(kSwX)` to its name, so `CheckLiveMap.cs` keeps the same hook rows.
 
-**Answers.** Same as `ShortcutOn` under docs/603 §2's rule (every writer bumps `ts3fixes.switchgen`; the current agent
+**Answers.** Same as `ShortcutOn` under docs/605 §2's rule (every writer bumps `ts3fixes.switchgen`; the current agent
 does). One difference: a table entry overwritten with no bump by an older agent build is read live by `ShortcutOn` and
 seen by the slots only at the next bump.
 

@@ -19,7 +19,7 @@ import { loadFunctions, lookup, split } from './sample-split.ts';
 import { alignRun, category, rootOf } from './stall-split.ts';
 import { split as budgetSplit, STEER } from './sim-budget-report.ts';
 import { keyName } from './hitch-attr-report.ts';
-import { OG_OTHER_MIN, readLive, summarize } from './machine-load.ts';
+import { OG_OTHER_MIN, readLive, ruleOf, summarize } from './machine-load.ts';
 import { isSetup } from './repro-loop.ts';
 
 const ROOT = process.env.TS3_REPO ?? join(import.meta.dirname, '..', '..');
@@ -205,7 +205,7 @@ export function runContext(tag: string, rows: { t: number }[], secs: number, off
   const foreground = /ForegroundRender\s*[=:]\s*1\b/.test(native) || q.events.some(e => /ForegroundRender\s*[=:]\s*1\b/.test(e.text));
   // a window ended early by its stop rule (profile-world.ts <tag>-stop.json): that length, not the cap in the file name
   const sf = join(PROFILE, `${tag}-stop.json`), ran = existsSync(sf) ? Number(JSON.parse(readFileSync(sf, 'utf8')).secs) || secs : secs;
-  return { wins, foreground, invalid: runInvalid(join(PROFILE, `${tag}-machine.jsonl`), rows.length, ran, q), offSrc };
+  return { wins, foreground, invalid: runInvalid(join(PROFILE, `${tag}-machine.jsonl`), coveredSecs(rows), ran, q), offSrc };
 }
 
 // repro firings (docs/168 §3), shared by hitch-ab.ts --scenario and freeze-report.ts --repro-causes. steps = queue-log texts
@@ -254,6 +254,9 @@ export const reproSteps = (tag: string, secs: number) => {
   return queueEvents(readFileSync(f, 'utf8'), tag, secs).events.map(e => e.text).filter(t => { const m = /^repro \S+ step (\w+)/.exec(t); return m ? m[1] !== 'wait' : /save_game|saving|test_env guard/.test(t); });
 };
 
+// seconds the profiler covered: one seconds.csv row per second with a sim iteration, so a 5-9 s stall leaves no rows but
+// its iteration ends in the next row; row count alone called full GC idle gate runs (18 stalls, 475 rows / 600 s) cut short
+export const coveredSecs = (rows: { t: number }[]) => rows.length > 1 ? Math.max(rows.length, Math.round((rows.at(-1)!.t - rows[0].t) / 1000) + 1) : rows.length;
 // whole run invalid: profiler cut short, noisy machine (machine-load.ts: other >= 10% of the machine or clock drop = not
 // comparable, or other apps >= 10% of the game CPUs with other CPU >= 5%), crash or abort (no 'done; game alive' after the profile window)
 export function runInvalid(mf: string, nRows: number, secs: number, q: { start: number | null; events: Ev[] }): string | null {
@@ -261,11 +264,11 @@ export function runInvalid(mf: string, nRows: number, secs: number, q: { start: 
   if (nRows < 0.8 * secs) why.push(`profiler cut short (${nRows} of ${secs} s)`);
   // others on game CPUs over the measured window only: the load and first minute (already excluded) carry the save load and
   // the Frida start-up, 16-20% for two samples, which alone flagged clean runs noisy (freeze-pan crashrep 2026-10-22)
-  const m = summarize(mf), all = jsonl(mf).filter((r: any) => typeof r.og === 'number');
+  const m = summarize(mf), all = jsonl(mf).filter((r: any) => typeof ruleOf(r).og === 'number'); // ruleOf: apps on the game CPUs when the sweep ran
   const rows = q.start !== null && all.some((r: any) => r.t >= q.start! + 60000) ? all.filter((r: any) => r.t >= q.start! + 60000) : all;
-  const og = rows.length ? rows.reduce((s: number, r: any) => s + r.og, 0) / rows.length : 0;
-  const other = rows.length ? rows.reduce((s: number, r: any) => s + (r.other ?? 0), 0) / rows.length : 0; // og alone can be kernel/driver time (machine-load.ts OG_OTHER_MIN)
-  if (!m.ok || (og >= 10 && other >= OG_OTHER_MIN)) why.push(`noisy machine (${m.ok ? `others ${og.toFixed(1)}% of game CPUs` : m.line.replace(/^.*NOT comparable: /, '').replace(/;.*$/, '')})`);
+  const og = rows.length ? rows.reduce((s: number, r: any) => s + ruleOf(r).og!, 0) / rows.length : 0;
+  const other = rows.length ? rows.reduce((s: number, r: any) => s + (ruleOf(r).other ?? 0), 0) / rows.length : 0; // og alone can be kernel/driver time (machine-load.ts OG_OTHER_MIN)
+  if (!m.ok || (og >= 10 && other >= OG_OTHER_MIN)) why.push(`noisy machine (${m.ok ? `${rows.some((r: any) => r.sw === true && typeof r.ogp === 'number') ? 'apps' : 'others'} ${og.toFixed(1)}% of game CPUs` : m.line.replace(/^.*NOT comparable: /, '').replace(/;.*$/, '')})`);
   if (q.start !== null && !q.events.some(e => /^done; game alive/.test(e.text))) why.push('crash or abort (no "done; game alive")');
   return why.length ? why.join('; ') : null; // every reason named
 }
@@ -532,8 +535,14 @@ function selfCheck() {
   const tmp = join(tmpdir(), `wh-selfcheck-${process.pid}.jsonl`), mrow = (o: object) => JSON.stringify({ t: 0, other: 2, ts3w: 13, top: [], perf: 180, og: 4, ...o });
   const qok = { start: 0, events: [{ at: 1, text: 'done; game alive' }] }, inv = (lines: object[], n = 600, q: any = qok) => { writeFileSync(tmp, lines.map(mrow).join('\n') + '\n'); return runInvalid(tmp, n, 600, q); };
   assert(inv([{}], 400)?.startsWith('profiler cut short') === true, 'cut');
+  // stalls: 3 rows at 0 / 1 s then 598 s (one 597 s gap = the stall's iteration) cover 599 s; a run that ends at 300 s covers 300
+  assert(coveredSecs([{ t: 5000 }, { t: 6000 }, { t: 603000 }]) === 599 && coveredSecs([{ t: 0 }, { t: 299_000 }]) === 300 && coveredSecs([]) === 0, 'coveredSecs');
   assert(inv([{ og: 18.8 }]) === null, 'og alone with other CPU 2% (kernel/driver time) is valid');
   assert(inv([{ og: 18.8, other: 6 }])?.startsWith('noisy machine (others 18.8%') === true && inv([{ other: 12 }])?.startsWith('noisy machine') === true && inv([{}, { perf: 100 }, { perf: 100 }])?.startsWith('noisy machine') === true && inv([{}, { perf: 100 }]) === null, 'noisy (two clock dips; one is ignored)');
+  // timing sweep rows (sw): apps on the game CPUs decide, the kernel-inclusive og 24% of the GC gate smoke 2026-11-18 does not
+  assert(inv([{ og: 24, other: 9, sw: true, ogp: 2.1, oth: 1.6, unk: 0.3 }]) === null, 'sweep: og 24% incl. kernel, apps 2.1% = valid');
+  assert(inv([{ og: 40.4, other: 9, sw: true, ogp: 11.6, oth: 8.7, unk: 0.3 }]) === 'noisy machine (apps 11.6% of game CPUs)', 'sweep: apps 11.6% = invalid');
+  assert(inv([{ og: 24, other: 12, sw: true, ogp: 2.1, oth: 1.6 }]) === null, 'sweep: other 12% moved to the rest CPUs = valid');
   assert(inv([{}], 600, { start: 0, events: [] })?.startsWith('crash') === true && inv([{}]) === null, 'crash / valid');
   rmSync(tmp);
   const et = new Map<string, ExclRow>(); exclAdd(et, 'sampler', 400, 180); exclAdd(et, 'sampler', 1200); exclAdd(et, 'render-paced', 60);

@@ -17,7 +17,7 @@ using Sims3.UI.Hud;
 
 namespace Ts3Fixes
 {
-    // Batch 8b (docs/582 B8b; coverage sweep docs/586 §4-§5). All default off. simler90 changes none of these methods
+    // Batch 8b (docs/582 B8b; coverage sweep docs/639 §4-§5). All default off. simler90 changes none of these methods
     // and none was hooked before. BuffImminentNemesis (coverage #5) needs an EA-intent decision and is not built.
     public static partial class Fixes
     {
@@ -28,7 +28,7 @@ namespace Ts3Fixes
         // no lifetime-happiness reward) and a zero update date (GetMinutesLeft's day test). Fix: both are written after EA's
         // fields under our own keys and read back after EA's import; a stream without them (vanilla, or switch off at export)
         // leaves EA's values. Household-visible: yes (the crisis ending after a trip).
-        // Counters: [1258] values saved or restored, [1259] exports with wishes that EA drops (switch off), [1260] errors.
+        // Counters: [3651] values saved or restored, [3652] exports with wishes that EA drops (switch off), [3653] errors.
         const uint kMcWishKey = 0x7F3F1A01u, kMcDateKey = 0x7F3F1A02u;
         static readonly FieldInfo sMcWishes = typeof(MidlifeCrisisManager).GetField("mWishesFulfilled", kInstAll);
         static readonly FieldInfo sMcDate = typeof(MidlifeCrisisManager).GetField("mLastUpdatedDate", kInstAll);
@@ -53,12 +53,12 @@ namespace Ts3Fixes
                 try
                 {
                     uint wishes = (uint)sMcWishes.GetValue(this);
-                    if (!ShortcutOn("midlifewishsave")) { if (wishes > 0) PatchCounters()[1259]++; return ok; }
+                    if (!ShortcutOn("midlifewishsave")) { if (wishes > 0) PatchCounters()[3652]++; return ok; }
                     w.WriteUint32(kMcWishKey, wishes);
                     w.WriteInt64(kMcDateKey, ((DateAndTime)sMcDate.GetValue(this)).Ticks);
-                    PatchCounters()[1258]++;
+                    PatchCounters()[3651]++;
                 }
-                catch (Exception) { PatchCounters()[1260]++; }
+                catch (Exception) { PatchCounters()[3653]++; }
                 return ok;
             }
             public bool ExportOrig(ResKeyTable r, ObjectIdTable o, IPropertyStreamWriter w) { return false; } // receives MidlifeCrisisManager.ExportContent
@@ -75,10 +75,10 @@ namespace Ts3Fixes
                     {
                         sMcWishes.SetValue(this, wishes);
                         if (rd.ReadInt64(kMcDateKey, out ticks, long.MinValue) && ticks != long.MinValue) sMcDate.SetValue(this, new DateAndTime(ticks));
-                        PatchCounters()[1258]++;
+                        PatchCounters()[3651]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1260]++; }
+                catch (Exception) { PatchCounters()[3653]++; }
                 return ok;
             }
             public bool ImportOrig(ResKeyTable r, ObjectIdTable o, IPropertyStreamReader rd) { return false; } // receives MidlifeCrisisManager.ImportContent
@@ -91,8 +91,8 @@ namespace Ts3Fixes
         // is handled once; the other listeners' calls for the same event return Keep. Household-visible: yes (one notice).
         // Also (review 2026-11-15): EA shows the notice outside its `if (buff != null)`, so every selectable Sim's mean
         // social says "Inner Beauty" whether or not that Sim has the buff; with the switch on an actor without the buff gets
-        // nothing (EA's reset does nothing for it either). Counted in [1261] / [1262].
-        // Counters: [1261] duplicate calls skipped, [1262] duplicates seen with the switch off, [1263] errors.
+        // nothing (EA's reset does nothing for it either). Counted in [2923] / [2924].
+        // Counters: [2923] duplicate calls skipped, [2924] duplicates seen with the switch off, [2925] errors.
         static Event sIbLast;
         // Pure: skip this call? same: the event was handled by another listener already; hasBuff: the actor has Inner Beauty.
         internal static bool IbSkip(bool on, bool same, bool hasBuff) { return on && (same || !hasBuff); }
@@ -114,11 +114,11 @@ namespace Ts3Fixes
                     Sim a = e == null ? null : e.Actor as Sim;
                     hasBuff = a == null || a.BuffManager == null || a.BuffManager.HasElement(BuffNames.InnerBeauty);
                 }
-                catch (Exception) { PatchCounters()[1263]++; }
+                catch (Exception) { PatchCounters()[2925]++; }
                 if (same || !hasBuff)
                 {
-                    if (IbSkip(ShortcutOn("innerbeautyonce"), same, hasBuff)) { PatchCounters()[1261]++; return ListenerAction.Keep; }
-                    PatchCounters()[1262]++;
+                    if (IbSkip(ShortcutOn("innerbeautyonce"), same, hasBuff)) { PatchCounters()[2923]++; return ListenerAction.Keep; }
+                    PatchCounters()[2924]++;
                 }
                 return MeanOrig(e);
             }
@@ -131,7 +131,7 @@ namespace Ts3Fixes
         // selectable victim and a betrayer who is not instantiated it throws, and BreakUpWithBetrayer never runs. Fix: in that
         // case the notice takes the betrayer's sex from its SimDescription (what IsFemale returns for a live Sim), then EA's
         // break-up runs. Household-visible: yes (the victim is selectable).
-        // Counters: [1264] notices shown and break-ups done, [1265] seen with the switch off, [1266] errors.
+        // Counters: [3654] notices shown and break-ups done, [3655] seen with the switch off, [3656] errors.
         delegate string BtLocFn(bool[] isFemales, string key, object[] args);
         // by its argument types: LocalizeReputationKey has a (bool, string, params object[]) overload too, and a lookup by name
         // alone throws AmbiguousMatchException, which in a static initializer kills the whole Fixes class (r43 load hang)
@@ -155,7 +155,7 @@ namespace Ts3Fixes
                 {
                     if (victimSim != null && naughtySimDesc != null && BtThrows(naughtySimDesc.CreatedSim != null, victimSim.IsSelectable))
                     {
-                        if (!ShortcutOn("betrayednullsim")) PatchCounters()[1265]++;
+                        if (!ShortcutOn("betrayednullsim")) PatchCounters()[3655]++;
                         else
                         {
                             BtLocFn loc = (BtLocFn)Delegate.CreateDelegate(typeof(BtLocFn), sBtLoc);
@@ -163,9 +163,9 @@ namespace Ts3Fixes
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1266]++; text = null; }
+                catch (Exception) { PatchCounters()[3656]++; text = null; }
                 if (text == null) { ShowOrig(victimSim, naughtySimDesc); return; }
-                PatchCounters()[1264]++;
+                PatchCounters()[3654]++;
                 StyledNotification.Show(new StyledNotification.Format(text, StyledNotification.NotificationStyle.kGameMessagePositive));
                 object o = this;
                 ((BuffBetrayed.BuffInstanceBetrayed)o).BreakUpWithBetrayer(naughtySimDesc, true);
@@ -183,7 +183,7 @@ namespace Ts3Fixes
         // is re-pointed (reflection on the readonly field) to a wrapper here. With the switch off the wrapper calls EA's method
         // unchanged; on, it answers EA's question where EA would throw (no Sim: false; no Athletic skill: false; no Sim for a
         // career test: the SimDescription's occupation) and calls EA's method otherwise. Household-visible: yes (topics).
-        // Counters: [1267] throws avoided, [1268] seen with the switch off, [1269] errors (also: rebinding failed).
+        // Counters: [3657] throws avoided, [3658] seen with the switch off, [3659] errors (also: rebinding failed).
         static readonly FieldInfo sTtData = typeof(ActiveTopicData).GetField("sData", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sTtFn = typeof(ActiveTopicData).GetField("TestFunction", kInstAll);
         static readonly string[] kTtNames = { "HasGettingMarriedTopic", "CanTrainSim", "HasJournalismCareer", "HasLawEnforcementCareer", "IsCurrentlyScuba" };
@@ -209,7 +209,7 @@ namespace Ts3Fixes
             try
             {
                 IDictionary<string, ActiveTopicData> data = sTtData == null ? null : sTtData.GetValue(null) as IDictionary<string, ActiveTopicData>;
-                if (data == null || sTtFn == null) { PatchCounters()[1269]++; return; }
+                if (data == null || sTtFn == null) { PatchCounters()[3659]++; return; }
                 foreach (ActiveTopicData d in data.Values)
                 {
                     MethodInfo m = d == null ? null : sTtFn.GetValue(d) as MethodInfo;
@@ -218,14 +218,14 @@ namespace Ts3Fixes
                     if (w != null) sTtFn.SetValue(d, w);
                 }
             }
-            catch (Exception) { PatchCounters()[1269]++; }
+            catch (Exception) { PatchCounters()[3659]++; }
         }
 
         static bool TtGuard(int kind, bool simLive, bool hasAthletic)
         {
             if (!TtThrows(kind, simLive, hasAthletic)) return false;
-            if (ShortcutOn("topictestnull")) { PatchCounters()[1267]++; return true; }
-            PatchCounters()[1268]++;
+            if (ShortcutOn("topictestnull")) { PatchCounters()[3657]++; return true; }
+            PatchCounters()[3658]++;
             return false;
         }
 
@@ -267,7 +267,7 @@ namespace Ts3Fixes
         // completion listener sits twice in the same list. Fix: just before EA's method, on exactly EA's path, the existing
         // registration is removed, so EA's AddListener leaves one. Household-visible: the active Sim's opportunity
         // completion is processed once.
-        // Counters: [1270] duplicate registrations avoided, [1271] seen with the switch off, [1272] errors.
+        // Counters: [3690] duplicate registrations avoided, [3691] seen with the switch off, [3692] errors.
         // Pure: EA's re-add path with the listener already registered?
         internal static bool OtDuplicate(bool canQueue, bool hasTargetObject, bool targetDesc, bool listener, bool targetLive, bool registered)
         {
@@ -293,12 +293,12 @@ namespace Ts3Fixes
                         SimDescription t = op.TargetSimDescription;
                         if (OtDuplicate(a.InteractionQueue.CanPlayerQueue(), op.TargetObject != null, t != null, l != null, t != null && t.CreatedSim != null, l != null && EventTracker.ContainsListener(l)))
                         {
-                            if (ShortcutOn("opptrackerrelisten")) { EventTracker.RemoveListener(l); PatchCounters()[1270]++; }
-                            else PatchCounters()[1271]++;
+                            if (ShortcutOn("opptrackerrelisten")) { EventTracker.RemoveListener(l); PatchCounters()[3690]++; }
+                            else PatchCounters()[3691]++;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1272]++; }
+                catch (Exception) { PatchCounters()[3692]++; }
                 return TriggerOrig(n);
             }
             public PushInteractionErrorCode TriggerOrig(int n) { return PushInteractionErrorCode.NoError; } // receives OpportunityTrackerModel.TriggerInteraction

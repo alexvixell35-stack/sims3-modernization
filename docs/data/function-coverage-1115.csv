@@ -1253,7 +1253,7 @@ Sims3.Gameplay.Academics.FinancialAidtype,Sims3GameplaySystems,0,none,no,,0.0,2,
 Sims3.Gameplay.Academics.MascotOutfitType,Sims3GameplaySystems,0,none,no,,0.0,2,0.0
 Sims3.Gameplay.Academics.MiniDegree,Sims3GameplaySystems,13,none,yes,docs/587,0.0,2,
 Sims3.Gameplay.Academics.SUATData,Sims3GameplaySystems,5,none,no,,0.0,2,0.0
-Sims3.Gameplay.Academics.UniversityMascot,Sims3GameplaySystems,34,lifecycle:1;semgrep:3,yes,docs/586,4.9,2,0
+Sims3.Gameplay.Academics.UniversityMascot,Sims3GameplaySystems,34,lifecycle:1;semgrep:3,yes,docs/639,4.9,2,0
 Sims3.Gameplay.Academics.UniversityMascotSituation,Sims3GameplaySystems,14,infer:2;resharper:2;semgrep:1,yes,docs/267,4.5,2,0
 Sims3.Gameplay.ActiveCareer.ActiveCareer,Sims3GameplaySystems,103,infer:1;resharper:2;semgrep:7,yes,docs/235,5.8,2,0
 Sims3.Gameplay.ActiveCareer.ActiveCareerLevelStaticData,Sims3GameplaySystems,2,none,no,,0.0,2,0.0
@@ -1453,8 +1453,8 @@ Sims3.Gameplay.ActorSystems.BuffImaginaryFriendGotASnack,Sims3GameplaySystems,2,
 Sims3.Gameplay.ActorSystems.BuffImaginaryFriendIAmReal,Sims3GameplaySystems,2,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffImaginaryFriendTurnedLive,Sims3GameplaySystems,2,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffImaginaryFriendTurnedReal,Sims3GameplaySystems,2,none,no,,0.0,3,0.0
-Sims3.Gameplay.ActorSystems.BuffImminentNemesis,Sims3GameplaySystems,5,infer:1;resharper:3;semgrep:1,yes,docs/586,3.8,3,0
-Sims3.Gameplay.ActorSystems.BuffImminentRomance,Sims3GameplaySystems,5,resharper:2;semgrep:1,yes,docs/586,2.5,3,0
+Sims3.Gameplay.ActorSystems.BuffImminentNemesis,Sims3GameplaySystems,5,infer:1;resharper:3;semgrep:1,yes,docs/639,3.8,3,0
+Sims3.Gameplay.ActorSystems.BuffImminentRomance,Sims3GameplaySystems,5,resharper:2;semgrep:1,yes,docs/639,2.5,3,0
 Sims3.Gameplay.ActorSystems.BuffImmunity,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffImpendingEpisode,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffIncreasedUnderstanding,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
@@ -1550,7 +1550,7 @@ Sims3.Gameplay.ActorSystems.BuffSecretlyAdmired,Sims3GameplaySystems,2,none,no,,
 Sims3.Gameplay.ActorSystems.BuffSellOut,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffServobotBrokeEmotion,Sims3GameplaySystems,6,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffShortOut,Sims3GameplaySystems,6,none,no,,0.0,3,0.0
-Sims3.Gameplay.ActorSystems.BuffSickAndTired,Sims3GameplaySystems,15,resharper:1;semgrep:2,yes,docs/586,5.0,3,0
+Sims3.Gameplay.ActorSystems.BuffSickAndTired,Sims3GameplaySystems,15,resharper:1;semgrep:2,yes,docs/639,5.0,3,0
 Sims3.Gameplay.ActorSystems.BuffSinged,Sims3GameplaySystems,9,infer:1;resharper:2,yes,docs/539,1.5,3,0
 Sims3.Gameplay.ActorSystems.BuffSmelly,Sims3GameplaySystems,8,resharper:1,yes,docs/181,0.2,3,0
 Sims3.Gameplay.ActorSystems.BuffSoCold,Sims3GameplaySystems,5,none,no,,0.0,3,0.0
@@ -1597,7 +1597,7 @@ Sims3.Gameplay.ActorSystems.BuffTooManyPeople,Sims3GameplaySystems,5,none,no,,0.
 Sims3.Gameplay.ActorSystems.BuffTorched,Sims3GameplaySystems,13,resharper:2,yes,docs/585 ts3fixes/DoorGen,0.5,3,0
 Sims3.Gameplay.ActorSystems.BuffTotalBeliever,Sims3GameplaySystems,4,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffTotallyMellow,Sims3GameplaySystems,4,none,no,,0.0,3,0.0
-Sims3.Gameplay.ActorSystems.BuffTragicClown,Sims3GameplaySystems,3,resharper:2;semgrep:1,yes,docs/586,2.5,3,0
+Sims3.Gameplay.ActorSystems.BuffTragicClown,Sims3GameplaySystems,3,resharper:2;semgrep:1,yes,docs/639,2.5,3,0
 Sims3.Gameplay.ActorSystems.BuffTransformation,Sims3GameplaySystems,14,infer:9;resharper:4,yes,docs/224 docs/51 docs/539,10.8,3,0
 Sims3.Gameplay.ActorSystems.BuffTransformationCallback,Sims3GameplaySystems,13,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.BuffTrendsetter,Sims3GameplaySystems,6,resharper:5,yes,docs/539,1.2,3,0
@@ -1632,7 +1632,7 @@ Sims3.Gameplay.ActorSystems.CarrySystem,Sims3GameplaySystems,50,resharper:4;semg
 Sims3.Gameplay.ActorSystems.CarryUtils,Sims3GameplaySystems,17,none,yes,docs/23 docs/247 docs/51 docs/515 docs/data/upstream,0.0,3,0
 Sims3.Gameplay.ActorSystems.CarryingPetPosture,Sims3GameplaySystems,24,none,yes,docs/587,0.0,3,
 Sims3.Gameplay.ActorSystems.CatSurfaceJig,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
-Sims3.Gameplay.ActorSystems.Charity,Sims3GameplaySystems,5,infer:2;random-empty:2;resharper:1,yes,docs/586,4.2,3,0
+Sims3.Gameplay.ActorSystems.Charity,Sims3GameplaySystems,5,infer:2;random-empty:2;resharper:1,yes,docs/639,4.2,3,0
 Sims3.Gameplay.ActorSystems.Children.AttackWithClaw,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.Children.BabyToddlerPosture,Sims3GameplaySystems,2,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.Children.BeingCarriedPosture,Sims3GameplaySystems,19,resharper:3,yes,docs/526 docs/558,0.8,3,0
@@ -1710,13 +1710,13 @@ Sims3.Gameplay.ActorSystems.IdleInstance,Sims3GameplaySystems,10,none,no,,0.0,3,
 Sims3.Gameplay.ActorSystems.IdleManager,Sims3GameplaySystems,89,infer:8;resharper:28;semgrep:3,yes,docs/207,18.8,3,0
 Sims3.Gameplay.ActorSystems.ImaginaryFriendPattern,Sims3GameplaySystems,0,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.InRabbitHolePosture,Sims3GameplaySystems,21,none,no,,0.0,3,0.0
-Sims3.Gameplay.ActorSystems.InnerBeauty,Sims3GameplaySystems,3,resharper:2;semgrep:1,yes,docs/586,2.5,3,0
+Sims3.Gameplay.ActorSystems.InnerBeauty,Sims3GameplaySystems,3,resharper:2;semgrep:1,yes,docs/639,2.5,3,0
 Sims3.Gameplay.ActorSystems.InteractionQueue,Sims3GameplaySystems,104,infer:4;lifecycle:1;resharper:8;semgrep:12,yes,docs/04 docs/04a-script-layer-stutter.md docs/06 docs/104 docs/12 docs/141 +,18.1,3,0
 Sims3.Gameplay.ActorSystems.LeadingHorsePosture,Sims3GameplaySystems,33,none,yes,docs/587,0.0,3,
 Sims3.Gameplay.ActorSystems.LifeEventManager,Sims3GameplaySystems,87,infer:3;resharper:2;semgrep:5,yes,docs/09 docs/14 docs/526 docs/61 docs/73 docs/re +,12.5,3,0
 Sims3.Gameplay.ActorSystems.LookAtManager,Sims3GameplaySystems,35,infer:1;resharper:4;semgrep:2,yes,docs/129 docs/205 ts3fixes/DeadRefs,5.2,3,0
 Sims3.Gameplay.ActorSystems.LookAtObjectWhen,Sims3GameplaySystems,1,none,no,,0.0,3,0.0
-Sims3.Gameplay.ActorSystems.MidlifeCrisisManager,Sims3GameplaySystems,35,semgrep:2,yes,docs/586,4.0,3,0
+Sims3.Gameplay.ActorSystems.MidlifeCrisisManager,Sims3GameplaySystems,35,semgrep:2,yes,docs/639,4.0,3,0
 Sims3.Gameplay.ActorSystems.MoodAxis,Sims3GameplaySystems,0,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.MoodFlavor,Sims3GameplaySystems,0,none,no,,0.0,3,0.0
 Sims3.Gameplay.ActorSystems.MoodFlavorIdleAnimationData,Sims3GameplaySystems,5,none,no,,0.0,3,0.0
@@ -1728,7 +1728,7 @@ Sims3.Gameplay.ActorSystems.OccultBaseClass,Sims3GameplaySystems,14,none,yes,doc
 Sims3.Gameplay.ActorSystems.OccultFairy,Sims3GameplaySystems,50,resharper:9;semgrep:2,yes,docs/571 docs/572 docs/582 docs/59 ts3fixes/Batch582Logic ts3fixes/SupernaturalLogic +,7.8,3,0
 Sims3.Gameplay.ActorSystems.OccultFrankenstein,Sims3GameplaySystems,29,infer:1;resharper:3;semgrep:5,yes,docs/179 docs/267 docs/544 docs/577 ts3fixes/VehicleLeaks,12.5,3,0
 Sims3.Gameplay.ActorSystems.OccultGenie,Sims3GameplaySystems,23,lifecycle:1;resharper:8;semgrep:2,yes,docs/267 docs/559 docs/563 docs/587,6.0,3,
-Sims3.Gameplay.ActorSystems.OccultImaginaryFriend,Sims3GameplaySystems,71,infer:19;random-empty:2;resharper:5;semgrep:9,yes,docs/586,37.2,3,0
+Sims3.Gameplay.ActorSystems.OccultImaginaryFriend,Sims3GameplaySystems,71,infer:19;random-empty:2;resharper:5;semgrep:9,yes,docs/639,37.2,3,0
 Sims3.Gameplay.ActorSystems.OccultManager,Sims3GameplaySystems,52,foreach-mutate:2;resharper:3;semgrep:2,yes,docs/117 docs/129 docs/171 docs/267 docs/51 docs/585 +,6.8,3,0
 Sims3.Gameplay.ActorSystems.OccultMermaid,Sims3GameplaySystems,55,infer:1;resharper:14;semgrep:7,yes,docs/10 docs/224 docs/503 docs/539 docs/583 docs/587,17.2,3,
 Sims3.Gameplay.ActorSystems.OccultPlantSim,Sims3GameplaySystems,21,random-empty:1;resharper:5;semgrep:1,yes,docs/179 docs/224 docs/539 docs/587,4.2,3,
@@ -2138,7 +2138,7 @@ Sims3.Gameplay.Core.GoOutToYard,Sims3GameplaySystems,3,none,yes,docs/124 docs/12
 Sims3.Gameplay.Core.GoOutside,Sims3GameplaySystems,5,none,yes,docs/202 docs/553 docs/565,0.0,1,0
 Sims3.Gameplay.Core.GoToCommunityLot,Sims3GameplaySystems,4,resharper:1;semgrep:1,yes,docs/04 docs/10 docs/118 docs/121 docs/122 docs/202 +,3.0,2,0
 Sims3.Gameplay.Core.GoToLot,Sims3GameplaySystems,7,semgrep:1,yes,docs/04 docs/10 docs/126 docs/202 docs/222 docs/247 +,2.0,2,0
-Sims3.Gameplay.Core.HouseholdContents,Sims3GameplaySystems,17,semgrep:1,yes,docs/586,2.0,3,0
+Sims3.Gameplay.Core.HouseholdContents,Sims3GameplaySystems,17,semgrep:1,yes,docs/639,2.0,3,0
 Sims3.Gameplay.Core.IAllowedOnClosedVenues,Sims3GameplaySystems,0,none,yes,docs/12 docs/185,0.0,1,0
 Sims3.Gameplay.Core.IBecameActiveLotListener,Sims3GameplaySystems,2,none,no,,0.0,2,0.0
 Sims3.Gameplay.Core.IGoInsideLot,Sims3GameplaySystems,0,none,no,,0.0,2,0.0
@@ -3260,7 +3260,7 @@ Sims3.Gameplay.Objects.Beds.Bed,Sims3GameplayObjects,62,resharper:8;semgrep:3,ye
 Sims3.Gameplay.Objects.Beds.BedData,Sims3GameplayObjects,17,none,yes,docs/529,0.0,2,0
 Sims3.Gameplay.Objects.Beds.BedDouble,Sims3GameplayObjects,9,none,yes,docs/181,0.0,2,0
 Sims3.Gameplay.Objects.Beds.BedDoubleHover,Sims3GameplayObjects,13,none,no,,0.0,2,0.0
-Sims3.Gameplay.Objects.Beds.BedDreamPod,Sims3GameplayObjects,42,resharper:22;semgrep:9,yes,docs/586,16.2,2,0
+Sims3.Gameplay.Objects.Beds.BedDreamPod,Sims3GameplayObjects,42,resharper:22;semgrep:9,yes,docs/639,16.2,2,0
 Sims3.Gameplay.Objects.Beds.BedDreamPodPoor,Sims3GameplayObjects,4,none,no,,0.0,2,0.0
 Sims3.Gameplay.Objects.Beds.BedMultiPart,Sims3GameplayObjects,9,semgrep:2,yes,docs/51 docs/529 docs/data,1.0,2,0
 Sims3.Gameplay.Objects.Beds.BedPostureBase,Sims3GameplayObjects,13,none,no,,0.0,2,0.0
@@ -5799,7 +5799,7 @@ Sims3.Gameplay.Objects.Lighting.Mimics.lightingStreetlightHalide,Sims3GameplayOb
 Sims3.Gameplay.Objects.Lighting.Mimics.lightingStreetlightModern,Sims3GameplayObjects,3,none,no,,0.0,1,0.0
 Sims3.Gameplay.Objects.Lighting.Mimics.lightingStreetlightTripe,Sims3GameplayObjects,3,none,no,,0.0,1,0.0
 Sims3.Gameplay.Objects.Lighting.Mimics.lightingStreetlightWooden,Sims3GameplayObjects,3,none,no,,0.0,1,0.0
-Sims3.Gameplay.Objects.Lighting.MoodLamp,Sims3GameplayObjects,68,resharper:5;semgrep:1,yes,docs/586,3.8,1,0
+Sims3.Gameplay.Objects.Lighting.MoodLamp,Sims3GameplayObjects,68,resharper:5;semgrep:1,yes,docs/639,3.8,1,0
 Sims3.Gameplay.Objects.Lighting.SearchLight,Sims3GameplayObjects,20,resharper:1,yes,docs/data,0.2,1,0
 Sims3.Gameplay.Objects.Lighting.SearchLightRabbitHole,Sims3GameplayObjects,3,none,no,,0.0,2,0.0
 Sims3.Gameplay.Objects.Lighting.StarLight,Sims3GameplayObjects,60,lifecycle:1;resharper:3,yes,docs/582 docs/584 ts3fixes/Batch582bLogic,2.4,1,0
@@ -6100,7 +6100,7 @@ Sims3.Gameplay.Objects.Pets.BoxStall,Sims3GameplayObjects,112,random-empty:1;res
 Sims3.Gameplay.Objects.Pets.BoxStallEnglish,Sims3GameplayObjects,4,none,no,,0.0,3,0.0
 Sims3.Gameplay.Objects.Pets.BoxStallSelfCleaning,Sims3GameplayObjects,6,none,no,,0.0,3,0.0
 Sims3.Gameplay.Objects.Pets.BoxStallWestern,Sims3GameplayObjects,4,none,no,,0.0,3,0.0
-Sims3.Gameplay.Objects.Pets.CatJungleGym,Sims3GameplayObjects,20,random-empty:2;resharper:2,yes,docs/586,6.0,3,0
+Sims3.Gameplay.Objects.Pets.CatJungleGym,Sims3GameplayObjects,20,random-empty:2;resharper:2,yes,docs/639,6.0,3,0
 Sims3.Gameplay.Objects.Pets.CatToy,Sims3GameplayObjects,30,none,yes,docs/587,0.0,3,
 Sims3.Gameplay.Objects.Pets.CatToyFoilBall,Sims3GameplayObjects,14,none,no,,0.0,3,0.0
 Sims3.Gameplay.Objects.Pets.CatToyFoilBallNonEP5Mimic,Sims3GameplayObjects,2,none,no,,0.0,3,0.0
@@ -6236,7 +6236,7 @@ Sims3.Gameplay.Objects.QualityComparison,Sims3GameplaySystems,0,none,no,,0.0,1,0
 Sims3.Gameplay.Objects.QualityHelper,Sims3GameplaySystems,10,none,no,,0.0,1,0.0
 Sims3.Gameplay.Objects.RabbitHoles.AdminstrationCenter,Sims3GameplayObjects,12,none,no,,0.0,2,0.0
 Sims3.Gameplay.Objects.RabbitHoles.Annex,Sims3GameplayObjects,28,resharper:2,yes,docs/141 docs/529 docs/546 docs/548 docs/573,1.2,2,0
-Sims3.Gameplay.Objects.RabbitHoles.Arboretum,Sims3GameplayObjects,33,resharper:4;semgrep:2,yes,docs/586,7.0,2,0
+Sims3.Gameplay.Objects.RabbitHoles.Arboretum,Sims3GameplayObjects,33,resharper:4;semgrep:2,yes,docs/639,7.0,2,0
 Sims3.Gameplay.Objects.RabbitHoles.AutonomouslyGoForMealInRestaurant,Sims3GameplayObjects,3,none,yes,docs/118 docs/121 docs/122 docs/222 docs/51 docs/67 +,0.0,2,0
 Sims3.Gameplay.Objects.RabbitHoles.BeachTower,Sims3GameplayObjects,4,none,no,,0.0,2,0.0
 Sims3.Gameplay.Objects.RabbitHoles.Bistro,Sims3GameplayObjects,23,none,yes,docs/171 ts3fixes/EatOutsideCount,0.0,2,0
@@ -7654,7 +7654,7 @@ Sims3.Gameplay.Situations.BachelorParty,Sims3GameplaySystems,39,random-empty:3;s
 Sims3.Gameplay.Situations.BarBrawlSituation,Sims3GameplaySystems,27,infer:1;random-empty:3;semgrep:4,yes,docs/181 docs/267 docs/544,7.5,2,0
 Sims3.Gameplay.Situations.BirthdayParty,Sims3GameplaySystems,14,lifecycle:1;semgrep:2,yes,docs/554 docs/571 docs/572 docs/576 ts3fixes/GenerationsLogic,4.1,2,0
 Sims3.Gameplay.Situations.BonfireParty,Sims3GameplaySystems,21,none,yes,docs/587,0.0,2,
-Sims3.Gameplay.Situations.BorrowHorseSituation,Sims3GameplaySystems,24,infer:2;resharper:2;semgrep:5,yes,docs/586,9.5,3,0
+Sims3.Gameplay.Situations.BorrowHorseSituation,Sims3GameplaySystems,24,infer:2;resharper:2;semgrep:5,yes,docs/639,9.5,3,0
 Sims3.Gameplay.Situations.BusyCrowd,Sims3GameplaySystems,7,none,no,,0.0,2,0.0
 Sims3.Gameplay.Situations.CampaignFundraiser,Sims3GameplaySystems,9,semgrep:1,yes,docs/data,1.0,2,0
 Sims3.Gameplay.Situations.CaughtSituation,Sims3GameplaySystems,7,lifecycle:1;resharper:3,yes,docs/544,1.6,2,0
@@ -7703,12 +7703,12 @@ Sims3.Gameplay.Situations.PartyParams,Sims3GameplaySystems,1,none,no,,0.0,2,0.0
 Sims3.Gameplay.Situations.PetGuardSitutation,Sims3GameplaySystems,4,random-empty:2;resharper:3;semgrep:2,yes,docs/51 docs/84,5.2,2,0
 Sims3.Gameplay.Situations.PlayWeddingCanceledReactionsIndefinitely,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
 Sims3.Gameplay.Situations.PlayWeddingReactionsIndefinitely,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
-Sims3.Gameplay.Situations.PoolParty,Sims3GameplaySystems,15,semgrep:1,yes,docs/586,2.0,2,0
+Sims3.Gameplay.Situations.PoolParty,Sims3GameplaySystems,15,semgrep:1,yes,docs/639,2.0,2,0
 Sims3.Gameplay.Situations.PrivacySituation,Sims3GameplaySystems,20,infer:1,yes,docs/103 docs/104 docs/105 docs/115 docs/121 docs/194 +,1.0,2,0
 Sims3.Gameplay.Situations.PromSituation,Sims3GameplaySystems,57,random-empty:2;resharper:1;semgrep:2,yes,docs/529 docs/546 docs/551 docs/571 docs/data ts3fixes/GenerationsLogic,3.2,2,0
 Sims3.Gameplay.Situations.SimArrestSituation,Sims3GameplaySystems,6,resharper:3,yes,docs/544,0.8,2,0
 Sims3.Gameplay.Situations.SleepAtDesk,Sims3GameplaySystems,4,none,no,,0.0,2,0.0
-Sims3.Gameplay.Situations.SlumberParty,Sims3GameplaySystems,26,resharper:5;semgrep:1,yes,docs/586,5.5,2,0
+Sims3.Gameplay.Situations.SlumberParty,Sims3GameplaySystems,26,resharper:5;semgrep:1,yes,docs/639,5.5,2,0
 Sims3.Gameplay.Situations.SocialGroupInteractionSituation,Sims3GameplaySystems,18,semgrep:3,yes,docs/566,3.0,2,0
 Sims3.Gameplay.Situations.TailgatingParty,Sims3GameplaySystems,16,none,yes,docs/587,0.0,2,
 Sims3.Gameplay.Situations.TakeNotes,Sims3GameplaySystems,6,none,no,,0.0,2,0.0
@@ -7805,7 +7805,7 @@ Sims3.Gameplay.Skills.Styling,Sims3GameplaySystems,33,infer:2;resharper:4;semgre
 Sims3.Gameplay.Skills.SubjectDefinition,Sims3GameplaySystems,10,resharper:2;semgrep:1,yes,docs/582 docs/583 ts3fixes/Batch582cLogic,2.5,2,0
 Sims3.Gameplay.Skills.SubjectScoringFunction,Sims3GameplaySystems,4,none,no,,0.0,2,0.0
 Sims3.Gameplay.Skills.SubjectScoringFunctionResult,Sims3GameplaySystems,8,none,no,,0.0,2,0.0
-Sims3.Gameplay.Skills.SubjectScoringFunctions,Sims3GameplaySystems,124,infer:10;resharper:26;semgrep:1,yes,docs/586,17.8,2,0
+Sims3.Gameplay.Skills.SubjectScoringFunctions,Sims3GameplaySystems,124,infer:10;resharper:26;semgrep:1,yes,docs/639,17.8,2,0
 Sims3.Gameplay.Skills.SubjectScoringHelper,Sims3GameplaySystems,9,none,no,,0.0,2,0.0
 Sims3.Gameplay.Skills.ToddlerSkill,Sims3GameplaySystems,8,none,no,,0.0,3,0.0
 Sims3.Gameplay.Skills.TombStatTracking,Sims3GameplaySystems,33,none,yes,docs/587,0.0,2,
@@ -7821,7 +7821,7 @@ Sims3.Gameplay.Socializing.ActionData,Sims3GameplaySystems,45,resharper:2;semgre
 Sims3.Gameplay.Socializing.ActionDataBase,Sims3GameplaySystems,41,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.ActiveTopic,Sims3GameplaySystems,31,semgrep:2,yes,docs/data docs/data/upstream ts3fixes/EaFixes,1.0,3,0
 Sims3.Gameplay.Socializing.ActiveTopicData,Sims3GameplaySystems,9,none,no,,0.0,3,0.0
-Sims3.Gameplay.Socializing.ActiveTopicTestFunctions,Sims3GameplaySystems,43,resharper:2;semgrep:3,yes,docs/586,2.0,3,0
+Sims3.Gameplay.Socializing.ActiveTopicTestFunctions,Sims3GameplaySystems,43,resharper:2;semgrep:3,yes,docs/639,2.0,3,0
 Sims3.Gameplay.Socializing.AskOnDateEvent,Sims3GameplaySystems,3,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.AttractionDateCall,Sims3GameplaySystems,5,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.AttractionNPCBehaviorController,Sims3GameplaySystems,15,resharper:1,yes,ts3fixes/RelAlarmGuard,0.2,3,0
@@ -7862,8 +7862,8 @@ Sims3.Gameplay.Socializing.ReputationStatistics,Sims3GameplaySystems,13,none,no,
 Sims3.Gameplay.Socializing.RomanceVisibilityLevel,Sims3GameplaySystems,0,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.RomanceVisibilityState,Sims3GameplaySystems,73,infer:1;resharper:2;semgrep:2,yes,docs/574 docs/73 ts3fixes/EaSpread,4.2,3,0
 Sims3.Gameplay.Socializing.RomanceVisibilityStateType,Sims3GameplaySystems,0,none,no,,0.0,3,0.0
-Sims3.Gameplay.Socializing.Secrets,Sims3GameplaySystems,16,random-empty:8;resharper:6,yes,docs/586,9.5,3,0
-Sims3.Gameplay.Socializing.ShortTermContext,Sims3GameplaySystems,44,resharper:1;semgrep:1,yes,docs/586,1.5,3,0
+Sims3.Gameplay.Socializing.Secrets,Sims3GameplaySystems,16,random-empty:8;resharper:6,yes,docs/639,9.5,3,0
+Sims3.Gameplay.Socializing.ShortTermContext,Sims3GameplaySystems,44,resharper:1;semgrep:1,yes,docs/639,1.5,3,0
 Sims3.Gameplay.Socializing.ShortTermContextTypes,Sims3GameplaySystems,0,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.ShowtimeSocialTunables,Sims3GameplaySystems,1,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.SimActiveTopics,Sims3GameplaySystems,17,semgrep:2,yes,docs/205 ts3fixes/DeadRefs,1.0,3,0
@@ -7874,7 +7874,7 @@ Sims3.Gameplay.Socializing.SocialInteractionA,Sims3GameplaySystems,48,resharper:
 Sims3.Gameplay.Socializing.SocialInteractionB,Sims3GameplaySystems,11,resharper:3,yes,docs/546 docs/577 docs/579,1.5,3,0
 Sims3.Gameplay.Socializing.SocialInteractionCandidateCollection,Sims3GameplaySystems,6,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.SocialRule,Sims3GameplaySystems,4,none,no,,0.0,3,0.0
-Sims3.Gameplay.Socializing.SocialRuleLHS,Sims3GameplaySystems,23,none,yes,docs/586,0.0,3,0
+Sims3.Gameplay.Socializing.SocialRuleLHS,Sims3GameplaySystems,23,none,yes,docs/639,0.0,3,0
 Sims3.Gameplay.Socializing.SocialRuleRHS,Sims3GameplaySystems,13,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.SocialRuleRHSBase,Sims3GameplaySystems,36,none,no,,0.0,3,0.0
 Sims3.Gameplay.Socializing.SocialTest,Sims3GameplaySystems,603,infer:4;resharper:12;semgrep:31,yes,docs/179 docs/546 docs/93 docs/99,26.2,3,0

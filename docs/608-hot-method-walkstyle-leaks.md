@@ -1,7 +1,7 @@
 # 608: Hot-method pass 3 and walk-style requests EA never releases
 
 2026-11-17, static, r65, s77, NOT RUN. Next round of the docs/604 hot-logic hunt: the most-called gameplay methods that
-docs/586, 587, 604 and 607 (and the shopping / Showtime / tourist / celebrity passes inside 604) do not name. The hot
+docs/639, 587, 604 and 607 (and the shopping / Showtime / tourist / celebrity passes inside 604) do not name. The hot
 methods themselves are clean again; reading what the hottest routing getter (`SimRoutingComponent.UpdateWalkStyle`)
 returns led to three walk-style leaks, built as default-off EA fixes. Scan output stays in
 `game-copy/analysis/hotlogic/s77/` (it quotes EA names and line numbers).
@@ -11,7 +11,7 @@ returns led to three walk-style leaks, built as default-off EA fixes. Scan outpu
 - **Rank.** `docs/data/compile-candidates.csv` + `docs/data/jit-hot.csv` (EA assemblies, sampled ms/s), and the
   callcensus lines of every `~/dev/ts3-runs/phase-2026111*/ts3native.log`: only 18 methods are censused and all 18
   are covered by docs/604 (`BuffManager.HasAnyElement` 13.7 M calls, `ActionData.Test` 0.8 M, ...). Methods whose
-  `Type.Method` is named in docs/586/587/603/604/607 were dropped. The 46 uncovered methods taken (by ms/s): 
+  `Type.Method` is named in docs/639/587/603/604/607 were dropped. The 46 uncovered methods taken (by ms/s): 
   `SimUpdate.Simulate`, `SimClock.ElapsedTimeInMinutes`, `GameObject.GetComponent`, `InteractionObjectPair.Equals`,
   `MetaAutonomyManager.GetTuning`, `Bartending.TryGetHoursOfOperationExtended`, `SimRoutingComponent.UpdateWalkStyle`,
   `MetaAutonomyTuning.IsSomeActiveHouseholdSimAtTheVenue`, `Sim.DoInteraction`, `GameObject.SetCommodityInteractionMap`,

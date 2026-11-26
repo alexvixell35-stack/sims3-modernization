@@ -14,7 +14,7 @@ Two romantic partners in one bed are paired by whichever ticks first. That Sim i
 
 Effect: in a shared bed, a light sleeper who is the slave sleeps on past the limit, and a slave's TiredFromMoving waits for its own timeout.
 
-Fix: on a tick where EA's body returns at the slave test (the Sim is the slave, and EA does not take the evil-gnome branch, which comes first when not spooning), the same three checks run right after EA's body, in EA's order. That is the same point in the tick where EA runs them for everyone else; nothing between the slave test and the checks touches what they read. It uses the spoonreset hook (`SrHook`, one swap of LoopHandler) and reads the flags before EA's body runs. With the switch off, slot 1956 counts the skipped slave ticks.
+Fix: on a tick where EA's body returns at the slave test (the Sim is the slave, and EA does not take the evil-gnome branch, which comes first when not spooning), the same three checks run right after EA's body, in EA's order. That is the same point in the tick where EA runs them for everyone else; nothing between the slave test and the checks touches what they read. It uses the spoonreset hook (`SrHook`, one swap of LoopHandler) and reads the flags before EA's body runs. With the switch off, slot 2165 counts the skipped slave ticks.
 
 ### §2 `queueproximity` (fixes 1958-1960, `QueueProximityCheck`): household-visible, rare
 

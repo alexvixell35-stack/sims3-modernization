@@ -1899,16 +1899,27 @@ static void __cdecl SatbStaticGet(DWORD cf, DWORD out) {
     }
     ((SatbStvFn)(uintptr_t)TS3A(0x00E521A0))(type, out, src, 0);
 }
+// act mode needs the binder and the three static helpers (bits 1..8 of g_satbNatMask); a detour skipped on foreign bytes (another
+// mod hooks it, docs/291 §4.1) leaves the worker unguarded there. g_satbNatAt: this build's sites (the selftest points it at fakes).
+static DWORD g_satbNatAt[4] = {TS3A(0x00E525C0), TS3A(0x00D89BF0), TS3A(0x00D89C60), TS3A(0x00D89CD0)};
+static int g_satbNatMask;
+static bool g_satbStDone;
+static const char* SatbActMissing(int mask) {
+    static const char* const kName[4] = {"binder bodies 0xE525C0", "static set 0xD89BF0", "static address 0xD89C60", "static get 0xD89CD0"};
+    for (int i = 0; i < 4; i++)
+        if (!(mask & 1 << i)) return kName[i];
+    return NULL;
+}
 static int SatbInstallNative() {
     int n = 0;
-    if (!g_satbBindNext && (g_satbBindNext = InstallDetour("satb binder bodies 0xE525C0", TS3A(0x00E525C0), kSatbBind, sizeof(kSatbBind), (void*)SatbBindCall, &g_satbBindNext)) != NULL) n++;
-    static bool st;
-    if (!st) {
-        st = true;
+    if (!g_satbBindNext && (g_satbBindNext = InstallDetour("satb binder bodies 0xE525C0", g_satbNatAt[0], kSatbBind, sizeof(kSatbBind), (void*)SatbBindCall, &g_satbBindNext)) != NULL) n++;
+    if (g_satbBindNext) g_satbNatMask |= 1;
+    if (!g_satbStDone) {
+        g_satbStDone = true;
         // replaced whole: the trampolines (a copied relative call) are never used
-        n += InstallDetour("satb static set 0xD89BF0", TS3A(0x00D89BF0), kSatbStSet, 8, (void*)SatbStaticSet) != NULL;
-        n += InstallDetour("satb static address 0xD89C60", TS3A(0x00D89C60), kSatbStAddr, 8, (void*)SatbStaticAddrOf) != NULL;
-        n += InstallDetour("satb static get 0xD89CD0", TS3A(0x00D89CD0), kSatbStGet, 8, (void*)SatbStaticGet) != NULL;
+        if (InstallDetour("satb static set 0xD89BF0", g_satbNatAt[1], kSatbStSet, 8, (void*)SatbStaticSet)) n++, g_satbNatMask |= 2;
+        if (InstallDetour("satb static address 0xD89C60", g_satbNatAt[2], kSatbStAddr, 8, (void*)SatbStaticAddrOf)) n++, g_satbNatMask |= 4;
+        if (InstallDetour("satb static get 0xD89CD0", g_satbNatAt[3], kSatbStGet, 8, (void*)SatbStaticGet)) n++, g_satbNatMask |= 8;
         // row 9 tripwire: pass-through count stubs (the 6 prologue bytes have no relative operand)
         if (g_satbTripwire) n += InstallDetour("satb tripwire host static set int 0xD79EF0", TS3A(0x00D79EF0), kSatbHostSet, 6, (void*)SatbHostSet0, &g_satbHostSetTramp[0]) != NULL;
         if (g_satbTripwire) n += InstallDetour("satb tripwire host static set float 0xD79F50", TS3A(0x00D79F50), kSatbHostSet, 6, (void*)SatbHostSet1, &g_satbHostSetTramp[1]) != NULL;
@@ -1977,12 +1988,20 @@ static int SatbInstall(int mode) {
         }
     }
     Log("autshadow satb: load thunks %s", g_satbThunks ? "per opcode" : "refused (shared stub)");
+    if (mode >= 2) {  // before act goes live: the hooks pass through while g_satbMode is not SATB_ACT
+        g_satbNativeN = SatbInstallNative();
+        if (const char* miss = SatbActMissing(g_satbNatMask)) {
+            Log("REFUSE autshadow satb act: the %s detour is not installed (foreign bytes: another mod hooks it, docs/291 §4.1); Satb off, the worker never runs concurrently", miss);
+            k.satbMode = -1;
+            return 0;
+        }
+    }
     g_satbMode = mode >= 2 ? SATB_ACT : SATB_PROBE;
     k.satbMode = g_satbMode;
     g_asSatbIcFn = SatbIcSim;
     g_satbIcMapped = SatbMapIcs();
     g_mtPushExtra = SatbPushRoots;
-    if (g_satbMode == SATB_ACT) g_satbColdN = SatbInstallCold(), g_mtNoFallbackHook = SatbN2mRefused, g_satbNativeN = SatbInstallNative();
+    if (g_satbMode == SATB_ACT) g_satbColdN = SatbInstallCold(), g_mtNoFallbackHook = SatbN2mRefused;
     if (g_satbMode == SATB_PROBE && !g_satbTimerEv) {
         g_satbTimerEv = CreateEventW(NULL, FALSE, FALSE, NULL);
         HANDLE th = g_satbTimerEv ? CreateThread(NULL, 64 << 10, SatbTimerMain, NULL, 0, NULL) : NULL;

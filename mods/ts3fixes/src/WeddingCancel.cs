@@ -69,7 +69,7 @@ namespace Ts3Fixes
                         AlarmHandle h = (AlarmHandle)sWcAlarm.GetValue(st);
                         if (parent == null || parent.RingGiver == null) return;
                         if (!WcEndAlarm(true, false, h != AlarmHandle.kInvalidHandle)) return;
-                        AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), st, sWcEnd);
+                        AlarmTimerCallback cb = (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), st, sWcEnd);
                         float wait = (float)sWcWait.GetValue(null);
                         sWcAlarm.SetValue(st, AlarmManager.Global.AddAlarm(wait, TimeUnit.Hours, cb, "Wait For Wedding Ceremoney to Finish", AlarmType.AlwaysPersisted, parent.RingGiver));
                         PatchCounters()[2505]++;

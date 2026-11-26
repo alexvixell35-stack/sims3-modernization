@@ -293,10 +293,10 @@ static int VcLogPairs(bool summary = true) {
                                        (LPCWSTR)(uintptr_t)t, &h) && GetModuleFileNameA(h, path, MAX_PATH)) {
                     b = strrchr(path, '\\') ? strrchr(path, '\\') + 1 : path;
                 }
-                sprintf_s(mod, " out=%s", b);
+                SFmt(mod, " out=%s", b);
             }
             char thr[80] = "";
-            if (g_vcThreads) sprintf_s(thr, " thr=job:%ld,worker:%ld,sim:%ld,other:%ld", s.p[j].cls[VC_JOB],
+            if (g_vcThreads) SFmt(thr, " thr=job:%ld,worker:%ld,sim:%ld,other:%ld", s.p[j].cls[VC_JOB],
                                        s.p[j].cls[VC_WORKER], s.p[j].cls[VC_SIM], s.p[j].cls[VC_OTHER]);
             Log("vcall 0x%08lX -> 0x%08lX n=%ld%s%s%s", s.addr, t, n, s.call ? "" : " jmp", mod, thr);
             lines++;
@@ -409,6 +409,13 @@ static bool ApplyCallSites(const wchar_t* ini) {
 
 // [ProbeSnap] Enabled=1: table built now, armed DelaySec later on its own thread; else CallSites=1 (coverage)
 static bool ApplyProbeSnap(const wchar_t* ini) {
+#ifdef TS3A_TABLE
+    // vcallsites*.h are raw Steam 1.67 sites (2-7 byte checks only): never armed on another build (docs/273)
+    if (GetPrivateProfileIntW(L"ProbeSnap", L"Enabled", 0, ini) || GetPrivateProfileIntW(L"ProbeSnap", L"CallSites", 0, ini)) {
+        Log("SKIP probe snap: its call-site tables hold Steam 1.67 addresses, not " TS3A_HOST_NAME " ones");
+        return false;
+    }
+#endif
     if (!GetPrivateProfileIntW(L"ProbeSnap", L"Enabled", 0, ini)) {
         if (ApplyCallSites(ini)) return true;
         Log("probe snap off (Enabled=0, CallSites=0)");

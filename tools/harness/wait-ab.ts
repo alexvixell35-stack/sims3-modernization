@@ -3,6 +3,7 @@
 // route time go" (PLAN item 6, ip-ar-ab 2026-10-18: plans moved off the sim thread, stutter unchanged).
 // In-load repro loops (profile-world.ts --repro with a loop) write the same files: one slice per firing, slice 0 = lead-in.
 //   node tools/harness/wait-ab.ts <tag> [...]      (tag as in probe-out/profile/<tag>-ab.json)
+//   ... --counters gcgMs,gcgForced   also any counters by name: delta per second on vs off (e.g. [GC] IdleGate, docs/281 §8)
 //   node tools/harness/wait-ab.ts --self-check
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -20,7 +21,7 @@ const LABEL: Record<number, string> = {
 const TOTALS = ['asyncPumpUs', 'asyncUs', 'blockOther'];
 
 // per side: summed counter deltas over the counted slices (slice 0 = warm-up) and their seconds
-export function split(slices: { from: number; on: boolean }[], snaps: Snap[]) {
+export function split(slices: { from: number; on: boolean }[], snaps: Snap[], extra: string[] = []) {
   const side = { on: { secs: 0, keys: new Map<number, number>(), tot: {} as Record<string, number> },
     off: { secs: 0, keys: new Map<number, number>(), tot: {} as Record<string, number> } };
   for (let i = 1; i < slices.length; i++) {
@@ -34,7 +35,7 @@ export function split(slices: { from: number; on: boolean }[], snaps: Snap[]) {
       const us = (b.c[`blockUs_${k}`] ?? 0) - (a.c[`blockUs_${k}`] ?? 0);
       sd.keys.set(key, (sd.keys.get(key) ?? 0) + us);
     }
-    for (const t of TOTALS) sd.tot[t] = (sd.tot[t] ?? 0) + (b.c[t] ?? 0) - (a.c[t] ?? 0);
+    for (const t of [...TOTALS, ...extra]) sd.tot[t] = (sd.tot[t] ?? 0) + (b.c[t] ?? 0) - (a.c[t] ?? 0);
   }
   return side;
 }
@@ -60,12 +61,12 @@ export function clockSides(slices: { from: number; on: boolean }[], t0: number, 
   return { on: mean(r.on), off: mean(r.off), n: [r.on.length, r.off.length] };
 }
 
-function report(tag: string) {
+function report(tag: string, extra: string[]) {
   const { slices, t0 } = JSON.parse(readFileSync(join(DIR, `${tag}-ab.json`), 'utf8'));
   const all: Snap[] = readFileSync(join(DIR, `${tag}-ab-native.jsonl`), 'utf8').trim().split('\n').map(l => JSON.parse(l));
   const snaps = lastRun(all);
   if (snaps.length < all.length) console.log(`${tag}: ${all.length - snaps.length} snapshots of an earlier run with the same tag skipped`);
-  const s = split(slices, snaps);
+  const s = split(slices, snaps, extra);
   const msps = (us: number, secs: number) => (us / 1000 / (secs || 1)).toFixed(1);
   console.log(`${tag}: on ${s.on.secs.toFixed(0)} s, off ${s.off.secs.toFixed(0)} s (sim-thread wait ms/s, on vs off)`);
   const keys = [...new Set([...s.on.keys.keys(), ...s.off.keys.keys()])]
@@ -82,6 +83,10 @@ function report(tag: string) {
   console.log(`  ${'untimed waits/min (blockOther)'.padEnd(34)} ${per(s.on.tot.blockOther ?? 0, s.on.secs).padStart(7)} ${per(s.off.tot.blockOther ?? 0, s.off.secs).padStart(7)}`);
   console.log(`  ${'pump (asyncPumpUs)'.padEnd(34)} ${msps(s.on.tot.asyncPumpUs ?? 0, s.on.secs).padStart(7)} ${msps(s.off.tot.asyncPumpUs ?? 0, s.off.secs).padStart(7)}`);
   console.log(`  ${'worker job time (asyncUs)'.padEnd(34)} ${msps(s.on.tot.asyncUs ?? 0, s.on.secs).padStart(7)} ${msps(s.off.tot.asyncUs ?? 0, s.off.secs).padStart(7)}`);
+  for (const n of extra) {
+    const ps = (v: number, secs: number) => (v / (secs || 1)).toFixed(3);
+    console.log(`  ${(n + ' /s').padEnd(34)} ${ps(s.on.tot[n] ?? 0, s.on.secs).padStart(7)} ${ps(s.off.tot[n] ?? 0, s.off.secs).padStart(7)}   (sum ${s.on.tot[n] ?? 0} / ${s.off.tot[n] ?? 0})`);
+  }
   const mf = join(DIR, `${tag}-machine.jsonl`);
   if (t0 && existsSync(mf)) {
     const k = clockSides(slices, t0, (readLive(mf) ?? '').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)));
@@ -100,8 +105,14 @@ if (process.argv[2] === '--self-check') {
   const old = [{ i: 0, s: 0, c: c(0, 0) }, { i: 1, s: 10, c: c(5, 0) }];
   assert.deepEqual(lastRun([...old, { i: 0, s: 0, c: c(0, 0) }, ...snaps]), [{ i: 0, s: 0, c: c(0, 0) }, ...snaps]);
   assert.deepEqual(lastRun(snaps), snaps);
+  const g = split(slices, snaps.map((x, i) => ({ ...x, c: { ...x.c, gcgMs: [0, 40, 50][i] } })), ['gcgMs']);
+  assert.equal(g.off.tot.gcgMs, 40); assert.equal(g.on.tot.gcgMs, 10);
   const ck = clockSides([{ from: 0, on: true }, { from: 100, on: false }, { from: 200, on: true }], 1e6,
     [{ t: 1e6 + 50e3, perf: 90 }, { t: 1e6 + 145e3, pAvg: 150, perf: 1 }, { t: 1e6 + 175e3, perf: 130 }, { t: 1e6 + 245e3, perf: 120 }, { t: 1e6 + 900e3, perf: 5 }]);
   assert.deepEqual(ck, { on: 120, off: 140, n: [1, 2] });
   console.log('wait-ab self-check ok');
-} else for (const t of process.argv.slice(2)) report(t);
+} else {
+  const a = process.argv.slice(2), ci = a.indexOf('--counters');
+  const extra = ci >= 0 ? (a.splice(ci, 2)[1] ?? '').split(',').filter(Boolean) : [];
+  for (const t of a) report(t, extra);
+}

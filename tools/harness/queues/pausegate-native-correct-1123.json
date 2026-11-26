@@ -1,0 +1,132 @@
+{
+ "note": "pausegate-native-correct-1123 (docs/205 §2.3e, WRITTEN, not run): correctness of the native pause gate on bugfix/pausegate-native-1123 (ts3native.asi.pausegate4 + ts3fixes.package.pausegate4). Bin state apex (Apex latest + RTX Remix bridge). Correctness only, no timing. Est ~25 min (2 jobs). Run after deadref-pause-correct-1123 or instead of it on this build (pausegate4 contains pausegate1).",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "jobs": [
+  {
+   "id": "sv-pausegate-unseen-hold-pause",
+   "note": "[est 12 min] Repro pausegate-unseen-hold-pause (SV-Spring, 30 far walkers, FinishWalk on through ini + fixesOn). Pass: native_check steps hold (pgFrozenSpans >= 1 while paused 60 s; ufwRelease_3 +0 from the pause to 3 s after the unpause; pgFrozenHolds >= 1), household count unchanged (DeadRefCheck pausestate), ScriptErrors 0, no watchdog. FAIL ufwRelease_3 > 0 = a hold expired over the pause (BROKEN). pgFrozenHolds 0 = hollow (no hold at the pause): rerun before judging.",
+   "asi": "game-copy/ts3native.asi.pausegate4",
+   "iniBase": "game-copy/ts3native.ini.pausegate4",
+   "fixesPackage": "game-copy/ts3fixes.package.pausegate4",
+   "pinReason": "bugfix/pausegate-native-1123 (docs/205 §2.3e): ts3native 0.36.300-pausegate4 (frozen unseen holds, route epoch, Build/Buy exit drain; counters v224 pg*) + ts3fixes.package.pausegate4 (UnseenFallbackSites code 27, UrPlacedSweep gate; on top of pausegate1); ini = m1123 defaults; agent: this branch (v224 names pg*)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-pausegate4 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.300-pausegate4 ": {
+     "match": [
+      "ts3native 0.36.300-pausegate4 2026-11-23 22:10:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1123 2026-11-23 05:16:37",
+      "ts3native 0.36.300-pausegate41 2026-11-23 22:10:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+     ]
+    }
+   },
+   "save": "Baseline-SV-Spring",
+   "ini": {
+    "UnseenFallback.Sites": 1,
+    "UnseenFallback.SiteWaitMs": 0,
+    "UnseenFallback.FinishWalk": 1
+   },
+   "nativeRequire": "ufcReady>=63,ufwReady>=1,ufwHolds>=1,pgFrozenSpans>=1,watchdogs<=0",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "pausegate-unseen-hold-pause",
+     "fixesOn": "unseenfbsites,unseenfbfinish",
+     "fixesRequire": "unseenfbsites_lists>=20"
+    }
+   }
+  },
+  {
+   "id": "bp-pausegate-buildbuy-epoch",
+   "note": "[est 12 min] Repro pausegate-buildbuy-epoch (BP 10 min, release defaults: [RouteAsync] + [RouteGate] Enforce=1 + [Discourage] + [RouteSnap]). Pass: pgEpochStale >= 1 over three Buy/Build round trips with route jobs in flight (stale results planned again on the sim thread), ScriptErrors 0, no watchdog, household count unchanged. Read pgBbDrains / pgBbSkips (deferred discourage records drained at the OnExitBuildBuy gate). pgEpochStale 0 = hollow: rerun.",
+   "asi": "game-copy/ts3native.asi.pausegate4",
+   "iniBase": "game-copy/ts3native.ini.pausegate4",
+   "fixesPackage": "game-copy/ts3fixes.package.pausegate4",
+   "pinReason": "bugfix/pausegate-native-1123 (docs/205 §2.3e): ts3native 0.36.300-pausegate4 (frozen unseen holds, route epoch, Build/Buy exit drain; counters v224 pg*) + ts3fixes.package.pausegate4 (UnseenFallbackSites code 27, UrPlacedSweep gate; on top of pausegate1); ini = m1123 defaults; agent: this branch (v224 names pg*)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "logRequire": {
+    "^ts3native 0\\.36\\.300-pausegate4 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "regexCases": {
+    "^ts3native 0\\.36\\.300-pausegate4 ": {
+     "match": [
+      "ts3native 0.36.300-pausegate4 2026-11-23 22:10:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1123 2026-11-23 05:16:37",
+      "ts3native 0.36.300-pausegate41 2026-11-23 22:10:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+     ]
+    }
+   },
+   "save": "Baseline-BP",
+   "nativeRequire": "asyncStarted>=1,pgEpochStale>=1,watchdogs<=0",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "pausegate-buildbuy-epoch"
+    }
+   }
+  }
+ ]
+}

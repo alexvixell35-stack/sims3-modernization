@@ -65,6 +65,8 @@ Ringing calls are left to EA's persisted timeout.
 
 ## §4 woohootywait: a wait loop with no exit (loop rule)
 
+Default ON since 2026-11-18 (docs/289): an EA hang fix; the 400-poll cap is a long hard ceiling for every Sim, household included.
+
 **The bug.**
 - `SendWooHootyText.GoToLotSuccess` runs on the invitee's GoToLot/VisitLot thread.
 - It cancels the texter's queue, then runs `while (Actor.CurrentInteraction != null) Simulator.Sleep(5)` with no timeout and no check that either Sim still exists.

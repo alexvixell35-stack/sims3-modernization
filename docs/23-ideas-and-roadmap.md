@@ -44,7 +44,7 @@ Ranked by expected gain against effort, with cheap gates first. Detail lives in 
 | 5 | S3PP type-hash cache confirm (`MonoTypeEHashProbe`, [docs/29 §5](29-mono-jit.md)) | ~20-30 ms/s inclusive, already S3PP's [inferred]; decides that we do not duplicate it | low (one simstack run) | low | simstack BP run, S3PP cache on vs off | pending |
 | 6 | Save levers ([docs/26](26-incremental-save.md), PLAN "Research done") | cached reflection ~0.5-1 s, compressed-bytes cache ~0.25 s, life-event trim ~0.3-1.2 s (opt-in) per save [inferred] | medium | medium (save path) | full save matrix + save s on/off | ranked, not built |
 | 7 | Mono second-thread patch `[MonoThread]` ([docs/30](30-mono-second-thread.md)) | enabler for managed offload (autonomy ~110 ms/s, [docs/28](28-sim-thread-map.md)); costs 0.2-1.5% sim-thread [inferred] | high (built) | high (GC, interpreter state) | `[MonoThread]` Mode=1 proof with Verify; `[GcThreadCheck]` clean in IP, save, travel | shipped ON since v0.2.11 (`Enabled=1 Mode=1`) [verified: tagged ini]; BP GcThreadCheck 0 foreign allocations [measured] |
-| 8 | Animation phase split + C++ rewrite ([docs/22 §7](22-parallel-animation.md)) | ~5-15 ms/s [inferred] | high | high | G10: docs/22 §6 timing split (per-phase ms/s of `0x940430`) | research done; G10 timers built 2026-11-15 (`[AnimPhase]`, docs/22 §6), not run |
+| 8 | Animation phase split + C++ rewrite ([docs/22 §7](22-parallel-animation.md)) | ~5-15 ms/s [inferred] | high | high | G10: docs/22 §6 timing split (per-phase ms/s of `0x940430`) | research done; G10 timers ran once 11-15: Evaluate ~0.4 ms/s, under the 1% drop line (docs/22 §6.1); class / off-camera split `[AnimPhase] Split` built 11-18, queue `anim-split-profile-1118.json` not run |
 | 9 | Address space: S3SS mimalloc arena ([docs/08 §2.5](08-resource-offload-design.md)) | <= ~64 MB largest free block early in a session [inferred] | low (upstream ask for a 32 MiB option) | low | runtime confirm: `NtAllocateVirtualMemory` >= 32 MB reserve backtrace on `wear_parts` | cause inferred, no config switch |
 | 10 | Address space: catalog ~8 MB resident ([docs/08 §2.5](08-resource-offload-design.md)) | ~8 MB for 14,577 products [inferred]; lazy decode not viable | medium | medium | catalog cost at the main menu (docs/08 M9 step 1) | queue job pending |
 
@@ -150,6 +150,8 @@ Results from different machines only compare when everyone measures the same sav
 
 ### 15. Mono interpreter speedups
 
+> **Status 2026-11-18: shipped** as own method compiler `[MonoJit]` (ON on master).
+
 - docs/04 F6/F7: scripts run in Mono 1.2's interpreter, the largest sim-thread cost. Ideas: a method lookup cache, inline caches for virtual/interface calls, faster field access paths, cheaper `isinst`/`castclass`. Each is a native patch inside the interpreter loop, with correctness risk across all game scripts.
 - 2026-11-15: own method compiler `[MonoJit]` (docs/527, docs/537) ON on master (`Enabled=1 Direct=1 Inline=2 Wide=1 BoundCall=1 ClauseLazy=1`), not yet in a release; supersedes the 10-15 line below.
 - 2026-10-15: JIT dropped; helper split done ([docs/29 §5](29-mono-jit.md)): the top helper is already cached by S3PP, our first own target is the IC-transition lock (Next big wins #4, #5).
@@ -157,6 +159,8 @@ Results from different machines only compare when everyone measures the same sav
 - Issue: `[research] Mono interpreter hot paths: method/virtual call caches`.
 
 ### 16. 64-bit research notes
+
+> **Status 2026-11-18: superseded.** The 64-bit renderer is Apex Radiance's RTX Remix bridge; Apex also ships the `ts3wrap.exe` restart host (off by default).
 
 - Why it is not realistic: a 32-bit exe with ~40k functions, embedded Mono 1.2 (32-bit, interpreter), 32-bit pointer assumptions in data files and saves, third-party 32-bit plugins (S3SS, DXVK x32, ASI loader). What it would take: per-function rewrites verified live, or an out-of-process 64-bit helper (docs/08 tried a resource cache helper and dropped it). Write it down once so the question stops costing time.
 - Issue: `[research] 64-bit: why not, and what would be needed (notes only)`.
@@ -171,6 +175,8 @@ Results from different machines only compare when everyone measures the same sav
 - Issue: `[research] Sim-thread offload architecture: map, blockers, step plan`.
 
 ### 18. Route plan cache: measure repeats first (2026-10-19)
+
+> **Status 2026-11-18: dropped** (0 ms/s, see 18.1).
 
 > **Changes 2026-10-19:** new section. Build only; the game was not run.
 

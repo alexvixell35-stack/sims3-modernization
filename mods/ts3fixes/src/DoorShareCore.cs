@@ -12,6 +12,8 @@ namespace Ts3Fixes
         // which input a doorgen bump reports (op 36 hi): DS_SRC_*. ts3native's table (DsSrcScope) says what each one clears
         public const int kSrcUnknown = 0, kSrcLock = 1, kSrcOwnerList = 2, kSrcLotHandler = 3, kSrcHiddenRooms = 4, kSrcGreet = 5, kSrcHousehold = 6,
             kSrcFire = 7, kSrcFireBuff = 8, kSrcIgnoreLocks = 9, kSrcOccult = 10, kSrcRole = 11, kSrcResort = 12, kSrcDesc = 13;
+        // UserDiag op 36 hi = kSrcOpBase + source (ts3native DS_SRC_OP_BASE); hi 1 / 2 are DoorGen.cs' lot hold / free
+        public const int kSrcOpBase = 16;
 
         static uint Mix(uint h, uint v) { unchecked { return (h ^ v) * 0x01000193u; } }
 

@@ -30,8 +30,8 @@ namespace Ts3Fixes
     // then EA's OnTaskComplete removes it from PendingTasks and completes the job if nothing else is pending.
     // (b) after FindPossiblePositions, spots in a hidden or fogged room are removed on lots with virtual residential slots
     // (EA's own test from FindIsolatedFirePosition). Everything else is EA's.
-    // Counters: [2573] tasks dropped for a Sim that left / was deleted, [2574] hidden-room spots removed, [2575] jobs
-    // completed by a drop, [2576] errors. Check: FireTrapCountChecks.cs.
+    // Counters: [3956] tasks dropped for a Sim that left / was deleted, [3957] hidden-room spots removed, [3958] jobs
+    // completed by a drop, [3959] errors. Check: FireTrapCountChecks.cs.
     public static partial class Fixes
     {
         static readonly FieldInfo sFtcTrapped = typeof(FireFightingJob).GetField("mTrappedSims", kInstAll);
@@ -95,8 +95,8 @@ namespace Ts3Fixes
             if (job.Tasks != null) job.Tasks.Remove(t);  // as SimDied
             int pendingBefore = job.PendingTasks.Count;
             job.OnTaskComplete(t, null);                  // EA: PendingTasks.Remove, then OnCompletion if nothing is left
-            PatchCounters()[2573]++;
-            if (pendingBefore == 1) PatchCounters()[2575]++;
+            PatchCounters()[3956]++;
+            if (pendingBefore == 1) PatchCounters()[3958]++;
         }
 
         static FirefighterEmergencySituation.VictimState FtcState(FirefighterEmergencySituation s, Sim sim)
@@ -118,10 +118,10 @@ namespace Ts3Fixes
                     on = ShortcutOn("firetrapcount") && oldLot != null && oldLot == me.Lot && newLot != me.Lot;
                     if (on) before = FtcState(me, s);
                 }
-                catch (Exception) { PatchCounters()[2576]++; on = false; }
+                catch (Exception) { PatchCounters()[3959]++; on = false; }
                 LotOrig(s, oldLot, newLot);
                 if (!on) return;
-                try { FtcLeft(me, s, before); } catch (Exception) { PatchCounters()[2576]++; }
+                try { FtcLeft(me, s, before); } catch (Exception) { PatchCounters()[3959]++; }
             }
             public void LotOrig(Sim s, Lot oldLot, Lot newLot) { }
 
@@ -135,10 +135,10 @@ namespace Ts3Fixes
                     on = ShortcutOn("firetrapcount") && participant != null && participant.SimDescription != null && !participant.SimDescription.IsDead;  // a death is SimDied's
                     if (on) before = FtcState(me, participant);
                 }
-                catch (Exception) { PatchCounters()[2576]++; on = false; }
+                catch (Exception) { PatchCounters()[3959]++; on = false; }
                 DeletedOrig(participant);
                 if (!on) return;
-                try { FtcLeft(me, participant, before); } catch (Exception) { PatchCounters()[2576]++; }
+                try { FtcLeft(me, participant, before); } catch (Exception) { PatchCounters()[3959]++; }
             }
             public void DeletedOrig(Sim participant) { }
         }
@@ -165,9 +165,9 @@ namespace Ts3Fixes
                         if (!FtcKeepSpot(true, true, lot.IsRoomHidden(room) || TombRoomManager.IsPointInAFoggedRoom(p))) drop.Add(p);
                     }
                     foreach (Vector3 p in drop) spots.Remove(p);
-                    PatchCounters()[2574] += drop.Count;
+                    PatchCounters()[3957] += drop.Count;
                 }
-                catch (Exception) { PatchCounters()[2576]++; }
+                catch (Exception) { PatchCounters()[3959]++; }
             }
             public void PosOrig() { }
         }

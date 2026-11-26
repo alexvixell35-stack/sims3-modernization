@@ -32,7 +32,7 @@ namespace Ts3Fixes
     // copy under the same build, and a save made inside EA's method is pointed at the stub (EA's IL) by savedstacks; the
     // one cost is a single reset of a Sim saved inside the copy when a later build changes the copy's IL. Every copy below
     // is EA's body with only the marked lines changed; the switch off runs EA's IL. Every switch off by default.
-    // Checks: EpBatch4Checks.cs. Slots 1521-1535 (block fixes-1500).
+    // Checks: EpBatch4Checks.cs. Slots 3247-3261 (block fixes-1500).
     public static partial class Fixes
     {
         // ---- EP4 §1 dogswimslots (tuning kDogSwimSlots) ---------------------------------------------------------------
@@ -43,7 +43,7 @@ namespace Ts3Fixes
         // script error). Fix (copy): the reroute loop runs only when a slot was free. Household-visible (household dogs).
         // RE, not changed: the fallback branch dereferences poolNearestPoint (null only without a pool; the Definition needs
         // one).
-        // Counters: [1521] reroute loops skipped on no free slot, [1522] would throw with the switch off, [1523] errors.
+        // Counters: [3247] reroute loops skipped on no free slot, [3248] would throw with the switch off, [3249] errors.
         static readonly FieldInfo sDsTimes = typeof(DoggySwimHere).GetField("kNumberOfTimesForHydrophobicDogToRouteToOtherSlots", kEpStatic);
         static readonly FieldInfo sDsChance = typeof(DoggySwimHere).GetField("kChanceToShowHydrophobicThoughtBalloon", kEpStatic);
 
@@ -65,7 +65,7 @@ namespace Ts3Fixes
                 if (!on || !Actor.HasTrait(TraitNames.HydrophobicPet) || Actor.Posture is SwimmingInPool) return RouteOrig();
                 int[] times; float chance;
                 try { times = (int[])sDsTimes.GetValue(null); chance = (float)sDsChance.GetValue(null); }
-                catch (Exception) { PatchCounters()[1523]++; return RouteOrig(); }
+                catch (Exception) { PatchCounters()[3249]++; return RouteOrig(); }
                 // EA's body from here (the hydrophobic branch is known to run)
                 Route route = Actor.CreateRoute();
                 Pool poolNearestPoint = Pool.GetPoolNearestPoint(Destination);
@@ -87,7 +87,7 @@ namespace Ts3Fixes
                     Actor.PlaySoloAnimation("ad_idle_stand_bark_x", true, ProductVersion.EP5);
                 }
                 int num = RandomUtil.GetInt(times[0], times[1]);
-                if (!DsLoopRuns(on, list.Count)) { PatchCounters()[1521]++; num = 0; }  // changed: EA picks from an empty list and throws
+                if (!DsLoopRuns(on, list.Count)) { PatchCounters()[3247]++; num = 0; }  // changed: EA picks from an empty list and throws
                 for (int j = 0; j < num; j++)
                 {
                     Slot pick = RandomUtil.GetRandomObjectFromList(list);
@@ -146,8 +146,8 @@ namespace Ts3Fixes
         // RE: when fewer than N fragments are free (one in use since the Test), mToRemoveObj stays null and the trailing
         // mToRemoveObj.Clear() throws. Fix (copy): the Target is picked first, then N-1 others; the Clear is null-guarded.
         // Household-visible (a household Sim or dog reassembling fragments).
-        // Counters: [1524] Target picked first (extra fragment kept), [1525] extra fragment used with the switch off,
-        // [1526] errors.
+        // Counters: [3250] Target picked first (extra fragment kept), [3251] extra fragment used with the switch off,
+        // [3252] errors.
         static readonly Type sFrType = typeof(FragmentedObject).GetNestedType("Reconstruct", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sFrRemove = sFrType == null ? null : sFrType.GetField("mToRemoveObj", kInstAll);
         static readonly FieldInfo sFrCreated = sFrType == null ? null : sFrType.GetField("mCreatedObject", kInstAll);
@@ -185,13 +185,13 @@ namespace Ts3Fixes
                     object info = sFrInfo.GetValue(Target, null);
                     required = (int)sFrRequired.GetValue(info);
                     dropDistance = (float)sFrDrop.GetValue(info);
-                    test = (ItemTestFunction)Delegate.CreateDelegate(typeof(ItemTestFunction), Target, sFrTest);
+                    test = (ItemTestFunction)Fixes.Bind(typeof(ItemTestFunction), Target, sFrTest);
                     list = Actor.Inventory.FindAll<FragmentedObject>(true, test);   // read only: EA's own first query
                     t = list.IndexOf(Target);
                 }
-                catch (Exception) { PatchCounters()[1526]++; return RunOrig(); }
+                catch (Exception) { PatchCounters()[3252]++; return RunOrig(); }
                 int used = FrUsed(on, required, list.Count, t), eaUsed = FrUsed(false, required, list.Count, t);
-                if (!on) { if (eaUsed > required) PatchCounters()[1525]++; return RunOrig(); }
+                if (!on) { if (eaUsed > required) PatchCounters()[3251]++; return RunOrig(); }
                 // EA's body from here
                 bool flag = false;
                 StandardEntry();
@@ -214,7 +214,7 @@ namespace Ts3Fixes
                 sFrRemove.SetValue(this, toRemove);
                 if (toRemove != null && toRemove.Count >= required)
                 {
-                    if (used < eaUsed && toRemove.Contains(Target)) PatchCounters()[1524]++;   // counted once the pick is complete and the move mattered
+                    if (used < eaUsed && toRemove.Contains(Target)) PatchCounters()[3250]++;   // counted once the pick is complete and the move mattered
                     created = GlobalFunctions.CreateObjectOutOfWorld(Target.GetObjectToCreate(Actor), Target.GetProductVersion());
                     sFrCreated.SetValue(this, created);
                     created.SetHiddenFlags(HiddenFlags.Model);
@@ -235,7 +235,7 @@ namespace Ts3Fixes
                             {
                                 EnterStateMachine("solo_generic", "Enter", "x");
                                 SetParameter("AnimationName", "a_fragment_pieceTogether_x");
-                                AddOneShotScriptEventHandler(1001u, (SacsEventHandler)Delegate.CreateDelegate(typeof(SacsEventHandler), this, sFrSound));
+                                AddOneShotScriptEventHandler(1001u, (SacsEventHandler)Fixes.Bind(typeof(SacsEventHandler), this, sFrSound));
                                 AnimateSim("Play Animation");
                                 AnimateSim("Exit");
                             }
@@ -279,7 +279,7 @@ namespace Ts3Fixes
         // has a lab object in the inventory; a student with none gets nothing to do and idles through the lab. Fix: with an
         // empty inventory list, a live lab object of the lot is picked and EA's own push is made (same definition, callbacks
         // and priority). Household-visible (university students).
-        // Counters: [1527] lot objects pushed, [1528] idle students with the switch off, [1529] errors.
+        // Counters: [3253] lot objects pushed, [3254] idle students with the switch off, [3255] errors.
         static readonly FieldInfo sLbObjects = typeof(AcademicLabSituation).GetField("mAcademicLabObjects", kInstAll);
         static readonly MethodInfo sLbDone = typeof(AcademicLabSituation).GetMethod("LabSituationFinished", kInstAll);
         static readonly MethodInfo sLbFail = typeof(AcademicLabSituation).GetMethod("LabSituationFailed", kInstAll);
@@ -316,17 +316,17 @@ namespace Ts3Fixes
                             InteractionDefinition def = pick.GetRandomLabInteractionForAssociatedDegree(s.Major);
                             if (def != null)
                             {
-                                Callback done = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbDone);
-                                Callback fail = (Callback)Delegate.CreateDelegate(typeof(Callback), s, sLbFail);
+                                Callback done = (Callback)Fixes.Bind(typeof(Callback), s, sLbDone);
+                                Callback fail = (Callback)Fixes.Bind(typeof(Callback), s, sLbFail);
                                 s.ForceSituationSpecificInteraction(pick, sim, def, null, done, fail, new InteractionPriority(InteractionPriorityLevel.UserDirected, 1f));
-                                PatchCounters()[1527]++;
+                                PatchCounters()[3253]++;
                             }
                             return;
                         }
-                        else if (n == 0 && lot.Count > 0 && !on) PatchCounters()[1528]++;
+                        else if (n == 0 && lot.Count > 0 && !on) PatchCounters()[3254]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1529]++; }
+                catch (Exception) { PatchCounters()[3255]++; }
                 PushOrig(sim);
             }
             public void PushOrig(Sim sim) { } // AcademicLabSituation.PushLabSituationInteraction
@@ -343,8 +343,8 @@ namespace Ts3Fixes
         // Fix (copy): the roll is kept in a local (and the caption shows it); on those two failures the planner goes back
         // only when this run took it out of the inventory. The success path, which puts a closed planner in the
         // inventory, is EA's. Household-visible (university business students).
-        // Counters: [1530] runs fixed (local roll or no pocketing), [1531] shared roll or pocketing with the switch off,
-        // [1532] errors.
+        // Counters: [3256] runs fixed (local roll or no pocketing), [3257] shared roll or pocketing with the switch off,
+        // [3258] errors.
         static readonly Type sBpDef = typeof(AcademicBusinessPlanner.UseBusinessPlanner).GetNestedType("Definition", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sBpUsage = sBpDef == null ? null : sBpDef.GetField("mUsageType", kInstAll);
         static readonly FieldInfo sBpFromInv = typeof(AcademicBusinessPlanner.UseBusinessPlanner).GetField("mRunFromInventory", kInstAll);
@@ -390,14 +390,14 @@ namespace Ts3Fixes
                 bool on = ShortcutOn("businessplannerrun");
                 AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning usage; bool fromInv;
                 try { usage = (AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning)sBpUsage.GetValue(def); fromInv = (bool)sBpFromInv.GetValue(this); }
-                catch (Exception) { PatchCounters()[1532]++; return RunOrig(); }
+                catch (Exception) { PatchCounters()[3258]++; return RunOrig(); }
                 bool unset = usage == None, shared = BpWritesShared(on, Autonomous, unset);
-                if (!on) { if (shared) PatchCounters()[1531]++; return RunOrig(); }
+                if (!on) { if (shared) PatchCounters()[3257]++; return RunOrig(); }
                 if (Autonomous && unset)
                 {
                     usage = (AcademicBusinessPlanner.UseBusinessPlanner.BusinessPlanning)RandomUtil.GetInt(0, 1);
                     if (shared) sBpUsage.SetValue(def, usage);   // EA's write to the shared Singleton
-                    else PatchCounters()[1530]++;                // changed: local roll
+                    else PatchCounters()[3256]++;                // changed: local roll
                 }
                 string caption = usage == Present ? "PresentBusinessPlan" : usage == Work ? "WorkOnBusinessPlan" : "StartPlanning";
                 ((IInteractionNameCanBeOverriden)(object)this).SetInteractionName((string)sBpLoc.Invoke(null, new object[] { caption, new object[0] }));
@@ -460,7 +460,7 @@ namespace Ts3Fixes
                     wait = RandomUtil.GetFloat(BpTune(3), BpTune(4));
                     num = BpTune(5);
                     rb = new ReactionBroadcaster(Target, (ReactionBroadcasterParams)sBpParams.GetValue(null),
-                        (ReactionBroadcaster.BroadcastCallback)Delegate.CreateDelegate(typeof(ReactionBroadcaster.BroadcastCallback), this, sBpBroadcast));
+                        (ReactionBroadcaster.BroadcastCallback)Fixes.Bind(typeof(ReactionBroadcaster.BroadcastCallback), this, sBpBroadcast));
                 }
                 sBpWait.SetValue(this, wait);
                 DoTimedLoop(wait, ExitReason.Default);
@@ -508,7 +508,7 @@ namespace Ts3Fixes
             void BpFailAdd(bool on, bool took)
             {
                 if (BpPockets(on, took)) Actor.Inventory.TryToAdd(Target);
-                else PatchCounters()[1530]++;
+                else PatchCounters()[3256]++;
             }
         }
 
@@ -528,8 +528,8 @@ namespace Ts3Fixes
         // (copy, non-iterator, yields only inside EA's Instantiate) skips the dirty-name rename for a household that does
         // not exist and a progenitor not found, and leaves a resize loop that makes no progress. Load-safe: the copy writes
         // nothing EA would not write; it only skips the throwing statements and the stuck loop iterations. Household-visible.
-        // Counters: [1533] size-0 unpacks skipped / null renames skipped / stuck loops left, [1534] seen with the switch off,
-        // [1535] errors.
+        // Counters: [3259] size-0 unpacks skipped / null renames skipped / stuck loops left, [3260] seen with the switch off,
+        // [3261] errors.
         static readonly FieldInfo sFdData = typeof(FutureDescendantService).GetField("sPersistableData", kEpStatic);
         static readonly FieldInfo sFdInfos = sFdData == null ? null : sFdData.FieldType.GetField("ActiveDescendantHouseholdsInfo", kInstAll);
 
@@ -552,8 +552,8 @@ namespace Ts3Fixes
                 FutureDescendantService.FutureDescendantHouseholdInfo info = (FutureDescendantService.FutureDescendantHouseholdInfo)(object)this;
                 bool on = ShortcutOn("futuredescendantsize0");
                 int desired = info.mCurrentDesiredHouseholdSize;
-                if (!FdInstantiates(on, desired)) { PatchCounters()[1533]++; return null; }
-                else if (desired <= 0 && !on) PatchCounters()[1534]++;
+                if (!FdInstantiates(on, desired)) { PatchCounters()[3259]++; return null; }
+                else if (desired <= 0 && !on) PatchCounters()[3260]++;
                 return InstOrig();
             }
             public Household InstOrig() { return null; } // FutureDescendantService+FutureDescendantHouseholdInfo.Instantiate
@@ -571,13 +571,13 @@ namespace Ts3Fixes
                     object data = sFdData.GetValue(null);
                     infos = data == null ? null : sFdInfos.GetValue(data) as IList;
                 }
-                catch (Exception) { PatchCounters()[1535]++; return ProcOrig(); }
+                catch (Exception) { PatchCounters()[3261]++; return ProcOrig(); }
                 if (infos == null) return ProcOrig();
                 // EA's body from here
                 for (int i = 0; i < infos.Count; i++)
                 {
                     FutureDescendantService.FutureDescendantHouseholdInfo info = (FutureDescendantService.FutureDescendantHouseholdInfo)infos[i];
-                    if (info == null) { PatchCounters()[1533]++; continue; }  // changed: EA dereferences
+                    if (info == null) { PatchCounters()[3259]++; continue; }  // changed: EA dereferences
                     Household hh = info.DescendantHousehold;
                     if (hh == null) info.Instantiate();
                     else
@@ -586,13 +586,13 @@ namespace Ts3Fixes
                         {
                             int before = hh.NumMembers;
                             info.RemoveDescendant();
-                            if (!FdLoopGoesOn(on, before, hh.NumMembers)) { PatchCounters()[1533]++; break; }  // changed: EA loops forever
+                            if (!FdLoopGoesOn(on, before, hh.NumMembers)) { PatchCounters()[3259]++; break; }  // changed: EA loops forever
                         }
                         while (hh.NumMembers < info.mCurrentDesiredHouseholdSize)
                         {
                             int before = hh.NumMembers;
                             info.CreateAndAddDescendant();
-                            if (!FdLoopGoesOn(on, before, hh.NumMembers)) { PatchCounters()[1533]++; break; }  // changed: EA loops forever
+                            if (!FdLoopGoesOn(on, before, hh.NumMembers)) { PatchCounters()[3259]++; break; }  // changed: EA loops forever
                         }
                     }
                     foreach (ulong id in Household.mDirtyNameSimIds)
@@ -600,7 +600,7 @@ namespace Ts3Fixes
                         if (!info.IsSimAProgenitor(id)) continue;
                         SimDescription sd = SimDescription.Find(id);
                         Household dh = info.DescendantHousehold;
-                        if (sd == null || dh == null) { PatchCounters()[1533]++; continue; }  // changed: EA dereferences both
+                        if (sd == null || dh == null) { PatchCounters()[3259]++; continue; }  // changed: EA dereferences both
                         foreach (SimDescription d in dh.SimDescriptions) d.LastName = sd.LastName;
                     }
                 }

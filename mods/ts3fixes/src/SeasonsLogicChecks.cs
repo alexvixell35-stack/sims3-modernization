@@ -20,7 +20,7 @@ namespace Ts3Fixes
             int[] c = PatchCounters();
             string today = "?", handle = "?";
             try { today = TtFallHolidayToday() ? "Fall holiday" : "not the Fall holiday"; handle = TrickOrTreatSituation.NPCTrickOrTreatAlarm == AlarmHandle.kInvalidHandle ? "invalid" : "set"; } catch (Exception) { }
-            string counters = "trickortreatalarm: handles reset at quit 2588=" + c[2588] + ", off-holiday runs skipped 2589=" + c[2589] + ", errors 2590=" + c[2590]
+            string counters = "trickortreatalarm: handles reset at quit 2588=" + c[3969] + ", off-holiday runs skipped 2589=" + c[3970] + ", errors 2590=" + c[3971]
                 + "; today " + today + ", handle " + handle + "; " + GlMembers("");
             if (what == "result") return counters;
             if (what != "run") return "trickortreatalarm <run|result>";
@@ -77,10 +77,10 @@ namespace Ts3Fixes
             if (missing.Length > 0) return "hauntedumbrella check: verdict: UNEXPECTED; " + counters;
             object walking = FormatterServices.GetUninitializedObject(sHuEnter);
             sHuFlag.SetValue(walking, true);
-            bool umbrella = ((SlBoolFn)Delegate.CreateDelegate(typeof(SlBoolFn), walking, m))();
+            bool umbrella = ((SlBoolFn)Fixes.Bind(typeof(SlBoolFn), walking, m))();
             object panic = FormatterServices.GetUninitializedObject(sHuEnter);
             sHuFlag.SetValue(panic, false);
-            bool panicUmbrella = ((SlBoolFn)Delegate.CreateDelegate(typeof(SlBoolFn), panic, m))();
+            bool panicUmbrella = ((SlBoolFn)Fixes.Bind(typeof(SlBoolFn), panic, m))();
             bool ctlPanic = on ? !panicUmbrella : panicUmbrella;  // off: EA's inverted answer lets the panicking Sim open one
             bool ctlDecision = !HuAnswer(true, false);
             bool controls = ctlPanic && ctlDecision;

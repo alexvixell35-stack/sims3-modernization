@@ -540,7 +540,7 @@ That does not carry over to the game. `docs/data/binder-bodies.csv` binds `Strin
 
 So these 20.9 M bails are calls into EA C++ that already run natively, and listing `String` gains nothing (native-body keys get no rows, §20.0). A static `String.Equals(string,string)` direct site would even run our mint instead of EA's body.
 
-**What would remove them (next shape, not built):** a guarded site whose filled target has a native body calls EA's bound body directly (the `0xE525C0` path) instead of exiting. This saves the exit + EA's call dispatch, not the callee's work. It needs `0xE525C0`'s argument convention and a host stand-in for the binder before it can be tested; estimate one agent study (~1 h), then a build.
+**What would remove them (next shape, not built):** a guarded site whose filled target has a native body calls EA's bound body directly (the `0xE525C0` path) instead of exiting. This saves the exit + EA's call dispatch, not the callee's work. It needs `0xE525C0`'s argument convention and a host stand-in for the binder before it can be tested; estimate one agent study (~1 h), then a build. **Built as §22 BoundCall** (default ON since b0507f79); §33 re-checks the convention (2026-11-17).
 
 ### 21.3 Built and dropped: `StrKeys`
 
@@ -645,6 +645,18 @@ Pair `boundcall-1113`: `game-copy/ts3native.asi.boundcall-1113` + the release pa
 - I-484-1: the gain (A/B above).
 - I-484-2: the count run's `jitcallee` lines name the remaining native callees (expected: none of the two rows at the comparer sites) and the `GetPrev` comparer class.
 - I-484-3: the host stand-in binder matches the game's binder for these two rows (same invoker, body and inits). The correctness jobs check it in game (bound calls > 0, script errors 0, verify MISMATCH 0).
+
+## 23. Bail census: the count build of the 11-12 plan (2026-11-13, branch `feature/monojit-bailcensus`, ts3native 0.36.251; built + selftest; ran 2026-11-13 as `bp-jit-bailcensus`, read in PLAN.md "MonoJit C4 + C5 ClauseLazy after the region fix"; native source merged 2026-11-17, the next native build carries it)
+
+The 11-12 plan's "count build" (callee class and native-body flag per guard bail, §21.4 A2, I-476-1) was already folded into BoundCall's `Count=1` (§22.6, master 0.36.250): every guard "no lazy body" bail calls `JcnGuardBail`, and the count report prints one `jitcallee` row per guard site and target. This build only closes the hole that would have spoiled the census, and adds the ranked table.
+
+- **The hole [verified: source]:** a site kept 4 targets; a fifth and every later one counted on the 4th row, under the 4th target's name and native flag. A polymorphic site (the `GetPrev` comparer, one shared body for many `Dictionary<K,V>`) would then credit unrelated callees to one class.
+- **Fix:** `JCN_TGT` = 8 named targets per site, the rest on `tOther`, printed as `jitcallee <caller> <ip> <op> <lazy|normal> (other) native=? bound=0 nolazy=<n>`. The hot path is unchanged in kind: the same per-site scan (now up to 8 compares) on the sim thread, no allocation, no lock, only with `[MonoJit] Count=1`. `JitGuardSite` grows by 36 bytes (1024 sites = 36 KB of the region's data part, not of the code bytes; only with MonoJit on).
+- **No new switch, counters or registry block:** `Count=1` (default 0) is the switch, the `jitcallee` rows are the table. Diag only: no behaviour change, no Sim in scope (household rule not touched).
+- **Report:** `node tools/jit-hot.ts --game-count <ts3native.log> [--top 30]` adds the bail census to its output: guard "no lazy body" bails ranked by callee (bails in the run, share, EA native body yes / no / ?, sites, top site), from the last complete `jitcount` block (cumulative, so the last block = the run). `--self-check` has the format-string rows (match and no-match).
+- **Checks:** native selftest ok (`TestMonoJitBoundCall` target rows: 10 targets, 8 named, 3 bails on `tOther`), `hook-sites --check` ok, `patch-bytes-check` 3148 expectations, mismatch 0 (no byte change), `jit-hot --self-check` 27 checks.
+- **Queue:** `tools/harness/queues/jit-bailcensus.json` (prepared, NOT RUN): `bp-jit-bailcensus`, BP 10 min, the c3g switch set of master1112b's `bp-m1112b-jit` (Mode=2, Direct=1, DirectLeaf=0, CodeKB=4096) + `Count=1`, `BoundCall=0` (the census has to see the String comparer bails BoundCall would remove). Gates: version line 0.36.251, OK line with CodeKB 4096 / `Count=1` / `BoundCall=0x0`, a `jitcount: end` line, >= 1 `jitcallee` row, no verify MISMATCH, jitMismatch / jitFaults 0. Pair `bailcensus-1113` parked (`game-copy/ts3native.asi.bailcensus-1113`, sha256 8a728674, builds.json; ts3fixes rc1111e). Run: `node tools/harness/queue.ts tools/harness/queues/jit-bailcensus.json --no-smoke`.
+- **What the run answers:** I-476-1 (share of guard bails whose callee is an EA native body; expected ~74% `String` on BP), the `GetPrev` comparer class(es), I-484-2 (native callees left after BoundCall's two rows). Region size: the census runs at the default 4096 KB; the jit-region A/B (4096 vs 2048) changes only the region and not these rows.
 
 ## 24. ClauseLazy back in the game, with guards (2026-11-13, branch `feature/monojit-clauselazy-guards`, ts3native 0.36.252, counters v195; built + host gates; run since: jit-bundle-ab-1113, jit-bundle-ab2-1114; default ON since b0507f79 [verified 2026-11-15: results])
 
@@ -827,6 +839,16 @@ Not done: resuming in a lazy body (would need JitLazyMat from a fault context), 
 
 Queue `tools/harness/queues/mono-jitfault-correct-1115.json` (PREPARED, NOT RUN, ~50 min): `bp-jitfault-forced` (FaultTest=RuntimeTypeHandle.get_Value, FaultTestN=1000: exactly one recovery, no pass-on, frTestCalls >= 1000) then `bp/ip/sv-jitfault-on` (normal JIT-on: frOn 1, no fault, no `jit: fault` line, jitMismatch / jitFaults / clFaults 0); all 0 script errors, 0 crashes.
 
+### 29a. Foreign faults: another module's first-chance faults stay untouched (2026-11-20, branch `bugfix/jit-foreign-fault-1120`, no switch)
+
+Bug [verified, game log]: in `jit-vslot-correct-1120-rerun1` (bp-vslot-on, VSlot=1), the handler logged 64 `jit: fault passed on: 0xC0000005 at eip 67C1A054 in System.Collections.Generic.Dictionary`2.GetSlot: in a helper the body called` lines and switched GetSlot off for the session. Eip 67C1A054 is `ApexRadiance.asi+0x12A054`. The crash log of the same session counts about 4000 first-chance AVs at `+0x12A048` / `+0x12A054` / `+0x133F77`, and the coremod run without VSlot has the same ones (`6441A048 x3901`, `6441A054 x399`). Apex raises these faults and catches them itself; the game goes on. The return-address scan ("Ours" above) blamed the compiled body because a return address into it sat in the top 64 stack words, under an EA call that Apex hooks. With VSlot, GetSlot's comparer calls stay compiled, so its frame sits under those calls far more often.
+
+Fix: a helper fault counts as ours only when eip lies in TS3W.exe, MSVCR80.dll or ts3native.asi (the images a body's helpers live in; ranges taken at `JitFrInstall`). A fault in any other module returns `EXCEPTION_CONTINUE_SEARCH` with nothing touched: no ban, no `frPassed`, no `jit: fault` line. A fault whose eip is inside the region is handled as before. It is counted in `g_jitFrForeignN` with the first eip, and the tick logs at most every 5 min, only while the count grows: `jit: foreign faults left alone: <n> first-chance faults in other modules with a compiled body further up the stack, first at <module>+0x<off> (docs/537 §29a)`. The module lookup runs in the tick, not the handler, because it takes the loader lock. The game's handlers see the fault exactly as before; only the false ban goes.
+
+Shipped builds: release/v0.3.0 has the same handler (FaultRecover is ON there). Across the 2658 `*-ts3native.log` files in probe-out/queue, the misattribution shows only in this VSlot run, so 0 methods were lost in non-VSlot runs [verified, counted]. Without VSlot a compiled body rarely sits under an Apex-hooked call. A player's session can still hit it [inferred]; the new tick line will show it.
+
+Selftest `TestMonoJitFaultRecover`: the helper case now runs with the test exe's own image as an own range (passed on, method off, as before); then the same context with no own range: untouched, `frPassed` unchanged, method on, foreign count 1. The monohost has no vectored handler, so there is no host case.
+
 ## 30. Table grow: the method table past 4096 (2026-11-14, branch `feature/monojit-table-grow`, ts3native 0.36.257, no counter change) — built, NOT RUN
 
 **Which table [verified: counters + source].** The `jit-bundle-ab-1113` ON runs (`probe-out/queue/jit-bundle-ab-1113-2026-11-13-<bp|ip|sv>-jb-abba-on-<1|2>-*-native.json`, `Mode=1`, `MaxMethods=4096`, `CodeKB=8192`) end with `jitMethods` = `jitMethCap` = **4096** in all six, `jitTableFull` 1147-1435, `jitRefused` 1177-1466, `jitFullN` 0, region 6944-6986 of 8192 KB. So it is the method table `g_jitMeth` (cap `g_jitMethCap`), refused at `native/ts3native/monojit.cpp` `JitCompile` (`if (g_jitMethN >= g_jitMethCap) return ts3native_counters.jitTableFull++, "method table full";`, line 1212 at 5ec1797a). Not the ip hash table (`JitAdd` "ip table full" 0), not positions ("position table full" 0), not lazy cells / guard sites (they fail silently, no refusal), not the region (`jitFullN` 0). The table does not fill early: it fills **at** MaxMethods. At load 3395-3505 methods are compiled already; 10 min of play adds ~1.8-2.1k more first-used candidates, mostly closed generic types (each `List<T>` / `Dictionary<K,V>` / enumerator instantiation is its own runtime method, so `List`1.Add` compiles once per T). Demand ~5.2-5.5k a 10 min run, matching §26's BP count run (~5600 eligible).
@@ -854,3 +876,144 @@ Queue `tools/harness/queues/mono-jitfault-correct-1115.json` (PREPARED, NOT RUN,
 **D2 `[MonoJit] CellHash` (default 0).** `JitLazyCellFor` keeps its linear scan; with `CellHash=1` an open-addressed index (slot = cell index + 1, size the power of two >= 2 x cells, 64 KB heap at 8192) answers instead. Cells stay append-only and reset only to 0, so a slot whose index is >= N counts as free and a reset clears the index on the next lookup. Selftest `TestMonoJitCellHash` [verified: native selftest]: 20000 lookups over 700 rm values (two spacings, colliding low bits) with a 600-cell cap and a mid-run reset give the same cell index (or NULL at the cap) as the scan in every call. Log `OK   mono jit cell hash: CellHash=1, <n> slots for <cap> cells`. Gain is static (a guard fill hit: ~0.63 us scan at ~5.5k cells vs a few probes) and only matters above ~430 fills/s [inferred, §26 bench]; the fill rate comes from the `mono-jitsmall-time-1115` run.
 
 **Host bench cases ported.** The unmerged bench branches' cases (feature/jitbench-newvt case 35, -ldsflda case 35, -groups cases 35-39) collided with master's 35-52; they are now HostTest.JitBench cases 53 (JitVt, NewVt), 54 (JitLs, Ldsflda), 55-59 (Groups families). Smoke 2026-11-15 (core 2, 1 x 1, game chain running, noisy) [measured]: checksums equal interp vs compiled for all seven. The branches' raw-rows column in tools/jit-piece-bench.ts was not ported (two different versions; summary rows unchanged). Rerun a piece: `node tools/jit-piece-bench.ts --cases 53 --arm base: --arm nv:MONOHOST_JITNEWVT=1 --rounds 2 --reps 9 --core 2` (54: `MONOHOST_JITLDSFLDA=1`; 32-34: `MONOHOST_JITFASTCOPY=1`; 45-48: `MONOHOST_JITRETTD=1`), quiet machine.
+
+## 31. M2: `[MonoJit] YRows` compiles `Motive.UpdateMotiveWithDecay` (2026-11-16, branch `feature/m2-motive-jit-1116`, built + host corpus, NOT RUN, ledger §496)
+
+docs/275 §4.3 (branch `feature/g3-rewind-measure-1116`) ranks M2 third for motive decay: the method is 2-3 ms/s of interpreted self time, stays out of the list only because jit-hot classes it Y (it can reach a yield), and the estimate is 1.0-2.3 ms/s if the compiled body does not exit too often.
+
+**Why class Y is safe here [verified, static].** The Y closure is only the two store-object overrides of `Posture.GetPostureMotiveDecayUpdate`: BabySwing `InSwingPosture` (calls `StartChildNapping` / `StopChildCrying`) and WalkerClassic `InWalkerPosture` (calls `ClearInvalidInteractions`) (docs/275 §4.3). Neither override is listed. In the compiled body the posture callvirt is a guarded site: `JitGuardFill` finds no lazy cell for an unlisted target, and with BoundCall the bound path bails on `bound == 0`. The site therefore exits to EA's callvirt handler, so the override runs interpreted on EA's frame. `UpdateMotiveWithDecay` has no lazy body (two finally clauses; not on `kJitClauseOk`), so its own frame is EA's too. A yield inside the override suspends the interpreter frames as vanilla; the resume dispatches the caller's patched word after the call and continues in compiled code (§5 of docs/223).
+
+**Built.**
+- `tools/jit-hot.ts`: `Y_ADMIT` (hand-checked Y rows with the reason) and the verdict `opt-in Y ([MonoJit] YRows=1)`. `--emit-native` writes those rows to `kJitYRows` in `monojit-list.h`; today there is one row (`Motive.UpdateMotiveWithDecay`, IL 5132 bytes, sha256 `a08afbd9…`). `--game-count <log> --method Class.Method` prints executions, exits per execution, exits by opcode and call-exit sites taken. `docs/data/jit-hot.csv` row 22 carries the new verdict.
+- `native/ts3native/monojit.cpp`: `[MonoJit] YRows` (default 0; ini key under `ClauseLazy`) adds `kJitYRows` to `JitListed` and `JitHashKnown`. A size or hash mismatch refuses as for every row. The OK line ends with `YRows=<rows in force>`. With Count=1 and YRows=1, each Y method gets one `jitcount yrow <name>: entries N, ret exits N, other exits N, exit sites taken N, call-exit sites taken N` line. The line is outside the 4000-line cap, which can drop `jitexit` rows.
+- Native selftest: YRows off = not listed or known; on = listed and known; a wrong size is refused; no false name match; the yrow line appears only with YRows=1. Also fixed a page-straddle flake in the `PatchImm32` selftest (its buffer is now 16-aligned).
+- ts3native `0.36.268-motive1116`, `game-copy/ts3native.asi.m2y1116` (builds.json `ts3native.asi.m2-motive-jit-1116`).
+
+**Host corpus [measured, monohost].** `JitAcc.MotiveDecayCase` is corpus case 251 (`tools/jit-corpus.ts` `Y_ACCESSORS`). It drives the real method on 576 inputs (9 commodities x 64 shapes):
+- buffs and traits present or absent;
+- tuning decay types;
+- no interaction, an interaction with three deltas, a matching delta then null, or a `MotiveDeltas` getter that throws;
+- a stand-in posture override (`FxMotivePosture`) or none;
+- positive or negative values.
+
+Exceptions are caught in the fixture and hashed (type + first trace token). This is needed because the host interpreter loses a throw that leaves a case through a rethrow or reflection. Results:
+- Coverage per run: 294 / 384 returns (none / deltas), 1050 throws (600 in the method's own frame, through the foreach finally; 450 in a callee), 864 posture calls, 1152 getter calls.
+- Case 251: 0 differ, 0 unstable.
+- Full corpus: 273 cases, 1 differ (the known case 110 `JitKO.S1AF`, stack text), per-call verify MISMATCH 0. The method also ran 576 times inside verified callers.
+- **Yield task** (`HostTest.JitMotiveYield`): a scheduler task whose posture override sleeps (yields) inside each call, 18 calls, run interpreted and then compiled: `interpreted 63EA95D1 in 19 runs, compiled 63EA95D1 in 19 runs: same`. This is the dynamic proof that the override's exit, the yield and the resume into compiled code work.
+
+**Early warning [measured, host count].** `MONOHOST_JITCOUNT=1` on case 251 lists 233 call-exit sites (83 taken) and about 19 non-ret exits per compiled call: callvirt ~11, call ~4.6, ldc.i8 ~1.9, endfinally / leave.s ~0.7. That is far above jit-hot's 0.1 exits-per-execution veto. Host inputs over-weight throws and posture calls, so the game number decides.
+
+**Queues (NOT RUN).**
+- `m2-motive-correct-1116` (RUN FIRST): BP + IP, 10 min, YRows=1, Mode=2, Count=1. It requires the version, the OK line with `YRows=1`, the method compiled, a yrow line with entries > 0 and a jitcount end. It forbids MISMATCH, faults and `FAIL mono jit`; script errors 0. Household: the compiled body is exact for every Sim, so household untouched = jitMismatch 0 + jitFaults 0 + script errors 0 (no gate needed, Rodney's brief). Read the yrow line plus `node tools/jit-hot.ts --game-count <log> --method Motive.UpdateMotiveWithDecay`.
+- `m2-motive-time-1116` (needs quiet machine; only after the correctness queue passes): ABBA YRows 0/1 on BP then IP, 10 min, Mode=1, Count=0, smoke first.
+- **Stop rule:** park M2 (YRows stays 0) when the pooled gain is under 1.0 ms/s on BP and on IP, or when the correctness job's exits per entry already eat the modelled gain (skip timing then).
+
+### 31.1 First run: the simler90 core's twin body (2026-11-17)
+
+`m2-motive-correct-1116` bp FAILed with no compile line [verified, log]: `jit: Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay refused: the IL hash is not a known one (5132 bytes, sha256 e2bc359b31a349ed...)`. The test Mods hold `simler90GameplayCoreMod-UPDATE242-Steam.package`, whose Sims3GameplaySystems rebuild carries this method with renumbered metadata tokens: same 5132 bytes, 895 bytes differ, all in token operands; the token-resolved shape (`ilShapeBody`: header, locals, code, clauses) equals EA's [verified, static, `game-copy/simler90-242/dll`]. The row held only EA's hash (`a08afbd9…`), so the hash guard refused it as designed. `tools/jit-hot.ts --emit-native <EA dir> --alt <simler90 dll>` now adds a Y body of the alt assembly when its shape equals one of EA's (`shapeTwins`); a changed body never joins. kJitYRows has 2 bodies, so the OK line reads `YRows=2` with YRows=1. ts3native 0.36.269-motive1117 (`game-copy/ts3native.asi.m2y1117`), rerun queue `m2-motive-correct-1116-rerun1-1117`. `m2-motive-time-1116` still pins m2y1116 and needs the same repin (version, asi, `YRows=2$`) before it runs. The ordinary kJitRows are unchanged (their simler90 twins, e.g. the 11-byte `get_BaseType` getters, stay refused: a separate decision).
+
+## 32. `[MonoJit] HotReserve`: room for the YRows body at the shipped region size (2026-11-17, branch `feature/jit-hot-reserve-1117`, built + selftest, NOT RUN, ledger §501)
+
+**Problem [verified, log].** `m2-motive-correct-1116-rerun1-1117` (bp, Mode=2, master-1116c ini base CodeKB=8192 / MaxMethods=4096) logged `Motive.UpdateMotiveWithDecay refused: code region full`. It was the first region-full refusal, and at save the region held 8188 of 8192 KB in 4080 methods. The first run's log (`m2-motive-correct-1116`, same ini) shows the same fill: `code region 8188 of 8192 KB, 4084 methods, 1075 refused "code region full" asking 22732 KB`. Compiles are first come, first served at each method's first transform. The ~4k general bodies (one runtime method per closed generic, §30) come before the hot row's first transform. At shipped sizes a player with YRows=1 would never get the method compiled. The queue workaround (rerun2: CodeKB=16384) costs +8 MB of 32-bit address space.
+
+**Data used.**
+- Region fill: 4084 bodies in 8188 KB, ~2.0 KB a body in Mode=2 with Count=1. The 1075 refused bodies asked for 22732 KB of bound, ~21 KB each, so the bound sits far above the real size.
+- The Y body [measured, monohost `MONOHOST_JITLAZY=1`, corpus case 251, `jit-dump.txt`]: 3931 mint words, 1686 positions (1474 native, 212 exits), 120873 bytes of code. The median compiled body in the same dump (480 bodies) has 16 positions.
+- `JitCompile`'s refusal bound is `need = ((Direct ? 768 : 256) + (Count ? 256 : 0)) x positions + 2 x words + 512`. It is checked before emitting, because the emitter has no end check. For this body: 1694 KB with Direct + Count=1, 1273 KB with Direct, 431 KB with neither. The reserve must cover the bound, not the ~118 KB real size.
+
+**Design.** Two alternatives were rejected. Evicting low-value bodies is unsafe: compiled code has live ip-table entries, lazy cells and possibly frames on the stack. Compiling hot rows first at startup needs new machinery: a method compiles only at EA's transform, and forcing one is new code. Instead, with YRows=1 and `HotReserve=1` (default), while any Y key is pending:
+- a general body may not take the last `g_jitHotBytes` of the region (`code region full (HotReserve)`), the last method slot per pending key (`method table full (HotReserve)`) or the last 1792 positions (`position table full (HotReserve)`). Each refusal counts `jitHotHeld`.
+- a Y row compiles as before and may use the whole region.
+- a Y key is settled when it compiles or is refused for any reason except `another thread`. When every key is settled, the reserve is released (`jit: HotReserve released (...)`, `jitHotKB` 0) and general bodies may use the room again.
+- the reserve is the bound formula for 1792 positions / 4096 words (measured + ~6%) under the session's Direct / Count: 1800 KB (Direct + Count=1), 1352 KB (Direct), 456 KB (neither), at most half the region. It logs `OK   mono jit hot reserve (docs/537 §32): HotReserve=1, <KB> KB of the <KB> KB region, ...`; the OK line itself is unchanged.
+- the Y body's `jit: compiled` line is now outside the 256-line cap, because it comes after ~4k others.
+
+**Address space.** None added: the reserve lives inside `CodeKB`. The cost: a general body whose first transform lands while the reserve is held is refused for the session (a refusal is final). That is at most one reserve's worth (1352-1800 KB, ~650-900 bodies at ~2 KB), and only when the region would otherwise fill before the Y transform. After the release, 1.2-1.7 MB of the bound comes back, since the body uses ~120 KB. The general bodies that lose out are the tail of the transform order: those not reached in the first minutes [inferred, I-501-2].
+
+**Default.** `HotReserve=1`, but it acts only with `YRows=1` (default 0), so shipped behaviour is unchanged. It counts as a fix of YRows: without it, YRows does nothing at the shipped region size in Mode=2.
+
+**Shortcut.** One method's room covers all Y keys (today one key, two twin bodies). Size it per key when a second Y key is admitted.
+
+**Built.**
+- ts3native `0.36.270-hotres1117` (`game-copy/ts3native.asi.hotres1117`, builds.json `ts3native.asi.jit-hot-reserve-1117`).
+- Counters v206: `jitHotHeld` 0x6578 and `jitHotKB` 0x657C, after v205 `gcg*` (in the master struct since 0.36.273-hotres2, which filled the `resV206[2]` slot). `tools/probe/agent.js` names them.
+- Native selftest:
+  - YRows=0 means no reserve.
+  - A general body that fits the region, but not the region minus the reserve, is held.
+  - The last method slot is held.
+  - `another thread` and a foreign name do not settle the key.
+  - The Y body compiles into the reserve and releases it.
+  - The general body then compiles.
+
+**Queue (NOT RUN).** `jit-hot-reserve-correct-1117` (correctness, BP + IP 10 min, YRows=1, Mode=2, Count=1, CodeKB=8192, MaxMethods=4096 = shipped, HotReserve=1).
+- Requires: the version, the OK line at 8192 / 4096 with `YRows=2`, the hot-reserve line at 1800 KB, the method's compile line, the release line naming it compiled, a `jitcount yrow` line with entries > 0, and `jitcount: end`.
+- Forbids: MISMATCH, faults, `FAIL mono jit` and any `UpdateMotiveWithDecay refused`.
+- nativeRequire `jitHotKB<=0`; script errors 0.
+
+It supersedes `m2-motive-correct-1116-rerun2-1117` (dropped at the 11-17 merge, never run), which has two problems [verified, monojit.cpp + the 1116 log]. Its `^jit: compiled .*UpdateMotiveWithDecay \(` regex cannot match the real line (`NAME: N positions, ...`). Its asi (m2y1117) also caps compile lines at 256. So rerun2 would FAIL hollow on that regex even if the method compiled; its `jitcount yrow` line is still a valid proof.
+
+**First run FAIL: the Y key is renamed by our own ts3fixes swap (2026-11-17, chain-1117i, bp-hotres-correct; branch `bugfix/jit-yrow-swap-alias-1117`, 0.36.274-yalias1) [missing transform verified in the log; the stub name `Motive.DecayOrig` inferred from `Fixes.SwapMethod` + `JitMethodName`, the rerun confirms it].** hotres2 with ts3fixes `dalexlol-1117b`: no log line names `UpdateMotiveWithDecay` (not compiled, not refused), `jitHotKB` stays 1800 to the end and 2147 general compiles were held back (`code region full (HotReserve)`), region 6388 of 8192 KB. The 11-16 runs (ts3fixes `master-1116c`) transformed it right after the world load. Cause: ts3fixes `motivemultonce` (PR #485, docs/589 B11 §2, on by default, patched unconditionally in `Fixes.Apply`) swaps `Motive.UpdateMotiveWithDecay`. `Fixes.SwapMethod` copies the header but keeps each method's own name, so EA's body (and its class pointer, Motive) moves into the stub and is transformed as `Sims3.Gameplay.Autonomy.Motive.DecayOrig`; the key name now carries `BMmHook.DecayHook`'s IL. Neither name ends in the key, so `JitOne` returned "not listed" silently and the reserve was never settled. Fix: `kJitYAlias` / `JitYEnds` in monojit.cpp. A Y key also matches its swap stub's name on the same class (`Motive.DecayOrig`) in `JitListed`, `JitHashKnown` (EA's IL hash still required), `JitHotKey` (settles the one key) and the `jitcount yrow` line. Selftest: stub listed + hash known, wrong size refused, `BMmHook.DecayOrig` / other classes not. Deadline (0.36.274-yalias2): the reserve holds for at most `JIT_HOT_DEADLINE_MS` (300 s) after its first held compile (`JitHotHeld` starts it, `JitHotHold` checks it, signed tick compare), then goes back to general compiles with one line `jit: HotReserve released (deadline: N YRows keys not transformed 300 s after the first held compile) ...`; selftest drives it past the deadline. Scan for the same collision (every ts3fixes / ts3agent `Patch(typeof(T), "M")` and direct `SwapMethod` target against every name key in native/ts3native, incl. the 117 + 2 JIT rows): only `Motive.UpdateMotiveWithDecay`; `Dictionary`2.ContainsKey` is only read by reflection (RefTable probe), not swapped. Rerun: `jit-hot-reserve-correct-1117-rerun1-1117` (regexes accept either name; the deadline line is forbidden). Without YRows=1 nothing changes.
+
+## 33. `0xE525C0` call convention re-check: the "call EA's bound body directly" item is §22 (2026-11-17, static, no build, ledger §507)
+
+`probe-out/mono-build-list-1117.md` item #8 listed "a guarded site calls EA's bound body directly (the `0xE525C0` path)" as unbuilt, from the §21.2 "next shape" paragraph. That shape is §22 `[MonoJit] BoundCall` (`monojit-bound.h`, `JitBoundCall`, `g_jitBoundEntry` = `0xE525C0`), default ON since b0507f79. Nothing in the item is left to build for the two `String` rows.
+
+Convention, read again in the Steam 1.67 bytes [verified, disassembly `0xE525C0`-`0xE52621`]:
+
+- **cdecl, two stack arguments `(MonoInvocation* frame, ThreadContext* ctx)`**: `[ebp+8]` = frame, `[ebp+0xC]` = ctx; plain `ret`, the caller pops 8 bytes. Prologue `55 8B EC 83 EC 48` (as docs/206 §17 states for the Satb detour).
+- Saves ctx+0x10 (jmp_buf pointer) and ctx+0xC (env frame) in `[ebp-4]` / `[ebp-8]`, then `_setjmp3(&jb, 0)` (`0xF7EE92`, jmp_buf at `[ebp-0x48]`). Return path of a longjmp: restores both words and returns.
+- Normal path: ctx+0x10 = &jb, ctx+0xC = frame, `call [[frame+4]+0x24]` with `(frame, ctx)` pushed (cdecl, `add esp, 8` after), restores both words, returns.
+- **No usable return value**: `eax` holds the restored ctx+0x10 word at `ret`. The result is in the caller's slot that frame+8 points at; an exception is in frame+0x20. Registers: `esi` saved / restored here; `ebx` / `edi` / `ebp` are the invoker's to keep (cdecl callee-saved), and `ecx` / `edx` are clobbered.
+- ctx+8 (current frame) is not touched by `0xE525C0`; the caller sets and restores it (EA's `ves_exec` at the call path, `JitBoundCall` in ours, §22.2).
+
+What is still open is the scope, not the convention: §22.4 allows only `String.GetHashCode()` and `String.Equals(string)`. Any other bound body needs its own row (byte hash, purity proof, corpus case), and which native callees still bail after BoundCall is I-484-2, answered by one `Count=1` game run (`jitcallee ... native=1 bound=0` lines). Until that count names a callee with a real share, a third row has no measured target [inferred, I-507-1]. No code change from this check.
+
+## 34. Core mods: the token-normalized IL hash (`[MonoJit] CoreModMatch`, 2026-11-20, branch `feature/jit-coremod-1120`, ledger §562)
+
+**Why.** A tester's diag kit (ts3native 0.36.276, i5-7400, 743 packages) logged 34 named `the IL hash is not a known one` refusals, then the 32-name cap hid the rest [verified, log]. The core mods there re-emit EA assemblies: simler90's gameplay core mod replaces `Sims3GameplaySystems`, NRaas ErrorTrap replaces `ScriptCore`. An 8-byte `ldarg / stfld tok / ret` or an 11-byte `ldtoken tok / call tok / ret` body can only differ in its token operands, so the exact SHA-256 gate (`JitHashKnown`, docs/527 §4.2) refuses unchanged EA bodies. `InteractionObjectPair.Equals` (13.4% of that PC's sim CPU) is a list row in `Sims3GameplaySystems` and very likely among the hidden refusals [inferred, I-562-3]. Our own harness Mods hold the same two core mods (`simler90GameplayCoreMod-UPDATE242-Steam.package`, `NRaas_ErrorTrap.package`): the 11-15 table runs logged 35 such refusals [verified, `mono-jitsmall-table-1115-mm` summary line].
+
+### 34.1 What was built (all default off)
+
+- `monojit-norm.h` `JnNormSha`: decodes the body (ilpatch.cpp `IlpDecode`), copies every non-token byte as is and replaces each token operand by what it names, read from the assembly's own metadata (a small ECMA-335 reader over the PE bytes: `#~`, `#Strings`, `#US`, `#Blob`, all 45 table schemas, coded index sizes). Types: namespace + name, nested types with the enclosing chain, TypeDef and TypeRef give the same text (assembly scope left out), TypeSpec by its signature. Members: `F` / `M` by the signature's first byte (MethodDef and MemberRef alike), owner type + name + signature with every embedded type named. MethodSpec: the method + its instantiation; StandAloneSig (calli): the signature; `ldstr`: the `#US` bytes. Form tag `jn1`. Anything it cannot name (an unknown table, a cut blob, `#-` / Ptr tables) = no hash = refused as before.
+- Input in game: MonoMethod +8 class -> MonoClass +0 image (docs/104 §4 [verified]) -> MonoImage +0x08 `raw_data`, +0x0C `raw_data_len` [verified: `mono_image_open_from_data_full` `0xE84780` stores the (copied) data at `0xE847F3 mov [esi+8], edi` and the length at `0xE847F6 mov [esi+0xC], ebp`; closes I-905-1]. The body must lie inside those bytes (checked); an [IlPatch]-rewritten body does not, and keeps the exact-hash path.
+- `JitOne`: the exact hash stays the first check; only when it misses and `CoreModMatch=1` does `JitNormKnown` compare the normalized hash with `kJitNormRows` (and `kJitYNormRows` with `YRows=1`), same name rule. Log: `OK   mono jit core-mod match (docs/537 §34): CoreModMatch=1, N normalized rows + M YRows, form jn1` (own line: the main OK line's `YRows=N$` regexes stay valid), one `jit: <name> matched by the token-normalized IL hash (<n> bytes, ...)` per method (first 256), and the refusal summary ends with `; N matched by the normalized hash` (only with the switch on). A normalized match does not count for the ClauseLazy allow list (`kJitClauseOk`, EA bytes: `Array.Copy` in mscorlib, which no core mod replaces).
+- Rows: `tools/jit-hot.ts --emit-native` asks the game's own normalizer for every row body (`selftest.exe --jitnorm <dll> <header offsets>`, `NORM_RE` with regexCases in its self-check), so the offline rows and the in-game hash come from one implementation. `--norm-check <EA dll> <core mod copy>` compares the normalizer with `managed-callgraph.ts`'s token-resolved shape (`ilShapeBody`) per method id. `tools/jit-coverage.ts listRows` reads only the EA-body tables.
+- **Exactness** [verified, code]: `JitCompile` works on the mint code EA's transform built for the loaded body; every operand it emits comes from that runtime method's data items (`items[u16]`: classes, call targets, field offsets, strings), which EA's transform resolved through the loaded module. No EA token value or EA field offset is baked into a template, and no compile path is keyed to a method name beyond the list gate (YRows aliases and FaultRecover bans are names, not layouts). So a body that is EA's up to token numbers compiles to code that is exact for the mod's module. Household rule: n/a (exact code, every Sim).
+
+### 34.2 Side items
+
+- **Refusal names**: `JIT_REF_NAMES` 32 -> 256 per reason (the per-reason counts were already in the summary line).
+- **Method table full right after load**: not a leak. The shipped ini still had `MaxMethods=4096` / `CodeKB=8192` (master kept them "until the §30 queue passes"). Every closed generic type is its own runtime method and load-time methods compile too, so a big mod set fills 4096 during the world load. The §30 queue passed on 2026-11-15 (BP, IP, SV, CellHash: 5741 methods in 8926 of 12288 KB, no table full [verified, results file + log]) and was never applied. **Applied now (Rodney via coordinator, 11-20): ini `CodeKB=12288`, `MaxMethods=8192`** (the code defaults were already these). **Memory: +7.2 MB of address space** with the JIT on (18852 vs 11512 KB: the larger code region, method / position / lazy-cell / guard tables; the ip table is sized for 8192 either way), not just RAM; no Error 12 claim either way. With CoreModMatch more methods pass the gate, so the table matters more. Also built: one `jit: the method table is full at N methods (MaxMethods=..., CodeKB=...)` line per session. Queue pins: 86 log regexes name a table size, all in jobs that set `MonoJit.CodeKB` / `MaxMethods` themselves (table tests, kept exact); none pins the ini default [verified, scan of tools/harness/queues], so no queue changed. On the v0.3.1 switch-on test list (probe-out/release-next-plan.md).
+- **PcCheck few cores** (docs/299): the advice fired on every PC with <= 4 cores and blamed "our worker threads (N)", which are mostly idle monitors. Now it needs `busy game threads + other programs' cores + 1 > cores` only, reports how many of the busy threads are ts3native's, and says "compete" only when ours average >= 0.5 busy threads. Summary text shows the busy-ours figure too. Selftest fixtures for the three cases.
+
+### 34.3 Tests
+
+- Selftest `TestJitNorm`: a synthetic one-module assembly built in memory, and the same members in the other row order (different token numbers, as a re-emit): exact hash differs, normalized hash equal; another callee name differs; a body outside the image bytes, cut metadata, a `#US` row past the heap and a token in a nameless table give no hash; `JitNormKnown` off / on / wrong name / wrong size / foreign image.
+- Offline on the real core mods: see §34.4.
+
+### 34.4 Results
+
+Offline, Steam 1.67 EA assemblies vs the harness Mods' core mods [verified, `tools/jit-hot.ts --norm-check` with build 0.36.298-coremod1's normalizer]:
+
+| pair | methods in both | byte-identical IL | shape equal (`ilShapeBody`) | normalized equal | disagree |
+|---|---|---|---|---|---|
+| `Sims3GameplaySystems` vs simler90 UPDATE242 | 72669 | 3937 | 72013 | 72013 | 0 |
+| `ScriptCore` vs NRaas ErrorTrap | 2635 | 65 | 2620 | 2620 | 0 |
+
+So the exact hash refuses ~95% of unchanged EA bodies under these core mods; the normalizer and the independent TS shape agree on every method, and every body has a normalized hash. List bodies these copies carry: `Sims3GameplaySystems` 2 by the exact hash, **40 by the normalized hash** (38 `*Component.get_BaseType`, `ScriptObject.get_Proxy`, `Enumerator.MoveNext` / `..ctor`); `ScriptCore` 0 exact, **3 normalized** (`ScriptProxy.get_ObjectId`, `Enumerator.MoveNext` / `..ctor`). Rows: 117 bodies -> 117 normalized rows + 1 YRows row (`Motive.UpdateMotiveWithDecay`; its --alt twin needs no row).
+
+**Correction to the tester triage:** `InteractionObjectPair.Equals` is not on the compile list at all (`jit-hot.csv` verdict "template first: callvirt, 0.3 exits per execution"), so it was never compiled, core mod or not; I-562-3 is refuted. Its 13.4% on that PC is the O(n^2) `List<InteractionObjectPair>.Contains` duplicate check (tester triage §5), a separate EA-perf item.
+
+Build `ts3native.asi.coremod-1120` (0.36.298-coremod1) + `ts3native.ini.coremod-1120`; native selftest ok (first run hit the known `SrRetry` timing assert under load, `UsSince < 1000 us`; rerun ok). Queue `tools/harness/queues/jit-coremod-correct-1120.json` (correctness + coverage, 4 jobs ~65 min, dry-run clean): BP off vs on (Mode=1) for the coverage numbers, BP + IP Mode=2 verify with CoreModMatch=1 for exactness. NOT RUN.
+
+### 34.5 Kit 1121.k2 sizing: ip table 2^19, MaxMethods up to 16384, CodeKB up to 24576 (2026-11-21, built, not run)
+
+Kit k1 on a tester's PC (retail, ~1070 packages, core mods) filled the code region: 12285 of 12288 KB, 8059 methods,
+1555 refused [verified, his ts3native.log]. ~1.52 KB a body, so ~9.6k bodies wanted ~14.6 MB.
+Change (branch `feature/coremod-kit2-1121`, 0.36.298-mkit2): `JIT_TAB_N` 2^19 (JitEnter's and-mask `0x7FFFF`, a
+static_assert ties the two), `JIT_METH_MAX` 16384 (`MaxMethods` default stays 8192, `JIT_METH_DEF`), `CodeKB` clamp 24576.
+Cost: the ip table is 8 MB instead of 4 MB, committed whenever the jit is on, at any MaxMethods. Kit ini: `CodeKB=18432`,
+`MaxMethods=12288` (selftest: 16384 methods + 24 MB code = 37764 KB of address space; 12288 / 18 MB is less). Release ini
+unchanged. Smoke queue `kit-k2-smoke-1121` (Steam build of the same source, kit diag ini; version, the Mode=1 line with
+18432 KB / 12288 methods, `@jitMethCap>=12288`, no mismatch / fault). I-566-2.

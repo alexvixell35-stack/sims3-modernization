@@ -176,13 +176,14 @@ Rodney: both switches ON in the 11-13 release if tested and safe; `unseenboatsta
 
 **Queue** `tools/harness/queues/unseenboat-release.json`, pass lines in its note. `verify-shortcut.ts` now fails on `left_dirty` > 0 and has `--soft-tries`; `ip-houseboat-leave-loop` keeps only `left_dirty<=0` in its own `fixesRequire` (the old queue sets its floor of 3 at job level).
 
-## 12. Wider skip: switch `unseenboatwide` (2026-11-19, default off, NOT RUN)
+
+## 12. Wider skip: switch `unseenboatwide` (2026-11-19, default off; ran in s138 without a recorded pass)
 
 Rodney: unseen NPCs should never take a boat; only Sims the player can see use boats. Off screen a crossing ends with the Sim placed at the goal after the travel time (EA's placement calls, nobody deleted); Sims in view keep EA's exact behaviour.
 
 ### 12.1 What still refuses (run `phase-20261119-1837`, IP, ~20 min, `unseenboat` + `unseenboatstart` + `unseenboatgenboat` on) [measured, counters]
 
-`leak-5.json` slots 836-855: candidates 614, shortcuts 85 (houseboat 46), `released_seen` 190, `rj_goal` 123, `rj_sim` 109, `rj_route` 100, `rj_unknown` 19, `rj_owned` 3, `no_spot` 3; houseboat leaves 97 candidates, 5 shortcuts; `unseenboatgenboat` let 84 generated boats through (4060), which is why `rj_owned` is 3. All 369 get-in replans were unseen (838). `ts3native-full.log`: 128 `ufplan: kind 3 ... why -1 src Boat*` lines >= 150 ms, 27.0 s (sail 36, speed 31, speed fishing 29, water scooter 23, taxi 7, paddle 3; the private kinds are `GetNpcBoat` boats, docs/639 §2). Top drivers: Aislara Alvarez 11, Tariq Scott 8, Hinni Hashini 7, Doug Rodel 6.
+`leak-5.json` slots 836-855: candidates 614, shortcuts 85 (houseboat 46), `released_seen` 190, `rj_goal` 123, `rj_sim` 109, `rj_route` 100, `rj_unknown` 19, `rj_owned` 3, `no_spot` 3; houseboat leaves 97 candidates, 5 shortcuts; `unseenboatgenboat` let 84 generated boats through (4640, `unseenboatgenboat`; 4060 on the combo branch), which is why `rj_owned` is 3. All 369 get-in replans were unseen (838). `ts3native-full.log`: 128 `ufplan: kind 3 ... why -1 src Boat*` lines >= 150 ms, 27.0 s (sail 36, speed 31, speed fishing 29, water scooter 23, taxi 7, paddle 3; the private kinds are `GetNpcBoat` boats, docs/687 §2). Top drivers: Aislara Alvarez 11, Tariq Scott 8, Hinni Hashini 7, Doug Rodel 6.
 
 **No refusal sample in this run:** `leak-5.json` has no `fixActivity` list, so `unseenboat_log` was not read out. The split below is the code's sub-rules per counter, ranked with the last run that had `unseenboat_ms` rows (docs/247 §12.1) [inferred for this run].
 
@@ -194,7 +195,7 @@ Rodney: unseen NPCs should never take a boat; only Sims the player can see use b
 | `rj_unknown` 849 | `UfSameComponent` 0: no single flood colour within 12 m of the start or its lot entry, or of the goal or its lot entry | 207 of 223 were houseboat starts before `unseenboatstart` (§10); now 19 |
 | `rj_owned` 844 | `GetOwnedAndUsableBoat` non-null or `disallowedOnlyTemporary`; generated NPC boats pass with `unseenboatgenboat` | owned boat 82 before `unseenboatgenboat` |
 
-[verified, decompiled] `EndAsBoat` / `DestinationMustBeInDeepWater` are set true only by water-purpose code: `BoatHere`, `BoatHereWith`, `SwimHere`, `SwimAroundInOcean`, `Pool`, `MarineLifeSurfaceSpawner` (scuba), `Lifeguard`, the boat's own routes (`Boat`, `BoatRoutingComponent`, `WindSurfboard`, `PositionBoatForAttack`, `Terrain` boat placement) and `EnterHouseboatThroughBoat`'s sub-route. A Sim route that "ends as a boat only because EA picked a boat" does not exist: the vehicle choice is the native multi-mode plan (docs/639 §2), which sets neither option. So that rule stays.
+[verified, decompiled] `EndAsBoat` / `DestinationMustBeInDeepWater` are set true only by water-purpose code: `BoatHere`, `BoatHereWith`, `SwimHere`, `SwimAroundInOcean`, `Pool`, `MarineLifeSurfaceSpawner` (scuba), `Lifeguard`, the boat's own routes (`Boat`, `BoatRoutingComponent`, `WindSurfboard`, `PositionBoatForAttack`, `Terrain` boat placement) and `EnterHouseboatThroughBoat`'s sub-route. A Sim route that "ends as a boat only because EA picked a boat" does not exist: the vehicle choice is the native multi-mode plan (docs/687 §2), which sets neither option. So that rule stays.
 
 ### 12.2 What the switch relaxes (transport trips only; houseboat goals and starts keep §2 / §10)
 
@@ -216,3 +217,8 @@ Rodney: unseen NPCs should never take a boat; only Sims the player can see use b
 `UnseenBoatWide.cs` (game side) and `UnseenBoatWideCore.cs` (`UbWideCore`, pure). `UbTrip` / `UbGate` / `UbGo` carry the rule bits and the party as locals (the wait yields, so no statics), and with the switch off every branch is the old one. Counters [4181-4195] (agent `unseenboatwide_*`): gate passes per rule `hhlot`, `indoor`, `verdict`, `group`, `followers`, `child`, `unknown_cross`; then `unknown_same`, `owned`, `members_placed`, `party_refused`, `no_street`, `errors`, `shortcuts` (subset of 839), `member_left`. Log `unseenboatwide: pass <rules>, <Sim> N m, party N, goal <lot>` (10 a minute); the shortcut line names the rules. Selftest `tools/selftest/unseenboatwide` (ok). Repro `ip-unseen-boat-wide` (Baseline-IP, off/on arm, the `ip-unseen-boat-loop` steps, `unseenboat` on in both arms).
 
 **Not verified:** fires and gain (no run); `Lot.EntryPoint` and the mailbox slot passing `IsPointRoutable` on IP lots [inferred]; party members placed while their own follow route runs, as D's `UfMoveGroup` does [inferred]; that a follower placed next to the leader joins `DoRouteWithFollowers` from there [inferred]. Read the `rj_*` deltas between arms and the `unseenboat_log` rows; `unseenboatstart_left_dirty` and stuck Sims must stay 0.
+
+### 12.4 Run (2026-11-19, s138, `phase-20261119-2149`, Isla Paradiso, phase 1 idle off, phase 2 idle on)
+
+The unseen boat shortcuts (839) went 2 -> 8 over the on phase; no `unseenboatwide:` pass line was written and the leak
+census did not read out slots 4181-4195, so whether a relaxed rule passed is not known. **Not proven.**

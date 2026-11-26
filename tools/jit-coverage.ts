@@ -23,7 +23,8 @@ export const OUT = resolve(ROOT, 'native/monohost/out');
 const arg = (n: string) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : undefined; };
 
 export type Row = { key: string; size: number; sha: string };
-export const listRows = (h: string): Row[] => [...h.matchAll(/\{"([^"]+)", (\d+), \{([^}]+)\}\}/g)].map(m => ({ key: m[1], size: +m[2], sha: m[3].replace(/0x|,| /g, '') }));
+// the EA-body rows only: docs/537 §34's normalized tables (kJitNormRows, after them) hash a different form
+export const listRows = (h: string): Row[] => [...h.split('static const JitRow kJitNormRows')[0].matchAll(/\{"([^"]+)", (\d+), \{([^}]+)\}\}/g)].map(m => ({ key: m[1], size: +m[2], sha: m[3].replace(/0x|,| /g, '') }));
 
 // ---- IL side ----
 export type Edge = { offset: number; side: string };  // offset -1: the body's entry

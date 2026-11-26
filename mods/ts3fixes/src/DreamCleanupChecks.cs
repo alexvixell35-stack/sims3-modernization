@@ -27,8 +27,8 @@ namespace Ts3Fixes
         static object DreamCleanupCheckRun(string what)
         {
             int[] c = PatchCounters();
-            string counters = "dreamcleanup: unfiled 1114=" + c[1114] + ", woken filed 1115=" + c[1115] + ", seen with switch off 1116=" + c[1116]
-                + ", errors 1117=" + c[1117] + "; " + GlMembers(sDcMissing);
+            string counters = "dreamcleanup: unfiled 1114=" + c[2804] + ", woken filed 1115=" + c[2805] + ", seen with switch off 1116=" + c[2806]
+                + ", errors 1117=" + c[2807] + "; " + GlMembers(sDcMissing);
             if (what == "result") return counters;
             if (what != "run") return "dreamcleanup <run|result>";
             bool on = ShortcutOn("dreamcleanup");

@@ -14,7 +14,7 @@ using Sims3.Gameplay.Utilities;
 namespace Ts3Fixes
 {
     // EP batch 2 (docs/587 §7; leads docs/583 §7.1 G1 and §7.3 C1-C2, plus docs/587 §14b). Every switch off by default;
-    // none of these methods is changed by simler90 UPDATE242. Checks: EpBatch2Checks.cs. Slots 1466-1477 (block fixes-1400).
+    // none of these methods is changed by simler90 UPDATE242. Checks: EpBatch2Checks.cs. Slots 3899-3910 (block fixes-1400).
     public static partial class Fixes
     {
         // ---- EP2 §1 consignmentlastday (tuning kConsignmentLastDay) ---------------------------------------------------
@@ -27,7 +27,7 @@ namespace Ts3Fixes
         // lifespan does not roll a sale, so EA's own return branch mails it home that day (DaysRemaining reaches 0 on day 5).
         // Household-visible: consigned items sell on the last day and come back after it.
         // RE pass, not fixed (no trigger seen): an item whose object was deleted while consigned throws in the same loop.
-        // Counters: [1466] last-day prices / day-6 returns handled, [1467] would throw with the switch off, [1468] errors.
+        // Counters: [3899] last-day prices / day-6 returns handled, [3900] would throw with the switch off, [3901] errors.
         static readonly Type[] sCgTypes = { typeof(ConsignmentRegister), typeof(PotionShopConsignmentRegister), typeof(BotShopRegister) };
         static readonly Type[] sCgObj = new Type[3];
         static readonly PropertyInfo[] sCgAge = new PropertyInfo[3];
@@ -72,15 +72,15 @@ namespace Ts3Fixes
                 age = (int)sCgAge[i].GetValue(obj, null);
                 n = ((float[])sCgPrices[i].GetValue(null)).Length;
             }
-            catch (Exception) { PatchCounters()[1468]++; return orig(obj, desc); }
+            catch (Exception) { PatchCounters()[3901]++; return orig(obj, desc); }
             bool on = ShortcutOn("consignmentlastday");
             int idx = CgPriceIndex(on, age, n);
             if (idx == age)
             {
-                if (!on && n > 0 && age >= n) PatchCounters()[1467]++;  // EA reads kConsignmentPrices[age] out of range
+                if (!on && n > 0 && age >= n) PatchCounters()[3900]++;  // EA reads kConsignmentPrices[age] out of range
                 return orig(obj, desc);
             }
-            PatchCounters()[1466]++;
+            PatchCounters()[3899]++;
             sCgAge[i].SetValue(obj, idx, null);
             try { return orig(obj, desc); }
             finally { sCgAge[i].SetValue(obj, age, null); }
@@ -93,9 +93,9 @@ namespace Ts3Fixes
                 bool on = ShortcutOn("consignmentlastday");
                 int age = (int)sCgAge[i].GetValue(obj, null), life = (int)sCgLife[i].GetValue(null);
                 // Switch off: the out-of-range sale this roll leads to is counted (1467) in CgValue.
-                if (!CgRolls(on, age, life)) { PatchCounters()[1466]++; return 0f; }
+                if (!CgRolls(on, age, life)) { PatchCounters()[3899]++; return 0f; }
             }
-            catch (Exception) { PatchCounters()[1468]++; }
+            catch (Exception) { PatchCounters()[3901]++; }
             return orig(actor, obj);
         }
 
@@ -130,7 +130,7 @@ namespace Ts3Fixes
         // roommates and Sims without a household). Household-visible: a player bartender gets the wage the notice shows.
         // RE pass, not fixed: a shift that ends without StopTending (reset, posture pop) never reaches OnStopBartending,
         // so its tips roll into the next session's notice.
-        // Counters: [1469] wages paid, [1470] wages unpaid with the switch off, [1471] errors.
+        // Counters: [3902] wages paid, [3903] wages unpaid with the switch off, [3904] errors.
 
         // Pure: money paid on stop for this hourly amount.
         internal static int BhPaid(bool on, int hourly) { return on && hourly > 0 ? hourly : 0; }
@@ -154,10 +154,10 @@ namespace Ts3Fixes
                     SimDescription sd = b.SkillOwner;
                     if (sd == null) return;  // nobody to pay, either way
                     int paid = BhPaid(on, hourly);
-                    if (paid > 0) { sd.ModifyFunds(paid); PatchCounters()[1469]++; }
-                    else if (!on && hourly > 0) PatchCounters()[1470]++;
+                    if (paid > 0) { sd.ModifyFunds(paid); PatchCounters()[3902]++; }
+                    else if (!on && hourly > 0) PatchCounters()[3903]++;
                 }
-                catch (Exception) { PatchCounters()[1471]++; }
+                catch (Exception) { PatchCounters()[3904]++; }
             }
             public void StopOrig(Lot lot, DateAndTime timePostureStarted) { } // Bartending.OnStopBartending
         }
@@ -170,7 +170,7 @@ namespace Ts3Fixes
         // division, rounded) say a scaled value was meant. Fix: after EA's call, each modifier it applied is moved to the
         // float quotient (same clamp) and the stored value updated, so EA's RemoveOldModifiers takes back exactly what was
         // added. Household-visible (influence skill gain for blogging students). Docs/583 §7.1 G1.
-        // Counters: [1472] modifiers scaled, [1473] stepped with the switch off, [1474] errors.
+        // Counters: [3905] modifiers scaled, [3906] stepped with the switch off, [3907] errors.
         static readonly FieldInfo[] sIfFields = {
             typeof(SocialNetworkingSkill).GetField("mInfluenceNerdSkillModifier", kInstAll),
             typeof(SocialNetworkingSkill).GetField("mInfluenceRebelSkillModifier", kInstAll),
@@ -214,12 +214,12 @@ namespace Ts3Fixes
                         {
                             sim.SkillManager.ChangeSkillGainModifier(sIfSkills[i], want - cur);
                             sIfFields[i].SetValue(s, want);
-                            PatchCounters()[1472]++;
+                            PatchCounters()[3905]++;
                         }
-                        else if (!on) PatchCounters()[1473]++;
+                        else if (!on) PatchCounters()[3906]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1474]++; }
+                catch (Exception) { PatchCounters()[3907]++; }
             }
             public void ModOrig(uint followers) { } // SocialNetworkingSkill.ModifierForInfluenceSkills
         }
@@ -233,7 +233,7 @@ namespace Ts3Fixes
         // park step read Target.mBroom). Fix: SetMagicBroom keeps the choice with the interaction instead of the arena;
         // when that ride reaches its broom pick, GetMagicBroomToUse returns the chosen broom if it is still usable (in the
         // rider's inventory, or in the world), else EA's pick. Household-visible.
-        // Counters: [1475] chosen brooms used, [1476] choices dropped with the switch off, [1477] errors.
+        // Counters: [3908] chosen brooms used, [3909] choices dropped with the switch off, [3910] errors.
         static readonly Type sBaRide = typeof(MagicBroomArena).GetNestedType("RideBroomArena", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly Dictionary<object, BaChoice> sBaChoices = new Dictionary<object, BaChoice>();
         static BaChoice sBaPending;
@@ -255,7 +255,7 @@ namespace Ts3Fixes
         {
             public void SetHook(MagicBroom broom, bool fromInventory)
             {
-                if (!ShortcutOn("broomarenachoice")) { if (broom != null) PatchCounters()[1476]++; SetOrig(broom, fromInventory); return; }
+                if (!ShortcutOn("broomarenachoice")) { if (broom != null) PatchCounters()[3909]++; SetOrig(broom, fromInventory); return; }
                 try
                 {
                     if (sBaChoices.Count >= 8) sBaChoices.Clear();  // rides that never started (cancelled in the queue)
@@ -263,7 +263,7 @@ namespace Ts3Fixes
                     c.Actor = ((InteractionInstance)(object)this).InstanceActor; c.Broom = broom; c.FromInventory = fromInventory;
                     sBaChoices[this] = c;
                 }
-                catch (Exception) { PatchCounters()[1477]++; SetOrig(broom, fromInventory); }
+                catch (Exception) { PatchCounters()[3910]++; SetOrig(broom, fromInventory); }
             }
             public void SetOrig(MagicBroom broom, bool fromInventory) { } // RideBroomArena.SetMagicBroom
 
@@ -292,9 +292,9 @@ namespace Ts3Fixes
                         MagicBroom b = c.Broom;
                         bool usable = b != null && !b.HasBeenDestroyed && (!b.Reserved || b.mReservingSim == sim)
                             && (c.FromInventory ? sim.Inventory != null && sim.Inventory.Contains(b) : b.InWorld && !b.InUse && !b.PendingUse && b.CanUse(sim.SimDescription));
-                        if (BaUsesChoice(on, chosen, usable)) { PatchCounters()[1475]++; fromInventory = c.FromInventory; return b; }
+                        if (BaUsesChoice(on, chosen, usable)) { PatchCounters()[3908]++; fromInventory = c.FromInventory; return b; }
                     }
-                    catch (Exception) { PatchCounters()[1477]++; }
+                    catch (Exception) { PatchCounters()[3910]++; }
                 }
                 return PickOrig(sim, out fromInventory);
             }

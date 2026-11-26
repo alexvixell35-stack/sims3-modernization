@@ -12,7 +12,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/646 §3 wildlotskip (tuning kWildLotSkip, default off; kWildLotSkipHours 6, kWildLotSkipWalkHours 8).
+    // docs/656 §8.3 wildlotskip (tuning kWildLotSkip, default off; kWildLotSkipHours 6, kWildLotSkipWalkHours 8).
     // [verified, decompiled WildHorsePool / WildHorses / NPCAnimal / Raccoon]
     //   - WildHorsePool.HerdBehaviorCallback (alarm) asks WildHorses.FindGoodLot for the lead horse whenever it stands on the
     //     street with no GoToLot queued; FindGoodLot weights every non-port lot with no reachability test. A GoToLot that
@@ -35,8 +35,8 @@ namespace Ts3Fixes
     // Household rule: wild horses and NPC animals live in the pet household, never the player's; still Fixes.HouseholdExempt
     // and IsPlayerSim (a pet the household adopted, a selected one, or unknown scope = no Sim selected) keep EA. A horse with no
     // Sim yet (SpawnWildHorse) keeps EA's pick.
-    // Counters [4085] (animal, lot) pairs remembered, [4086] picks drawn again, [4087] every weighted lot remembered (EA's pick
-    // kept), [4088] long walks cancelled, [4089] exempt or errors.
+    // Counters [4626] (animal, lot) pairs remembered, [4627] picks drawn again, [4628] every weighted lot remembered (EA's pick
+    // kept), [4629] long walks cancelled, [4630] exempt or errors.
     public static partial class Fixes
     {
         static readonly WildLotSkipCore sWls = new WildLotSkipCore();
@@ -120,13 +120,13 @@ namespace Ts3Fixes
                 Lot lot = ii.Target as Lot;
                 bool horse;
                 if (lot == null || !WlsWild(sim.SimDescription, out horse)) return;
-                if (WlsExempt(sim)) { PatchCounters()[4089]++; return; }
+                if (WlsExempt(sim)) { PatchCounters()[4630]++; return; }
                 if (!WlsNote(sim, horse, lot)) return;
-                PatchCounters()[4085]++;
+                PatchCounters()[4626]++;
                 WlsLog(sim.FullName + (horse ? " (wild horse)" : " (" + sim.SimDescription.AssignedRole.GetType().Name + ")") + ": GoToLot "
                     + WlsLotName(lot) + " " + res.mType + ", lot skipped for " + Instantiator.kWildLotSkipHours + " h");
             }
-            catch (Exception ex) { PatchCounters()[4089]++; WlsLog("error at note " + ex.GetType().Name); }
+            catch (Exception ex) { PatchCounters()[4630]++; WlsLog("error at note " + ex.GetType().Name); }
         }
 
         // BEp4WhHook.FindHook (WildHorses.FindGoodLot): EA's / wildhorselot's pick, drawn again when remembered
@@ -140,7 +140,7 @@ namespace Ts3Fixes
                 long now = SimClock.CurrentTicks, span = WlsSpan();
                 ulong id = horse.SimDescriptionId;
                 if (!WlsSkips(id, true, pick, now, span)) return pick;
-                if (WlsExempt(s)) { c[4089]++; return pick; }
+                if (WlsExempt(s)) { c[4630]++; return pick; }
                 List<Lot> list = new List<Lot>(), fallback = new List<Lot>();
                 List<float> weights = new List<float>();
                 WhLists(horse, whOn, list, weights, fallback);
@@ -161,12 +161,12 @@ namespace Ts3Fixes
                     int k = kept > 0 ? WildLotSkipCore.Nth(skip, RandomUtil.GetInt(0, kept - 1)) : -1;
                     if (k >= 0) again = fallback[k];
                 }
-                if (again == null) { c[4087]++; WlsLog(s.FullName + " (wild horse): every lot skipped, EA's pick " + WlsLotName(pick) + " kept"); return pick; }
-                c[4086]++;
+                if (again == null) { c[4628]++; WlsLog(s.FullName + " (wild horse): every lot skipped, EA's pick " + WlsLotName(pick) + " kept"); return pick; }
+                c[4627]++;
                 WlsLog(s.FullName + " (wild horse): " + WlsLotName(pick) + " skipped, drew " + WlsLotName(again));
                 return again;
             }
-            catch (Exception ex) { c[4089]++; WlsLog("error at horse pick " + ex.GetType().Name); return pick; }
+            catch (Exception ex) { c[4630]++; WlsLog("error at horse pick " + ex.GetType().Name); return pick; }
         }
 
         // NPCAnimal.GetRandomLotToVisit: EA's pick, drawn again from ScoreLot weights when remembered
@@ -181,7 +181,7 @@ namespace Ts3Fixes
                 long now = SimClock.CurrentTicks, span = WlsSpan();
                 ulong id = s.SimDescription.SimDescriptionId;
                 if (!WlsSkips(id, false, pick, now, span)) return pick;
-                if (WlsExempt(s)) { c[4089]++; return pick; }
+                if (WlsExempt(s)) { c[4630]++; return pick; }
                 List<Lot> lots = new List<Lot>();
                 List<float> weights = new List<float>();
                 object[] arg = new object[1];
@@ -195,12 +195,12 @@ namespace Ts3Fixes
                 for (int i = 0; i < skip.Length; i++) skip[i] = WlsSkips(id, false, lots[i], now, span);
                 float[] w = weights.ToArray();
                 int k = WildLotSkipCore.Pick(w, skip, RandomUtil.GetFloat(WildLotSkipCore.Total(w, skip)));
-                if (k < 0) { c[4087]++; WlsLog(s.FullName + " (" + role.GetType().Name + "): every lot skipped, EA's pick " + WlsLotName(pick) + " kept"); return pick; }
-                c[4086]++;
+                if (k < 0) { c[4628]++; WlsLog(s.FullName + " (" + role.GetType().Name + "): every lot skipped, EA's pick " + WlsLotName(pick) + " kept"); return pick; }
+                c[4627]++;
                 WlsLog(s.FullName + " (" + role.GetType().Name + "): " + WlsLotName(pick) + " skipped, drew " + WlsLotName(lots[k]));
                 return lots[k];
             }
-            catch (Exception ex) { c[4089]++; WlsLog("error at animal pick " + ex.GetType().Name); return pick; }
+            catch (Exception ex) { c[4630]++; WlsLog("error at animal pick " + ex.GetType().Name); return pick; }
         }
 
         // long-walk guard: one look at a wild animal from its role / herd tick (never inside a route)
@@ -223,11 +223,11 @@ namespace Ts3Fixes
                 if (sWls.Walk(id, ii.Id, lot != null ? lot.LotId : 0, now, max) != WildLotSkipCore.kWalkLong) return;
                 if (lot != null) WlsNote(s, horse, lot);
                 s.InteractionQueue.CancelInteraction(ii, false);
-                PatchCounters()[4088]++;
+                PatchCounters()[4629]++;
                 WlsLog(s.FullName + (horse ? " (wild horse)" : " (" + s.SimDescription.AssignedRole.GetType().Name + ")") + ": GoToLot " + WlsLotName(lot)
                     + " running " + Math.Round(SimClock.ConvertFromTicks(now - from, TimeUnit.Hours), 1) + " sim-hours, cancelled, lot skipped");
             }
-            catch (Exception ex) { PatchCounters()[4089]++; WlsLog("error at walk guard " + ex.GetType().Name); }
+            catch (Exception ex) { PatchCounters()[4630]++; WlsLog("error at walk guard " + ex.GetType().Name); }
         }
 
         public class WlsAnimalHook
@@ -259,7 +259,7 @@ namespace Ts3Fixes
                         List<SimDescription> herd = PetPoolManager.GetPetsByType(PetPoolType.WildHorse);
                         if (herd != null) for (int i = 0; i < herd.Count; i++) if (herd[i] != null) WlsWalkGuard(herd[i].CreatedSim);
                     }
-                    catch (Exception) { PatchCounters()[4089]++; }
+                    catch (Exception) { PatchCounters()[4630]++; }
                 }
                 HerdOrig();
             }

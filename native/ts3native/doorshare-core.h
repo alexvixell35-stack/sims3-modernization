@@ -29,6 +29,8 @@ struct DsGen { int32_t global, lot, owner; };
 // ts3fixes doorgen's sources (op 36 hi; DoorShareCore.kSrc*)
 enum { DS_SRC_UNKNOWN, DS_SRC_LOCK, DS_SRC_OWNERLIST, DS_SRC_LOTHANDLER, DS_SRC_HIDDEN, DS_SRC_GREET, DS_SRC_HOUSEHOLD, DS_SRC_FIRE,
        DS_SRC_FIREBUFF, DS_SRC_IGNORELOCKS, DS_SRC_OCCULT, DS_SRC_ROLE, DS_SRC_RESORT, DS_SRC_DESC, DS_SRCS, DS_SRC_ARM = 15, DS_SRC_SLOTS = 16 };
+// op 36 hi = DS_SRC_OP_BASE + source (hi 1 / 2 are DoorGen.cs' lot hold / free, hi 0 an older package's arm or plain bump)
+enum { DS_SRC_OP_BASE = 16 };
 enum { DS_IC_SLOTS = 40, DS_WEV_SLOTS = 17 };
 
 // a row answers "unlocked" (2) for every router of its class: the key has no Sim in it

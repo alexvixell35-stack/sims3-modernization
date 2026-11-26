@@ -65,7 +65,7 @@ namespace Ts3Fixes
         {
             if (sBstNpc == null || sBstAlarm == null || sBstHandler == null) return false;
             if (!BakeSaleCore.NeedsRearm((bool)sBstNpc.GetValue(t), (AlarmHandle)sBstAlarm.GetValue(t) != AlarmHandle.kInvalidHandle, t.HasBeenDestroyed)) return false;
-            AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), t, sBstHandler);
+            AlarmTimerCallback cb = (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), t, sBstHandler);
             sBstAlarm.SetValue(t, t.AddAlarm(1f, TimeUnit.Minutes, cb, "BakeSaleTable - NPC Clean up alarm (ts3fixes: orphaned table)", AlarmType.AlwaysPersisted));
             PatchCounters()[684]++;
             ShortcutLog("bakesaleseller: NPC bake sale table at " + t.Position + " had no clean-up alarm; new alarm in 1 sim-minute");

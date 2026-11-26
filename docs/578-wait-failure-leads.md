@@ -37,7 +37,7 @@ Lead [inferred]: the gap sits between the customer's Routed and Committed: the o
 pushing something in between. The bartender's wait has no giveup, so any stall there holds the bartender and every queued
 customer behind it (`Target.mInteractions`).
 
-**`barorderlog`** (log only, off, counters 2701-2702, BarOrderLog.cs) gives the customer-side times. It is a
+**`barorderlog`** (log only, off, counters 3974-3975, BarOrderLog.cs) gives the customer-side times. It is a
 prefix/postfix on `OrderConversation.RunOrderBehavior` and writes two lines:
 - `barorder: <customer> -> <bartender>, start, bartender sync L, customer queue N, <time>`;
 - `barorder: ..., end ok|fail after M sim-min, exit reason R, <time>`.
@@ -96,7 +96,7 @@ RE result below.
 - While the carrier's half is alive the callback returns true, so EA's wait is unchanged.
 - It applies to every Sim, household included. This is an EA bug fix with an unambiguous intent: a linked pair cannot
   sync once one half is gone, so only the dead minutes go.
-- Counter 2704 counts the case with the switch off.
+- Counter 3977 counts the case with the switch off.
 - The wiring is one call in the shared wait hook (SocialReceiveFail.cs).
 
 ## §3 `AutonomousSplashInPuddle`: Test accepts puddles that Run can never reach (EA bug, low impact)
@@ -111,7 +111,7 @@ Measured: Matty's goals sit at y 37.1 while she stands at 34.1, a puddle one lev
 `splashroof` (docs/546 §16) already drops roof puddles from NPC runs, but only for NPCs, and Run still fails when only
 roof puddles are left, so Test keeps offering the splash.
 
-Fix: `puddlereach` (PuddleReach.cs, off by default, counters 2706 withheld / 2707 seen with switch off / 2708 errors).
+Fix: `puddlereach` (PuddleReach.cs, off by default, counters 3979 withheld / 2707 seen with switch off / 2708 errors).
 After a Run that returns false while the lot still has rain puddles, the Sim gets a memo: lot, puddle count, sim-minute.
 With the switch on, Test returns false for that Sim on that lot while the puddle count is the same and less than 30 sim-min
 have passed. A new or dried puddle, a different lot or the expiry clears the memo, and Run decides again.
@@ -133,7 +133,7 @@ reaches it through `Sim.MopPuddles` / `MopBurntTiles` (`MopFloor`): Test passes 
 `IsLocationMoppableBySim` (no `CanMopPuddle`, no reachability), so the same unreachable puddle comes back every time.
 `RouteToPuddle` itself is fine (max radius -1 means none; the retry without footprint checks is for mops only).
 
-Fix `mopunreachable` (MopUnreachable.cs, off, [1913-1918]): a copy of Mopping.Run with a per-run skip list. A route that fails
+Fix `mopunreachable` (MopUnreachable.cs, off, [2766-2771]): a copy of Mopping.Run with a per-run skip list. A route that fails
 without an exit reason, or a blocked tile, is skipped and the next closest tile is tried; a cancel ends the run as in EA. Only
 the first failed route plays the route-fail reaction. The run ends RouteFailed (showing the last blocker) only when it mopped
 nothing. A tile mopped at but still dirty without an exit reason is not retried (EA would loop on it). The skipped locations go
@@ -142,7 +142,7 @@ sim-minutes drop it); while it holds, `MopFloor.IsLocationMoppableBySim` answers
 whose only puddles are unreachable and Run picks a reachable one. Check `MopUnreachableCheck`, repro `mopunreachable-check`.
 
 Other callers re-read: `DrinkPuddle.Run` and `PlayInPuddle.Run` (pets) route to `GetClosestPuddle(lot, Hit)` but remove or
-spread the puddle at Hit's tile. Fix `petpuddletile` (off, [1919-1921]): Hit becomes the closest puddle before EA's Run
+spread the puddle at Hit's tile. Fix `petpuddletile` (off, [2772-2774]): Hit becomes the closest puddle before EA's Run
 (GetClosestPuddle from that point returns it again), so the tile removed is the tile used. Check `PetPuddleTileCheck`.
 `SplashInPuddle` is puddlereach / splashroof. Lead, not built: `AbsorbPuddle` (plant Sims) has Mopping's loop.
 

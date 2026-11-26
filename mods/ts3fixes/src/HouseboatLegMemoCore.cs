@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
-    // Game-independent rule of houseboatlegmemo (HouseboatLegMemo.cs, docs/642 §6). Self-check: tools/selftest/houseboatlegmemo.
+    // Game-independent rule of houseboatlegmemo (HouseboatLegMemo.cs, docs/853 §2). Self-check: tools/selftest/houseboatlegmemo.
     // One entry per router (Sim or boat object id): the start and goal of its last no-path boat-leg plan, the sim-tick window it
     // stands for and the plan's ms. A plan is answered only from the same start and goal (each within kNearM) inside the window.
     public sealed class HouseboatLegMemoCore

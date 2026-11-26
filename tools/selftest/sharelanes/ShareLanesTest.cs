@@ -161,7 +161,7 @@ static class ShareLanesTest
         Check(ShareLanesCore.kKindNames.Length == 7 && ShareLanesCore.kKindNames[ShareLanesCore.kPoolLadder] == "pool ladder" && ShareLanesCore.kKindNames[ShareLanesCore.kSpiral] == "spiral", "a name per portal kind (spiral stairs: switch spiralshare; pool ladders: poolshare)");
     }
 
-    // docs/686 §8.7: at once only near a portal, elsewhere after the shared grace; the near-portal test
+    // docs/686 §8.8: at once only near a portal, elsewhere after the shared grace; the near-portal test
     static void Timing()
     {
         const int D = ShareLanesCore.kDefer;

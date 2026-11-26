@@ -13,7 +13,7 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             string miss = EpJoin(sVfMissing, CkLive("vehiclefxhelper"));
-            string counters = "vehiclefxhelper: destroyed before re-create 1118=" + c[1118] + ", seen with switch off 1119=" + c[1119] + ", errors 1120=" + c[1120]
+            string counters = "vehiclefxhelper: destroyed before re-create 1118=" + c[2808] + ", seen with switch off 1119=" + c[2809] + ", errors 1120=" + c[2810]
                 + "; " + GlMembers(miss);
             if (what == "result") return counters;
             if (what != "run") return "vehiclefxhelper <run|result>";
@@ -44,7 +44,7 @@ namespace Ts3Fixes
         //   Controls: another ArgumentException rethrown; somebody at home (not the empty-list case) rethrown.
         public static object PrankDitchEmptyCheck(string what)
         {
-            string counters = B582Counters("prankditchempty", 1121, new[] { "empty-list ends handled", "thrown with switch off", "errors" }, sPdMissing);
+            string counters = B582Counters("prankditchempty", 2811, new[] { "empty-list ends handled", "thrown with switch off", "errors" }, sPdMissing);
             if (what == "result") return counters;
             if (what != "run") return "prankditchempty <run|result>";
             bool on = ShortcutOn("prankditchempty");
@@ -59,7 +59,7 @@ namespace Ts3Fixes
         //   Controls: another situation's live entry kept; a live entry at load kept.
         public static object ServiceAssignExitCheck(string what)
         {
-            string counters = B582Counters("serviceassignexit", 1124, new[] { "entries removed at exit", "seen with switch off", "saved stale removed at load", "errors" }, sSeMissing);
+            string counters = B582Counters("serviceassignexit", 2814, new[] { "entries removed at exit", "seen with switch off", "saved stale removed at load", "errors" }, sSeMissing);
             if (what == "result") return counters;
             if (what != "run") return "serviceassignexit <run|result>";
             bool on = ShortcutOn("serviceassignexit");
@@ -74,7 +74,7 @@ namespace Ts3Fixes
         //   Controls: no alarm held -> EA runs; the held alarm already fired -> EA runs.
         public static object ServiceShowAlarmCheck(string what)
         {
-            string counters = B582Counters("serviceshowalarm", 1128, new[] { "re-arms skipped", "seen with switch off", "errors" }, sSsMissing);
+            string counters = B582Counters("serviceshowalarm", 2818, new[] { "re-arms skipped", "seen with switch off", "errors" }, sSsMissing);
             if (what == "result") return counters;
             if (what != "run") return "serviceshowalarm <run|result>";
             bool on = ShortcutOn("serviceshowalarm");
@@ -89,7 +89,7 @@ namespace Ts3Fixes
         //   Controls: another dog (set by another lot's delivery) kept.
         public static object MailDogChaserCheck(string what)
         {
-            string counters = B582Counters("maildogchaser", 1134, new[] { "chasers cleared", "seen with switch off", "errors" }, sMdMissing);
+            string counters = B582Counters("maildogchaser", 2821, new[] { "chasers cleared", "seen with switch off", "errors" }, sMdMissing);
             if (what == "result") return counters;
             if (what != "run") return "maildogchaser <run|result>";
             bool on = ShortcutOn("maildogchaser");
@@ -102,7 +102,7 @@ namespace Ts3Fixes
         //   Controls: another job type untouched; a running survey (job not over) untouched; no alarm held untouched.
         public static object LifeguardSurveyCheck(string what)
         {
-            string counters = B582Counters("lifeguardsurvey", 1137, new[] { "alarms removed", "seen with switch off", "errors" }, sLgMissing);
+            string counters = B582Counters("lifeguardsurvey", 2824, new[] { "alarms removed", "seen with switch off", "errors" }, sLgMissing);
             if (what == "result") return counters;
             if (what != "run") return "lifeguardsurvey <run|result>";
             bool on = ShortcutOn("lifeguardsurvey");
@@ -117,7 +117,7 @@ namespace Ts3Fixes
         //   Controls: none held (first instantiation) -> nothing removed.
         public static object MoonRiseListenerCheck(string what)
         {
-            string counters = B582Counters("moonriselistener", 1140, new[] { "listeners removed before re-add", "seen with switch off", "errors" }, sMrMissing);
+            string counters = B582Counters("moonriselistener", 2827, new[] { "listeners removed before re-add", "seen with switch off", "errors" }, sMrMissing);
             if (what == "result") return counters;
             if (what != "run") return "moonriselistener <run|result>";
             bool on = ShortcutOn("moonriselistener");
@@ -130,7 +130,7 @@ namespace Ts3Fixes
         //   Controls: a non-zero pulse kept; no lots waiting keeps 0; the held alarm and other callbacks kept.
         public static object HolidayLightsCheck(string what)
         {
-            string counters = B582Counters("holidaylights", 1143, new[] { "pulses raised from 0", "held alarms removed before re-add", "saved orphans removed at load", "errors" }, sHlMissing);
+            string counters = B582Counters("holidaylights", 2830, new[] { "pulses raised from 0", "held alarms removed before re-add", "saved orphans removed at load", "errors" }, sHlMissing);
             if (what == "result") return counters;
             if (what != "run") return "holidaylights <run|result>";
             bool on = ShortcutOn("holidaylights");

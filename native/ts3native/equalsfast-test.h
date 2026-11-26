@@ -109,7 +109,7 @@ static DWORD WINAPI EqtWorker(void* p) {
 
 static void TestEqualsFast() {
     static_assert(offsetof(Ts3nCounters, sbVtGiveUp) == 0x5F80 && offsetof(Ts3nCounters, eqOn) == 0x5F90 && offsetof(Ts3nCounters, eqMode) == 0x5F94 &&
-                      offsetof(Ts3nCounters, eqRejMany) == 0x5FC4 && offsetof(Ts3nCounters, eqSmall) == 0x5FC8 && offsetof(Ts3nCounters, eqSpare) == 0x5FCC && sizeof(Ts3nCounters) == 6478 * 4,
+                      offsetof(Ts3nCounters, eqRejMany) == 0x5FC4 && offsetof(Ts3nCounters, eqSmall) == 0x5FC8 && offsetof(Ts3nCounters, eqSpare) == 0x5FCC && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v186 layout after v185 (docs/registry.md)");
     static_assert(sizeof(kEqPrologue) == 6, "push ebp; mov ebp,esp; sub esp,10h");
     Ts3nCounters& k = ts3native_counters;
@@ -268,6 +268,22 @@ static void TestEqualsFast() {
     g_eqPoolN = EQ_POOL;
     assert(EqtSame(a, &b, &hit) && !hit && k.eqFtFull == 1 && !EqFind(late.k));
     g_eqPoolN = pool;
+
+    // docs/323 L3: a class whose probe window is full takes no pool slot per call (it used to eat the whole pool)
+    static EqtClass crowd;
+    EqtMake(crowd, 0x11, "Crowd", 1, fb);
+    EqtNew(a, crowd), EqtNew(b, crowd);
+    static EqPlan other;
+    other.klass = (const u8*)&other;
+    EqPlan* saved[EQ_PROBE];
+    const DWORD ch = EqHash(crowd.k);
+    for (DWORD i = 0; i < EQ_PROBE; i++) saved[i] = g_eqTab[(ch + i) & (EQ_TAB - 1)], g_eqTab[(ch + i) & (EQ_TAB - 1)] = &other;
+    const LONG pool2 = g_eqPoolN, full2 = k.eqFtFull, plans2 = k.eqPlans;
+    for (int i = 0; i < 50; i++) assert(EqtSame(a, &b, &hit) && !hit);
+    assert(g_eqPoolN == pool2 && k.eqFtFull == full2 + 50 && k.eqPlans == plans2 + 1 && !EqFind(crowd.k));  // built once
+    for (DWORD i = 0; i < EQ_PROBE; i++) g_eqTab[(ch + i) & (EQ_TAB - 1)] = saved[i];
+    g_eqNoRoom[ch & (EQ_NOROOM - 1)] = NULL;  // room again: the next call learns it
+    assert(EqtSame(a, &b, &hit) && !hit && EqFind(crowd.k) && EqtSame(a, &b, &hit) && hit);
 
     // random values over every class above: the hook and the model never differ
     EqtClass* all[] = {&en, &s8, &mx, &u1, &gi, &many, &del, &busy, &late};

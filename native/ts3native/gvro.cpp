@@ -171,7 +171,7 @@ static void GvaPlanEnd() {  // UserDiag op 12: the plan is over
         int n = 0;
         for (int i = 0; i <= GVA_WHY_NONE; i++)  // only the reasons that waited a millisecond or more
             if (k.gvaWhyWaitUs[i] >= 1000 && n < (int)sizeof(why) - 32)
-                n += sprintf_s(why + n, sizeof(why) - n, " %s %ld", i < GVA_WHY_NONE ? kRfbName[i] : "none", k.gvaWhyWaitUs[i] / 1000);
+                n += SFmt(why + n, sizeof(why) - n, " %s %ld", i < GVA_WHY_NONE ? kRfbName[i] : "none", k.gvaWhyWaitUs[i] / 1000);
         Log("gvattr: wait ms by sync reason:%s", n ? why : " -");
     }
 }
@@ -264,9 +264,6 @@ static __declspec(naked) void GvThunk() {
 static const CallSite kGvSite = {GV_SITE, GV_TARGET, (void*)GvStub};
 static const CallSite kGvThunkSite = {GV_SITE, GV_TARGET, (void*)GvThunk};
 static bool GvhMayInstall() {
-#ifdef TS3A_TABLE
-    if (ts3a_noaddr) { Log("SKIP goal hits RO: no EA 1.69 address, docs/670 §11"); return false; }
-#endif
     if (!GvhCodeOk()) { Log("SKIP goal hits RO: GoalPoint_Validate's hit loop is not the code read (docs/670 §11)"); return false; }
     return true;
 }

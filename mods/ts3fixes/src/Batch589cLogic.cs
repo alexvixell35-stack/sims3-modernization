@@ -15,7 +15,7 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // Batch 11c (docs/589 usage sweep, U17, U19, U21-U23): EA bug fixes in the Sim core and everyday objects. All default
-    // off; all reach the household (as EA intended). Slots 1700-1714 (fixes-1700: 1351-1399 is full, 1400-1699 is the EP
+    // off; all reach the household (as EA intended). Slots 3034-3048 (fixes-1700: 1351-1399 is full, 1400-1699 is the EP
     // agent's). simler90 UPDATE242 leaves BuffManager, TV's disc code, Fridge_OpenFridge, Posture and IdleManager as EA.
     public static partial class Fixes
     {
@@ -23,8 +23,8 @@ namespace Ts3Fixes
         // [verified, decompiled; frequency inferred] BuffManager.RemoveElement(ulong, bool): when a delayed add of the buff
         // is pending, it removes that timer and returns, so a live copy of the same buff stays on the Sim. Fix: when the
         // buff was live and had a pending delayed add before the call and is still live after it (EA's early return),
-        // EA's removal runs once more, now past the timer, as base.RemoveElement would have. Counters: [1700] live buffs
-        // removed after a pending timer, [1701] left on the Sim (switch off), [1702] errors.
+        // EA's removal runs once more, now past the timer, as base.RemoveElement would have. Counters: [3034] live buffs
+        // removed after a pending timer, [3035] left on the Sim (switch off), [3036] errors.
         static readonly FieldInfo sBrdDelayed = typeof(BuffManager).GetField("mDelayedBuffs", kB11All);
         static string sBrdMissing = "";
 
@@ -75,10 +75,10 @@ namespace Ts3Fixes
                 try
                 {
                     if (!BrLeft(live, pending, bm.HasElement((BuffNames)guid))) return;
-                    if (ShortcutOn("buffremovedelayed")) { RemoveOrig(guid, false); PatchCounters()[1700]++; }
-                    else PatchCounters()[1701]++;
+                    if (ShortcutOn("buffremovedelayed")) { RemoveOrig(guid, false); PatchCounters()[3034]++; }
+                    else PatchCounters()[3035]++;
                 }
-                catch (Exception) { PatchCounters()[1702]++; }
+                catch (Exception) { PatchCounters()[3036]++; }
             }
 
             public void RemoveOrig(ulong guid, bool clearRefCounts) { }
@@ -88,7 +88,7 @@ namespace Ts3Fixes
         // [verified, decompiled] TV.SetDataDiscDisposedListener adds a disposed-listener for the new home-movie disc and
         // never removes the old one (only RemoveHomeMovieDataDisc does): disposing an earlier disc later clears the
         // current movie and turns the TV off. Fix: an old listener still set is removed before EA adds the new one.
-        // Counters: [1703] old listeners removed, [1704] old listeners kept (switch off), [1705] errors.
+        // Counters: [3037] old listeners removed, [3038] old listeners kept (switch off), [3039] errors.
         static readonly FieldInfo sTdListener = typeof(TV).GetField("mDataDiscDisposed", kB11All);
         static string sTdMissing = "";
 
@@ -108,11 +108,11 @@ namespace Ts3Fixes
                     EventListener old = sTdListener.GetValue(this) as EventListener;
                     if (old != null)
                     {
-                        if (ShortcutOn("tvdisclistener")) { EventTracker.RemoveListener(old); sTdListener.SetValue(this, null); PatchCounters()[1703]++; }
-                        else PatchCounters()[1704]++;
+                        if (ShortcutOn("tvdisclistener")) { EventTracker.RemoveListener(old); sTdListener.SetValue(this, null); PatchCounters()[3037]++; }
+                        else PatchCounters()[3038]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1705]++; }
+                catch (Exception) { PatchCounters()[3039]++; }
                 ListenOrig();
             }
 
@@ -122,8 +122,8 @@ namespace Ts3Fixes
         // ---- B11 §19 fridgetestnull (U21) -------------------------------------------------------------------------------
         // [verified, decompiled] Fridge_OpenFridge.Definition.Test reads target.InventoryComp.InventoryUIModel before any
         // null test; a fridge with no inventory component (community-lot fridge) throws in the pie-menu test. Fix: our
-        // copy tests InventoryComp (and the HUD) for null first, then gives EA's answer. Counters: [1706] tests answered
-        // without the throw, [1707] tests that threw (switch off), [1708] errors.
+        // copy tests InventoryComp (and the HUD) for null first, then gives EA's answer. Counters: [3040] tests answered
+        // without the throw, [3041] tests that threw (switch off), [3042] errors.
         static Type sFtDefType;
         static string sFtMissing = "";
 
@@ -148,13 +148,13 @@ namespace Ts3Fixes
             public bool TestHook(Sim a, Fridge target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
             {
                 if (target == null || target.InventoryComp != null) return TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
-                if (!ShortcutOn("fridgetestnull")) { PatchCounters()[1707]++; return TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback); }
+                if (!ShortcutOn("fridgetestnull")) { PatchCounters()[3041]++; return TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback); }
                 try
                 {
-                    PatchCounters()[1706]++;
+                    PatchCounters()[3040]++;
                     return FtAnswer(false, false, target.FridgeInventory != null);
                 }
-                catch (Exception) { PatchCounters()[1708]++; return false; }
+                catch (Exception) { PatchCounters()[3042]++; return false; }
             }
 
             public bool TestOrig(Sim a, Fridge target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; }
@@ -164,8 +164,8 @@ namespace Ts3Fixes
         // [verified, decompiled] Posture.CancelPosture returns early when the cancel transition is already at the head of
         // the queue, but compares the transition's definition with the head interaction itself (a definition with an
         // instance), so the test is never true and every cancel queues another stand-up. Fix: our copy compares the two
-        // definitions; the rest is EA's (same order). Counters: [1709] duplicate stand-ups not queued, [1710] cancels run
-        // as EA (switch off; EA's own test cannot tell a duplicate, and asking would build another transition), [1711] errors.
+        // definitions; the rest is EA's (same order). Counters: [3043] duplicate stand-ups not queued, [3044] cancels run
+        // as EA (switch off; EA's own test cannot tell a duplicate, and asking would build another transition), [3045] errors.
         static void ApplyCancelPostureDef()
         {
             Patch(typeof(Posture), "CancelPosture", new Type[] { typeof(Sim) }, typeof(BCpHook), "CancelHook", "CancelOrig");
@@ -178,7 +178,7 @@ namespace Ts3Fixes
         {
             public void CancelHook(Sim sim)
             {
-                if (sim == null || !ShortcutOn("cancelposturedef")) { if (sim != null) PatchCounters()[1710]++; CancelOrig(sim); return; }
+                if (sim == null || !ShortcutOn("cancelposturedef")) { if (sim != null) PatchCounters()[3044]++; CancelOrig(sim); return; }
                 Posture p = (Posture)(object)this;
                 // EA's order: OnCancelPosture and the flag first, then the head and the cancel transition (a new instance)
                 p.OnCancelPosture();
@@ -186,7 +186,7 @@ namespace Ts3Fixes
                 InteractionQueue q = sim.InteractionQueue;
                 InteractionInstance cancelTransition = p.GetCancelTransition();
                 InteractionInstance head = q.GetHeadInteraction();
-                if (cancelTransition != null && head != null && CpAlready(cancelTransition.InteractionDefinition, head.InteractionDefinition)) { PatchCounters()[1709]++; return; }
+                if (cancelTransition != null && head != null && CpAlready(cancelTransition.InteractionDefinition, head.InteractionDefinition)) { PatchCounters()[3043]++; return; }
                 bool all = true;
                 List<ulong> ids = new List<ulong>();
                 foreach (InteractionInstance item in q.InteractionList)
@@ -210,8 +210,8 @@ namespace Ts3Fixes
         // tunables, 6) by the number of idles with integer division: 7 or more buff (or trait) idles each get weight 0
         // and 4-6 each get 1, so the mood idle wins far more often than tuned. Fix: our copy divides as floats; the list
         // is EA's. (The other IdleManager leads in docs/589 U23, the distress gate and ParseMoodIdleData's flavour, need
-        // the idle XML read first and are not built.) Counters: [1712] lists built with float shares, [1713] lists with a
-        // truncated share (switch off), [1714] errors.
+        // the idle XML read first and are not built.) Counters: [3046] lists built with float shares, [3047] lists with a
+        // truncated share (switch off), [3048] errors.
         static readonly FieldInfo sFiSim = typeof(IdleManager).GetField("mSim", kB11All);
         static string sFiMissing = "";
 
@@ -231,12 +231,12 @@ namespace Ts3Fixes
             {
                 bool on = ShortcutOn("facialidleweight");
                 Sim sim;
-                try { sim = sFiSim.GetValue(this) as Sim; } catch (Exception) { PatchCounters()[1714]++; return IdlesOrig(); }
+                try { sim = sFiSim.GetValue(this) as Sim; } catch (Exception) { PatchCounters()[3048]++; return IdlesOrig(); }
                 if (sim == null) return IdlesOrig();
                 List<string> buffs = sim.BuffManager.FacialIdleForBuffs;
                 List<string> traits = sim.TraitManager.FacialIdleForTraits;
                 bool truncates = (buffs.Count > 0 && IdleManager.FacialBuffIdleChance % buffs.Count != 0) || (traits.Count > 0 && IdleManager.FacialTraitIdleChance % traits.Count != 0);
-                if (!on || !truncates) { if (truncates) PatchCounters()[1713]++; return IdlesOrig(); }
+                if (!on || !truncates) { if (truncates) PatchCounters()[3047]++; return IdlesOrig(); }
                 try
                 {
                     List<IdleManager.FacialIdleChanceC> list = new List<IdleManager.FacialIdleChanceC>();
@@ -252,10 +252,10 @@ namespace Ts3Fixes
                         float pt = FiShare(true, IdleManager.FacialTraitIdleChance, traits.Count);
                         foreach (string t in traits) list.Add(new IdleManager.FacialIdleChanceC(t, pt));
                     }
-                    PatchCounters()[1712]++;
+                    PatchCounters()[3046]++;
                     return list;
                 }
-                catch (Exception) { PatchCounters()[1714]++; return IdlesOrig(); }
+                catch (Exception) { PatchCounters()[3048]++; return IdlesOrig(); }
             }
 
             public List<IdleManager.FacialIdleChanceC> IdlesOrig() { return null; }

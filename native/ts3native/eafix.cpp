@@ -54,6 +54,12 @@
 // pass every other case to the game's handler. INT_MIN / -1 goes to the game's OverflowException stub 0xE57AA5 (the one the
 // *.ovf opcodes use; it records this instruction as the frame ip), as .NET throws. INT_MIN % -1 gives 0, the exact result.
 //
+// LotLevelPastEnd (next version, docs/67 §40, no counters). The lot's level Group getter 0xAB70B0 clamps the object's
+// level below by the lot's lowest level and never above. A slotted object re-attached across a lot change still carries
+// its old lot's level; on a lot with fewer levels the getter returns the word past its Group table, and Realm_MoveShape
+// 0x682480 then moves a shape into it (Bridgeport AVs at 0x6824D0 / 0x6824F3 / 0x8621EA) [verified: logs + disassembly].
+// Fix: the vtable slot points to LlGroup, which answers the lot's top Group for such a level; in-range asks are unchanged.
+//
 // EA build only (TS3N_EA_PORT, ts3addr.h): ported from hotfix/v0.2.10-ea169, not in the Steam asi; the EA addresses are
 // table rows checked on the decrypted exe (docs/data/ea169-overrides.csv).
 // SimNoTexture (0.36.152a, docs/67 §34, crash Z). SimService_Process 0x5EBC50 (request state 11) looks up the request's two
@@ -421,7 +427,7 @@ static volatile LONG g_gbBad;
 // a logged key matched a GEOM in the player's packages, docs/67 §28.4]. Printed as type:group:instance, as package tools show it.
 static void GeomKey(char (&out)[40], const u8* geom) {
     const DWORD* f = (const DWORD*)(geom + 8);
-    sprintf_s(out, "%08lX:%08lX:%08lX%08lX", f[2], f[3], f[1], f[0]);
+    SFmt(out, "%08lX:%08lX:%08lX%08lX", f[2], f[3], f[1], f[0]);
 }
 
 static DWORD __fastcall GbGetBone(u8* geom, void*, DWORD i) {
@@ -455,6 +461,85 @@ static bool ApplyGeomBoneIndex(const wchar_t* ini) {
     }
     Log("OK   ea fix: GeomBoneIndex (docs/67 §28): GEOM bone-by-index getter answers 0 past the mesh's bone list");
     return true;  // keep the log open for the skip lines
+}
+
+// ---- LotLevelPastEnd ----
+// docs/67 §40 (Bridgeport: AV at 0x6824D0 / 0x6824F3 / 0x8621EA under Transform_AttachToSlot 0x95A360). The lot's "physics
+// Group for this object's level" getter 0xAB70B0 (Lot vtable 0x1065268 +0x6C; only reference: the slot) takes the object's level
+// ([level component +0x18], 0x7FFFFFFF = 0, +1 when [+0x2C] bit 5), clamps it below by the lot's lowest level [lot+0x17C] and
+// indexes the lot's EASTL deque of Groups (+0x370) with no upper bound. An object that keeps the level of the lot it comes from
+// (level 5 of a high-rise) and is attached to a parent on a lot with fewer levels gets whatever lies past the deque: Realm_MoveShape
+// then reads or writes through it. The hook replays the index (reads only); in range: the game's getter, unchanged; past the end:
+// the lot's top Group (EA's own clamp, mirrored), or 0 (= the realm's root Group, EA's answer for an object with no level) when
+// the lot has no Group at all.
+static const DWORD LL_SLOT = TS3A(0x010652D4), LL_GET = TS3A(0x00AB70B0);
+static const u8 kLlHead[15] = {0x56, 0x8B, 0xF1, 0x8B, 0x4C, 0x24, 0x08, 0x85, 0xC9, 0x0F, 0x84, 0x9A, 0x00, 0x00, 0x00};
+static const u8 kLlLow[6] = {0x3B, 0x86, 0x7C, 0x01, 0x00, 0x00};                                       // +0x4D cmp eax,[esi+17Ch]
+static const u8 kLlDeq[12] = {0x8B, 0x8E, 0x7C, 0x03, 0x00, 0x00, 0x8B, 0x86, 0x78, 0x03, 0x00, 0x00};  // +0x66 first, cur
+static const u8 kLlBlk[6] = {0x8B, 0xB6, 0x84, 0x03, 0x00, 0x00};                                       // +0x79 block table
+typedef DWORD(__fastcall* LlFn)(u8* lot, void*, u8* obj);
+static LlFn g_llGet = (LlFn)(uintptr_t)LL_GET;      // selftest: its own
+static DWORD g_llIdLevel = TS3A(0x011ECF08);        // address of the level component's mask bit (selftest: its own)
+static volatile LONG g_llHits;
+
+static LONG LlLevels(const u8* lot) {  // the deque's size, as 0xAB6608 computes it
+    const DWORD* q = (const DWORD*)(lot + 0x378);  // begin: cur, first, last, node; end: cur, first, last, node
+    return (((LONG)(q[7] - q[3]) >> 2) - 1) * 64 + ((LONG)(q[4] - q[5]) >> 2) + ((LONG)(q[2] - q[0]) >> 2);
+}
+static DWORD __fastcall LlGroup(u8* lot, void* edx, u8* obj) {
+    const DWORD id = *(const DWORD*)(uintptr_t)g_llIdLevel, m = obj ? *(const DWORD*)(obj + 0x2C) : 0;
+    if (!(m & id)) return g_llGet(lot, edx, obj);  // no object / no level component: EA answers 0
+    DWORD s = 0;
+    for (DWORD b = m & (id - 1); b; b &= b - 1) s++;  // QueryComponent 0x935770: the slot = mask bits below the id's
+    const u8* lc = *(const u8* const*)(obj + 0x34 + s * 4);
+    if (!lc) return g_llGet(lot, edx, obj);
+    const LONG raw = *(const LONG*)(lc + 0x18), lo = *(const LONG*)(lot + 0x17C), n = LlLevels(lot);
+    LONG lv = raw == 0x7FFFFFFF ? 0 : raw;
+    if (*(const DWORD*)(lc + 0x2C) & 0x20) lv++;
+    const DWORD i = (DWORD)(lv < lo ? lo : lv) - (DWORD)lo;
+    if (n > 0 && i < (DWORD)n) return g_llGet(lot, edx, obj);
+    DWORD g = 0;
+    if (n > 0) {
+        const DWORD* q = (const DWORD*)(lot + 0x378);
+        const DWORD idx = (DWORD)((LONG)(q[0] - q[1]) >> 2) + (DWORD)n - 1;
+        g = (*(const DWORD* const* const*)(lot + 0x384))[idx >> 6][idx & 63];
+    }
+    if (InterlockedIncrement(&g_llHits) <= 16) {
+        // the script frames name who re-parents the object; the native caller only says "attach by slot name"
+        char st[440];
+        if (FbStackText(st, sizeof(st), 10) <= 0) SCpy(st, "(no script frames)");
+        Log("ea fix: LotLevelPastEnd: lot %p id %08lX%08lX has %ld level Group(s) from level %ld, object %p id %08lX%08lX (lot %p) "
+            "asks for level %ld (index %ld, caller 0x%08X): answered the top Group 0x%08lX instead of the word past the table; "
+            "script stack: %s",
+            lot, *(const DWORD*)(lot + 0x4C), *(const DWORD*)(lot + 0x48), n, lo, obj, *(const DWORD*)(obj + 0xC), *(const DWORD*)(obj + 8),
+            *(void* const*)(obj + 0x30), lv, (LONG)i, (DWORD)(uintptr_t)_ReturnAddress(), g, st);
+    }
+    return g;
+}
+
+// slot = the vtable entry; checks the getter it names (entry, lowest-level clamp, deque reads) first.
+static bool LlPatch(DWORD* slot) {
+    if (!Readable(slot, 4)) return false;
+    const u8* f = (const u8*)(uintptr_t)*slot;
+    if (!Matches(f, kLlHead, sizeof(kLlHead)) || !Matches(f + 0x4D, kLlLow, sizeof(kLlLow)) ||
+        !Matches(f + 0x66, kLlDeq, sizeof(kLlDeq)) || !Matches(f + 0x79, kLlBlk, sizeof(kLlBlk)))
+        return false;
+    const DWORD hook = (DWORD)(uintptr_t)&LlGroup;
+    return Write(slot, &hook, 4);
+}
+
+static bool ApplyLotLevelPastEnd(const wchar_t* ini) {
+    if (!GetPrivateProfileIntW(L"EaCrashFixes", L"LotLevelPastEnd", 0, ini)) return false;
+#ifdef TS3A_TABLE
+    if (ts3a_noaddr) { Log("SKIP ea fix LotLevelPastEnd ([EaCrashFixes] LotLevelPastEnd): no EA 1.69 address, docs/232 §8"); return false; }
+#endif
+    DWORD* slot = (DWORD*)(uintptr_t)LL_SLOT;
+    if (!Readable(slot, 4) || *slot != LL_GET || !LlPatch(slot)) {
+        Log("SKIP ea fix: LotLevelPastEnd: vtable slot 0x%08X or the getter bytes differ: not installed", LL_SLOT);
+        return false;
+    }
+    Log("OK   ea fix: LotLevelPastEnd (docs/67 §40): the lot's level Group getter 0xAB70B0 answers the top Group past the lot's level table");
+    return true;  // keep the log open for the hit lines
 }
 
 // ---- GeomNoMaterial ----
@@ -530,7 +615,7 @@ static void __stdcall MdHit(int rem) {
     InterlockedIncrement(rem ? &ts3native_counters.mdRemMinus1 : &ts3native_counters.mdDivOverflow);
     if (InterlockedIncrement(&g_mdLogged) > 8) return;
     char st[440];
-    if (FbStackText(st, sizeof(st), 8) <= 0) strcpy_s(st, "unreadable");
+    if (FbStackText(st, sizeof(st), 8) <= 0) SCpy(st, "unreadable");
     Log("ea fix: MintDivGuard: %s: %s; script stack: %s", rem ? "rem.i4 INT_MIN % -1" : "div.i4 INT_MIN / -1",
         rem ? "result 0" : "OverflowException", st);
 }
@@ -715,13 +800,368 @@ static bool ApplySimNoTextureAtlas(const wchar_t* ini) {
 }
 #endif
 
+// ---- SlaveUnlink + DeadSlaveTrip (2026-11-18, docs/143 §8.11, ledger I-212-16) ----
+// A route with slaves (BoatWaterScooter.IsSlaveRoute adds its Driver; other boats, strollers, led horses alike) reaches
+// native as Route.Start(..., slave ids, ...); the master agent's entity (agent+8) keeps raw slave entity pointers: count
+// +0xC, vector +0x10..+0x14, flag byte +0x20, written only by SetSlaves 0x83A650 thiscall(part; arr, count, flag) ret 0xC,
+// whose only setting caller is 0x955809 (the other four pass 0,0,0) [verified]. The agent destructor 0x9562F0 ends in the
+// entity base destructor 0x839E60 (call at 0x956426, its only caller besides the abstract base's own) and neither removes the
+// dying entity from a master's list [verified], so a slave destroyed while its master's list still names it leaves a
+// dangling pointer: the master's next ObstacleAvoidance calls slot +0x18 of the base vtable 0x1022E78 = the purecall thunk
+// 0xF7E8AC (crash at 0x58D996 from 0x85F1A8, 2026-10-21 / 11-17 / 11-18 on Isla Paradiso).
+// SlaveUnlink: record each list at 0x955809; when a listed entity is destroyed, take it off its master's list before the
+// destructor runs (the last one through the game's own SetSlaves(0,0,0), what EA does at route end, 0x858BAE / 0x84B3F1;
+// SetSlaves(0,..) only resets end, count and flag, no calls). Lists whose slaves live on are unchanged. DeadSlaveTrip (test queues only): at the four avoidance reads of slave 0 (0x847490, 0x847C57, 0x85E88B,
+// 0x85F18F; each tests the result for null) a slave whose vtable slot +0x18 is the purecall thunk is logged and answered null.
+typedef void(__fastcall* SlSetFn)(u8* part, void* edx, u8** arr, DWORD n, DWORD flag);
+typedef void(__fastcall* SlDtorFn)(u8* part, void* edx);
+typedef u8*(__fastcall* SlGetFn)(u8* part, void* edx, int i);
+static const DWORD SL_SET = TS3A(0x0083A650), SL_SET_SITE = TS3A(0x00955809), SL_DTOR = TS3A(0x00839E60),
+                   SL_DTOR_SITE = TS3A(0x00956426), SL_GET = TS3A(0x00839CA0), SL_PURECALL = TS3A(0x00F7E8AC);
+static const DWORD kSlTripSites[4] = {TS3A(0x00847490), TS3A(0x00847C57), TS3A(0x0085E88B), TS3A(0x0085F18F)};
+static SlSetFn g_slSet = (SlSetFn)(uintptr_t)SL_SET;  // selftest swaps the three
+static SlDtorFn g_slDtor = (SlDtorFn)(uintptr_t)SL_DTOR;
+static SlGetFn g_slGet = (SlGetFn)(uintptr_t)SL_GET;
+// Own export block (counters layout unchanged, docs/registry.md): switches, lists recorded, masters cleared, table full,
+// tripwire hits; docs/321 H4 (appended): pairs the table holds now (capacity), most pairs held at once, times it grew.
+struct SlaveLinkCounters { volatile LONG unlinkOn, tripOn, sets, unlinks, overflow, tripHits, cap, hw, grows; };
+extern "C" __declspec(dllexport) SlaveLinkCounters ts3native_slavelink = {0, 0, 0, 0, 0, 0, 64, 0, 0};
+struct SlPair { u8* master; u8* slave; DWORD mPartVt, mLo, mHi, mVt, sLo, sHi, sVt; };
+// docs/321 H4: 64 pairs to start (in the image), doubled on the heap when every pair is live (a 4x world: more boats, strollers,
+// led horses at once), up to g_slCapMax (65,536 pairs = 2.3 MB). Only past that a list goes unrecorded (overflow) and loses the
+// guard. Every access holds g_slBusy, so a grow (copy, then free the old block) never races a reader.
+enum { SL_CAP0 = 64 };
+static SlPair g_slPairs0[SL_CAP0];
+static SlPair* g_slPairs = g_slPairs0;
+static int g_slCap = SL_CAP0, g_slCapMax = 65536;  // selftest lowers the ceiling
+static volatile LONG g_slBusy;
+
+static void SlOwner(const u8* part, DWORD* lo, DWORD* hi, DWORD* vt) {  // owner = agent+4 = part-4; id at owner+8
+    *lo = *hi = *vt = 0;
+    __try {
+        const u8* o = *(const u8* const*)(part - 4);
+        if (o) *vt = *(const DWORD*)o, *lo = *(const DWORD*)(o + 8), *hi = *(const DWORD*)(o + 0xC);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
+static int SlIndexIn(const u8* master, const u8* slave, DWORD partVt) {  // slave's index in master's live list, or -1
+    __try {
+        if (*(const DWORD*)master != partVt) return -1;  // master freed (its memory reused): not the list we recorded
+        const LONG n = *(const LONG*)(master + 0xC);
+        u8* const* b = *(u8* const* const*)(master + 0x10);
+        u8* const* e = *(u8* const* const*)(master + 0x14);
+        for (LONG i = 0; i < n && b + i < e; i++)
+            if (b[i] == slave) return (int)i;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    return -1;
+}
+static void SlLock() { while (InterlockedCompareExchange(&g_slBusy, 1, 0)) YieldProcessor(); }
+static void SlUnlock() { InterlockedExchange(&g_slBusy, 0); }
+static void SlForget(const u8* master) {
+    for (int i = 0; i < g_slCap; i++)
+        if (g_slPairs[i].master == master) g_slPairs[i].master = NULL;
+}
+static int SlGrow() {  // g_slBusy held; the first new pair's index, or -1 at the ceiling / out of memory
+    if (g_slCap >= g_slCapMax) return -1;
+    const int cap = g_slCap * 2 > g_slCapMax ? g_slCapMax : g_slCap * 2;
+    SlPair* p = (SlPair*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(SlPair) * cap);
+    if (!p) return -1;
+    memcpy(p, g_slPairs, sizeof(SlPair) * g_slCap);
+    if (g_slPairs != g_slPairs0) HeapFree(GetProcessHeap(), 0, g_slPairs);
+    const int first = g_slCap;
+    g_slPairs = p, g_slCap = cap;
+    ts3native_slavelink.cap = cap, ts3native_slavelink.grows++;
+    Log("ea fix: SlaveUnlink: %d live master/slave pairs, table grown to %d (docs/321 H4)", first, cap);
+    return first;
+}
+
+static void __fastcall SlSetHook(u8* part, void*, u8** arr, DWORD n, DWORD flag) {
+    g_slSet(part, NULL, arr, n, flag);
+    SlLock();
+    SlForget(part);
+    if (arr && (LONG)n > 0) {
+        ts3native_slavelink.sets++;
+        DWORD mLo, mHi, mVt;
+        SlOwner(part, &mLo, &mHi, &mVt);
+        const DWORD partVt = *(const DWORD*)part;
+        for (DWORD i = 0; i < n; i++) {
+            if (!arr[i]) continue;
+            int f = -1;
+            for (int j = 0; j < g_slCap && f < 0; j++)
+                if (!g_slPairs[j].master) f = j;
+            for (int j = 0; j < g_slCap && f < 0; j++)  // full: reuse a pair its master no longer lists
+                if (SlIndexIn(g_slPairs[j].master, g_slPairs[j].slave, g_slPairs[j].mPartVt) < 0) f = j;
+            if (f < 0) f = SlGrow();  // docs/321 H4: every pair live: grow instead of dropping the list
+            if (f < 0) { ts3native_slavelink.overflow++; CapFull(CAP_SLAVE); continue; }
+            SlPair& p = g_slPairs[f];
+            p.master = part, p.slave = arr[i], p.mPartVt = partVt, p.mLo = mLo, p.mHi = mHi, p.mVt = mVt;
+            SlOwner(arr[i], &p.sLo, &p.sHi, &p.sVt);
+        }
+        LONG used = 0;
+        for (int j = 0; j < g_slCap; j++) used += g_slPairs[j].master != NULL;
+        if (used > ts3native_slavelink.hw) ts3native_slavelink.hw = used;
+        CapSee(CAP_SLAVE, used, g_slCap);
+    }
+    SlUnlock();
+}
+
+static void __fastcall SlDtorHook(u8* part, void*) {
+    SlLock();
+    SlForget(part);  // a master going away: its slaves hold no pointer back
+    for (int i = 0; i < g_slCap; i++) {
+        SlPair p = g_slPairs[i];
+        if (!p.master || p.slave != part) continue;
+        g_slPairs[i].master = NULL;
+        const int at = SlIndexIn(p.master, part, p.mPartVt);
+        if (at < 0) continue;  // EA cleared or replaced that list already
+        // Take this one entry out (SetSlaves keeps end == begin + count); the last one goes the game's own way, SetSlaves(0,0,0).
+        LONG n = 0;
+        __try {
+            n = *(LONG*)(p.master + 0xC);
+            u8** b = *(u8***)(p.master + 0x10);
+            for (LONG j = at; j + 1 < n; j++) b[j] = b[j + 1];
+            if (n > 1) *(LONG*)(p.master + 0xC) = n - 1, *(u8***)(p.master + 0x14) = b + (n - 1);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        if (n <= 1) g_slSet(p.master, NULL, NULL, 0, 0);
+        const LONG k = InterlockedIncrement(&ts3native_slavelink.unlinks);
+        if (k <= 16 || (k & (k - 1)) == 0) {
+            char st[600];
+            if (FbStackText(st, sizeof(st), 12) <= 0) SCpy(st, "none");
+            Log("ea fix: SlaveUnlink #%ld: entity %p (owner %08lX%08lX vt %08lX) destroyed while slave %d of %ld of master %p "
+                "(owner %08lX%08lX vt %08lX): taken off the master's slave list; script stack: %s",
+                k, part, p.sHi, p.sLo, p.sVt, at, n, p.master, p.mHi, p.mLo, p.mVt, st);
+        }
+    }
+    SlUnlock();
+    g_slDtor(part, NULL);
+}
+
+static bool SlDead(const u8* s) {  // destructor ran: base vtable, pure slot +0x18; unreadable counts too (the call would fault)
+    __try { return (*(const DWORD* const*)s)[6] == SL_PURECALL; } __except (EXCEPTION_EXECUTE_HANDLER) { return true; }
+}
+static u8* __fastcall SlTripGet(u8* part, void*, int i) {
+    u8* s = g_slGet(part, NULL, i);
+    if (!s || !SlDead(s)) return s;
+    const LONG k = InterlockedIncrement(&ts3native_slavelink.tripHits);
+    if (k <= 16 || (k & (k - 1)) == 0) {
+        DWORD mLo, mHi, mVt, sVt = 0;
+        SlOwner(part, &mLo, &mHi, &mVt);
+        __try { sVt = *(const DWORD*)s; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        Log("ea fix: DeadSlaveTrip #%ld: master %p (owner %08lX%08lX vt %08lX) slave %d %p has a destroyed entity's vtable %08lX: "
+            "answered null (the game would call its pure slot)", k, part, mHi, mLo, mVt, i, s, sVt);
+    }
+    return NULL;
+}
+
+static bool ApplySlaveLink(const wchar_t* ini) {
+    bool keep = false;
+    if (GetPrivateProfileIntW(L"EaCrashFixes", L"SlaveUnlink", 1, ini)) {
+        if (FpCallOk(SL_SET_SITE, SL_SET) && FpCallOk(SL_DTOR_SITE, SL_DTOR) && FpRedirect(SL_SET_SITE, (const void*)&SlSetHook) &&
+            FpRedirect(SL_DTOR_SITE, (const void*)&SlDtorHook)) {
+            ts3native_slavelink.unlinkOn = 1, keep = true;
+            Log("OK   ea fix: SlaveUnlink (docs/143 §8.11): a destroyed slave (a boat's driver, a stroller, a led horse) is taken "
+                "off its master's slave list before it is freed");
+        } else Log("SKIP ea fix: SlaveUnlink: calls at 0x%08X / 0x%08X differ: not installed", SL_SET_SITE, SL_DTOR_SITE);
+    }
+    if (GetPrivateProfileIntW(L"EaCrashFixes", L"DeadSlaveTrip", 1, ini)) {
+        bool ok = true;
+        for (int i = 0; i < 4; i++) ok = ok && FpCallOk(kSlTripSites[i], SL_GET);
+        for (int i = 0; i < 4 && ok; i++) ok = FpRedirect(kSlTripSites[i], (const void*)&SlTripGet);
+        if (ok) {
+            ts3native_slavelink.tripOn = 1, keep = true;
+            Log("OK   ea fix: DeadSlaveTrip (TEST TRIPWIRE, docs/143 §8.11): avoidance skips and logs a destroyed slave 0");
+        } else Log("SKIP ea fix: DeadSlaveTrip: a call to 0x%08X differs: not installed", SL_GET);
+    }
+    return keep;
+}
+
+// [EaCrashFixes] VbFreeDelayMs (docs/67 §44, default 0 = off; Steam 1.67 and EA 1.69): EA use after free of a vertex buffer wrapper.
+// 0xA85DF0 releases the wrapper at +0x70 of its owner (0xEC17A0, last ref: deleting dtor 0x61A410 / 0x61A340, then free
+// 0x4E3F70) while a queued draw item still runs the draw callback 0xA84D00 with the old pointer (VbGuard caught it 23-894 ms
+// after the release, same thread). Freed memory reused = Device_SetStreamSource 0x60F020 hands garbage to the device (the
+// bridge crashes at d3d9.dll+0x3A91D / +0x2789B). Fix: the two deleting dtors run without their free; the wrapper (base
+// vtable, D3D VB +0x14 = 0, the game's own released state) is freed VbFreeDelayMs later, so a late draw binds a NULL stream,
+// as the not yet reused memory already did in the caught cases. Its refcount is pinned high so a late Release cannot free it twice.
+// [EaCrashFixes] VbOwnerDelay (docs/67 §44.1, default 1, needs VbFreeDelayMs > 0): the draw item holds the OWNER without a
+// reference too, and 0xA85DF0(owner, 1) frees the owner at once (2026-11-22 tester crash: owner reused, +0x70 = a string).
+// 0xA85DF0 runs with flags & ~1 and the owner joins the same queue (no pin: +4 is no refcount in this class); +0x70 is set to
+// 0 (EA clears it only when it released the wrapper, byte +0 == 0), so a late 0xA84D00 binds a NULL stream (0x60F020's NULL
+// branch). Only caller: 0xA891CA (rel32 scan of .text, no vtable or pointer reference).
+// Aliases (I-604-5, verified): 0xA8963F allocates a 0x80 owner, 0xA89696 copies an existing owner into it with 0xA89030 (raw copy,
+// +0x70 included, no AddRef) and sets byte +0 = 1. Its dtor never releases +0x70, so when the owning owner (byte +0 == 0) is
+// deleted the alias keeps drawing the released wrapper (§44's VB BAD hits), and once VbFreeDelayMs has passed it reads freed
+// memory. VbOwnerDelay tracks aliases (call 0xA89696) and clears +0x70 of every live alias of a wrapper its owner releases:
+// the late alias draw binds NULL, what vanilla binds while the freed wrapper is not reused (+0x14 = 0).
+struct VbDelayCounters { volatile LONG ownerOn, wrappers, owners, ownerZeroed, freed, forced, queued, hw, flushes, aliasOn, aliases, aliasHw,
+                         aliasCleared, aliasFull; };
+// Own export block (counters layout unchanged, docs/registry.md): switch read-back, wrappers / owners queued, owners whose +0x70
+// we cleared, blocks freed, freed early (ring full), queued now, most queued at once, world load / quit flushes.
+extern "C" __declspec(dllexport) VbDelayCounters ts3native_vbdelay = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static DWORD g_vqMs;
+// EA 1.69.47: the owner dtor, the game free and the alias copy are mapped (docs/51 V-604-1, Lenovo session); the VB wrapper
+// dtors are mapped since feature/ea169-parity-a (0x61B500 / 0x61B5D0, docs/51 §588), so EA gets the wrapper delay, owner delay and alias clear.
+static const DWORD kVqFree = TS3A(0x004E3F70), kVoDtor = TS3A(0x00A85DF0);  // retail 1.67: row 0 (SKIP below)
+#ifndef TS3A_RETAIL  // retail 1.67: the two dtor rows are not mapped yet (docs/314 §5), wrapper part SKIPs below
+// EA 1.69.47: 0x61B500 / 0x61B5D0, same bytes (docs/51 §588, docs/232 §8.1)
+static const DWORD kVqDelA = TS3A(0x0061A340), kVqDelB = TS3A(0x0061A410);
+#endif
+static const DWORD kAlSite = TS3A(0x00A89696), kAlCopy = TS3A(0x00A89030);  // EA 1.69 mapped (V-604-1); retail rows 0 = untracked
+static const u8 kVqPro[] = {0x56, 0x8B, 0xF1, 0x57, 0x8D, 0x7E, 0x08};  // push esi ; mov esi,ecx ; push edi ; lea edi,[esi+8]
+static const u8 kVoPro[] = {0x56, 0x8B, 0xF1, 0x8B, 0x4E, 0x70};        // push esi ; mov esi,ecx ; mov ecx,[esi+70h]
+typedef void*(__fastcall* VqDelFn)(u8* self, void* edx, DWORD flags);
+static VqDelFn g_vqOrig[2], g_voOrig;
+static void(__cdecl* g_vqFree)(void*) = (void(__cdecl*)(void*))(uintptr_t)kVqFree;  // selftest swaps it
+static const DWORD kVqCap = 8192;
+static u8* g_vqPtr[kVqCap];
+static DWORD g_vqTick[kVqCap], g_vqHead, g_vqN;
+static SRWLOCK g_vqLock = SRWLOCK_INIT;
+// frees up to max blocks whose delay is over, outside the lock
+static DWORD VqDrain(DWORD now, DWORD max) {
+    DWORD total = 0;
+    for (;;) {
+        u8* due[64];
+        DWORD n = 0;
+        AcquireSRWLockExclusive(&g_vqLock);
+        while (g_vqN && n < 64 && total + n < max && now - g_vqTick[g_vqHead] >= g_vqMs)
+            due[n++] = g_vqPtr[g_vqHead], g_vqHead = (g_vqHead + 1) % kVqCap, g_vqN--;
+        ts3native_vbdelay.queued = (LONG)g_vqN;
+        ReleaseSRWLockExclusive(&g_vqLock);
+        for (DWORD i = 0; i < n; i++) g_vqFree(due[i]);
+        total += n;
+        if (n < 64 || total >= max) break;
+    }
+    if (total) InterlockedExchangeAdd(&ts3native_vbdelay.freed, (LONG)total);
+    return total;
+}
+static void VqPush(u8* self, bool pin) {
+    if (pin) *(volatile LONG*)(self + 4) = 0x40000000;  // refcount (0xEC17A0 left 1): a late Release never reaches 0
+    const DWORD now = GetTickCount();
+    VqDrain(now, 16);
+    u8* early = NULL;
+    AcquireSRWLockExclusive(&g_vqLock);
+    if (g_vqN == kVqCap) early = g_vqPtr[g_vqHead], g_vqHead = (g_vqHead + 1) % kVqCap, g_vqN--;
+    const DWORD t = (g_vqHead + g_vqN) % kVqCap;
+    g_vqPtr[t] = self, g_vqTick[t] = now, g_vqN++;
+    ts3native_vbdelay.queued = (LONG)g_vqN;
+    if ((LONG)g_vqN > ts3native_vbdelay.hw) ts3native_vbdelay.hw = (LONG)g_vqN;
+    ReleaseSRWLockExclusive(&g_vqLock);
+    if (early) {
+        if (InterlockedIncrement(&ts3native_vbdelay.forced) == 1) Log("ea fix: VbFreeDelay: queue full (%lu), freeing early", kVqCap);
+        g_vqFree(early), InterlockedIncrement(&ts3native_vbdelay.freed);
+    }
+}
+#ifndef TS3A_RETAIL
+static void* __fastcall VqDelA(u8* self, void* edx, DWORD flags) {
+    void* r = g_vqOrig[0](self, edx, flags & ~1u);
+    if (flags & 1) VqPush(self, true), InterlockedIncrement(&ts3native_vbdelay.wrappers);
+    return r;
+}
+static void* __fastcall VqDelB(u8* self, void* edx, DWORD flags) {
+    void* r = g_vqOrig[1](self, edx, flags & ~1u);
+    if (flags & 1) VqPush(self, true), InterlockedIncrement(&ts3native_vbdelay.wrappers);
+    return r;
+}
+#endif
+static const DWORD kAlCap = 65536;  // live aliases; full = new ones untracked (logged once, wrapper delay still covers 2 s)
+static u8** g_alPtr;               // dense: [alias, wrapper] pairs, swap-remove
+static DWORD g_alN;
+static SRWLOCK g_alLock = SRWLOCK_INIT;
+typedef u8*(__fastcall* AlCopyFn)(u8* self, void* edx, const u8* src);
+static AlCopyFn g_alCopy = (AlCopyFn)(uintptr_t)kAlCopy;  // selftest swaps it
+static u8* __fastcall AlCopyHook(u8* self, void* edx, const u8* src) {
+    u8* r = g_alCopy(self, edx, src);
+    u8* w = *(u8**)(self + 0x70);
+    if (!w || !g_alPtr) return r;
+    AcquireSRWLockExclusive(&g_alLock);
+    if (g_alN < kAlCap) {
+        g_alPtr[2 * g_alN] = self, g_alPtr[2 * g_alN + 1] = w, g_alN++;
+        ts3native_vbdelay.aliases = (LONG)g_alN;
+        if ((LONG)g_alN > ts3native_vbdelay.aliasHw) ts3native_vbdelay.aliasHw = (LONG)g_alN;
+    } else if (InterlockedIncrement(&ts3native_vbdelay.aliasFull) == 1) Log("ea fix: VbOwnerDelay: alias table full (%lu), new aliases untracked", kAlCap);
+    ReleaseSRWLockExclusive(&g_alLock);
+    return r;
+}
+// an alias is deleted: drop it; an owner releases wrapper w: clear +0x70 of its live aliases and drop them
+static void AlOnDelete(u8* self, bool owned, u8* w) {
+    if (!g_alPtr) return;
+    LONG cleared = 0;
+    AcquireSRWLockExclusive(&g_alLock);
+    for (DWORD i = 0; i < g_alN;) {
+        const bool me = g_alPtr[2 * i] == self, share = owned && w && g_alPtr[2 * i + 1] == w;
+        if (!me && !share) { i++; continue; }
+        if (share && !me && *(u8**)(g_alPtr[2 * i] + 0x70) == w) *(u8* volatile*)(g_alPtr[2 * i] + 0x70) = NULL, cleared++;
+        g_alN--, g_alPtr[2 * i] = g_alPtr[2 * g_alN], g_alPtr[2 * i + 1] = g_alPtr[2 * g_alN + 1];
+    }
+    ts3native_vbdelay.aliases = (LONG)g_alN;
+    ReleaseSRWLockExclusive(&g_alLock);
+    if (cleared && InterlockedExchangeAdd(&ts3native_vbdelay.aliasCleared, cleared) == 0)
+        Log("ea fix: VbOwnerDelay: first alias +0x70 cleared (%ld aliases of wrapper 0x%08lX, owner 0x%08lX)", cleared, (DWORD)(uintptr_t)w, (DWORD)(uintptr_t)self);
+}
+static void* __fastcall VoDtor(u8* self, void* edx, DWORD flags) {
+    const bool owned = self[0] == 0;
+    u8* const w0 = *(u8**)(self + 0x70);
+    void* r = g_voOrig(self, edx, flags & ~1u);
+    AlOnDelete(self, owned, w0);
+    if (flags & 1) {
+        const DWORD w = *(volatile DWORD*)(self + 0x70);
+        if (w) *(volatile DWORD*)(self + 0x70) = 0, InterlockedIncrement(&ts3native_vbdelay.ownerZeroed);  // byte +0 != 0: EA kept it
+        VqPush(self, false);
+        if (InterlockedIncrement(&ts3native_vbdelay.owners) == 1)
+            Log("ea fix: VbFreeDelay: first draw owner 0x%08lX delayed (%lu ms; +0x70 was 0x%08lX, now 0)", (DWORD)(uintptr_t)self, g_vqMs, w);
+    }
+    return r;
+}
+// world load / quit (userdiag.cpp, sim thread): every block whose delay is over is freed (the ring otherwise drains only on new deletes)
+static void VqFlush(const char* why) {
+    if (!g_vqMs) return;
+    const DWORD n = VqDrain(GetTickCount(), kVqCap);
+    const LONG f = InterlockedIncrement(&ts3native_vbdelay.flushes);
+    const VbDelayCounters& k = ts3native_vbdelay;
+    if (f <= 50)
+        Log("ea fix: VbFreeDelay flush at %s: %lu freed, %ld still queued; totals: %ld wrappers, %ld owners (%ld +0x70 cleared), %ld freed, "
+            "high water %ld, early %ld", why, n, k.queued, k.wrappers, k.owners, k.ownerZeroed, k.freed, k.hw, k.forced);
+}
+static bool ApplyVbFreeDelay(const wchar_t* ini) {
+    g_vqMs = GetPrivateProfileIntW(L"EaCrashFixes", L"VbFreeDelayMs", 0, ini);
+    if (!g_vqMs) return false;
+    if (g_vqMs > 10000) g_vqMs = 10000;
+#ifndef TS3A_RETAIL
+    g_vqOrig[0] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A340", kVqDelA, kVqPro, sizeof(kVqPro), (void*)VqDelA, &g_vqOrig[0]);
+    g_vqOrig[1] = (VqDelFn)InstallDetour("ea fix VbFreeDelay VB wrapper dtor 0x61A410", kVqDelB, kVqPro, sizeof(kVqPro), (void*)VqDelB, &g_vqOrig[1]);
+    const bool ok = g_vqOrig[0] && g_vqOrig[1];
+    Log("%s ea fix: VbFreeDelay (docs/67 §44): VB wrappers freed %lu ms after their destructor (late draw 0xA84D00 binds NULL, "
+        "not reused memory)", ok ? "OK  " : "PARTIAL", g_vqMs);
+#else
+    const bool ok = false;
+    Log("SKIP ea fix: VbFreeDelay (docs/67 §44): VB wrapper dtors not mapped on " TS3A_HOST_NAME ": wrapper part not installed (VbOwnerDelay below still uses the %lu ms ring)", g_vqMs);
+#endif
+    bool own = false;
+    if (!kVoDtor) Log("SKIP ea fix: VbOwnerDelay (docs/67 §44.1): owner dtor not mapped on this exe build");
+    else if (GetPrivateProfileIntW(L"EaCrashFixes", L"VbOwnerDelay", 1, ini)) {
+        g_voOrig = (VqDelFn)InstallDetour("ea fix VbOwnerDelay draw owner dtor 0xA85DF0", kVoDtor, kVoPro, sizeof(kVoPro), (void*)VoDtor, &g_voOrig);
+        own = g_voOrig != NULL;
+        ts3native_vbdelay.ownerOn = own ? 1 : 0;
+        if (own && kAlSite) {
+            g_alPtr = (u8**)VirtualAlloc(NULL, kAlCap * 2 * sizeof(u8*), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+            const CallSite al = {kAlSite, kAlCopy, (void*)AlCopyHook};
+            ts3native_vbdelay.aliasOn = g_alPtr && PatchCalls("ea fix VbOwnerDelay alias copy 0xA89696 -> 0xA89030", &al, 1) ? 1 : 0;
+            if (!ts3native_vbdelay.aliasOn) Log("ea fix: VbOwnerDelay: aliases not tracked (call site differs or no memory): wrapper delay only for them");
+        } else if (own) Log("ea fix: VbOwnerDelay: aliases not tracked (alias copy site not mapped on this exe build)");
+        Log("%s ea fix: VbOwnerDelay (docs/67 §44.1): draw owners of 0xA85DF0 freed %lu ms after their destructor, +0x70 cleared "
+            "(late draw 0xA84D00 binds NULL, not a reused owner)", own ? "OK  " : "SKIP", g_vqMs);
+    } else Log("ea fix: VbOwnerDelay (docs/67 §44.1) off (VbOwnerDelay=0)");
+    return ok || own;
+}
+
 static bool ApplyEaCrashFixes(const wchar_t* ini) {
     bool keep = ApplyConformActor(ini);
     ApplyThumbPose(ini);
     keep = ApplyThumbPoseBones(ini) || keep;
     keep = ApplyGeomBoneIndex(ini) || keep;
+    keep = ApplyLotLevelPastEnd(ini) || keep;
     keep = ApplyGeomNoMaterial(ini) || keep;
     keep = ApplyMintDivGuard(ini) || keep;
+    keep = ApplySlaveLink(ini) || keep;
+    keep = ApplyVbFreeDelay(ini) || keep;
 #ifdef TS3N_EA_PORT
     keep = ApplySimNoTexture(ini) || keep;
     keep = ApplySimNoTextureAtlas(ini) || keep;

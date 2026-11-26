@@ -1,0 +1,161 @@
+{
+ "note": "offload-a-diag-1118 (RUN FIRST, diag, PREPARED, NOT RUN, dry-run checked; est ~45 min game time). Offload inventory 1118 candidates 1 + 5 on the Apex + bridge stack (Bin state apex). [JobQueue] Enabled=1 SimSkipShared=2 (slot stub installed, starts off) Workers=1, --ab simskipshared in 2-min slices: per arm jqSimSharedJobs / jqSimRenderJobs (shared and frame jobs the sim pump still runs) and pumpUs / pumpMaxUs / pumpCalls (sim pump ms/s, [LotStream] RunJobs timer). [LotStream] Enabled=1 Thumb=1 SyncWait=1: lotAdd*/lotRemove* (lot adds on the sim thread), thumbCalls / thumbUs / thumbMaxUs / thumbOffSim (CreateThumbnailTexture 0xD5D910 on the sim thread, v212), syncWaits. Decide from it: SimSkipShared timing worth running if the off arm shows shared jobs >= ~1 ms/s on the pump; thumbnail offload design only if thumbUs >= ~1 ms/s or thumbMaxUs >= 50 ms. If the log says \"compat: stood down for Apex Lot...\" the lot timers are missing: rerun that job with Apex lot features off (Apex owns those sites), the JobQueue half is still valid. Measurement only, no Sim decision changes (engine job placement, timers).",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0.36.278-offloada1 ": {
+   "match": [
+    "ts3native 0.36.278-offloada1 2026-11-18 16:40:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.277-unseenmeas1 2026-11-18 08:30:00"
+   ]
+  },
+  "^OK   job queue sim pump: vtable slot 0x[0-9A-F]{8} -> stub": {
+   "match": [
+    "OK   job queue sim pump: vtable slot 0x00FD97C8 -> stub (SimSkipShared start 0)"
+   ],
+   "noMatch": [
+    "SKIP job queue sim pump: vtable slot 0x00FD97C8 holds 0x12345678, not RunJobs 0x0059A430"
+   ]
+  },
+  "^OK   job queue workers: JobManager_Init arg 1 -> 0x3 \\(2 generic workers\\)": {
+   "match": [
+    "OK   job queue workers: JobManager_Init arg 1 -> 0x3 (2 generic workers)"
+   ],
+   "noMatch": [
+    "OK   job queue workers: JobManager_Init arg 1 -> 0x7 (3 generic workers)",
+    "SKIP job queue workers: bytes at 0x005992DD differ"
+   ]
+  },
+  "^OK   lot stream: ready 0x[0-9A-F]+ ": {
+   "match": [
+    "OK   lot stream: ready 0xBF (Mode=1, event log on, ObjLogMs=5)"
+   ],
+   "noMatch": [
+    "FAIL lot stream: ready 0x1B (Mode=1, event log on, ObjLogMs=5)",
+    "lot stream disabled (Enabled=0)"
+   ]
+  },
+  "^(SKIP|FAIL) (job queue|lot stream|detour CreateThumbnailTexture)": {
+   "match": [
+    "SKIP job queue sim pump: vtable slot 0x00FD97C8 holds 0x12345678, not RunJobs 0x0059A430",
+    "FAIL lot stream: ready 0x1B (Mode=1, event log on, ObjLogMs=5)",
+    "SKIP lot stream: RunJobs (lot stream) prologue at 0x0059A430 differs (found 00), nothing hooked",
+    "SKIP detour CreateThumbnailTexture (lot stream thumb): prologue at 0x00D5D910 differs"
+   ],
+   "noMatch": [
+    "OK   lot stream: ready 0xBF (Mode=1, event log on, ObjLogMs=5)",
+    "OK   detour CreateThumbnailTexture (lot stream thumb) at 0x00D5D910"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-offa-diag",
+   "note": "BP 10 min, 2-min slices (warm-up + off,on,on,off), --ab simskipshared, lot stream + thumb timers on",
+   "asi": "game-copy/ts3native.asi.offload-a-1118",
+   "iniBase": "game-copy/ts3native.ini.offload-a-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/offload-a-1118 (builds.json ts3native.asi.offload-a-1118 sha256 c80e0dcc0b4d + ini acd37738b2c0: 0.36.277-unseenmeas1 + [LotStream] Thumb timer, counters v212) with ts3fixes.package.master-1117c (managed side unchanged)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 912,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-BP-Spring",
+   "noiseCheck": false,
+   "timeoutMin": 30,
+   "ini": {
+    "JobQueue.Enabled": 1,
+    "JobQueue.SimSkipShared": 2,
+    "JobQueue.Workers": 1,
+    "LotStream.Enabled": 1,
+    "LotStream.Thumb": 1,
+    "LotStream.SyncWait": 1,
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "slice": 2,
+     "ab": "simskipshared"
+    }
+   },
+   "nativeRequire": "jqSimPumps>=1,pumpCalls>=1,@lsReady>=160",
+   "logRequire": {
+    "^ts3native 0.36.278-offloada1 ": 1,
+    "^OK   job queue sim pump: vtable slot 0x[0-9A-F]{8} -> stub": 1,
+    "^OK   lot stream: ready 0x[0-9A-F]+ ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (job queue|lot stream|detour CreateThumbnailTexture)": 0
+   },
+   "earlyGates": [
+    {
+     "afterSec": 120,
+     "counter": "jqSimPumps",
+     "op": ">",
+     "value": 0,
+     "why": "sim pump stub silent ([JobQueue] slot stub not installed or old asi)"
+    }
+   ]
+  },
+  {
+   "id": "ip-offa-diag",
+   "note": "IP 10 min, 2-min slices (warm-up + off,on,on,off), --ab simskipshared, lot stream + thumb timers on",
+   "asi": "game-copy/ts3native.asi.offload-a-1118",
+   "iniBase": "game-copy/ts3native.ini.offload-a-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/offload-a-1118 (builds.json ts3native.asi.offload-a-1118 sha256 c80e0dcc0b4d + ini acd37738b2c0: 0.36.277-unseenmeas1 + [LotStream] Thumb timer, counters v212) with ts3fixes.package.master-1117c (managed side unchanged)",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 912,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "save": "Baseline-IP-Spring",
+   "noiseCheck": false,
+   "timeoutMin": 30,
+   "ini": {
+    "JobQueue.Enabled": 1,
+    "JobQueue.SimSkipShared": 2,
+    "JobQueue.Workers": 1,
+    "LotStream.Enabled": 1,
+    "LotStream.Thumb": 1,
+    "LotStream.SyncWait": 1,
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "slice": 2,
+     "ab": "simskipshared"
+    }
+   },
+   "nativeRequire": "jqSimPumps>=1,pumpCalls>=1,@lsReady>=160",
+   "logRequire": {
+    "^ts3native 0.36.278-offloada1 ": 1,
+    "^OK   job queue sim pump: vtable slot 0x[0-9A-F]{8} -> stub": 1,
+    "^OK   lot stream: ready 0x[0-9A-F]+ ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) (job queue|lot stream|detour CreateThumbnailTexture)": 0
+   },
+   "earlyGates": [
+    {
+     "afterSec": 120,
+     "counter": "jqSimPumps",
+     "op": ">",
+     "value": 0,
+     "why": "sim pump stub silent ([JobQueue] slot stub not installed or old asi)"
+    }
+   ]
+  }
+ ]
+}

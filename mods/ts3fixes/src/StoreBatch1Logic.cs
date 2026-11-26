@@ -14,19 +14,19 @@ namespace Ts3Fixes
     // Store batch 1 (docs/587 §13): hand read of Sims3StoreObjects (79 files, 5 read-only agents). Every switch off by
     // default; all household-visible. Checks: StoreBatch1Checks.cs. Three counter slots each: fixed / seen with the
     // switch off / errors. Slots from 1621 (block fixes-1600).
-    //   spellbooksummonload  [1621] SpellBook+CastingStore.ImportContent: the Summon spell (enum 0) is skipped on import
-    //   chocfountaingeyser   [1624] ChocolateFountain.FountainFilled: a new repeating geyser alarm on every fill
-    //   hypnotrickrelease    [1627] Hypnotizer+PerformTrick.Run: the volunteer's route lock is never cleared
-    //   voodoofairyfadein    [1630] VoodooDoll+TransformSim.Cleanup: fades in the caster, not the hidden fairy
-    //   saunatubclear        [1633] SaunaClassic+BatheInWater.Run: mSimInTub left set after a reset or exception
-    //   slotmachinedefs      [1636] SlotMachine+PlaySlots+Definition.InitFromID: autonomous play rewrites the shared menu
-    //   treewishingwell      [1639] TreeOfProsperity.HasWishingWellOnLot: counts IWishingWell, which no class implements
-    //   playpentalkcast      [1642] PlaypenClassic.CreateLearnToTalkBroadcaster: overwrites a live broadcaster
-    //   ovenmenunull         [1645] IndustrialOven+Menu.PickGoodFoodForMe: null food list dereferenced
-    //   fvstandskillcurve    [1648] FruitVeggieStand.InitializeData: skill curve built from the frequency arrays
-    //   pokerdeadplayer      [1651] PokerTable dealer helpers: a seated Sim who is gone throws and kills the table
-    //   roulettehackreset    [1654] RouletteTable.DoReset: the hack stays on after the reset deletes its timer
-    //   coopeggquality       [1657] ChickenCoopClassic+HarvestEggs.Run: weighted index cast to Quality one tier low
+    //   spellbooksummonload  [3346] SpellBook+CastingStore.ImportContent: the Summon spell (enum 0) is skipped on import
+    //   chocfountaingeyser   [3349] ChocolateFountain.FountainFilled: a new repeating geyser alarm on every fill
+    //   hypnotrickrelease    [3352] Hypnotizer+PerformTrick.Run: the volunteer's route lock is never cleared
+    //   voodoofairyfadein    [3355] VoodooDoll+TransformSim.Cleanup: fades in the caster, not the hidden fairy
+    //   saunatubclear        [3358] SaunaClassic+BatheInWater.Run: mSimInTub left set after a reset or exception
+    //   slotmachinedefs      [3361] SlotMachine+PlaySlots+Definition.InitFromID: autonomous play rewrites the shared menu
+    //   treewishingwell      [3364] TreeOfProsperity.HasWishingWellOnLot: counts IWishingWell, which no class implements
+    //   playpentalkcast      [3367] PlaypenClassic.CreateLearnToTalkBroadcaster: overwrites a live broadcaster
+    //   ovenmenunull         [3370] IndustrialOven+Menu.PickGoodFoodForMe: null food list dereferenced
+    //   fvstandskillcurve    [3373] FruitVeggieStand.InitializeData: skill curve built from the frequency arrays
+    //   pokerdeadplayer      [3376] PokerTable dealer helpers: a seated Sim who is gone throws and kills the table
+    //   roulettehackreset    [3379] RouletteTable.DoReset: the hack stays on after the reset deletes its timer
+    //   coopeggquality       [3382] ChickenCoopClassic+HarvestEggs.Run: weighted index cast to Quality one tier low
     public static partial class Fixes
     {
         const BindingFlags kSbNested = BindingFlags.Public | BindingFlags.NonPublic;
@@ -74,18 +74,18 @@ namespace Ts3Fixes
                         if (SbKeep(false, spell, progress)) continue;   // EA already kept it
                         if (!SbKeep(on, spell, progress))
                         {
-                            if (!on && SbKeep(true, spell, progress)) PatchCounters()[1622]++;
+                            if (!on && SbKeep(true, spell, progress)) PatchCounters()[3347]++;
                             continue;
                         }
                         if (cs.SpellProgress == null) cs.SpellProgress = new Dictionary<SpellBook.SpellType, float>();
                         if (!cs.SpellProgress.ContainsKey(SpellBook.SpellType.Summon))
                         {
                             cs.SpellProgress.Add(SpellBook.SpellType.Summon, progress);
-                            PatchCounters()[1621]++;
+                            PatchCounters()[3346]++;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1623]++; }
+                catch (Exception) { PatchCounters()[3348]++; }
                 return r;
             }
             public bool ImportOrig(IPropertyStreamReader reader) { return false; } // SpellBook+CastingStore.ImportContent
@@ -115,10 +115,10 @@ namespace Ts3Fixes
                     AlarmHandle h = (AlarmHandle)sCfGeyser.GetValue(f);
                     bool on = ShortcutOn("chocfountaingeyser");
                     bool live = h != AlarmHandle.kInvalidHandle;
-                    if (CfRemove(on, live)) { f.RemoveAlarm(h); sCfGeyser.SetValue(f, AlarmHandle.kInvalidHandle); PatchCounters()[1624]++; }
-                    else if (!on && live) PatchCounters()[1625]++;
+                    if (CfRemove(on, live)) { f.RemoveAlarm(h); sCfGeyser.SetValue(f, AlarmHandle.kInvalidHandle); PatchCounters()[3349]++; }
+                    else if (!on && live) PatchCounters()[3350]++;
                 }
-                catch (Exception) { PatchCounters()[1626]++; }
+                catch (Exception) { PatchCounters()[3351]++; }
                 FilledOrig();
             }
             public void FilledOrig() { } // ChocolateFountain.FountainFilled
@@ -161,12 +161,12 @@ namespace Ts3Fixes
                             {
                                 if (ii == null || ii.GetType() != sHtLoop) continue;
                                 bool linked = ii.LinkedInteractionInstance == pt, locked = (bool)sHtLock.GetValue(ii);
-                                if (HtRelease(on, linked, locked)) { sHtLock.SetValue(ii, false); PatchCounters()[1627]++; }
-                                else if (!on && HtRelease(true, linked, locked)) PatchCounters()[1628]++;
+                                if (HtRelease(on, linked, locked)) { sHtLock.SetValue(ii, false); PatchCounters()[3352]++; }
+                                else if (!on && HtRelease(true, linked, locked)) PatchCounters()[3353]++;
                             }
                         }
                     }
-                    catch (Exception) { PatchCounters()[1629]++; }
+                    catch (Exception) { PatchCounters()[3354]++; }
                 }
             }
             public bool RunOrig() { return false; } // Hypnotizer+PerformTrick.Run
@@ -195,7 +195,7 @@ namespace Ts3Fixes
             public void CleanupHook()
             {
                 VisualEffect fx = null;
-                try { fx = sVfHandle.GetValue(this) as VisualEffect; } catch (Exception) { PatchCounters()[1632]++; }
+                try { fx = sVfHandle.GetValue(this) as VisualEffect; } catch (Exception) { PatchCounters()[3357]++; }
                 CleanupOrig();
                 try
                 {
@@ -203,7 +203,7 @@ namespace Ts3Fixes
                     bool hidden = fx != null;
                     if (!VfShow(on, hidden))
                     {
-                        if (!on && hidden) PatchCounters()[1631]++;
+                        if (!on && hidden) PatchCounters()[3356]++;
                         return;
                     }
                     fx.Stop(VisualEffect.TransitionType.HardTransition);   // as EA's OnShowActor
@@ -213,9 +213,9 @@ namespace Ts3Fixes
                     VoodooDoll doll = ii.Target as VoodooDoll;
                     Sim bound = doll == null ? null : doll.GetBoundSim();
                     if (bound != null) bound.FadeIn();
-                    PatchCounters()[1630]++;
+                    PatchCounters()[3355]++;
                 }
-                catch (Exception) { PatchCounters()[1632]++; }
+                catch (Exception) { PatchCounters()[3357]++; }
             }
             public void CleanupOrig() { } // VoodooDoll+TransformSim.Cleanup
         }
@@ -251,11 +251,11 @@ namespace Ts3Fixes
                         {
                             bool on = ShortcutOn("saunatubclear");
                             bool still = sStTub.GetValue(sauna) == (object)actor;
-                            if (StClear(on, still)) { sStTub.SetValue(sauna, null); PatchCounters()[1633]++; }
-                            else if (!on && still) PatchCounters()[1634]++;
+                            if (StClear(on, still)) { sStTub.SetValue(sauna, null); PatchCounters()[3358]++; }
+                            else if (!on && still) PatchCounters()[3359]++;
                         }
                     }
-                    catch (Exception) { PatchCounters()[1635]++; }
+                    catch (Exception) { PatchCounters()[3360]++; }
                 }
             }
             public bool RunOrig() { return false; } // SaunaClassic+BatheInWater.Run
@@ -300,11 +300,11 @@ namespace Ts3Fixes
                         object copy = Activator.CreateInstance(sSmDef, true);
                         sSmInit.Invoke(copy, new object[] { def });
                         ii.InteractionObjectPair = new Sims3.Gameplay.Autonomy.InteractionObjectPair((InteractionDefinition)copy, ii.Target);
-                        PatchCounters()[1636]++;
+                        PatchCounters()[3361]++;
                     }
-                    else if (!on && autonomous && shared) PatchCounters()[1637]++;
+                    else if (!on && autonomous && shared) PatchCounters()[3362]++;
                 }
-                catch (Exception) { PatchCounters()[1638]++; }
+                catch (Exception) { PatchCounters()[3363]++; }
                 return RunOrig();
             }
             public bool RunOrig() { return false; } // SlotMachine+PlaySlots.Run
@@ -334,11 +334,11 @@ namespace Ts3Fixes
                     int wells = (int)t.LotCurrent.CountObjects<WishingWell>();
                     bool on = ShortcutOn("treewishingwell");
                     bool has = TwHas(on, 0, wells);   // 0: EA's interface count, false here (it returned above when true)
-                    if (has) PatchCounters()[1639]++;
-                    else if (!on && wells != 0) PatchCounters()[1640]++;
+                    if (has) PatchCounters()[3364]++;
+                    else if (!on && wells != 0) PatchCounters()[3365]++;
                     return has;
                 }
-                catch (Exception) { PatchCounters()[1641]++; return false; }
+                catch (Exception) { PatchCounters()[3366]++; return false; }
             }
             public bool HasOrig() { return false; } // TreeOfProsperity.get_HasWishingWellOnLot
         }
@@ -366,10 +366,10 @@ namespace Ts3Fixes
                     Sims3.Gameplay.Autonomy.ReactionBroadcaster rb = sPpCast.GetValue(this) as Sims3.Gameplay.Autonomy.ReactionBroadcaster;
                     bool on = ShortcutOn("playpentalkcast");
                     bool live = rb != null;
-                    if (PpDispose(on, live)) { rb.Dispose(); sPpCast.SetValue(this, null); PatchCounters()[1642]++; }
-                    else if (!on && live) PatchCounters()[1643]++;
+                    if (PpDispose(on, live)) { rb.Dispose(); sPpCast.SetValue(this, null); PatchCounters()[3367]++; }
+                    else if (!on && live) PatchCounters()[3368]++;
                 }
-                catch (Exception) { PatchCounters()[1644]++; }
+                catch (Exception) { PatchCounters()[3369]++; }
                 CreateOrig();
             }
             public void CreateOrig() { } // PlaypenClassic.CreateLearnToTalkBroadcaster
@@ -400,10 +400,10 @@ namespace Ts3Fixes
                     if (actor.TraitManager.HasElement(Sims3.Gameplay.ActorSystems.TraitNames.DiscountDiner)) cost = int.MaxValue;
                     bool on = ShortcutOn("ovenmenunull");
                     bool listNull = sOmFoods.Invoke(this, new object[] { cost }) == null;
-                    if (OmSkip(on, listNull)) { PatchCounters()[1645]++; return null; }
-                    if (!on && listNull) PatchCounters()[1646]++;
+                    if (OmSkip(on, listNull)) { PatchCounters()[3370]++; return null; }
+                    if (!on && listNull) PatchCounters()[3371]++;
                 }
-                catch (Exception) { PatchCounters()[1647]++; }
+                catch (Exception) { PatchCounters()[3372]++; }
                 return PickOrig(actor);
             }
             public object PickOrig(Sim actor) { return null; } // IndustrialOven+Menu.PickGoodFoodForMe
@@ -436,16 +436,16 @@ namespace Ts3Fixes
                     if (!FvRebuild(on, fromFrequency))
                     {
                         // review: seen counts once per curve; switched on later it still rebuilds
-                        if (!on && fromFrequency && cur != sFvSeen) { sFvSeen = cur; PatchCounters()[1649]++; }
+                        if (!on && fromFrequency && cur != sFvSeen) { sFvSeen = cur; PatchCounters()[3374]++; }
                         return;
                     }
                     float[] x = FruitVeggieStand.kSaleProbabilitySkillXValues, y = FruitVeggieStand.kSaleProbabilitySkillYValues;
                     if (x == null || y == null || x.Length == 0 || x.Length != y.Length) return;
                     sFvSet = new Curve(x, y);
                     FVShoppingRegister.sSkillVsSaleChanceCurve = sFvSet;
-                    PatchCounters()[1648]++;
+                    PatchCounters()[3373]++;
                 }
-                catch (Exception) { PatchCounters()[1650]++; }
+                catch (Exception) { PatchCounters()[3375]++; }
             }
             public void InitOrig() { } // FruitVeggieStand.InitializeData
         }
@@ -486,15 +486,15 @@ namespace Ts3Fixes
                     bool exists = d != null && d.CreatedSim != null && d.CreatedSim.InteractionQueue != null;
                     if (!PkEmpty(on, id, exists))
                     {
-                        if (!on && PkEmpty(true, id, exists)) PatchCounters()[1652]++;
+                        if (!on && PkEmpty(true, id, exists)) PatchCounters()[3377]++;
                         continue;
                     }
                     players[i] = 0;
                     if (toAdd != null) for (int j = 0; j < toAdd.Length; j++) if (toAdd[j] == id) toAdd[j] = 0;
-                    PatchCounters()[1651]++;
+                    PatchCounters()[3376]++;
                 }
             }
-            catch (Exception) { PatchCounters()[1653]++; }
+            catch (Exception) { PatchCounters()[3378]++; }
         }
 
         public class BSt1PkHook
@@ -540,10 +540,10 @@ namespace Ts3Fixes
             {
                 bool on = ShortcutOn("roulettehackreset");
                 int hack = Convert.ToInt32(sRhHack[i].GetValue(table));
-                if (RhClear(on, hack)) { sRhReset[i].Invoke(table, null); PatchCounters()[1654]++; }
-                else if (!on && hack != 0) PatchCounters()[1655]++;
+                if (RhClear(on, hack)) { sRhReset[i].Invoke(table, null); PatchCounters()[3379]++; }
+                else if (!on && hack != 0) PatchCounters()[3380]++;
             }
-            catch (Exception) { PatchCounters()[1656]++; }
+            catch (Exception) { PatchCounters()[3381]++; }
         }
 
         public class BSt1RhHook0
@@ -600,11 +600,11 @@ namespace Ts3Fixes
                     }
                     bool on = ShortcutOn("coopeggquality");
                     int r = CeIndex(on, coop, idx, randomList.Length);
-                    if (r != idx) PatchCounters()[1657]++;
-                    else if (!on && CeIndex(true, coop, idx, randomList.Length) != idx) PatchCounters()[1658]++;
+                    if (r != idx) PatchCounters()[3382]++;
+                    else if (!on && CeIndex(true, coop, idx, randomList.Length) != idx) PatchCounters()[3383]++;
                     return r;
                 }
-                catch (Exception) { PatchCounters()[1659]++; return idx; }
+                catch (Exception) { PatchCounters()[3384]++; return idx; }
             }
             public static int IndexOrig(float[] randomList) { return 0; } // RandomUtil.GetWeightedIndex
         }

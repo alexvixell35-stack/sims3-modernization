@@ -27,7 +27,7 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // Batch 12a (docs/590 usage sweep 2, outings, venues and home objects): EA bug fixes as EA intended, household included
-    // (user rule "fix all"). All default off. Slots 1730-1780. simler90 UPDATE242 leaves every hooked method as EA.
+    // (user rule "fix all"). All default off. Slots 3064-3114. simler90 UPDATE242 leaves every hooked method as EA.
     // Not built: B1/B16 (generic class, needs an IL patch), B7 (false positive: the property stream tags each key with its
     // type, so Uint32 and Int32 under 177446789 are two entries), B11 (money flow spans several sites, needs its own pass),
     // A1 and A12 WildHorses (EP branch dogswimaroundlist / wildhorselot), A4 (re-roll is inside a 300-line Run, needs an IL
@@ -56,8 +56,8 @@ namespace Ts3Fixes
         // [verified, decompiled] ImprovedProtestSituation.CancelNPCProtest calls CleanUp + Dispose on the root only; the
         // child BaseProtest keeps its static Sim.OnLotChangedEvent handler (removed only in its own Dispose), so every later
         // lot change of any Sim runs a disposed protest's handler. Fix: a protest with a child is ended with Exit(), which
-        // cleans and disposes leaf to root as EA does everywhere else. Counters: [1730] exits, [1731] root-only cancels
-        // (switch off), [1732] errors.
+        // cleans and disposes leaf to root as EA does everywhere else. Counters: [3064] exits, [3065] root-only cancels
+        // (switch off), [3066] errors.
         static void ApplyProtestExit()
         {
             Patch(typeof(ImprovedProtestSituation), "CancelNPCProtest", new Type[] { typeof(Lot) }, typeof(B12PeHook), "CancelHook", "CancelOrig");
@@ -70,11 +70,11 @@ namespace Ts3Fixes
             public static void CancelHook(Lot onLot)
             {
                 ImprovedProtestSituation p = null;
-                try { if (onLot != null) p = ImprovedProtestSituation.FindProtest(onLot); } catch (Exception) { PatchCounters()[1732]++; }
+                try { if (onLot != null) p = ImprovedProtestSituation.FindProtest(onLot); } catch (Exception) { PatchCounters()[3066]++; }
                 if (p == null || !PeExit(true, p.Child != null)) { CancelOrig(onLot); return; }
-                if (!ShortcutOn("protestexit")) { PatchCounters()[1731]++; CancelOrig(onLot); return; }
-                try { p.Exit(); PatchCounters()[1730]++; }
-                catch (Exception) { PatchCounters()[1732]++; }  // no second EA pass: CleanUp already ran on part of the chain
+                if (!ShortcutOn("protestexit")) { PatchCounters()[3065]++; CancelOrig(onLot); return; }
+                try { p.Exit(); PatchCounters()[3064]++; }
+                catch (Exception) { PatchCounters()[3066]++; }  // no second EA pass: CleanUp already ran on part of the chain
             }
 
             public static void CancelOrig(Lot onLot) { }
@@ -84,8 +84,8 @@ namespace Ts3Fixes
         // [verified, decompiled] Terrain.GoJogging is Interaction<Sim, Sim> (its Target is the jogger); JogLoop, the 1-minute
         // fatigue alarm, makes GoHere (a TerrainInteraction) with that Sim as target, which throws in CreateInstance: the Sim
         // never walks back to where the jog began and that minute's jog / cardio / workout events are lost. Fix: our copy of
-        // JogLoop, EA's order, with Terrain.Singleton as GoHere's target. Counters: [1733] walk-backs queued, [1734] fatigue
-        // checks with the switch off, [1735] errors.
+        // JogLoop, EA's order, with Terrain.Singleton as GoHere's target. Counters: [3067] walk-backs queued, [3068] fatigue
+        // checks with the switch off, [3069] errors.
         static readonly FieldInfo sJtDest = B12F(typeof(Terrain.GoJogging), "Destination");
         static readonly FieldInfo sJtRoad = B12F(typeof(Terrain.GoJogging), "DestinationIsOnRoad");
         static readonly FieldInfo sJtLast = B12F(typeof(Terrain.GoJogging), "mLastTime");
@@ -120,7 +120,7 @@ namespace Ts3Fixes
                         {
                             goHere.SetDestination(dest, (bool)sJtRoad.GetValue(j));
                             a.InteractionQueue.AddNext(goHere);
-                            PatchCounters()[1733]++;
+                            PatchCounters()[3067]++;
                         }
                     }
                     float last = (float)sJtLast.GetValue(j);
@@ -131,7 +131,7 @@ namespace Ts3Fixes
                     EventTracker.SendEvent(new TimePassedEvent(EventTypeId.kCardioTimeAdded, a, null, num));
                     EventTracker.SendEvent(new TimePassedEvent(EventTypeId.kWorkedOut, a, null, num));
                 }
-                catch (Exception) { PatchCounters()[1735]++; }
+                catch (Exception) { PatchCounters()[3069]++; }
             }
 
             public void LoopOrig() { }
@@ -140,8 +140,8 @@ namespace Ts3Fixes
         // ---- B12 §3 lifeguardquit (docs/590 B4) ----------------------------------------------------------------------
         // [verified, decompiled] Terrain.SurveyBeach.SurveyLot (the DoLoop body) adds ExitReason.Finished when the Sim is no
         // longer a lifeguard with a job, then goes on: three route tries, then RescueCheck reads Actor.Occupation.CurrentJob
-        // (NRE once the Sim quit). Fix: return right after the exit reason, as EA meant. Counters: [1736] loops ended,
-        // [1737] quit loops run on (switch off), [1738] errors.
+        // (NRE once the Sim quit). Fix: return right after the exit reason, as EA meant. Counters: [3070] loops ended,
+        // [3071] quit loops run on (switch off), [3072] errors.
         static void ApplyLifeguardQuit()
         {
             Patch(typeof(Terrain.SurveyBeach), "SurveyLot", new Type[] { typeof(StateMachineClient), typeof(InteractionInstance.LoopData) }, typeof(B12LqHook), "LoopHook", "LoopOrig");
@@ -156,11 +156,11 @@ namespace Ts3Fixes
                 InteractionInstance ii = (InteractionInstance)(object)this;
                 Sim a = ii.InstanceActor as Sim;
                 bool quit = false;
-                try { quit = a != null && LqQuit(a.Occupation is Lifeguard, a.Occupation != null && a.Occupation.CurrentJob != null); } catch (Exception) { PatchCounters()[1738]++; }
+                try { quit = a != null && LqQuit(a.Occupation is Lifeguard, a.Occupation != null && a.Occupation.CurrentJob != null); } catch (Exception) { PatchCounters()[3072]++; }
                 if (quit)
                 {
-                    if (ShortcutOn("lifeguardquit")) { a.AddExitReason(ExitReason.Finished); PatchCounters()[1736]++; return; }
-                    PatchCounters()[1737]++;
+                    if (ShortcutOn("lifeguardquit")) { a.AddExitReason(ExitReason.Finished); PatchCounters()[3070]++; return; }
+                    PatchCounters()[3071]++;
                 }
                 LoopOrig(smc, ld);
             }
@@ -172,8 +172,8 @@ namespace Ts3Fixes
         // [verified, decompiled] OccultFairy.FairySocialFrolic.FrolicLoop tests each critical motive with `flag2 = ...`
         // instead of `|=`: only the last one in kCriticalMotiveTypes can end the frolic, so a fairy whose first critical
         // motive (hunger) bottoms out keeps frolicking. Fix: after EA's loop body, a frolic past its sustained time whose
-        // actor or target has any critical motive at or under its value gets EA's Finished on both. Counters: [1739] frolics
-        // ended, [1740] missed with the switch off, [1741] errors.
+        // actor or target has any critical motive at or under its value gets EA's Finished on both. Counters: [3073] frolics
+        // ended, [3074] missed with the switch off, [3075] errors.
         static readonly FieldInfo sFeSustained = B12F(typeof(OccultFairy.FairySocialFrolic), "sustainedTicks");
         static string sFeM12 = "";
 
@@ -214,12 +214,12 @@ namespace Ts3Fixes
                     if (a == null || t == null) return;
                     if (!FeExit(SimClock.CurrentTicks > (long)sFeSustained.GetValue(si), FeCritical(a, t))) return;
                     if (a.HasExitReason(ExitReason.Finished)) return;  // EA's own test caught it
-                    if (!ShortcutOn("frolicexit")) { PatchCounters()[1740]++; return; }
+                    if (!ShortcutOn("frolicexit")) { PatchCounters()[3074]++; return; }
                     a.AddExitReason(ExitReason.Finished);
                     t.AddExitReason(ExitReason.Finished);
-                    PatchCounters()[1739]++;
+                    PatchCounters()[3073]++;
                 }
-                catch (Exception) { PatchCounters()[1741]++; }
+                catch (Exception) { PatchCounters()[3075]++; }
             }
 
             public void LoopOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { }
@@ -231,7 +231,7 @@ namespace Ts3Fixes
         // GoingWhere and TnsText into the same Singleton. A trait shoo after a guest shoo keeps the guest's TnsText and
         // Reason; a guest shoo label after a trait shoo reads "next room". Fix: the trait shoo uses its own Definition, as
         // PrivacySituation does (VisitSituation sets every field it reads, so it is right once nobody else writes the
-        // Singleton). Counters: [1742] shoos with an own definition, [1743] shared writes (switch off), [1744] errors.
+        // Singleton). Counters: [3076] shoos with an own definition, [3077] shared writes (switch off), [3078] errors.
         static void ApplyShooDef()
         {
             Patch(typeof(TraitFunctions.DislikesChildrenTraitShoo), "Run", Type.EmptyTypes, typeof(B12SdHook), "RunHook", "RunOrig");
@@ -250,16 +250,16 @@ namespace Ts3Fixes
         {
             public bool RunHook()
             {
-                if (!ShortcutOn("shoodef")) { PatchCounters()[1743]++; return RunOrig(); }
+                if (!ShortcutOn("shoodef")) { PatchCounters()[3077]++; return RunOrig(); }
                 try
                 {
                     TraitFunctions.DislikesChildrenTraitShoo s = (TraitFunctions.DislikesChildrenTraitShoo)(object)this;
                     InteractionInstance ii = SdDefinition().CreateInstance(s.Target, s.Actor, s.Actor.InheritedPriority(), false, false);
                     s.Actor.InteractionQueue.PushAsContinuation(ii, true);
-                    PatchCounters()[1742]++;
+                    PatchCounters()[3076]++;
                     return true;
                 }
-                catch (Exception) { PatchCounters()[1744]++; return false; }
+                catch (Exception) { PatchCounters()[3078]++; return false; }
             }
 
             public bool RunOrig() { return false; }
@@ -269,7 +269,7 @@ namespace Ts3Fixes
         // [verified, decompiled] Terrain.MakeIgloo.Run disables look-ats, then on its normal end takes the Sim off the
         // igloo's use list; Cleanup re-enables look-ats only while the Sim is still on that list, so every finished or
         // cancelled build leaves the builder's look-ats off for good. Fix: when this Run turned look-ats off and left the
-        // use list, they are turned back on. Counters: [1745] look-ats restored, [1746] left off (switch off), [1747] errors.
+        // use list, they are turned back on. Counters: [3079] look-ats restored, [3080] left off (switch off), [3081] errors.
         static readonly FieldInfo sIlIgloo = B12F(typeof(Terrain.MakeIgloo), "mIgloo");
         static string sIlM12 = "";
 
@@ -295,10 +295,10 @@ namespace Ts3Fixes
                     if (a == null || a.LookAtManager == null) return r;
                     GameObject igloo = sIlIgloo.GetValue(ii) as GameObject;
                     if (!IlRestore(was, a.LookAtManager.IsEnabled, igloo != null && igloo.ActorsUsingMe.Contains(a))) return r;
-                    if (ShortcutOn("igloolookats")) { a.LookAtManager.EnableLookAts(); PatchCounters()[1745]++; }
-                    else PatchCounters()[1746]++;
+                    if (ShortcutOn("igloolookats")) { a.LookAtManager.EnableLookAts(); PatchCounters()[3079]++; }
+                    else PatchCounters()[3080]++;
                 }
-                catch (Exception) { PatchCounters()[1747]++; }
+                catch (Exception) { PatchCounters()[3081]++; }
                 return r;
             }
 
@@ -308,21 +308,33 @@ namespace Ts3Fixes
         // ---- B12 §7 gohereboatlist (docs/590 B10) --------------------------------------------------------------------
         // [verified, decompiled] GoHereWithSituation.GoToPointState.OnParticipantDeleted drops a deleted Sim from
         // mSimsRouting and mSimsToPutInCar, not from mSimsToPutInBoat / mSimsToPutInHoverTrain; the boat and hover-train
-        // callbacks then push GetIn interactions on the deleted Sim. Fix: it leaves both lists too. Counters: [1748] Sims
-        // dropped, [1749] left in a list (switch off), [1750] errors.
+        // callbacks then push GetIn interactions on the deleted Sim. Fix: it leaves both lists too. Counters: [3082] Sims
+        // dropped, [3083] left in a list (switch off), [3084] errors.
+        // Second site (2026-11-19, RC bp-save-bundle-ip ErrorTrap "UNHANDLED Reference ... GoToPointState mSimsToPutInBoat"):
+        // [verified, decompiled] Situation.NotifyParticipantDeleted reaches only the live child chain, and SetState / Exit
+        // run CleanUp on the old state, so a Sim deleted after its GoToPointState was left never reaches the hook above, while
+        // the old state stays alive through the leader's OnPreBoatFollowRoute / OnPreHoverTrainFollowRoute delegates. Every
+        // reader of the two lists (PreBoatRouteCallback, PreHoverTrainRouteCallback) returns at once when Parent.Child != this,
+        // which is always true after CleanUp, so emptying both lists there is exact. GoToPointState declares no CleanUp: the
+        // swap goes on GoHereWithChildSituation.CleanUp and passes the other child states through. Same switch and counters.
         static readonly Type sGbState = typeof(GoHereWithSituation).GetNestedType("GoToPointState", BindingFlags.Public | BindingFlags.NonPublic);
+        static readonly Type sGbChild = typeof(GoHereWithSituation).GetNestedType("GoHereWithChildSituation", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sGbBoat = B12F(sGbState, "mSimsToPutInBoat");
         static readonly FieldInfo sGbTrain = B12F(sGbState, "mSimsToPutInHoverTrain");
         static string sGbM12 = "";
 
         static void ApplyGoHereBoatList()
         {
-            sGbM12 = SpNames("GoHereWithSituation+GoToPointState", sGbState, "mSimsToPutInBoat", sGbBoat, "mSimsToPutInHoverTrain", sGbTrain);
+            sGbM12 = SpNames("GoHereWithSituation+GoToPointState", sGbState, "GoHereWithChildSituation", sGbChild, "mSimsToPutInBoat", sGbBoat, "mSimsToPutInHoverTrain", sGbTrain);
             if (sGbM12.Length > 0) { AppliedLog().Add("gohereboatlist: not found: " + sGbM12); return; }
             Patch(sGbState, "OnParticipantDeleted", new Type[] { typeof(Sim) }, typeof(B12GbHook), "DeletedHook", "DeletedOrig");
+            Patch(sGbChild, "CleanUp", Type.EmptyTypes, typeof(B12GbHook), "CleanUpHook", "CleanUpOrig");
         }
 
         internal static bool GbRemove(bool inBoat, bool inTrain) { return inBoat || inTrain; }
+
+        // Pure: entries to drop when a go-here child state is cleaned up (only a GoToPointState holds the two lists).
+        internal static int GbCleanCount(bool isGoToPoint, int boat, int train) { return isGoToPoint ? boat + train : 0; }
 
         public class B12GbHook
         {
@@ -333,15 +345,34 @@ namespace Ts3Fixes
                 {
                     List<Sim> boat = sGbBoat.GetValue(this) as List<Sim>, train = sGbTrain.GetValue(this) as List<Sim>;
                     if (!GbRemove(boat != null && boat.Contains(participant), train != null && train.Contains(participant))) return;
-                    if (!ShortcutOn("gohereboatlist")) { PatchCounters()[1749]++; return; }
+                    if (!ShortcutOn("gohereboatlist")) { PatchCounters()[3083]++; return; }
                     if (boat != null) boat.Remove(participant);
                     if (train != null) train.Remove(participant);
-                    PatchCounters()[1748]++;
+                    PatchCounters()[3082]++;
                 }
-                catch (Exception) { PatchCounters()[1750]++; }
+                catch (Exception) { PatchCounters()[3084]++; }
             }
 
             public void DeletedOrig(Sim participant) { }
+
+            public void CleanUpHook()
+            {
+                CleanUpOrig();
+                try
+                {
+                    bool gtp = sGbState.IsInstanceOfType(this);
+                    List<Sim> boat = gtp ? sGbBoat.GetValue(this) as List<Sim> : null, train = gtp ? sGbTrain.GetValue(this) as List<Sim> : null;
+                    int n = GbCleanCount(gtp, boat != null ? boat.Count : 0, train != null ? train.Count : 0);
+                    if (n == 0) return;
+                    if (!ShortcutOn("gohereboatlist")) { PatchCounters()[3083] += n; return; }
+                    if (boat != null) boat.Clear();
+                    if (train != null) train.Clear();
+                    PatchCounters()[3082] += n;
+                }
+                catch (Exception) { PatchCounters()[3084]++; }
+            }
+
+            public void CleanUpOrig() { }
         }
 
         // ---- B12 §8 bouncerrole (docs/590 B12) -----------------------------------------------------------------------
@@ -349,7 +380,7 @@ namespace Ts3Fixes
         // 10 m tunable kSneakInDistanceToBouncer (a 3.2 m radius), and reads mCurrentRole.IsActive with no null test;
         // SneakIn, AskToGetIn and BribeBouncer read CurrentRole.SimInRole unguarded too (ropes with no bouncer role yet).
         // Fix: the radius is squared, a null role means "no bouncer", and the two interactions end (false) on a null role.
-        // Counters: [1751] notice tests answered our way, [1752] tests with the switch off, [1753] null-role runs ended.
+        // Counters: [3085] notice tests answered our way, [3086] tests with the switch off, [3087] null-role runs ended.
         static readonly FieldInfo sBrRole = B12F(typeof(VelvetRopes), "mCurrentRole");
         static readonly FieldInfo sBrDist = B12F(typeof(VelvetRopes), "kSneakInDistanceToBouncer");
         static readonly Type sBrAsk = typeof(VelvetRopes).GetNestedType("AskToGetIn", BindingFlags.NonPublic);
@@ -380,10 +411,10 @@ namespace Ts3Fixes
         {
             public bool NoticeHook(Sim sneaker)
             {
-                if (!ShortcutOn("bouncerrole")) { PatchCounters()[1752]++; return NoticeOrig(sneaker); }
+                if (!ShortcutOn("bouncerrole")) { PatchCounters()[3086]++; return NoticeOrig(sneaker); }
                 Role role = BrRoleOf(this);
                 Sim b = role != null && role.IsActive ? role.SimInRole : null;
-                PatchCounters()[1751]++;
+                PatchCounters()[3085]++;
                 if (b == null) return false;
                 return BrNotice(true, true, b.CurrentInteraction != null && sBrWatch.IsInstanceOfType(b.CurrentInteraction),
                     b.CurrentInteraction == null && Lot.AreInSameRoom(b, sneaker), b.GetDistanceToObjectSquared(sneaker), (float)sBrDist.GetValue(null));
@@ -392,7 +423,7 @@ namespace Ts3Fixes
             public bool AskHook()
             {
                 InteractionInstance ii = (InteractionInstance)(object)this;
-                if (ShortcutOn("bouncerrole") && BrRoleOf(ii.Target) == null) { PatchCounters()[1753]++; return false; }
+                if (ShortcutOn("bouncerrole") && BrRoleOf(ii.Target) == null) { PatchCounters()[3087]++; return false; }
                 return AskOrig();
             }
 
@@ -404,7 +435,7 @@ namespace Ts3Fixes
                     object ropes = ii.Target as VelvetRopes;
                     Sim s = ii.Target as Sim;
                     if (ropes == null && s != null) ropes = s.SimDescription.AssignedRole == null ? null : s.SimDescription.AssignedRole.RoleGivingObject as VelvetRopes;
-                    if ((ropes != null || s != null) && BrRoleOf(ropes) == null) { PatchCounters()[1753]++; return false; }
+                    if ((ropes != null || s != null) && BrRoleOf(ropes) == null) { PatchCounters()[3087]++; return false; }
                 }
                 return BribeOrig();
             }
@@ -417,8 +448,8 @@ namespace Ts3Fixes
         // ---- B12 §9 tricksocials (docs/590 B13 first half) -----------------------------------------------------------
         // [verified, decompiled] MagicianSocialTricks.Run calls Target.DisableSocialsOnSim() and undoes it only on its normal
         // end: a Run that throws or is reset after that point leaves the watcher unable to socialise for good. Fix: a Run
-        // that leaves the target's socials off when they were on before turns them back on. Counters: [1754] restored,
-        // [1755] left off (switch off), [1756] errors.
+        // that leaves the target's socials off when they were on before turns them back on. Counters: [3088] restored,
+        // [3089] left off (switch off), [3090] errors.
         static void ApplyTrickSocials()
         {
             Patch(typeof(MagicianCareer.MagicianSocialTricks), "Run", Type.EmptyTypes, typeof(B12MtHook), "RunHook", "RunOrig");
@@ -440,11 +471,11 @@ namespace Ts3Fixes
                     {
                         if (t != null && t.SimDescription != null && MtRestore(before, t.SimDescription.ShowSocialsOnSim))
                         {
-                            if (ShortcutOn("tricksocials")) { t.EnableSocialsOnSim(); PatchCounters()[1754]++; }
-                            else PatchCounters()[1755]++;
+                            if (ShortcutOn("tricksocials")) { t.EnableSocialsOnSim(); PatchCounters()[3088]++; }
+                            else PatchCounters()[3089]++;
                         }
                     }
-                    catch (Exception) { PatchCounters()[1756]++; }
+                    catch (Exception) { PatchCounters()[3090]++; }
                 }
             }
 
@@ -455,8 +486,8 @@ namespace Ts3Fixes
         // [verified, decompiled] TraitFunctions.FearOfHumansFaint.Run (robot chip) creates a jig, then SetShutDown(true) and SetIsSleeping
         // and undoes them only on its normal end; a failed route returns with the jig left in the world, and a throw or
         // reset after the shutdown leaves the robot shut down. Fix: after Run, a robot it shut down is started again, the
-        // Sim is woken and a jig still in the world is destroyed. Counters: [1757] undone, [1758] left (switch off),
-        // [1759] errors.
+        // Sim is woken and a jig still in the world is destroyed. Counters: [3091] undone, [3092] left (switch off),
+        // [3093] errors.
         static readonly FieldInfo sFfJig = B12F(typeof(TraitFunctions.FearOfHumansFaint), "mJig");
         static string sFfM12 = "";
 
@@ -491,12 +522,12 @@ namespace Ts3Fixes
                             {
                                 if (!shutBefore && shutAfter) { robot.SetShutDown(false); a.SetIsSleeping(false); }
                                 if (jigLeft) { jig.Destroy(); sFfJig.SetValue(ii, null); }
-                                PatchCounters()[1757]++;
+                                PatchCounters()[3091]++;
                             }
-                            else PatchCounters()[1758]++;
+                            else PatchCounters()[3092]++;
                         }
                     }
-                    catch (Exception) { PatchCounters()[1759]++; }
+                    catch (Exception) { PatchCounters()[3093]++; }
                 }
             }
 
@@ -508,8 +539,8 @@ namespace Ts3Fixes
         // UpdateLotsToPrune, which assigns its own parameter: the list never reaches the caller, PruneLotsThatAreNotPlayerPreferred
         // always gets null, and the player's lot-popularity map keeps every deleted, residential or no-longer-visited lot.
         // Fix: when Prune is handed null, the prune list is rebuilt with EA's two rules (lot gone or not community/dorm;
-        // no visit left in the window, the window trim having just run) and EA's prune runs on it. Counters: [1760] lots
-        // pruned, [1761] lots kept (switch off), [1762] errors.
+        // no visit left in the window, the window trim having just run) and EA's prune runs on it. Counters: [3094] lots
+        // pruned, [3095] lots kept (switch off), [3096] errors.
         static readonly FieldInfo sLpMap = B12F(typeof(MetaAutonomyManager), "sLotPopularityMapForPlayer");
         static readonly Type sLpVisit = typeof(MetaAutonomyManager).GetNestedType("LotVisitFrequency", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly PropertyInfo sLpCount = sLpVisit == null ? null : sLpVisit.GetProperty("TimeStampCount", kB11All);
@@ -542,11 +573,11 @@ namespace Ts3Fixes
                             }
                         if (list.Count > 0)
                         {
-                            if (ShortcutOn("lotprune")) { PatchCounters()[1760] += list.Count; lotsToPrune = list; }
-                            else PatchCounters()[1761] += list.Count;
+                            if (ShortcutOn("lotprune")) { PatchCounters()[3094] += list.Count; lotsToPrune = list; }
+                            else PatchCounters()[3095] += list.Count;
                         }
                     }
-                    catch (Exception) { PatchCounters()[1762]++; }
+                    catch (Exception) { PatchCounters()[3096]++; }
                 }
                 PruneOrig(lotsToPrune);
             }
@@ -559,8 +590,8 @@ namespace Ts3Fixes
         // range exists (metal null, NRE at .Value) and FoundGem calls AddCollectibleToInventory(null) then null.Destroy();
         // either throw ends the hunt. FoundInsect writes `mCollectableValue =` where the other finds add, so an insect wipes
         // the value of everything found before it (the hunt's TNS total). Fix: a null find returns -1 (nothing found, EA's own
-        // answer for a failed add) and an insect's value is added. Counters: [1763] null finds and insect sums fixed,
-        // [1764] seen with the switch off, [1765] errors.
+        // answer for a failed add) and an insect's value is added. Counters: [3097] null finds and insect sums fixed,
+        // [3098] seen with the switch off, [3099] errors.
         static readonly FieldInfo sWhValue = B12F(typeof(Terrain.WerewolfHuntTerrain), "mCollectableValue");
         static readonly FieldInfo sWhFound = B12F(typeof(Terrain.WerewolfHuntTerrain), "mCollectablesFound");
         static string sWhM12 = "";
@@ -587,8 +618,8 @@ namespace Ts3Fixes
                 try { return MetalOrig(); }
                 catch (NullReferenceException)
                 {
-                    if (WhCount(this) != n || !ShortcutOn("werewolffind")) { PatchCounters()[1764]++; throw; }
-                    PatchCounters()[1763]++;
+                    if (WhCount(this) != n || !ShortcutOn("werewolffind")) { PatchCounters()[3098]++; throw; }
+                    PatchCounters()[3097]++;
                     return -1;
                 }
             }
@@ -599,8 +630,8 @@ namespace Ts3Fixes
                 try { return GemOrig(); }
                 catch (NullReferenceException)
                 {
-                    if (WhCount(this) != n || !ShortcutOn("werewolffind")) { PatchCounters()[1764]++; throw; }
-                    PatchCounters()[1763]++;
+                    if (WhCount(this) != n || !ShortcutOn("werewolffind")) { PatchCounters()[3098]++; throw; }
+                    PatchCounters()[3097]++;
                     return -1;
                 }
             }
@@ -608,17 +639,17 @@ namespace Ts3Fixes
             public int InsectHook()
             {
                 int before = 0, n = 0;
-                try { before = (int)sWhValue.GetValue(this); n = WhCount(this); } catch (Exception) { PatchCounters()[1765]++; }
+                try { before = (int)sWhValue.GetValue(this); n = WhCount(this); } catch (Exception) { PatchCounters()[3099]++; }
                 int r = InsectOrig();
                 try
                 {
                     bool added = WhCount(this) > n;
                     if (!added || before == 0) return r;
-                    if (!ShortcutOn("werewolffind")) { PatchCounters()[1764]++; return r; }
+                    if (!ShortcutOn("werewolffind")) { PatchCounters()[3098]++; return r; }
                     sWhValue.SetValue(this, WhValue(before, (int)sWhValue.GetValue(this), true));
-                    PatchCounters()[1763]++;
+                    PatchCounters()[3097]++;
                 }
-                catch (Exception) { PatchCounters()[1765]++; }
+                catch (Exception) { PatchCounters()[3099]++; }
                 return r;
             }
 
@@ -631,8 +662,8 @@ namespace Ts3Fixes
         // [verified, decompiled] Homework.CopyHomework.Run creates the copying broadcaster and sets CopyingSim, and destroys
         // / clears them only after its DoLoop; a Run that throws or is reset in the loop leaves the broadcaster live (Sims
         // keep reacting to cheating that stopped) and CopyingSim set. Cleanup (CommonCleanup) does not touch either. Fix:
-        // Cleanup of a copy whose actor is still the CopyingSim destroys the broadcaster and clears it. Counters: [1766]
-        // cleared, [1767] left (switch off), [1768] errors.
+        // Cleanup of a copy whose actor is still the CopyingSim destroys the broadcaster and clears it. Counters: [3100]
+        // cleared, [3101] left (switch off), [3102] errors.
         static readonly FieldInfo sChCast = B12F(typeof(Homework), "mCopyingBroadcaster");
         static readonly MethodInfo sChDestroy = B12M(typeof(Homework), "CopyingBroadcasterDestroy");
         static string sChM12 = "";
@@ -663,12 +694,12 @@ namespace Ts3Fixes
                         {
                             if (sChCast.GetValue(hw) != null) sChDestroy.Invoke(hw, null);
                             hw.CopyingSim = null;
-                            PatchCounters()[1766]++;
+                            PatchCounters()[3100]++;
                         }
-                        else PatchCounters()[1767]++;
+                        else PatchCounters()[3101]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1768]++; }
+                catch (Exception) { PatchCounters()[3102]++; }
                 CleanupOrig();
             }
 
@@ -680,8 +711,8 @@ namespace Ts3Fixes
         // routes; every early return after that (route, jig spot, AdditionalInteractionPreparation) and even the normal end
         // leave the target waiting: BeTargetOfSpell loops on `mJig == null` or sits in DoLoop(Default) until something else
         // cancels it. Fix: the cast's Cleanup ends the target's BeTargetOfSpell linked to it: Finished on the running one,
-        // removed from the queue when not started yet. Counters: [1769] targets released, [1770] left waiting (switch off),
-        // [1771] errors.
+        // removed from the queue when not started yet. Counters: [3103] targets released, [3104] left waiting (switch off),
+        // [3105] errors.
         static readonly Type sStBe = typeof(MagicWand).GetNestedType("BeTargetOfSpell", BindingFlags.NonPublic);
         static string sStM12 = "";
 
@@ -711,17 +742,17 @@ namespace Ts3Fixes
                         int act = found == null ? 0 : StEnd(true, t.InteractionQueue.GetCurrentInteraction() == found);
                         if (act != 0)
                         {
-                            if (!ShortcutOn("spelltargetend")) PatchCounters()[1770]++;
+                            if (!ShortcutOn("spelltargetend")) PatchCounters()[3104]++;
                             else
                             {
                                 if (act == 1) t.AddExitReason(ExitReason.Finished);
                                 else t.InteractionQueue.RemoveInteractionByRef(found);
-                                PatchCounters()[1769]++;
+                                PatchCounters()[3103]++;
                             }
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1771]++; }
+                catch (Exception) { PatchCounters()[3105]++; }
                 CleanupOrig();
             }
 
@@ -733,8 +764,8 @@ namespace Ts3Fixes
         // the push fails and `.WasInterrupted = false` throws (the tray is already destroyed and the grill cooking, so the
         // throw is the only difference); and the "no free grill / grill in use" return keeps the tray in the Sim's hands,
         // where EA's own route-fail branch puts it down. Fix: the failed push ends as "not continued" (false), and a false
-        // return with the tray still held puts it down as the route-fail branch does. Counters: [1772] fixed returns,
-        // [1773] seen with the switch off, [1774] errors.
+        // return with the tray still held puts it down as the route-fail branch does. Counters: [3106] fixed returns,
+        // [3107] seen with the switch off, [3108] errors.
         static readonly Type sFtgType = typeof(FoodTray).Assembly.GetType("Sims3.Gameplay.Objects.CookingObjects.FoodTray_Prepare");
 
         static void ApplyFoodTrayGrill()
@@ -755,19 +786,19 @@ namespace Ts3Fixes
                 try { r = GrillOrig(); }
                 catch (NullReferenceException)
                 {
-                    if (!ShortcutOn("foodtraygrill") || a == null || a.InteractionQueue == null) { PatchCounters()[1773]++; throw; }
-                    PatchCounters()[1772]++;
+                    if (!ShortcutOn("foodtraygrill") || a == null || a.InteractionQueue == null) { PatchCounters()[3107]++; throw; }
+                    PatchCounters()[3106]++;
                     return false;
                 }
                 try
                 {
                     if (a != null && FtgPutDown(r, a.GetObjectInRightHand() == ii.Target))
                     {
-                        if (ShortcutOn("foodtraygrill")) { Food.PutHeldObjectDownOnCounterTableOrFloor(a, SurfaceType.Normal); PatchCounters()[1772]++; }
-                        else PatchCounters()[1773]++;
+                        if (ShortcutOn("foodtraygrill")) { Food.PutHeldObjectDownOnCounterTableOrFloor(a, SurfaceType.Normal); PatchCounters()[3106]++; }
+                        else PatchCounters()[3107]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1774]++; }
+                catch (Exception) { PatchCounters()[3108]++; }
                 return r;
             }
 
@@ -778,8 +809,8 @@ namespace Ts3Fixes
         // [verified, decompiled] SingingInfo.ImportCompositions and BandSkill.ImportCompositions read a string[] key and add
         // GetComposition(name) for each entry: a missing key (null array) throws, and a name with no composition (pack gone,
         // renamed) adds null, which the composition UI and the "known" counts then dereference. Fix: a null array imports
-        // nothing and null compositions are not kept. Counters: [1775] imports cleaned, [1776] nulls kept (switch off),
-        // [1777] errors.
+        // nothing and null compositions are not kept. Counters: [3109] imports cleaned, [3110] nulls kept (switch off),
+        // [3111] errors.
         static void ApplyCompositionNull()
         {
             Patch(typeof(SingingInfo), "ImportCompositions", new Type[] { typeof(IPropertyStreamReader), typeof(List<SingingInfo.SingingComposition>), typeof(uint) }, typeof(B12CnHook), "SingHook", "SingOrig");
@@ -796,18 +827,18 @@ namespace Ts3Fixes
 
         static bool CnImport<T>(IPropertyStreamReader reader, List<T> list, uint key, B12BoolFn orig) where T : class
         {
-            if (!ShortcutOn("compositionnull")) { bool r = orig(); if (list != null && list.Contains(null)) PatchCounters()[1776]++; return r; }
+            if (!ShortcutOn("compositionnull")) { bool r = orig(); if (list != null && list.Contains(null)) PatchCounters()[3110]++; return r; }
             try
             {
                 string[] names;
                 reader.ReadString(key, out names);
-                if (names == null) { PatchCounters()[1775]++; return true; }
+                if (names == null) { PatchCounters()[3109]++; return true; }
                 int from = list.Count;
                 bool r = orig();
-                if (CnDrop(list, from) > 0) PatchCounters()[1775]++;
+                if (CnDrop(list, from) > 0) PatchCounters()[3109]++;
                 return r;
             }
-            catch (Exception) { PatchCounters()[1777]++; return false; }
+            catch (Exception) { PatchCounters()[3111]++; return false; }
         }
 
         public class B12CnHook
@@ -821,8 +852,8 @@ namespace Ts3Fixes
         // ---- B12 §17 petdreamtimer (docs/590 A10) --------------------------------------------------------------------
         // [verified, decompiled] SleepAndNapOnObject.SleepLoop resets mTimeUntilNextBalloon only when TryDreamAboutHuman
         // fails: once the timer is due, a sleeping pet that dreams of its human rolls (15%) and shows that balloon on every
-        // loop tick. Fix: a due timer is reset after either balloon. Counters: [1778] timers reset, [1779] left due
-        // (switch off), [1780] errors.
+        // loop tick. Fix: a due timer is reset after either balloon. Counters: [3112] timers reset, [3113] left due
+        // (switch off), [3114] errors.
         static readonly FieldInfo sPdTimer = B12F(typeof(SleepAndNapOnObject), "mTimeUntilNextBalloon");
         static readonly FieldInfo sPdFreq = B12F(typeof(SleepAndNapOnObject), "kFrequencyOfThoughtBalloon");
         static string sPdM12 = "";
@@ -844,10 +875,10 @@ namespace Ts3Fixes
                 try
                 {
                     if (!PdReset((float)sPdTimer.GetValue(this))) return;
-                    if (ShortcutOn("petdreamtimer")) { sPdTimer.SetValue(this, (float)sPdFreq.GetValue(null)); PatchCounters()[1778]++; }
-                    else PatchCounters()[1779]++;
+                    if (ShortcutOn("petdreamtimer")) { sPdTimer.SetValue(this, (float)sPdFreq.GetValue(null)); PatchCounters()[3112]++; }
+                    else PatchCounters()[3113]++;
                 }
-                catch (Exception) { PatchCounters()[1780]++; }
+                catch (Exception) { PatchCounters()[3114]++; }
             }
 
             public void LoopOrig(StateMachineClient smc, InteractionInstance.LoopData ld) { }

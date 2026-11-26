@@ -108,9 +108,13 @@ namespace Ts3Fixes
                 Delegate.CreateDelegate(sEtLogger, typeof(Fixes).GetMethod("EtCountDebugLog")) };
         }
 
-        static void EtSleep()
+        // A tick, then (docs/205 §2.3d) a wait while frozen: stop = WorldGone in our pass task (waits through CAS / Buy / Build),
+        // NotLiveOrGone inside ErrorTrap's load-up chain (waits only while paused in live mode; never holds a load).
+        static void EtSleep(Gate stop)
         {
-            if (MayYield()) Simulator.Sleep(0);
+            if (!MayYield()) return;
+            Simulator.Sleep(0);
+            WaitWhileFrozen(1732, stop);
         }
 
         static void EtCheckOne(object log, object debugLog, string name, Inventory inv, bool checkDestroyed)
@@ -134,7 +138,7 @@ namespace Ts3Fixes
         static void EtPass(object log, object debugLog, bool checkDestroyed)
         {
             int[] c = PatchCounters();
-            EtSleep();
+            EtSleep(WorldGone);
             if (sEtWatch == null) sEtWatch = StopWatch.Create(StopWatch.TickStyles.Microseconds);
             GameObject[] objects = Sims3.Gameplay.Queries.GetObjects<GameObject>();
             List<Household> houses = new List<Household>(Household.sHouseholdList);
@@ -149,7 +153,7 @@ namespace Ts3Fixes
                     if (us > maxUs) maxUs = us;
                     if (sliceItems > mostItems) mostItems = sliceItems;
                     sliceItems = 0;
-                    EtSleep();
+                    EtSleep(WorldGone);
                     if (GameStates.IsWorldShuttingDown || !GameStates.IsInWorld()) { EtLog("inventory pass stopped: world gone"); return; }
                     ticks++;
                     sEtWatch.Restart();
@@ -233,7 +237,7 @@ namespace Ts3Fixes
                 OverwatchSpreadCore.Mode mode = EtMode();
                 if (mode != OverwatchSpreadCore.Mode.Ours) { EtRun(log, debugLog, checkDestroyed, mode); return; }
                 Simulator.AddObject(new LoopTask(delegate { EtRun(log, debugLog, checkDestroyed, mode); }));
-                EtSleep(); // the dereference controllers start in a fresh tick
+                EtSleep(NotLiveOrGone); // the dereference controllers start in a fresh tick
             }
             public static void CheckOrig(object log, object debugLog, bool checkDestroyed) { } // receives CheckInventories' original header
         }

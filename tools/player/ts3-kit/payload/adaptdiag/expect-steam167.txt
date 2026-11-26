@@ -1,0 +1,4 @@
+# ts3native adaptive diag kit: expected install parts, steam167 (docs/316 §7).
+# One substring of an "OK   " / ts3fixes "patched" start line per row; "allow: Type.Method" = a ts3fixes patch this
+# edition may fail. Generate from a clean kit start log: node tools/adaptdiag-expect.ts <ts3native.log> > expect-steam167.txt
+# EMPTY until that reference start exists (no install check then; docs/316 §7, unverified).

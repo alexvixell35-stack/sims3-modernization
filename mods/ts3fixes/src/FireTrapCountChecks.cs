@@ -12,12 +12,12 @@ namespace Ts3Fixes
         //   hidden-room spot on a lot without virtual residential slots -> EA.
         //   off BROKEN = tasks kept / hidden spot kept; on FIXED = tasks dropped / spot removed. The verdict needs every
         //   control to hold and every EA member the hooks use to be found (else UNEXPECTED, with the missing names).
-        //   result  counters 2573-2576 and whether the internal members were found
+        //   result  counters 3956-3959 and whether the internal members were found
         public static object FireTrapCountCheck(string what)
         {
             int[] c = PatchCounters();
-            string counters = "firetrapcount: tasks dropped 2573=" + c[2573] + ", hidden spots removed 2574=" + c[2574] + ", jobs completed by a drop 2575=" + c[2575]
-                + ", errors 2576=" + c[2576] + "; members missing: " + (FtcMissing().Length == 0 ? "none" : FtcMissing());
+            string counters = "firetrapcount: tasks dropped 2573=" + c[3956] + ", hidden spots removed 2574=" + c[3957] + ", jobs completed by a drop 2575=" + c[3958]
+                + ", errors 2576=" + c[3959] + "; members missing: " + (FtcMissing().Length == 0 ? "none" : FtcMissing());
             if (what == "result") return counters;
             if (what != "run") return "firetrapcount <run|result>";
             bool on = ShortcutOn("firetrapcount");

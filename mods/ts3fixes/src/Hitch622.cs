@@ -28,7 +28,7 @@ namespace Ts3Fixes
         // takes a slot once (static readonly int k = SwSlot("name")) and asks SwOn(k): when the SwitchCache built for the
         // current generation and count is the one the slots were filled for, the answer is an array load; else every slot is
         // refilled through ShortcutOn. Switch off: SwOn(k) is ShortcutOn(name). The switch itself is read at the refill.
-        // Same answers as ShortcutOn under its own rule (every writer bumps "ts3fixes.switchgen"; docs/603 §2), except a
+        // Same answers as ShortcutOn under its own rule (every writer bumps "ts3fixes.switchgen"; docs/605 §2), except a
         // table entry overwritten with no bump by an agent build older than that rule: ShortcutOn reads such names live,
         // the slots see them at the next bump. Counters: [3496] refills, [3497] check mismatches, [3498] check runs.
         static string[] sSlotNames;     // no initializers: static readonly slot fields in other files run SwSlot first

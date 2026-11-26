@@ -1,5 +1,6 @@
 # 668: route storm, short forced-routing test arms
 
+Date: 2026-11-19, results 2026-11-20. Status: built, run in game (s141-s147, §3).
 Date: 2026-11-19. Status: built, first runs queued (s141-s143). 2026-11-20: six opt-in kinds (§1.1), built, not run yet.
 
 Idle play at 1x shows only ~460-540 route plans per minute in Isla Paradiso (s140 IP, 2 x 15 min) and 1-10 game hitches per
@@ -84,7 +85,7 @@ street parking (taxi). Pets plus the other modder's core are needed for `stray`.
 
 ## 2. Harness
 
-- **phasesoakr.sh phase `storm:M`.** It calls `route_storm` with `STORM_COUNT` (40), `STORM_KINDS` (space-separated, default
+- **phasesoakr.sh phase `storm:M`** (the local run script, not in this repo). It calls `route_storm` with `STORM_COUNT` (40), `STORM_KINDS` (space-separated, default
   all), `STORM_REPEAT` (30 s) and `STORM_SEED` (1). It reads `status` every 30 s and stops (cancelling the pushes) at the
   phase end.
 - **`AGENTPKG`** installs a test agent package in place of `$REPO/build/ts3agent.package`. `idle` is unchanged.
@@ -95,28 +96,49 @@ street parking (taxi). Pets plus the other modder's core are needed for `stray`.
   - plans and fails per minute, from the cumulative `route plans` lines;
   - storm waves and pushes, and `hitch: frame` causes;
   - `host ms`: the sum of the `host N/M` column of the `route candidate split` lines, which is the managed door asks under
-    the planner (docs/667 §2);
+    the planner (combo docs/667 §2; `[RouteJobPhases] CandidateSplit` is not in this tree, so the column stays empty here);
   - `skip` (skipped pushes of the opt-in kinds) and `nl/fgl/fgln/s`: the per-phase counts of `ts3fixes: nearestlot:`,
     `fgl prof: search`, `ts3fixes: fglnonescan:` and `route_storm: stray helper called` lines (§1.1);
   - `mism n/f/l`: the NeighbourMemo and FloodMemo shadow mismatches (the largest `mismatch N` of the minute lines), plus the
-    count of `MEMO MISMATCH` lines. All three must be 0 before a memo serves.
+    count of `MEMO MISMATCH` lines. All three must be 0 before a memo serves. (FloodMemo is combo-only work.)
 
   With `--report` it also prints the per-hitch cause rows of route-stutter-report.ts by phase. Last of all it prints the last
   fix-counter lines (nopath memo, route speed, height cache, KindsUnseen).
 
-## 3. Queued tests (~/dev/ts3-runs)
+## 3. Runs and results (~/dev/ts3-runs, 2026-11-20)
 
 | run | world | arms | storm |
 |---|---|---|---|
-| s141 | Isla Paradiso | boat fixes off (EARLYFIX `:false`) -> `fixon` -> on, one load | 4 + 4 min, kinds boat x2, lot, home, meet, nopath, pets, seed 141 |
-| s142 | IP, then Bridgeport | measurement only, CI asi 44634118056 with the upgraded profiler keys, perf | 5 + 5 min, all kinds, seed 142 |
-| s143 | Isla Paradiso | two loads, A all off, B on: KindsUnseen=1, NeighbourMemo=2 (shadow), HeightCache on, NoPathMemoFuzzy + Household (npmfuzzy, npmhousehold), stucktaskflag, watchdogbusydefer, and the docs/667 §5 door-ask levers TaskServe=1, DoorMemo=1, DoorMemoX=3 + doorgen, FloodMemo=2 (shadow, only if the asi has it); asi = the newest `native/ci-*` at run time | 4 min each, all kinds, seed 143 |
+| s141 | Isla Paradiso | boat fixes off -> on, one load | 4 + 4 min, kinds boat x2, lot, home, meet, nopath, pets, seed 141 |
+| s142 | IP, then Bridgeport | measurement only (the upgraded profiler keys of docs/666 §5) | 5 + 5 min, all kinds, seed 142 |
+| s143, s144 | Isla Paradiso | two loads: off, then on (bundle below) | 4 min each, 40 routes every 30 s, all kinds |
+| s145 | Isla Paradiso | two loads: off, on (the on load crashed, below) | 2 min each, 80 routes every 10 s |
+| s146 | Isla Paradiso | on only | 2 min, 80 routes every 10 s |
+| s147 | Isla Paradiso | on without the NeighbourMemo / HeightCache caches | 2 min, 80 routes every 10 s |
 
-s143 needs two loads because KindsUnseen and `[HeightCache]` have no runtime switch (docs/662 §4, docs/663 §3). Both arms keep
-`NoPathMemo=1`, which the fuzzy and household memo needs (docs/643 §7.5).
+The "on" arm sets everything at once, so the gain belongs to the bundle, not to one switch: native `[RouteAsync]
+KindsUnseen=1, TaskServe=1, DoorMemo=1, NoPathMemoFuzzy=1, NoPathMemoHousehold=1`, `[RouteSnap] DoorMemoX=3`, `[RouteSpeed]
+NeighbourMemo` (2 = shadow in s143, 1 = serve in s144 / s146), `[HeightCache] Enabled=1`, `[RouteSpeed] FloodMemo=2`;
+ts3fixes `npmfuzzy npmhousehold stucktaskflag watchdogbusydefer doorgen`. Both arms ran the docs/666 §5 profiler keys and
+`NoPathMemo=1`. KindsUnseen, NoPathMemo and FloodMemo are combo-only (not in this tree); TaskServe, DoorMemo, DoorMemoX,
+HeightCache and doorgen were already upstream.
 
-Each script backs up the Bin pair and restores it with a sha check (`./sNNN-run.sh restore`). Each writes `sNNN.result`
-with its phase dirs, `sNNN-report.md` and `sNNN-table.txt`.
+| run | arm | game hitches >= 150 ms (n / ms) | door-ask host ms |
+|---|---|---|---|
+| s143 | off | 11 / 4,167 | 2,621 |
+| s143 | on | 3 / 1,034 | 279 |
+| s144 | off | 17 / 6,705 | 4,037 |
+| s144 | on | 4 / 1,336 | 433 |
+| s145 | off | 19 / 7,691 | 1,519 |
+| s146 | on | 3 / 1,284 | 233 |
+| s147 | on, no caches | 8 / 2,816 | 168 |
+
+NeighbourMemo: s143 shadow 105,102 checks, 0 mismatches; s146 serve 16,761 hits. The fuzzy / household no-path memo
+served 0 in every on run.
+
+**Crash, unexplained:** the s145 on load crashed 9 s into the storm (main thread C0000005 at eip 0x15F0, stack refs
+0092E0DB 006FD425 0071CAE4): 1 of the 4 full-bundle on loads (s143, s144, s145, s146); s147 (without the caches) also ran
+clean. Not reproduced since; cause unknown. It neither clears nor blames any one switch of the bundle.
 
 ## 4. What differs from natural play
 

@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline self-check of BoatRoamCapCore (docs/642 §9).
+// Offline self-check of BoatRoamCapCore (docs/853 §4).
 static class BoatRoamCapTest
 {
     static int sFails;

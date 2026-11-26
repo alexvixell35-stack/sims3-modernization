@@ -1,4 +1,4 @@
-// Offline self-check of the ShortcutOn answer cache (mods/ts3fixes/src/SwitchCacheCore.cs, docs/603 §2): reference hits,
+// Offline self-check of the ShortcutOn answer cache (mods/ts3fixes/src/SwitchCacheCore.cs, docs/605 §2): reference hits,
 // same-text misses, the half-full cap, null / empty names, and the probe lengths of every real switch name (the
 // ShortcutOn literals and the case labels of the slow path, read from the source).
 //   node tools/selftest/switchcache/run.ts

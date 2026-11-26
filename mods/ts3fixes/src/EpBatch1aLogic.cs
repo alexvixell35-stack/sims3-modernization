@@ -25,7 +25,7 @@ namespace Ts3Fixes
 {
     // EP batch 1, part a (docs/587 leads 1-10; batch EP1). Every switch off by default. Each lead was diffed against simler90
     // Gameplay Core Mod UPDATE242 (docs/587 §1.6): none of the methods below is changed there. Shipped tuning was read
-    // where a lead depends on it (tools/static/tuning-xml-dump.py). Checks: EpBatch1Checks.cs. Counter slots 1400-1499
+    // where a lead depends on it (tools/static/tuning-xml-dump.py). Checks: EpBatch1Checks.cs. Counter slots 3835-1499
     // (pinned block fixes-1400, docs/registry.md).
     public static partial class Fixes
     {
@@ -38,7 +38,7 @@ namespace Ts3Fixes
         // (sibling display cases empty only there). Fix at the source: while the case resets, Cleanup keeps the items and
         // only stops the shelf effects (DoReset then restarts them with TestForVFX); EA's build-mode move branch and the
         // Dispose path are unchanged. Household-visible: stored collectibles survive a reset.
-        // Counters: [1400] resets that kept the contents, [1401] resets that destroyed contents with the switch off, [1402] errors.
+        // Counters: [3835] resets that kept the contents, [3836] resets that destroyed contents with the switch off, [3837] errors.
         static readonly Type sDcResetInfo = typeof(GameObject).GetNestedType("ResetInformation", BindingFlags.NonPublic | BindingFlags.Public);
         static object sDcResetting;   // the case whose DoReset is running (review: was one counter for all cases)
 
@@ -82,11 +82,11 @@ namespace Ts3Fixes
                         items = c.Inventory.AmountIn<GameObject>();
                     }
                     keep = DcKeep(on, inReset, move, items);
-                    if (!keep && !on && DcKeep(true, inReset, move, items)) PatchCounters()[1401]++;
+                    if (!keep && !on && DcKeep(true, inReset, move, items)) PatchCounters()[3836]++;
                 }
-                catch (Exception) { PatchCounters()[1402]++; keep = false; }
+                catch (Exception) { PatchCounters()[3837]++; keep = false; }
                 if (!keep) { CleanupOrig(); return; }
-                PatchCounters()[1400]++;
+                PatchCounters()[3835]++;
                 c.StopVFX();  // EA's last step; the items stay
             }
             public void CleanupOrig() { } // MetalMineralPotionDisplayCase.Cleanup
@@ -102,7 +102,7 @@ namespace Ts3Fixes
         // (the tunable comment "F,E,D,C,B,A" lists six letters for five values and is not usable as intent).
         // Fix: academic path indexed best-first (4 - grade; F still skipped as EA does); school path includes A.
         // Household-visible: SUAT scores, scholarships and credits for good students.
-        // Counters: [1403] scores corrected, [1404] scores that differ with the switch off, [1405] errors.
+        // Counters: [3241] scores corrected, [3242] scores that differ with the switch off, [3243] errors.
         static Type sSuTest;
         static FieldInfo sSuBonus;
 
@@ -142,16 +142,16 @@ namespace Ts3Fixes
                     if (el != null && el.CurrentGpaAsLetterGrade > AcademicsUtility.AcademicGrade.F) { academic = true; grade = (int)el.CurrentGpaAsLetterGrade; }
                     else if (a != null && a.School != null) grade = (int)a.School.CurrentGrade();
                 }
-                catch (Exception) { PatchCounters()[1405]++; return ScoreOrig(degreeName); }
+                catch (Exception) { PatchCounters()[3243]++; return ScoreOrig(degreeName); }
                 if (bonus == null || bonus.Length < 5) return ScoreOrig(degreeName);
                 bool on = ShortcutOn("suatgradebonus");
                 if (!SuCorrects(on, academic, grade))
                 {
-                    if (!on && SuCorrects(true, academic, grade)) PatchCounters()[1404]++;
+                    if (!on && SuCorrects(true, academic, grade)) PatchCounters()[3242]++;
                     return ScoreOrig(degreeName);
                 }
                 int ea = SuEaIndex(academic, grade), fix = SuIndex(on, academic, grade);
-                PatchCounters()[1403]++;
+                PatchCounters()[3241]++;
                 if (academic)
                 {
                     // EA reads kGradeBonus[grade]: hand it the best-first values at that index for this one call (no yield inside)
@@ -176,7 +176,7 @@ namespace Ts3Fixes
         // EA's fallback (use an existing shark within kMaxDistanceForExistingShark) is never reached. Fix: our copy of Run
         // with RequestState inside the success branch; everything else as EA (same calls, same order). Household-visible:
         // Evil / MeanSpirited mermaids' Summon Shark works or ends quietly.
-        // Counters: [1406] failed placements that took EA's fallback, [1407] NullReferenceExceptions in Run with the switch off, [1408] errors.
+        // Counters: [3838] failed placements that took EA's fallback, [3839] NullReferenceExceptions in Run with the switch off, [3840] errors.
         static readonly FieldInfo sMsMax = typeof(OccultMermaid.SummonShark).GetField("kMaxSharksOnLot", kEpStatic);
         static readonly FieldInfo sMsDist = typeof(OccultMermaid.SummonShark).GetField("kMaxDistanceForExistingShark", kEpStatic);
 
@@ -199,12 +199,12 @@ namespace Ts3Fixes
                 if (!on)
                 {
                     try { return RunOrig(); }
-                    catch (NullReferenceException) { PatchCounters()[1407]++; throw; }
+                    catch (NullReferenceException) { PatchCounters()[3839]++; throw; }
                 }
                 OccultMermaid.SummonShark s = (OccultMermaid.SummonShark)(object)this;
                 int max; float dist;
                 try { max = (int)sMsMax.GetValue(null); dist = (float)sMsDist.GetValue(null); }
-                catch (Exception) { PatchCounters()[1408]++; return RunOrig(); }
+                catch (Exception) { PatchCounters()[3840]++; return RunOrig(); }
                 Sim actor = s.Actor;
                 MarineLifeBase[] objects = actor.LotCurrent.GetObjects<MarineLifeBase>();
                 s.mMarineLifeObject = null;
@@ -218,7 +218,7 @@ namespace Ts3Fixes
                     {
                         s.mMarineLifeObject.Destroy();
                         s.mMarineLifeObject = null;
-                        PatchCounters()[1406]++;
+                        PatchCounters()[3838]++;
                     }
                     if (placed) s.mMarineLifeObject.RequestState(MarineLifeStateType.NewlySpawned);  // EA: also after a failed placement (on null)
                 }
@@ -255,7 +255,7 @@ namespace Ts3Fixes
         // whose jetpack posture ended first (stop jetpack queued before it, a transform, a posture pop) throws in Cleanup
         // and its jigs are left. ts3fixes FutureLogic patches FlyAround only (docs/572 §12). Fix: with no active jetpack,
         // EA's Cleanup without the StopFX call (jigs destroyed, base Cleanup). Household-visible: no script error.
-        // Counters: [1409] cleanups without a jetpack handled, [1410] seen with the switch off, [1411] errors.
+        // Counters: [3845] cleanups without a jetpack handled, [3846] seen with the switch off, [3847] errors.
         static readonly FieldInfo sJfTakeOff = typeof(Jetpack.FlyHere).GetField("mTakeOffJig", kInstAll);
         static readonly FieldInfo sJfLanding = typeof(Jetpack.FlyHere).GetField("mLandingJig", kInstAll);
 
@@ -280,11 +280,11 @@ namespace Ts3Fixes
                     Sim a = ((Jetpack.FlyHere)(object)this).Actor;
                     bool hasJetpack = a == null || a.GetActiveJetpack() != null;   // no actor: EA's code as before
                     skip = JfSkip(on, hasJetpack);
-                    if (!skip && !on && JfSkip(true, hasJetpack)) PatchCounters()[1410]++;
+                    if (!skip && !on && JfSkip(true, hasJetpack)) PatchCounters()[3846]++;
                 }
-                catch (Exception) { PatchCounters()[1411]++; skip = false; }
+                catch (Exception) { PatchCounters()[3847]++; skip = false; }
                 if (!skip) { CleanupOrig(); return; }
-                PatchCounters()[1409]++;
+                PatchCounters()[3845]++;
                 foreach (FieldInfo f in new FieldInfo[] { sJfTakeOff, sJfLanding })
                 {
                     GameObject jig = f.GetValue(this) as GameObject;
@@ -301,7 +301,7 @@ namespace Ts3Fixes
         // before it was picked up therefore destroys the terrarium and its nanite with no reverse-engineering result.
         // Fix: the target is destroyed only once it is in the actor's inventory (Run's pickup succeeded, or it started
         // there), which is when EA's run can have consumed it; before that, Cleanup leaves it. Household-visible.
-        // Counters: [1412] terrariums kept, [1413] destroyed un-picked-up with the switch off, [1414] errors.
+        // Counters: [3848] terrariums kept, [3849] destroyed un-picked-up with the switch off, [3850] errors.
         static readonly FieldInfo sNrProp = typeof(NaniteTerrarium.ReverseEngineer).GetField("mProp", kInstAll);
 
         // Pure: does EA's Cleanup destroy a target the actor never got? (exit reason not Canceled, not in the inventory)
@@ -328,13 +328,13 @@ namespace Ts3Fixes
                         bool hasExit = a.HasExitReason(), canceled = a.HasExitReason(ExitReason.Canceled);
                         bool inInv = a.Inventory != null && a.Inventory.Contains(t);
                         keep = NrKeep(on, hasExit, canceled, inInv);
-                        if (!keep && !on && NrKeep(true, hasExit, canceled, inInv)) PatchCounters()[1413]++;
+                        if (!keep && !on && NrKeep(true, hasExit, canceled, inInv)) PatchCounters()[3849]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1414]++; keep = false; }
+                catch (Exception) { PatchCounters()[3850]++; keep = false; }
                 if (!keep) { CleanupOrig(); return; }
-                PatchCounters()[1412]++;
-                try { NaniteTerrarium kt = Target; if (kt != null) kt.SetOpacity(1f, 0f); } catch (Exception) { PatchCounters()[1414]++; }
+                PatchCounters()[3848]++;
+                try { NaniteTerrarium kt = Target; if (kt != null) kt.SetOpacity(1f, 0f); } catch (Exception) { PatchCounters()[3850]++; }
                 base.Cleanup();
                 GameObject prop = sNrProp.GetValue(this) as GameObject;
                 if (prop != null) { prop.Destroy(); sNrProp.SetValue(this, null); }
@@ -350,7 +350,7 @@ namespace Ts3Fixes
         // floor's tally is cleared. Household-visible: the dance king / queen award counts this festival only.
         // Found by the RE pass (not fixed): the queen branch keeps the sculpture in the mailbox AND tries the inventory
         // when the ticket grant fails after AddMail succeeded; king and queen mail differ in isImmediatelyVisible.
-        // Counters: [1415] tallies cleared, [1416] tallies kept with the switch off, [1417] errors.
+        // Counters: [3851] tallies cleared, [3852] tallies kept with the switch off, [3853] errors.
         static readonly FieldInfo sSdDancers = typeof(SpringDanceFloor).GetField("SimDancers", kInstAll);
 
         // Pure: clear the tally after judging?
@@ -374,10 +374,10 @@ namespace Ts3Fixes
                         PairedListDictionary<Sim, float> d = sSdDancers.GetValue(this) as PairedListDictionary<Sim, float>;
                         bool on = ShortcutOn("springdanceclear");
                         int n = d == null ? 0 : d.Count;
-                        if (SdClear(on, n)) { d.Clear(); PatchCounters()[1415]++; }
-                        else if (!on && SdClear(true, n)) PatchCounters()[1416]++;
+                        if (SdClear(on, n)) { d.Clear(); PatchCounters()[3851]++; }
+                        else if (!on && SdClear(true, n)) PatchCounters()[3852]++;
                     }
-                    catch (Exception) { PatchCounters()[1417]++; }
+                    catch (Exception) { PatchCounters()[3853]++; }
                 }
             }
             public void CheckOrig() { } // SpringDanceFloor.CheckForDanceWinners
@@ -391,7 +391,7 @@ namespace Ts3Fixes
         // copied and the visual state and effects are refreshed as OnCreation / OnStartup do. Household-visible.
         // Found by the RE pass (not fixed, no trigger): NectarRegister.CreateBottleObjectCallBack calls DuplicateData on
         // the created bottle before its `?.` null check.
-        // Counters: [1418] copies completed, [1419] copies left incomplete with the switch off, [1420] errors.
+        // Counters: [3854] copies completed, [3855] copies left incomplete with the switch off, [3856] errors.
         static readonly FieldInfo sNcInfo = typeof(NectarBottle).GetField("mBottleInfo", kInstAll | BindingFlags.DeclaredOnly);
         static readonly MethodInfo sNcVisual = typeof(NectarBottle).GetMethod("UpdateVisualState", kInstAll | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
         static readonly MethodInfo sNcFx = typeof(NectarBottle).GetMethod("CheckStartVFx", kInstAll | BindingFlags.DeclaredOnly, null, Type.EmptyTypes, null);
@@ -417,7 +417,7 @@ namespace Ts3Fixes
                     NectarBottle.NectarBottleGlassInfo si = (NectarBottle.NectarBottleGlassInfo)sNcInfo.GetValue(src);
                     if (!NcCopied(on, si.MadeByLevel10Sim))
                     {
-                        if (!on && NcCopied(true, si.MadeByLevel10Sim)) PatchCounters()[1419]++;
+                        if (!on && NcCopied(true, si.MadeByLevel10Sim)) PatchCounters()[3855]++;
                         return;
                     }
                     NectarBottle b = (NectarBottle)(object)this;
@@ -426,9 +426,9 @@ namespace Ts3Fixes
                     sNcInfo.SetValue(b, bi);
                     sNcVisual.Invoke(b, null);
                     if (b.InWorld) sNcFx.Invoke(b, null);   // AddToWorld starts it otherwise
-                    PatchCounters()[1418]++;
+                    PatchCounters()[3854]++;
                 }
-                catch (Exception) { PatchCounters()[1420]++; }
+                catch (Exception) { PatchCounters()[3856]++; }
             }
             public void DupOrig(NectarBottle src) { } // NectarBottle.DuplicateData
         }
@@ -440,7 +440,7 @@ namespace Ts3Fixes
         // shape (nulls only its local). Fix: our copies keep the effect in the field and stop, dispose and clear it.
         // Found by the RE pass, folded in: species without an effect (cats, deer, raccoons) got Create("") or
         // Create("Piggy"); no effect is created for them. Household-visible (horses and dogs eating harvestables).
-        // Counters: [1421] effects started and kept, [1422] start events leaking with the switch off, [1423] errors.
+        // Counters: [3857] effects started and kept, [3858] start events leaking with the switch off, [3859] errors.
         static readonly Type sHeType = typeof(Ingredient).Assembly.GetType("Sims3.Gameplay.Objects.FoodObjects.EatHarvestablePet");
         static readonly FieldInfo sHeGround = sHeType == null ? null : sHeType.GetField("mEatGroundVfx", kInstAll);
         static readonly FieldInfo sHeFall = sHeType == null ? null : sHeType.GetField("mEatFallVfx", kInstAll);
@@ -470,7 +470,7 @@ namespace Ts3Fixes
             public void StartHook(bool onGround)
             {
                 bool on = ShortcutOn("harvesteatvfx");
-                if (!on) { PatchCounters()[1422]++; StartOrig(onGround); return; }
+                if (!on) { PatchCounters()[3858]++; StartOrig(onGround); return; }
                 try
                 {
                     FieldInfo f = onGround ? sHeGround : sHeFall;
@@ -483,9 +483,9 @@ namespace Ts3Fixes
                     fx.ParentTo(a, Sim.FXJoints.Mouth);
                     fx.Start();
                     f.SetValue(this, fx);
-                    PatchCounters()[1421]++;
+                    PatchCounters()[3857]++;
                 }
-                catch (Exception) { PatchCounters()[1423]++; }
+                catch (Exception) { PatchCounters()[3859]++; }
             }
             public void StartOrig(bool onGround) { } // EatHarvestablePet.StartEatingVfx
 
@@ -501,7 +501,7 @@ namespace Ts3Fixes
                     fx.Dispose();
                     f.SetValue(this, null);
                 }
-                catch (Exception) { PatchCounters()[1423]++; }
+                catch (Exception) { PatchCounters()[3859]++; }
             }
             public void StopOrig(bool onGround) { } // EatHarvestablePet.StopEatingVfx
         }
@@ -513,7 +513,7 @@ namespace Ts3Fixes
         // out of EatHeldFood.Run. Fix: our copy picks among the tables that hold servings (room first, then lot, as EA);
         // none: no second helping (EA's outcome without the throw). With food on every candidate table the same list is
         // drawn from as EA. Household-visible (resort guests and household Sims eating at a buffet).
-        // Counters: [1424] picks limited to tables with food, [1425] picks that could throw with the switch off, [1426] errors.
+        // Counters: [3860] picks limited to tables with food, [3861] picks that could throw with the switch off, [3862] errors.
         static readonly FieldInfo sBfSlots = typeof(ResortBuffetTable).GetField("kFoodSlots", kEpStatic);
 
         // Pure: which list EA draws from (true: room) and which the fix draws from (1 room, 2 lot, 0 none).
@@ -566,13 +566,13 @@ namespace Ts3Fixes
                     List<ResortBuffetTable> lot = BfWithFood(sim.LotCurrent.GetObjects<ResortBuffetTable>(), slots, out lotN);
                     if (BfFixes(on, roomN, room.Count, lotN, lot.Count))
                     {
-                        PatchCounters()[1424]++;
+                        PatchCounters()[3860]++;
                         int which = BfFixList(room.Count, lot.Count);
                         pick = which == 1 ? room : which == 2 ? lot : new List<ResortBuffetTable>();
                     }
-                    else if (BfMayPickEmpty(on, roomN, room.Count, lotN, lot.Count)) PatchCounters()[1425]++;
+                    else if (BfMayPickEmpty(on, roomN, room.Count, lotN, lot.Count)) PatchCounters()[3861]++;
                 }
-                catch (Exception) { PatchCounters()[1426]++; pick = null; }
+                catch (Exception) { PatchCounters()[3862]++; pick = null; }
                 if (pick == null) { ConsumeOrig(sim); return; }
                 if (pick.Count == 0) return;
                 ResortBuffetTable t = RandomUtil.GetRandomObjectFromList(pick);
@@ -592,7 +592,7 @@ namespace Ts3Fixes
         // Deviation: EA also cleared its boat tracking list when it scheduled the attack (as in vanilla).
         // Found by the RE pass (not fixed: needs a copy of the private KrakenHelper): KrakenAttackOneShot leaks the
         // out-of-world kraken jig when FindGoodLocationOnWorldAtCustomDepth fails or the boat has no driver.
-        // Counters: [1427] attacks on immune boats dropped, [1428] scheduled with the switch off, [1429] errors.
+        // Counters: [3863] attacks on immune boats dropped, [3864] scheduled with the switch off, [3865] errors.
         static readonly FieldInfo sKrList = typeof(KrakenManager).GetField("mBoatList", kInstAll);
         static readonly Dictionary<ObjectGuid, bool> sKrImmune = new Dictionary<ObjectGuid, bool>();
 
@@ -639,7 +639,7 @@ namespace Ts3Fixes
                         if (KrMisses(sailor, friend)) sKrImmune[b.ObjectId] = true;
                     }
                 }
-                catch (Exception) { PatchCounters()[1429]++; sKrImmune.Clear(); }
+                catch (Exception) { PatchCounters()[3865]++; sKrImmune.Clear(); }
                 int before = -1;
                 try { System.Collections.ICollection l = sKrList.GetValue(this) as System.Collections.ICollection; before = l == null ? -1 : l.Count; } catch (Exception) { }
                 try { AlarmOrig(); }
@@ -664,10 +664,10 @@ namespace Ts3Fixes
                     KrakenAttackParams p = obj as KrakenAttackParams;
                     bool noted = p != null && p.TargetBoat != null && sKrImmune.ContainsKey(p.TargetBoat.ObjectId);
                     drop = KrDrop(on, noted);
-                    if (drop) { p.AttackSucceeded = false; PatchCounters()[1427]++; }
-                    else if (noted && !on) PatchCounters()[1428]++;
+                    if (drop) { p.AttackSucceeded = false; PatchCounters()[3863]++; }
+                    else if (noted && !on) PatchCounters()[3864]++;
                 }
-                catch (Exception) { PatchCounters()[1429]++; drop = false; }
+                catch (Exception) { PatchCounters()[3865]++; drop = false; }
                 sKrImmune.Clear();  // one alarm, one one-shot
                 if (!drop) ShotOrig(obj);
             }

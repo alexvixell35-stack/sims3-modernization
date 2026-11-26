@@ -23,7 +23,7 @@ namespace Ts3Fixes
     // Fix: once a minute while an emergency is set up (ActiveFireFighter.sActiveJob, HasBeenSetup), the firefighter who
     // holds it is greeted on its lot when standing on it or within kFgNearM of its edge and not greeted. EA's own call
     // (Sim.GreetSimOnLot), the same one Respond to Emergency makes. Nothing outside an emergency is touched.
-    // Counters: [4248] greetings given, [4249] errors. Check: FireGreetCheck.
+    // Counters: [1494] greetings given, [1495] errors. Check: FireGreetCheck.
     public static partial class Fixes
     {
         const float kFgNearM = 8f;
@@ -45,7 +45,7 @@ namespace Ts3Fixes
                 if (sFgAlarm != AlarmHandle.kInvalidHandle) AlarmManager.Global.RemoveAlarm(sFgAlarm);
                 sFgAlarm = AlarmManager.Global.AddAlarmRepeating(1f, TimeUnit.Minutes, delegate { FireGreetTick(); }, 1f, TimeUnit.Minutes, "Ts3Fixes.FireGreet", AlarmType.NeverPersisted, null);
             }
-            catch (Exception) { PatchCounters()[4249]++; }
+            catch (Exception) { PatchCounters()[1495]++; }
         }
 
         // The emergency's lot and its firefighter, or false.
@@ -66,6 +66,8 @@ namespace Ts3Fixes
 
         static void FireGreetTick()
         {
+            FireLeftoverTick();  // fireleftover (FireLeftover.cs) shares this minute alarm; it reads its own switch
+            AptGasLeakTick();    // aptgasleak (AptJobTargets.cs) too
             try
             {
                 if (!ShortcutOn("firegreet")) return;
@@ -74,20 +76,20 @@ namespace Ts3Fixes
                 bool inWorld = sim.InWorld && !sim.HasBeenDestroyed && sim.Household != null;
                 if (!FgGreet(true, job.HasBeenSetup, inWorld, inWorld && sim.IsGreetedOnLot(lot), inWorld && FgOnOrNear(sim, lot), lot == sim.LotHome)) return;
                 sim.GreetSimOnLot(lot);
-                PatchCounters()[4248]++;
+                PatchCounters()[1494]++;
             }
-            catch (Exception) { PatchCounters()[4249]++; }
+            catch (Exception) { PatchCounters()[1495]++; }
         }
 
         // FireGreetCheck run: the decision for the reported case (firefighter on or next to the emergency lot, greeting
         // dropped) with controls; then the live emergency, if any. Read-only.
         //   off BROKEN = not greeted; on FIXED = greeted. Controls (must be false in both): no emergency set up, already
         //   greeted, far from the lot, the firefighter's own home lot.
-        //   result  counters 4248-4249
+        //   result  counters 1494-1495
         public static object FireGreetCheck(string what)
         {
             int[] c = PatchCounters();
-            string counters = "firegreet: greeted 4248=" + c[4248] + ", errors 4249=" + c[4249] + "; members found=" + (sFgJobLot != null) + ", alarm=" + (sFgAlarm != AlarmHandle.kInvalidHandle);
+            string counters = "firegreet: greeted 1494=" + c[1494] + ", errors 1495=" + c[1495] + "; members found=" + (sFgJobLot != null) + ", alarm=" + (sFgAlarm != AlarmHandle.kInvalidHandle);
             if (what == "result") return counters;
             if (what != "run") return "firegreet <run|result>";
             bool on = ShortcutOn("firegreet");

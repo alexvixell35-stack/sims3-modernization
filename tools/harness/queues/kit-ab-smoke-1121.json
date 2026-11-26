@@ -1,0 +1,121 @@
+{
+  "note": "kit-ab-smoke-1121 (feature/kit-ab-1121, docs/314): one short in-game smoke per tester-kit arm on the Steam build (Bin state apex via tools/turbo-compat.ts; bridge only). The kits' ts3fixes arm packages are installed as is; the asi is the Steam build of the kit's native code (k4: mkit2 Steam = the retail kit asi's source; e7b: m1120t Steam = the e6 EA asi's base, master m1120t + the .ooa gate). Jobs 1-3: the arm's world-load line (notice text + switch read-back), minute stats lines, 0 script errors; job 1 also pauses 20 s and saves once (kit-ab-session-check: the stats task wakes while paused, the save pause is counted apart) and screenshots the notification. Job 4 = e7b arm B: our mods off (ourMods false: ts3native pair + ts3fixes moved out, the job fails if ts3native.log appears). Correctness only, no timing. The kit's own switching, summary and uninstall are checked offline by tools/player/ts3-kit/test-kit.ps1. AGENT: build/ts3agent.package = game-copy/ts3agent.package.m1121.",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3fixes: kit: arm A: TS3 test kit: arm A - commodmapfast ON \\(our faster object-list update\\) \\| read-back commodmapfast=on commodmapshadow=off$": {
+      "match": ["ts3fixes: kit: arm A: TS3 test kit: arm A - commodmapfast ON (our faster object-list update) | read-back commodmapfast=on commodmapshadow=off"],
+      "noMatch": ["ts3fixes: kit: arm A: TS3 test kit: arm A - commodmapfast ON (our faster object-list update) | read-back commodmapfast=off commodmapshadow=off"]
+    },
+    "^ts3fixes: kit: arm B: TS3 test kit: arm B - commodmapfast OFF \\(game.s own code\\) \\| read-back commodmapfast=off commodmapshadow=off$": {
+      "match": ["ts3fixes: kit: arm B: TS3 test kit: arm B - commodmapfast OFF (game's own code) | read-back commodmapfast=off commodmapshadow=off"],
+      "noMatch": ["ts3fixes: kit: arm B: TS3 test kit: arm B - commodmapfast OFF (game's own code) | read-back commodmapfast=on commodmapshadow=off"]
+    },
+    "^ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON \\(ts3native \\+ ts3fixes; CAS error logging on\\) \\| read-back swapinvokediag=on$": {
+      "match": ["ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON (ts3native + ts3fixes; CAS error logging on) | read-back swapinvokediag=on"],
+      "noMatch": ["ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON (ts3native + ts3fixes; CAS error logging on) | read-back swapinvokediag=off"]
+    },
+    "^ts3fixes: kit: stats arm A \\(minute\\): in world [0-9.]+ min, ": {
+      "match": ["ts3fixes: kit: stats arm A (minute): in world 1.0 min, worlds 1, sim updates/s median 30 min 2 (60 s), hitches >= 250 ms 0, >= 1 s 0, longest 120 ms, save pauses 0 (longest 0 ms), read-back commodmapfast=on commodmapshadow=off"],
+      "noMatch": ["ts3fixes: kit: stats arm B (minute): in world 1.0 min, worlds 1"]
+    },
+    "^ts3fixes: kit: stats arm B \\(minute\\): in world [0-9.]+ min, ": {
+      "match": ["ts3fixes: kit: stats arm B (minute): in world 1.0 min, worlds 1, sim updates/s median 30 min 2 (60 s), hitches >= 250 ms 0, >= 1 s 0, longest 120 ms, save pauses 0 (longest 0 ms), read-back commodmapfast=off commodmapshadow=off"],
+      "noMatch": ["ts3fixes: kit: stats arm A (minute): in world 1.0 min, worlds 1"]
+    },
+    "^ts3fixes: kit: stats arm A \\(minute\\): .*longest [0-9]{1,4} ms, save pauses [1-9]": {
+      "match": ["ts3fixes: kit: stats arm A (minute): in world 3.0 min, worlds 1, sim updates/s median 30 min 0 (180 s), hitches >= 250 ms 2, >= 1 s 0, longest 640 ms, save pauses 1 (longest 7100 ms), read-back commodmapfast=on commodmapshadow=off"],
+      "noMatch": ["ts3fixes: kit: stats arm A (minute): in world 3.0 min, worlds 1, sim updates/s median 30 min 0 (180 s), hitches >= 250 ms 2, >= 1 s 1, longest 20040 ms, save pauses 0 (longest 0 ms), read-back commodmapfast=on commodmapshadow=off"]
+    },
+    "^ts3fixes: kit: (notice failed|stats task threw)": {
+      "match": ["ts3fixes: kit: stats task threw NullReferenceException: Object reference not set"],
+      "noMatch": ["ts3fixes: kit: stats arm A (minute): in world 1.0 min"]
+    },
+    "^ts3native 0\\.36\\.298-mkit2 ": {
+      "match": ["ts3native 0.36.298-mkit2 2026-11-20 21:00:00"],
+      "noMatch": ["ts3native 0.36.297-m1120t 2026-11-20 08:00:00"]
+    },
+    "^ts3native 0\\.36\\.297-m1120t ": {
+      "match": ["ts3native 0.36.297-m1120t 2026-11-20 08:00:00"],
+      "noMatch": ["ts3native 0.36.298-mkit2 2026-11-20 21:00:00"]
+    }
+  },
+  "jobs": [
+    {
+      "id": "k4-armA",
+      "note": "[est 12 min] kit k4 arm A (commodmapfast ON): notice line + read-back, minute stats, pause 20 s + one save (kit-ab-session-check), screenshot of the notification.",
+      "asi": "game-copy/ts3native.asi.mkit2-1121",
+      "iniBase": "game-copy/ts3native.ini.k2diag-1121",
+      "fixesPackage": "game-copy/ts3fixes.package.kit4a-1121",
+      "pinReason": "kit k4 arm A package (feature/kit-ab-1121) on the Steam mkit2 asi (the retail kit asi's source)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "profile": { "minutes": 4, "seed": 12345, "noSamplers": true, "repro": "kit-ab-session-check" } },
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-mkit2 ": 1,
+        "^ts3fixes: kit: arm A: TS3 test kit: arm A - commodmapfast ON \\(our faster object-list update\\) \\| read-back commodmapfast=on commodmapshadow=off$": 1,
+        "^ts3fixes: kit: stats arm A \\(minute\\): in world [0-9.]+ min, ": 2,
+        "^ts3fixes: kit: stats arm A \\(minute\\): .*longest [0-9]{1,4} ms, save pauses [1-9]": 1
+      },
+      "logForbid": { "^ts3fixes: kit: (notice failed|stats task threw)": 0 }
+    },
+    {
+      "id": "k4-armB",
+      "note": "[est 10 min] kit k4 arm B (commodmapfast OFF): notice line + read-back off, minute stats.",
+      "asi": "game-copy/ts3native.asi.mkit2-1121",
+      "iniBase": "game-copy/ts3native.ini.k2diag-1121",
+      "fixesPackage": "game-copy/ts3fixes.package.kit4b-1121",
+      "pinReason": "kit k4 arm B package (feature/kit-ab-1121) on the Steam mkit2 asi",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true } },
+      "logRequire": {
+        "^ts3native 0\\.36\\.298-mkit2 ": 1,
+        "^ts3fixes: kit: arm B: TS3 test kit: arm B - commodmapfast OFF \\(game.s own code\\) \\| read-back commodmapfast=off commodmapshadow=off$": 1,
+        "^ts3fixes: kit: stats arm B \\(minute\\): in world [0-9.]+ min, ": 1
+      },
+      "logForbid": { "^ts3fixes: kit: (notice failed|stats task threw)": 0 }
+    },
+    {
+      "id": "e7b-armA-steam",
+      "note": "[est 10 min] kit e7b arm A package (swapinvokediag ON) on the Steam m1120t asi (the e6 EA asi's base) + [HostMapIterFix] as e6normal: the new ts3fixes with the old native code, notice line + read-back, minute stats. The EA 1.69 exe itself is not run here.",
+      "asi": "game-copy/ts3native.asi.m1120t",
+      "iniBase": "game-copy/ts3native.ini.m1120t",
+      "ini": { "HostMapIterFix.Enabled": 1 },
+      "fixesPackage": "game-copy/ts3fixes.package.kit7a-1121",
+      "pinReason": "kit e7b arm A package (feature/kit-ab-1121) on the Steam twin of the e6 asi (m1120t)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 20,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true } },
+      "logRequire": {
+        "^ts3native 0\\.36\\.297-m1120t ": 1,
+        "^ts3fixes: kit: arm A: TS3 test kit: arm A - our mod ON \\(ts3native \\+ ts3fixes; CAS error logging on\\) \\| read-back swapinvokediag=on$": 1,
+        "^ts3fixes: kit: stats arm A \\(minute\\): in world [0-9.]+ min, ": 1
+      },
+      "logForbid": { "^ts3fixes: kit: (notice failed|stats task threw)": 0 }
+    },
+    {
+      "id": "e7b-armB-off",
+      "note": "[est 8 min] kit e7b arm B = our mod off (ts3native pair + ts3fixes moved out by the harness, as the kit's ab\\off move): the game loads and plays 3 min on Apex + bridge alone; FAIL if ts3native.log appears or a patches counter rises.",
+      "asi": "none",
+      "ourMods": false,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 20,
+      "gameArgs": ["-disablestoryprogression"],
+      "run": { "profile": { "minutes": 3, "seed": 12345, "noSamplers": true } }
+    }
+  ]
+}

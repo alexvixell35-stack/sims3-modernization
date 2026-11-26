@@ -82,9 +82,7 @@ static __declspec(noinline) u8* __cdecl ArPlanFromPointHook(u8* out, DWORD handl
     if (g_p10On) P10Enter(2, (DWORD*)_AddressOfReturnAddress());
     const float pt[3] = {x, y, z};
     // docs/250 §7.1 WatchdogKind2: hooked only for the watchdog's own STARTs, every call that is not collecting a job of this
-    // route goes to the game's IC directly, as with no detour. No SyncIc: no IC-level session, SyncCapMs cap, UnseenFallback
-    // MARK or IC timing. Its Route_PlanLocked still gets PlanDeadlineMs' own session (default 300 ms) through CallPlan ->
-    // CallPlanBudget -> PdPlanBegin, and [RouteAsync] NoPathMemo (docs/643) sees it in CallPlan.
+    // route goes to the game's IC directly, as with no detour (no SyncIc: no caps, deadlines or timing on it)
     if (ArWdPass(handle)) {
         InterlockedIncrement(&ts3native_counters.arWdPass);
         ArPassNote(2, handle);
@@ -139,10 +137,12 @@ static void InstallA10(const wchar_t* ini) {
         if (g_arOrig[kind]) k.arReady |= 1 << (kind - 1);  // a kind without its detour is refused at START
     }
     g_arOwnKinds = kinds;
+    g_arOwnGate = kinds ? 1 : 0;  // docs/288 §4: always with Kinds, no switch (household rule)
     k.afKinds = fkinds & k.arReady;
     g_arWdKind2 = wd2 && (k.arReady & 2) ? 1 : 0;
     g_arUnseenKinds = ukinds & ~kinds & k.arReady;  // a kind in Kinds already starts for every scope
     g_afUnseenKinds = fukinds & ~fkinds & k.arReady;  // a kind in ForeignKinds already starts for every scope
     Log("route async A10: Kinds=%d KindsMode=%ld ForeignKinds=%d ForeignKindsMode=%ld, hooked mask %ld, WatchdogKind2=%d, KindsUnseen=%d (docs/662), "
-        "ForeignKindsUnseen=%d (docs/670)", kinds, k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2, g_arUnseenKinds, g_afUnseenKinds);
+        "ForeignKindsUnseen=%d (docs/670), own gate %s", kinds, k.arMode, fkinds, k.afMode, k.arReady, g_arWdKind2, g_arUnseenKinds, g_afUnseenKinds,
+        g_arOwnGate ? "unseen routes only, Mode 1 needs H2Ic + RefcountGuard" : "none (Kinds=0)");
 }

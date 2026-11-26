@@ -32,7 +32,7 @@ namespace Ts3Fixes
         public static object HayScatterTimeCheck(string what)
         {
             bool on = ShortcutOn("hayscattertime");
-            return Ep4Check("hayscattertime", 1575, new[] { "scatter times reset", "kept with switch off", "errors" }, EpJoin(EpMiss("mScatterTime", sHsTime), EpLive(typeof(BEp5HsHook), 1, "mScatterTime", sHsTime, typeof(float))), what,
+            return Ep4Check("hayscattertime", 3301, new[] { "scatter times reset", "kept with switch off", "errors" }, EpJoin(EpMiss("mScatterTime", sHsTime), EpLive(typeof(BEp5HsHook), 1, "mScatterTime", sHsTime, typeof(float))), what,
                 "6 -> 0 after a scatter", HsAfter(on, 6f) == 0f, "off keeps 6", HsAfter(false, 6f) == 6f);
         }
 
@@ -40,7 +40,7 @@ namespace Ts3Fixes
         public static object HauntedGnomeInvCheck(string what)
         {
             bool on = ShortcutOn("hauntedgnomeinv");
-            return Ep4Check("hauntedgnomeinv", 1578, new[] { "inventory gnomes cleaned", "alarm or fear kept with switch off", "errors" },
+            return Ep4Check("hauntedgnomeinv", 3304, new[] { "inventory gnomes cleaned", "alarm or fear kept with switch off", "errors" },
                 EpJoin(EpMiss("HauntedAddToInventoryEvent", sHgAdd, "mGhostAlarm", sHgAlarm),
                     EpLive(typeof(BEp5HgHook), 2, "HauntedAddToInventoryEvent", sHgAdd, 2, "mGhostAlarm", sHgAlarm, typeof(Sims3.Gameplay.Utilities.AlarmHandle))), what,
                 "inventory gnome cleaned", HgClean(on, true), "placed gnome as EA", !HgClean(on, false) && !HgClean(false, true));
@@ -50,7 +50,7 @@ namespace Ts3Fixes
         public static object HoudiniGnomeLeakCheck(string what)
         {
             bool on = ShortcutOn("houdinignomeleak");
-            return Ep4Check("houdinignomeleak", 1581, new[] { "orphan gnomes destroyed", "fallback skipped, no home lot", "errors" }, EpLive(typeof(BEp5HoHook), 1), what,
+            return Ep4Check("houdinignomeleak", 3307, new[] { "orphan gnomes destroyed", "fallback skipped, no home lot", "errors" }, EpLive(typeof(BEp5HoHook), 1), what,
                 "unplaced gnome destroyed", HgOrphanDestroy(on, true, false), "placed / none created / off left",
                 !HgOrphanDestroy(on, true, true) && !HgOrphanDestroy(on, false, false) && !HgOrphanDestroy(false, true, false));
         }
@@ -60,7 +60,7 @@ namespace Ts3Fixes
         public static object ShowStageFxEndCheck(string what)
         {
             bool on = ShortcutOn("showstagefxend");
-            return Ep4Check("showstagefxend", 1584, new[] { "one-shots ended at show end / stale turn-ons / failures fired / effects disposed", "show ends dropped with switch off", "errors" },
+            return Ep4Check("showstagefxend", 3310, new[] { "one-shots ended at show end / stale turn-ons / failures fired / effects disposed", "show ends dropped with switch off", "errors" },
                 EpJoin(EpMiss("mOneShot", sE6OneShot, "mSavedEffect", sE6SavedEffect, "mSavedEffectDelay", sE6SavedDelay, "mEffect", sE6Effect, "mDelay", sE6Delay),
                     EpJoin(EpLive(typeof(BEp5FxHook), 2), EpLive(typeof(BEp5E6Hook), 2, "mOneShot", sE6OneShot, typeof(bool),
                         "mSavedEffect", sE6SavedEffect, sE6Effect == null ? null : sE6Effect.FieldType, "mSavedEffectDelay", sE6SavedDelay, sE6Delay == null ? null : sE6Delay.FieldType,
@@ -76,7 +76,7 @@ namespace Ts3Fixes
         public static object SoakedPetSelfReactCheck(string what)
         {
             bool on = ShortcutOn("soakedpetselfreact");
-            return Ep4Check("soakedpetselfreact", 1587, new[] { "self reactions skipped", "shakes run with switch off", "errors" },
+            return Ep4Check("soakedpetselfreact", 3313, new[] { "self reactions skipped", "shakes run with switch off", "errors" },
                 EpJoin(EpMiss("ShakeWaterOff", sSoType, "AddPuddle", sSoPuddle, "kReactionRadius", sSoRadius),
                     EpLive(typeof(BEp5SpHook), 1, "ShakeWaterOff", sSoType, typeof(Sims3.Gameplay.Interactions.Interaction<Sims3.Gameplay.Actors.Sim, Sims3.Gameplay.Actors.Sim>),
                         "AddPuddle", sSoPuddle, typeof(bool), "kReactionRadius", sSoRadius, typeof(float), "kReactionRadius", sSoRadius, "static")), what,
@@ -87,7 +87,7 @@ namespace Ts3Fixes
         public static object TagBagSurfaceLeakCheck(string what)
         {
             bool on = ShortcutOn("tagbagsurfaceleak");
-            return Ep4Check("tagbagsurfaceleak", 1590, new[] { "surfaces destroyed", "leaked with switch off", "errors" }, EpLive(typeof(BEp5TbHook), 1), what,
+            return Ep4Check("tagbagsurfaceleak", 3316, new[] { "surfaces destroyed", "leaked with switch off", "errors" }, EpLive(typeof(BEp5TbHook), 1), what,
                 "unplaced surface destroyed", TbDestroy(on, false, false, false),
                 "placed / destroyed / in world left", !TbDestroy(on, true, false, false) && !TbDestroy(on, false, true, false) && !TbDestroy(on, false, false, true));
         }
@@ -96,7 +96,7 @@ namespace Ts3Fixes
         public static object EquestrianTrophyNameCheck(string what)
         {
             bool on = ShortcutOn("equestriantrophyname");
-            return Ep4Check("equestriantrophyname", 1593, new[] { "horse names restored", "rider name kept with switch off", "errors" }, EpJoin(EpMiss("mHorseName", sEtHorse), EpLive(typeof(BEp5EtHook), 1, "mHorseName", sEtHorse, typeof(string))), what,
+            return Ep4Check("equestriantrophyname", 3319, new[] { "horse names restored", "rider name kept with switch off", "errors" }, EpJoin(EpMiss("mHorseName", sEtHorse), EpLive(typeof(BEp5EtHook), 1, "mHorseName", sEtHorse, typeof(string))), what,
                 "horse key value kept", EtName(on, "Rider", true, "Horse") == "Horse",
                 "no horse key / off keep EA's", EtName(on, "Rider", false, "") == "Rider" && EtName(false, "Rider", true, "Horse") == "Rider");
         }
@@ -105,7 +105,7 @@ namespace Ts3Fixes
         public static object RubbleUseListCheck(string what)
         {
             bool on = ShortcutOn("rubbleuselist");
-            return Ep4Check("rubbleuselist", 1596, new[] { "Sims taken off a pile's use list", "left on with switch off", "errors" }, EpLive(typeof(BEp5RuHook), 1), what,
+            return Ep4Check("rubbleuselist", 3322, new[] { "Sims taken off a pile's use list", "left on with switch off", "errors" }, EpLive(typeof(BEp5RuHook), 1), what,
                 "still on -> removed", CuRemove(on, true), "not on -> left", !CuRemove(on, false) && !CuRemove(false, true));
         }
 
@@ -113,7 +113,7 @@ namespace Ts3Fixes
         public static object BackpackLotLeakCheck(string what)
         {
             bool on = ShortcutOn("backpacklotleak");
-            return Ep4Check("backpacklotleak", 1600, new[] { "lot handlers dropped", "left subscribed with switch off", "errors" }, EpJoin(EpMiss("OnLotChanged", sBpOnLot), EpLive(typeof(BEp5BpHook), 2, "OnLotChanged", sBpOnLot, 3)), what,
+            return Ep4Check("backpacklotleak", 3325, new[] { "lot handlers dropped", "left subscribed with switch off", "errors" }, EpJoin(EpMiss("OnLotChanged", sBpOnLot), EpLive(typeof(BEp5BpHook), 2, "OnLotChanged", sBpOnLot, 3)), what,
                 "in use / no parent dropped", BpDropOnDispose(on, true) && BpDropOnLot(on, false),
                 "idle / parented / off kept", !BpDropOnDispose(on, false) && !BpDropOnLot(on, true) && !BpDropOnDispose(false, true) && !BpDropOnLot(false, false));
         }
@@ -124,7 +124,7 @@ namespace Ts3Fixes
         {
             bool on = ShortcutOn("streetartmasterboost");
             string[] large = { "Med", "High", "Master" }, full = { "Low", "Med", "High", "Master" };
-            return Ep4Check("streetartmasterboost", 1603, new[] { "Master rows boosted", "boost missed with switch off", "errors" },
+            return Ep4Check("streetartmasterboost", 3328, new[] { "Master rows boosted", "boost missed with switch off", "errors" },
                 EpJoin(EpMiss("StreetArtData", sSaData, "sStreetArtData", sSaList, "mWeights", sSaWeights, "mQuality", sSaQuality, "GetDuration", sSaDuration, "GetStreetArtVariationString", sSaVarString),
                     EpLive(typeof(BEp5SaHook), 1, "sStreetArtData", sSaList, typeof(System.Collections.IList), "sStreetArtData", sSaList, "static",
                         "mType", sSaType, typeof(Sims3.Gameplay.Skills.StreetArtSkill.Type), "mSmallVariations", sSaSmall, typeof(int), "mMediumVariations", sSaMed, typeof(int),
@@ -139,7 +139,7 @@ namespace Ts3Fixes
         public static object BubblingSpringsResetCheck(string what)
         {
             bool on = ShortcutOn("bubblingspringsreset");
-            return Ep4Check("bubblingspringsreset", 1606, new[] { "broadcasters recreated", "left missing with switch off", "errors" },
+            return Ep4Check("bubblingspringsreset", 3331, new[] { "broadcasters recreated", "left missing with switch off", "errors" },
                 EpJoin(EpMiss("SetBroadcaster", sBsSet, "mBubblingSpringsBroadcaster", sBsCast),
                     EpLive(typeof(BEp5BsHook), 1, "SetBroadcaster", sBsSet, 0, "mBubblingSpringsBroadcaster", sBsCast, null)), what,
                 "missing -> recreated", BsRecreate(on, true), "present left", !BsRecreate(on, false) && !BsRecreate(false, true));

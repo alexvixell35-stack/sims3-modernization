@@ -33,8 +33,8 @@ namespace Ts3Agent
     //  - mode "visit" (petlongvisit, §4.3): an owned NPC pet (not a stray, not a pet-pool animal; cats and dogs before horses,
     //    which gallop) is set down at a lot >= 300 m from the camera target and the active Sim, then EA's VisitCommunityLot to a
     //    community lot 400-1500 m from there, also >= 300 m from both. OFF: it walks. ON (unseen): 4179 +1, "placed ... via visit".
-    //  - mode "home" (petlonghome, docs/645 §4): the same pick, set down at a lot 400-1500 m from its own home lot (both far
-    //    from the camera and the active Sim), then EA's GoHome. OFF: it walks. ON (unseen): 4076 +1, "placed ... via gohome".
+    //  - mode "home" (petlonghome, docs/656 §8.2): the same pick, set down at a lot 400-1500 m from its own home lot (both far
+    //    from the camera and the active Sim), then EA's GoHome. OFF: it walks. ON (unseen): 4622 +1, "placed ... via gohome".
     // The result: the pet, species, its lot now, whether it is on the target now, reached / left and when (seconds after the
     // push), jumped_s (first move > 30 m between two samples: a placement), distance at the push, and the counter deltas.
     public static partial class Handlers
@@ -76,7 +76,7 @@ namespace Ts3Agent
                 sPrPet = null; sPrLot = sPrFrom = null; sPrTarget = sPrFromName = null; sPrPush = null; sPrSpot = Vector3.Invalid;
                 sPrBefore = sPrAfter = null;
                 for (int k = 0; k < 11; k++) sPrBase[k] = PrCtr(k);
-                { int[] c0 = BgsCounters(); sPrPlhBase = c0 != null && c0.Length > 4077 ? c0[4076] : -1; }
+                { int[] c0 = BgsCounters(); sPrPlhBase = c0 != null && c0.Length > 4623 ? c0[4622] : -1; }
                 if (sPrMode == "arrive") PrArrive(r);
                 else if (sPrMode == "stray") PrStray(r);
                 else if (sPrMode == "visit") PrVisit(r, false);
@@ -92,7 +92,7 @@ namespace Ts3Agent
             if (a.Has("stop")) { sPrGen++; PrRestoreDoor(); r["stopped"] = true; return r; }
             Dictionary<string, object> ctr = Util.Obj();
             for (int k = 0; k < 11; k++) { int v = PrCtr(k); ctr[kPrCtr[k] + "_" + (4170 + k)] = v < 0 ? -1 : v - sPrBase[k]; }
-            { int[] c1 = BgsCounters(); ctr["petlonghome_placed_4076"] = c1 != null && c1.Length > 4077 && sPrPlhBase >= 0 ? c1[4076] - sPrPlhBase : -1; }
+            { int[] c1 = BgsCounters(); ctr["petlonghome_placed_4622"] = c1 != null && c1.Length > 4623 && sPrPlhBase >= 0 ? c1[4622] - sPrPlhBase : -1; }
             r["mode"] = sPrMode; r["done"] = sPrDone; r["error"] = sPrError; r["counters"] = ctr; r["target"] = sPrTarget; r["from"] = sPrFromName;
             r["pushed"] = sPrPushed; r["push_dist_m"] = sPrPushDist; r["jumped_s"] = sPrJumpS;
             r["reached"] = sPrReached; r["reached_s"] = sPrReachedAtS; r["left"] = sPrLeft; r["left_s"] = sPrLeftAtS;

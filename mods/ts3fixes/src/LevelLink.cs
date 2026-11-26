@@ -9,8 +9,7 @@ using Sims3.SimIFace.CAS;
 
 namespace Ts3Fixes
 {
-    // The ways between the levels of a lot, shared by the strand lines (StrandLog.cs, docs/183 §8) and ladderfootshoo
-    // (LadderFoot.cs, docs/183 §9). A level link is an object with a portal component whose lane ends lie on two levels
+    // The ways between the levels of a lot, read by ladderfootshoo (LadderFoot.cs, docs/183 §9). A level link is an object with a portal component whose lane ends lie on two levels
     // (Stairs, StaircaseSpiral, Ladder, FirefighterPole, ...) or that links levels through a second object (elevators);
     // it is found by its component, not by its class. All reads: the lane-end test is the game's own read-only slot test
     // (Route.IsSlotUnobstructed, what PortalComponent.IsLaneUnobstructed runs).
@@ -47,7 +46,7 @@ namespace Ts3Fixes
                 k.Z = k.Ends ? o.GetSlotPosition(s0[1]) : o.Position;
                 World.GetLotLocation(k.A, ref k.Al, eRoomDefinition.Default);
                 World.GetLotLocation(k.Z, ref k.Zl, eRoomDefinition.Default);
-                if (StrandCore.LinksLevels(k.Al.mLevel, k.Zl.mLevel, k.Type)) links.Add(k);
+                if (LadderFootCore.LinksLevels(k.Al.mLevel, k.Zl.mLevel, k.Type)) links.Add(k);
             }
             return links;
         }
@@ -55,7 +54,7 @@ namespace Ts3Fixes
         // Does the link lie on the way between the two levels (either direction)?
         static bool LevelLinkOnWay(LevelLink k, int simLevel, int goalLevel)
         {
-            if (k.TwoLevels) return StrandCore.StairOnWay(k.Al.mLevel, k.Zl.mLevel, simLevel, goalLevel);
+            if (k.TwoLevels) return LadderFootCore.StairOnWay(k.Al.mLevel, k.Zl.mLevel, simLevel, goalLevel);
             return k.Al.mLevel >= Math.Min(simLevel, goalLevel) && k.Al.mLevel <= Math.Max(simLevel, goalLevel);
         }
 

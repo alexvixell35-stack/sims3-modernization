@@ -8,7 +8,7 @@ namespace Ts3Fixes
         public static object TrashPileImportCheck(string what)
         {
             string missing = sTpAlarm == null || sTpBroad == null || sTpToAncient == null ? "TrashPile.mAgeAlarm/mDisgustedEffectBroadcast/AlarmCallbackOldToAncient" : "";
-            string counters = B582Counters("trashpileimport", 1233, new[] { "stale age setups released", "Ancient piles built through Old", "seen with switch off", "errors" }, missing);
+            string counters = B582Counters("trashpileimport", 3545, new[] { "stale age setups released", "Ancient piles built through Old", "seen with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "trashpileimport <run|result>";
             bool on = ShortcutOn("trashpileimport");
@@ -20,7 +20,7 @@ namespace Ts3Fixes
         // CatGymWatchCheck run: no reference + cat on a gym -> fill. Controls: reference set or cat off the gym -> EA.
         public static object CatGymWatchCheck(string what)
         {
-            string counters = B582Counters("catgymwatch", 1237, new[] { "gym references filled", "seen with switch off", "errors" }, "");
+            string counters = B582Counters("catgymwatch", 3612, new[] { "gym references filled", "seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "catgymwatch <run|result>";
             bool on = ShortcutOn("catgymwatch");
@@ -32,7 +32,7 @@ namespace Ts3Fixes
         // BadSecretKeyCheck run: EA's text equals the wrong key's text -> replace. Controls: other text, empty wrong text.
         public static object BadSecretKeyCheck(string what)
         {
-            string counters = B582Counters("badsecretkey", 1240, new[] { "texts corrected", "seen with switch off", "errors" }, "");
+            string counters = B582Counters("badsecretkey", 3615, new[] { "texts corrected", "seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "badsecretkey <run|result>";
             bool on = ShortcutOn("badsecretkey");
@@ -44,7 +44,7 @@ namespace Ts3Fixes
         // TraitListenerRemoveCheck run: live trait with a listener -> removed. Controls: switch off / no listener -> EA.
         public static object TraitListenerRemoveCheck(string what)
         {
-            string counters = B582Counters("traitlistenerremove", 1243, new[] { "listeners removed", "left with switch off", "errors" }, "");
+            string counters = B582Counters("traitlistenerremove", 3639, new[] { "listeners removed", "left with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "traitlistenerremove <run|result>";
             bool on = ShortcutOn("traitlistenerremove");
@@ -57,7 +57,7 @@ namespace Ts3Fixes
         public static object WeddingListenerCheck(string what)
         {
             string missing = sWlList == null ? "WeddingParty.mEventListeners" : "";
-            string counters = B582Counters("weddinglistener", 1246, new[] { "listeners removed", "left with switch off", "errors" }, missing);
+            string counters = B582Counters("weddinglistener", 2920, new[] { "listeners removed", "left with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "weddinglistener <run|result>";
             bool on = ShortcutOn("weddinglistener");
@@ -71,7 +71,7 @@ namespace Ts3Fixes
         // same home / both homes set -> EA's test.
         public static object PortAskNoHomeCheck(string what)
         {
-            string counters = B582Counters("portasknohome", 1249, new[] { "throws avoided", "seen with switch off", "errors" }, "");
+            string counters = B582Counters("portasknohome", 3642, new[] { "throws avoided", "seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "portasknohome <run|result>";
             bool on = ShortcutOn("portasknohome");
@@ -84,7 +84,7 @@ namespace Ts3Fixes
         public static object LectureBroadcasterCheck(string what)
         {
             string missing = sLbParams == null || sLbCallback == null ? "Education.kGreatLectureBroadcastParams/BeIntriguedCallback" : "";
-            string counters = B582Counters("lecturebroadcaster", 1252, new[] { "earlier broadcasters disposed", "repeat lectures with switch off", "errors" }, missing);
+            string counters = B582Counters("lecturebroadcaster", 3645, new[] { "earlier broadcasters disposed", "repeat lectures with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "lecturebroadcaster <run|result>";
             bool on = ShortcutOn("lecturebroadcaster");
@@ -100,7 +100,7 @@ namespace Ts3Fixes
         public static object ResidentSpawnWalkCheck(string what)
         {
             int[] c = PatchCounters();
-            string counters = "residentspawnwalk: points accepted by the walk 1255=" + c[1255] + ", would accept with switch off 1256=" + c[1256] + ", errors 1257=" + c[1257] + "; " + GlMembers(EpJoin(sRsMissing, CkLive("residentspawnwalk")));
+            string counters = "residentspawnwalk: points accepted by the walk 1255=" + c[3648] + ", would accept with switch off 1256=" + c[3649] + ", errors 1257=" + c[3650] + "; " + GlMembers(EpJoin(sRsMissing, CkLive("residentspawnwalk")));
             if (what == "result") return counters;
             if (what != "run") return "residentspawnwalk <run|result>";
             bool on = ShortcutOn("residentspawnwalk");

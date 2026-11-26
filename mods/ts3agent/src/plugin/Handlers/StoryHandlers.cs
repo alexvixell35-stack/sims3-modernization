@@ -336,7 +336,7 @@ namespace Ts3Agent
             MethodInfo day = typeof(StoryProgressionService).GetMethod("DoOneDayOfActions", BindingFlags.Instance | BindingFlags.NonPublic);
             // a delegate, not day.Invoke: DoOneDayOfActions sleeps, and the game cannot yield through a reflection call
             // ("Attempting to yield in a non-yielding context!", al339)
-            Function oneDay = (Function)Delegate.CreateDelegate(typeof(Function), svc, day);
+            Function oneDay = (Function)Delegate.CreateDelegate(typeof(Function), svc, day);  // bind-ok: StoryProgressionService.DoOneDayOfActions is concrete
             if (days > 0)
             {
                 sStoryBusy = true;

@@ -1,0 +1,579 @@
+{
+ "note": "lc5-delta-correct-1123 (docs/336, WRITTEN, NOT RUN; correctness, any machine; build lc5delta2): deadrefdelta (LC-5 of docs/333, hybrid holder index: owner components keyed by Sim, relationship handlers by description, cooking unkeyed) + deadrefslimuse (phase 10 walks only objects with a use list) on top of the release defaults. Smoke first (stops the queue), then BP / IP / SV 10 min natural play with deadrefdeltaverify (every object walked and compared with what the delta pass would step; household holders included; holder misses must stay 0, use misses are reported: unhooked EA writers), leak gates (no index entry names a dead object after the prune, never more entries than live objects, no overflow reset, a reset at load), one BP 10 min job without verify (the real slim path), and the eight docs/330 deadref repros with all three on (bp-deadrefs-check saves and reloads: resets >= 2). ON rule (Rodney 2026-11-23, docs/333 §6): PASS here + no regression in lc5-delta-time-1123 + the docs/336 §6 scaling case = ON. Est ~3 h 15 min (13 jobs).",
+ "rewind": "off",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.299-m1123 ": {
+   "match": [
+    "ts3native 0.36.299-m1123 2026-11-23 15:00:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.299-m1122 2026-11-22 15:00:00",
+    "ts3native 0.36.299-nsplit1 2026-11-22 12:17:42",
+    "ts3native 0.36.299-m1123x 2026-11-23 15:00:00"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-lc5-smoke",
+   "note": "[est 9 min] SMOKE (stops the queue on fail): BP 3 min natural play, release defaults (deadrefcadence ON) plus deadrefdelta, deadrefslimuse and deadrefdeltaverify ON. Pass: version, Apex + bridge lines, a seed walk finished, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 20,
+   "stopQueueOnFail": true,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 3,
+     "noSamplers": true,
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc5-correct",
+   "note": "[est 15 min] BP 10 min natural play (seed 12345), release defaults plus deadrefdelta, deadrefslimuse and deadrefdeltaverify ON. Household-untouched check: verify tests every object outside the index for a gone owner / handler / cooking holder on each delta pass (household holders included) and must find none; the index only picks which objects are stepped, the bodies are unchanged. Read deadrefsweep_p5_ms against the cadence-only rows of docs/330.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,autliveseen_hh_post<1,householdtoo_lift<1,deadrefdelta_seeds>=1,deadrefdelta_passes>=1,deadrefdelta_verify_checked>=1000,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-lc5-slim",
+   "note": "[est 15 min] BP 10 min natural play (seed 12345), release defaults plus deadrefdelta and deadrefslimuse ON, verify OFF: the real delta path (only the use set and the taken holders are stepped; script errors and hangs show here, not under verify). Pass: a seed walk, >= 1 delta pass, >= 1 slim pass, no overflow reset, a reset at load, household untouched, 0 script errors. Read deadrefdelta_slim_walked / _slim_passes (objects per slim pass) and _from_keys / _from_unkeyed per pass against the ~11k objects of the full step.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefdelta,deadrefslimuse",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,autliveseen_hh_post<1,householdtoo_lift<1,deadrefdelta_seeds>=1,deadrefdelta_passes>=1,deadrefdelta_slim_passes>=1,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "ip-lc5-correct",
+   "note": "[est 15 min] IP 10 min natural play (seed 12345), release defaults plus deadrefdelta, deadrefslimuse and deadrefdeltaverify ON. Household-untouched check: verify tests every object outside the index for a gone owner / handler / cooking holder on each delta pass (household holders included) and must find none; the index only picks which objects are stepped, the bodies are unchanged. Read deadrefsweep_p5_ms against the cadence-only rows of docs/330.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-IP-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,autliveseen_hh_post<1,householdtoo_lift<1,deadrefdelta_seeds>=1,deadrefdelta_passes>=1,deadrefdelta_verify_checked>=1000,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "sv-lc5-correct",
+   "note": "[est 15 min] SV 10 min natural play (seed 12345), release defaults plus deadrefdelta, deadrefslimuse and deadrefdeltaverify ON. Household-untouched check: verify tests every object outside the index for a gone owner / handler / cooking holder on each delta pass (household holders included) and must find none; the index only picks which objects are stepped, the bodies are unchanged. Read deadrefsweep_p5_ms against the cadence-only rows of docs/330.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-SV-Spring",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_passes>=1,deadrefcadence_snapshots>=1,autliveseen_hh_post<1,householdtoo_lift<1,deadrefdelta_seeds>=1,deadrefdelta_passes>=1,deadrefdelta_verify_checked>=1000,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-deadrefs-check-lc5",
+   "note": "[est 20 min] Save-reload: repro bp-deadrefs-saves (the docs/330 deadref save row: 7 saves, then a same-session reload; bp-deadrefs-check has no save or reload step, so deadrefdelta_resets>=2 could never pass: EA lc7 run 2026-11-24, fix 08739c5e6). Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro bp-deadrefs-check (phases 1-8 (relationship keys, aging, alarm owners, descriptions, Sims, fish, vehicles, horseshoe) through the agent sweep (DrAllDue: both groups run); its steps check every gone count drops). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: the repro verdict as in docs/330 with deadrefdelta on, a seed walk, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 30,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "bp-deadrefs-saves",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=2",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   }
+  },
+  {
+   "id": "bp-dart-gone-check-lc5",
+   "note": "[est 15 min] Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro dart-gone-check (phase 9 (dartboards from the world snapshot)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: the repro verdict as in docs/330 with deadrefdelta on, a seed walk, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "dart-gone-check",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_dartboards>=3,deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefsweep_dartboards",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under deadrefdelta, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-use-list-gone-check-lc5",
+   "note": "[est 17 min] Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro use-list-gone-check (phase 10 in the merged object step (use list scanned, copied only when a gone Sim is listed)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: the repro verdict as in docs/330 with deadrefdelta on, a seed walk, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "use-list-gone-check",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_uselists>=3,deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_uselists",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under deadrefdelta, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-object-owner-gone-check-lc5",
+   "note": "[est 17 min] Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro object-owner-gone-check (phase 11 in the merged object step (OwnerBody)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: the repro verdict as in docs/330 with deadrefdelta on, a seed walk, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "object-owner-gone-check",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_objectowners>=2,deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_objectowners",
+     "op": ">=",
+     "value": 2,
+     "why": "the on arm cleaned nothing: phase missing under deadrefdelta, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-disposed-handler-gone-check-lc5",
+   "note": "[est 17 min] Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro disposed-handler-gone-check (phase 12 in the merged object step (HandlerBody)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: the repro verdict as in docs/330 with deadrefdelta on, a seed walk, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "disposed-handler-gone-check",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_handlers>=1,deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_handlers",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm cleaned nothing: phase missing under deadrefdelta, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-cooking-handler-gone-check-lc5",
+   "note": "[est 15 min] Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro cooking-handler-gone-check (phase 14 in the merged object step (CookingBody)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: the repro verdict as in docs/330 with deadrefdelta on, a seed walk, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "cooking-handler-gone-check",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefcooking_handlers>=2,deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefcooking_handlers",
+     "op": ">=",
+     "value": 2,
+     "why": "the on arm cleaned nothing: phase missing under deadrefdelta, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-celebrity-waiting-gone-check-lc5",
+   "note": "[est 17 min] Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro celebrity-waiting-gone-check (phase 13 (Sims from the world snapshot)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: the repro verdict as in docs/330 with deadrefdelta on, a seed walk, 0 verify misses, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 20,
+   "run": {
+    "profile": {
+     "minutes": 12,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "celebrity-waiting-gone-check",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefsweep_celebrity>=1,deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 480,
+     "counter": "fixes:deadrefsweep_celebrity",
+     "op": ">=",
+     "value": 1,
+     "why": "the on arm cleaned nothing: phase missing under deadrefdelta, sweep refused, or the seed failed"
+    }
+   ]
+  },
+  {
+   "id": "bp-conversation-gone-check-lc5",
+   "note": "[est 15 min] Correctness under deadrefdelta ON (deadrefcadence ON as released, deadrefdeltaverify ON): repro conversation-gone-check (phase 15 (Sims from the world snapshot)). The repro switches deadrefsweep off then on; deadrefcadence and deadrefdelta stay ON. Pass: its steps pass (expect left with the sweep off, expect cleaned with it on), deadrefconvo_members>=1, a seed walk (deadrefdelta_seeds), verify_miss 0, 0 script errors. Since 2026-11-23: 5 samples per arm judged per sample (>= 3 conclusive, no fail; results line lists each); the expected #166 RemoveSim throw is reported (not counted) only before the [on] step (scriptErrorsReportBefore); any other script error, or that one in the on arm, still fails.",
+   "asi": "game-copy/ts3native.asi.m1123",
+   "iniBase": "game-copy/ts3native.ini.m1123",
+   "fixesPackage": "game-copy/ts3fixes.package.lc5delta2",
+   "pinReason": "lc5-reverse-index-1123b (docs/336, LC-5 of docs/333, hybrid index + slim use): master set m1123 asi + ini (0.36.299-m1123, no native change) with ts3fixes.package.lc5-reverse-index-1123b (copy game-copy/ts3fixes.package.lc5delta2: master cd3070f8a + deadrefdelta, deadrefslimuse, default OFF, and the test-only deadrefdeltaverify); agent ts3agent.package.lc5-reverse-index-1123b (game-copy/ts3agent.package.lc5delta2: the three switch names and slots 1671-1698) installed into the worktree build/ before the run",
+   "releaseDefaults": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "noiseCheck": false,
+   "save": "Baseline-BP",
+   "timeoutMin": 18,
+   "run": {
+    "profile": {
+     "minutes": 10,
+     "seed": 12345,
+     "noSamplers": true,
+     "repro": "conversation-gone-check",
+     "fixesOn": "deadrefdelta,deadrefslimuse,deadrefdeltaverify",
+     "fixesRequire": "deadrefconvo_members>=3,deadrefcadence_snapshots>=1,deadrefdelta_seeds>=1,deadrefdelta_verify_miss<=0,deadrefdelta_verify_stale<=0,deadrefdelta_verify_over_live<=0,deadrefdelta_overflows<=0,deadrefdelta_resets>=1",
+     "fixesReport": "deadrefsweep,deadrefcadence,deadrefdelta"
+    }
+   },
+   "logRequire": {
+    "^ts3native 0\\.36\\.299-m1123 ": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "earlyGates": [
+    {
+     "afterSec": 360,
+     "counter": "fixes:deadrefconvo_members",
+     "op": ">=",
+     "value": 3,
+     "why": "the on arm cleaned nothing: phase missing under deadrefdelta, sweep refused, or the seed failed"
+    }
+   ],
+   "scriptErrorsReport": [
+    "System\\.NullReferenceException[^\\n]*\\r?\\n\\s*#0:[^\\n]*Socializing\\.Conversation:RemoveSim \\([^\\n]*\\r?\\n\\s*#1:[^\\n]*SocialComponent:(LeaveOrig|LeaveConversation) \\("
+   ],
+   "scriptErrorsReportBefore": "on",
+   "regexCases": {
+    "System\\.NullReferenceException[^\\n]*\\r?\\n\\s*#0:[^\\n]*Socializing\\.Conversation:RemoveSim \\([^\\n]*\\r?\\n\\s*#1:[^\\n]*SocialComponent:(LeaveOrig|LeaveConversation) \\(": {
+     "match": [
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveConversation ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()"
+     ],
+     "noMatch": [
+      "System.NullReferenceException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:OnSimDestroyed ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.InvalidCastException: A null value was found where an object instance was required.\r\n#0: 0x0010f callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.Conversation:RemoveSim (Sims3.Gameplay.Actors.Sim) (3D166BD0 [44045000] )\r\n#1: 0x0010a callvirt   in Sims3.Gameplay.Socializing.Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()\r\n#2: 0x0002e call       in Ts3Fixes.Fixes+B12LvHook:LeaveConversation () ()",
+      "System.NullReferenceException: x\r\n#0: 0x1 in Sims3.Gameplay.Socializing.Conversation:AddSim (Sim) ()\r\n#1: 0x2 in Sims3.Gameplay.Socializing.SocialComponent:LeaveOrig ()"
+     ]
+    },
+    "^ts3native 0\\.36\\.299-m1123 ": {
+     "match": [
+      "ts3native 0.36.299-m1123 2026-11-23 15:00:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.299-m1122 2026-11-22 15:00:00",
+      "ts3native 0.36.299-nsplit1 2026-11-22 12:17:42",
+      "ts3native 0.36.299-m1123x 2026-11-23 15:00:00"
+     ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+     "match": [
+      "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache FastMemory; ApexStandDown=1"
+     ],
+     "noMatch": [
+      "compat: Apex Radiance not loaded at start"
+     ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+     "match": [
+      "diag: Bin add-ons: ApexRadiance.asi 16268 KB v4.0.13.0, d3d9.dll 1028 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1602 KB"
+     ],
+     "noMatch": [
+      "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+     ]
+    }
+   }
+  }
+ ]
+}

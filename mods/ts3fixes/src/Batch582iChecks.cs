@@ -7,7 +7,7 @@ namespace Ts3Fixes
         // dictionary / Sim not instantiated are EA's code.
         public static object TraitRemoveNullCheck(string what)
         {
-            string counters = B582Counters("traitremovenull", 1273, new[] { "removals finished", "would have thrown (switch off)", "errors" }, sTnMissing);
+            string counters = B582Counters("traitremovenull", 3693, new[] { "removals finished", "would have thrown (switch off)", "errors" }, sTnMissing);
             if (what == "result") return counters;
             if (what != "run") return "traitremovenull <run|result>";
             bool on = ShortcutOn("traitremovenull");
@@ -19,7 +19,7 @@ namespace Ts3Fixes
         // HomeworkCopyOldCheck run: copying old homework runs at the old multiplier (2 -> 1). Controls: same age / off.
         public static object HomeworkCopyOldCheck(string what)
         {
-            string counters = B582Counters("homeworkcopyold", 1276, new[] { "loop ticks at the old rate", "seen with switch off", "errors" }, sHcMissing);
+            string counters = B582Counters("homeworkcopyold", 3696, new[] { "loop ticks at the old rate", "seen with switch off", "errors" }, sHcMissing);
             if (what == "result") return counters;
             if (what != "run") return "homeworkcopyold <run|result>";
             bool on = ShortcutOn("homeworkcopyold");
@@ -31,7 +31,7 @@ namespace Ts3Fixes
         // LaundryMoodEachCheck run: a second Sim's buff gets the multiplier once. Controls: no multiplier / already raised / off.
         public static object LaundryMoodEachCheck(string what)
         {
-            string counters = B582Counters("laundrymoodeach", 1279, new[] { "buffs given the multiplier", "Sims EA left without it (switch off)", "errors" }, sLmMissing);
+            string counters = B582Counters("laundrymoodeach", 3820, new[] { "buffs given the multiplier", "Sims EA left without it (switch off)", "errors" }, sLmMissing);
             if (what == "result") return counters;
             if (what != "run") return "laundrymoodeach <run|result>";
             bool on = ShortcutOn("laundrymoodeach");
@@ -43,7 +43,7 @@ namespace Ts3Fixes
         // PartyCleanupNullCheck run: a missing host or Sim makes EA's CleanUp throw. Controls: everyone present.
         public static object PartyCleanupNullCheck(string what)
         {
-            string counters = B582Counters("partycleanupnull", 1282, new[] { "cleanups finished null-safe", "would have thrown (switch off)", "errors" }, sPcMissing);
+            string counters = B582Counters("partycleanupnull", 3823, new[] { "cleanups finished null-safe", "would have thrown (switch off)", "errors" }, sPcMissing);
             if (what == "result") return counters;
             if (what != "run") return "partycleanupnull <run|result>";
             bool on = ShortcutOn("partycleanupnull");
@@ -56,7 +56,7 @@ namespace Ts3Fixes
         // SafeLocUnhideCheck run: the reset fallback unhides. Controls: no fallback move / off.
         public static object SafeLocUnhideCheck(string what)
         {
-            string counters = B582Counters("safelocunhide", 1285, new[] { "fallback placements unhidden", "seen with switch off", "errors" }, "");
+            string counters = B582Counters("safelocunhide", 3826, new[] { "fallback placements unhidden", "seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "safelocunhide <run|result>";
             bool on = ShortcutOn("safelocunhide");
@@ -68,7 +68,7 @@ namespace Ts3Fixes
         // MidlifeUiEndingCheck run: EA's end test as the getter sees it. Controls: time left does not end.
         public static object MidlifeUiEndingCheck(string what)
         {
-            string counters = B582Counters("midlifeuiending", 1288, new[] { "reads that would have ended the crisis", "seen with switch off", "errors" }, sMuMissing);
+            string counters = B582Counters("midlifeuiending", 3829, new[] { "reads that would have ended the crisis", "seen with switch off", "errors" }, sMuMissing);
             if (what == "result") return counters;
             if (what != "run") return "midlifeuiending <run|result>";
             bool on = ShortcutOn("midlifeuiending");
@@ -80,7 +80,7 @@ namespace Ts3Fixes
         // NemesisNoRomanceCheck run: a relative (romance test false) becomes a nemesis. Controls: pet / toddler / off.
         public static object NemesisNoRomanceCheck(string what)
         {
-            string counters = B582Counters("nemesisnoromance", 1291, new[] { "nemeses made where EA's romance test refused", "seen with switch off", "errors" }, sInMissing);
+            string counters = B582Counters("nemesisnoromance", 3832, new[] { "nemeses made where EA's romance test refused", "seen with switch off", "errors" }, sInMissing);
             if (what == "result") return counters;
             if (what != "run") return "nemesisnoromance <run|result>";
             bool on = ShortcutOn("nemesisnoromance");

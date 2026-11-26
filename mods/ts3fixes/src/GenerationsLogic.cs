@@ -20,7 +20,7 @@ namespace Ts3Fixes
     //   recorded; DidSimAgeUpAtParty (wish "age up at a party", challenge feedback) is false for every later ager (twins,
     //   several birthdays at one party). Fix: the listener keeps listening (Keep) while the party runs, and the party's
     //   listeners are removed when it cleans up (EA never removes them; with Remove gone they would outlive the party).
-    //   Counters [2577] later agers recorded, [2578] listeners removed at cleanup, [2579] errors.
+    //   Counters [3960] later agers recorded, [3961] listeners removed at cleanup, [3962] errors.
     // sneakoutlistener (kSneakOutListener, docs/571 §2) [verified, Punishment.cs]: a grounded teen sneaking out gets a
     //   kEventSimMovedToLot listener (SneakOutSuccess). When the teen is caught (SneakOutFailure) or the outing is given up,
     //   nothing removes it, so the teen's NEXT lot change - the school carpool, or any trip after the grounding ended -
@@ -28,18 +28,18 @@ namespace Ts3Fixes
     //   mSneakingFromHomeLotListener (copy-paste), so return-home listeners pile up. Fix: SneakOutSuccess applies the
     //   sneak-out only while the teen is still grounded and is not going to school/work/travelling or riding a carpool
     //   (EA's own ShouldApplySnuckOutMoodlet tests); ApplySnuckOutMoodlets first drops an older return-home listener and a
-    //   left-over sneak listener. Counters [2580] stale sneak-outs skipped, [2581] duplicate return-home listeners
-    //   removed, [2582] left-over sneak listeners removed, [2583] errors.
+    //   left-over sneak listener. Counters [3963] stale sneak-outs skipped, [3964] duplicate return-home listeners
+    //   removed, [3965] left-over sneak listeners removed, [3966] errors.
     // promcarpool (kPromCarpool, docs/571 §3) [verified, PromSituation.cs / CarpoolManager.cs]: the prom schedules a weekly
     //   limo carpool (AddAlarmDay on the prom weekday, rider list = every teen on the active home lot) and CleanUp never
     //   calls RemoveCarpool, so every week until the game is restarted a white limo picks up the household's teens at
     //   prom time and drives them to the old prom venue (the arrival callback belongs to the finished prom). Fix: CleanUp
-    //   releases the carpool as careers do (CarpoolManager.RemoveCarpool). Counters [2584] carpools removed, [2585] errors.
+    //   releases the carpool as careers do (CarpoolManager.RemoveCarpool). Counters [3618] carpools removed, [3619] errors.
     // curfewalarm (kCurfewAlarm, docs/571 §4) [verified, SimUpdate.cs]: SimUpdate.sCurfewCheckPoliceAlarmHandle is a plain
     //   static (Persistable(false)) holding the never-persisted "Police curfew check" alarm. Quitting during curfew keeps
     //   the handle; in the next world it is "valid", so no curfew check alarm is created that night (no police bring
     //   teens home), and when curfew ends RemoveAlarm runs on a handle that may now name an unrelated alarm. Fix: on world
-    //   quit the handle is set back to invalid. Counters [2586] handles reset at quit, [2587] errors.
+    //   quit the handle is set back to invalid. Counters [3967] handles reset at quit, [3968] errors.
     // Checks: GenerationsLogicChecks.cs.
     public static partial class Fixes
     {
@@ -110,10 +110,10 @@ namespace Ts3Fixes
                 try
                 {
                     ListenerAction f = BaAnswer(ShortcutOn("birthdayagers"), r);
-                    if (f != r) PatchCounters()[2577]++;
+                    if (f != r) PatchCounters()[3960]++;
                     return f;
                 }
-                catch (Exception) { PatchCounters()[2579]++; return r; }
+                catch (Exception) { PatchCounters()[3962]++; return r; }
             }
             public ListenerAction AgeOrig(Sims3.Gameplay.EventSystem.Event e) { return ListenerAction.Keep; }
         }
@@ -133,11 +133,11 @@ namespace Ts3Fixes
                     {
                         if (l == null) continue;
                         EventTracker.RemoveListener(l);
-                        PatchCounters()[2578]++;
+                        PatchCounters()[3961]++;
                     }
                     ls.Clear();
                 }
-                catch (Exception) { PatchCounters()[2579]++; }
+                catch (Exception) { PatchCounters()[3962]++; }
             }
             public void CleanOrig() { }
         }
@@ -167,12 +167,12 @@ namespace Ts3Fixes
                         {
                             me.StopSimSneaking(true);   // as EA's success path, without the moodlets and the event
                             sSoFrom.SetValue(me, null);
-                            PatchCounters()[2580]++;
+                            PatchCounters()[3963]++;
                             return ListenerAction.Remove;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[2583]++; }
+                catch (Exception) { PatchCounters()[3966]++; }
                 return SuccessOrig(e);
             }
             public ListenerAction SuccessOrig(Sims3.Gameplay.EventSystem.Event e) { return ListenerAction.Remove; }
@@ -185,11 +185,11 @@ namespace Ts3Fixes
                     if (ShortcutOn("sneakoutlistener"))
                     {
                         EventListener on = sSoOn.GetValue(me) as EventListener, from = sSoFrom.GetValue(me) as EventListener;
-                        if (on != null) { EventTracker.RemoveListener(on); sSoOn.SetValue(me, null); PatchCounters()[2581]++; }
-                        if (from != null) { EventTracker.RemoveListener(from); sSoFrom.SetValue(me, null); PatchCounters()[2582]++; }
+                        if (on != null) { EventTracker.RemoveListener(on); sSoOn.SetValue(me, null); PatchCounters()[3964]++; }
+                        if (from != null) { EventTracker.RemoveListener(from); sSoFrom.SetValue(me, null); PatchCounters()[3965]++; }
                     }
                 }
-                catch (Exception) { PatchCounters()[2583]++; }
+                catch (Exception) { PatchCounters()[3966]++; }
                 MoodletsOrig();
             }
             public void MoodletsOrig() { }
@@ -206,16 +206,16 @@ namespace Ts3Fixes
             public void CleanHook()
             {
                 CarpoolManager.CarpoolData cp = null;
-                try { cp = sPcCarpool.GetValue((object)this) as CarpoolManager.CarpoolData; } catch (Exception) { PatchCounters()[2585]++; }
+                try { cp = sPcCarpool.GetValue((object)this) as CarpoolManager.CarpoolData; } catch (Exception) { PatchCounters()[3619]++; }
                 CleanOrig();
                 try
                 {
                     if (!PcRemove(ShortcutOn("promcarpool"), cp != null, cp != null && CarpoolManager.sScheduledCarpools.Contains(cp))) return;
                     CarpoolManager.Singleton.RemoveCarpool(cp, null);
                     sPcCarpool.SetValue((object)this, null);
-                    PatchCounters()[2584]++;
+                    PatchCounters()[3618]++;
                 }
-                catch (Exception) { PatchCounters()[2585]++; }
+                catch (Exception) { PatchCounters()[3619]++; }
             }
             public void CleanOrig() { }
         }
@@ -234,9 +234,9 @@ namespace Ts3Fixes
                 AlarmHandle h = (AlarmHandle)sCaHandle.GetValue(null);
                 if (!CaReset(ShortcutOn("curfewalarm"), h != AlarmHandle.kInvalidHandle)) return;
                 sCaHandle.SetValue(null, AlarmHandle.kInvalidHandle);
-                PatchCounters()[2586]++;
+                PatchCounters()[3967]++;
             }
-            catch (Exception) { PatchCounters()[2587]++; }
+            catch (Exception) { PatchCounters()[3968]++; }
         }
     }
 }

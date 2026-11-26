@@ -92,11 +92,16 @@ namespace Ts3Agent
                 || (v.StartsWith("[") && v.IndexOf(" | ") > 0);
         }
 
-        // label_check {per?: 100 objects/parts per origin, dump?: false (also return every value, for a per-key diff)}
+        // label_check {per?: 100 objects/parts per origin, dump?: false (also return every value, for a per-key diff),
+        //   bench?: 0 (rounds of a timing loop over the sample's ulong keys plus as many keys no table has; Apex
+        //   StringTableIndex A/B, docs/301): bench_ms / bench_n / bench_us = the loop's wall time (DateTime.UtcNow), lookups,
+        //   us per lookup; bench_miss_us the same for the missing keys alone}
         static object LabelCheck(Args a)
         {
             int per = (int)a.Long("per", 100);
             bool dump = a.Bool("dump", false);
+            int bench = (int)a.Long("bench", 0);
+            List<ulong> benchKeys = new List<ulong>();
             Dictionary<string, LabelTally> tallies = new Dictionary<string, LabelTally>();
             LabelTally all = new LabelTally();
             List<object> problems = new List<object>(), values = new List<object>();
@@ -129,7 +134,11 @@ namespace Ts3Agent
             LabelKeys keys = delegate(string src, string[] ks)
             {
                 foreach (string k in ks)
-                    add(src, k, StringTable.GetLocalizedString(k), StringTable.GetLocalizedString(ResourceUtils.HashString64(k)));
+                {
+                    ulong h = ResourceUtils.HashString64(k);
+                    benchKeys.Add(h);
+                    add(src, k, StringTable.GetLocalizedString(k), StringTable.GetLocalizedString(h));
+                }
             };
 
             keys("ui", kUiKeys);
@@ -161,6 +170,7 @@ namespace Ts3Agent
                 int c; taken.TryGetValue("obj_" + o, out c);
                 if (c >= per) continue;
                 taken["obj_" + o] = c + 1;
+                benchKeys.Add(p.CatalogNameKey);
                 add("objects_" + o, KeyString(p.ProductResourceKey), p.CatalogName, StringTable.GetLocalizedString(p.CatalogNameKey));
             }
 
@@ -188,6 +198,29 @@ namespace Ts3Agent
             r["mismatch"] = all.mismatch;
             r["hash_empty"] = all.hashEmpty;
             r["locale"] = StringTable.GetLocale();
+            if (bench > 0 && benchKeys.Count > 0)
+            {
+                List<ulong> missing = new List<ulong>();
+                foreach (ulong k in benchKeys) missing.Add(ResourceUtils.HashString64("ts3agent/label_check/missing:" + k.ToString("x16", CultureInfo.InvariantCulture)));
+                int sink = 0;
+                DateTime t0 = DateTime.UtcNow;
+                for (int i = 0; i < bench; i++)
+                {
+                    foreach (ulong k in benchKeys) sink += (StringTable.GetLocalizedString(k) ?? "").Length;
+                    foreach (ulong k in missing) sink += (StringTable.GetLocalizedString(k) ?? "").Length;
+                }
+                DateTime t1 = DateTime.UtcNow;
+                for (int i = 0; i < bench; i++)
+                    foreach (ulong k in missing) sink += (StringTable.GetLocalizedString(k) ?? "").Length;
+                DateTime t2 = DateTime.UtcNow;
+                long n = (long)bench * (benchKeys.Count + missing.Count);
+                double ms = (t1 - t0).TotalMilliseconds, missMs = (t2 - t1).TotalMilliseconds;
+                r["bench_ms"] = Math.Round(ms, 1);
+                r["bench_n"] = n;
+                r["bench_us"] = Math.Round(ms * 1000.0 / n, 3);
+                r["bench_miss_us"] = Math.Round(missMs * 1000.0 / ((long)bench * missing.Count), 3);
+                r["bench_sink"] = sink;
+            }
             Dictionary<string, object> bySrc = Util.Obj();
             foreach (KeyValuePair<string, LabelTally> kv in tallies)
             {

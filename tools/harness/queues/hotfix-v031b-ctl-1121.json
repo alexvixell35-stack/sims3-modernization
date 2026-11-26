@@ -1,0 +1,48 @@
+{
+  "note": "hotfix-v031b-correct-1121: hf031b set (asi/ini hf031 + ts3fixes hf031b = v0.3.0 + PR 616). Smoke + speedlock-modeswitch only (Rodney 11-21: trust Dalexlol harness; other hf031 jobs and Apex gate dropped). ",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-speedlock-modeswitch-ctl-rc1119b",
+      "asi": "game-copy/ts3native.asi.hf031",
+      "iniBase": "game-copy/ts3native.ini.hf031",
+      "fixesPackage": "game-copy/ts3fixes.package.rc-1119b",
+      "pinReason": "[pinned 2026-11-21 to hotfix set hf031b: ts3fixes game-copy/ts3fixes.package.hf031b (v0.3.0 sources + PR 616 speedlockowner switch fix) + asi/ini hf031] [pinned 2026-11-20 to the v0.3.1 hotfix set hf031: asi game-copy/ts3native.asi.hf031 (0.36.295a = v0.3.0 0.36.295-rc1119b + [HostMapIterFix] ON + EA .ooa host gate + JIT Apex-AV fault fix, branch hotfix/v0.3.1-ea-exe-crash) + ini game-copy/ts3native.ini.hf031 (v0.3.0 tested ini + [HostMapIterFix] Enabled=1 Repair=1) + ts3fixes game-copy/ts3fixes.package.rc-1119b (unchanged v0.3.0 package)] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [repinned 2026-11-19 to RC set rc-1119b (master with bugfix/save-ip-portable-1119, 0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b; docs/293: 5 layout-moving swaps REFUSED by design (visitcar, unseenloopskip low-LOD cap Day/Night, serviceleave Situation.OnReset, timeralarmleak RemoveListenerFromTracker)] [repinned 2026-11-18 to RC set rc-1118n (master 767d87408, 0.36.287-rc1118n): asi/ini/ts3fixes/agent game-copy/*.rc-1118n; the packages built 2636c59e8..74a77401e had every hook swapped twice] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.rc-1118n + ini game-copy/ts3native.ini.rc-1118n + ts3fixes game-copy/ts3fixes.package.rc-1118n; 0.36.287-rc1118n = the rc ts3native version. Thu 11-19 after the build: replace 0.36.287-rc1118n (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 12,
+      "run": {
+        "profile": {
+          "minutes": 3,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "speedlock-modeswitch"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295a ": 1
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295a ": {
+          "match": [
+            "ts3native 0.36.295a 2026-11-21 00:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.293-m1119s 2026-11-19 05:01:02",
+            "ts3native 0.36.292-rc1119a 2026-11-19 02:34:18",
+            "ts3native 0.36.295-rc1119b 2026-11-19 14:10:00"
+          ]
+        }
+      },
+      "note": "CONTROL: v0.3.0 package (expect BROKEN True back in live or the same buy_open crash)"
+    }
+  ]
+}

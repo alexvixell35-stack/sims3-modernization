@@ -25,7 +25,7 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // Batch 12b (docs/591 usage sweep 3, callees of ranks 21-100 and ranks 201-378): EA bug fixes as EA intended,
-    // household included. All default off. Slots 1781-1837. simler90 UPDATE242 leaves every hooked method as EA.
+    // household included. All default off. Slots 3115-3171. simler90 UPDATE242 leaves every hooked method as EA.
     // Not built: C3 (false positive: the shipped tuning has 6 chess ranks), C8 (in compositionnull), R4 (the NRE sits in
     // the middle of a 200-line private method: IL patch queued), R8, R14, R19 (V/I, effect unconfirmed), R15 (false positive:
     // the first plan never dereferences r), R17 (several sites, own pass), R18 (inferred: needs a species with no slot data at
@@ -42,8 +42,8 @@ namespace Ts3Fixes
         // ---- B12 §18 awkwardscience (docs/591 C1) --------------------------------------------------------------------
         // [verified, decompiled] Skill.ComputeSkillGainMod adds TraitTuning.SociallyAwkwardScienceSkillGainMod to every
         // skill of a Socially Awkward Sim who has the Science skill; the bonus is the Science one (its own name). Fix: the
-        // bonus is taken back off for every other skill, with EA's -1 floor kept. Counters: [1781] gains corrected,
-        // [1782] bonus on another skill (switch off), [1783] errors.
+        // bonus is taken back off for every other skill, with EA's -1 floor kept. Counters: [3115] gains corrected,
+        // [3116] bonus on another skill (switch off), [3117] errors.
         static readonly FieldInfo sAsOwner = B12F(typeof(Skill), "mSkillOwner");
         static string sAsM12 = "";
 
@@ -73,11 +73,11 @@ namespace Ts3Fixes
                     SimDescription o = sAsOwner.GetValue(sk) as SimDescription;
                     if (o == null || sk.Guid == SkillNames.Science || o.TraitManager == null || !o.TraitManager.HasElement(TraitNames.SociallyAwkward)) return r;
                     if (o.SkillManager == null || o.SkillManager.GetSkill<ScienceSkill>(SkillNames.Science) == null) return r;
-                    if (!ShortcutOn("awkwardscience")) { PatchCounters()[1782]++; return r; }
-                    PatchCounters()[1781]++;
+                    if (!ShortcutOn("awkwardscience")) { PatchCounters()[3116]++; return r; }
+                    PatchCounters()[3115]++;
                     return AsGain(r, TraitTuning.SociallyAwkwardScienceSkillGainMod, true, false);
                 }
-                catch (Exception) { PatchCounters()[1783]++; return r; }
+                catch (Exception) { PatchCounters()[3117]++; return r; }
             }
 
             public float GainOrig() { return 0f; }
@@ -87,8 +87,8 @@ namespace Ts3Fixes
         // [verified, decompiled] LogicSkill.UpdateChessTournamentStatistics keeps the "highest ranking defeated opponent"
         // when the stored rank is >= the opponent's (so a weaker opponent replaces a stronger one) and stores the
         // opponent's own highest-defeated rank instead of the opponent's chess rank. Fix: a beaten opponent of the same or
-        // higher rank is stored with its rank, then EA's FindSuitableChessRankOpponent runs. Counters: [1784] wins recorded
-        // our way, [1785] EA's record (switch off), [1786] errors.
+        // higher rank is stored with its rank, then EA's FindSuitableChessRankOpponent runs. Counters: [3118] wins recorded
+        // our way, [3119] EA's record (switch off), [3120] errors.
         static readonly FieldInfo sCdRank = B12F(typeof(LogicSkill), "mChessRank");
         static readonly FieldInfo sCdBest = B12F(typeof(LogicSkill), "mRankOfHighestRankingDefeatedOpponent");
         static readonly FieldInfo sCdWho = B12F(typeof(LogicSkill), "mChessHighestRankingDefeatedOpponent");
@@ -108,7 +108,7 @@ namespace Ts3Fixes
         {
             public void UpdateHook(SimDescription sd)
             {
-                if (!ShortcutOn("chessdefeated")) { PatchCounters()[1785]++; UpdateOrig(sd); return; }
+                if (!ShortcutOn("chessdefeated")) { PatchCounters()[3119]++; UpdateOrig(sd); return; }
                 if (sd == null || sd.SkillManager == null) return;
                 try
                 {
@@ -118,10 +118,10 @@ namespace Ts3Fixes
                         int rank = (int)sCdRank.GetValue(opp);
                         if (CdBetter((int)sCdBest.GetValue(this), rank)) { sCdWho.SetValue(this, sd); sCdBest.SetValue(this, rank); }
                     }
-                    PatchCounters()[1784]++;
+                    PatchCounters()[3118]++;
                     sCdFind.Invoke(this, null);
                 }
-                catch (Exception) { PatchCounters()[1786]++; }
+                catch (Exception) { PatchCounters()[3120]++; }
             }
 
             public void UpdateOrig(SimDescription sd) { }
@@ -131,8 +131,8 @@ namespace Ts3Fixes
         // [verified, decompiled] GenericPrivacySituation.Undisturbed.GenericPrivacyIntruderCheck (every minute) removes the
         // room checks of a Sim in OtherSims who left the lot, but leaves the Sim in OtherSims: the checks are removed again
         // every minute, and when that Sim comes back it is "known" and gets no new room check, so it can walk in freely.
-        // Fix: after EA's check, Sims that left the lot leave OtherSims too. Counters: [1787] Sims dropped, [1788] kept
-        // (switch off), [1789] errors.
+        // Fix: after EA's check, Sims that left the lot leave OtherSims too. Counters: [3121] Sims dropped, [3122] kept
+        // (switch off), [3123] errors.
         static readonly Type sPoUnd = typeof(GenericPrivacySituation).GetNestedType("Undisturbed", BindingFlags.NonPublic);
         static string sPoM12 = "";
 
@@ -159,11 +159,11 @@ namespace Ts3Fixes
                     {
                         Sim s = p.OtherSims[i];
                         if (!PoGone(s != null && here.Contains(s))) continue;
-                        if (ShortcutOn("privacyothers")) { p.OtherSims.RemoveAt(i); PatchCounters()[1787]++; }
-                        else PatchCounters()[1788]++;
+                        if (ShortcutOn("privacyothers")) { p.OtherSims.RemoveAt(i); PatchCounters()[3121]++; }
+                        else PatchCounters()[3122]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1789]++; }
+                catch (Exception) { PatchCounters()[3123]++; }
             }
 
             public void CheckOrig() { }
@@ -172,7 +172,7 @@ namespace Ts3Fixes
         // ---- B12 §21 gigmaster (docs/591 C5) -------------------------------------------------------------------------
         // [verified, decompiled + shipped tuning] RockBand.OppGigMasterCompleted is `gigs > kNumGigsToBecomeGigMaster`
         // (tuning 15) while the reward text (RewardDescription) says that number of gigs: 16 are needed. Fix: `>=`.
-        // Counters: [1790] answers our way, [1791] off by one (switch off, at exactly the number), [1792] errors.
+        // Counters: [3124] answers our way, [3125] off by one (switch off, at exactly the number), [3126] errors.
         static readonly FieldInfo sGmNeed = B12F(typeof(RockBand), "kNumGigsToBecomeGigMaster");
         static string sGmM12 = "";
 
@@ -193,10 +193,10 @@ namespace Ts3Fixes
                 {
                     int gigs = ((RockBand)(object)this).GetTotalGigsPlayed(), need = (int)sGmNeed.GetValue(null);
                     bool on = ShortcutOn("gigmaster");
-                    if (gigs == need) PatchCounters()[on ? 1790 : 1791]++;
+                    if (gigs == need) PatchCounters()[on ? 3124 : 3125]++;
                     return GmDone(on, gigs, need);
                 }
-                catch (Exception) { PatchCounters()[1792]++; return DoneOrig(); }
+                catch (Exception) { PatchCounters()[3126]++; return DoneOrig(); }
             }
 
             public bool DoneOrig() { return false; }
@@ -207,7 +207,7 @@ namespace Ts3Fixes
         // (int)GetDouble(lo, hi) * base, GetDouble being [lo, hi): the top multiple never comes (sales 10..75 instead of
         // 10..80, screenplays 0..1400 of 1500, Absent-Minded / Nervous / Clueless idles 10..29 of 30) and a min that is not
         // a multiple rounds down. Fix: ceil(min / base) .. floor(max / base) in floating point, drawn with EA's inclusive
-        // GetInt (one random draw, as EA). Counters: [1793] draws our way, [1794] EA's draws (switch off), [1795] errors.
+        // GetInt (one random draw, as EA). Counters: [3127] draws our way, [3128] EA's draws (switch off), [3129] errors.
         static void ApplyIntMultiple()
         {
             Patch(typeof(RandomUtil), "GetIntMultiple", new Type[] { typeof(int), typeof(int), typeof(int) }, typeof(B12ImHook), "MultHook", "MultOrig");
@@ -224,15 +224,15 @@ namespace Ts3Fixes
         {
             public static int MultHook(int min, int max, int baseMultiple)
             {
-                if (baseMultiple <= 0 || !ShortcutOn("intmultiple")) { PatchCounters()[1794]++; return MultOrig(min, max, baseMultiple); }
+                if (baseMultiple <= 0 || !ShortcutOn("intmultiple")) { PatchCounters()[3128]++; return MultOrig(min, max, baseMultiple); }
                 try
                 {
                     int lo, hi;
                     ImRange(min, max, baseMultiple, out lo, out hi);
-                    PatchCounters()[1793]++;
+                    PatchCounters()[3127]++;
                     return (hi < lo ? lo : RandomUtil.GetInt(lo, hi)) * baseMultiple;
                 }
-                catch (Exception) { PatchCounters()[1795]++; return MultOrig(min, max, baseMultiple); }
+                catch (Exception) { PatchCounters()[3129]++; return MultOrig(min, max, baseMultiple); }
             }
 
             public static int MultOrig(int min, int max, int baseMultiple) { return 0; }
@@ -242,7 +242,7 @@ namespace Ts3Fixes
         // [verified, decompiled] Lot.UpdateDoorPrivacy (every lot Simulate tick while flagged) collects the rooms of every
         // PrivacySituation handler inside one try/catch: one with a null SyncTarget throws and every later situation's room
         // is lost, so their doors lose privacy. Fix: our copy skips null SyncTargets (and uses a set, not IndexOf per door).
-        // Counters: [1796] updates with a null target skipped, [1797] updates that threw (switch off), [1798] errors.
+        // Counters: [3130] updates with a null target skipped, [3131] updates that threw (switch off), [3132] errors.
         static readonly FieldInfo sDpNeed = B12F(typeof(Lot), "mbNeedPrivacyUpdate");
         static readonly FieldInfo sDpHandler = B12F(typeof(Lot), "mOnPortalPathPlanHandler");
         static string sDpM12 = "";
@@ -285,12 +285,12 @@ namespace Ts3Fixes
                         }
                         bool nullSeen;
                         Dictionary<int, bool> set = DpRooms(rooms, out nullSeen);
-                        if (nullSeen) PatchCounters()[1796]++;
+                        if (nullSeen) PatchCounters()[3130]++;
                         foreach (Door d in doors) { if (set.ContainsKey(d.RoomId)) d.EnablePrivacy(); else d.DisablePrivacy(); }
                     }
                     sDpNeed.SetValue(lot, false);
                 }
-                catch (Exception) { PatchCounters()[1798]++; }
+                catch (Exception) { PatchCounters()[3132]++; }
             }
 
             public void UpdateOrig() { }
@@ -300,7 +300,7 @@ namespace Ts3Fixes
         // [verified, decompiled] LeafPile.Burn.Run sets mBeingBurned before FireManager.AddFire and ignores its result (no
         // fire spot, a lot that allows no fire); mBeingBurned makes InUse true and blocks every pile interaction, and only
         // the fire destroying the pile ever ends it. Fix: a Run that set the flag and left the pile intact and not burning
-        // clears it. Counters: [1799] piles freed, [1800] left blocked (switch off), [1801] errors.
+        // clears it. Counters: [3133] piles freed, [3134] left blocked (switch off), [3135] errors.
         static readonly Type sLbBurn = typeof(LeafPile).GetNestedType("Burn", BindingFlags.NonPublic);
         static readonly FieldInfo sLbFlag = B12F(typeof(LeafPile), "mBeingBurned");
         static string sLbM12 = "";
@@ -324,10 +324,10 @@ namespace Ts3Fixes
                 try
                 {
                     if (pile == null || !LbClear(had, (bool)sLbFlag.GetValue(pile), pile.HasBeenDestroyed, Sims3.Gameplay.Controllers.FireManager.IsObjectBurning(pile))) return r;
-                    if (ShortcutOn("leafburnfail")) { sLbFlag.SetValue(pile, false); PatchCounters()[1799]++; }
-                    else PatchCounters()[1800]++;
+                    if (ShortcutOn("leafburnfail")) { sLbFlag.SetValue(pile, false); PatchCounters()[3133]++; }
+                    else PatchCounters()[3134]++;
                 }
-                catch (Exception) { PatchCounters()[1801]++; }
+                catch (Exception) { PatchCounters()[3135]++; }
                 return r;
             }
 
@@ -338,7 +338,7 @@ namespace Ts3Fixes
         // [verified, decompiled] CatHuntingComponent.CatchPrey.RollDiceForCatchingPrey: `(opp && lizard) || snake || turtle`
         // returns true for every snake and turtle; the Slither Stalker opportunity is what makes the reptiles a sure catch.
         // Fix: without the opportunity a snake or turtle takes EA's skill roll (no beetle bonus applies to them). Counters:
-        // [1802] rolls taken, [1803] sure catches (switch off), [1804] errors.
+        // [3136] rolls taken, [3137] sure catches (switch off), [3138] errors.
         static readonly Type sCpType = typeof(CatHuntingComponent).GetNestedType("CatchPrey", BindingFlags.NonPublic);
         static readonly FieldInfo sCpSkill = B12F(sCpType, "mHuntingSkill");
         static readonly FieldInfo sCpChance = B12F(sCpType, "kMinMaxChanceCatchPrey");
@@ -372,13 +372,13 @@ namespace Ts3Fixes
                     bool snake = d.PreyType == CatHuntingSkill.PreyType.Snake, turtle = d.PreyType == CatHuntingSkill.PreyType.Turtle;
                     bool lizard = d.PreyType == CatHuntingSkill.PreyType.Lizard, opp = skill.OppSlitherStalkerCompleted;
                     if (CpSure(true, opp, lizard, snake, turtle) || !CpSure(false, opp, lizard, snake, turtle)) return RollOrig();
-                    if (!ShortcutOn("catchpreyodds")) { PatchCounters()[1803]++; return RollOrig(); }
+                    if (!ShortcutOn("catchpreyodds")) { PatchCounters()[3137]++; return RollOrig(); }
                     float[] adj = (float[])sCpAdjust.Invoke(null, new object[] { ii.InstanceActor as Sim, sCpChance.GetValue(null) });
                     float num = MathHelpers.LinearInterpolate(d.MinSkillLevel, d.MaxSkillLevel, adj[0], adj[1], skill.SkillLevel);
-                    PatchCounters()[1802]++;
+                    PatchCounters()[3136]++;
                     return RandomUtil.RandomChance(num);
                 }
-                catch (Exception) { PatchCounters()[1804]++; return RollOrig(); }
+                catch (Exception) { PatchCounters()[3138]++; return RollOrig(); }
             }
 
             public bool RollOrig() { return false; }
@@ -388,7 +388,7 @@ namespace Ts3Fixes
         // [verified, decompiled] PicnicBasket.DoCleanUp (pack up) hides the ants with Stop() and never disposes the effect,
         // and nothing removes mAntStartAlarmHandle (an AlwaysPersisted lot alarm): ants come back on a packed basket, and
         // each hide leaks the effect. Fix: HideAnts disposes the effect, and DoCleanUp / Dispose remove the ant alarm.
-        // Counters: [1805] cleanups done, [1806] left (switch off), [1807] errors.
+        // Counters: [3139] cleanups done, [3140] left (switch off), [3141] errors.
         static readonly FieldInfo sPaFx = B12F(typeof(PicnicBasket), "mAntFX");
         static readonly FieldInfo sPaAlarm = B12F(typeof(PicnicBasket), "mAntStartAlarmHandle");
         static string sPaM12 = "";
@@ -408,10 +408,10 @@ namespace Ts3Fixes
         {
             AlarmHandle h = (AlarmHandle)sPaAlarm.GetValue(b);
             if (!PaAlarmLive(h)) return;
-            if (!ShortcutOn("picnicants")) { PatchCounters()[1806]++; return; }
+            if (!ShortcutOn("picnicants")) { PatchCounters()[3140]++; return; }
             if (b.LotCurrent != null) b.LotCurrent.AlarmManager.RemoveAlarm(h);
             sPaAlarm.SetValue(b, AlarmHandle.kInvalidHandle);
-            PatchCounters()[1805]++;
+            PatchCounters()[3139]++;
         }
 
         public class B12PaHook
@@ -419,20 +419,20 @@ namespace Ts3Fixes
             public void HideHook()
             {
                 VisualEffect fx = sPaFx.GetValue(this) as VisualEffect;
-                if (fx == null || !ShortcutOn("picnicants")) { if (fx != null) PatchCounters()[1806]++; HideOrig(); return; }
-                try { fx.Stop(VisualEffect.TransitionType.HardTransition); fx.Dispose(); sPaFx.SetValue(this, null); PatchCounters()[1805]++; }
-                catch (Exception) { PatchCounters()[1807]++; }
+                if (fx == null || !ShortcutOn("picnicants")) { if (fx != null) PatchCounters()[3140]++; HideOrig(); return; }
+                try { fx.Stop(VisualEffect.TransitionType.HardTransition); fx.Dispose(); sPaFx.SetValue(this, null); PatchCounters()[3139]++; }
+                catch (Exception) { PatchCounters()[3141]++; }
             }
 
             public void CleanHook()
             {
                 CleanOrig();
-                try { PaRemoveAlarm((PicnicBasket)(object)this); } catch (Exception) { PatchCounters()[1807]++; }
+                try { PaRemoveAlarm((PicnicBasket)(object)this); } catch (Exception) { PatchCounters()[3141]++; }
             }
 
             public void DisposeHook()
             {
-                try { PaRemoveAlarm((PicnicBasket)(object)this); } catch (Exception) { PatchCounters()[1807]++; }
+                try { PaRemoveAlarm((PicnicBasket)(object)this); } catch (Exception) { PatchCounters()[3141]++; }
                 DisposeOrig();
             }
 
@@ -445,8 +445,8 @@ namespace Ts3Fixes
         // [verified, decompiled] PetSurfacePosture.LoyalDogLayDownCallback queues LayDownHere with the BFF Sim as target and
         // the BFF's position; LayDownHere.Definition.Test refuses any Sim target other than the actor when autonomous, so
         // the Loyal dog never goes to lie down near its human. Fix: the dog itself is the target (EA's own pattern in
-        // PetGuardSituation), at the BFF's position; the rest of the callback is EA's. Counters: [1808] lay-downs queued,
-        // [1809] refused targets (switch off), [1810] errors.
+        // PetGuardSituation), at the BFF's position; the rest of the callback is EA's. Counters: [3142] lay-downs queued,
+        // [3143] refused targets (switch off), [3144] errors.
         static readonly FieldInfo sLdLast = B12F(typeof(PetSurfacePosture), "LastSimToLayDownNear");
         static readonly FieldInfo sLdAlarm = B12F(typeof(PetSurfacePosture), "mLoyalDogAlarmHandle");
         static readonly MethodInfo sLdSelf = B12M(typeof(PetSurfacePosture), "LoyalDogLayDownCallback");
@@ -466,7 +466,7 @@ namespace Ts3Fixes
         {
             public void LayHook()
             {
-                if (!ShortcutOn("loyaldoglay")) { PatchCounters()[1809]++; LayOrig(); return; }
+                if (!ShortcutOn("loyaldoglay")) { PatchCounters()[3143]++; LayOrig(); return; }
                 PetSurfacePosture p = (PetSurfacePosture)(object)this;
                 Sim dog = p.Sim;
                 try
@@ -483,15 +483,15 @@ namespace Ts3Fixes
                                 InteractionInstance entry = def.CreateInstance(LdTarget(true, dog, bff), dog, new InteractionPriority(InteractionPriorityLevel.UserDirected), true, true);
                                 bool ok = dog.InteractionQueue.AddNext(entry);
                                 sLdLast.SetValue(p, ok ? bff : null);
-                                if (ok) PatchCounters()[1808]++;
+                                if (ok) PatchCounters()[3142]++;
                             }
                         }
                         else sLdLast.SetValue(p, null);
                     }
                 }
-                catch (Exception) { PatchCounters()[1810]++; }
+                catch (Exception) { PatchCounters()[3144]++; }
                 // EA re-arms at the end in every case
-                sLdAlarm.SetValue(p, dog.AddAlarm(TraitTuning.LoyalDogLayDownTimer, TimeUnit.Minutes, (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), p, sLdSelf), "loyal dog laydown alarm", AlarmType.AlwaysPersisted));
+                sLdAlarm.SetValue(p, dog.AddAlarm(TraitTuning.LoyalDogLayDownTimer, TimeUnit.Minutes, (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), p, sLdSelf), "loyal dog laydown alarm", AlarmType.AlwaysPersisted));
             }
 
             public void LayOrig() { }
@@ -501,7 +501,7 @@ namespace Ts3Fixes
         // [verified, decompiled] VisitSituation.Remove(Sim) removes that Sim's event listeners from EventTracker but keeps
         // the mEventListeners entry; PostWorldFixUp (after every load) re-adds each listener that is not completed, so a
         // removed host's relationship listeners come back and strikes count twice. Fix: the entry goes too. Counters:
-        // [1811] entries dropped, [1812] kept (switch off), [1813] errors.
+        // [3145] entries dropped, [3146] kept (switch off), [3147] errors.
         static readonly FieldInfo sVlMap = B12F(typeof(VisitSituation), "mEventListeners");
         static string sVlM12 = "";
 
@@ -523,10 +523,10 @@ namespace Ts3Fixes
                 {
                     Dictionary<Sim, List<EventListener>> map = sVlMap.GetValue(this) as Dictionary<Sim, List<EventListener>>;
                     if (map == null || s == null || !VlDrop(map.ContainsKey(s))) return;
-                    if (ShortcutOn("visitlisteners")) { map.Remove(s); PatchCounters()[1811]++; }
-                    else PatchCounters()[1812]++;
+                    if (ShortcutOn("visitlisteners")) { map.Remove(s); PatchCounters()[3145]++; }
+                    else PatchCounters()[3146]++;
                 }
-                catch (Exception) { PatchCounters()[1813]++; }
+                catch (Exception) { PatchCounters()[3147]++; }
             }
 
             public void RemoveOrig(Sim s) { }
@@ -536,8 +536,8 @@ namespace Ts3Fixes
         // [verified, decompiled] ScienceComponent.StartVisualEffects(size, ...) replaces mVisualEffects with a new set and
         // never stops the old one; ActivateSound(random) calls SoundAlarmCallback (which starts a set) and then
         // StartVisualEffects again, so the first set runs forever. Fix: a set still running is stopped and disposed (EA's
-        // StopVisualEffects) before a new one starts. Counters: [1814] old sets stopped, [1815] leaked (switch off),
-        // [1816] errors.
+        // StopVisualEffects) before a new one starts. Counters: [3148] old sets stopped, [3149] leaked (switch off),
+        // [3150] errors.
         static readonly FieldInfo sSfSet = B12F(typeof(ScienceComponent), "mVisualEffects");
         static readonly MethodInfo sSfStop = B12M(typeof(ScienceComponent), "StopVisualEffects");
         static MethodInfo sSfStart;
@@ -564,11 +564,11 @@ namespace Ts3Fixes
                 {
                     if (SfStopFirst(sSfSet.GetValue(this) != null))
                     {
-                        if (ShortcutOn("sciencefxstop")) { sSfStop.Invoke(this, null); PatchCounters()[1814]++; }
-                        else PatchCounters()[1815]++;
+                        if (ShortcutOn("sciencefxstop")) { sSfStop.Invoke(this, null); PatchCounters()[3148]++; }
+                        else PatchCounters()[3149]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1816]++; }
+                catch (Exception) { PatchCounters()[3150]++; }
                 StartOrig(size, isPositive, isAoe, slots);
             }
 
@@ -579,8 +579,8 @@ namespace Ts3Fixes
         // [verified, decompiled] Daycare.GetExperience reads the child's liking from `new Relationship(child, owner)` (a
         // fresh, unregistered relationship: liking 0), so the LTR experience multiplier is always the zero-liking one. Fix:
         // EA's result is moved by (multiplier at the real liking - multiplier at 0) x base experience, the real liking
-        // being Relationship.Get(child, owner) (0 when there is none, EA's value). Counters: [1817] payouts corrected,
-        // [1818] payouts at liking 0 (switch off), [1819] errors.
+        // being Relationship.Get(child, owner) (0 when there is none, EA's value). Counters: [3151] payouts corrected,
+        // [3152] payouts at liking 0 (switch off), [3153] errors.
         static void ApplyDaycareLiking()
         {
             Patch(typeof(Daycare), "GetExperience", new Type[] { typeof(ulong), typeof(Sims3.Gameplay.ActiveCareer.ActiveCareers.Rating), typeof(string).MakeByRefType() }, typeof(B12DlHook), "XpHook", "XpOrig");
@@ -602,13 +602,13 @@ namespace Ts3Fixes
                     if (rel == null) return r;
                     float eaLiking = new Relationship(child, dc.OwnerDescription).LTR.Liking;
                     if (rel.LTR.Liking == eaLiking) return r;
-                    if (!ShortcutOn("daycareliking")) { PatchCounters()[1818]++; return r; }
+                    if (!ShortcutOn("daycareliking")) { PatchCounters()[3152]++; return r; }
                     Dictionary<Sims3.Gameplay.ActiveCareer.ActiveCareers.Rating, RatingTuning<float>> ltr = Daycare.sLTRRatingData;
                     float real = RatingTuning<float>.GetData(ref ltr, rel.LTR.Liking), ea = RatingTuning<float>.GetData(ref ltr, eaLiking);
-                    PatchCounters()[1817]++;
+                    PatchCounters()[3151]++;
                     return DlXp(r, Daycare.sOverallRatingData[rating].tRatingData.fExperience, real, ea);
                 }
-                catch (Exception) { PatchCounters()[1819]++; return r; }
+                catch (Exception) { PatchCounters()[3153]++; return r; }
             }
 
             public float XpOrig(ulong childId, Sims3.Gameplay.ActiveCareer.ActiveCareers.Rating rating, out string debug) { debug = null; return 0f; }
@@ -618,8 +618,8 @@ namespace Ts3Fixes
         // [verified, decompiled] RepairableComponent.UpdateBreakage applies JuiceKeggerParty.kPercentageMultiplierForObjectsBreaking
         // to every WildParty on the lot whenever EP9 is installed (the same party test as the EP4 wild-party multiplier),
         // so every wild party breaks objects at the kegger rate too. Fix: our copy applies it only when a JuiceKeggerParty
-        // runs on the object's lot, and scans the lot's parties once. Counters: [1820] chances computed our way, [1821]
-        // kegger rate on a non-kegger party (switch off), [1822] errors.
+        // runs on the object's lot, and scans the lot's parties once. Counters: [3154] chances computed our way, [3155]
+        // kegger rate on a non-kegger party (switch off), [3156] errors.
         static readonly MethodInfo sKbChance = B12M(typeof(RepairableComponent), "ChanceOfBreak");
         static readonly FieldInfo sKbDorm = B12F(typeof(RepairableComponent), "kDormLotBreakageMult");
         static string sKbM12 = "";
@@ -643,7 +643,7 @@ namespace Ts3Fixes
         {
             public bool BreakHook(int additional, Sim actor)
             {
-                if (!ShortcutOn("kegbreakage")) { PatchCounters()[1821]++; return BreakOrig(additional, actor); }
+                if (!ShortcutOn("kegbreakage")) { PatchCounters()[3155]++; return BreakOrig(additional, actor); }
                 RepairableComponent rc = (RepairableComponent)(object)this;
                 GameObject o = rc.Owner;
                 try
@@ -662,11 +662,11 @@ namespace Ts3Fixes
                         num = KbParty(num, true, GameUtils.IsInstalled(ProductVersion.EP4), GameUtils.IsInstalled(ProductVersion.EP9), party, kegger, WildParty.kBreakageMultiplier, JuiceKeggerParty.kPercentageMultiplierForObjectsBreaking);
                     }
                     if (o.LotCurrent != null && o.LotCurrent.IsDormitoryLot) num *= (float)sKbDorm.GetValue(null);
-                    PatchCounters()[1820]++;
+                    PatchCounters()[3154]++;
                     if (RandomUtil.RandomChance(num)) { rc.BreakObject(actor, false); return true; }
                     return false;
                 }
-                catch (Exception) { PatchCounters()[1822]++; return false; }
+                catch (Exception) { PatchCounters()[3156]++; return false; }
             }
 
             public bool BreakOrig(int additional, Sim actor) { return false; }
@@ -675,8 +675,8 @@ namespace Ts3Fixes
         // ---- B12 §32 romancecooldown (docs/591 R11) ------------------------------------------------------------------
         // [verified, decompiled] GroupingSituation.ContinueRomanticSTC: in a group of more than two the bad-date cooldown
         // (kBadDateCooldownTime = 6) is measured in minutes; the two-Sim branch measures it in hours. Fix: the 3+ branch
-        // blocks within 6 hours too (EA's TNS and false), else EA's method runs. Counters: [1823] blocked our way, [1824]
-        // let through (switch off), [1825] errors.
+        // blocks within 6 hours too (EA's TNS and false), else EA's method runs. Counters: [3157] blocked our way, [3158]
+        // let through (switch off), [3159] errors.
         static readonly FieldInfo sRcStc = B12F(typeof(GroupingSituation), "kSTCConsideredTooRomantic");
         static string sRcM12 = "";
 
@@ -708,14 +708,14 @@ namespace Ts3Fixes
                                 float h = SimClock.ElapsedTime(TimeUnit.Hours, rel.WhenLastHadBadDate, SimClock.CurrentTime());
                                 if (RcBlocked(true, h, GroupingSituation.kBadDateCooldownTime) && !RcBlocked(false, h, GroupingSituation.kBadDateCooldownTime))
                                 {
-                                    if (ShortcutOn("romancecooldown")) { g.ShowTNSForNotBeingAbleToHaveDate(a, t); PatchCounters()[1823]++; return false; }
-                                    PatchCounters()[1824]++;
+                                    if (ShortcutOn("romancecooldown")) { g.ShowTNSForNotBeingAbleToHaveDate(a, t); PatchCounters()[3157]++; return false; }
+                                    PatchCounters()[3158]++;
                                 }
                             }
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1825]++; }
+                catch (Exception) { PatchCounters()[3159]++; }
                 return StcOrig(actor, target, stc);
             }
 
@@ -726,7 +726,7 @@ namespace Ts3Fixes
         // [verified, decompiled] LightGameObject.SetIntensityRoom / SetIntensityHouse(CustomIntensity) give every other light
         // `mCustomIntensity = Intensity` (the clicked light's current level, which is still the old one when the loop
         // reaches another light first) instead of the clicked light's chosen mCustomIntensity. Fix: our copy copies
-        // mCustomIntensity. Counters: [1826] lights set our way, [1827] EA's copies (switch off), [1828] errors.
+        // mCustomIntensity. Counters: [3160] lights set our way, [3161] EA's copies (switch off), [3162] errors.
         static readonly FieldInfo sLcCustom = B12F(typeof(LightGameObject), "mCustomIntensity");
         static string sLcM12 = "";
 
@@ -750,21 +750,21 @@ namespace Ts3Fixes
                 if (intensity == LightGameObject.LightIntensity.CustomIntensity && l != self) sLcCustom.SetValue(l, LcValue(true, custom, self.Intensity));
                 l.SetLightIntensity(intensity);
             }
-            PatchCounters()[1826]++;
+            PatchCounters()[3160]++;
         }
 
         public class B12LcHook
         {
             public void RoomHook(LightGameObject.LightIntensity i)
             {
-                if (i != LightGameObject.LightIntensity.CustomIntensity || !ShortcutOn("lightcustom")) { if (i == LightGameObject.LightIntensity.CustomIntensity) PatchCounters()[1827]++; RoomOrig(i); return; }
-                try { LcSet((LightGameObject)(object)this, i, true); } catch (Exception) { PatchCounters()[1828]++; }
+                if (i != LightGameObject.LightIntensity.CustomIntensity || !ShortcutOn("lightcustom")) { if (i == LightGameObject.LightIntensity.CustomIntensity) PatchCounters()[3161]++; RoomOrig(i); return; }
+                try { LcSet((LightGameObject)(object)this, i, true); } catch (Exception) { PatchCounters()[3162]++; }
             }
 
             public void HouseHook(LightGameObject.LightIntensity i)
             {
-                if (i != LightGameObject.LightIntensity.CustomIntensity || !ShortcutOn("lightcustom")) { if (i == LightGameObject.LightIntensity.CustomIntensity) PatchCounters()[1827]++; HouseOrig(i); return; }
-                try { LcSet((LightGameObject)(object)this, i, false); } catch (Exception) { PatchCounters()[1828]++; }
+                if (i != LightGameObject.LightIntensity.CustomIntensity || !ShortcutOn("lightcustom")) { if (i == LightGameObject.LightIntensity.CustomIntensity) PatchCounters()[3161]++; HouseOrig(i); return; }
+                try { LcSet((LightGameObject)(object)this, i, false); } catch (Exception) { PatchCounters()[3162]++; }
             }
 
             public void RoomOrig(LightGameObject.LightIntensity i) { }
@@ -776,7 +776,7 @@ namespace Ts3Fixes
         // fails to route to the prey leaves it with no interactions for good. SharedNearDistanceBehavior sets mDestroyPrey
         // after a cancelled DoTimedLoop too, so a cancelled eat still destroys the prey in Cleanup. Fix: a cancelled eat
         // keeps the prey (mDestroyPrey back to false), and a failed Run that will not destroy the prey enables its
-        // interactions again. Counters: [1829] prey kept / re-enabled, [1830] seen with the switch off, [1831] errors.
+        // interactions again. Counters: [3163] prey kept / re-enabled, [3164] seen with the switch off, [3165] errors.
         static readonly FieldInfo sEpDestroy = B12F(typeof(CatHuntingComponent.PetEatPrey), "mDestroyPrey");
         static string sEpM12 = "";
 
@@ -800,10 +800,10 @@ namespace Ts3Fixes
                 try
                 {
                     if (had || !(bool)sEpDestroy.GetValue(this) || !EpKeepPrey(r)) return r;
-                    if (ShortcutOn("eatpreycancel")) { sEpDestroy.SetValue(this, false); PatchCounters()[1829]++; }
-                    else PatchCounters()[1830]++;
+                    if (ShortcutOn("eatpreycancel")) { sEpDestroy.SetValue(this, false); PatchCounters()[3163]++; }
+                    else PatchCounters()[3164]++;
                 }
-                catch (Exception) { PatchCounters()[1831]++; }
+                catch (Exception) { PatchCounters()[3165]++; }
                 return r;
             }
 
@@ -814,10 +814,10 @@ namespace Ts3Fixes
                 {
                     GameObject prey = ((InteractionInstance)(object)this).Target as GameObject;
                     if (prey == null || prey.HasBeenDestroyed || !EpReenable(r, (bool)sEpDestroy.GetValue(this))) return r;
-                    if (ShortcutOn("eatpreycancel")) { prey.EnableInteractions(); PatchCounters()[1829]++; }
-                    else PatchCounters()[1830]++;
+                    if (ShortcutOn("eatpreycancel")) { prey.EnableInteractions(); PatchCounters()[3163]++; }
+                    else PatchCounters()[3164]++;
                 }
-                catch (Exception) { PatchCounters()[1831]++; }
+                catch (Exception) { PatchCounters()[3165]++; }
                 return r;
             }
 
@@ -830,8 +830,8 @@ namespace Ts3Fixes
         // SimDescription.Find of the sculptor: null for a bought sculpture or a sculptor gone from the world; the fire path
         // calls it for every ice sculpture in reach) and overwrites mMeltingAlarm without removing the running one, so a
         // second start (fire near a melting sculpture) leaves two melt alarms. Fix: our copy treats a missing artist as no
-        // Ice Personality and removes the old alarm first. Counters: [1832] starts our way, [1833] starts that threw or
-        // doubled (switch off), [1834] errors.
+        // Ice Personality and removes the old alarm first. Counters: [3166] starts our way, [3167] starts that threw or
+        // doubled (switch off), [3168] errors.
         static readonly FieldInfo sMaAlarm = B12F(typeof(SculptureComponent), "mMeltingAlarm");
         static readonly FieldInfo sMaHours = B12F(typeof(SculptureComponent), "kIceMeltToBlock");
         static readonly MethodInfo sMaStage = B12M(typeof(SculptureComponent), "AdvanceMeltStage");
@@ -856,7 +856,7 @@ namespace Ts3Fixes
                 AlarmHandle old = (AlarmHandle)sMaAlarm.GetValue(sc);
                 if (!ShortcutOn("meltalarm"))
                 {
-                    if (sc.Artist == null || old != AlarmHandle.kInvalidHandle) PatchCounters()[1833]++;
+                    if (sc.Artist == null || old != AlarmHandle.kInvalidHandle) PatchCounters()[3167]++;
                     MeltOrig(now);
                     return;
                 }
@@ -868,12 +868,12 @@ namespace Ts3Fixes
                     if (!MaMelts(artist != null, skill != null && skill.IsIcePersonality())) return;
                     GameObject o = sc.Owner;
                     if (old != AlarmHandle.kInvalidHandle) o.RemoveAlarm(old);
-                    AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), sc, now ? sMaInstant : sMaStage);
+                    AlarmTimerCallback cb = (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), sc, now ? sMaInstant : sMaStage);
                     sMaAlarm.SetValue(sc, now ? o.AddAlarm(1f, TimeUnit.Minutes, cb, "Ice Sculpture Melt Stage", AlarmType.AlwaysPersisted)
                         : o.AddAlarm((float)sMaHours.GetValue(null), TimeUnit.Hours, cb, "Ice Sculpture Melt Stage", AlarmType.AlwaysPersisted));
-                    PatchCounters()[1832]++;
+                    PatchCounters()[3166]++;
                 }
-                catch (Exception) { PatchCounters()[1834]++; }
+                catch (Exception) { PatchCounters()[3168]++; }
             }
 
             public void MeltOrig(bool now) { }
@@ -883,7 +883,7 @@ namespace Ts3Fixes
         // [verified, decompiled] Newspaper.GetReadInteraction makes its instance from GetNewspaperChooser.Singleton (the
         // newspaper's pie-menu root, IntDef null) and writes IntDef = CheckCurrentEvents into it, so the root's name and
         // path read as "Check Current Events" from then on. Fix: a Definition of its own with that IntDef (EA's own
-        // constructor). Counters: [1835] reads with an own definition, [1836] shared writes (switch off), [1837] errors.
+        // constructor). Counters: [3169] reads with an own definition, [3170] shared writes (switch off), [3171] errors.
         static void ApplyNewspaperDef()
         {
             Patch(typeof(Newspaper), "GetReadInteraction", new Type[] { typeof(Sim) }, typeof(B12NdHook), "ReadHook", "ReadOrig");
@@ -895,13 +895,13 @@ namespace Ts3Fixes
         {
             public InteractionInstance ReadHook(Sim s)
             {
-                if (!ShortcutOn("newspaperdef")) { PatchCounters()[1836]++; return ReadOrig(s); }
+                if (!ShortcutOn("newspaperdef")) { PatchCounters()[3170]++; return ReadOrig(s); }
                 try
                 {
-                    PatchCounters()[1835]++;
+                    PatchCounters()[3169]++;
                     return NdDefinition().CreateInstance((Newspaper)(object)this, s, new InteractionPriority(InteractionPriorityLevel.Autonomous), true, true);
                 }
-                catch (Exception) { PatchCounters()[1837]++; return ReadOrig(s); }
+                catch (Exception) { PatchCounters()[3171]++; return ReadOrig(s); }
             }
 
             public InteractionInstance ReadOrig(Sim s) { return null; }

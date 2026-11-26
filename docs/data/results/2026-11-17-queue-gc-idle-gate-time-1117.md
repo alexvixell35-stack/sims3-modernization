@@ -1,0 +1,15 @@
+# Queue gc-idle-gate-time-1117 2026-11-17
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/gc-idle-gate-time-1117-2026-11-17.jsonl`.
+
+## 2026-11-17T22:08 UTC, build c9978e467, jobs bp-gcgate-ab, sv-gcgate-ab
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-gcgate-ab | 22:08 (06:08) | 27 | PASS | PASS: profile 25 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->10, owspread_types_run 0->200, stuckcheckasync_queued 0->680, stuckcheckasync_run 0->677, etspread_passes 0->1, stuckcheck_noplan 0->582, stuckcheck_notstuck 0->64, stuckcheck_rearmed 0->49, stuckcheck_reset 0->9<br>PASS: repro events fired<br>PASS: no forbidden log lines<br>PASS: 0 new script errors (max 0) | 0 | 1753.9/1632.8/1805.6 -> 1997.2/1915.7/1582.5 | - | timing: invalid (noise medium; A/B 1 off / 2 on iterations, < 4 per arm); build: asi d67f02888197 ts3native.asi.gchold2-1117 ts3native 0.36.272-gchold2 (log ok); ts3fixes tuning 26eb733447c2 ts3fixes.package.dalexlol-1117b (expected game-copy/ts3fixes.package.dalexlol-1117b); noise: medium (other apps 24.3% of game CPUs); others on game CPUs 24.3%; clock avg/min 4099/3927 MHz; [est 30 min] BP [cut: full row in the jsonl]<br>sim ms/s off 258.6 / on 251.2 (on - off -7.4, -2.8%); off: p99 89 ms, p99.9 175, max 9686, >=300 8, >=1000 8 (3.7 min); on: p99 113 ms, p99.9 326, max 9335, >=300 17, >=1000 15 (7.0 min) |
+| sv-gcgate-ab | 22:35 (06:35) | 27 | PASS | PASS: profile 25 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->14, owspread_types_run 0->280, stuckcheckasync_queued 0->1057, stuckcheckasync_run 0->1056, etspread_passes 0->1, stuckcheck_noplan 0->990, stuckcheck_notstuck 0->58, stuckcheck_rearmed 0->12<br>PASS: repro events fired<br>PASS: no forbidden log lines<br>PASS: 0 new script errors (max 0) | 0 | 1651.9/1580/1832.3 -> 1872.3/1783.3/1711.6 | - | timing: invalid (job VOID: runInvalid: profiler cut short (1099 of 1500 s); noise medium; A/B 1 off / 2 on iterations, < 4 per arm); build: asi d67f02888197 ts3native.asi.gchold2-1117 ts3native 0.36.272-gchold2 (log ok); ts3fixes tuning 26eb733447c2 ts3fixes.package.dalexlol-1117b (expected game-copy/ts3fixes.package.dalexlol-1117b); noise: medium (other apps 24.8% of game CPUs) [cut: full row in the jsonl]<br>sim ms/s off 180.7 / on 168.6 (on - off -12.2, -6.7%); off: p99 70 ms, p99.9 5326, max 8411, >=300 19, >=1000 17 (3.8 min); on: p99 52 ms, p99.9 322, max 7924, >=300 27, >=1000 24 (5.8 min) |
+
+A/B summary of this run (sim ms/s = script + route + animPose + locomotion, arm-ms.ts; hitches per 10 min over the same arms, hitch-ab.ts):
+
+- gc-idle-gate-time-1117-bp-gcgate-ab: sim ms/s off 258.6 / on 251.2, on - off -7.4 (-2.8%); >=300 ms per 10 min off 21.4 / on 24.2, >=1000 off 21.4 / on 21.4 (1 off, 1 on run)
+- gc-idle-gate-time-1117-sv-gcgate-ab: sim ms/s off 180.7 / on 168.6, on - off -12.2 (-6.7%); >=300 ms per 10 min off 50.0 / on 46.8, >=1000 off 44.7 / on 41.6 (1 off, 1 on run)

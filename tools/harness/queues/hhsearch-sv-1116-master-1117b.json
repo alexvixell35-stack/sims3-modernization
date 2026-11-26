@@ -1,0 +1,114 @@
+{
+  "note": "REPINNED to the master-1117b set (0.36.269-mb1117) from hhsearch-sv-1116.json. hhsearch-sv-1116 (feature/hoursmemo-svprobe-1116, NOT RUN): docs/276 rank 3 / docs/277 §5, why SV runs ~8x BP's household local-search rate (5.2/s vs 0.66/s on Dalexlol's L0 run). hhsearchprobe (read-only, household Sims only counted) beside autt2l0 (the L0 rate for the same window), 12 min natural play per world. Bin state apex. Correctness-type jobs (no timing). Needs TS3_AGENT_PACKAGE=game-copy/ts3agent.package.hoursmemo-svprobe-1116. Read (docs/277 §5): hhsearch_n per s; scope split hhsearch_scope_* (how much \"household\" is unknown / gone / not live); outcome hhsearch_nopick / _busyuser + _busyauto (picked, not queued) / _push; why enqueued hhsearch_why_* (immok, immfail, lt5, 5to10, 10to60, over60, none); hhsearch_nopick_over60 (the docs/277 §2.1 signature); gaps hhsearch_gap_*; L0 pairs hhsearch_pairs / hhsearch_pairn against aut_l0_pairs_hh / aut_l0_n_hh (the 316-vs-3163 \"anomaly\" was the results md cutting the cell at 400 chars, fixed in queue.ts mdCell); per-Sim lines hhsearch_sims (top 6: desc id, pet, selectable, scope, outcomes, why, gap bins, perSimHour, lot + level, onActiveLot, top 10 pushed picks, top 10 previous pick|ok/fail, lowest motive at no-pick). Decision (docs/277 §5): one Sim with \"nothing picked, empty > 60 sim-min\" >= 50% of household searches = §2.1 proven (design §4.2, exact memo first); the same pushed pick over and over with fail = EA dead end (fix like §4.1). The verdict goes into docs/277 and PLAN. node tools/harness/queue.ts tools/harness/queues/hhsearch-sv-1116.json",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "regexCases": {
+    "^ts3native 0\\.36\\.269-mb1117 ": {
+      "match": [
+        "ts3native 0.36.269-mb1117 2026-11-16 22:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+        "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-hhsearch",
+      "note": "SV-Spring 12 min (our save), hhsearchprobe + autt2l0. PASS = 0 crashes, 0 script errors, hhsearch_n >= 50, hhsearch_exc 0, aut_l0_exc 0, switches read back on.",
+      "asi": "game-copy/ts3native.asi.master-1117b",
+      "iniBase": "game-copy/ts3native.ini.master-1117b",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+      "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.269-mb1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:hhsearch_n",
+          "op": ">",
+          "value": 0,
+          "why": "probe never noted a household search: switch, push hook (kAutLive) or agent package"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "hhsearchprobe,autt2l0",
+          "fixesReport": "hhsearch_,aut_l0_",
+          "fixesRequire": "hhsearch_n>=50,hhsearch_exc<1,aut_l0_exc<1"
+        }
+      }
+    },
+    {
+      "id": "bp-hhsearch",
+      "note": "BP-Spring 12 min, the comparison world (L0: 0.66 household local searches/s). Same pass rule.",
+      "asi": "game-copy/ts3native.asi.master-1117b",
+      "iniBase": "game-copy/ts3native.ini.master-1117b",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+      "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+      "save": "Baseline-BP-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.269-mb1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 35,
+      "earlyGates": [
+        {
+          "afterSec": 200,
+          "counter": "fixes:hhsearch_n",
+          "op": ">",
+          "value": 0,
+          "why": "probe never noted a household search: switch, push hook (kAutLive) or agent package"
+        }
+      ],
+      "run": {
+        "profile": {
+          "minutes": 12,
+          "seed": 12345,
+          "noSamplers": true,
+          "fixesOn": "hhsearchprobe,autt2l0",
+          "fixesReport": "hhsearch_,aut_l0_",
+          "fixesRequire": "hhsearch_n>=50,hhsearch_exc<1,aut_l0_exc<1"
+        }
+      }
+    }
+  ]
+}

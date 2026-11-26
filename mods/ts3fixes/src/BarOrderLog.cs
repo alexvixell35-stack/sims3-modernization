@@ -18,7 +18,7 @@ namespace Ts3Fixes
     //   "barorder: <customer> -> <bartender>, end <ok|fail> after N sim-min, exit reason <r>, day d hour h"
     // Read with the bartender's syncwait line (its Committed wait ends when the customer sets Committed) and the
     // customer's "Routed ok" line: Routed -> start = order animation, end -> bartender wait end = exit animation.
-    // Capped at 300 lines per session. Counters: [2701] conversations timed, [2702] lines dropped by the cap.
+    // Capped at 300 lines per session. Counters: [3974] conversations timed, [3975] lines dropped by the cap.
     public static partial class Fixes
     {
         const int kBolMaxLines = 300;
@@ -33,7 +33,7 @@ namespace Ts3Fixes
 
         static void BolLine(string text)
         {
-            if (sBolLines >= kBolMaxLines) { PatchCounters()[2702]++; return; }
+            if (sBolLines >= kBolMaxLines) { PatchCounters()[3975]++; return; }
             sBolLines++;
             HcLine(text);
         }
@@ -70,7 +70,7 @@ namespace Ts3Fixes
                 {
                     try
                     {
-                        PatchCounters()[2701]++;
+                        PatchCounters()[3974]++;
                         float min = SimClock.ConvertFromTicks(SimClock.CurrentTicks - t0, TimeUnit.Minutes);
                         Sim c = ii.InstanceActor;
                         BolLine("barorder: " + BolWho(ii) + ", end " + (r ? "ok" : "fail") + " after " + min.ToString("0.0") + " sim-min, exit reason "

@@ -170,14 +170,14 @@ static void GsStepEnd(RjpThread& t, const RjpFrame& f, LONG self, LONGLONG incl)
             int at = 0;
             for (int i = 0; i < 8; i++) {
                 const LONG us = t.gsPh[RJP_GS0 + i];
-                at += sprintf_s(split + at, sizeof(split) - at, "%s%s %ld.%ld/%ld", i ? ", " : "", kGsShort[i], us / 1000,
+                at += SFmt(split + at, sizeof(split) - at, "%s%s %ld.%ld/%ld", i ? ", " : "", kGsShort[i], us / 1000,
                                 us / 100 % 10, t.gsPhN[RJP_GS0 + i]);
             }
             at = 0;
             other[0] = 0;
             for (int i = 0; i < RJP_GS0; i++)
                 if (t.gsPhN[i])
-                    at += sprintf_s(other + at, sizeof(other) - at, "%s%s %ld.%ld/%ld", at ? ", " : "", kRjpPhName[i],
+                    at += SFmt(other + at, sizeof(other) - at, "%s%s %ld.%ld/%ld", at ? ", " : "", kRjpPhName[i],
                                     t.gsPh[i] / 1000, t.gsPh[i] / 100 % 10, t.gsPhN[i]);
             const LONGLONG q0 = f.t0 * 1000 / g_qpf.QuadPart, q1 = (f.t0 + incl) * 1000 / g_qpf.QuadPart;
             Log("route phases: goal step %ld ms qpc %lld-%lld ms, job kind %d route %08lX: P-GS sites %s; other phases inside %s "
@@ -368,7 +368,7 @@ static void FbjdPhaseLine(const RjpThread& t, LONG us) {
     if (lines++ >= 20) return;
     InterlockedIncrement(&k.fbjdLines);
     char gs[24];
-    if (k.pgReady & 2) sprintf_s(gs, "%ld", t.pgUs[1] / 1000); else strcpy_s(gs, "n/a");
+    if (k.pgReady & 2) SFmt(gs, "%ld", t.pgUs[1] / 1000); else SCpy(gs, "n/a");
     const LONG* p = t.jobUs;
     Log("route phases: foreign job %ld ms (route %08lX, deadline %s): world %ld, cell %ld, water %ld, portal %ld, lot legs %ld, "
         "goal step %s, candidate %ld, lot graph %ld, plan %ld, post %ld, insert %ld, host %ld, alloc %ld, other %ld ms; cut world %ld, "
@@ -410,7 +410,7 @@ static bool RjpInstallAt(int i, DWORD at, void** owner) {
     const RjpSite& s = kRjpSites[i];
     if (Matches((const void*)(uintptr_t)at, s.pro, s.len)) {
         char name[80];
-        sprintf_s(name, "%s (route phases)", s.name);
+        SFmt(name, "%s (route phases)", s.name);
         return (g_rjpJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kRjpStubs[i], &g_rjpJmp[i])) != NULL;
     }
     if (owner && *owner) {

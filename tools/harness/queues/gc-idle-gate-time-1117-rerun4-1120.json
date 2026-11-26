@@ -1,0 +1,183 @@
+{
+  "note": "RERUN4 (11-20) of gc-idle-gate-time-1117, SV only. rerun3 (chain-gcgate-rr3-1119, 11-19): bp-gcgate-ab PASS (47.7 min), sv-gcgate-ab KILLED by our fail-fast guard 41 min in after a ts3native self-check FAIL (door memo x shadow mismatch, docs/585 §7), no data. The queue has no IP job (BP + SV only), nothing to add. Same build as rerun3: asi gchold2-1117, ini master-1117c (SV job: RouteSnap.DoorMemoX 0), ts3fixes dalexlol-1117b, 45 min, 5-min slices, ABBAABBA x2, declared smoke (BP 10 min, 2-min slices, runs first, ~15 min). Timing rules: quiet machine (no agent builds/selftests during the ~65 min; bp-gcgate-ab of rerun3 overlapped agent compiles and native selftests 22:19-22:33 UTC, see probe-out/queue/NOTE-gcgate-noise-1120.txt), Spotify closed, no other game job. Read BP hitches >= 1000 ms per arm before any verdict (open item of rerun3: 4 s+ stalls 11-40 per 10 min in gchold arms).",
+  "stopQueueOnFail": false,
+  "smoke": {
+    "note": "[est 15 min] measurement smoke: BP 10 min, 2-min slices (warm-up + ABBA), --ab gcidlegate",
+    "asi": "game-copy/ts3native.asi.gchold2-1117",
+    "iniBase": "game-copy/ts3native.ini.master-1117c",
+    "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+    "pinReason": "ts3native.asi.gchold2-1117 (0.36.272-gchold2: master 76b5edcdb = master-1117c set + Dalexlol batch 2, + [GC] IdleGate cycle hold 0xE49FB6 + G2 finish-attempt count gcgSpare_1, docs/281 §8.6-8.7) with ts3native.ini.master-1117c and ts3fixes.package.dalexlol-1117b",
+    "gameArgs": [
+      "-disablestoryprogression"
+    ],
+    "minCounters": 912,
+    "noiseCheck": true,
+    "shadowCheck": false,
+    "scriptErrorsMax": 0,
+    "timeoutMin": 25,
+    "releaseDefaults": true,
+    "save": "Baseline-BP-Spring",
+    "ini": {
+      "GC.IdleGate": 2
+    },
+    "run": {
+      "profile": {
+        "seed": 12345,
+        "minutes": 10,
+        "slice": 2,
+        "ab": "gcidlegate"
+      }
+    },
+    "logRequire": {
+      "^ts3native 0\\.36\\.272-gchold2 ": 1,
+      "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+      "^OK   GC idle gate cycle hold \\(0xE49FB6\\): 1 call sites$": 1
+    },
+    "logForbid": {
+      "^SKIP GC idle gate": 0
+    },
+    "earlyGates": [
+      {
+        "afterSec": 90,
+        "counter": "gcgReady",
+        "op": ">=",
+        "value": 3,
+        "why": "gate not installed (call site and forced thunk)"
+      },
+      {
+        "afterSec": 120,
+        "counter": "gcgCalls",
+        "op": ">",
+        "value": 0,
+        "why": "no per-tick GC call reached the gate"
+      }
+    ],
+    "regexCases": {
+      "^ts3native 0\\.36\\.272-gchold2 ": {
+        "match": [
+          "ts3native 0.36.272-gchold2 2026-11-17 12:00:00"
+        ],
+        "noMatch": [
+          "ts3native 0.36.271-mc1117 2026-11-17 08:05:38"
+        ]
+      },
+      "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+        "match": [
+          "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+        ],
+        "noMatch": [
+          "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+          "GC idle gate off (IdleGate=0)"
+        ]
+      },
+      "^SKIP GC idle gate": {
+        "match": [
+          "SKIP GC idle gate: call 0xD819AA goes to 0x12345678"
+        ],
+        "noMatch": [
+          "GC idle gate off (IdleGate=0)"
+        ]
+      },
+      "^OK   GC idle gate cycle hold \\(0xE49FB6\\): 1 call sites$": {
+        "match": [
+          "OK   GC idle gate cycle hold (0xE49FB6): 1 call sites"
+        ],
+        "noMatch": [
+          "SKIP GC idle gate cycle hold (0xE49FB6): call at 0x00E49FB6 is not a call to 0x00E49F10, nothing written"
+        ]
+      }
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-gcgate-ab",
+      "note": "[est 50 min] SV, 45 min in-load ABBAABBA (5-min slices, 20 min per arm, 4 iterations per arm), --ab gcidlegate (Apex profile world: ~99 ms/s GC). RERUN4: DoorMemoX=0 for this world only (the A/B is within the world, both arms alike): rerun3 sv-gcgate-ab was killed by the fail-fast guard 60 s after the unfixed DoorMemoX privacy-door mismatch (docs/585 §7, fix bugfix/doormemox-privacy-1117 not on master); it has no bearing on the GC gate.",
+      "asi": "game-copy/ts3native.asi.gchold2-1117",
+      "iniBase": "game-copy/ts3native.ini.master-1117c",
+      "fixesPackage": "game-copy/ts3fixes.package.dalexlol-1117b",
+      "pinReason": "ts3native.asi.gchold2-1117 (0.36.272-gchold2: master 76b5edcdb = master-1117c set + Dalexlol batch 2, + [GC] IdleGate cycle hold 0xE49FB6 + G2 finish-attempt count gcgSpare_1, docs/281 §8.6-8.7) with ts3native.ini.master-1117c and ts3fixes.package.dalexlol-1117b",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "minCounters": 912,
+      "noiseCheck": true,
+      "shadowCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 65,
+      "releaseDefaults": true,
+      "save": "Baseline-SV-Spring",
+      "ini": {
+        "GC.IdleGate": 2,
+        "RouteSnap.DoorMemoX": 0
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 45,
+          "slice": 5,
+          "ab": "gcidlegate"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.272-gchold2 ": 1,
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": 1,
+        "^OK   GC idle gate cycle hold \\(0xE49FB6\\): 1 call sites$": 1
+      },
+      "logForbid": {
+        "^SKIP GC idle gate": 0
+      },
+      "earlyGates": [
+        {
+          "afterSec": 90,
+          "counter": "gcgReady",
+          "op": ">=",
+          "value": 3,
+          "why": "gate not installed (call site and forced thunk)"
+        },
+        {
+          "afterSec": 120,
+          "counter": "gcgCalls",
+          "op": ">",
+          "value": 0,
+          "why": "no per-tick GC call reached the gate"
+        }
+      ],
+      "regexCases": {
+        "^ts3native 0\\.36\\.272-gchold2 ": {
+          "match": [
+            "ts3native 0.36.272-gchold2 2026-11-17 12:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.271-mc1117 2026-11-17 08:05:38"
+          ]
+        },
+        "^GC idle gate: IdleGate=2 \\(gcgMode 0\\) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3$": {
+          "match": [
+            "GC idle gate: IdleGate=2 (gcgMode 0) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3"
+          ],
+          "noMatch": [
+            "GC idle gate: IdleGate=1 (gcgMode 1) IdleGateMB=64 IdleGateHeapPct=15 ready=0x3",
+            "GC idle gate off (IdleGate=0)"
+          ]
+        },
+        "^SKIP GC idle gate": {
+          "match": [
+            "SKIP GC idle gate: call 0xD819AA goes to 0x12345678"
+          ],
+          "noMatch": [
+            "GC idle gate off (IdleGate=0)"
+          ]
+        },
+        "^OK   GC idle gate cycle hold \\(0xE49FB6\\): 1 call sites$": {
+          "match": [
+            "OK   GC idle gate cycle hold (0xE49FB6): 1 call sites"
+          ],
+          "noMatch": [
+            "SKIP GC idle gate cycle hold (0xE49FB6): call at 0x00E49FB6 is not a call to 0x00E49F10, nothing written"
+          ]
+        }
+      },
+      "rerunOf": "sv-gcgate-ab (gc-idle-gate-time-1117-rerun3-1119)"
+    }
+  ]
+}

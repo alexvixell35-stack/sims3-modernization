@@ -144,7 +144,8 @@ async function watch(args: string[]) {
 
 async function selfCheck() {
   const dir = mkdtempSync(join(tmpdir(), 'rewind-census-'));
-  const toy = spawn('C:\\Windows\\SysWOW64\\ping.exe', ['-n', '30', '127.0.0.1'], { stdio: 'ignore', windowsHide: true });
+  // toy outlives slow snaps under load (11-17: a 30 s toy exited mid-check while a game job ran)
+  const toy = spawn('C:\\Windows\\SysWOW64\\ping.exe', ['-n', '300', '127.0.0.1'], { stdio: 'ignore', windowsHide: true });
   try {
     await new Promise(r => setTimeout(r, 800));
     const a = snap(toy.pid!, join(dir, 'a.json')), b = snap(toy.pid!, join(dir, 'b.json'));

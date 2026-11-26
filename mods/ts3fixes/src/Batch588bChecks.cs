@@ -8,7 +8,7 @@ namespace Ts3Fixes
         // DisposeVirtualSlotCheck run: a virtual-only household leaves a slot in EA. Controls: real lot / no lot.
         public static object DisposeVirtualSlotCheck(string what)
         {
-            string counters = B582Counters("disposevirtualslot", 1339, new[] { "virtual move-outs at Dispose", "left in their slot (switch off)", "stale entries swept at load" }, sDvMissing);
+            string counters = B582Counters("disposevirtualslot", 2974, new[] { "virtual move-outs at Dispose", "left in their slot (switch off)", "stale entries swept at load" }, sDvMissing);
             if (what == "result") return counters;
             if (what != "run") return "disposevirtualslot <run|result>";
             bool on = ShortcutOn("disposevirtualslot");
@@ -20,7 +20,7 @@ namespace Ts3Fixes
         // AgingAlarmCancelCheck run: an armed graduation alarm is removed by the cancel. Controls: none armed / off.
         public static object AgingAlarmCancelCheck(string what)
         {
-            string counters = B582Counters("agingalarmcancel", 1342, new[] { "graduation alarms cancelled", "left armed (switch off)", "errors" }, sAcMissing);
+            string counters = B582Counters("agingalarmcancel", 2977, new[] { "graduation alarms cancelled", "left armed (switch off)", "errors" }, sAcMissing);
             if (what == "result") return counters;
             if (what != "run") return "agingalarmcancel <run|result>";
             bool on = ShortcutOn("agingalarmcancel");
@@ -32,7 +32,7 @@ namespace Ts3Fixes
         // VirtualMoveInDupCheck run: a listed Sim is a duplicate. Controls: world lot / new Sim.
         public static object VirtualMoveInDupCheck(string what)
         {
-            string counters = B582Counters("virtualmoveindup", 1345, new[] { "repeat move-ins not added twice", "added twice (switch off)", "errors" }, "");
+            string counters = B582Counters("virtualmoveindup", 2980, new[] { "repeat move-ins not added twice", "added twice (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "virtualmoveindup <run|result>";
             bool on = ShortcutOn("virtualmoveindup");
@@ -44,7 +44,7 @@ namespace Ts3Fixes
         // PetPoolGhostCheck run: ids 1-3 with 2 gone keep 1 and 3. Control: all present keeps all.
         public static object PetPoolGhostCheck(string what)
         {
-            string counters = B582Counters("petpoolghost", 1348, new[] { "ghost ids dropped", "ghost ids seen (switch off)", "errors" }, sPpgMissing);
+            string counters = B582Counters("petpoolghost", 2983, new[] { "ghost ids dropped", "ghost ids seen (switch off)", "errors" }, sPpgMissing);
             if (what == "result") return counters;
             if (what != "run") return "petpoolghost <run|result>";
             bool on = ShortcutOn("petpoolghost");

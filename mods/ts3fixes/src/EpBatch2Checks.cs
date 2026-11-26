@@ -16,7 +16,7 @@ namespace Ts3Fixes
                     sCgTypes[i].Name + ".Age", sCgAge[i], "getset", sCgTypes[i].Name + ".Age type", sCgAge[i], typeof(int),
                     sCgTypes[i].Name + ".kConsignmentPrices", sCgPrices[i], typeof(float[]), sCgTypes[i].Name + ".kConsignmentPrices read", sCgPrices[i], "static",
                     sCgTypes[i].Name + ".kConsignmentLifespan", sCgLife[i], typeof(int), sCgTypes[i].Name + ".kConsignmentLifespan read", sCgLife[i], "static"));
-            string counters = B582Counters("consignmentlastday", 1466, new[] { "last-day prices / returns", "would throw with switch off", "errors" }, miss);
+            string counters = B582Counters("consignmentlastday", 3899, new[] { "last-day prices / returns", "would throw with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "consignmentlastday <run|result>";
             bool on = ShortcutOn("consignmentlastday");
@@ -29,7 +29,7 @@ namespace Ts3Fixes
         public static object BartendingHourlyPayCheck(string what)
         {
             string miss = EpLive(typeof(BEp2BhHook), 1);
-            string counters = B582Counters("bartendinghourlypay", 1469, new[] { "wages paid", "unpaid with switch off", "errors" }, miss);
+            string counters = B582Counters("bartendinghourlypay", 3902, new[] { "wages paid", "unpaid with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "bartendinghourlypay <run|result>";
             bool on = ShortcutOn("bartendinghourlypay");
@@ -43,7 +43,7 @@ namespace Ts3Fixes
             string miss = EpJoin(EpMiss("mInfluenceNerdSkillModifier", sIfFields[0], "mInfluenceRebelSkillModifier", sIfFields[1], "mInfluenceSocialiteSkillModifier", sIfFields[2]),
                 EpLive(typeof(BEp2IfHook), 1, "mInfluenceNerdSkillModifier", sIfFields[0], typeof(float), "mInfluenceRebelSkillModifier", sIfFields[1], typeof(float),
                     "mInfluenceSocialiteSkillModifier", sIfFields[2], typeof(float)));
-            string counters = B582Counters("influencefollowerbonus", 1472, new[] { "modifiers scaled", "stepped with switch off", "errors" }, miss);
+            string counters = B582Counters("influencefollowerbonus", 3905, new[] { "modifiers scaled", "stepped with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "influencefollowerbonus <run|result>";
             bool on = ShortcutOn("influencefollowerbonus");
@@ -57,7 +57,7 @@ namespace Ts3Fixes
         {
             string miss = EpJoin(EpMiss("MagicBroomArena+RideBroomArena", sBaRide),
                 EpJoin(EpLive(typeof(BEp2BaHook), 2, "RideBroomArena", sBaRide, typeof(InteractionInstance)), EpLive(typeof(BEp2BaArenaHook), 1)));
-            string counters = B582Counters("broomarenachoice", 1475, new[] { "chosen brooms used", "dropped with switch off", "errors" }, miss);
+            string counters = B582Counters("broomarenachoice", 3908, new[] { "chosen brooms used", "dropped with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "broomarenachoice <run|result>";
             bool on = ShortcutOn("broomarenachoice");

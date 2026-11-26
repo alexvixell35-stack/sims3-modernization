@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline self-check of PetStartleSkipCore (docs/645 §3).
+// Offline self-check of PetStartleSkipCore (docs/656 §8.1).
 static class PetStartleSkipTest
 {
     static int sFails;

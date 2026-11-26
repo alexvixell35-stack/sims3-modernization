@@ -8,7 +8,7 @@ namespace Ts3Fixes
     {
         public static object BathSituationFxCheck(string what)
         {
-            string counters = B582Counters("bathsituationfx", 1715, new[] { "second exits skipped", "old effects disposed", "seen with the switch off" }, sBsMissing);
+            string counters = B582Counters("bathsituationfx", 3049, new[] { "second exits skipped", "old effects disposed", "seen with the switch off" }, sBsMissing);
             if (what == "result") return counters;
             if (what != "run") return "bathsituationfx <run|result>";
             bool on = ShortcutOn("bathsituationfx");
@@ -20,19 +20,19 @@ namespace Ts3Fixes
 
         public static object SocialNoEffectCheck(string what)
         {
-            string counters = B582Counters("socialnoeffect", 1718, new[] { "null rules seen", "null rules with ilp_socialnoeffect expected on", "errors" }, sSnMissing);
+            string counters = B582Counters("socialnoeffect", 3052, new[] { "null rules seen", "null rules with ilp_socialnoeffect expected on", "errors" }, sSnMissing);
             if (what == "result") return counters;
             if (what != "run") return "socialnoeffect <run|result>";
             bool on = ShortcutOn("socialnoeffect");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1720] == 0;
-            bool controls = c[1720] == 0;
+            bool fixedNow = on && c[3054] == 0;
+            bool controls = c[3054] == 0;
             return B582Line("socialnoeffect", on, "counting (fix is ilp_socialnoeffect)", fixedNow, "errors=0" + controls, controls, sSnMissing, counters);
         }
 
         public static object GuitarGnomeBoostCheck(string what)
         {
-            string counters = B582Counters("guitargnomeboost", 1721, new[] { "extra boosts removed", "boosts left on (switch off)", "errors" }, sGgMissing);
+            string counters = B582Counters("guitargnomeboost", 3055, new[] { "extra boosts removed", "boosts left on (switch off)", "errors" }, sGgMissing);
             if (what == "result") return counters;
             if (what != "run") return "guitargnomeboost <run|result>";
             bool on = ShortcutOn("guitargnomeboost");
@@ -44,19 +44,19 @@ namespace Ts3Fixes
 
         public static object DistressGateCheck(string what)
         {
-            string counters = B582Counters("distressgate", 1724, new[] { "tests answered by a buff", "missed (switch off)", "errors" }, sDgMissing);
+            string counters = B582Counters("distressgate", 3058, new[] { "tests answered by a buff", "missed (switch off)", "errors" }, sDgMissing);
             if (what == "result") return counters;
             if (what != "run") return "distressgate <run|result>";
             bool on = ShortcutOn("distressgate");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1726] == 0;
-            bool controls = c[1726] == 0;
+            bool fixedNow = on && c[3060] == 0;
+            bool controls = c[3060] == 0;
             return B582Line("distressgate", on, "no gate error", fixedNow, "errors=0" + controls, controls, sDgMissing, counters);
         }
 
         public static object MoodIdleFlavorCheck(string what)
         {
-            string counters = B582Counters("moodidleflavor", 1727, new[] { "rows appended", "rows dropped (switch off)", "errors" }, sMiMissing);
+            string counters = B582Counters("moodidleflavor", 3061, new[] { "rows appended", "rows dropped (switch off)", "errors" }, sMiMissing);
             if (what == "result") return counters;
             if (what != "run") return "moodidleflavor <run|result>";
             bool on = ShortcutOn("moodidleflavor");

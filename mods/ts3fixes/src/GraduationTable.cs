@@ -96,7 +96,7 @@ namespace Ts3Fixes
                 fa.SetValue(ii, actor);
                 if (sInstanceActor == null) throw new InvalidOperationException("graduationtable: InteractionInstance.mInstanceActor not found");
                 sInstanceActor.SetValue(ii, actor);  // InstanceActor (the hook's read) is set by Init, which this object never ran
-                GradWaitFn call = (GradWaitFn)Delegate.CreateDelegate(typeof(GradWaitFn), ii, wait);
+                GradWaitFn call = (GradWaitFn)Fixes.Bind(typeof(GradWaitFn), ii, wait);
                 try { call(null, new InteractionInstance.LoopData()); returned++; res += t.Name + " returned; "; }
                 catch (NullReferenceException) { nre++; res += t.Name + " threw NullReferenceException; "; }
                 catch (Exception e) { res += t.Name + " threw " + e.GetType().Name + "; "; }

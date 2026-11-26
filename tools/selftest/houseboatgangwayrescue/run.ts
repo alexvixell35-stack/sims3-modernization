@@ -1,4 +1,4 @@
-// Offline self-check of houseboatgangwayrescue (mods/ts3fixes/src/HouseboatGangwayRescueCore.cs, docs/642 §7): marking, the
+// Offline self-check of houseboatgangwayrescue (mods/ts3fixes/src/HouseboatGangwayRescueCore.cs, docs/853 §3): marking, the
 // once-per-hour rescue rule, exemption, refusals that drop or keep the mark, and the bounded table.
 // Windows (.NET Framework csc), or Linux with TS3_CSC (csc-shim).
 //   node tools/selftest/houseboatgangwayrescue/run.ts

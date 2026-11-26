@@ -1,7 +1,18 @@
 # 663: Route speed: an exact neighbour memo for the cell A*, and a finer split of "rest"
 
 2026-11-19. Static work (Ghidra decompile, capstone disassembly, CallerTree) plus the `route candidate split` logs of 11
-runs today. Built, default off, **NOT RUN**. Branch `feat/route-speed`.
+runs today. Built, default off. Branch `feat/route-speed`.
+
+**Upstream carve-out (2026-11-20, PR branch `post/route-storm-1120`):** only `[RouteSpeed] NeighbourMemo` (§4) comes over.
+The `[RouteJobPhases] CandidateSplit` split of §1-§2 (plancand.cpp, docs/644) is not in this tree, so the four new split
+sites (§2) are left out; §1-§2 stay as the measurement that motivated the memo. The router scope NeighbourMemo needs (§4.4,
+household rule) is read from the plan-deadline session (`PdSess.scope`, set at its open) or the worker job's `t_hcScope`
+(`NmScopeNow` in routespeed.cpp; the combo read it through plancand.cpp's `PccScopeNow`, same rule).
+
+**In game (2026-11-20, docs/668):** only as part of the route storm "on" bundle, never alone. s143 shadow (`NeighbourMemo=2`):
+105,102 shadow checks, **0 mismatches**, 0 `NEIGHBOUR MEMO MISMATCH` lines; s146 serve (`=1`): 2,681,038 calls, 16,761 hits
+(73,766 cells served), 1,912 not served for scope (household / unknown routers); serve mode does not compare.
+How much of the bundle's hitch gain is this memo's is not measured.
 
 Goal: less CPU per route search, with every result identical to the game's. This is a pure speedup with no gameplay
 change, so by the household rule (CLAUDE.md) it may apply to every Sim. Until a shadow run shows 0 mismatches, it serves
@@ -177,7 +188,7 @@ O(1) by a generation bump.
 
 **ini:** `[RouteSpeed]`
 - `NeighbourMemo`: 0 off (default), 1 serve, 2 shadow.
-- `NeighbourMemoAll`: default 0, so only unseen and seen-NPC routers (`PccScopeNow` 2 or 3) take a served answer.
+- `NeighbourMemoAll`: default 0, so only unseen and seen-NPC routers (`NmScopeNow` 2 or 3) take a served answer.
   `[Experimental] HouseholdToo=1` also lifts this, since a served answer is a cached, realistic one.
 
 **Runtime switch:** export `ts3native_routespeed` +0x00 (`native_set neighbourmemo`, registered in
@@ -230,13 +241,11 @@ coordinator's 44.4% cell share. The memo's own `saved ~ms` and the split's cell 
     and references; a clear or a tree write drops the memo; another Q, a changed key, no room and a household router
     each run the game's function; shadow counts a mismatch.
 - **Freestanding host test `routespeed-host-test.cpp`:** clang, no libc. Passes (exit 0) on Linux.
-- **`plancand-test.h`:** the four new split sites are timed and printed.
 - **clang-cl `/Zs /W4`:** ts3native.cpp passes for both Steam and `/DTS3A_TABLE`; selftest.cpp passes for Steam (the
   selftest's EA-table errors are unrelated, in monojit-test.h, and were there before this change). The game build must
   come from MSVC CI, because clang builds hit the SEH limit.
 - **Repro `ip-neighbourmemo-crowd`** (Isla Paradiso): off/on/on/off by `native_set neighbourmemo`, with job ini
-  `NeighbourMemo=2` and `CandidateSplit=1`. Run it in shadow first. Read the cell ms per call and the
-  world / water / post / insert totals per arm.
+  `NeighbourMemo=2`. Run it in shadow first. Read the `route speed: neighbour memo` line per arm.
 
 ## 6. Prior art (credited)
 
@@ -263,8 +272,7 @@ coordinator's 44.4% cell share. The memo's own `saved ~ms` and the split's cell 
 
 - `native/ts3native/routespeed-core.h`, `routespeed.cpp`, `routespeed-test.h`, `routespeed-host-test.cpp` (new).
 - `routesnap.cpp`: `g_snTreeSeq` and `SnTreeRow`; NeighbourMemo added to ApplyRouteSnap's enable condition.
-- `plancand.cpp`: the world / water / post / insert split sites.
-- `routephases.cpp`: `RjpOwner` chaining.
+- `plandeadline.cpp`: `PdSess.scope` (the router scope at the session's open; from docs/644, which is not in this tree).
 - `ts3native.cpp`: include, install, and the 60 s log line.
 - `ts3native.ini`: `[RouteSpeed]`.
 - `ts3addr-ea169.h`: two unresolved rows.

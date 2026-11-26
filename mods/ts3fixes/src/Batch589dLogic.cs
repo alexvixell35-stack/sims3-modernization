@@ -15,7 +15,7 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // Batch 11d (docs/589 usage sweep: the U10, U18, U20 and U23 parts not in 11a-c). All default off; all reach the
-    // household (as EA intended). Slots 1715-1729 (fixes-1700). U18 and two U20 parts sit in generic or simler90-shared
+    // household (as EA intended). Slots 3049-3063 (fixes-1700). U18 and two U20 parts sit in generic or simler90-shared
     // bodies too large to copy and are ts3native IL patches (mods/ilpatch/specs/b11-*.json, [IlPatch] ilp_socialnoeffect,
     // ilp_jambasecleanup, ilp_watchnoplayer); socialnoeffect here only counts what ilp_socialnoeffect fixes.
     public static partial class Fixes
@@ -25,7 +25,7 @@ namespace Ts3Fixes
         // exits it again (mSituation is not cleared): OnExit, CleanUp and Dispose run twice. DoTakeBathPreLoop creates a
         // new bubble-bath effect each bubble bath over the old one, which is only disposed with the tub. Fix: Cleanup
         // skips a situation that already exited (EA's SituationExited); the pre-loop stops and disposes an old effect
-        // before EA makes the new one. Counters: [1715] second exits skipped, [1716] old effects disposed, [1717] either
+        // before EA makes the new one. Counters: [3049] second exits skipped, [3050] old effects disposed, [3051] either
         // seen with the switch off.
         static readonly FieldInfo sBsSit = typeof(Bathtub.TakeBath).GetField("mSituation", kB11All);
         static readonly FieldInfo sBsFx = typeof(Bathtub).GetField("mBubbleBathFX", kB11All);
@@ -47,8 +47,8 @@ namespace Ts3Fixes
             {
                 Sims3.Gameplay.Autonomy.Situation s = sBsSit.GetValue(takeBath) as Sims3.Gameplay.Autonomy.Situation;
                 if (s == null || !s.SituationExited) return;
-                if (ShortcutOn("bathsituationfx")) { sBsSit.SetValue(takeBath, null); PatchCounters()[1715]++; }
-                else PatchCounters()[1717]++;
+                if (ShortcutOn("bathsituationfx")) { sBsSit.SetValue(takeBath, null); PatchCounters()[3049]++; }
+                else PatchCounters()[3051]++;
             }
             catch (Exception) { }
         }
@@ -64,8 +64,8 @@ namespace Ts3Fixes
                         VisualEffect old = sBsFx.GetValue(this) as VisualEffect;
                         if (old != null)
                         {
-                            if (ShortcutOn("bathsituationfx")) { sBsFx.SetValue(this, null); old.Stop(); old.Dispose(); PatchCounters()[1716]++; }
-                            else PatchCounters()[1717]++;
+                            if (ShortcutOn("bathsituationfx")) { sBsFx.SetValue(this, null); old.Stop(); old.Dispose(); PatchCounters()[3050]++; }
+                            else PatchCounters()[3051]++;
                         }
                     }
                     catch (Exception) { }
@@ -80,8 +80,8 @@ namespace Ts3Fixes
         // [verified, decompiled] SocialInteractionA.UpdateConversationWhenSocialStarts sets mTargetEffect from
         // Conversation.UpdateOnSelectingInteraction, which is null when no social rule matches (modded socials); Run then
         // dereferences mTargetEffect.RHS (GetStateMachine, SetStance) and throws. The fix is the IL patch (Run returns
-        // false at EA's own early return right after the call); this hook only counts. Counters: [1718] null rules seen,
-        // [1719] of those with ilp_socialnoeffect expected on (switch on), [1720] errors.
+        // false at EA's own early return right after the call); this hook only counts. Counters: [3052] null rules seen,
+        // [3053] of those with ilp_socialnoeffect expected on (switch on), [3054] errors.
         static readonly FieldInfo sSnEffect = typeof(SocialInteractionA).GetField("mTargetEffect", kB11All);
         static string sSnMissing = "";
 
@@ -100,10 +100,10 @@ namespace Ts3Fixes
                 try
                 {
                     if (sSnEffect.GetValue(this) != null) return;
-                    PatchCounters()[1718]++;
-                    if (ShortcutOn("socialnoeffect")) PatchCounters()[1719]++;
+                    PatchCounters()[3052]++;
+                    if (ShortcutOn("socialnoeffect")) PatchCounters()[3053]++;
                 }
-                catch (Exception) { PatchCounters()[1720]++; }
+                catch (Exception) { PatchCounters()[3054]++; }
             }
 
             public void StartOrig(Sim initiatingSim, Sim targetSim) { }
@@ -113,7 +113,7 @@ namespace Ts3Fixes
         // [verified, decompiled] Guitar.Play.Run adds the Elvis gnome's guitar skill boost once per gnome in range and
         // takes it off once, so with two or more gnomes the extra boosts stay on the Sim for good (and all of them when
         // the play throws). Fix: what was added is taken off: the extra (n-1) boosts after EA's Run, all n if it threw.
-        // Counters: [1721] extra boosts removed, [1722] boosts left on (switch off), [1723] errors.
+        // Counters: [3055] extra boosts removed, [3056] boosts left on (switch off), [3057] errors.
         static Type sGgPlay;
         static string sGgMissing = "";
 
@@ -140,7 +140,7 @@ namespace Ts3Fixes
                     if (a != null && a.LotCurrent != null)
                         foreach (MagicGnomeElvis g in a.LotCurrent.GetObjects<MagicGnomeElvis>()) if (g.PlayingGuitarInRange(a)) n++;
                 }
-                catch (Exception) { n = 0; PatchCounters()[1723]++; }
+                catch (Exception) { n = 0; PatchCounters()[3057]++; }
                 bool threw = true;
                 try
                 {
@@ -155,10 +155,10 @@ namespace Ts3Fixes
                     {
                         try
                         {
-                            if (ShortcutOn("guitargnomeboost")) { a.SkillManager.AddToSkillGainModifier(SkillNames.Guitar, -left * MagicGnomeElvis.SkillBoost); PatchCounters()[1721]++; }
-                            else PatchCounters()[1722]++;
+                            if (ShortcutOn("guitargnomeboost")) { a.SkillManager.AddToSkillGainModifier(SkillNames.Guitar, -left * MagicGnomeElvis.SkillBoost); PatchCounters()[3055]++; }
+                            else PatchCounters()[3056]++;
                         }
-                        catch (Exception) { PatchCounters()[1723]++; }
+                        catch (Exception) { PatchCounters()[3057]++; }
                     }
                 }
             }
@@ -172,7 +172,7 @@ namespace Ts3Fixes
         // buff's higher-priority distress is never found; only the mood one counts, and lower-priority distress idles are
         // scheduled over a higher buff distress. The mood branch sets the result in the test. Fix: in the test a buff
         // with that priority (that EA would schedule for a child or older, or a toddler) answers true too. Counters:
-        // [1724] tests answered by a buff, [1725] missed (switch off), [1726] errors.
+        // [3058] tests answered by a buff, [3059] missed (switch off), [3060] errors.
         static MethodInfo sDgShould;
         static readonly FieldInfo sDgSim = typeof(IdleManager).GetField("mSim", kB11All);
         static string sDgMissing = "";
@@ -200,14 +200,14 @@ namespace Ts3Fixes
                     foreach (BuffInstance b in sim.BuffManager.List)
                     {
                         if (b.GetDistressIdlePriority() != desiredPriority) continue;
-                        if (should == null) should = (DgShouldFn)Delegate.CreateDelegate(typeof(DgShouldFn), this, sDgShould);
+                        if (should == null) should = (DgShouldFn)Fixes.Bind(typeof(DgShouldFn), this, sDgShould);
                         if (!should(desiredPriority, b)) continue;
-                        if (!ShortcutOn("distressgate")) { PatchCounters()[1725]++; return r; }
-                        PatchCounters()[1724]++;
+                        if (!ShortcutOn("distressgate")) { PatchCounters()[3059]++; return r; }
+                        PatchCounters()[3058]++;
                         return true;
                     }
                 }
-                catch (Exception) { PatchCounters()[1726]++; }
+                catch (Exception) { PatchCounters()[3060]++; }
                 return r;
             }
 
@@ -220,8 +220,8 @@ namespace Ts3Fixes
         // remembers the flavour (it stays Fulfilled), so every such row is dropped. ParseReactionData, the same pattern,
         // does remember it (`reactionTypes = value2`). Fix: our parse remembers the flavour; if the table was parsed
         // before our hook (startup), the world-load pass reads the Idles XML once and appends the dropped rows. No-op
-        // when the XML has no continuation rows. Counters: [1727] rows appended, [1728] rows dropped (switch off),
-        // [1729] errors.
+        // when the XML has no continuation rows. Counters: [3061] rows appended, [3062] rows dropped (switch off),
+        // [3063] errors.
         delegate IdleInfo MiRowFn(XmlDbRow row, bool verify);
         static MiRowFn sMiRow;
         static bool sMiOurs;
@@ -263,7 +263,7 @@ namespace Ts3Fixes
                     continue;
                 }
                 IdleAnimationInfo info;
-                if (IdleManager.sMoodIdleAnimations.TryGetValue((long)g, out info)) { info.AddAnimation(sMiRow(row, true)); PatchCounters()[1727]++; }
+                if (IdleManager.sMoodIdleAnimations.TryGetValue((long)g, out info)) { info.AddAnimation(sMiRow(row, true)); PatchCounters()[3061]++; }
             }
         }
 
@@ -282,9 +282,9 @@ namespace Ts3Fixes
         {
             public static void ParseHook(XmlDbData data)
             {
-                if (!ShortcutOn("moodidleflavor")) { try { PatchCounters()[1728] += MiCountDropped(data); } catch (Exception) { } ParseOrig(data); return; }
+                if (!ShortcutOn("moodidleflavor")) { try { PatchCounters()[3062] += MiCountDropped(data); } catch (Exception) { } ParseOrig(data); return; }
                 try { MiParse(data, false); sMiOurs = true; }
-                catch (Exception) { PatchCounters()[1729]++; }
+                catch (Exception) { PatchCounters()[3063]++; }
             }
 
             public static void ParseOrig(XmlDbData data) { }
@@ -296,7 +296,7 @@ namespace Ts3Fixes
             if (sMiOurs || sMiRow == null || !ShortcutOn("moodidleflavor")) return;
             sMiOurs = true;
             try { MiParse(XmlDbData.ReadData("Idles"), true); }
-            catch (Exception) { PatchCounters()[1729]++; }
+            catch (Exception) { PatchCounters()[3063]++; }
         }
     }
 }

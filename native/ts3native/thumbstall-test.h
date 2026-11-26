@@ -213,3 +213,22 @@ static void TestOutfitFirstPick() {
     g_tsPickOrig = savedPick, g_ofSwapOrig = savedSwap, g_tsNow = savedNow, g_ofMode = savedMode;
     printf("outfit first pick ok\n");
 }
+
+// Call-site check bytes carry each build's own rel32: Steam gives the literals back, EA 1.69 / retail 1.67 their own
+// offsets (EA 0x6F565C call 0x6DDFE0 = 7F 89 FE FF, 0x5F1D75 call 0x5EE670 = F6 C8 FF FF; retail 0x5F1675 call 0x5EDEE0).
+static void TestTsCallBytes() {
+    u8 b[18];
+    TsPickBytes(b);
+    assert(memcmp(b, kTsPickSite, sizeof(kTsPickSite)) == 0);
+    OfSiteBytes(b);
+    assert(memcmp(b, kOfSite, sizeof(kOfSite)) == 0);
+    TsCallBytes(b, kOfSite, 18, 7, 0x006DDFE0, 0x006F5656 + 11);
+    static const u8 ofEa[4] = {0x7F, 0x89, 0xFE, 0xFF};
+    assert(memcmp(b + 7, ofEa, 4) == 0 && b[6] == 0xE8 && b[11] == 0x80 && memcmp(b, kOfSite, 6) == 0);
+    TsCallBytes(b, kTsPickSite, 12, 3, 0x005EE670, 0x005F1D73 + 7);
+    static const u8 pickEa[4] = {0xF6, 0xC8, 0xFF, 0xFF};
+    assert(memcmp(b + 3, pickEa, 4) == 0 && memcmp(b + 7, kTsPickSite + 7, 5) == 0);
+    TsCallBytes(b, kTsPickSite, 12, 3, 0x005EDEE0, 0x005F1673 + 7);
+    static const u8 pickRetail[4] = {0x66, 0xC8, 0xFF, 0xFF};
+    assert(memcmp(b + 3, pickRetail, 4) == 0);
+}

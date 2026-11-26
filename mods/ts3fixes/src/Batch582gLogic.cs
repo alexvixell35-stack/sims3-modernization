@@ -19,7 +19,7 @@ using Sims3.UI.Controller;
 
 namespace Ts3Fixes
 {
-    // Batch 8 (docs/582 B8; REA tranche 4, docs/584 §7, plus the coverage sweep, docs/586). All default off. simler90
+    // Batch 8 (docs/582 B8; REA tranche 4, docs/584 §7, plus the coverage sweep, docs/639). All default off. simler90
     // changes none of the methods below (docs/data/mod-method-diff.csv; its Secrets.cs has the same key bug), and none
     // was hooked before (docs/data/swap-stack-audit.csv). The other tranche-4 leads are already covered: R2 and R5(b) by
     // fieldtripadult (FieldTripAdult.cs), R1 by prankditchempty (Batch582Logic.cs); R3 and R5(a) are not reachable with
@@ -34,8 +34,8 @@ namespace Ts3Fixes
         // throws. Fix, in the age setup: the earlier alarm, broadcaster and stink effect are released first, and an Ancient
         // pile is built through EA's own Old step, then EA's Old->Ancient step. Household-visible: an imported pile on a
         // household lot ages and smells once, as EA meant.
-        // Counters: [1233] stale age setups released, [1234] Ancient piles built through Old, [1235] seen with the switch
-        // off, [1236] errors.
+        // Counters: [3545] stale age setups released, [3546] Ancient piles built through Old, [3547] seen with the switch
+        // off, [3548] errors.
         static readonly FieldInfo sTpAlarm = typeof(TrashPile).GetField("mAgeAlarm", kInstAll);
         static readonly FieldInfo sTpBroad = typeof(TrashPile).GetField("mDisgustedEffectBroadcast", kInstAll);
         static readonly MethodInfo sTpToAncient = typeof(TrashPile).GetMethod("AlarmCallbackOldToAncient", kInstAll, null, Type.EmptyTypes, null);
@@ -79,12 +79,12 @@ namespace Ts3Fixes
                     if (plan != 0 && !ShortcutOn("trashpileimport"))
                     {
                         // only a stale setup or an Ancient pile without a broadcaster misbehaves in EA
-                        if ((plan & 1) != 0 || rb == null) PatchCounters()[1235]++;
+                        if ((plan & 1) != 0 || rb == null) PatchCounters()[3547]++;
                         plan = 0;
                     }
                     if ((plan & 1) != 0)
                     {
-                        PatchCounters()[1233]++;
+                        PatchCounters()[3545]++;
                         if (alarmSet) { RemoveAlarm(alarm); sTpAlarm.SetValue(o, AlarmHandle.kInvalidHandle); }
                         if (rb != null) { rb.Dispose(); sTpBroad.SetValue(o, null); }
                         if (tp.StinkEffect != null)
@@ -95,12 +95,12 @@ namespace Ts3Fixes
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1236]++; plan = 0; }
+                catch (Exception) { PatchCounters()[3548]++; plan = 0; }
                 if ((plan & 2) == 0) { AgeOrig(); return; }
-                PatchCounters()[1234]++;
+                PatchCounters()[3546]++;
                 tp.TrashPileAge = TrashPile.PileAge.Old;
                 AgeOrig();                          // EA: age alarm, then Fresh->Old (broadcaster, stink, Elder alarm)
-                ((TpStepFn)Delegate.CreateDelegate(typeof(TpStepFn), tp, sTpToAncient))();  // EA: Old->Ancient
+                ((TpStepFn)Fixes.Bind(typeof(TpStepFn), tp, sTpToAncient))();  // EA: Old->Ancient
             }
             public void AgeOrig() { } // receives TrashPile.CreateAlarmAndStartAgeEffects
         }
@@ -112,7 +112,7 @@ namespace Ts3Fixes
         // gym the watched cat is using (the object InLoop already checks: Target.CurrentInteraction.Target). With no such
         // gym EA's code runs (returns false). Household-visible: household Sims passing a cat on the gym may now stop and
         // watch, as EA meant.
-        // Counters: [1237] gym references filled, [1238] seen with the switch off, [1239] errors.
+        // Counters: [3612] gym references filled, [3613] seen with the switch off, [3614] errors.
         // Pure: 0 = EA's code, 1 = fill the reference, 2 = would fill but the switch is off.
         internal static int CgDecide(bool on, bool refSet, bool catOnGym)
         {
@@ -138,11 +138,11 @@ namespace Ts3Fixes
                         Sim cat = w.Target;
                         CatJungleGym gym = cat != null && cat.CurrentInteraction != null ? cat.CurrentInteraction.Target as CatJungleGym : null;
                         int k = CgDecide(ShortcutOn("catgymwatch"), false, gym != null);
-                        if (k == 1) { PatchCounters()[1237]++; w.JungleGymRef = gym; }
-                        else if (k == 2) PatchCounters()[1238]++;
+                        if (k == 1) { PatchCounters()[3612]++; w.JungleGymRef = gym; }
+                        else if (k == 2) PatchCounters()[3613]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1239]++; }
+                catch (Exception) { PatchCounters()[3614]++; }
                 return RunOrig();
             }
             public bool RunOrig() { return false; } // receives CatJungleGym.WatchCatJungleGym.Run
@@ -155,7 +155,7 @@ namespace Ts3Fixes
         // Fix after EA's method: when its result is exactly the text of the wrong key for this pair's relationship, it is
         // replaced by the text of the right key. EA's choice and its sRelationshipSecrets bookkeeping are unchanged.
         // Player-directed only (OnShareBadSecret skips autonomous). Household-visible: yes (the notification text).
-        // Counters: [1240] texts corrected, [1241] seen with the switch off, [1242] errors.
+        // Counters: [3615] texts corrected, [3616] seen with the switch off, [3617] errors.
         // Pure: is EA's result the wrong key's text?
         internal static bool SxIsWrong(string result, string wrongText)
         {
@@ -182,13 +182,13 @@ namespace Ts3Fixes
                     bool[] g = new bool[] { speaker.SimDescription.IsFemale, listener.SimDescription.IsFemale };
                     string wrong = "\"" + Localization.LocalizeString(g, "Gameplay/Socializing/Secrets" + ltr) + "\"";
                     if (!SxIsWrong(r, wrong)) return r;
-                    if (!ShortcutOn("badsecretkey")) { PatchCounters()[1241]++; return r; }
+                    if (!ShortcutOn("badsecretkey")) { PatchCounters()[3616]++; return r; }
                     string right = Localization.LocalizeString(g, "Gameplay/Socializing/Secrets:" + ltr);
                     if (string.IsNullOrEmpty(right)) return r;
-                    PatchCounters()[1240]++;
+                    PatchCounters()[3615]++;
                     return "\"" + right + "\"";
                 }
-                catch (Exception) { PatchCounters()[1242]++; return r; }
+                catch (Exception) { PatchCounters()[3617]++; return r; }
             }
             public static string TextOrig(Sim speaker, Sim listener) { return null; } // receives Secrets.GetBestBadSecretTextFor
         }
@@ -199,7 +199,7 @@ namespace Ts3Fixes
         // that holds the listener) keeps its EventTracker listeners. A Sim who loses Evil, Couch Potato, Anti-TV, Loser,
         // Computer Whiz or Supernatural Fan still reacts as before for the rest of the session. Fix before EA's method: the
         // Sim's own trait's listener is removed (Trait.Fixup does the same on re-instantiation). Household-visible: yes.
-        // Counters: [1243] listeners removed, [1244] left with the switch off, [1245] errors.
+        // Counters: [3639] listeners removed, [3640] left with the switch off, [3641] errors.
         // Pure: remove the live trait's listener?
         internal static bool TlRemove(bool on, bool liveHasListener) { return on && liveHasListener; }
 
@@ -220,14 +220,14 @@ namespace Ts3Fixes
                     {
                         if (TlRemove(ShortcutOn("traitlistenerremove"), true))
                         {
-                            PatchCounters()[1243]++;
+                            PatchCounters()[3639]++;
                             live.TraitListener.Remove();
                             live.TraitListener = null;
                         }
-                        else PatchCounters()[1244]++;
+                        else PatchCounters()[3640]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1245]++; }
+                catch (Exception) { PatchCounters()[3641]++; }
                 if (TnRemove(this, guid)) return;  // traitremovenull (Batch582iLogic.cs, docs/582 B9 §1): EA would throw
                 RemoveOrig(guid);
             }
@@ -235,13 +235,13 @@ namespace Ts3Fixes
         }
 
         // ---- B8 §6 portasknohome (tuning kPortAskNoHome) -----------------------------------------------------------------
-        // [verified, decompiled + runtime x2 (coverage docs/586 §8)] SocialTest.AskToChangePortTest (Island Paradise
+        // [verified, decompiled + runtime x2 (coverage docs/639 §8)] SocialTest.AskToChangePortTest (Island Paradise
         // houseboats) calls lotHome.IsHouseboatLot() on the actor's and target's home lots without a null test: for a Sim
         // with no home lot (townie, tourist, homeless household) it throws NullReferenceException out of the social
         // availability pass (menu build and autonomy) for that target. A Sim without a home cannot ask to change port, so
         // the fix returns false there; otherwise EA's test runs. Household-visible: a homeless selected Sim's social menu
         // builds where it errored; the test's answer is otherwise unchanged.
-        // Counters: [1249] throws avoided, [1250] seen with the switch off, [1251] errors.
+        // Counters: [3642] throws avoided, [3643] seen with the switch off, [3644] errors.
         // Pure: would EA's test throw? It does when it reaches IsHouseboatLot on a null lot.
         internal static bool PtThrows(bool targetAtHome, bool sameHome, bool actorHomeNull, bool targetHomeNull)
         {
@@ -265,12 +265,12 @@ namespace Ts3Fixes
                         Lot a = actor.LotHome, t = target.LotHome;
                         if (PtThrows(target.LotCurrent == t, a == t, a == null, t == null))
                         {
-                            if (ShortcutOn("portasknohome")) { PatchCounters()[1249]++; return false; }
-                            PatchCounters()[1250]++;
+                            if (ShortcutOn("portasknohome")) { PatchCounters()[3642]++; return false; }
+                            PatchCounters()[3643]++;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1251]++; }
+                catch (Exception) { PatchCounters()[3644]++; }
                 return TestOrig(actor, target, topic, isAutonomous, ref greyedOutTooltipCallback);
             }
             public static bool TestOrig(Sim actor, Sim target, ActiveTopic topic, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // receives SocialTest.AskToChangePortTest
@@ -286,7 +286,7 @@ namespace Ts3Fixes
         // remaining one keeps EA's tuned (endless) duration: user decision 2026-11-15, EA's lingering effect stays (the
         // broadcaster starts after the speech, in the social's after-update callback), de-dupe only.
         // Household-visible: a household lecturer's audience gets one pulse per 20 minutes instead of one per lecture given.
-        // Counters: [1252] earlier broadcasters disposed, [1253] repeat lectures with the switch off, [1254] errors.
+        // Counters: [3645] earlier broadcasters disposed, [3646] repeat lectures with the switch off, [3647] errors.
         static readonly FieldInfo sLbParams = typeof(Education).GetField("kGreatLectureBroadcastParams", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly MethodInfo sLbCallback = typeof(Education).GetMethod("BeIntriguedCallback", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly Dictionary<Sim, ReactionBroadcaster> sLbBySim = new Dictionary<Sim, ReactionBroadcaster>();
@@ -321,14 +321,14 @@ namespace Ts3Fixes
                         LbPrune();
                         bool repeat = sLbSeen.ContainsKey(actor);
                         sLbSeen[actor] = true;
-                        if (!ShortcutOn("lecturebroadcaster")) { if (repeat) PatchCounters()[1253]++; }
+                        if (!ShortcutOn("lecturebroadcaster")) { if (repeat) PatchCounters()[3646]++; }
                         else
                         {
                             ReactionBroadcaster earlier;
                             if (LbReplace(true, sLbBySim.TryGetValue(actor, out earlier) && earlier != null))
                             {
                                 earlier.Dispose();
-                                PatchCounters()[1252]++;
+                                PatchCounters()[3645]++;
                             }
                             ReactionBroadcaster.BroadcastCallback cb = (ReactionBroadcaster.BroadcastCallback)Delegate.CreateDelegate(typeof(ReactionBroadcaster.BroadcastCallback), sLbCallback);
                             sLbBySim[actor] = new ReactionBroadcaster(actor, (ReactionBroadcasterParams)sLbParams.GetValue(null), cb);
@@ -336,7 +336,7 @@ namespace Ts3Fixes
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1254]++; }
+                catch (Exception) { PatchCounters()[3647]++; }
                 if (!done) LectureOrig(actor);
             }
             public static void LectureOrig(Sim actor) { } // receives Education.BeIntrigueing
@@ -348,7 +348,7 @@ namespace Ts3Fixes
         // the party marries. A party that ends without a wedding leaves the listener holding the dead situation, and a later
         // marriage of a former guest runs RemoveGuest / OtherHosts.Add on it. Fix after EA's CleanUp: the party's listeners
         // are removed from EventTracker. Household-visible: player-hosted wedding parties (no visible change; stale state).
-        // Counters: [1246] listeners removed, [1247] left with the switch off, [1248] errors.
+        // Counters: [2920] listeners removed, [2921] left with the switch off, [2922] errors.
         static readonly FieldInfo sWlList = typeof(WeddingParty).GetField("mEventListeners", kInstAll);
 
         // Pure: how many listeners to remove (the ones still registered), 0 with the switch off.
@@ -382,11 +382,11 @@ namespace Ts3Fixes
                     int live = 0;
                     foreach (EventListener l in list) if (l != null && EventTracker.ContainsListener(l)) live++;
                     if (live == 0) return;
-                    if (WlRemove(ShortcutOn("weddinglistener"), live) == 0) { PatchCounters()[1247] += live; return; }
+                    if (WlRemove(ShortcutOn("weddinglistener"), live) == 0) { PatchCounters()[2921] += live; return; }
                     foreach (EventListener l in list) if (l != null) EventTracker.RemoveListener(l);
-                    PatchCounters()[1246] += live;
+                    PatchCounters()[2920] += live;
                 }
-                catch (Exception) { PatchCounters()[1248]++; }
+                catch (Exception) { PatchCounters()[2922]++; }
             }
             public void CleanOrig() { } // receives WeddingParty.CleanUp
         }

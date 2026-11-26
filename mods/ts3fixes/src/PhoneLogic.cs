@@ -55,7 +55,7 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         const BindingFlags kPhAll = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
-        const int kWwCap = 400;  // polls of 5 ticks (EA's own sleep) before the WooHooty wait gives up
+        const int kWwCap = HhAuditCore.kWwCap;  // polls of 5 ticks (EA's own sleep) before the WooHooty wait gives up, for every Sim (docs/289)
         static readonly FieldInfo sPhIncoming = typeof(Phone).GetField("mIncomingCall", kPhAll);
         static readonly FieldInfo sPhHandset = typeof(Phone).GetField("HandsetPickedUp", kPhAll);
         static readonly MethodInfo sPhSetState = typeof(Phone).GetMethod("SetHandsetState", kPhAll);
@@ -221,9 +221,7 @@ namespace Ts3Fixes
         // One poll of the wait for the texter to be free: 1 = keep waiting, 0 = free (go on as EA), 2 = give up.
         internal static int WwPoll(bool on, int polls, bool actorGone, bool simGone, bool actorBusy)
         {
-            if (on && (actorGone || simGone)) return 2;
-            if (!actorBusy) return 0;
-            return on && polls >= kWwCap ? 2 : 1;
+            return HhAuditCore.WwPoll(on, polls, actorGone, simGone, actorBusy);
         }
 
         public class WooHootyWaitHook

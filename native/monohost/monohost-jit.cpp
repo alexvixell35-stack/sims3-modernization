@@ -2535,6 +2535,58 @@ static void JitCorpusTrail(void* tm, int c, const char* arm) {
     }
     Log("jit corpus trail case %d %s: %s\n", c, arm, out[0] ? out : code ? "(trail run faulted)" : "(no exceptions)");
 }
+// docs/537 §31 M2: the class-Y row's yield path. HostTest.JitMotiveYield(n) runs Motive.UpdateMotiveWithDecay n times as a task; the
+// fixture posture's GetPostureMotiveDecayUpdate (an unlisted virtual target, as BabySwing / WalkerClassic's) sleeps one tick, so the
+// compiled body must leave through its callvirt exit, the task must yield with the method's EA frame below, and the resume must
+// re-enter the compiled word after the call. Interpreted vs compiled: same hash, same runs (n yields + 1). Only when the method is listed.
+static int JitMotiveYieldOnce(bool compiled, int n, int* runs) {
+    static int arg;
+    static void* targs[1] = {&arg};
+    arg = n;
+    JitSetPatched(compiled);
+    FakeHostOnce();
+    HostTask& k = g_tasks[3];
+    k = HostTask{};
+    k.id = 0x0000ABCD00000044ULL;
+    k.state = ((TaskNew)0xE52D70)(Meth(g_testK, "JitMotiveYield", 1), NULL, targs, &k.exc);
+    k.wake = g_tick;
+    for (int i = 0; i < 4 * n + 8 && !k.done; i++, g_tick++) {
+        if (k.wake <= g_tick) RunTask(k);
+        HostTickGc();
+    }
+    *runs = k.runs;
+    if (k.exc) {
+        char t[128] = "", msg[256] = ""; void* in = NULL;
+        Describe(k.exc, t, msg, &in);
+        Log("jit motive yield: %s task ended by %s: %s\n", compiled ? "compiled" : "interpreted", t, msg);
+    }
+    const int r = k.done && !k.exc && !k.fault && k.result ? I32(k.result) : INT_MIN;
+    if (k.state) ((TaskFree)0xE53E80)(k.state), k.state = NULL;
+    return r;
+}
+static bool JitMotiveListed() { return JitListed("Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay") && Meth(g_testK, "JitMotiveYield", 1); }
+static void JitMotiveCoverage(bool log) {  // reads and clears the counters
+    if (!JitMotiveListed()) return;
+    int cv[12];  // the corpus case's inputs, summed over its runs (2 interpreted + 1 compiled); JitAccessors.cs MotiveStat
+    for (int k = 0; k < 12; k++) { static int ka; static void* a1[1] = {&ka}; ka = k; cv[k] = I32(T("JitMotiveStat", 1, a1)); }
+    if (log && cv[0] != INT_MIN)
+        Log("jit motive coverage: returned by interaction none/deltas/null delta/throwing getter %d/%d/%d/%d, threw %d/%d/%d/%d, threw in its own frame %d, "
+            "in a callee %d, posture calls %d, MotiveDeltas getter calls %d\n",
+            cv[0], cv[1], cv[2], cv[3], cv[4], cv[5], cv[6], cv[7], cv[8], cv[9], cv[10], cv[11]);
+}
+// before the corpus cases: after the full corpus the host's task driver faulted in both arms (interpreted too), a host state issue
+static void JitMotiveYieldTask() {
+    if (!JitMotiveListed()) return;
+    const int n = 18, vOn = g_jitVerifyOn;
+    int ri = 0, rc = 0;
+    g_jitVerifyOn = 0;
+    const int hi = JitMotiveYieldOnce(false, n, &ri), hc = JitMotiveYieldOnce(true, n, &rc);
+    g_jitVerifyOn = vOn;
+    JitSetPatched(true);
+    const bool ok = hi != INT_MIN && hi == hc && ri == n + 1 && rc == n + 1;
+    JitMotiveCoverage(false);  // the task's calls do not count as corpus inputs
+    Log("jit motive yield: %d calls, interpreted %08X in %d runs, compiled %08X in %d runs: %s\n", n, hi, ri, hc, rc, ok ? "same" : "DIFFER");
+}
 static void JitCorpusRun() {
     JitGateBeforeCorpus();
     int n = I32(T("JitCorpusCount", 0, NULL));
@@ -2554,6 +2606,7 @@ static void JitCorpusRun() {
     char allow0[sizeof(g_icAllow) / sizeof(g_icAllow[0])];
     memcpy(allow0, g_icAllow, sizeof(allow0));
     for (int i = 0; i < g_icCount; i++) for (const char* z : kCorpusZero) if (!g_icAllow[i] && strstr(g_icNames[i], z)) g_icAllow[i] = 1;
+    JitMotiveYieldTask();
     for (int c = c0; c <= c1 && c < n; c++) {
         if (g_jcOn) JcTick();
         int ref = 0, ref2 = 0, got = 0;
@@ -2577,6 +2630,7 @@ static void JitCorpusRun() {
     JitSetPatched(true);
     g_jitVerifyOn = vOn;
     JitGateAfterCorpus(m, c0, c1);
+    JitMotiveCoverage(true);
     memcpy(g_icAllow, allow0, sizeof(allow0));
     Log("jit corpus: %d cases, %d differ, %d unstable; per-call verify during the corpus: ok %ld, MISMATCH %ld, abandoned (exception) %ld\n",
         n, bad, unstable, g_jvOk - ok0, g_jvMismatch - mm0, g_jvAbandoned - ab0);

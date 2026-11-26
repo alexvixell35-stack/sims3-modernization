@@ -1,5 +1,7 @@
 # 689: the remaining route-plan hitches of the 30-min heap-512 soaks; Bridgeport's is upstream's `jobyieldroad` (docs/800) missing from the combo branch
 
+**Update 2026-11-26:** upstream/main was merged into the combo branch. The combo port of `jobyieldroad` / `jobyieldroadow` (counters 4860-4871, `JobYieldRoad.cs` + `RouteBackoff.cs` StepAside) was removed in favour of upstream's own code (docs/800, counters 1270-1291, defaults as upstream: ON). Slots 4860-4874 now hold combo counters moved off upstream's numbers (spotwaitattr, picnicexit, poolfailmemo, trashoutsidefallback; docs/registry.md).
+
 2026-11-25. Logs: 30-min heap-512 soaks s560c/d, s562a-c, s570a-f (combo asi ci-45550816174, `[HitchAttr]`, `[StallWatch]`,
 ufplan / ufplansplit lines), decompiled C#, our native source. Result: the top routing cause was already fixed upstream
 (docs/800 `jobyieldroad` + `jobyieldroadow`, ON since the import of 2026-11-19, Bridgeport runplan waits 30.4 s -> 0.2 s);

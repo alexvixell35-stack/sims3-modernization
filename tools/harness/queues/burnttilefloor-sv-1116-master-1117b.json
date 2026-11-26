@@ -1,0 +1,110 @@
+{
+  "note": "REPINNED to the master-1117b set (0.36.269-mb1117) from burnttilefloor-sv-1116.json. burnttilefloor-sv-1116 (feature/hoursmemo-svprobe-1116, NOT RUN): docs/277 §4.1 EA bug fix one-repro check (small-fix rule: correctness + one repro, no timing). Off arm first (bug must show), then on arm (no MopBurnt failure on the Keaton goal). Bin state apex. Needs TS3_AGENT_PACKAGE=game-copy/ts3agent.package.hoursmemo-svprobe-1116. Both PASS = candidate for default ON (rare-case fix bundle). node tools/harness/queue.ts tools/harness/queues/burnttilefloor-sv-1116.json",
+  "rewind": "auto",
+  "stopQueueOnFail": true,
+  "regexCases": {
+    "^ts3native 0\\.36\\.269-mb1117 ": {
+      "match": [
+        "ts3native 0.36.269-mb1117 2026-11-16 22:30:00"
+      ],
+      "noMatch": [
+        "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+        "ts3native 0.36.264-mono1 2026-11-15 21:44:15"
+      ]
+    },
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+      "match": [
+        "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+      ],
+      "noMatch": [
+        "compat: Apex Radiance not loaded at start"
+      ]
+    },
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+      "match": [
+        "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1507 KB, wininet.dll 5291 KB v9.7.4.0"
+      ],
+      "noMatch": [
+        "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, Sims3Performance.asi 562 KB, Sims3SettingsSetter.asi 1570 KB, ts3native.asi 1537 KB, wininet.dll 5291 KB v9.7.4.0"
+      ]
+    },
+    "routefail: .*, MopBurnt, Plan async FailedBecauseNoDestinationSpecified .*goal 1064\\.7,52\\.8,1243\\.2,": {
+      "match": [
+        "ts3fixes: routefail: Justine Keaton 0x713C Adult active, MopBurnt, Plan async FailedBecauseNoDestinationSpecified blocker None, goal 1064.7,52.8,1243.2, at 1060.9,49.8,1256.8, lot 0x6C11001B8B52BB30 room 4, 47 ms"
+      ],
+      "noMatch": [
+        "ts3fixes: routefail: Justine Keaton 0x713C Adult active, MopPuddle, DoRoute false plan Succeeded blocker None exit HigherPriorityNext, goal 1060.7,49.8,1254.5, at 1071.6,49.1,1247.0, lot 0x6C11001B8B52BB30 room 0, 10088 ms"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "id": "sv-burnttile-off",
+      "note": "Off arm (repro burnt-tile-floor-off): PASS = the bug shows: >= 1 routefail line \"MopBurnt, Plan async FailedBecauseNoDestinationSpecified ... goal 1064.7,52.8,1243.2\" (logRequire), burnttile_dropped 0. N/A (not FAIL) if the Keaton save has no burnt tile.",
+      "asi": "game-copy/ts3native.asi.master-1117b",
+      "iniBase": "game-copy/ts3native.ini.master-1117b",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+      "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.269-mb1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+        "routefail: .*, MopBurnt, Plan async FailedBecauseNoDestinationSpecified .*goal 1064\\.7,52\\.8,1243\\.2,": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "burnt-tile-floor-off",
+          "fixesReport": "burnttile_",
+          "fixesOff": "burnttilefloor",
+          "fixesRequire": "burnttile_dropped<1"
+        }
+      }
+    },
+    {
+      "id": "sv-burnttile-on",
+      "note": "On arm (repro burnt-tile-floor-on): PASS = no MopBurnt FailedBecauseNoDestinationSpecified routefail line for goal 1064.7,52.8,1243.2 (logForbid), burnttile_dropped >= 1, burnttile_err 0, 0 script errors. Household Sims: the tile is never mopped either way (vanilla outcome); only the impossible tries are gone.",
+      "asi": "game-copy/ts3native.asi.master-1117b",
+      "iniBase": "game-copy/ts3native.ini.master-1117b",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1117b",
+      "pinReason": "master-1117b set (0.36.269-mb1117, merge/master-1117b: all merged branches, switches as each queue sets them); was: feature/hoursmemo-svprobe-1116 (builds.json ts3fixes.package.hoursmemo-svprobe-1116 + ts3agent.package.hoursmemo-svprobe-1116) on the master-1116c asi + ini (0.36.267-mc1116); the agent must be the branch agent: install game-copy/ts3agent.package.hoursmemo-svprobe-1116 (TS3_AGENT_PACKAGE) before the queue (hoursmemo_checked/_barhits/_keymiss/_nostore, hhsearch_* keys)",
+      "save": "Baseline-SV-Spring",
+      "minCounters": 159,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "logRequire": {
+        "^ts3native 0\\.36\\.269-mb1117 ": 1,
+        "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+        "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+      },
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "timeoutMin": 25,
+      "logForbid": {
+        "routefail: .*, MopBurnt, Plan async FailedBecauseNoDestinationSpecified .*goal 1064\\.7,52\\.8,1243\\.2,": 0
+      },
+      "run": {
+        "profile": {
+          "minutes": 6,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "burnt-tile-floor-on",
+          "fixesReport": "burnttile_",
+          "fixesOn": "burnttilefloor",
+          "fixesRequire": "burnttile_dropped>=1,burnttile_err<1"
+        }
+      }
+    }
+  ]
+}

@@ -139,6 +139,8 @@ namespace Ts3Fixes
             PatchCounters()[2395]++;
             Simulator.AddObject(new LoopTask(delegate
             {
+                SfWait(1741);  // docs/205 §2.3c: runs on the next unpaused live frame
+                if (SfLeaving()) return;
                 try { if (Situation.sAllSituations.Contains(h) && h.Guests.Contains(s)) h.RemoveGuest(s, true); }
                 catch (Exception) { PatchCounters()[2394]++; }
             }));

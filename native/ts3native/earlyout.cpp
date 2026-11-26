@@ -59,7 +59,8 @@ static void EoKey(DWORD* k, const u8* c, const u8* R, const u8* G, const DWORD* 
 }
 
 // --- car-only components of R (union-find over byte-3 edges) ---
-struct EoCar { const u8* rec; DWORD size, w, h, n; bool ok; DWORD* base; int* lab; };
+struct EoCar { const u8* rec; DWORD size, w, h, n; bool ok; DWORD* base; int* lab; LONG lotGen; };
+static int g_laEo;  // docs/321 §10 [LaneA] EarlyOut (O12, set by lanea.cpp): labels also rebuilt when the lot generation moved
 static EoCar g_eoCar;
 static CRITICAL_SECTION g_eoCs;
 
@@ -124,10 +125,13 @@ static int EoCarApart(const u8* R, DWORD s, DWORD g) {
     EnterCriticalSection(&g_eoCs);
     EoCar& e = g_eoCar;
     const u8* rec = *(const u8* const*)(R + 0xC);
-    if (e.rec != rec || e.size != *(const DWORD*)(R + 0x10) || e.w != *(const unsigned short*)R || e.h != *(const DWORD*)(R + 4)) {
+    const LONG lotGen = ts3native_counters.lhLotGen;
+    if (e.rec != rec || e.size != *(const DWORD*)(R + 0x10) || e.w != *(const unsigned short*)R || e.h != *(const DWORD*)(R + 4) ||
+        (g_laEo && e.lotGen != lotGen)) {
         LARGE_INTEGER t0;
         QueryPerformanceCounter(&t0);
         EoCarBuild(e, R);
+        e.lotGen = lotGen;
         InterlockedIncrement(&ts3native_counters.eoLabelBuilds);
         InterlockedExchangeAdd(&ts3native_counters.eoLabelUs, UsSince(t0));
     }

@@ -21,7 +21,7 @@ namespace Ts3Fixes
     // with the busy object's user plus Sim.RouteFailure (a blocking animation) before the Sim walks to the substitute it just
     // found. Nothing yields between the push and that call. Fix: TryReplacementInteraction's hook stamps (Sim, tick) when it
     // pushed; PlayRouteFail skips the route fail for that Sim on that tick. Exit reasons, queue removal and every other
-    // route fail stay EA's. Counters: [1961] route fails skipped, [1962] would be skipped (switch off), [1963] errors.
+    // route fail stay EA's. Counters: [2763] route fails skipped, [2764] would be skipped (switch off), [2765] errors.
     //
     // petwakebed (kPetWakeBed; docs/597 §4). [verified, decompiled] Sim.WakeUpSim (pet wakes a sleeping Sim) jumps on the
     // free side of a double bed with partData.SetContainedSim(Actor) and clears it only after the 5-minute wait and Jump Down
@@ -30,7 +30,7 @@ namespace Ts3Fixes
     // the pet, the side looks taken, and only a later route fail on that part heals it (SimRoutingComponent). Fix: Cleanup
     // also clears any part of mBed whose ContainedSim is the pet when the pet is not on the bed. The Run null-bed lead is
     // not built: RunTest re-runs Test (target sleeping, container IBed) with no yield before Run.
-    // Counters: [1964] parts cleared, [1965] parts left (switch off), [1966] errors.
+    // Counters: [2167] parts cleared, [2168] parts left (switch off), [2169] errors.
     //
     // slavewakereason (kSlaveWakeReason; docs/597 §5). [verified, decompiled] BedSleep.Run, spooning slave after its sleep
     // loop: `do { exitReason = Actor.ExitReason; Actor.ClearExitReasons(); synced = IsAtSynchronizationLevelWith(master,
@@ -40,8 +40,8 @@ namespace Ts3Fixes
     // Wake instead of the Fast Wake, and the queue's post-Run reason checks see nothing. Fix (no 150-line Run copy): the
     // first pass's IsAtSynchronizationLevelWith call (after EA's first read and clear) is hooked; for the slave in this wait
     // the hook runs EA's wait itself (same order, same 5-tick sleep, same exits, plus a long hard ceiling) and keeps the
-    // reasons that arrive during it, then answers true, so EA adds the first pass's reason back. Counters: [1967] waits
-    // handled, [1968] waits of more than one pass (EA loses the reason), [1969] slave waits seen (switch off), [1970] errors
+    // reasons that arrive during it, then answers true, so EA adds the first pass's reason back. Counters: [2170] waits
+    // handled, [2171] waits of more than one pass (EA loses the reason), [2172] slave waits seen (switch off), [2173] errors
     // or ceiling.
     public static partial class Fixes
     {
@@ -90,11 +90,11 @@ namespace Ts3Fixes
                     {
                         if (SrfSkip(true, true, sameTick, (behavior & SimQueue.WaitBehavior.DontPlayRouteFail) != 0))
                         {
-                            if (ShortcutOn("subroutefail")) { PatchCounters()[1961]++; return; }
-                            PatchCounters()[1962]++;
+                            if (ShortcutOn("subroutefail")) { PatchCounters()[2763]++; return; }
+                            PatchCounters()[2764]++;
                         }
                     }
-                    catch (Exception) { PatchCounters()[1963]++; }
+                    catch (Exception) { PatchCounters()[2765]++; }
                 }
                 PlayOrig(behavior, target, sim);
             }
@@ -103,7 +103,7 @@ namespace Ts3Fixes
 
         public static object SubRouteFailCheck(string what)
         {
-            string counters = B582Counters("subroutefail", 1961, new[] { "route fails skipped (replacement pushed)", "would be skipped (switch off)", "errors" }, "");
+            string counters = B582Counters("subroutefail", 2763, new[] { "route fails skipped (replacement pushed)", "would be skipped (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "subroutefail <run|result>";
             bool on = ShortcutOn("subroutefail");
@@ -140,7 +140,7 @@ namespace Ts3Fixes
                     actor = me.Actor;
                     bed = sPwBed != null ? sPwBed.GetValue(me) as IBed : null;
                 }
-                catch (Exception) { PatchCounters()[1966]++; }
+                catch (Exception) { PatchCounters()[2169]++; }
                 CleanupOrig();
                 PwAfter(actor, bed);
             }
@@ -158,18 +158,18 @@ namespace Ts3Fixes
                 foreach (PartData p in bed.PartComponent.PartDataList.Values)
                 {
                     if (p == null || !PwClear(p.ContainedSim == actor, onBed)) continue;
-                    if (!on) { PatchCounters()[1965]++; continue; }
+                    if (!on) { PatchCounters()[2168]++; continue; }
                     p.SetContainedSim(null, bed.PartComponent);
-                    PatchCounters()[1964]++;
+                    PatchCounters()[2167]++;
                 }
             }
-            catch (Exception) { PatchCounters()[1966]++; }
+            catch (Exception) { PatchCounters()[2169]++; }
         }
 
         public static object PetWakeBedCheck(string what)
         {
             string miss = sPwBed == null ? "Sim.WakeUpSim.mBed" : "";
-            string counters = B582Counters("petwakebed", 1964, new[] { "bed parts cleared", "parts left holding the pet (switch off)", "errors" }, miss);
+            string counters = B582Counters("petwakebed", 2167, new[] { "bed parts cleared", "parts left holding the pet (switch off)", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "petwakebed <run|result>";
             bool on = ShortcutOn("petwakebed");
@@ -239,13 +239,13 @@ namespace Ts3Fixes
                     if (b != null)
                     {
                         on = ShortcutOn("slavewakereason");
-                        if (!on) PatchCounters()[1969]++;
+                        if (!on) PatchCounters()[2172]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1970]++; b = null; }
+                catch (Exception) { PatchCounters()[2173]++; b = null; }
                 if (b == null || !on) return SyncOrig(targetSim, desiredSynchLevel);
                 // EA's loop, entered after its first read and clear; reasons arriving during the wait are kept.
-                PatchCounters()[1967]++;
+                PatchCounters()[2170]++;
                 ExitReason acc = ExitReason.None;
                 int pass = 0;
                 while (!SyncOrig(targetSim, desiredSynchLevel))
@@ -254,10 +254,10 @@ namespace Ts3Fixes
                     BedSleep m = sSbMaster.GetValue(b) as BedSleep;
                     if (m == null || m.Actor == null || m.Actor.InteractionQueue == null || !m.Actor.InteractionQueue.HasInteraction(m)) break;
                     targetSim = m.Actor;
-                    if (pass == 0) PatchCounters()[1968]++;
+                    if (pass == 0) PatchCounters()[2171]++;
                     acc |= me.ExitReason;
                     me.ClearExitReasons();
-                    if (++pass >= kSbMaxPasses) { PatchCounters()[1970]++; break; }
+                    if (++pass >= kSbMaxPasses) { PatchCounters()[2173]++; break; }
                 }
                 acc |= me.ExitReason;  // arrivals during the last sleep (EA's last read)
                 me.ClearExitReasons();
@@ -270,7 +270,7 @@ namespace Ts3Fixes
         public static object SlaveWakeReasonCheck(string what)
         {
             string miss = SbMissing();
-            string counters = B582Counters("slavewakereason", 1967, new[] { "slave waits handled", "multi-pass waits (EA loses the reason)", "slave waits seen (switch off)", "errors / ceiling" }, miss);
+            string counters = B582Counters("slavewakereason", 2170, new[] { "slave waits handled", "multi-pass waits (EA loses the reason)", "slave waits seen (switch off)", "errors / ceiling" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "slavewakereason <run|result>";
             bool on = ShortcutOn("slavewakereason");

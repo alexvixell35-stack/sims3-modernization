@@ -30,8 +30,8 @@ namespace Ts3Fixes
         // alarms but keeps the handles; SetSyncEventAlarm only arms a new one while the handle is invalid. After the
         // first channel change or turn-off the sync-event viewer reactions are gone for good, and the saved stale handle
         // keeps them gone after a reload. Fix: after EA's reset the handles are set invalid (what EA's own video-game
-        // code does after its RemoveAlarm). Counters: [1366] handles reset, [1367] stale handles kept (switch off),
-        // [1368] errors.
+        // code does after its RemoveAlarm). Counters: [3001] handles reset, [3002] stale handles kept (switch off),
+        // [3003] errors.
         static readonly FieldInfo sTsTvSync = typeof(TV).GetField("mSyncEventAlarmHandler", kB11All);
         static readonly FieldInfo sTsTvGame = typeof(TV).GetField("mEndOfVideoGameSessionAlarmHandler", kB11All);
         static readonly FieldInfo sTsMsSync = typeof(MovieScreen).GetField("mSyncEventAlarmHandler", kB11All);
@@ -60,9 +60,9 @@ namespace Ts3Fixes
                 bool on = ShortcutOn("tvsyncalarm");
                 bool any = TsClear(o, a, on);
                 if (b != null && TsClear(o, b, on)) any = true;
-                if (any) PatchCounters()[on ? 1366 : 1367]++;
+                if (any) PatchCounters()[on ? 3001 : 3002]++;
             }
-            catch (Exception) { PatchCounters()[1368]++; }
+            catch (Exception) { PatchCounters()[3003]++; }
         }
 
         public class BTsTvHook
@@ -84,7 +84,7 @@ namespace Ts3Fixes
         // phone camera notes the cost; the next Sim.ModifyFunds (EA's, the very next call, no yield between) that adds
         // exactly the Sim's funds while they are short of that cost takes them instead. The note is the photographer's
         // (any Sim when EA passes no Photography skill) and this sim tick's only (no other Sim's ModifyFunds, no later one after a photo that was not taken); the next
-        // ModifyFunds clears it. Counters: [1369] photo payments taken, [1370] funds doubled (switch off), [1371] errors.
+        // ModifyFunds clears it. Counters: [3004] photo payments taken, [3005] funds doubled (switch off), [3006] errors.
         static int sPhCost;
         static Sim sPhSim;
         static long sPhTick;
@@ -127,11 +127,11 @@ namespace Ts3Fixes
                         int funds = ((Sim)(object)this).FamilyFunds;
                         if (PhBuggy(cost, funds, delta))
                         {
-                            if (ShortcutOn("photofunds")) { delta = -funds; PatchCounters()[1369]++; }
-                            else PatchCounters()[1370]++;
+                            if (ShortcutOn("photofunds")) { delta = -funds; PatchCounters()[3004]++; }
+                            else PatchCounters()[3005]++;
                         }
                     }
-                    catch (Exception) { PatchCounters()[1371]++; }
+                    catch (Exception) { PatchCounters()[3006]++; }
                 }
                 FundsOrig(delta);
             }
@@ -145,8 +145,8 @@ namespace Ts3Fixes
         // HaveBeenBestFriends, HaveLostFriendship) is wiped, so ChangeState fires NewFriend again, Charisma's friend
         // counts climb again and LostAFriend can repeat. About 36 callers (CAS links, story progression, opportunities).
         // Fix: right after EA's ChangeBitsForState in a forced change (before ChangeState reads them) the history bits
-        // the relationship had are put back. Stranger still clears everything, as EA. Counters: [1372] forced changes
-        // with history kept, [1373] history wiped (switch off), [1374] errors.
+        // the relationship had are put back. Stranger still clears everything, as EA. Counters: [3007] forced changes
+        // with history kept, [3008] history wiped (switch off), [3009] errors.
         static readonly FieldInfo sLtBits = typeof(LongTermRelationship).GetField("mInteraction", kB11All);
         const LongTermRelationship.InteractionBits kLtHistory = LongTermRelationship.InteractionBits.HaveBeenFriends | LongTermRelationship.InteractionBits.HaveBeenBestFriends | LongTermRelationship.InteractionBits.HaveLostFriendship;
         static LongTermRelationship sLtForced;
@@ -179,7 +179,7 @@ namespace Ts3Fixes
                     sLtForced = newState == LongTermRelationshipTypes.Stranger ? null : me;
                     sLtSaved = (LongTermRelationship.InteractionBits)sLtBits.GetValue(me);
                 }
-                catch (Exception) { sLtForced = null; PatchCounters()[1374]++; }
+                catch (Exception) { sLtForced = null; PatchCounters()[3009]++; }
                 try { ForceOrig(newState); }
                 finally { sLtForced = prev; sLtSaved = prevSaved; }
             }
@@ -195,10 +195,10 @@ namespace Ts3Fixes
                     LongTermRelationship.InteractionBits now = (LongTermRelationship.InteractionBits)sLtBits.GetValue(this);
                     LongTermRelationship.InteractionBits kept = LtKeep(now, sLtSaved, false);
                     if (kept == now) return;
-                    if (ShortcutOn("ltrhistorybits")) { sLtBits.SetValue(this, kept); PatchCounters()[1372]++; }
-                    else PatchCounters()[1373]++;
+                    if (ShortcutOn("ltrhistorybits")) { sLtBits.SetValue(this, kept); PatchCounters()[3007]++; }
+                    else PatchCounters()[3008]++;
                 }
-                catch (Exception) { PatchCounters()[1374]++; }
+                catch (Exception) { PatchCounters()[3009]++; }
             }
 
             public void BitsOrig(LongTermRelationshipTypes newState) { }
@@ -209,7 +209,7 @@ namespace Ts3Fixes
         // but for a friendly pair it also removes SoCold from both Sims and despawns a Haunted ghost: opening the menu
         // does what the hug does. The "Goodbye Hug" social's own after-callback (GoodbyeAndHug -> OnHug) already does
         // that removal when the hug happens. Fix: our copy returns the same name with no side effects. Counters:
-        // [1375] menu builds kept pure, [1376] side effects run (switch off), [1377] errors.
+        // [3010] menu builds kept pure, [3011] side effects run (switch off), [3012] errors.
         static void ApplyGoodbyePure()
         {
             Patch(typeof(SocialComponent), "GetGoodbyeSocial", new Type[] { typeof(Sim), typeof(Sim) }, typeof(BGbHook), "NameHook", "NameOrig");
@@ -222,16 +222,16 @@ namespace Ts3Fixes
                 if (!ShortcutOn("goodbyepure"))
                 {
                     string n = NameOrig(actor, target);
-                    if (n == "Goodbye Hug") PatchCounters()[1376]++;
+                    if (n == "Goodbye Hug") PatchCounters()[3011]++;
                     return n;
                 }
                 try
                 {
                     string name = GbName(actor, target);
-                    if (name == "Goodbye Hug") PatchCounters()[1375]++;
+                    if (name == "Goodbye Hug") PatchCounters()[3010]++;
                     return name;
                 }
-                catch (Exception) { PatchCounters()[1377]++; return NameOrig(actor, target); }
+                catch (Exception) { PatchCounters()[3012]++; return NameOrig(actor, target); }
             }
 
             public string NameOrig(Sim actor, Sim target) { return null; }
@@ -254,8 +254,8 @@ namespace Ts3Fixes
         // tub's DuckTimeFun alarm. A second Sim's bath that times out in WaitForTurn or is cancelled while queued runs
         // that Cleanup while another Sim is in the bath: the bather loses the alarm and the footprint that keeps others
         // out. Fix: while another Sim is in this tub (EA's mSimInBath) that interaction's Cleanup leaves those two
-        // alone; the rest of EA's Cleanup runs. Counters: [1378] bathers' alarm and footprint kept, [1379] cleared by
-        // another Sim's Cleanup (switch off), [1380] errors.
+        // alone; the rest of EA's Cleanup runs. Counters: [3013] bathers' alarm and footprint kept, [3014] cleared by
+        // another Sim's Cleanup (switch off), [3015] errors.
         static readonly FieldInfo sBcInBath = typeof(Bathtub).GetField("mSimInBath", kB11All);
         static readonly Dictionary<Bathtub, bool> sBcKeep = new Dictionary<Bathtub, bool>();
         static string sBcMissing = "";
@@ -293,11 +293,11 @@ namespace Ts3Fixes
                     object inBath = b.Target != null ? sBcInBath.GetValue(b.Target) : null;
                     if (inBath != null && inBath != b.Actor)
                     {
-                        if (BcKeeps(ShortcutOn("bathcleanup"), inBath, b.Actor)) { tub = b.Target; sBcKeep[tub] = true; PatchCounters()[1378]++; }
-                        else PatchCounters()[1379]++;
+                        if (BcKeeps(ShortcutOn("bathcleanup"), inBath, b.Actor)) { tub = b.Target; sBcKeep[tub] = true; PatchCounters()[3013]++; }
+                        else PatchCounters()[3014]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1380]++; }
+                catch (Exception) { PatchCounters()[3015]++; }
                 try { CleanupOrig(); }
                 finally { if (tub != null) sBcKeep.Remove(tub); }
             }
@@ -318,8 +318,8 @@ namespace Ts3Fixes
         // channel teaches (Cooking, Gardening, Fishing) whether or not this watch ever started it: a WatchTV cancelled
         // in the queue stops the Sim's skill gain from whatever it is doing now. Run itself stops the skill when the
         // watch ends normally. Fix: Cleanup stops the skill only when the Sim was still in the watcher list (EA's
-        // `if (mSimsWatchingTv.Remove(Actor))`). Counters: [1381] stray stops skipped, [1382] stray stops (switch off),
-        // [1383] errors.
+        // `if (mSimsWatchingTv.Remove(Actor))`). Counters: [3016] stray stops skipped, [3017] stray stops (switch off),
+        // [3018] errors.
         static readonly FieldInfo sTwList = typeof(TV).GetField("mSimsWatchingTv", kB11All);
         static readonly Dictionary<TV.WatchTV, bool> sTwSkip = new Dictionary<TV.WatchTV, bool>();
         static string sTwMissing = "";
@@ -346,11 +346,11 @@ namespace Ts3Fixes
                         if (list != null && !list.Contains(w.Actor))
                         {
                             if (ShortcutOn("tvwatchskill")) { sTwSkip[w] = true; marked = true; }
-                            else PatchCounters()[1382]++;
+                            else PatchCounters()[3017]++;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1383]++; }
+                catch (Exception) { PatchCounters()[3018]++; }
                 try { CleanupOrig(); }
                 finally { if (marked) sTwSkip.Remove(w); }
             }
@@ -359,7 +359,7 @@ namespace Ts3Fixes
 
             public void StopHook(Sim actor)
             {
-                if (sTwSkip.Count > 0 && sTwSkip.ContainsKey((TV.WatchTV)(object)this)) { PatchCounters()[1381]++; return; }
+                if (sTwSkip.Count > 0 && sTwSkip.ContainsKey((TV.WatchTV)(object)this)) { PatchCounters()[3016]++; return; }
                 StopOrig(actor);
             }
 
@@ -372,7 +372,7 @@ namespace Ts3Fixes
         // is that one (the type is no longer None, so it is never picked again), and a HoloComputer's holo game can turn
         // up on a normal computer. Fix: a run that found the shared definition at None puts None back when it ends, so
         // each autonomous run picks its own game (two games started together still share one pick, as before).
-        // Counters: [1384] shared picks reset, [1385] picks left in the Singleton (switch off), [1386] errors.
+        // Counters: [3019] shared picks reset, [3020] picks left in the Singleton (switch off), [3021] errors.
         static Type sCgDefType;
         static FieldInfo sCgType;
         static string sCgtMissing = "";
@@ -397,7 +397,7 @@ namespace Ts3Fixes
                     if (ii.Autonomous && (object)ii.InteractionDefinition == (object)Computer.PlayComputerGames.Singleton && (ComputerGames)sCgType.GetValue(ii.InteractionDefinition) == ComputerGames.None)
                         def = ii.InteractionDefinition;
                 }
-                catch (Exception) { PatchCounters()[1386]++; }
+                catch (Exception) { PatchCounters()[3021]++; }
                 try { return RunOrig(); }
                 finally
                 {
@@ -407,11 +407,11 @@ namespace Ts3Fixes
                         {
                             if ((ComputerGames)sCgType.GetValue(def) != ComputerGames.None)
                             {
-                                if (ShortcutOn("computergametype")) { sCgType.SetValue(def, ComputerGames.None); PatchCounters()[1384]++; }
-                                else PatchCounters()[1385]++;
+                                if (ShortcutOn("computergametype")) { sCgType.SetValue(def, ComputerGames.None); PatchCounters()[3019]++; }
+                                else PatchCounters()[3020]++;
                             }
                         }
-                        catch (Exception) { PatchCounters()[1386]++; }
+                        catch (Exception) { PatchCounters()[3021]++; }
                     }
                 }
             }
@@ -424,7 +424,7 @@ namespace Ts3Fixes
         // remembers it in mPreviousMotiveToTank; nothing clears that when the mood recovers (the loop below sets the
         // motive back to 100), so the next angry mood never tanks it. The field is saved, so a reload keeps it. Fix:
         // when the mood is not negative the remembered motive is cleared (the next angry mood tanks again). Counters:
-        // [1387] tank memories cleared, [1388] kept with a recovered mood (switch off), [1389] errors.
+        // [3022] tank memories cleared, [3023] kept with a recovered mood (switch off), [3024] errors.
         static readonly FieldInfo sMtPrev = typeof(MoodManager).GetField("mPreviousMotiveToTank", kB11All);
         static readonly Dictionary<ulong, bool> sMtMay = new Dictionary<ulong, bool>();  // by SimDescriptionId (no Sim kept alive)
         static string sMtMissing = "";
@@ -451,10 +451,10 @@ namespace Ts3Fixes
                 try
                 {
                     if ((Sims3.Gameplay.Autonomy.CommodityKind)sMtPrev.GetValue(mm) != Sims3.Gameplay.Autonomy.CommodityKind.MoodAngry) return;
-                    if (ShortcutOn("moodtankreset")) { sMtPrev.SetValue(mm, Sims3.Gameplay.Autonomy.CommodityKind.None); PatchCounters()[1387]++; }
-                    else { PatchCounters()[1388]++; sMtMay.Remove(id); }
+                    if (ShortcutOn("moodtankreset")) { sMtPrev.SetValue(mm, Sims3.Gameplay.Autonomy.CommodityKind.None); PatchCounters()[3022]++; }
+                    else { PatchCounters()[3023]++; sMtMay.Remove(id); }
                 }
-                catch (Exception) { PatchCounters()[1389]++; }
+                catch (Exception) { PatchCounters()[3024]++; }
             }
 
             public void MoodOrig(float dt, bool delayUpdate) { }
@@ -463,8 +463,8 @@ namespace Ts3Fixes
         // ---- B11 §14 reactiongrumpy (U14) -------------------------------------------------------------------------------
         // [verified, decompiled] ReactionInteraction.SetReactionType: a Grumpy Sim turns a positive reaction into
         // TraitGrumpy, but with any other reaction the type is never set and stays 0 (Angry). Fix: for a Grumpy Sim and
-        // a non-positive reaction the given reaction is set, as for every other Sim. Counters: [1390] reactions set,
-        // [1391] left at Angry (switch off), [1392] errors.
+        // a non-positive reaction the given reaction is set, as for every other Sim. Counters: [3025] reactions set,
+        // [3026] left at Angry (switch off), [3027] errors.
         static readonly FieldInfo sRgType = typeof(ReactionInteraction).GetField("mReactionType", kB11All);
         static string sRgMissing = "";
 
@@ -490,10 +490,10 @@ namespace Ts3Fixes
                     IdleAnimationInfo info;
                     if (IdleManager.sReactionAnimations.TryGetValue(reactionType, out info) && info.Positive) return;
                     if ((ReactionTypes)sRgType.GetValue(ri) == reactionType) return;
-                    if (ShortcutOn("reactiongrumpy")) { sRgType.SetValue(ri, RgType(false, reactionType)); PatchCounters()[1390]++; }
-                    else PatchCounters()[1391]++;
+                    if (ShortcutOn("reactiongrumpy")) { sRgType.SetValue(ri, RgType(false, reactionType)); PatchCounters()[3025]++; }
+                    else PatchCounters()[3026]++;
                 }
-                catch (Exception) { PatchCounters()[1392]++; }
+                catch (Exception) { PatchCounters()[3027]++; }
             }
 
             public void SetOrig(ReactionTypes reactionType) { }
@@ -503,7 +503,7 @@ namespace Ts3Fixes
         // [verified, decompiled] AthleticGameObject.TrainSim.Run: when the trainee left between Test and Run, Trainee
         // and the machine's other actor are both null and the wait loop's Trainee.LotCurrent throws at once (ts3fixes
         // trainboost covers the skill-gain leak on reset, not this). Fix: with no trainee Run ends (false) before EA's
-        // body. Counters: [1393] trainee-less runs ended, [1394] runs that threw (switch off), [1395] errors.
+        // body. Counters: [3028] trainee-less runs ended, [3029] runs that threw (switch off), [3030] errors.
         static void ApplyTrainSimGone()
         {
             Patch(typeof(AthleticGameObject.TrainSim), "Run", Type.EmptyTypes, typeof(BTgHook), "RunHook", "RunOrig");
@@ -518,11 +518,11 @@ namespace Ts3Fixes
                     AthleticGameObject.TrainSim t = (AthleticGameObject.TrainSim)(object)this;
                     if (t.Trainee == null && t.Target != null && t.Target.OtherActor(t.Actor) == null)
                     {
-                        if (ShortcutOn("trainsimgone")) { PatchCounters()[1393]++; return false; }
-                        PatchCounters()[1394]++;
+                        if (ShortcutOn("trainsimgone")) { PatchCounters()[3028]++; return false; }
+                        PatchCounters()[3029]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1395]++; }
+                catch (Exception) { PatchCounters()[3030]++; }
                 return RunOrig();
             }
 
@@ -535,8 +535,8 @@ namespace Ts3Fixes
         // music buffs and waking sleepers. DanceTogetherA.Cleanup, for a pair dancing at a wall speaker, calls the
         // speaker's DismissDancers: ending any pair (even one cancelled in the queue) sends every dancer at that speaker
         // away; the pair's own RemoveDancer calls follow. Fix: the broadcaster is rebuilt only when there was one (the
-        // stereo was playing), and a pair's Cleanup removes only its own dancers. Counters: [1396] rebuilds skipped on a
-        // silent stereo, [1397] dismissals of the other dancers skipped, [1398] off-switch hits of either.
+        // stereo was playing), and a pair's Cleanup removes only its own dancers. Counters: [3031] rebuilds skipped on a
+        // silent stereo, [3032] dismissals of the other dancers skipped, [3033] off-switch hits of either.
         static MethodInfo sSuReset, sSuSet;
         static readonly Dictionary<WallMountedSpeaker, bool> sSuKeep = new Dictionary<WallMountedSpeaker, bool>();
         static string sSuMissing = "";
@@ -564,12 +564,12 @@ namespace Ts3Fixes
                 Stereo s = (Stereo)(object)this;
                 bool had = s.SoundBroadcaster != null;
                 bool on = ShortcutOn("stereoupgrade");
-                if (had || !on) { if (!had) PatchCounters()[1398]++; UpgradeOrig(oldUpgrade, newUpgrade); return; }
+                if (had || !on) { if (!had) PatchCounters()[3033]++; UpgradeOrig(oldUpgrade, newUpgrade); return; }
                 try
                 {
-                    ((SuVoidFn)Delegate.CreateDelegate(typeof(SuVoidFn), s, sSuReset))();
-                    if (SuRebuild(on, had)) ((SuVoidFn)Delegate.CreateDelegate(typeof(SuVoidFn), s, DelegateTarget(s, sSuSet)))();  // StereoCheapBeachTowel overrides SetBroadcaster
-                    PatchCounters()[1396]++;
+                    ((SuVoidFn)Fixes.Bind(typeof(SuVoidFn), s, sSuReset))();
+                    if (SuRebuild(on, had)) ((SuVoidFn)Fixes.Bind(typeof(SuVoidFn), s, sSuSet))();
+                    PatchCounters()[3031]++;
                 }
                 catch (Exception) { UpgradeOrig(oldUpgrade, newUpgrade); }
             }
@@ -590,7 +590,7 @@ namespace Ts3Fixes
                     if (sp != null)
                     {
                         if (ShortcutOn("stereoupgrade")) sSuKeep[sp] = true;
-                        else { PatchCounters()[1398]++; sp = null; }
+                        else { PatchCounters()[3033]++; sp = null; }
                     }
                 }
                 catch (Exception) { sp = null; }
@@ -605,7 +605,7 @@ namespace Ts3Fixes
         {
             public void DismissHook()
             {
-                if (sSuKeep.Count > 0 && sSuKeep.ContainsKey((WallMountedSpeaker)(object)this)) { PatchCounters()[1397]++; return; }
+                if (sSuKeep.Count > 0 && sSuKeep.ContainsKey((WallMountedSpeaker)(object)this)) { PatchCounters()[3032]++; return; }
                 DismissOrig();
             }
 

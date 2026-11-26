@@ -10,9 +10,10 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { focusGame, giveFocusBack } from './focus-game.ts';
-import { launchGuard, stallGuard } from './game-alive.ts';
+import { captureHang, hangDir, launchGuard, stallGuard } from './game-alive.ts';
 import { BIN, GAME_EXE, killLeftovers } from './game-exe.ts';
 import { defaultSpec, problems, vanilla } from './vanilla.ts';
+import { loadSplitLine, peakPrivateMB } from './load-split.ts';
 
 const { values } = parseArgs({ options: { save: { type: 'string' }, restart: { type: 'boolean' }, port: { type: 'string', default: '47891' } } });
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -22,9 +23,20 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const stamp = () => new Date().toISOString().slice(11, 19);
 const log = (m: string) => console.log(`${stamp()} ${m}`);
 
+// connect-level failures (ETIMEDOUT / ECONNREFUSED) mean the request never reached ts3probe, so a retry cannot send it twice;
+// timing-v030-1120 smoke rerun 2026-11-20: the probe did not accept for ~21 s at the menu right after "agent answering", job FAILed
+export const connectFailed = (e: any) => ['ETIMEDOUT', 'ECONNREFUSED'].includes(e?.cause?.code);
 async function get(path: string, timeoutMs = 30000): Promise<any> {
-  const r = await fetch(`${base}/${path}`, { signal: AbortSignal.timeout(timeoutMs) });
-  return r.json();
+  for (let i = 0; ; i++) {
+    try {
+      const r = await fetch(`${base}/${path}`, { signal: AbortSignal.timeout(timeoutMs) });
+      return r.json();
+    } catch (e: any) {
+      if (i >= 2 || !connectFailed(e)) throw e;
+      log(`probe connect ${e.cause.code} on /${path.split('?')[0]}: retry ${i + 1} of 2 in 5 s`);
+      await sleep(5000);
+    }
+  }
 }
 async function agent(cmd: string, args?: object): Promise<any> {
   const q = new URLSearchParams({ cmd, timeout: '5000' });
@@ -66,7 +78,12 @@ if (values.restart) {
   const pkgs = join(USER_DIR, 'Mods', 'Packages');
   mkdirSync(pkgs, { recursive: true });
   // rebuild first: a plugin change that was only hot-reloaded would otherwise be lost on relaunch
-  execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'build-agent.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
+  // but keep an agent a chain or queue installed over the last build (build-agent.ts records its own package's sha256): the
+  // rebuild from this checkout's source replaced chain-1116d's pinned b87 agent with master's (ilpatch-b87-rerun4, 2026-11-16)
+  const agentPkg = join(ROOT, 'build', 'ts3agent.package'), agentBuilt = `${agentPkg}.built`;
+  if (existsSync(agentPkg) && existsSync(agentBuilt) && sha(agentPkg) !== readFileSync(agentBuilt, 'utf8').trim())
+    log(`build/ts3agent.package ${sha(agentPkg).slice(0, 12)} is not this checkout's last agent build: installed as is, not rebuilt`);
+  else execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'build-agent.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
   // the player mod with the fixes (mods/ts3fixes); the agent only reads and switches it
   execFileSync(process.execPath, [join(ROOT, 'tools', 'setup', 'build-fixes.ts')], { stdio: ['ignore', 'ignore', 'inherit'] });
   // the intro skip is built by nointro.ts, which no other step runs: a fresh worktree had none and every job failed at the
@@ -98,11 +115,14 @@ if (values.restart) {
 
 // load a save, ending in live mode (a save can come back in Edit Town, which pauses the clock)
 if (values.save) {
+  const tStart = Date.now(); // load split (docs/17 M1, docs/302 §6.3): the probe launches the game right before this process starts
+  let tMenu = 0;
   // game start: the probe launches TS3W.exe; only "process gone for ~1 min" fails before the agent exists
   // and a launch stuck before the agent loads (flat committed MB, docs/236 round 4) fails in ~60-90 s: probe detached, the game and the
   // EA per-launch helpers killed (never the EA app), the reason named
   const startGuard = stallGuard('game start', { port: Number(values.port), liveOnly: true }), hang = launchGuard(Number(values.port));
-  await until('agent answering', 300, async () => (await agent('ping')).ok === true, 1000, async () => {
+  // TS3_AGENT_WAIT_S: many-mods saves with a cleared script cache can need more than 300 s at the menu (kit-ab-1121 rerun3)
+  await until('agent answering', Number(process.env.TS3_AGENT_WAIT_S ?? 300), async () => (await agent('ping')).ok === true, 1000, async () => {
     const why = await startGuard();
     if (why) return why;
     const h = await hang();
@@ -122,7 +142,7 @@ if (values.save) {
     const d = await agent('auto_dialog');
     if (d.ok && d.result.open) {
       log(`menu dialog "${d.result.title}" -> ${d.result.clicked}`);
-      if (/mod scripts/i.test(d.result.title ?? '')) sawWarning = true;
+      if (/mod scripts/i.test(d.result.title ?? '')) { if (!sawWarning) tMenu = Date.now(); sawWarning = true; }
       quietSince = Date.now();
     }
     await sleep(2000);
@@ -147,6 +167,7 @@ if (values.save) {
       log(`agentArm ${arm}: ${st?.reads} of ${st?.want} done`);
     }
   }
+  const tLoad = Date.now();
   let r = await agent('load_save', { file: values.save });
   const loadGuard = stallGuard('world load', { port: Number(values.port) }); // the agent is silent while loading: heartbeat, flag, commit, log
   // still pending: the last menu poll has no answer yet (sim busy), so this load_save was not sent
@@ -163,10 +184,24 @@ if (values.save) {
   if (!r.ok) throw new Error(`load_save: ${r.error}`);
   // The agent sets the mailbox's world-loaded flag in OnWorldLoadFinished; /agentstatus reads it without a round trip.
   // Dialogs once in the world are the autopilot's job; every 10 s also try a modal that blocks the load itself.
+  // Load never started (2026-11-18, r1x set, 3 of 3): the sim ticks and the agent answers at the menu, so the stall guard sees no
+  // hang and the job only ends at the 600 s cap with no capture. Once, 120 s after load_save, when game_state answers (a real load
+  // keeps the sim busy) and is not in a world: the RunAsync result (async_log: did the transition run or throw), EA's state
+  // machine (a pending NextState nobody takes, paused, shut down) and the hang capture (stacks, managed stack). Log only.
+  let snapAt = Date.now() + 120000, snapped = false; // then one try per 30 s: no answer during a real load
+  const snap = async (cmd: string, args?: object) => JSON.stringify(await agent(cmd, args).catch((e: unknown) => ({ error: String(e) }))).slice(0, 2000);
   let waits = 0;
   await agent('dialog_expect', { seconds: 60 }); // a modal blocking the load: the autopilot leaves it to the accept below (ts3agent 03e2bfe)
   await until('world loaded', 600, async () => {
     if ((await get('agentstatus', 5000)).worldLoaded === true) return true;
+    if (!snapped && Date.now() > snapAt) {
+      snapAt = Date.now() + 30000;
+      const gs = await agent('game_state');
+      if (gs.ok && gs.result?.in_world === false) {
+        snapped = true;
+        log(`load not started after 120 s, sim alive: game_state ${JSON.stringify(gs.result)}; async_log ${await snap('async_log')}; state machine ${await snap('reflect_get', { path: 'Sims3.Gameplay.GameStates.sSingleton.mStateMachine', depth: 3 })}; ${await captureHang(hangDir(), { port: Number(values.port) }).catch(e => `hang capture failed: ${e}`)}`);
+      }
+    }
     if (++waits % 20 === 0) { await agent('dialog_expect', { seconds: 60 }); const d = await agent('auto_dialog', { accept: true }); if (d.ok && d.result.open) log(`dialog "${d.result.title}" -> ${d.result.clicked}`); } // accept: a modal blocking the load we asked for (docs/236 #3)
     return false;
   }, 500, loadGuard);
@@ -202,6 +237,7 @@ if (values.save) {
     }, 1000, stallGuard('enter live mode', { port: Number(values.port) }));
   }
   // never leave the game in front (the game takes focus at launch): return it to the window saved by queue.ts
+  log(loadSplitLine(tStart, tMenu, tLoad, Date.now(), peakPrivateMB(GAME_EXE.replace(/\.exe$/i, ''))));
   log(`ready: ${JSON.stringify((await agent('game_state')).result)}; focus: ${giveFocusBack()}; window ${focusGame() ? 'focused' : 'NOT focused'}`);
   // record the change set this run uses, so a later crash can be tied to it (crash-ledger.ts triage)
   log(execFileSync(process.execPath, [join(ROOT, 'tools', 'harness', 'crash-ledger.ts'), 'snapshot']).toString().trim());

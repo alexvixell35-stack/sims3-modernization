@@ -8,7 +8,7 @@ using Sims3.Gameplay.Interfaces;
 
 namespace Ts3Fixes
 {
-    // autonomyinuseblock (tuning kAutonomyInUseBlock, off by default; docs/577 §1). EA bug fix: autonomy's failure memory
+    // autonomyinuseblock (tuning kAutonomyInUseBlock, ON by default; docs/577 §1). EA bug fix: autonomy's failure memory
     // (GameObject.UpdateBlockTime: 1 sim-minute hard block in autonomous tests, then a score penalty fading over 30
     // sim-minutes) is skipped when an autonomous action finds its object taken by another Sim and its Run() just returns
     // false.
@@ -73,6 +73,7 @@ namespace Ts3Fixes
             public void DeQueueHook(bool succeeded)
             {
                 if (DpOn()) DpStartNote(((InteractionQueue)(object)this).GetHeadInteraction());  // dormantprobe (DormantProbe.cs, docs/630)
+                AfcDeQueue((InteractionQueue)(object)this, succeeded);  // autonomyfailcooldown (AutonomyFailCooldown.cs)
                 if (!succeeded)
                 {
                     try

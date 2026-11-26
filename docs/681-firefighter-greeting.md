@@ -34,7 +34,7 @@ greeted with EA's own `Sim.GreetSimOnLot(lot)` when in the world, not greeted, o
 and the lot is not their home. Nothing happens outside an emergency. EA bug fix for a household Sim (CLAUDE.md: EA bug fixes
 stay); the result is the one Respond to Emergency gives.
 
-Counters: [4248] greetings given, [4249] errors. Repro `fire-greet-lockout` (`FireGreetCheck run`: the decision for the
+Counters: [1494] greetings given, [1495] errors. Repro `fire-greet-lockout` (`FireGreetCheck run`: the decision for the
 reported case with controls; off BROKEN, on FIXED; prints the live emergency when one is on).
 
 Not covered: why the firefighter kept carrying the toddler (the child rescue task or autonomy); needs the player's save.

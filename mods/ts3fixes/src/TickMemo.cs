@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Ts3Fixes
@@ -70,9 +71,13 @@ namespace Ts3Fixes
 
     // Answers of a bool method with two ref float outputs, per lot id, for one sim tick (Lot.GetHoursOfOperation). A
     // false answer leaves the outputs as the caller passed them, as the game's method does.
+    // Exact within a tick (docs/276 §1.3): an entry also keeps the lot's venue key (lot type, meta-autonomy type), and a
+    // different key is a miss. A bar entry keeps the bar's own hours; its closing hour is worked out on every hit from the
+    // live bachelor-party check in the hook, so a party that starts or ends mid-tick is seen at once.
     public sealed class HoursMemo
     {
-        struct Entry { public bool Result; public float Open, Close; }
+        public const int kMiss = 0, kHit = 1, kKeyChanged = 2;
+        struct Entry { public bool Result, Bar; public int Key; public float Open, Close; }
         sealed class IdComparer : IEqualityComparer<ulong> // explicit: the default one boxes in this Mono
         {
             public bool Equals(ulong a, ulong b) { return a == b; }
@@ -85,20 +90,34 @@ namespace Ts3Fixes
         public int Count { get { return mEntries.Count; } }
         public void Clear() { if (mEntries.Count > 0) mEntries.Clear(); }
 
-        public bool TryGet(ulong id, ref float open, ref float close, out bool result)
+        // kHit: result and (when true) the outputs; bar = a bar entry, whose closing hour the caller replaces with the party
+        // end when a bachelor party is started on the lot now (true answers only). kMiss / kKeyChanged: run the game's method.
+        public int TryGet(ulong id, int key, ref float open, ref float close, out bool result, out bool bar)
         {
             Entry e;
-            if (!mEntries.TryGetValue(id, out e)) { result = false; return false; }
-            result = e.Result;
+            result = false; bar = false;
+            if (!mEntries.TryGetValue(id, out e)) return kMiss;
+            if (e.Key != key) return kKeyChanged;
+            result = e.Result; bar = e.Bar;
             if (e.Result) { open = e.Open; close = e.Close; }
-            return true;
+            return kHit;
         }
 
-        public void Store(ulong id, bool result, float open, float close)
+        // bar: the game's answer came from the bar's hours (barOk with barOpen/barClose); kept only when the answer is the
+        // bar formula (open = bar open, close = bar close or the party end), else nothing is kept (another mod changed the
+        // method: always a miss, still exact). Returns false when nothing was kept.
+        public bool Store(ulong id, int key, bool result, float open, float close, bool barOk, float barOpen, float barClose, float partyEnd)
         {
             Entry e;
-            e.Result = result; e.Open = open; e.Close = close;
+            e.Key = key; e.Result = result; e.Bar = barOk;
+            if (barOk)
+            {
+                if (!result || open != barOpen || (close != barClose && close != partyEnd)) return false;
+                e.Open = barOpen; e.Close = barClose;
+            }
+            else { e.Open = open; e.Close = close; }
             mEntries[id] = e;
+            return true;
         }
     }
 
@@ -408,5 +427,29 @@ namespace Ts3Fixes
             int u = us > int.MaxValue ? int.MaxValue : (int)us;
             if (u > c[b + 5]) c[b + 5] = u;
         }
+    }
+
+    // docs/275 Z1 zdemptyout (WriterMemos.cs): a private table read once per owner object (its field is written only by the
+    // owner's constructor). Empty = the table exists and has no entry; a null table is never empty (the game's method runs).
+    public sealed class TableKeeper
+    {
+        object mOwner;
+        ICollection mTable;
+        public bool Same(object owner) { return owner != null && ReferenceEquals(owner, mOwner); }
+        public void Keep(object owner, ICollection table) { mOwner = owner; mTable = table; }
+        public ICollection Table { get { return mTable; } }
+        public static bool Empty(ICollection t) { return t != null && t.Count == 0; }
+        public void Clear() { mOwner = null; mTable = null; }
+    }
+
+    // docs/275 M1 decaymemo (WriterMemos.cs): one owner (a buff manager) whose watched entries were all absent at add
+    // generation mGen. A hit needs the same owner and no add since; anything else is a miss and the caller stores again.
+    public sealed class AbsentMemo
+    {
+        object mOwner;
+        int mGen;
+        public bool Hit(object owner, int gen) { return owner != null && ReferenceEquals(owner, mOwner) && gen == mGen; }
+        public void Store(object owner, int gen, bool allAbsent) { mOwner = allAbsent ? owner : null; mGen = gen; }
+        public void Clear() { mOwner = null; }
     }
 }

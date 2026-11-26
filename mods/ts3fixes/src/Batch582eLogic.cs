@@ -27,7 +27,7 @@ namespace Ts3Fixes
         // and reactions stay, its commodity-map and room look-at entries stay, its components are not disposed and
         // kEventObjectDisposed is never sent. Fix at the source: after the override's own cleanup, GameObject.Dispose runs,
         // as in every other EA object. Household-visible: a household Sim's queued interaction on such an object is purged.
-        // Counters: [1205] base disposes run, [1206] disposes seen with the switch off, [1207] errors.
+        // Counters: [2892] base disposes run, [2893] disposes seen with the switch off, [2894] errors.
         static void ApplyDisposeBase()
         {
             Patch(typeof(JunkPile), "Dispose", Type.EmptyTypes, typeof(BDbJunkHook), "DisposeHook", "DisposeOrig");
@@ -43,7 +43,7 @@ namespace Ts3Fixes
         static bool DbBefore()
         {
             if (DbRunBase(ShortcutOn("disposebase"))) return true;
-            PatchCounters()[1206]++;
+            PatchCounters()[2893]++;
             return false;
         }
 
@@ -55,7 +55,7 @@ namespace Ts3Fixes
             {
                 DisposeOrig();
                 if (!DbBefore()) return;
-                try { base.Dispose(); PatchCounters()[1205]++; } catch (Exception) { PatchCounters()[1207]++; }
+                try { base.Dispose(); PatchCounters()[2892]++; } catch (Exception) { PatchCounters()[2894]++; }
             }
             public void DisposeOrig() { } // receives JunkPile.Dispose
         }
@@ -65,7 +65,7 @@ namespace Ts3Fixes
             {
                 DisposeOrig();
                 if (!DbBefore()) return;
-                try { base.Dispose(); PatchCounters()[1205]++; } catch (Exception) { PatchCounters()[1207]++; }
+                try { base.Dispose(); PatchCounters()[2892]++; } catch (Exception) { PatchCounters()[2894]++; }
             }
             public void DisposeOrig() { } // receives ShoppingRegister.Dispose
         }
@@ -75,7 +75,7 @@ namespace Ts3Fixes
             {
                 DisposeOrig();
                 if (!DbBefore()) return;
-                try { base.Dispose(); PatchCounters()[1205]++; } catch (Exception) { PatchCounters()[1207]++; }
+                try { base.Dispose(); PatchCounters()[2892]++; } catch (Exception) { PatchCounters()[2894]++; }
             }
             public void DisposeOrig() { } // receives PetBedReward.Dispose
         }
@@ -85,7 +85,7 @@ namespace Ts3Fixes
             {
                 DisposeOrig();
                 if (!DbBefore()) return;
-                try { base.Dispose(); PatchCounters()[1205]++; } catch (Exception) { PatchCounters()[1207]++; }
+                try { base.Dispose(); PatchCounters()[2892]++; } catch (Exception) { PatchCounters()[2894]++; }
             }
             public void DisposeOrig() { } // receives BubbleColumn.Dispose
         }
@@ -95,7 +95,7 @@ namespace Ts3Fixes
             {
                 DisposeOrig();
                 if (!DbBefore()) return;
-                try { base.Dispose(); PatchCounters()[1205]++; } catch (Exception) { PatchCounters()[1207]++; }
+                try { base.Dispose(); PatchCounters()[2892]++; } catch (Exception) { PatchCounters()[2894]++; }
             }
             public void DisposeOrig() { } // receives FogMarker.Dispose
         }
@@ -108,7 +108,7 @@ namespace Ts3Fixes
         // branches) are each pair's min and max. EA parses at startup, before ts3fixes is up, so the fix re-reads EA's own
         // BoardingSchool table at world load and sets the four fields of each parsed school. Household-visible: the
         // amounts in the boarding-school phone calls (the household's funds).
-        // Counters: [1208] schools corrected, [1209] schools that would change with the switch off, [1210] errors.
+        // Counters: [2895] schools corrected, [2896] schools that would change with the switch off, [2897] errors.
         static readonly string[] kBsFields = { "PhoneCallNeedMoneyMin", "PhoneCallNeedMoneyMax", "PhoneCallRewardMin", "PhoneCallRewardMax" };
 
         // Pure: {needMin, needMax, rewardMin, rewardMax} from the two parsed ranges (null when absent or short).
@@ -143,12 +143,12 @@ namespace Ts3Fixes
                     bool differs = false;
                     for (int i = 0; i < 4; i++) if ((int)f[i].GetValue(d) != want[i]) differs = true;
                     if (!differs) continue;
-                    if (!on) { PatchCounters()[1209]++; continue; }
+                    if (!on) { PatchCounters()[2896]++; continue; }
                     for (int i = 0; i < 4; i++) f[i].SetValue(d, want[i]);
-                    PatchCounters()[1208]++;
+                    PatchCounters()[2895]++;
                 }
             }
-            catch (Exception) { PatchCounters()[1210]++; }
+            catch (Exception) { PatchCounters()[2897]++; }
         }
 
         // ---- B6 §3 freshclothingresume (tuning kFreshClothingResume) ------------------------------------------------------
@@ -159,7 +159,7 @@ namespace Ts3Fixes
         // AddLaundryBuff with a saved entry and no Fresh Clothing buff on the Sim resumes the saved time (entry then used
         // up), or adds nothing when the saved time is 0 (the buff already ran out on this laundry). No entry, or the buff
         // still on the Sim: EA's add. Household-visible: Fresh Clothing (a household moodlet) lasts as EA's bookkeeping says.
-        // Counters: [1211] buffs resumed, [1212] adds skipped (worn off), [1213] seen with the switch off, [1214] errors.
+        // Counters: [2898] buffs resumed, [2899] adds skipped (worn off), [2900] seen with the switch off, [2901] errors.
         static readonly FieldInfo sFcMap = typeof(LaundryManager).GetField("mFreshClothingTimeouts", kInstAll);
 
         internal const int kFcEa = 0, kFcResume = 1, kFcSkip = 2;
@@ -198,11 +198,11 @@ namespace Ts3Fixes
                         bool has = map != null && map.TryGetValue(id, out saved);
                         bool on = ShortcutOn("freshclothingresume");
                         what = FcDecide(on, has, saved, FcBuff(actor) != null);
-                        if (!on && FcDecide(true, has, saved, FcBuff(actor) != null) != kFcEa) PatchCounters()[1213]++;
+                        if (!on && FcDecide(true, has, saved, FcBuff(actor) != null) != kFcEa) PatchCounters()[2900]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1214]++; what = kFcEa; }
-                if (what == kFcSkip) { PatchCounters()[1212]++; return; }
+                catch (Exception) { PatchCounters()[2901]++; what = kFcEa; }
+                if (what == kFcSkip) { PatchCounters()[2899]++; return; }
                 bool lmFlag;
                 bool lm = LmBefore(actor, out lmFlag);  // laundrymoodeach (Batch582iLogic.cs, docs/582 B9 §3)
                 try { AddOrig(actor); }
@@ -213,9 +213,9 @@ namespace Ts3Fixes
                     BuffInstance b = FcBuff(actor);
                     if (b != null && b.TimeoutCount > saved) b.TimeoutCount = saved;
                     map.Remove(id);
-                    PatchCounters()[1211]++;
+                    PatchCounters()[2898]++;
                 }
-                catch (Exception) { PatchCounters()[1214]++; }
+                catch (Exception) { PatchCounters()[2901]++; }
             }
             public static void AddOrig(Sim actor) { } // receives LaundryManager.AddLaundryBuff
         }
@@ -225,7 +225,7 @@ namespace Ts3Fixes
         // integer division (BabyIndex 1..TotalCount): the belly stays full until the last baby. Intent: 1 - i/n. The Run
         // hook records its baby index for its own sim task (Run yields in AnimateSim); SimDescription.SetPregnancy(float)
         // called from that task with EA's 1 gets 1 - i/n instead. Household-visible (cosmetic, twins and triplets).
-        // Counters: [1215] shapes corrected, [1216] seen with the switch off, [1217] errors.
+        // Counters: [2902] shapes corrected, [2903] seen with the switch off, [2904] errors.
         static Type sPgType;
         static FieldInfo sPgIndex, sPgTotal;
         static readonly Dictionary<ulong, float> sPgByTask = new Dictionary<ulong, float>();
@@ -260,7 +260,7 @@ namespace Ts3Fixes
                     int i = (int)sPgIndex.GetValue(this), n = (int)sPgTotal.GetValue(this);
                     if (n > 1) { sPgByTask[task] = i * 1000 + n; mine = true; }  // packed: index and count
                 }
-                catch (Exception) { PatchCounters()[1217]++; }
+                catch (Exception) { PatchCounters()[2904]++; }
                 try { return RunOrig(); }
                 finally { if (mine) sPgByTask.Remove(task); }
             }
@@ -280,15 +280,15 @@ namespace Ts3Fixes
                     float fixedV = PgShape(true, percentPregnant, i, n);
                     if (fixedV != percentPregnant)
                     {
-                        if (on) { percentPregnant = fixedV; refresh = fixedV > 0f; PatchCounters()[1215]++; }
-                        else PatchCounters()[1216]++;
+                        if (on) { percentPregnant = fixedV; refresh = fixedV > 0f; PatchCounters()[2902]++; }
+                        else PatchCounters()[2903]++;
                     }
                 }
                 SetOrig(percentPregnant);
                 // EA's SetPregnancy only stores the value when the Sim is already visually pregnant (the belly is redrawn
                 // only for 0); review 2026-11-15: without this the corrected value never showed.
                 if (refresh)
-                    try { ((SimDescription)(object)this).RefreshBodyShape(); } catch (Exception) { PatchCounters()[1217]++; }
+                    try { ((SimDescription)(object)this).RefreshBodyShape(); } catch (Exception) { PatchCounters()[2904]++; }
             }
             public void SetOrig(float percentPregnant) { } // receives SimDescription.SetPregnancy(float)
         }

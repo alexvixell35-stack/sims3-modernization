@@ -7,7 +7,7 @@ namespace Ts3Fixes
         public static object MidlifeWishSaveCheck(string what)
         {
             string missing = sMcWishes == null || sMcDate == null ? "MidlifeCrisisManager.mWishesFulfilled/mLastUpdatedDate" : "";
-            string counters = B582Counters("midlifewishsave", 1258, new[] { "values saved or restored", "exports with wishes dropped (switch off)", "errors" }, missing);
+            string counters = B582Counters("midlifewishsave", 3651, new[] { "values saved or restored", "exports with wishes dropped (switch off)", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "midlifewishsave <run|result>";
             bool on = ShortcutOn("midlifewishsave");
@@ -19,7 +19,7 @@ namespace Ts3Fixes
         // InnerBeautyOnceCheck run: the same event a second time is skipped. Controls: a new event / switch off run EA.
         public static object InnerBeautyOnceCheck(string what)
         {
-            string counters = B582Counters("innerbeautyonce", 1261, new[] { "duplicate calls skipped", "duplicates seen with switch off", "errors" }, "");
+            string counters = B582Counters("innerbeautyonce", 2923, new[] { "duplicate calls skipped", "duplicates seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "innerbeautyonce <run|result>";
             bool on = ShortcutOn("innerbeautyonce");
@@ -32,7 +32,7 @@ namespace Ts3Fixes
         public static object BetrayedNullSimCheck(string what)
         {
             string missing = sBtLoc == null ? "RomanceVisibilityState.LocalizeReputationKey" : "";
-            string counters = B582Counters("betrayednullsim", 1264, new[] { "notices shown and break-ups done", "seen with switch off", "errors" }, missing);
+            string counters = B582Counters("betrayednullsim", 3654, new[] { "notices shown and break-ups done", "seen with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "betrayednullsim <run|result>";
             bool on = ShortcutOn("betrayednullsim");
@@ -45,7 +45,7 @@ namespace Ts3Fixes
         public static object TopicTestNullCheck(string what)
         {
             string missing = sTtData == null || sTtFn == null ? "ActiveTopicData.sData/TestFunction" : "";
-            string counters = B582Counters("topictestnull", 1267, new[] { "throws avoided", "seen with switch off", "errors" }, missing);
+            string counters = B582Counters("topictestnull", 3657, new[] { "throws avoided", "seen with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "topictestnull <run|result>";
             bool on = ShortcutOn("topictestnull");
@@ -57,7 +57,7 @@ namespace Ts3Fixes
         // OppTrackerRelistenCheck run: EA's re-add path with the listener registered -> duplicate. Controls: any precondition off.
         public static object OppTrackerRelistenCheck(string what)
         {
-            string counters = B582Counters("opptrackerrelisten", 1270, new[] { "duplicate registrations avoided", "seen with switch off", "errors" }, "");
+            string counters = B582Counters("opptrackerrelisten", 3690, new[] { "duplicate registrations avoided", "seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "opptrackerrelisten <run|result>";
             bool on = ShortcutOn("opptrackerrelisten");

@@ -17,9 +17,8 @@ namespace Ts3Fixes
     // without asking that machine to exit; EA's own carry exits (CarrySystem.ExitAndKeepHolding, CarryUtils.ExitCarry)
     // request "ExitNoPut" or "Exit" first. The machine keeps its engine driver until the garbage collector finalizes the
     // script client. (Not the cause of the stuck-arm pose a player reported: tested live, docs/515 §1.)
-    // Fix, switch on: after EA's method, a dropped machine is ended as ExitAndKeepHolding does (RequestState "x"
-    // "ExitNoPut"), then disposed, which releases its driver. [2043] machines dropped (also with the switch off), [2044]
-    // ended.
+    // Fix, switch on: after EA's method, a dropped machine is disposed, which releases its driver (no exit request: see
+    // BcEnd). [2043] machines dropped (also with the switch off), [2044] ended.
     public static partial class Fixes
     {
         public class BookCarryHook
@@ -50,11 +49,10 @@ namespace Ts3Fixes
 
         static bool BcEnd(StateMachineClient m)
         {
-            // StopUsingBook runs in the reading interaction, where RequestState may wait for the state; anywhere else the
-            // waiting form throws NotSupportedException, so the request is made without waiting
-            try { m.RequestState("x", "ExitNoPut"); }
-            catch (NotSupportedException) { try { m.RequestState(false, "x", "ExitNoPut"); } catch (Exception) { } }
-            catch (Exception) { }
+            // No "ExitNoPut" request: the waiting RequestState("x", "ExitNoPut") this method made threw SacsErrorException("")
+            // at every drop (docs/515 §2). StateMachineClient.RequestState throws it before it calls the engine when a task
+            // makes a waiting request on a machine that is not handling its events asynchronously, so the state was never
+            // requested. Dispose alone is what docs/515's check and the 2026-11-17 runs tested.
             try { m.Dispose(); PatchCounters()[2044]++; return true; } catch (Exception) { return false; }
         }
 

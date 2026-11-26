@@ -27,7 +27,7 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             string missing = BaMissing();
-            string counters = "birthdayagers: later agers recorded 2577=" + c[2577] + ", listeners removed at cleanup 2578=" + c[2578] + ", errors 2579=" + c[2579] + "; " + GlMembers(missing);
+            string counters = "birthdayagers: later agers recorded 2577=" + c[3960] + ", listeners removed at cleanup 2578=" + c[3961] + ", errors 2579=" + c[3962] + "; " + GlMembers(missing);
             if (what == "result") return counters;
             if (what != "run") return "birthdayagers <run|result>";
             bool on = ShortcutOn("birthdayagers");
@@ -46,8 +46,8 @@ namespace Ts3Fixes
         {
             int[] c = PatchCounters();
             string missing = SoMissing();
-            string counters = "sneakoutlistener: stale sneak-outs skipped 2580=" + c[2580] + ", duplicate return-home listeners removed 2581=" + c[2581]
-                + ", left-over sneak listeners removed 2582=" + c[2582] + ", errors 2583=" + c[2583] + "; " + GlMembers(missing);
+            string counters = "sneakoutlistener: stale sneak-outs skipped 2580=" + c[3963] + ", duplicate return-home listeners removed 2581=" + c[3964]
+                + ", left-over sneak listeners removed 2582=" + c[3965] + ", errors 2583=" + c[3966] + "; " + GlMembers(missing);
             if (what == "result") return counters;
             if (what != "run") return "sneakoutlistener <run|result>";
             bool on = ShortcutOn("sneakoutlistener");
@@ -70,7 +70,7 @@ namespace Ts3Fixes
             string missing = sPcCarpool == null ? "PromSituation.mCarpool" : "";
             int scheduled = -1;
             try { scheduled = CarpoolManager.sScheduledCarpools.Count; } catch (Exception) { }
-            string counters = "promcarpool: carpools removed 2584=" + c[2584] + ", errors 2585=" + c[2585] + "; scheduled carpools now=" + scheduled + "; " + GlMembers(missing);
+            string counters = "promcarpool: carpools removed 2584=" + c[3618] + ", errors 2585=" + c[3619] + "; scheduled carpools now=" + scheduled + "; " + GlMembers(missing);
             if (what == "result") return counters;
             if (what != "run") return "promcarpool <run|result>";
             bool on = ShortcutOn("promcarpool");
@@ -91,7 +91,7 @@ namespace Ts3Fixes
             string missing = sCaHandle == null ? "SimUpdate.sCurfewCheckPoliceAlarmHandle" : "";
             string now = "?";
             try { if (sCaHandle != null) now = ((AlarmHandle)sCaHandle.GetValue(null)) == AlarmHandle.kInvalidHandle ? "invalid" : "set"; } catch (Exception) { }
-            string counters = "curfewalarm: handles reset at quit 2586=" + c[2586] + ", errors 2587=" + c[2587] + "; handle now=" + now + "; " + GlMembers(missing);
+            string counters = "curfewalarm: handles reset at quit 2586=" + c[3967] + ", errors 2587=" + c[3968] + "; handle now=" + now + "; " + GlMembers(missing);
             if (what == "result") return counters;
             if (what != "run") return "curfewalarm <run|result>";
             bool on = ShortcutOn("curfewalarm");

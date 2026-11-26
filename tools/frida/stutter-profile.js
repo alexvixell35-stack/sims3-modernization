@@ -520,6 +520,21 @@ function addr(name) {
   return p;
 }
 
+// The iteration boundary. ts3native [GC] IdleGate (and [GC] SqrtHeapLimit timing) retarget Simulate's per-tick call at 0xD819AA
+// to their own wrapper, and IdleGate=1 skips GC_try_to_collect for seconds between cycles: hooked at 0xE4A050 those ticks had
+// no boundary and merged into one 5-11 s "hitch" (steps ~3000; docs/281 §8.9). So hook whatever 0xD819AA calls when it is a
+// ts3native wrapper (it calls 0xE4A050 at most once, never on another thread); else 0xE4A050 as before.
+function boundaryAddr() {
+  const ea = addr('gcTryToCollect');
+  if (cfg.taskOnly) return ea;
+  const site = ptr(0xd819aa);
+  if (site.readU8() !== 0xe8) return ea;
+  const target = site.add(5).add(site.add(1).readS32());
+  if (target.equals(ptr(0xe4a050)) || Process.findModuleByAddress(target)?.name !== 'ts3native.asi') return ea;
+  console.log(`[ts3prof] iteration boundary: 0xD819AA calls ts3native ${target} (GC idle gate / SqrtHeapLimit wrapper), hooked there`);
+  return target;
+}
+
 function timed(name, onDone, onEnterExtra) {
   Interceptor.attach(addr(name), {
     onEnter(args) { this.t0 = now(); if (onEnterExtra) onEnterExtra.call(this, args); },
@@ -543,7 +558,7 @@ function install() {
   installTasks(); // before the boundary hook: it hands the sim thread id to the CModule
 
   // One GC_try_to_collect call per Simulate iteration: use its entry as the iteration boundary.
-  Interceptor.attach(addr('gcTryToCollect'), {
+  Interceptor.attach(boundaryAddr(), {
     onEnter() {
       if (simThread === null) { simThread = Process.getCurrentThreadId(); if (tasks) tasks.st.writeU32(simThread); }
       if (Process.getCurrentThreadId() !== simThread) return;

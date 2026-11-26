@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using Ts3Fixes;
 
-// tools/selftest/switchcache/run.ts: the game-independent ShortcutOn cache (SwitchCacheCore.cs, docs/603 §2).
+// tools/selftest/switchcache/run.ts: the game-independent ShortcutOn cache (SwitchCacheCore.cs, docs/605 §2).
 static class SwitchCacheTest
 {
     static int sFail;

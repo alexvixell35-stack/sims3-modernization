@@ -5,7 +5,7 @@ rem Everything goes to game-copy\rewind-bridge-1115 (git-ignored): apex-repo (cl
 rem feature/bridge-rewind), venv (meson + ninja), and the pair in apex-repo\native\remix-bridge\out. Nothing is installed.
 rem After a build: node tools\turbo-compat.ts install-copy   (the copy of the Apex release that the test arm uses)
 setlocal
-set TAG=v4.0.1
+set TAG=v4.0.6
 set HERE=%~dp0
 set ROOT=%HERE%..\..\..\..\game-copy\rewind-bridge-1115
 set REPO=%ROOT%\apex-repo

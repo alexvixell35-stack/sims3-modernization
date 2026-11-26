@@ -109,18 +109,82 @@ static volatile LONG g_hcMismatchLog;
 
 // --- DoorMemoX (worker only) ---
 struct DmxRow { DWORD key[9]; DWORD ans, deleg; LONG gen; LONGLONG t; };
-static DmxRow g_dmx[256];
-static int g_dmxI;
+// docs/321 M11 (lane C): the ring of 256 overwrote rows still inside their life 368 / 30 / 111 times in 10 min on BP / IP / SV.
+// DmxPut now reuses the key's own row, else a dead row (empty or past DoorMemoXMs), else doubles the table (worker only, the
+// old block is kept: a reader on this thread never holds a row across a put); only at g_dmxMax does the ring evict a live row (old blocks are not freed: 240 KB at most in all).
+// Find answers the newest row of a key, and one row per key is the newest, so every answer equals the ring's.
+static DmxRow g_dmx0[256];
+static DmxRow* g_dmx = g_dmx0;
+static int g_dmxI, g_dmxCap = 256;
+static int g_dmxMax = 4096;  // 4096 rows = 240 KB (a test lowers it)
 static LONG g_dmxLast;               // the mode the table was filled under
 static LONGLONG g_dmxTicks;          // DoorMemoXMs in QPC ticks
 static const DWORD* g_dmxDelegate;   // the event 59 delegate slot (0x11D72C4; NULL in tests)
 static volatile LONG g_dmxMismatchLog, g_dmxSelf;  // g_dmxSelf: mode-1 hits, every 8th asked anyway (self-check)
+// docs/585 §9: test-only [RouteSnap] DoorMemoXCheckEvery (1-8, default 8): every Nth valid row is asked live and compared;
+// 1 = every valid row (no memo answer at all, the most compares per job for a verify run)
+static LONG g_dmxEvery = 8;
 // mode 3 (DoorGen.cs, op 36): the script-side generation and the armed flag; own export, counters layout unchanged
-// hi = the source (docs/674 §9, DS_SRC_*; 0 = an older package: lo 1 arms, lo 0 is a plain bump), lo = DsIdHash of the door or
-// lot it names. DoorMemoX's generation moves on every one; DoorShare's stamps by the source's scope (doorshare.cpp).
-static u8 DmxScriptOp(DWORD lo, DWORD hi) {  // sim thread (UserDiag)
-    if (!hi && lo == 1) {
-        InterlockedIncrement(&ts3native_doorgen.gen);  // docs/674: a world load starts a new generation (no row of the last world answers)
+// Lots with an extra PortalPathPlan handler (EA: PrivacySituation, plus mods): its answer reads the asking Sim's current or
+// transition interaction (autonomous / priority), which no generation tracks (hhsearch-sv-1116: a household dog's ask flipped
+// 2 -> 1 within 79 ms, no bump). DoorGen.cs sends op 36 sub 1 (held) / 2 (free) with the lot id's low dword after each handler
+// add / remove and for every lot at arm; asks on a held lot skip the memo (no answer from it, nothing kept, no compare).
+// shortcut: 32 slots, overflow or a lot low dword 0 holds every lot until the next arm (safe side: fewer hits only)
+static volatile DWORD g_dmxHold[32];
+static volatile LONG g_dmxHoldAll;
+static bool DmxHeld(DWORD lot) {
+    if (g_dmxHoldAll) return true;
+    for (int i = 0; lot && i < 32; i++)
+        if (g_dmxHold[i] == lot) return true;
+    return false;
+}
+static void DmxHoldSet(DWORD lot, bool on) {  // sim thread
+    InterlockedIncrement(&ts3native_doorgen.gen);  // rows kept before the change are another generation
+    int free = -1;
+    for (int i = 0; lot && i < 32; i++) {
+        if (g_dmxHold[i] == lot) { if (!on) g_dmxHold[i] = 0; return; }
+        if (!g_dmxHold[i] && free < 0) free = i;
+    }
+    if (!on) return;
+    if (lot && free >= 0) {
+        g_dmxHold[free] = lot;
+        LONG held = 0;
+        for (int i = 0; i < 32; i++) held += g_dmxHold[i] != 0;
+        CapSee(CAP_DMXHOLD, held, 32);
+    } else InterlockedExchange(&g_dmxHoldAll, 1), CapFull(CAP_DMXHOLD);
+}
+// sub >= DS_SRC_OP_BASE (docs/674 §9, DoorGen.cs with DoorShare): a bump from source sub - DS_SRC_OP_BASE (DS_SRC_*), lo =
+// DsIdHash of the door or lot it names (0 = neither). DoorMemoX's generation moves on every one; DoorShare's stamps by the
+// source's scope (doorshare.cpp). sub 0 = an older package: lo 1 arms, lo 0 is a plain bump (DoorShare: every row goes).
+// docs/585 §9: sub 3 / 4 = the "unlocked" answer just given (inside the served call, from ts3fixes' hook after
+// LotManager.PortalLockedCallback) depends only on inputs doorgen tracks (3) or not (4); lo = DsNoteHash of the ask. Mode 3
+// keeps a row only when the worker's own live ask got a sub 3 note with its hash (DmxNoted): a single-gender door (its
+// answer follows Lot.IsOpenVenue, i.e. the clock), any other own door rule, special portals, a router that is no Sim, a Sim
+// outside DoorShare's ordinary class, a resort lot and a lot with extra handlers are never kept. No note (an older package):
+// nothing kept, the memo answers nothing.
+static volatile LONG g_dmxNoteHash, g_dmxNoteOk;
+static void DmxNoteClear() { InterlockedExchange(&g_dmxNoteOk, 0), InterlockedExchange(&g_dmxNoteHash, 0); }
+static bool DmxNoted(const DWORD* key) {
+    return g_dmxNoteOk == 1 && (uint32_t)g_dmxNoteHash == DsNoteHashKey((const uint32_t*)key);
+}
+static u8 DmxScriptOp(DWORD lo, DWORD sub) {  // sim thread (UserDiag); sub = DiagSend's hi
+    if (sub == 1 || sub == 2) { DmxHoldSet(lo, sub == 1); return 1; }  // DoorShare: DoorGen.cs sends its lot-handler bump right after
+    if (sub == 3 || sub == 4) {
+        InterlockedExchange(&g_dmxNoteOk, sub == 3 ? 1 : 2);
+        InterlockedExchange(&g_dmxNoteHash, (LONG)lo);
+        return 1;
+    }
+    if (sub >= 5 && sub <= 7) { InterlockedIncrement(&ts3native_doorgen.writers[sub - 5]); return 1; }  // §9 writer hook ran (count only)
+    if (sub >= DS_SRC_OP_BASE) {
+        InterlockedIncrement(&ts3native_doorgen.gen);
+        InterlockedIncrement(&ts3native_doorgen.bumps);
+        DsSrcBump((int)(sub - DS_SRC_OP_BASE), lo);
+        return 1;
+    }
+    if (lo == 1) {
+        for (int i = 0; i < 32; i++) g_dmxHold[i] = 0;  // a new world: DoorGen.cs sends every held lot right after
+        InterlockedExchange(&g_dmxHoldAll, 0);
+        InterlockedIncrement(&ts3native_doorgen.gen);
         InterlockedExchange(&ts3native_doorgen.armed, 1);
         DsSrcBump(DS_SRC_ARM, 0);
         Log("door memo x: ts3fixes doorgen armed (DoorMemoX=3 inputs tracked)");
@@ -128,7 +192,7 @@ static u8 DmxScriptOp(DWORD lo, DWORD hi) {  // sim thread (UserDiag)
     }
     InterlockedIncrement(&ts3native_doorgen.gen);
     InterlockedIncrement(&ts3native_doorgen.bumps);
-    DsSrcBump((int)hi, hi ? lo : 0);
+    DsSrcBump(DS_SRC_UNKNOWN, 0);
     return 1;
 }
 static LONG DmxGenNative() {
@@ -136,6 +200,11 @@ static LONG DmxGenNative() {
     static const int kEv[] = {5, 7, 9, 0x0A, 0x0D, 0x0E, 0x0F, 0x10};
     LONG g = 0;
     for (int i = 4; i <= 14; i++) g += k.snIc[i];
+    // docs/585 §8: also DestroyPortalHandle (16), OnExitBuildBuy (22: rooms may have new numbers, DoorShare's own rule),
+    // DoorLockStateChanged (24: RotatingWallDoor calls it without SetLockTypeAndOwner), BuildRoutingData (29), BulldozeLot
+    // (30) and the houseboat lot create / delete (31, 32); all rare, so the hit rate does not move
+    static const int kIc[] = {16, 22, 24, 29, 30, 31, 32};
+    for (int i : kIc) g += k.snIc[i];
     for (int e : kEv) g += k.snWev[e];
     return g;
 }
@@ -147,7 +216,7 @@ static DWORD DmxDeleg() { return g_dmxDelegate ? *(volatile const DWORD*)g_dmxDe
 static volatile LONG g_dmxFound;  // valid rows (the miss split's other side; not logged)
 static const DmxRow* DmxFind(const DWORD* key, LONG gen, DWORD deleg, LONGLONG now, bool* stale) {
     const DmxRow* best = NULL;
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < g_dmxCap; i++) {
         const DmxRow& r = g_dmx[i];
         if (r.t && !memcmp(r.key, key, sizeof(r.key)) && (!best || r.t > best->t)) best = &r;
     }
@@ -158,10 +227,23 @@ static const DmxRow* DmxFind(const DWORD* key, LONG gen, DWORD deleg, LONGLONG n
 }
 static void DmxPut(const DWORD* key, DWORD ans, LONG gen, DWORD deleg, LONGLONG now) {
     if (ans != 2) { InterlockedIncrement(&ts3native_doorgen.notUnlocked); return; }  // only "unlocked": see the header
-    DmxRow& w = g_dmx[g_dmxI];
-    g_dmxI = (g_dmxI + 1) & 255;
-    memcpy(w.key, key, sizeof(w.key));
-    w.ans = ans, w.gen = gen, w.deleg = deleg, w.t = now;
+    DmxRow* w = NULL;
+    int live = 0;
+    for (int i = 0; i < g_dmxCap; i++) {
+        DmxRow& r = g_dmx[g_dmxI = (g_dmxI + 1) % g_dmxCap];  // ring order from the last write: the oldest dead row first
+        const bool alive = r.t && now - r.t <= g_dmxTicks;
+        if (r.t && !memcmp(r.key, key, sizeof(r.key))) { w = &r; break; }
+        if (!alive && !w) w = &r;
+        live += alive;
+    }
+    if (!w && g_dmxCap < g_dmxMax) {
+        DmxRow* g = (DmxRow*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(DmxRow) * g_dmxCap * 2);
+        if (g) memcpy(g, g_dmx, sizeof(DmxRow) * g_dmxCap), w = &g[g_dmxCap], g_dmx = g, g_dmxI = g_dmxCap, g_dmxCap *= 2;
+    }
+    if (!w) w = &g_dmx[g_dmxI = (g_dmxI + 1) % g_dmxCap], CapFull(CAP_DMX);  // at the ceiling: the ring evicts a live row
+    CapSee(CAP_DMXROWS, live + 1, g_dmxMax);
+    memcpy(w->key, key, sizeof(w->key));
+    w->ans = ans, w->gen = gen, w->deleg = deleg, w->t = now;
 }
 static void DmxShadow(const DmxRow* row, DWORD r, const DWORD* key) {  // mode 2: a valid row asked anyway
     Ts3nCounters& k = ts3native_counters;
@@ -212,7 +294,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     Ts3nCounters& k = ts3native_counters;
     const LONG mode = k.dmMode, split = g_hcOn, xm0 = k.dmxMode, share = ts3native_doorshare.mode;
     // mode 3 before ts3fixes armed it: no cross-job memo at all (asks go out as with DoorMemoX=0)
-    const LONG xm = xm0 == 3 && !ts3native_doorgen.armed ? (InterlockedIncrement(&ts3native_doorgen.unarmedAsks), 0) : xm0;
+    LONG xm = xm0 == 3 && !ts3native_doorgen.armed ? (InterlockedIncrement(&ts3native_doorgen.unarmedAsks), 0) : xm0;
     if (!mode && !split && !xm && !share) return 0;
     if (t_snapRun) { if (mode) InterlockedIncrement(&k.dmFb[3]); return 0; }
     if (!t_hcJob || GetCurrentThreadId() != g_workerTid) { if (mode) InterlockedIncrement(&k.dmFb[0]); return 0; }
@@ -220,18 +302,20 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     DWORD key[9];
     P4DoorKey(slot + 1, key);
     // docs/674 [RouteSnap] DoorShare: a row shared by a class of routers answers first (its own stamps per portal owner and lot;
-    // nothing is answered or kept until ts3fixes doorgen armed it)
+    // nothing is answered or kept until ts3fixes doorgen armed it). A lot DoorGen.cs holds (an extra PortalPathPlan handler)
+    // is left to the live ask, as for DoorMemoX=3.
     DsAsk ds = {};
-    if (share && DsBefore(key, DmxDeleg(), HcNow(), &ds)) {
+    if (share && !DmxHeld(key[0]) && DsBefore(key, DmxDeleg(), HcNow(), &ds)) {
         HcJobDoorNote(key, 2, false);
         g_hcDoorAns = 2;
         return 1;
     }
     if (xm != g_dmxLast) {  // a flip (either way): nothing filled under the other mode is used
-        memset(g_dmx, 0, sizeof(g_dmx));
+        memset(g_dmx, 0, sizeof(DmxRow) * g_dmxCap);
         g_dmxLast = xm;
         InterlockedIncrement(&k.dmxClear);
     }
+    if (xm == 3 && DmxHeld(key[0])) InterlockedIncrement(&ts3native_doorgen.held), xm = 0;  // live, as DoorMemoX=0
     const LONG xGen = xm ? DmxGen() : 0;
     const DWORD xDel = xm ? DmxDeleg() : 0;
     const DmxRow* xRow = NULL;
@@ -246,7 +330,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         // docs/271 [Experimental] HouseholdToo=1 lets them take the memo too (same answer, cached; the 1-in-8 re-ask stays)
         const bool npc = t_hcScope == 2 || t_hcScope == 3 || ((xm == 1 || xm == 3) && !HhExempt(true));
         if ((xm == 1 || xm == 3) && !npc) InterlockedIncrement(&ts3native_doorgen.exempt);
-        if (xRow && (xm == 1 || xm == 3) && npc && (InterlockedIncrement(&g_dmxSelf) & 7)) {
+        if (xRow && (xm == 1 || xm == 3) && npc && ((DWORD)InterlockedIncrement(&g_dmxSelf) % (DWORD)g_dmxEvery)) {
             InterlockedIncrement(&k.dmxHit);
             HcJobDoorNote(key, xRow->ans, false);
             g_hcDoorAns = xRow->ans;
@@ -269,6 +353,7 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
         return 1;
     }
     DsLive(&ds);
+    if (xm == 3) DmxNoteClear();  // the note that counts is the one this ask's own callback sends
     const LONGLONG t0 = HcNow();
     t_hcDoor = 1;
     const DWORD r = ((P4DoorFn)g_hcDoorJmp)(slot[1], slot[2], slot[3], slot[4], slot[5], slot[6], slot[7], slot[8], slot[9]);
@@ -306,7 +391,8 @@ static int __cdecl HcDoorEnter(DWORD* slot) {
     }
     if (xm) {
         if (xRow) DmxShadow(xRow, r, key);
-        DmxPut(key, r, xGen, xDel, now);
+        if (xm != 3 || r != 2 || DmxNoted(key)) DmxPut(key, r, xGen, xDel, now);
+        else InterlockedIncrement(&ts3native_doorgen.unnoted);  // docs/585 §9: an answer doorgen did not vouch for: live, not kept
     }
     g_hcDoorAns = r;
     return 1;
@@ -370,10 +456,10 @@ static bool ApplyHostCalls(const wchar_t* ini) {
     const LONG how = HcInstallDoor(P4_DOOR_AT, P4_DOOR_TARGET);
     if (how) k.hcReady |= 2, Log("OK   door stub 0x%08lX -> 0x%08lX %s", P4_DOOR_AT, P4_DOOR_TARGET, kHow[how]);
     else Log("SKIP door stub: 0x%08lX is not `call 0x%08lX` and no known owner; door counters and the memo stay off", P4_DOOR_AT, P4_DOOR_TARGET);
-    // 0.36.63 (integration review): the generation (DmxGen) moves only through routesnap's World_FireEvent hook (snReady bit 1)
-    // and IC slots (bit 2); without both a row would never be invalidated by a portal or lot change
     if (Readable((const void*)(uintptr_t)TS3A(0x011D72C4), 4)) g_dmxDelegate = (const DWORD*)(uintptr_t)TS3A(0x011D72C4);  // docs/104 P1
     ApplyDoorShare(ini, how != 0, (ts3native_counters.snReady & 6) == 6);
+    // 0.36.63 (integration review): the generation (DmxGen) moves only through routesnap's World_FireEvent hook (snReady bit 1)
+    // and IC slots (bit 2); without both a row would never be invalidated by a portal or lot change
     if (memoX >= 0 && how && (ts3native_counters.snReady & 6) != 6)
         Log("SKIP door memo x: DoorMemoX=%ld needs the route snapshot's World_FireEvent hook and IC slots (snReady 0x%lX)", memoX,
             ts3native_counters.snReady), memoX = -1;
@@ -382,6 +468,8 @@ static bool ApplyHostCalls(const wchar_t* ini) {
         g_dmxTicks = g_qpf.QuadPart * ms / 1000;
         k.dmxMode = memoX;
         g_dmxLast = memoX;
+        g_dmxEvery = Clamp((LONG)GetPrivateProfileIntW(L"RouteSnap", L"DoorMemoXCheckEvery", 8, ini), 1, 8);
+        if (g_dmxEvery != 8) Log("door memo x: test: every %ld. valid row asked live and compared (DoorMemoXCheckEvery)", g_dmxEvery);
         Log("OK   door memo x: DoorMemoX=%ld (%s), max age %ld ms, unlocked answers only (switch dmxMode +0x5014, --ab doormemox)",
             memoX, memoX == 1 ? "answers from other jobs" : memoX == 2 ? "shadow: ask and compare" : memoX == 3 ? "answers from other jobs, ts3fixes doorgen inputs in the generation (acts once armed)" : "off until switched", ms);
     }

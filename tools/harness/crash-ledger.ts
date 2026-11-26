@@ -15,7 +15,8 @@ import { parseArgs } from 'node:util';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
-const LEDGER = join(ROOT, 'docs', 'data', 'change-ledger.jsonl');
+// one file per UTC month (YYYY-MM.jsonl): a single file passed GitHub's 100 MB push limit (2026-11)
+const LEDGER_DIR = join(ROOT, 'docs', 'data', 'change-ledger');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
 const STATE = join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'ts3-fixes', 'state.json');
 
@@ -44,7 +45,8 @@ function current(note?: string): Entry {
   return { at: new Date().toISOString(), key: sha(JSON.stringify(body)), ...(note ? { note } : {}), ...body };
 }
 
-const readLedger = (): Entry[] => (existsSync(LEDGER) ? readFileSync(LEDGER, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) : []);
+const readLedger = (): Entry[] => (existsSync(LEDGER_DIR) ? readdirSync(LEDGER_DIR).filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort()
+  .flatMap(f => readFileSync(join(LEDGER_DIR, f), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as Entry)) : []);
 
 function diff(a: Entry | undefined, b: Entry): string[] {
   if (!a) return ['(first recorded change set)'];
@@ -63,7 +65,8 @@ function snapshot(note?: string) {
   const e = current(note);
   const last = readLedger().at(-1);
   if (last?.key === e.key && !note) { console.log(`change set unchanged (${e.key})`); return; }
-  appendFileSync(LEDGER, JSON.stringify(e) + '\n');
+  mkdirSync(LEDGER_DIR, { recursive: true });
+  appendFileSync(join(LEDGER_DIR, `${e.at.slice(0, 7)}.jsonl`), JSON.stringify(e) + '\n');
   console.log(`change set ${e.key} recorded; since last: ${diff(last, e).join('; ') || 'nothing (note only)'}`);
 }
 

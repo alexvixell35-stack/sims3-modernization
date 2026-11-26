@@ -9,6 +9,7 @@
    "module": "d3d9.dll",
    "rva": "0x2d4b4",
    "upstream": "fixed by our bridge patch 0016, https://github.com/loinyx/Sims3-ApexRadiance/pull/89",
+   "testInstall": "in Apex main as patch 0010 (PR 106), not in release 4.0.6; tests since 2026-11-19 use the fork test install ours/test-integration-1119 a69a1bbc (tools/turbo-compat.ts FORK, probe-out/apex-latest-switch-1119.md)",
    "doc": "docs/270 §29",
    "cases": {
     "match": [
@@ -29,13 +30,15 @@
   {
    "id": "apex-401-present-lock-cycle",
    "kind": "hang",
-   "owner": "Apex Radiance 4.0.1, ABBA on two of its own mutexes with the main thread in Device_Present",
+   "owner": "Apex Radiance (4.0.1 to 4.0.13), ABBA on two of its own mutexes with the main thread in Device_Present. 4.0.1: PostScene (fixed by #91); 4.0.6 to 4.0.13: LotLightBridge::UpdateHooks static mutex vs the D3D9Hooks registration lock (docs/67 §45, fix PR in the issue)",
    "cycleModules": "ApexRadiance.asi",
    "upstream": "https://github.com/loinyx/Sims3-ApexRadiance/issues/90",
-   "doc": "docs/67 §38",
+   "testInstall": "the #91 fix (0a209879) is in fork a69a1bbc and in 4.0.13, but it covered PostScene only; the 2026-11-19 (a69a1bbc) and 2026-11-21..23 (Bin = Apex 4.0.13) hits are the LotLightBridge cycle (docs/67 §45): main in Present -> SetRoofFix -> UpdateHooks waits its mutex, the Install thread holds it and waits the registration lock in RegisterSetRenderTarget",
+   "doc": "docs/67 §38, §45",
    "cases": {
     "match": [
-     "00:51:26 queue: bp-jitsmall-b6: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi"
+     "00:51:26 queue: bp-jitsmall-b6: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi",
+     "15:08:56 kill dump (world load: nothing moved (agent heartbeat, world flag, committed MB, ts3native.log)): kill dump powershell 1320 MB in 5 s: <repo>probe-outdumps\ts3w-21696-20261119T150856.dmp; lock waits: 2 of 126 threads; deadlock cycle 19340>51796>19340; cycle modules: ApexRadiance.asi"
     ],
     "noMatch": [
      "00:51:26 queue: bp-x: kill dump powershell 1469 MB in 5 s: <repo>\\probe-out\\dumps\\ts3w-51352-20261116T005126.dmp; lock waits: 2 of 129 threads; deadlock cycle 44900>6048>44900; cycle modules: ApexRadiance.asi, ts3native.asi",

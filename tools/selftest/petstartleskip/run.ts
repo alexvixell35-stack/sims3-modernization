@@ -1,4 +1,4 @@
-// Offline self-check of petstartleskip (mods/ts3fixes/src/PetStartleSkipCore.cs, docs/645 §3): recording,
+// Offline self-check of petstartleskip (mods/ts3fixes/src/PetStartleSkipCore.cs, docs/656 §8.1): recording,
 // forced startles, exemption, expiry and the bounded table.
 // Windows (.NET Framework csc), or Linux with TS3_CSC (csc-shim).
 //   node tools/selftest/petstartleskip/run.ts

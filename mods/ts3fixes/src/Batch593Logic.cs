@@ -26,7 +26,7 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // Batch 13 (docs/593 usage sweep 5: situations, services, world systems): EA bug fixes as EA intended, household
-    // included. All default off. Slots 1862-1912 (3 each: fixed / seen with the switch off / errors).
+    // included. All default off. Slots 3196-3240 (3 each: fixed / seen with the switch off / errors).
     // Not built: G3 (false positive: PropertyStreamWriter XORs each key with a per-type hash, Int32 0x415642B and Float
     // 0x4EDCD7A9, so mFertilizerDaysLeft and mWaterLevel under 101511562 do not collide; the same as docs/590 B7),
     // B2a (inside BlackjackTable's 200-line Run loop: IL patch candidate), V4, V5, V7, V10, V11, V12, V15 (inferred),
@@ -42,8 +42,8 @@ namespace Ts3Fixes
         // `assignment.OnExit +=`; Services.Simulate catches only ResetException, so its loop dies and no service (maid,
         // repairman, firefighter, police, ...) is assigned again this session. Fix: a null assignment is not added (the
         // Sim created for it is sent home unless it is in the active household), and one service's failure no longer ends
-        // the loop (CheckForAssignment's error is caught; ResetException passes). Counters: [1862] null assignments
-        // dropped or errors contained, [1863] seen with the switch off, [1864] errors in our code.
+        // the loop (CheckForAssignment's error is caught; ResetException passes). Counters: [3196] null assignments
+        // dropped or errors contained, [3197] seen with the switch off, [3198] errors in our code.
         static readonly MethodInfo sNsAdd = B12M(typeof(Service), "AddAssignment", typeof(Sim), typeof(Lot), typeof(ServiceSituation));
         static readonly MethodInfo sNsCheck = B12M(typeof(Service), "CheckForAssignment");
         static string sNsM13 = "";
@@ -69,14 +69,14 @@ namespace Ts3Fixes
             {
                 if (assignment != null) { AddOrig(sim, lot, assignment); return; }
                 bool on = ShortcutOn("nullsituation");
-                if (!on) { PatchCounters()[1863]++; AddOrig(sim, lot, assignment); return; }
+                if (!on) { PatchCounters()[3197]++; AddOrig(sim, lot, assignment); return; }
                 try
                 {
                     bool hh = sim != null && sim.Household != null && sim.Household == Household.ActiveHousehold;
                     if (NsAction(true, true, sim != null && !sim.HasBeenDestroyed, hh) == 2) Sim.MakeSimGoHome(sim, false);
-                    PatchCounters()[1862]++;
+                    PatchCounters()[3196]++;
                 }
-                catch (Exception) { PatchCounters()[1864]++; }
+                catch (Exception) { PatchCounters()[3198]++; }
             }
 
             public void CheckHook()
@@ -84,7 +84,7 @@ namespace Ts3Fixes
                 if (!ShortcutOn("nullsituation")) { CheckOrig(); return; }
                 try { CheckOrig(); }
                 catch (ResetException) { throw; }
-                catch (Exception) { PatchCounters()[1862]++; }
+                catch (Exception) { PatchCounters()[3196]++; }
             }
 
             public void AddOrig(Sim sim, Lot lot, ServiceSituation assignment) { }
@@ -96,7 +96,7 @@ namespace Ts3Fixes
         // kLightningStrikeTypeWeights itself (`float[] array = kLightningStrikeTypeWeights; array[0] = 0f` when no Sim is
         // outside on the focus lot, array[1] when no object): after one such strike Sims (or objects) are never struck
         // again this session. Fix: the weights are put back right after (ScheduleLightning follows every DoLightning) from
-        // the values held at Apply. Counters: [1865] weights restored, [1866] left zeroed (switch off), [1867] errors.
+        // the values held at Apply. Counters: [3199] weights restored, [3200] left zeroed (switch off), [3201] errors.
         static readonly Type sLwRain = B13Nested(typeof(SeasonsManager), "WeatherManager", "RainEvent");
         static readonly FieldInfo sLwWeights = sLwRain == null ? null : B12F(sLwRain, "kLightningStrikeTypeWeights");
         static float[] sLwPristine;
@@ -133,10 +133,10 @@ namespace Ts3Fixes
                 try
                 {
                     float[] live = sLwWeights.GetValue(null) as float[];
-                    if (ShortcutOn("lightningweights")) { if (LwRestore(live, sLwPristine)) PatchCounters()[1865]++; }
-                    else if (live != null && sLwPristine != null && Array.IndexOf(live, 0f) >= 0 && Array.IndexOf(sLwPristine, 0f) < 0) PatchCounters()[1866]++;
+                    if (ShortcutOn("lightningweights")) { if (LwRestore(live, sLwPristine)) PatchCounters()[3199]++; }
+                    else if (live != null && sLwPristine != null && Array.IndexOf(live, 0f) >= 0 && Array.IndexOf(sLwPristine, 0f) < 0) PatchCounters()[3200]++;
                 }
-                catch (Exception) { PatchCounters()[1867]++; }
+                catch (Exception) { PatchCounters()[3201]++; }
                 ScheduleOrig(now);
             }
 
@@ -148,7 +148,7 @@ namespace Ts3Fixes
         // mDormant)) mDormant = !mDormant`. When frost and leafless disagree (late autumn, early spring) one of them always
         // differs, so a fruit tree flips dormant on every evaluation and grows on alternate days. Fix: the target is
         // frost || (leafless-capable && leafless), set only when it differs (EA's visual-change flag kept). Counters:
-        // [1868] flips undone, [1869] flips seen (switch off), [1870] errors.
+        // [3202] flips undone, [3203] flips seen (switch off), [3204] errors.
         static readonly FieldInfo sPfDormant = B12F(typeof(Plant), "mDormant");
         static readonly FieldInfo sPfFrost = B12F(typeof(Plant), "kDormantFrostThreshold");
         static readonly FieldInfo sPfLeaves = B12F(typeof(Plant), "kLeavesCoverageThreshold");
@@ -181,14 +181,14 @@ namespace Ts3Fixes
                     bool capable = (bool)sPfLeafless.Invoke(p, null);
                     bool target = PfTarget(SeasonsManager.FrostLevel > (float)sPfFrost.GetValue(null), capable, SeasonsManager.TreeLeavesCoverage < (float)sPfLeaves.GetValue(null));
                     if ((bool)sPfDormant.GetValue(p) == target) return r;
-                    if (!ShortcutOn("plantdormantflip")) { PatchCounters()[1869]++; return r; }
+                    if (!ShortcutOn("plantdormantflip")) { PatchCounters()[3203]++; return r; }
                     sPfDormant.SetValue(p, target);
                     bool visual = (bool)sPfFrosted.Invoke(p, null);
                     if (capable && target) sPfDelete.Invoke(p, null);
-                    PatchCounters()[1868]++;
+                    PatchCounters()[3202]++;
                     return r || visual;
                 }
-                catch (Exception) { PatchCounters()[1870]++; return r; }
+                catch (Exception) { PatchCounters()[3204]++; return r; }
             }
 
             public bool SeasonOrig() { return false; }
@@ -198,8 +198,8 @@ namespace Ts3Fixes
         // [verified, decompiled; impact inferred] Plant.EvaluatePlantGrowth returns early while dormant (or out of the
         // world) before `SimClock.ElapsedTimeHours(ref mLastEvaluationTime)`, so the first evaluation after the dormant
         // span drains WaterDecay x the whole span at once (a garden comes out of winter dry). Fix: an evaluation that
-        // returned early refreshes mLastEvaluationTime (EA's AutoGrow path already does). Counters: [1871] times
-        // refreshed, [1872] spans left to drain (switch off), [1873] errors.
+        // returned early refreshes mLastEvaluationTime (EA's AutoGrow path already does). Counters: [3205] times
+        // refreshed, [3206] spans left to drain (switch off), [3207] errors.
         static readonly FieldInfo sPtLast = B12F(typeof(Plant), "mLastEvaluationTime");
         static string sPtM13 = "";
 
@@ -223,11 +223,11 @@ namespace Ts3Fixes
                 {
                     Plant p = (Plant)(object)this;
                     if (p.HasBeenDestroyed || !PtRefresh((bool)sPfDormant.GetValue(p), p.InWorld)) return;
-                    if (!ShortcutOn("plantdormanttime")) { PatchCounters()[1872]++; return; }
+                    if (!ShortcutOn("plantdormanttime")) { PatchCounters()[3206]++; return; }
                     sPtLast.SetValue(p, SimClock.ElapsedTime(TimeUnit.Hours));
-                    PatchCounters()[1871]++;
+                    PatchCounters()[3205]++;
                 }
-                catch (Exception) { PatchCounters()[1873]++; }
+                catch (Exception) { PatchCounters()[3207]++; }
             }
 
             public void EvalOrig() { }
@@ -239,8 +239,8 @@ namespace Ts3Fixes
         // objects). HarvestPlant.UpdateGardeningSkillJournal credits mushroom collecting to PlumbBob.SelectedActor, not
         // the harvester (an NPC harvest credits the player's Sim; nobody selected throws). Fix: our DoHarvest copy puts
         // each extra in the harvester's inventory (or the burglar's loot, as HarvestHarvestable does), else destroys it,
-        // and the journal (base copy) credits the harvester. The rest is EA's order. Counters: [1874] extras kept / journals
-        // credited to the harvester, [1875] extras lost (switch off), [1876] errors.
+        // and the journal (base copy) credits the harvester. The rest is EA's order. Counters: [3208] extras kept / journals
+        // credited to the harvester, [3209] extras lost (switch off), [3210] errors.
         static readonly MethodInfo sHeHarvest = B12M(typeof(HarvestPlant), "HarvestHarvestable", typeof(GameObject), typeof(Sim), typeof(BurglarSituation));
         static readonly MethodInfo sHeManip = B12M(typeof(HarvestPlant), "ManipulateHarvestable", typeof(Sim), typeof(GameObject));
         static readonly MethodInfo sHeJournal = B12M(typeof(HarvestPlant), "UpdateGardeningSkillJournal", typeof(Sims3.Gameplay.Skills.Gardening), typeof(PlantDefinition), typeof(List<GameObject>));
@@ -278,8 +278,13 @@ namespace Ts3Fixes
         {
             public bool HarvestHook(Sim actor, bool hasHarvested, BurglarSituation burglarSituation)
             {
-                if (!ShortcutOn("harvestextras")) { PatchCounters()[1875]++; return HarvestOrig(actor, hasHarvested, burglarSituation); }
-                HarvestPlant hp = (HarvestPlant)(object)this;
+                if (!ShortcutOn("harvestextras")) { PatchCounters()[3209]++; return HarvestOrig(actor, hasHarvested, burglarSituation); }
+                return HeDoHarvest((HarvestPlant)(object)this, actor, hasHarvested, burglarSituation);
+            }
+
+            // The fixed body; also run by CompatResolve CrHe0 for a mod's static DoHarvest copy.
+            internal static bool HeDoHarvest(HarvestPlant hp, Sim actor, bool hasHarvested, BurglarSituation burglarSituation)
+            {
                 List<GameObject> list = new List<GameObject>();
                 foreach (Slot slot in hp.GetContainmentSlots())
                 {
@@ -314,7 +319,7 @@ namespace Ts3Fixes
                 if (collecting == null) collecting = (Collecting)actor.SkillManager.AddElement(SkillNames.Collecting);
                 collecting.CollectedFromHarvest(list);
                 hp.PostHarvest();
-                PatchCounters()[1874]++;
+                PatchCounters()[3208]++;
                 return true;
             }
 
@@ -343,8 +348,8 @@ namespace Ts3Fixes
         // [verified, decompiled] HarvestPlant.CreateHarvestablesLoop takes a mushroom's slot as emptyContainmentSlots[num++]
         // while it also removes each used slot from that list: slots are skipped (0, 2, 4, ...) and with fewer than
         // 2 x yield slots it throws ArgumentOutOfRange before AddHarvestStateTimeoutAlarm, so the mushrooms never time out.
-        // Fix: our copy takes the first remaining slot (the same order EA meant). Counters: [1877] mushroom loops our way,
-        // [1878] EA's loops (switch off), [1879] errors.
+        // Fix: our copy takes the first remaining slot (the same order EA meant). Counters: [3211] mushroom loops our way,
+        // [3212] EA's loops (switch off), [3213] errors.
         static readonly FieldInfo sSsShrooms = B12F(typeof(HarvestPlant), "mNumberOfShroomsPerPlant");
         static readonly FieldInfo sSsYielded = B12F(typeof(HarvestPlant), "mLifetimeHarvestablesYielded");
         static readonly FieldInfo sSsHelped = B12F(typeof(Plant), "mSimsWhoHelpedGrow");
@@ -369,8 +374,8 @@ namespace Ts3Fixes
             {
                 HarvestPlant hp = (HarvestPlant)(object)this;
                 if (!Plant.IsMushroom(hp.Seed)) { LoopOrig(yield, ref empty); return; }
-                if (!ShortcutOn("shroomslots")) { PatchCounters()[1878]++; LoopOrig(yield, ref empty); return; }
-                PatchCounters()[1877]++;
+                if (!ShortcutOn("shroomslots")) { PatchCounters()[3212]++; LoopOrig(yield, ref empty); return; }
+                PatchCounters()[3211]++;
                 if (GameUtils.IsInstalled(ProductVersion.EP7))
                 {
                     yield = (int)sSsShrooms.GetValue(hp);
@@ -402,8 +407,8 @@ namespace Ts3Fixes
         // [verified, decompiled; tuning read] HarvestPlant.GetGrowthPerformanceRegion compares the growth performance with
         // PerformanceThresholds[1] only: below it Good, else Great, so Average (bottom region, no bonus) never comes and
         // every harvestable gets at least kHarvestableQualityBoost[Good] (+0.035). PlantDefinition holds two thresholds.
-        // Fix: below [0] Average, below [1] Good, else Great. Counters: [1880] regions our way, [1881] Average answered as
-        // Good (switch off), [1882] errors.
+        // Fix: below [0] Average, below [1] Good, else Great. Counters: [3214] regions our way, [3215] Average answered as
+        // Good (switch off), [3216] errors.
         static readonly MethodInfo sHrPerf = B12M(typeof(Plant), "CalculateGrowthPerformance");
         static string sHrM13 = "";
 
@@ -430,10 +435,10 @@ namespace Ts3Fixes
                     if (hp.PlantDef == null || hp.PlantDef.PerformanceThresholds == null || hp.PlantDef.PerformanceThresholds.Length < 2) return RegionOrig();
                     float perf = hp.CalculateGrowthPerformance(), t0 = hp.PlantDef.PerformanceThresholds[0], t1 = hp.PlantDef.PerformanceThresholds[1];
                     bool on = ShortcutOn("harvestregion");
-                    if (perf < t0) PatchCounters()[on ? 1880 : 1881]++;
+                    if (perf < t0) PatchCounters()[on ? 3214 : 3215]++;
                     return HrRegion(on, perf, t0, t1);
                 }
-                catch (Exception) { PatchCounters()[1882]++; return RegionOrig(); }
+                catch (Exception) { PatchCounters()[3216]++; return RegionOrig(); }
             }
 
             public GrowthPerformanceRegion RegionOrig() { return GrowthPerformanceRegion.Average; }
@@ -443,8 +448,8 @@ namespace Ts3Fixes
         // [verified, decompiled] WishingWell.StealCoins.Definition.Test computes `mLastWishMade + cooldown < now` and drops
         // the result (`_ =`), so coins can be stolen right after every wish; it also builds the cooldown with the
         // two-int DateAndTime constructor (an absolute time). Fix: within kStealCoinsCooldownMinutes of the last wish
-        // (SimClock.Add) the test fails. Counters: [1883] tests refused in the cooldown, [1884] passed in it (switch off),
-        // [1885] errors.
+        // (SimClock.Add) the test fails. Counters: [3217] tests refused in the cooldown, [3218] passed in it (switch off),
+        // [3219] errors.
         static readonly Type sWsWell = B13StoreType("Sims3.Store.Objects.WishingWell");
         static readonly Type sWsDef = B13Nested(sWsWell, "StealCoins", "Definition");
         static readonly FieldInfo sWsLast = sWsWell == null ? null : B12F(sWsWell, "mLastWishMade");
@@ -477,11 +482,11 @@ namespace Ts3Fixes
                     DateAndTime last = (DateAndTime)sWsLast.GetValue(target);
                     long cool = SimClock.ConvertToTicks((float)sWsCool.GetValue(null), TimeUnit.Minutes);
                     if (!WsCooling(last != default(DateAndTime), last.Ticks, SimClock.CurrentTicks, cool)) return r;
-                    if (!ShortcutOn("wellstealcooldown")) { PatchCounters()[1884]++; return r; }
-                    PatchCounters()[1883]++;
+                    if (!ShortcutOn("wellstealcooldown")) { PatchCounters()[3218]++; return r; }
+                    PatchCounters()[3217]++;
                     return false;
                 }
-                catch (Exception) { PatchCounters()[1885]++; return r; }
+                catch (Exception) { PatchCounters()[3219]++; return r; }
             }
 
             public bool TestOrig(Sim a, GameObject target, bool isAutonomous, ref GreyedOutTooltipCallback cb) { return false; }
@@ -492,7 +497,7 @@ namespace Ts3Fixes
         // (ModifyFunds(-TimeoutData)) as a side effect and OpportunityManager calls it twice for the same opportunity in
         // one pass (once to fail it, once more while removing it), so the household pays twice. EA clears SetupObject
         // after the charge. Fix: the charge is made only while SetupObject is still set (once); the answer is EA's.
-        // Counters: [1886] second charges skipped, [1887] charged twice (switch off), [1888] errors.
+        // Counters: [3220] second charges skipped, [3221] charged twice (switch off), [3222] errors.
         static void ApplyOppFailCharge()
         {
             Patch(typeof(Opportunity), "IsFailed", Type.EmptyTypes, typeof(B13OfHook), "FailHook", "FailOrig");
@@ -507,11 +512,11 @@ namespace Ts3Fixes
                 Opportunity o = (Opportunity)(object)this;
                 bool deleted;
                 try { deleted = o.Timeout == Opportunity.OpportunitySharedData.TimeoutCondition.SetupObjectDeleted && o.SetupObject == null && o.IsTimeout(); }
-                catch (Exception) { PatchCounters()[1888]++; return FailOrig(); }
+                catch (Exception) { PatchCounters()[3222]++; return FailOrig(); }
                 if (!deleted) return FailOrig();
                 // a second call: EA charges again
-                if (OfCharge(ShortcutOn("oppfailcharge"), false)) { PatchCounters()[1887]++; return FailOrig(); }
-                PatchCounters()[1886]++;
+                if (OfCharge(ShortcutOn("oppfailcharge"), false)) { PatchCounters()[3221]++; return FailOrig(); }
+                PatchCounters()[3220]++;
                 return true;
             }
 
@@ -521,8 +526,8 @@ namespace Ts3Fixes
         // ---- B13 §10 tempforecast (docs/593 T1) ----------------------------------------------------------------------
         // [verified, decompiled] SeasonsManager.TemperatureManager.GetMinMaxTemperature (r44 looked on WeatherManager: not found) interpolates `w * min + (1 - w) * max`,
         // the inverse of GetTargetTemperature's `min + w * (max - min)`: the forecast range shown is the mirror of the
-        // temperatures that come. Fix: GetTargetTemperature's formula. Counters: [1889] forecasts our way, [1890]
-        // mirrored (switch off), [1891] errors.
+        // temperatures that come. Fix: GetTargetTemperature's formula. Counters: [3223] forecasts our way, [3224]
+        // mirrored (switch off), [3225] errors.
         static readonly Type sTfMgr = B13Nested(typeof(SeasonsManager), "TemperatureManager");
         static readonly FieldInfo sTfMin = sTfMgr == null ? null : B12F(sTfMgr, "sMinCurve");
         static readonly FieldInfo sTfMax = sTfMgr == null ? null : B12F(sTfMgr, "sMaxCurve");
@@ -548,7 +553,7 @@ namespace Ts3Fixes
             // (DateAndTime time, SeasonVariable<float> weights, out float min, out float max); SeasonVariable is private
             public void MinMaxHook(DateAndTime time, object weights, out float min, out float max)
             {
-                if (!ShortcutOn("tempforecast")) { PatchCounters()[1890]++; MinMaxOrig(time, weights, out min, out max); return; }
+                if (!ShortcutOn("tempforecast")) { PatchCounters()[3224]++; MinMaxOrig(time, weights, out min, out max); return; }
                 try
                 {
                     object lo = sTfMin.GetValue(null), hi = sTfMax.GetValue(null);
@@ -561,9 +566,9 @@ namespace Ts3Fixes
                         if (v < min) min = v;
                         if (v > max) max = v;
                     }
-                    PatchCounters()[1889]++;
+                    PatchCounters()[3223]++;
                 }
-                catch (Exception) { PatchCounters()[1891]++; MinMaxOrig(time, weights, out min, out max); }
+                catch (Exception) { PatchCounters()[3225]++; MinMaxOrig(time, weights, out min, out max); }
             }
 
             public void MinMaxOrig(DateAndTime time, object weights, out float min, out float max) { min = 0f; max = 0f; }
@@ -573,7 +578,7 @@ namespace Ts3Fixes
         // [verified, decompiled] HaveFishMounted.Definition keeps mCost on the shared Singleton: GetInteractionName and Test
         // write it for every fish shown, and RunFromInventory charges whatever fish was tested last. Fix: right before Run
         // reads it, the Definition gets the cost of this interaction's own fish (no yield between the write and EA's read).
-        // Counters: [1892] costs set to the run's fish, [1893] another fish's cost charged (switch off), [1894] errors.
+        // Counters: [3226] costs set to the run's fish, [3227] another fish's cost charged (switch off), [3228] errors.
         static readonly Type sMfType = typeof(Fish).Assembly.GetType("Sims3.Gameplay.Objects.Fishing.HaveFishMounted");
         static readonly Type sMfDef = sMfType == null ? null : sMfType.GetNestedType("Definition", BindingFlags.NonPublic);
         static readonly FieldInfo sMfCost = sMfDef == null ? null : B12F(sMfDef, "mCost");
@@ -602,12 +607,12 @@ namespace Ts3Fixes
                         int own = MountedFish.GetCostToMountFish(fish);
                         if (MfStale((int)sMfCost.GetValue(def), own))
                         {
-                            if (ShortcutOn("mountfishcost")) { sMfCost.SetValue(def, own); PatchCounters()[1892]++; }
-                            else PatchCounters()[1893]++;
+                            if (ShortcutOn("mountfishcost")) { sMfCost.SetValue(def, own); PatchCounters()[3226]++; }
+                            else PatchCounters()[3227]++;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1894]++; }
+                catch (Exception) { PatchCounters()[3228]++; }
                 return RunOrig();
             }
 
@@ -621,8 +626,8 @@ namespace Ts3Fixes
 
         // ---- B13 §13 firefightercount (docs/593 V8) ------------------------------------------------------------------
         // [verified, decompiled] Firefighter.NeedsAssignment: `assigned <= GetMaxNumNPCsInPool()` lets one more firefighter
-        // come while the pool's maximum is already on the lot. Fix: `<`. Counters: [1898] extra firefighters not sent,
-        // [1899] sent (switch off), [1900] errors.
+        // come while the pool's maximum is already on the lot. Fix: `<`. Counters: [3229] extra firefighters not sent,
+        // [3230] sent (switch off), [3231] errors.
         static readonly MethodInfo sFcMax = B12M(typeof(Service), "GetMaxNumNPCsInPool");
         static string sFcM13 = "";
 
@@ -646,11 +651,11 @@ namespace Ts3Fixes
                     Service s = (Service)(object)this;
                     int assigned = s.NumSimsAssignedToLot(lot), max = (int)sFcMax.Invoke(s, null);
                     if (FcRoom(true, assigned, max)) return r;
-                    if (!ShortcutOn("firefightercount")) { PatchCounters()[1899]++; return r; }
-                    PatchCounters()[1898]++;
+                    if (!ShortcutOn("firefightercount")) { PatchCounters()[3230]++; return r; }
+                    PatchCounters()[3229]++;
                     return false;
                 }
-                catch (Exception) { PatchCounters()[1900]++; return r; }
+                catch (Exception) { PatchCounters()[3231]++; return r; }
             }
 
             public bool NeedsOrig(Lot lot) { return false; }
@@ -660,7 +665,7 @@ namespace Ts3Fixes
         // [verified, decompiled] Repairman.UpdateCreatedSim (every time the repairman is created for a job) adds
         // RandomUtil.GetInt(kMinHandinessSkill, kMaxHandinessSkill) levels on top of what the Sim has, so after one or two
         // visits every repairman is at the cap and the tuned 5-10 spread is gone. Fix: the Sim is levelled up to the rolled
-        // level (never down). Counters: [1901] levels set to the roll, [1902] stacked (switch off), [1903] errors.
+        // level (never down). Counters: [3232] levels set to the roll, [3233] stacked (switch off), [3234] errors.
         static readonly FieldInfo sRsMin = B12F(typeof(Repairman), "kMinHandinessSkill");
         static readonly FieldInfo sRsMax = B12F(typeof(Repairman), "kMaxHandinessSkill");
         static string sRsM13 = "";
@@ -679,16 +684,16 @@ namespace Ts3Fixes
         {
             public void UpdateHook(Sim sim)
             {
-                if (!ShortcutOn("repairmanskill")) { PatchCounters()[1902]++; UpdateOrig(sim); return; }
+                if (!ShortcutOn("repairmanskill")) { PatchCounters()[3233]++; UpdateOrig(sim); return; }
                 try
                 {
                     Skill skill = sim.SkillManager.AddElement(SkillNames.Handiness);
                     int roll = RandomUtil.GetInt((int)sRsMin.GetValue(null), (int)sRsMax.GetValue(null));
                     int n = RsLevelUps(true, skill.SkillLevel, roll, skill.MaxSkillLevel);
                     for (int i = 0; i < n; i++) skill.ForceGainPointsForLevelUp();
-                    PatchCounters()[1901]++;
+                    PatchCounters()[3232]++;
                 }
-                catch (Exception) { PatchCounters()[1903]++; }
+                catch (Exception) { PatchCounters()[3234]++; }
             }
 
             public void UpdateOrig(Sim sim) { }
@@ -697,7 +702,7 @@ namespace Ts3Fixes
         // ---- B13 §15 roundupreturn (docs/593 V3) ---------------------------------------------------------------------
         // [verified, decompiled] PoliceSituation.RoundUpTeens.Init: with no active actor it sets the Leave state and then
         // goes on (no return), reading RequestingSim / the teen lists of a situation that is leaving: NRE in Init. Fix:
-        // return after EA's SetState(Leave). Counters: [1904] inits ended, [1905] run on (switch off), [1906] errors.
+        // return after EA's SetState(Leave). Counters: [3235] inits ended, [3236] run on (switch off), [3237] errors.
         static void ApplyRoundUpReturn()
         {
             Patch(typeof(PoliceSituation.RoundUpTeens), "Init", new Type[] { typeof(PoliceSituation) }, typeof(B13RuHook), "InitHook", "InitOrig");
@@ -710,9 +715,9 @@ namespace Ts3Fixes
             public void InitHook(PoliceSituation parent)
             {
                 if (!RuLeaveOnly(Sim.ActiveActor == null)) { InitOrig(parent); return; }
-                if (!ShortcutOn("roundupreturn")) { PatchCounters()[1905]++; InitOrig(parent); return; }
-                try { parent.SetState(new PoliceSituation.Leave(parent)); PatchCounters()[1904]++; }
-                catch (Exception) { PatchCounters()[1906]++; }
+                if (!ShortcutOn("roundupreturn")) { PatchCounters()[3236]++; InitOrig(parent); return; }
+                try { parent.SetState(new PoliceSituation.Leave(parent)); PatchCounters()[3235]++; }
+                catch (Exception) { PatchCounters()[3237]++; }
             }
 
             public void InitOrig(PoliceSituation parent) { }
@@ -723,7 +728,7 @@ namespace Ts3Fixes
         // owned by the butler; only EndService removes it. A butler situation that ends another way (fired, quit, the
         // situation exited) keeps the alarm on a Sim with a virtual home, and it charges the household every week. Fix:
         // ServiceSituation.CleanUp (the serviceshowalarm swap, which calls ButlerCleanUp after EA's CleanUp) removes it.
-        // Counters: [1907] alarms removed, [1908] left (switch off), [1909] errors.
+        // Counters: [2926] alarms removed, [2927] left (switch off), [2928] errors.
         static readonly FieldInfo sBpAlarm = B12F(typeof(ButlerSituation), "mPayButlerAlarm");
         static string sBpM13 = "";
 
@@ -743,12 +748,12 @@ namespace Ts3Fixes
             {
                 AlarmHandle h = (AlarmHandle)sBpAlarm.GetValue(ss);
                 if (!BpRemove(true, h != AlarmHandle.kInvalidHandle)) return;
-                if (!ShortcutOn("butlerpayalarm")) { PatchCounters()[1908]++; return; }
+                if (!ShortcutOn("butlerpayalarm")) { PatchCounters()[2927]++; return; }
                 if (ss.Worker != null) ss.Worker.RemoveAlarm(h); else AlarmManager.Global.RemoveAlarm(h);
                 sBpAlarm.SetValue(ss, AlarmHandle.kInvalidHandle);
-                PatchCounters()[1907]++;
+                PatchCounters()[2926]++;
             }
-            catch (Exception) { PatchCounters()[1909]++; }
+            catch (Exception) { PatchCounters()[2928]++; }
         }
 
         // ---- B13 §17 petharvestvfx (docs/593 H1) ---------------------------------------------------------------------
@@ -756,7 +761,7 @@ namespace Ts3Fixes
         // (`visualEffect = onGround ? mEatGroundVfx : mEatFallVfx` then `visualEffect = VisualEffect.Create(...)`), never
         // into the field, so StopEatingVfx finds null and the effect runs on (and a new one starts every bite). The
         // FoodObjects twin is harvesteatvfx (EP agent). Fix: our copies store the effect in its field and clear it on stop.
-        // Counters: [1910] effects kept and stopped, [1911] leaked (switch off), [1912] errors.
+        // Counters: [3238] effects kept and stopped, [3239] leaked (switch off), [3240] errors.
         static readonly Type sPvType = typeof(HarvestPlant).GetNestedType("EatFromHarvestPlantPet", BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sPvGround = sPvType == null ? null : B12F(sPvType, "mEatGroundVfx");
         static readonly FieldInfo sPvFall = sPvType == null ? null : B12F(sPvType, "mEatFallVfx");
@@ -785,7 +790,7 @@ namespace Ts3Fixes
         {
             public void StartHook(bool onGround)
             {
-                if (!ShortcutOn("petharvestvfx")) { PatchCounters()[1911]++; StartOrig(onGround); return; }
+                if (!ShortcutOn("petharvestvfx")) { PatchCounters()[3239]++; StartOrig(onGround); return; }
                 try
                 {
                     FieldInfo f = onGround ? sPvGround : sPvFall;
@@ -798,9 +803,9 @@ namespace Ts3Fixes
                     v.ParentTo(a, Sim.FXJoints.Mouth);
                     v.Start();
                     f.SetValue(this, v);
-                    PatchCounters()[1910]++;
+                    PatchCounters()[3238]++;
                 }
-                catch (Exception) { PatchCounters()[1912]++; }
+                catch (Exception) { PatchCounters()[3240]++; }
             }
 
             public void StopHook(bool onGround)
@@ -815,7 +820,7 @@ namespace Ts3Fixes
                     v.Dispose();
                     f.SetValue(this, null);
                 }
-                catch (Exception) { PatchCounters()[1912]++; }
+                catch (Exception) { PatchCounters()[3240]++; }
             }
 
             public void StartOrig(bool onGround) { }

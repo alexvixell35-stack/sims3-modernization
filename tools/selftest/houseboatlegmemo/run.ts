@@ -1,4 +1,4 @@
-// Offline self-check of houseboatlegmemo (mods/ts3fixes/src/HouseboatLegMemoCore.cs, docs/642 §6): hit only from the same
+// Offline self-check of houseboatlegmemo (mods/ts3fixes/src/HouseboatLegMemoCore.cs, docs/853 §2): hit only from the same
 // router, start and goal inside the window; expiry, clock going back, replacement and the bounded table.
 // Windows (.NET Framework csc), or Linux with TS3_CSC (csc-shim).
 //   node tools/selftest/houseboatlegmemo/run.ts

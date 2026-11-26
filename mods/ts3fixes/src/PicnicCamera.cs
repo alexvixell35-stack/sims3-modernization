@@ -58,7 +58,7 @@ namespace Ts3Fixes
                         {
                             object st = this;
                             int before = PcCount();
-                            CameraController.CameraMapViewEnabledHandler h = (CameraController.CameraMapViewEnabledHandler)Delegate.CreateDelegate(typeof(CameraController.CameraMapViewEnabledHandler), st, sPcHandler);
+                            CameraController.CameraMapViewEnabledHandler h = (CameraController.CameraMapViewEnabledHandler)Fixes.Bind(typeof(CameraController.CameraMapViewEnabledHandler), st, sPcHandler);
                             CameraController.OnCameraMapViewEnabledCallback -= h;
                             if (sPcEvent == null || PcRemove(true, PcCount() < before)) PatchCounters()[2548]++;
                         }

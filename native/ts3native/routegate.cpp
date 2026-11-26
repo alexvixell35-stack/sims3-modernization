@@ -198,7 +198,7 @@ static const LONG kG10cLogMs = 100, kG10cLogLines = 20;
 static bool RgUseG10Common(const u8* at) {
     if (!Matches(at, kRgSites[10].pro, kRgSites[10].len)) {
         char hex[64];
-        if (Readable(at, 10)) Hex(at, 10, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(at, 10)) Hex(at, 10, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP G10-C: Route_PlanCommon 0x%08X bytes %s differ, gate site 10 stays on the goal step", (DWORD)(uintptr_t)at, hex);
         return false;
     }
@@ -287,7 +287,9 @@ static bool RpUlGate(int site, const DWORD* slot) {  // true = pass through
     return false;
 }
 
+static void DiscDrainBb();  // discourage.cpp: docs/205 §2.3e deferred records applied before a Build/Buy exit / lot rebuild
 static void __cdecl RgEnter(int site, DWORD* slot) {
+    if (site == 13 || site == 14) RtEpochBump();  // docs/205 §2.3e: Build/Buy exit, lot routing rebuild: older route results are stale
     if (t_tuOpen) TuTrip(1);  // TailUnlock: no gate leaf in passes 16-19 (docs/150 §11)
     if (t_rpUl && RpUlGate(site, slot)) return;  // docs/182 §8: the clone's lot table inside a RecsUnlocked round: no gate
     if (g_snRg[site]) SnEnter(g_snRg[site] - 1, slot);  // first: reads the caller's return address before a probe swaps it
@@ -299,6 +301,7 @@ static void __cdecl RgEnter(int site, DWORD* slot) {
     }
     Ts3nCounters& k = ts3native_counters;
     if (k.rgReady != 7 || !g_rgLock) return;  // before the lock is known nobody's hold can be told apart
+    if (site == 13 && k.rgEnforce) DiscDrainBb();  // docs/205 §2.3e: footprints deferred before the exit land before its rebuild
     InterlockedIncrement(&k.rgEntries);
     RgThread& t = t_rg;
     RgDrop(t, slot);
@@ -414,7 +417,7 @@ static bool ReadRouteGate(const wchar_t* ini) {
     for (int i = 0; i < RG_SITES; i++) {
         const u8* p = (const u8*)(uintptr_t)kRgSites[i].addr;
         if (Matches(p, kRgSites[i].pro, kRgSites[i].len)) continue;
-        if (Readable(p, 10)) Hex(p, 10, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, 10)) Hex(p, 10, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP route gate: %s 0x%08X bytes %s differ, nothing hooked", kRgSites[i].name, kRgSites[i].addr, hex);
         return false;
     }

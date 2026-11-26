@@ -8,19 +8,19 @@ namespace Ts3Fixes
     {
         public static object TvSyncAlarmCheck(string what)
         {
-            string counters = B582Counters("tvsyncalarm", 1366, new[] { "handles reset", "stale handles kept (switch off)", "errors" }, sTsMissing);
+            string counters = B582Counters("tvsyncalarm", 3001, new[] { "handles reset", "stale handles kept (switch off)", "errors" }, sTsMissing);
             if (what == "result") return counters;
             if (what != "run") return "tvsyncalarm <run|result>";
             bool on = ShortcutOn("tvsyncalarm");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1368] == 0;
-            bool controls = c[1368] == 0;
+            bool fixedNow = on && c[3003] == 0;
+            bool controls = c[3003] == 0;
             return B582Line("tvsyncalarm", on, "no reset error", fixedNow, "errors=0" + controls, controls, sTsMissing, counters);
         }
 
         public static object PhotoFundsCheck(string what)
         {
-            string counters = B582Counters("photofunds", 1369, new[] { "photo payments taken", "funds doubled (switch off)", "errors" }, "");
+            string counters = B582Counters("photofunds", 3004, new[] { "photo payments taken", "funds doubled (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "photofunds <run|result>";
             bool on = ShortcutOn("photofunds");
@@ -32,7 +32,7 @@ namespace Ts3Fixes
 
         public static object LtrHistoryBitsCheck(string what)
         {
-            string counters = B582Counters("ltrhistorybits", 1372, new[] { "forced changes with history kept", "history wiped (switch off)", "errors" }, sLtMissing);
+            string counters = B582Counters("ltrhistorybits", 3007, new[] { "forced changes with history kept", "history wiped (switch off)", "errors" }, sLtMissing);
             if (what == "result") return counters;
             if (what != "run") return "ltrhistorybits <run|result>";
             bool on = ShortcutOn("ltrhistorybits");
@@ -44,19 +44,19 @@ namespace Ts3Fixes
 
         public static object GoodbyePureCheck(string what)
         {
-            string counters = B582Counters("goodbyepure", 1375, new[] { "menu builds kept pure", "side effects run (switch off)", "errors" }, "");
+            string counters = B582Counters("goodbyepure", 3010, new[] { "menu builds kept pure", "side effects run (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "goodbyepure <run|result>";
             bool on = ShortcutOn("goodbyepure");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1377] == 0;
-            bool controls = c[1377] == 0;
+            bool fixedNow = on && c[3012] == 0;
+            bool controls = c[3012] == 0;
             return B582Line("goodbyepure", on, "no menu error", fixedNow, "errors=0" + controls, controls, "", counters);
         }
 
         public static object BathCleanupCheck(string what)
         {
-            string counters = B582Counters("bathcleanup", 1378, new[] { "bathers' alarm and footprint kept", "cleared by another Sim's Cleanup (switch off)", "errors" }, sBcMissing);
+            string counters = B582Counters("bathcleanup", 3013, new[] { "bathers' alarm and footprint kept", "cleared by another Sim's Cleanup (switch off)", "errors" }, sBcMissing);
             if (what == "result") return counters;
             if (what != "run") return "bathcleanup <run|result>";
             bool on = ShortcutOn("bathcleanup");
@@ -68,43 +68,43 @@ namespace Ts3Fixes
 
         public static object TvWatchSkillCheck(string what)
         {
-            string counters = B582Counters("tvwatchskill", 1381, new[] { "stray stops skipped", "stray stops (switch off)", "errors" }, sTwMissing);
+            string counters = B582Counters("tvwatchskill", 3016, new[] { "stray stops skipped", "stray stops (switch off)", "errors" }, sTwMissing);
             if (what == "result") return counters;
             if (what != "run") return "tvwatchskill <run|result>";
             bool on = ShortcutOn("tvwatchskill");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1383] == 0;
-            bool controls = c[1383] == 0;
+            bool fixedNow = on && c[3018] == 0;
+            bool controls = c[3018] == 0;
             return B582Line("tvwatchskill", on, "no Cleanup error", fixedNow, "errors=0" + controls, controls, sTwMissing, counters);
         }
 
         public static object ComputerGameTypeCheck(string what)
         {
-            string counters = B582Counters("computergametype", 1384, new[] { "shared picks reset", "picks left in the Singleton (switch off)", "errors" }, sCgtMissing);
+            string counters = B582Counters("computergametype", 3019, new[] { "shared picks reset", "picks left in the Singleton (switch off)", "errors" }, sCgtMissing);
             if (what == "result") return counters;
             if (what != "run") return "computergametype <run|result>";
             bool on = ShortcutOn("computergametype");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1386] == 0;
-            bool controls = c[1386] == 0;
+            bool fixedNow = on && c[3021] == 0;
+            bool controls = c[3021] == 0;
             return B582Line("computergametype", on, "no reset error", fixedNow, "errors=0" + controls, controls, sCgtMissing, counters);
         }
 
         public static object MoodTankResetCheck(string what)
         {
-            string counters = B582Counters("moodtankreset", 1387, new[] { "tank memories cleared", "kept with a recovered mood (switch off)", "errors" }, sMtMissing);
+            string counters = B582Counters("moodtankreset", 3022, new[] { "tank memories cleared", "kept with a recovered mood (switch off)", "errors" }, sMtMissing);
             if (what == "result") return counters;
             if (what != "run") return "moodtankreset <run|result>";
             bool on = ShortcutOn("moodtankreset");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1389] == 0;
-            bool controls = c[1389] == 0;
+            bool fixedNow = on && c[3024] == 0;
+            bool controls = c[3024] == 0;
             return B582Line("moodtankreset", on, "no reset error", fixedNow, "errors=0" + controls, controls, sMtMissing, counters);
         }
 
         public static object ReactionGrumpyCheck(string what)
         {
-            string counters = B582Counters("reactiongrumpy", 1390, new[] { "reactions set", "left at Angry (switch off)", "errors" }, sRgMissing);
+            string counters = B582Counters("reactiongrumpy", 3025, new[] { "reactions set", "left at Angry (switch off)", "errors" }, sRgMissing);
             if (what == "result") return counters;
             if (what != "run") return "reactiongrumpy <run|result>";
             bool on = ShortcutOn("reactiongrumpy");
@@ -116,19 +116,19 @@ namespace Ts3Fixes
 
         public static object TrainSimGoneCheck(string what)
         {
-            string counters = B582Counters("trainsimgone", 1393, new[] { "trainee-less runs ended", "runs that threw (switch off)", "errors" }, "");
+            string counters = B582Counters("trainsimgone", 3028, new[] { "trainee-less runs ended", "runs that threw (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "trainsimgone <run|result>";
             bool on = ShortcutOn("trainsimgone");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1395] == 0;
-            bool controls = c[1395] == 0;
+            bool fixedNow = on && c[3030] == 0;
+            bool controls = c[3030] == 0;
             return B582Line("trainsimgone", on, "no guard error", fixedNow, "errors=0" + controls, controls, "", counters);
         }
 
         public static object StereoUpgradeCheck(string what)
         {
-            string counters = B582Counters("stereoupgrade", 1396, new[] { "rebuilds skipped on a silent stereo", "dismissals of other dancers skipped", "off-switch hits" }, sSuMissing);
+            string counters = B582Counters("stereoupgrade", 3031, new[] { "rebuilds skipped on a silent stereo", "dismissals of other dancers skipped", "off-switch hits" }, sSuMissing);
             if (what == "result") return counters;
             if (what != "run") return "stereoupgrade <run|result>";
             bool on = ShortcutOn("stereoupgrade");

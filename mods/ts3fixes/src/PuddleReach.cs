@@ -23,7 +23,7 @@ namespace Ts3Fixes
     // memo, and Run decides as in vanilla. Every Sim, household included: only an option whose Run has just failed on the
     // same puddle set is withheld (vanilla intent: the interaction is offered when a puddle can be splashed in), so the
     // Sim's other choices and every outcome are vanilla's minus the failed tries.
-    // Counters: [2706] tests answered false from the memo (on), [2707] the same case seen with the switch off, [2708]
+    // Counters: [3979] tests answered false from the memo (on), [3980] the same case seen with the switch off, [3981]
     // errors. Run is shared with splashroof (SplashRoof.cs SplashRoofRunHook calls PrRunDone). Check: PuddleReachChecks.cs.
     public static partial class Fixes
     {
@@ -73,7 +73,7 @@ namespace Ts3Fixes
                 if (!sPrMemo.ContainsKey(id) && sPrMemo.Count >= kPrMax) PrPrune();
                 sPrMemo[id] = new PrMemo { Lot = lot, Puddles = n, At = PrNow() };
             }
-            catch (Exception) { PatchCounters()[2708]++; }
+            catch (Exception) { PatchCounters()[3981]++; }
         }
 
         static void PrPrune()
@@ -100,11 +100,11 @@ namespace Ts3Fixes
                         float age = PrNow() - m.At;
                         if (!PrSkip(true, true, true, m.Lot == lot, n, m.Puddles, age))
                             sPrMemo.Remove(a.SimDescription.SimDescriptionId);  // stale: Run decides again
-                        else if (ShortcutOn("puddlereach")) { PatchCounters()[2706]++; return false; }
-                        else if (!m.Counted) { m.Counted = true; PatchCounters()[2707]++; }
+                        else if (ShortcutOn("puddlereach")) { PatchCounters()[3979]++; return false; }
+                        else if (!m.Counted) { m.Counted = true; PatchCounters()[3980]++; }
                     }
                 }
-                catch (Exception) { PatchCounters()[2708]++; }
+                catch (Exception) { PatchCounters()[3981]++; }
                 return TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);
             }
             public bool TestOrig(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // receives Sim+AutonomousSplashInPuddle+Definition.Test's original body

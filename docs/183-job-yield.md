@@ -156,6 +156,13 @@ None of the three is shown to be the cause of §7.1. They are what the yield pat
 ### 7.5 Run plan (repro `ip-jobyield-strand-storm`)
 
 Twelve 2-min storms, seed 152, the s265 key set (PlayerFirst 0, no new RO clones), interleaved: fix, fix, control, three more times; fix = this build with `JobYield=1`, control = the same build with `JobYield=0` (ts3fixes `jobyield` on in both). Pass: 0 runs with two or more household Sims failing from y 61 (scan `strand=`), `records lost 0`, `back + dropped = parked` at the end of each run, no new script error. Then read: 0 / 8 with the fix against 3 / 24 before is still only p = 0.34 for "fixed", so a pass means "not seen", and the claim needs about 24 clean fix runs (p < 0.05) or a run of the old build that strands with the new `jobyield:` line just before the first failure. If a fix run strands: its `jobyield:` lines before the first `routefail:` at y 61 name the plan; next arm `JobYield=0` + TaskServe / SmoothCut one at a time (the other two keys every stuck run shared).
+## 9. The strand's answer: Sims standing on the ladder's ends (`ladderfootshoo`, 2026-11-21, built, default off, forced case run in game)
+
+§7 (household stuck upstairs in JobYield storms, PR #632) and §8 (the `routefail strand:` log lines that named this cause) live on the
+contributor's combo branch; §8's logging is not part of this repo. This section stands on its own.
+
+### 9.1 What the strand log lines showed [verified, log lines of the strand2 storms, 2 of 12 runs]
+
 
 ## 8. The strand again after the fix (s321): what the log rules out, and the lines that name the answer next time (2026-11-21)
 
@@ -206,17 +213,22 @@ Checks: `tools/selftest/strandlog` (which plans, how often, the privacy rule, th
 Colonial Casa's third floor (level 2, room 11, y 61) is reached only by a `Ladder`: end A 927.3 / 61.0 / 1205.2 (level 2),
 end B 927.6 / 58.0 / 1204.5 (level 1, room 9).
 
+
 - `routefail strand:` Omar, `Replan FailedBecauseNoPathToDestination`, at 927.6 / 58.0 / 1204.8 (level 1, room 9), goal
   930.4 / 61.0 / 1201.5 (level 2, room 11), doing `SocialInteractionB`.
 - `routefail strand link: Ladder`, `lanes 2 [0: A free, B free (with Sims: sim)] [1: A free, B free (with Sims: sim)]`,
   `near A: nothing`, `near B:` two household Sims 0.2-0.3 m from the end.
 - `routefail strand rooms:` `9>11`, back `11>9`, points connected by land: yes. No privacy line locks.
 
+So the room graph has the link, no script lock, and both lanes' lower ends are free of objects and taken by
+
 That is row 4 of §8.4: the room graph has the link, no script lock, both lanes' lower ends free of objects and taken by
 Sims. The earlier strands (s229-s365: up to four Sims on level 2 with no path to anything below, for hours) have the
 same shape from the other end; they were logged before the link line existed, so for them this cause is **inferred**.
 
+
 ### 9.2 Why a Sim on a lane end closes the ladder [verified: native decompile of `0x634500` / `0x6338A0`, decompiled script]
+
 
 - **The search.** `PortalEdgeCost 0x634500` costs the traverse edge of a portal: one-way test, lock test, then
   `LotPlan_PortalPointCheck 0x6338A0` on the entry end and (unless portal flag bit 1 is set) on the exit end. The point
@@ -243,14 +255,19 @@ same shape from the other end; they were logged before the link line existed, so
   `InteractionQueue.RemoveLowerPriorityInteractions` cancels what the Sim does only when the push outranks it
   (strictly); at equal priority the walk waits behind the running interaction.
 
+
 So the hypothesis holds, with one addition: the "no path" is the search's own endpoint test, not a script answer, and
 the reason nobody is shooed is that EA's shoo sits at lane-lock time and the ladder class lacks even that.
 
+
 ### 9.3 Fix (`LadderFoot.cs`, rules in `LadderFootCore.cs`, shared scan in `LevelLink.cs`)
+
 
 After each of the four plan hooks (`RouteBackoff.cs`), for a plan of a Sim that failed with
 `FailedBecauseNoPathToDestination` (or `FailedBecauseDestinationPortalLocked`, §9.6) to another level of the lot it stands on, at most once per Sim per
 `kLadderFootCooldownMinutes` (2):
+
+1. **Detect.** The lot's level links on the way (`LevelLink.cs`, found by portal component; lane ends on two
 
 1. **Detect.** The lot's level links on the way (the scan the strand lines use, by portal component; lane ends on two
    levels) get EA's slot test per lane end, without and with Sims. A lane is *taken by Sims* when both ends are free
@@ -268,12 +285,17 @@ After each of the four plan hooks (`RouteBackoff.cs`), for a plan of a Sim that 
    failure return the first failure unchanged: EA's route-fail as before. A plan made by another task (stuck check
    probes, routability tests) asks and does not wait.
 
+
 No teleport, no position write, no portal state touched, no interaction cancelled outside EA's priority rule.
+
 
 **Scope.** `ladderfootshoo`: Sims the player does not control, as planner and as the Sim asked. `ladderfootshoohh` in
 addition: household and selected Sims in either role (`Fixes.HouseholdExempt`). With only `ladderfootshoo` on, a
 household planner is counted exempt and household Sims on the ends are left standing. The strands seen so far are all
 household Sims, so the storm arm needs both.
+
+**Off = compare mode** for active-household plans while `routefaillog` is on: counted, nothing asked.
+
 
 **Off = compare mode** for the plans the strand lines watch (active household, `routefaillog` on): counted, nothing asked.
 
@@ -282,13 +304,16 @@ Sims: <Type> 0x<id> level a>b lanes <Sims|blocked ...>, standing there: <Sim>@<p
 ask N | exempt (household) | asked N (M stepping away, K refused), waited X min: retry ok | gave up (timeout | canceled
 | second plan <result>) | not waited for>`.
 
+
 **Counters 4352-4363** (`docs/registry.md`): scans / plans whose needed link is closed by Sims / would ask (off) /
 exempt planner / Sims asked / Sims not asked / waits / **retry ok** / **gave up** / asked but not waited for / a later
 plan of such a Sim succeeded within 60 sim-minutes / errors.
 
+
 Also tidied: `StrandLog.cs` no longer carries its own link scan and slot test; both moved to `LevelLink.cs`.
 
 ### 9.4 Limits [inferred unless marked]
+
 
 - The trigger is EA's slot test with Sims counted. A footprint that reaches the endpoint's routing cell from more than
   the slot test's reach would close the lane without the test saying so; the two logged cases did say `sim`.
@@ -300,12 +325,18 @@ Also tidied: `StrandLog.cs` no longer carries its own link scan and slot test; b
   asked by the same priority rule.
 - Stairs are covered by the same rule (their lanes are wide apart, so all lanes taken by standing Sims is rare).
 
+
 ### 9.5 Checks (2026-11-21, no game) and run plan
+
 
 - `node tools/selftest/ladderfoot/run.ts`: which plans, lanes and links from the slot test (every 3-lane combination),
   who is asked, the decision by switch and scope, a wait model (500 random waits: never past the cap, second plan
+  exactly when the Sims left in time), cooldown.
   exactly when the Sims left in time), cooldown. `strandlog` selftest unchanged and passing.
 - `LadderFootCheck run | result | lot` (repro `ladderfootshoo-check`): off `BROKEN`, on `FIXED`, with controls; `lot`
+  lists the selected Sim's lot's level links with their lanes (read-only). The forced case is §9.6.
+- Storms: repro `ip-jobyield-strand-storm` (PR #632), `routefaillog` on. Off arm: `ladderfoot:` lines `fix off: would ask
+  N`; counter 4354 > 0 in a run that strands. On arm
   lists the selected Sim's lot's level links with their lanes (read-only). No forced repro yet: it needs Sims idling on
   the ends while another plans across.
 - Storms: repro `ip-jobyield-strand-storm` (§7.5), `routefaillog` on. Off arm: `ladderfoot:` lines `fix off: would ask
@@ -316,13 +347,22 @@ Also tidied: `StrandLog.cs` no longer carries its own link scan and slot test; b
   look at). About 2 strands in 12 off runs, so "not seen" needs some 18 clean on runs for p < 0.05; a line with
   `retry ok` on a run that would have stranded is the direct proof.
 
+### 9.6 Forced repro and first live run (2026-11-21, contributor's rig)
+
+The forced repros (`ladderfoot-force`, `ladderfoot-force-down`) and the agent's `go_here` `exact` option they use stay on
+the contributor's combo branch: they need its stand-and-wait switches and a storm load that are not in this repo.
+
+
 ### 9.6 Forced repro and first live run (2026-11-21, repros `ladderfoot-force`, `ladderfoot-force-down`)
 
 Setup (harness, not gameplay): queues cancelled and autonomy off, Omar stood on the ladder's lower end (one Sim there
 closes both lanes: `LadderFootCheck lot` says `[Sims Sims]`), Cristobel 0.7 m from it, Rosemarie on the ground floor with
+Go Here to room 11 (with the agent's routable-point swap off: it would move a goal behind the closed ladder).
+
 Go Here to room 11 (`go_here` with `exact`: the agent's routable-point swap would move a goal behind the closed ladder).
 
 What the game does there [verified, Deck runs]:
+
 
 - The first plan, from the ground floor, **succeeds**: a standing Sim on the end does not fail a plan made without
   "blocked by people". The Sim walks to the ladder, EA's stand-and-wait starts, and its replan (with "blocked by people")
@@ -333,12 +373,16 @@ What the game does there [verified, Deck runs]:
   Now both answers start the scan (`LfsKind`); the line says `portal locked from level N` for the second. A door that
   is really locked gives no case: the scan still wants a level link closed by Sims.
 - An idle Sim on the end is not a strand by itself: in the off arms the walker crossed too (the blocker was pushed by
+  the combo branch's stand-and-wait fixes or had been pushed off the end by its neighbour before the walker arrived; no failed plan at
   the stand-and-wait fixes or had been pushed off the end by its neighbour before the walker arrived; no failed plan at
   all in 2 of 3 off arms). The long waits seen by hand (13 blocked cycles, 20 sim-min, route failed; twice) had a blocker
   left in `SocializingPosture` by a cancelled pillow fight; that state is not forced yet (a pillow fight started and
   cancelled by steps walks on after the cancel and leaves the end).
 
+
 Run lf-r2 (one load, s420 keys and switches, package `ladderfoot3`; arms switch `ladderfootshoo` + `ladderfootshoohh`;
+`ea*` = the combo branch's stand-and-wait fixes off as well; crossing read every 5 s):
+
 `ea*` = standwaitfix(hh) and standwaitlocked(hh) off as well; crossing read every 5 s):
 
 | arm | failed plans | `ladderfoot:` line | crossed |
@@ -350,14 +394,21 @@ Run lf-r2 (one load, s420 keys and switches, package `ladderfoot3`; arms switch 
 | eaoff | none | none | within 20 s |
 | eaon | Replan DestinationPortalLocked x1 | asked 1 (1 stepping away, 0 refused), waited 2.3 min: retry ok | within 25 s |
 
+
 Run lf-r3 (same, second load): off1 and off2 one failed replan each, `fix off: would ask 1`, crossed within 25 s; on2
 `asked 1 (1 stepping away, 0 refused), waited 2.6 min: retry ok`, crossed within 25 s; on1, eaoff, eaon no failed plan
 (Omar already off the end when the walker arrived). Counters after lf-r2 / lf-r3: scans 4 / 4, closed by Sims 4 / 3,
 asked 3 / 1, waits 3 / 1, retry ok 3 / 1, gave up 0, would ask 1 / 2, errors 0.
 
+
 `ladderfoot-force-down` (lf-r4) is not a repro yet: one Sim on the upper end takes one lane (`[Sims free]`), the walker
 climbs down the other; no failed plan in either arm.
+
 
 So the fix's own path is proven live four times (detect, EA's push accepted by a household Sim, the wait ends when the
 push is done, the second plan succeeds, the Sim climbs), errors 0. Not shown: a gain over the off arm for an idle
 blocker (there is none to show), the "no path" entry, a busy blocker (equal priority, §9.4).
+
+### 9.7 Import 2026-11-22 (maintainer)
+
+PR #637 (alexvixell35-stack). Counters 4352-4363 and `kCounterSlots` 4364 kept: nothing on master uses 4200-4363. `ladderfootshoo` is **ON by default** at import (forced case in game: 4 fix-on arms `retry ok`, errors 0; his off arms crossed too, so no gain over off is shown, only the path working). `ladderfootshoohh` stays **off**: no run is documented with household Sims in both roles, and the household rule keeps household and selected Sims untouched until it is proven. The pure check repro `ladderfootshoo-check` (off BROKEN / on FIXED) is in `tools/harness/repros.json`; the forced repros stayed on his combo branch. Not a gain claim: a clear strand reduction is still unmeasured.

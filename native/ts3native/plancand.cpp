@@ -37,18 +37,18 @@
 //     succeeds counts in wgcMismatch (must stay 0).
 #include "plancand-rule.h"
 
-// exported block (counters layout unchanged); slots 4050-4059 in docs/registry.md, one per field in this order
+// exported block ts3native_plancand (counters layout unchanged; docs/registry.md "(no slot)" row), offsets in this order
 struct PlanCandCounters {
-    volatile LONG ready;        // 4050: bit 0 split sites, 1 cut sites, 2 water check (bit 3 = chained into the deadline stub)
-    volatile LONG cutMode;      // 4051: CandidateCut, runtime switch (1 on)
-    volatile LONG cutPlans;     // 4052: plans / jobs with at least one candidate cut
-    volatile LONG cutCalls;     // 4053: helper calls answered "not found"
-    volatile LONG cutExempt;    // 4054: calls past the deadline at a cut site of a household / selected / unknown router (not cut)
-    volatile LONG wgcMode;      // 4055: WaterGoalCheck, runtime switch (1 reject, 2 shadow)
-    volatile LONG wgcReject;    // 4056: water plans answered (mode 1) or that would be (mode 2)
-    volatile LONG wgcMismatch;  // 4057: mode 2, a would-reject whose search found a path (must stay 0)
-    volatile LONG splitLong;    // 4058: PlanHierarchical calls >= CandidateSplitLogMs
-    volatile LONG lines;        // 4059: log lines written (split, cut, mismatch)
+    volatile LONG ready;        // +0x00: bit 0 split sites, 1 cut sites, 2 water check (bit 3 = chained into the deadline stub)
+    volatile LONG cutMode;      // +0x04: CandidateCut, runtime switch (1 on)
+    volatile LONG cutPlans;     // +0x08: plans / jobs with at least one candidate cut
+    volatile LONG cutCalls;     // +0x0C: helper calls answered "not found"
+    volatile LONG cutExempt;    // +0x10: calls past the deadline at a cut site of a household / selected / unknown router (not cut)
+    volatile LONG wgcMode;      // +0x14: WaterGoalCheck, runtime switch (1 reject, 2 shadow)
+    volatile LONG wgcReject;    // +0x18: water plans answered (mode 1) or that would be (mode 2)
+    volatile LONG wgcMismatch;  // +0x1C: mode 2, a would-reject whose search found a path (must stay 0)
+    volatile LONG splitLong;    // +0x20: PlanHierarchical calls >= CandidateSplitLogMs
+    volatile LONG lines;        // +0x24: log lines written (split, cut, mismatch)
 };
 extern "C" __declspec(dllexport) PlanCandCounters ts3native_plancand = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 

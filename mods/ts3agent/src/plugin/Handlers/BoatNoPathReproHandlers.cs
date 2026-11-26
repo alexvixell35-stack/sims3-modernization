@@ -12,16 +12,16 @@ using Sims3.SimIFace;
 
 namespace Ts3Agent
 {
-    // Repro for ts3fixes boattaximemo (docs/642, BoatTaxiMemo.cs): an NPC Sim or pet seated as the Driver of a BoatTaxi whose
+    // Repro for ts3fixes boattaximemo (docs/851, BoatTaxiMemo.cs): an NPC Sim or pet seated as the Driver of a BoatTaxi whose
     // route plan fails with no path, replanned over and over. Each pick gets a taxi the way GetInBoatRouteAction makes one
     // (Vehicle.CreateTaxiBoat, the path GetNpcBoat takes for every pet and tourist), placed on the sea off the shore, the rider
     // seated with PutInDriver; its route is the one SimRoutingComponent builds for a Sim whose parent is an IBoat (CreateRoute:
     // Follower = the boat, EnablePlanningAsBoat, BeginAsBoat), forced the same way when the parent is not set yet. The route goes
     // to the farthest non-world lot (or x/z) with pedestrian planning off (boatOnly, default true) so the boat cannot reach it,
     // then plans `tries` times: Plan, then Replan / ReplanFromPoint (the live kind 3) in turn, all through ScriptCore.Route, so
-    // ts3fixes UfPlan -> BtmPre/BtmPost see every one. Expected with boattaximemo on: try 1 recorded [3864], later tries
-    // answered [3867] in ~0 ms. NPC picks follow the household rule (known non-active household, not selectable or selected);
-    // with no active household every Sim is of unknown scope for ts3fixes (IsPlayerSim) and the memo skips them all ([3869]
+    // ts3fixes UfPlan -> BtmPre/BtmPost see every one. Expected with boattaximemo on: try 1 recorded [1264], later tries
+    // answered [1267] in ~0 ms. NPC picks follow the household rule (known non-active household, not selectable or selected);
+    // with no active household every Sim is of unknown scope for ts3fixes (IsPlayerSim) and the memo skips them all ([1269]
     // stays 0, the skip line says "exempt rider"): `active_household` in the result says which case this is.
     public static partial class Handlers
     {
@@ -52,7 +52,7 @@ namespace Ts3Agent
                 sBnpSims = BnpPick((int)a.Long("sims", 2), a.Bool("pet", true));
                 sBnpDone = false; sBnpError = null;
                 int[] c = BgsCounters();
-                for (int k = 0; k < 6; k++) sBnpBase[k] = c != null && c.Length > 3869 ? c[3864 + k] : 0;
+                for (int k = 0; k < 6; k++) sBnpBase[k] = c != null && c.Length > 1269 ? c[1264 + k] : 0;
                 DiagLine("boat_nopath_repro: start, " + sBnpSims.Count + " riders, tries " + tries + ", boatOnly " + boatOnly + ", boattaximemo " + ModOn("boattaximemo")
                     + ", active household " + (Household.ActiveHousehold != null ? Household.ActiveHousehold.Name : "none"));
                 Simulator.AddObject(new OneShotFunctionTask(delegate
@@ -69,7 +69,7 @@ namespace Ts3Agent
             int[] cc = BgsCounters();
             Dictionary<string, object> ctr = Util.Obj();
             string[] names = { "recorded", "boat_off", "boat_off_ok", "answered", "ms_saved", "exempt_or_error" };
-            for (int k = 0; k < 6; k++) ctr[names[k] + "_" + (3864 + k)] = cc != null && cc.Length > 3869 ? cc[3864 + k] - sBnpBase[k] : -1;
+            for (int k = 0; k < 6; k++) ctr[names[k] + "_" + (1264 + k)] = cc != null && cc.Length > 1269 ? cc[1264 + k] - sBnpBase[k] : -1;
             r["done"] = sBnpDone; r["error"] = sBnpError; r["counters"] = ctr; r["boattaximemo"] = ModOn("boattaximemo");
             r["active_household"] = Household.ActiveHousehold != null ? Household.ActiveHousehold.Name : null;
             List<object> rows = new List<object>();
@@ -137,7 +137,7 @@ namespace Ts3Agent
             }
             int[] c = BgsCounters();
             string s = "";
-            for (int k = 0; k < 6; k++) s += (k > 0 ? ", " : "") + "[" + (3864 + k) + "] +" + (c != null && c.Length > 3869 ? c[3864 + k] - sBnpBase[k] : -1);
+            for (int k = 0; k < 6; k++) s += (k > 0 ? ", " : "") + "[" + (1264 + k) + "] +" + (c != null && c.Length > 1269 ? c[1264 + k] - sBnpBase[k] : -1);
             DiagLine("boat_nopath_repro: done, counters " + s);
         }
 

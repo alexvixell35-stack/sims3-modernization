@@ -477,6 +477,35 @@ Real play reaches the 63-frame limit of §1 (issue #92: three incidents, stacks 
 
 Helpers a hook calls **before or after** the original (`SafeSpot`, `RouteSrcBegin`, `DoorMirror.SyncRoute`, `UfWhy`) return before it runs and add nothing to the depth the original's callbacks see; they only need their own depth at the call. Saved on the reported stacks: 2 frames on #89 path 2 (`ReplanFromPoint`), 3 on any plan from `Route.Plan`; incidents 1 and 2 of #92 had only floor-cost hooks of ours. Not ours to cut: EA's forwarding overloads (`SwitchToOutfitWithSpin` 6 frames, `RouteToSlot` 5; the reporter IL-patches those) and the error handler margin (ErrorTrap ~11 frames). Raising the limit itself is native work (`state+0x140` check at `0xE59414` against the 63-record array on the C stack, §1): not studied.
 
+2026-11-24 incident (chain-m1124b, lc7-travel-m1124b bp-lc7-save-reload, ScriptError D0CC3B59, NPC, release-default hooks): 64 frames from `ScriptProxy.Simulate` (Eat Out -> `RouteNearEntranceAndEnterRabbitHole` -> `RouteOutside` -> `DoRoute` -> portal -> `SwitchToOutfitWithSpin` -> `LaundryManager.OnClothesChanged` one-shot -> `SetLogic` error -> ErrorTrap), 8 of them ts3fixes hooks installed whatever the switches: `RheEnterHook` + `RabbitHoleHook` (two layers on one method), `RabbitHoleHook.RouteOutside`, `PrxRouteHook` + `BuRouteHook` (two layers on `DoRoute`), `LaneSnapHook`, `NsSimHook`, `ErrorTrapLoopHook` (handler). Open: fold the two-layer pairs into one hook each (-2 frames; `PrxRouteHook` has a SavedStacks stub remap, docs/data/swap-stack-audit.csv, so a fold needs the saved-frame check) [verified: stack; cause of the first exception inside `SetLogic` not logged].
+
+2026-11-24 incident 1 (bundle-day-1124-vb bp-vbowner-correct-3, ScriptError 357B987D, StackOverflowException, NPC on Eat Out, failed plan): 64 frames, 14 ours: `BuRouteHook` x8 (`RouteHook`, `RouteBlocked`, `RouteReach`, `RouteView`, `RouteSocial`, `Keep`, `RouteStuck`, `KeepEa`, then EA's `DoRoute` body running `DoRouteFailureBehavior` -> outfit spin), `PrxRouteHook`, `RheEnterHook` + `RabbitHoleHook`, `UfFinishActionHook`, `NsSimHook`, `ErrorTrapLoopHook` [verified: stack]. The 8 `BuRouteHook` frames are not recursion: each failed-plan rule called the next rule, and the last one called the game's body (no method of the class calls `DoRoute` through the hooked entry again) [verified: source].
+
+**Fold (ts3fixes m1124c, `feature/hookflat-1124`, no switch, behaviour unchanged by construction):**
+
+- `SimRoutingComponent.DoRoute`: one hook, `BuRouteHook.RouteHook`. It runs petrelax's `PrxPlanFailed` first (what the outer `PrxRouteHook` did), then the rules. `RouteBlocked` calls each rule in turn (`RouteUse`, `RouteReach`, `RouteView`, `RouteSocial`, `RouteStuck`) and each answers with a step code: yes, no, next rule, unstuck, the game's answer (before a walk the body, after one false), the body again, the body with the balloon off. `RouteHook` itself runs the game's body for the last three. Every rule keeps its statements, catches and counters; only `return X(...)` became `return code`. `PrxRouteHook` is gone (`ApplyPetRelax` reads `sBuMissing` for its "not found" line).
+- `RabbitHole.RouteNearEntranceAndEnterRabbitHole`: one hook, `RheEnterHook`, which now derives from `RabbitHoleHook` and calls `RabbitHoleHook.EnterPre` (the old `EnterHook` body: counters [4]-[6], rabbitholedirect, the rabbithole shortcut) before EA's body, with the same delegate (wrapped when rhentryrelax is on) as before. `ApplyRhEntryRelax` patches always; the old early return when `AnimateEnterRabbitHole` is missing only logs now (the hook then runs `EnterPre` + EA, as `RabbitHoleHook` alone did).
+- Household / selected / unknown-scope exemptions are in the rules and helpers, which did not change.
+
+Frames of ours on the stack while EA's body runs (static count from the source [verified: source]; the two incident stacks confirm the "before" rows [verified: stack]):
+
+| Path | Before | After | Saved |
+|---|---|---|---|
+| `DoRoute`, plan ok (every walk) | 2 | 1 | 1 |
+| `DoRoute`, failed plan, the game's route-fail answer (incident 1) | 9 | 1 | 8 |
+| `DoRoute`, walk then failed replan, unstuck plans again (body again) | 9 | 1 | 8 |
+| `DoRoute`, viewlenient's quiet answer (balloon off) | 5 | 1 | 4 |
+| `DoRoute`, a rule's own walk: unstuck walk-out / socialreach / viewlenient / reachuse near walk | 8 / 6 / 5 / 4 | 3 | 5 / 3 / 2 / 1 |
+| `DoRoute`, blockeduse near or clip walk, woohoosnap near walk | 3 / 4 | 3 / 4 | 0 |
+| `RouteNearEntranceAndEnterRabbitHole` (every entry) | 2 | 1 | 1 |
+| rabbitholedirect / shortcut steps | 3 | 3 | 0 |
+
+Incident 1 would have been 55 frames (-9), incident 2 62 (-2: one `DoRoute` layer on the walk path, one rabbit hole layer). Incident 2's own throw (the laundry one-shot `SetLogic`) is EA's and stays; with 62 frames ErrorTrap's report sits one frame under the limit, so more cuts there (floor hooks `RouteOutside`, `LaneSnapHook`, `NsSimHook`) are the next step if it recurs.
+
+Read-back: `Fixes.StackedHooks()` ("stacked hooks: N methods: A+B, ..."), called live in world (the tuning-gated patches, `ApplyBlockedUse` among them, go in after `Apply`): every method that carries more than one of our hooks; repro `hookflat-readback`.
+
+Saved frames (docs/242 §2, docs/293): both targets keep one stub that takes EA's header, so `savedstacks` still points an EA frame (a save without ts3fixes, or v0.3.0, which had no `DoRoute` hook) at that stub. A frame inside the old hook bodies (`PrxRouteHook` / `BuRouteHook` of m1124b and earlier test builds, `RheEnterHook` + `RabbitHoleHook` of any build) is refused once at the first load after the update, as for any hook IL change (that Sim restarts). For release saves this adds nothing: v0.3.0's `RabbitHoleHook.EnterHook` already differs from m1124b's (rabbitholedirect), so its frames were refused by the RC without the fold too [verified: source at tag v0.3.0; inferred that the checksum differs, docs/51 §609]. Queue `hookflat-correct-1124-m1124c` (arms A own save, C m1124b save, R v0.3.0 RC save, D uninstall, E vanilla save; R and C each against an m1124b reference load).
+
 ## Reproduce
 
 - PE reader plus capstone 5 (`pip install capstone`), Ghidra bounds from `game-copy/analysis/functions.csv`. Jump table: 449 dwords at `0xE59880`; names: `char*` at `0x11949E0 + 4*op`; superop entry `k`: 72 bytes at `0x108FCD8 + 72*k` (`u32` hash, `u16` count, `u16[count]` opcodes), opcode `0x1AA + k`.

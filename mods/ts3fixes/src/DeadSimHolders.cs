@@ -155,12 +155,11 @@ namespace Ts3Fixes
             {
                 if (!ShortcutOn("ghostreactdeadsim") || LotManager.Actors == null) return;
                 if (!sGhostOk) { sGhostOk = true; AppliedLog().Add("ghostreactdeadsim: ok"); }
-                // household rule (CLAUDE.md): household ghosts, the selected Sim and unknown scope (IsPlayerSim) keep their lists
+                // household ghosts too (docs/289, Rodney 2026-11-18): the list is saved data, so a household ghost saves a smaller list
                 if (Household.ActiveHousehold == null) return;
                 int[] c = PatchCounters();
                 foreach (Sim s in new List<Sim>(LotManager.Actors))
                 {
-                    if (IsPlayerSim(s)) continue;
                     List<Sim> l = s.SimsReactedToGhost;
                     if (l == null || l.Count == 0) continue;
                     c[2075] += l.RemoveAll(sSimGonePred);

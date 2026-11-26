@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
-    // Game-independent rule of wildlotskip (WildLotSkip.cs, docs/646 §3). Self-check: tools/selftest/wildlotskip.
+    // Game-independent rule of wildlotskip (WildLotSkip.cs, docs/656 §8.3). Self-check: tools/selftest/wildlotskip.
     // An owner (an animal's SimDescription id, or kHorsePool for the whole wild horse herd) and a lot id are remembered for
     // `span` sim ticks after the owner's GoToLot to that lot failed with a locked portal or no path, or was cancelled as too
     // long. A pick that lands on a remembered lot is drawn again from EA's own weights with the remembered lots left out

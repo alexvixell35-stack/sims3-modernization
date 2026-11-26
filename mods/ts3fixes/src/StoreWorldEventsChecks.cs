@@ -26,7 +26,7 @@ namespace Ts3Fixes
             object fryer = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(DeepFryerVegas));
             MethodInfo m = typeof(DeepFryerVegas).GetMethod("OnPlacedInWorldHandler", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             if (m == null) return "storeworldevents check: DeepFryerVegas.OnPlacedInWorldHandler not found (N/A)";
-            EventHandler h = (EventHandler)Delegate.CreateDelegate(typeof(EventHandler), fryer, m);
+            EventHandler h = (EventHandler)Fixes.Bind(typeof(EventHandler), fryer, m);
             World.OnObjectPlacedInLotEventHandler += h;
             StoreWorldEventsPass();
             bool still = false;

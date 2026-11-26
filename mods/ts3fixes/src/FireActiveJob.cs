@@ -28,7 +28,7 @@ namespace Ts3Fixes
     // Fix: on world quit, sActiveJob is set back to null (as the job's own Cleanup does). At world load, a value that is not
     // a job of any Sim in this world is dropped and EA's PersistPostLoad rule is replayed (the loaded FireFightingJob
     // with its map tag on; its tracker is subscribed as EA's OnLoadFixup does). A live emergency is never touched.
-    // Counters: [2570] cleared at quit, [2571] stale value dropped at load, [2572] errors. Check: FireActiveJobChecks.cs.
+    // Counters: [3953] cleared at quit, [3954] stale value dropped at load, [3955] errors. Check: FireActiveJobChecks.cs.
     public static partial class Fixes
     {
         static readonly FieldInfo sFajMapTag = typeof(Sims3.Gameplay.Careers.Job).GetField("bMapTagEnabled", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
@@ -54,9 +54,9 @@ namespace Ts3Fixes
             {
                 if (!ShortcutOn("fireactivejob") || ActiveFireFighter.sActiveJob == null) return;
                 ActiveFireFighter.sActiveJob = null;
-                PatchCounters()[2570]++;
+                PatchCounters()[3953]++;
             }
-            catch (Exception) { PatchCounters()[2572]++; }
+            catch (Exception) { PatchCounters()[3955]++; }
         }
 
         // Every FireFightingJob held by a Sim of this world (the jobs PersistPostLoad ran on).
@@ -87,18 +87,18 @@ namespace Ts3Fixes
                 List<FireFightingJob> live = FajLiveJobs();
                 if (!FajDrop(true, true, live.Contains(cur))) return;
                 ActiveFireFighter.sActiveJob = null;
-                PatchCounters()[2571]++;
+                PatchCounters()[3954]++;
                 // EA's FireFightingJob.PersistPostLoad / OnLoadFixup, for the job that was skipped
                 foreach (FireFightingJob j in live)
                 {
                     if (sFajMapTag == null || !(bool)sFajMapTag.GetValue(j)) continue;
                     ActiveFireFighter.sActiveJob = j;
                     if (j.HasBeenSetup && sFajMinute != null)
-                        Sims3.Gameplay.UI.Responder.Instance.SimMinuteChanged += (VoidEventHandler)Delegate.CreateDelegate(typeof(VoidEventHandler), j, sFajMinute);
+                        Sims3.Gameplay.UI.Responder.Instance.SimMinuteChanged += (VoidEventHandler)Fixes.Bind(typeof(VoidEventHandler), j, sFajMinute);
                     break;
                 }
             }
-            catch (Exception) { PatchCounters()[2572]++; }
+            catch (Exception) { PatchCounters()[3955]++; }
         }
     }
 }

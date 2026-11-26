@@ -20,6 +20,7 @@
 // Stops on Apex restore-pending (its backup not put back: run.ps1 -Restore), on --stop-on-crash, on 15 min without runner output.
 // Lights: alienfx-cli setall=0,0,0 every 30 s while TS3W.exe runs (as queue.ts; TS3_LIGHTS=on skips). Windows-only by nature.
 // status.ts shows these runs (run.json + runs.jsonl). Env: TS3_BIN, TS3_USER (Documents\Electronic Arts\The Sims 3), TS3_REPO.
+import { diskGate } from './cleanup.ts';
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -29,6 +30,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { asiVersion, loadDb, type Build } from '../builds.ts';
 import { dumpHungGame } from './game-alive.ts';
+import { clearJob, markJob, waitHold } from './hold.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
 
 const HERE = resolve(import.meta.dirname, '..', '..');
@@ -102,8 +104,8 @@ export function newestXcpt(dir: string, since: number): string | null {
   return readdirSync(dir).filter(n => /^xcpt .*\.txt$/i.test(n)).map(n => [n, statSync(join(dir, n)).mtimeMs] as const)
     .filter(([, t]) => t >= since).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
-export function runnerArgs(o: { bin: string; job: string; apexAsi?: string; variant?: string; ab?: boolean; profiler?: string }) {
-  return ['-GameBin', o.bin, '-Job', o.job, ...(o.apexAsi ? ['-Asi', o.apexAsi] : []), ...(o.variant ? ['-Variant', o.variant] : []), ...(o.ab ? ['-AB'] : []), ...(o.profiler ? ['-Profiler', o.profiler] : [])];
+export function runnerArgs(o: { bin: string; job: string; apexAsi?: string; variant?: string; ab?: boolean; profiler?: string; keepSaves?: boolean }) {
+  return ['-GameBin', o.bin, '-Job', o.job, ...(o.apexAsi ? ['-Asi', o.apexAsi] : []), ...(o.variant ? ['-Variant', o.variant] : []), ...(o.ab ? ['-AB'] : []), ...(o.profiler ? ['-Profiler', o.profiler] : []), ...(o.keepSaves ? ['-KeepSaves'] : [])];
 }
 
 const gameRunning = () => {
@@ -139,18 +141,30 @@ async function main(v: Record<string, any>) {
   if (isBisect(arms)) { console.error(BISECT_WARN); if (!v['ok-bisect']) process.exit(2); }
   const apex = resolve(v['apex-repo']), runPs1 = join(apex, 'tools', 'ingame_runner', 'run.ps1'), apexPending = join(apex, 'outputs', 'ingame', 'restore-pending.json');
   if (!existsSync(runPs1)) fail(`no ${runPs1}`);
+  if (!v['dry-run']) { const g = diskGate(); console.log(g.line); if (!g.ok) fail('refused: not enough free disk space (cleanup.ts gate, docs/283)'); }
   const db = loadDb(), src = v.release ? releasePair(db, [...new Set([HERE, ROOT])]) : v.ts3native ? { asi: resolve(v.ts3native), ini: resolve(v.ini), name: 'given' } : null;
   for (const f of src ? [src.asi, src.ini] : []) if (!existsSync(f)) fail(`missing ${f}`);
   const plan = armsPlan(arms, loads), tag = v.tag ?? `${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}`;
   const out = join(APEX_OUT, tag), before = join(out, 'bin-before'), summary = join(out, 'summary.txt'), jsonl = join(out, 'runs.jsonl');
-  const rargs = runnerArgs({ bin: BIN, job: v.job, apexAsi: v['apex-asi'] && resolve(v['apex-asi']), variant: v.variant, ab: v.ab, profiler: v.profiler });
+  const rargs = runnerArgs({ bin: BIN, job: v.job, apexAsi: v['apex-asi'] && resolve(v['apex-asi']), variant: v.variant, ab: v.ab, profiler: v.profiler, keepSaves: v['keep-saves'] });
   console.log(`apex ${tag}: ${loads} load(s) ${plan.join(' ')}; our pair for 'with': ${src ? `${src.name} ${src.asi}` : 'the pair Bin has now'}; runner: run.ps1 ${rargs.join(' ')}`);
   if (v['dry-run']) return 0;
+  // the main checkout's build/crash-triage hold and job marker (hold.ts), as queue.ts: a run from a worktree used to ignore them
+  await waitHold(s => console.log(`${new Date().toISOString().slice(0, 19)}Z ${s}`));
   if (existsSync(MARKER)) fail(`an earlier apex run did not restore Bin (${MARKER}): node tools/harness/apex-run.ts --restore`);
   if (existsSync(apexPending)) fail(`Apex restore pending (${apexPending}): close TS3W.exe, then run.ps1 -Restore <its run dir>`);
   if (gameRunning()) fail(`${GAME_EXE} is running: close it first`);
   if (existsSync(summary)) fail(`${out} already has a run: pass another --tag`);
+  // the test agent is per checkout (ignored outputs/): a fresh Apex worktree has none and run.ps1 throws "No test agent" in 2 s
+  // (chain-1117g 11-17: all 9 GI steps on gi-merge-r4 / gi-s2-06 "runner exit 1, 0 min"); built from this checkout's agent source
+  const agentPkg = join(apex, 'outputs', 'ingame', 'agent', 'ApexTestAgent.package');
+  if (!existsSync(agentPkg)) {
+    console.log(`no ${agentPkg}: building it (node tools/ingame_runner/build_agent.mjs)`);
+    try { execFileSync('node', [join('tools', 'ingame_runner', 'build_agent.mjs'), '-GameBin', BIN], { cwd: apex, stdio: 'inherit', timeout: 600000 }); } catch (e) { fail(`test agent build failed in ${apex}: ${(e as Error).message.split('\n')[0]}`); }
+    if (!existsSync(agentPkg)) fail(`test agent build wrote no ${agentPkg}`);
+  }
 
+  markJob(`apex-${tag}`); // hold.ts wait-job-end / track.ts build-window wait for this; cleared in finish()
   mkdirSync(before, { recursive: true });
   const say = (s: string) => { const l = `${new Date().toISOString().slice(0, 19)}Z ${s}`; console.log(l); appendFileSync(summary, l + '\n'); };
   const files: Record<string, string | null> = {};
@@ -170,6 +184,7 @@ async function main(v: Record<string, any>) {
     if (lights) clearInterval(lights);
     waitGameGone(say);
     const ok = restoreBin(MARKER, say, db);
+    clearJob();
     if (lights) try { execFileSync(AFX, ['setall=0,0,0'], { stdio: 'ignore', timeout: 15000 }); } catch { /* no lights tool */ }
     say(`done${stopWhy ? ` (stopped: ${stopWhy})` : ''}; ${crashes} crash(es); summary ${summary}`);
     return ok;
@@ -183,6 +198,7 @@ async function main(v: Record<string, any>) {
     if (!child) process.exit(130);
   });
 
+  let runnerFail = 0;
   try {
     for (let i = 0; i < plan.length && !stopReq; i++) {
       const arm = plan[i], n = i + 1, base = join(out, `load-${n}-${arm}`);
@@ -216,11 +232,12 @@ async function main(v: Record<string, any>) {
         appendFileSync(summary, `  triage: ${(xcpt && triageBlock(tri, xcpt)) || (xcpt ? 'report not in triage output' : 'no xcpt report written')}\n`.replace(/\n(?!$)/g, '\n    '));
         appendFileSync(summary, fx.length ? `  ts3native.log forensic lines (${fx.length}${fx.length > 40 ? ', first 40' : ''}):\n${fx.slice(0, 40).map(l => `    ${l}`).join('\n')}\n` : `  ts3native.log: no DRAW BAD / HEAP / crash forensics: DUMP lines${haveLog ? '' : ' (no log this load)'}\n`);
       }
+      if (exit !== 0) runnerFail++;  // runner exit 1 with no crash ('No test agent') used to return rc 0 = chain PASS
       if (pending) { stopWhy = `Apex restore pending after load ${n} (run.ps1 -Restore)`; break; }
       if (c.crashed && v['stop-on-crash']) { stopWhy = `crash at load ${n} (--stop-on-crash)`; break; }
     }
   } finally { delete runInfo.current; saveInfo(); if (!finish()) process.exitCode = 3; }
-  return process.exitCode ?? (crashes || stopWhy ? 1 : 0);
+  return process.exitCode ?? (crashes || stopWhy || runnerFail ? 1 : 0);
 }
 
 function selfCheck() {
@@ -274,7 +291,7 @@ function selfCheck() {
 
 if (import.meta.main) {
   const { values } = parseArgs({ options: {
-    'apex-repo': { type: 'string' }, job: { type: 'string' }, 'apex-asi': { type: 'string' }, variant: { type: 'string' }, ab: { type: 'boolean' }, profiler: { type: 'string' },
+    'apex-repo': { type: 'string' }, job: { type: 'string' }, 'apex-asi': { type: 'string' }, variant: { type: 'string' }, ab: { type: 'boolean' }, profiler: { type: 'string' }, 'keep-saves': { type: 'boolean' },
     release: { type: 'boolean' }, ts3native: { type: 'string' }, ini: { type: 'string' }, 'no-ts3native': { type: 'boolean' }, loads: { type: 'string' }, arms: { type: 'string' },
     'stop-on-crash': { type: 'boolean' }, 'ok-bisect': { type: 'boolean' }, tag: { type: 'string' }, 'dry-run': { type: 'boolean' }, restore: { type: 'boolean' }, 'self-check': { type: 'boolean' } } });
   if (values['self-check']) selfCheck();

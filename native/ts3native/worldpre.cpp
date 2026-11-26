@@ -497,7 +497,7 @@ static void InstallWxPass3(DWORD p3) {
 static void InstallWorldPre(const wchar_t* ini) {
     InstallWorldAlt(ini);  // worldalt.cpp (docs/676 §14): its own key, independent of the two below
     WorldPreCounters& c = ts3native_worldpre;
-    const int scan = Clamp(GetPrivateProfileIntW(L"WorldPrecompute", L"WaterScanTable", 0, ini), 0, 2);
+    const int scan = Clamp(GetPrivateProfileIntW(L"WorldPrecompute", L"WaterScanTable", 1, ini), 0, 2);
     const int probe = GetPrivateProfileIntW(L"WorldPrecompute", L"Probe", 0, ini) ? 1 : 0;
     if (!scan && !probe) { Log("world precompute off ([WorldPrecompute] WaterScanTable=0, Probe=0)"); return; }
     // EA 1.69: both function addresses have table rows; the call sites inside them are offsets and are accepted only by

@@ -2,10 +2,13 @@
 
 2026-11-21, branch `fix/stand-wait-1121`. Storm logs s141-s291 (Isla Paradiso, Collins household, 2-minute route storms) +
 decompiled C#. Built, default off, **NOT RUN**. Switches `standwaitfix`, `standwaitfixhh`, `standwaitlog`; counters
-4300-4319; `StandWait.cs`, `StandWaitCore.cs`; repros `standwait-check`, `standwait-landing-crowd`.
-§7 (branch `fix/privwait-1121`): waits at a privacy-locked room, switches `standwaitlocked`, `standwaitlockedhh`, counters
-4340-4351, `StandWaitLocked.cs`, `StandWaitLockedCore.cs`, repro `standwaitlocked-check`. **Correction to §1-§2:** the
-wait is 20 sim-minutes, not 50 (§7.1); "50" below is the default in the code.
+4300-4319; `StandWait.cs`, `StandWaitCore.cs`; repro `standwait-check`.
+§7 (waits at a privacy-locked room, `standwaitlocked`), §10 and §12-§13 stay on the contributor's combo branch for now; §8, §9 and §11 are
+§7 (waits at a privacy-locked room, `standwaitlocked`) and the other sections stay on the contributor's combo branch for now; §8 and §14 are
+§7 (waits at a privacy-locked room, `standwaitlocked`) and the other sections stay on the contributor's combo branch for now; §8, §14 and §15 are
+§7 (waits at a privacy-locked room, `standwaitlocked`) and the other sections stay on the contributor's combo branch for now; §8, §14 and §19 are
+in this file. **Correction to §1-§2:** the wait in the tuning XML is 20 sim-minutes, not 50; "50" below is the default
+in the code.
 
 ## 1. What the logs show
 
@@ -146,137 +149,8 @@ Package `ts3fixes` of this branch (no native change). Storms as s266 (`s266-run.
   errors 0; no new routefail kinds, stuck Sims, crashes or `route false` beyond the off arms; no teleport (none is in
   the code; the `gohere end` lines stay `route ok`).
 
-## 7. Waits at a privacy-locked room (`standwaitlocked`, 2026-11-21, `fix/privwait-1121`, built, default off, NOT RUN)
 
-### 7.1 What the logs show (`standwait:` lines of s294-s365, household and selected Sims)
-
-| Interaction on the line | Blocked cycles | Sim-minutes | End |
-|---|---|---|---|
-| `SocialInteractionA` / `B` target Sim (s294, s341 Rosemarie) | 10-13 | 21-22 | `timeout` |
-| `none` (s298 Cristobel, s295 / s336 Omar), standing at 927.5,58.0,1203.3 | 8-13 | 15-27 | `timeout` (s295: the lock ended in cycle 8) |
-| `PillowFight` / `PlayTag` target Sim | fewer | shorter | |
-
-All have plan `FailedBecauseDestinationPortalLocked`, blocker `None`.
-
-- **The wait is 20 sim-minutes [verified, game data].** `kDefaultStandAndWaitDuration` is 50 in the code and
-  `value="20"` in the game's tuning XML (`SimRoutingComponent`, `GameplayData.package`). `StandAndWaitController.Run`
-  tests the time after each cycle, so a wait of 13-14 cycles of about 1.6 sim-minutes ends at 20.8-22.4: the `timeout`
-  lines. Nothing else cuts it. §1's "13-14 cycles of 3.7 minutes = 50" was a wrong time estimate; the cycle counts stand.
-- **What the `none` route is [verified for s295 / s336, inferred for s298].** A posture transition:
-  `InteractionQueue` runs the transition interaction of the queue's head before the head counts as running, so
-  `Sim.CurrentInteraction` is null and the routefail / standwait lines say `none`. In s295 and s336 the next `actdelay`
-  line of the same Sim is `Bed_BeReadToSleep` (autonomous), "transitions 1-2 (6.7-7.0 s, 21-24 plans, last
-  EnterRelaxing)": the child called to bed for a bedtime story walks to its bed, the adult reading stands at
-  927.7,58.0,1202.7. Not the stuck check, not a follow-up of a social. A privacy lock needs an interaction to apply
-  (below), which a Sim with neither a running nor a transition interaction does not have. The `standwait:` line now
-  names the transition: `none (transition <X> for <head interaction>)`.
-- **Rooms [verified, positions and room ids of routefail lines].** On the second floor (y 58) room 9 is the hall the
-  waiters stand in, room 3 the stair area west of it (927-929, 1201-1202), room 15 the bathroom (toilet goal
-  931.4,58.0,1201.5), rooms 6 / 4 / 7 / 10 the others; the third floor (y 61) is room 11. The goal 930.4,58.0,1201.5
-  lies between the samples of room 3 and room 15; which of the two it belongs to is not known from the logs. The new
-  line part `lock privacy (<situation type> of <Sim>[, begun in room N])` names the situation and its Sim.
-
-### 7.2 What EA does [verified, decompiled, unless marked]
-
-- **The lock.** `PrivacySituation.OnPortalPathPlan` (subscribed to `Lot.PortalPathPlan`, asked by the planner for each
-  portal) locks a portal when its `RoomTo` is the room the situation's Sim (`SyncTarget`) is in **now**, for a planning
-  Sim whose running, else transition, interaction is autonomous with priority up to `Privacy`, or not autonomous with
-  priority below `UserDirected`, unless `OtherSimCanIgnorePrivacy` (toddlers and below, romantic partners, imaginary
-  friends: `Sim.CanIgnoreNormalPrivacySituationsWith`). So a **player's own order is never privacy-locked**, and neither
-  is a Sim without an interaction. Situations: toilet, urinal, shower, bath, sponge bath, woohoo (bed, shower, hot tub,
-  sauna). A toilet's is created after the Sim reached the toilet and exits at the end of `Run` and in `Cleanup`;
-  shower and bath alike.
-- **A route planned to that room fails at once**: plan result `FailedBecauseDestinationPortalLocked`, `DoRoute`
-  false, `DoRouteFailureBehavior`, the interaction ends. Autonomy does not pick targets in the room at all
-  (`Autonomy.CheckAvailabilityOnLot`: `IsAllowedInRoom`, fed by the situation's room callback; for a social it tests
-  the other Sim's room).
-- **A forced replan at the start of the obstacle wait fails at once too**: `PerformAction` with
-  `mbForceInitialReplan` returns `Terminate` when that replan fails, without waiting.
-- **Only the wait's own cycle is different.** A Sim already on its way when the room goes private, which then meets an
-  obstacle without the forced replan (a Sim it may wait for, or a portal action before it), enters the wait; each
-  cycle's replan fails on the lock; the handler's early return (§2) answers "keep waiting" until the 20 minutes are
-  over; then `Terminate`: the route fails exactly as it would have at once. The wait is built for people who move
-  away; a privacy lock does not move.
-- **After the timeout** [verified]: `mbElectedToExit` false, so `mReturnValue = Terminate`; EA's crowd rule and
-  route-fail animation as in §2; a posture transition is retried by `InteractionQueue` (up to 10 tries, each a new plan
-  that fails at once while the lock holds), then `PostureTransitionFailed`.
-- EA has a ready test, `Lot.RoomLockedByPrivacy(Sim, room)`, that nothing in the game's script assemblies calls.
-
-### 7.3 Fix (`StandWaitLocked.cs`, rules in `StandWaitLockedCore.cs`)
-
-In a blocked cycle (§3) whose plan failed with `FailedBecauseDestinationPortalLocked`, the lock is classified:
-
-- **privacy**: a privacy situation of the destination's room (`GetApproximateOriginalDestination`), or of the room the
-  interaction's target Sim is in, whose Sim is in that room now and which holds for the waiter by EA's own rule above
-  (same expression, same `OtherSimCanIgnorePrivacy`), and the waiter is not in that room itself;
-- **door**: no such situation and the Sim's own door rule refused a door in the plan (`LockedDoorsDuringPlan`: the
-  player's door locks, hidden rooms, pets);
-- **privacy situation that does not lock this Sim**, **other**: the rest.
-
-Only **privacy** acts: after `kStandWaitLockedCycles` (2) such cycles in a row, about 3 sim-minutes, the hook answers
-"stop" without electing an exit. That is the timeout's own exit: `Terminate`, EA's crowd rule, EA's route-fail, the
-interaction or transition ends as EA ends it and autonomy picks something else (not in that room: `IsAllowedInRoom`).
-A lock that ends within those cycles lets the Sim walk on as before. No teleport, no lock opened, no new search.
-
-Kept as EA has it: a player's own order (never locked, so never here); toddlers and partners (never locked); door locks
-and every other lock (the 20-minute wait); a Sim inside the room; with `standwaitfix` on, a pending push or cancel is
-answered first by its yield (§3 rule 1). A room that is privacy-locked and also behind a player-locked door counts as
-privacy: every portal into it is locked for the Sim whatever the door says.
-
-Why EA would plausibly do the same: it is EA's own answer for the same Sim, lock and route in the two neighbouring
-cases (plan from a standstill; forced replan at the start of the wait); the long wait only happens through the early
-return that §2 already shows to be an ordering slip; and the wait cannot succeed before the situation ends (how often
-it ends within the 20 minutes is not known yet: off-arm counter 4350 against 4349 measures it).
-
-**Scope.** `standwaitlocked`: Sims the player does not control. `standwaitlockedhh` in addition: household and selected
-Sims (`Fixes.HouseholdExempt`; `[Experimental] HouseholdToo=1` lifts it as well). The household result differs from EA's
-(the Sim gives up after 3 minutes instead of 20), hence the own switch. The harness's ungreeted visitors
-(`GoHere target Terrain`, plan `DestinationPortalLocked` at the front door) are not privacy locks and keep EA's wait.
-
-**Compare mode / log.** Hooks are §3's. Off: counters and the line say what would happen. The `standwait:` line gets
-a new end kind `gave up (privacy lock)` and, for a wait with locked cycles, a tail:
-
-`, lock <privacy (<SituationType> of <Sim>[, begun in room N]) | door | privacy situation that does not lock this Sim |
-other>: L locked cycles, P privacy, fix <on|off|exempt>: <gave up cycle N | would give up cycle N | exempt (household) |
-kept (...)>[, lock ended in cycle C]`
-
-Counters 4340-4351 (`docs/registry.md`): locked cycles / waits, privacy cycles / waits, gave up, would give up, exempt
-waits, waits at another lock, timeout cycles left of the ended waits, privacy waits that ran to the timeout, privacy
-waits whose lock ended while the Sim waited, errors. `StandWaitLockedCheck run | result | lot` (`lot`: the privacy
-situations on the selected Sim's lot and whether they lock it now; read-only).
-
-### 7.4 Third-floor strands (s321, s365): not this rule [static answer; the s366+ strand lines decide]
-
-Asked: can a privacy lock on the toilet's room close the stair from room 11, and can the situation outlive the toilet
-use? By the code: a situation locks only portals **into the room its Sim stands in at that moment**; it is created at
-the toilet and exits in `Run`'s end and in `Cleanup`, and no path that leaves it registered was found. The toilet goal
-931.4,58.0,1201.5 is in room 15, not in the hall (room 9). So a toilet situation closes the stair down from room 11
-only if that stair's lower end is in room 15, or if a situation's Sim stands in the room the stair lands in (the lock
-follows the Sim: a situation still alive while its Sim stands at the stair top in room 3 would lock every way into room
-3, stairs included, and plans through it would fail with `NoPathToDestination`, plans into it with
-`DestinationPortalLocked`). Whether that happened is in the `routefail strand privacy:` lines (`StrandLog.cs`) and in
-this section's `lock privacy (... begun in room N)` tail. A strand is a plan that fails at the start, not a wait:
-`standwaitlocked` does not change it, and would only make Sims at such a lock give up sooner.
-
-### 7.5 Checks (2026-11-21, no game) and run plan
-
-- `node tools/selftest/standwaitlocked/run.ts`: EA's gate for every flag / priority pair, lock kinds, the decision
-  table, and a wait model (off 20-22 minutes, on 2 cycles, a lock that ends in time is walked through, the fix never
-  lengthens a wait; 500 random waits). `standwait` selftest extended for the new end kind.
-- `StandWaitLockedCheck run` (repro `standwaitlocked-check`): off `BROKEN`, on `FIXED`, with controls. No forced repro:
-  it needs a room going private while a Sim is on its way there and an obstacle on that way; several of the storms
-  s294-s365 have one.
-- Storms as §6 with `standwaitlog`: off arm `MF_EXTRA="... standwaitlog"`, on arm
-  `... standwaitlog standwaitlocked standwaitlockedhh`.
-- Read, off arm: `standwait:` lines with `lock privacy (...)`: `would give up cycle 2`, their end (`timeout` or
-  `lock ended in cycle C`), the situation type and Sim, the transition named after `none`. On arm: the same waits end
-  `gave up (privacy lock)` with 2 blocked cycles and 3-4 sim-minutes; lines with `lock door` / `other` unchanged
-  (the ungreeted visitors); counter 4351 = 0; the `actdelay` line of the interaction ends (`ended without acting`) or
-  goes on to another target; no new stuck Sims, strands, `route false` or routefail kinds beyond the off arms; no Sim
-  repeating the same wait every few minutes (same Sim, same goal, 3 or more `gave up` lines in a run would be a retry
-  loop to look at).
-
-## 8. Sims share stairs, doors and ladders and walk through each other (`sharelanes`, `laddershare`, `simpass`, `angleentry`; 2026-11-21, `feat/sharelanes-1121`, built, default off, NOT RUN)
+## 8. Sims share stairs, doors and ladders and walk through each other (`sharelanes`, `laddershare`, `simpass`, `angleentry`; 2026-11-21, `feat/sharelanes-1121`, built, default off; storms s444-s495, see §8.7)
 
 A player's wish: Sims may use the same stairs and doors at the same time in both directions and enter stairs and
 ladders at an angle; clipping through each other is fine, waiting is not. No teleport, nothing unstable. `ShareLanes.cs`,
@@ -355,7 +229,7 @@ succeeds, so standing Sims were the lock. Failed-plan lines in the 316 logs: `De
 | same | A blocked stand-and-wait cycle whose plan says `DestinationPortalLocked` plans without "blocked by people" on the first such cycle (then every 3rd); success = only people closed it, the Sim walks on with the ignore-obstacles timer. Failure = a real lock, the wait goes on (counter 4377). Not with a Sim other than the partner at the route's end. | the pass step of `standwaitfix` (§3 rule 2), without waiting for cycle 2 and without that switch |
 | `laddershare` (`laddersharehh`) | `SimQueue.WaitForTurn` answers "your turn" for a `PortalClimb` on its ladder's own line; the Sim is not entered in the line. | none: this drops a wait the game has. Own switch because of the state machine question above. |
 | `spiralshare` (`spiralsharehh`) | Spiral stairs (`StaircaseSpiralPortalComponent`, exact type): the `sharelanes` search for its one lane, and `SimQueue.WaitForTurn` answers "your turn" for the staircase's walk (`UseInternal`) on its own line. Both are needed: the Sims in the line hold the lane from their end, so the Sim coming the other way waits for the whole line (7.2 and 12.0 sim-min in s465 / s469, the only lane waits left with the other pairs on). The railing slide keeps its line. Counters 4390-4397. | `GetFreeRoutingLane`'s own order and checks; the line: none, a wait the game has is dropped |
-| `simpass` (`simpasshh`) | Only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. **At once** (at the obstacle event, or `ContinueAndFollowPath` at a wait that still starts) only near a portal; anywhere else the wait begins and its first cycle after `kClipGraceMinutes` ends it the same way (§8.7). | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
+| `simpass` (`simpasshh`) | Only Sims in the way (toddler or older), none within 0.6 m of the route's end, walker not already ignoring: `StartIgnoringObstacles(kSimPassMinutes = 3)`, then the game's handler runs and skips them. **At once** (at the obstacle event, or `ContinueAndFollowPath` at a wait that still starts) only near a portal; anywhere else the wait begins and its first cycle after `kClipGraceMinutes` ends it the same way (§8.8). | `StartIgnoringObstacles`, the game's exit from a wait in a crowd |
 | `angleentry` (`angleentryhh`) | Stairs: when the Sim got its planned lane, the first sub-path is replaced by `GetPathToLane` (kept when that plan fails). Ladder climbed from below: `GetPathToLane` gets the lane without `PlanToSlotNotPosition`, so the game takes its point plan. Climb down: unchanged. | the game's own replacement approach for a lane that was not the planned one |
 | `lanewaitlog` | `lanewait: <Sim> <scope>, <interaction>: <Type> 0x<id> (<kind>), X sim-min from the refusal, got a lane / gave up, held then by: ..., at x,y,z` | log only |
 
@@ -428,116 +302,62 @@ door still meets the one coming out of it as an obstacle.
   3. Then `simpass simpasshh` added: `standwait:` lines with a Sim blocker gone, 4381 > 0; then `laddershare
      laddersharehh` (watch the ladder with two climbers: animation, both arrive); then `angleentry angleentryhh`
      (by eye at the stairs and the ladder foot; 4386 / 4387 > 0, 4389 low).
-  4. Repros `upstairs-landing-jam`, `standwait-landing-crowd`, `ladderfoot-force` with the pairs on.
+  4. Repros `upstairs-landing-jam`, `standwait-landing-crowd`, `ladderfoot-force` with the pairs on (the last two need agent steps and loads that are not upstream yet).
 - Pass: errors 4367 = 0, no new script errors, no Sim stuck in a portal (`StairWaitEndCheck result` waits asleep 0
   after the storm), door left open with nobody near = fail (use count), no new routefail kinds or `route false`
   beyond the off arms, `gohere end` lines stay `route ok`.
 
-### 8.7 The timing rule: at once only at portals (2026-11-22, built, NOT RUN)
+### 8.7 Storm results (2026-11-22, Steam Deck, Isla Paradiso test lot)
+
+16 route storms s480-s495 (2-minute storms, the same load and seed each time). On = `sharelanes`, `laddershare`,
+`spiralshare`, `simpass`, `angleentry`, each with its household switch. Both arms had `standwaitfix`, `standwaitfixhh`,
+`standwaitlog`, `lanewaitlog` and `routefaillog` on (and the combo branch's `standwaitlocked`, §7, which is not in this
+file), so the table compares the lane switches on top of `standwaitfix`; `standwaitfix` itself was not switched.
+
+| | off arms | on arms |
+|---|---|---|
+| lane waits (`lanewait:`) | 11 waits, about 26 sim-minutes in all | 0 |
+| obstacle stand-and-waits with blocked cycles (`standwait:`) | 1 wait of 13.1 sim-minutes | 0 |
+| townie waits at the spiral stair | 7-12 sim-minutes each | none |
+| `sharelanes` errors / crashes | - | 0 / 0 |
+| hitches of 500 ms or more | none | none |
+
+Per on-storm on average: `simpass` acted about 55 times, `angleentry` about 270 times, the spiral stair's line was
+skipped about 12 times. Earlier batches s444-s473 (after the fix for a ladder with an empty `SimQueue`, which threw in
+the line hook): errors 0. Not watched by eye yet: how two Sims crossing on stairs, a door or a ladder look, and the
+angled stair and ladder entry.
+
+### 8.8 The timing rule: at once only at portals (2026-11-22, built, NOT RUN)
 
 A player's rule: "doors and shower and stairs etc can be almost always but other things should have at least that
 2 or 3 second wait". Clipping is not the standard. It binds `simpass`, `petrelax` (§11) and `clipwait` (§9):
 
 | Where | What walks through at once | What waits first |
 |---|---|---|
-| Portals: doors, gates, stairs, ladders, spiral stairs, elevator lanes (`sharelanes`, `laddershare`, `spiralshare`, `angleentry`), showers (`showertogether`, §15) | lane sharing as built; `simpass` and `petrelax` when the walker or a Sim or pet in its way is within `kClipPortalNear` (1.5 m) of a portal lane, on the stairs included | nothing |
+| Portals: doors, gates, stairs, ladders, spiral stairs, elevator lanes (`sharelanes`, `laddershare`, `spiralshare`, `angleentry`) | lane sharing as built; `simpass` and `petrelax` when the walker or a Sim or pet in its way is within `kClipPortalNear` (1.5 m) of a portal lane, on the stairs included | nothing |
 | Anywhere else: open space, hallways, rooms | nothing | the game's stand-and-wait runs `kClipGraceMinutes` (2.5 sim-minutes, 2-3 seconds at normal speed), with its own replans and pushes; then `simpass`, `petrelax` or `clipwait` end it |
 
-- **One grace.** `kClipGraceMinutes` replaces `kClipWaitGraceMinutes`; all three read it. 0 = at once everywhere
-  (the behaviour before this rule).
 - **Near a portal** (`ShareLanesCore.NearLane`): the distance in three dimensions from a Sim to the line between a
   lane's two ends is under `kClipPortalNear`. So a Sim anywhere on the stairs, in a doorway or within 1.5 m of a
   lane end is near; a Sim on the floor above a door is not. The lanes of a lot are read once per 30 sim-minutes
-  (`ShlLanesOf`); the world lot has none. `kClipPortalNear = 0` = the grace everywhere.
+  (`ShlLanesOf`); the world lot has none. `kClipPortalNear = 0` = the grace everywhere; `kClipGraceMinutes = 0` =
+  at once everywhere (the behaviour before this rule).
+- **One grace.** `kClipGraceMinutes` replaces `kClipWaitGraceMinutes` (2); all three read it.
 - **Each switch keeps its own grace path.** `simpass`: `SpsObstacleCycle` in the obstacle wait's cycle hook (plan
-  intact, only Sims in the way, none at the route's end). `petrelax`: `PrxClip` in the cycle hooks of both waits.
-  Neither needs the `clipwait` switch; with it on, `clipwait` takes the waits the other two leave (a Sim at the
-  route's end, a plan that failed on people, horses).
-- **Not bound:** `blockeduse`, `reachuse`, `viewlenient`, `makebedboth` act on a plan that failed, not on a wait;
-  the pet's walk off a lane end before it lies down (§11.2 rule 3).
-- Counters: no free slot in the three blocks. `ShareLanesCheck result` and `PetRelaxCheck result` show, per
-  session, the waits begun away from a portal and left to the grace, and the walks after it. 4381 now counts only
-  walks near a portal; 4382 the waits ended at their begin (near a portal) or after the grace.
+  intact, only Sims in the way, none at the route's end) ends the wait with the game's own "continue and follow the
+  path". `petrelax`: `PrxClip` in the cycle hooks of both waits. Neither needs the `clipwait` switch; with it on,
+  `clipwait` takes the waits the other two leave (a Sim at the route's end, a plan that failed on people, horses).
+- `petrelax` rule 2 (§11.2): routes ignore a lying pet's floor jig only when the pet lies near a portal lane.
+- Counters: no free slot in the blocks. `ShareLanesCheck result` and `PetRelaxCheck result` show, per session, the waits begun away from a
+  portal and left to the grace, and the walks after it. 4381 now counts only walks near a portal; 4382 the waits
+  ended at their begin (near a portal) or after the grace.
 - Selftests: `sharelanes` (`Timing`: the rule, the near-lane test on a door and a stair lane), `petrelax`
-  (`Timing`), `clipwait` (2.5). The storm numbers of §8.2 are lane waits at doors and stairs: unaffected.
+  (`Timing`), `clipwait` (2.5).
+- §8.2 and §8.7: the lane waits, lane shares and line skips are at doors, stairs and ladders and are not touched.
+  The `simpass` count of §8.7 (about 55 acts per storm) was taken before this rule; away from portals those walks
+  now come after the grace.
 
-## 9. Sims walk through a Sim or pet that keeps them waiting (`clipwait`, `clipwaithh`; 2026-11-22, `feat/clipwait-1122`, built, default off, NOT RUN)
-
-A player's wish: a Sim busy at a mirror, standing, or chatting in a hallway should not keep a passing Sim waiting;
-after a moment the walker clips through, as in other games. No teleport, the Sim walks its own route. Two Sims at
-one object are not wanted. `ClipWait.cs`, rules in `ClipWaitCore.cs`, counters 4398-4413, check
-`ClipWaitCheck run | result`, selftest `tools/selftest/clipwait`, repro `clipwait-check`.
-
-### 9.1 Where a Sim waits for a Sim outside portals [verified, decompiled `Sims3.Gameplay` unless marked]
-
-| Case | The game's code | Cost | How often |
-|---|---|---|---|
-| A Sim or pet in the route's way | `SimSteeringAdaptor.HandleEventEncounteredObstacles` -> `ObstacleEncounteredRouteInterruptAction`: stand-and-wait, each cycle a replan with "blocked by people" and a push of the pushable Sims | up to `kDefaultStandAndWaitDuration` (50 sim-min in code, 20 in tuning), then route failed | every meeting of two Sims on a route; 374 storm logs of 11-20/22: 422 failed plans with a Sim as blocker (`NoPathToDestination`), 9 `standwait:` lines with a Sim blocker (3 ran to the timeout). Waits whose plan succeeds (the walker stands while the other Sim is pushed or leaves) had no counter |
-| A Sim that cannot be pushed | `RoutingComponent.PushSimsStatic`: a Sim in a conversation is skipped, a Sim in an interaction only moves when the interaction is an `IBePushedCanCancel` that allows it | the wait above runs until that Sim is done | the mirror, sink, fridge and hallway-chat cases; not measured |
-| A Sim on the route's end point | `HandleEventDestinationObstructed` -> `DestinationObstructedRouteInterruptAction`: stand-and-wait, pushes Sims within 0.6 m of the end every cycle, replans every few | same duration; ends with the "Sim in the way" balloon (`PlayRouteFailureIfAppropriate`) | not measured before (1 stall-watch stack in the logs); counters 4409-4411 now |
-| Arrived inside a Sim | `SimRoutingComponent.DoRoute`, only for routes with `CheckForFootprintsNearGoals` (dance floor, stereo, karaoke, jukebox, DJ booth, some spawners): push, replan around people, else an emergency walk 0.6-2.5 m away and route failed | one short walk + the failed interaction | rare, those objects only |
-| Pushed out of the way | `PushSimsStatic` with `waitForPushes` (doors, gates, footprints of objects being placed, pet landing spots): the pusher idles up to `TotalSimMinutesToWaitForSimsToBePushed` | short | doors: §8; else rare |
-| A pet lying in the path | a pet is a `Sim` for all of the above (`ToddlerOrAbove`); a running pet does not stop for Sims | as rows 1-3 | not measured |
-| Car, bike, bed side | route ends at an object's slot: row 3 | | |
-
-Not a routing wait and not touched: an object in use (`InUse`, lines such as `SimQueue`) is the game's rule for
-one user at a time.
-
-### 9.2 What is built
-
-After `kClipGraceMinutes` (2.5 sim-minutes, 2-3 seconds at normal speed; the one grace of §8.7, shared with
-`simpass` and `petrelax`; it was `kClipWaitGraceMinutes` = 2) of either stand-and-wait that the
-game wants to continue, `ClipWaitCore.Decide`:
-
-- **Walk through.** Only Sims and pets in the way (toddler or older; anything else in the way keeps the wait): when
-  the route's plan had failed it is planned once without "blocked by people" (still failed = a real block, the wait
-  goes on, 4408); then `StartIgnoringObstacles(kClipWaitMinutes = 3)` and the wait ends with the game's own
-  "continue and follow the path". This is the exit the game takes itself after a wait in a crowd.
-- **The route's end.** A Sim within the game's 0.6 m of the end is walked into only when the route ends on a plain
-  floor spot, or at an object that Sim is not using (its interaction, transition, posture and parent are not that
-  object; `kClipWaitObjectDest = false` limits it to floor spots). Never when the walker's interaction targets a Sim
-  or the route goes to a Sim (social placement), never on a Go Here the player gave to a household Sim, never when
-  the Sim at the end uses the object. The route's next destination-obstructed event then starts no new wait
-  (4412). When the end may not be walked into but other Sims block the way, the walker passes those and the game's
-  own handling of the end runs when it arrives.
-- **Why a grace and not at once.** The first cycles are the game's own answer: a replan around the Sim and a push
-  of a Sim that can step aside. Both look better than clipping and take under one cycle when they work. The rule is
-  judged at the end of a wait cycle, so the real wait is one or two cycles.
-
-`simpass` (§8) acts first where it applies (at once near a portal, elsewhere at the same grace, §8.7; nobody at the route's end); `clipwait`
-is the rule for the waits that still begin, with or without `simpass`. Lanes and lines (`sharelanes`,
-`laddershare`, `spiralshare`) are other code paths. `standwaitfix` runs first in a blocked cycle.
-
-**Scope.** `clipwait`: walker and every Sim walked through are Sims the player does not control. `clipwaithh`:
-household and selected Sims too. Off = compare mode: the waits are counted and what the rule would do (4402).
-
-### 9.3 Not built
-
-- **Arrival inside a Sim** (`DoRoute`, `CheckForFootprintsNearGoals`): the game's replan there finds another spot
-  around the object, which is the better answer; only its fallback fails. Rare objects.
-- **Two Sims at one object's slot in use**: not wanted.
-- **Babies** on the floor stay obstacles (the game treats them as objects).
-- **The native planner's endpoint test**: needs a native build; the script side covers the waits.
-
-### 9.4 Limits [inferred unless marked]
-
-- That the walk goes on to an occupied end point when the destination event starts no wait is taken from the
-  game's own cases with that handler off (ghosts, portal crossings); not run.
-- The walker cannot be pushed while its timer runs (the game's rule for an ignoring Sim), 3 sim-minutes per walk.
-- A failed plan names one blocker; the Sims within 0.5 m of the waiter are the second guess. A plan that fails
-  because of Sims farther away (a portal closed by standing Sims) is `sharelanes`' case, not this one.
-
-### 9.5 Checks (2026-11-22, no game) and run plan
-
-- `node tools/selftest/clipwait/run.ts`: the rule's cases and a sweep of every input combination (go only on, Sims
-  only, past the grace, in scope; a walk ends in a Sim only where allowed).
-- `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftests `standwait` and `sharelanes` pass.
-- Live: `clipwait-check` once (off `BROKEN`, on `FIXED`, `members found=True`). Storms off / on interleaved with
-  `clipwaitlog standwaitlog routefaillog`: off arm gives the first numbers (4398 waits past the grace, 4402 would,
-  4409-4411 destination waits, their sim-minutes and failures); on arm `clipwait clipwaithh`: 4399 / 4400 > 0, 4411
-  and the `standwait:` timeouts with a Sim blocker down, 4401 = 0, no `clipwait: error at` line. By eye: a Sim at a
-  sink or mirror in a corridor, a chatting pair in a doorway, a dog lying in a hallway.
-## 10. A slot closed by furniture or a wall is used anyway (`blockeduse`, `blockedusehh`; 2026-11-22, `feat/blockeduse-1122`, built, default off, NOT RUN)
+## 10. A slot closed by furniture or a wall is used anyway (`blockeduse`, `blockedusehh`; 2026-11-22, `feat/blockeduse-1122`, built, default off; forced repro run, §10.6)
 
 A player's wish: "if he can't get in because there's something in the way he could just go in, and bed, if one of the
 sides is next to the wall just teleport him to the animation and then back". Clipping on the last stretch and a short
@@ -629,14 +449,223 @@ stopped / snap out to a found spot / kept: cooling down. Lines `blockeduse: <who
 
 - `node tools/selftest/blockeduse/run.ts`: 45 checks of the rules. `BlockedUseCheck run | result | lot` (`lot`: plans
   of the selected Sim to every routing slot of the lot's tubs, showers, toilets, sinks, beds, chairs and sofas, lists
-  the objects with a closed slot). Repros `blockeduse-check` (rules, counters) and `blockeduse-force` (a room built
-  with `build_layout`: a toilet with an end table on its slot, the Sim ordered to use it, off then on). Neither has run.
+  the objects with a closed slot). Repro `blockeduse-check` (rules, counters). The forced repro `blockeduse-force` (a room built with
+  `build_layout`, a fridge put on the toilet's slot with the agent's `put_in_front` step) stays on the contributor's
+  combo branch until that agent step is upstream; §10.6 gives its results.
 - Run plan, about 30 min of game time: 1. load, `ts3fixes applied` must show `SimRoutingComponent.DoRoute: ok`,
   `Route.AddDestination: ok`, `Route.ClearDestinationList: ok`; save and load with the switches off, Sims mid-route
   must come back (`savedstacks` 761 = 0). 2. `blockeduse-force`. 3. By hand: a double bed with one side at a wall and
   two sleepers; a tub with a dresser in front. 4. One storm with both switches on.
 - Pass: 4426 = 0, no `blockeduse: error at` line, no new script errors, the Sim ends on a routable spot after use
   (4420 or 4421 follows every 4418 / 4419), no Sim left standing in a wall, `gohere` lines unchanged.
+
+### 10.6 Results (2026-11-22, Steam Deck, Sunset Valley new game)
+
+- Forced repro `blockeduse-force`, run bu-r11 (exit 0): a two-Sim household on an empty lot, a toilet at a wall with a
+  fridge on the tile in front of it. Before each arm `BlockedUseCheck lot` showed `ToiletModerate ... 1 of 1 slots
+  closed (FailedBecauseNoPathToDestination blocker Object)`.
+  - off: `routefail: ... UseToilet ... FailedBecauseNoPathToDestination blocker Object` (the fridge), `would` 1; the Sim
+    does not use the toilet.
+  - on: `blockeduse: ... clip 1.0 m to slot ..., walked up first`; counters walked up 1, clip 2 (the interaction routes
+    to the slot twice), walked out 1, errors 0.
+- The same off / on by hand in a second session (bu-m1).
+- Not exercised yet: snap in / snap out (a slot the clip plan cannot reach, such as a bed side at a wall). Not
+  confirmed by eye: no screenshot of the Sim seated. Not run: a save and load with a Sim mid-route (the `DoRoute`
+  swap is installed whatever the switches say, and its stub keeps saved stacks loading).
+
+## 13. A bed half that cannot be reached is made from the other side (`makebedboth`, `makebedbothhh`; 2026-11-22, `feat/makebedboth-1122`, built, default off; forced repro run, §13.5)
+
+A player's wish: when half of a bed cannot be reached, the Sim makes it from the other side and the whole bed is
+made. `MakeBedBoth.cs`, rules in `MakeBedBothCore.cs`, counters 4462-4469, check
+`MakeBedBothCheck run | result | lot`, selftest `tools/selftest/makebedboth`, repro `makebedboth-check`.
+
+### 13.1 How Make Bed works [verified, decompiled `Sims3.Gameplay.Objects.Beds` unless marked]
+
+- **The walk.** `BedMakeBed.Run` collects the routing slots of every part that is unmade with no Sim in it and
+  walks to one (`RouteToSlotList`). A double bed has two parts (`BedData`, slots 0 and 1), a single bed too
+  (`BedSingleData`, slots 4 and 5: its two sides).
+- **The run.** State machine `BedMakeBed`, `Enter_MakeBed_<Route0|Route1>`, loop `MakeBed`,
+  `Exit_MakeBed_<...>`, then `BedMade = true` on that part. When the other part is unmade the interaction pushes
+  itself again as a continuation.
+- **The bug.** When the other part's slot is closed the continuation's walk fails. The bed stays half made, the
+  definition's `Test` passes for any unmade part not in use, so autonomy offers the bed again and fails again,
+  and the room keeps the unmade bed's penalty. A bed whose only unmade part is the closed one fails on the first
+  walk. With `blockeduse` (§10, a separate change) Sims get into and out of a closed half, which makes such halves common.
+- **The look.** No script call sets a half's made or unmade look. `BedData.BedMade` keeps a flag and the "dirty"
+  alarm; `Bed.DoReset` sets the flags only. The look is the bed model's last animation pose, left by the bed's
+  track of the get-out and make clips.
+- **The clips** [verified, JAZZ `BedMakeBed` in `Game/Bin/Jazz/JazzData.package`, CLIP names from
+  `FullBuild0`]. The Sim plays `a2o_bed_make_start / pat / smooth / stop_x`, the bed `..._bed`, as two tracks.
+  `Route1` mirrors both. The parameter `MakeOppositeSide` changes the bed's mirror alone: at `Route0` the bed is
+  mirrored when it is set, at `Route1` the bed is mirrored when it is not set. So with the parameter the Sim plays
+  at the side it stands on and the bed plays the other half. The Sim is not moved: its clips are relative to its
+  own slot.
+- **Who sets it.** `BedData.SetPartParameters` sets it false; `BedSingleData` sets it to "other part unmade".
+  A single bed's parts copy "made" to each other and Make Bed walks to the unmade part, so in the game the
+  parameter is never true during Make Bed [inferred].
+
+### 13.2 What is built
+
+At the start of `BedMakeBed.Run` (swap with stub `RunOrig`), for a bed with two plain parts (`BedData` or
+`BedSingleData`; no tent, igloo, pod, upper bunk) of which exactly one is unmade and free:
+
+1. A route plan to that part's slots succeeds: the game's run. Double beds whose both sides are open are walked
+   round as before.
+2. Otherwise, when the other part is made, has no Sim and is not in use, and a plan to its slots succeeds: the two
+   parts' made flags are swapped for the run. The game's own run then walks to the other part's slot (no walk when
+   the Sim stands there after the first half), animates there and sets that part made at its end. Both parts are
+   made, the game pushes no continuation, a Murphy bed gets its Close, the events fire as in the game.
+   `BedData.SetPartParameters` and `BedSingleData.SetPartParameters` (two swaps, no yield) set
+   `MakeOppositeSide` for that part while this Sim is in it, so the bed animates the far half.
+3. The run does not end with that part made (walk failed, part taken, reset, error): the flags are put back.
+
+Both halves unmade and one closed: the game's run makes the open one, and its continuation is case 2. The plans
+are read-only (`Route.PlanToSlot`), at most two per Make Bed run on such a bed. With the bed made `Test` no longer
+passes, so autonomy stops offering it. No change to `Test` itself.
+
+Scope: `makebedboth` = Sims the player does not control, `makebedbothhh` = household and selected Sims, each
+stands alone. Off = counted (`would`), nothing changed. `makebedbothlog` writes one `makebedboth:` line per act.
+
+| Counter | Meaning |
+|---|---|
+| 4462 | Make Bed runs on a bed with exactly one unmade free half |
+| 4463 | second half made from the first side |
+| 4464 | closed half made from the other side (first make) |
+| 4465 | kept: the half can be reached (the game's walk) |
+| 4466 | kept: no side to make it from (other half taken, or closed too) |
+| 4467 | errors (`makebedboth: error at begin | end | parameter | run`) |
+| 4468 | would: switch off, or household without `makebedbothhh` |
+| 4469 | run ended early, flags put back |
+
+### 13.3 Limits [inferred unless marked]
+
+- **By eye, not yet seen.** The Sim pats the half in front of it while the far half is the one that moves. The
+  mirrored bed track on a double bed with the Sim's unmirrored track is the game's own state-machine path, but one
+  the game never takes, so the far half's look after it needs a look in the game. If the track does not move the
+  far half, the flags are still right (no retries, no penalty) and that half looks unmade until it is next used.
+- The bed's mirror is not cleared on the `Route0` exit path of the state machine. Whether that outlives the state
+  machine is not known.
+- During the walk in case 2 the flags are swapped: another Sim's Make Bed can pick the same part, as it can in the
+  game for any unmade part. A Sim that gets into the part first makes the game's run fail and the flags go back.
+- A save made during such a run resumes in the stub (the game's run): the bed ends made, the parameter is not set
+  again after the load.
+- The closed half's "dirty" state restarts its 30-minute alarm when the flags are put back.
+- With `blockeduse` on as well this rule comes first: the Sim stays at the open side.
+
+### 13.4 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/makebedboth/run.ts`: 406 checks (the decision table over every input, the end of the
+  run, second half or first make, the parameter, scope). `build-fixes.ts` builds; the selftest compiles
+  `BlockedUseCore.cs` too (the scope rule is shared with `blockeduse`); `swap-stack-audit` has the three new rows (`BedMakeBed.Run` yields, stub `RunOrig`).
+- The forced repro `makebedboth-force` (a room built with `build_layout`, the bed set up with the agent's
+  `bed_setup` step) stays on the contributor's combo branch until that agent step is upstream; §13.5 gives its results.
+- Live: `makebedboth-check` once (off `BROKEN`, on `FIXED`, `members found=True`). A household with a double bed
+  whose one side stands at a wall or behind furniture, `blockeduse blockedusehh` on so both halves get used:
+  off arm 4462 and 4468 up, the bed stays half made; on arm `makebedboth makebedbothhh makebedbothlog`: 4463 or
+  4464 up, `makebedboth: ... made from the ... side`, 4467 = 0, no `makebedboth: error at` line, the bed no
+  longer offered. `MakeBedBothCheck lot` lists the lot's beds with an unmade half and the plan to each part.
+  By eye: the far half's look after the run (13.3).
+
+### 13.5 Results (2026-11-22, Steam Deck)
+
+- Forced repro `makebedboth-force`, run mb-r2: off, one half stays unmade (`would` 1, `Left half closed: would be
+  made from the Right side`); on, both halves made (`made from the Right side (second half)`), errors 0.
+- By hand, a double bed with one side at a wall (session bu-m1): off, the Right half stays unmade with two
+  `routefail: ... BedMakeBed ... FailedBecauseNoDestinationSpecified` lines; on, both halves made.
+- Not confirmed: whether the far half's look visibly changes to made (13.3); the counters and the bed's flags say made.
+
+## Import 2026-11-23 (maintainer): PRs #648, #649, #650
+
+Imported by Dalexlol's commits of PR #648 (§1-§8: `standwaitfix`, `sharelanes`, `laddershare`, `spiralshare`, `simpass`, `angleentry`, the `...hh` household variants, `standwaitlog`, `lanewaitlog`), PR #649 (§10: `blockeduse`, `blockedusehh`) and PR #650 (§13: `makebedboth`, `makebedbothhh`, `makebedbothlog`). Stacked PRs #651 (petrelax, clipwait), #652 (reachuse), #654-#656 and #657-#659 are **not** imported. `docs/686` was the same file in all of them; the sections were merged here. Counters kept: 4300-4319, 4364-4397 (PR #648), 4414-4429 (#649), 4462-4469 (#650), `kCounterSlots` 4470; 4320-4363 and 4398-4413 are left to other work (4352-4363 are `ladderfootshoohh`, import 637-644).
+
+| Switch | Default | Why |
+|---|---|---|
+| `sharelanes`, `laddershare`, `spiralshare` | ON | his natural route-storm A/B (16 storms, Isla Paradiso): lane waits 11 (about 26 sim-minutes) off / 0 on, spiral-stair waits of 7-12 sim-minutes gone, errors 0, no hitch of 500 ms or more. Caveat: both arms also had `standwaitfix`, the on arms had all five lane switches and their `hh` variants, no ms/s or p99 figures were taken, how crossing Sims look was not watched (§8.7). Not household: NPC scope only, see below |
+| `blockeduse` | ON | his forced repro `blockeduse-force` (Sunset Valley, run bu-r11): off `FailedBecauseNoPathToDestination` for a toilet behind a fridge, on the Sim walks up (clip) with errors 0, same by hand. The repro itself needs the agent step `put_in_front` that is not upstream, so only `blockeduse-check` is in repros.json. Snap in / out was never exercised in game; the extra save/load test idea is dropped |
+| `makebedboth` | ON | his forced repro `makebedboth-force` (run mb-r2): off one half unmade, on both made, errors 0, same by hand. The far half's look was not checked on screen. `makebedboth-check` in repros.json |
+| `sharelaneshh`, `laddersharehh`, `spiralsharehh`, `blockedusehh`, `makebedbothhh`, `simpasshh`, `angleentryhh`, `standwaitfixhh` | OFF | household and selected Sims keep EA's behaviour (CLAUDE.md household rule). In code every switch exempts a household, selected or unknown-scope Sim unless its `hh` switch is on. Changed at import: the scope tests of `ShareLanes.cs` (`ShlScope`) and `StandWait.cs` (`SwfInScope`) now use `IsPlayerSim`, not `HouseholdExempt`, so `[Experimental] HouseholdToo` does not lift lane skips, clip-through or path changes; `BlockedUse` and `MakeBedBoth` never read it (the snap branch is never lifted) |
+| `simpass` | OFF | the clip-through rule was changed after his storm run (walk through at once only within 1.5 m of a portal, else after 2.5 sim-minutes, §8.8) and is **NOT RUN** in game; walking through Sims is player-visible |
+| `angleentry` | OFF | acted about 270 times per storm but there is no per-switch result and the angled entry was not watched by eye |
+| `standwaitfix`, `standwaitlog`, `lanewaitlog`, `makebedbothlog` | OFF | `standwaitfix` is unproven alone (both A/B arms had it, §6 run plan open); the others only write log lines |
+
+The `blockeduse` `DoRoute` swap is installed even with the switches off (saves keep a frame in it), so the save change matrix (docs/242 §2) still applies before the swap is relied on; `blockedusehh` and `HouseholdToo` must never lift its snap branch. PR #651 later adds a second swap of `SimRoutingComponent.DoRoute` (not imported). Repros `standwait-check`, `sharelanes-check`, `blockeduse-check`, `makebedboth-check` added to repros.json.
+
+## 9. Sims walk through a Sim or pet that keeps them waiting (`clipwait`, `clipwaithh`; 2026-11-22, `feat/clipwait-1122`, built, default off, NOT RUN; here as the waits' plumbing for §11)
+
+A player's wish: a Sim busy at a mirror, standing, or chatting in a hallway should not keep a passing Sim waiting;
+after a moment the walker clips through, as in other games. No teleport, the Sim walks its own route. Two Sims at
+one object are not wanted. `ClipWait.cs`, rules in `ClipWaitCore.cs`, counters 4398-4413, check
+`ClipWaitCheck run | result`, selftest `tools/selftest/clipwait`, repro `clipwait-check`.
+
+### 9.1 Where a Sim waits for a Sim outside portals [verified, decompiled `Sims3.Gameplay` unless marked]
+
+| Case | The game's code | Cost | How often |
+|---|---|---|---|
+| A Sim or pet in the route's way | `SimSteeringAdaptor.HandleEventEncounteredObstacles` -> `ObstacleEncounteredRouteInterruptAction`: stand-and-wait, each cycle a replan with "blocked by people" and a push of the pushable Sims | up to `kDefaultStandAndWaitDuration` (50 sim-min in code, 20 in tuning), then route failed | every meeting of two Sims on a route; 374 storm logs of 11-20/22: 422 failed plans with a Sim as blocker (`NoPathToDestination`), 9 `standwait:` lines with a Sim blocker (3 ran to the timeout). Waits whose plan succeeds (the walker stands while the other Sim is pushed or leaves) had no counter |
+| A Sim that cannot be pushed | `RoutingComponent.PushSimsStatic`: a Sim in a conversation is skipped, a Sim in an interaction only moves when the interaction is an `IBePushedCanCancel` that allows it | the wait above runs until that Sim is done | the mirror, sink, fridge and hallway-chat cases; not measured |
+| A Sim on the route's end point | `HandleEventDestinationObstructed` -> `DestinationObstructedRouteInterruptAction`: stand-and-wait, pushes Sims within 0.6 m of the end every cycle, replans every few | same duration; ends with the "Sim in the way" balloon (`PlayRouteFailureIfAppropriate`) | not measured before (1 stall-watch stack in the logs); counters 4409-4411 now |
+| Arrived inside a Sim | `SimRoutingComponent.DoRoute`, only for routes with `CheckForFootprintsNearGoals` (dance floor, stereo, karaoke, jukebox, DJ booth, some spawners): push, replan around people, else an emergency walk 0.6-2.5 m away and route failed | one short walk + the failed interaction | rare, those objects only |
+| Pushed out of the way | `PushSimsStatic` with `waitForPushes` (doors, gates, footprints of objects being placed, pet landing spots): the pusher idles up to `TotalSimMinutesToWaitForSimsToBePushed` | short | doors: §8; else rare |
+| A pet lying in the path | a pet is a `Sim` for all of the above (`ToddlerOrAbove`); a running pet does not stop for Sims | as rows 1-3 | not measured |
+| Car, bike, bed side | route ends at an object's slot: row 3 | | |
+
+Not a routing wait and not touched: an object in use (`InUse`, lines such as `SimQueue`) is the game's rule for
+one user at a time.
+
+### 9.2 What is built
+
+After `kClipGraceMinutes` (2.5 sim-minutes, 2-3 seconds at normal speed; the one grace of §8.8, shared with
+`simpass` and `petrelax`; it was `kClipWaitGraceMinutes` = 2) of either stand-and-wait that the
+game wants to continue, `ClipWaitCore.Decide`:
+
+- **Walk through.** Only Sims and pets in the way (toddler or older; anything else in the way keeps the wait): when
+  the route's plan had failed it is planned once without "blocked by people" (still failed = a real block, the wait
+  goes on, 4408); then `StartIgnoringObstacles(kClipWaitMinutes = 3)` and the wait ends with the game's own
+  "continue and follow the path". This is the exit the game takes itself after a wait in a crowd.
+- **The route's end.** A Sim within the game's 0.6 m of the end is walked into only when the route ends on a plain
+  floor spot, or at an object that Sim is not using (its interaction, transition, posture and parent are not that
+  object; `kClipWaitObjectDest = false` limits it to floor spots). Never when the walker's interaction targets a Sim
+  or the route goes to a Sim (social placement), never on a Go Here the player gave to a household Sim, never when
+  the Sim at the end uses the object. The route's next destination-obstructed event then starts no new wait
+  (4412). When the end may not be walked into but other Sims block the way, the walker passes those and the game's
+  own handling of the end runs when it arrives.
+- **Why a grace and not at once.** The first cycles are the game's own answer: a replan around the Sim and a push
+  of a Sim that can step aside. Both look better than clipping and take under one cycle when they work. The rule is
+  judged at the end of a wait cycle, so the real wait is one or two cycles.
+
+`simpass` (§8) acts first where it applies (at once near a portal, elsewhere at the same grace, §8.8; nobody at the route's end); `clipwait`
+is the rule for the waits that still begin, with or without `simpass`. Lanes and lines (`sharelanes`,
+`laddershare`, `spiralshare`) are other code paths. `standwaitfix` runs first in a blocked cycle.
+
+**Scope.** `clipwait`: walker and every Sim walked through are Sims the player does not control. `clipwaithh`:
+household and selected Sims too. Off = compare mode: the waits are counted and what the rule would do (4402).
+
+### 9.3 Not built
+
+- **Arrival inside a Sim** (`DoRoute`, `CheckForFootprintsNearGoals`): the game's replan there finds another spot
+  around the object, which is the better answer; only its fallback fails. Rare objects.
+- **Two Sims at one object's slot in use**: not wanted.
+- **Babies** on the floor stay obstacles (the game treats them as objects).
+- **The native planner's endpoint test**: needs a native build; the script side covers the waits.
+
+### 9.4 Limits [inferred unless marked]
+
+- That the walk goes on to an occupied end point when the destination event starts no wait is taken from the
+  game's own cases with that handler off (ghosts, portal crossings); not run.
+- The walker cannot be pushed while its timer runs (the game's rule for an ignoring Sim), 3 sim-minutes per walk.
+- A failed plan names one blocker; the Sims within 0.5 m of the waiter are the second guess. A plan that fails
+  because of Sims farther away (a portal closed by standing Sims) is `sharelanes`' case, not this one.
+
+### 9.5 Checks (2026-11-22, no game) and run plan
+
+- `node tools/selftest/clipwait/run.ts`: the rule's cases and a sweep of every input combination (go only on, Sims
+  only, past the grace, in scope; a walk ends in a Sim only where allowed).
+- `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftests `standwait` and `sharelanes` pass.
+- Live: `clipwait-check` once (off `BROKEN`, on `FIXED`, `members found=True`). Storms off / on interleaved with
+  `clipwaitlog standwaitlog routefaillog`: off arm gives the first numbers (4398 waits past the grace, 4402 would,
+  4409-4411 destination waits, their sim-minutes and failures); on arm `clipwait clipwaithh`: 4399 / 4400 > 0, 4411
+  and the `standwait:` timeouts with a Sim blocker down, 4401 = 0, no `clipwait: error at` line. By eye: a Sim at a
+  sink or mirror in a corridor, a chatting pair in a doorway, a dog lying in a hallway.
 
 ## 11. Pets block less and get blocked less (`petrelax`, `petrelaxhh`; 2026-11-22, `feat/petrelax-1122`, built, default off, rule 1 and 2 run §11.6)
 
@@ -661,7 +690,7 @@ every Sim and pet walks its own route. `PetRelax.cs`, rules in `PetRelaxCore.cs`
 1. **Walk through** (`PetRelaxCore.Pass`). A small pet (cat, dog, puppy, kitten, raccoon) walks through the Sims
    and small pets in its way; a Sim walks through small pets when nothing else is in its way.
    `StartIgnoringObstacles(kPetRelaxMinutes = 3)`, the game's own timer; a Sim that also has a Sim in its way is
-   left to `simpass` / `clipwait` (the timer ignores everything). **When (§8.7):** at once, at the obstacle event
+   left to `simpass` / `clipwait` (the timer ignores everything). **When (§8.8):** at once, at the obstacle event
    (before `simpass`) or at an obstacle wait that still begins, only when the walker or one of those in its way is
    within `kClipPortalNear` (1.5 m) of a portal lane; anywhere else the game's wait runs and the rule ends it in
    the first cycle after `kClipGraceMinutes` (2.5), in both stand-and-waits, with the `clipwait` switch on or off.
@@ -672,11 +701,13 @@ every Sim and pet walks its own route. `PetRelax.cs`, rules in `PetRelaxCore.cs`
 2. **A pet lying near a portal is not an object.** `SimRoutingComponent.SetRouteOptions` (every route a Sim
    creates) adds the floor jigs of the lying pets on the walker's lot that lie within `kClipPortalNear` of a portal
    lane (read once, when the pet lay down) to the route's ignore list (`AddObjectToIgnoreForRoute`, the call the
-   game makes for the pet itself). A pet that lies anywhere else is walked around as the game has it (§8.7); when
+   game makes for the pet itself). A pet that lies anywhere else is walked around as the game has it (§8.8); when
    there is no way around (the plan fails and names the pet's jig as its blocker, a pet across a hallway), the
    walker stands where it is for `kClipGraceMinutes`, then the route is planned again with the jig ignored and
-   walked (`PrxPlanFailed`, from the `DoRoute` hook; up to 3 lying pets per plan; a cancelled Sim or a plan that
-   fails without the pet too gets the game's answer). The pet itself is then passed without a second grace. The
+   walked (`PrxPlanFailed`, from `BuRouteHook.RouteHook` since 2026-11-24 (was `PrxRouteHook`; docs/130 §11), the swap of `SimRoutingComponent.DoRoute` for routes that come in
+   with a failed plan; up to 3 lying pets per plan; a cancelled Sim or a plan that fails without the pet too gets
+   the game's answer). The pet itself is then passed without a second grace. `blockeduse` (#649) swaps the same
+   method: whichever lands second calls `PrxPlanFailed` from the other's failed-plan step instead of a second swap. The
    jigs are listed when `LayDownHere.Run` returns and leave the list when the pet is up. In the obstacle event and
    the two waits every floor jig counts as its pet (rule 1 and its timing), and the route ignores it once the walk
    through begins.
@@ -712,8 +743,9 @@ the lying pet in scope. Off = compare mode (4437 would; 4443 / 4444 count the li
 - Rule 3 reads the lot's object list once per autonomous floor lie-down.
 - Before the grace every stand-and-wait cycle gathers who is in the way (the cycles of 2.5 sim-minutes per wait).
 - The stand at a failed plan is a plain wait in `DoRoute` (half sim-minute steps, ended by any exit reason); the
-  Sim plays no animation in it.
-- §8.7: "near a portal" is read where the pet lay down; a door built next to a lying pet counts from its next nap.
+  Sim plays no animation in it. A replan that fails on a lying pet in the middle of a walk is not covered here
+  (the hook acts on routes that come in with a failed plan).
+- §8.8: "near a portal" is read where the pet lay down; a door built next to a lying pet counts from its next nap.
 
 ### 11.5 Checks (2026-11-22, no game) and run plan
 
@@ -747,13 +779,14 @@ and ordered to lie in the corridor with the player's own order (`Lay Down Here` 
   `destination accepted`), which is the game's push and no part of the rule.
 - Not a case: a doorway without depth (a gap in a wall line). The game's `FindGoodLocationNearby` puts the jig
   beside it and the Sim walks through in both arms.
-- This run was before the timing rule of §8.7. With it the dog in this corridor is passed at once only when it
+- The forced repro `petrelax-force` stays on the contributor's combo branch: it needs the agent steps `order_at`,
+  `go_at`, `pet_adopt {active}` and `pet_jigs`, which are not upstream yet. `petrelax-check` is included.
+- This run was before the timing rule of §8.8. With it the dog in this corridor is passed at once only when it
   lies within 1.5 m of a portal lane; otherwise the Sim stands the grace at the failed plan and then walks
-  through. NOT RUN with §8.7. [inferred: `Route.Replan` on a route whose first plan failed plans it again from
+  through. NOT RUN with §8.8. [inferred: `Route.Replan` on a route whose first plan failed plans it again from
   where the Sim stands, as it does inside the stand-and-wait.]
 - Open: rule 3 (no lie-down on a lane end) and a walking pet behind Sims did not run; a dog standing idle is pushed by
   the game itself.
-
 ## 12. A chore whose spot is closed is done from within reach (`reachuse`, `reachusehh`; 2026-11-22, `feat/reachuse-1122`, built, default off, rule 1 run for a pile §12.7)
 
 A player's wish: a firefighter, a maid or a Sim cleaning should do the job from a step further away when the place
@@ -881,8 +914,8 @@ plans.
 ### 12.6 Checks (2026-11-22, no game) and run plan
 
 - `node tools/selftest/reachuse/run.ts`: 53 checks (plan results, kinds, reach per kind, the goal test, the place test, the slot
-  rule, the covered tile, scope). `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftests
-  `blockeduse`, `clipwait`, `petrelax`, `standwait`, `sharelanes` pass; `swap-stack-audit` has the new row
+  rule, the covered tile, scope). `build-fixes.ts` builds, `refs-resolve-check` 0 unresolved; selftest
+  `blockeduse` passes; `swap-stack-audit` has the new row
   (`Fire.PlanRouteToExtinguish`, stub `PlanOrig`).
 - Live: `reachuse-check` once (off `BROKEN`, on `FIXED`, `members found=True`; `fix_applied`
   `Fire.PlanRouteToExtinguish: ok`). A storm save, off / on interleaved with `reachuselog routefaillog`: off arm
@@ -902,7 +935,7 @@ by fridges (cleaned from exactly 1.0 m), a closet 1 x 2 with the pile in its mid
 exactly 1.0 m), a closet 1 x 1 (cannot be entered, the door is the blocker; the game fails and the rule keeps: "no
 place within 2.0 m can be walked to", the places outside are behind the wall).
 
-**Repro `reachuse-force`** (run `ru-r2`): a closet one tile wide and two deep, a trash pile 1.3 m behind its door.
+**Repro `reachuse-force`** (run `ru-r2`; it stays on the contributor's combo branch: its agent step `add_trash` is not upstream yet): a closet one tile wide and two deep, a trash pile 1.3 m behind its door.
 
 | | off | on (`reachuse reachusehh`) |
 |---|---|---|
@@ -919,98 +952,6 @@ place within 2.0 m can be walked to", the places outside are behind the wall).
   `PuddleManager.CanMopPuddle(ignoreSims: false)` counts the mopping Sim itself as blocker and plays the route-fail.
   No layout in these runs produced a failed mop plan with a place in reach, so it is not changed.
 - Not run: fires, plants, slot chores (rule 3), replans that fail during the walk (most of §12.2's failures).
-
-## 13. A bed half that cannot be reached is made from the other side (`makebedboth`, `makebedbothhh`; 2026-11-22, `feat/makebedboth-1122`, built, default off, NOT RUN)
-
-A player's wish: when half of a bed cannot be reached, the Sim makes it from the other side and the whole bed is
-made. `MakeBedBoth.cs`, rules in `MakeBedBothCore.cs`, counters 4462-4469, check
-`MakeBedBothCheck run | result | lot`, selftest `tools/selftest/makebedboth`, repro `makebedboth-check`.
-
-### 13.1 How Make Bed works [verified, decompiled `Sims3.Gameplay.Objects.Beds` unless marked]
-
-- **The walk.** `BedMakeBed.Run` collects the routing slots of every part that is unmade with no Sim in it and
-  walks to one (`RouteToSlotList`). A double bed has two parts (`BedData`, slots 0 and 1), a single bed too
-  (`BedSingleData`, slots 4 and 5: its two sides).
-- **The run.** State machine `BedMakeBed`, `Enter_MakeBed_<Route0|Route1>`, loop `MakeBed`,
-  `Exit_MakeBed_<...>`, then `BedMade = true` on that part. When the other part is unmade the interaction pushes
-  itself again as a continuation.
-- **The bug.** When the other part's slot is closed the continuation's walk fails. The bed stays half made, the
-  definition's `Test` passes for any unmade part not in use, so autonomy offers the bed again and fails again,
-  and the room keeps the unmade bed's penalty. A bed whose only unmade part is the closed one fails on the first
-  walk. With `blockeduse` (§10) Sims get into and out of a closed half, which makes such halves common.
-- **The look.** No script call sets a half's made or unmade look. `BedData.BedMade` keeps a flag and the "dirty"
-  alarm; `Bed.DoReset` sets the flags only. The look is the bed model's last animation pose, left by the bed's
-  track of the get-out and make clips.
-- **The clips** [verified, JAZZ `BedMakeBed` in `Game/Bin/Jazz/JazzData.package`, CLIP names from
-  `FullBuild0`]. The Sim plays `a2o_bed_make_start / pat / smooth / stop_x`, the bed `..._bed`, as two tracks.
-  `Route1` mirrors both. The parameter `MakeOppositeSide` changes the bed's mirror alone: at `Route0` the bed is
-  mirrored when it is set, at `Route1` the bed is mirrored when it is not set. So with the parameter the Sim plays
-  at the side it stands on and the bed plays the other half. The Sim is not moved: its clips are relative to its
-  own slot.
-- **Who sets it.** `BedData.SetPartParameters` sets it false; `BedSingleData` sets it to "other part unmade".
-  A single bed's parts copy "made" to each other and Make Bed walks to the unmade part, so in the game the
-  parameter is never true during Make Bed [inferred].
-
-### 13.2 What is built
-
-At the start of `BedMakeBed.Run` (swap with stub `RunOrig`), for a bed with two plain parts (`BedData` or
-`BedSingleData`; no tent, igloo, pod, upper bunk) of which exactly one is unmade and free:
-
-1. A route plan to that part's slots succeeds: the game's run. Double beds whose both sides are open are walked
-   round as before.
-2. Otherwise, when the other part is made, has no Sim and is not in use, and a plan to its slots succeeds: the two
-   parts' made flags are swapped for the run. The game's own run then walks to the other part's slot (no walk when
-   the Sim stands there after the first half), animates there and sets that part made at its end. Both parts are
-   made, the game pushes no continuation, a Murphy bed gets its Close, the events fire as in the game.
-   `BedData.SetPartParameters` and `BedSingleData.SetPartParameters` (two swaps, no yield) set
-   `MakeOppositeSide` for that part while this Sim is in it, so the bed animates the far half.
-3. The run does not end with that part made (walk failed, part taken, reset, error): the flags are put back.
-
-Both halves unmade and one closed: the game's run makes the open one, and its continuation is case 2. The plans
-are read-only (`Route.PlanToSlot`), at most two per Make Bed run on such a bed. With the bed made `Test` no longer
-passes, so autonomy stops offering it. No change to `Test` itself.
-
-Scope: `makebedboth` = Sims the player does not control, `makebedbothhh` = household and selected Sims, each
-stands alone. Off = counted (`would`), nothing changed. `makebedbothlog` writes one `makebedboth:` line per act.
-
-| Counter | Meaning |
-|---|---|
-| 4462 | Make Bed runs on a bed with exactly one unmade free half |
-| 4463 | second half made from the first side |
-| 4464 | closed half made from the other side (first make) |
-| 4465 | kept: the half can be reached (the game's walk) |
-| 4466 | kept: no side to make it from (other half taken, or closed too) |
-| 4467 | errors (`makebedboth: error at begin | end | parameter | run`) |
-| 4468 | would: switch off, or household without `makebedbothhh` |
-| 4469 | run ended early, flags put back |
-
-### 13.3 Limits [inferred unless marked]
-
-- **By eye, not yet seen.** The Sim pats the half in front of it while the far half is the one that moves. The
-  mirrored bed track on a double bed with the Sim's unmirrored track is the game's own state-machine path, but one
-  the game never takes, so the far half's look after it needs a look in the game. If the track does not move the
-  far half, the flags are still right (no retries, no penalty) and that half looks unmade until it is next used.
-- The bed's mirror is not cleared on the `Route0` exit path of the state machine. Whether that outlives the state
-  machine is not known.
-- During the walk in case 2 the flags are swapped: another Sim's Make Bed can pick the same part, as it can in the
-  game for any unmade part. A Sim that gets into the part first makes the game's run fail and the flags go back.
-- A save made during such a run resumes in the stub (the game's run): the bed ends made, the parameter is not set
-  again after the load.
-- The closed half's "dirty" state restarts its 30-minute alarm when the flags are put back.
-- With `blockeduse` on as well this rule comes first: the Sim stays at the open side.
-
-### 13.4 Checks (2026-11-22, no game) and run plan
-
-- `node tools/selftest/makebedboth/run.ts`: 406 checks (the decision table over every input, the end of the
-  run, second half or first make, the parameter, scope). `build-fixes.ts` builds; selftests `blockeduse` and
-  `reachuse` pass; `swap-stack-audit` has the three new rows (`BedMakeBed.Run` yields, stub `RunOrig`).
-- Live: `makebedboth-check` once (off `BROKEN`, on `FIXED`, `members found=True`). A household with a double bed
-  whose one side stands at a wall or behind furniture, `blockeduse blockedusehh` on so both halves get used:
-  off arm 4462 and 4468 up, the bed stays half made; on arm `makebedboth makebedbothhh makebedbothlog`: 4463 or
-  4464 up, `makebedboth: ... made from the ... side`, 4467 = 0, no `makebedboth: error at` line, the bed no
-  longer offered. `MakeBedBothCheck lot` lists the lot's beds with an unmade half and the plan to each part.
-  By eye: the far half's look after the run (13.3).
-
 ## 14. Sims share rabbit hole doors and serving platters; line waits logged (`rhshare`, `servingshare`, `linewaitlog`; 2026-11-22, `feat/objshare-1122`, built, default off, run §14.5)
 
 A player's wish: Sims share more things, clipping is fine. Privacy objects (toilet, shower, bath, bed) are not
@@ -1064,7 +1005,7 @@ touched. Source `ObjShare.cs`, rules `ObjShareCore.cs`, counters 4470-4493, `kCo
     answers false and the game's run ends as at an empty platter (4491). Otherwise the serving is spoken for. The
     run's second call is the game's test after `DecrementServings`, which ends the reservation. Buffets always
     have food. Other callers get the game's answer.
-  - `StateMachineClient.SetActor` (actdelay's swap, one integer test while no run is open): the first call for a
+  - `StateMachineClient.SetActor` (`SmcSetActor.cs`; on the combo branch actdelay's swap; one integer test while no run is open): the first call for a
     Sim that has passed the food test is its take; the Sim leaves the platter's use list there, before the first
     yield, so the next Sim's `InUse` test passes (4487 counts takes that began while another was running).
 
@@ -1100,7 +1041,10 @@ touched. Source `ObjShare.cs`, rules `ObjShareCore.cs`, counters 4470-4493, `kCo
 
 ### 14.5 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
 
-Four household young adults, nobody autonomous; by hand in session `sh-m1`, then the entries below (exit 0 each).
+Four household young adults, nobody autonomous; by hand in session `sh-m1`, then the entries below (exit 0 each). The
+forced repros `servingshare-force` and `rhshare-force` stay on the contributor's combo branch: their agent steps
+(`add_platter` and others) are not upstream yet. In these runs the `SetActor` hook was actdelay's; here it is
+`SmcSetActor.cs` with the same body.
 
 **Repro `servingshare-force`** (run `sv-r1`): a finished group meal on the ground of the front yard (agent step
 `add_platter`: `Recipe.CreateFinishedFood`, Group), the Sims 6 m away on four sides, Grab a Serving for three at
@@ -1195,8 +1139,8 @@ shower: no new interaction. Source `ShowerShare.cs`, rules `ShowerShareCore.cs`,
   has not begun within 30 sim-minutes, or that left the queue, gives the failure back to the game, and the Sim is
   not sent again for 60 sim-minutes.
 - The bladder: a Take Shower started by such a Sim (pushed or of its own accord, noted in the line hook) gets a
-  bladder delta when the shower becomes an actor of its state machine (`StateMachineClient.SetActor`, ActDelay's
-  hook; 5 sim-minutes to full), and the bladder is set full when the Sim steps out. Hygiene is the shower's own.
+  bladder delta when the shower becomes an actor of its state machine (`StateMachineClient.SetActor`, `SmcSetActor.cs`
+  (actdelay's hook on the combo branch); 5 sim-minutes to full), and the bladder is set full when the Sim steps out. Hygiene is the shower's own.
 - An all-in-one bathroom is a toilet for this rule: when it is free the game uses it.
 
 `showersharelog`: one `showertogether:` / `showerpee:` line per act.
@@ -1264,6 +1208,8 @@ Bo partners, a room without roof, one shower, later an all-in-one bathroom.
 - The shower lasts about a minute at speed 1 from hygiene -95, so a second order 20 s late is this late case.
 - Not run: 4504 (the failure itself replaced: the last warning always came first), a shower tub, a teen or friend
   as control, a visitor, 4508.
+- The forced repro `showershare-force` stays on the contributor's combo branch: its agent steps and the
+  harness's `noKeepAlive` flag are not upstream yet.
 - Harness: profile-world's `keep_alive` fills every household motive below -50 each 30 s and hid the bladder
   failure in three runs; a repro entry with `"noKeepAlive": true` runs without it.
 
@@ -1358,6 +1304,12 @@ place 4519, quiet ends 4520; kept as the game has it 4521, walk stopped or ended
 - Storms: with the switches off 4510 and 4511 count the cases (Contemplate is common: expect most of 4510 there);
   with `viewlenient` on 4513 and 4518 rise together (contemplate in place), `routefail:` lines for Contemplate /
   Watch / WatchTV stay (they are written at the plan) but no balloon follows; 4523 must stay 0.
+
+### 16.5 Storms (2026-11-22, Deck) and what is still open
+
+Ten route storms s520-s529 (5 on, 5 off, the switches of §16-§18 together): no contemplate route failure happened
+in either arm, so the storms did not exercise this rule. Errors 0, crashes 0. **Not run in the game yet**: a forced
+repro (a sculpture or a view spot whose view slot cannot be reached) is pending.
 
 ### 16.5 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
 
@@ -1609,6 +1561,12 @@ stopped 4547, the failed route planned again after the walk out: ok 4548, errors
 - Storms: off, 4538 against 4539 says how often the signal fires; on (`unstuck`), 4544 is expected to carry
   nearly all of it and 4546 to be rare; 4549 must stay 0.
 
+### 18.6 Storms for §17-§18 (2026-11-22, Deck)
+
+Ten route storms s520-s529 (5 on, 5 off; §16-§18's switches together). `socialreach` acted once: `npc Liliana
+Ichtaca, SocialInteractionB Share Interests -> Edward Dregg (FailedBecauseNoPathToDestination, a turn): talks from
+where it stands`. `unstuck` walked a Sim out once (0.7 m; its route still had no plan afterwards). Errors 0, crashes
+0; hitches per storm 4.8 on vs 5.8 off. **Not run in the game as a forced repro yet** (pending).
 ### 18.6 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
 
 Repro `unstuck-force` (runs `un-r2`, `phase-20261122-1937`, and `un-r3`, `phase-20261122-2026`, exit 0; by hand in session
@@ -1714,6 +1672,11 @@ Forced repros as planned (the rabbit hole one is entry `crowdport-force`, §19.6
   left with a crowd, 4565 those the game's pacing let out.
 - In every arm 4556 must stay 0 and no `crowdport: error at` line may appear.
 
+### 19.6 Storms (2026-11-22, Deck)
+
+Route storms s520-s529 with the switch on in half: 3 rabbit-hole-in acts at a busy diner and grocery (`is set on
+enter slot ... 2 Sims there, waited 1.3 sim-min`), 7 NPC exit waits ended by the game's own pacing, errors 0.
+**Not run in the game as a forced repro yet** (pending): crowded elevators, the exit burst and stations did not occur.
 ### 19.6 Run in the game (2026-11-22, Deck, Sunset Valley new game) [verified]
 
 Repro `crowdport-force` (runs `cp-r1` to `cp-r4`, `phase-20261122-2008`, `-2035`, `-2040`, `-2051`; by hand in
@@ -1853,6 +1816,7 @@ objects | kept, <why>`, `...: snap out from ... to ...`; errors always: `woohoos
   snaps`, 4579 = 1, the kiss plays, no `kept` line.
 - Pass: 4575 = 0 and 4581 = 0, no `error at` line, no Sim left in furniture after its next walk, `applied` shows
   the two jig swaps `ok`, `blockeduse-force` and `showershare-force` unchanged.
+
 
 ### 20.6 Run in the game (2026-11-23, Deck, Sunset Valley new game) [verified]
 
@@ -2134,6 +2098,7 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
 
 ## 25. A Sim in a toilet, sink, shower or bath line takes a free twin object (`lineswitch`; 2026-11-24, `post/lineswitch-1124`, built, default off, run §25.4-§25.5)
 
+
 ### 25.1 The line [verified, decompiled `SimQueue.cs`, `Toilet.cs`, `Sink.cs`, `Shower.cs`, `Bathtub.cs`]
 - `SimQueue.WaitForTurn(interaction, target, behavior, exitReasons, timeout)`: the Sim is inserted in the object's
   `mQueue` (`FindNewPlaceInLine`), walks to the head of the line or behind the Sim ahead, then loops `LoopIdle` +
@@ -2147,7 +2112,9 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
 - Storms s533-s536 (Sunset Valley, the Bunch house has ToiletCheap, ToiletModerate, ToiletExpensive): toilet waits of
   1.9-20.3 sim-min (5 waits), a 17.1 sim-min shower wait, sink waits of 4.0-13.1 sim-min (3).
 
+
 ### 25.2 What is built
+- `lineswitch`, `lineswitchhh`, `lineswitchlog` (`LineSwitch.cs`, `LineSwitchCore.cs`, counters 4615-4619 (`kCounterSlots` 4620 on the combo branch, 4660 here),
 - `lineswitch`, `lineswitchhh`, `lineswitchlog` (`LineSwitch.cs`, `LineSwitchCore.cs`, counters 4615-4619,
   `kLineSwitchMinutes` 2, `LineSwitchCheck`, selftest `tools/selftest/lineswitch`, repro `lineswitch-force`).
   Swap: `SimQueue.WaitForExitReasonOnSim` (stub); `LdsQueueHook.WaitHook` (ShareLanes.cs) records the wait.
@@ -2162,14 +2129,17 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   Off = compare mode: `would`. Lines: `lineswitch: switched | would switch | kept, <why>: <who> <Sim>, <Interaction>
   <object> -> <twin> (same room | other room, m, waited sim-min)`.
 
+
 ### 25.3 Limits [inferred]
 - Lot objects only; a public lot's toilets are covered, rabbit holes and portals are not lines of this kind.
 - A player-ordered wait is kept (r5-rp2: Lisa Bunch waited 18.6 sim-min on her own order).
+
 
 ### 25.4 Storm (2026-11-24, Deck, Sunset Valley new game, s537 on, 5 min, seed 152; off arm s532) [verified]
 - s537 had no toilet, sink, shower or bath wait (other lines: laptop 9.9, chair 11.2, bookshelf 14.9 and 6.7, workout
   bench 9.1 sim-min), so lineswitch: switched 0, would 0, kept 0, errors 0, swap found. The storms give 0-4 such waits
   each; the forced repro proves it.
+
 
 ### 25.5 Forced repro (repro `lineswitch-force`, Bunch house, runs r5-rp2, r5-rp3) [verified]
 - Lisa Bunch uses ToiletCheap (order), Jack Bunch ToiletModerate (order), Judy Bunch picks ToiletCheap as her own
@@ -2180,6 +2150,8 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   2.0 sim-min, Judy used ToiletExpensive and washed her hands. Errors 0 in both runs, no route-fail balloon, a walk.
 - PROVEN by forced repro (toilets). Sinks, showers and baths: same code path, not yet seen in a run.
 
+### 25.6 Partnerpull busy rules and queuewake in s537 (combo branch, on, r5 build; off arm s532; those switches are their own PRs) [verified]
+
 ### 25.6 Partnerpull busy rules and queuewake in s537 (on, r5 build; off arm s532) [verified]
 - partnerpull: waits past the grace 24, pulled 9 (read to sleep 1, socials 8), kept: player's action or queue 4, busy
   or outranking head 11 (s533: 1); errors 0. The new busy rules (§21.2) hold: every lot-trip partner (Visit Central
@@ -2188,7 +2160,9 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
 - queuewake: woken 48 (s533: 42), loop ticks saved 480, left past the deadline 94, errors 0.
 - s537 vs s532: route fails 14 (`routefail:` lines); nothing new or odd seen in the lines.
 
+
 ## 26. A busy Sim reacts at once instead of after its action (`reactoverlay`; 2026-11-24, `post/reactoverlay-1124`, built, default off, run §26.4-§26.5)
+
 
 ### 26.1 The late reaction [verified, decompiled `Sim.PlayReaction`, `OverlayComponent.RequestOverlay`, `ReactionInteraction`, `IdleManager.PlayReactionAnimation`]
 - `Sim.PlayReaction(..., ReactionSpeed, ...)`: with `Immediate` in the speed, EA plays `OverlayComponent.PlayReaction(type,
@@ -2205,9 +2179,11 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   (Sunset Valley, the queued ones watched by the compare mode): 8 queued reactions ran after mean 2328 ms, max 6823 ms;
   13 waited past 2 s.
 
+
 ### 26.2 What is built
 - `reactoverlay`, `reactoverlayhh`, `reactoverlaylog` (`ReactOverlay.cs`, `ReactOverlayCore.cs`, counters 4670-4679,
   `kCounterSlots` 4680, `kReactOverlayStaleMs` 2000, `ReactOverlayCheck` (`run`, `result`, `force:Sim|Reaction`),
+  selftest `tools/selftest/reactoverlay`, repro `reactoverlay-force`).
   selftest `tools/selftest/reactoverlay`, repro `reactoverlay-force` (also the tail of `readwalk-force`)).
   Swap: `Sim.PlayReaction` (13 arguments, stub); a 0.1 sim-minute alarm from the world load.
 - A `NowOrLater` / `AfterInteraction` reaction (not `ImmediateWithoutOverlay`, not `CriticalWithRoute`, not
@@ -2225,11 +2201,13 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   N ms | dropped stale after N ms (<why>) | queued reaction ran after N ms | would ...: <who> <Sim>, <Reaction> during
   <Interaction> (<Posture>)`.
 
+
 ### 26.3 Limits [inferred]
 - No turn to face the target (EA's overlay path never turns either; the queued `ReactionInteraction` did).
 - A dropped reaction is gone: the Sim does not react to an event it was busy for more than 2 s (EA played it late).
 - Socials are kept out after s538 showed Wave overlays over a social's start (`SocialInteractionA/B`, Conversation not yet
   set).
+
 
 ### 26.4 Storm (2026-11-24, Deck, Sunset Valley new game, s538 on, 5 min, seed 152; off arm s537, same switches but reactoverlay) [verified]
 - reactoverlay (r6 build): overlaid now 14, from the queue 10, dropped stale 8, queued by EA and watched 31 (of them ran
@@ -2243,8 +2221,11 @@ autonomy's pick) waits for that sleep to end. `LoopIdle` itself can yield: its `
   during PerformerPerformForTips. Drops: household Waves and Surprise while reading (carrying the book, RelaxingPosture),
   routing, in a vehicle or a conversation.
 - Looked wrong: 5 Wave overlays during `SocialInteractionA/B` (the social's start, before the Conversation is set):
+  socials are now kept out (r6b build). No pop seen in the lines; the overlay gate is EA's part flags, a clip holding the
   socials are now kept out (r6b). No pop seen in the lines; the overlay gate is EA's part flags, a clip holding the
   arms keeps EA's way (6 such cases).
+
+### 26.5 Forced repro (repro `reactoverlay-force`, runs r6-rp1 (r6b build), r6-rp2 (r6c)) [verified]
 
 ### 26.5 Forced repro (repro `reactoverlay-force`, tail of `readwalk-force`, runs r6-rp1 (r6b), r6-rp2 (r6c)) [verified]
 - Bea Jig watches TV (standing, `TV+WatchTV`), `ReactOverlayCheck force:Bea Jig|<Reaction>` calls EA's `PlayReaction`

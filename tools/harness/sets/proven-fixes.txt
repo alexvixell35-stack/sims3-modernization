@@ -5,267 +5,54 @@
 # Excluded below: measurement, diagnostics, test-only, perf experiments, regressions and fixes not proven yet.
 # One switch per line; `node tools/harness/proven-fixes.ts` checks the file and prints it for EARLYFIX / `ag patches`.
 # Built 2026-11-15 from the 207 default-off switches (Fixes.cs ShortcutOn names -> Instantiator k* = false).
-agingalarmcancel
-artsellnoartist
-autonomyinuseblock
-awkwardscience
-backpacklotleak
-bathcleanup
-bathsituationfx
-birthdayagers
-boardingschoolmoney
-boatstaleswimmer
-bouncerrole
-bubblingspringsreset
-buffremovedelayed
-businessplannerrun
-butlerpayalarm
-cancelposturedef
-carpoolschoolskip
-catchpreyodds
-cattoypickerrel
-celebalarmnull
-chemistryvfx
-chessdefeated
-chestuselist
-chocfountaingeyser
-cleanupvfx
-compositionnull
-computergametype
-copyhomeworkfx
-curfewalarm
-dartboardvfx
-daycareliking
-digsiteemptypick
-disposebase
-disposevirtualslot
-distressgate
-dogswimaroundlist
-dogswimslots
-donationbuffchance
-doorlockowner
-eatpostonce
-eatpreycancel
-efficientchip
-elevatorkitten
-elevatorresetriders
-elevatorridertimeout
-elevatorsavedlog
-equestriantrophyname
-facialidleweight
-fairyauratimer
-fallenrockcollected
-fearfaintundo
-fightbroadcastend
-fireactivejob
-firefightercount
-firetrapcount
-floorswitchuselist
-flowersinuse
-foodtraygrill
-fragmentreconstruct
-freshclothingresume
-fridgetestnull
-frolicexit
-futuredescendantsize0
-fvstandskillcurve
-gigmaster
-gigpullaudience
-gohereboatlist
-goodbyepure
-gotoworkstale
-gradvisitors
-guitargnomeboost
-handsetreset
-harvesterunripe
-harvestextras
-harvestregion
-hauntedgnomeinv
-hauntedumbrella
-hayscattertime
-haystackvfx
-hhcleanupdup
-holidaylights
-homeworkskillbonus
-horseranchchallenge
-horsetraitscore
-hottubseatposture
-houdinignomeleak
-hypnotrickrelease
-igloolookats
-intmultiple
-invitecallreply
-jetpackflyingbuff
-jogterrain
-junglegymexitqueue
-kegbreakage
-labobjectpush
-leafburnfail
-leaveconvnull
-lifeguardquit
-lifeguardsurvey
-lightcustom
-lightningweights
-littercap
-lookatcopy
-lotprune
-loyaldoglay
-ltrhistorybits
-lunacysocials
-maildogchaser
-meltalarm
-moodidleflavor
-moodtankreset
-moondiallistener
-moonriselistener
-mountfishcost
-movingflag
-newspaperdef
-nocommercialcar
-npcbusypartner
-npcseasonalparty
-npcshowstuck
-nullsituation
-oppcategoryprotect
-oppchainworld
-oppfailcharge
-ovenmenunull
-partylotlistener
-permazombiemoon
-petdreamtimer
-petdroolvfx
-petharvestvfx
-phonecallrearm
-phonecallschedule
-phonefixup
-phonegive
-phoneloadreset
-photofunds
-photosubjectstars
-picnicants
-plantdormantflip
-plantdormanttime
-playpentalkcast
-plumbotfacelistener
-pokerdeadplayer
-prankditchempty
-privacyothers
-professorterm
-promcarpool
-promoteshift
-protestexit
-protestlastday
-putdowninuse
-putdownplaced
-reactioncopy
-reactiongrumpy
-repairmanskill
-resetinusefree
-residentspawnslot
-resortweddingalarm
-resumetns
-returnhomealarms
-rolenullguard
-roleunprotect
-romancecooldown
-roulettehackreset
-roundupreturn
-royaltyorphan
-rubbleuselist
-sandscoins
-sandwichalarm
-saunatubclear
-scavengernolot
-sciencefxstop
-seasickpaused
-sentiencename
-serviceassignexit
-serviceshowalarm
-shelldoorsummon
-shoodef
-showstagefxend
-shroomslots
-slotmachinedefs
-sneakoutlistener
-snowfightjoinwait
-snublistener
-soakedpetselfreact
-socialnoeffect
-spbucketindex
-spclonedict
-spcollectnull
-spcreatemovein
-spellbooksummonload
-spelltargetend
-spjobatwork
-splitpartner
-splotdensity
-splotlookup
-spoccultpick
-sppensionprompt
-sprecheck
-sprelcount
-sproommatejob
-starlightreset
-steadygigmiss
-stereoupgrade
-streetartmasterboost
-tagbagsurfaceleak
-talkoccupationchance
-teenpartybreakup
-teleportcommunitylot
-timeportalvfx
-tombmusic
-trainsimgone
-traiticondislike
-treewishingwell
-trickortreatalarm
-tricksocials
-tutorballoonalarm
-tvdisclistener
-tvsyncalarm
-tvwatchskill
-twinbellyshape
-unitravelflag
-uselistprune
-vacationalarms
-vampirefruitsnack
-vehiclefxhelper
-virtualhomeshare
-virtualmoveindup
-visitlisteners
-voodoofairyfadein
-wardrobewandvfx
-wellstealcooldown
-werewolffind
-wildherdmother
-wildhorsegender
-wildhorselot
-woohootywait
 
 # Built 2026-11-15 from the 215 default-off switches (+8 docs/575-577, soak verdicts BROKEN/FIXED) (Fixes.cs ShortcutOn names -> Instantiator k* = false).
 # +23 2026-11-15: phase-20261115-2043 smallfix.txt, off BROKEN / on FIXED with controls ok (docs/582 batches 3-5, docs/575-577 sandwichalarm).
 # +13 2026-11-15: phase-20261115-2218 smallfix.txt (s56), off BROKEN / on FIXED (docs/582 batches 5b-7, residentspawnslot).
+# +3 2026-11-19, moved to default ON at the 2026-11-20 import (so no longer listed: houseboatlegmemo houseboatgangwayrescue boatroamcap): s128 Isla Paradiso, one load off then on (repro-off/on, roam-off/on), off BROKEN / on FIXED, 0 errors (docs/853 §1).
+# -1 2026-11-25: seasonimposter moved to default ON as a rare-case fix after a static review (docs/44 §6.1, docs/51 §610), so no longer listed.
 
 # ---- excluded (default off, not in the set), by reason
 # perf experiments / sim-thread offload and caching (not EA gameplay fixes):
 #   autlivelate cachedreflection caneearly casmemo detailprio disposespread doormirror drivertaskasync failrepeat farthestsorted
 #   hoursmemo idlememo legreplanskip preplancb replandefer replanspread routablecache safespotcap safespotreuse safespotyield
-#   seasonimposter seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
+#   seasonimpostercold seasonmarkercache spatialcache stuckcheckbusy stuckcheckcap stuckchecknear stuckcheckown
 #   tooltipthrottle unseenbroadcast unseencars unseenenv unseenfbfinish unseenfbloopbreak unseenfbsites unseenfbtrip
-#   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll minirelset
+#   unseenfbtriphold unseenmotives unseenpark unseenroute venuememo wakepark wakepoll
+#   iafailmemo deadrefexact deadrefdelta deadrefslimuse deadrefperlot deadrefdescrev
 # measurement / diagnostics / test aids:
-#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc wildflowerprobe
+#   autunseencmp boatgetoutdiag bookhanddiag deadsimcount routesrc swapinvokediag wildflowerprobe deadrefexactverify deadrefdeltaverify
 # test-only, registry says test (vehicle leak tests, age-up swap, dead-Sim hollowing, joyride costume):
 #   ageupswap deadsimhollow vehfrankentaxi vehgetinleak vehparkreserve vehprotestcar vehseatdestroy
 # leak / save-data fixes, opt-in until measured (changes save data or not proven in game):
-#   attractionalarm casuihandlers deadrefguards deadrefsweep familyinvghost firepitchair preferredservice relremovesafe
-#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim spouseunlink
+#   casuihandlers deadrefguards firepitchair preferredservice
+#   savecleanupaggressive seasonsdeadsim showstagethrowables simrefsdeadsim
 # gameplay fixes not proven yet: opt-in until verified, or built with no recorded in-game off/on verdict:
 #   firegreet
+#   fglinbound fglinboundhh
+#   standwaitfix standwaitfixhh standwaitlog reactoverlayhh reactoverlaylog
+#   sharelaneshh laddersharehh spiralsharehh simpass simpasshh angleentry angleentryhh lanewaitlog
+#   blockedusehh
+#   makebedbothhh makebedbothlog
+#   petrelaxhh petrelaxlog
+#   clipwait clipwaithh clipwaitlog
+#   reachusehh reachuselog
+#   linewaitlog rhsharehh servingsharehh
+#   showertogetherhh showerpeehh showersharelog
+#   viewlenienthh viewlenientlog
+#   socialreachhh socialreachlog
+#   unstuckhh unstucklog
+#   lineswitchhh lineswitchlog
+#   woohoosnap woohoosnaphh pairsnap pairsnaphh woohoosnaplog pairsnaplog
+#   crowdporthh crowdportlog
 #   awardkeep boatgetoutguard bsrefund convturn eanullguards indoorcap
+#   ageupdupinst boatroutenull motivesnohousehold overwatchresetgone stagedarrival
 #   overwatchspread overwatchstucknotice petfireplan posturepopcycle simfestkeep socialworkeronlot splashroof unigradkeep
 #   vacexitreturn vacexport vacimportfix vaclistenernull vacreturnskip vacstoreguard vacteendelete
+# docs/656 pets: petlonghome / petlongvisit ran in s134 / s136, no off/on verdict; the others never exercised:
+#   petstartleskip petarrivepoint strayleave wildlotskip
+# unseen boats (docs/687, docs/851 §7-§8, docs/248 §12): unseenboatland / unseenboatgenboat acted in one-arm runs, no off/on verdict; unseenboatwide no recorded pass; failreplanboat never run:
+#   unseenboatland unseenboatwide failreplanboat
 # combo pieces: first in-game check only, not marked proven (docs/551):
 #   combovenue
 # ceremonyspot: the bug is verified in game, the fix has no recorded off/on verdict:
@@ -277,189 +64,45 @@ woohootywait
 # built 2026-11-17 (docs/611, LotCallbacks80.cs), in-game off/on test pending (r68 Check verdict bug, re-run on r69):
 
 # PRs #452 #454 #456 #457 (2026-11-16, other sessions), default off, in-game off/on test pending:
-#   safespotpool spotcheck tagunseen unseenoutfitdefer
 # diagnostics (log only):
 #   socialreplanlog barorderlog routecauselog
+# diagnostic: a notification with empty text names its sender (docs/869, 2026-11-22), default off (on in betas), repro blank-tns ok; Rodney decides ON:
+#   blanktns
 # built 2026-11-15, in-game off/on test pending (ufplansplit is log only; doorgen is default on since upstream #439):
 #   ufplansplit
 # new on upstream main 2026-11-15 (PR #424 lanes), default off, NOT RUN:
-#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount deadrefcooking deadrefconvo takeariskguard
-coopeggquality
-doorprivacynull
-lottotooltip
-motivemultonce
-petpoolghost
-tempforecast
-bouncerskip
-mopunreachable
-petpuddletile
-initstacktrace
-weatherstonelistener
-pondclearscan
-rainsheltercheap
-soakedstat
-weathermanagerthrow
-outerwearautoloop
-outerwearrestore
-spoonslavechecks
-queueproximity
-subroutefail
-petwakebed
-slavewakereason
-outfitwaitend
-tpaptgoal
-hovertraintest
-newcartest
-detailprioexact
-dreamcleanup
-innerbeautyonce
-weddinglistener
-pushwaitskip
-suatgradebonus
-tspawninvdup
-sarcmummynpc
-megaphonerun
-dragoncurserun
-vhomewalk
-speedskiplevel
-speedskipnoactor
-speedrecalclock
-speedlockowner
-alarmzeroperiod
-heartbrokenbcast
-spawnerskip
-maptagtaskalive
-lotmgrcallbacks
-fireplaceherb
-rummagebcast
-stairwaitend
-simdisposelink
-rhexitunseen
-tipsnpcend
-barputdownwait
-putdownsurfaceuse
-swiperestore
-unicornspawnfail
-datadiscputback
-spoilbroadcast
-weatherstonerelisten
-birthdayagerecord
-spotasync
-enumcmpnobox
-alarmcmpnobox
-autmetarows
-buffremovemerge
-swslots
-stuckwatchscan
-lifeeventidfirst
-buffpausedtimeout
-mooddriftnoalloc
-timeralarmleak
-wishfeedbackkeep
-wishsubjectgone
-wishupdatelost
-socialworkerpromise
-buffsrcempty
-displaycasereset
-groupchatpriority
-spotedgememo
-spotcut
-unseenservicewait
-spotbusydefer
-unseenpianist
-unseenmusicwatch
-unseenjam
-unseenshow
-bouncerplace
-unseenservice_offscreen
-unseenloopskip
-rhentryrelaxnear
-playerfirst
-routefailprobe
-rhentryrelax
-unseenservice
-zoomtier
-balancingballcareer
-bartendinghourlypay
-bodysculptorweight
-boxofmysterywoohoo
-broomarenachoice
-broomtipperformer
-buffetemptypick
-bullridercleanup
-chipanycount
-chipcomponentorphan
-chipfamilycrystal
-consignmentlastday
-consignmentskillcurve
-consignmentstockleak
-daycarelatealarm
-elvisgnomecap
-elvisgnomeguard
-fortunetellerscamodds
-gourmetpetrecipe
-harvesteatvfx
-herbqualityfloor
-influencefollowerbonus
-jetpackflyherecleanup
-krakenfriendsailor
-mermaiddehydratelook
-mermaidsharknull
-meteormagnetorphan
-mummycursetrait
-nanitemerge
-naniteroutefail
-nectarconsignvalue
-nectarcopylevel10
-petputdownwait
-pingpongopponent
-puddlereach
-scarepriority
-snackbowlslobvfx
-springdanceclear
-straygnometns
-worldpondskatetest
+#   permamemo buffremovenoop catnamecache autroommemo autslicetime invcache vaclistenerpad spawncapcount
+# 2026-11-18 (Rodney, save-matrix bundle, docs/289 §6): deadrefsweep deadrefconvo deadrefcooking sarcmummynpc spouseunlink relremovesafe familyinvghost attractionalarm moved to default ON (gate: save matrix PASS).
+# 2026-11-18 (Rodney: Dalexlol switches with his in-game repro go ON): 56 set switches + takeariskguard moved to default ON
+# (docs/data/results/2026-11-18-dalexlol-repro-switches-on.md). Still off then, ON since docs/289 (ceiling on an endless EA wait): woohootywait (wait cap with no household
+# exemption, PhoneLogic.cs) and sarcmummynpc (removes a persisted NpcHousehold description: save-data change, opt-in).
 # passed in game 2026-11-17 (s75) but kept OFF by choice: near off-screen Sims could be noticed and it rarely applies (docs/632):
 #   unseenloopskip_offscreen
-# built 2026-11-17..19 (feat/taskserve-1117), default off, no recorded in-game off/on verdict yet; move to the set once proven:
-#   unseenboatland unseenboatgenboat unseenboatwide boattaximemo houseboatlegmemo trashoutsidefallback
-#   wildlotskip shuffleboardnpccap paparazzicooldown npcstallend streetparkinglisten dishpilecap
-#   houseboatgangwayrescue boatroamcap picnicexit poolfailmemo objfailmemo owelevidle socialunlinkend
-#   perfjobmissedlistener petstartleskip petlonghome petarrivepoint strayleave barcloseorphan venueintensity
-#   caspropagateoutfits caspropagateextra casdefaultskin casoccultlog castintreset elevatorlightrig
-#   optionsnoopapply petlongvisit npmfuzzy npmhousehold
-# built 2026-11-20 (feat/doorask-misses, docs/674), default off, not run in the game:
+# maintainer switches added on master, not reviewed for this set (merge 2026-11-18):
+#   zdemptyout decaymemo burnttilefloor
+# autonomy quality PR #575 (import 2026-11-20): fightorphanwait poolnolane autonomyfailcooldown venuepicktime default ON; still off, no verdict (timing only):
+#   venuepickfast
+# Dalexlol PR 2026-11-20 (docs/202 §3.10), default off: unseenhouseboatview, a scope-rule change never run in game (unseenfbghost, unseenfbnosync, safespotplanyield are ON by default, natural play only, no off/on verdict):
+#   unseenhouseboatview
+# Dalexlol PRs #503 / #490 (import 2026-11-20), default off by choice (gohomeshell: apartment arrivals, test with LotLevelPastEnd; spawnoffworld: Rodney call):
+#   gohomeshell spawnoffworld
+# docs/674 (route worker carve-out 2026-11-20), default off, ran in game on the combo branch only (s163-s166 compare runs):
 #   doorshare
-# built 2026-11-20 (feat/route-relax, docs/675), default off, not run in the game; fglnnearspot and followerlasttry are relaxed
-# rules (another result than EA's), not fixes:
-#   fglnonescan fglnnearspot followerlasttry
-# built 2026-11-20 (feat/simcpu-three, docs/677), default off, not run in the game (exact: same lot as EA's loop):
-#   nearestlotlazy
-# built 2026-11-20 (feat/fgl-root-1120, docs/682), default off, not run in the game (docs/682 §9: needs ts3native [FglInside]; EA's answer):
-#   fglinbound fglinboundhh
-# built 2026-11-21 (fix/stand-wait-1121, docs/686), default off, not run in the game (EA bug fix: blocked obstacle stand-and-wait yields, pushes, passes; household behind standwaitfixhh):
-#   standwaitfix standwaitfixhh standwaitlog
-# built 2026-11-21 (fix/privwait-1121, docs/686 §7), default off, not run in the game (a stand-and-wait at a privacy-locked room ends after 2 cycles; household behind standwaitlockedhh):
-#   standwaitlocked standwaitlockedhh
-# built 2026-11-21 (fix/ladderfoot-1121, docs/183 §9), default off, not run in the game (Sims standing on the lane ends of a ladder or stair a failed plan needs are asked to step away, the plan is made once more; household behind ladderfootshoohh):
-#   ladderfootshoo ladderfootshoohh
-# built 2026-11-21 (feat/sharelanes-1121, docs/686 §8), default off, not run in the game (Sims share stair / door / gate / ladder lanes in both directions, skip the ladder line, walk through Sims in the way, approach stairs and ladders without the facing turn; household behind the hh switches):
-#   sharelanes sharelaneshh laddershare laddersharehh simpass simpasshh angleentry angleentryhh lanewaitlog
-#   spiralshare spiralsharehh (2026-11-22: a spiral staircase's one lane in both directions, its line skipped; 2 storms s478 / s479, no errors, not proven)
-#   clipwait clipwaithh (2026-11-22: a Sim that waited 2 sim-minutes for Sims or pets in its way walks through them; never run, not proven)
-# built 2026-11-22 (feat/blockeduse-1122, docs/686 §10), default off, not run in the game (a Sim whose route to an object's slot fails on furniture or a wall walks the last stretch through objects or is put on the slot, and back afterwards):
-#   blockeduse blockedusehh
-#   petrelax petrelaxhh (2026-11-22, docs/686 §11: small pets and the Sims around them walk through each other at once, lying pets' floor jigs are not obstacles, no lie-down on a lane end; never run, not proven)
-#   reachuse reachusehh (2026-11-22, docs/686 §12: a mop, fire, pick-up or plant chore whose spot is closed is done from the nearest place within reach, slot chores get blockeduse's rules; never run, not proven)
-#   makebedboth makebedbothhh (2026-11-22, docs/686 §13: a bed half that cannot be reached is made from the other side; never run, not proven)
-#   rhshare rhsharehh servingshare servingsharehh (2026-11-22, docs/686 §14: a held rabbit hole enter slot is walked to, servings grabbed at once without the line; linewaitlog is the log; never run, not proven)
-#   showertogether showertogetherhh showerpee showerpeehh (2026-11-22, docs/686 §15: a Sim joins its romantic partner in a shower, a Sim with no usable toilet takes a shower that refills its bladder; showersharelog is the log; never run, not proven)
-#   viewlenient viewlenienthh (2026-11-22, docs/686 §16: a failed route to contemplate, view art, watch a performer or the TV is answered from where the Sim stands or the nearest place with a view, no route-fail balloon; viewlenientlog is the log; never run, not proven)
-#   socialreach socialreachhh (2026-11-22, docs/686 §17: a talk social whose route or placement fails is done from where the two Sims stand or after a walk to the nearest place; paired and jig socials untouched; socialreachlog is the log; never run, not proven)
-#   unstuck unstuckhh (2026-11-22, docs/686 §18: a boxed-in Sim or pet walks out through objects after 3 failed plans over 2.5 sim-minutes, never through walls; unstucklog is the log; never run, not proven)
-#   crowdport crowdporthh (2026-11-22, docs/686 §19: a crowd at an elevator, rabbit hole door or station exit is skipped by the game's own teleport skip, a set on the enter slot, a joint NPC exit; crowdportlog is the log; never run, not proven)
-#   woohoosnap woohoosnaphh pairsnap pairsnaphh (2026-11-22, docs/686 §20: a WooHoo partner whose route to its spot fails is put on the slot; a paired social within 3 m whose placement fails is lined up by a snap; woohoosnaplog / pairsnaplog are the logs; never run, not proven)
-# built 2026-11-21 (fix/boatwp-1121, docs/642 §10), default off, not run in the game (an unseen NPC boat's failed plan skips EA's route-fail path):
-#   failreplanboat
-# built 2026-11-20 (feat/act-delay-1120, docs/684), default off, not run in the game (read-only probe, test runs only):
-#   actdelay
+# perf: exact one-pass CommodityInteractionMap.RemoveObject (docs/313, 2026-11-21), default off, NOT RUN:
+#   commodmapfast commodmapshadow
+# compat (docs/328 §7.5, 2026-11-23): GoHere trips for the unseen fallback, default off, pending (bp-gohere-ab FAIL on a read-back, rerun); modquitguard is ON by default since 2026-11-23 (both arms PASS), so no longer listed
+#   unseenfbgohere
+# docs/183 §9 (ladder foot 2026-11-21): ladderfootshoo is ON by default since the 2026-11-22 import (forced case in game, retry ok, errors 0). Household and selected Sims as planner / asked Sim stay opt-in, no household run:
+#   ladderfootshoohh
+# EA bug fixes firenre (docs/867) and firecount (docs/868) are ON by default since the 2026-11-23 Dalexlol 645-653 import, so no longer listed
+# combo branch switches not yet sorted (upstream merge 2026-11-26; default off, run by name):
+#   fglnonescan fglnnearspot followerlasttry standwaitlocked standwaitlockedhh standwaitsocial stairflow stairflowhh
+#   elevskip elevskiphh rhskipunseen rhskiphhunseen lineswitchpc bookskipunseen bookskiphhunseen gymtwin
+#   servingsharehhunseen slidehang slidehanghh elevskiphhunseen elevtriplog elevparked elevparkedhh poolshare poolsharehh
+#   stairtimelog standwaitsocialhh partnerpull partnerpulllog readwalk readwalklog queuewake facilityplan facilityplanhh
+#   facilityplanlog facilityquick facilityquickhh facilitychain facilitychainhh showerpeeplan showerpeeplanhh showerdirty
+#   fridgeff fridgeffunseen fridgefflog linestale linestalehh linestalelog slotretry slotretrylog queuewakelog strandprobe
+#   actdelay nearestlotlazy trashoutsidefallback shuffleboardnpccap paparazzicooldown npcstallend streetparkinglisten
+#   dishpilecap picnicexit poolfailmemo objfailmemo owelevidle socialunlinkend perfjobmissedlistener barcloseorphan
+#   venueintensity minirelset caspropagateoutfits caspropagateextra casdefaultskin casoccultlog castintreset
+#   elevatorlightrig optionsnoopapply npmfuzzy npmhousehold

@@ -29,10 +29,10 @@ namespace Ts3Fixes
     // that starts before the first show's one-shot fires cannot cancel it: it resets the board in the middle of the second
     // show and re-adds the daily alarm that show's Start removed. With the switch on, the one-shot does nothing while a
     // player show (concert, psychic or game convention) is running; that show's own End adds the next one-shot.
-    // Counted in [1110] / [1111].
-    // Counters: [1110] stale handles removed or mid-show one-shots skipped (on), [1111] the same seen with the switch
-    // off, [1112] errors,
-    // [1113] saved duplicates removed at load.
+    // Counted in [2800] / [2801].
+    // Counters: [2800] stale handles removed or mid-show one-shots skipped (on), [2801] the same seen with the switch
+    // off, [2802] errors,
+    // [2803] saved duplicates removed at load.
     // Check: SandwichAlarmChecks.cs.
     public static partial class Fixes
     {
@@ -108,11 +108,11 @@ namespace Ts3Fixes
                     foreach (int i in drop)
                     {
                         m.RemoveAlarm(keys[i]);
-                        PatchCounters()[1113]++;
+                        PatchCounters()[2803]++;
                     }
                 }
             }
-            catch (Exception) { PatchCounters()[1112]++; }
+            catch (Exception) { PatchCounters()[2802]++; }
         }
 
         public class SaHook
@@ -127,8 +127,8 @@ namespace Ts3Fixes
                         ShowVenue.ShowTypes cur = (ShowVenue.ShowTypes)sSaShow.GetValue(t);
                         if (SaSkipMidShow(true, cur))
                         {
-                            if (ShortcutOn("sandwichalarm")) { PatchCounters()[1110]++; return; }
-                            PatchCounters()[1111]++;
+                            if (ShortcutOn("sandwichalarm")) { PatchCounters()[2800]++; return; }
+                            PatchCounters()[2801]++;
                         }
                     }
                     AlarmHandle h = (AlarmHandle)sSaHandle.GetValue(t);
@@ -137,14 +137,14 @@ namespace Ts3Fixes
                     {
                         if (ShortcutOn("sandwichalarm"))
                         {
-                            PatchCounters()[1110]++;
+                            PatchCounters()[2800]++;
                             t.RemoveAlarm(h);
                             sSaHandle.SetValue(t, AlarmHandle.kInvalidHandle);
                         }
-                        else PatchCounters()[1111]++;
+                        else PatchCounters()[2801]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1112]++; }
+                catch (Exception) { PatchCounters()[2802]++; }
                 ResetOrig();
             }
             public void ResetOrig() { } // receives Theatre.ResetSandwichBoardFromPlayerConcert's original body

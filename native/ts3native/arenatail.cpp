@@ -131,7 +131,7 @@ static void AtHitLine(const CONTEXT* c, DWORD addr) {
             if (irm) FbName(cur, sizeof(cur), *(const DWORD*)(uintptr_t)(irm + 8));
         } __except (EXCEPTION_EXECUTE_HANDLER) {}
     }
-    if (FbStackText(st, sizeof(st), 12) <= 0) strcpy_s(st, "unreadable");
+    if (FbStackText(st, sizeof(st), 12) <= 0) SCpy(st, "unreadable");
     DWORD v = 0, f[6] = {};
     __try { v = *(const DWORD*)(uintptr_t)addr; } __except (EXCEPTION_EXECUTE_HANDLER) {}
     const int nf = CrStack(c->Esp, f, 6);
@@ -258,7 +258,7 @@ static void AtLogCounters() {
         if (seen) continue;
         LONG n = 0;
         for (LONG j = k; j < g_atDistN; j++) if (g_atDist[j].eip == g_atDist[k].eip) n += g_atDist[j].n;
-        used += sprintf_s(per + used, sizeof(per) - used, " %08lX=%ld", g_atDist[k].eip, n);
+        used += SFmt(per + used, sizeof(per) - used, " %08lX=%ld", g_atDist[k].eip, n);
     }
     Log("arena tail: pad %s; watch near-end frames %ld, arms %ld, hits %ld (distinct %ld, past 64 %ld; per eip%s), next-chunk header writes %ld",
         g_atPadOn ? "on" : "off", g_atNear, g_atArms, g_atHits, g_atDistN, g_atDistOver, used ? per : " -", g_atHdr);

@@ -136,6 +136,46 @@ If Evaluate is under ~1% of sim-thread time, drop the idea. If it is above ~2%, 
 
 **Timers built 2026-11-15 (lane L9, offline, not run): `[AnimPhase] Enabled=1`** (default 0, counters v201 `an*`) times four calls inside `0x940430` by rel32 rewrite: Advance `0x940569 -> 0x583D00` (`ret 0xC`), routing notify `0x94059E -> 0x947590` (`ret 8`), Evaluate `0x940742 -> 0x5833C0` (`ret 8`), publish `0x94118B -> 0x959670` (`ret 4`) [verified call sites and rets, Steam 1.67]. n / us / max us per phase; `anEvalN / anAdvN` = share reaching step 6. Not covered: actors per pass, clip events `0x568710`. Queue (not run): `tools/harness/queues/lane-L9-1115.json (job bp-l9-diag)`.
 
+### 6.1 First G10 numbers and the class split (2026-11-18, `[AnimPhase] Split`, NOT RUN)
+
+**The timers did run once** (`bp-l9-diag` 2026-11-15 16:17 PHT, rerun, PASS, noise medium; `probe-out/queue/lane-L9-1115-*-native.json`,
+cumulative from game start incl. the world load, ~12 min) [measured]: Advance 9.46 M calls 12.2 s (max 61 ms), notify 0.51 M 0.06 s,
+**Evaluate 0.31 M calls 0.25 s** (3.3% of Advance calls reach step 6, max 0.28 ms), publish 0.20 M 1.7 s. So Evaluate is ~0.4 ms/s,
+under §6's 1% drop line: the parallel-Evaluate idea (§7, docs/23 Next big wins #8) has no target [measured, one noisy run]. The four
+phases sum to ~21 ms/s of BP's 65 ms/s animPose bucket; the rest is pose-pass work outside these four calls (time step 0x942C00,
+the sub-step walks, 0x940430's own body) [inferred, the split below measures it].
+
+**Split built (branch `feature/animsplit-1118`, ts3native 0.36.275-animsplit1, `[AnimPhase] Split=0` default, needs Enabled=1,
+counters v208 `anx*` at 0x6590; measurement only)** for Rodney's 11-18 question "what animates off camera, can it be simplified and
+snapped back when visible" (measure before building):
+- every rig pose call `0x940430` timed by **pose kind** (`anxPoseN/Us[kind][class]`: 0 whole tick `0x571C3C`, 1 root-motion sub-steps
+  `0x571D20` / `0x571DDC`, 2 sub-step loop `0x942C50` at `0x942CC6` / `0x942CF1`) and **actor class** (0 household Sim or unknown scope,
+  1-3 NPC on screen / off screen within the camera reach / unseen, 4-6 object the same, 7 not classified). All five sites are
+  `mov ecx, actor; push dt; call 0x940430` [verified disassembly, Steam 1.67]. `0x571C3C` rides behind `[UnseenAnim]` when that is on
+  (shipped default: Mode 1, so unseen NPC time is after its decimation); `0x571D20` / `0x571DDC` are left to `[UnseenRootMotion]` when
+  it is enabled (bit 16 of `anxReady`).
+- the four §6 phase timers per class of the enclosing pose call (`anxPhN/Us[phase][class]`): Evaluate share and Advance / publish cost
+  of off-screen actors.
+- clip event dispatches `0x568710` (3 call sites, thiscall one argument `ret 4` [verified]) inside / outside a pose call
+  (`anxClipN/Us`).
+- locomotion `Locomotion_UpdateAgent 0x957210` of Sims by household / seen NPC / unseen NPC (`anxLocoN/Us`, with `[UnseenProbe]`
+  Enabled=1, which already splits visible / unseen x Sim / other in `unAgent*`).
+- actors per pass = `anxPoseN / aaPasses` (`[UnseenAnim]` counts the passes).
+- Household = the fresh held table ts3fixes pushes (`PushHeld`: all active-household actors plus riders / mount partners); no fresh
+  table counts as household (ledger I-512-1).
+- **Part 2 (counters v209, struct 6660 int32)**, after the static RE note (§8: the drawn pose runs on the main thread and EA already
+  skips it off camera; ~40 ms/s of the `0x571B90` pass had no timer): time step `0x942C00` at `0x571BF3` by class (`anxTsN/Us`), the
+  pass-end drains `0x577060` (`0x571E0F`) and `0x571A50` (`0x571E1A`) (`anxDrainN/Us`), the SACS event push `0x742710` at `0x801E51`
+  inside / outside a pose call (`anxEvN/Us`), and the whole `Locomotion_Update 0x83CED0` pass at `0xD81C5C` (`anxLocoPassN/Us`, behind
+  locowin.cpp's thunk through `g_g0wOrig` when `[RouteAsync] H2=1`, the shipped value). All `ret` / argument shapes [verified
+  disassembly, Steam 1.67]. Remainders: `aaPassUs` - (pose + time step + drains) = the pass's own walk and root-motion tests;
+  `anxLocoPassUs` - `unAgentUs` = locomotion outside the agent updates (route follow `0x83AC20` / `0x83B230`, allocs, the tail
+  [inferred from the callee list]). `0x571BF3` is left to `[UnseenRootMotion]` when that is enabled. Drawn pose: not timed (main thread).
+
+Queue (correctness + profile, not timing, not run): `tools/harness/queues/anim-split-profile-1118.json`, BP + IP + SV 10 min, ~42 min. Pass needs the `anxReady` line with every site group on.
+Decision it feeds: off-screen NPC / object pose time large enough (>= ~3 ms/s per world) = design a coarse off-camera pose with
+snap-back (the `[UnseenAnim]` debt model, extended to root-motion sub-steps and objects); small = park the animation lane.
+
 ## 7. H3: callee sweep to depth 3 and controller vtables (2026-10-15)
 
 **Method.** Ghidra headless on the copy project `game-copy/ghidra-h1`, read-only: the call tree of `0x940430` to depth 3 (99 functions); every caller of the controller constructor `0x565A80` and the vtables they install (54 primary and secondary vtables in `0xFC1AA0-0xFC2548`, plus TrackManager `0xFCBA70`); slots `+0x8` (Advance) and `+0xC` (Evaluate) of each, to depth 1 (~100 more functions). Each function was tagged by pattern (Mono/IC names, event dispatchers `0x568710`/`0x5689A0`/`0x583AB0`/`0x805870`, allocators, `LOCK()` increments, plain `x[1]++`, global writes, routing range `0x82xxxx-0x83xxxx`, render publish) and the hits were read. Decompiled output stayed under `game-copy/`.
@@ -166,3 +206,10 @@ The controller with vtable `0xFC2068` (correction 2026-10-30, docs/67 §26: this
 - **Must stay serial:** all of Advance (`0x583D00`, clip and SACS events, controller creation with the id counter, non-atomic controller refcounts), the routing notify `0x947590`, the transform publish in list order, the epilogue, and the post-loop track/deferred-id drains. Event *deferral* is not needed for the split, because events fire only in Phase A.
 - **Still a reimplementation:** B sits in the middle of `0x940430`'s single 18 KB frame, so the split needs a C++ rewrite of `0x940430` (not a hook). Effort L-XL as in §4.
 - **Movable estimate** [inferred, unmeasured]: Phase B is the only movable part, at most about half of the ~33 ms/s family (~16 ms/s); after fork/join and pool contention, **~5-15 ms/s** with 8 workers, only on lots with many animating actors. The §6 timing split (`0x583D00` vs `0x5833C0`+`0x574F50` vs `0x959670`) is still the go/no-go gate before any build; the serial skip-Evaluate option (§5.1) remains the cheaper first prototype.
+
+## 8. Off-camera follow-up (2026-11-18, static + existing run data; ledger docs/51 §511)
+
+- **Phase split measured: drop it.** Lane L9 `[AnimPhase]` timers, `bp-l9-diag` 2026-11-15 (2 runs, BP, 10 min, correctness job so indicative only) [measured]: Advance `0x583D00` ~20 ms/s (9.5 M calls), Evaluate `0x5833C0` ~0.4 ms/s (3.5% of calls), publish `0x959670` ~2.7 ms/s, routing notify ~0.1 ms/s, of a 67.5 ms/s pass (`aaPassUs` = `animPose`). Phase B is ~0.4 ms/s; about 40 ms/s of the pass (walks, `0x942C00` time steps, drains `0x577060` / `0x571A50`) has no timer yet.
+- **Drawn pose is main-thread work and EA culls it by visibility** [verified gate and call chain]: `RenderSystemService_Update 0x6E3620` -> `FrameDb_ConsumeAndInterpolate 0x693780` -> `0x6934C0` -> `0x9420E0` builds RigPoses from the frame's serialized anim records (gate `0x942374..0x942398`). The sim-side record writer `0x93F920` returns without a record unless the actor passes `0x93EAF0` (bounding sphere x3.0 `[0x1074010]` vs camera frustums `0x980F70` -> `0x980E00`), or is forced (`+0x38`, set by `IC_Animation_ForceAnimation 0x73A9E0` via `0x93E0A0`, which also posts message `0xE092878` -> model `+0x29D` bit 0), or has `+0x2C` bit 31.
+- **Setter of the one-shot Evaluate skip `+0x2C` bit 14** [verified write]: `0x84B2E4` in the route-follow end-step helper `0x84B0C0` (anim component type id `0x749C6A98`, vtable slot `0x93E640`); read and cleared at `0x9406D0..0x9406E2`. Meaning [inferred]: drop the root delta on the tick a route ends with its end facing.
+- Full write-up with the script-side waits and ranked designs: `probe-out/anim-offcamera-re-1118.md` (local).

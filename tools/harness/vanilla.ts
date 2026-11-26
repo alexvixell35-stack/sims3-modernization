@@ -15,6 +15,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFile
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { BIN } from './game-exe.ts';
+import { QUEUE_DIR } from './hold.ts';
 
 export const vanilla = () => process.env.TS3_VANILLA === '1';
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -23,6 +24,9 @@ const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Ar
 export const defaultSpec = (): Spec => ({ bin: BIN, user: USER, stash: process.env.TS3_VANILLA_STASH ?? `${USER} vanilla-stash`, agent: process.env.TS3_AGENT_PACKAGE });
 export const ourModsSpec = (): Spec => ({ bin: BIN, user: USER, stash: process.env.TS3_OURMODS_STASH ?? `${USER} ourmods-stash`, ourModsOnly: true });
 export const COMMUNITY = ['wininet.dll', 'd3d9.dll', 'MonoPatcher.asi', 'Sims3SettingsSetter.asi', 'Sims3Performance.asi']; // ASI loader, DXVK, the community asis: an "ourMods": false baseline needs them all
+// EA app Bin (no TS3W.exe, Sims3Launcher.exe): the EA laptop baseline is ASI loader + DXVK only (docs/226; no S3SS, S3PP or MonoPatcher asi),
+// so there an "ourMods": false job keeps those two; asking for the Steam asis refused every EA ourMods job (lc7-travel-triage-ea-1124)
+export const community = (bin = BIN): string[] => !existsSync(join(bin, 'TS3W.exe')) && existsSync(join(bin, 'Sims3Launcher.exe')) ? COMMUNITY.slice(0, 2) : COMMUNITY;
 const sha = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
 export const mfile = (s: Spec) => join(s.stash, 'manifest.json');
 interface Entry { rel: string; from: string; to: string; size: number; sha: string }
@@ -44,7 +48,7 @@ export function problems(s: Spec): string[] {
   for (const a of asis(s.bin)) if (!s.ourModsOnly || /^ts3native\.asi$/i.test(basename(a))) out.push(`Bin has ${a}`);
   for (const f of ['ts3native.ini', 'ts3native.log', 'autshadow.jsonl']) if (existsSync(join(s.bin, f))) out.push(`Bin has ${f}`);
   for (const d of ['scripts', 'plugins']) if (!s.ourModsOnly && existsSync(join(s.bin, d))) out.push(`Bin has ${d}\\`);
-  if (s.ourModsOnly) for (const f of COMMUNITY) if (!existsSync(join(s.bin, f))) out.push(`community file ${f} missing from Bin`);
+  if (s.ourModsOnly) for (const f of community(s.bin)) if (!existsSync(join(s.bin, f))) out.push(`community file ${f} missing from Bin`);
   for (const f of readdirSync(join(s.user, 'Mods', 'Packages'))) if (/^ts3fixes/i.test(f)) out.push(`Mods has ${f}`);
   if (!existsSync(mfile(s))) { out.push('no stash manifest (install not run)'); return out; }
   const m: Manifest = JSON.parse(readFileSync(mfile(s), 'utf8'));
@@ -59,7 +63,7 @@ export function install(s: Spec) {
   const pre = problems({ ...s, stash: join(s.stash, 'none') }).filter(p => /not a game Bin/.test(p));
   if (pre.length) throw new Error(pre[0]);
   if (existsSync(mfile(s))) throw new Error(`stash manifest exists (${mfile(s)}): restore first`);
-  if (!s.ourModsOnly && existsSync(join(ROOT, 'probe-out', 'queue', 'job-running'))) throw new Error('probe-out/queue/job-running exists'); // ourModsOnly: the running job is the caller
+  if (!s.ourModsOnly && existsSync(join(QUEUE_DIR, 'job-running'))) throw new Error(`${join(QUEUE_DIR, 'job-running')} exists`); // ourModsOnly: the running job is the caller
   const list = items(s), entries: Entry[] = [];
   const manifest: Manifest = { entries, time: new Date().toISOString() };
   for (const i of list) entries.push({ rel: i.rel, from: i.from, to: join(s.stash, i.rel), size: statSync(i.from).size, sha: sha(i.from) });
@@ -97,7 +101,7 @@ export function restore(s: Spec) {
   for (const e of all) if (existsSync(e.to)) move(e.to, e.from);
   const bad = all.filter(e => !existsSync(e.from) || sha(e.from) !== e.sha).map(e => e.rel);
   if (bad.length) throw new Error(`restore read-back failed: ${bad.join(', ')}; stash kept`);
-  rmSync(s.stash, { recursive: true, force: true });
+  rmSync(s.stash, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); // a scanner can hold a file for a moment (EPERM)
   return all.length;
 }
 
@@ -167,6 +171,10 @@ function selfCheck() {
     rmSync(join(s.bin, 'Sims3Performance.asi'));
     must(problems(o).some(p => /Sims3Performance\.asi missing/.test(p)), 'ourMods: a missing community asi must be flagged');
     mk(join(s.bin, 'Sims3Performance.asi'), 'Sims3Performance.asi');
+    // EA Bin: only the ASI loader + DXVK are required (TS3W.exe absent, Sims3Launcher.exe present); a Steam Bin keeps all five
+    const ea = join(t, 'eabin'); mk(join(ea, 'Sims3Launcher.exe'), 'x');
+    must(community(ea).join() === 'wininet.dll,d3d9.dll' && community(s.bin).length === COMMUNITY.length, `community per edition: ${community(ea)} / ${community(s.bin)}`);
+    mk(join(ea, 'TS3W.exe'), 'x'); must(community(ea).length === COMMUNITY.length, 'a Bin with TS3W.exe is Steam');
     try { install(o); must(false, 'ourMods: second install must refuse'); } catch (e: any) { must(/manifest exists/.test(e.message), e.message); }
     mk(join(s.user, 'scriptCache.package'), 'cache without ts3fixes');
     renameSync(join(o.stash, 'Bin', 'ts3native.asi'), join(t, 'hide')); // in neither place

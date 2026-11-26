@@ -22,6 +22,7 @@ static void* __fastcall AoFakeComp(void* obj, void* edx, DWORD bit) {
 }
 static u8 __fastcall AoFakeIn(const void*, void*, const float* s) { return s[0] - s[3] < 10 && s[0] + s[3] > -10; }
 
+static AaSlot* AaHome(const void* actor) { return &g_aaSlot[AaHomeIdx(actor)]; }  // the home slot (docs/321 L4)
 // called from TestUnseenAnim with its fakes in place (camera at (0,30,0), fresh far household table, aaMode 1)
 static void TestUnseenAnimObjects() {
     Ts3nCounters& k = ts3native_counters;
@@ -46,7 +47,7 @@ static void TestUnseenAnimObjects() {
     static u8 aFtn[0x30], aBig[0x30];
     *(void**)(aFtn + 4) = &fountain, *(void**)(aBig + 4) = &big;
     const float dt = 0.02f;
-    AaSlot* s = &g_aaSlot[((uintptr_t)aFtn >> 4) & (AA_SLOTS - 1)];
+    AaSlot* s = AaHome(aFtn);
     auto pass = [&](void* actor) { AaPassThunk(NULL, NULL, dt); g_aaFakeN = 0; AaPoseThunk(actor, NULL, dt); return g_aaFakeN; };
     auto runs8 = [&](void* actor) { int r = 0; for (int i = 0; i < 8; i++) r += pass(actor); return r; };
     // an unseen object with nothing near: 2 runs in 8 passes, no time lost
@@ -118,6 +119,46 @@ static void TestUnseenAnimObjects() {
     g_unLocoSys = sysSave, g_aaBitSacs = sacsSave, g_unInFrustum = inSave, g_unComp = UnFakeComp;
 }
 
+// docs/321 L4 lane C: probing slots. A free or own home slot is the slot the direct-mapped table gave; an actor whose home
+// another owes in takes the next free slot of its chain (no AAH_SLOT hold); only a chain of AA_PROBE owed slots holds
+static void TestUnseenAnimSlots() {
+    memset(g_aaSlot, 0, sizeof g_aaSlot), memset(g_aaDisp, 0, sizeof g_aaDisp), g_aaDispN = 0;
+    const DWORD pass0 = g_aaPass;
+    g_aaPass = 100;
+    auto A = [](uintptr_t i) { return (void*)(0x10000000u + (i << 4)); };
+    void* a = A(1);
+    const int h = AaHomeIdx(a);
+    AaSlot* s = AaSlotOf(a, 4);
+    assert(s == &g_aaSlot[h] && !s->actor);  // empty home: the home
+    s->actor = a, s->owed = 0.1f, s->pass = g_aaPass;
+    assert(AaSlotOf(a, 4) == s);  // own
+    void* same[AA_PROBE + 1];
+    int n = 0;
+    for (uintptr_t i = 2; n < AA_PROBE + 1 && i < 4000000; i++) if (AaHomeIdx(A(i)) == h) same[n++] = A(i);
+    assert(n == AA_PROBE + 1);
+    AaSlot* t = AaSlotOf(same[0], 4);  // home owed by a: the next free slot
+    assert(t == &g_aaSlot[(h + 1) & (AA_SLOTS - 1)] && g_aaDispN == 1);
+    AaSlotOf(same[0], 4);
+    assert(g_aaDispN == 1);  // distinct actors only
+    t->actor = same[0], t->owed = 0.1f, t->pass = g_aaPass;
+    s->owed = 0;  // a paid its debt: same[0] finds its own slot further on, a keeps its home
+    assert(AaSlotOf(same[0], 4) == t && AaSlotOf(a, 4) == s);
+    s->owed = 0.1f;
+    for (int i = 1; i < AA_PROBE - 1; i++) {  // a + same[0..14]: the 16 probed slots
+        AaSlot* u = AaSlotOf(same[i], 4);
+        assert(u == &g_aaSlot[(h + 1 + i) & (AA_SLOTS - 1)]);
+        u->actor = same[i], u->owed = 0.1f, u->pass = g_aaPass;
+    }
+    AaSlot* x = AaSlotOf(same[AA_PROBE - 1], 4);  // the whole chain owed: home, held by the caller (AAH_SLOT)
+    assert(x == s && x->actor == a);
+    g_aaPass += 9;  // > 2 x Every passes: stale debts drop, the chain is free again
+    x = AaSlotOf(same[AA_PROBE - 1], 4);
+    assert(x == s && !x->actor);
+    memset(g_aaSlot, 0, sizeof g_aaSlot), memset(g_aaDisp, 0, sizeof g_aaDisp), g_aaDispN = 0;
+    g_aaPass = pass0;
+    printf("UnseenAnim slots (docs/321 L4): empty / own home = direct-mapped slot, owed home -> next free chain slot (no hold), "
+           "distinct collision count, full chain holds, stale chain frees ok\n");
+}
 static void TestUnseenAnim() {
     Ts3nCounters& k = ts3native_counters;
     static Ts3nCounters saved;
@@ -158,11 +199,11 @@ static void TestUnseenAnim() {
     int runs = 0;
     for (int i = 0; i < 8; i++) { if (pass(aFar)) runs++, ran += g_aaFakeDt[0]; }
     assert(runs == 2 && k.aaSkipped >= 6 && k.aaOwedRuns >= 1);  // the first run may come before any skip (ASLR phase)
-    const float owedNow = g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed;
+    const float owedNow = (*AaHome(aFar)).owed;
     assert(ran + owedNow > 8 * dt - 1e-5f && ran + owedNow < 8 * dt + 1e-5f);  // no time lost or added
     // snap-back: the same Sim on screen runs this pass with what it owes
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0) pass(aFar);
-    const float owed = g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed;
+    while ((*AaHome(aFar)).owed == 0) pass(aFar);
+    const float owed = (*AaHome(aFar)).owed;
     const LONG snap0 = k.aaSnap;
     const auto watchSave = g_utWatch;  // unseen_snapback code 24: the watched Sim's owed pose time at its first visible call
     memset(&g_utWatch, 0, sizeof g_utWatch);
@@ -171,7 +212,7 @@ static void TestUnseenAnim() {
     assert(pass(aFar) == 1 && g_aaFakeDt[0] > owed + dt - 1e-5f && k.aaSnap == snap0 + 1);
     assert(g_utWatch.animFlipped && g_utWatch.animOwed == owed);
     g_utWatch = watchSave;
-    assert(g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0);
+    assert((*AaHome(aFar)).owed == 0);
     farSim.pos[0] = 500;
     // holds: near a Sim visible last pass (8 m), parented, household viewer within 80 m, stale table, debt cap
     __declspec(align(16)) static UnFakeObj buddy = {{12, 0, 92, 1}, true};  // unseen: off screen, ~93 m from camera and target
@@ -204,7 +245,7 @@ static void TestUnseenAnim() {
     for (int i = 0; i < 8; i++) { AaPassThunk(NULL, NULL, 0.1f); g_aaFakeN = 0; AaPoseThunk(aFar, NULL, 0.1f); }  // fast speed
     assert(k.aaHold[AAH_CAP] > cap0 && k.aaDebtMaxUs <= 250000);
     // CapPasses=4 (docs/144 §3.5): a 0.3 s pass (over MaxOwedMs alone) still skips; the step stays <= 4 passes and HardCapMs
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed > 0) pass(aFar);
+    while ((*AaHome(aFar)).owed > 0) pass(aFar);
     g_aaCapPasses = 4, g_aaHardCap = 1.5f;
     const LONG skip0 = k.aaSkipped;
     float maxStep = 0;
@@ -219,15 +260,15 @@ static void TestUnseenAnim() {
     g_aaCapPasses = 0;
     assert(AaCap(0.3f) == 0.25f);
     // switch off: the owed time runs at the next call, then every pass
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0) pass(aFar);
+    while ((*AaHome(aFar)).owed == 0) pass(aFar);
     k.aaMode = 0;
     const LONG off0 = k.aaFlushOff;
     assert(pass(aFar) == 1 && k.aaFlushOff == off0 + 1 && pass(aFar) == 1 && pass(aFar) == 1);
     k.aaMode = 1;
     // a reused actor address (another Sim id): the old debt is dropped, not run for the new owner
-    while (g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)].owed == 0) pass(aFar);
+    while ((*AaHome(aFar)).owed == 0) pass(aFar);
     farSim.pos[2] = 7;  // the id low word at owner +8 changes
-    AaSlot* s = &g_aaSlot[((uintptr_t)aFar >> 4) & (AA_SLOTS - 1)];
+    AaSlot* s = AaHome(aFar);
     g_aaFakeN = 0;
     AaPassThunk(NULL, NULL, dt);
     AaPoseThunk(aFar, NULL, dt);
@@ -261,6 +302,7 @@ static void TestUnseenAnim() {
         g_utHeld = heldSave, g_utOn = onSave, g_aaOn = aaSave;
     }
     TestUnseenAnimObjects();
+    TestUnseenAnimSlots();
 
     memset(g_aaSlot, 0, sizeof g_aaSlot);
     memset(g_aaVis, 0, sizeof g_aaVis);
@@ -279,9 +321,51 @@ static DWORD g_anFakeSum;
 static DWORD __fastcall AnFake3(void* s, void* e, DWORD a, DWORD b, DWORD c) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a + b + c; }
 static DWORD __fastcall AnFake2(void* s, void* e, DWORD a, DWORD b) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a + b; }
 static DWORD __fastcall AnFake1(void* s, void* e, DWORD a) { return g_anFakeSum = (DWORD)(uintptr_t)s + (DWORD)(uintptr_t)e + a; }
+// [AnimPhase] Split (docs/22 §6.1): a pose call's phases and clip events go to its class; the class is restored after it
+static float g_anxFakeDt;
+static void __fastcall AnxFakePose(void* actor, void* edx, float dt) {
+    g_anxFakeDt = dt;
+    AnAdvHook(actor, edx, 1, 2, 3);
+    AnxClipHook(actor, edx, 4);
+}
+static int AnxFakeClass(void*) { return ANX_NPC_UNSEEN; }
+static void __fastcall AnxFakeTs(void*, void*, float dt) { g_anxFakeDt = dt; }
+static void* g_anxFakeVoid;
+static void __fastcall AnxFakeVoid(void* self, void*) { g_anxFakeVoid = self; }
+static void TestAnimSplit() {
+    Ts3nCounters& k = ts3native_counters;
+    const AnFn3 a0 = g_anAdv;
+    const AnFn1 c0 = g_anxClip;
+    const AnxPoseFn p0 = g_anxPoseOrig;
+    int (*const cl0)(void*) = g_anxClassOf;
+    g_anAdv = AnFake3, g_anxClip = AnFake1, g_anxPoseOrig = AnxFakePose, g_anxClassOf = AnxFakeClass, g_anxOn = true;
+    if (!g_qpf.QuadPart) QueryPerformanceFrequency(&g_qpf);
+    const LONG pose = k.anxPoseN[1][ANX_NPC_UNSEEN], ph = k.anxPhN[0][ANX_NPC_UNSEEN], in = k.anxClipN[0], out = k.anxClipN[1];
+    AnxPose1((void*)0x10, NULL, 0.5f);
+    assert(g_anxFakeDt == 0.5f && k.anxPoseN[1][ANX_NPC_UNSEEN] == pose + 1 && k.anxPhN[0][ANX_NPC_UNSEEN] == ph + 1 && k.anxClipN[0] == in + 1);
+    assert(g_anxCls == ANX_NONE && AnxClipHook((void*)1, (void*)2, 3) == 6 && k.anxClipN[1] == out + 1);  // outside a pose call
+    const LONG none = k.anxPhN[0][ANX_NONE];
+    AnAdvHook((void*)1, (void*)2, 3, 4, 5);
+    assert(k.anxPhN[0][ANX_NONE] == none + 1);
+    // part 2: time step by class, event push inside / outside a pose call, pass-end drain and locomotion pass pass through
+    const AnxPoseFn t0 = g_anxTsOrig;
+    const AnFn1 e0 = g_anxEvOrig;
+    const AnxVoidFn d0 = g_anxDrain0;
+    const LocoUpdateFn l0 = g_anxLocoOrig;
+    g_anxTsOrig = AnxFakeTs, g_anxEvOrig = AnFake1, g_anxDrain0 = AnxFakeVoid, g_anxLocoOrig = AnxFakeTs;
+    const LONG ts = k.anxTsN[ANX_NPC_UNSEEN], evOut = k.anxEvN[1], dr = k.anxDrainN[0], lp = k.anxLocoPassN;
+    AnxTsHook((void*)0x10, NULL, 0.25f);
+    assert(g_anxFakeDt == 0.25f && k.anxTsN[ANX_NPC_UNSEEN] == ts + 1 && AnxEvHook((void*)1, (void*)2, 3) == 6 && k.anxEvN[1] == evOut + 1);
+    AnxDrain0Hook((void*)7, NULL);
+    AnxLocoHook((void*)0x10, NULL, 0.5f);
+    assert(g_anxFakeVoid == (void*)7 && k.anxDrainN[0] == dr + 1 && k.anxLocoPassN == lp + 1 && g_anxFakeDt == 0.5f);
+    g_anxTsOrig = t0, g_anxEvOrig = e0, g_anxDrain0 = d0, g_anxLocoOrig = l0;
+    g_anAdv = a0, g_anxClip = c0, g_anxPoseOrig = p0, g_anxClassOf = cl0, g_anxOn = false;
+    printf("anim split: pose call class reaches its phases and clip events, restored after the call\n");
+}
 static void TestAnimPhase() {
     static_assert(offsetof(Ts3nCounters, anReady) == 0x63A4 && offsetof(Ts3nCounters, anPubMaxUs) == 0x63D4 && offsetof(Ts3nCounters, anSpare) == 0x63D8 &&
-                      sizeof(Ts3nCounters) == 6478 * 4, "counters v201 (docs/registry.md)");
+                      sizeof(Ts3nCounters) == 6883 * 4, "counters v201 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     const AnFn3 a0 = g_anAdv;
     const AnFn2 n0 = g_anNot, e0 = g_anEval;
@@ -303,6 +387,7 @@ static void TestAnimPhase() {
     assert(!ApplyAnimPhase(ini) && !k.anReady);  // no `call 0x583D00` at 0x940569 here
     DeleteFileW(ini);
     printf("anim phase: four timing wrappers pass registers and arguments through, count; install refuses without the game's calls\n");
+    TestAnimSplit();
 }
 
 // [UnseenAnim] DrainNodeLog helpers (docs/67 §47): the return-address slot in the first stack words, the guarded word scan

@@ -38,8 +38,8 @@ namespace Ts3Fixes
         // Definition.Test / AddInteractions. Fix: a target with no role gets EA's own "no" (nothing added / Test false) before
         // EA's code runs. Also (batch 9, 2026-11-15 review): FutureFoodSynthesizer.TestIfSocialValid has the same typo on a
         // target with an ACTIVE role: a role whose RoleGivingObject is null passes the test and `.LotCurrent` throws. With
-        // the switch on that case answers EA's intended "no" (false). Counted in [1174] / [1175].
-        // Counters: [1174] calls answered "no role", [1175] seen with the switch off, [1176] errors.
+        // the switch on that case answers EA's intended "no" (false). Counted in [2861] / [2862].
+        // Counters: [2861] calls answered "no role", [2862] seen with the switch off, [2863] errors.
         static readonly Type sRnWaiterDef = RnWaiterDef();
         static string sRnMissing = "";
 
@@ -79,11 +79,11 @@ namespace Ts3Fixes
                         && RnSocialThrows(actor == target, actor.SimDescription.HasActiveRole, target.SimDescription.HasActiveRole,
                             target.SimDescription.AssignedRole != null && target.SimDescription.AssignedRole.RoleGivingObject == null))
                     {
-                        if (ShortcutOn("rolenullguard")) { PatchCounters()[1174]++; return false; }
-                        PatchCounters()[1175]++;
+                        if (ShortcutOn("rolenullguard")) { PatchCounters()[2861]++; return false; }
+                        PatchCounters()[2862]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1176]++; }
+                catch (Exception) { PatchCounters()[2863]++; }
                 return SocialOrig(actor, target);
             }
             public static bool SocialOrig(Sim actor, Sim target) { return false; } // FutureFoodSynthesizer.TestIfSocialValid
@@ -101,10 +101,10 @@ namespace Ts3Fixes
             try
             {
                 if (target == null || target.SimDescription == null || target.SimDescription.AssignedRole != null) return false;
-                if (!ShortcutOn("rolenullguard")) { PatchCounters()[1175]++; return false; }
-                if (RnSkip(true, true)) { PatchCounters()[1174]++; return true; }
+                if (!ShortcutOn("rolenullguard")) { PatchCounters()[2862]++; return false; }
+                if (RnSkip(true, true)) { PatchCounters()[2861]++; return true; }
             }
-            catch (Exception) { PatchCounters()[1176]++; }
+            catch (Exception) { PatchCounters()[2863]++; }
             return false;
         }
 
@@ -150,7 +150,7 @@ namespace Ts3Fixes
         // so the fraction is 0 below max level and the bonus only exists at level 10. Fix: after EA's rate, the missing part
         // (k * level / max, below max level) is added, scaled by EA's own end multipliers (copying x2 / x1 when old,
         // MultiTasker). Household-visible: homework goes faster with the Homework skill, as EA tuned it.
-        // Counters: [1177] rates raised, [1178] seen with the switch off, [1179] errors.
+        // Counters: [2864] rates raised, [2865] seen with the switch off, [2866] errors.
         static readonly FieldInfo sHwK = typeof(Homework).GetField("kCompletetionRateModifierHomeworkSkill", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sHwCopy = typeof(Homework).GetField("kCopyingMultiplier", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         static readonly FieldInfo sHwCopyOld = typeof(Homework).GetField("kCopyingMultiplierOld", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
@@ -184,14 +184,14 @@ namespace Ts3Fixes
                     Skill helper = hw.HelpingSim == null ? null : hw.HelpingSim.SkillManager.GetElement(SkillNames.Homework);
                     Skill used = mine != null && (helper == null || mine.SkillLevel > helper.SkillLevel) ? mine : helper;  // EA's pick
                     if (used == null || used.SkillLevel <= 0 || used.SkillLevel >= used.MaxSkillLevel) return rate;
-                    if (!ShortcutOn("homeworkskillbonus")) { PatchCounters()[1178]++; return rate; }
+                    if (!ShortcutOn("homeworkskillbonus")) { PatchCounters()[2865]++; return rate; }
                     float mult = 1f;
                     if (isCopying) mult *= (bool)sHwIsOld.GetValue(hw) ? (float)sHwCopyOld.GetValue(null) : (float)sHwCopy.GetValue(null);
                     if (sim.HasTrait(TraitNames.MultiTasker)) mult *= TraitTuning.MultiTaskerHomeworkTimeMultiplier;
                     float add = HwMissing(true, used.SkillLevel, used.MaxSkillLevel, (float)sHwK.GetValue(null), mult);
-                    if (add > 0f) { PatchCounters()[1177]++; return rate + add; }
+                    if (add > 0f) { PatchCounters()[2864]++; return rate + add; }
                 }
-                catch (Exception) { PatchCounters()[1179]++; }
+                catch (Exception) { PatchCounters()[2866]++; }
                 return rate;
             }
             public float RateOrig(Sim sim, bool isCopying, bool isInStudyClub) { return 0f; } // Homework.GetCompletionRate
@@ -202,7 +202,7 @@ namespace Ts3Fixes
         // with `>= 0`, always true, so "visit a horse ranch" becomes active and visible for every human Sim, horses or not;
         // kBecomeActiveButNonVisible is unreachable. Fix: an active answer for a household with no horse becomes EA's
         // non-visible answer. Household-visible (the challenge is hidden until the household has a horse).
-        // Counters: [1180] answers hidden, [1181] seen with the switch off, [1182] errors.
+        // Counters: [2867] answers hidden, [2868] seen with the switch off, [2869] errors.
         static string sHrMissing = "";
 
         static void ApplyHorseRanchChallenge()
@@ -229,10 +229,10 @@ namespace Ts3Fixes
                 {
                     int horses = Owner.Household.CurrentMembers.GetActorsOfType(CASAGSAvailabilityFlags.AllHorsesMask).Count;
                     if (horses > 0) return r;
-                    if (!ShortcutOn("horseranchchallenge")) { PatchCounters()[1181]++; return r; }
-                    if (HrHide(true, true, horses)) { PatchCounters()[1180]++; return ChallengeCheckResult.kBecomeActiveButNonVisible; }
+                    if (!ShortcutOn("horseranchchallenge")) { PatchCounters()[2868]++; return r; }
+                    if (HrHide(true, true, horses)) { PatchCounters()[2867]++; return ChallengeCheckResult.kBecomeActiveButNonVisible; }
                 }
-                catch (Exception) { PatchCounters()[1182]++; }
+                catch (Exception) { PatchCounters()[2869]++; }
                 return r;
             }
             public static ChallengeCheckResult CheckOrig(ChallengeNode node, Sim Owner) { return ChallengeCheckResult.kThrowAway; } // the original
@@ -245,7 +245,7 @@ namespace Ts3Fixes
         // count drops only when the pick holds something. Household-visible: empty digs no longer exhaust a site.
         // Cap (2026-11-15 review): a site whose treasure info does not resolve always picks nothing, and the dig loop ends
         // only when the count reaches 0, so after kDsMaxEmpty empty digs in a row on one site the count drops as in EA.
-        // Counters: [1183] empty digs that kept the site's treasure, [1184] empty digs with the switch off, [1185] errors.
+        // Counters: [2870] empty digs that kept the site's treasure, [2871] empty digs with the switch off, [2872] errors.
         static readonly FieldInfo sDsLeft = typeof(DigSite).GetField("mNumTreasuresRemaining", kInstAll);
         static string sDsMissing = "";
 
@@ -280,9 +280,9 @@ namespace Ts3Fixes
                     sDsEmptyRun.TryGetValue(id, out run);
                     int n = picked == null ? 0 : picked.Count;
                     if (DsSpend(true, n, run)) { sDsLeft.SetValue(site, (int)sDsLeft.GetValue(site) - 1); sDsEmptyRun.Remove(id); }
-                    else { PatchCounters()[1183]++; sDsEmptyRun[id] = run + 1; }
+                    else { PatchCounters()[2870]++; sDsEmptyRun[id] = run + 1; }
                 }
-                catch (Exception) { PatchCounters()[1185]++; }
+                catch (Exception) { PatchCounters()[2872]++; }
                 site.TreasureComponent.GiveTreasuresToSim(picked, actor, true);
             }
             public void DigOrig(InteractionInstance inst) { } // DigSite.ExcavateSomething
@@ -300,7 +300,7 @@ namespace Ts3Fixes
         // reaches null with the switch on, nothing is cleared. Ordinary categories and every other case are EA's code.
         // (Fixed 2026-11-15: the first build tested the category the wrong way round and never reached the adventure case.)
         // Household-visible (which opportunities can repeat).
-        // Counters: [1186] world-change branch taken, [1187] seen with the switch off, [1188] errors.
+        // Counters: [2873] world-change branch taken, [2874] seen with the switch off, [2875] errors.
         static readonly MethodInfo sOcReqWorld = typeof(Opportunity).GetMethod("RequiredWorldForCategory", kInstAll, null, Type.EmptyTypes, null);
         static string sOcMissing = "";
 
@@ -343,15 +343,15 @@ namespace Ts3Fixes
                             Opportunity o = opp;
                             while (o != null && o.Guid != src.Guid && o.Guid != tgt.Guid) o = OpportunityManager.GetStaticOpportunity(o.SharedData.mParentOpportunity);
                             if (o != null) from = OpportunityManager.GetStaticOpportunity(o.SharedData.mParentOpportunity);
-                            if (from == null) { PatchCounters()[1186]++; return opp.Guid; }  // EA would throw here: nothing cleared
+                            if (from == null) { PatchCounters()[2873]++; return opp.Guid; }  // EA would throw here: nothing cleared
                             if (!missed) return ClearOrig(opp, s);  // EA's branch with a valid walk: EA's own code
                         }
-                        else if (missed) PatchCounters()[1187]++;
+                        else if (missed) PatchCounters()[2874]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1188]++; from = null; }
+                catch (Exception) { PatchCounters()[2875]++; from = null; }
                 if (from == null) return ClearOrig(opp, s);
-                PatchCounters()[1186]++;
+                PatchCounters()[2873]++;
                 return Opportunity.ClearChainHistory(from, s);  // EA's recursion
             }
             public static OpportunityNames ClearOrig(Opportunity opp, Sim s) { return default(OpportunityNames); } // the original
@@ -361,7 +361,7 @@ namespace Ts3Fixes
         // [verified, decompiled] Teleporter+TeleportToCommunityLot.Definition.Test returns `GetValidCommunityLots(a).Count >= 0`,
         // always true, so "Teleport to community lot" is offered in a world with no valid community lot (Run then fails
         // cleanly). Fix: EA's true becomes false when that collection is empty. Household-visible (menu only).
-        // Counters: [1189] options hidden, [1190] seen with the switch off, [1191] errors.
+        // Counters: [2876] options hidden, [2877] seen with the switch off, [2878] errors.
         static readonly Type sTcDef = TcDef();
         static string sTcMissing = "";
 
@@ -396,10 +396,10 @@ namespace Ts3Fixes
                     ICollection<Lot> lots = CarOwnable.GetValidCommunityLots(a);
                     int n = lots == null ? 0 : lots.Count;
                     if (n > 0) return r;
-                    if (!ShortcutOn("teleportcommunitylot")) { PatchCounters()[1190]++; return r; }
-                    if (TcRefuse(true, true, n)) { PatchCounters()[1189]++; return false; }
+                    if (!ShortcutOn("teleportcommunitylot")) { PatchCounters()[2877]++; return r; }
+                    if (TcRefuse(true, true, n)) { PatchCounters()[2876]++; return false; }
                 }
-                catch (Exception) { PatchCounters()[1191]++; }
+                catch (Exception) { PatchCounters()[2878]++; }
                 return r;
             }
             public bool TestOrig(Sim a, Teleporter target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // the original
@@ -409,7 +409,7 @@ namespace Ts3Fixes
         // [verified, decompiled] SubjectDefinition.Difficulty divides SkillPoints and Value (ints) by the largest ones (ints),
         // so both fractions are 0 below the maximum and the photography journal shows 1 star for almost every subject (its
         // only reader, Photography's journal row, maps Difficulty * 5 to stars). Fix: the same weighted mean with float
-        // division. UI only. Counters: [1192] values corrected, [1193] seen with the switch off, [1194] errors.
+        // division. UI only. Counters: [2879] values corrected, [2880] seen with the switch off, [2881] errors.
         static string sPsMissing = "";
 
         static void ApplyPhotoSubjectStars()
@@ -438,11 +438,11 @@ namespace Ts3Fixes
                     float f = PsDifficulty(d.SkillPoints, PhotographySubjects.sMaxSubjectSkillPoints, d.Value, PhotographySubjects.sMaxSubjectValue,
                         PhotographySubjects.kDifficultyWeightSubjectSkillPoints, PhotographySubjects.kDifficultyWeightSubjectValue);
                     if (f == ea) return ea;
-                    if (!ShortcutOn("photosubjectstars")) { PatchCounters()[1193]++; return ea; }
-                    PatchCounters()[1192]++;
+                    if (!ShortcutOn("photosubjectstars")) { PatchCounters()[2880]++; return ea; }
+                    PatchCounters()[2879]++;
                     return f;
                 }
-                catch (Exception) { PatchCounters()[1194]++; }
+                catch (Exception) { PatchCounters()[2881]++; }
                 return ea;
             }
             public float DifficultyOrig() { return 0f; } // SubjectDefinition.get_Difficulty

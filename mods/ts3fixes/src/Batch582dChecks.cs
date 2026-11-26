@@ -10,7 +10,7 @@ namespace Ts3Fixes
         // hidden-room door and a door with its own rules stay failures; a passed check stays passed.
         public static object ResidentSpawnSlotCheck(string what)
         {
-            string counters = B582Counters("residentspawnslot", 1195, new[] { "slots accepted for the resident", "would accept with switch off", "failures kept", "errors" }, sRsMissing);
+            string counters = B582Counters("residentspawnslot", 2882, new[] { "slots accepted for the resident", "would accept with switch off", "failures kept", "errors" }, sRsMissing);
             if (what == "result") return counters;
             if (what != "run") return "residentspawnslot <run|result>";
             bool on = ShortcutOn("residentspawnslot");
@@ -32,7 +32,7 @@ namespace Ts3Fixes
         // TalkOccupationChanceCheck run: 3 occupations left -> Unemployment chance 0.25. Controls: none left -> 1 (EA right).
         public static object TalkOccupationChanceCheck(string what)
         {
-            string counters = B582Counters("talkoccupationchance", 1199, new[] { "menus built by the copy", "Unemployment offered through the fixed chance", "errors" }, sTaoMissing);
+            string counters = B582Counters("talkoccupationchance", 2886, new[] { "menus built by the copy", "Unemployment offered through the fixed chance", "errors" }, sTaoMissing);
             if (what == "result") return counters;
             if (what != "run") return "talkoccupationchance <run|result>";
             bool on = ShortcutOn("talkoccupationchance");
@@ -44,7 +44,7 @@ namespace Ts3Fixes
         // ShellDoorSummonCheck run: a refused teleport leaves the exit unqueued. Control: a queued teleport queues the exit.
         public static object ShellDoorSummonCheck(string what)
         {
-            string counters = B582Counters("shelldoorsummon", 1202, new[] { "summons run by the copy", "teleport refused, exit not queued", "errors" }, sSdMissing);
+            string counters = B582Counters("shelldoorsummon", 2889, new[] { "summons run by the copy", "teleport refused, exit not queued", "errors" }, sSdMissing);
             if (what == "result") return counters;
             if (what != "run") return "shelldoorsummon <run|result>";
             bool on = ShortcutOn("shelldoorsummon");

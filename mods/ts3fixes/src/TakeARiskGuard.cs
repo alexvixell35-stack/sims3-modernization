@@ -83,7 +83,7 @@ namespace Ts3Fixes
             int[] n = PatchCounters(); int k0 = n[997], threw = 0;
             c.Boss = null; c.Coworkers = new List<SimDescription>(); c.Coworkers.Add(new SimDescription()); // never Fixup'd: invalid
             try { for (int i = 0; i < 5; i++) { try { Political.PoliticalTakeARisk(c); } catch (Exception) { threw++; } } }
-            finally { c.Boss = boss; c.Coworkers = coworkers; c.ShouldPromote = promote; }
+            finally { c.Boss = boss; c.Coworkers = coworkers; c.ShouldPromote = promote; DdNote(c.OwnerDescription); } // restored; noted for deadrefdescrev
             bool on = ShortcutOn("takeariskguard");
             int skips = n[997] - k0;
             string line = "threw " + threw + "/5, skips " + skips + " (switch " + on + ", " + c.OwnerDescription.FullName + ")";

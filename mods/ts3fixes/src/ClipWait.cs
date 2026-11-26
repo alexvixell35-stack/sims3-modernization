@@ -32,7 +32,7 @@ namespace Ts3Fixes
     //     Go Here, never when that Sim uses the object the walker goes to. The destination-obstructed event of that route
     //     is then not answered with a new wait. A Sim at the end that may not be walked into does not stop the walker
     //     from passing the Sims on its way there; the game's own handling of the route's end runs when it arrives.
-    // The grace is the one tunable simpass and petrelax use too (docs/686 §8.7): simpass (ShareLanes.cs) acts first where
+    // The grace is the one tunable simpass and petrelax use too (docs/686 §8.8): simpass (ShareLanes.cs) acts first where
     // it applies (at once near a portal, elsewhere at the same grace; no Sim at the route's end, plan intact); clipwait
     // is the rule for the waits that are left: a Sim at the route's end, a plan that failed on people, horses. Scope: clipwait covers Sims the player does not control, as
     // walker and as the Sim walked through; clipwaithh adds household and selected Sims.

@@ -32,7 +32,7 @@ namespace Ts3Fixes
         // Also (batch 9, 2026-11-15 review): EA's best-choice cap tests `num > k` before adding, so the menu gets k + 1 best
         // choices (6 where the tuning says "at most 5"); the copy stops at k. GetRandomSeed is called only when some
         // occupation is left (it takes `% count`; with none left EA's loop adds nothing anyway).
-        // Counters: [1199] menus built by the copy, [1200] Unemployment offered only through the fixed chance, [1201] errors.
+        // Counters: [2886] menus built by the copy, [2887] Unemployment offered only through the fixed chance, [2888] errors.
         static MethodInfo sTaoOccPts, sTaoUnempPts, sTaoSeed;
         static ConstructorInfo sTaoTuple;
         static PropertyInfo sTaoScore, sTaoMetric;
@@ -109,7 +109,7 @@ namespace Ts3Fixes
             float unemp = (float)sTaoUnempPts.Invoke(null, new object[] { actor, target, false });
             if (unemp > 0f || RandomUtil.RandomChance01(chance))
             {
-                if (unemp <= 0f && count > 0) PatchCounters()[1200]++;  // offered only through the fixed chance
+                if (unemp <= 0f && count > 0) PatchCounters()[2887]++;  // offered only through the fixed chance
                 results.Add(new InteractionObjectPair(new TalkAboutOccupation.Definition(true), target));
                 num++;
             }
@@ -131,10 +131,10 @@ namespace Ts3Fixes
             {
                 if (!ShortcutOn("talkoccupationchance")) { AddOrig(iop, actor, target, results); return; }
                 int before = results == null ? 0 : results.Count;
-                try { TaoAdd(actor, target, results); PatchCounters()[1199]++; }
+                try { TaoAdd(actor, target, results); PatchCounters()[2886]++; }
                 catch (Exception)
                 {
-                    PatchCounters()[1201]++;
+                    PatchCounters()[2888]++;
                     if (results != null && results.Count > before) results.RemoveRange(before, results.Count - before);
                     AddOrig(iop, actor, target, results);
                 }
@@ -149,7 +149,7 @@ namespace Ts3Fixes
         // it was never brought to, and Run returns false with the exit left queued and no return-home alarm. Intent: `&&`,
         // the exit is queued only after the teleport. The copy keeps EA's other steps. Household-visible only as the
         // summoning Sim's interaction result; the proprietor is an NPC.
-        // Counters: [1202] summons run by the copy, [1203] teleport refused (exit not queued; with the switch off EA queues it), [1204] errors.
+        // Counters: [2889] summons run by the copy, [2890] teleport refused (exit not queued; with the switch off EA queues it), [2891] errors.
         static FieldInfo sSdExit;
         static Type sSdType;
         static string sSdMissing = "";
@@ -184,7 +184,7 @@ namespace Ts3Fixes
             tp.SetAndReserveDestination(door.GetSlotPosition(Door.RoutingSlots.Door1_Rear));
             bool teleportQueued = prop.InteractionQueue.Add(tp);
             InteractionInstance entry = ((InteractionDefinition)sSdExit.GetValue(null)).CreateInstance(door, prop, new InteractionPriority(InteractionPriorityLevel.RequiredNPCBehavior), false, false);
-            if (!SdQueueExit(true, teleportQueued)) { PatchCounters()[1203]++; return false; }  // the fix: EA's `&` queued the exit anyway
+            if (!SdQueueExit(true, teleportQueued)) { PatchCounters()[2890]++; return false; }  // the fix: EA's `&` queued the exit anyway
             if (teleportQueued & prop.InteractionQueue.Add(entry))
             {
                 if (stage.ProprietorReturnHomeAlarm != AlarmHandle.kInvalidHandle) door.RemoveAlarm(stage.ProprietorReturnHomeAlarm);
@@ -200,9 +200,9 @@ namespace Ts3Fixes
             public bool RunHook()
             {
                 if (!ShortcutOn("shelldoorsummon")) return RunOrig();
-                PatchCounters()[1202]++;
+                PatchCounters()[2889]++;
                 try { return SdRun((Interaction<Sim, BigLotShellDoor>)(object)this); }
-                catch (Exception) { PatchCounters()[1204]++; return false; }
+                catch (Exception) { PatchCounters()[2891]++; return false; }
             }
             public bool RunOrig() { return false; } // receives BigLotShellDoor+SummonProprietor.Run
         }

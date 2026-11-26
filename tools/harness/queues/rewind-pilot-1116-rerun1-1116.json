@@ -1,0 +1,148 @@
+{
+  "note": "rewind-pilot-1116-rerun1-1116: copy of rewind-pilot-1116-1116c.json with the rwud1116 asi. bp-rewind-pilot-b was refused 2026-11-16 15:12:51 UTC on thread UdMemMain (ts3native.asi+ca8f0, memory worker): its wait timeout was the time left to the next deadline, so it differed per loop. rwud1116 waits a fixed 1 s (docs/270 §34). Was: rewind-pilot-1116-1116c: copy of rewind-pilot-1116-1116b.json repinned to master-1116c (0.36.267-mc1116), run by probe-out/queue/chain-1116c.sh. Was: rewind-pilot-1116-1116b: copy of rewind-pilot-1116",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rewind-pilot-a",
+      "note": "[est 9 min] [natural play, no cheats] fresh start, then the snapshot after the load; 5 min profile, seed 12345.",
+      "asi": "game-copy/ts3native.asi.rwud1116",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "asi rwud1116 (0.36.268: master-1116c + memory worker fixed 1 s wait, docs/270 §34); ini, ts3fixes, agent stay master-1116c. Was: repinned 2026-11-16 to the master-1116c set (merge/master-11",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^compat: Apex Radiance found ": 1,
+        "^ts3native 0\\.36\\.268-rwud1116 ": 1
+      },
+      "regexCases": {
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        },
+        "^ts3native 0\\.36\\.268-rwud1116 ": {
+          "match": [
+            "ts3native 0.36.268-rwud1116 2026-11-16 23:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15",
+            "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 38
+    },
+    {
+      "id": "bp-rewind-pilot-b",
+      "note": "[est 6 min] [natural play, no cheats] starts from a rewind to the snapshot after the load of bp-rewind-pilot-a; 5 min profile, seed 12345.",
+      "asi": "game-copy/ts3native.asi.rwud1116",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "asi rwud1116 (0.36.268: master-1116c + memory worker fixed 1 s wait, docs/270 §34); ini, ts3fixes, agent stay master-1116c. Was: repinned 2026-11-16 to the master-1116c set (merge/master-11",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^compat: Apex Radiance found ": 1,
+        "^ts3native 0\\.36\\.268-rwud1116 ": 1
+      },
+      "regexCases": {
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        },
+        "^ts3native 0\\.36\\.268-rwud1116 ": {
+          "match": [
+            "ts3native 0.36.268-rwud1116 2026-11-16 23:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15",
+            "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 38
+    },
+    {
+      "id": "bp-rewind-pilot-c",
+      "note": "[est 6 min] [natural play, no cheats] starts from a rewind to the snapshot after the load of bp-rewind-pilot-a; 5 min profile, seed 12345.",
+      "asi": "game-copy/ts3native.asi.rwud1116",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "asi rwud1116 (0.36.268: master-1116c + memory worker fixed 1 s wait, docs/270 §34); ini, ts3fixes, agent stay master-1116c. Was: repinned 2026-11-16 to the master-1116c set (merge/master-11",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^compat: Apex Radiance found ": 1,
+        "^ts3native 0\\.36\\.268-rwud1116 ": 1
+      },
+      "regexCases": {
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        },
+        "^ts3native 0\\.36\\.268-rwud1116 ": {
+          "match": [
+            "ts3native 0.36.268-rwud1116 2026-11-16 23:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15",
+            "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 38
+    }
+  ],
+  "rewind": "auto"
+}

@@ -16,7 +16,7 @@ static int g_ilpTestPost; static DWORD g_ilpTestPostAfter;
 static void __cdecl IlpTestPost(BYTE*, void*) { g_ilpTestPost++; g_ilpTestPostAfter = g_ilpTestSeen.calls; }
 
 static void TestIlPatch() {
-    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 6478 * 4,
+    static_assert(offsetof(Ts3nCounters, ilpOn) == 0x5C14 && offsetof(Ts3nCounters, ilpFaults) == 0x5C30 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v907 layout after v906 (docs/registry.md)");
     assert(IlpShaInit());
     BYTE sha[32];
@@ -105,6 +105,17 @@ static void TestIlPatch() {
         const IlpSpec s4 = {"tC4", L"tC4", "", "T", "m", "T::m()", 1, 1, &bld, &e4};
         IlpApply(body, 6, 8, clTry35, 1, s4, bld, r);
         assert(r.why && strstr(r.why, "exception region"));
+        static const IlpIns ins4l[1] = {{0xDD, IK_BR_ORIG, 0, 3}};  // a leave into the try: still refused
+        const IlpEdit e4l = {0, 0, 0, 1, 1, 0, 0, exp17, ins4l};
+        const IlpSpec s4l = {"tC4l", L"tC4l", "", "T", "m", "T::m()", 1, 1, &bld, &e4l};
+        IlpApply(body, 6, 8, clTry35, 1, s4l, bld, r);
+        assert(r.why && strstr(r.why, "exception region"));
+        static const IlpIns ins4o[1] = {{0xDD, IK_BR_ORIG, 0, 0}};  // docs/339: a leave out of the try at 3 to 0: allowed
+        const IlpEdit e4o = {3, 0, 0, 1, 1, 0, 0, exp16, ins4o};
+        const IlpSpec s4o = {"tC4o", L"tC4o", "", "T", "m", "T::m()", 1, 1, &bld, &e4o};
+        IlpApply(body, 6, 8, clTry35, 1, s4o, bld, r);
+        assert(!r.why && r.code && r.code[6] == 0xDD);
+        HeapFree(GetProcessHeap(), 0, r.code);
         const IlpEdit e5 = {2, 0, 0, 0, 1, 0, 0, exp17, ins};  // 2 is inside the br.s operand
         const IlpSpec s5 = {"tC5", L"tC5", "", "T", "m", "T::m()", 1, 1, &bld, &e5};
         IlpApply(body, 6, 8, NULL, 0, s5, bld, r);
@@ -179,6 +190,40 @@ static void TestIlPatch() {
         g_ilpNext = IlpTestXformOk;
         ret = IlpXform(rm, NULL);
         assert(ret == NULL && g_ilpTestPost == 1 && g_ilpTestSeen.calls == 4 && g_ilpTestPostAfter == 4);
+        // no IL header (docs/51 §530): an exception to the caller, EA's transform and the post-pass skipped; icall flags pass through
+        static BYTE s_exc;
+        void* (__cdecl* exc0)() = g_ilpNoHdrExc;
+        const LONG nohdr0 = g_ilpNoHdrLogged;
+        g_ilpNoHdrLogged = 64;  // no log line (its frame walk reads the live interpreter)
+        g_ilpNoHdrExc = []() -> void* { return &s_exc; };
+        g_ilpHeader = [](BYTE*) -> BYTE* { return NULL; };
+        ret = IlpXform(rm, NULL);
+        assert(ret == &s_exc && g_ilpTestSeen.calls == 4 && g_ilpTestPost == 1);
+        *(WORD*)(mm + 2) = 0x1000;  // internal call: EA's own path, no header read there
+        ret = IlpXform(rm, NULL);
+        assert(ret == NULL && g_ilpTestSeen.calls == 5 && g_ilpTestPost == 2);
+        *(WORD*)(mm + 2) = 0;
+        g_ilpNoHdrExc = []() -> void* { return NULL; };  // no exception object: EA's transform as before
+        ret = IlpXform(rm, NULL);
+        assert(ret == NULL && g_ilpTestSeen.calls == 6);
+        // ApplyIlpGuard's config (docs/51 §537): Satb on, [IlPatch] nothing armed, [MonoJit] off: Satb's cold site 0 is the only
+        // client; it still runs first, and the guard still turns a header-less method into the exception
+        {
+            static LONG s_cold;
+            void (*cold0)(int, DWORD) = g_ilpColdEnter;
+            const bool a2 = g_ilpArmed[2];
+            g_ilpArmed[2] = false, g_ilpPost = NULL, s_cold = 0;
+            g_ilpColdEnter = [](int site, DWORD) { if (site == 0) s_cold++; };
+            g_ilpNoHdrExc = []() -> void* { return &s_exc; };
+            ret = IlpXform(rm, NULL);
+            assert(ret == &s_exc && s_cold == 1 && g_ilpTestSeen.calls == 6);  // guard: EA's transform not called
+            g_ilpHeader = IlpTestHeader;
+            ret = IlpXform(rm, NULL);
+            assert(ret == NULL && s_cold == 2 && g_ilpTestSeen.calls == 7);    // a method with a header: EA's transform, unchanged
+            g_ilpHeader = [](BYTE*) -> BYTE* { return NULL; };
+            g_ilpColdEnter = cold0, g_ilpArmed[2] = a2;
+        }
+        g_ilpNoHdrExc = exc0, g_ilpNoHdrLogged = nohdr0, g_ilpHeader = IlpTestHeader;
         g_ilpPost = NULL;
         g_ilpArmed[2] = armed0; g_ilpLogged[2] = logged0;
         P = P0;

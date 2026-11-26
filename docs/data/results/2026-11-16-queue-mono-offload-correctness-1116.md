@@ -1,0 +1,12 @@
+# Queue mono-offload-correctness-1116 2026-11-16
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/mono-offload-correctness-1116-2026-11-16.jsonl`.
+
+## 2026-11-16T07:24 UTC, build ecbc9c76, jobs bp-offu-dry, bp-offu-apply, bp-offu-household, ip-offu-apply, ip-offu-household
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-offu-dry | 07:24 (15:24) | 11.9 | PASS | PASS: profile 10 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: autshadow_skips 0->24748, autshadow_guardskips 0->3, autshadow_gm4_us 0->101495, autoff_env_dry_eq 0->470, autoff_env_ready 0->1162, autoff_env_pick_overdue 0->16461, autoff_env_asked_expired 0->30, autoff_bcast_items 0->17917, autshadow_gm6_methods 0->682, autshadow_gm4_methods 0->682, autshadow_l_testagree 0->24668, autshado | 0 | 1715.5/1626.9/1812 -> 2010.5/1929/1565.8 | - | timing: invalid (noise medium; heavy tool samplers); build: asi 728891275879 ts3native.asi.master-1116 ts3native 0.36.265-m1116 (log ok); ts3fixes tuning f8853892e12c ts3fixes.package.master-dalexlol-417-1115/ts3fixes.package.l3-convgone-1115/ts3fixes.package.mono-autshadow-1115/ts3fixes.mono-offload-1115/ts3fixes.package.master-mono-1115/ts3fixes.package.master-1116 (expected game-copy/ts3fixes.p |
+| bp-offu-apply | 07:36 (15:36) | 11.8 | **FAIL** | FAIL: profile 10 min, seed 12345 (rng-compare.ts)<br>FAIL: fixes counters: autoff_env_applied=0 (want >=1)<br>ts3fixes activity: autoff_bcast_apply_none 0->127399, autshadow_skips 0->14196, autshadow_guardskips 0->8, autoff_env_apply_none 0->9298, autshadow_gm4_us 106954->106954, autoff_env_ready 0->101, autoff_env_pick_overdue 0->3434, autoff_env_asked_expired 0->3, autoff_bcast_items 0->6449, au | 1 | 1744.9/1626.4/1820.6 -> 1971.9/1887.9/1606.7 | - | timing: invalid (job FAIL: FAIL: profile 10 min, seed 12345 (rng-compare.ts); FAIL: fixes counters: autoff_env_applied=0 (want >=1); noise medium; heavy tool samplers); build: asi 728891275879 ts3native.asi.master-1116 ts3native 0.36.265-m1116 (log ok); ts3fixes tuning f8853892e12c ts3fixes.package.master-dalexlol-417-1115/ts3fixes.package.l3-convgone-1115/ts3fixes.package.mono-autshadow-1115/ts3f |
+
+Stopped: bp-offu-apply failed (stopQueueOnFail): FAIL: profile 10 min, seed 12345 (rng-compare.ts) | FAIL: fixes counters: autoff_env_applied=0 (want >=1).

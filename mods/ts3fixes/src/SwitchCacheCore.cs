@@ -1,6 +1,6 @@
 namespace Ts3Fixes
 {
-    // Game-independent part of the ShortcutOn answer cache (docs/603 §2). One table holds the answers computed while the
+    // Game-independent part of the ShortcutOn answer cache (docs/605 §2). One table holds the answers computed while the
     // switch table had one generation and one key count; a new generation or count means a new table (Fixes.SwCurrent).
     // Keys are compared by reference: a call site's literal is one interned string object, so a hit costs a few character
     // reads and one reference compare instead of two string hashes (the switch dictionary and the compiler's string switch).
@@ -11,7 +11,7 @@ namespace Ts3Fixes
     // slow way again), never pair a key with another key's answer. No locks (the game's Mono has no MonoThread on workers).
     public sealed class SwitchCache
     {
-        public const int Size = 2048;           // power of two, about 3x the ~690 switch names
+        public const int Size = 4096;           // power of two, about 4x the ~1030 switch names (upstream + combo)
         const int kMask = Size - 1;
 
         public const int Off = 0, On = 1, Live = 2;  // Live: the name has a switch-table entry, read it on every call

@@ -17,7 +17,7 @@ Every item was checked against ts3fixes, proven-fixes and simler90 UPDATE242 (il
 | B7 | VelvetRopes Export/Import | Bribe amount written and read under the celeb-level key 177446789 (bribe key is 177446815); one value overwrites the other | Use 177446815 with fallback read | V | yes |
 | B8 | Terrain MakeIgloo | Look-ats disabled, never re-enabled | Re-enable in Cleanup | V | yes |
 | B9 | Protest CalculateOutcomeFromScore | Victory whenever organizer is null | Treat as fail/none | V | yes |
-| B10 | GoHereWithSituation OnParticipantDeleted | Deleted Sim stays in mSimsToPutInBoat/HoverTrain | Remove from both | V | yes |
+| B10 | GoHereWithSituation OnParticipantDeleted | Deleted Sim stays in mSimsToPutInBoat/HoverTrain | Remove from both; also empty both at GoHereWithChildSituation.CleanUp (2026-11-19: a Sim deleted after the state left is never notified, ledger §539) | V | yes |
 | B11 | BarAdvanced OrderRound/Pizza/BirthdayCake; Bartending OpenTab | Charged with no refund on failure; tab never closed; sOpenBarTabs not saved | Refund on failure; close tabs | V | yes |
 | B12 | VelvetRopes ShouldBouncerNoticeSneaker; AskToGetIn / BribeBouncer | Squared distance vs plain tunable; null CurrentRole | Square the tunable; null guard | V | yes |
 | B13 | MagicianSocialTricks.Run; FearOfHumansFaint | DisableSocialsOnSim / SetShutDown never undone | Undo in Cleanup | V | yes |
@@ -53,7 +53,7 @@ VelvetRopes Enum.GetValues cache; MetaAutonomyManager CalculateTotalDesiredNumSi
 
 ## Batch 12 (built 2026-11-16, all default off, NOT RUN)
 
-EA bug fixes as EA intended, household included (user rule "fix all"), from docs/590, docs/591 and docs/592. Each switch is a ts3fixes Mono swap with a pure decision, a `<Name>Check` (the hook's own handles, a live-path assert, controls) and a `<switch>-check` repro. Slots 1730-1861 (`fixes-1730`, 3 each: fixed / seen with the switch off / errors). Code: `mods/ts3fixes/src/Batch590Logic.cs`, `Batch591Logic.cs`, `Batch592Logic.cs`, checks `Batch12Checks.cs`. Every switch is household-visible.
+EA bug fixes as EA intended, household included (user rule "fix all"), from docs/590, docs/591 and docs/592. Each switch is a ts3fixes Mono swap with a pure decision, a `<Name>Check` (the hook's own handles, a live-path assert, controls) and a `<switch>-check` repro. Slots 3064-3195 (`fixes-3064`, 3 each: fixed / seen with the switch off / errors). Code: `mods/ts3fixes/src/Batch590Logic.cs`, `Batch591Logic.cs`, `Batch592Logic.cs`, checks `Batch12Checks.cs`. Every switch is household-visible.
 
 | § | lead | switch | slots | fix |
 |---|---|---|---|---|

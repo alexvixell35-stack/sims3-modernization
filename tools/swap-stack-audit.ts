@@ -24,6 +24,15 @@ export type Row = Patch & { yields: string; proof: string; purpose: string; acti
 
 // a target held in a variable: variable name in that file -> the class it names
 const TARGET_VARS: Record<string, string> = {
+  'SeasonsWeather596.cs:sOwIntoDef': 'Sims3.Gameplay.Actors.Sim+ChangeIntoOuterwear+Definition', 'SeasonsWeather596.cs:sOwOutDef': 'Sims3.Gameplay.Actors.Sim+ChangeOutOfOuterwear+Definition', 'SeasonsWeather596.cs:sOwTodDef': 'Sims3.Gameplay.ActorSystems.Children.ChangeToddlerClothes+ChangeToddlerClothesDefinition', 'SeasonsWeather596.cs:sOwIntoRun': 'Sims3.Gameplay.Actors.Sim+ChangeIntoOuterwear', 'SeasonsHunt594b.cs:sRfRain': 'Sims3.Gameplay.Seasons.SeasonsManager+WeatherManager+RainEvent',
+  'HoverTrain598.cs:sHtDef': 'Sims3.Gameplay.Actors.Sim+NPCUseHoverTrain+Definition', 'HoverTrain598.cs:sHtRun': 'Sims3.Gameplay.Actors.Sim+NPCUseHoverTrain',
+  'Batch582fLogic.cs:sNcType': 'Sims3.Gameplay.Objects.Vehicles.CarNpcWithNoDriver+LiteDriver', 'Batch582fLogic.cs:sPlWait': 'Sims3.Gameplay.Situations.NpcParty+WaitForSelectableGuestToArrive', 'Batch582fLogic.cs:sPlHappen': 'Sims3.Gameplay.Situations.NpcParty+Happening', 'Batch582eLogic.cs:sPgType': 'Sims3.Gameplay.ActorSystems.Pregnancy+InternalHaveBabyHome', 'Batch582dLogic.cs:sSdType': 'Sims3.Gameplay.Objects.Door.BigLotShellDoor+SummonProprietor', 'Batch582cLogic.cs:waiter': 'Sims3.Gameplay.Objects.Appliances.FutureFoodSynthesizer+OrderFoodOnWaiter+Definition', 'Batch582cLogic.cs:def': 'Sims3.Gameplay.Objects.Rewards.Teleporter+TeleportToCommunityLot+Definition', 'Batch582bLogic.cs:star': 'Sims3.Gameplay.Objects.Lighting.StarLight',
+  'Batch588Logic.cs:sCdBig': 'Sims3.Gameplay.StoryProgression.Demographics+HouseholdTooBigDemographic', 'Batch588Logic.cs:sCdSmall': 'Sims3.Gameplay.StoryProgression.Demographics+HouseholdTooSmallDemographic', 'Batch588Logic.cs:sLlHorse': 'Sims3.Gameplay.StoryProgression.Demographics+HorsePopulationDemographic', 'Batch588Logic.cs:sSpHist': 'Sims3.Gameplay.StoryProgression.Demographics+HistogramDemographic', 'Batch588Logic.cs:sLdType': 'Sims3.Gameplay.StoryProgression.Demographics+LotDensity', 'Batch588Logic.cs:sRjType': 'Sims3.Gameplay.StoryProgression.AddRoommate',
+  'Batch589Logic.cs:sCsType': 'Sims3.Gameplay.Objects.Vehicles.CarpoolManager+CarpoolData+DoCarpoolPickupAndDropoff', 'Batch589cLogic.cs:sFtDefType': 'Sims3.Gameplay.Objects.Appliances.Fridge_OpenFridge+Definition', 'Batch589dLogic.cs:sGgPlay': 'Sims3.Gameplay.Objects.HobbiesSkills.Guitar+Play',
+  'Batch590Logic.cs:sGbState': 'Sims3.Gameplay.Objects.Vehicles.GoHereWithSituation+GoToPointState', 'Batch590Logic.cs:sGbChild': 'Sims3.Gameplay.Objects.Vehicles.GoHereWithSituation+GoHereWithChildSituation', 'Batch590Logic.cs:sBrAsk': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+AskToGetIn', 'Batch590Logic.cs:sBrBribe': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+BribeBouncer', 'Batch590Logic.cs:sChType': 'Sims3.Gameplay.Objects.Miscellaneous.Homework+CopyHomework', 'Batch590Logic.cs:sFtgType': 'Sims3.Gameplay.Objects.CookingObjects.FoodTray_Prepare',
+  'Batch591Logic.cs:sPoUnd': 'Sims3.Gameplay.Situations.GenericPrivacySituation+Undisturbed', 'Batch591Logic.cs:sLbBurn': 'Sims3.Gameplay.Objects.Environment.LeafPile+Burn', 'Batch591Logic.cs:sCpType': 'Sims3.Gameplay.ObjectComponents.CatHuntingComponent+CatchPrey',
+  'Batch593Logic.cs:sLwRain': 'Sims3.Gameplay.Seasons.SeasonsManager+WeatherManager+RainEvent', 'Batch593Logic.cs:sWsDef': 'Sims3.Store.Objects.WishingWell+StealCoins+Definition', 'Batch593Logic.cs:sTfMgr': 'Sims3.Gameplay.Seasons.SeasonsManager+TemperatureManager', 'Batch593Logic.cs:sMfType': 'Sims3.Gameplay.Objects.Fishing.HaveFishMounted', 'Batch593Logic.cs:sPvType': 'Sims3.Gameplay.Objects.Gardening.HarvestPlant+EatFromHarvestPlantPet', 'Batch592Logic.cs:sLtDef': 'Sims3.Gameplay.Objects.RabbitHoles.Grocery+BuyLottoTicket+Definition',
+  'EpBatch1aLogic.cs:sSuTest': 'Sims3.Gameplay.Objects.Miscellaneous.UniversityWelcomeKit+TakeAptitudeTest', 'EpBatch1aLogic.cs:sHeType': 'Sims3.Gameplay.Objects.FoodObjects.EatHarvestablePet', 'EpBatch1bLogic.cs:sBrRide': 'Sims3.Gameplay.Objects.Entertainment.MechanicalBull+RideBull', 'EpBatch1bLogic.cs:sBbDef': 'Sims3.Gameplay.Objects.Misc.BalancingBall+BalanceBall+Definition', 'EpBatch4Logic.cs:sFrType': 'Sims3.Gameplay.Objects.TombObjects.FragmentedObject+Reconstruct', 'EpBatch4bLogic.cs:sDaType': 'Sims3.Gameplay.Pools.DoggySwimAround', 'EpBatch5bLogic.cs:sSoType': 'Sims3.Gameplay.ActorSystems.BuffSoakedPet+ShakeWaterOff', 'StoreBatch1Logic.cs:sVfType': 'VoodooDoll+TransformSim', 'EpBatch1bLogic.cs:sGpType': 'Sims3.Gameplay.Objects.Appliances.MakeGourmetFoodForPet',
   'Scan84.cs:sBpwType': 'BarAdvanced+PutDownCarriedObjectHelper', 'Scan84.cs:sSwrType': 'TraitFunctions+SwipeSomething', 'Scan84.cs:t': 'OccultUnicorn+UnicornSpawn',
   'Scan84.cs:add': 'DataDiscStorage+AddAllDataDiscs', 'Scan84.cs:dump': 'DataDiscStorage+DumpAllDataDiscs',
   'SeasonsWeather596.cs:sOwIntoDef': 'Sims3.Gameplay.Actors.Sim+ChangeIntoOuterwear+Definition', 'SeasonsWeather596.cs:sOwOutDef': 'Sims3.Gameplay.Actors.Sim+ChangeOutOfOuterwear+Definition', 'SeasonsWeather596.cs:sOwTodDef': 'Sims3.Gameplay.ActorSystems.Children.ChangeToddlerClothes+ChangeToddlerClothesDefinition', 'SeasonsWeather596.cs:sOwIntoRun': 'Sims3.Gameplay.Actors.Sim+ChangeIntoOuterwear',
@@ -41,14 +50,15 @@ const TARGET_VARS: Record<string, string> = {
   'AutShadow.cs:swing': 'Sims3.Gameplay.Objects.Environment.SwingSet', 'AutShadow.cs:stall': 'Sims3.Gameplay.Objects.Pets.BoxStall',
   'HoverTrain598.cs:sHtDef': 'Sims3.Gameplay.Actors.Sim+NPCUseHoverTrain+Definition', 'HoverTrain598.cs:sHtRun': 'Sims3.Gameplay.Actors.Sim+NPCUseHoverTrain',
   'Batch593Logic.cs:sLwRain': 'Sims3.Gameplay.Seasons.SeasonsManager+WeatherManager+RainEvent', 'SeasonsHunt594b.cs:sLwRain': 'Sims3.Gameplay.Seasons.SeasonsManager+WeatherManager+RainEvent', 'Batch593Logic.cs:sWsDef': 'Sims3.Store.Objects.WishingWell+StealCoins+Definition', 'Batch593Logic.cs:sTfMgr': 'Sims3.Gameplay.Seasons.SeasonsManager+TemperatureManager', 'Batch593Logic.cs:sMfType': 'Sims3.Gameplay.Objects.Fishing.HaveFishMounted', 'Batch593Logic.cs:sPvType': 'Sims3.Gameplay.Objects.Gardening.HarvestPlant+EatFromHarvestPlantPet',
-  'Batch590Logic.cs:sGbState': 'Sims3.Gameplay.Objects.Vehicles.GoHereWithSituation+GoToPointState', 'Batch590Logic.cs:sBrAsk': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+AskToGetIn', 'Batch590Logic.cs:sBrBribe': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+BribeBouncer', 'Batch590Logic.cs:sChType': 'Sims3.Gameplay.Objects.Miscellaneous.Homework+CopyHomework', 'Batch590Logic.cs:sFtgType': 'Sims3.Gameplay.Objects.CookingObjects.FoodTray_Prepare', 'Batch591Logic.cs:sPoUnd': 'Sims3.Gameplay.Situations.GenericPrivacySituation+Undisturbed', 'Batch591Logic.cs:sLbBurn': 'Sims3.Gameplay.Objects.Environment.LeafPile+Burn', 'Batch591Logic.cs:sCpType': 'Sims3.Gameplay.ObjectComponents.CatHuntingComponent+CatchPrey', 'Batch592Logic.cs:sLtDef': 'Sims3.Gameplay.Objects.RabbitHoles.Grocery+BuyLottoTicket+Definition',
+  'Batch590Logic.cs:sGbState': 'Sims3.Gameplay.Objects.Vehicles.GoHereWithSituation+GoToPointState', 'Batch590Logic.cs:sGbChild': 'Sims3.Gameplay.Objects.Vehicles.GoHereWithSituation+GoHereWithChildSituation', 'Batch590Logic.cs:sBrAsk': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+AskToGetIn', 'Batch590Logic.cs:sBrBribe': 'Sims3.Gameplay.Objects.Miscellaneous.VelvetRopes+BribeBouncer', 'Batch590Logic.cs:sChType': 'Sims3.Gameplay.Objects.Miscellaneous.Homework+CopyHomework', 'Batch590Logic.cs:sFtgType': 'Sims3.Gameplay.Objects.CookingObjects.FoodTray_Prepare', 'Batch591Logic.cs:sPoUnd': 'Sims3.Gameplay.Situations.GenericPrivacySituation+Undisturbed', 'Batch591Logic.cs:sLbBurn': 'Sims3.Gameplay.Objects.Environment.LeafPile+Burn', 'Batch591Logic.cs:sCpType': 'Sims3.Gameplay.ObjectComponents.CatHuntingComponent+CatchPrey', 'Batch592Logic.cs:sLtDef': 'Sims3.Gameplay.Objects.RabbitHoles.Grocery+BuyLottoTicket+Definition',
   'Batch589Logic.cs:sCsType': 'Sims3.Gameplay.Objects.Vehicles.CarpoolManager+CarpoolData+DoCarpoolPickupAndDropoff', 'Batch589cLogic.cs:sFtDefType': 'Sims3.Gameplay.Objects.Appliances.Fridge_OpenFridge+Definition', 'Batch589dLogic.cs:sGgPlay': 'Sims3.Gameplay.Objects.HobbiesSkills.Guitar+Play', 'Batch588Logic.cs:sCdBig': 'Sims3.Gameplay.StoryProgression.Demographics+HouseholdTooBigDemographic', 'Batch588Logic.cs:sCdSmall': 'Sims3.Gameplay.StoryProgression.Demographics+HouseholdTooSmallDemographic', 'Batch588Logic.cs:sLlHorse': 'Sims3.Gameplay.StoryProgression.Demographics+HorsePopulationDemographic', 'Batch588Logic.cs:sSpHist': 'Sims3.Gameplay.StoryProgression.Demographics+HistogramDemographic', 'Batch588Logic.cs:sLdType': 'Sims3.Gameplay.StoryProgression.Demographics+LotDensity', 'Batch588Logic.cs:sRjType': 'Sims3.Gameplay.StoryProgression.AddRoommate', 'Batch582iLogic.cs:sHcType': 'Sims3.Gameplay.Objects.Miscellaneous.Homework+CopyHomework', 'Batch582iLogic.cs:sPcHappen': 'Sims3.Gameplay.Situations.NpcParty+Happening', 'Batch582fLogic.cs:sNcType': 'Sims3.Gameplay.Objects.Vehicles.CarNpcWithNoDriver+LiteDriver', 'Batch582fLogic.cs:sPlWait': 'Sims3.Gameplay.Situations.NpcParty+WaitForSelectableGuestToArrive', 'Batch582fLogic.cs:sPlHappen': 'Sims3.Gameplay.Situations.NpcParty+Happening', 'Batch582eLogic.cs:sPgType': 'Sims3.Gameplay.ActorSystems.Pregnancy+InternalHaveBabyHome', 'Batch582dLogic.cs:sSdType': 'Sims3.Gameplay.Objects.Door.BigLotShellDoor+SummonProprietor', 'Batch582cLogic.cs:waiter': 'Sims3.Gameplay.Objects.Appliances.FutureFoodSynthesizer+OrderFoodOnWaiter+Definition', 'Batch582cLogic.cs:def': 'Sims3.Gameplay.Objects.Rewards.Teleporter+TeleportToCommunityLot+Definition', 'Batch582bLogic.cs:star': 'Sims3.Gameplay.Objects.Lighting.StarLight', 'AutShadow.cs:sect': 'Sims3.Gameplay.Objects.Seating.ChairSectional', 'AutShadow.cs:cp': 'Sims3.Gameplay.Actors.Sim+CallPet+Definition',
   'ErrorTrapSpread.cs:inv': 'mod:ErrorTrap', 'OverwatchNotice.cs:reset': 'mod:Overwatch', 'OverwatchProbe.cs:sc': 'mod:Overwatch',
+  'GameSpeed78.cs:sAzTimer': 'AlarmManager+Timer', 'Scan84.cs:sBpwType': 'BarAdvanced+PutDownCarriedObjectHelper', 'Scan84.cs:sSwrType': 'TraitFunctions+SwipeSomething', 'Scan84.cs:t': 'OccultUnicorn+UnicornSpawn', 'Scan84.cs:add': 'DataDiscStorage+AddAllDataDiscs', 'Scan84.cs:dump': 'DataDiscStorage+DumpAllDataDiscs', 'HitchCause.cs:simReset': 'mod:Overwatch', 'HitchCause.cs:inst': 'mod:Overwatch', 'HitchCause.cs:cp': 'mod:Overwatch', 'HitchCause.cs:place': 'mod:Overwatch', 'OverwatchSpread.cs:sOwType': 'mod:Overwatch', 'OverwatchSpread.cs:alarmBase': 'mod:Overwatch', 'OverwatchStuck.cs:simEx': 'mod:Overwatch', 'OverwatchStuck.cs:simTypes': 'mod:Overwatch',
   'GameSpeed78.cs:sAzTimer': 'AlarmManager+Timer', 'SpawnerMapTag79.cs:sMtkVisType': 'Sims3.UI.MapTagController+MapTagVisibilityUpdate', 'HitchCause.cs:simReset': 'mod:Overwatch', 'HitchCause.cs:inst': 'mod:Overwatch', 'HitchCause.cs:cp': 'mod:Overwatch', 'HitchCause.cs:place': 'mod:Overwatch', 'OverwatchSpread.cs:sOwType': 'mod:Overwatch', 'OverwatchSpread.cs:alarmBase': 'mod:Overwatch', 'OverwatchStuck.cs:simEx': 'mod:Overwatch', 'OverwatchStuck.cs:simTypes': 'mod:Overwatch',
   'SimFestKeep.cs:sSfPresent': 'ShowStage+EmceePresentSimFestAward', 'JoyrideCostume.cs:jd': 'GoForJoyride+Definition',
   'JoyrideCostume.cs:rd': 'RouteAndGetToCostumeForJoyride+Definition', 'SyncWaitLog.cs:si': 'SocialInteraction',
   'WeddingArchKeep.cs:sWaSlotRoute': 'WeddingArch+RouteToWeddingArchSlot', 'BoardingRefund.cs:sBsCarState': 'BoardingSchoolPickUpSituation+CreateCarAndRoute',
-  'SplashRoof.cs:ia': 'Sim+AutonomousSplashInPuddle', 'PuddleReach.cs:sPrDef': 'Sim+AutonomousSplashInPuddle+Definition', 'ShuffleboardBroadcast.cs:play': 'Shuffleboard+Play', 'CookClickListener.cs:cp': 'CookingProcess', 'ErrorTrapDerefDiag.cs:dm': 'mod:ErrorTrap', 'BubblePipeGuard.cs:sBbBlow': 'BubbleBar+BlowBubbles', 'PrivateEyeCase.cs:sPeMail': 'PrivateEyeInteractions+LookThroughMail', 'MoveInPartner.cs:sMipType': 'MoveInWithPartner', 'ReaperFlow.cs:sRfChessDef': 'GrimReaperSituation+ChessChallenge+Definition',
+  'SplashRoof.cs:ia': 'Sim+AutonomousSplashInPuddle', 'PuddleReach.cs:sPrDef': 'Sim+AutonomousSplashInPuddle+Definition', 'BurntTileFloor.cs:def': 'Sim+MopBurntTiles+Definition', 'ShuffleboardBroadcast.cs:play': 'Shuffleboard+Play', 'CookClickListener.cs:cp': 'CookingProcess', 'ErrorTrapDerefDiag.cs:dm': 'mod:ErrorTrap', 'BubblePipeGuard.cs:sBbBlow': 'BubbleBar+BlowBubbles', 'PrivateEyeCase.cs:sPeMail': 'PrivateEyeInteractions+LookThroughMail', 'MoveInPartner.cs:sMipType': 'MoveInWithPartner', 'ReaperFlow.cs:sRfChessDef': 'GrimReaperSituation+ChessChallenge+Definition',
   'EpBatch1aLogic.cs:sSuTest': 'Sims3.Gameplay.Objects.Miscellaneous.UniversityWelcomeKit+TakeAptitudeTest', 'EpBatch1aLogic.cs:sHeType': 'Sims3.Gameplay.Objects.FoodObjects.EatHarvestablePet',
   'EpBatch1bLogic.cs:sBrRide': 'Sims3.Gameplay.Objects.Entertainment.MechanicalBull+RideBull', 'EpBatch1bLogic.cs:sBbDef': 'Sims3.Gameplay.Objects.Misc.BalancingBall+BalanceBall+Definition',
   'EpBatch2Logic.cs:sBaRide': 'Sims3.Gameplay.Objects.HobbiesSkills.MagicBroomArena+RideBroomArena',
@@ -195,8 +205,64 @@ async function recompute(): Promise<void> {
   console.log(`swap-stack-audit: ${rows.length} swaps, yes ${n('yes')}, no ${n('no')}, mod ${n('mod')}, unresolved ${n('?')}`);
 }
 
+// Apply calls listed more than once in Fixes.cs: a second run swaps every hook of that fix again, and a stub then holds the
+// hook's body and calls itself (2026-11-18: a merge listed 204 calls twice, no world load started)
+export function dupApplies(text: string): string[] {
+  const n = new Map<string, number>();
+  for (const m of text.matchAll(/^\s+(Apply[A-Za-z0-9_]+\((?:false|true)?\));/gm)) n.set(m[1], (n.get(m[1]) ?? 0) + 1);
+  return [...n].filter(([, c]) => c > 1).map(([k, c]) => `${k} is called ${c} times in Fixes.cs (every hook of it would be swapped twice)`);
+}
+
+// The same hook swapped onto the same method by two identical Patch calls (A,B,A included; Fixes.Patch also refuses it at run time)
+export function dupPatches(patches: Patch[]): string[] {
+  const n = new Map<string, string[]>();
+  // keyed by hook.replacement: overloads of one method (DoorGen's SetLockTypeAndOwner pair) use one replacement each
+  for (const p of patches) { const k = `${p.hook} on ${p.target}.${p.method}`; n.set(k, [...(n.get(k) ?? []), p.file]); }
+  return [...n].filter(([, f]) => f.length > 1).map(([k, f]) => `${k} is patched ${f.length} times (${f.join(', ')}): the second swap is refused at run time, drop one`);
+}
+
+// An Apply method called from more than one place must return early on a second call (`if (sX...) return;` near its top) or
+// carry `// reapply-safe: <why>`: a second run swaps its hooks again (2026-11-18 load stall). Calls through `Fixes.` count.
+export function reapplyUnguarded(files: Record<string, string>): string[] {
+  const calls = new Map<string, string[]>(), body = new Map<string, string>();
+  for (const [f, raw] of Object.entries(files)) {
+    const t = raw.replace(/\/\/(?! reapply-safe).*$/gm, '');
+    for (const m of t.matchAll(/static\s+(?:void|bool)\s+(Apply\w+)\s*\([^)]*\)\s*\{/g)) body.set(m[1], t.slice(m.index + m[0].length, m.index + m[0].length + 800));
+    for (const m of t.matchAll(/(?<!\w)(?:Fixes\.)?(Apply\w+)\s*\((?:false|true)?\)/g)) {
+      if (/(?:void|bool)\s+$/.test(t.slice(Math.max(0, m.index - 8), m.index))) continue;
+      calls.set(m[1], [...(calls.get(m[1]) ?? []), f]);
+    }
+  }
+  return [...calls].filter(([k, f]) => f.length > 1 && body.has(k) && !/if \(!?s\w+[^;{}]*\) return;|\/\/ reapply-safe/.test(body.get(k)!))
+    .map(([k, f]) => `${k} is called from ${f.length} places (${f.join(', ')}) with no early return for a second call: add a guard or // reapply-safe`);
+}
+
+// Delegate.CreateDelegate(type, target, method) binds the exact method: on an abstract/interface method the game dies at
+// 0x00E6463F (docs/51 §531). ts3fixes uses Fixes.Bind (DelegateBind.cs); ts3agent lines need `bind-ok` (method reviewed concrete).
+// shortcut: line-based (a call split over lines, e.g. Wishes86.cs W86 wrapper, is not seen) and two-argument open-instance
+// delegates are not checked (none in the tree on 2026-11-18); parse whole files if either appears.
+export function rawDelegates(text: string, file: string, marker: boolean): string[] {
+  const out: string[] = [], K = 'Delegate.CreateDelegate(';
+  text.split(/\r?\n/).forEach((l, i) => {
+    const at = l.indexOf(K); if (at < 0 || l.slice(0, at).includes('//')) return;
+    let d = 1, j = at + K.length; for (; j < l.length && d; j++) { if (l[j] === '(') d++; else if (l[j] === ')') d--; }
+    const a = splitArgs(l.slice(at + K.length, d ? l.length : j - 1));
+    if (a.length < 3 || a[1] === 'null' || (marker && l.includes('bind-ok'))) return;
+    out.push(`${file}:${i + 1} instance delegate through Delegate.CreateDelegate: use Fixes.Bind${marker ? ' or mark // bind-ok' : ''}`);
+  });
+  return out;
+}
+
+const AGENT_SRC = join(ROOT, 'mods', 'ts3agent', 'src');
+function csFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? csFiles(join(dir, e.name)) : e.name.endsWith('.cs') ? [join(dir, e.name)] : []);
+}
+
 function runGate(): number {
-  const bad = gate(sourcePatches(SRC), parseCsv(readFileSync(CSV, 'utf8')));
+  const fixes = Object.fromEntries(readdirSync(SRC).filter((f) => f.endsWith('.cs')).map((f) => [f, readFileSync(join(SRC, f), 'utf8')]));
+  const bad = [...gate(sourcePatches(SRC), parseCsv(readFileSync(CSV, 'utf8'))), ...dupApplies(fixes['Fixes.cs']), ...dupPatches(sourcePatches(SRC)), ...reapplyUnguarded(fixes),
+    ...Object.entries(fixes).filter(([f]) => f !== 'DelegateBind.cs').flatMap(([f, t]) => rawDelegates(t, f, false)),
+    ...csFiles(AGENT_SRC).flatMap((f) => rawDelegates(readFileSync(f, 'utf8'), f.slice(AGENT_SRC.length + 1), true))];
   for (const b of bad) console.log(`FAIL ${b}`);
   if (!bad.length) console.log('swap-stack-audit: every swap is in the table, every yielding swap has a stub');
   return bad.length ? 1 : 0;
@@ -220,6 +286,20 @@ function selfCheck(): void {
   assert.match(gate([p[2]], [row(p[2])])[0], /swap with no stub/);                 // nor one with no stub
   assert.match(gate([], [row(p[0])])[0], /stale row/);
   assert.match(gate(p.slice(0, 1), [{ ...row(p[0]), stub: 'Other' }])[0], /stub changed/);
+  assert.deepEqual(dupApplies('    ApplyA();\n    ApplyB(false);   // x\n    // ApplyA();\n    ApplyB(true);\n'), []);  // commented out and other arguments do not count
+  assert.match(dupApplies('    ApplyA();\n    ApplyB();\n    ApplyA();   // again\n')[0], /^ApplyA\(\) is called 2 times/);
+  const aba = parsePatches('Patch(typeof(T), "M", typeof(A), "H", "O");\nPatch(typeof(T), "M", typeof(B), "H", "O");\nPatch(typeof(T), "M", typeof(A), "H", "O");', 'X.cs');
+  assert.match(dupPatches(aba)[0], /^A\.H on T\.M is patched 2 times/);   // A,B,A
+  assert.deepEqual(dupPatches(aba.slice(0, 2)), []);                     // A,B stacked is fine
+  const callers = { 'A.cs': 'static void ApplyX() {\n  Patch(x);\n}\nvoid R() { ApplyX(); }', 'B.cs': 'void Q() { Fixes.ApplyX(); }' };
+  assert.match(reapplyUnguarded(callers)[0], /^ApplyX is called from 2 places/);
+  assert.deepEqual(reapplyUnguarded({ ...callers, 'A.cs': callers['A.cs'].replace('{\n', '{\n  if (sXDone) return;\n') }), []);
+  assert.deepEqual(reapplyUnguarded({ ...callers, 'A.cs': callers['A.cs'].replace('{\n', '{ // reapply-safe: per-type set\n') }), []);
+  assert.deepEqual(reapplyUnguarded({ 'A.cs': callers['A.cs'] }), []);  // one caller
+  assert.match(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), ia, sM);', 'X.cs', false)[0], /^X\.cs:1 instance delegate/);
+  assert.deepEqual(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), sStatic);\n  // Delegate.CreateDelegate(typeof(F), a, b)\n  G g = (G)Delegate.CreateDelegate(typeof(G), null, m);', 'X.cs', false), []);
+  assert.deepEqual(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), h, exec);  // bind-ok: concrete', 'X.cs', true), []);
+  assert.equal(rawDelegates('  F f = (F)Delegate.CreateDelegate(typeof(F), h, exec);  // bind-ok: concrete', 'X.cs', false).length, 1);
   assert.equal(runGate(), 0, 'repo gate');
   console.log('swap-stack-audit self-check ok');
 }

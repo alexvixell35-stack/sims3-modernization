@@ -1,6 +1,6 @@
 namespace Ts3Fixes
 {
-    // Game-independent rule of failreplanboat (FailReplanBoat.cs, docs/642 §10). Self-check: tools/selftest/failreplanboat.
+    // Game-independent rule of failreplanboat (FailReplanBoat.cs, docs/851 §8). Self-check: tools/selftest/failreplanboat.
     // Asked after every plan. A failed plan whose follower is a boat driven by an NPC nobody can see gets the route's own
     // "no route-fail show" flag (Route.DoRouteFail = false), so SimRoutingComponent.DoRouteFailureBehavior returns at its
     // first test: no fail-path plan toward the blocker, no walk, no turn, no animation.

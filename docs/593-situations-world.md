@@ -2,7 +2,7 @@
 
 ## Batch 13 (built 2026-11-16, all default off, NOT RUN)
 
-EA bug fixes as EA intended, household included. ts3fixes `mods/ts3fixes/src/Batch593Logic.cs`, checks `Batch13Checks.cs` (pure decision + CkLive live path), repros `<switch>-check`. Slots 1862-1912 (`fixes-1862`, 3 each). All household-visible except firefightercount, repairmanskill and roundupreturn (service NPCs).
+EA bug fixes as EA intended, household included. ts3fixes `mods/ts3fixes/src/Batch593Logic.cs`, checks `Batch13Checks.cs` (pure decision + CkLive live path), repros `<switch>-check`. Slots 3196-3240 (`fixes-3196`, 3 each). All household-visible except firefightercount, repairmanskill and roundupreturn (service NPCs).
 
 | § | lead | switch | slots | fix |
 |---|---|---|---|---|

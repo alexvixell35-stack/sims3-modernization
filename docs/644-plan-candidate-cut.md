@@ -4,7 +4,7 @@
 `0x65BC20`, `0x654CC0`, `0x65DF90`, `0x650D80`, `0x6443A0`, `0x671930`, `0x620560`; none committed), built, **NOT RUN**.
 Code: `native/ts3native/plancand.cpp` (+ `plancand-rule.h`, `plancand-test.h`), included after `plandeadline.cpp`.
 Switches (ts3native.ini, all default 0): `[RouteAsync] CandidateCut`, `[RouteAsync] WaterGoalCheck`,
-`[RouteJobPhases] CandidateSplit` (+ `CandidateSplitLogMs`, default 100). Export `ts3native_plancand`, slots 4050-4059
+`[RouteJobPhases] CandidateSplit` (+ `CandidateSplitLogMs`, default 100). Export `ts3native_plancand` (offsets +0x00-+0x24, docs/registry.md)
 (docs/registry.md). Build check: clang-cl `/Zs` of `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp` only; the
 pure rules ran as a host test. Not game-safe until CI's MSVC build.
 
@@ -47,7 +47,7 @@ mode gate as `PdWorkerSkip`), with `KdCamHold` as at the other exits.
 **Household rule** [code]: cut only when the router's scope is 2 (unseen) or 3 (seen NPC). The scope is read once at the
 session's open (`PdSess.scope`, `PdScopeAt` in plandeadline.cpp: `t_ufSess` = 2, else `g_kdScope` for that route as
 `KdSyncCeilUs` reads it) or is the worker job's `t_hcScope` (`j->uf ? 2 : j->kdScope`). Household or seen (1), and unknown or no
-answer (0), are never cut: counted in slot 4054. `HhExempt` is deliberately not used: `[Experimental] HouseholdToo=1` lifts
+answer (0), are never cut: counted at export +0x10 (cutExempt). `HhExempt` is deliberately not used: `[Experimental] HouseholdToo=1` lifts
 realistic-only exemptions, never cuts (AGENTS.md).
 
 Cut sites (return addresses, so the helpers' other callers are untouched), each not-found path [verified, disassembly]:
@@ -84,7 +84,7 @@ returns only cells it stepped onto as water (`WjStep` fails on land), and only p
 So with the start cell water and the goal cell land the search cannot succeed: it floods the reachable water and returns 0.
 With the start cell land (flag set) jumps take one-step moves over land, so a land goal can be reached: no reject there.
 `WaterGoalCheck=1` answers that one case at once (out vector end = begin, AL 0: the same result). Exact, so every router.
-`=2` shadow: the search runs; a would-reject that finds a path counts in slot 4057 and logs `WATER GOAL CHECK MISMATCH` (must
+`=2` shadow: the search runs; a would-reject that finds a path counts at export +0x1C (wgcMismatch) and logs `WATER GOAL CHECK MISMATCH` (must
 stay 0 before mode 1 is trusted). Hook: own detour at `0x671930` when its prologue is the game's, else after the plan deadline
 stub (`g_pdOrig[1]`, so its skip exit runs first); `[RouteJobPhases]` chains after either (`RjpOwner`).
 

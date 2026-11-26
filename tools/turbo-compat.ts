@@ -12,8 +12,9 @@
 //                                                  into <dir>/<arm>/ and grep the lines that matter into summary.txt
 //   node tools/turbo-compat.ts restore <dir>       state base, Apex Documents folder back, Bin files not in the snapshot removed
 //                                                  (known Apex/bridge/Turbo outputs only), whole-Bin sha256 compare; exit 1 on a diff
-//   node tools/turbo-compat.ts install-copy        rewind arm (docs/270 §12): copy of the latest Apex release in game-copy/rewind-bridge-1115/install
-//                                                  with our patched bridge pair and rewindMode = True; state name apex-rewind uses it
+//   node tools/turbo-compat.ts install-copy [--build]  rewind arm (docs/270 §12): game-copy/rewind-bridge-1119/install = Apex release
+//                                                  files + our fork's FORK branch (pair, conf, CI asi), rewindMode = True; state
+//                                                  apex-rewind uses it; --build first checks out FORK.sha, rebuilds + tests the pair on one CPU
 //   node tools/turbo-compat.ts --self-check
 // TURBO_COMPAT_DRY=1 with TS3_BIN/TS3_USER on copies: dry run of snapshot/state/restore while a game runs.
 // Windows-only by nature (game Bin, 32-bit Windows PowerShell for the WOW64 thread walk). Turbo files never come from the web
@@ -25,7 +26,7 @@ import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSyn
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { BIN } from './harness/game-exe.ts';
+import { BIN, ensureVramSidecar, s3mmFiles } from './harness/game-exe.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const USER = process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3');
@@ -46,9 +47,12 @@ export const ALL_ON = ['# TS3 Turbo Engine Configuration (all on, turbo-apex-111
   'Janeladeborda = 1', 'MenuKey = 118', 'AutoClean = 1', 'ThreadPriorityBoost = 1', 'CpuTopologyOpt = 1', 'SmartRamManager = 1', 'PreFaultMemory = 1',
   'InstalacaoValida = 1'];
 
-// docs/270 §12: the rewind arm. The patched pair is built from Apex's own bridge source at this release plus patch 0015
-// (tools/harness/rewind/bridge-patch/README.md); a newer Apex release needs a rebuild first.
-const REWIND = join(GC, 'rewind-bridge-1115'), REWIND_BUILT_ON = 'v4.0.1';
+// docs/270 §12 + probe-out/apex-latest-switch-1119.md: the test install (Bin state apex-rewind) = the Apex release files of
+// REWIND_BUILT_ON, with the bridge pair, bridge/dxvk conf and public asi of our fork's integration branch (Apex main + our
+// open bug-fix PRs; Rodney 11-19 "use our Apex fork so we don't crash"). Pair built locally in REWIND/apex-repo, asi = the CI
+// artifact of that commit. Upstream main moved: rebase the branch in the fork, update FORK.sha, run install-copy --build.
+const REWIND = join(GC, 'rewind-bridge-1119'), REWIND_BUILT_ON = 'v4.0.6';
+export const FORK = { remote: 'https://github.com/rodneypantonial/Sims3-ApexRadiance.git', branch: 'ours/test-integration-1119', sha: 'a69a1bbc3d206bc15d56254c9fbe997ef5b4a64e' };
 type Src = string | null; // file to copy into Bin, null = absent
 export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   base: () => ({}),
@@ -58,12 +62,21 @@ export const STATES: Record<string, (unz: string) => Record<string, Src>> = {
   turbo: () => ({ 'Turbo.asi': SRC.turbo.path }),
   // docs/270 §12: the install copy with our patched bridge pair and rewindMode = True (made by `install-copy`)
   'apex-rewind': () => STATES.apex(join(REWIND, 'install', 'apex-unz')),
+  // docs/305: the latest Apex release with a fork build's ApexRadiance.asi and ts3wrap.exe (the restart host that runs the
+  // out-of-process services); a chain copies the build under test into game-copy/apex-oop-test first
+  // docs/309 §2: the latest Apex release with the fork build of feature/async-rt-reads-1120 (asi + bridge patches 0017/0018:
+  // d3d9.dll, .trex/NvRemixBridge.exe, bridge.conf with client.asyncReadback); a chain copies them into game-copy/apex-asyncrt-test
+  'apex-asyncrt': unz => ({ ...STATES.apex(unz), ...Object.fromEntries(['ApexRadiance.asi', 'd3d9.dll', '.trex/NvRemixBridge.exe', 'bridge.conf'].map(k => [k, join(GC, 'apex-asyncrt-test', k)])) }),
+  'apex-oop': unz => ({ ...STATES.apex(unz), 'ApexRadiance.asi': join(GC, 'apex-oop-test', 'ApexRadiance.asi'), 'ts3wrap.exe': join(GC, 'apex-oop-test', 'ts3wrap.exe') }),
 };
 // every path a state or a run can change; backed up at snapshot when present, reset to the snapshot before each state
-export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
+export const MANAGED = [...new Set([...Object.keys(STATES['apex-turbo-ual77']('')), 'ts3wrap.exe', 'Turbo.txt', 'imgui.ini', 'ts3native.asi', 'ts3native.ini'])];
 // Bin files absent from the snapshot that restore may delete (run outputs of Apex, the bridge, Turbo, the game)
-export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|[^/]*\.(log|jsonl|dmp)$)/i;
-const IGNORE_DIFF = /^[^/]*\.(log|jsonl|dmp)$/i; // game and mod logs: changed by every run
+export const EXTRA_OK = /^(rtx-remix\/|\.trex\/|NvRemixBridge[^/]*$|bridge\.conf$|Turbo\.(asi|txt)$|ApexRadiance[^/]*$|ts3wrap\.exe$|Apex Radiance RTX Remix bridge\.txt$|imgui\.ini$|pccheck(-summary)?\.(txt|csv)$|[^/]*\.(log|jsonl|dmp)$)/i;
+// runtime outputs, changed by every run: game and mod logs, the bridge logs, the pccheck report (the sha check stays strict for every other file)
+const IGNORE_DIFF = /^([^/]*\.(log|jsonl|dmp)|rtx-remix\/logs\/[^/]+\.log|pccheck(-summary)?\.(txt|csv))$/i;
+// docs/284: the DxDiagCache sidecar is a per-machine cache, kept across states and restores (never compared, never removed)
+export const KEEP_CACHE = /^ts3native-vram\.ini$/i;
 
 const sha = (p: string) => createHash('sha256').update(readFileSync(p)).digest('hex');
 const now = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 19) + ' PHT';
@@ -133,19 +146,65 @@ async function fetchApex(dir: string) {
 }
 
 // ------------------------------------------------------------------------------------------------ snapshot / state / restore
-// A copy of the latest Apex release's files in game-copy/rewind-bridge-1115/install/apex-unz, with our patched bridge pair
-// and rewindMode = True in both bridge.conf. Apex's zip and anything Apex installed stay untouched.
-async function installCopy() {
-  const dir = join(REWIND, 'install'), unz = join(dir, 'apex-unz'), out = join(REWIND, 'apex-repo', 'native', 'remix-bridge', 'out');
+// --build: clone/checkout FORK.sha in REWIND/apex-repo, fresh bridge source, build.cmd + test-rewind.cmd pinned to one CPU
+// (a timing chain may run), log REWIND/build-<sha8>.log. Windows only (MSVC, cmd).
+function buildFork() {
+  const repo = join(REWIND, 'apex-repo'), rb = join(repo, 'native', 'remix-bridge'), venv = join(REWIND, 'venv', 'Scripts');
+  const git = (...a: string[]) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', timeout: 300000 }).trim();
+  if (!existsSync(join(repo, '.git'))) execFileSync('git', ['clone', '-q', '--filter=blob:limit=2m', '-b', FORK.branch, FORK.remote, repo], { timeout: 600000 });
+  git('fetch', '-q', FORK.remote, FORK.branch);
+  git('checkout', '-q', '--detach', FORK.sha);
+  rmSync(join(rb, 'src'), { recursive: true, force: true }); // patches may have changed: refetch + apply
+  if (!existsSync(join(venv, 'meson.exe'))) {
+    execFileSync('python', ['-m', 'venv', join(REWIND, 'venv')], { timeout: 120000 });
+    execFileSync(join(venv, 'python.exe'), ['-m', 'pip', 'install', '-q', '--disable-pip-version-check', 'meson', 'ninja'], { timeout: 300000 });
+  }
+  // the server test on DXVK needs Apex's DXVK next to the package; the release copy has it
+  const dxvk = join(REWIND, 'install', 'apex-unz', '.trex', 'd3d9vk_x64.dll');
+  if (existsSync(dxvk)) { mkdirSync(join(rb, 'out', 'package', '.trex'), { recursive: true }); copyFileSync(dxvk, join(rb, 'out', 'package', '.trex', 'd3d9vk_x64.dll')); }
+  const log = join(REWIND, `build-${FORK.sha.slice(0, 8)}.log`);
+  say(`build: ${FORK.branch} ${FORK.sha.slice(0, 8)} -> ${rb}\\out (one CPU, log ${log})`);
+  // start /affinity 1: ninja's jobs share one core, so a running timing job keeps its CPUs
+  execFileSync('cmd', ['/d', '/c', `start "" /wait /low /affinity 1 cmd /d /c "cd /d "${rb}" && set "PATH=${venv};%PATH%" && call build.cmd && call test-rewind.cmd > "${log}" 2>&1"`],
+    { stdio: 'inherit', timeout: 3600000, windowsVerbatimArguments: true });
+  if (!/rewind tests passed/.test(readFileSync(log, 'utf8'))) throw new Error(`build: offline rewind tests did not pass, see ${log}`);
+  say('build: pair built, rewind tests passed');
+}
+
+// The CI's public asi of FORK.sha (Apex's "Windows build and CPU checks" artifact; upstream runs it on main, the fork on pushes)
+function forkAsi(): string {
+  const d = join(REWIND, `asi-${FORK.sha.slice(0, 8)}`), f = join(d, `ApexRadiance-public-${FORK.sha}`, 'Public', 'ApexRadiance.asi');
+  if (existsSync(f)) return f;
+  const env = { ...process.env, ...(process.env.PERSONAL_GITHUB_TOKEN ? { GH_TOKEN: process.env.PERSONAL_GITHUB_TOKEN } : {}) };
+  for (const r of [APEX_REPO, 'rodneypantonial/Sims3-ApexRadiance']) {
+    const id = execFileSync('gh', ['run', 'list', '-R', r, '--commit', FORK.sha, '--workflow', 'build.yml', '--status', 'success', '-L', '1', '--json', 'databaseId', '--jq', '.[0].databaseId // ""'], { encoding: 'utf8', env, timeout: 60000 }).trim();
+    if (!id) continue;
+    execFileSync('gh', ['run', 'download', id, '-R', r, '-n', `ApexRadiance-public-${FORK.sha}`, '-D', join(d, `ApexRadiance-public-${FORK.sha}`)], { env, timeout: 300000 });
+    if (existsSync(f)) return f;
+  }
+  throw new Error(`install-copy: no green CI build of ${FORK.sha.slice(0, 8)} with a public asi in ${APEX_REPO} or the fork`);
+}
+
+// game-copy/rewind-bridge-1119/install/apex-unz: the Apex release files, our fork's pair, conf and asi, rewindMode = True in both
+// bridge.conf. Apex's zip and anything Apex installed stay untouched.
+async function installCopy(build: boolean) {
+  const dir = join(REWIND, 'install'), unz = join(dir, 'apex-unz'), rb = join(REWIND, 'apex-repo', 'native', 'remix-bridge'), out = join(rb, 'out');
   const pair = ['d3d9.dll', '.trex/NvRemixBridge.exe'];
-  for (const p of pair) if (!existsSync(join(out, p))) throw new Error(`install-copy: ${join(out, p)} missing: build it first (tools/harness/rewind/bridge-patch/README.md)`);
+  if (build) buildFork();
+  const head = execFileSync('git', ['-C', join(REWIND, 'apex-repo'), 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  if (head !== FORK.sha) throw new Error(`install-copy: ${REWIND}/apex-repo is at ${head.slice(0, 8)}, FORK.sha is ${FORK.sha.slice(0, 8)}: run install-copy --build`);
+  for (const p of pair) if (!existsSync(join(out, p))) throw new Error(`install-copy: ${join(out, p)} missing: run install-copy --build`);
+  const asi = forkAsi();
   mkdirSync(dir, { recursive: true });
   await fetchApex(dir);
   const tag = JSON.parse(readFileSync(join(dir, 'apex.json'), 'utf8')).tag;
-  if (tag !== REWIND_BUILT_ON) throw new Error(`install-copy: the latest Apex release is ${tag}, the patched bridge pair was built on ${REWIND_BUILT_ON}: rebuild it on the new release and update REWIND_BUILT_ON`);
+  if (tag !== REWIND_BUILT_ON) throw new Error(`install-copy: the latest Apex release is ${tag}, the install copy was made on ${REWIND_BUILT_ON}: check the fork branch has it (rebase), then update REWIND_BUILT_ON`);
   for (const p of pair) copyFileSync(join(out, p), join(unz, p));
-  for (const c of ['bridge.conf', '.trex/bridge.conf']) appendFileSync(join(unz, c), '\r\nrewindMode = True\r\n');
-  say(`install-copy: ${unz} = Apex ${tag} + patched d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
+  copyFileSync(asi, join(unz, 'ApexRadiance.asi'));
+  copyFileSync(join(rb, 'conf', 'dxvk.conf'), join(unz, 'dxvk.conf'));
+  for (const c of ['bridge.conf', '.trex/bridge.conf']) { copyFileSync(join(rb, 'conf', 'bridge.conf'), join(unz, c)); appendFileSync(join(unz, c), '\r\nrewindMode = True\r\n'); }
+  writeFileSync(join(dir, 'fork.json'), JSON.stringify({ ...FORK, release: tag, asi: sha(join(unz, 'ApexRadiance.asi')), d3d9: sha(join(unz, pair[0])), server: sha(join(unz, pair[1])) }, null, 1));
+  say(`install-copy: ${unz} = Apex ${tag} files + fork ${FORK.branch} ${FORK.sha.slice(0, 8)}: asi ${sha(join(unz, 'ApexRadiance.asi')).slice(0, 12)}, d3d9.dll ${sha(join(unz, pair[0])).slice(0, 12)}, NvRemixBridge.exe ${sha(join(unz, pair[1])).slice(0, 12)}, rewindMode = True`);
 }
 
 async function snapshot(dir: string) {
@@ -169,6 +228,7 @@ const loadSnap = (dir: string) => JSON.parse(readFileSync(join(dir, 'snapshot.js
 function setState(dir: string, name: string) {
   if (!STATES[name]) throw new Error(`unknown state ${name} (${Object.keys(STATES).join(', ')})`);
   if (!DRY && gamePids().length) throw new Error('TS3W.exe runs');
+  if (s3mmFiles().length) throw new Error(`Sims3MonoModder (S3MM) in the game folder: ${s3mmFiles().join(', ')}; we never install it (docs/291), remove it first`);
   const snap = loadSnap(dir), want = STATES[name](join(dir, 'apex-unz'));
   for (const f of MANAGED) { // back to the snapshot first
     const p = join(BIN, f);
@@ -188,19 +248,20 @@ function setState(dir: string, name: string) {
   if (bad.length) throw new Error(`state ${name}: read-back differs for ${bad.join(', ')}`);
   const apexLog = join(APEX_DOCS, 'ApexRadiance_LOG.txt');
   writeFileSync(join(dir, 'state.json'), JSON.stringify({ name, at: new Date().toISOString(), apexLogSize: existsSync(apexLog) ? statSync(apexLog).size : 0 }));
+  if (!DRY) say(`state ${name}: ${ensureVramSidecar()}`);  // docs/284: every Bin state, so no DxDiagCache=1 test launch probes
   say(`state ${name}: ${Object.keys(want).length} file(s) over the snapshot (${Object.keys(want).join(', ') || 'none'}); every managed file read back by sha256`);
 }
 
 function restore(dir: string): boolean {
   setState(dir, 'base');
   const snap = loadSnap(dir), cur = hashTree(BIN), problems: string[] = [];
-  for (const f of Object.keys(cur)) if (!(f in snap.files)) {
+  for (const f of Object.keys(cur)) if (!(f in snap.files) && !KEEP_CACHE.test(f)) {
     if (EXTRA_OK.test(f)) rmSync(join(BIN, f), { force: true }); else problems.push(`new file left in place: ${f}`);
   }
   for (const d of ['rtx-remix', '.trex']) if (existsSync(join(BIN, d)) && !Object.keys(snap.files).some(f => f.startsWith(`${d}/`))) rmSync(join(BIN, d), { recursive: true, force: true });
   const after = hashTree(BIN);
-  for (const [f, h] of Object.entries(snap.files)) if (!IGNORE_DIFF.test(f) && after[f] !== h) problems.push(`${f}: ${after[f] ? 'sha differs' : 'missing'}`);
-  for (const f of Object.keys(after)) if (!(f in snap.files) && !problems.some(p => p.endsWith(f))) problems.push(`new file: ${f}`);
+  for (const [f, h] of Object.entries(snap.files)) if (!IGNORE_DIFF.test(f) && !KEEP_CACHE.test(f) && after[f] !== h) problems.push(`${f}: ${after[f] ? 'sha differs' : 'missing'}`);
+  for (const f of Object.keys(after)) if (!(f in snap.files) && !KEEP_CACHE.test(f) && !problems.some(p => p.endsWith(f))) problems.push(`new file: ${f}`);
   if (snap.apexDocs) { // put Apex's Documents folder back as it was
     for (const f of existsSync(APEX_DOCS) ? walk(APEX_DOCS) : []) if (!(f in snap.apexDocs)) rmSync(join(APEX_DOCS, f), { force: true });
     cpSync(join(dir, 'apex-docs'), APEX_DOCS, { recursive: true });
@@ -334,16 +395,20 @@ function selfCheck() {
   assert.ok(MANAGED.includes('wininet.dll') && MANAGED.includes('d3d9.dll') && MANAGED.includes('.trex/NvRemixBridge.exe') && MANAGED.includes('ts3native.asi'));
   assert.deepEqual(Object.keys(STATES.turbo('u')), ['Turbo.asi']);
   assert.ok(Object.keys(STATES['apex-rewind']('u')).every(k => MANAGED.includes(k)), 'restore knows every file of the rewind arm');
-  assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1115'), 'the rewind arm takes its files from the install copy');
+  assert.ok(STATES['apex-rewind']('u')['ApexRadiance.asi']!.includes('rewind-bridge-1119'), 'the rewind arm takes its files from the install copy');
   assert.equal(STATES['apex-turbo-ual77']('u')['wininet.dll'], SRC.ual77.path);
+  assert.ok(Object.keys(STATES['apex-asyncrt']('u')).every(k => MANAGED.includes(k)) && STATES['apex-asyncrt']('u')['.trex/NvRemixBridge.exe']!.includes('apex-asyncrt-test'), 'restore knows the bridge pair of the async read-back arm');
+  assert.ok(Object.keys(STATES['apex-oop']('u')).every(k => MANAGED.includes(k)) && STATES['apex-oop']('u')['ts3wrap.exe']!.includes('apex-oop-test'), 'restore knows the restart host of the oop arm');
   assert.ok(!('wininet.dll' in STATES['apex-turbo']('u')), 'arm 2 keeps our loader');
   const dg = `sha256:${'a'.repeat(64)}`, url = 'https://x/y';
   assert.equal(pickZip([{ name: 'ApexRadianceSetup.exe', digest: dg, browser_download_url: url }, { name: 'Apex-Radiance-3.2.1-Manual-install.zip', digest: dg, browser_download_url: url }])?.name, 'Apex-Radiance-3.2.1-Manual-install.zip');
   assert.equal(pickZip([{ name: 'Apex-Radiance-3.2.1-Manual-install.zip', browser_download_url: url }]), undefined, 'no digest = no pin');
   assert.equal(pickZip([{ name: 'ApexRadiance.asi', digest: dg, browser_download_url: url }]), undefined);
-  for (const f of ['rtx-remix/logs/bridge32.log', '.trex/x.dll', 'NvRemixBridge_d3d9.log', 'Turbo.txt', 'ts3native.log', 'imgui.ini', 'ApexRadiance_Crash.dmp']) assert.ok(EXTRA_OK.test(f), f);
-  for (const f of ['TS3W.exe', 'Default.ini', 'Sims3Performance.ini', 'Gameplay/x.package', 'sub/ts3native.log']) assert.ok(!EXTRA_OK.test(f), f);
-  assert.ok(IGNORE_DIFF.test('ts3native.log') && !IGNORE_DIFF.test('wininet.dll') && !IGNORE_DIFF.test('rtx-remix/logs/bridge32.log'));
+  for (const f of ['rtx-remix/logs/bridge32.log', '.trex/x.dll', 'NvRemixBridge_d3d9.log', 'Turbo.txt', 'ts3native.log', 'imgui.ini', 'ApexRadiance_Crash.dmp', 'ts3wrap.exe']) assert.ok(EXTRA_OK.test(f), f);
+  for (const f of ['TS3W.exe', 'Default.ini', 'Sims3Performance.ini', 'Gameplay/x.package', 'sub/ts3native.log', 'ts3wrapXexe', 'sub/ts3wrap.exe']) assert.ok(!EXTRA_OK.test(f), f);
+  assert.ok(KEEP_CACHE.test('ts3native-vram.ini') && !KEEP_CACHE.test('ts3native.ini') && !KEEP_CACHE.test('sub/ts3native-vram.ini') && !EXTRA_OK.test('ts3native-vram.ini'));
+  for (const f of ['ts3native.log', 'rtx-remix/logs/bridge32.log', 'rtx-remix/logs/bridge64.log', 'pccheck-summary.txt', 'pccheck.csv']) assert.ok(IGNORE_DIFF.test(f) && EXTRA_OK.test(f), f);
+  for (const f of ['wininet.dll', 'TS3W.exe', 'bridge.conf', 'rtx-remix/d3d9.dll', 'rtx-remix/logs/x.dll', 'sub/pccheck.csv', 'Default.ini']) assert.ok(!IGNORE_DIFF.test(f), f);
   const s: Sample = { t: 60, ws: 1, pv: 1, mn: 0, mx: 0, cls: 'High', nb: 0x10000000, nz: 0x200000, resp: true,
     th: [{ id: 1, b: 13, s: 0x401000 }, { id: 2, b: 4, s: 0x100B9230 }, { id: 3, b: 13, s: 0x10001000 }, { id: 5, b: 13, s: 0x10400000 }, { id: 4, b: 14, s: 0x100AAE30 }] };
   const d = digest(s);
@@ -358,12 +423,12 @@ function selfCheck() {
 }
 
 const { values: v, positionals: [cmd, dir, arg] } = parseArgs({ allowPositionals: true, options: {
-  'all-on': { type: 'boolean' }, f7: { type: 'boolean' }, 'max-min': { type: 'string' }, 'self-check': { type: 'boolean' } } });
+  'all-on': { type: 'boolean' }, build: { type: 'boolean' }, f7: { type: 'boolean' }, 'max-min': { type: 'string' }, 'self-check': { type: 'boolean' } } });
 if (v['self-check']) selfCheck();
 else if (cmd === 'snapshot' && dir) await snapshot(resolve(dir));
-else if (cmd === 'install-copy') await installCopy();
+else if (cmd === 'install-copy') await installCopy(!!v.build);
 else if (cmd === 'state' && dir && arg) setState(resolve(dir), arg);
 else if (cmd === 'monitor' && dir && arg) monitor(resolve(dir), arg, { allOn: !!v['all-on'], f7: !!v.f7, maxMin: Number(v['max-min'] ?? 40) });
 else if (cmd === 'collect' && dir && arg) collect(resolve(dir), arg);
 else if (cmd === 'restore' && dir) process.exit(restore(resolve(dir)) ? 0 : 1);
-else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <base|apex|apex-turbo|apex-turbo-ual77|turbo> (or apex-rewind) | install-copy | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }
+else { console.error('usage: node tools/turbo-compat.ts snapshot|restore <dir> | state <dir> <base|apex|apex-turbo|apex-turbo-ual77|turbo> (or apex-rewind) | install-copy [--build] | monitor <dir> <arm> [--all-on] [--f7] | collect <dir> <arm> | --self-check'); process.exit(2); }

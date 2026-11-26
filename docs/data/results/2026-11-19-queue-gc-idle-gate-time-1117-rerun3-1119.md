@@ -1,0 +1,14 @@
+# Queue gc-idle-gate-time-1117-rerun3-1119 2026-11-19
+
+Tool: `tools/harness/queue.ts` (docs/TESTING.md). Times UTC (PHT in brackets). Rows: `probe-out/queue/gc-idle-gate-time-1117-rerun3-1119-2026-11-19.jsonl`.
+
+## 2026-11-19T21:47 UTC, build e7a8faba5, jobs bp-gcgate-ab, sv-gcgate-ab
+
+| job | start | min | result | verdict | exit | commit / private / largest free MB (before -> after) | counters changed | note |
+|---|---|---|---|---|---|---|---|---|
+| bp-gcgate-ab | 21:47 (05:47) | 47.7 | PASS | PASS: profile 45 min, seed 12345 (rng-compare.ts)<br>ts3fixes activity: owchain_alarms 0->16, owspread_types_run 0->320, stuckcheckasync_queued 0->1072, stuckcheckasync_run 0->1063, etspread_passes 0->1, stuckcheck_noplan 0->900, stuckcheck_notstuck 0->107, stuckcheck_rearmed 0->75, stuckcheck_reset 0->17<br>PASS: repro events fired<br>PASS: no forbidden log lines [cut: full row in the jsonl] | 0 | 1781.5/1667.2/1718.7 -> 2064/1834.2/1489.4 | - | timing: invalid (noise medium); build: asi d67f02888197 ts3native.asi.gchold2-1117 ts3native 0.36.272-gchold2 (log ok); ts3fixes tuning 26eb733447c2 ts3fixes.package.dalexlol-1117b (expected game-copy/ts3fixes.package.dalexlol-1117b); noise: medium (other CPUs 64.5% busy); others on game CPUs 0.1% (apps; incl. kernel 29.4%); clock avg/min 3895/3252 MHz; [est 50 min] BP [cut: full row in the jsonl]<br>sim ms/s off 211.5 / on 224.1 (on - off +12.6, +5.9%); off: p99 110 ms, p99.9 182, max 294, >=300 0, >=1000 0 (12.7 min); on: p99 112 ms, p99.9 184, max 563, >=300 5, >=1000 0 (14.2 min) |
+| sv-gcgate-ab | 22:35 (06:35) | 41.2 | **CRASH** | FAIL: profile 45 min, seed 12345 (rng-compare.ts)<br>FAIL: self check: ts3native hook failed, run void (FAIL door memo x: a memo answer differed from the live ask in mode 1: DoorMemoX off for this session) for ~60 s (fail-fast guard); child stopped<br>ts3fixes activity: owchain_alarms 0->20, owspread_types_run 0->400, stuckcheckasync_queued 0->1490, stuckcheckasync_run 0->1490 [cut: full row in the jsonl] | 1 | 1716.4/1603.6/1769.5 -> 1874.8/1799.1/1708.4 | - | timing: invalid (job VOID: FAIL: self check: ts3native hook failed, run void (FAIL door memo x: a memo answer differed from the live ask in mode 1:; noise medium; A/B iterations unknown); build: asi d67f02888197 ts3native.asi.gchold2-1117 ts3native 0.36.272-gchold2 (log ok); ts3fixes tuning 26eb733447c2 ts3fixes.package.dalexlol-1117b (expected game-copy/ts3fixes.package.dalexlol-1117b) [cut: full row in the jsonl]<br>sim ms/s 140.7; p99 60 ms, p99.9 146, max 557, >=300 18, >=1000 0 (25.2 min) |
+
+A/B summary of this run (sim ms/s = script + route + animPose + locomotion, arm-ms.ts; hitches per 10 min over the same arms, hitch-ab.ts):
+
+- gc-idle-gate-time-1117-rerun3-1119-bp-gcgate-ab: sim ms/s off 211.5 / on 224.1, on - off +12.6 (+5.9%); >=300 ms per 10 min off 0.0 / on 3.5, >=1000 off 0.0 / on 0.0 (1 off, 1 on run)

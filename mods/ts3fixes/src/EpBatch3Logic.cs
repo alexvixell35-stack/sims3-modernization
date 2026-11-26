@@ -28,7 +28,7 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // EP batch 3 (docs/587 §8, sweep tranche 2). Every switch off by default; none of these methods is changed by
-    // simler90 UPDATE242. Checks: EpBatch3Checks.cs. Slots 1478-1498 (block fixes-1400) and 1500-1520 (block fixes-1500).
+    // simler90 UPDATE242. Checks: EpBatch3Checks.cs. Slots 3911-3931 (block fixes-1400) and 1500-1520 (block fixes-1500).
     public static partial class Fixes
     {
         // Shared pure rule: an object EA drops is destroyed only when it is still alive and neither in the world nor in
@@ -42,7 +42,7 @@ namespace Ts3Fixes
         // readings at levels 1-9 use the mystic odds. Fix: each scam level 1-9 gets its own array from EA's own
         // interpolation (kBase -> kMaxScamArtist). Runs after EA builds the tables and again at world load (the tables are
         // built once, at the first FortuneTellerCareer, which can come before ts3fixes applies). Household-visible.
-        // Counters: [1478] scam rows rebuilt, [1479] shared rows left with the switch off, [1480] errors.
+        // Counters: [3911] scam rows rebuilt, [3912] shared rows left with the switch off, [3913] errors.
         static readonly FieldInfo sFtBase = typeof(FortuneTellerCareer).GetField("kBasePsychicReadingChances", kEpStatic);
         static readonly FieldInfo sFtScam = typeof(FortuneTellerCareer).GetField("kMaxScamArtistPsychicReadingChances", kEpStatic);
         static readonly FieldInfo sFtMystic = typeof(FortuneTellerCareer).GetField("kMaxMysticPsychicReadingChances", kEpStatic);
@@ -83,14 +83,14 @@ namespace Ts3Fixes
                     float[] row = FtScamRow(on, i, bas, scam, mystic);
                     if (FtSame(cur, row))
                     {
-                        if (!on && !FtSame(cur, FtScamRow(true, i, bas, scam, mystic))) PatchCounters()[1479]++;
+                        if (!on && !FtSame(cur, FtScamRow(true, i, bas, scam, mystic))) PatchCounters()[3912]++;
                         continue;
                     }
                     scamT[i] = row;  // the mystic table keeps EA's array
-                    if (on) PatchCounters()[1478]++;
+                    if (on) PatchCounters()[3911]++;
                 }
             }
-            catch (Exception) { PatchCounters()[1480]++; }
+            catch (Exception) { PatchCounters()[3913]++; }
         }
 
         static bool FtSame(float[] a, float[] b)
@@ -114,7 +114,7 @@ namespace Ts3Fixes
         // weights (.25 potion/bot, .1 consignment) a level-10 seller loses .81 / .325 of sale chance, so items stop selling
         // as the skill rises. Fix: the curve is rebuilt from EA's own kSaleProbabilitySkill arrays after InitializeData and
         // at world load. Household-visible. RE: FruitVeggieStand has the same line (not in this batch; store content).
-        // Counters: [1481] curves rebuilt, [1482] frequency curve left with the switch off, [1483] errors.
+        // Counters: [3914] curves rebuilt, [3915] frequency curve left with the switch off, [3916] errors.
         static readonly FieldInfo[] sCsCurve = new FieldInfo[3], sCsX = new FieldInfo[3], sCsY = new FieldInfo[3];
         static string sCsMissing = "";
         static readonly float[] kCsSkX = { 0f, 5f, 10f }, kCsSkY = { 0.5f, 0.75f, 1f }, kCsFqX = { 0f, 3f, 5f }, kCsFqY = { 1f, 0.9f, 0f };
@@ -175,11 +175,11 @@ namespace Ts3Fixes
                 if (CsRebuild(on, have, y))
                 {
                     sCsCurve[i].SetValue(null, new Curve(x, y));
-                    PatchCounters()[1481]++;
+                    PatchCounters()[3914]++;
                 }
-                else if (!on && CsRebuild(true, have, y)) PatchCounters()[1482]++;
+                else if (!on && CsRebuild(true, have, y)) PatchCounters()[3915]++;
             }
-            catch (Exception) { PatchCounters()[1483]++; }
+            catch (Exception) { PatchCounters()[3916]++; }
         }
 
         public class BEp3Cs0
@@ -207,7 +207,7 @@ namespace Ts3Fixes
         // Household-visible (object count and save size). [inferred] the leaked objects persist in the save.
         // RE, not fixed (no trigger seen): OnMagicHourAlarm/ItemDictionary set ShowTooltip on Create()'s result with no null
         // check; PotionShop/BotShop data CreateObject calls AppreciateDepreciateDailyUpdate before its null check.
-        // Counters: [1484] objects destroyed, [1485] leaked with the switch off, [1486] errors.
+        // Counters: [3917] objects destroyed, [3918] leaked with the switch off, [3919] errors.
         static readonly string[] kStData = { "ConsignmentRegisterObjectData", "PotionShopConsignmentRegisterObjectData", "BotShopConsignmentRegisterObjectData" };
         static readonly FieldInfo[] sStList = new FieldInfo[3], sStObj = new FieldInfo[3];
         static readonly PropertyInfo[] sStExpired = new PropertyInfo[3], sStRotatable = new PropertyInfo[3];
@@ -251,11 +251,11 @@ namespace Ts3Fixes
                     GameObject g = sStObj[i].GetValue(e) as GameObject;
                     if (g == null) continue;
                     bool live = !g.HasBeenDestroyed, inWorld = live && g.InWorld, inInv = live && g.InInventory;
-                    if (OrphanDestroy(on, live, inWorld, inInv)) { g.Destroy(); PatchCounters()[1484]++; }
-                    else if (!on && OrphanDestroy(true, live, inWorld, inInv)) PatchCounters()[1485]++;
+                    if (OrphanDestroy(on, live, inWorld, inInv)) { g.Destroy(); PatchCounters()[3917]++; }
+                    else if (!on && OrphanDestroy(true, live, inWorld, inInv)) PatchCounters()[3918]++;
                 }
             }
-            catch (Exception) { PatchCounters()[1486]++; }
+            catch (Exception) { PatchCounters()[3919]++; }
         }
 
         public class BEp3St0
@@ -283,7 +283,7 @@ namespace Ts3Fixes
         // (IncreaseHerbQuality has the Perfect cap), so a Horrifying herb goes to quality 0 and
         // Plant.GetQualityLevelMedian(0) is read out of range: the experiment throws. Fix: a Horrifying herb stays
         // Horrifying. Household-visible (science experiment on a household herb).
-        // Counters: [1487] decreases floored, [1488] below-floor decreases with the switch off, [1489] errors.
+        // Counters: [3920] decreases floored, [3921] below-floor decreases with the switch off, [3922] errors.
 
         // Pure: does this decrease stop at the floor?
         internal static bool HqFloored(bool on, int quality) { return on && quality <= (int)Sims3.Gameplay.Objects.Quality.Horrifying; }
@@ -301,10 +301,10 @@ namespace Ts3Fixes
                 {
                     bool on = ShortcutOn("herbqualityfloor");
                     int q = toDecrease == null ? int.MaxValue : (int)toDecrease.GetQuality();
-                    if (HqFloored(on, q)) { PatchCounters()[1487]++; return; }
-                    if (!on && HqFloored(true, q)) PatchCounters()[1488]++;
+                    if (HqFloored(on, q)) { PatchCounters()[3920]++; return; }
+                    if (!on && HqFloored(true, q)) PatchCounters()[3921]++;
                 }
-                catch (Exception) { PatchCounters()[1489]++; }
+                catch (Exception) { PatchCounters()[3922]++; }
                 DecOrig(toDecrease);
             }
             public void DecOrig(Herb toDecrease) { } // Herb+HerbalMedicineExperiment.DecreaseHerbQuality
@@ -315,7 +315,7 @@ namespace Ts3Fixes
         // parents it to the hand and starts it, but keeps no handle and never stops or disposes it, so every slob snack
         // leaks an effect on the Sim. Fix: EA's one-shot form (VisualEffect.FireOneShotEffect), which the engine cleans up.
         // Household-visible (slob Sims eating from a snack bowl).
-        // Counters: [1490] one-shots fired, [1491] leaked effects with the switch off, [1492] errors.
+        // Counters: [3923] one-shots fired, [3924] leaked effects with the switch off, [3925] errors.
         static readonly Type sSbSnack = typeof(SnackBowl).GetNestedType("HaveSomeSnack", BindingFlags.NonPublic | BindingFlags.Public);
 
         // Pure: does the slob effect leak?
@@ -331,13 +331,13 @@ namespace Ts3Fixes
         {
             public void VfxHook()
             {
-                if (SbLeaks(ShortcutOn("snackbowlslobvfx"))) { PatchCounters()[1491]++; VfxOrig(); return; }
+                if (SbLeaks(ShortcutOn("snackbowlslobvfx"))) { PatchCounters()[3924]++; VfxOrig(); return; }
                 Sim a = null;
                 try { a = ((InteractionInstance)(object)this).InstanceActor; }
                 catch (Exception) { }
-                if (a == null || a.HasBeenDestroyed) { PatchCounters()[1492]++; return; }
-                try { VisualEffect.FireOneShotEffect("ep6FoodFalling_main", a, Sim.FXJoints.LeftHand, VisualEffect.TransitionType.SoftTransition); PatchCounters()[1490]++; }
-                catch (Exception) { PatchCounters()[1492]++; }
+                if (a == null || a.HasBeenDestroyed) { PatchCounters()[3925]++; return; }
+                try { VisualEffect.FireOneShotEffect("ep6FoodFalling_main", a, Sim.FXJoints.LeftHand, VisualEffect.TransitionType.SoftTransition); PatchCounters()[3923]++; }
+                catch (Exception) { PatchCounters()[3925]++; }
             }
             public void VfxOrig() { } // SnackBowl+HaveSomeSnack.StartOneShotSlobVFX
         }
@@ -349,7 +349,7 @@ namespace Ts3Fixes
         // shared test sets is shown on an enabled entry. Lot ponds and rinks return the shared result. Fix: EA's result is
         // ANDed with the shared test for the same area EA picked (the first area with room, as HasRoomForMoreSkaters).
         // Household-visible.
-        // Counters: [1493] skate entries refused, [1494] offered against the shared test with the switch off, [1495] errors.
+        // Counters: [3926] skate entries refused, [3927] offered against the shared test with the switch off, [3928] errors.
         static readonly FieldInfo sWpAreas = typeof(WorldPond).GetField("mSkatingAreas", kInstAll);
 
         // Pure: is Skate offered?
@@ -378,11 +378,11 @@ namespace Ts3Fixes
                     GreyedOutTooltipCallback cb = greyedOutTooltipCallback;
                     bool shared = SkatingRink.Skate.SharedCanSkateOnObjectTest(actor, area, area != null, ref cb);
                     bool offered = WpOffered(on, ea, shared);
-                    if (!offered) { greyedOutTooltipCallback = cb; PatchCounters()[1493]++; }
-                    else if (!on && !shared) PatchCounters()[1494]++;
+                    if (!offered) { greyedOutTooltipCallback = cb; PatchCounters()[3926]++; }
+                    else if (!on && !shared) PatchCounters()[3927]++;
                     return offered;
                 }
-                catch (Exception) { PatchCounters()[1495]++; return ea; }
+                catch (Exception) { PatchCounters()[3928]++; return ea; }
             }
             public bool CanOrig(Sim actor, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // WorldPond.CanSkateOnWorldPond
         }
@@ -396,7 +396,7 @@ namespace Ts3Fixes
         // Child, which let the autonomous path pick a child the player can never pick). Household-visible.
         // RE, not fixed: an empty autonomous list throws in GetRandomObjectFromList (Run has no Count check); the
         // Definition test filters the same way, so only a Sim leaving between Test and Run reaches it, as in EA.
-        // Counters: [1496] Sims removed, [1497] non-players listed with the switch off, [1498] errors.
+        // Counters: [3929] Sims removed, [3930] non-players listed with the switch off, [3931] errors.
 
         // Pure: does this Sim stay in the list?
         internal static bool PpKeep(bool on, bool human, bool teenOrAbove) { return !on || (human && teenOrAbove); }
@@ -417,11 +417,11 @@ namespace Ts3Fixes
                 {
                     SimDescription d = list[i] == null ? null : list[i].SimDescription;
                     bool human = d != null && d.IsHuman, teen = d != null && d.TeenOrAbove;
-                    if (!PpKeep(on, human, teen)) { list.RemoveAt(i); PatchCounters()[1496]++; }
-                    else if (!on && !PpKeep(true, human, teen)) PatchCounters()[1497]++;
+                    if (!PpKeep(on, human, teen)) { list.RemoveAt(i); PatchCounters()[3929]++; }
+                    else if (!on && !PpKeep(true, human, teen)) PatchCounters()[3930]++;
                 }
             }
-            catch (Exception) { PatchCounters()[1498]++; }
+            catch (Exception) { PatchCounters()[3931]++; }
             return list;
         }
 
@@ -438,7 +438,7 @@ namespace Ts3Fixes
         // StandardEntry, and neither Run nor Cleanup re-enables them (Rehydrate's sibling path does), so after any
         // dehydration, finished or cancelled, the mermaid never turns its head at anything again until a reset.
         // Fix: Cleanup re-enables look-ats when the interaction got past StandardEntry. Household-visible.
-        // Counters: [1500] look-ats re-enabled, [1501] left disabled with the switch off, [1502] errors.
+        // Counters: [3932] look-ats re-enabled, [3933] left disabled with the switch off, [3934] errors.
         static readonly Type sMdType = typeof(OccultMermaid).GetNestedType("Dehydrate", BindingFlags.NonPublic | BindingFlags.Public);
 
         // Pure: are look-ats turned back on?
@@ -462,11 +462,11 @@ namespace Ts3Fixes
                     if (a != null && !a.HasBeenDestroyed && a.LookAtManager != null)
                     {
                         bool entered = ii.StandardEntryCalled;
-                        if (MdReenable(on, entered)) { a.LookAtManager.EnableLookAts(); PatchCounters()[1500]++; }
-                        else if (!on && entered) PatchCounters()[1501]++;
+                        if (MdReenable(on, entered)) { a.LookAtManager.EnableLookAts(); PatchCounters()[3932]++; }
+                        else if (!on && entered) PatchCounters()[3933]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1502]++; }
+                catch (Exception) { PatchCounters()[3934]++; }
                 CleanOrig();
             }
             public void CleanOrig() { } // OccultMermaid+Dehydrate.Cleanup
@@ -478,7 +478,7 @@ namespace Ts3Fixes
         // (event 101) on the success animations. A cancelled loop plays "Cancel", so the fragment stays out of the world,
         // and Cleanup never destroys it: one leaked object per cancelled attract. Fix: after EA's Cleanup, a fragment that
         // is still alive, out of the world and in no inventory is destroyed. Not household-visible (out-of-world leak).
-        // Counters: [1503] fragments destroyed, [1504] leaked with the switch off, [1505] errors.
+        // Counters: [3935] fragments destroyed, [3936] leaked with the switch off, [3937] errors.
         static readonly FieldInfo sMmFrag = typeof(MeteorMagnet.AttractSpaceObject).GetField("mMeteoriteFragment", kInstAll);
 
         static void ApplyMeteorMagnetOrphan()
@@ -502,11 +502,11 @@ namespace Ts3Fixes
                     {
                         g.Destroy();
                         sMmFrag.SetValue(this, null);
-                        PatchCounters()[1503]++;
+                        PatchCounters()[3935]++;
                     }
-                    else if (!on && OrphanDestroy(true, live, inWorld, inInv)) PatchCounters()[1504]++;
+                    else if (!on && OrphanDestroy(true, live, inWorld, inInv)) PatchCounters()[3936]++;
                 }
-                catch (Exception) { PatchCounters()[1505]++; }
+                catch (Exception) { PatchCounters()[3937]++; }
             }
             public void CleanOrig() { } // MeteorMagnet+AttractSpaceObject.Cleanup
         }
@@ -517,7 +517,7 @@ namespace Ts3Fixes
         // RemovePerson -> mChildMonitors[id] with no checks. If the toddler left first (aged up, force-removed, the
         // situation ended, the Sim was deleted), the alarm throws (NRE or KeyNotFound). Fix: the late alarm is skipped
         // when the child is gone or no longer monitored; force removals run as EA. Household-visible (daycare owner).
-        // Counters: [1506] stale alarms skipped, [1507] would throw with the switch off, [1508] errors.
+        // Counters: [3938] stale alarms skipped, [3939] would throw with the switch off, [3940] errors.
         static readonly Type sDcHelper = typeof(DaycareWorkdaySituation).GetNestedType("RemoveChildHelper", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sDcSit = sDcHelper == null ? null : sDcHelper.GetField("mSituation", kInstAll);
         static readonly FieldInfo sDcId = sDcHelper == null ? null : sDcHelper.GetField("mChildSimDescId", kInstAll);
@@ -551,10 +551,10 @@ namespace Ts3Fixes
                         found = sd != null && sd.CreatedSim != null;
                         monitored = mon != null && mon.Contains(id);
                     }
-                    if (DcSkip(on, force, found, monitored)) { PatchCounters()[1506]++; return; }
-                    if (!on && DcSkip(true, force, found, monitored)) PatchCounters()[1507]++;
+                    if (DcSkip(on, force, found, monitored)) { PatchCounters()[3938]++; return; }
+                    if (!on && DcSkip(true, force, found, monitored)) PatchCounters()[3939]++;
                 }
-                catch (Exception) { PatchCounters()[1508]++; }
+                catch (Exception) { PatchCounters()[3940]++; }
                 TrigOrig();
             }
             public void TrigOrig() { } // DaycareWorkdaySituation+RemoveChildHelper.TriggerRemoval
@@ -566,8 +566,8 @@ namespace Ts3Fixes
         // the route, including a failed StartSync (partner cancelled or never arrived): no woohoo, still a 50% pregnancy.
         // Fix: for the initiator of Try for Baby, Run counts as successful only if EA's own woohoo step
         // (SocialCallback.RunPostWoohoo with this box) ran. Household-visible.
-        // Counters: [1509] failed woohoos without pregnancy roll, [1510] rolled after a failed woohoo with the switch off,
-        // [1511] errors.
+        // Counters: [3941] failed woohoos without pregnancy roll, [3942] rolled after a failed woohoo with the switch off,
+        // [3943] errors.
         static readonly List<Sim> sBmWoohooed = new List<Sim>();
 
         // Pure: does TryForBaby see a successful woohoo?
@@ -591,8 +591,8 @@ namespace Ts3Fixes
                 bool did = sBmWoohooed.Remove(a);
                 bool on = ShortcutOn("boxofmysterywoohoo");
                 bool res = BmSucceeded(on, r, did);
-                if (r && !res) PatchCounters()[1509]++;
-                else if (!on && r && !BmSucceeded(true, r, did)) PatchCounters()[1510]++;
+                if (r && !res) PatchCounters()[3941]++;
+                else if (!on && r && !BmSucceeded(true, r, did)) PatchCounters()[3942]++;
                 return res;
             }
             public bool RunOrig() { return false; } // BoxOfMystery+WooHooInBoxOfMystery.Run
@@ -610,7 +610,7 @@ namespace Ts3Fixes
                         if (!sBmWoohooed.Contains(actor)) sBmWoohooed.Add(actor);
                     }
                 }
-                catch (Exception) { PatchCounters()[1511]++; }
+                catch (Exception) { PatchCounters()[3943]++; }
                 PostOrig(actor, target, obj);
             }
             public static void PostOrig(Sim actor, Sim target, IGameObject obj) { } // SocialCallback.RunPostWoohoo(Sim, Sim, IGameObject)
@@ -624,7 +624,7 @@ namespace Ts3Fixes
         // weight. Failure outcomes set explicit values and are kept. Fix: on the SetBodyShape call this Run makes (not a
         // failure, not "Original"), the weight is EA's own target w = (weight+1 adjusted by option and power) - 1, if the
         // incoming value is EA's mirrored one. Household-visible.
-        // Counters: [1512] weights corrected, [1513] mirrored with the switch off, [1514] errors.
+        // Counters: [3944] weights corrected, [3945] mirrored with the switch off, [3946] errors.
         static readonly Type sBsShape = typeof(BodySculptor).GetNestedType("ChangeShape", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly Type sBsItem = sBsShape == null ? null : sBsShape.GetNestedType("ItemDefinition", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sBsOption = sBsItem == null ? null : sBsItem.GetField("mOption", kInstAll);
@@ -664,8 +664,8 @@ namespace Ts3Fixes
             bool on = ShortcutOn("bodysculptorweight");
             if (Math.Abs(BsWeight(false, d.Weight, option, pct[pl]) - weight) > 0.001f) return weight;  // not EA's value: nothing to do, either way
             float w = BsWeight(on, d.Weight, option, pct[pl]);
-            if (Math.Abs(w - weight) >= 0.0001f) { PatchCounters()[1512]++; return w; }
-            if (!on && Math.Abs(BsWeight(true, d.Weight, option, pct[pl]) - weight) >= 0.0001f) PatchCounters()[1513]++;
+            if (Math.Abs(w - weight) >= 0.0001f) { PatchCounters()[3944]++; return w; }
+            if (!on && Math.Abs(BsWeight(true, d.Weight, option, pct[pl]) - weight) >= 0.0001f) PatchCounters()[3945]++;
             return weight;
         }
 
@@ -680,7 +680,7 @@ namespace Ts3Fixes
                     d = a == null ? null : a.SimDescription;
                     if (d != null) sBsActive[d] = this;
                 }
-                catch (Exception) { PatchCounters()[1514]++; }
+                catch (Exception) { PatchCounters()[3946]++; }
                 try { return RunOrig(); }
                 finally { if (d != null) sBsActive.Remove(d); }
             }
@@ -699,7 +699,7 @@ namespace Ts3Fixes
                     {
                         sBsActive.Remove(d);  // only the Run's own SetBodyShape call
                         try { weight = BsFix(d, inst, weight); }
-                        catch (Exception) { PatchCounters()[1514]++; }
+                        catch (Exception) { PatchCounters()[3946]++; }
                     }
                 }
                 SetOrig(weight, fitness);
@@ -714,7 +714,7 @@ namespace Ts3Fixes
         // minimum value. Fix: the value is rolled from p[2]..p[3]; the age roll is EA's. Household-visible (low).
         // RE, not fixed (no trigger): the PotionShop and BotShop data have the same line but ship no nectar rows; CreateObject
         // calls AppreciateDepreciateDailyUpdate before checking the created object for null.
-        // Counters: [1515] values re-rolled, [1516] minimum values with the switch off, [1517] errors.
+        // Counters: [3947] values re-rolled, [3948] minimum values with the switch off, [3949] errors.
         static readonly Type sNvData = typeof(ConsignmentRegister).GetNestedType("ConsignmentRegisterData", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sNvParams = sNvData == null ? null : sNvData.GetField("mParameters", kInstAll);
 
@@ -742,10 +742,10 @@ namespace Ts3Fixes
                     bool on = ShortcutOn("nectarconsignvalue");
                     int lo = ParserFunctions.ParseInt(p[2], 0), hi = ParserFunctions.ParseInt(p[3], 0);
                     int top = NvMax(on, lo, hi);
-                    if (top != lo) { np.Value = RandomUtil.GetInt(lo, top); PatchCounters()[1515]++; }
-                    else if (!on && NvMax(true, lo, hi) != lo) PatchCounters()[1516]++;
+                    if (top != lo) { np.Value = RandomUtil.GetInt(lo, top); PatchCounters()[3947]++; }
+                    else if (!on && NvMax(true, lo, hi) != lo) PatchCounters()[3948]++;
                 }
-                catch (Exception) { PatchCounters()[1517]++; }
+                catch (Exception) { PatchCounters()[3949]++; }
                 return r;
             }
             public bool IpOrig(out Simulator.ObjectInitParameters initParameters) { initParameters = null; return false; } // ConsignmentRegisterData.CreateObjectInitParameters
@@ -757,7 +757,7 @@ namespace Ts3Fixes
         // previous choice ("No deer" after picking raccoons). RE: the loop over the lot's other wildlife gnomes repeats
         // SetAllowStrays, so each gnome shows its own copy of the notice. Fix: the new type is set on every gnome before
         // EA's Run, and the disallow notice shows once per Run. Household-visible (cosmetic).
-        // Counters: [1518] runs with the right notice, [1519] stale notices with the switch off, [1520] errors.
+        // Counters: [3950] runs with the right notice, [3951] stale notices with the switch off, [3952] errors.
         static readonly Type sGnRun = typeof(StrayWildlifeGnome).GetNestedType("DisallowStrayWildlife", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly Type sGnDef = sGnRun == null ? null : sGnRun.GetNestedType("Definition", BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sGnType = sGnDef == null ? null : sGnDef.GetField("mDisallowType", kInstAll);
@@ -806,12 +806,12 @@ namespace Ts3Fixes
                             else if (GnTnsType(true, cur, want) != cur) stale = true;
                         }
                         int limit = GnTnsCount(on, gnomes.Count);
-                        if (retyped || limit < gnomes.Count) PatchCounters()[1518]++;
-                        else if (!on && (stale || GnTnsCount(true, gnomes.Count) < gnomes.Count)) PatchCounters()[1519]++;
+                        if (retyped || limit < gnomes.Count) PatchCounters()[3950]++;
+                        else if (!on && (stale || GnTnsCount(true, gnomes.Count) < gnomes.Count)) PatchCounters()[3951]++;
                         if (limit < gnomes.Count) { active = true; sGnLeft = limit; }
                     }
                 }
-                catch (Exception) { PatchCounters()[1520]++; }
+                catch (Exception) { PatchCounters()[3952]++; }
                 if (!active) return RunOrig();
                 sGnRunning = true;
                 try { return RunOrig(); }

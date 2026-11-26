@@ -29,7 +29,7 @@ namespace Ts3Fixes
     // Built:
     //   1. Walk through (PetRelaxCore.Pass): a small pet walks through the Sims and small pets in its way, and a Sim
     //      walks through small pets when nothing else is in its way: the game's ignore-obstacles timer, as simpass.
-    //      When (docs/686 §8.7, a player's rule: clipping is for doors and stairs, not the standard): at once, at the
+    //      When (docs/686 §8.8, a player's rule: clipping is for doors and stairs, not the standard): at once, at the
     //      obstacle event or at a wait that still begins, only when the walker or one of those in its way is within
     //      kClipPortalNear of a portal lane; anywhere else the game's wait runs and its first cycle after
     //      kClipGraceMinutes ends it (the clipwait hooks; the clipwait switch is not needed). A destination wait takes
@@ -48,7 +48,8 @@ namespace Ts3Fixes
     //      runs from there. No free spot, or the route fails: the game's lie-down as it was.
     // Scope: petrelax covers pets and Sims the player does not control, as walker and as the one walked through;
     // petrelaxhh adds household and selected Sims and pets. Off = compare mode: the hooks count what the rule would do.
-    // petrelaxlog writes one line per act. Counters 4430-4445. Check: PetRelaxCheck.
+    // petrelaxlog writes one line per act. Counters 4430-4445. Check: PetRelaxCheck. Hooks of its own: the floor lie-down
+    // and SimRoutingComponent.DoRoute (the failed plan of rule 2).
     public static partial class Fixes
     {
         const int kPrxPass = 4430, kPrxPassWait = 4431, kPrxClip = 4432, kPrxClipDest = 4433, kPrxJigRoutes = 4434, kPrxMoved = 4435, kPrxErrors = 4436,
@@ -101,6 +102,8 @@ namespace Ts3Fixes
         {
             sPrxMissing = "";
             if (!Patch(typeof(PetSurfacePosture.LayDownHere), "Run", Type.EmptyTypes, typeof(PrxLieHook), "RunHook", "RunOrig")) sPrxMissing = "PetSurfacePosture.LayDownHere.Run";
+            // the DoRoute step (PrxPlanFailed) runs in ApplyBlockedUse's hook, the only DoRoute hook (issue #92, docs/130 §11)
+            if (sBuMissing.IndexOf("SimRoutingComponent.DoRoute", StringComparison.Ordinal) >= 0) sPrxMissing = (sPrxMissing + " SimRoutingComponent.DoRoute").Trim();
             if (sShlMissing.IndexOf("HandleEventEncounteredObstacles", StringComparison.Ordinal) >= 0 || sSpsSim == null || sSpsAction == null)
                 sPrxMissing = (sPrxMissing + " obstacle event (sharelanes hooks)").Trim();
             if (sClwMissing.Length > 0) sPrxMissing = (sPrxMissing + " waits (clipwait hooks)").Trim();
@@ -302,7 +305,7 @@ namespace Ts3Fixes
 
         // RouteFixes.cs, SimRoutingComponent.SetRouteOptions (every route a Sim creates). The list is empty unless a pet
         // lay down on the floor since the world loaded. Only the pets that lie near a portal lane are passed (docs/686
-        // §8.7): the others are walked around, and a Sim they keep waiting walks through them after the grace (PrxClip).
+        // §8.8): the others are walked around, and a Sim they keep waiting walks through them after the grace (PrxClip).
         static void PrxRoute(Sim sim, Route r)
         {
             if (sPrxJigs.Count == 0 || sim == null || r == null) return;

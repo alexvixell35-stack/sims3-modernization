@@ -15,7 +15,7 @@ namespace Ts3Fixes
         // SpRelCountCheck run: three mutual friends make EA's incremental build skew up. Controls: no relationships match.
         public static object SpRelCountCheck(string what)
         {
-            string counters = B582Counters("sprelcount", 1294, new[] { "Collects with own counts", "incremental Collects (switch off)", "errors" }, sCoMissing);
+            string counters = B582Counters("sprelcount", 2929, new[] { "Collects with own counts", "incremental Collects (switch off)", "errors" }, sCoMissing);
             if (what == "result") return counters;
             if (what != "run") return "sprelcount <run|result>";
             bool on = ShortcutOn("sprelcount");
@@ -30,7 +30,7 @@ namespace Ts3Fixes
         // SpCollectNullCheck run: a null household is skipped. Controls: special skipped, normal kept, off.
         public static object SpCollectNullCheck(string what)
         {
-            string counters = B582Counters("spcollectnull", 1297, new[] { "null households skipped", "seen with switch off", "errors" }, sCoMissing);
+            string counters = B582Counters("spcollectnull", 2932, new[] { "null households skipped", "seen with switch off", "errors" }, sCoMissing);
             if (what == "result") return counters;
             if (what != "run") return "spcollectnull <run|result>";
             bool on = ShortcutOn("spcollectnull");
@@ -42,7 +42,7 @@ namespace Ts3Fixes
         // SpCloneDictCheck run: a change to the clone leaves the live dictionary alone. Controls: off shares; null stays.
         public static object SpCloneDictCheck(string what)
         {
-            string counters = B582Counters("spclonedict", 1300, new[] { "clones given their own dictionary", "clones sharing (switch off)", "errors" }, sCdMissing);
+            string counters = B582Counters("spclonedict", 2935, new[] { "clones given their own dictionary", "clones sharing (switch off)", "errors" }, sCdMissing);
             if (what == "result") return counters;
             if (what != "run") return "spclonedict <run|result>";
             bool on = ShortcutOn("spclonedict");
@@ -58,7 +58,7 @@ namespace Ts3Fixes
         // SpLotLookupCheck run: a 6-Sim spec on a 4-bed lot is 2 over. Controls: no lot / dorm / fits.
         public static object SpLotLookupCheck(string what)
         {
-            string counters = B582Counters("splotlookup", 1303, new[] { "specs counted on their lot", "dropped by EA (switch off)", "errors" }, sLlMissing);
+            string counters = B582Counters("splotlookup", 2938, new[] { "specs counted on their lot", "dropped by EA (switch off)", "errors" }, sLlMissing);
             if (what == "result") return counters;
             if (what != "run") return "splotlookup <run|result>";
             bool on = ShortcutOn("splotlookup");
@@ -70,7 +70,7 @@ namespace Ts3Fixes
         // SpBucketIndexCheck run: pick 1 of buckets {3, 5, 6} forces bucket 5. Controls: off keeps EA's position; ends.
         public static object SpBucketIndexCheck(string what)
         {
-            string counters = B582Counters("spbucketindex", 1306, new[] { "targeted actions with the bucket", "targeted draws (switch off)", "errors" }, sBiMissing);
+            string counters = B582Counters("spbucketindex", 2941, new[] { "targeted actions with the bucket", "targeted draws (switch off)", "errors" }, sBiMissing);
             if (what == "result") return counters;
             if (what != "run") return "spbucketindex <run|result>";
             bool on = ShortcutOn("spbucketindex");
@@ -83,7 +83,7 @@ namespace Ts3Fixes
         // SpCreateMoveInCheck run: the family spec is added once. Control: off adds twice.
         public static object SpCreateMoveInCheck(string what)
         {
-            string counters = B582Counters("spcreatemovein", 1309, new[] { "predictions made once on the lot", "double predictions (switch off)", "errors" }, sCmMissing);
+            string counters = B582Counters("spcreatemovein", 2944, new[] { "predictions made once on the lot", "double predictions (switch off)", "errors" }, sCmMissing);
             if (what == "result") return counters;
             if (what != "run") return "spcreatemovein <run|result>";
             bool on = ShortcutOn("spcreatemovein");
@@ -95,7 +95,7 @@ namespace Ts3Fixes
         // SpLotDensityCheck run: a household on an apartment lot is not counted. Controls: story lot / homeless / off.
         public static object SpLotDensityCheck(string what)
         {
-            string counters = B582Counters("splotdensity", 1312, new[] { "left out by the lot test", "off-lot households EA counted (switch off)", "errors" }, sLdMissing);
+            string counters = B582Counters("splotdensity", 2947, new[] { "left out by the lot test", "off-lot households EA counted (switch off)", "errors" }, sLdMissing);
             if (what == "result") return counters;
             if (what != "run") return "splotdensity <run|result>";
             bool on = ShortcutOn("splotdensity");
@@ -107,7 +107,7 @@ namespace Ts3Fixes
         // SpRoommateJobCheck run: a jobless non-University roommate gets the job. Controls: University / has a job / none.
         public static object SpRoommateJobCheck(string what)
         {
-            string counters = B582Counters("sproommatejob", 1315, new[] { "roommates given the job", "left jobless (switch off)", "errors" }, sRjMissing);
+            string counters = B582Counters("sproommatejob", 2950, new[] { "roommates given the job", "left jobless (switch off)", "errors" }, sRjMissing);
             if (what == "result") return counters;
             if (what != "run") return "sproommatejob <run|result>";
             bool on = ShortcutOn("sproommatejob");
@@ -119,7 +119,7 @@ namespace Ts3Fixes
         // SpOccultPickCheck run: only occult Sims that pass the predicate are candidates. Controls: non-occult / failed.
         public static object SpOccultPickCheck(string what)
         {
-            string counters = B582Counters("spoccultpick", 1318, new[] { "random occult picks", "first-in-list picks (switch off)", "errors" }, "");
+            string counters = B582Counters("spoccultpick", 2953, new[] { "random occult picks", "first-in-list picks (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "spoccultpick <run|result>";
             bool on = ShortcutOn("spoccultpick");
@@ -131,7 +131,7 @@ namespace Ts3Fixes
         // SpJobAtWorkCheck run: the old career's AssignOccupation(null) after a new job is a stale clear. Controls: own clear.
         public static object SpJobAtWorkCheck(string what)
         {
-            string counters = B582Counters("spjobatwork", 1321, new[] { "new jobs kept", "new jobs EA dropped (switch off)", "errors" }, "");
+            string counters = B582Counters("spjobatwork", 2956, new[] { "new jobs kept", "new jobs EA dropped (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "spjobatwork <run|result>";
             bool on = ShortcutOn("spjobatwork");
@@ -143,7 +143,7 @@ namespace Ts3Fixes
         // SpRecheckCheck run: an action reaching the active household is not run. Controls: NPC household / no household.
         public static object SpRecheckCheck(string what)
         {
-            string counters = B582Counters("sprecheck", 1324, new[] { "actions not run on a played household", "rounds with switch off", "errors" }, sRcMissing);
+            string counters = B582Counters("sprecheck", 2959, new[] { "actions not run on a played household", "rounds with switch off", "errors" }, sRcMissing);
             if (what == "result") return counters;
             if (what != "run") return "sprecheck <run|result>";
             bool on = ShortcutOn("sprecheck");
@@ -156,7 +156,7 @@ namespace Ts3Fixes
         // SpPensionPromptCheck run: the case where EA asks after the leave. Controls: no job / school / other career / no UI.
         public static object SpPensionPromptCheck(string what)
         {
-            string counters = B582Counters("sppensionprompt", 1327, new[] { "pension prompts asked first", "asked after the leave (switch off)", "errors" }, sPpMissing);
+            string counters = B582Counters("sppensionprompt", 2962, new[] { "pension prompts asked first", "asked after the leave (switch off)", "errors" }, sPpMissing);
             if (what == "result") return counters;
             if (what != "run") return "sppensionprompt <run|result>";
             bool on = ShortcutOn("sppensionprompt");
@@ -169,7 +169,7 @@ namespace Ts3Fixes
         // HhCleanupDupCheck run: a special or listed larger household is not folded into. Controls: off / normal.
         public static object HhCleanupDupCheck(string what)
         {
-            string counters = B582Counters("hhcleanupdup", 1330, new[] { "cleanups run fixed", "shared-member loads (switch off)", "errors" }, sHdMissing);
+            string counters = B582Counters("hhcleanupdup", 2965, new[] { "cleanups run fixed", "shared-member loads (switch off)", "errors" }, sHdMissing);
             if (what == "result") return counters;
             if (what != "run") return "hhcleanupdup <run|result>";
             bool on = ShortcutOn("hhcleanupdup");
@@ -181,7 +181,7 @@ namespace Ts3Fixes
         // VirtualHomeShareCheck run: 10 lots at 0.5 draw from 0-5. Controls: off all; 1 lot; share 2 clamped.
         public static object VirtualHomeShareCheck(string what)
         {
-            string counters = B582Counters("virtualhomeshare", 1333, new[] { "homes from the tuned share", "draws over every lot (switch off)", "errors" }, sVhMissing);
+            string counters = B582Counters("virtualhomeshare", 2968, new[] { "homes from the tuned share", "draws over every lot (switch off)", "errors" }, sVhMissing);
             if (what == "result") return counters;
             if (what != "run") return "virtualhomeshare <run|result>";
             bool on = ShortcutOn("virtualhomeshare");
@@ -193,7 +193,7 @@ namespace Ts3Fixes
         // CelebAlarmNullCheck run: a valid handle with no Sim throws in EA. Controls: Sim present / no handle.
         public static object CelebAlarmNullCheck(string what)
         {
-            string counters = B582Counters("celebalarmnull", 1336, new[] { "alarms removed with no Sim", "would have thrown (switch off)", "errors" }, sCaMissing);
+            string counters = B582Counters("celebalarmnull", 2971, new[] { "alarms removed with no Sim", "would have thrown (switch off)", "errors" }, sCaMissing);
             if (what == "result") return counters;
             if (what != "run") return "celebalarmnull <run|result>";
             bool on = ShortcutOn("celebalarmnull");

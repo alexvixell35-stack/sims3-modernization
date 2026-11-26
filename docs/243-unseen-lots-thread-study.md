@@ -253,3 +253,17 @@ Counters 818-823: `unseen_park_held` (polls), `_snap`, `_exempt`, `_unseen` and 
 Repro `unseen-park-loop` (STRESS). Queue `tools/harness/queues/unseen-park.json`: smoke + 4 A/Bs (BP, IP, both orders, 10 min, `--ab unseenpark`, `unseenprobe` on in both arms) + `bp-upark-check` = §7's 6 jobs, then `bp-upark-loop` and `bp/ip-upark-focus`, `-arrive` (gate2 repros `aut-unseen-focus`, `aut-unseen-arrive` on the gate2 stack, since they need a direct pick). §7 named `unseen-snapback`; it needs go-live too, so the loop and focus jobs take its place. Stop rule unchanged: >= 5 ms/s per arm on BP and IP in both orders, hitches not worse.
 
 Effort: built, ~2 h with this read. Game: ~1.5 h for the 6 jobs, ~1 h for the rest; no clean night asked.
+
+## 10. unseenpark timing (2026-11-18, queue mono-park-timing-1117, measured)
+
+Separate-load ABBA, 10 min per job, Apex + bridge, build 16c1e6f2d; rows in `docs/data/results/2026-11-17-queue-mono-park-timing-1117.md`. Sim ms/s (script + route + animPose + locomotion, arm-ms.ts), off vs on:
+
+| world | off | on | on - off | hitches >=300 / 10 min off -> on | p99 ms off -> on | max ms off -> on |
+|---|---|---|---|---|---|---|
+| BP | 201.5 | 198.9 | -2.6 (-1.3%) | 1.3 -> 1.7 | 87 / 87 -> 86 / 84 | 2510 / 466 -> 313 / 458 |
+| IP | 157.0 | 158.0 | +1.0 (+0.7%) | 25.2 -> 21.7 | 106 / 110 -> 117 / 122 | 617 / 998 -> 538 / 564 |
+| SV | 123.2 | 121.0 | -2.1 (-1.7%) | 3.8 -> 2.8 | 56 / 61 / 56 -> 61 / 61 | 635 / 649 / 211 -> 1080 / 344 |
+
+- Counters (on): arrivals 92-184 per job, household exempt 1396-3142 per job (household never parked), held 2e5-3.9e5, snap 353-578. Off arms show arrivals only.
+- Noise: every job "noise medium" (no valid-timing flag), so the deltas are indicative. SV on-1 / on-2 VOID (others 27-31% of game CPUs), replaced by the reruns. IP off-1 hung (EA package-lock deadlock, docs/539 §13.8), retry used (IP off has 2 runs, not 2 + 1). p99.9 not in the verdict output. IP p99 +10 ms and SV max 1080 ms (one run) are within run-to-run spread; the matching off arms show 998 ms and 2510 ms spikes.
+- Verdict: no clear gain (target was 3-5 ms/s), no penalty beyond the ~2% bar (-1.3 / +0.7 / -1.7%), hitches not worse in a stable way. Rule decisions-1115 "unseenpark ON after timing" and the offload goal (no gain, up to ~2% loss if stable): ON. SV -1.7% is the closest to the bar.

@@ -2,6 +2,11 @@
 
 Design, protocol findings and limits: `docs/270-snapshot-rewind-tests.md` section 12. Test-only, never for players.
 
+**Superseded 2026-11-19:** Apex main carries the rewind patch (0015, review fixes) and the 0016 fix (in its 0010). The test
+install is now built from our fork's integration branch: `node tools/turbo-compat.ts install-copy --build` (branch and commit
+in `FORK` there; notes in `probe-out/apex-latest-switch-1119.md`). This folder and `build.cmd` stay for the old v4.0.6
+pair in `game-copy/rewind-bridge-1115`.
+
 The RTX Remix bridge belongs to Apex Radiance (`loinyx/Sims3-ApexRadiance`, `native/remix-bridge/`: NVIDIA's
 `dxvk-remix/bridge`, MIT, plus Apex's patches). This folder holds only our patch for it, as the diff Apex's build applies,
 and the steps to build and test it. The context lines of the diff are NVIDIA's code under the MIT license. We never change

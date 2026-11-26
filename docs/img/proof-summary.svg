@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="354" viewBox="0 0 900 354" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" role="img" aria-label="Steps of 300 ms or longer and sim steps per second, Baseline vs v0.3.1">
+<rect x="0.5" y="0.5" width="899" height="353" rx="8" fill="#fcfcfb" stroke="#d8d8d4"/>
+<text x="16" y="26" font-size="16" font-weight="600" fill="#1f1f1e">Baseline vs v0.3.1, 10-minute runs, mean of 2 runs per side</text>
+<rect x="16" y="38" width="10" height="10" rx="2" fill="#eb6834"/>
+<text x="31" y="47" font-size="12" fill="#1f1f1e">Baseline (our mods off)</text>
+<rect x="190" y="38" width="10" height="10" rx="2" fill="#2a78d6"/>
+<text x="205" y="47" font-size="12" fill="#1f1f1e">v0.3.1 (our mods on)</text>
+<text x="40" y="74" font-size="13" font-weight="600" fill="#1f1f1e">Steps of 300 ms or longer, per run</text>
+<text x="430" y="74" font-size="11" fill="#5f5f5c" text-anchor="end">lower is better</text>
+<line x1="40" x2="430" y1="282" y2="282" stroke="#5f5f5c"/>
+<path d="M69 282V279.98214799884823q0 -4 4 -4h26q4 0 4 4V282Z" fill="#eb6834"/>
+<text x="86" y="270.98214799884823" font-size="12" fill="#1f1f1e" text-anchor="middle">5.5</text>
+<path d="M107 282V285q0 -4 4 -4h26q4 0 4 4V282Z" fill="#2a78d6"/>
+<text x="124" y="276" font-size="12" fill="#1f1f1e" text-anchor="middle">0.5</text>
+<text x="105" y="299" font-size="12" fill="#1f1f1e" text-anchor="middle">Bridgeport</text>
+<text x="105" y="315" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs off: 6 / 5</text>
+<text x="105" y="329" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs on: 0 / 1</text>
+<path d="M199 282V120.78260869565216q0 -4 4 -4h26q4 0 4 4V282Z" fill="#eb6834"/>
+<text x="216" y="111.78260869565216" font-size="12" fill="#1f1f1e" text-anchor="middle">151</text>
+<path d="M237 282V266.3052116325943q0 -4 4 -4h26q4 0 4 4V282Z" fill="#2a78d6"/>
+<text x="254" y="257.3052116325943" font-size="12" fill="#1f1f1e" text-anchor="middle">18</text>
+<text x="235" y="299" font-size="12" fill="#1f1f1e" text-anchor="middle">Isla Paradiso</text>
+<text x="235" y="315" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs off: 114 / 188</text>
+<text x="235" y="329" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs on: 21 / 15</text>
+<path d="M329 282V275.0584509069968q0 -4 4 -4h26q4 0 4 4V282Z" fill="#eb6834"/>
+<text x="346" y="266.0584509069968" font-size="12" fill="#1f1f1e" text-anchor="middle">10</text>
+<path d="M367 282V285q0 -4 4 -4h26q4 0 4 4V282Z" fill="#2a78d6"/>
+<text x="384" y="276" font-size="12" fill="#1f1f1e" text-anchor="middle">0.5</text>
+<text x="365" y="299" font-size="12" fill="#1f1f1e" text-anchor="middle">Sunset Valley</text>
+<text x="365" y="315" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs off: 9 / 11</text>
+<text x="365" y="329" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs on: 1 / 0</text>
+<text x="480" y="74" font-size="13" font-weight="600" fill="#1f1f1e">Sim steps per second</text>
+<text x="870" y="74" font-size="11" fill="#5f5f5c" text-anchor="end">higher is better</text>
+<line x1="480" x2="870" y1="282" y2="282" stroke="#5f5f5c"/>
+<path d="M509 282V181.0126859568577q0 -4 4 -4h26q4 0 4 4V282Z" fill="#eb6834"/>
+<text x="526" y="172.0126859568577" font-size="12" fill="#1f1f1e" text-anchor="middle">42.6</text>
+<path d="M547 282V151.66475942798172q0 -4 4 -4h26q4 0 4 4V282Z" fill="#2a78d6"/>
+<text x="564" y="142.66475942798172" font-size="12" fill="#1f1f1e" text-anchor="middle">54.5</text>
+<text x="545" y="299" font-size="12" fill="#1f1f1e" text-anchor="middle">Bridgeport</text>
+<text x="545" y="315" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs off: 40.5 / 44.7</text>
+<text x="545" y="329" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs on: 58.3 / 50.7</text>
+<path d="M639 282V182.70403425035124q0 -4 4 -4h26q4 0 4 4V282Z" fill="#eb6834"/>
+<text x="656" y="173.70403425035124" font-size="12" fill="#1f1f1e" text-anchor="middle">41.9</text>
+<path d="M677 282V167.62680152479763q0 -4 4 -4h26q4 0 4 4V282Z" fill="#2a78d6"/>
+<text x="694" y="158.62680152479763" font-size="12" fill="#1f1f1e" text-anchor="middle">48.0</text>
+<text x="675" y="299" font-size="12" fill="#1f1f1e" text-anchor="middle">Isla Paradiso</text>
+<text x="675" y="315" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs off: 44.8 / 39.0</text>
+<text x="675" y="329" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs on: 50.1 / 45.9</text>
+<path d="M769 282V139.57935962678837q0 -4 4 -4h26q4 0 4 4V282Z" fill="#eb6834"/>
+<text x="786" y="130.57935962678837" font-size="12" fill="#1f1f1e" text-anchor="middle">59.4</text>
+<path d="M807 282V120.78260869565216q0 -4 4 -4h26q4 0 4 4V282Z" fill="#2a78d6"/>
+<text x="824" y="111.78260869565216" font-size="12" fill="#1f1f1e" text-anchor="middle">67.0</text>
+<text x="805" y="299" font-size="12" fill="#1f1f1e" text-anchor="middle">Sunset Valley</text>
+<text x="805" y="315" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs off: 57.9 / 60.8</text>
+<text x="805" y="329" font-size="10.5" fill="#5f5f5c" text-anchor="middle">runs on: 69.4 / 64.6</text>
+</svg>

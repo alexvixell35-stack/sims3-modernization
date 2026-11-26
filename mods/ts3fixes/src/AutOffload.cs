@@ -185,8 +185,13 @@ namespace Ts3Fixes
             }
             catch (Exception e) { AppliedLog().Add("AutOffload: off: " + e.Message); return; }
             List<string> failed = new List<string>();
+            ExNoteEnvSwap(typeof(SimUpdate).GetMethod("CalculateSimEnvironmentScore", kAnyAll));  // docs/274 §11.8 stand-down: a mod's swap before ours
             sOffHooksOk = Hook(failed, typeof(SimUpdate), "CalculateSimEnvironmentScore", null, typeof(AutEnvHook), "EnvHook", "EnvOrig")
                 & Hook(failed, typeof(ReactionBroadcaster), "GetInRadiusSims", new Type[] { typeof(float) }, typeof(AutBcastHook), "RadiusHook", "RadiusOrig");
+            // docs/274 R1 envlistmemo: object start-up joins a lot with no event; build/buy exit can move rooms and portals
+            sElHooksOk = sOffHooksOk
+                & Hook(failed, typeof(LotManager), "PlaceObjectOnLot", new Type[] { typeof(IGameObject), typeof(ObjectGuid) }, typeof(ElHooks), "PlaceHook", "PlaceOrig")
+                & Hook(failed, typeof(LotManager), "ExitBuildBuyMode", Type.EmptyTypes, typeof(ElHooks), "ExitHook", "ExitOrig");
             sLotHookOk = Hook(failed, typeof(Camera), "GetClosestVisibleLot", new Type[] { typeof(Lot), typeof(Vector3).MakeByRefType() }, typeof(AutLotHook), "LotHook", "LotOrig");
             if (failed.Count > 0) AppliedLog().Add("AutOffload: not patched: " + string.Join(", ", failed.ToArray()));
             AppDomain.CurrentDomain.SetData("ts3fixes.autoffload.reasons", sOffReasons);
@@ -611,7 +616,11 @@ namespace Ts3Fixes
         // helpers (CalculateObjectEnvironmentScore, CalculateContributingObjectScore). Skipped, as they write: Sim
         // reactions (DoSimEnvironmentUpdateInternal), environment events, every buff and motive write after the scan; the
         // Sims and objects they apply to are recorded in r.Seq for the apply (docs/208 §8.2).
-        static void EnvScore(Sim s, EnvRes r, bool worker)
+        static void EnvScore(Sim s, EnvRes r, bool worker) { EnvScore(s, r, worker, null, null, 0); }
+
+        // memo != null (docs/274 R1 apply, inside only): the room's GameObject list, the lot's aromainators and the room's
+        // aromainator count come from the env list memo (EnvBcProbes.cs), in the game's order, instead of the three live calls
+        static void EnvScore(Sim s, EnvRes r, bool worker, object[] memoRoom, object[] memoAro, int memoAroRoom)
         {
             r.Pos = r.Neg = 0f; r.Flags = 0; r.Num = 0; r.SeqN = 0; r.SeqOver = false; r.Puddle = r.Burnt = r.Size = 0; r.Covered = 0f;
             Lot lot = s.LotCurrent, home = s.LotHome;
@@ -666,10 +675,21 @@ namespace Ts3Fixes
                     neg += (float)info.roomData.puddleCount * EnvironmentScore.PenaltyPerPuddleInRoom;
                     neg += (float)info.roomData.burntTileCount * EnvironmentScore.PenaltyPerBurntTileInRoom;
                     if (info.roomData.sizeInTileQuadrants == 0) { r.Pos = pos; r.Neg = neg; r.Flags = flags | 8; return; }
-                    List<GameObject> inRoom = lot.GetObjectsInRoom<GameObject>(s.RoomId);
-                    IAromainator[] aro = lot.GetObjects<IAromainator>();
-                    int extra = aro.Length - lot.GetObjectsInRoom<IAromainator>(s.RoomId).Count;
-                    for (int k = 0; k < extra; k++) inRoom.Add((GameObject)aro[k]);
+                    List<GameObject> inRoom;
+                    if (memoRoom == null)
+                    {
+                        inRoom = lot.GetObjectsInRoom<GameObject>(s.RoomId);
+                        IAromainator[] aro = lot.GetObjects<IAromainator>();
+                        int extra = aro.Length - lot.GetObjectsInRoom<IAromainator>(s.RoomId).Count;
+                        for (int k = 0; k < extra; k++) inRoom.Add((GameObject)aro[k]);
+                    }
+                    else
+                    {
+                        int extra = memoAro.Length - memoAroRoom;
+                        inRoom = new List<GameObject>(memoRoom.Length + Math.Max(extra, 0));
+                        foreach (object o in memoRoom) inRoom.Add((GameObject)o);
+                        for (int k = 0; k < extra; k++) inRoom.Add((GameObject)memoAro[k]);
+                    }
                     foreach (GameObject o in inRoom)
                     {
                         Sim so = o as Sim;
@@ -721,15 +741,24 @@ namespace Ts3Fixes
                 Vector3 sp = sim.Position;
                 float dx = sp.x - bp.x, dz = sp.z - bp.z;
                 if (dx * dx + dz * dz > rq2) continue;
-                if (sim.GetType() != typeof(Sim)) { OffAbort(r); return; }  // mod Sim subclasses: their overrides are not checked
-                if (sim.RabbitHoleCurrent != null || sim.SimDescription.IsBonehilda || !HasSpecies(q.Species, sim.SimDescription.Species)) continue;
-                if (TombRoomManager.IsObjectInATombRoom(sim) && sim.LotCurrent == b.LotCurrent && b.RoomId != sim.RoomId) continue;
-                if (q.RoomOnly && !Lot.AreInSameRoom(sim, b)) continue;
-                if (sim == b || !sim.CanReact(q.Level) || sim.Posture is SittingInVehicle) continue;
-                if (r.N >= kBcSims) { OffAbort(r); return; }
+                int k = BcKeep(q, b, sim);
+                if (k == 0) continue;
+                if (k < 0 || r.N >= kBcSims) { OffAbort(r); return; }
                 r.Sims[r.N] = sim;
                 r.Near[r.N++] = b.GetDistanceToObject(sim) <= q.R;
             }
+        }
+
+        // GetInRadiusSims's filters except line of sight and could-see (BcRebuild): 1 keep, 0 not a candidate, -1 a mod Sim
+        // subclass (its overrides are not checked). Shared by the worker driver and bcposdry (docs/274 R2).
+        static int BcKeep(BcReq q, IGameObject b, Sim sim)
+        {
+            if (sim.GetType() != typeof(Sim)) return -1;
+            if (sim.RabbitHoleCurrent != null || sim.SimDescription.IsBonehilda || !HasSpecies(q.Species, sim.SimDescription.Species)) return 0;
+            if (TombRoomManager.IsObjectInATombRoom(sim) && sim.LotCurrent == b.LotCurrent && b.RoomId != sim.RoomId) return 0;
+            if (q.RoomOnly && !Lot.AreInSameRoom(sim, b)) return 0;
+            if (sim == b || !sim.CanReact(q.Level) || sim.Posture is SittingInVehicle) return 0;
+            return 1;
         }
 
         // docs/219 §2: the four shared rows, through the game's own getters (the paths there end in these calls)
@@ -1113,8 +1142,8 @@ namespace Ts3Fixes
         // list would not have them).
         static void EnvApply(SimUpdate u, Sim s, EnvRes a)
         {
-            DoSimEnvFn doSim = (DoSimEnvFn)Delegate.CreateDelegate(typeof(DoSimEnvFn), u, mDoSimEnv);
-            SendObjEnvFn sendObj = (SendObjEnvFn)Delegate.CreateDelegate(typeof(SendObjEnvFn), u, mSendObjEnv);
+            DoSimEnvFn doSim = (DoSimEnvFn)Fixes.Bind(typeof(DoSimEnvFn), u, mDoSimEnv);
+            SendObjEnvFn sendObj = (SendObjEnvFn)Fixes.Bind(typeof(SendObjEnvFn), u, mSendObjEnv);
             float pos = a.Pos, neg = a.Neg;
             bool outside = false, window = false, foundEnemy = false, foundLover = false, reactionPlayed = false, attracted = false, servo = false;
             Lot lot = s.LotCurrent, home = s.LotHome;
@@ -1368,7 +1397,36 @@ namespace Ts3Fixes
         {
             public void EnvHook()
             {
-                if (!sOffHooksOk || !ShortcutOn("autoffenv")) { EnvOrig(); return; }
+                if (!sOffHooksOk) { EnvOrig(); return; }
+                if (ShortcutOn("envscancost"))  // docs/274 §11: time of the whole hook (the game's scan and what is switched on) by scope; counts only
+                {
+                    long ct = EnvCostStart();
+                    try { EnvRun(); } finally { EnvCostEnd((SimUpdate)(object)this, ct); }
+                    return;
+                }
+                EnvRun();
+            }
+
+            // called on a SimUpdate, as EnvHook and EnvOrig are
+            public void EnvRun()
+            {
+                if (ShortcutOn("envlistmemo"))  // docs/274 R1 dry: counts only, before the game's own scan
+                {
+                    Sim ls = null;
+                    try { ls = fUpdSim.GetValue((SimUpdate)(object)this) as Sim; } catch (Exception) { }
+                    if (ls != null) EnvListProbe(ls);
+                }
+                if (!ShortcutOn("autoffenv"))
+                {
+                    if (ShortcutOn("envlistmemoexact"))  // docs/274 §11 R1 exact: every Sim, the game's own method, its room lists from the memo
+                    {
+                        bool armed = EnvListExactBegin((SimUpdate)(object)this);
+                        try { EnvOrig(); } finally { if (armed) EnvListExactEnd(); }
+                        return;
+                    }
+                    if (!ShortcutOn("envlistmemoapply") || !EnvListApply((SimUpdate)(object)this)) EnvOrig();  // docs/274 §9 R1 apply, unseen NPCs only
+                    return;
+                }
                 SimUpdate u = (SimUpdate)(object)this;
                 Sim s = null;
                 EnvRes a = null;
@@ -1434,7 +1492,22 @@ namespace Ts3Fixes
         {
             public Dictionary<ObjectGuid, Sim> RadiusHook(float pulseRadius)
             {
-                if (!sOffHooksOk || !ShortcutOn("autoffbcast")) return RadiusOrig(pulseRadius);
+                if (!sOffHooksOk) return RadiusOrig(pulseRadius);
+                if (!ShortcutOn("autoffbcast"))
+                {
+                    if (!ShortcutOn("bcposdry")) return RadiusOrig(pulseRadius);
+                    // docs/274 R2 dry: the table answer against the game's set; the game's set is returned
+                    int[] pc = PatchCounters();
+                    Dictionary<ObjectGuid, Sim> tab = null;
+                    try { tab = BcPosAnswer((ReactionBroadcaster)(object)this, pulseRadius, pc); }
+                    catch (Exception) { pc[cBp + 6]++; tab = null; }
+                    if (tab == null) return RadiusOrig(pulseRadius);
+                    sBpWatch.Restart();
+                    Dictionary<ObjectGuid, Sim> game = RadiusOrig(pulseRadius);
+                    long gameUs = sBpWatch.GetElapsedTime();
+                    try { BcPosCompare(tab, game, gameUs, pc); } catch (Exception) { pc[cBp + 6]++; }
+                    return game;
+                }
                 ReactionBroadcaster b = (ReactionBroadcaster)(object)this;
                 sBcRing[sOffBcRing] = b; sOffBcRing = (sOffBcRing + 1) % kOffRing;
                 bool apply = ShortcutOn("autoffbcastapply"), dry = ShortcutOn("autoffdry");

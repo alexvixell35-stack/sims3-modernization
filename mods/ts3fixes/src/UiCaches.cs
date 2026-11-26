@@ -69,6 +69,8 @@ namespace Ts3Fixes
                 MethodInfo t = target.GetMethod(method, all);
                 if (Marshal.ReadInt32(new IntPtr(t.MethodHandle.Value.ToInt32() + 0x14)) != 0) throw new InvalidOperationException("already compiled");
                 MethodInfo s = hook.GetMethod(stub, all);
+                string nb = NoBody(t) ?? NoBody(s);  // body-less side: transform reads a NULL IL header (Fixes.Patch)
+                if (nb != null) throw new InvalidOperationException(nb);
                 SwapMethod(s, t);
                 StubDirect(s);
                 return true;

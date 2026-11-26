@@ -20,7 +20,7 @@ namespace Ts3Fixes
     // Dispose up the chain, the same call CleanUpPicnic.Init makes itself when the basket is gone). A picnic whose cleanup
     // interaction is still queued waits for a later EndPicnic: Exit would clear that interaction's OnFailure callback.
     // Older finished picnics loaded from a save are swept the same way. Rule: PicnicExitCore.Decide.
-    // Counters [4070] exited, [4071] skipped (Sims present or cleanup pending), [4079] errors (shared, docs/645).
+    // Counters [4864] exited, [4865] skipped (Sims present or cleanup pending), [4869] errors (shared, docs/645).
     // Log "picnicexit: exited N finished picnic(s) ..., M skipped, K picnic situations left listed", capped.
     public static partial class Fixes
     {
@@ -111,13 +111,13 @@ namespace Ts3Fixes
                     }
                     else if (d == PicnicExitCore.kSimsPresent || d == PicnicExitCore.kPending) { skipped++; why = PicnicExitCore.Name(d); }
                 }
-                c[4070] += exited;
-                c[4071] += skipped;
+                c[4864] += exited;
+                c[4865] += skipped;
                 if (exited > 0 || skipped > 0)
                     PxLog("exited " + exited + " finished picnic(s), " + skipped + " skipped" + (why != null ? " (" + why + ")" : "")
                         + ", " + (listed - exited) + " picnic situations left listed, " + Situation.sAllSituations.Count + " situations in all");
             }
-            catch (Exception ex) { c[4079]++; PxLog("error " + ex.GetType().Name); }
+            catch (Exception ex) { c[4869]++; PxLog("error " + ex.GetType().Name); }
         }
     }
 }

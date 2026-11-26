@@ -1,5 +1,6 @@
 using System;
 using Sims3.Gameplay;
+using Sims3.Gameplay.Abstracts;
 using Sims3.Gameplay.Actors;
 using Sims3.Gameplay.Core;
 using Sims3.Gameplay.Interfaces;
@@ -8,26 +9,51 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // Port to the combo branch of upstream's jobyieldroad / jobyieldroadow (docs/800, upstream JobYieldRoad.cs, ON there since
-    // the import of 2026-11-19); the combo branch predates it, and the 30-min heap-512 soaks s560d / s562a-c on Bridgeport show
-    // what that costs (docs/689): ~470 sim-thread waits a run, 27-34 s, in ts3native's RunPlan for the sim's own route job,
-    // the stall leaf World_FindPlaceOnRoadOffScreen. Only the road and traffic sites are ported (jobyieldspawn, jobyieldready,
-    // jobyieldfp and turnjigskip are not on this branch). Default off here; same names, logic and household rule as upstream.
+    // Step-asides (docs/183 JobYield, docs/800) at five more places where the game runs a route plan, or flushes the footprint
+    // queue, on the sim thread while an async route job runs. Each one waits for the job at ts3native's RunPlan / disc sites
+    // with the whole sim thread stopped. The hook lets the asking task sleep a tick at a time until the job is done
+    // (StepAside: same JOBBUSY ask, same 10 s cap, same MayYield guard), then runs the original as before. Every switch needs
+    // jobyield (default on) and a ts3native with [RouteAsync] JobYield; without it the game answers "not busy" and nothing changes.
     //
-    // jobyieldroad: before ScriptCore.World.FindPlaceOnRoadOffScreen (that IC plans inside the game) the asking task sleeps a
-    // tick at a time while ts3native answers JOBBUSY (RouteBackoffHook.StepAside(), 10 s cap, MayYield guard), then runs the
-    // original. Callers [verified, decompiled]: TrafficManager.UpdateTrafficTask.Simulate (ambient traffic) and
-    // CarNpcManager.FindOffScreenPlaceOnRoad (taxis, NPC and service cars). Not taken: no proxy or a Sim proxy, food and ice
-    // cream trucks, any car with an occupant that is not a townie (carpools carry household Sims).
-    // jobyieldroadow (acts only with jobyieldroad; use both): a CarNpcWithNoDriver's LiteDriver task destroys its car when it
-    // finds it out of the world, and EA never yields between CreateObjectOutOfWorld and PlaceAt (upstream: 294 of 297 slept cars
-    // lost without it). So (1) an out-of-world CarNpcWithNoDriver gets no sleep at the IC; (2) the traffic task steps aside
-    // before the car exists (CreateObjectOutOfWorld("CarTaxiLightweight") on UpdateTrafficTask's own task); (3) any other car
-    // gone after a sleep gets "no place" (false) without the IC, which every caller's failure path handles.
-    // Timing only, "better, not identical": the same call with the same arguments, a few ticks later.
-    // Counters (upstream 1270-1274 / 1285-1291 renumbered): [4860] road asks for a taken car, [4861] slept, [4862] ms slept,
-    // [4863] car gone after the sleep, [4864] left out: occupant not a townie, [4865] roadow (1) taken, [4866] (3) taken,
-    // [4867] cars gone that were out of the world, [4868] pre-create asks, [4869] slept, [4870] ms slept, [4871] pre-create calls.
+    // jobyieldroad: before ScriptCore.World.FindPlaceOnRoadOffScreen. That IC plans inside the game. Callers [verified in the
+    // decompiled script DLL]: TrafficManager.UpdateTrafficTask.Simulate (ambient traffic spawn, a ScriptTask loop that already
+    // sleeps between spawns) and CarNpcManager.FindOffScreenPlaceOnRoad < DriveAwayInNpcCar / InitCarForLotRoute /
+    // DriveToWorldLotPositionInServiceCar (each already waits and plans a car route right after). Not taken: callers with no
+    // proxy or a Sim proxy, food and ice cream trucks, and any car with an occupant that is not a townie (carpools leaving the
+    // home lot carry household Sims). A car destroyed during our sleep is counted and still gets the original IC (or "no place"
+    // with jobyieldroadow, below).
+    //
+    // jobyieldroadow (acts only with jobyieldroad; use both or neither): alone, jobyieldroad lost cars (294 of 297 slept cars
+    // were gone after the sleep, Bridgeport). CarNpcWithNoDriver.OnStartup (run inside CreateObjectOutOfWorld) adds a LiteDriver
+    // task whose Simulate starts with "if (!mCar.InWorld) { mCar.Destroy(); return; }". EA never yields between
+    // CreateObjectOutOfWorld and PlaceAt, so the task always finds the car placed; a sleep lets it run first and destroy the
+    // out-of-world car. EA then goes on with the dead car (the traffic class count is raised after Dispose and never taken back).
+    // With the switch: (1) a CarNpcWithNoDriver out of the world gets no sleep at the IC; (2) the traffic task's step-aside moves
+    // before the car exists (CreateObjectOutOfWorld("CarTaxiLightweight"), only on UpdateTrafficTask's own task: nothing exists yet
+    // for another task to touch, and the IC after it then finds the job done); (3) any other car gone after a sleep gets "no
+    // place" (false) without the IC, which every caller's own failure path handles.
+    //
+    // jobyieldspawn: at the start of ObjectSpawner.TryPlaceSpawnedObjectInWorld (the 3-argument form; the 1-argument one calls
+    // it). AddToWorld queues the new object's lot-routing record while a job runs and the first SetPosition must flush it, which
+    // waits for the job. The callers are the spawners' SpawnObject overrides, run by TrySpawnObject from TriggerSpawn (an alarm,
+    // its own task) or ForceAnUnscheduledSpawnAttempt; the object is new and out of the world, nobody else holds it, so a later
+    // placement changes only when it appears. After a sleep: the spawner destroyed -> the object is destroyed and retObj = null
+    // (EA's own failure answer, every caller tests it); the object destroyed -> retObj = null.
+    //
+    // jobyieldfp: before a top-level Terrain.CanTurnInPlace / ModifyRouteForSpecies of a townie (a boat or animal that cannot
+    // turn in place plans a test jig and switches footprints, each of which can wait for a running job). Callers: after a failed
+    // route in the Sim's own task (DoRouteFailureBehavior) and before a route is followed (OnAboutToStartFollowingRoute); the Sim
+    // still stands, so a sleep only holds it a few more ticks. Household, selected and unknown-scope Sims are left out
+    // (YieldTownie): they take no step-aside here.
+    //
+    // jobyieldready (RouteBackoff.cs AsyncWait): no READY poll while JOBBUSY says a job runs; see there.
+    //
+    // MayYield keeps the native wait in native callbacks and non-yielding contexts (alarms). Counters: [1270] road asks for a taken
+    // car, [1271] slept, [1272] ms slept, [1273] car gone after the sleep, [1274] left out: occupant not a townie; [1275] READY
+    // polls skipped, [1276] waits with one; [1277] fp asks, [1278] slept, [1279] ms slept; [1280] spawn asks, [1281] slept,
+    // [1282] ms slept, [1283] spawner gone, [1284] object gone; [1285] roadow (1) taken, [1286] (3) taken, [1287] cars gone that were out
+    // of the world, [1288] pre-create asks, [1289] slept, [1290] ms slept, [1291] pre-create calls. Cleanup: no loop or retry of
+    // our own (StepAside's is capped), each original runs once with the caller's arguments.
     public static partial class Fixes
     {
         // the household rule: household, selected, unknown-scope, destroyed or household-less Sims are not townies
@@ -37,6 +63,12 @@ namespace Ts3Fixes
         {
             Patch(typeof(ScriptCore.World), "FindPlaceOnRoadOffScreen", typeof(RoadOffScreenHook), "FindHook", "FindOrig");
             Patch(typeof(GlobalFunctions), "CreateObjectOutOfWorld", new Type[] { typeof(string), typeof(ProductVersion) }, typeof(TrafficCreateHook), "CreateHook", "CreateOrig");
+            Patch(typeof(Sims3.Gameplay.Abstracts.ObjectSpawner), "TryPlaceSpawnedObjectInWorld",
+                new Type[] { typeof(IGameObject).MakeByRefType(), typeof(bool), typeof(FindGoodLocationBooleans) },
+                typeof(SpawnPlaceHook), "PlaceHook", "PlaceOrig");
+            Patch(typeof(Terrain), "CanTurnInPlace", typeof(FpYieldHook), "CanTurnHook", "CanTurnOrig");
+            Patch(typeof(Terrain), "ModifyRouteForSpecies", typeof(FpYieldHook), "ModHook", "ModOrig");
+            Patch(typeof(Terrain), "PreModifyRouteForSpecies", typeof(FpYieldHook), "PreHook", "PreOrig");  // turnjigskip only
         }
 
         public class RoadOffScreenHook
@@ -60,8 +92,126 @@ namespace Ts3Fixes
             public static IGameObject CreateOrig(string instanceName, ProductVersion productVersion) { return null; } // receives GlobalFunctions.CreateObjectOutOfWorld(string, ProductVersion)'s original header
         }
 
+        public abstract class SpawnPlaceHook : Sims3.Gameplay.Abstracts.ObjectSpawner
+        {
+            public void PlaceHook(ref IGameObject retObj, bool deleteObjOnFailure, FindGoodLocationBooleans booleanConstraints)
+            {
+                if (ShortcutOn("jobyieldspawn") && retObj != null && RouteBackoffHook.SpawnStepAside())
+                {
+                    int[] c = PatchCounters();
+                    GameObject o = retObj as GameObject;
+                    if (HasBeenDestroyed)
+                    {
+                        c[1283]++;
+                        if (o == null || !o.HasBeenDestroyed) retObj.Destroy();
+                        retObj = null;
+                        return;
+                    }
+                    if (o != null && o.HasBeenDestroyed) { c[1284]++; retObj = null; return; }
+                }
+                PlaceOrig(ref retObj, deleteObjOnFailure, booleanConstraints);
+            }
+            public void PlaceOrig(ref IGameObject retObj, bool deleteObjOnFailure, FindGoodLocationBooleans booleanConstraints) { } // receives ObjectSpawner.TryPlaceSpawnedObjectInWorld(ref IGameObject, bool, FindGoodLocationBooleans)'s original header
+        }
+
+        // turnjigskip (contributor 2026-11-14, ON since import 2026-11-20). EA's turn-in-place checks run around the routes of boats (any Sim
+        // sitting in a boat), horses, deer and adult dogs (Terrain.ShouldSkipTurnJigChecks exempts everyone else):
+        // PreModifyRouteForSpecies (AboutToPlanRouteCallback, before the plan) and CanTurnInPlace each create a test jig object,
+        // switch the Sim's dynamic footprint off and on, test the placement and destroy the jig; every footprint change and the
+        // destroy can make the sim thread wait for a running route job; ModifyRouteForSpecies (at the start of every such route)
+        // replans on the sim thread when the Sim cannot turn in place. Nobody sees an unseen townie turn, so with the switch on
+        // such a Sim (YieldTownie, UfWhy 0; in a boat only when nobody of the household is in or on it, VlWho) gets EA's own
+        // skip answers: the route unchanged, "can turn in place", no change. Top-level calls only (CanTurnInPlace inside
+        // ModifyRouteForSpecies is part of its outer call). Counters: [4056] top-level calls by an unseen townie boat or animal
+        // (either switch value), [4057] of them skipped (switch on).
+        public class FpYieldHook
+        {
+            static int sDepth;  // CanTurnInPlace runs inside ModifyRouteForSpecies: only the outer call asks
+
+            // turnjigskip: true = answer with EA's skip (counted); false = EA's checks
+            static bool TjSkip(Sim s)
+            {
+                if (sDepth > 0 || s == null) return false;
+                try
+                {
+                    SittingInBoat sb = s.Posture as SittingInBoat;
+                    if (sb == null && (s.SimDescription == null || s.SimDescription.Species == Sims3.SimIFace.CAS.CASAgeGenderFlags.Human)) return false;
+                    if (!YieldTownie(s) || UfWhy(s) != 0) return false;
+                    if (sb != null)
+                    {
+                        Boat b = sb.Container as Boat;
+                        if (b == null) return false;
+                        bool hh, other;
+                        VlWho(b, null, out hh, out other);
+                        if (hh) return false;  // household rule: any household, selected or unknown-scope Sim in or on the boat
+                    }
+                }
+                catch (Exception) { return false; }  // on any doubt EA's checks run
+                int[] c = PatchCounters();
+                c[4056]++;
+                if (!ShortcutOn("turnjigskip")) return false;
+                c[4057]++;
+                return true;
+            }
+
+            public static Route PreHook(Route r, Sim routingSim)
+            {
+                if (TjSkip(routingSim)) return r;  // EA's skip answer: the route as it is
+                sDepth++;
+                try { return PreOrig(r, routingSim); }
+                finally { sDepth--; }
+            }
+            public static Route PreOrig(Route r, Sim routingSim) { return r; }  // receives Terrain.PreModifyRouteForSpecies's original header
+
+            public static bool CanTurnHook(Route r, Sim routingSim)
+            {
+                if (sDepth == 0) RouteBackoffHook.FpStepAside(routingSim);  // may sleep: outside every try, a task reset passes through as in EA's own waits
+                if (TjSkip(routingSim)) return true;  // turnjigskip: EA's skip answer, turns in place with no jig
+                sDepth++;
+                try { return CanTurnOrig(r, routingSim); }
+                finally { sDepth--; }
+            }
+            public static bool CanTurnOrig(Route r, Sim routingSim) { return true; }  // receives Terrain.CanTurnInPlace's original header
+
+            public static void ModHook(Route r, Sim routingSim)
+            {
+                if (sDepth == 0) RouteBackoffHook.FpStepAside(routingSim);
+                if (TjSkip(routingSim)) return;  // turnjigskip: EA's skip answer, the route unchanged
+                sDepth++;
+                try { ModOrig(r, routingSim); }
+                finally { sDepth--; }
+            }
+            public static void ModOrig(Route r, Sim routingSim) { }  // receives Terrain.ModifyRouteForSpecies's original header
+        }
+
         public partial class RouteBackoffHook
         {
+            // true = slept (StepAside ran at least one tick)
+            internal static bool SpawnStepAside()
+            {
+                int[] c = PatchCounters();
+                c[1280]++;
+                int n0 = c[248], t0 = System.Environment.TickCount;
+                StepAside();  // may sleep: outside every catch, a task reset passes through as in EA's own waits
+                if (c[248] == n0) return false;
+                c[1281]++;
+                c[1282] += unchecked(System.Environment.TickCount - t0);
+                return true;
+            }
+
+            // jobyieldfp: before a top-level turn-in-place check of a boat or animal; townies only
+            internal static void FpStepAside(Sim s)
+            {
+                if (!ShortcutOn("jobyieldfp") || !YieldTownie(s)) return;
+                int[] c = PatchCounters();
+                c[1277]++;
+                int n0 = c[248], t0 = System.Environment.TickCount;
+                StepAside();
+                if (c[248] == n0) return;
+                c[1278]++;
+                c[1279] += unchecked(System.Environment.TickCount - t0);
+            }
+
             // true = jobyieldroadow (3): the car was destroyed during our sleep, answer "no place" without the IC
             internal static bool RoadStepAside(IScriptProxy p)
             {
@@ -71,37 +221,38 @@ namespace Ts3Fixes
                 Sim[] occ = car.Occupants;
                 if (occ != null)
                     foreach (Sim s in occ)
-                        if (s != null && !YieldTownie(s)) { c[4864]++; return false; }
+                        if (s != null && !YieldTownie(s)) { c[1274]++; return false; }
                 bool ow = ShortcutOn("jobyieldroadow"), wasOut = !car.InWorld;
-                if (ow && wasOut && car is CarNpcWithNoDriver) { c[4865]++; return false; }  // (1): its LiteDriver destroys it if we yield
-                c[4860]++;
+                if (ow && wasOut && car is CarNpcWithNoDriver) { c[1285]++; return false; }  // (1): its LiteDriver destroys it if we yield
+                c[1270]++;
                 int n0 = c[248], t0 = System.Environment.TickCount;
-                StepAside();  // may sleep: outside every catch, a task reset passes through as in EA's own waits
+                StepAside();
                 if (c[248] == n0) return false;
-                c[4861]++;
-                c[4862] += unchecked(System.Environment.TickCount - t0);
+                c[1271]++;
+                c[1272] += unchecked(System.Environment.TickCount - t0);
                 if (!car.HasBeenDestroyed) return false;
-                c[4863]++;
-                if (wasOut) c[4867]++;
+                c[1273]++;
+                if (wasOut) c[1287]++;
                 if (!ow) return false;
-                c[4866]++;
+                c[1286]++;
                 return true;
             }
 
-            // jobyieldroadow (2): only on the traffic manager's own task. Simulator.GetProxy hands back the ScriptProxy that
-            // ScriptCore.Simulator.AddObject wraps every IScriptLogic in, so the task is the proxy's Target.
+            // jobyieldroadow (2): only on the traffic manager's own task (other callers of that name, if a mod has one, keep EA's).
+            // Simulator.GetTask hands back the ScriptProxy that ScriptCore.Simulator.AddObject wraps every IScriptLogic in, so
+            // the task is the proxy's Target.
             internal static void TrafficStepAside()
             {
                 int[] c = PatchCounters();
-                c[4871]++;
+                c[1291]++;
                 IScriptProxy p = Simulator.GetProxy(Simulator.CurrentTask);
                 if (p == null || !(p.Target is TrafficManager.UpdateTrafficTask)) return;
-                c[4868]++;
+                c[1288]++;
                 int n0 = c[248], t0 = System.Environment.TickCount;
                 StepAside();
                 if (c[248] == n0) return;
-                c[4869]++;
-                c[4870] += unchecked(System.Environment.TickCount - t0);
+                c[1289]++;
+                c[1290] += unchecked(System.Environment.TickCount - t0);
             }
         }
     }

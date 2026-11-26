@@ -28,13 +28,13 @@ namespace Ts3Fixes
     {
         const int kUfTpSlot = 1040;
 
-        struct UfTpPlace { public Vector3 At; public string World; }
+        struct UfTpPlace : LaneACore.IWorldRow { public Vector3 At; public string World; public string WorldName { get { return World; } } }
         // our teleports' placements this game session (SimDescriptionId -> spot); static, so it outlives a world load but not the game
         static readonly Dictionary<ulong, UfTpPlace> sUfTpPlaced = new Dictionary<ulong, UfTpPlace>();
 
         // tpaptgoal counters [kUfTpAptSlot] home apartment goals allowed, [+1] refused as tomb or hidden room, [+2] refused otherwise
         // (no way out, raised, unknown flood); counted in UfTeleport only (UnseenTpCheck's direct calls do not count)
-        const int kUfTpAptSlot = 1951;
+        const int kUfTpAptSlot = 2753;
 
         static int UfTpGoalWhy(Sim sim, Vector3 dest)
         {
@@ -167,7 +167,7 @@ namespace Ts3Fixes
         static void UfTpNote(Sim sim, Vector3 at)
         {
             if (sim.SimDescription == null) return;
-            if (sUfTpPlaced.Count >= 4096) sUfTpPlaced.Clear();  // shortcut: forgets older placements; a later trapped one is only counted
+            if (sUfTpPlaced.Count >= 4096 && !LaTpPrune(World.GetWorldFileName())) sUfTpPlaced.Clear();  // shortcut: forgets older placements; a later trapped one is only counted (laneatp, LaneA.cs: other worlds' rows go first)
             sUfTpPlaced[sim.SimDescription.SimDescriptionId] = new UfTpPlace { At = at, World = World.GetWorldFileName() };
         }
 
@@ -347,7 +347,10 @@ namespace Ts3Fixes
                   .Append(aptRoom ? " [room rule]" : "").Append(vwhy < 0 ? "" : vwhy == 0 ? "; visitor teleport ok VISITOR-BROKEN" : "; visitor refused (" + UfTpWhyName(vwhy) + ")")
                   .Append(shut && why == 0 ? " BROKEN" : "").Append('\n');
             }
-            string live = EpLive(typeof(RouteBackoffHook), 4);
+            string live = "";  // live path: F1 runs inside RouteBackoffHook's swaps (sPatched keeps the last hook of a stacked swap, so at least one)
+            int hookSwaps = 0;
+            foreach (Type h in sPatched.Values) if (h == typeof(RouteBackoffHook)) hookSwaps++;
+            if (hookSwaps == 0) live = "RouteBackoffHook swaps 0";
             string verdict;
             if (live.Length > 0) verdict = "FAIL (live path: " + live + ")";
             else if (!on) verdict = insideOk == 0 ? "PASS (off: every inside goal refused, as upstream)" : "FAIL (off but an inside goal passed)";

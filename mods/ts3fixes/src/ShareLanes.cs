@@ -53,7 +53,7 @@ namespace Ts3Fixes
     //   [verified, decompiled] A walking Sim that meets Sims stops and runs the obstacle stand-and-wait, unless its
     //   "ignore all obstacles" timer runs (the game starts that timer itself after a portal and after a wait in a crowd).
     //   Fix: with only Sims in the way and none of them at the route's end, the timer is started for kSimPassMinutes, so
-    //   the game's own handler lets the Sim walk on. When (docs/686 §8.7, a player's rule: clipping is for doors and
+    //   the game's own handler lets the Sim walk on. When (docs/686 §8.8, a player's rule: clipping is for doors and
     //   stairs, not the standard): at once, at the obstacle event or at a wait that still starts, only when the walker
     //   or a Sim in its way is within kClipPortalNear of a portal lane (door, gate, stairs, ladder, elevator; on stairs
     //   counts). Anywhere else the game's wait begins and runs, and its first cycle after kClipGraceMinutes ends it the
@@ -152,7 +152,7 @@ namespace Ts3Fixes
             if (sShlMissing.Length > 0) AppliedLog().Add("sharelanes: not found: " + sShlMissing);
         }
 
-        static bool ShlScope(Sim s, bool hhOn) { return hhOn || !HouseholdExempt(s); }
+        static bool ShlScope(Sim s, bool hhOn) { return hhOn || !IsPlayerSim(s); }  // not HouseholdExempt: HouseholdToo never lifts lane skips, clip-through or path changes
 
         static string ShlWho(Sim s) { return s == PlumbBob.SelectedActor ? "selected" : s.IsInActiveHousehold ? "household" : "npc"; }
 
@@ -383,9 +383,9 @@ namespace Ts3Fixes
                 }
                 catch (ResetException) { throw; }
                 catch (Exception e) { ShlError(4, e); }
-                // docs/686 §14 (ObjShare.cs): servingshare skips a platter's and its surface's line; linewaitlog times the rest
                 // docs/686 §15 (ShowerShare.cs): a partner is let into a shower or an all-in-one bathroom without the line
                 if (interaction != null && ShsLine(interaction, this, behavior != WaitBehavior.NeverWait)) return true;
+                // docs/686 §14 (ObjShare.cs): servingshare skips a platter's and its surface's line; linewaitlog times the rest
                 if (sOjsArmed > 0 && interaction != null && interaction.InstanceActor != null && OjsServeLine(interaction.InstanceActor, this)) return true;
                 // docs/686 §19 (CrowdPort.cs): a crowded elevator's line is answered "timed out" (the game's teleport skip follows) or gets a short timeout
                 if (interaction != null && CpLineHook(interaction, target, this, behavior, ref timeoutInMinutes)) return false;
@@ -437,7 +437,7 @@ namespace Ts3Fixes
             return l.Ends;
         }
 
-        // docs/686 §8.7: p is within kClipPortalNear of a portal lane of the lot (ShareLanesCore.NearLane). The world lot
+        // docs/686 §8.8: p is within kClipPortalNear of a portal lane of the lot (ShareLanesCore.NearLane). The world lot
         // has no portals of its own (its object list is the whole town): never near.
         static bool ShlNearPortal(Lot lot, Vector3 p)
         {
@@ -552,7 +552,7 @@ namespace Ts3Fixes
         }
 
         // StandWait.cs, after the game's obstacle stand-and-wait cycle (and standwaitfix) answered "keep waiting": the
-        // grace path of simpass (docs/686 §8.7). It needs no other switch: a wait kClipGraceMinutes old with only Sims in
+        // grace path of simpass (docs/686 §8.8). It needs no other switch: a wait kClipGraceMinutes old with only Sims in
         // the way, none at the route's end, ends with the game's own "continue and follow the path". true = keep waiting.
         static bool SpsObstacleCycle(object action, Sim sim, Route path)
         {

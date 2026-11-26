@@ -121,7 +121,9 @@ namespace Ts3Fixes
         // Route plans that failed per Sim (object id) while it stayed within 1 m: the watchdog's "route plans failing" case
         // (Overwatch's Route.PostPlanCallback part). Fed by RouteBackoffHook.PlanHook for every plan; our own routability
         // checks (SpotVerdict, the Overwatch hook) are not counted. A successful plan clears the Sim's count.
-        struct RouteFails { public Vector3 Pos; public long First; public int Count; }
+        // Last / Memo (diagnostic, af7 2026-11-18: 221 resets on 46 Sims, mostly "in nothing" at venues): the last failed plan's
+        // interaction and result, and how many of the failures were hbfailmemo answers; written after the reset's moved line.
+        struct RouteFails { public Vector3 Pos; public long First; public int Count, Memo; public string Last; }
         static readonly Dictionary<ulong, RouteFails> sRouteFails = new Dictionary<ulong, RouteFails>();
         // per task (the shape of PR #306's flag): this check's plan can sleep on its route job, and another Sim's result must still reach
         // NotePlanResult. docs/616: a set of tasks, not one slot: with spotasync several Sims' SafeSpot checks can sleep at once, and
@@ -167,7 +169,8 @@ namespace Ts3Fixes
         // recorded with routesrc (V7) or idlememo on.
         static readonly PlanOkMemo sPlanOk = new PlanOkMemo();
 
-        static void NotePlanResult(IScriptProxy follower, bool ok, ScriptCore.Route route)
+        static void NotePlanResult(IScriptProxy follower, bool ok, ScriptCore.Route route) { NotePlanResult(follower, ok, route, false); }
+        static void NotePlanResult(IScriptProxy follower, bool ok, ScriptCore.Route route, bool memo)
         {
             if (follower == null || sInOwnCheck) return;
             if (ok)
@@ -185,6 +188,11 @@ namespace Ts3Fixes
             if (!ShortcutOn("watchdog") || !ShortcutOn("watchdogidle")) return;
             Sim sim = follower.Target as Sim;
             if (sim == null) return;
+            InteractionInstance ci = sim.CurrentInteraction;
+            // [2788] a bouncer's VelvetRopes+WatchDoor loop re-routes to its rope slot every 5 s, and the slot is often 1-1.6 m out
+            // of reach (bouncermemo note, RouteSources.cs): the bouncer stays at its post, it is not stuck (af9 2026-11-18: 2-5
+            // bouncers a run were reset here, "last WatchDoor").
+            if (ci != null && sBrWatch != null && ci.GetType() == sBrWatch) { PatchCounters()[2788]++; return; }
             ulong id = follower.ObjectId.Value;
             long now = SimClock.CurrentTicks;
             RouteFails f;
@@ -195,6 +203,8 @@ namespace Ts3Fixes
                 PatchCounters()[51]++;
             }
             f.Count++;
+            if (memo) f.Memo++;
+            f.Last = (ci != null ? ci.GetType().Name : "none") + " " + (memo ? "memo" : route != null ? route.PlanResult.mType.ToString() : "?");
             sRouteFails[id] = f;
         }
 
@@ -215,6 +225,8 @@ namespace Ts3Fixes
                 uint wait = (uint)SimClock.ConvertToTicks(kWatchMinutes, TimeUnit.Minutes);
                 while (true)
                 {
+                    // docs/205 §2.3c: no scan while paused, clock stopped or out of live mode (the first wake after a load, Edit Town)
+                    if (SimFrozenOrNotLive()) { PatchCounters()[1735]++; Simulator.Sleep(0); continue; }
                     // docs/622 §4 stuckwatchscan: both passes walk one world scan (Check resets or fades, it destroys nothing, and
                     // no yield runs between the two; destroyed Sims are skipped in the shared one) and reuse their dictionaries.
                     bool shared = ShortcutOn("stuckwatchscan");
@@ -307,7 +319,11 @@ namespace Ts3Fixes
                     {
                         sRouteFails.Remove(id);
                         if (household) { c[2066]++; DiagLine("watchdog: household Sim " + s.FullName + " route plans failing " + f.Count + ", no reset"); continue; }
-                        if (Act(s, now, 49, "reset (route plans failing)")) continue;
+                        if (Act(s, now, 49, "reset (route plans failing)"))
+                        {
+                            MovedSims()[s.FullName] = MovedSims()[s.FullName] + " | last " + f.Last + ", memo " + f.Memo + "/" + f.Count;
+                            continue;
+                        }
                     }
                     if (household || s.Parent != null || s.SimInRabbitHolePosture) continue;
                     InteractionInstance cur = s.CurrentInteraction;

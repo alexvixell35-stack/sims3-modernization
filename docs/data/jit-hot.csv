@@ -20,7 +20,7 @@ rank,method,frame,class,worlds,samples,ms_s_mean,il_bytes,assembly,host_list,hos
 "19","SimClock.ElapsedTimeInMinutes","Sims3.Gameplay.Utilities.SimClock.ElapsedTimeInMinutes","N","3","16","2.73","17","Sims3GameplaySystems","accessor","105","420","call","template first: call, 4.0 exits per execution"
 "20","List`1.GetEnumerator","System.Collections.Generic.List`1.GetEnumerator","N","3","13","2.27","7","mscorlib","kJitList","195","195","newobj","template first: newobj, 1.0 exits per execution"
 "21","GameObject.get_Parent","Sims3.Gameplay.Abstracts.GameObject.get_Parent","N","2","14","2.20","19","Sims3GameplaySystems","accessor","4","12","call","template first: call, 3.0 exits per execution"
-"22","Motive.UpdateMotiveWithDecay","Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay","Y","2","13","2.07","5132","Sims3GameplaySystems","","","","","yields: stays interpreted"
+"22","Motive.UpdateMotiveWithDecay","Sims3.Gameplay.Autonomy.Motive.UpdateMotiveWithDecay","Y","2","13","2.07","5132","Sims3GameplaySystems","","","","","opt-in Y ([MonoJit] YRows=1): hand-checked, docs/537 §31"
 "23","Motive.UpdateMotiveBuffs","Sims3.Gameplay.Autonomy.Motive.UpdateMotiveBuffs","Y","3","12","2.03","1566","Sims3GameplaySystems","","","","","yields: stays interpreted"
 "24","IEquatableOfTEqualityComparer`1.GetHashCode","System.Collections.Generic.IEquatableOfTEqualityComparer`1.GetHashCode","N","2","11","2.00","14","mscorlib","kJitList","140847","6205","con.callvirt","compile"
 "25","List`1.Add","System.Collections.Generic.List`1.Add","N","3","11","1.83","51","mscorlib","kJitList","24989","448","stelem.ref","compile"

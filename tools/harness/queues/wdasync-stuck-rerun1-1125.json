@@ -1,0 +1,108 @@
+{
+  "note": "wdasync-stuck-rerun1-1125 (2026-11-25, bugfix/wdasync-stuck-strand-1125 off merge/m1124d 5989b7107): one job, bp-wdasync-stuck-repro on RC set m1124d. Cause of the m1124c/m1124d FAILs: the Community Lot strand never yields a Wogan Hemlock False verdict (8 Steam runs); every PASS had the strand on another lot. repros.json v6 names East Tradewinds Shipping Co. Rerun on Steam and on the EA laptop (same job). node tools/harness/queue.ts tools/harness/queues/wdasync-stuck-rerun1-1125.json",
+  "agentPackage": "game-copy/ts3agent.package.m1124d",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "asi": "game-copy/ts3native.asi.m1124d",
+      "pinReason": "RC set m1124d (merge/m1124d e711f266f): asi 6c0a0087d744 (0.36.305-m1124d), ini 0a7cccaceef8, ts3fixes 4f55ae3d01d8, agent 18852232f1d7 (agentPackage) [previous] final RC set m1124c (merge/m1124c 94ca4729a): asi d03869b4f9bf (0.36.303-m1124b), ini 0a7cccaceef8, ts3fixes 8e7c4d2e7526 (hookflat), agent 891a73c45f1a [previous] master set m1124b (0.36.303-m1124b, merge/m1124b faeb5436e): asi d03869b4f9bf, ini 0a7cccaceef8, ts3fixes 619a552ed189, agent 891a73c45f1a; + Dalexlol #715 lineswitch, #716 reactoverlay [previous] [repinned 2026-11-19 to release candidate rc-1119b (0.36.295-rc1119b): asi/ini/ts3fixes/agent game-copy/*.rc-1119b] [pinned 2026-11-18 to placeholder rc-1119 (v0.3.0 release plan (Sat 11-21), probe-out/release-030-plan.md): asi game-copy/ts3native.asi.m1124 + ini game-copy/ts3native.ini.m1124 + ts3fixes game-copy/ts3fixes.package.m1124; 0.36.295-rc1119b = the rc ts3native version. Thu 11-19 after the build: replace 0.36.295-rc1119b (logRequire, regexCases) with the real version, register the three files in docs/data/builds.json, then --dry-run.]",
+      "releaseDefaults": true,
+      "ini": {
+        "HitchAttr.Enabled": 1,
+        "HitchAttr.Holders": 1
+      },
+      "logRequire": {
+        "route async A10: .*WatchdogKind2=1": 1,
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": 1,
+        "^ts3native 0\\.36\\.305-m1124d ": 1
+      },
+      "logForbid": {
+        "^FAIL\\b": 0,
+        "watchdogasync shadow mismatch:": 0
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "id": "bp-wdasync-stuck-repro-rerun1-1125",
+      "note": "[wdasync-stuck-rerun1-1125: copy of release-verify-rc1119-doors-m1124d bp-wdasync-stuck-repro-rc1119, repro bp-idle-unroutable v6: strand on East Tradewinds Shipping Co. (repros.json), pass rules unchanged] [release-verify-1112e: copy of release-verify-1111 on rc1111d asi/ini + rc1111e package] [release-verify-1111: copy of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3 on pair rc1111] [est 18 min] [retry of wdasync-fix3-1110 bp-wdasync-stuck-repro-wdfix3, which FAILed in setup: \"no unroutable spot in 40 samples\"; repro bp-idle-unroutable sim_strand now samples tries 400 (repros.json); pass criteria unchanged] PASS rule (wdfix3): watchdog_idle_unroutable>=1 AND a \"watchdog idle verdict: Wogan Hemlock (A1|sync) False\" line (his own spot judged unroutable, not any Sim) (the no-True-verdict forbid was dropped 2026-11-13 as in release-verify-1111: True verdicts are normal at load and after the fix moves him); unseenfbteleport off for this job so \"unseenfb route goal\" cannot move him first. docs/250 §7.1 correctness (3): repro bp-idle-unroutable (Wogan Hemlock stranded on an unroutable diner spot, unseen, ultra speed) with watchdogasync + watchdogasyncshadow on: the watchdog must still catch him (watchdog_idle_unroutable >= 1, the repro's expect line). watchdogasync_* shows whether his check went through A1 (only when a job held +0x918 at that moment).",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "bp-idle-unroutable",
+          "fixesOn": "watchdogasync,watchdogasyncshadow,watchdoglockskip",
+          "fixesReport": "watchdogasync_,watchdog_,wd",
+          "fixesRequire": "watchdog_idle_unroutable>=1,watchdogasync_shadow_mismatch<1,watchdogasync_started>=1,wdLockSkip>=0",
+          "fixesOff": "unseenfbteleport"
+        }
+      },
+      "timeoutMin": 20,
+      "iniBase": "game-copy/ts3native.ini.m1124d",
+      "regexCases": {
+        "^FAIL\\b": {
+          "match": [
+            "FAIL cas trim: WriteTrap=1 needs Detect=1 (the save's inventory pass picks the cells): off",
+            "FAIL uaf check: ring (err 8)"
+          ],
+          "noMatch": [
+            "OK   cas trim realm shape sites: 5 call sites",
+            "FAILED to open x",
+            "SKIP uaf check: EA heap Free not as expected"
+          ]
+        },
+        "watchdogasync shadow mismatch:": {
+          "match": [
+            "watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ],
+          "noMatch": [
+            "watchdogasync shadow: checks 12, mismatches 0"
+          ]
+        },
+        "route async A10: .*WatchdogKind2=1": {
+          "match": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 6, WatchdogKind2=1"
+          ],
+          "noMatch": [
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4, WatchdogKind2=0",
+            "route async A10: Kinds=0 KindsMode=1 ForeignKinds=4 ForeignKindsMode=1, hooked mask 4"
+          ]
+        },
+        "watchdog idle verdict: Wogan Hemlock (A1|sync) False": {
+          "match": [
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock A1 False @307.55999755859375,1495.1800537109375 on Community Lot",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock sync False stale @307.56,1495.18 on Community Lot"
+          ],
+          "noMatch": [
+            "ts3fixes: watchdog idle verdict: Lenny Shutter A1 False @1335.48,1856.96 on Cliff Cottage - 1br, 2 ba",
+            "ts3fixes: watchdog idle verdict: Wogan Hemlock cache True @307.56,1495.18 on Community Lot",
+            "ts3fixes: watchdogasync shadow mismatch: Wogan Hemlock A1 True sync False @41.2,-17.85"
+          ]
+        },
+        "^ts3native 0\\.36\\.305-m1124d ": {
+          "match": [
+            "ts3native 0.36.305-m1124d 2026-11-24 13:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.303-m1124b 2026-11-25 00:30:00",
+            "ts3native 0.36.305-dmx2b-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.305-m1124d2 2026-11-24 13:40:00",
+            "ts3native 0.36.304-dmx2-1124 2026-11-24 21:30:00",
+            "ts3native 0.36.301-m1124 2026-11-24 10:52:04",
+            "ts3native 0.36.302-dmxgen1124 2026-11-24 13:00:00",
+            "ts3native 0.36.303-m1124b2 2026-11-25 00:30:00",
+            "ts3native 0.36.302-eadmxgen1124 2026-11-24 13:00:00"
+          ]
+        }
+      },
+      "fixesPackage": "game-copy/ts3fixes.package.m1124d",
+      "nativeRequire": "arStartedPlanFromPoint>=1,wdJobN>=1,arWdPass>=0",
+      "scriptErrorsReport": [
+        "CarrySystem:PutDownOnSurface[\\s\\S]*ServingContainer\\+PutAwayLeftovers:Run"
+      ]
+    }
+  ]
+}

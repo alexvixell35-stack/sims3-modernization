@@ -24,7 +24,7 @@ namespace Ts3Fixes
     // routing for a long time) the callback returns true: EA's wait is unchanged. Every Sim, household included: the
     // wait cannot succeed once the partner's half is gone (vanilla intent of the linked pair), so only the 30 dead
     // minutes go.
-    // Counters: [2703] waits ended (on), [2704] the same case seen with the switch off, [2705] errors.
+    // Counters: [3976] waits ended (on), [3977] the same case seen with the switch off, [3978] errors.
     // Check: PetPutDownWaitChecks.cs.
     public static partial class Fixes
     {
@@ -53,14 +53,14 @@ namespace Ts3Fixes
                             && (target.InteractionQueue.IsRunning(link, true) || target.InteractionQueue.HasInteraction(link));
                         bool syncing = target.SynchronizationTarget == me && target.SynchronizationLevel >= Sim.SyncLevel.Started;
                         if (!PpwEnd(true, true, true, alive, syncing)) return true;
-                        if (!ShortcutOn("petputdownwait")) { if (!counted) { counted = true; PatchCounters()[2704]++; } return true; }
-                        PatchCounters()[2703]++;
+                        if (!ShortcutOn("petputdownwait")) { if (!counted) { counted = true; PatchCounters()[3977]++; } return true; }
+                        PatchCounters()[3976]++;
                         return false;
                     }
-                    catch (Exception) { PatchCounters()[2705]++; return true; }
+                    catch (Exception) { PatchCounters()[3978]++; return true; }
                 };
             }
-            catch (Exception) { PatchCounters()[2705]++; return null; }
+            catch (Exception) { PatchCounters()[3978]++; return null; }
         }
     }
 }

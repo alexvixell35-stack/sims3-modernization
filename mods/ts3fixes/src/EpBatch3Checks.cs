@@ -39,7 +39,7 @@ namespace Ts3Fixes
                 EpLive(typeof(BEp3FtHook), 1, "kBasePsychicReadingChances", sFtBase, typeof(float[]), "kBasePsychicReadingChances read", sFtBase, "static",
                     "kMaxScamArtistPsychicReadingChances", sFtScam, typeof(float[]), "kMaxScamArtistPsychicReadingChances read", sFtScam, "static",
                     "kMaxMysticPsychicReadingChances", sFtMystic, typeof(float[]), "kMaxMysticPsychicReadingChances read", sFtMystic, "static"));
-            string counters = B582Counters("fortunetellerscamodds", 1478, new[] { "scam rows rebuilt", "shared rows with switch off", "errors" }, miss);
+            string counters = B582Counters("fortunetellerscamodds", 3911, new[] { "scam rows rebuilt", "shared rows with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "fortunetellerscamodds <run|result>";
             bool on = ShortcutOn("fortunetellerscamodds");
@@ -58,7 +58,7 @@ namespace Ts3Fixes
             for (int i = 0; i < 3; i++)
                 miss = EpJoin(miss, EpLive(hooks[i], 1, sCgTypes[i].Name + ".sSkillVsSaleChanceCurve", sCsCurve[i], typeof(Curve), sCgTypes[i].Name + ".sSkillVsSaleChanceCurve read", sCsCurve[i], "static",
                     sCgTypes[i].Name + ".kSaleProbabilitySkillXValues", sCsX[i], typeof(float[]), sCgTypes[i].Name + ".kSaleProbabilitySkillYValues", sCsY[i], typeof(float[])));
-            string counters = B582Counters("consignmentskillcurve", 1481, new[] { "curves rebuilt", "frequency curve with switch off", "errors" }, miss);
+            string counters = B582Counters("consignmentskillcurve", 3914, new[] { "curves rebuilt", "frequency curve with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "consignmentskillcurve <run|result>";
             bool on = ShortcutOn("consignmentskillcurve");
@@ -81,7 +81,7 @@ namespace Ts3Fixes
                 if (i > 0) t.AddRange(new object[] { kStData[i] + ".IsRotatable", sStRotatable[i], typeof(bool) });  // magic-hour rotation (PotionShop, BotShop)
                 miss = EpJoin(miss, EpLive(hooks[i], i == 0 ? 1 : 2, t.ToArray()));
             }
-            string counters = B582Counters("consignmentstockleak", 1484, new[] { "objects destroyed", "leaked with switch off", "errors" }, miss);
+            string counters = B582Counters("consignmentstockleak", 3917, new[] { "objects destroyed", "leaked with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "consignmentstockleak <run|result>";
             bool on = ShortcutOn("consignmentstockleak");
@@ -94,7 +94,7 @@ namespace Ts3Fixes
         public static object HerbQualityFloorCheck(string what)
         {
             string miss = EpLive(typeof(BEp3HqHook), 1);
-            string counters = B582Counters("herbqualityfloor", 1487, new[] { "decreases floored", "below floor with switch off", "errors" }, miss);
+            string counters = B582Counters("herbqualityfloor", 3920, new[] { "decreases floored", "below floor with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "herbqualityfloor <run|result>";
             bool on = ShortcutOn("herbqualityfloor");
@@ -106,7 +106,7 @@ namespace Ts3Fixes
         public static object SnackBowlSlobVfxCheck(string what)
         {
             string miss = EpJoin(EpMiss("SnackBowl+HaveSomeSnack", sSbSnack), EpLive(typeof(BEp3SbHook), 1, "SnackBowl+HaveSomeSnack", sSbSnack, typeof(InteractionInstance)));
-            string counters = B582Counters("snackbowlslobvfx", 1490, new[] { "one-shots fired", "leaked with switch off", "errors" }, miss);
+            string counters = B582Counters("snackbowlslobvfx", 3923, new[] { "one-shots fired", "leaked with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "snackbowlslobvfx <run|result>";
             bool on = ShortcutOn("snackbowlslobvfx");
@@ -118,7 +118,7 @@ namespace Ts3Fixes
         public static object WorldPondSkateTestCheck(string what)
         {
             string miss = EpJoin(EpMiss("WorldPond.mSkatingAreas", sWpAreas), EpLive(typeof(BEp3WpHook), 1, "WorldPond.mSkatingAreas", sWpAreas, typeof(List<WorldPondSkatingArea>)));
-            string counters = B582Counters("worldpondskatetest", 1493, new[] { "skate entries refused", "offered against test with switch off", "errors" }, miss);
+            string counters = B582Counters("worldpondskatetest", 3926, new[] { "skate entries refused", "offered against test with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "worldpondskatetest <run|result>";
             bool on = ShortcutOn("worldpondskatetest");
@@ -130,7 +130,7 @@ namespace Ts3Fixes
         public static object PingPongOpponentCheck(string what)
         {
             string miss = EpLive(typeof(BEp3PpHook), 2);
-            string counters = B582Counters("pingpongopponent", 1496, new[] { "Sims removed", "non-players with switch off", "errors" }, miss);
+            string counters = B582Counters("pingpongopponent", 3929, new[] { "Sims removed", "non-players with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "pingpongopponent <run|result>";
             bool on = ShortcutOn("pingpongopponent");
@@ -142,7 +142,7 @@ namespace Ts3Fixes
         public static object MermaidDehydrateLookCheck(string what)
         {
             string miss = EpJoin(EpMiss("OccultMermaid+Dehydrate", sMdType), EpLive(typeof(BEp3MdHook), 1, "OccultMermaid+Dehydrate", sMdType, typeof(InteractionInstance)));
-            string counters = B582Counters("mermaiddehydratelook", 1500, new[] { "look-ats re-enabled", "left disabled with switch off", "errors" }, miss);
+            string counters = B582Counters("mermaiddehydratelook", 3932, new[] { "look-ats re-enabled", "left disabled with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "mermaiddehydratelook <run|result>";
             bool on = ShortcutOn("mermaiddehydratelook");
@@ -154,7 +154,7 @@ namespace Ts3Fixes
         public static object MeteorMagnetOrphanCheck(string what)
         {
             string miss = EpJoin(EpMiss("AttractSpaceObject.mMeteoriteFragment", sMmFrag), EpLive(typeof(BEp3MmHook), 1, "AttractSpaceObject.mMeteoriteFragment", sMmFrag, typeof(IGameObject)));
-            string counters = B582Counters("meteormagnetorphan", 1503, new[] { "fragments destroyed", "leaked with switch off", "errors" }, miss);
+            string counters = B582Counters("meteormagnetorphan", 3935, new[] { "fragments destroyed", "leaked with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "meteormagnetorphan <run|result>";
             bool on = ShortcutOn("meteormagnetorphan");
@@ -168,7 +168,7 @@ namespace Ts3Fixes
             string miss = EpJoin(EpMiss("DaycareWorkdaySituation+RemoveChildHelper", sDcHelper, "mSituation", sDcSit, "mChildSimDescId", sDcId, "mForceRemove", sDcForce, "mChildMonitors", sDcMonitors),
                 EpLive(typeof(BEp3DcHook), 1, "mSituation", sDcSit, typeof(DaycareWorkdaySituation), "mChildSimDescId", sDcId, typeof(ulong),
                     "mForceRemove", sDcForce, typeof(bool), "mChildMonitors", sDcMonitors, typeof(IDictionary)));
-            string counters = B582Counters("daycarelatealarm", 1506, new[] { "stale alarms skipped", "would throw with switch off", "errors" }, miss);
+            string counters = B582Counters("daycarelatealarm", 3938, new[] { "stale alarms skipped", "would throw with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "daycarelatealarm <run|result>";
             bool on = ShortcutOn("daycarelatealarm");
@@ -181,7 +181,7 @@ namespace Ts3Fixes
         public static object BoxOfMysteryWooHooCheck(string what)
         {
             string miss = EpJoin(EpLive(typeof(BEp3BmHook), 1), EpLive(typeof(BEp3BmPostHook), 1));
-            string counters = B582Counters("boxofmysterywoohoo", 1509, new[] { "failed woohoos, no roll", "rolled after failure with switch off", "errors" }, miss);
+            string counters = B582Counters("boxofmysterywoohoo", 3941, new[] { "failed woohoos, no roll", "rolled after failure with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "boxofmysterywoohoo <run|result>";
             bool on = ShortcutOn("boxofmysterywoohoo");
@@ -196,7 +196,7 @@ namespace Ts3Fixes
                 EpJoin(EpLive(typeof(BEp3BsHook), 1, "BodySculptor+ChangeShape", sBsShape, typeof(InteractionInstance), "ChangeShape+ItemDefinition.mOption", sBsOption, typeof(int),
                         "ChangeShape.mFailure", sBsFailure, typeof(bool), "BodySculptor.mPowerLevel", sBsPower, typeof(int)),
                     EpLive(typeof(BEp3BsDescHook), 1)));
-            string counters = B582Counters("bodysculptorweight", 1512, new[] { "weights corrected", "mirrored with switch off", "errors" }, miss);
+            string counters = B582Counters("bodysculptorweight", 3944, new[] { "weights corrected", "mirrored with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "bodysculptorweight <run|result>";
             bool on = ShortcutOn("bodysculptorweight");
@@ -210,7 +210,7 @@ namespace Ts3Fixes
         {
             string miss = EpJoin(EpMiss("ConsignmentRegister+ConsignmentRegisterData", sNvData, "mParameters", sNvParams),
                 EpLive(typeof(BEp3NvHook), 1, "ConsignmentRegisterData.mParameters", sNvParams, typeof(string[])));
-            string counters = B582Counters("nectarconsignvalue", 1515, new[] { "values re-rolled", "minimum with switch off", "errors" }, miss);
+            string counters = B582Counters("nectarconsignvalue", 3947, new[] { "values re-rolled", "minimum with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "nectarconsignvalue <run|result>";
             bool on = ShortcutOn("nectarconsignvalue");
@@ -225,7 +225,7 @@ namespace Ts3Fixes
                 EpJoin(EpLive(typeof(BEp3GnHook), 1, "StrayWildlifeGnome+DisallowStrayWildlife", sGnRun, typeof(InteractionInstance),
                         "DisallowStrayWildlife+Definition", sGnDef, typeof(InteractionDefinition), "Definition.mDisallowType", sGnType, typeof(StrayWildlifeGnome.DisallowType)),
                     EpLive(typeof(BEp3GnTnsHook), 1)));
-            string counters = B582Counters("straygnometns", 1518, new[] { "runs with right notice", "stale notices with switch off", "errors" }, miss);
+            string counters = B582Counters("straygnometns", 3950, new[] { "runs with right notice", "stale notices with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "straygnometns <run|result>";
             bool on = ShortcutOn("straygnometns");

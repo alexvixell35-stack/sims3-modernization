@@ -19,10 +19,10 @@ namespace Ts3Fixes
     // EP batch 6 (docs/587 §12): tranche 5 (scanner rank, the next 120 unread EP types) and parked EP5 items. Every switch
     // off by default; all household-visible. Checks: EpBatch6Checks.cs. Three counter slots each: fixed / seen with the
     // switch off / errors. Slots from 1609 (block fixes-1600).
-    //   floorswitchuselist   [1609] FloorSwitch+StandOn.Cleanup: base cleanup skipped, Sim left on the switch's use list
-    //   donationbuffchance   [1612] BuffGiggleFits / BuffPlasmaticPlatitudes: inverted percent roll (85% instead of 15%)
-    //   vampirefruitsnack    [1615] VampireFruit.EatEffects: Sanguine Snack needs > Outstanding instead of >=
-    //   fallenrockcollected  [1618] FallenRock.RockTimeoutCallback: an imported meteorite's untracked timer destroys it
+    //   floorswitchuselist   [3334] FloorSwitch+StandOn.Cleanup: base cleanup skipped, Sim left on the switch's use list
+    //   donationbuffchance   [3337] BuffGiggleFits / BuffPlasmaticPlatitudes: inverted percent roll (85% instead of 15%)
+    //   vampirefruitsnack    [3340] VampireFruit.EatEffects: Sanguine Snack needs > Outstanding instead of >=
+    //   fallenrockcollected  [3343] FallenRock.RockTimeoutCallback: an imported meteorite's untracked timer destroys it
     public static partial class Fixes
     {
         static void ApplyEpBatch6()
@@ -53,11 +53,11 @@ namespace Ts3Fixes
                     if (actor == null || plate == null || plate.HasBeenDestroyed) return;
                     bool on = ShortcutOn("floorswitchuselist");
                     bool still = plate.IsActorUsingMe(actor);
-                    if (CuRemove(on, still)) { plate.RemoveFromUseList(actor); PatchCounters()[1609]++; }
-                    else if (!on && still) PatchCounters()[1610]++;
+                    if (CuRemove(on, still)) { plate.RemoveFromUseList(actor); PatchCounters()[3334]++; }
+                    else if (!on && still) PatchCounters()[3335]++;
                 }
                 catch (ResetException) { throw; }
-                catch (Exception) { PatchCounters()[1611]++; }
+                catch (Exception) { PatchCounters()[3336]++; }
             }
             public void CleanupOrig() { } // FloorSwitch+StandOn.Cleanup
         }
@@ -79,7 +79,7 @@ namespace Ts3Fixes
         {
             float roll = RandomUtil.GetFloat(100f);
             bool fires = DbFires(on, roll, chance);
-            if (fires != DbFires(false, roll, chance)) PatchCounters()[1612]++;
+            if (fires != DbFires(false, roll, chance)) PatchCounters()[3337]++;
             return fires;
         }
 
@@ -89,7 +89,7 @@ namespace Ts3Fixes
             {
                 // A copy of EA's whole DoGiggleFit: runs only with the switch on (off: EA's body as is, counted per roll).
                 bool on = ShortcutOn("donationbuffchance");
-                if (!on) { PatchCounters()[1613]++; GiggleOrig(); return; }
+                if (!on) { PatchCounters()[3338]++; GiggleOrig(); return; }
                 BuffGiggleFits.BuffInstanceGiggleFits b = (BuffGiggleFits.BuffInstanceGiggleFits)(object)this;
                 if (DbRoll(on, BuffGiggleFits.PercentageChanceOfFit))  // changed: < instead of >=
                 {
@@ -104,7 +104,7 @@ namespace Ts3Fixes
             public void FaintHook()
             {
                 bool on = ShortcutOn("donationbuffchance");   // copy of EA's whole Faint, as GiggleHook
-                if (!on) { PatchCounters()[1613]++; FaintOrig(); return; }
+                if (!on) { PatchCounters()[3338]++; FaintOrig(); return; }
                 BuffPlasmaticPlatitudes.BuffInstancePlasmaticPlatitudes b = (BuffPlasmaticPlatitudes.BuffInstancePlasmaticPlatitudes)(object)this;
                 if (DbRoll(on, BuffPlasmaticPlatitudes.PercentageChanceOfFainting))  // changed: < instead of >=
                 {
@@ -145,14 +145,14 @@ namespace Ts3Fixes
                     Sims3.Gameplay.CAS.SimDescription sd = sim == null ? null : sim.SimDescription;
                     buffed = sd != null && sd.IsVampire && sd.YoungAdultOrAbove && (sim.TraitManager.HasElement(TraitNames.Vegetarian) || quality >= sated);
                 }
-                catch (Exception) { PatchCounters()[1617]++; EatOrig(sim, quality); return; }
+                catch (Exception) { PatchCounters()[3342]++; EatOrig(sim, quality); return; }
                 if (!buffed || quality != snack) { EatOrig(sim, quality); return; }  // only the == case differs, equal in both states
                 bool on = ShortcutOn("vampirefruitsnack");
-                if (!VfSnack(on, (int)quality, (int)snack)) { if (!on) PatchCounters()[1616]++; EatOrig(sim, quality); return; }
+                if (!VfSnack(on, (int)quality, (int)snack)) { if (!on) PatchCounters()[3341]++; EatOrig(sim, quality); return; }
                 // EA's body for a buffed adult vampire, with the Snack pick at >= (changed: >= instead of >)
                 sim.Motives.SetMax(CommodityKind.VampireThirst);
                 sim.BuffManager.AddElement(BuffNames.SanguineSnack, Origin.FromEatingVampireFruit);
-                PatchCounters()[1615]++;
+                PatchCounters()[3340]++;
                 EventTracker.SendEvent(EventTypeId.kEatVampireFruit, sim);
             }
             public static void EatOrig(Sim sim, Quality quality) { } // VampireFruit.EatEffects
@@ -182,10 +182,10 @@ namespace Ts3Fixes
                 {
                     bool on = ShortcutOn("fallenrockcollected");
                     bool collected = (bool)sFrCollected.GetValue(this);
-                    if (FrSkip(on, collected)) { PatchCounters()[1618]++; return; }
-                    if (!on && collected) PatchCounters()[1619]++;
+                    if (FrSkip(on, collected)) { PatchCounters()[3343]++; return; }
+                    if (!on && collected) PatchCounters()[3344]++;
                 }
-                catch (Exception) { PatchCounters()[1620]++; }
+                catch (Exception) { PatchCounters()[3345]++; }
                 TimeoutOrig();
             }
             public void TimeoutOrig() { } // FallenRock.RockTimeoutCallback

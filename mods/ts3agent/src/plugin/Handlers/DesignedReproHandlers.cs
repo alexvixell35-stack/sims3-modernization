@@ -152,21 +152,36 @@ namespace Ts3Agent
                 ScavengerOpportunity proto = OpportunityManager.GetStaticOpportunity(n) as ScavengerOpportunity;
                 if (proto == null) continue;
                 tried++;
-                List<string> need = new List<string>();
-                if (proto.SharedData != null && proto.SharedData.mRequiredItems != null)
-                    foreach (Opportunity.OpportunitySharedData.RequiredItem ri in proto.SharedData.mRequiredItems)
-                        need.Add(ri.mTargetInteractionItemRequiredType + " " + ri.mTargetInteractionItemData + " x" + ri.mTargetInteractionNumberItemsRequired);
-                needs.Add(n + ": " + string.Join("; ", need.ToArray()));
                 ScavengerOpportunity opp = proto.Clone() as ScavengerOpportunity;
                 if (opp == null) continue;
+                // The static shared data holds number required 0 (rerun3: "x0"): EA's OpportunityManager.SetupTargetItemsRequired
+                // rolls it from Min..Max only when the opportunity is given to a Sim, so OnAdded on a bare clone never spawns.
+                // Force it above everything the world still holds (the clear keeps household-lot items) for this one call and
+                // restore it after: the shared data is shared with any live opportunity of that kind, a household Sim's too.
+                List<Opportunity.OpportunitySharedData.RequiredItem> items = proto.SharedData != null ? proto.SharedData.mRequiredItems : null;
+                int[] oldNum = new int[items != null ? items.Count : 0];
+                List<string> need = new List<string>();
                 bool threw = false, oldYd = Simulator.YieldingDisabled;
                 try
                 {
+                    for (int i = 0; i < oldNum.Length; i++)
+                    {
+                        Opportunity.OpportunitySharedData.RequiredItem ri = items[i];
+                        oldNum[i] = ri.mTargetInteractionNumberItemsRequired;
+                        ri.mTargetInteractionNumberItemsRequired = Math.Max(ri.mTargetInteractionNumberItemsRequiredMax, 1) + leftGem + leftMetal + leftInsect;
+                        need.Add(ri.mTargetInteractionItemRequiredType + " " + ri.mTargetInteractionItemData + " x" + oldNum[i] + " (min " + ri.mTargetInteractionNumberItemsRequiredMin
+                            + ", max " + ri.mTargetInteractionNumberItemsRequiredMax + ", forced " + ri.mTargetInteractionNumberItemsRequired + ")");
+                    }
                     Simulator.YieldingDisabled = true;
                     opp.OnAdded();
                 }
                 catch (Exception e) { threw = true; r["error"] = DescribeError(e); }
-                finally { Simulator.YieldingDisabled = oldYd; }
+                finally
+                {
+                    Simulator.YieldingDisabled = oldYd;
+                    for (int i = 0; i < oldNum.Length; i++) items[i].mTargetInteractionNumberItemsRequired = oldNum[i];
+                }
+                needs.Add(n + ": " + string.Join("; ", need.ToArray()));
                 int spawned = 0;
                 List<ObjectGuid> objs = added.GetValue(opp) as List<ObjectGuid>;
                 if (objs != null)
@@ -183,7 +198,7 @@ namespace Ts3Agent
                 DrExpect(r, a.Str("expect", null), threw);
                 return r;
             }
-            throw new McpException("N/A: none of " + tried + " scavenger opportunities spawned anything after clearing " + removed + " of " + loose.Count + " loose items (kept: " + keptHousehold + " on household lots, " + keptInventory + " in inventories, " + keptHeld + " held; left " + r["left"] + "; needs " + string.Join(" | ", needs.ToArray()) + ")");
+            throw new McpException("N/A: none of " + tried + " scavenger opportunities spawned anything " + (doClear ? "after clearing " + removed + " of " + loose.Count + " loose items (kept: " + keptHousehold + " on household lots, " + keptInventory + " in inventories, " + keptHeld + " held; " : "(clear skipped in this call; ") + "left " + r["left"] + "; needs " + string.Join(" | ", needs.ToArray()) + ")");
         }
 
         // velvet_bouncer {lot?}: docs/170 §5 bouncerskip repro setup. Finds a velvet rope (IVelvetRopes; BP clubs), forces the

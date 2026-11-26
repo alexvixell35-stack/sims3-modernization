@@ -1,0 +1,82 @@
+{
+ "note": "rc1119-smoke-mcname3-1119 (2026-11-19): detector round 3 for the rc-1118n crash at McCall+0x42 (Run resumes one word late after DoLoop). Same job as rc1119-smoke-rc-1118n on ts3native.asi.mcname3-1119 with [MonoDiag] YieldDiag=1: lines \"yielddiag resume: ... SUSPECT\" (resume #0 = cells from the save) and \"yielddiag retransform: ...\". Expected: CRASH with those lines.",
+ "jobs": [
+  {
+   "id": "bp-rc1119-smoke-mcname3",
+   "note": "[rc-1119 set smoke, version 0.36.287-rc1118n] [natural play, no cheats] master-1117c (0.36.271-mc1117) smoke, Baseline-BP-Spring: Dalexlol batch switches ON; version, LostRemovalFix, GhostSweep=2 and RemovalFirst=1 read back, 0 script errors.",
+   "asi": "game-copy/ts3native.asi.mcname3-1119",
+   "pinReason": "[detector 2026-11-19: asi game-copy/ts3native.asi.mcname3-1119 (bugfix/mccall-fault-name-1119), ini + ts3fixes + agent = RC set rc-1118n]",
+   "fixesPackage": "game-copy/ts3fixes.package.rc-1118n",
+   "iniBase": "game-copy/ts3native.ini.rc-1118n",
+   "releaseDefaults": true,
+   "noiseCheck": false,
+   "stopQueueOnFail": true,
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "logRequire": {
+    "^OK   lost removal fix": 1,
+    "ghost census at world load: GhostSweep=2": 1,
+    "removal first: mode 1": 1,
+    "^ts3native 0\\.36\\.289-mcname3 ": 1,
+    "^OK   yield diag": 1
+   },
+   "save": "Baseline-BP-Spring",
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "noSamplers": true,
+     "minutes": 5
+    }
+   },
+   "timeoutMin": 15,
+   "regexCases": {
+    "^OK   lost removal fix": {
+     "match": [
+      "OK   lost removal fix: queued UpdateObjectLot records keep the lot of the call and always reach the lot map (docs/89 §16)"
+     ],
+     "noMatch": [
+      "SKIP lost removal fix: off"
+     ]
+    },
+    "ghost census at world load: GhostSweep=2": {
+     "match": [
+      "ghost census at world load: GhostSweep=2 (0 off, 1 count only, 2 remove)"
+     ],
+     "noMatch": [
+      "ghost census at world load: GhostSweep=1 (0 off, 1 count only, 2 remove)"
+     ]
+    },
+    "removal first: mode 1": {
+     "match": [
+      "footprint removal first: mode 1 parked 0 capped 0 max ticks 0"
+     ],
+     "noMatch": [
+      "footprint removal first: mode 0 parked 0 capped 0 max ticks 0"
+     ]
+    },
+    "^ts3native 0\\.36\\.289-mcname3 ": {
+     "match": [
+      "ts3native 0.36.289-mcname3 2026-11-19 01:50:00"
+     ],
+     "noMatch": [
+      "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00"
+     ]
+    },
+    "^OK   yield diag": {
+     "match": [
+      "OK   yield diag: resume ips and repeat transforms are checked ([MonoDiag] YieldDiag=1, log only)"
+     ],
+     "noMatch": [
+      "SKIP yield diag (resume cell free call 0xE5404D): call at 0x00E5404D is not a call to 0x00E535E0, nothing written"
+     ]
+    }
+   },
+   "scriptErrorsMax": 0,
+   "ini": {
+    "MonoDiag.YieldDiag": 1
+   }
+  }
+ ],
+ "rewind": "auto"
+}

@@ -39,7 +39,7 @@ namespace Ts3Agent
 
         // tick_stats (docs/599, read only): the sim-iteration interval as hitch_watch sees it (one stamp per tick of a task
         // that sleeps 0, so the gap is one full scheduler pass), but every tick, not only gaps >= min_ms: count, average, p50,
-        // p95, p99, max and ticks per wall second over a window. Histogram of 0.1 ms bins to 2 s (above: one overflow bin,
+        // p95, p99, max, ticks >= 250 ms / >= 1 s (over_250, over_1000) and ticks per wall second over a window. Histogram of 0.1 ms bins to 2 s (above: one overflow bin,
         // counted at its real value in avg and max). Frame (render-thread) time is not visible from script: frame-times.js.
         //   tick_stats {"start":true}   clears and starts      tick_stats {}   stats since start or the last reset
         //   tick_stats {"reset":true}   stats, then clears (one window per call)   tick_stats {"stop":true}
@@ -82,6 +82,8 @@ namespace Ts3Agent
                 return mMax;
             }
 
+            long Over(int bin) { long n = 0; for (int i = bin; i <= kBins; i++) n += mBins[i]; return n; }
+
             internal Dictionary<string, object> Stats(bool reset)
             {
                 Dictionary<string, object> r = Util.Obj();
@@ -96,6 +98,8 @@ namespace Ts3Agent
                     r["p95_ms"] = mN > 0 ? Pct(0.95) : 0;
                     r["p99_ms"] = mN > 0 ? Pct(0.99) : 0;
                     r["max_ms"] = Math.Round(mMax, 1);
+                    r["over_250"] = Over(2500);   // ticks >= 250 ms / >= 1 s (kit benchmark hitch counts, docs/315)
+                    r["over_1000"] = Over(10000);
                     try { r["sim_minutes"] = Math.Round(Sims3.Gameplay.Utilities.SimClock.ConvertFromTicks(Sims3.Gameplay.Utilities.SimClock.CurrentTicks - mSim0, Sims3.Gameplay.Utilities.TimeUnit.Minutes), 1); } catch (Exception) { }
                     if (reset)
                     {

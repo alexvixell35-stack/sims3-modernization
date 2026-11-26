@@ -487,15 +487,20 @@ namespace Ts3Fixes
             bool seenDry = seenExact && seenPath == AutLiveCore.Unseen.kSeenDry;
             if (!seenDry && !GuardAllow(direct)) return h.MetaOrig(c);
             LiveSearch L = null;
+            bool capped = false;
             try
             {
                 Request q = TryRequest(a, c, true);
                 L = q != null ? q.Live : null;
+                capped = q != null && q.Capped;
             }
             catch (Exception e) { PatchCounters()[121]++; AutNote("go-live request: " + e.Message); }
             if (L == null) { LiveStat(kSNotPosted); return h.MetaOrig(c); }
             double share = 0;  // consumed share of the allow-listed pairs (0 = dropped; live-use record)
             LiveStat(kSPosted);
+            // docs/321 H1: the request left objects or pairs out (fixes-1518): the worker's answer would cover a subset, so the
+            // game's own search runs, as for a worker that never answered (al[] has no cap slot: kSDropOther)
+            if (capped) { LiveAbandon(L); LiveDrop(L, kSDropOther); return h.MetaOrig(c); }
             L.Direct = direct; L.UnseenDry = sLiveDry && unseenOn && why0 == 0; L.SavedPairs = 0;
             L.SeenExact = seenExact;
             if (seenDry) L.Dry = true;  // this search only: the game's B14 runs, the C2 hook records, DryCompare after B13
@@ -511,6 +516,9 @@ namespace Ts3Fixes
                 // the game's YieldIfPossible after its own Sleep: the same two returns
                 if ((bool)fInterrupted.GetValue(a)) { fInterrupted.SetValue(a, false); LiveAbandon(L); LiveStat(kSInterrupted); return 1; }
                 if (a.Actor == null || a.Actor.HasBeenDestroyed) { LiveAbandon(L); LiveStat(kSDestroyed); return 2; }
+                // docs/205 §2.3c: paused, clock stopped or out of live mode while waiting: no worker answer is taken; the game's own
+                // search runs, as for an answer that never came (exact for every Sim; no paused frame counts toward sLiveMaxWait)
+                if (SimFrozenOrNotLive()) { uk[1738]++; if (L.Direct) uk[kCUnDropped]++; LiveAbandon(L); LiveDrop(L, kSDropOther); AutShadowNative.LiveStat(kSWaitTicks, waited); WorkerWait(a.Actor, waited); return h.MetaOrig(c); }
                 if (L.Ready) break;
                 if (waited >= sLiveMaxWait) { GuardAdd(L, 0); if (L.Direct) uk[kCUnDropped]++; LiveAbandon(L); LiveDrop(L, kSDropWait); AutShadowNative.LiveStat(kSWaitTicks, waited); WorkerWait(a.Actor, waited); return h.MetaOrig(c); }
             }
@@ -780,6 +788,9 @@ namespace Ts3Fixes
             L.SliceFrame = f;
             int[] k = PatchCounters();
             k[kCLateSlices]++;
+            // docs/205 §2.3c: a slice that starts paused, with the clock stopped or out of live mode consumes nothing: the rest
+            // of the search is the game's own B14 (the caller makes the refusal sticky), no worker answer is held across a pause
+            if (!L.Late && SimFrozenOrNotLive()) { k[1743]++; L.LateOk = false; return false; }
             int chk = 0;
             if (!L.Late && f - L.ResumeFrame >= 0 && f - L.ResumeFrame <= Instantiator.kAutLiveLateTicks)
             {
@@ -1078,7 +1089,7 @@ namespace Ts3Fixes
         // (the hourly sample's unseen actors), so per-search rates and the cadence (searches per Sim-hour) split by class.
         const int kCPushes = 566, kCNullPicks = 567, kCGoHome = 568, kCSimHours100 = 569, kCLatency0 = 570, kPicksEvery = 100;
         const int kCG8Unseen = 661, kCG8Seen = 665, kCG8UnseenHours100 = 669;  // + 0 searches, 1 pushes, 2 no-pick, 3 GoHome
-        static readonly Dictionary<object, int> sMetaStart = new Dictionary<object, int>();  // autonomy -> frame of its B13 entry
+        static readonly Dictionary<ulong, int> sMetaStart = new Dictionary<ulong, int>();  // actor ObjectId (EnqKey) -> frame of its B13 entry (docs/323 M3: no Autonomy kept alive)
         static readonly Dictionary<string, int>[] sPicks = AutLiveCore.PickGroup.NewTables();
         static float sG8Hours = -1f;
         static int sPushN;
@@ -1136,8 +1147,9 @@ namespace Ts3Fixes
         static void MetaStart(AutonomyT a)
         {
             if (!sLiveMode) return;
-            if (sMetaStart.Count > 256) sMetaStart.Clear();  // searches that never reached the push (destroyed Sims) keep no autonomy alive
-            sMetaStart[a] = AutShadowNative.Config(19);
+            if (sMetaStart.Count > 256) sMetaStart.Clear();  // searches that never reached the push (destroyed Sims)
+            ulong mk = EnqKey(a);
+            if (mk != 0) sMetaStart[mk] = AutShadowNative.Config(19);
         }
 
         static void G8Note(AutonomyT a, InteractionInstance best, bool pushed)
@@ -1154,12 +1166,13 @@ namespace Ts3Fixes
                 k[kCG8UnseenHours100] += (int)(nu * (h - sG8Hours) * 100f);
                 sG8Hours = h;
             }
-            int f0;
+            int f0 = 0;
             // before QueueNote clears sExactAut; the PushHook clears sDirectInst after this call
             int path = best != null && ReferenceEquals(best, sDirectInst) ? AutLiveCore.PickGroup.kDirect
                 : ReferenceEquals(sExactAut, a) ? AutLiveCore.PickGroup.kExact : AutLiveCore.PickGroup.kGame;
-            bool timed = sMetaStart.TryGetValue(a, out f0);
-            if (timed) sMetaStart.Remove(a);
+            ulong mk = EnqKey(a);
+            bool timed = mk != 0 && sMetaStart.TryGetValue(mk, out f0);
+            if (timed) sMetaStart.Remove(mk);
             Sim actor = a.Actor;
             int wc = SafeUfWhy(actor), cls = wc == 0 ? kCG8Unseen : kCG8Seen;
             k[cls]++;
@@ -1212,6 +1225,7 @@ namespace Ts3Fixes
         {
             public static void AddHook(AutonomyT a)
             {
+                if (a != null && ShortcutOn("hhsearchprobe") && !OnWorker()) HhSearchEnqueued(a);  // docs/277 §5 item 3 (HhSearchProbe.cs), read-only
                 try
                 {
                     if (sLiveMode && a != null)
@@ -1231,7 +1245,11 @@ namespace Ts3Fixes
         {
             public bool PushHook(InteractionInstance best)
             {
+                // docs/276 §2.3 A household search-rate probe (HhSearchProbe.cs): queue head read before the push, note after
+                bool hhProbe = ShortcutOn("hhsearchprobe") && !OnWorker();
+                int hhBusy = hhProbe && best != null ? HhBusyKind((AutonomyT)(object)this) : HhSearchRec.kBusyNone;
                 bool r = PushOrig(best);
+                if (hhProbe) HhSearchNote((AutonomyT)(object)this, best, r, hhBusy);
                 if (ShortcutOn("autlastsearch")) LastSearchNote(((AutonomyT)(object)this).Actor, best, r);
                 // Mode 3 only: the hook is in every package since O6, and G8Note walks every Sim each sim-hour
                 try { if (sLiveMode) G8Note((AutonomyT)(object)this, best, r); } catch (Exception) { PatchCounters()[121]++; }
@@ -1303,6 +1321,8 @@ namespace Ts3Fixes
                 L.SliceFrame = f;
                 if (L.Pace.Forced) k[kCUnPaceForced]++;
                 L.Pace.Slice();
+                // docs/205 §2.3c: a later slice that starts frozen or not live: the rest of the search is the game's B14
+                if (!L.Snapped && f != L.ResumeFrame && SimFrozenOrNotLive()) { L.Snapped = true; k[1743]++; }
                 if (!L.Snapped && f != L.ResumeFrame && !AutLiveCore.Unseen.Stay(SafeUfWhy(L.Actor))) { L.Snapped = true; k[kCUnSnapSlice]++; }
             }
             if (L.Snapped) { k[kCUnObjGame]++; B14Timed(L, m, c, h, kCLateGameUs); return; }

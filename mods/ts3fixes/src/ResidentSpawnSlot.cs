@@ -27,8 +27,8 @@ namespace Ts3Fixes
     // cleared at each plan) is one the resident passes by CommonDoor's lock rules, the spot counts as routable. Hidden-room
     // doors, one-way doors, Nobody / VIPRoom locks and door types with their own rules (not a plain CommonDoor lock) count
     // as blocking. Any other failure (no path at all) stays a failure. The selected Sim itself is never routed, moved or
-    // changed; only where the NPC appears. Counters: [1195] spots accepted for the resident, [1196] re-judged with the
-    // switch off (would accept), [1197] failures kept (a door the resident cannot pass either), [1198] errors.
+    // changed; only where the NPC appears. Counters: [2882] spots accepted for the resident, [2883] re-judged with the
+    // switch off (would accept), [2884] failures kept (a door the resident cannot pass either), [2885] errors.
     public static partial class Fixes
     {
         static readonly FieldInfo sRsOwnerList = typeof(CommonDoor).GetField("mOwnerList", kInstAll);
@@ -116,11 +116,11 @@ namespace Ts3Fixes
                     bool allPass = true;
                     foreach (Door door in locked) if (door == null || !RsDoorPasses(door, d)) { allPass = false; break; }
                     bool on = ShortcutOn("residentspawnslot");
-                    PatchCounters()[!allPass ? 1197 : on ? 1195 : 1196]++;
+                    PatchCounters()[!allPass ? 2884 : on ? 2882 : 2883]++;
                     if (RsDecide(on, ok, n, allPass)) return true;
                 }
             }
-            catch (Exception) { PatchCounters()[1198]++; }
+            catch (Exception) { PatchCounters()[2885]++; }
             return RsWalk(sim, d, lot, pos);
         }
 
@@ -137,8 +137,8 @@ namespace Ts3Fixes
         // opens it (public residential room, adult human); a Door is open when the resident passes its lock
         // (RsDoorPasses: hidden rooms, one-way, Nobody / VIPRoom and own-rule doors block); any other portal is closed.
         // Reaching an outside room accepts the point; EA's own public-residential test on the slot still follows. Only
-        // where the NPC appears changes; never for a resident of the active household. Counters: [1255] points accepted by
-        // the walk, [1256] would accept with the switch off, [1257] errors.
+        // where the NPC appears changes; never for a resident of the active household. Counters: [3648] points accepted by
+        // the walk, [3649] would accept with the switch off, [3650] errors.
         // Pure: is an elevator open to the resident? (EA's CanTravelInElevator for a non-service NPC of a virtual lot)
         internal static bool RsElevatorOpen(bool virtualLot, bool publicResidentialRoom, bool adultHuman)
         {
@@ -167,13 +167,13 @@ namespace Ts3Fixes
                     Door door = p as Door;
                     return door != null && RsDoorPasses(door, d);
                 }, out rooms);
-                if (reaches == null) { PatchCounters()[1257]++; return false; }
+                if (reaches == null) { PatchCounters()[3650]++; return false; }
                 if (!reaches.Value) return false;
                 bool on = ShortcutOn("residentspawnwalk");
-                PatchCounters()[on ? 1255 : 1256]++;
+                PatchCounters()[on ? 3648 : 3649]++;
                 return RsWalkDecide(on, false, false, true);
             }
-            catch (Exception) { PatchCounters()[1257]++; return false; }
+            catch (Exception) { PatchCounters()[3650]++; return false; }
         }
 
         // Wiring from FewerPlans: with the switch on and a resident being placed, the selected Sim's check skips the verdict
@@ -189,21 +189,20 @@ namespace Ts3Fixes
         // Review 2026-11-15: EA tests the resident's own door slot with `lot.LotLocationIsPublicResidential`, the CALLER's
         // lot (a phone invite passes the inviter's lot, also Annex / School / ShowStage), although the slot is on the
         // resident's VirtualLotHome, so an invited resident never spawns at its own door. `lot` is used nowhere else once
-        // VirtualLotHome is set, so with the switch on the method receives VirtualLotHome. Never for the active household.
-        // Counted in [1195] / [1196].
-        internal static bool RsUseHome(bool on, bool hasHome, bool sameLot, bool household) { return on && hasHome && !sameLot && !household; }
+        // VirtualLotHome is set, so with the switch on the method receives VirtualLotHome. Every Sim, household too (docs/289, Rodney 2026-11-18).
+        // Counted in [2882] / [2883].
+        internal static bool RsUseHome(bool on, bool hasHome, bool sameLot) { return HhAuditCore.RsUseHome(on, hasHome, sameLot); }
         static Lot RsTestLot(SimDescription d, Lot lot)
         {
             try
             {
                 Lot home = d == null ? null : d.VirtualLotHome;
-                bool household = d != null && d.Household != null && d.Household == Household.ActiveHousehold;
-                if (home == null || home == lot || household || sRsMissing.Length > 0) return lot;
+                if (home == null || home == lot || sRsMissing.Length > 0) return lot;
                 bool on = ShortcutOn("residentspawnslot");
-                PatchCounters()[on ? 1195 : 1196]++;
-                return RsUseHome(on, true, false, false) ? home : lot;
+                PatchCounters()[on ? 2882 : 2883]++;
+                return RsUseHome(on, true, false) ? home : lot;
             }
-            catch (Exception) { PatchCounters()[1198]++; return lot; }
+            catch (Exception) { PatchCounters()[2885]++; return lot; }
         }
 
         public class BRsHook

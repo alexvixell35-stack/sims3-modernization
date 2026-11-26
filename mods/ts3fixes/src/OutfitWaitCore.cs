@@ -37,7 +37,7 @@ namespace Ts3Fixes
             return activeIsThis && pendingCat == helperCat && pendingIdx == helperIdx ? kCauseOwn : kCauseReplaced;
         }
 
-        // outfitwaitend (docs/601 §1): end a wait EA's loop would hold forever with EA's own instant switch. Only an own-cause
+        // outfitwaitend (docs/583 §1): end a wait EA's loop would hold forever with EA's own instant switch. Only an own-cause
         // wait (the Sim's pending outfit is still this helper's: the native swap was never reported ready) of a live NPC that
         // is off screen, past the end mark, and not inside the helper's ChangeOutfit (whose tail runs DoOutfitDelayedSwap and
         // would set the visible outfit to none after an abort). Everything else keeps EA's loop.

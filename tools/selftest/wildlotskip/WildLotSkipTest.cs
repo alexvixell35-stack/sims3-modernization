@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline self-check of WildLotSkipCore (docs/646 §3).
+// Offline self-check of WildLotSkipCore (docs/656 §8.3).
 static class WildLotSkipTest
 {
     static int sFails;

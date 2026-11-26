@@ -42,7 +42,7 @@ namespace Ts3Fixes
     //   Fix, round the game's run for a Sim in scope:
     //     - the lines are skipped (LdsQueueHook.WaitHook) while every Sim in them is in scope;
     //     - the Sim leaves the platter's use list as soon as its take begins (first SetActor of its state machine,
-    //       ActDelay.cs's hook), so the next Sim's in-use test passes and both take at once;
+    //       SmcSetActor.cs), so the next Sim's in-use test passes and both take at once;
     //     - HasFoodLeft, asked by a Sim about to take, counts servings other Sims are taking now as gone. With none
     //       left it answers false and the game's run ends as it does at an empty platter.
     //   Not exact for scope: a Sim out of scope that arrives while a Sim in scope takes finds the platter free.
@@ -397,7 +397,7 @@ namespace Ts3Fixes
             catch (Exception e) { OjsError(6, e); return false; }
         }
 
-        // StateMachineClient.SetActor (ActDelay.cs's hook, behind sOjsArmed > 0): the first one for a Sim that has passed
+        // StateMachineClient.SetActor (SmcSetActor.cs, behind sOjsArmed > 0): the first one for a Sim that has passed
         // the food test is its take. The Sim leaves the platter's use list before the animation's first yield.
         static void OjsSetActor(IHasScriptProxy actor)
         {

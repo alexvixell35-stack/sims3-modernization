@@ -116,6 +116,11 @@ if (argv[0] === '--self-check') {
   assert.equal(matchKnown(sx(hookBoat), known)?.id, 'ea-boat-getout-onto-land-sacs', 'boat SACS stack through BoatGetOutDiagHook is known');
   assert.equal(matchKnown(xml(nre, hookBoat), known), undefined, 'boat stack with an NRE (the guard case) is not known');
   assert.equal(matchKnown(sx([smc, smc, boat + 'GetOutIntoWater', ...tail]), known), undefined, 'other boat frame is not known');
+  // boat GetOutIntoWater SacsErrorException (real frames: EA-only probe-out 2026-10-19..11-09; through BoatGetOutDiagHook 2026-11-17)
+  const water = [smc, smc, boat + 'DoSpecificBoatStateMachineBehaviorOnGetOutIntoWater', boat + 'GetOutIntoWater'];
+  assert.equal(matchKnown(sx([...water, boat + 'GetOut', boat + 'GetOut', 'Sims3.Gameplay.Objects.Vehicles.Boat+GetOutOfBoat:Run', ...tail]), known)?.id, 'ea-boat-getout-into-water-sacs', 'all-EA boat water SACS stack is known');
+  assert.equal(matchKnown(sx([...water, boat + 'GetOutOrig', 'Ts3Fixes.Fixes+BoatGetOutDiagHook:GetOut', boat + 'GetOut', 'Sims3.Gameplay.Objects.Vehicles.Boat+GetOutOfBoat:Run', ...tail]), known)?.id, 'ea-boat-getout-into-water-sacs', 'boat water SACS through BoatGetOutDiagHook is known');
+  assert.equal(matchKnown(xml(nre, [...water, boat + 'GetOut', ...tail]), known), undefined, 'boat water stack with an NRE is not known');
   assert.equal(matchKnown(xml(nre, [veh[0], ...veh.slice(2), lyn + 'Run', ...run]), known), undefined, 'GetOwnedAndUsableVehicle not from CanBePreferredLeader is not known');
   // ErrorTrap deref report (real 2026-11-15 shape): known; with a stack it is judged by the stack
   const deref = '<NRaas.ErrorTrap>\n<Content>\n\n-- Correction Logs --\n\nDestroyed Object Found: Sims3.Gameplay.Objects.CookingObjects.PlateServing\n\n\n-- Dereferencing --\n\nPotential Object Found: Sims3.Gameplay.Core.SocialJigOnePerson (ID=0x1, W=False, I=False)\n  Reference Continue: Sims3.Gameplay.Roles.RolePaparazzi+FollowCelebrity mJig\n    UNHANDLED Reference: Sims3.SimIFace.World+FindGoodLocationParams PlacementCheckFunc\n\nLoaded Assemblies:\n System\n</Content>\n</NRaas.ErrorTrap>';

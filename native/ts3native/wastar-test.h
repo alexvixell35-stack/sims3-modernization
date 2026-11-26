@@ -114,6 +114,28 @@ static __declspec(naked) void __cdecl BhRun(void (* /*stub*/)(), DWORD /*bits*/,
     }
 }
 
+// FglStaleObject: the stub runs with esi = the looked-up object, edi = the id entry, ebp = a fake search frame; its exits
+// are the recorders.
+static __declspec(naked) void __cdecl FoRun(DWORD /*esi*/, const DWORD* /*edi*/, const u8* /*ebp*/) {
+    __asm {
+        push ebx
+        push esi
+        push edi
+        push ebp
+        mov esi, [esp + 20]
+        mov edi, [esp + 24]
+        mov ebp, [esp + 28]
+        mov ebx, 0x11111111
+        mov eax, 0x5A5A5A5A
+        call FoStub
+        pop ebp
+        pop edi
+        pop esi
+        pop ebx
+        ret
+    }
+}
+
 // The stub's esp is the frame below this call's return address: fields at [esp + off - 4] here are at [sp + off] there.
 static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const WORD* cur) {
     memset(g_waOut, 0, sizeof(g_waOut));
@@ -147,7 +169,7 @@ static void WaRunStub(const u8* r, DWORD chunk, DWORD wp, const u8* rec, const W
 static void TestWorldAStarRefs() {
     static_assert(offsetof(Ts3nCounters, mdOn) == 0x5520 && offsetof(Ts3nCounters, waOn) == 0x5570 &&
                       offsetof(Ts3nCounters, waSkip) == 0x5574 && offsetof(Ts3nCounters, pfSkip) == 0x5584 &&
-                      sizeof(Ts3nCounters) == 6478 * 4,
+                      sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v146 layout after v145 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
 
@@ -271,7 +293,7 @@ static void TestWorldAStarRefs() {
     assert(g_hiHits == hh0 + 1 && g_hiX[0] == inf && g_hiX[1] == 0.5f);
     g_hiBack = HI_BACK, g_hiSkip = HI_SKIP, g_hiHits = hh0;
     // BridgeHeightNaN: each site after a call to 0xB745A0 becomes jmp kBhStub[i] + 2 int3; foreign bytes or another call refused
-    static_assert(offsetof(Ts3nCounters, bhnHits) == 0x62C8 && sizeof(Ts3nCounters) == 6478 * 4,
+    static_assert(offsetof(Ts3nCounters, bhnHits) == 0x62C8 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v918 layout after the v195 placeholder (docs/registry.md)");
     for (int i = 0; i < 3; i++) {
         alignas(4) static u8 bh[12];
@@ -314,9 +336,41 @@ static void TestWorldAStarRefs() {
     assert(k.bhnHits == bh0 + 3 * (LONG)(sizeof(kBad) / sizeof(kBad[0])));
     memset(g_bhBack, 0, sizeof(g_bhBack)), memset(g_bhSkip, 0, sizeof(g_bhSkip));
     k.bhnHits = bh0, g_bhLogged = bl0;
-    printf("WorldAStarRefs: patch bytes, in-range pairs kept (moved instructions run), chunk outside the map / waypoint past "
+    // FglStaleObject: the compare's 7 bytes become jmp FoStub + 2 int3; only a NULL object takes the missing-object path
+    alignas(4) static u8 fo[7], foNul[4];
+    memcpy(fo, kFoSite, sizeof(fo)), memcpy(foNul, kFoNull, sizeof(foNul));
+    foNul[3] = 0x32;  // another NULL test: refused
+    assert(!FoPatch(fo, foNul) && fo[0] == 0x33);
+    foNul[3] = 0x31, fo[4] = 0x50;  // another frame slot: refused
+    assert(!FoPatch(fo, foNul) && fo[0] == 0x33);
+    fo[4] = 0x54;
+    assert(FoPatch(fo, foNul) && fo[0] == 0xE9 && fo[5] == 0xCC && fo[6] == 0xCC &&
+           (uintptr_t)fo + 5 + *(LONG*)(fo + 1) == (uintptr_t)&FoStub);
+    assert(!FoPatch(fo, foNul));
+    g_foBack = (DWORD)(uintptr_t)&WaTestBack, g_foNull = (DWORD)(uintptr_t)&WaTestSkip;
+    const LONG fh0 = g_foHits;
+    static DWORD foId[2] = {0x63EFEDE0, 0x320800F5};
+    alignas(4) static u8 foFrame[0x60], foObj[0x10];
+    *(u8**)(foFrame + 8) = foObj, *(DWORD*)foObj = 0x01042CA8;
+    *(LONG*)(foFrame + 0x54) = 2;
+    memset(g_waOut, 0, sizeof(g_waOut));
+    FoRun((DWORD)(uintptr_t)foObj, foId, foFrame);  // a live object, an ignore list of 2: the game's compare at 0xB11A9C
+    assert(g_waOut[0] == 1 && g_waOut[3] == 0 && g_waOut[4] == 0x11111111 && g_waOut[5] == (DWORD)(uintptr_t)foObj &&
+           g_waOut[6] == (DWORD)(uintptr_t)foId && g_foHits == fh0);
+    *(LONG*)(foFrame + 0x54) = 0;
+    memset(g_waOut, 0, sizeof(g_waOut));
+    FoRun((DWORD)(uintptr_t)foObj, foId, foFrame);  // an empty ignore list: the game's jle
+    assert(g_waOut[0] == 2 && g_waOut[3] == 0 && g_waOut[5] == (DWORD)(uintptr_t)foObj && g_foHits == fh0);
+    *(LONG*)(foFrame + 0x54) = 2;
+    memset(g_waOut, 0, sizeof(g_waOut));
+    FoRun(0, foId, foFrame);  // a deleted object: the missing-object path, logged, registers kept
+    assert(g_waOut[0] == 2 && g_waOut[3] == 0x5A5A5A5A && g_waOut[4] == 0x11111111 && g_waOut[5] == 0 &&
+           g_waOut[6] == (DWORD)(uintptr_t)foId && g_foHits == fh0 + 1);
+    g_foBack = FO_BACK, g_foNull = FO_NULL, g_foHits = fh0;
+    printf("WorldAStarRefs:patch bytes, in-range pairs kept (moved instructions run), chunk outside the map / waypoint past "
            "the chunk count / unreadable record skipped to the closed path; PortalFlagRefs: patch bytes, portal ids and lot "
            "neighbours outside R skip the blocked-flag write; HeightsInfLoop: patch bytes, only an infinite segment skips "
            "the halving loop, registers kept; BridgeHeightNaN: patch bytes, sane bridge heights kept, NaN / +-inf / 2.26e34 / "
-           "above 1e6 take the no-bridge path, x87 balanced, registers kept: ok\n");
+           "above 1e6 take the no-bridge path, x87 balanced, registers kept; FglStaleObject: patch bytes, live objects and an "
+           "empty ignore list keep the game's path, a deleted object takes the missing-object path, registers kept: ok\n");
 }

@@ -8,7 +8,7 @@ namespace Ts3Fixes
     {
         public static object BuffRemoveDelayedCheck(string what)
         {
-            string counters = B582Counters("buffremovedelayed", 1700, new[] { "live buffs removed after a pending timer", "left on the Sim (switch off)", "errors" }, sBrdMissing);
+            string counters = B582Counters("buffremovedelayed", 3034, new[] { "live buffs removed after a pending timer", "left on the Sim (switch off)", "errors" }, sBrdMissing);
             if (what == "result") return counters;
             if (what != "run") return "buffremovedelayed <run|result>";
             bool on = ShortcutOn("buffremovedelayed");
@@ -20,19 +20,19 @@ namespace Ts3Fixes
 
         public static object TvDiscListenerCheck(string what)
         {
-            string counters = B582Counters("tvdisclistener", 1703, new[] { "old listeners removed", "old listeners kept (switch off)", "errors" }, sTdMissing);
+            string counters = B582Counters("tvdisclistener", 3037, new[] { "old listeners removed", "old listeners kept (switch off)", "errors" }, sTdMissing);
             if (what == "result") return counters;
             if (what != "run") return "tvdisclistener <run|result>";
             bool on = ShortcutOn("tvdisclistener");
             int[] c = PatchCounters();
-            bool fixedNow = on && c[1705] == 0;
-            bool controls = c[1705] == 0;
+            bool fixedNow = on && c[3039] == 0;
+            bool controls = c[3039] == 0;
             return B582Line("tvdisclistener", on, "no listener error", fixedNow, "errors=0" + controls, controls, sTdMissing, counters);
         }
 
         public static object FridgeTestNullCheck(string what)
         {
-            string counters = B582Counters("fridgetestnull", 1706, new[] { "tests answered without the throw", "tests that threw (switch off)", "errors" }, sFtMissing);
+            string counters = B582Counters("fridgetestnull", 3040, new[] { "tests answered without the throw", "tests that threw (switch off)", "errors" }, sFtMissing);
             if (what == "result") return counters;
             if (what != "run") return "fridgetestnull <run|result>";
             bool on = ShortcutOn("fridgetestnull");
@@ -44,7 +44,7 @@ namespace Ts3Fixes
 
         public static object CancelPostureDefCheck(string what)
         {
-            string counters = B582Counters("cancelposturedef", 1709, new[] { "duplicate stand-ups not queued", "cancels run as EA (switch off)", "errors" }, "");
+            string counters = B582Counters("cancelposturedef", 3043, new[] { "duplicate stand-ups not queued", "cancels run as EA (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "cancelposturedef <run|result>";
             bool on = ShortcutOn("cancelposturedef");
@@ -56,7 +56,7 @@ namespace Ts3Fixes
 
         public static object FacialIdleWeightCheck(string what)
         {
-            string counters = B582Counters("facialidleweight", 1712, new[] { "lists built with float shares", "lists with a truncated share (switch off)", "errors" }, sFiMissing);
+            string counters = B582Counters("facialidleweight", 3046, new[] { "lists built with float shares", "lists with a truncated share (switch off)", "errors" }, sFiMissing);
             if (what == "result") return counters;
             if (what != "run") return "facialidleweight <run|result>";
             bool on = ShortcutOn("facialidleweight");

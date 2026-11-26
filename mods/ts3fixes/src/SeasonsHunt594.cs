@@ -30,7 +30,7 @@ namespace Ts3Fixes
     // Fix: Init and OnAddedToQueue are our copies of EA's bodies without the dead stack walk; every field is set in EA's
     // order with EA's values (private ones through reflection), so the instance is EA's with mInitStackTrace /
     // mAddedStackTrace null. Exact speedup for every Sim, household included (the fields have no reader).
-    // Counters: [1922] Init walks skipped, [1923] OnAddedToQueue walks skipped, [1924] walks run (switch off), [1925] errors
+    // Counters: [2128] Init walks skipped, [2129] OnAddedToQueue walks skipped, [2130] walks run (switch off), [2131] errors
     // (an error falls back to EA's body).
     //
     // weatherstonelistener (kWeatherStoneListener; docs/594 §2). [verified, decompiled] WeatherStone keeps the
@@ -39,8 +39,8 @@ namespace Ts3Fixes
     // summoned weather starts and stops). Dispose does not remove it, so a stone destroyed during a summon (SetToDestroy,
     // build/buy delete) leaves the listener on the tracker: it keeps the dead stone alive and its callbacks run
     // AnimateChangeWeatherStoneState on the disposed stone. Fix: Dispose removes the listener first (as every other EA
-    // object that holds one does), then runs EA's Dispose. Counters: [1926] listeners removed at Dispose, [1927] listeners
-    // left by Dispose (switch off), [1928] errors.
+    // object that holds one does), then runs EA's Dispose. Counters: [2132] listeners removed at Dispose, [2133] listeners
+    // left by Dispose (switch off), [2134] errors.
     public static partial class Fixes
     {
         const BindingFlags kIstInst = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -79,7 +79,7 @@ namespace Ts3Fixes
         {
             public void InitHook(ref InteractionInstanceParameters parameters)
             {
-                if (!IstSkip(ShortcutOn("initstacktrace"))) { PatchCounters()[1924]++; InitOrig(ref parameters); return; }
+                if (!IstSkip(ShortcutOn("initstacktrace"))) { PatchCounters()[2130]++; InitOrig(ref parameters); return; }
                 object o = this;
                 ulong id;
                 try
@@ -90,7 +90,7 @@ namespace Ts3Fixes
                     id = (ulong)sIstNextId.GetValue(null);
                     sIstNextId.SetValue(null, id + 1);
                 }
-                catch (Exception) { PatchCounters()[1925]++; InitOrig(ref parameters); return; }
+                catch (Exception) { PatchCounters()[2131]++; InitOrig(ref parameters); return; }
                 Id = id;
                 GroupId = Id;
                 InteractionObjectPair = parameters.InteractionObjectPair;
@@ -107,13 +107,13 @@ namespace Ts3Fixes
                 if (InteractionObjectPair.Tuning != null && InteractionObjectPair.Tuning.PosturePreconditions != null)
                     PosturePreconditions = new PreconditionOptions(InteractionObjectPair.Tuning.PosturePreconditions);
                 sIstSelected.SetValue(o, parameters.SelectedObjects);
-                PatchCounters()[1922]++;
+                PatchCounters()[2128]++;
             }
             public void InitOrig(ref InteractionInstanceParameters parameters) { } // InteractionInstance.Init
 
             public void AddedHook()
             {
-                if (!IstSkip(ShortcutOn("initstacktrace"))) { PatchCounters()[1924]++; AddedOrig(); return; }
+                if (!IstSkip(ShortcutOn("initstacktrace"))) { PatchCounters()[2130]++; AddedOrig(); return; }
                 // EA's OnAddedToQueue without `mAddedStackTrace = new StackTrace(1, true)`
                 IGameObject target = InteractionObjectPair.Target;
                 if (target != null)
@@ -121,7 +121,7 @@ namespace Ts3Fixes
                     target.AddToReferenceList(InstanceActor);
                     if (target.InUse) WasInUse = true;
                 }
-                PatchCounters()[1923]++;
+                PatchCounters()[2129]++;
             }
             public void AddedOrig() { } // InteractionInstance.OnAddedToQueue
         }
@@ -141,12 +141,12 @@ namespace Ts3Fixes
                         {
                             EventTracker.RemoveListener(l);
                             sWslListener.SetValue(o, null);
-                            PatchCounters()[1926]++;
+                            PatchCounters()[2132]++;
                         }
-                        else PatchCounters()[1927]++;
+                        else PatchCounters()[2133]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1928]++; }
+                catch (Exception) { PatchCounters()[2134]++; }
                 DisposeOrig();
             }
             public void DisposeOrig() { } // WeatherStone.Dispose
@@ -159,7 +159,7 @@ namespace Ts3Fixes
         // `new StackTrace(4, true)` at this depth (us) against one instance creation, as the gain per instance. Read-only.
         public static object InitStackTraceCheck(string what)
         {
-            string counters = B582Counters("initstacktrace", 1922, new[] { "Init walks skipped", "OnAddedToQueue walks skipped", "walks run (switch off)", "errors" }, "");
+            string counters = B582Counters("initstacktrace", 2128, new[] { "Init walks skipped", "OnAddedToQueue walks skipped", "walks run (switch off)", "errors" }, "");
             if (what == "result") return counters + "; " + IstTiming();
             if (what != "run") return "initstacktrace <run|result>";
             bool on = ShortcutOn("initstacktrace");
@@ -207,7 +207,7 @@ namespace Ts3Fixes
         // listener held = nothing to do; off = EA's Dispose. Live: the world's stone (if any) and its field are readable.
         public static object WeatherStoneListenerCheck(string what)
         {
-            string counters = B582Counters("weatherstonelistener", 1926, new[] { "listeners removed at Dispose", "listeners left by Dispose (switch off)", "errors" }, "");
+            string counters = B582Counters("weatherstonelistener", 2132, new[] { "listeners removed at Dispose", "listeners left by Dispose (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "weatherstonelistener <run|result>";
             bool on = ShortcutOn("weatherstonelistener");

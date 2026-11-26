@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
-    // Game-independent rule of boatroamcap (BoatRoamCap.cs, docs/642 §9). Self-check: tools/selftest/boatroamcap.
+    // Game-independent rule of boatroamcap (BoatRoamCap.cs, docs/853 §4). Self-check: tools/selftest/boatroamcap.
     // One entry per NPC driver: the streak of Boat.BoatAround runs (first run's tick, last run's tick, roams EA ran, its boat),
     // a pending ReturnToShore this fix pushed, and a back-off window after a return that failed. A streak ends when the boat
     // changes, the gap since the last run passes Tun.GapTicks, the clock went back (another save) or a return reached the shore.

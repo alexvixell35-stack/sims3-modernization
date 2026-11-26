@@ -67,10 +67,13 @@
 // --camera-pan: a slow scripted camera pan through the agent's camera_pan (8 lots around the densest one, 120 s per pass, there
 // and back) for the whole window; no window focus, no input. Off by default: the camera decides which Sims are seen (EA LOD,
 // unseen throttles), so pan runs only compare with pan runs.
+// A --repro with a camera_sweep step (docs/280): at the end the frames csv is split per sweep segment (camera-sweep-report.ts) into
+// <tag>-camsweep.json + a PASS/FAIL line; Apex's FrameTimeline.csv (frame profiler, Developer build) is copied and split too when
+// it was written during the window.
 // Output: probe-out/profile/<tag>-{600-seconds.csv,600-hitches.jsonl,600.log,upkeep.log,managed.*,simstack.jsonl,mainstack.jsonl,stuck.json,houseboats.json,
 // rng.json (seed reply, sim minutes at window start and end), activity.jsonl (every Sim's interaction per 30 s check; rng-compare.ts, then lot, at home, community lot, lowest need, routing; gate2-report.ts)}.
 import { spawn } from 'node:child_process';
-import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, copyFileSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { classify } from './shadow-compare-report.ts';
 import { lastLockWaitLineInFile } from './lock-wait-line.ts';
@@ -78,7 +81,7 @@ import { parseArgs } from 'node:util';
 import { checkRequire, mustMatchFail, nativeWindowStep, numericFields, parseRequire, stepTally } from './fixes-require.ts';
 import { checkHitchTasks, parseHitchTasks } from './hitch-tasks.ts';
 import { checkTag, parseRule } from './frame-lead.ts';
-import { isSetup, runLoop, runSteps, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
+import { HOLLOW, isSetup, runLoop, runSteps, stopLine, untilUnlocked, withRule } from './repro-loop.ts';
 import { loadStory } from './story-fuzzer.ts';
 import { parseRows, summarize as fixedWorkSummary } from './fixedwork-report.ts';
 import { abFixesClash, counterSwitches, nativeExports, nativeModeFields, nativeNames, nativeValues } from './native-switches.ts';
@@ -87,11 +90,13 @@ import { leadInCut, sliceFrames } from './session-reuse.ts';
 import { reproSave } from './repro-save.ts';
 import { focusGame, giveFocusBack } from './focus-game.ts';
 import { mayBeStuck } from './stuck-rule.ts';
-import { captureHang, clockStep, hangDir, stuckRunning, watchGame } from './game-alive.ts';
+import { captureHang, clockStep, devicePauseStep, hangDir, stuckRunning, watchGame } from './game-alive.ts';
 import { startMachineLoad, summarize } from './machine-load.ts';
 import { BIN, GAME_EXE } from './game-exe.ts';
+import { report as camSweepReport, segmentsOf, table as camSweepTable, verdict as camSweepVerdict } from './camera-sweep-report.ts';
+import { homedir } from 'node:os';
 
-const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
+const { values } = parseArgs({ options: { svcsplit: { type: 'boolean' }, tag: { type: 'string' }, minutes: { type: 'string', default: '10' }, ab: { type: 'string' }, fixedwork: { type: 'string' }, 'ab-on-first': { type: 'boolean' }, 'fixes-off': { type: 'string' }, 'fixes-on': { type: 'string' }, 'until-compares': { type: 'string' }, slice: { type: 'string', default: '2' }, taskstall: { type: 'string' }, seed: { type: 'string' }, repro: { type: 'string' }, mainstack: { type: 'string' }, inroom: { type: 'boolean' }, watchstalk: { type: 'boolean' }, 'watchstalk-worker': { type: 'boolean' }, livereads2: { type: 'boolean' }, f4b: { type: 'boolean' }, vres: { type: 'boolean' }, 'vres-dry': { type: 'string' }, 'no-samplers': { type: 'boolean' }, 'no-env': { type: 'boolean' }, 'quit-jobs': { type: 'boolean' }, 'no-env-guard': { type: 'boolean' }, 'no-prof': { type: 'boolean' }, 'no-frames': { type: 'boolean' }, 'camera-pan': { type: 'boolean' }, 'prof-opts': { type: 'string' }, travel: { type: 'string' }, 'fixes-require': { type: 'string' }, 'frame-lead': { type: 'string' }, 'hitch-tasks': { type: 'string' }, 'since-load': { type: 'string' }, 'frames-shared': { type: 'string' }, 'rewind-next': { type: 'boolean' }, 'loop-rule': { type: 'string' }, story: { type: 'string' } } });
 if (!values.tag) throw new Error('--tag required');
 const profOpts = values['prof-opts'] ? JSON.parse(values['prof-opts']) : {}; // fail before the game is touched on bad JSON
 if (values['vres-dry'] !== undefined && !/^[1-9]\d*$/.test(values['vres-dry'])) throw new Error('--vres-dry must be a positive integer');
@@ -260,7 +265,7 @@ rng.simMinutes.start = (await ag('time')).result?.minutes_total ?? null;
 // Build/Buy/CAS/Edit Town pause the clock by design (game-alive.ts clockStep): there the agent answering is the progress check
 let pauseDeclared = false; // a repro step with "pausesClock": true|false sets it (reproStep)
 const clockGuard = (async () => {
-  const st = { last: rng.simMinutes.start as number | null, misses: 0 } as Parameters<typeof clockStep>[0];
+  const st = { last: rng.simMinutes.start as number | null, misses: 0 } as Parameters<typeof clockStep>[0], dev = { misses: 0 };
   for (const end = Date.now() + secs * 1000; !stopped && Date.now() < end;) {
     await sleep(30000);
     if (env && !values['no-env-guard']) {  // keep skew sources out during the run (idempotent; only acts on winter, extreme cold or a full moon)
@@ -269,17 +274,22 @@ const clockGuard = (async () => {
     }
     const t = (await ag('time').catch(() => null))?.result ?? null;
     const sub = t && (/^Pause/i.test(t.speed) || t.minutes_total === st.last) ?(await ag('game_state').catch(() => null))?.result?.sub_state : undefined;
-    const why = clockStep(st, t, { subState: sub, declared: pauseDeclared });
+    // device pause (bit 4) fails on its own reason, also in a pause by design: only a stopped clock pays for the clock_state call
+    const cs0 = t && (/^Pause/i.test(t.speed) || t.minutes_total === st.last) ? (await ag('clock_state').catch(() => null))?.result ?? null : null;
+    const why = devicePauseStep(dev, cs0) || clockStep(st, t, { subState: sub, declared: pauseDeclared });
     if (!why) continue;
     console.log(`${stamp()} FAIL: ${why} (fail-fast guard)`);
     // pause bits, game dt, speed and window state at the trip (docs/85 §6: minimize pause = bit 2, device pause = bit 4)
     const cs = await ag('clock_state');
-    console.log(`${stamp()} clock_state at the trip: ${JSON.stringify(cs.ok ? cs.result : cs.error)}`);
+    // speed_locked: a Pause lock someone never released (st1 sweep 2026-11-17: Pause, no dialog, autopilot not blocked)
+    console.log(`${stamp()} clock_state at the trip: ${JSON.stringify(cs.ok ? cs.result : cs.error)}, speed_locked ${t?.speed_locked ?? '?'}`);
     // which modal holds the clock (title, buttons) and whether a world switch is under way (story-smoke 2026-10-23)
     const pd = await ag('pending_dialogs').catch(() => null), gs = await ag('game_state').catch(() => null);
     console.log(`${stamp()} at the trip: dialog ${JSON.stringify(pd?.ok ? pd.result : pd?.error).slice(0, 400)}; sub_state ${gs?.result?.sub_state ?? '?'}, world ${gs?.result?.load_file ?? '?'}`);
+    const transit = !!gs?.ok && !gs.result?.sub_state; // world loaded or loading, live mode never entered (a world switch that stalled)
+    if (transit) console.log(`${stamp()} at the trip: travel_state ${JSON.stringify((await ag('travel_state').catch(() => null))?.result ?? null).slice(0, 300)}`);
     // not paused and no dialog: the sim thread may be spinning; stacks + Mono frames + dump before the kill
-    if (stuckRunning(cs.ok ? cs.result : null, pd?.ok ? pd.result : null)) console.log(`${stamp()} at the trip: ${await captureHang(join(hangDir(), `clockstuck-${values.tag}`)).catch(e => `hang capture failed: ${e}`)}`);
+    if (stuckRunning(cs.ok ? cs.result : null, pd?.ok ? pd.result : null, transit)) console.log(`${stamp()} at the trip: ${await captureHang(join(hangDir(), `clockstuck-${values.tag}`)).catch(e => `hang capture failed: ${e}`)}`);
     // what the autopilot did meanwhile: a dialog answered in a loop shows here (2026-11-03: a wish dialog under the age-up dialog,
     // 210 answers in 60 s, seen only in the upkeep log)
     const ap = await ag('autopilot').catch(() => null), cl: string[] = ap?.result?.cleared ?? [];
@@ -345,11 +355,14 @@ const watchDone = side(values.watchstalk, 'watch-stalk.js', 'watchstalk', values
 const lr2Done = side(values.livereads2, 'live-reads2.js', 'livereads2');
 const f4bDone = side(values.f4b, 'f4b-reads.js', 'f4b');
 // frame-times.js lives in tools/harness; side() loads from tools/frida
-const framesOn = !values['no-frames'] && !values['no-prof'] && !values.watchstalk;
+// --rewind-next (docs/270 §37): no frames session at all, as in the rewound jobs (rewindGameProfile noFrames): a kept one refuses
+// the rewind (§36) and ending it crashed the game (bp-rewind-pilot-a 2026-11-17 00:26:05, Frida thread, 1 s after its last row)
+const framesOn = !values['no-frames'] && !values['no-prof'] && !values.watchstalk && !values['rewind-next'];
 // --frames-shared FILE (queue.ts, one per game load): the kept frames session writes the load's frames there; the first window of
 // the load starts it, later ones find it running (a second session would refuse the hooked prologue) and every window copies
 // its own span into <tag>-<secs>-frames.csv at the end (sliceFrames), so readers see one file per run as before
 const framesShared = values['frames-shared'];
+// kept in the game (79ec7db8e, after a crash at a frames unload); --rewind-next runs start none (above)
 const framesDone = side(framesOn && !(framesShared && existsSync(framesShared)), join('..', 'harness', 'frame-times.js'), 'frames', { out: (framesShared ?? `${pre}-${secs}-frames.csv`).replace(/\\/g, '/'), svcsplit: !!values.svcsplit }, true);
 // --camera-pan: the agent moves the camera from a sim-thread task (camera_pan), so the scripted pan stops while the sim is frozen;
 // a player's camera keeps moving then (docs/162 §4)
@@ -528,13 +541,18 @@ const reproStep = async (s: any) => {
   if (!r.ok && !s.optional) await reproFail(`repro step ${s.cmd} failed: ${String(r.error).split('\n')[0].slice(0, 300)}`);
   const mm = mustMatchFail(s, r); // "mustMatch": the answer must show the case happened (an "N/A" answer is not a PASS)
   if (mm) await reproFail(mm);
+  // "expectLog": true | ["<logRequire regex>", ...]: queue.ts checks those logRequire lines now and stops the job if one is missing
+  if (s.expectLog) console.log(`${stamp()} repro checkpoint ${s.expectLog === true ? '*' : JSON.stringify(s.expectLog)}`);
   return r;
 };
 const reproRun = (async () => {
-  // fixed waitS or adaptive waitUntil, then until; after the window end the steps stop at the first until (repro-loop.ts runSteps)
-  await runSteps(reproSteps, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs), log: l => console.log(`${stamp()} ${l}`) })
-    .catch((e: Error) => reproFail(`repro ${e.message}`));
+  // fixed waitS or adaptive waitUntil, then until; every wait ends at the window end, then the steps stop at the first until /
+  // waitUntil (repro-loop.ts runSteps)
+  const ran = await runSteps(reproSteps, { ag, step: reproStep, sleep, now: Date.now, halted: () => stopped || Date.now() >= at(secs), log: l => console.log(`${stamp()} ${l}`) })
+    .catch(async (e: Error) => { await reproFail(HOLLOW.test(e.message) ? e.message : `repro ${e.message}`); return -1; });
   if (story) await story.run({ ag, sleep, halted: () => stopped || Date.now() >= at(secs), pre }).catch(e => reproFail(e.message)); // household creation failed: stop the job
+  // queue.ts early logRequire check (CHECKPOINT_RE): every step ran; a loop job's lines come from the loop, so it gets none
+  if (!reproLoop && reproSteps.length && ran === reproSteps.length && !stopped) console.log(`${stamp()} repro checkpoint *end`);
   if (!reproLoop) return;
   // firings inside the first minute are excluded by the hitch classifier (bp-overwatch-ab-loop2 2026-10-23: all 20 fell in it)
   // shortcut: 65 s even in a reused session (whose start edge is only 15 s), upgrade when reuse measurement matters
@@ -574,7 +592,9 @@ async function checkStuck() {
     simSeen.set(sim.id, e);
     if (!e.reported && mayBeStuck(sim.interaction, !!sim.routing, !!sim.in_transit) && e.checks >= (sim.routing ? 3 : 6)) {
       e.reported = true;
-      stuck.push({ ...sim, checks: e.checks, shortcut: moved[sim.name] ?? false });
+      // the Sim's state when first flagged (ts3fixes StuckProbe.cs; an older package answers with an error, kept as is)
+      const pr = await ag('reflect_call', { path: 'Ts3Fixes.Fixes.StuckProbe', args: [sim.name] });
+      stuck.push({ ...sim, checks: e.checks, shortcut: moved[sim.name] ?? false, probe: pr?.ok ? pr.result : `probe failed: ${pr?.error ?? '?'}` });
     }
   }
 }
@@ -667,6 +687,21 @@ if (reproEntry.stepsRequire) { // repro step answers (fixes-require.ts stepTally
   console.log(`${stamp()} ${fails.length ? `FAIL: repro steps: ${fails.join('; ')}` : `PASS: repro steps ${reproEntry.stepsRequire}`}`);
   if (fails.length) process.exitCode = 1;
 }
+if (reproSteps.some(s => s.cmd === 'camera_sweep')) { // camera sweep split per segment (camera-sweep-report.ts, docs/280)
+  // Apex's frame profiler timeline (Developer build + queue apexProfiler): taken when written during this window
+  const apexTl = join(process.env.TS3_USER ?? join(homedir(), 'Documents', 'Electronic Arts', 'The Sims 3'), 'Apex Radiance', 'ApexRadiance_FrameTimeline.csv');
+  const tl = existsSync(apexTl) && statSync(apexTl).mtimeMs >= t0 ? `${pre}-ApexRadiance_FrameTimeline.csv` : undefined;
+  if (tl) copyFileSync(apexTl, tl);
+  try {
+    const { segs, from } = segmentsOf(existsSync(`${pre}-repro.jsonl`) ? readFileSync(`${pre}-repro.jsonl`, 'utf8') : '');
+    const rows = camSweepReport(segs, readFileSync(`${pre}-${secs}-frames.csv`, 'utf8'), tl ? readFileSync(tl, 'utf8') : undefined);
+    writeFileSync(`${pre}-camsweep.json`, JSON.stringify({ from, segs, rows, apexTimeline: tl ?? null }, null, 1));
+    console.log(camSweepTable(rows));
+    const fails = camSweepVerdict(segs, from, rows);
+    console.log(`${stamp()} ${fails.length ? `FAIL: camera sweep: ${fails.join('; ')}` : `PASS: camera sweep: ${segs.length} segments${tl ? ', Apex timeline split' : ', no Apex timeline (profiler off or public build)'}`}`);
+    if (fails.length) process.exitCode = 1;
+  } catch (e) { console.log(`${stamp()} FAIL: camera sweep report: ${(e as Error).message}`); process.exitCode = 1; }
+}
 if (values['frame-lead']) { // main-thread repro pass rule (frame-lead.ts, docs/169): frames led by the target service, lot adds
   const r = checkTag(OUT, values.tag!, parseRule(values['frame-lead']));
   console.log(`${stamp()} ${r.fails.length ? `FAIL: frame lead: ${r.fails.join('; ')}` : `PASS: frame lead: ${r.line}`}`);
@@ -692,7 +727,11 @@ if (reproLoop && slices.length) { // the last firing's end snapshot, then the ar
   writeFileSync(`${pre}-ab.json`, JSON.stringify({ names: [`loop:${values.repro}`], loop: true, slices }, null, 1));
 }
 writeFileSync(`${pre}-stuck.json`, JSON.stringify(stuck, null, 1));
-if (stuck.length) await reproSave(ag, values.tag!, stuck);
+// the agent's async tasks, started and ended (a "started" with no "->" line ran past the end; abip 2026-11-18 hitch confound)
+await ag('async_log').then(r => writeFileSync(`${pre}-asynclog.json`, JSON.stringify(r?.result ?? r, null, 1))).catch(() => {});
+// no save in a run the next job rewinds: it writes files and makes window-system objects the rewind cannot put back (docs/270 §36)
+if (stuck.length && values['rewind-next']) console.log(`${stamp()} repro save skipped (--rewind-next: the game is rewound after this run); stuck Sims in ${pre}-stuck.json`);
+else if (stuck.length) await reproSave(ag, values.tag!, stuck);
 console.log(`${stamp()} stuck Sims: ${stuck.length}${stuck.length ? ` (${stuck.map(x => `${x.name}${x.shortcut ? ` [teleported: ${x.shortcut}]` : ''} on ${x.interaction}`).join('; ')})` : ''}`);
 if (boats0.length) {
   const boats1 = (await ag('houseboats')).result ?? [];

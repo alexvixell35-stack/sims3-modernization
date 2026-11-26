@@ -337,3 +337,5 @@ Queues: `tools/harness/queues/mono-offload-correctness-1115.json` (Mode R dry + 
 **Cause** [inferred, not verified]: after the §12 pick scope, unseen non-household Sims with a pickable env update are too few on Bridgeport for the apply to fire (§12 "Expected" stop rule). No per-Sim trace confirms it.
 
 **Reopen when** a design explains why env apply never fires on Bridgeport (a per-Sim trace of ready / picked / refused-by-scope / aborted, or a different source of unseen work), with a prediction of `applied` in the hundreds per 10 min.
+
+**Cause found 2026-11-16 (docs/274 §2):** EA runs the env score only for high-LOD Sims, and high LOD is close to "seen or household"; the unseen share of env calls is BP 0.14-0.24%, IP 0.00% [measured, `unseen_env_unseen`]. Unseen-only env apply is closed (ceiling ~0.03 ms/s BP). Bcast apply fails for other reasons (15-tick answer vs 37.5-tick pulse, 72% `simstale` aborts, batch-rate cap) and the 11-06 apply PASS rows carry no `autoff_*` counters. Redesigns (sim-thread env list memo, sim-thread bcast position table): docs/274 §5.

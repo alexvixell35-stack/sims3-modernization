@@ -5,13 +5,13 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/639 unseenboatland (default off): an unseen townie's trip that EA may plan by boat is planned on land first (car or
+    // docs/687 unseenboatland (default off): an unseen townie's trip that EA may plan by boat is planned on land first (car or
     // walk, EnablePlanningAsBoat off). The land route stays when no boat trip could be much shorter: a boat route is never
     // shorter than the straight line, so straight >= kUnseenBoatLandRatio x land length proves the water trip is not under
     // that share of the road. Otherwise, or when the land plan fails or swims, the option goes back on and EA's plan runs as
     // before. Only trips whose ends share one land component (UfSameComponent 1): across water the land plan would fail after
     // a full search. Household, selected and unknown-scope Sims (Fixes.HouseholdExempt, no household) are never touched.
-    // Counters [3845-3853], see Fixes.cs.
+    // Counters [4642-4650], see Fixes.cs.
     public static partial class Fixes
     {
         static int sUblMinute = -1, sUblLogged;
@@ -41,12 +41,12 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 try
                 {
-                    if (UblRefused(sim)) { c[3850]++; return false; }
+                    if (UblRefused(sim)) { c[4647]++; return false; }
                     Lot goal = LotManager.GetLotAtPoint(dest);
-                    if ((goal == null || goal != sim.LotCurrent) && UfSameComponent(sim, start, dest, goal) != 1) { c[3849]++; return false; }  // water needed, or unknown
+                    if ((goal == null || goal != sim.LotCurrent) && UfSameComponent(sim, start, dest, goal) != 1) { c[4646]++; return false; }  // water needed, or unknown
                 }
-                catch (Exception) { c[3853]++; return false; }
-                c[3845]++;
+                catch (Exception) { c[4650]++; return false; }
+                c[4642]++;
                 SetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat, false);
                 int t0 = System.Environment.TickCount;
                 bool keep = false;
@@ -58,22 +58,22 @@ namespace Ts3Fixes
                     {
                         land = GetRouteLength();
                         keep = straight >= Instantiator.kUnseenBoatLandRatio * land;
-                        if (!keep) c[3847]++;
+                        if (!keep) c[4644]++;
                     }
-                    else c[3848]++;
+                    else c[4645]++;
                 }
                 finally
                 {
                     int ms = unchecked(System.Environment.TickCount - t0);
-                    c[3851] += ms;
-                    if (keep) c[3846]++;
+                    c[4648] += ms;
+                    if (keep) c[4643]++;
                     else
                     {
                         // EA's plan runs next: the boat option back on, and the land failure must not fail it through backoff's memo
                         SetOption2(Sims3.SimIFace.Route.RouteOption2.EnablePlanningAsBoat, true);
                         IScriptProxy f = Follower;
                         if (f != null) sBackoff.Remove(new BackoffKey(f.ObjectId.Value, dest));
-                        c[3852] += ms;
+                        c[4649] += ms;
                     }
                     UblLog(keep ? "land" : land > 0f ? "boat may be shorter, EA plan" : "land plan failed or swims, EA plan", sim, straight, land, ms);
                 }

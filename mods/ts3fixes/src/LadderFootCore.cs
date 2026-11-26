@@ -110,5 +110,21 @@ namespace Ts3Fixes
             return lane == kLaneFree ? "free" : lane == kLaneSims ? "Sims" : "blocked";
         }
         public static readonly string[] kWaitNames = { "waiting", "the Sims stepped away", "timeout", "canceled" };
+
+        // Is an object with a portal component a way between levels (LevelLink.cs)? Its lane ends on two levels, or it is one
+        // of EA's classes that link levels through a second object (elevator doors and cars, tube elevators).
+        public static bool LinksLevels(int endLevelA, int endLevelB, string typeName)
+        {
+            if (endLevelA != endLevelB) return true;
+            return typeName != null && typeName.IndexOf("Elevator", System.StringComparison.Ordinal) >= 0;
+        }
+
+        // Does a stair between these two levels lie on the way from simLevel to goalLevel (either direction)?
+        public static bool StairOnWay(int bottomLevel, int topLevel, int simLevel, int goalLevel)
+        {
+            int lo = simLevel < goalLevel ? simLevel : goalLevel, hi = simLevel < goalLevel ? goalLevel : simLevel;
+            int b = bottomLevel < topLevel ? bottomLevel : topLevel, t = bottomLevel < topLevel ? topLevel : bottomLevel;
+            return b >= lo && t <= hi && b != t;
+        }
     }
 }

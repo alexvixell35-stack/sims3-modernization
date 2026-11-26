@@ -1,0 +1,135 @@
+{
+  "note": "crash-class-audit-1118 (2026-11-18, BP, correctness): 2x bp-hh-exempt-audit of hh-exempt-audit-correct-1118-rc-1118n on the crash-class audit builds (docs/51 §535-537). Pass = world loads, both 10-min windows alive, scriptErrorsMax 0, no il transform no-header line, version read back. Needs master merge of bugfix/crash-class-audit-1118 or a run from its worktree. Not launched. logForbid on purpose: with hdrguard2 a no-header transform no longer crashes, so the line is the only sign a site still binds a body-less method; any hit = FAIL + triage the named method. Version match line uses the real line format (0.36.288 not run yet). The guard detour is proven by either OK line: ApplyIlpGuard logs only when [IlPatch] did not install the detour (whose OK line then stands for it).",
+  "rewind": "auto",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-hh-exempt-audit",
+      "note": "BP 10 min on release defaults + the two Check repros; counters reported.",
+      "asi": "game-copy/ts3native.asi.crashclass2-1118",
+      "iniBase": "game-copy/ts3native.ini.rc-1118n",
+      "fixesPackage": "game-copy/ts3fixes.package.crashclass-1118",
+      "pinReason": "[crash-class audit 2026-11-18] RC set rc-1118n with ts3native 0.36.288-hdrguard2 (ts3native.asi.crashclass2-1118) and ts3fixes.package.crashclass-1118 (bugfix/crash-class-audit-1118: Fixes.Bind, Patch A,B,A + body-less refusal, transform no-header guard); ini and agent unchanged (rc-1118n)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repros": [
+            "woohootywait-check",
+            "serviceshowalarm-check"
+          ],
+          "fixesReport": "exitcbsweep_"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.288-hdrguard2 ": 1,
+        "^OK   il (transform guard|patch \\(docs/506)": 1
+      },
+      "timeoutMin": 40,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "il transform: no IL header": {
+          "match": [
+            "il transform: no IL header: Sims3.Gameplay.Objects.Counters.BarAdvanced+BarInteraction:RunOrderBehavior () (MonoMethod 4E6AF6A0 flags 0x05C4 iflags 0x0000 token 06005014, runtime method EF32EE78"
+          ],
+          "noMatch": [
+            "ts3native 0.36.285-g5p4 2026-11-18 22:13:18"
+          ]
+        },
+        "^ts3native 0\\.36\\.288-hdrguard2 ": {
+          "match": [
+            "ts3native 0.36.288-hdrguard2 2026-11-19 01:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.285-g5p4 2026-11-18 22:13:18",
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00"
+          ]
+        },
+        "^OK   il (transform guard|patch \\(docs/506)": {
+          "match": [
+            "OK   il transform guard (docs/51 §537): a method with no IL header gets a NullReferenceException, not EA's AV at 0x00E6463F",
+            "OK   il patch (docs/506 §2, docs/526): 3 of 5 fixes armed; each is applied at the first transform of its method, on an exact body hash only"
+          ],
+          "noMatch": [
+            "SKIP il transform guard: the transform prologue differs (another mod owns 0xE643B0)",
+            "SKIP il patch: the transform prologue differs (another mod or probe owns 0xE643B0): no fix applied"
+          ]
+        }
+      },
+      "logForbid": {
+        "il transform: no IL header": 0
+      }
+    },
+    {
+      "id": "bp-hh-exempt-audit-2",
+      "note": "2nd clean run (crash rule: 2 clean runs). BP 10 min on release defaults + the two Check repros; counters reported.",
+      "asi": "game-copy/ts3native.asi.crashclass2-1118",
+      "iniBase": "game-copy/ts3native.ini.rc-1118n",
+      "fixesPackage": "game-copy/ts3fixes.package.crashclass-1118",
+      "pinReason": "[crash-class audit 2026-11-18] RC set rc-1118n with ts3native 0.36.288-hdrguard2 (ts3native.asi.crashclass2-1118) and ts3fixes.package.crashclass-1118 (bugfix/crash-class-audit-1118: Fixes.Bind, Patch A,B,A + body-less refusal, transform no-header guard); ini and agent unchanged (rc-1118n)",
+      "releaseDefaults": true,
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 10,
+          "repros": [
+            "woohootywait-check",
+            "serviceshowalarm-check"
+          ],
+          "fixesReport": "exitcbsweep_"
+        }
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.288-hdrguard2 ": 1,
+        "^OK   il (transform guard|patch \\(docs/506)": 1
+      },
+      "timeoutMin": 40,
+      "scriptErrorsMax": 0,
+      "regexCases": {
+        "il transform: no IL header": {
+          "match": [
+            "il transform: no IL header: Sims3.Gameplay.Objects.Counters.BarAdvanced+BarInteraction:RunOrderBehavior () (MonoMethod 4E6AF6A0 flags 0x05C4 iflags 0x0000 token 06005014, runtime method EF32EE78"
+          ],
+          "noMatch": [
+            "ts3native 0.36.285-g5p4 2026-11-18 22:13:18"
+          ]
+        },
+        "^ts3native 0\\.36\\.288-hdrguard2 ": {
+          "match": [
+            "ts3native 0.36.288-hdrguard2 2026-11-19 01:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.285-g5p4 2026-11-18 22:13:18",
+            "ts3native 0.36.287-rc1118n 2026-11-18 23:50:00",
+            "ts3native 0.36.286-nohdr1 2026-11-18 22:37:00"
+          ]
+        },
+        "^OK   il (transform guard|patch \\(docs/506)": {
+          "match": [
+            "OK   il transform guard (docs/51 §537): a method with no IL header gets a NullReferenceException, not EA's AV at 0x00E6463F",
+            "OK   il patch (docs/506 §2, docs/526): 3 of 5 fixes armed; each is applied at the first transform of its method, on an exact body hash only"
+          ],
+          "noMatch": [
+            "SKIP il transform guard: the transform prologue differs (another mod owns 0xE643B0)",
+            "SKIP il patch: the transform prologue differs (another mod or probe owns 0xE643B0): no fix applied"
+          ]
+        }
+      },
+      "logForbid": {
+        "il transform: no IL header": 0
+      }
+    }
+  ]
+}

@@ -6,8 +6,8 @@ split` totals and lines), Ghidra headless decompiles on a private copy of the pr
 Sunset Valley waypoint graphs decoded with `tools/rtdata-decode.ts`, an offline search model on those graphs, our source.
 Background, not repeated here: docs/99 (waypoint graph R, the world A\*), docs/100 (water grid G), docs/142 (failing world
 searches), docs/663 §2 (the split and "not cacheable"), docs/669, docs/672, docs/673 (the hold). Tags as in AGENTS.md.
-Built, default off: `[WorldPrecompute] WaterScanTable` and `Probe`. **Nothing here has run in the game.** Branch
-`feat/world-precompute`.
+Built, default off: `[WorldPrecompute] WaterScanTable` and `Probe`. In-game results since: §10 (s172 shadow, s173 / s189
+upkeep) and the docs/680 ledger. Branch `feat/world-precompute`.
 
 ## 0. Answer
 
@@ -619,6 +619,14 @@ exe on this machine), and the install check is what guards another layout.
 `[WorldPrecompute] Probe=1` (with `WaterScanTable=1`, `WaterScanAll=1`, `[RouteJobPhases] CandidateSplit=1`). Read `pass 3
 callees` and `+0x72 set`, and the scan table's `built N (pair replaced E, too many changes O)`.
 
+
+> **This repo (2026-11-23):** §1-§13 come with this PR (WaterScanTable, Probe and its pass 3 split). §14 of the
+> contributor branch (`SmoothMemo`: shadow 4,348,062 / 0, no gain; `WorldAlt`: built, not run) is not part of it; §15
+> (`SmoothCut`) was imported earlier and follows unchanged.
+
+## 15. Pass 3: where the 2.5 ms go, and `[WorldPrecompute] SmoothCut` (default off; shadow and serve ran, §15.10)
+
+
 ## 14. Built: `SmoothMemo`, a memo of quadtree cell evaluations inside one pass 3 (default off, NOT RUN)
 
 Branch `speed/pass3-smooth`. Ghidra headless on a private copy (`0x663900`, `0x66B670`, `0x66B600`, `0x66B090`, `0x667350`,
@@ -973,9 +981,12 @@ Branch `feat/post-pass-1120`, 2026-11-20. Inputs: the `Probe` lines of s195 / s1
 SmoothMemo's lines of s212 (shadow) and s213 (serve), Ghidra headless on a private copy of the project (`0x64DD40`,
 `0x644560`, `0x644080`, `0x643E60`, `0x6418B0`, `0x641A10`, `0x6443E0`, `0x641B40`, `0x6675E0`, `0x667350`, `0x663B20`,
 `0x662D30`, `0x66A040`, `0x66A760`, `0x669CB0`, `0x669C30`, `0x669BE0`, `0x66B090`, `0x658A00`, `0x658870`) and objdump of
+the sites. Bytes read from the contributor's game copy only. In-game results: §15.10.
+
 the sites. The repack copy only, as in §13. **Nothing in this section has run in the game.**
 
 ### 15.1 The numbers [measured, s195: 2-minute storm, `Probe=1`, times include the probe's stubs]
+
 
 | | ms | calls | per pass 3 call | each |
 |---|---|---|---|---|
@@ -986,6 +997,7 @@ the sites. The repack copy only, as in §13. **Nothing in this section has run i
 | nudge `0x642420` | 236 | 1,779 | | |
 | next lot, corners, sample predicate | 84 | | | |
 
+
 - The segment tests are 91% of the pass; the lot test is half of it and the world test a third. The dot-product reject in
   `0x644560` fired 27 times in 215,942. `+0x72` was set in 9,640 of 215,915 lot walks (4%): the mode of §11.2 that builds a
   footprint set per test is rare.
@@ -993,10 +1005,14 @@ the sites. The repack copy only, as in §13. **Nothing in this section has run i
 - SmoothMemo's s213 line: 9,476,096 cell evaluations in 1,648 passes, 5,750 a pass. With 76 lot tests a pass that is
   about 75 cells per lot test [inferred: the two figures are from different storms].
 
+
 ### 15.2 Why SmoothMemo gave nothing
+
 
 - s212 shadow: 4,348,062 records compared, mismatch 0: the memo is exact. s213 serve: 3.59 M of 9.48 M evaluations came
   from a record and the post pass was 5,659 ms / 1,648 calls against 5,634 / 1,672 in s202. No gain.
+- Its "would have replaced 10 ms" figure was a timer bug on the contributor's branch (whole microseconds summed per
+  evaluation); what s213 measured is the end to end time, and that did not move. SmoothMemo is not in this repo.
 - **"The game's evaluations a record would have replaced: 10 ms" was a timer bug** [verified, `smoothmemo.cpp` `SmPost`]:
   each evaluation's ticks were turned into whole microseconds before they were summed, and one evaluation is well under a
   microsecond, so nearly every one counted 0. Fixed here (ticks are summed, the total is converted). The figure was never
@@ -1008,10 +1024,13 @@ the sites. The repack copy only, as in §13. **Nothing in this section has run i
 - "Slots taken 4,487,401" is the table of 4,096 filling in long passes (846 records kept a pass on average; the long
   passes carry the count). A larger table would raise the hits, not the gain per hit. Not pursued.
 
+
 ### 15.3 What the loop does [verified: decompile and disassembly `0x64E0F3..0x64E359`, re-read; it corrects §11.1 in one place]
+
 
 Cursor = (node index, x, z, level, lot, next lot, step, steps, dx, dz) (`0x6418B0`); a path segment longer than 5 units
 has `ceil(0.2 x length)` steps. Anchor A at `[esp+0x68]`, probe P at `[esp+0x28]`, the last good probe position G.
+
 
 1. P = the node after A, G = P (not tested: it is A's own path segment), P steps on.
 2. While the node-type gate passes and (G is at the path's start or the segment A-P is clear): G = P; P steps on. At the
@@ -1021,13 +1040,16 @@ has `ceil(0.2 x length)` steps. Anchor A at `[esp+0x68]`, probe P at `[esp+0x28]
    the nodes), which leaves A at the shortcut's start and steps it **one sample** too.
 5. P = the node after A again (`0x6418B0` on P with A's index + 1: §11.1 said "behind the anchor"), G = P, back to 2.
 
+
 So every anchor stop ends in **two failing tests** (one when the gate or the last node ends it), and A then moves at most 5
 units and asks again for nearly the same segments: from A's next sample to the same one or two samples past the next
 node. 121 tests a pass is what "two failing tests per anchor sample, plus one per sample the probe gains" gives for a
 path of some tens of samples [inferred: the probe counts calls, not results; `SmoothCut`'s line will show the split].
 No segment is tested twice, but **the failing fan from the moving anchor to the same target is the pass**.
 
+
 ### 15.4 What a failing lot test pays [verified]
+
 
 - `0x6675E0` (one caller: `0x643E60` at `0x644039`): the two end cells' multipliers m0, m1 (`fstp [esp+0x58]`, `[esp+0x08]`);
   either is `FLT_MAX` (the float at `0x11584C8`): blocked, no query. Else the segment query `0x667350` (one caller:
@@ -1042,11 +1064,14 @@ No segment is tested twice, but **the failing fan from the moving anchor to the 
   (`0x669CB0`: no node, or shape 0x15 and up) goes to the callback. A cell that is not final at level 13 ends the whole
   walk (`cmp esi, 0xD` at `0x663DC5`).
 
+
 ### 15.5 `SmoothCut`: the design, and why the answers are the game's
+
 
 `native/ts3native/smoothcut-core.h` is the walk's loop again over the game's own functions (constructor `0x669BE0`, root
 set-up `0x669C30`, final test `0x669CB0`, child step `0x66A040`, box test `0x66A760`, callback `0x662D30`), in the game's
 order, with two early ends:
+
 
 - **cut:** after a callback, when the largest value so far is above both m0 and m1, the walk ends.
 - **hint:** each thread keeps the last four cells that ended a walk this way, as (tree, child numbers from the root, two
@@ -1054,6 +1079,7 @@ order, with two early ends:
   and box test; if every box passes and a final cell is reached, the game's callback runs on it; a value above both end
   multipliers ends the query without a walk. In the fan of §15.3 the cell that blocked A's test is nearly always the cell
   that blocks the next sample's.
+
 
 | claim | status |
 |---|---|
@@ -1066,7 +1092,11 @@ order, with two early ends:
 | m0 and m1 are read from `0x6675E0`'s frame relative to the "largest" out pointer (`-0x10`, `-0x60`) | [verified: `0x667647`, `0x667655`, `0x66768C..0x667698`, `0x6676D9..0x6676F3`; those bytes are compared at install] |
 | The least value on an early end is the least so far, not the walk's | does not matter: [verified] `0x6675E0` reads only the result and the largest |
 
+
 Different paths: none. Household Sims: the same answers, so no scope rule; the switch is one for all.
+
+Site and install: one `E8` retarget at `0x6676CE`, no address row. Found from the post pass's row `0x64E380` (its call of
+pass 3 at `+0x48`, pass 3's segment test at `+0x426`, the lot walk at `+0xB8`, the lot test at `+0x189`) down to the lot test, then `+0x1D9` -> `0x6675E0`, `+0xEE` -> `0x667350`, whose `+0x7C` must
 
 Site and install: one `E8` retarget at `0x6676CE`, no address row. Found from the post pass's row `0x64E380` as §14.3 (or
 from `Probe`'s saved targets) down to the lot test, then `+0x1D9` -> `0x6675E0`, `+0xEE` -> `0x667350`, whose `+0x7C` must
@@ -1076,6 +1106,11 @@ compare, `ret 0x24`, and that its three final-test calls and two box-test calls 
 `ret 0xC` of the callback. Anything else: `SKIP ... nothing written`. Calling conventions read from the disassembly:
 `0x669C30` `ret 0x28`, `0x66A040` `ret 8`, `0x66A760` `ret 0x14` (result in `al` only), `0x669CB0` and `0x669BE0` `ret`,
 `0x666A40` `ret` with `ecx`, the callback `ret 0xC` with `ecx` = tree.
+
+Beside the others: no other hook of this repo sits on `0x6676CE` or on the chain above it (`[RouteAsync] TailUnlock` owns
+passes 16-19 of the post pass, `[RouteJobPhases]` times its entry). On the contributor's branch it also runs beside
+`[WorldPrecompute] SmoothMemo` and `Probe` (not in this repo).
+
 
 Beside the others: `SmoothMemo`'s reader hooks are inside the callback, which our walk calls, so both can be on. `Probe`'s
 stubs sit above the lot test.
@@ -1089,7 +1124,9 @@ blocked by a remembered cell N (tries, cells reached), blocked at a cell in the 
 (cells evaluated in walks N); passed to the game N, with mode 0 N; shadow checks N mismatch N (the game's queries ms)`.
 The two times are tick sums, converted once.
 
+
 ### 15.6 Expected [inferred; the shadow arm measures it]
+
 
 - Touches the lot tests with `+0x72` clear: 3.1 s of 6.2 s of pass 3 in s195, so about half of pass 3 and 0.4 of the
   post pass (5.6 s a storm in s202): about 2.2 s a storm in reach.
@@ -1104,10 +1141,13 @@ The two times are tick sums, converted once.
 - Not touched: the world test `0x658A00` (2.2 s in s195). It ends at its first failing point already; its points are the
   segment's own midpoints, so nothing carries from one anchor sample to the next.
 
+
 ### 15.7 Designed, not built: fewer tests (other paths, NPC only)
+
 
 The fan itself (two failing tests per 5-unit anchor step) is by the loop's design; an exact change is not possible
 because every test is a new segment. For Sims the player does not control, behind its own switch:
+
 
 - **Skip anchor samples that cannot help:** after a stop with G still the next node, step A to the node instead of one
   sample when the two failing tests were blocked by a cell that also blocks from the node's side (the hint cell is
@@ -1117,11 +1157,14 @@ because every test is a new segment. For Sims the player does not control, behin
   straightening drop from n to about 2 log n. The shortcut found is valid (tested) but can be longer or shorter than the
   greedy one where visibility along the path is not monotone.
 
+
 Both need the loop of `0x64DD40` replaced (its cursors and `0x6443E0`), not a call-site hook. Decide after the `SmoothCut`
 line shows clear against blocked tests: the first idea pays if blocked tests dominate after the cut, the second if clear
 ones do. About 2-3 hours to build either with a host test, one storm each.
 
+
 ### 15.8 Checks (no game)
+
 
 - `smoothcut-host-test.cpp` (Linux, 32-bit, freestanding; `smoothcut-test.h` as is): a fake quadtree with the game's
   layout and fake cell functions; the game's query written as a recursion, not as the loop under test; a fake `0x6675E0`
@@ -1133,6 +1176,29 @@ ones do. About 2-3 hours to build either with a host test, one storm each.
   without its box test, a hint cell not checked, no depth stop, three children, no class word rule, no flush, pin not
   released, the wrong frame slot, shadow returning ours, the flag byte lost) each fail it; a hint for another tree
   passes, as it must.
+- clang-cl `/Zs /W4` with the xwin headers on `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp`: 0 errors,
+  no warning in `smoothcut*`. `node tools/selftest-all.ts --ci` pass. The MSVC build and the Windows selftest are the CI
+  `native` job.
+
+### 15.9 Repro
+
+`ip-smoothcut-storm` (repros.json): ini `SmoothCut=2`; arms off, shadow, serve by `native_set smoothcut`. Shadow arm passes
+with mismatch 0 and no `SMOOTH CUT MISMATCH`; its line gives our time against the game's on the same queries. Serve arm:
+the post pass time (`[RouteJobPhases]`) against the off arm.
+
+### 15.10 Results [measured: Isla Paradiso, 2-minute route storms, every proven fix on; Steam Deck, Linux Wine + DXVK]
+
+| run | mode | result |
+|---|---|---|
+| s216 | shadow | 218,969 lot segment queries compared, **mismatch 0**; our walk 1,810 ms against the game's 2,218 ms on the same queries |
+| s217 | serve | post pass 5,248 ms against 5,634 ms in the baseline s202; 0 hitch frames (>= 300 ms); failed plans 95 a minute |
+| s222 | serve (rerun) | post pass **4,887 ms (-13% against s202)**; 0 hitch frames; failed plans 66 a minute |
+
+- The failed-plan rate of s217 was run-to-run noise: s216 (shadow, the game's answers) had 62 a minute and the s222 rerun
+  66 [measured]. SmoothCut gives the game's answer for every query (§15.5), so it cannot change which plans fail.
+- One run per arm; the post pass saving (0.4-0.7 s a storm) is near the low end of §15.6's estimate [measured vs inferred].
+- Not measured here: the share of hint hits against cuts per storm beyond the minute lines; other worlds.
+
 - `smoothmemo-host-test.cpp` passes with the timer fix.
 - clang-cl `/Zs /W4` (`-Wshadow`, `-Wfloat-conversion`) on `ts3native.cpp` (Steam and `/DTS3A_TABLE`) and `selftest.cpp`:
   0 errors, no warning in `smoothcut*` / `smoothmemo*`. `node tools/selftest-all.ts --ci` pass.
@@ -1147,6 +1213,9 @@ our time against the game's on the same queries. Serve arm: `route candidate spl
 off arm.
 
 Files: `native/ts3native/smoothcut-core.h`, `smoothcut.cpp`, `smoothcut-test.h`, `smoothcut-host-test.cpp` (new);
+`ts3native.cpp` (include, install call, counter line), `selftest.cpp`; `ts3native.ini`, `tools/ini-sections.json`,
+`tools/harness/native-switches.ts`, `tools/harness/repros.json`, `docs/registry.md`, `docs/68-hook-conflict-map.md`,
+`docs/index.md`.
 `smoothmemo.cpp` (timer sum); `ts3native.cpp` (include, install call, counter line), `selftest.cpp`; `ts3native.ini`,
 `tools/ini-sections.json`, `tools/harness/native-switches.ts`, `tools/harness/repros.json`, `docs/registry.md`,
 `docs/68-hook-conflict-map.md`, `docs/680-routing-results-1120.md`, `docs/index.md`, `PLAN.md`.

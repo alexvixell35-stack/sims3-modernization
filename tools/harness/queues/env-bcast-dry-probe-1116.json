@@ -1,0 +1,98 @@
+{
+ "note": "env-bcast-dry-probe-1116 (PREPARED, NOT RUN; lane feature/envlist-bcpos-probes-1116, docs/274 §5.1-§6): dry probes R1 envlistmemo + R2 bcposdry, both on, counts only: the game's own lists and broadcaster sets are always used (household, selected and seen Sims untouched by construction: no write path; the R2 compare runs only for unseen broadcasters with no household Sim on the lot or in range). Correctness gates per job: no crash, 0 new script errors (scriptErrorsMax 0), switch read-back by the profile ('fixes on: envlistmemo, bcposdry (verified)'), probe counters > 0, exc 0. No timing (dry mode doubles the env list calls). Read (not gated; docs/274 §6 decision): R1 would_hit = envlistmemo_hit / envlistmemo_calls >= 0.40 on BP and IP and envlistmemo_hit_wrong = 0 -> build R1 apply; < 0.40 or any hit_wrong -> park (wrong hits: the 'EnvListMemo: wrong hit' lines name lot/room/list for the invalidation fix). envlistmemo_miss_same / calls = the oracle share an exact invalidation could add. R2: bcposdry_set_eq / bcposdry_compared >= 0.99 and (bcposdry_table_ms + bcposdry_scan_ms) <= 0.5 x bcposdry_game_ms -> build R2 apply; else park. order_eq is information only (R2 stays unseen-only). Run (between chains, Bin state apex-rewind): TS3_AGENT_PACKAGE=game-copy/ts3agent.package.envlist-bcpos-1116 node tools/harness/queue.ts tools/harness/queues/env-bcast-dry-probe-1116.json",
+ "rewind": "auto",
+ "stopQueueOnFail": true,
+ "jobs": [
+  {
+   "id": "bp-probe-smoke",
+   "note": "Smoke 4 min BP, both probes on: counters read back and > 0, exc 0, 0 script errors. A FAIL stops the queue.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlist-bcpos-1116",
+   "pinReason": "docs/274 dry probes on the master-1116c native pair (0.36.267-mc1116; this lane changes managed code only): ts3fixes + agent from feature/envlist-bcpos-probes-1116",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 4,
+     "fixesOn": "envlistmemo,bcposdry",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1,bcposdry_pulses>=1,bcposdry_compared>=1,bcposdry_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 30,
+   "scriptErrorsMax": 0,
+   "stopQueueOnFail": true
+  },
+  {
+   "id": "bp-probe",
+   "note": "BP 10 min, both probes on (rewind from the smoke's load). Gates as the smoke; R1 / R2 decision numbers read from the saved counters.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlist-bcpos-1116",
+   "pinReason": "docs/274 dry probes on the master-1116c native pair (0.36.267-mc1116; this lane changes managed code only): ts3fixes + agent from feature/envlist-bcpos-probes-1116",
+   "save": "Baseline-BP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemo,bcposdry",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1,bcposdry_pulses>=1,bcposdry_compared>=1,bcposdry_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0
+  },
+  {
+   "id": "ip-probe",
+   "note": "IP 10 min, both probes on (fresh start: other save). Gates as the smoke; R1 / R2 decision numbers read from the saved counters.",
+   "asi": "game-copy/ts3native.asi.master-1116c",
+   "iniBase": "game-copy/ts3native.ini.master-1116c",
+   "fixesPackage": "game-copy/ts3fixes.package.envlist-bcpos-1116",
+   "pinReason": "docs/274 dry probes on the master-1116c native pair (0.36.267-mc1116; this lane changes managed code only): ts3fixes + agent from feature/envlist-bcpos-probes-1116",
+   "save": "Baseline-IP-Spring",
+   "minCounters": 90,
+   "noiseCheck": false,
+   "ini": {
+    "HitchAttr.Enabled": 1
+   },
+   "logRequire": {
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "fixesOn": "envlistmemo,bcposdry",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1,bcposdry_pulses>=1,bcposdry_compared>=1,bcposdry_exc<1"
+    }
+   },
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "timeoutMin": 40,
+   "scriptErrorsMax": 0
+  }
+ ]
+}

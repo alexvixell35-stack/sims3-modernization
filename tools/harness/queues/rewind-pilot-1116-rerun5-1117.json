@@ -1,0 +1,148 @@
+{
+  "note": "rewind-pilot-1116-rerun5-1117 (supersedes rerun4, which never ran): the snapshot busy settle now waits up to 420 s more when only combase workers in the remote-object ping loop are left (docs/270 §39). That loop is started by TS3W.exe itself: its DxDiag VRAM query at start-up (VRAM_DxDiag 0x612640, IDxDiagProvider::Initialize gathers WMI data out of process) leaves COM pinging for ~5.3 min after the release (probe target with the same calls: 321 s; WMI query alone: ~318 s). Expect in job a: rewind: settle busy 60 s, 1 ... (count 1 alertable 0, the remote-object ping loop), then rewind: settle ping loop <= 420 s, 0 combase worker(s) out of their idle wait, then on PASS start: rewind (N ms) for b and c. Same build set, noiseCheck false; keep the laptop hands-off (no Win+D / minimize). Was: rewind-pilot-1116-rerun4-1117: rerun3 (chain-1117e step 3) pilot-a PASS (frames-unload crash fix holds); pilot-b FAIL at 02:14:38 UTC was noise: its rewind was refused (combase worker 41020 still in the ping loop at the snapshot, docs/270 §38) so it started fresh, and the game window was minimized at 02:09:59 UTC during that load by something outside the harness (probe events.jsonl; clock_state minimize_pause true, iconic true; other CPU 32.6%, link 58.4%). Same build set, noiseCheck false; keep the laptop hands-off (no Win+D / minimize). Expect: the combase busy settle may still time out (rerun3: 2 of 2 snapshots), then b/c refuse -> fresh again. Was: rewind-pilot-1116-rerun3-1117: bp-rewind-pilot-a of rerun2 (chain-1117d) crashed 2026-11-17 00:26:05 UTC, 1 s after the frames session ended with the run (--rewind-next): AV on a Frida injector thread (eip 0x4BB10607 in no module, stub at 0x1E1A0000 LoadLibrary/GetProcAddress), as the 2026-10-22 frames-unload crash (79ec7db8e). profile-world --rewind-next now starts no frames session (docs/270 §37); every job noiseCheck false. Expect: no [frames] lines in job a, no crash at the profile end, then rewind: probe agent out (unloaded after N s). Was: rewind-pilot-1116-rerun2-1117: Also (docs/270 §36.3): the other refusals of that rewind. frida-agent.dll was still loaded because profile-world kept its frames session (frame-times.js, -t secs+86400) in the game after job b, and the harness check (tasklist /M) cannot see 32-bit modules; a rewind group job now runs profile-world --rewind-next (frames session ends with the run, no repro save) and the tool's 'gone 30' waits for the agent to unmap or refuses early. Handles 654/1c1c (protected, window-system state) are the per-thread win32k handles of a thread made after the snapshot that called user32 (toy: a GetForegroundWindow thread makes an Event and an IoCompletion handle, protected, USER +1); the refusal now names the type. Expect in the run log: 'rewind: probe agent out (unloaded after N s)', no 'repro save:' line in job b, and on PASS 'start: rewind (N ms)' for bp-rewind-pilot-c. copy of rewind-pilot-1116-rerun1-1116.json, run from worktree .claude/worktrees/rewind-com-roid-1117 (rewind-spike.exe rebuilt there). bp-rewind-pilot-c was refused 2026-11-16 21:08:26 UTC on thread 37136 (start combase.dll+123bf0, COM RPC cache worker): at the snapshot (25 s after the load) it ran COM's remote-object ping loop (CROIDTable worker, 1-handle non-alertable wait), at the rewind it was back in its idle WorkerLoop wait (2 handles, alertable). queue.ts now runs settle 60 combase.dll busy before the snapshot when ts3native kept combase alive (docs/270 §36). Same asi rwud1116. Was: rewind-pilot-1116-rerun1-1116: copy of rewind-pilot-1116-1116c.json with the rwud1116 asi. bp-rewind-pilot-b was refused 2026-11-16 15:12:51 UTC on thread UdMemMain (ts3native.asi+ca8f0, memory worker): its wait timeout was the time left to the next deadline, so it differed per loop. rwud1116 waits a fixed 1 s (docs/270 §34). Was: rewind-pilot-1116-1116c: copy of rewind-pilot-1116-1116b.json repinned to master-1116c (0.36.267-mc1116), run by probe-out/queue/chain-1116c.sh. Was: rewind-pilot-1116-1116b: copy of rewind-pilot-1116",
+  "stopQueueOnFail": true,
+  "jobs": [
+    {
+      "id": "bp-rewind-pilot-a",
+      "note": "[est 9 min] [natural play, no cheats] fresh start, then the snapshot after the load; 5 min profile, seed 12345.",
+      "asi": "game-copy/ts3native.asi.rwud1116",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "asi rwud1116 (0.36.268: master-1116c + memory worker fixed 1 s wait, docs/270 §34); ini, ts3fixes, agent stay master-1116c. Was: repinned 2026-11-16 to the master-1116c set (merge/master-11",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^compat: Apex Radiance found ": 1,
+        "^ts3native 0\\.36\\.268-rwud1116 ": 1
+      },
+      "regexCases": {
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        },
+        "^ts3native 0\\.36\\.268-rwud1116 ": {
+          "match": [
+            "ts3native 0.36.268-rwud1116 2026-11-16 23:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15",
+            "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 38
+    },
+    {
+      "id": "bp-rewind-pilot-b",
+      "note": "[est 6 min] [natural play, no cheats] starts from a rewind to the snapshot after the load of bp-rewind-pilot-a; 5 min profile, seed 12345.",
+      "asi": "game-copy/ts3native.asi.rwud1116",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "asi rwud1116 (0.36.268: master-1116c + memory worker fixed 1 s wait, docs/270 §34); ini, ts3fixes, agent stay master-1116c. Was: repinned 2026-11-16 to the master-1116c set (merge/master-11",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^compat: Apex Radiance found ": 1,
+        "^ts3native 0\\.36\\.268-rwud1116 ": 1
+      },
+      "regexCases": {
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        },
+        "^ts3native 0\\.36\\.268-rwud1116 ": {
+          "match": [
+            "ts3native 0.36.268-rwud1116 2026-11-16 23:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15",
+            "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 38
+    },
+    {
+      "id": "bp-rewind-pilot-c",
+      "note": "[est 6 min] [natural play, no cheats] starts from a rewind to the snapshot after the load of bp-rewind-pilot-a; 5 min profile, seed 12345.",
+      "asi": "game-copy/ts3native.asi.rwud1116",
+      "iniBase": "game-copy/ts3native.ini.master-1116c",
+      "fixesPackage": "game-copy/ts3fixes.package.master-1116c",
+      "pinReason": "asi rwud1116 (0.36.268: master-1116c + memory worker fixed 1 s wait, docs/270 §34); ini, ts3fixes, agent stay master-1116c. Was: repinned 2026-11-16 to the master-1116c set (merge/master-11",
+      "releaseDefaults": true,
+      "save": "Baseline-BP-Spring",
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "noiseCheck": false,
+      "scriptErrorsMax": 0,
+      "logRequire": {
+        "^compat: Apex Radiance found ": 1,
+        "^ts3native 0\\.36\\.268-rwud1116 ": 1
+      },
+      "regexCases": {
+        "^compat: Apex Radiance found ": {
+          "match": [
+            "compat: Apex Radiance found at start (ApexRadiance.asi v3.2.3), bridge, owned switches on: none; ApexStandDown=1"
+          ],
+          "noMatch": [
+            "compat: no Apex Radiance at start"
+          ]
+        },
+        "^ts3native 0\\.36\\.268-rwud1116 ": {
+          "match": [
+            "ts3native 0.36.268-rwud1116 2026-11-16 23:40:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.266-mb1116 2026-11-16 17:40:00",
+            "ts3native 0.36.265-m1116 2026-11-16 03:30:00",
+            "ts3native 0.36.189 2026-11-07 09:44:15",
+            "ts3native 0.36.261-lanes1 2026-11-15 21:44:15"
+          ]
+        }
+      },
+      "run": {
+        "profile": {
+          "seed": 12345,
+          "minutes": 5
+        }
+      },
+      "timeoutMin": 38
+    }
+  ],
+  "rewind": "auto"
+}

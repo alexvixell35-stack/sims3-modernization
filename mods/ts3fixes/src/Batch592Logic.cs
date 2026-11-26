@@ -22,7 +22,7 @@ using Sims3.SimIFace;
 namespace Ts3Fixes
 {
     // Batch 12c (docs/592 usage sweep 4, base classes and shared helpers): EA bug fixes as EA intended, household
-    // included. All default off. Slots 1838-1861. simler90 UPDATE242 leaves every hooked method as EA.
+    // included. All default off. Slots 3172-3195. simler90 UPDATE242 leaves every hooked method as EA.
     // Not built: S1 (inside Autonomy.CalculateScoreForObjectInteraction, the scoring hot path: IL patch queued), S4 (is
     // intmultiple), S7 (removing ended clones breaks EA's own foreach over mActiveCommodityChanges in EndCommodityUpdate(k);
     // impact inferred, needs a design pass), S10 and S12 (inferred), the latent and tidy lists (no live trigger).
@@ -32,8 +32,8 @@ namespace Ts3Fixes
         // [verified, decompiled] SocialComponent.LeaveConversation counts SocialsToday, grants Social Butterfly's
         // ItsAllAboutMe (and plays its cheer) and clears the action memory before its `Conversation == null` return: a
         // Sim leaving a conversation it never joined (about 34 callers end socials this way) counts as a finished social.
-        // Fix: no conversation, nothing done. Counters: [1838] empty leaves skipped, [1839] counted (switch off),
-        // [1840] errors.
+        // Fix: no conversation, nothing done. Counters: [3172] empty leaves skipped, [3173] counted (switch off),
+        // [3174] errors.
         static void ApplyLeaveConvNull()
         {
             Patch(typeof(SocialComponent), "LeaveConversation", Type.EmptyTypes, typeof(B12LvHook), "LeaveHook", "LeaveOrig");
@@ -47,8 +47,8 @@ namespace Ts3Fixes
             {
                 if (LvSkip(((SocialComponent)(object)this).Conversation != null))
                 {
-                    if (ShortcutOn("leaveconvnull")) { PatchCounters()[1838]++; return; }
-                    PatchCounters()[1839]++;
+                    if (ShortcutOn("leaveconvnull")) { PatchCounters()[3172]++; return; }
+                    PatchCounters()[3173]++;
                 }
                 LeaveOrig();
             }
@@ -60,8 +60,8 @@ namespace Ts3Fixes
         // [verified, decompiled; impact inferred] SimClockUtils.OnFinishedLoadingSaveGameEventHandler, on arrival in a
         // vacation world: TicksAdvanced += num, then FixLoadAlarms(CurrentTicks + num), but CurrentTicks already includes
         // TicksAdvanced; every alarm due within num hours of arrival bunches at arrival + num. The University branch passes
-        // CurrentTicks. Fix: the vacation branch passes CurrentTicks too; the rest is EA's handler. Counters: [1841]
-        // arrivals fixed, [1842] arrivals with the double shift (switch off), [1843] errors.
+        // CurrentTicks. Fix: the vacation branch passes CurrentTicks too; the rest is EA's handler. Counters: [3175]
+        // arrivals fixed, [3176] arrivals with the double shift (switch off), [3177] errors.
         static readonly FieldInfo sVaSingle = B12F(typeof(SimClockUtils), "sSingleton");
         static readonly MethodInfo sVaMake = B12M(typeof(SimClockUtils), "MakeSimClock");
         static readonly FieldInfo sVaHour = B12F(typeof(SimClockUtils), "kInitialTimeOfDay");
@@ -82,7 +82,7 @@ namespace Ts3Fixes
             public static void LoadHook(object sender, World.OnFinishedLoadingSaveGameEventArgs e)
             {
                 if (!GameStates.IsTravelling || !GameUtils.IsOnVacation()) { LoadOrig(sender, e); return; }
-                if (!ShortcutOn("vacationalarms")) { PatchCounters()[1842]++; LoadOrig(sender, e); return; }
+                if (!ShortcutOn("vacationalarms")) { PatchCounters()[3176]++; LoadOrig(sender, e); return; }
                 try
                 {
                     if (e.warnings != 0) Sims3.Gameplay.Gameflow.sShowObjectReplacedWarning = true;
@@ -91,9 +91,9 @@ namespace Ts3Fixes
                     long num = SimClock.ConvertToTicks(SimClock.HoursUntil((float)sVaHour.GetValue(null)), TimeUnit.Hours);
                     SimClock.TicksAdvanced += num;
                     AlarmManager.FixLoadAlarms(VaFixTicks(true, SimClock.CurrentTicks, num));
-                    PatchCounters()[1841]++;
+                    PatchCounters()[3175]++;
                 }
-                catch (Exception) { PatchCounters()[1843]++; }
+                catch (Exception) { PatchCounters()[3177]++; }
             }
 
             public static void LoadOrig(object sender, World.OnFinishedLoadingSaveGameEventArgs e) { }
@@ -104,7 +104,7 @@ namespace Ts3Fixes
         // return;` disposes the effects an interaction made by name (SetEffectActor: FishHere, SculptingStation, WishingWell,
         // Snowman, ...) only while the game shuts down; in play they wait for the finalizer. Fix: after EA's Cleanup, a
         // live game disposes them (EA's loop). Our djcleanup copy of the base Cleanup follows the same rule (CvDispose).
-        // Counters: [1844] effect lists disposed, [1845] left to the finalizer (switch off), [1846] errors.
+        // Counters: [3178] effect lists disposed, [3179] left to the finalizer (switch off), [3180] errors.
         static readonly FieldInfo sCvList = B12F(typeof(InteractionInstance), "mVfxs");
         static string sCvM12 = "";
 
@@ -136,10 +136,10 @@ namespace Ts3Fixes
                 {
                     InteractionInstance ii = (InteractionInstance)(object)this;
                     if (sCvList.GetValue(ii) == null || GameStates.IsGameShuttingDown) return;
-                    if (!ShortcutOn("cleanupvfx")) { PatchCounters()[1845]++; return; }
-                    if (CvDisposeList(ii, true)) PatchCounters()[1844]++;
+                    if (!ShortcutOn("cleanupvfx")) { PatchCounters()[3179]++; return; }
+                    if (CvDisposeList(ii, true)) PatchCounters()[3178]++;
                 }
-                catch (Exception) { PatchCounters()[1846]++; }
+                catch (Exception) { PatchCounters()[3180]++; }
             }
 
             public void CleanupOrig() { }
@@ -148,8 +148,8 @@ namespace Ts3Fixes
         // ---- B12 §40 lookatcopy (docs/592 S6) ------------------------------------------------------------------------
         // [verified, decompiled] Lot.ObjectsToLookAtInRoom(roomId, includeSims: false) runs RemoveAll(o is Sim) on the live
         // per-room list from mObjectsToLookAtPerRoom: one call (ShoppingRegister Browse) drops every Sim from that room's
-        // look-at registry for good. Fix: the Sims are filtered from a copy. Counters: [1847] copies filtered, [1848] live
-        // lists cut (switch off), [1849] errors.
+        // look-at registry for good. Fix: the Sims are filtered from a copy. Counters: [3181] copies filtered, [3182] live
+        // lists cut (switch off), [3183] errors.
         static void ApplyLookAtCopy()
         {
             Patch(typeof(Lot), "ObjectsToLookAtInRoom", new Type[] { typeof(int), typeof(bool) }, typeof(B12LaHook), "LookHook", "LookOrig");
@@ -172,9 +172,9 @@ namespace Ts3Fixes
                 Lot lot = (Lot)(object)this;
                 List<GameObject> live = lot.ObjectsToLookAtInRoom(roomId);
                 if (live == null) return null;
-                if (!ShortcutOn("lookatcopy")) { PatchCounters()[1848]++; return LookOrig(roomId, includeSims); }
-                try { PatchCounters()[1847]++; return LaFilter(live); }
-                catch (Exception) { PatchCounters()[1849]++; return LookOrig(roomId, includeSims); }
+                if (!ShortcutOn("lookatcopy")) { PatchCounters()[3182]++; return LookOrig(roomId, includeSims); }
+                try { PatchCounters()[3181]++; return LaFilter(live); }
+                catch (Exception) { PatchCounters()[3183]++; return LookOrig(roomId, includeSims); }
             }
 
             public List<GameObject> LookOrig(int roomId, bool includeSims) { return null; }
@@ -184,8 +184,8 @@ namespace Ts3Fixes
         // [verified, decompiled] Grocery.BuyLottoTicket.Definition.Test builds the "not available until" time with
         // DateAndTime(hours, minutes, 0), which is an absolute time from SimClock.StartTicks, not a time of day: the tooltip
         // shows the start hour shifted by the save's start time. simler90 fixed the same misuse in Laundry only. Fix: a
-        // refused test outside the hours gets the tooltip with the time of day kBuyLottoStart. Counters: [1850] tooltips
-        // fixed, [1851] shifted tooltips (switch off), [1852] errors.
+        // refused test outside the hours gets the tooltip with the time of day kBuyLottoStart. Counters: [3184] tooltips
+        // fixed, [3185] shifted tooltips (switch off), [3186] errors.
         static readonly Type sLtBuy = typeof(Grocery).GetNestedType("BuyLottoTicket", BindingFlags.NonPublic);
         static readonly Type sLtDef = sLtBuy == null ? null : sLtBuy.GetNestedType("Definition", BindingFlags.NonPublic);
         static readonly FieldInfo sLtStart = B12F(sLtBuy, "kBuyLottoStart");
@@ -223,12 +223,12 @@ namespace Ts3Fixes
                 {
                     float start = (float)sLtStart.GetValue(null), end = (float)sLtEnd.GetValue(null);
                     if (!LtClosed(SimClock.CurrentTime().Hour, start, end)) return r;
-                    if (!ShortcutOn("lottotooltip")) { PatchCounters()[1851]++; return r; }
+                    if (!ShortcutOn("lottotooltip")) { PatchCounters()[3185]++; return r; }
                     string text = (string)sLtLoc.Invoke(null, new object[] { "LottoNotAvailable", new object[] { new DateAndTime(LtTicks(start)) } });
                     cb = InteractionInstance.CreateTooltipCallback(text);
-                    PatchCounters()[1850]++;
+                    PatchCounters()[3184]++;
                 }
-                catch (Exception) { PatchCounters()[1852]++; }
+                catch (Exception) { PatchCounters()[3186]++; }
                 return r;
             }
 
@@ -239,8 +239,8 @@ namespace Ts3Fixes
         // [verified, decompiled] InteractionObjectPair.GetTraitIconKey: the outer `HasMotive(c) && ConstantChange >= 0`
         // makes the inner `ConstantChange >= 0 ? trait icon : dislike icon` always take the trait icon, so a trait motive
         // the interaction lowers never shows its dislike icon in the pie menu. Fix: our copy drops the outer sign test
-        // (and returns EA's answer when the tuning has no tradeoff). Counters: [1853] dislike icons shown, [1854] hidden
-        // (switch off), [1855] errors.
+        // (and returns EA's answer when the tuning has no tradeoff). Counters: [3187] dislike icons shown, [3188] hidden
+        // (switch off), [3189] errors.
         static void ApplyTraitIconDislike()
         {
             Patch(typeof(InteractionObjectPair), "GetTraitIconKey", new Type[] { typeof(Sim) }, typeof(B12TiHook), "IconHook", "IconOrig");
@@ -272,7 +272,7 @@ namespace Ts3Fixes
                         if (!CommodityTest.IsTrait(k)) continue;
                         int icon = TiIcon(true, actor.Motives.HasMotive(k), c.ConstantChange);
                         if (icon == 1) return actor.TraitManager.GetTraitIcon(k);
-                        if (icon == 2) { PatchCounters()[1853]++; return actor.TraitManager.GetDislikeTraitIcon(k); }
+                        if (icon == 2) { PatchCounters()[3187]++; return actor.TraitManager.GetDislikeTraitIcon(k); }
                         list.Add(k);
                     }
                     if (key != ResourceKey.kInvalidResourceKey) return key;
@@ -280,7 +280,7 @@ namespace Ts3Fixes
                     if (r != null) return actor.TraitManager.GetAntiTraitIcon(list, r.GetRestrictedAntiTraitIcons(actor));
                     return key;
                 }
-                catch (Exception) { PatchCounters()[1855]++; return IconOrig(actor); }
+                catch (Exception) { PatchCounters()[3189]++; return IconOrig(actor); }
             }
 
             public ResourceKey IconOrig(Sim actor) { return ResourceKey.kInvalidResourceKey; }
@@ -291,7 +291,7 @@ namespace Ts3Fixes
         // Sim is instantiated; RemoveSimFromRole of an inactive role, or of a townie not in the world, leaves
         // FullFromOccupationJob on the Sim's mini description for good (the townie is never culled or moved). Fix: after
         // RemoveSimFromRole, protection still held by the role is removed (EA's Unprotect body, without its SimInRole test).
-        // Counters: [1856] protections removed, [1857] left (switch off), [1858] errors.
+        // Counters: [3190] protections removed, [3191] left (switch off), [3192] errors.
         static readonly FieldInfo sRuFlag = B12F(typeof(Role), "mIsStoryProgressionProtected");
         static readonly FieldInfo sRuSim = B12F(typeof(Role), "mSim");
         static string sRuM12 = "";
@@ -315,13 +315,13 @@ namespace Ts3Fixes
                     Role role = (Role)(object)this;
                     SimDescription sd = sRuSim.GetValue(role) as SimDescription;
                     if (sd == null || !RuUnprotect((bool)sRuFlag.GetValue(role), GameStates.IsGameShuttingDown)) return;
-                    if (!ShortcutOn("roleunprotect")) { PatchCounters()[1857]++; return; }
+                    if (!ShortcutOn("roleunprotect")) { PatchCounters()[3191]++; return; }
                     MiniSimDescription mini = sd.GetMiniSimForProtection();
                     if (mini != null) mini.RemoveProtection(MiniSimDescription.ProtectionFlag.FullFromOccupationJob);
                     sRuFlag.SetValue(role, false);
-                    PatchCounters()[1856]++;
+                    PatchCounters()[3190]++;
                 }
-                catch (Exception) { PatchCounters()[1858]++; }
+                catch (Exception) { PatchCounters()[3192]++; }
             }
 
             public void RemoveOrig() { }
@@ -333,7 +333,7 @@ namespace Ts3Fixes
         // placement as a removal. Fix: while a PutDownOnSurface runs, its own ItemRemoved for the held object is fired as
         // ItemPlaced (SurfacePair.TriggerSlotUsed hook, keyed by the held object: the routing before it yields, so other
         // Sims' put-downs interleave). EA's method runs unchanged (it yields; no reflection call across it).
-        // Counters: [1859] placements fired as placed, [1860] fired as removed (switch off), [1861] errors.
+        // Counters: [3193] placements fired as placed, [3194] fired as removed (switch off), [3195] errors.
         static readonly Dictionary<IGameObject, bool> sPpPending = new Dictionary<IGameObject, bool>();
 
         static void ApplyPutDownPlaced()
@@ -352,6 +352,10 @@ namespace Ts3Fixes
         {
             public static bool PutHook(Sim sim, ISurface surface, SurfaceType type, bool forceRoute, bool requireChair, bool playRouteFail)
             {
+                // bookhand (BookHand.cs): the carry machine can go null after CarrySystem.PutDown's own guard ran (the routing to
+                // a surface yields); PutDownOnSurface then throws at CarryStateMachine.SetParameter. Same fix, same switch, same counters.
+                try { if (sim != null) BhAt(sim, BookHandCore.PutDownWouldThrow(BhStuck(sim), sim.LotCurrent == null), "CarrySystem.PutDownOnSurface"); }
+                catch (Exception) { }  // the guard never stops EA's put-down
                 IGameObject held = sim == null ? null : sim.GetObjectInRightHand();
                 bool track = held != null && surface != null && !(held is ICarryDestroyOnPutDown);
                 if (track) sPpPending[held] = true;
@@ -368,8 +372,8 @@ namespace Ts3Fixes
             {
                 if (item != null && action == SurfaceAddOn.Action.ItemRemoved && sPpPending.Count > 0 && sPpPending.Remove(item))
                 {
-                    if (ShortcutOn("putdownplaced")) { PatchCounters()[1859]++; action = PpAction(true, true, action); }
-                    else PatchCounters()[1860]++;
+                    if (ShortcutOn("putdownplaced")) { PatchCounters()[3193]++; action = PpAction(true, true, action); }
+                    else PatchCounters()[3194]++;
                 }
                 TriggerOrig(slot, item, action);
             }

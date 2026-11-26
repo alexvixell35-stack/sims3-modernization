@@ -1,5 +1,7 @@
 # 670. The +0x918 waits and the unseen sync plans left after s143
 
+> **Carve-out note (post/route-lock-1120, 2026-11-20):** this branch ports `[PlaceTestRO]`, `[EditPathRO]` (with `StartGuard` / `Retry`), `[GoalValidRO] Hits` / `HitsShadow` and `[ConnRoomsRO]` from the combo branch. The `KindsUnseen` mask line (§4) and `[Discourage] DeferPrivateFpAdd` (§16-§17) are described below but are not part of this branch: upstream's own-task gate differs from the combo's `KindsUnseen`, and DeferPrivateFpAdd was left for a later PR. Sections about those keys are history.
+
 2026-11-20 (UTC). Inputs: the Isla Paradiso route storms s142 (profiling) and s143 (fixes off / on), 4 min each, their
 `ts3native-full.log` and `route-stutter-report.ts` tables; Ghidra headless (DecompileTo, CallerTree, XrefsTo) and capstone
 on the Steam 1.67 code; our source. Built: `[PlaceTestRO]` (ts3native, default off) and a log line for `KindsUnseen`.

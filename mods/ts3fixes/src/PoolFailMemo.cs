@@ -18,7 +18,7 @@ namespace Ts3Fixes
     // for failed plans), and GetInPool's Definition.Test refuses that pair for autonomous picks only (GenericFail, the same
     // answer EA gives a Fatigued Sim). User-directed picks always run EA's test. Household, selected and unknown-scope Sims
     // (HouseholdExempt or IsPlayerSim) are never recorded and never refused. Rule: PoolFailMemoCore.
-    // Counters [4072] recorded, [4073] autonomous tests refused, [4078] exempt (shared), [4079] errors (shared).
+    // Counters [4866] recorded, [4867] autonomous tests refused, [4868] exempt (shared), [4869] errors (shared).
     // Log "poolfailmemo: recorded|refused <Sim>, pool 0x<id> ...", capped at 10 a minute.
     public static partial class Fixes
     {
@@ -54,13 +54,13 @@ namespace Ts3Fixes
                 if (pool == null) return;
                 long life = SimClock.ConvertToTicks(Instantiator.kPoolFailMemoHours, TimeUnit.Hours);
                 int r = sPfm.Record(sim.ObjectId.Value, pool.ObjectId.Value, PfmExempt(sim), (int)res.mType, SimClock.CurrentTicks, life);
-                if (r == PoolFailMemoCore.kExempt) { c[4078]++; return; }
+                if (r == PoolFailMemoCore.kExempt) { c[4868]++; return; }
                 if (r != PoolFailMemoCore.kRecorded) return;
-                c[4072]++;
+                c[4866]++;
                 PfmLog("recorded " + sim.FullName + ", pool 0x" + pool.ObjectId.Value.ToString("X") + ", " + res.mType + ", "
                     + Instantiator.kPoolFailMemoHours + " sim-h");
             }
-            catch (Exception ex) { c[4079]++; PfmLog("error " + ex.GetType().Name); }
+            catch (Exception ex) { c[4869]++; PfmLog("error " + ex.GetType().Name); }
         }
 
         public class PoolFailMemoHook
@@ -79,13 +79,13 @@ namespace Ts3Fixes
                     long now = SimClock.CurrentTicks;
                     if (!sPfm.Live(sid, pid, now)) return r;
                     int t = sPfm.Test(sid, pid, true, PfmExempt(sim), now);
-                    if (t == PoolFailMemoCore.kPassExempt) { c[4078]++; return r; }
+                    if (t == PoolFailMemoCore.kPassExempt) { c[4868]++; return r; }
                     if (t != PoolFailMemoCore.kRefuse) return r;
-                    c[4073]++;
+                    c[4867]++;
                     PfmLog("refused " + sim.FullName + ", pool 0x" + pid.ToString("X") + " (autonomous)");
                     return InteractionTestResult.GenericFail;
                 }
-                catch (Exception ex) { c[4079]++; PfmLog("error " + ex.GetType().Name); return r; }
+                catch (Exception ex) { c[4869]++; PfmLog("error " + ex.GetType().Name); return r; }
             }
             public InteractionTestResult TestOrig(ref InteractionInstanceParameters parameters, ref GreyedOutTooltipCallback greyedOutTooltipCallback)
             { return InteractionTestResult.Pass; } // receives GetInPool.Definition.Test(ref, ref)'s original body

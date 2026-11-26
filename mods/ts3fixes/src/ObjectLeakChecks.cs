@@ -116,7 +116,7 @@ namespace Ts3Fixes
             Lot lot = board.LotCurrent;
             int before = SbCount(lot, board), disposed = PatchCounters()[2410];
             InteractionInstance ii = ((InteractionDefinition)single.GetValue(null)).CreateInstance(board, npc, new InteractionPriority(InteractionPriorityLevel.UserDirected), false, true);
-            SbTriggerFn fire = (SbTriggerFn)Delegate.CreateDelegate(typeof(SbTriggerFn), ii, trigger);  // swapped: no MethodInfo.Invoke
+            SbTriggerFn fire = (SbTriggerFn)Fixes.Bind(typeof(SbTriggerFn), ii, trigger);  // swapped: no MethodInfo.Invoke
             fire();  // after the throw
             ReactionBroadcaster first = sSbBcast.GetValue(ii) as ReactionBroadcaster, firstPet = sSbPetBcast.GetValue(ii) as ReactionBroadcaster;
             fire();  // round end: EA replaces the pair

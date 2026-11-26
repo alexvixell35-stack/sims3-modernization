@@ -208,10 +208,10 @@ namespace Ts3Fixes
             MethodInfo start = typeof(Theatre).GetMethod("StartShowSoundBroadcaster", kInstAll);
             MethodInfo end = typeof(Theatre).GetMethod("EndShowSoundBroadcaster", kInstAll);
             if (start == null || end == null) return "N/A (Theatre show-sound methods not found)";
-            ((ShowSoundFn)Delegate.CreateDelegate(typeof(ShowSoundFn), t, start))(ShowVenue.ShowTypes.kPlayerConcert);
+            ((ShowSoundFn)Fixes.Bind(typeof(ShowSoundFn), t, start))(ShowVenue.ShowTypes.kPlayerConcert);
             ReactionBroadcaster b = sRhTheatreBroadcaster.GetValue(t) as ReactionBroadcaster;
             object origin = b == null ? null : b.BroadcastingObject;
-            ((EndSoundFn)Delegate.CreateDelegate(typeof(EndSoundFn), t, end))();  // same call style as start (the old Invoke form threw TargetException on 2026-11-14)
+            ((EndSoundFn)Fixes.Bind(typeof(EndSoundFn), t, end))();  // same call style as start (the old Invoke form threw TargetException on 2026-11-14)
             return (origin == t.RabbitHoleProxy ? "FIXED" : "BROKEN") + " (TheatreMusic broadcaster origin " + (origin == null ? "none" : origin == t ? "the piece" : origin.GetType().Name) + ")";
         }
 
@@ -246,7 +246,7 @@ namespace Ts3Fixes
             if (occ == null) return "N/A (no Firefighter career: Ambitions)";
             MethodInfo m = typeof(Occupation).GetMethod("InitializeBaseJobCreationSpec", kInstAll, null, sRhInitSpecArgs, null);
             if (m == null) return "N/A (InitializeBaseJobCreationSpec not found)";
-            InitSpecFn init = (InitSpecFn)Delegate.CreateDelegate(typeof(InitSpecFn), occ, m);
+            InitSpecFn init = (InitSpecFn)Fixes.Bind(typeof(InitSpecFn), occ, m);
             foreach (JobId id in new JobId[] { JobId.EpicHospitalRescue, JobId.EpicScienceRescue, JobId.EpicCriminalRescue })
             {
                 JobStaticData data = Occupation.GetJobStaticData(OccupationNames.Firefighter, id);
@@ -325,7 +325,7 @@ namespace Ts3Fixes
             op.TargetData = piece.Guid.ToString();
             Opportunity.OpportunitySharedData.EventInfo info = new Opportunity.OpportunitySharedData.EventInfo();
             info.mEventId = EventTypeId.kAteAtRestaurant;
-            TargetForEventFn fn = (TargetForEventFn)Delegate.CreateDelegate(typeof(TargetForEventFn), actor.OpportunityManager, m);
+            TargetForEventFn fn = (TargetForEventFn)Fixes.Bind(typeof(TargetForEventFn), actor.OpportunityManager, m);
             GameObject waitFor = fn(op, info);
             bool listenerOk = waitFor == piece;
             int matched = 0;

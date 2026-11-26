@@ -74,6 +74,10 @@ namespace Ts3Fixes
             if (ShortcutOn("makebedbothlog") && sMbCap.Take(System.Environment.TickCount)) DiagLine("makebedboth: " + text);
         }
 
+        static string MbWho(Sim s) { return s == PlumbBob.SelectedActor ? "selected" : IsPlayerSim(s) ? "household" : "npc"; }
+
+        static string MbAt(Vector3 v) { return v.x.ToString("0.0") + "," + v.y.ToString("0.0") + "," + v.z.ToString("0.0"); }
+
         static bool MbPlain(BedData p) { Type t = p.GetType(); return t == typeof(BedData) || t == typeof(BedSingleData); }
 
         static bool MbPlan(Sim sim, Bed bed, BedData part)
@@ -115,7 +119,7 @@ namespace Ts3Fixes
             bool planOther = !planUnmade && usable && MbPlan(sim, bed, other);
             int d = MakeBedBothCore.Decide(parts.Count, plain, unmadeFree, usable, planUnmade, planOther);
             if (d == MakeBedBothCore.kKeepEa) { c[kMbKeptEa]++; return null; }
-            string head = BuWho(sim) + " " + sim.FullName + " -> " + bed.GetType().Name + " at " + BuAt(bed.Position) + ", " + unmade.Area + " half closed";
+            string head = MbWho(sim) + " " + sim.FullName + " -> " + bed.GetType().Name + " at " + MbAt(bed.Position) + ", " + unmade.Area + " half closed";
             if (d != MakeBedBothCore.kGo)
             {
                 c[kMbKeptNoSide]++;
@@ -293,7 +297,7 @@ namespace Ts3Fixes
                 }
                 if (!any) continue;
                 shown++;
-                s += " | " + bed.GetType().Name + " at " + BuAt(bed.Position) + ":" + row;
+                s += " | " + bed.GetType().Name + " at " + MbAt(bed.Position) + ":" + row;
             }
             return "makebedboth lot: " + sim.FullName + ", beds " + beds + ", with an unmade half " + shown + s;
         }

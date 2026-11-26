@@ -169,6 +169,7 @@ static inline bool SnGatherIc(int i) { return i < SN_IC_START && !(i <= 3 || (i 
 static inline bool SnTreeRow(int leaf) {
     return leaf == SL_W1 || leaf == SL_W2 || leaf == SL_W3 || leaf == SL_W4 || leaf == SL_W5 || leaf == SL_REMOVELOT || leaf == SL_APPLYLOT;
 }
+// docs/671 [FglMemo] (fglprof.cpp) reads g_snWriteSeq above (FloodMemo's counter, docs/667).
 
 // --- per-thread source frames (sim thread) ---
 struct SnFrame { DWORD* slot; DWORD ret; u8 src; u8 idx; };
@@ -683,6 +684,7 @@ static void __cdecl SnIcEnter(int i, DWORD* slot) {
     if (i <= 3 || (i >= 12 && i <= 15)) SnRecord(i <= 3 ? RK_LOCKKEY : RK_PORTAL, sim && SnInRebase(t));
     if (!sim) { InterlockedIncrement(&k.snIcOffSim); return; }
     if (i == 22 || i == 23) AsEpochBump();  // [AutShadow]: build/buy boundary (OnExitBuildBuy, LotClusterTrees), docs/122 §2.1
+    if (i == 22) RtEpochBump();  // docs/205 §2.3e: Build/Buy exit, route results from before it are stale (also without [RouteGate])
     if (t.objDepth) { k.snObjOpenAtIc++; t.objDepth = 0; }  // a chain that stopped before our tail node
     SpIcNote(i);
     if (i >= SN_IC_START) {
@@ -734,13 +736,13 @@ static int SnInstallAt(int i, DWORD at, DWORD target) {
     const u8* p = (const u8*)(uintptr_t)at;
     if (!Matches(p, want, s.len)) {
         char hex[64];
-        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else strcpy_s(hex, "<unreadable>");
+        if (Readable(p, s.len)) Hex(p, s.len, hex, sizeof(hex)); else SCpy(hex, "<unreadable>");
         Log("SKIP routesnap %s: bytes at 0x%08lX differ (found %s)", s.name, at, hex);
         return 0;
     }
     if (!target) {
         char name[64];
-        sprintf_s(name, "%s (routesnap)", s.name);
+        SFmt(name, "%s (routesnap)", s.name);
         return (g_snJmp[i] = InstallDetour(name, at, s.pro, s.len, (void*)kSnStubs[i], &g_snJmp[i])) != NULL;
     }
     g_snJmp[i] = (void*)(uintptr_t)target;

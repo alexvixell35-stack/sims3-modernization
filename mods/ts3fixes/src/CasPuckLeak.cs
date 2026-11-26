@@ -75,9 +75,9 @@ namespace Ts3Fixes
                     if (!CplDashAttached(this)) return;
                     c[2284]++;
                     if (!ShortcutOn("caspuckevents")) return;
-                    sCplDashRemove.Invoke(null, new object[] { Delegate.CreateDelegate(sCplDashType, this, sCplDashHandler) });
+                    sCplDashRemove.Invoke(null, new object[] { Fixes.Bind(sCplDashType, this, sCplDashHandler) });
                     IOptionsModel om = Responder.Instance != null ? Responder.Instance.OptionsModel : null;
-                    if (om != null) om.OptionsChanged -= (OptionsChangedHandler)Delegate.CreateDelegate(typeof(OptionsChangedHandler), this, sCplOptHandler);
+                    if (om != null) om.OptionsChanged -= (OptionsChangedHandler)Fixes.Bind(typeof(OptionsChangedHandler), this, sCplOptHandler);
                     c[2285]++;
                 }
                 catch (Exception) { c[2286]++; }

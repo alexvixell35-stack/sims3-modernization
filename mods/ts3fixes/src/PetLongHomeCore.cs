@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
-    // Game-independent rule of petlonghome (PetLongHome.cs, docs/645 §4). Self-check: tools/selftest/petlonghome.
+    // Game-independent rule of petlonghome (PetLongHome.cs, docs/656 §8.2). Self-check: tools/selftest/petlonghome.
     // Pre: the cheap gates, in order: a pet (cats, dogs, horses), not exempt, not held (carried, ridden, riding, leashed or
     // parented), no followers, not already on the lot, and a long trip: straight distance > minDist m, or this trip (pet,
     // lot) first seen more than maxWalkMin sim-minutes ago. Post: after the unseen checks (the pet and the goal lot) and the

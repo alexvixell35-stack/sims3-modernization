@@ -26,7 +26,7 @@ static void TestJobYield() {
     static_assert(offsetof(Ts3nCounters, jyMode) == 0x45CC && offsetof(Ts3nCounters, jyBusy) == 0x45D4 &&
                       offsetof(Ts3nCounters, swN) == 0x45D8 && offsetof(Ts3nCounters, swUs) == 0x45F0 &&
                       offsetof(Ts3nCounters, swMaxUs) == 0x4608 && offsetof(Ts3nCounters, swYieldable) == 0x460C &&
-                      offsetof(Ts3nCounters, swLines) == 0x4624 && sizeof(Ts3nCounters) == 6478 * 4,
+                      offsetof(Ts3nCounters, swLines) == 0x4624 && sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v109 layout after v108 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -43,6 +43,23 @@ static void TestJobYield() {
     // 2. on: busy while the job runs, only at the task's root interpreter state; the step-aside loop ends with the job
     k.jyMode = 1;
     assert(JyAsk() == 1 && k.jyAsks == 1 && k.jyBusy == 1);
+    {   // docs/323 M2: a full park table answers not busy (the task does not sleep), the slots stay, counted in jyLostN
+        const JyPark save = g_jyPark;
+        for (int i = 0; i < JYP_SLOTS; i++) g_jyPark.r[i].handle = 0x27000000u + i, g_jyPark.r[i].tick = GetTickCount(), g_jyPark.r[i].has = JYP_WHY;
+        const LONG full0 = g_jyPark.full, busy0 = k.jyBusy, lost0 = g_jyLostN, asks0 = k.jyAsks;
+        const RouteIsActiveFn act0 = g_routeIsActive;
+        g_routeIsActive = JyFakeActive, g_jyTestActive = 0;  // no game code here: the route is not followed
+        const u8 r = JyAskH(0x27100000u, 0);
+        if (g_async.state == A_RUNNING)  // the 60 ms job may have ended in between: then nothing is busy anyway
+            assert(r == 0 && g_jyPark.full == full0 + 1 && g_jyLostN == lost0 + 1 && k.jyBusy == busy0 && JypLive(g_jyPark) == JYP_SLOTS);
+        g_jyPark.r[JYP_SLOTS - 1].handle = 0;  // control: one free slot, the same ask is busy again (it sleeps)
+        const u8 r2 = JyAskH(0x27100000u, 0);
+        if (g_async.state == A_RUNNING) assert(r2 == 1 && k.jyBusy == busy0 + 1);
+        g_routeIsActive = act0;
+        g_jyPark = save;
+        JyCounts();
+        k.jyBusy = busy0, k.jyAsks = asks0;  // the cases below count from here
+    }
     FakeTask(kNested, 7);  // a native->managed call during the task may not yield: not busy, the plan waits as before
     assert(JyAsk() == 0 && k.jyBusy == 1);
     FakeTask(kRoot, 7);
@@ -71,7 +88,20 @@ static void TestJobYield() {
     SwNote(SW_RTWAIT, 400000, true, kH1, true);
     assert(k.swN[SW_RTWAIT] == 2 && k.swYieldable[SW_RTWAIT] == 2 && k.swLines == 1 && k.swMaxUs == 400000);
 
-    // 5. docs/183 §7: the records of a route whose task steps aside (jobyield.cpp, jobyield-core.h)
+    // 5. [RouteAsync] CutOnWait on (docs/850), real worker: a wait at disc behind a job of unknown scope (no ts3fixes answer =
+    // household) polls until the worker has looked at the job, asks nothing, and ends with the job, uncut
+    k.cowMode = 1;
+    const LONG cut0 = k.kdCutUnk + k.kdCutSeen + k.kdCutNpc + k.kdCutUnseen + k.budgetCapped;
+    assert(Start(kH1));
+    while (g_async.state != A_RUNNING) Sleep(0);
+    const DWORD cowSeq = g_asyncSeq;
+    WaitAsyncDone(SW_DISC);
+    assert(g_async.state != A_RUNNING && k.cowAsks == 0 && k.cowCut == 0 && g_cowReq == 0 && g_cowDecided == (LONG)cowSeq && k.swN[SW_DISC] == 1);
+    assert(k.kdCutUnk + k.kdCutSeen + k.kdCutNpc + k.kdCutUnseen + k.budgetCapped == cut0);
+    WaitReady(kH1);
+    assert(IcPlanHook(out, kH1) == out);
+    k.cowMode = 0;
+    // 6. docs/183 §7: the records of a route whose task steps aside (jobyield.cpp, jobyield-core.h)
     {
         const RouteIsActiveFn act0 = g_routeIsActive;
         g_routeIsActive = JyFakeActive, g_jyTestActive = 0, g_jyFollowed = 0;

@@ -1090,6 +1090,7 @@ static bool SpCut(const u8* world, bool read = false) {
         s_cy0[0] = g_cyCut, s_cy0[1] = g_cyCopy, s_cy0[2] = g_cyRebase;
     }
     if (g_spAuditEvery && k.spCuts % (LONG)g_spAuditEvery == 0) SpAudit(v, world);
+    CapSee(CAP_SPMB, (LONG)(g_spBytes >> 20), (LONG)(g_spCapBytes >> 20));
     if (g_spBytes > g_spCapBytes) {  // memory cap (docs/94 §3.3): off for the rest of the session
         g_spOn = 0;
         k.spCapOff = 1;
@@ -1097,6 +1098,7 @@ static bool SpCut(const u8* world, bool read = false) {
         g_spCur = NULL;
         SpVerRel(v);
         Log("snap: images use %ld KB, above CapMB: switched off", g_spBytes >> 10);
+        CapFull(CAP_SPMB);
     }
     return true;
 }
@@ -1130,8 +1132,18 @@ static int g_spDoorN;
 static struct { DWORD lotLo, objLo, ownLo, hhLo, idLo, mEpoch; SpDoorLot* open; SpDoor cur; bool haveDoor; } g_spDm;  // sim only
 
 static SpDoorLot* SpDoorLotFor(u64 key, bool add) {
-    for (int i = 0; i < g_spDoorN; i++) if (g_spDoorLots[i].key == key) return &g_spDoorLots[i];
-    if (!add || g_spDoorN == kSpDoorLots) return NULL;
+    SpDoorLot* empty = NULL;  // docs/321 §10 [LaneA] SpDoor: a slot emptied by a lot remove or world change (key 0), buffers kept
+    for (int i = 0; i < g_spDoorN; i++) {
+        if (g_spDoorLots[i].key == key) return &g_spDoorLots[i];
+        if (!empty && !g_spDoorLots[i].key) empty = &g_spDoorLots[i];
+    }
+    if (!add) return NULL;
+    if (empty && key) {  // reuse the slot and its heap buffers: slots never exceed the most lots one world held (no leak)
+        empty->key = key, empty->valid = 0, empty->epoch = 0, empty->mEpoch = 0, empty->n = 0, empty->nIds = 0;
+        return empty;
+    }
+    if (g_spDoorN == kSpDoorLots) { CapFull(CAP_SPDOOR); return NULL; }
+    CapSee(CAP_SPDOOR, g_spDoorN + 1, kSpDoorLots);
     SpDoorLot* l = &g_spDoorLots[g_spDoorN++];
     memset(l, 0, sizeof(*l));
     l->key = key;

@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline self-check of HouseboatLegMemoCore (docs/642 §6).
+// Offline self-check of HouseboatLegMemoCore (docs/853 §2).
 static class HouseboatLegMemoTest
 {
     static int sFails;

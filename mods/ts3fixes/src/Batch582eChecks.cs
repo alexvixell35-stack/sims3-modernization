@@ -9,7 +9,7 @@ namespace Ts3Fixes
         // override's own cleanup always runs first (structure of the hook).
         public static object DisposeBaseCheck(string what)
         {
-            string counters = B582Counters("disposebase", 1205, new[] { "base disposes run", "seen with switch off", "errors" }, "");
+            string counters = B582Counters("disposebase", 2892, new[] { "base disposes run", "seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "disposebase <run|result>";
             bool on = ShortcutOn("disposebase");
@@ -21,7 +21,7 @@ namespace Ts3Fixes
         // EA's 100/500 fallbacks; a short list keeps the fallback.
         public static object BoardingSchoolMoneyCheck(string what)
         {
-            string counters = B582Counters("boardingschoolmoney", 1208, new[] { "schools corrected", "would change with switch off", "errors" }, "");
+            string counters = B582Counters("boardingschoolmoney", 2895, new[] { "schools corrected", "would change with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "boardingschoolmoney <run|result>";
             bool on = ShortcutOn("boardingschoolmoney");
@@ -35,7 +35,7 @@ namespace Ts3Fixes
         // FreshClothingResumeCheck run: a saved 90 min resumes, a saved 0 skips. Controls: no entry and buff still on -> EA.
         public static object FreshClothingResumeCheck(string what)
         {
-            string counters = B582Counters("freshclothingresume", 1211, new[] { "resumed", "skipped (worn off)", "seen with switch off", "errors" }, sFcMap == null ? "LaundryManager.mFreshClothingTimeouts" : "");
+            string counters = B582Counters("freshclothingresume", 2898, new[] { "resumed", "skipped (worn off)", "seen with switch off", "errors" }, sFcMap == null ? "LaundryManager.mFreshClothingTimeouts" : "");
             if (what == "result") return counters;
             if (what != "run") return "freshclothingresume <run|result>";
             bool on = ShortcutOn("freshclothingresume");
@@ -48,7 +48,7 @@ namespace Ts3Fixes
         // value that is not EA's formula unchanged.
         public static object TwinBellyShapeCheck(string what)
         {
-            string counters = B582Counters("twinbellyshape", 1215, new[] { "shapes corrected", "seen with switch off", "errors" }, sPgMissing);
+            string counters = B582Counters("twinbellyshape", 2902, new[] { "shapes corrected", "seen with switch off", "errors" }, sPgMissing);
             if (what == "result") return counters;
             if (what != "run") return "twinbellyshape <run|result>";
             bool on = ShortcutOn("twinbellyshape");

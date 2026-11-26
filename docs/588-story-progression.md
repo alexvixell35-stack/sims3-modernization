@@ -134,7 +134,7 @@ The third reader also found the apartment-resident-list leak that C1 describes, 
 
 ## 7. Batch 10: built (2026-11-16, all default off, NOT RUN)
 
-User rule (2026-11-15): "fix, make it as EA intended, even for our household". No household exemption beyond EA's own; household-visible fixes are marked. Code: `mods/ts3fixes/src/Batch588Logic.cs`, `Batch588bLogic.cs`, checks in `Batch588Checks.cs`, `Batch588bChecks.cs`. Counters 1294-1350 (3 per switch, in this order). Every hooked method was diffed against simler90 UPDATE242 (decompiled with references): only `TryOneAction` (one notification call, made by sprecheck through reflection when simler90's DLL is loaded) and `PetPool.RandomRemovePet` (prefixed only) differ.
+User rule (2026-11-15): "fix, make it as EA intended, even for our household". No household exemption beyond EA's own; household-visible fixes are marked. Code: `mods/ts3fixes/src/Batch588Logic.cs`, `Batch588bLogic.cs`, checks in `Batch588Checks.cs`, `Batch588bChecks.cs`. Counters 2929-2985 (3 per switch, in this order). Every hooked method was diffed against simler90 UPDATE242 (decompiled with references): only `TryOneAction` (one notification call, made by sprecheck through reflection when simler90's DLL is loaded) and `PetPool.RandomRemovePet` (prefixed only) differ.
 
 | § | Lead | Switch | Check | Household-visible |
 |---|---|---|---|---|

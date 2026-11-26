@@ -33,15 +33,15 @@ namespace Ts3Fixes
     // MopFloor.IsLocationMoppableBySim answers false for those locations, so MopFloor's Test stops offering a mop whose
     // only puddles are unreachable and its Run picks a reachable one. Every Sim, household included: outcomes are EA's
     // with the unreachable tries removed.
-    // Counters: [1913] puddles skipped in a run (on), [1914] runs that mopped after a skip (on), [1915] runs that ended on an
-    // unreachable puddle with others left (switch off), [1916] locations withheld by the memo (on), [1917] the same seen
-    // with the switch off, [1918] errors.
+    // Counters: [2766] puddles skipped in a run (on), [2767] runs that mopped after a skip (on), [2768] runs that ended on an
+    // unreachable puddle with others left (switch off), [2769] locations withheld by the memo (on), [2770] the same seen
+    // with the switch off, [2771] errors.
     //
     // petpuddletile (kPetPuddleTile, off): [verified, decompiled] Terrain.DrinkPuddle.Run and PlayInPuddle.Run route to
     // GetClosestPuddle(lot, Hit.mPoint) and drink / play there, but then remove (or spread) the puddle at Hit's tile, so a
     // pet drinking the next puddle over dries the clicked one. Fix: before EA's Run, Hit becomes the closest puddle
-    // (GetClosestPuddle from it returns itself), so the tile removed is the tile used. [1919] hits moved (on), [1920] the
-    // same seen with the switch off, [1921] errors.
+    // (GetClosestPuddle from it returns itself), so the tile removed is the tile used. [2772] hits moved (on), [2773] the
+    // same seen with the switch off, [2774] errors.
     public static partial class Fixes
     {
         const float kMuExpiryMin = 30f;
@@ -116,7 +116,7 @@ namespace Ts3Fixes
                 m.Locs.AddRange(locs);
                 sMuMemo[id] = m;
             }
-            catch (Exception) { PatchCounters()[1918]++; }
+            catch (Exception) { PatchCounters()[2771]++; }
         }
 
         public class MopRunHook : Terrain.Mopping
@@ -134,9 +134,9 @@ namespace Ts3Fixes
                     {
                         LotLocation l = default(LotLocation);
                         ulong lot = World.GetLotLocation(Hit.mPoint, ref l);
-                        if (Actor.HasExitReason(ExitReason.RouteFailed) && lot != 0 && MuClosest(lot, Hit.mPoint, null) != Vector3.Invalid) PatchCounters()[1915]++;
+                        if (Actor.HasExitReason(ExitReason.RouteFailed) && lot != 0 && MuClosest(lot, Hit.mPoint, null) != Vector3.Invalid) PatchCounters()[2768]++;
                     }
-                    catch (Exception) { PatchCounters()[1918]++; }
+                    catch (Exception) { PatchCounters()[2771]++; }
                     return r;
                 }
                 return RunFixed();
@@ -182,7 +182,7 @@ namespace Ts3Fixes
                         LotLocation l = default(LotLocation);
                         World.GetLotLocationAtFloor(vector, ref l);
                         unreachable.Add(l);
-                        PatchCounters()[1913]++;
+                        PatchCounters()[2766]++;
                         continue;
                     }
                     if (actor.HasExitReason()) break;
@@ -193,7 +193,7 @@ namespace Ts3Fixes
                 }
                 if (unreachable.Count > 0)
                 {
-                    if (mopped > 0) PatchCounters()[1914]++;
+                    if (mopped > 0) PatchCounters()[2767]++;
                     MuRemember(actor, lot, unreachable);
                     if (MuEndsFailed(mopped, unreachable.Count) && !actor.HasExitReason())
                     {
@@ -276,12 +276,12 @@ namespace Ts3Fixes
                             bool sameLot = m.Lot == targetLot.LotId;
                             if (!MuWithhold(true, true, sameLot, sameLot ? MuCount(m.Lot) : -1, m.Count, PrNow() - m.At, true))
                                 sMuMemo.Remove(actor.SimDescription.SimDescriptionId);  // stale: EA decides again
-                            else if (ShortcutOn("mopunreachable")) { PatchCounters()[1916]++; return false; }
-                            else if (!m.Counted) { m.Counted = true; PatchCounters()[1917]++; }
+                            else if (ShortcutOn("mopunreachable")) { PatchCounters()[2769]++; return false; }
+                            else if (!m.Counted) { m.Counted = true; PatchCounters()[2770]++; }
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1918]++; }
+                catch (Exception) { PatchCounters()[2771]++; }
                 return true;
             }
             public static bool MoppableOrig(Sim actor, Lot targetLot, LotLocation location) { return false; } // receives MopFloor.IsLocationMoppableBySim
@@ -307,11 +307,11 @@ namespace Ts3Fixes
                     LotLocation c = default(LotLocation);
                     if (v != Vector3.Invalid) World.GetLotLocation(v, ref c);
                     if (!PtUseClosest(true, v != Vector3.Invalid, h.mX, h.mZ, h.mLevel, c.mX, c.mZ, c.mLevel)) return;
-                    if (!ShortcutOn("petpuddletile")) { PatchCounters()[1920]++; return; }
+                    if (!ShortcutOn("petpuddletile")) { PatchCounters()[2773]++; return; }
                     Hit.mPoint = v;
-                    PatchCounters()[1919]++;
+                    PatchCounters()[2772]++;
                 }
-                catch (Exception) { PatchCounters()[1921]++; }
+                catch (Exception) { PatchCounters()[2774]++; }
             }
         }
 
@@ -320,7 +320,7 @@ namespace Ts3Fixes
         // mopped, and the memo drops on another lot, a changed count, the expiry or an unlisted location. Read-only.
         public static object MopUnreachableCheck(string what)
         {
-            string counters = B582Counters("mopunreachable", 1913, new[] { "puddles skipped in a run", "runs that mopped after a skip", "runs ended on an unreachable puddle with others left (switch off)", "locations withheld by the memo", "memo cases seen with the switch off", "errors" }, "");
+            string counters = B582Counters("mopunreachable", 2766, new[] { "puddles skipped in a run", "runs that mopped after a skip", "runs ended on an unreachable puddle with others left (switch off)", "locations withheld by the memo", "memo cases seen with the switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "mopunreachable <run|result>";
             bool on = ShortcutOn("mopunreachable");
@@ -337,7 +337,7 @@ namespace Ts3Fixes
         // other level, no closest puddle, switch off. Read-only.
         public static object PetPuddleTileCheck(string what)
         {
-            string counters = B582Counters("petpuddletile", 1919, new[] { "hits moved to the puddle used", "hits that dried another puddle (switch off)", "errors" }, "");
+            string counters = B582Counters("petpuddletile", 2772, new[] { "hits moved to the puddle used", "hits that dried another puddle (switch off)", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "petpuddletile <run|result>";
             bool on = ShortcutOn("petpuddletile");

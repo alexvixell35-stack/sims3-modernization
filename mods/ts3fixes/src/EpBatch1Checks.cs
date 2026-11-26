@@ -17,7 +17,7 @@ namespace Ts3Fixes
         public static object DisplayCaseResetCheck(string what)
         {
             string miss = EpJoin(EpMiss("GameObject+ResetInformation", sDcResetInfo), EpLive(typeof(BDcHook), 2, "GameObject+ResetInformation", sDcResetInfo, null));
-            string counters = B582Counters("displaycasereset", 1400, new[] { "resets kept contents", "destroyed with switch off", "errors" }, miss);
+            string counters = B582Counters("displaycasereset", 3835, new[] { "resets kept contents", "destroyed with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "displaycasereset <run|result>";
             bool on = ShortcutOn("displaycasereset");
@@ -30,7 +30,7 @@ namespace Ts3Fixes
         public static object SuatGradeBonusCheck(string what)
         {
             string miss = EpJoin(EpMiss("TakeAptitudeTest.kGradeBonus", sSuBonus), EpLive(typeof(BSuHook), 1, "UniversityWelcomeKit+TakeAptitudeTest", sSuTest, null, "TakeAptitudeTest.kGradeBonus", sSuBonus, typeof(float[])));
-            string counters = B582Counters("suatgradebonus", 1403, new[] { "scores corrected", "differ with switch off", "errors" }, miss);
+            string counters = B582Counters("suatgradebonus", 3241, new[] { "scores corrected", "differ with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "suatgradebonus <run|result>";
             bool on = ShortcutOn("suatgradebonus");
@@ -46,7 +46,7 @@ namespace Ts3Fixes
         {
             string miss = EpJoin(EpMiss("SummonShark.kMaxSharksOnLot", sMsMax, "SummonShark.kMaxDistanceForExistingShark", sMsDist),
                 EpLive(typeof(BMsHook), 1, "SummonShark.kMaxSharksOnLot", sMsMax, typeof(int), "SummonShark.kMaxDistanceForExistingShark", sMsDist, typeof(float)));
-            string counters = B582Counters("mermaidsharknull", 1406, new[] { "failed placements took the fallback", "NRE with switch off", "errors" }, miss);
+            string counters = B582Counters("mermaidsharknull", 3838, new[] { "failed placements took the fallback", "NRE with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "mermaidsharknull <run|result>";
             bool on = ShortcutOn("mermaidsharknull");
@@ -59,7 +59,7 @@ namespace Ts3Fixes
         {
             string miss = EpJoin(EpMiss("FlyHere.mTakeOffJig", sJfTakeOff, "FlyHere.mLandingJig", sJfLanding),
                 EpLive(typeof(BJfHook), 1, "FlyHere.mTakeOffJig", sJfTakeOff, typeof(Sims3.Gameplay.Abstracts.GameObject), "FlyHere.mLandingJig", sJfLanding, typeof(Sims3.Gameplay.Abstracts.GameObject)));
-            string counters = B582Counters("jetpackflyherecleanup", 1409, new[] { "cleanups without jetpack", "seen with switch off", "errors" }, miss);
+            string counters = B582Counters("jetpackflyherecleanup", 3845, new[] { "cleanups without jetpack", "seen with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "jetpackflyherecleanup <run|result>";
             bool on = ShortcutOn("jetpackflyherecleanup");
@@ -72,7 +72,7 @@ namespace Ts3Fixes
         public static object NaniteRouteFailCheck(string what)
         {
             string miss = EpJoin(EpMiss("ReverseEngineer.mProp", sNrProp), EpLive(typeof(BNrHook), 1, "ReverseEngineer.mProp", sNrProp, typeof(Sims3.Gameplay.Abstracts.GameObject)));
-            string counters = B582Counters("naniteroutefail", 1412, new[] { "terrariums kept", "destroyed with switch off", "errors" }, miss);
+            string counters = B582Counters("naniteroutefail", 3848, new[] { "terrariums kept", "destroyed with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "naniteroutefail <run|result>";
             bool on = ShortcutOn("naniteroutefail");
@@ -85,7 +85,7 @@ namespace Ts3Fixes
         {
             string miss = EpJoin(EpMiss("SpringDanceFloor.SimDancers", sSdDancers),
                 EpLive(typeof(BSpdHook), 1, "SpringDanceFloor.SimDancers", sSdDancers, typeof(Sims3.Gameplay.Utilities.PairedListDictionary<Sims3.Gameplay.Actors.Sim, float>)));
-            string counters = B582Counters("springdanceclear", 1415, new[] { "tallies cleared", "kept with switch off", "errors" }, miss);
+            string counters = B582Counters("springdanceclear", 3851, new[] { "tallies cleared", "kept with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "springdanceclear <run|result>";
             bool on = ShortcutOn("springdanceclear");
@@ -99,7 +99,7 @@ namespace Ts3Fixes
             string miss = EpJoin(EpMiss("NectarBottle.mBottleInfo", sNcInfo, "NectarBottle.UpdateVisualState", sNcVisual, "NectarBottle.CheckStartVFx", sNcFx),
                 EpLive(typeof(BNcbHook), 1, "NectarBottle.mBottleInfo", sNcInfo, typeof(Sims3.Gameplay.Objects.CookingObjects.NectarBottle.NectarBottleGlassInfo),
                     "NectarBottle.UpdateVisualState", sNcVisual, 0, "NectarBottle.CheckStartVFx", sNcFx, 0));
-            string counters = B582Counters("nectarcopylevel10", 1418, new[] { "copies completed", "incomplete with switch off", "errors" }, miss);
+            string counters = B582Counters("nectarcopylevel10", 3854, new[] { "copies completed", "incomplete with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "nectarcopylevel10 <run|result>";
             bool on = ShortcutOn("nectarcopylevel10");
@@ -113,7 +113,7 @@ namespace Ts3Fixes
             string miss = EpJoin(EpMiss("EatHarvestablePet.mEatGroundVfx", sHeGround, "EatHarvestablePet.mEatFallVfx", sHeFall),
                 EpLive(typeof(BHeHook), 2, "EatHarvestablePet", sHeType, null, "EatHarvestablePet.mEatGroundVfx", sHeGround, typeof(Sims3.SimIFace.VisualEffect),
                     "EatHarvestablePet.mEatFallVfx", sHeFall, typeof(Sims3.SimIFace.VisualEffect)));
-            string counters = B582Counters("harvesteatvfx", 1421, new[] { "effects kept", "leaking starts with switch off", "errors" }, miss);
+            string counters = B582Counters("harvesteatvfx", 3857, new[] { "effects kept", "leaking starts with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "harvesteatvfx <run|result>";
             bool on = ShortcutOn("harvesteatvfx");
@@ -128,7 +128,7 @@ namespace Ts3Fixes
         public static object BuffetEmptyPickCheck(string what)
         {
             string miss = EpJoin(EpMiss("ResortBuffetTable.kFoodSlots", sBfSlots), EpLive(typeof(BBfHook), 1, "ResortBuffetTable.kFoodSlots", sBfSlots, typeof(Sims3.SimIFace.Slot[])));
-            string counters = B582Counters("buffetemptypick", 1424, new[] { "picks limited to food", "could throw with switch off", "errors" }, miss);
+            string counters = B582Counters("buffetemptypick", 3860, new[] { "picks limited to food", "could throw with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "buffetemptypick <run|result>";
             bool on = ShortcutOn("buffetemptypick");
@@ -141,7 +141,7 @@ namespace Ts3Fixes
         public static object KrakenFriendSailorCheck(string what)
         {
             string miss = EpJoin(EpMiss("KrakenManager.mBoatList", sKrList), EpLive(typeof(BKrHook), 2, "KrakenManager.mBoatList", sKrList, typeof(System.Collections.ICollection)));
-            string counters = B582Counters("krakenfriendsailor", 1427, new[] { "attacks dropped", "scheduled with switch off", "errors" }, miss);
+            string counters = B582Counters("krakenfriendsailor", 3863, new[] { "attacks dropped", "scheduled with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "krakenfriendsailor <run|result>";
             bool on = ShortcutOn("krakenfriendsailor");
@@ -154,7 +154,7 @@ namespace Ts3Fixes
         public static object MummyCurseTraitCheck(string what)
         {
             string miss = EpLive(typeof(BMcHook), 1);
-            string counters = B582Counters("mummycursetrait", 1430, new[] { "visible picks", "any-trait picks with switch off", "errors" }, miss);
+            string counters = B582Counters("mummycursetrait", 3866, new[] { "visible picks", "any-trait picks with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "mummycursetrait <run|result>";
             bool on = ShortcutOn("mummycursetrait");
@@ -167,7 +167,7 @@ namespace Ts3Fixes
         {
             string miss = EpJoin(EpMiss("MechanicalBull+RideBull", sBrRide, "MechanicalBull.mCurrentRider", sBrRider),
                 EpLive(typeof(BBrHook), 1, "MechanicalBull+RideBull", sBrRide, typeof(Sims3.Gameplay.Interactions.InteractionInstance), "MechanicalBull.mCurrentRider", sBrRider, typeof(Sims3.Gameplay.Actors.Sim)));
-            string counters = B582Counters("bullridercleanup", 1433, new[] { "riders kept", "cleared with switch off", "errors" }, miss);
+            string counters = B582Counters("bullridercleanup", 3869, new[] { "riders kept", "cleared with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "bullridercleanup <run|result>";
             bool on = ShortcutOn("bullridercleanup");
@@ -178,7 +178,7 @@ namespace Ts3Fixes
         public static object BroomTipPerformerCheck(string what)
         {
             string miss = EpJoin(EpMiss("MagicBroomArena.mCurrentPerformer", sBtPerformer), EpLive(typeof(BBtHook), 1, "MagicBroomArena.mCurrentPerformer", sBtPerformer, null));
-            string counters = B582Counters("broomtipperformer", 1436, new[] { "tips skipped", "no performer with switch off", "errors" }, miss);
+            string counters = B582Counters("broomtipperformer", 3872, new[] { "tips skipped", "no performer with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "broomtipperformer <run|result>";
             bool on = ShortcutOn("broomtipperformer");
@@ -189,7 +189,7 @@ namespace Ts3Fixes
         public static object BalancingBallCareerCheck(string what)
         {
             string miss = EpJoin(EpMiss("BalanceBall+Definition", sBbDef), EpLive(typeof(BBbHook), 1, "BalanceBall+Definition", sBbDef, null));
-            string counters = B582Counters("balancingballcareer", 1439, new[] { "non-acrobats refused", "allowed with switch off", "errors" }, miss);
+            string counters = B582Counters("balancingballcareer", 3875, new[] { "non-acrobats refused", "allowed with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "balancingballcareer <run|result>";
             bool on = ShortcutOn("balancingballcareer");
@@ -202,7 +202,7 @@ namespace Ts3Fixes
             string miss = EpJoin(EpMiss("kChanceGnomeElvisSpawnsSandwich", sEgChanceSandwich, "kMusicPlaysFor", sEgPlaysFor, "mElvisMusicHandle", sEgHandle, "SpawnElvis(V,V)", sEgSpawnAt, "SpawnElvis()", sEgSpawnLot),
                 EpLive(typeof(BEgHook), 5, "kChanceGnomeElvisSpawnsSandwich", sEgChanceSandwich, typeof(float), "kMusicPlaysFor", sEgPlaysFor, typeof(float),
                     "mElvisMusicHandle", sEgHandle, typeof(Sims3.SimIFace.ObjectSound), "SpawnElvis(V,V)", sEgSpawnAt, 2, "SpawnElvis()", sEgSpawnLot, 0));
-            string counters = B582Counters("elvisgnomeguard", 1442, new[] { "throws / leaks guarded", "seen with switch off", "errors" }, miss);
+            string counters = B582Counters("elvisgnomeguard", 3878, new[] { "throws / leaks guarded", "seen with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "elvisgnomeguard <run|result>";
             bool on = ShortcutOn("elvisgnomeguard");
@@ -214,7 +214,7 @@ namespace Ts3Fixes
         public static object ElvisGnomeCapCheck(string what)
         {
             string miss = EpLive(typeof(BEgHook), 5);
-            string counters = B582Counters("elvisgnomecap", 1445, new[] { "spawns skipped", "rolled with a gnome, switch off", "errors" }, miss);
+            string counters = B582Counters("elvisgnomecap", 3881, new[] { "spawns skipped", "rolled with a gnome, switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "elvisgnomecap <run|result>";
             bool on = ShortcutOn("elvisgnomecap");
@@ -226,7 +226,7 @@ namespace Ts3Fixes
         {
             string miss = EpJoin(EpMiss("CatToyWallDancer.IsValidSim", sCtValidSim, "CatToyWallDancer.IsValidPet", sCtValidPet),
                 EpLive(typeof(BCtHook), 1, "CatToyWallDancer.IsValidSim", sCtValidSim, 1, "CatToyWallDancer.IsValidPet", sCtValidPet, 1));
-            string counters = B582Counters("cattoypickerrel", 1448, new[] { "strangers added", "left out with switch off", "errors" }, miss);
+            string counters = B582Counters("cattoypickerrel", 3244, new[] { "strangers added", "left out with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "cattoypickerrel <run|result>";
             bool on = ShortcutOn("cattoypickerrel");
@@ -239,7 +239,7 @@ namespace Ts3Fixes
         public static object GourmetPetRecipeCheck(string what)
         {
             string miss = EpJoin(EpMiss("MakeGourmetFoodForPet", sGpType), EpLive(typeof(BGpHook), 1, "MakeGourmetFoodForPet", sGpType, null));
-            string counters = B582Counters("gourmetpetrecipe", 1451, new[] { "choices corrected", "seen with switch off", "errors" }, miss);
+            string counters = B582Counters("gourmetpetrecipe", 3884, new[] { "choices corrected", "seen with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "gourmetpetrecipe <run|result>";
             bool on = ShortcutOn("gourmetpetrecipe");
@@ -250,7 +250,7 @@ namespace Ts3Fixes
         public static object ChipAnyCountCheck(string what)
         {
             string miss = EpJoin(EpMiss("TraitChipStaticData.RemoveComponent(Type)", sChRemoveType), EpLive(typeof(BChHook), 3, "TraitChipStaticData.RemoveComponent(Type)", sChRemoveType, 3));
-            string counters = B582Counters("chipanycount", 1460, new[] { "over-asks trimmed", "over-asks with switch off", "errors" }, miss);
+            string counters = B582Counters("chipanycount", 3893, new[] { "over-asks trimmed", "over-asks with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "chipanycount <run|result>";
             bool on = ShortcutOn("chipanycount");
@@ -261,7 +261,7 @@ namespace Ts3Fixes
         public static object ChipFamilyCrystalCheck(string what)
         {
             string miss = EpJoin(EpMiss("TraitChipStaticData.RemoveComponent(ChargeTypes)", sChRemoveCrystal), EpLive(typeof(BChHook), 3, "TraitChipStaticData.RemoveComponent(ChargeTypes)", sChRemoveCrystal, 3));
-            string counters = B582Counters("chipfamilycrystal", 1454, new[] { "family crystals consumed", "left with switch off", "errors" }, miss);
+            string counters = B582Counters("chipfamilycrystal", 3887, new[] { "family crystals consumed", "left with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "chipfamilycrystal <run|result>";
             bool on = ShortcutOn("chipfamilycrystal");
@@ -272,7 +272,7 @@ namespace Ts3Fixes
         public static object ChipComponentOrphanCheck(string what)
         {
             string miss = EpJoin(EpMiss("TraitChipStaticData.RemoveComponent(Type)", sChRemoveType), EpLive(typeof(BChHook), 3, "TraitChipStaticData.RemoveComponent(Type)", sChRemoveType, 3));
-            string counters = B582Counters("chipcomponentorphan", 1457, new[] { "orphans destroyed", "left with switch off", "errors" }, miss);
+            string counters = B582Counters("chipcomponentorphan", 3890, new[] { "orphans destroyed", "left with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "chipcomponentorphan <run|result>";
             bool on = ShortcutOn("chipcomponentorphan");
@@ -285,7 +285,7 @@ namespace Ts3Fixes
             string miss = EpJoin(EpMiss("BotBuildingSkill.mNanitesCollected", sNmList, "BotBuildingSkill.mTraitChipSchematicsLearned", sNmChips),
                 EpLive(typeof(BNmHook), 1, "BotBuildingSkill.mNanitesCollected", sNmList, typeof(System.Collections.Generic.List<Sims3.Gameplay.Objects.Insect.InsectType>),
                     "BotBuildingSkill.mTraitChipSchematicsLearned", sNmChips, typeof(System.Collections.Generic.List<Sims3.Gameplay.ActorSystems.TraitChipName>)));
-            string counters = B582Counters("nanitemerge", 1463, new[] { "lists merged", "left with switch off", "errors" }, miss);
+            string counters = B582Counters("nanitemerge", 3896, new[] { "lists merged", "left with switch off", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "nanitemerge <run|result>";
             bool on = ShortcutOn("nanitemerge");

@@ -15,7 +15,7 @@ namespace Ts3Agent
     {
         public static Dictionary<string, object> Obj() { return new Dictionary<string, object>(); }
 
-        // ts3fixes caches its ShortcutOn answers per switch-table generation (docs/603 §2): every write to
+        // ts3fixes caches its ShortcutOn answers per switch-table generation (docs/605 §2): every write to
         // "ts3fixes.switches" (and every reflect_set, which may change a tuning field) bumps "ts3fixes.switchgen".
         public static void SwitchesChanged()
         {

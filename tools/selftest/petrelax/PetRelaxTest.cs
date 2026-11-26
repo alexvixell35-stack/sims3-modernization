@@ -103,7 +103,7 @@ static class PetRelaxTest
         }
     }
 
-    // docs/686 §8.7: the walk-through is at once only near a portal, elsewhere after the shared grace
+    // docs/686 §8.8: the walk-through is at once only near a portal, elsewhere after the shared grace
     static void Timing()
     {
         const int D = ShareLanesCore.kDefer;

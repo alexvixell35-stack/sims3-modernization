@@ -1,4 +1,4 @@
-// Offline self-check of petlonghome (mods/ts3fixes/src/PetLongHomeCore.cs, docs/645 §4): the gate order,
+// Offline self-check of petlonghome (mods/ts3fixes/src/PetLongHomeCore.cs, docs/656 §8.2): the gate order,
 // distance and trip-age rules, unseen checks and the trip table.
 // Windows (.NET Framework csc), or Linux with TS3_CSC (csc-shim).
 //   node tools/selftest/petlonghome/run.ts

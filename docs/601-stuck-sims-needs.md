@@ -58,7 +58,7 @@ The end is EA's own calls, in `ChangeOutfit`'s order:
 3. `Sim.SwitchToOutfitWithoutSpin(category, index)`, then `LaundryManager.OnClothesChanged` and
    `DoCarriedToddlerSpinIfNeeded`.
 
-A re-`Start` re-inits to "no change", because the Sim now wears the category. Counters 1977 ended, 1978 would end
+A re-`Start` re-inits to "no change", because the Sim now wears the category. Counters 2124 ended, 1978 would end
 (switch off), 1979 kept past the mark, 1980 errors; up to 10 `outfitwaitend:` lines. Check
 `Fixes.OutfitWaitEndCheck` (pure `EndNow` + 7 controls + the live path through `CkLive`/`EpLive`), repro
 `outfitwaitend-check`.

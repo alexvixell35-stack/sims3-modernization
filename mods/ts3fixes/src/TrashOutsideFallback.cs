@@ -31,8 +31,8 @@ namespace Ts3Fixes
     //   After every call we made, a bag still held by the Sim is put down (TrashPile.PutTrashDown, not destroyed): the held
     //   object is never lost and never left parented to the Sim.
     // Household rule: Fixes.HouseholdExempt and IsPlayerSim (unknown scope = household; the selected Sim is never touched).
-    // Counters [4080] non-forced fallbacks, [4081] bags put down (EA's failure remembered, or no receptacle), [4082] EmptyTrash
-    // picks refused, [4083] exempt (household, selected, unknown scope), [4084] errors (and bags we had to put down after a call).
+    // Counters [4870] non-forced fallbacks, [4871] bags put down (EA's failure remembered, or no receptacle), [4872] EmptyTrash
+    // picks refused, [4873] exempt (household, selected, unknown scope), [4874] errors (and bags we had to put down after a call).
     public static partial class Fixes
     {
         static readonly TrashOutsideFallbackCore sTof = new TrashOutsideFallbackCore();
@@ -97,11 +97,11 @@ namespace Ts3Fixes
             {
                 if (held == null || held.HasBeenDestroyed) return;
                 if (held.Parent != a && a.GetObjectInRightHand() != held) return;
-                PatchCounters()[4084]++;
+                PatchCounters()[4874]++;
                 TrashPile.PutTrashDown(a, held, false);
                 TofLog(a.FullName + ": bag still held after " + where + ", put down");
             }
-            catch (Exception ex) { PatchCounters()[4084]++; TofLog("error putting the bag down " + ex.GetType().Name); }
+            catch (Exception ex) { PatchCounters()[4874]++; TofLog("error putting the bag down " + ex.GetType().Name); }
         }
 
         static string TofWhere(Sim a)
@@ -128,12 +128,12 @@ namespace Ts3Fixes
                     bool known = !exempt && held != null && TofKnown(a.LotCurrent);
                     what = TrashOutsideFallbackCore.Decide(true, true, exempt, known, known && TofReceptacle(a, held));
                 }
-                catch (Exception ex) { c[4084]++; TofLog("error at decide " + ex.GetType().Name); what = TrashOutsideFallbackCore.kExempt; }
+                catch (Exception ex) { c[4874]++; TofLog("error at decide " + ex.GetType().Name); what = TrashOutsideFallbackCore.kExempt; }
 
-                if (what == TrashOutsideFallbackCore.kExempt) { c[4083]++; return PutOrig(interaction, true, numTrashUnits, nukeBagHandler); }
+                if (what == TrashOutsideFallbackCore.kExempt) { c[4873]++; return PutOrig(interaction, true, numTrashUnits, nukeBagHandler); }
                 if (what == TrashOutsideFallbackCore.kFallback)
                 {
-                    c[4080]++;
+                    c[4870]++;
                     TofLog(a.FullName + ": outdoor can unreachable, EA's non-forced disposal" + TofWhere(a));
                     bool r = PutOrig(interaction, false, numTrashUnits, nukeBagHandler);
                     TofEnsureDown(a, held, "the non-forced disposal");
@@ -141,9 +141,9 @@ namespace Ts3Fixes
                 }
                 if (what == TrashOutsideFallbackCore.kPutDown)
                 {
-                    c[4081]++;
+                    c[4871]++;
                     TofLog(a.FullName + ": outdoor can unreachable, nothing else on the lot, bag put down" + TofWhere(a));
-                    try { TrashPile.PutTrashDown(a, held, false); } catch (Exception ex) { c[4084]++; TofLog("error at put down " + ex.GetType().Name); }
+                    try { TrashPile.PutTrashDown(a, held, false); } catch (Exception ex) { c[4874]++; TofLog("error at put down " + ex.GetType().Name); }
                     TofEnsureDown(a, held, "the put down");
                     return false;
                 }
@@ -164,12 +164,12 @@ namespace Ts3Fixes
                             Lot lot = a.LotCurrent;
                             bool fresh;
                             lock (sTof) fresh = lot != null && sTof.Note(lot.LotId, SimClock.CurrentTicks, TofSpan());
-                            c[4081]++;
+                            c[4871]++;
                             if (fresh) TofLog(a.FullName + ": no path to the outdoor can, bag put down by EA, lot remembered for "
                                 + Instantiator.kTrashOutsideFallbackHours + " h" + TofWhere(a));
                         }
                     }
-                    catch (Exception ex) { c[4084]++; TofLog("error at record " + ex.GetType().Name); }
+                    catch (Exception ex) { c[4874]++; TofLog("error at record " + ex.GetType().Name); }
                 }
                 return ok;
             }
@@ -188,11 +188,11 @@ namespace Ts3Fixes
                     bool exempt = TofExempt(a);
                     if (TrashOutsideFallbackCore.Refuse(true, true, true, exempt, true, !exempt && TofKnown(target.LotCurrent)))
                     {
-                        PatchCounters()[4082]++;
+                        PatchCounters()[4872]++;
                         return false;
                     }
                 }
-                catch (Exception) { PatchCounters()[4084]++; }
+                catch (Exception) { PatchCounters()[4874]++; }
                 return r;
             }
             public bool TestOrig(Sim a, IAcceptsGarbage target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // TrashcanIndoor.EmptyTrash.Definition.Test

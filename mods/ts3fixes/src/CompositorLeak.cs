@@ -90,7 +90,7 @@ namespace Ts3Fixes
                         {
                             // EA's OnCustomDetach steps (unregister, remove, dispose), with WindowBase's own Dispose: the
                             // controller's override acts on tool state that belongs to a loaded compositor
-                            if (sCmlBaseDispose != null) ((Action<bool>)Delegate.CreateDelegate(typeof(Action<bool>), w, sCmlBaseDispose))(false);
+                            if (sCmlBaseDispose != null) ((Action<bool>)Fixes.Bind(typeof(Action<bool>), w, sCmlBaseDispose))(false);
                             c[2299]++;
                         }
                         else

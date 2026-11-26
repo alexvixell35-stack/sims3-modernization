@@ -68,8 +68,8 @@ namespace Ts3Fixes
     // objects), and the travel definition; with the switch on both give EA's "no station" false instead of a throw. The
     // `destination == origin` step is one increment with wrap, not a loop: it always exits, and the list has no duplicate,
     // so the second pick differs (kept as EA, including the bias toward the station after the closest one).
-    // Counters: [1971] tests answered from the memo, [1972] tests that ran EA's query (switch off: every gated test, the call
-    // rate), [1973] memo forgets, [1974] check mismatches (memo vs EA, must stay 0), [1975] Run throws avoided, [1976] errors.
+    // Counters: [2157] tests answered from the memo, [2158] tests that ran EA's query (switch off: every gated test, the call
+    // rate), [2159] memo forgets, [2160] check mismatches (memo vs EA, must stay 0), [2161] Run throws avoided, [2162] errors.
     public static partial class Fixes
     {
         static readonly Type sHtRun = typeof(Sim).GetNestedType("NPCUseHoverTrain", BindingFlags.Public | BindingFlags.NonPublic);
@@ -186,7 +186,7 @@ namespace Ts3Fixes
         {
             if (!sHtMemo.Known) return;
             sHtMemo.Forget();
-            PatchCounters()[1973]++;
+            PatchCounters()[2159]++;
         }
 
         static void HtWorldEvent(object sender, EventArgs e) { HtForget(); }
@@ -197,7 +197,7 @@ namespace Ts3Fixes
         static void HtWorldLoaded(object sender, EventArgs e)
         {
             HtForget();
-            try { HtBuildBuyListen(); HtCheckClasses(); } catch (Exception) { PatchCounters()[1976]++; sHtReady = false; }
+            try { HtBuildBuyListen(); HtCheckClasses(); } catch (Exception) { PatchCounters()[2162]++; sHtReady = false; }
         }
 
         static void HtPlaced(object sender, EventArgs e)
@@ -208,7 +208,7 @@ namespace Ts3Fixes
                 World.OnObjectPlacedInLotEventArgs p = e as World.OnObjectPlacedInLotEventArgs;
                 if (p == null || HtMaybeStation(p.ObjectId)) HtForget();
             }
-            catch (Exception) { PatchCounters()[1976]++; HtForget(); }
+            catch (Exception) { PatchCounters()[2162]++; HtForget(); }
         }
 
         // A station, or an object we cannot look up (forget: costs one EA query, never a wrong answer)
@@ -247,9 +247,9 @@ namespace Ts3Fixes
             if (use)
             {
                 int m = sHtMemo.Answer(2, sHtAlive);
-                if (m >= 0) { c[1971]++; return m == 1; }
+                if (m >= 0) { c[2157]++; return m == 1; }
             }
-            c[1972]++;
+            c[2158]++;
             IHoverTrainStation[] s = HtQuery();
             if (use) sHtMemo.Store(s);
             return s.Length >= 2;
@@ -262,7 +262,7 @@ namespace Ts3Fixes
             public void StartHook()
             {
                 StartOrig();
-                try { HtStarted(this); } catch (Exception) { PatchCounters()[1976]++; sHtReady = false; sHtMemo.Forget(); }
+                try { HtStarted(this); } catch (Exception) { PatchCounters()[2162]++; sHtReady = false; sHtMemo.Forget(); }
             }
             public void StartOrig() { } // HoverTrainStation.OnStartupRabbitHole
         }
@@ -275,9 +275,9 @@ namespace Ts3Fixes
                 if (a == null) return TestOrig(a, target, isAutonomous, ref greyedOutTooltipCallback);  // EA's own behaviour
                 if (!isAutonomous || a.IsSelectable) return false;  // EA's gate, unchanged
                 int[] c = PatchCounters();
-                if (!ShortcutOn("hovertraintest")) { c[1972]++; return HtQuery().Length >= 2; }  // EA's body (the gate already ran)
+                if (!ShortcutOn("hovertraintest")) { c[2158]++; return HtQuery().Length >= 2; }  // EA's body (the gate already ran)
                 try { return HtAtLeastTwo(c); }
-                catch (Exception) { c[1976]++; HtForget(); return HtQuery().Length >= 2; }
+                catch (Exception) { c[2162]++; HtForget(); return HtQuery().Length >= 2; }
             }
             public bool TestOrig(Sim a, Sim target, bool isAutonomous, ref GreyedOutTooltipCallback greyedOutTooltipCallback) { return false; } // Sim+NPCUseHoverTrain+Definition.Test
         }
@@ -296,9 +296,9 @@ namespace Ts3Fixes
                 int num = RandomUtil.GetInt(objects.Length - 1);
                 IHoverTrainStation destination = objects[num];
                 if (destination == origin) destination = objects[num + 1 == objects.Length ? 0 : num + 1];
-                if (origin == null) { PatchCounters()[1975]++; return false; }   // every station charred: EA throws here
+                if (origin == null) { PatchCounters()[2161]++; return false; }   // every station charred: EA throws here
                 InteractionDefinition travel = origin.GetTravelToDefinition(origin, destination, Actor);
-                if (travel == null) { PatchCounters()[1975]++; return false; }
+                if (travel == null) { PatchCounters()[2161]++; return false; }
                 Actor.InteractionQueue.PushAsContinuation(travel, origin, false);
                 return true;
             }
@@ -328,10 +328,10 @@ namespace Ts3Fixes
         }
 
         // HoverTrainTestCheck run: the memo's answer, stored before the check (by NPC tests since the last forget), equals EA's
-        // query in the same tick (no yield between); a differing answer counts [1974]. 'result': counters + timing.
+        // query in the same tick (no yield between); a differing answer counts [2160]. 'result': counters + timing.
         public static object HoverTrainTestCheck(string what)
         {
-            string counters = B582Counters("hovertraintest", 1971, new[] { "answered from the memo", "EA queries", "forgets", "check mismatches", "Run throws avoided", "errors" }, sHtMissing);
+            string counters = B582Counters("hovertraintest", 2157, new[] { "answered from the memo", "EA queries", "forgets", "check mismatches", "Run throws avoided", "errors" }, sHtMissing);
             if (what == "result") return counters + "; " + HtTiming();
             if (what != "run") return "hovertraintest <run|result>";
             bool on = ShortcutOn("hovertraintest");
@@ -346,7 +346,7 @@ namespace Ts3Fixes
                 int m = use ? sHtMemo.Answer(2, sHtAlive) : -1;
                 IHoverTrainStation[] s = HtQuery();
                 bool ea = s.Length >= 2;
-                if (m >= 0 && (m == 1) != ea) PatchCounters()[1974]++;
+                if (m >= 0 && (m == 1) != ea) PatchCounters()[2160]++;
                 bool same = m < 0 || (m == 1) == ea;
                 controls &= same;
                 if (m < 0 && use) sHtMemo.Store(s);  // primes the memo for the next check

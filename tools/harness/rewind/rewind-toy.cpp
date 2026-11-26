@@ -77,6 +77,9 @@ static DWORD WINAPI sleeper(void*) {
   return 0;
 }
 static DWORD WINAPI idle(void*) { Sleep(INFINITE); return 0; }
+// a thread that becomes a window-system thread (first win32k call) and then idles, as a Frida or worker thread asking
+// for the foreground window does (docs/270 §36)
+static DWORD WINAPI guiIdle(void*) { GetForegroundWindow(); Sleep(INFINITE); return 0; }
 static char pipeName[64];
 static HANDLE pipeClient;
 // Named-pipe server on a synchronous handle: ConnectNamedPipe blocks in NtFsControlFile(FSCTL_PIPE_LISTEN); with a client
@@ -283,6 +286,7 @@ static void run(unsigned c) {
     case C_FILE_SEEK: { char buf[256]; DWORD got; ReadFile((HANDLE)(UINT_PTR)s.hFileA, buf, sizeof buf, &got, nullptr); SetFilePointer((HANDLE)(UINT_PTR)s.hFileA, 8192, nullptr, FILE_CURRENT); break; }
     case C_FILE_CLOSE: CloseHandle((HANDLE)(UINT_PTR)s.hFileA); for (int i = 0; i < 3; ++i) CreateEventA(nullptr, 0, 0, nullptr); break;  // the freed value gets reused
     case C_THREAD_NEW: CreateThread(nullptr, 0, idle, nullptr, 0, nullptr); Sleep(50); break;
+    case C_GUI_THREAD: CreateThread(nullptr, 0, guiIdle, nullptr, 0, nullptr); Sleep(50); break;
     case C_THREAD_EXIT: s.t3exit = 1; Sleep(200); break;
     case C_SIGNAL: SetEvent((HANDLE)(UINT_PTR)s.hEvt); Sleep(50); break;
     case C_SPIN_ON: s.spin = 1; SetEvent((HANDLE)(UINT_PTR)s.hEvt); Sleep(50); break;

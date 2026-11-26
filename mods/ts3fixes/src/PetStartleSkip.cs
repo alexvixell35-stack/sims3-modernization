@@ -9,7 +9,7 @@ using Sims3.SimIFace.Enums;
 
 namespace Ts3Fixes
 {
-    // petstartleskip (tuning kPetStartleSkip, default off; docs/645 §3). A startled pet runs Sim.PetStartle, whose flee route
+    // petstartleskip (tuning kPetStartleSkip, default off; docs/656 §8.1). A startled pet runs Sim.PetStartle, whose flee route
     // (run away after the reaction) can head through a door locked for pets; the plan fails with
     // FailedBecauseDestinationPortalLocked and the next noise (TV, stereo, shower, dishwasher: PetStartleBehavior.CheckForStartle)
     // pushes the same startle again once EA's per-pet cooldown ends (OFF runs: Bridgeport 321 in 40 runs, Isla Paradiso 251,
@@ -19,7 +19,7 @@ namespace Ts3Fixes
     // PetStartleBehavior.StartlePet (the funnel every startle goes through) returns at once for it, as EA itself does inside
     // the cooldown. Forced startles still run: ignoreCooldown, electrocution, Grim Reaper, fire and meteor. Household,
     // selected and unknown-scope pets (HouseholdExempt or IsPlayerSim) are never recorded and never skipped. Rule:
-    // PetStartleSkipCore. Counters [4074] recorded, [4075] startles skipped, [4078] exempt (shared), [4079] errors (shared).
+    // PetStartleSkipCore. Counters [4620] recorded, [4621] startles skipped, [4624] exempt, [4625] errors (shared with petlonghome).
     // Log "petstartleskip: recorded|skipped <pet> ...", capped at 10 a minute.
     public static partial class Fixes
     {
@@ -51,13 +51,13 @@ namespace Ts3Fixes
                 bool pet = sim.SimDescription != null && sim.SimDescription.IsPet;
                 long life = SimClock.ConvertToTicks(Instantiator.kPetStartleSkipMinutes, TimeUnit.Minutes);
                 int r = sPss.Record(sim.ObjectId.Value, pet, PssExempt(sim), (int)res.mType, SimClock.CurrentTicks, life);
-                if (r == PetStartleSkipCore.kExempt) { c[4078]++; return; }
+                if (r == PetStartleSkipCore.kExempt) { c[4624]++; return; }
                 if (r != PetStartleSkipCore.kRecorded) return;
-                c[4074]++;
+                c[4620]++;
                 PssLog("recorded " + sim.FullName + " (" + sim.SimDescription.Species + "), flee route PortalLocked, startles skipped "
                     + Instantiator.kPetStartleSkipMinutes + " sim-min");
             }
-            catch (Exception ex) { c[4079]++; PssLog("error " + ex.GetType().Name); }
+            catch (Exception ex) { c[4625]++; PssLog("error " + ex.GetType().Name); }
         }
 
         static bool PssForced(StartleType t, bool ignoreCooldown)
@@ -86,13 +86,13 @@ namespace Ts3Fixes
                 ulong id = s.ObjectId.Value;
                 if (!sPss.Live(id, now)) return false;
                 int d = sPss.Startle(id, PssForced(t, ignoreCooldown), PssExempt(s), now);
-                if (d == PetStartleSkipCore.kPassExempt) { c[4078]++; return false; }
+                if (d == PetStartleSkipCore.kPassExempt) { c[4624]++; return false; }
                 if (d != PetStartleSkipCore.kSkip) return false;
-                c[4075]++;
+                c[4621]++;
                 PssLog("skipped " + s.FullName + ", " + t);
                 return true;
             }
-            catch (Exception ex) { c[4079]++; PssLog("error " + ex.GetType().Name); return false; }
+            catch (Exception ex) { c[4625]++; PssLog("error " + ex.GetType().Name); return false; }
         }
     }
 }

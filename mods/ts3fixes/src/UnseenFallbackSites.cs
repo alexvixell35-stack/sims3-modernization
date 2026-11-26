@@ -28,12 +28,16 @@ namespace Ts3Fixes
         const int kUfSitesMax = 256;       // ts3native's list size
         const int kUfC4LogMax = 20;        // C4 "not free" answers named in ts3native.log per session (§5.6)
         static int sUfSitesGen, sUfC4Logged;
+        // docs/205 §2.3e pause gate: frozen word sent to ts3native (code 27), when, and refused (older ts3native: stop asking this load)
+        static bool sUfFrozenSent, sUfFrozenNo;
+        static int sUfFrozenAt;
 
         internal static void StartUfSitesPush()
         {
             int gen = ++sUfSitesGen;  // a loop left from an earlier load ends at its next wake-up
             sUfSiteCache.Clear();
             UfFinishReset();  // docs/202 §3.4.2: holds of an earlier load are gone
+            sUfFrozenSent = sUfFrozenNo = false;
             Simulator.AddObject(new LoopTask(delegate { UfSitesLoop(gen); }));
         }
 
@@ -50,6 +54,17 @@ namespace Ts3Fixes
                 long t = Sims3.Gameplay.Utilities.SimClock.CurrentTicks;
                 try
                 {
+                    // docs/205 §2.3e pause gate (Rodney 2026-11-23): live mode paused, minimized or clock stopped (SimFrozenOrNotLive):
+                    // no list goes out and ts3native hears "frozen" (code 27, again every kPushMs), so its 3 s list age and the
+                    // FinishWalk hold timers stand still; the thaw word moves them by the span (no hold expiry, no jump after the
+                    // unpause). Out of live mode the empty list goes out as before. A pass in progress waits.
+                    bool frozen = !sUfFrozenNo && UfSitesLive() && SimFrozenOrNotLive();
+                    if (frozen != sUfFrozenSent || (frozen && unchecked(now - sUfFrozenAt) >= UnseenFallbackCore.kPushMs))
+                    {
+                        if (UfSitesSend(27, frozen ? 1u : 0u)) { sUfFrozenSent = frozen; sUfFrozenAt = now; }
+                        else { sUfFrozenNo = true; sUfFrozenSent = frozen = false; }
+                    }
+                    if (frozen) { Simulator.Sleep(0); continue; }  // per frame: the clock does not move, a tick sleep would not wake
                     if (pass == null && unchecked(now - last) >= UnseenFallbackCore.kPushMs)
                     {
                         last = now;
@@ -75,7 +90,9 @@ namespace Ts3Fixes
                 catch (Exception) { return; }
                 // leaving live mode pauses the clock (LiveModeState.Shutdown), so a tick sleep would never wake and the last live
                 // list would stay fresh in Build/Buy for ts3native's 3 s age: yield per frame there so the empty list goes out
-                uint sleep = pass != null || !UfSitesLive() ? 0u : UnseenFallbackCore.SitesSleepTicks(t - ticks, unchecked(now - wake), unchecked(last + UnseenFallbackCore.kPushMs - now));
+                // docs/205 §2.3e: a pause freezes a tick sleep too (bundle1124 sv-pausegate-unseen-hold-pause: asleep through 60 s
+                // paused, no frozen word, pgFrozenSpans +0), so while ts3native takes code 27 the loop yields per frame
+                uint sleep = pass != null || !UfSitesLive() || !sUfFrozenNo ? 0u :UnseenFallbackCore.SitesSleepTicks(t - ticks, unchecked(now - wake), unchecked(last + UnseenFallbackCore.kPushMs - now));
                 ticks = t;
                 wake = now;
                 Simulator.Sleep(sleep);  // 0 = next tick while a pass runs

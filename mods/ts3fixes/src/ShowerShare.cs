@@ -633,7 +633,7 @@ namespace Ts3Fixes
             if (m != null) m.PotionBladderDecayOverride = false;  // as the game's toilets do
         }
 
-        // StateMachineClient.SetActor (ActDelay.cs's hook, behind sShpArmed > 0): the shower becomes an actor of the
+        // StateMachineClient.SetActor (SmcSetActor.cs, behind sShpArmed > 0): the shower becomes an actor of the
         // Sim's own state machine, which is the start of its shower. The bladder fills from here.
         static void ShpSetActor(IHasScriptProxy actor)
         {

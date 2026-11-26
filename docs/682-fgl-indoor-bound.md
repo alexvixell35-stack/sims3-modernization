@@ -4,7 +4,7 @@
 with `Frames=16`), s202 / s203 (phase-20261120-1717 / 1722, no profile), the 12 profiled phases of the day; ilspycmd output
 of `GlobalFunctions`, `BandInstrument`, `World`; objdump of the Steam 1.67 code. Built: ts3fixes `fglinbound`,
 `fglinboundhh` (default off), shadow tuning `kFglInBoundShadow`. Design 1 (§3, one radius around the start; s207 / s208) and design 2 (§8, one search per cluster of indoor tiles; s222) gave **no gain** on lots whose rooms spread over the lot; their code is removed.
-**Design 3 (§9: ts3native `[FglInside]` + ts3fixes `fglinbound`, the tile's room is read before the placement test) is what the code does now; NOT RUN in the game.** §3-§8 are kept as the record.
+**Design 3 (§9: ts3native `[FglInside]` + ts3fixes `fglinbound`, the tile's room is read before the placement test) is what the code does now; shadow (s227) and serve (s228) ran, §9.10.** §3-§8 are kept as the record; they name the counter slots of the contributor's branch (4250-4259), which this repo never had. In this repo the slots are 1496-1505 and ts3fixes has its own `FindGoodLocationNearby` swap (`FibNearbyHook`; on the contributor's branch the branch sat in `RouteRelax.cs`'s `RrNearbyHook`, docs/675, which is not in this repo).
 
 ## 1. Who issues the slow searches [measured: `fgl prof:` line pairs]
 
@@ -108,20 +108,20 @@ the pass is dropped), that `HasDiagonalWall` is true for every tile holding more
   `FindGoodLocationNearby` call of 100 ms or more logs `ts3fixes: fglinbound: EA's FindGoodLocationNearby N ms (switch
   off), <object type>, ...` (the caller evidence s202 / s203 lack).
 
-Counters (ts3fixes slots 4250-4259, `kCounterSlots` 4260):
+Counters (ts3fixes slots 1508-1517):
 
 | slot | |
 |---|---|
-| 4250 | indoors stages taken by our path (the early stages had failed) |
-| 4251 | answered by the probe |
-| 4252 | bounded searches run |
-| 4253 | left to EA: the radius covers the lot |
-| 4254 | calls left to EA: household or unknown Sim |
-| 4255 | shadow compares |
-| 4256 | shadow different (**must stay 0**) |
-| 4257 | errors, or start tile not marked (EA's stage) |
-| 4258 | ms of our path (probe + tile pass + search) |
-| 4259 | ms of EA's stage in shadow |
+| 1508 | indoors stages taken by our path (the early stages had failed) |
+| 1509 | answered by the probe |
+| 1510 | bounded searches run |
+| 1511 | left to EA: the radius covers the lot |
+| 1512 | calls left to EA: household or unknown Sim |
+| 1513 | shadow compares |
+| 1514 | shadow different (**must stay 0**) |
+| 1515 | errors, or start tile not marked (EA's stage) |
+| 1516 | ms of our path (probe + tile pass + search) |
+| 1517 | ms of EA's stage in shadow |
 
 Files: `mods/ts3fixes/src/FglInBound.cs`, `FglInBoundCore.cs`, the branch in `RouteRelax.cs` (`RrNearbyHook`),
 `Instantiator.cs`, `Fixes.cs`, `CheckLiveMap.cs`, `tools/setup/build-fixes.ts`; `tools/selftest/fglinbound`;
@@ -337,21 +337,22 @@ Shadows:
   search whose last facing test ran on a "no room" tile and passed means the check accepted a tile we would have
   skipped: `fgl inside: SHADOW MISMATCH` (counted; must stay 0).
 - ts3fixes `kFglInBoundShadow`: after our armed search EA's stage runs unarmed, EA's answer is returned, found and
-  position are compared (`fglinbound: shadow same|DIFFERENT`, slot 4256).
+  position are compared (`fglinbound: shadow same|DIFFERENT`, slot 1502).
 
 ### 9.5 ts3fixes `fglinbound` (managed half), switches, counters
 
-In `RrNearbyHook`, when the stage would run (Indoors asked for, start on a lot in a light-blocking room) and the task's
+In `FibNearbyHook` (ts3fixes' own swap of `GlobalFunctions.FindGoodLocationNearby`, `FglInBound.cs`), when the stage would run (Indoors asked for, start on a lot in a light-blocking room) and the task's
 Sim is not household scope (or `fglinboundhh`): EA's body runs the early stages; `FibArmed` sends op 48 / 1, makes
 EA's stage call word for word (`FindGoodLocationParams(position, bools)`, StayInRoom cleared, room -1, check
 `GlobalFunctions.IsInside`), sends op 48 / 0 in a `finally`; found = the call's answer, else EA's body runs the later
-stages. Op 48 not answered (no ts3native, `[FglInside]` or `[UserDiag]` off): EA's body runs the stage (slot 4251).
+stages. Op 48 not answered (no ts3native, `[FglInside]` or `[UserDiag]` off): EA's body runs the stage (slot 1497). With the
+switch off the swap calls EA's body unchanged and logs a call of 100 ms or more (`fglinbound: EA's FindGoodLocationNearby ...`).
 
 - `fglinbound` (`kFglInBound`), `fglinboundhh` (`kFglInBoundHousehold`), `kFglInBoundShadow`; the tunings
   `kFglInBoundProbeRadius` and `kFglInBoundMaxSearches` are gone, `FglInBoundCore.cs` and `tools/selftest/fglinbound` too.
 - ts3native ini: `[FglInside] Enabled=0`, `Mode=1`, `Shadow=0`.
-- ts3fixes slots: 4250 stages by our path, 4251 ts3native not answering, 4252 found, 4253 no indoor spot, 4254
-  household or unknown Sim, 4255 shadow compares, 4256 shadow different (**0**), 4257 errors, 4258 our ms, 4259 EA's
+- ts3fixes slots: 1508 stages by our path, 1497 ts3native not answering, 1498 found, 1499 no indoor spot, 1500
+  household or unknown Sim, 1501 shadow compares, 1502 shadow different (**0**), 1503 errors, 1504 our ms, 1505 EA's
   stage ms in shadow.
 - ts3native lines: `OK   fgl inside: Mode=.. Shadow=..`; per armed search (200 at most) `fgl inside: search found a
   spot|found nothing, start x z: tiles that reached a facing test: N with no room ... (A facing tests answered 0, R run
@@ -381,8 +382,11 @@ the average tile costs; not known, §9.1). The ring walk is unchanged (one searc
   (floats to tile bytes, quadrant code from the fraction), `0xC05430` (bounds), `0x785210` (the IC's arguments),
   `0xB470EB` (grid from the lot), the facing loop and the check's call (§9.1, §9.2).
 - ts3fixes build; `node tools/selftest-all.ts --ci`.
-- `ts3addr-ea169.h`: row `0x00B499D0` (unresolved in the EA 1.69 table, as the other FindGoodLocation sites),
-  `ts3addr_count` 1516.
+- `ts3addr-ea169.h` and `ts3addr-retail167.h`: row `0x00B499D0` (unresolved in both tables, as the other FindGoodLocation
+  sites; `[FglProf]`'s call-site check refuses there, so `[FglInside]` never installs on those builds).
+- Also in this PR: the `fglprof.cpp` fix from the contributor's branch that came after #613 (a frame left by an unwind is
+  dropped at the right exit; a nested search marks its parent "spoiled" so `[FglFacing]` / `[FglMemo]` / `[FglInside]`
+  answer nothing for it), with its selftest cases in `fglprof-stub-test.h`.
 
 ### 9.8 Run plan
 
@@ -393,7 +397,7 @@ as EA) and gives the census of §9.1. ts3fixes: `fglinbound=on`.
 1. **Arm A, shadow**: `[FglInside] Shadow=1`, `kFglInBoundShadow=True`. Steps: `FglInBoundCheck run` (expect `arm True,
    end True`), `FglInBoundCheck live:big`, `FglInBoundCheck live` with a Sim selected in a house, then the storm.
    Pass: `live verdict: ok`, every tile `-> same`; no `fgl inside: SHADOW MISMATCH`, minute line `shadow mismatch 0`;
-   slot 4256 = 0, 4251 = 0. Read from the `fgl inside: search` lines: tiles with no room against tiles that may be
+   slot 1502 = 0, 1497 = 0. Read from the `fgl inside: search` lines: tiles with no room against tiles that may be
    indoors (the gain to expect), and `passed` on indoor tiles (0 = §9.1's reading).
 2. **Arm B, serve**: `[FglInside] Shadow=0`, `kFglInBoundShadow=False`, same steps. Pass: in `live:big` ours ms well
    below EA's 185 ms with `-> same`; in the storm no frame of 300 ms or more with stall leaf `World_FindGoodLocation`;
@@ -402,9 +406,24 @@ as EA) and gives the census of §9.1. ts3fixes: `fglinbound=on`.
 
 ### 9.9 Risks
 
-- The native half has not been compiled by MSVC or run; the stub selftest block runs first in CI.
+- The native half ran in the game only on the contributor's rig (§9.10); this PR's CI is its first MSVC build here.
 - One new call into the game from our stub: `0xB499D0` (read-only lookup, bounds-checked, no lock seen in it or in
   `0xC05430` / `0xAA2160`; the script IC calls it on the same thread). Three calls per tile of the armed search only.
 - If the facing-test record's `+8 / +0xC / +0x10` were not the tile centre and level (they are what `[FglMemo]` keys on
   and what the search copies from its tile at `0xB47DA0`), Shadow would show mismatches or `live` a DIFFERENT.
 - On lots that are mostly rooms the gain is small (§9.6).
+
+### 9.10 Results [measured: Isla Paradiso, 2-minute route storms, every proven fix on; Steam Deck, Linux Wine + DXVK]
+
+The slow case: the guitar jig's indoors stage of `FindGoodLocationNearby` placement-tested every tile of a 64 x 64 lot
+before refusing all the outdoor spots it found (228-268 ms, the one `World_FindGoodLocation` frame of 300 ms or more per
+storm in the earlier runs).
+
+| run | arm | result |
+|---|---|---|
+| s227 | shadow (`[FglInside] Shadow=1`, `kFglInBoundShadow`) | `[FglInside]` shadow mismatch **0**; forced compares `FglInBoundCheck live:big` 3 of 3 `same`; a small house (`live`) 3 of 3 the same tile |
+| s228 | serve | `live:big`: EA 193-197 ms -> ours **40-41 ms**, the same answer all three times; the storm skipped 58,080 placement tests on tiles without a room; no `World_FindGoodLocation` hitch frame |
+
+- One run per arm [measured]. The answer is the game's by construction (§9.4) and in every compare made; the gain on
+  lots that are mostly rooms is smaller (§9.6) [inferred].
+- `fglinboundhh` (household Sims) stays a separate switch, off; it has not run.

@@ -1,0 +1,171 @@
+{
+  "note": "hostmap-iter-correct-1120 (PREPARED, NOT RUN; correctness, no timing, noiseCheck false): docs/67 §43 [HostMapIterFix] on the Steam asi of bugfix/hostmap-iter-fix-1120 (builds.json ts3native.asi.hostmapiter-1120, ini ts3native.ini.hostmapiter-1120 = that branch ini, Enabled=0 there; the jobs switch it on). Bin state apex via tools/turbo-compat.ts (snapshot -> state apex -> restore). Placement: after the running release rerun chain and smokes (track.ts status idle), not during a chain. ON arm first; the OFF arm (Repair=0) is EXPECTED to crash at 0xD71E7D or log stale lines: its FAIL is evidence for the fix (queue.ts has no expect-crash option), so stopQueueOnFail is false. Hollow = the ON arm logs no host map iter line (no erase at the site): extend the repro rounds.",
+  "stopQueueOnFail": false,
+  "jobs": [
+    {
+      "id": "bp-hostmapiter-on",
+      "note": "[est 15 min] BP 10 min, repro hostmap-iter-stale, [HostMapIterFix] Enabled=1 Repair=1 TestRehash=20: the map is rehashed right before each of the first 20 erases at 0xD814B6, so each erase sees a stale slot; the fix must re-find it (lines \"re-found by id % buckets ... fixed\"), no crash, 0 script errors. Version and switch read back from the log.",
+      "asi": "game-copy/ts3native.asi.hostmapiter-1120",
+      "iniBase": "game-copy/ts3native.ini.hostmapiter-1120",
+      "pinReason": "bugfix/hostmap-iter-fix-1120: 0.36.295-hostmapiter1 = master d6b3f8a92 + [HostMapIterFix]; native only, ts3fixes as installed by the harness (cycle.ts build/)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "hostmap-iter-stale"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "HostMapIterFix.Enabled": 1,
+        "HostMapIterFix.Repair": 1,
+        "HostMapIterFix.TestRehash": 20,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-hostmapiter1 ": 1,
+        "^OK   host map iter fix \\(docs/67 §43\\): .*; TestRehash: forced rehashes": 1,
+        "^host map iter: ProcessTaskState erase of id 0x[0-9A-F]{16} .*: re-found by (id % buckets|a scan of every chain); fixed; stale \\d+ of \\d+ erases": 1
+      },
+      "logForbid": {
+        "^SKIP host map iter fix": 0,
+        "^host map iter: .*in no chain": 0,
+        "^host map iter: .*unreadable": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-hostmapiter1 ": {
+          "match": [
+            "ts3native 0.36.295-hostmapiter1 2026-11-21 08:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-21 08:00:00"
+          ]
+        },
+        "^OK   host map iter fix \\(docs/67 §43\\): .*; TestRehash: forced rehashes": {
+          "match": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; TestRehash: forced rehashes before the first erases (repro only)",
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; Repair=0: detector only, EA gets its own iterator; TestRehash: forced rehashes before the first erases (repro only)"
+          ],
+          "noMatch": [
+            "SKIP host map iter fix: bytes at 0x00D814B6 or erase 0x00D71E40 differ (another owner or another exe): not installed",
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460"
+          ]
+        },
+        "^host map iter: ProcessTaskState erase of id 0x[0-9A-F]{16} .*: re-found by (id % buckets|a scan of every chain); fixed; stale \\d+ of \\d+ erases": {
+          "match": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; fixed; stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ],
+          "noMatch": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; passed to EA (Repair=0); stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)",
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): in no chain (already erased): not erased again; fixed; stale 1 of 812 erases (by hash 0, by scan 0, gone 1, faults 0)"
+          ]
+        },
+        "^SKIP host map iter fix": {
+          "match": [
+            "SKIP host map iter fix: bytes at 0x00D814B6 or erase 0x00D71E40 differ (another owner or another exe): not installed"
+          ],
+          "noMatch": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; TestRehash: forced rehashes before the first erases (repro only)"
+          ]
+        },
+        "^host map iter: .*in no chain": {
+          "match": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): in no chain (already erased): not erased again; fixed; stale 1 of 812 erases (by hash 0, by scan 0, gone 1, faults 0)"
+          ],
+          "noMatch": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; fixed; stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ]
+        },
+        "^host map iter: .*unreadable": {
+          "match": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): unreadable; passed to EA (unreadable map); stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ],
+          "noMatch": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; fixed; stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bp-hostmapiter-off",
+      "note": "[est 15 min] OFF arm (detector): same repro with Repair=0 TestRehash=20. EXPECTED: stale lines \"passed to EA (Repair=0)\" and most likely the 0xD71E7D AV (erase chain walk) or a later heap fault: a crash here = the bug is real (judge with crash triage: fault 0xD71E7D, caller return 0xD814BB). A clean run with stale lines still proves the detector; a run with no stale line is hollow.",
+      "asi": "game-copy/ts3native.asi.hostmapiter-1120",
+      "iniBase": "game-copy/ts3native.ini.hostmapiter-1120",
+      "pinReason": "bugfix/hostmap-iter-fix-1120: 0.36.295-hostmapiter1 = master d6b3f8a92 + [HostMapIterFix]; native only, ts3fixes as installed by the harness (cycle.ts build/)",
+      "save": "Baseline-BP",
+      "noiseCheck": false,
+      "shadowCheck": false,
+      "timeoutMin": 25,
+      "run": {
+        "profile": {
+          "minutes": 10,
+          "seed": 12345,
+          "noSamplers": true,
+          "repro": "hostmap-iter-stale"
+        }
+      },
+      "gameArgs": [
+        "-disablestoryprogression"
+      ],
+      "scriptErrorsMax": 0,
+      "ini": {
+        "HostMapIterFix.Enabled": 1,
+        "HostMapIterFix.Repair": 0,
+        "HostMapIterFix.TestRehash": 20,
+        "Crash.Log": 1
+      },
+      "logRequire": {
+        "^ts3native 0\\.36\\.295-hostmapiter1 ": 1,
+        "^OK   host map iter fix \\(docs/67 §43\\): .*; TestRehash: forced rehashes": 1,
+        "^host map iter: ProcessTaskState erase of id 0x[0-9A-F]{16} .*; passed to EA \\(Repair=0\\); stale \\d+ of \\d+ erases": 1
+      },
+      "logForbid": {
+        "^SKIP host map iter fix": 0
+      },
+      "regexCases": {
+        "^ts3native 0\\.36\\.295-hostmapiter1 ": {
+          "match": [
+            "ts3native 0.36.295-hostmapiter1 2026-11-21 08:00:00"
+          ],
+          "noMatch": [
+            "ts3native 0.36.295-rc1119b 2026-11-21 08:00:00"
+          ]
+        },
+        "^OK   host map iter fix \\(docs/67 §43\\): .*; TestRehash: forced rehashes": {
+          "match": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; TestRehash: forced rehashes before the first erases (repro only)",
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; Repair=0: detector only, EA gets its own iterator; TestRehash: forced rehashes before the first erases (repro only)"
+          ],
+          "noMatch": [
+            "SKIP host map iter fix: bytes at 0x00D814B6 or erase 0x00D71E40 differ (another owner or another exe): not installed",
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460"
+          ]
+        },
+        "^host map iter: ProcessTaskState erase of id 0x[0-9A-F]{16} .*; passed to EA \\(Repair=0\\); stale \\d+ of \\d+ erases": {
+          "match": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; passed to EA (Repair=0); stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ],
+          "noMatch": [
+            "host map iter: ProcessTaskState erase of id 0x00000011000000AB (node 0x3A0B1C20) with a stale slot 0x7AFD3D18 (buckets 0x8FDDA740 x 30728, 15175 elements): re-found by id % buckets; fixed; stale 1 of 812 erases (by hash 1, by scan 0, gone 0, faults 0)"
+          ]
+        },
+        "^SKIP host map iter fix": {
+          "match": [
+            "SKIP host map iter fix: bytes at 0x00D814B6 or erase 0x00D71E40 differ (another owner or another exe): not installed"
+          ],
+          "noMatch": [
+            "OK   host map iter fix (docs/67 §43): ProcessTaskState's host id map erase at 0x00D814B6 re-finds a slot left stale by a rehash in 0xD80460; TestRehash: forced rehashes before the first erases (repro only)"
+          ]
+        }
+      }
+    }
+  ]
+}

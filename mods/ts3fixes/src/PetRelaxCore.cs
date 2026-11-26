@@ -5,7 +5,7 @@ namespace Ts3Fixes
     // Game-independent rules of PetRelax.cs (petrelax / petrelaxhh, docs/686 §11), checked offline by tools/selftest/petrelax.
     //
     // Small pets (cats, dogs, puppies, kittens, raccoons) and the Sims around them walk through each other: at once near a
-    // portal, after the shared grace anywhere else (ShareLanesCore.Timed, docs/686 §8.7). Horses, foals and deer are left
+    // portal, after the shared grace anywhere else (ShareLanesCore.Timed, docs/686 §8.8). Horses, foals and deer are left
     // to clipwait (their bodies are large). A pet that is about to lie down on the end of a stair, door or ladder lane
     // first walks to a free spot next to it.
     public static class PetRelaxCore

@@ -3,6 +3,10 @@
 // switch off; past it the game's no-path exit: fields, AL, stack); sessions by reason (own task exempt), the non-IC session and
 // its world A* cap through CallPlanBudget and the cost stub; the IC path through SyncIc; FailMemo on the sync Plan IC.
 // Included by selftest.cpp after replandedupe-test.h (its route fakes); runs after TestRouteBudget (g_cost = a patched stub).
+static void KdTabReset() {  // back to the image's 64 rows, all free (caller holds g_kdLock or runs alone)
+    if (g_kdTab != g_kdTab0) HeapFree(GetProcessHeap(), 0, g_kdTab);
+    g_kdTab = g_kdTab0, g_kdCap = kKdRows, memset(g_kdTab0, 0, sizeof(g_kdTab0));
+}
 static volatile LONG g_pdtRuns[2];
 static u8* g_pdtCell;
 // calls a dummy (thiscall, n stack args, callee cleanup); returns AL, *bad = esp did not come back
@@ -287,7 +291,7 @@ static void TestPlanDeadline() {
     static_assert(offsetof(Ts3nCounters, pdMode) == 0x4244 && offsetof(Ts3nCounters, pdSessions) == 0x4254 &&
                       offsetof(Ts3nCounters, pdLines) == 0x427C && offsetof(Ts3nCounters, fmMode) == 0x4280 &&
                       offsetof(Ts3nCounters, fmInval) == 0x4298 && offsetof(Ts3nCounters, fmServedUs) == 0x42C4 &&
-                      sizeof(Ts3nCounters) == 6478 * 4,
+                      sizeof(Ts3nCounters) == 6883 * 4,
                   "counters v99 layout after v98 (docs/registry.md)");
     Ts3nCounters& k = ts3native_counters;
     assert(k.version == 912);
@@ -412,7 +416,7 @@ static void TestPlanDeadline() {
     //     exempt even as NoStart, once; nested in an open session it cannot be: a cut there counts pdCutSc
     {
         static_assert(offsetof(Ts3nCounters, pdExemptSc) == 0x52C0 && offsetof(Ts3nCounters, pdCutSc) == 0x52C4 &&
-                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6478 * 4,
+                          offsetof(Ts3nCounters, pdSpare) == 0x52C8 && sizeof(Ts3nCounters) == 6883 * 4,
                       "counters v135 layout after v134 (docs/registry.md)");
         g_icPlanOrig = [](u8* o, DWORD) -> u8* {
             assert(t_pdNoCut && !PdPlanBegin() && !t_pd.open && !g_pdTid);
@@ -574,7 +578,7 @@ static void TestPlanDeadline() {
                           offsetof(Ts3nCounters, kdCut) == 0x525C && offsetof(Ts3nCounters, kdLateMaxUs) == 0x5294 &&
                           offsetof(Ts3nCounters, kdCutOk) == 0x52B4 && offsetof(Ts3nCounters, kdSpare) == 0x52B8,
                       "counters v134 layout after v133 (docs/registry.md)");
-        memset(g_kdTab, 0, sizeof(g_kdTab));
+        KdTabReset();
         for (int i = 0; i < KD_N; i++) k.kdUs[i] = kKdDefMs[i] * 1000;
         AsyncJob j = {};
         j.handle = 0x25000001;
@@ -652,10 +656,27 @@ static void TestPlanDeadline() {
         KdJobBegin(&p);
         KdJobEnd(&p, true, 200000, 0, 0);
         assert(k.kdCut[KD_PROBE] == 1 && KdFind(9, false) == NULL);
-        // eviction: 64 rows, the oldest cut makes room
-        memset(g_kdTab, 0, sizeof(g_kdTab));
-        for (int i = 0; i < kKdRows; i++) KdFind(100 + i, true)->cutTick = 1000 + i;
-        assert(KdFind(200, true) == &g_kdTab[0] && KdFind(101, false) && !KdFind(100, false));
+        // eviction: 64 rows, the oldest cut makes room once its cut is older than kKdStuckMs (as before docs/321)
+        KdTabReset();
+        const DWORD t0 = GetTickCount() - 2 * kKdStuckMs;
+        for (int i = 0; i < kKdRows; i++) KdFind(100 + i, true)->cutTick = t0 + i;
+        assert(KdFind(200, true) == &g_kdTab[0] && KdFind(101, false) && !KdFind(100, false) && g_kdCap == kKdRows);
+        // docs/321 H2: 64 rows all cut in the last 30 s: the table doubles, every follower keeps its row (was: the oldest evicted)
+        KdTabReset();
+        const DWORD t1 = GetTickCount();
+        for (int i = 0; i < kKdRows; i++) { KdRow* row = KdFind(100 + i, true); row->cutTick = t1 - 1000 + i, row->level = 1; }
+        KdRow* grown = KdFind(200, true);
+        assert(g_kdCap == 2 * kKdRows && grown == &g_kdTab[kKdRows] && grown->id == 200 && !grown->level);
+        for (int i = 0; i < kKdRows; i++) assert(KdFind(100 + i, false) && KdFind(100 + i, false)->level == 1);
+        // at the ceiling the oldest live row goes, as before, and counts CAP_KD full
+        const LONG kdFull0 = ts3native_caps.r[CAP_KD].full;
+        g_kdCapMax = 2 * kKdRows;
+        grown->cutTick = t1 - 500;
+        for (int i = kKdRows + 1; i < 2 * kKdRows; i++) KdFind(300 + i, true)->cutTick = t1;
+        assert(g_kdCap == 2 * kKdRows && KdFind(999, true) == &g_kdTab[0] && !KdFind(100, false) && KdFind(101, false));
+        assert(ts3native_caps.r[CAP_KD].full == kdFull0 + 1 && ts3native_caps.r[CAP_KD].hw >= 2 * kKdRows);
+        g_kdCapMax = 4096;
+        KdTabReset();
         // docs/197 §7 KdExemptSeen: own unknown or seen = exempt, own unseen or marked keeps its deadline; foreign only when known seen; probe never
         k.kdExMode = 1;
         AsyncJob s = {};
@@ -829,9 +850,9 @@ static void TestPlanDeadline() {
         assert(k.kdWouldCut == 1 && k.kdExemptMaxUs == 300000 && k.kdExempt >= 4);
         k.kdExMode = 0;
         t_kdKind = 0, k.kdMode = 0, k.kdReady = 0;
-        memset(g_kdTab, 0, sizeof(g_kdTab));
+        KdTabReset();
         printf("KindDeadlines (docs/197): counters v134; kinds, last-round exemption, follower backoff doubled / uncut / reset, "
-               "outcomes after a cut, cut ok, late time, stuck-check marks, probe without backoff, row eviction ok\n");
+               "outcomes after a cut, cut ok, late time, stuck-check marks, probe without backoff, stale-row eviction, live rows grow the table (docs/321 H2) ok\n");
     }
     // restore
     g_fmOn = 0;

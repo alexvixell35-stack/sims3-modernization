@@ -12,7 +12,7 @@ using Sims3.SimIFace.RouteDestinations;
 
 namespace Ts3Agent
 {
-    // Repro for ts3fixes houseboatlegmemo (docs/642 §6, HouseboatLegMemo.cs): EA's houseboat boat leg that finds no path, planned
+    // Repro for ts3fixes houseboatlegmemo (docs/853 §2, HouseboatLegMemo.cs): EA's houseboat boat leg that finds no path, planned
     // again after every plan of the Sim's route home. Chain [verified, decompiled]: ScriptCore Route.Plan* -> PostPlanCallback ->
     // SimRoutingComponent.PostPlanRouteCallback -> CheckAndUpdateForHouseboats (start on the world lot, goal on a houseboat lot)
     // -> EnterHouseboatThroughBoat when the houseboat is not Docked (CanUseGangway false) and the Sim is not swimming at a
@@ -25,15 +25,15 @@ namespace Ts3Agent
     // off for the probe only; the first spot whose leg finds no path is used (else the first candidate, flagged "probe never
     // failed"). Then `tries` plans of the Sim's own route to the houseboat (Plan, then ReplanFromPoint / Plan in turn), each through
     // ScriptCore.Route, so the real EA chain runs the leg each time. Per try: the outer kind, result and ms, the leg(s) the
-    // callbacks saw (options, result, ms; an answered leg makes no callback) and the 3870-3873 deltas of that try.
-    // That is mode "undock" (the boat leg). The default mode "docked" (docs/642 §7, houseboatgangwayrescue) runs the flow seen in
+    // callbacks saw (options, result, ms; an answered leg makes no callback) and the 1378-1381 deltas of that try.
+    // That is mode "undock" (the boat leg). The default mode "docked" (docs/853 §3, houseboatgangwayrescue) runs the flow seen in
     // play: the stranding spot is where EA's boat trip home drops the rider (the gangway leg follows a successful kind-3 boat
     // replan), not a spot we choose (2026-11-19 phase-1523: every spot 15-22 m off the gangway walked fine). An NPC owner of a
     // DOCKED houseboat (port gangway, jig) is sent by EA's Teleport Me Here (setup_sims) to the nearest world-lot coastal land spot
     // NOT connected by land to the houseboat, then EA's Sim.MakeSimGoHome(sim, true) (its own boat when usable there, else
     // GoHome plans the boat trip with EA's NPC boat). The result watches `waitS` (150) seconds: the boat it sat in, the get-out
     // spot and its distance to the gangway, the first gangway leg (boat and water planning off inside CheckAndUpdateForHouseboats:
-    // result, ms, Sim position), whether the rescue fired (ts3fixes.moved), the houseboat lot reached, 3870-3873 / 4040-4049.
+    // result, ms, Sim position), whether the rescue fired (ts3fixes.moved), the houseboat lot reached, 1378-1381 / 1382-1391.
     public static partial class Handlers
     {
         static void RegisterHouseboatLegRepro()
@@ -66,11 +66,22 @@ namespace Ts3Agent
         static Houseboat sHlrUndock;
         static Dictionary<string, object> sHlrUndockInfo;
 
-        static int HlrCtr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 3873 ? c[3870 + k] : -1; }
-        // houseboatgangwayrescue 4040-4049 (docs/642 §7)
+        // what ts3fixes' IsPlayerSim decides for this Sim (its rule mirrored: the agent cannot call ts3fixes)
+        static string HlrScope(Sim s)
+        {
+            Household act = Household.ActiveHousehold, h = s.SimDescription != null ? s.SimDescription.Household : null;
+            if (s == PlumbBob.SelectedActor) return "selected (exempt)";
+            if (act == null) return "no active household (unknown scope, exempt)";
+            if (h == null) return "no household (unknown scope, exempt)";
+            if (h == act || s.IsSelectable) return "household (exempt)";
+            return "npc";
+        }
+
+        static int HlrCtr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 1381 ? c[1378 + k] : -1; }
+        // houseboatgangwayrescue 1382-1391 (docs/853 §3)
         static readonly string[] kHlrGr = { "marked", "rescued", "refused", "errors", "refused_exempt", "refused_houseboat", "refused_hour", "refused_busy", "refused_lot_far_stale", "refused_nospot" };
         static readonly int[] sHlrGrBase = new int[10];
-        static int HlrGr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 4049 ? c[4040 + k] : -1; }
+        static int HlrGr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 1391 ? c[1382 + k] : -1; }
         static string sHlrMode = "docked";
         static int sHlrWaitS = 150;
         static readonly Dictionary<Sim, HlrSim> sHlrDockedWatch = new Dictionary<Sim, HlrSim>();
@@ -155,8 +166,8 @@ namespace Ts3Agent
             if (a.Has("stop")) { sHlrGen++; HlrUnhook(); HlrShortcutsRestore(); HlrCameraOff(); r["stopped"] = true; return r; }
             Dictionary<string, object> ctr = Util.Obj();
             string[] cn = { "recorded", "answered", "answered_ms", "exempt_or_error" };
-            for (int k = 0; k < 4; k++) { int v = HlrCtr(k); ctr[cn[k] + "_" + (3870 + k)] = v < 0 ? -1 : v - sHlrBase[k]; }
-            for (int k = 0; k < 10; k++) { int v = HlrGr(k); ctr[kHlrGr[k] + "_" + (4040 + k)] = v < 0 ? -1 : v - sHlrGrBase[k]; }
+            for (int k = 0; k < 4; k++) { int v = HlrCtr(k); ctr[cn[k] + "_" + (1378 + k)] = v < 0 ? -1 : v - sHlrBase[k]; }
+            for (int k = 0; k < 10; k++) { int v = HlrGr(k); ctr[kHlrGr[k] + "_" + (1382 + k)] = v < 0 ? -1 : v - sHlrGrBase[k]; }
             r["done"] = sHlrDone; r["error"] = sHlrError; r["counters"] = ctr; r["houseboatlegmemo"] = ModOn("houseboatlegmemo");
             r["houseboatgangwayrescue"] = ModOn("houseboatgangwayrescue"); r["mode"] = sHlrMode;
             r["active_household"] = Household.ActiveHousehold != null ? Household.ActiveHousehold.Name : null;
@@ -266,7 +277,7 @@ namespace Ts3Agent
                     HlrSim h = new HlrSim();
                     h.S = s; h.Resident = resident; h.Hb = resident ? own : sea[picks.Count % sea.Count];
                     h.HbName = h.Hb.GetHouseboatLot() != null ? h.Hb.GetHouseboatLot().Name : "?"; h.HbStatus = h.Hb.CurrentStatus.ToString();
-                    h.Scope = BnpScope(s);
+                    h.Scope = HlrScope(s);
                     picks.Add(h);
                 }
             if (picks.Count == 0) throw new McpException("houseboat_leg_repro: no NPC fits (known non-active household, not selectable or selected, teen or older human)");
@@ -407,7 +418,7 @@ namespace Ts3Agent
                 Houseboat hb = home != null && home.IsHouseboatLot() ? home.GetHouseboat() : null;
                 if (hb == null || hb.CurrentStatus != Houseboat.Status.Docked || hb.GetPortGangway() == null || hb.GetHouseboatJig() == null) continue;
                 HlrSim h = new HlrSim();
-                h.S = s; h.Resident = true; h.Hb = hb; h.HbName = HlrHbName(hb); h.HbStatus = hb.CurrentStatus.ToString(); h.Scope = BnpScope(s);
+                h.S = s; h.Resident = true; h.Hb = hb; h.HbName = HlrHbName(hb); h.HbStatus = hb.CurrentStatus.ToString(); h.Scope = HlrScope(s);
                 picks.Add(h);
             }
             if (picks.Count == 0) throw new McpException("houseboat_leg_repro docked: no NPC (known non-active household, teen or older human) lives on a Docked houseboat with a port gangway; houseboats: "
@@ -528,8 +539,8 @@ namespace Ts3Agent
             }
             finally { HlrUnhook(); HlrShortcutsRestore(); HlrCameraOff(); }
             string s = "";
-            for (int k = 0; k < 4; k++) { int v = HlrCtr(k); s += (k > 0 ? ", " : "") + "[" + (3870 + k) + "] +" + (v < 0 ? -1 : v - sHlrBase[k]); }
-            for (int k = 0; k < 10; k++) { int v = HlrGr(k); s += ", [" + (4040 + k) + "] +" + (v < 0 ? -1 : v - sHlrGrBase[k]); }
+            for (int k = 0; k < 4; k++) { int v = HlrCtr(k); s += (k > 0 ? ", " : "") + "[" + (1378 + k) + "] +" + (v < 0 ? -1 : v - sHlrBase[k]); }
+            for (int k = 0; k < 10; k++) { int v = HlrGr(k); s += ", [" + (1382 + k) + "] +" + (v < 0 ? -1 : v - sHlrGrBase[k]); }
             DiagLine("houseboat_leg_repro: done (docked), counters " + s);
         }
 
@@ -586,7 +597,7 @@ namespace Ts3Agent
             }
             finally { HlrUnhook(); }
             string s = "";
-            for (int k = 0; k < 4; k++) { int v = HlrCtr(k); s += (k > 0 ? ", " : "") + "[" + (3870 + k) + "] +" + (v < 0 ? -1 : v - sHlrBase[k]); }
+            for (int k = 0; k < 4; k++) { int v = HlrCtr(k); s += (k > 0 ? ", " : "") + "[" + (1378 + k) + "] +" + (v < 0 ? -1 : v - sHlrBase[k]); }
             DiagLine("houseboat_leg_repro: done, counters " + s);
         }
 
@@ -656,7 +667,7 @@ namespace Ts3Agent
                 o["try"] = t + 1; o["kind"] = kind; o["result"] = res.mType.ToString(); o["ms"] = ms; o["legs"] = sHlrLegs;
                 Dictionary<string, object> d = Util.Obj();
                 string ds = "";
-                for (int k = 0; k < 4; k++) { int v = HlrCtr(k); d["" + (3870 + k)] = v < 0 ? -1 : v - c0[k]; ds += (k > 0 ? " " : "") + (3870 + k) + "+" + d["" + (3870 + k)]; }
+                for (int k = 0; k < 4; k++) { int v = HlrCtr(k); d["" + (1378 + k)] = v < 0 ? -1 : v - c0[k]; ds += (k > 0 ? " " : "") + (1378 + k) + "+" + d["" + (1378 + k)]; }
                 o["counters"] = d;
                 h.Plans.Add(o);
                 string legs = "";

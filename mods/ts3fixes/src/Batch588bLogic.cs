@@ -21,8 +21,8 @@ namespace Ts3Fixes
         // and the mailbox: slot counts stay high (FindSuitableVirtualHome weighs by them) and the dead household graph is
         // kept. Fix: Dispose of a household with no real lot and a virtual one first runs EA's own Lot.VirtualMoveOut(this)
         // (what Household.MoveOut does for such a household); the world-load sweep moves out households already gone from
-        // the household lists. Only disposed households are touched. Counters: [1339] virtual move-outs at Dispose,
-        // [1340] left in their slot (switch off), [1341] stale slot entries swept at load.
+        // the household lists. Only disposed households are touched. Counters: [2974] virtual move-outs at Dispose,
+        // [2975] left in their slot (switch off), [2976] stale slot entries swept at load.
         static readonly FieldInfo sDvToDelete = typeof(Household).GetField("sHouseholdToDeleteList", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static string sDvMissing = "";
 
@@ -45,8 +45,8 @@ namespace Ts3Fixes
                     Household h = (Household)(object)this;
                     if (DvLeaves(h.LotHome != null, h.VirtualLotHome != null))
                     {
-                        if (ShortcutOn("disposevirtualslot")) { h.VirtualLotHome.VirtualMoveOut(h); PatchCounters()[1339]++; }
-                        else PatchCounters()[1340]++;
+                        if (ShortcutOn("disposevirtualslot")) { h.VirtualLotHome.VirtualMoveOut(h); PatchCounters()[2974]++; }
+                        else PatchCounters()[2975]++;
                     }
                 }
                 catch (Exception) { }
@@ -72,7 +72,7 @@ namespace Ts3Fixes
                     if (h != null && !live.ContainsKey(h)) { if (stale == null) stale = new List<Household>(); stale.Add(h); }
                 if (stale == null) continue;
                 lot.VirtualMoveOut(stale);
-                PatchCounters()[1341] += stale.Count;
+                PatchCounters()[2976] += stale.Count;
             }
         }
 
@@ -82,7 +82,7 @@ namespace Ts3Fixes
         // removes it, so a cancel-and-rearm pass leaves the older alarm armed beside the new one. Fix: CancelAgingAlarmsForSim
         // also removes that alarm (EA's own remove-and-reset, as ShowGraduationEarlyMessageCallback does). The day pass
         // re-arms it as before. Household-visible: no change to what is shown (the message is still given once, guarded by
-        // GraduationEarlyMessageGiven). Counters: [1342] graduation alarms cancelled, [1343] left armed (switch off), [1344]
+        // GraduationEarlyMessageGiven). Counters: [2977] graduation alarms cancelled, [2978] left armed (switch off), [2979]
         // errors.
         static readonly FieldInfo sAcGrad = typeof(AgingState).GetField("GraduationEarlyMessageAlarm", kInstAll);
         static string sAcMissing = "";
@@ -107,15 +107,15 @@ namespace Ts3Fixes
                     {
                         AlarmHandle h = (AlarmHandle)sAcGrad.GetValue(agingState);
                         bool armed = h != AlarmHandle.kInvalidHandle;
-                        if (AcLeaves(ShortcutOn("agingalarmcancel"), armed)) PatchCounters()[1343]++;
+                        if (AcLeaves(ShortcutOn("agingalarmcancel"), armed)) PatchCounters()[2978]++;
                         else if (armed)
                         {
                             AlarmManager.Global.RemoveAlarm(h);
                             sAcGrad.SetValue(agingState, AlarmHandle.kInvalidHandle);
-                            PatchCounters()[1342]++;
+                            PatchCounters()[2977]++;
                         }
                     }
-                    catch (Exception) { PatchCounters()[1344]++; }
+                    catch (Exception) { PatchCounters()[2979]++; }
                 }
                 CancelOrig(agingState);
             }
@@ -127,8 +127,8 @@ namespace Ts3Fixes
         // [inferred] Lot.VirtualMoveIn(SimDescription) adds the Sim to mVirtualSlotSims with no Contains test (its Household
         // overload has the same list kind and EA's VirtualMoveOut removes one entry): a second virtual move-in of the same
         // service Sim counts it twice in VirtualSlotsFilled, and one move-out leaves an entry behind. Fix: an already
-        // listed Sim only gets EA's SetVirtualLot(this). Counters: [1345] repeat move-ins not added twice, [1346] added
-        // twice (switch off), [1347] errors.
+        // listed Sim only gets EA's SetVirtualLot(this). Counters: [2980] repeat move-ins not added twice, [2981] added
+        // twice (switch off), [2982] errors.
         static void ApplyVirtualMoveInDup()
         {
             Patch(typeof(Lot), "VirtualMoveIn", new Type[] { typeof(SimDescription) }, typeof(BVmHook), "MoveInHook", "MoveInOrig");
@@ -147,11 +147,11 @@ namespace Ts3Fixes
                     List<SimDescription> sims = lot.VirtualSlotSims;
                     if (simDesc != null && VmDup(lot.IsWorldLot, sims != null && sims.Contains(simDesc)))
                     {
-                        if (ShortcutOn("virtualmoveindup")) { simDesc.SetVirtualLot(lot); PatchCounters()[1345]++; return; }
-                        PatchCounters()[1346]++;
+                        if (ShortcutOn("virtualmoveindup")) { simDesc.SetVirtualLot(lot); PatchCounters()[2980]++; return; }
+                        PatchCounters()[2981]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1347]++; }
+                catch (Exception) { PatchCounters()[2982]++; }
                 MoveInOrig(simDesc);
             }
 
@@ -162,8 +162,8 @@ namespace Ts3Fixes
         // [latent] PetPool.RandomRemovePet picks a random id from mSimDescriptionIds and removes the pet only when the pet
         // household still has a member with that id; an id whose pet is gone is never removed, yet still counts in
         // GetPoolSize/IsFull, so a pool of such ids stays "full" and can draw nothing. Fix: before the pick (EA's or
-        // simler90's body, unchanged), ids with no pet-household member are dropped from the pool list. Counters: [1348]
-        // ghost ids dropped, [1349] ghost ids seen (switch off), [1350] errors.
+        // simler90's body, unchanged), ids with no pet-household member are dropped from the pool list. Counters: [2983]
+        // ghost ids dropped, [2984] ghost ids seen (switch off), [2985] errors.
         static readonly FieldInfo sPpgIds = typeof(PetPool).GetField("mSimDescriptionIds", kInstAll);
         static string sPpgMissing = "";
 
@@ -202,13 +202,13 @@ namespace Ts3Fixes
                                 {
                                     ids.Clear();
                                     ids.AddRange(keep);
-                                    PatchCounters()[1348] += ghosts;
+                                    PatchCounters()[2983] += ghosts;
                                 }
-                                else PatchCounters()[1349] += ghosts;
+                                else PatchCounters()[2984] += ghosts;
                             }
                         }
                     }
-                    catch (Exception) { PatchCounters()[1350]++; }
+                    catch (Exception) { PatchCounters()[2985]++; }
                 }
                 return RemoveOrig();
             }

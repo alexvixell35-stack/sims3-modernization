@@ -2,67 +2,181 @@
 
 Player-facing changes per release. Each `## vX.Y.Z` section becomes the GitHub release notes for that tag (`.github/workflows/build.yml`).
 
-## Unreleased
+## v0.3.2 (2026-11-25, maintenance release)
 
-Needs the plugin from master, 0.36.256 or later (older plugins ignore the newer keys).
+A maintenance release on top of v0.3.1: mostly fixes for stuck Sims, crashes and mod compatibility, plus many fixes for Sims you do not control (townies, pets, boats, firefighters). Sims you play keep the game's own behavior. There is no new overall speed number in this release: no timing run was made for it, so the v0.3.1 table in the README stands. Everything from v0.3.0 and v0.3.1 stays.
 
-### Switched on (built, not in v0.2.12)
+### Download
 
-- **Faster game scripts: the script compiler (`[MonoJit] Enabled=1`, on; Steam 1.67 only).** The game's busiest script methods run as compiled machine code instead of through the game's script interpreter; anything unusual (exceptions, rare instructions, other mods' changes to the same code) still goes to the game's own code. With it on: `[Binder] TypeHandleDirect=1` (a common type lookup no longer goes through a slow call into scripts) and the script engine's faster calls and fused steps below. The compiled code area is 8 MB (`[MonoJit] CodeKB=8192`; 2 MB was full in every test run), refused methods are logged per reason, and 12 methods the game already runs as native code are no longer compiled. In game the compiled code gave the same results as the interpreter (verify run: 0 differences) and no measured slowdown; the gain was measured offline, not timed in game. Set `Enabled=0` under `[MonoJit]` to switch it off.
-- **Slightly faster game scripts (`[MonoFast] CallPath=1`, on).** The plugin handles the script engine's most common steps (calls, virtual calls, returns) in one pass and hands every unusual case to the game's own code. Measured offline: 0.4-2.3 ns saved per simple call, 5-9 ns on call-heavy code, never slower; about 2-3 ms per second of script time on a busy lot (estimate, not timed in game). Your Sims get the same results as before (the game check ran 4/4 exact). It stays off by itself if another mod changes the same game code.
-- **Script code runs a little faster (`[MintFuse] Sub`, on).** The game already merges a few common instruction sequences of its script code into one step, but only when a whole short stretch matches. Now the same merges are also made inside longer stretches, in the way that leaves the fewest steps. In the offline benchmark the script mix runs about 4-7% faster, nothing slower; estimated 2-8 ms per second of game time (estimate, not measured in game). Loading costs about 35 ms more. Steam 1.67 only (the EA app refuses it and keeps the game's own behaviour).
-- **Fewer long routing freezes on busy worlds (`[RouteAsync]` `JobYield` with `kJobYield`, on; by Dalexlol, PR #397).** A route plan that would wait for a background route search now lets the game run on for a few ticks instead of freezing it. Isla Paradiso: hitches of 300 ms or more about halved (0.53x), 1 s or more 0.41x; Bridgeport and Sunset Valley no worse. Routes of your own Sims give the same result.
-- **Background route searches for Sims you can't see always stay time-limited (`[RouteAsync]` `KdUnseenForeignCap`, on; by Dalexlol, PR #378).** A townie retrying a spot it cannot reach could make the background search run uncut again and again, holding up the game for up to 21 s on Isla Paradiso. Those searches keep a time limit now (27 such freezes in a repeat run went to 0). Sims you play or see are not affected.
-- **Sims 3 Settings Setter 1.6.3 camera fix also on for a second copy of 1.6.3 (`[S3SSCompat]`; by Dalexlol, PR #398).** A 1.6.3 file that differs from the release download only in its timestamps is now recognised, so the stale camera-write guard installs there too.
-- **Faster background route plans: door answers reused across plans for Sims you don't control (`[RouteSnap] DoorMemoX=3` with ts3fixes `doorgen`, on; by Dalexlol, PR #430).** A route plan of a townie can reuse a door's answer from an earlier plan until a lock, owner, greeting, household, fire, occult, role, age or similar change is seen; in his Bridgeport test, host calls per route job fell from 9.4 to 5.3 with 0 wrong answers. Your household, the selected Sim and Sims of unknown scope always get a fresh answer.
+- `ts3native-v0.3.2.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both. The log shows `ts3native 0.36.305-m1124d`.
+- `ts3native-ea169-v0.3.2.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3fixes.package` (sha256 starts `f7c58a9c`): replace the v0.3.1 file.
+- Same setup as before (Apex Radiance with its RTX Remix bridge recommended), and nothing of ours is written into your save.
 
-### Fixed (built, not in v0.2.12)
+### Fixed
 
-- **A fault in the script compiler's code no longer has to crash the game (`[MonoJit] FaultRecover=1`, on with `[MonoJit]`; decided 2026-11-15).** If a compiled script method ever faults, that method goes back to the game's own script interpreter for the rest of the session. Where it is safe the game simply carries on (the interpreter redoes that one step); otherwise the plugin logs one line and the game handles the error as before. Errors outside the compiler's code are never touched.
+- **A rare crash while drawing the scene.** The game's main-view job could still be adding to a list the renderer was already reading. The renderer now waits for that job first, as the game's other draw passes already do.
+- **Freed draw data in Buy mode.** The game could draw a deleted object with memory that was already freed. Freeing is now delayed by two seconds, and the object that owned the draw is kept as long. Tested on Steam and on the EA app with repeated Buy-mode deletes; this is a different guard from the one in v0.3.1, so a rare Buy-mode crash on Apex Radiance may still happen.
+- **One broken script mod no longer breaks the rest.** An add-on installed without its base mod used to stop tuning and start-up for every script mod loaded after it. The log now names the broken mod and the missing file.
+- **Background tidy-ups wait while the game is paused,** while the clock is stopped, and in Buy, Build and Create-a-Sim. They used to keep working then.
+- **A faster door check is on again,** with the wrong answer on lots with privacy doors fixed. It keeps an answer only when the script fixes vouched for it.
+- A Sim deleted while waiting to leave a jungle gym no longer stays on our waiting list.
+- Fewer script frames on the route and rabbit hole path (a rare script stack overflow). Built and tested offline; not yet confirmed in the game.
 
-- **No route plan freezes the game forever (`[RouteAsync] KdUncutCeilMs=30000`, on; issue #338).** A route plan with no other time limit could run until it ended, and the game stood still while it waited (up to 38 s seen). Such a plan is now cancelled after 30 s and treated as a failed route: the Sim may show the "can't get there" thought balloon, and the action stops or tries another spot. This is a crash guard for every Sim, your household too; normal plans end long before 30 s. `ts3native.log` writes "route plan cancelled after 30.0 s (KdUncutCeilMs)" when it happens; 0 = off.
-- **Route searches of townies you can't see stay time-limited on their own trips too (`[RouteAsync] KdUnseenForeignCap=2`, on; by Dalexlol, PR #409).** Value 1 already limited searches made for them by others. With 2, a townie out of view that keeps failing to reach a spot no longer gets an unlimited search that can freeze the game for seconds; in test games those ran up to 4.6 s. Your household, the selected Sim, Sims you can see and Sims of unknown scope are unchanged.
-- **No more freeze the first time a child is considered for a Joyride on a sofa (EA bug, `joyridecostume`, on; by Dalexlol, PR #405).** The game built the child's imagination costumes just to check the interaction, a freeze of about 0.6 s once per child. The check is answered without building them; the costumes are still made when the Joyride really starts.
-- **Sims no longer stand around for minutes after some socials (EA bugs, `socialfinish` and `socialreceivefail`, on; by Dalexlol, PR #405).** Six socials (Show Videos, Trivia, Interview and others) never told the partner they had finished, so both Sims stood still for about 5 sim minutes; and a Sim kept waiting up to 30 sim minutes for a partner that had already refused the social. Both waits now end when the social does.
-- **Log line for repeating alarms the game drops after an error (`alarmkilllog`, log only, on; by Dalexlol, PR #405).** When a repeating alarm's callback throws, EA removes the alarm for good; the plugin log now names it so such silent losses can be traced.
-- **Pregnant townies give birth again instead of looping to the hospital (EA bugs, `birthroute` and `putdownplace`, on; by Dalexlol, PR #405).** A failed hospital trip was retried every sim-minute forever, a refused retry lost the birth for good, and a homeless mom crashed the birth. Births are no longer lost, duplicated or crashed for any Sim; townies also back off between tries and fall back to a home birth after three failures. A townie parent whose put-down spots all fail now puts the carried child down where it stands instead of retrying forever (townies only).
-- **Fewer Sims stuck at activities (EA bugs, `bowlinglane`, `spacesimpartner`, `bandjam`, `statueline`, `cleanflag`, `photoboothfunds`, `gohomewalk`, on; by Dalexlol, PR #405).** Bowlers can be cancelled while waiting and no longer wait for a bowler who never comes; a Space Simulator partner is no longer stranded; a Sim leaving a band jam no longer hangs in it; the Box of Danger statue line drops the right performer; fire pits and picnic baskets are usable again after a put-away; a Sim whose family can't pay the photo booth no longer walks around invisible; guests sent home from a busted party stop running once they are home.
-- **Fewer script errors (EA bugs, `geniebanish`, `birdtvnull`, `bribeguard`, on; by Dalexlol, PR #405).** Genie Banish no longer fails about one cast in N+1, the talking bird no longer throws on a TV with no channel, and a bouncer bribe near 3 am no longer throws.
-- **Late Night club fixes (EA bugs, `djcleanup`, `vampirehuntglow`, `hottubwoohoofx`, on; by Dalexlol, PR #405).** An NPC's cancelled DJ set no longer ends your Sim's set or destroys the tip jar, a Sim who leaves the lot during a vampire hunt stops glowing, and a woohoo cut off in a hot tub no longer leaves the effect on.
-- **Late Night towers light up after a night-time load (EA bug, `shelllighting`, on; by Dalexlol, PR #405).** Shells skipped every lighting change already past today, so a world loaded at night stayed unlit for hours.
-- **Fewer leftovers on shared moodlets and store objects (EA bugs, `buffstate` and `storeworldevents`, on; by Dalexlol, PR #405).** Downtrodden, curse, Fertility Treatment, hypnosis and queasy moodlets kept one Sim's state for every Sim that had them (alarms, listeners and traits left behind); five store objects never unhooked their world and save events.
-- **City Hall ceremonies, weddings and graduations finish (EA bugs, `ceremonyspot`, `eventrouteretry`, `eventcrowdring`, `weddingarchkeep`, `hsgradkeep`, on; by Dalexlol, PR #405).** An award ceremony whose crowd stood on the honoree's spot lost the award; it is now given, with NPC onlookers placed in a ring. A wedding whose partner could not reach the arch no longer ends; it goes on as a gathering ceremony. A teen whose City Hall graduation failed now graduates in place instead of losing the diploma.
-- **Combo rabbit holes behave like stand-alone ones (EA bugs, `combosituation`, `comboprotest`, `comboopp`, `combojob`, `comboprotestlot`, on; by Dalexlol, PR #405).** Autograph sessions, protests, opportunity steps and jobs at buildings that are part of a combo lot now point at the building instead of a hidden piece at the world origin: protests no longer try to walk 974 m away, opportunity steps complete, and those jobs are offered again.
-- **Late Night apartment and hidden-room fixes (EA bugs, `aptleave`, `partymotive`, `hiddenroomnpc`, `hiddenroomspawn`, on; by Dalexlol, PR #405).** Stepping from an apartment into the hallway no longer counts as leaving: party guests stop walking out early with a farewell each time, and your Sim stays a guest until it really leaves. Guests who leave early lose the party motive. Townies are no longer placed in, or left trapped in, closed hidden rooms.
-- **More leftovers and errors fixed (EA bugs, `shuffleboardbcast`, `cookclicklistener`, `viproomrefresh`, `courselistener`, `observatorymsg`, `bubblepipeguard`, on; by Dalexlol, PR #405).** Shuffleboard rounds and served meals no longer leave handlers behind, the Isla Paradiso VIP room refresh no longer stops half way with an error, University course listeners are removed or moved with the building, a Simulon V stardust-only trip shows the right notice, and a bubble bar with no pipe no longer throws.
-- **Services, visits and field trips finish (EA bugs, `serviceleave`, `visitgreetalarm`, `visittoolate`, `fieldtripadult`, on; by Dalexlol, PR #405).** A reset service worker (maid, repairman, babysitter, mascot, repo man) gets back the arrive / leave / work-limit alarms the reset deleted, so services come, stop and leave again; the repo man no longer gets stuck with no mailbox, household or item. A let-in guest is no longer sent home an hour later by a leaked greeting alarm, NPC guests left outside too late go home, and a field trip with no fit NPC chaperone no longer hangs the game (pets and on-duty service NPCs are no longer picked).
-- **Life-event and career fixes (EA bugs, `privateeyecase`, `oppdeadlisteners`, `daycarequit`, `weddingcancel`, `ghostspawnargs`, `reaperflow`, `moveinpartner`, on; by Dalexlol, PR #405).** Investigator cases no longer throw or leave a stale Snoop alarm that later ends what the Sim is doing, and Break Into House no longer leaves a locked door open; ended opportunities drop their Sim listeners; quitting daycare outside work hours cleans up its children; a cancelled wedding ends, so the couple can marry under an arch again; Ghost Hunter angry-ghost jobs spawn their ghost; the Grim Reaper no longer gets stuck after a failed soda push; story move-ins (NPC households) respect the household cap.
-- **Fewer repeated autonomy picks, stuck spoon pairs and homework errors (EA bugs, `autonomyfailblock`, `spoonreset`, `homeworkhelp`, on; by Dalexlol, PR #405).** An autonomous action that fails on an unreachable posture now blocks the object as EA intended, a Sim whose spooning partner was reset leaves the pair, and Help with Homework after the child finished no longer throws.
-- **Group talk, conversations, portraits and picnics clean up after themselves (EA bugs, `grouptalkstale`, `convmerge`, `portraitpose`, `picniccamera`, on; by Dalexlol, PR #405).** Sims that walked away from an activity stop group-talking with the Sims they left, merged conversations no longer leave hidden walk-around footprints at the old spot, a failed or reset Paint Portrait no longer leaves the subject posing, and a served picnic no longer closes placement tools when you switch to map view.
-- **Repairs, upgrades, burglars, gigs, sculpting, training and bistro meals finish properly (EA bugs, `upgradefailalarm`, `repairtimecache`, `burglaridle`, `gigwaitleave`, `sculptpose`, `trainboost`, `eatoutsidecount`, on; by Dalexlol, PR #405).** A cut-short failed upgrade no longer cancels what the Sim does later, the next Sim to repair an object gets their own repair time, a burglar who reacted to a fire (or whose household moved out) leaves, a cancelled Stylist or Singer gig no longer brings the customer over, a failed Sculpt Sim releases the subject, a trainer reset no longer leaves the trainee with doubled Athletic gains for good, and Eat Outside waits for every follower again.
-- **Stale cooking listeners now cleaned in the hourly pass (`cookclicklistener`, on; by Dalexlol, PR #405).** The cleanup no longer runs inside every cooking step, which made household Sims re-plan into locked bathrooms more often; appliances in use are skipped.
-- **Walk-around footprints changed during a background route plan are replayed correctly (`[Discourage]`; by Dalexlol, PR #417, issue #408).** A deferred add or remove no longer inherits the lot of the previous record in its queue slot.
-- **Isla Paradiso no longer freezes on a broken bridge height (EA bug, `[EaCrashFixes]` `HeightsInfLoop` and `BridgeHeightNaN`, on; by Dalexlol, PR #394, #384).** One bridge in Isla Paradiso (seen with a community world file that adds it) reports a height that is not a number. The game kept it, a route over it got an endless path segment, and the game froze, sometimes during the world load. The terrain height is used there now; normal bridge heights are unchanged.
-- **Possible crash when quitting to the desktop (`[MonoThread] QuitStop=1`, on).** Before the script engine shuts down, the plugin now stops its second script thread and gives the game back its own garbage-collector code, so nothing of ours runs while the engine cleans up. One player crash at quit (v0.2.12), not reproduced on our machines; shipped after a code review (docs/30 §17).
-- **Fixed a rare crash in `mono_class_init` with `Satb` on (`[AutShadow] Satb=2`, on).** Very rarely the game crashed in the script engine while the background scorer was loading a class for the first time. The scorer now waits for the game to finish its step first. No change to what Sims do.
-- **Moods match the moodlets again (EA bug, `mooddrift` and `moodpending`, on; by Dalexlol, PR #368).** Some moodlets (being scared again, a missed appointment, a prank and others) changed a Sim's mood without the game keeping track, so the Sim stayed happier or sadder than its moodlets said until the save was reloaded. Waking up Well Rested in a bed, and Conquered the Bull, counted their mood twice. The mood now always equals the sum of the moodlets, as after a reload. Not in the v0.2.12 `ts3fixes.package`.
-- **Less memory left behind by menus, wishes and townies (29 EA leak fixes and guards, on; by Dalexlol, PRs #337, #353, #357, #365, #366, #368).** Buy, Build, Create a Sim, the map view and the HUD stop leaving windows, icons and handlers registered for the session; listeners of removed Sims and dropped wish trees are taken off; hourly passes clean stale townie route callbacks and wish keys (never your household's). Nothing is written into saves. Not in the v0.2.12 `ts3fixes.package`.
-- **"Move In With" wish is no longer offered for a Sim of your own household (EA bug, `minihomelot`, on; docs/266).** A stale home lot on a Sim's mini record made the game think two household members lived apart. The lot is now synced when a household moves and repaired at world load.
-- **Menu Maven and Culinary Librarian need every recipe installed (EA tuning bug, `menumaven`, on; by Dalexlol, PR #153).** Both used EA's fixed 28; they now count every recipe the install can teach (64 on a full install, plus store and mod recipes). Evidence: PR #153 forced repro PASS (off: True at 28; on: 28/144 False, 144/144 True, 143/144 False) and ours `bp-menumaven-check` PASS 2026-11-01 (docs/data/results/2026-11-01-queue-menu-maven.md).
-- **Townies the game moves off screen are no longer placed in a tomb, a hidden room or a closed room (`unseenfbteleport`, on).** The unseen teleport now refuses such a goal (also lots that are closed, raised outdoor spots and indoor rooms with no allowed way out) and takes the normal route instead. At load, only NPCs our teleport placed in a closed room this session are moved out; household Sims are never touched.
-- **Portraits no longer stall the game's portrait queue (`[ThumbStall] Enabled=1`; by Dalexlol, #371) and travel warms the shared caches before townies' background scoring starts (`[AutShadow] Races=7`).** Next release ini; needs plugin 0.36.248 or later.
+### Sims you do not control
 
-### Test features (all off by default, not tested in game yet)
+Fixes by Dalexlol (PRs #478 to #592, #605 to #618, #622, #623, #632) unless noted. Each was tested by him in soak runs and repros; our side only checked that they are exact for your household. On by default:
 
-- **EXPERIMENTAL: household Sims too (`[Experimental] HouseholdToo=1`, off).** Normally the mod leaves the Sims you control on the game's own answers. With this switch your household also gets the speedups whose result looks the same: remembered door answers and the background autonomy scoring. Teleports, skipped or shortened routes, frozen animations, resets and save clean-ups never apply to your household, switch on or off. For testers only.
-- **`[Alloc]` steps aside for Apex Radiance's FastMemory (`[Alloc]` stays off by default; lane L9, docs/148 §7).** With `[Alloc] Enabled=1` and Apex's FastMemory on, the plugin's small-allocation pool now stands down instead of running next to Apex's allocator; the log names it. Nothing changes for the shipped ini.
-- **Sim stall sampler (`[StallWatch] Enabled=1`, off).** After 5 s without a finished simulation step, the plugin log gets the sim thread's stack as module + offset, so a freeze report names where the game hung.
+- Townies you cannot see: drive off and park without long walks, enter rabbit holes without the trip, arrive at visits and community lots at once, skip repeated safe-spot searches, snap to the planned lane or trip end, choose a nearer community lot, and relax a failed plan instead of looping.
+- Boats: boat trips, placing and unsticking boats, houseboat gangway rescue and a cap on endless boat roaming.
+- Spawn and festival fixes: crowd spawning no longer runs useless handler calls, and festival objects skip needless work.
+- Smaller script costs: bouncers, unseen townies' outfit changes, the autonomy fail cooldown and a few checks cost less per tick.
+- Routing: a short cut for stalled routes of unseen Sims on the worker thread.
+- A rare crash when a Sim's slave object is removed in the middle of a call is stopped.
 
-- **Faster equality checks for enums and small number-only structs (`[EqualsFast] Enabled=1`, test feature, off, plugin 0.36.248).** Every time a script compares two enum values or two small structs, the game walks the type's fields and takes a global Mono lock it shares with the background threads, several times per compare. With this switch the plugin remembers, once per type, where the number fields are, and compares those bytes with no walk and no lock. Only types made purely of 32/64-bit integers use it; everything else (floats, text, references, generics) still goes through the game's own code. Gives the same answer as the game on all 61159 test pairs from the game's own types (docs/258 §7); speed not measured yet.
-- **Unseen townies wait instead of planning while another route search holds the lock (`[GoalValidRO] UnseenDefer=1`, off).** Only for Sims you don't play and can't see; your household, the selected Sim and any Sim of unknown scope always plan as normal. After `UnseenDeferMaxMs` (2 s) the plan runs as in the base game.
-- **Route hitch diagnostics (counters and log lines only; `[RouteAsync] FbApplyLog=1` for the per-lot log, off).** Times the game's pending lot updates before a route, counts refused replans by reason and the waits for the route worker by site.
-- **Boat diagnostics in ts3fixes (`boatgetoutdiag`, off; boat "no refusal" split, report only) and the household houseboat answer for the background lot check (`autofflot`, off).**
-- **Boat get-out script error guard (`boatgetoutguard`, ts3fixes, off).** A Sim you do not play that something resets while it fades out of a boat no longer hits a script error in `Boat.GetOutIntoWater`; it is reset instead, as the game itself does. Your household keeps the game's behaviour.
+### More fixes by Dalexlol and twopointjj
+
+PRs #625, #637 to #659, #672, #680, #681, #715, #716. On by default except where noted:
+
+- Firefighter emergencies end when their last rescue cannot be done, no longer abort on two game errors, and the "free N Sims" count only counts real rescues. A large fire no longer unlocks every door on the lot.
+- Earthquake gas leaks, ghost-hunter spirit hops and burglars no longer pick spots inside hidden apartment units or loot nobody can reach.
+- Sims playing horseshoes alone are sent on their way after 2 sim-hours. Sims standing on a ladder's ends are asked to step aside. NPC Sims share narrow lanes, ladders, spiral stairs, rabbit hole doors and serving platters instead of waiting one by one.
+- A Sim whose object is boxed in by furniture walks up and uses it. Chores whose spot is closed are done from within reach. Contemplating, viewing and watching no longer show a route-fail balloon. Boxed-in Sims walk out and talk socials work from a distance.
+- Making a double bed makes both halves. Partners shower together, and a Sim with no usable toilet takes a shower instead of wetting themselves. Make Simbot shows on the workbench in every world.
+- A Sim waiting in a toilet, sink, shower or bath line uses a free twin object of the lot (NPC Sims only).
+- A busy NPC Sim reacts to a social at once instead of after its action.
+- A Sim who changes clothes waits less: the ready outfit job is built first.
+- NPC pets walk through a lying pet instead of waiting; unseen pets on long trips are placed at their goal; generated NPC boats are no longer refused as owned. Boats and swimming cost less planner time.
+- Off by default: the household variants of all of the above, WooHoo and paired-social snapping, and a few experimental diagnostics.
+
+### Also
+
+- Far-view pictures of lots refresh in a queue when the season changes, instead of all at once (rare-case fix, checked in a before/after run).
+- Groundwork for cheaper upkeep in big worlds: the game keeps a lot change count and a world-change event as lots stream in and out. No gameplay change.
+- A bigger table for compiled script methods, so heavy mod setups stay compiled longer.
+- EA app: more of the Steam fixes now run on 1.69.47 (route and compiler groups, tuning isolation).
+
+### Known issues
+
+- Apex Radiance 4.1.0: a lamp-related crash is fixed on the Apex side (Apex pull requests #153 and #154, not ours). Update Apex if you see it.
+- Everything listed under v0.3.0's and v0.3.1's known issues still applies.
+
+### Tested
+
+Steam 1.67 with Apex Radiance and its RTX Remix bridge, on the exact files above: a Bridgeport smoke test (passed, 7.1 minutes, no script errors), the door-memo and Buy-mode delete checks, and the stuck-Sim checks. EA app 1.69.47 (laptop run): Buy-mode deletes 6 of 6, the release checks, venue clocks 2 of 2. Some EA runs ended in game or harness failures that are not in the code above and are listed in `docs/release-notes/v0.3.2-dev.md`. We do not publish new speed numbers for this release.
+
+## v0.3.1 (2026-11-21, hotfix)
+
+A small fix release on top of v0.3.0: the fix for the game staying paused after Buy or Build mode, a crash fix, an EA app start-up fix found by EA app testers, and a fix that keeps the script speed-up on with Apex Radiance; nothing else changed. If v0.3.0 runs fine for you, this update is still worth taking: the crash it fixes can happen on any edition.
+
+### Download
+
+- `ts3native-v0.3.1.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both. The log shows `ts3native 0.36.295a`.
+- `ts3native-ea169-v0.3.1.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`; replace both.
+- `ts3fixes.package` (sha256 starts `0662ff4a`): new in this release, replace the v0.3.0 file.
+- Everything else is as in v0.3.0: same settings switched on, same setup (Apex Radiance with its RTX Remix bridge recommended), and nothing of ours is written into your save.
+
+### Fixed
+
+- **The game stayed paused after Buy or Build mode, and the time controls did nothing (v0.3.0 bug).** It happened when you switched between Buy and Build mode (or Blueprint) before going back to live mode: our speed-lock fix lost track of who paused the game, so it never let go, until a restart. Fixed by Dalexlol (PR #616), thanks to the player who reported it. Saves were never affected (the lock is not stored in the save), so after the update there is nothing to clean up; the v0.3.0 workaround (save, then restart the game) is no longer needed.
+
+- **A rare crash while Sims and objects come and go (`0xD71E7D` on Steam, `0xD71EBD` on the EA app).** This is a bug in the game itself, so it can hit any edition, with or without mods. While the game handles its list of scripted objects, adding an object at the wrong moment can make the list grow and move, and the game then removes an entry using a position in the old, freed copy, which crashes. It is rare, and more likely on busy lots with many objects. The plugin now finds the right position before the game removes the entry. In our test we forced the bad moment 20 times: with the fix the game kept running all 20 times; without it, it crashed. On by default; `Enabled=0` under `[HostMapIterFix]` in `ts3native.ini` switches it off. Thanks to Eli for the crash report.
+- **With Apex Radiance: our script speed-up no longer switches itself off when Apex Radiance handles its own internal errors (`[MonoJit]`, Steam 1.67).** Apex Radiance catches and handles a few thousand of its own harmless internal errors per session. When one of those happened while a compiled script method was further up the call chain, the plugin could take it for a fault in that method and send the method back to the slower game interpreter for the rest of the session. We saw it in a test build; our v0.3.0 test sessions with Apex showed no such case, so this is a safety fix. Errors that Apex handles itself are now left to Apex; a real fault in compiled code is still caught as before.
+- **EA app: the plugin switched itself off on some EA app installs.** Some EA app copies of The Sims 3 1.69.47 have a slightly larger copy-protection part in `TS3.exe` (the game code is the same). v0.3.0 saw the different size, decided it was a different game version, and installed nothing: the game ran without any of our fixes, and `ts3native.log` showed `SKIP all: host is not EA app 1.69.47 (pe 6707155C size 0xEB7000)`. The plugin now accepts that copy-protection size. It still checks every place it changes before changing it, so a really different game version is still left alone. If your log shows `host build: EA app 1.69.47`, you were not affected.
+
+### Known issues
+
+- **Apex Radiance 4.0.13 with the RTX Remix bridge: a rare crash in `d3d9.dll` when you enter Buy mode.** It is on the Apex side (it happens before any of our code runs) and can happen on v0.3.0 too; we saw it in 2 of 3 tries in one test session. If it hits you, please report it to Apex Radiance with your crash files.
+- Everything listed under v0.3.0's known issues still applies.
+
+### Tested
+
+Steam 1.67, Apex Radiance 4.0.13 with the RTX Remix bridge, on this exact `ts3native.asi`, `ts3native.ini` and `ts3fixes.package`: a Bridgeport smoke test (passed, no script errors) and the Buy -> Build -> live check (the game unpauses back in live mode; with the v0.3.0 package it stayed paused). The `[HostMapIterFix]` crash fix was tested with forced bad moments on our development build (above). The EA app files got an offline check of the start-up gate on real `TS3.exe` headers, not a game run.
+
+## v0.3.0 (2026-11-21)
+
+The biggest release so far. On Steam the game's busiest script methods now run as compiled machine code (the script compiler), and over 400 fixes for the game's own bugs (about 440) are switched on, most of them by Dalexlol with an in-game before/after test for each. No new overall speed numbers in this release: the compiler's gain is estimated from offline benchmarks, not timed in game.
+
+### Download
+
+- `ts3native-v0.3.0.zip` (Steam 1.67): `ts3native.asi` and `ts3native.ini`; replace both. The log shows `ts3native 0.36.295-rc1119b` (the release candidate we tested is the release; ini sha256 starts `d399d7c9`).
+- `ts3fixes.package`: new in this release; replace the old one. Use it together with this `ts3native` (sha256 starts `3f894ade`).
+- `ts3native-ea169-v0.3.0.zip` (EA app 1.69.47, `TS3.exe`): `ts3native.asi` and `ts3native.ini`, same `ts3fixes.package` as Steam. Tested on our EA app laptop (play, save, CAS and Buy, restart and load: all passed, no crash; asi sha256 starts `b37557e6`, ini `3c5133ca`).
+- **Recommended setup:** [Apex Radiance](https://github.com/loinyx/Sims3-ApexRadiance) with its RTX Remix bridge, plus this release. Plain DXVK still works but is best effort: no DXVK test run for this release.
+- Old saves load, and saves made with v0.3.0 load in v0.2.12 and in the unmodded game (tested, see below). Nothing of ours is written into your save.
+
+### Changed (switched on)
+
+- **Faster game scripts: the script compiler (`[MonoJit] Enabled=1`, Steam 1.67).** The game's busiest script methods run as compiled machine code instead of through the game's script interpreter; anything unusual (exceptions, rare instructions, other mods' changes to the same code) still goes to the game's own code. With it: `[Binder] TypeHandleDirect=1` (a common type lookup no longer goes through a slow call into scripts). The compiled code area is 8 MB, refused methods are logged per reason, and methods the game already runs as native code are not compiled. In game the compiled code gave the same results as the interpreter (verify run: 0 differences). The speed gain is modelled from offline benchmarks only, not timed in game. Set `Enabled=0` under `[MonoJit]` to switch it off.
+- **A fault in compiled script code no longer has to crash the game (`[MonoJit] FaultRecover=1`, on with the compiler).** If a compiled method ever faults, that method goes back to the game's own interpreter for the rest of the session. Errors outside the compiler's code are never touched.
+- **Faster enum and small-struct compares in scripts (`[EqualsFast] Enabled=1`, Steam 1.67).** `Enum.Equals` / `ValueType.Equals` on int-backed enums and structs of up to 8 integer fields are answered from a per-type plan, without the game's field walk and its global script-engine lock; every other type goes to the game's own code. Offline: 0 differences in 61,159 compare pairs over every value type of the game's scripts.
+- **Faster script calls (`[MonoFast] CallPath=1`) and fused script steps (`[MintFuse] Sub=1`, Steam 1.67).** The plugin handles the script engine's most common steps (calls, virtual calls, returns) in one pass, and merges common instruction sequences inside longer stretches of script code. Offline benchmark: calls 0.4-9 ns faster, the script mix about 4-7% faster, nothing slower; not timed in game. Loading costs about 35 ms more. Both stay off by themselves if another mod changes the same game code.
+- **Fewer long routing freezes on busy worlds (`[RouteAsync] JobYield=1` with `kJobYield`; by Dalexlol, PR #397).** A route plan that would wait for a background route search lets the game run on for a few ticks instead. Isla Paradiso in-load test: hitches of 300 ms or more 0.53x, 1 s or more 0.41x; Bridgeport and Sunset Valley no worse. Routes of your own Sims give the same result.
+- **Background route searches for townies you can't see always stay time-limited (`[RouteAsync] KdUnseenForeignCap=2`; by Dalexlol, PR #378, #409).** A townie out of view that keeps failing to reach a spot no longer gets an unlimited search that can freeze the game for seconds (in an Isla Paradiso repeat run 27 such freezes went to 0). Your household, the selected Sim, Sims you can see and Sims of unknown scope are unchanged.
+- **Route plans for Sims you play are served first, and door answers come back sooner (`[RouteAsync] PlayerFirst=1`, `TaskServe=1`, `ReadyDrain=1`; by Dalexlol, PR #468, #540).** Only the order and timing of background route work changes, not the routes.
+- **Sims 3 Settings Setter 1.6.3 camera fix also on for a second copy of 1.6.3 (`[S3SSCompat]`; by Dalexlol, PR #398).**
+- **Travel warms the shared caches before townies' background scoring starts (`[AutShadow] Races=7`).** After a world has loaded, the game's shared caches are filled before the second thread scores townies' actions, and checked to stay unchanged.
+- **Townies you can't see get cheaper service visits, music, shows and loops (by Dalexlol, PR #540).** Service NPCs, pianists, jam sessions, shows and looping actions of Sims nobody can see are handled with less work, and a townie the game moves off screen is not placed in a tomb, a hidden room or a closed room. Every one of these skips your household, the selected Sim and Sims of unknown scope.
+
+### Fixed
+
+- **No route plan freezes the game forever (`[RouteAsync] KdUncutCeilMs=30000`; issue #338).** A route plan with no other time limit could run until it ended, and the game stood still while it waited (up to 38 s seen). Such a plan is now cancelled after 30 s and treated as a failed route; the Sim may show the "can't get there" balloon. This crash guard applies to every Sim, your household too; normal plans end long before 30 s.
+- **Possible crash when quitting to the desktop (`[MonoThread] QuitStop=1`).** Before the script engine shuts down, the plugin stops its second script thread and gives the game back its own garbage-collector code. One player crash at quit (v0.2.12), not reproduced on our machines; quit-to-desktop runs with it on pass.
+- **Isla Paradiso no longer freezes on a broken bridge height (EA bug, `[EaCrashFixes] HeightsInfLoop`, `BridgeHeightNaN`; by Dalexlol, PR #394, issue #384).** A bridge that reports a height that is not a number made a route segment endless and froze the game, sometimes during the world load. The terrain height is used there now.
+- **Sim portraits no longer stall the game's portrait queue (`[ThumbStall] Enabled=1`; by Dalexlol, #371).** A portrait the game waits on forever is given up after 10 s (a travel hang, issue #40).
+- **Fixed a rare crash in `mono_class_init` with background scoring on (`[AutShadow] Satb=2`).** The scorer now waits for the game to finish loading a class first. No change to what Sims do.
+- **About 440 fixes for the game's own bugs in `ts3fixes.package` (most by Dalexlol: PRs #337-#368, #405, #452-#518, #524-#529, #540, #559 and his tested fix list).** Each one fixes one EA bug and was shown broken without it and fixed with it in his in-game tests. Among them:
+  - Pregnant townies give birth again instead of looping to the hospital; births are no longer lost, duplicated or crashed.
+  - Sims no longer stand around for minutes after some socials (Show Videos, Trivia, Interview and others), and stop waiting for partners who already refused.
+  - Fewer Sims stuck at activities: bowling, the Space Simulator, band jams, statue lines, fire pits and picnic baskets, the photo booth, sent-home party guests.
+  - City Hall ceremonies, weddings and graduations finish; a wedding whose partner can't reach the arch goes on as a gathering.
+  - Combo rabbit holes (protests, autograph sessions, jobs, opportunity steps) point at the building, not at a hidden piece at the world origin.
+  - Late Night: DJ sets, vampire hunts, hot tubs, apartment hallways, hidden rooms and tower lighting after a night-time load.
+  - Services, visits and field trips finish: reset service workers get their alarms back, let-in guests are not sent home by a leaked alarm, field trips with no fit chaperone no longer hang.
+  - Moods match the moodlets again (no drift until the next reload; Well Rested and Conquered the Bull no longer count twice).
+  - Fewer leftovers: moodlet state shared between Sims, store objects, menus (Buy, Build, Create a Sim, the map view, the HUD), wish trees, removed Sims' listeners, and effects (VFX) left behind by many objects.
+  - Many smaller fixes across the expansions: seasons and weather, elevators, phones, pets and horses, gnomes, consignment, careers and gigs, holidays, University, Into the Future and Island Paradise objects. The full list of setting names is in `docs/PLAYERS.md`.
+- **"Move In With" is no longer offered for a Sim of your own household (EA bug, `minihomelot`).**
+- **Menu Maven and Culinary Librarian need every recipe installed, not EA's fixed 28 (EA tuning bug, `menumaven`; by Dalexlol, PR #153).**
+- **Go Here by boat: a Sim's boat trip list is cleaned up when the trip ends (`kGoHereBoatList`).** Broken without the fix and fixed with it in the repro; our save and Go Here tests passed with it on.
+- **Egypt: sarcophagus mummies no longer leave a broken townie behind (`kSarcMummyNpc`).** Our Egypt save test (30 minutes, save and reload) passed with it on.
+- **Walk-around footprints changed during a background route plan are replayed correctly (`[Discourage]`; by Dalexlol, PR #417, issue #408).**
+
+### Compatibility
+
+- **Other mods that already fix the same thing:** 24 of our fixes step aside by themselves when NRaas StoryProgression (13), NRaas GoHere (6), NRaas Consigner (3) or NRaas Woohooer (2) is installed.
+- **Sims3MonoModder (S3MM):** when `Sims3MonoModder.asi` is installed, ts3native switches its script compiler, fast call path and background scoring off by itself. S3MM's profiler is **not compatible** with ts3native (it hooks the same script-engine functions and can crash depending on load order): don't use S3MM together with this release.
+- **SmellyMods CC String Merge:** compatible (an offline tool that rewrites string tables while the game is closed; nothing of ours touches it). Checked statically, not run in game.
+- **Apex Radiance:** tested with Apex Radiance 4.0.6 and its RTX Remix bridge (a test install that also had our pending Apex fixes). Newer Apex releases came out during release week and were not tested by us.
+
+### Test features (off by default)
+
+- **EXPERIMENTAL: household Sims too (`[Experimental] HouseholdToo=1`, off).** Normally the mod leaves the Sims you control on the game's own answers. With this switch your household also gets the speedups whose result looks the same (remembered answers and background scoring). Teleports, skipped or shortened routes, frozen animations, resets and save clean-ups never apply to your household, switch on or off. For testers only.
+- **Sim stall sampler (`[StallWatch] Enabled=1`, off).** After 5 s without a finished simulation step, the plugin log gets the sim thread's stack, so a freeze report names where the game hung.
+
+### Known issues
+
+- **Faster door answers for townies' background routes are off (`[RouteSnap] DoorMemoX=-1`; by Dalexlol, PR #430).** Our test found a wrong door answer on lots with privacy doors; the fix is built and goes on in a later release once it is verified in game.
+- **Apex Radiance: a rare freeze between two of Apex's own locks and the game's drawing (Apex issue #90).** Seen once in our Apex test runs (the rerun passed); Apex has a partial fix. If your game freezes with Apex, please send your `ts3native.log` and report it to Apex too.
+- **Plain DXVK without Apex:** best effort. Not tested for this release; a DXVK-only problem is a known issue until someone reports it.
+- **EA app:** townies you can't see are animated every frame again on the EA app (`[UnseenAnim]` off there, unlike v0.2.12 on the EA app); the next release brings it back to match Steam. If you use the RTX Remix bridge there, set `client.targetProcess = TS3.exe` in both `bridge.conf` files.
+
+### Tested
+
+All on this exact `ts3native.asi`, `ts3native.ini` and `ts3fixes.package` (release candidate rc-1119b), Steam 1.67, Apex Radiance with the RTX Remix bridge:
+
+- **Release checks, 12 jobs:** Bridgeport play with S3SS and a trip, the save checks (overwrite, back to back, unpaused, in build mode, counters), the Isla Paradiso houseboat and boat-start checks, the Isla Paradiso route check for unseen townies, the stuck-Sim checks, 32 minutes of natural Isla Paradiso play, three trips with the memory give-back, the book check in a crowd, the outfit check for Sims who are gone, and the dance floor check: all passed (the trips with the memory give-back passed on a rerun the next morning; the first run missed one log line). No crash.
+- **Smoke test** (Bridgeport) and the **memory churn** repro: passed.
+- **Saves:** save bundles with the save-changing fixes on (Isla Paradiso and a custom-content save): passed. **Save portability:** a v0.3.0 save loads in v0.3.0, with the v0.2.12 package and in the unmodded game, and v0.2.12 and unmodded saves load in v0.3.0: all passed. Egypt sarcophagus save (30 minutes, save, reload): passed.
+- **Go Here** check: passed.
+- **Apex Radiance** (6 jobs: smoke, S3SS travel with memory checks, save matrix, stuck-Sim watchdog, 25 minutes of Isla Paradiso, Apex's own test town): all passed; one run was void on the Apex lock freeze above and passed on its rerun.
+- Native self-test of this build: passed.
+- Speed: no timing run for this release.
+
+### Thanks
+
+- **Dalexlol** for most of the fixes in this release and an in-game before/after test for each of them, plus the harness fixes that made our test runs more reliable.
+- **loinyx** and the Apex Radiance project for the RTX Remix bridge that our tests run on, and for looking into the lock freeze.
 
 ## v0.2.12 (2026-11-13)
 

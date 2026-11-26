@@ -8,7 +8,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/642 §7 houseboatgangwayrescue (default off). An NPC rides a boat home to its DOCKED houseboat and is dropped on shore
+    // docs/853 §3 houseboatgangwayrescue (default ON). An NPC rides a boat home to its DOCKED houseboat and is dropped on shore
     // ~15-22 m from the gangway at a spot with no walkable path to it. SimRoutingComponent.CheckAndUpdateForHouseboats then runs
     // EnterHouseboatThroughGangway: PlanToPointFromPoint to the port gangway's RoutingSlot_0 with water and boat planning off,
     // which fails (~650 ms). GoHome.Run plans its route again (three DoRoutes, each with EA's replans) and returns false;
@@ -25,9 +25,9 @@ namespace Ts3Fixes
     //   EA's PlaceSimAtEntrance(sim) plus RouteOntoHouseboat's route-option cleanup. At most one rescue per Sim per sim-hour.
     // Household rule: Fixes.HouseholdExempt, and IsPlayerSim as well since this is a teleport (HouseholdToo never lifts one,
     // docs/271); a Sim of unknown scope counts as household (IsPlayerSim).
-    // Counters [4040] marked, [4041] rescued, [4042] refused, [4043] errors; refusal reasons [4044] exempt, [4045] no / another /
-    // undocked houseboat, [4046] once-per-hour rule, [4047] busy (posture, held, task, cancelled, interaction), [4048] on the lot,
-    // far from the gangway or a stale mark, [4049] PlaceSimAtEntrance found no spot.
+    // Counters [1382] marked, [1383] rescued, [1384] refused, [1385] errors; refusal reasons [1386] exempt, [1387] no / another /
+    // undocked houseboat, [1388] once-per-hour rule, [1389] busy (posture, held, task, cancelled, interaction), [1390] on the lot,
+    // far from the gangway or a stale mark, [1391] PlaceSimAtEntrance found no spot.
     public static partial class Fixes
     {
         const float kHgrNearM = 40f;
@@ -77,16 +77,16 @@ namespace Ts3Fixes
         static void HgrRefused(int why, string name, string detail)
         {
             int[] c = PatchCounters();
-            c[4042]++;
+            c[1384]++;
             switch (why)
             {
-                case HouseboatGangwayRescueCore.kExempt: c[4044]++; break;
+                case HouseboatGangwayRescueCore.kExempt: c[1386]++; break;
                 case HouseboatGangwayRescueCore.kNoBoat:
                 case HouseboatGangwayRescueCore.kOtherBoat:
-                case HouseboatGangwayRescueCore.kNotDocked: c[4045]++; break;
-                case HouseboatGangwayRescueCore.kHour: c[4046]++; break;
-                case HouseboatGangwayRescueCore.kBusy: c[4047]++; break;
-                default: c[4048]++; break;
+                case HouseboatGangwayRescueCore.kNotDocked: c[1387]++; break;
+                case HouseboatGangwayRescueCore.kHour: c[1388]++; break;
+                case HouseboatGangwayRescueCore.kBusy: c[1389]++; break;
+                default: c[1390]++; break;
             }
             if (name != null) HgrLog("refused, " + name + ": " + HouseboatGangwayRescueCore.Why(why) + (detail != null ? " (" + detail + ")" : ""));
         }
@@ -104,12 +104,12 @@ namespace Ts3Fixes
                 int w = sHgr.Note(sim.ObjectId.Value, hb != null ? hb.ObjectId.Value : 0, exempt, docked, ms, SimClock.CurrentTicks, HgrHour());
                 if (w == HouseboatGangwayRescueCore.kMarked)
                 {
-                    c[4040]++;
+                    c[1382]++;
                     HgrLog("marked " + sim.FullName + ", houseboat " + HgrLotName(hb) + ", gangway leg " + ms + " ms no path" + HgrWhere(sim));
                 }
                 else if (w != HouseboatGangwayRescueCore.kAdded) HgrRefused(w, exempt ? null : sim.FullName, null);
             }
-            catch (Exception ex) { c[4043]++; HgrLog("error at mark " + ex.GetType().Name); }
+            catch (Exception ex) { c[1385]++; HgrLog("error at mark " + ex.GetType().Name); }
         }
 
         // why the Sim's position is not ours to change right now, or null
@@ -163,7 +163,7 @@ namespace Ts3Fixes
                 // setup_sims note, 2026-11-08], so the lot the Sim reports right now is logged, not judged.
                 if (placed)
                 {
-                    c[4041]++;
+                    c[1383]++;
                     Vector3 p = sim.Position;
                     MovedSims()[sim.FullName] = "houseboatgangwayrescue " + hbLot.Name + " @" + Math.Round(p.x, 1) + "," + Math.Round(p.z, 1) + " " + SimClock.CurrentTime().ToString();
                     HgrLog(sim.FullName + " placed at " + hbLot.Name + ", after " + m.Ms + " ms of failed legs (" + m.Legs + " legs, from "
@@ -171,12 +171,12 @@ namespace Ts3Fixes
                 }
                 else
                 {
-                    c[4042]++;
-                    c[4049]++;
+                    c[1384]++;
+                    c[1391]++;
                     HgrLog("refused, " + sim.FullName + ": PlaceSimAtEntrance found no spot, houseboat " + hbLot.Name);
                 }
             }
-            catch (Exception ex) { c[4043]++; HgrLog("error at rescue " + ex.GetType().Name); }
+            catch (Exception ex) { c[1385]++; HgrLog("error at rescue " + ex.GetType().Name); }
         }
 
         public partial class RouteBackoffHook

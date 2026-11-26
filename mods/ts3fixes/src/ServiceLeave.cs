@@ -147,7 +147,7 @@ namespace Ts3Fixes
             else hours = SlDelay(state, svc.Service, name.StartsWith("WaitToRoute", StringComparison.Ordinal) ? "DelayBeforeArriving" : "DelayBeforeLeaving");
             if (hours < 0f) { PatchCounters()[2520]++; return 0; }
             AlarmManager.Global.RemoveAlarm(h);
-            AlarmTimerCallback cb = (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), state, m);
+            AlarmTimerCallback cb = (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), state, m);
             if (kind == 3)
                 f.SetValue(state, AlarmManager.Global.AddAlarmRepeating(3f, TimeUnit.Minutes, cb, 3f, TimeUnit.Minutes, "Babysitter check (re-armed after reset)", AlarmType.DeleteOnReset, svc.Worker));
             else

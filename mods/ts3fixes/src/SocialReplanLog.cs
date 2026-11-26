@@ -21,7 +21,7 @@ namespace Ts3Fixes
     // the switch is off beyond one switch test.
     // Lines: "socialreplan: <receiver> -> <partner>, replan N <result>, branch <trail>, ignore [...], me at, partner at,
     // partner dest, ..." (first 3 replans of a receive) and "socialreplan done: ... N replans, ok|fail" at its end.
-    // Capped at 300 lines per session. Counters: [2699] receiver replans blocked by the partner, [2700] lines dropped
+    // Capped at 300 lines per session. Counters: [3972] receiver replans blocked by the partner, [3973] lines dropped
     // by the cap. Check: SocialReplanLogChecks.cs.
     public static partial class Fixes
     {
@@ -43,7 +43,7 @@ namespace Ts3Fixes
 
         static void SrlLine(string text)
         {
-            if (sSrlLines >= kSrlMaxLines) { PatchCounters()[2700]++; return; }
+            if (sSrlLines >= kSrlMaxLines) { PatchCounters()[3973]++; return; }
             sSrlLines++;
             HcLine(text);
         }
@@ -99,7 +99,7 @@ namespace Ts3Fixes
                     && sim.InteractionQueue.RunningInteraction is SocialInteraction;
                 bool blockerIsPartner = partner != null && res.mBlockerObjectId != 0 && res.mBlockerObjectId == partner.ObjectId.Value;
                 if (!SrlShouldLog(true, (kind & 1) == 1, failed, receiver, blockerIsPartner)) return;
-                PatchCounters()[2699]++;
+                PatchCounters()[3972]++;
                 SrlState st = SrlOf(sim, true);
                 st.Replans++;
                 st.Partner = SimLabel(partner);

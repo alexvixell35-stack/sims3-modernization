@@ -26,7 +26,10 @@ const KINDS: [string, RegExp, string][] = [
   ['write-watch', /write.watch|GetWriteWatch/i, '§15'],
   ['busy-syscall', /is inside Nt\w+/, '§14, §18'],
   ['shared-view', /writable view (shared|.* looks shared) with another process/, '§20, §23'],
-  ['module-guard', /module \S+ is loaded/, '§8, §24'],
+  ['module-guard', /module \S+ is (still )?loaded/, '§8, §24, §36 (gone wait)'],
+  ['handle-replaced', /was closed or replaced after the snapshot/, '§35, §36'],
+  ['gui-thread-handle', /made after the snapshot is protected from close/, '§36 (a thread made after the snapshot that called win32k)'],
+  ['gui-objects', /window-system objects changed/, '§36'],
   ['sound', /sound (device|module)/, '§23'],
   ['no-park', /did not park|did not come back to its idle wait/, '§21, §27'],
   ['no-coop', /no cooperation block/, '§9.1'],
@@ -44,7 +47,7 @@ export type Refusal = { kind: string; owner: string; doc: string };
 export function classify(why: string): Refusal {
   const w = why.replace(/^park: /, '');
   const k = KINDS.find(([, re]) => re.test(w));
-  const m = w.match(/start ([\w.-]+\.(?:dll|exe|asi|drv))\+[0-9a-f]+/i) ?? w.match(/sound module ([\w.-]+)/) ?? w.match(/module ([\w.-]+) is loaded/);
+  const m = w.match(/start ([\w.-]+\.(?:dll|exe|asi|drv))\+[0-9a-f]+/i) ?? w.match(/sound module ([\w.-]+)/) ?? w.match(/module ([\w.-]+) is (?:still )?loaded/);
   const a = w.match(/start ([0-9a-f]{6,8})\b/i), s = w.match(/section (?:\\(?:[^\\,]*\\)*([A-Za-z]+)|(unnamed))/);
   const owner = m ? m[1].toLowerCase() : a ? `addr:${a[1].toLowerCase()}` : s ? `section:${s[1] ?? s[2]}` : /bridge/.test(w) ? 'bridge'
     : /route worker|did not park/.test(w) ? 'ts3native.asi' : '?';
@@ -119,6 +122,13 @@ function selfCheck() {
   assert.equal(C('module frida-agent.dll is loaded (detach the probe first)'), 'module-guard frida-agent.dll');
   assert.equal(C('thread 7 belongs to the sound module dsound.dll'), 'sound dsound.dll');
   assert.equal(C('pause: no answer'), 'pause ?');
+  // chain-1117a bp-rewind-pilot-c 21:08:26 (docs/270 §36) and the tool's gone/new-handle forms
+  assert.equal(C("handle 7b8 (ALPC Port) was closed or replaced after the snapshot and would not come back as the snapshot's object: comes back as type 48 access 1f0000 (snapshot type 48 access 1f0001)"), 'handle-replaced ?');
+  assert.equal(C('handle 654 made after the snapshot is protected from close (window-system state of a thread)'), 'gui-thread-handle ?');
+  assert.equal(C('handle 26c (Event) made after the snapshot is protected from close (window-system state of a thread)'), 'gui-thread-handle ?');
+  assert.equal(C('window-system objects changed (GDI 170 -> 194, USER 76 -> 86): they are not rewound'), 'gui-objects ?');
+  assert.equal(C('module frida-agent.dll is still loaded 30 s after the probe detached: another Frida session is in the game (a kept frames session?)'), 'module-guard frida-agent.dll');
+  assert.equal(C('handle 7a8 (target ended) was closed after the snapshot'), 'new ?', 'non-match: closed without "or replaced"');
   assert.equal(C('something nobody has seen'), 'new ?', 'non-match: an unknown reason is a new kind');
   assert.ok(!REFUSE.test('rewind-smoke: snapshot ok') && !QREF.test('11:10:56 queue: bp-x: start: rewind (4100 ms)') && !FULL.test('11:10:56 queue: bp-x: rewind: snapshot taken (900 ms)'), 'log non-matches');
   // record: rows appended, only new pairs returned; backfill from a fake chain dir, one reason per chain

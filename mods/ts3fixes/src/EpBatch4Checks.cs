@@ -29,7 +29,7 @@ namespace Ts3Fixes
         public static object DogSwimSlotsCheck(string what)
         {
             bool on = ShortcutOn("dogswimslots");
-            return Ep4Check("dogswimslots", 1521, new[] { "loops skipped, no free slot", "would throw with switch off", "errors" },
+            return Ep4Check("dogswimslots", 3247, new[] { "loops skipped, no free slot", "would throw with switch off", "errors" },
                 EpJoin(EpMiss("kNumberOfTimesForHydrophobicDogToRouteToOtherSlots", sDsTimes, "kChanceToShowHydrophobicThoughtBalloon", sDsChance),
                     EpLive(typeof(BEp4DsHook), 1, "kNumberOfTimesForHydrophobicDogToRouteToOtherSlots", sDsTimes, typeof(int[]), "kChanceToShowHydrophobicThoughtBalloon", sDsChance, typeof(float))), what,
                 "empty slot list skipped", !DsLoopRuns(on, 0), "free slots loop", DsLoopRuns(on, 3));
@@ -39,7 +39,7 @@ namespace Ts3Fixes
         public static object FragmentReconstructCheck(string what)
         {
             bool on = ShortcutOn("fragmentreconstruct");
-            return Ep4Check("fragmentreconstruct", 1524, new[] { "Target picked first", "extra fragment used with switch off", "errors" },
+            return Ep4Check("fragmentreconstruct", 3250, new[] { "Target picked first", "extra fragment used with switch off", "errors" },
                 EpJoin(EpMiss("FragmentedObject+Reconstruct", sFrType, "mToRemoveObj", sFrRemove, "mCreatedObject", sFrCreated, "FragmentInfo", sFrInfo, "FragmentInventoryTest", sFrTest, "LocalizeString", sFrLoc,
                     "EventCallbackPlaySound", sFrSound, "FragmentData.RequiredNumberOfItems", sFrRequired, "FragmentData.RouteDropDistance", sFrDrop),
                     EpLive(typeof(BEp4FrHook), 1, "FragmentedObject+Reconstruct", sFrType, typeof(InteractionInstance), "mToRemoveObj", sFrRemove, typeof(List<FragmentedObject>),
@@ -52,7 +52,7 @@ namespace Ts3Fixes
         public static object LabObjectPushCheck(string what)
         {
             bool on = ShortcutOn("labobjectpush");
-            return Ep4Check("labobjectpush", 1527, new[] { "lot objects pushed", "idle students with switch off", "errors" },
+            return Ep4Check("labobjectpush", 3253, new[] { "lot objects pushed", "idle students with switch off", "errors" },
                 EpJoin(EpMiss("mAcademicLabObjects", sLbObjects, "LabSituationFinished", sLbDone, "LabSituationFailed", sLbFail),
                     EpLive(typeof(BEp4LbHook), 1, "mAcademicLabObjects", sLbObjects, typeof(List<IAcademicLabObject>), "LabSituationFinished", sLbDone, 2, "LabSituationFailed", sLbFail, 2)), what,
                 "lot object used", LbUseLot(on, 0, 2), "inventory / no lot objects as EA", !LbUseLot(on, 1, 2) && !LbUseLot(on, 0, 0));
@@ -67,7 +67,7 @@ namespace Ts3Fixes
                 "mRunFromInventory", sBpFromInv, typeof(bool), "mWaitTime", sBpWait, typeof(float), "mCurrentBusinessPlanningType", sBpCur, use,
                 "LocalizeString", sBpLoc, 2, "BroadcastCallback", sBpBroadcast, 2, "kPresentationBroadcastParams", sBpParams, typeof(ReactionBroadcasterParams) });
             for (int i = 0; i < kBpTunables.Length; i++) { h.Add(kBpTunables[i]); h.Add(sBpTunables[i]); h.Add(typeof(float)); }
-            return Ep4Check("businessplannerrun", 1530, new[] { "runs fixed", "shared roll or pocketing with switch off", "errors" },
+            return Ep4Check("businessplannerrun", 3256, new[] { "runs fixed", "shared roll or pocketing with switch off", "errors" },
                 EpJoin(EpMiss("UseBusinessPlanner+Definition.mUsageType", sBpUsage, "mRunFromInventory", sBpFromInv, "mWaitTime", sBpWait, "mCurrentBusinessPlanningType", sBpCur, "LocalizeString", sBpLoc, "BroadcastCallback", sBpBroadcast, "kPresentationBroadcastParams", sBpParams),
                     EpLive(typeof(BEp4BpHook), 1, h.ToArray())), what,
                 "no pocket, no shared write", !BpPockets(on, false) && !BpWritesShared(on, true, true), "own planner returned, set use kept", BpPockets(on, true) && !BpWritesShared(on, true, false));
@@ -77,7 +77,7 @@ namespace Ts3Fixes
         public static object FutureDescendantSize0Check(string what)
         {
             bool on = ShortcutOn("futuredescendantsize0");
-            return Ep4Check("futuredescendantsize0", 1533, new[] { "unpacks / renames / stuck loops skipped", "seen with switch off", "errors" },
+            return Ep4Check("futuredescendantsize0", 3259, new[] { "unpacks / renames / stuck loops skipped", "seen with switch off", "errors" },
                 EpJoin(EpMiss("FutureDescendantService.sPersistableData", sFdData, "ActiveDescendantHouseholdsInfo", sFdInfos),
                     EpJoin(EpLive(typeof(BEp4FdInfoHook), 1), EpLive(typeof(BEp4FdHook), 1, "sPersistableData", sFdData, "static", "ActiveDescendantHouseholdsInfo", sFdInfos, typeof(System.Collections.IList)))), what,
                 "size 0 skipped, stuck loop left", !FdInstantiates(on, 0) && !FdLoopGoesOn(on, 3, 3), "size 2 and a moving loop as EA", FdInstantiates(on, 2) && FdLoopGoesOn(on, 3, 2));
@@ -87,10 +87,10 @@ namespace Ts3Fixes
         public static object JungleGymExitQueueCheck(string what)
         {
             bool on = ShortcutOn("junglegymexitqueue");
-            return Ep4Check("junglegymexitqueue", 1536, new[] { "stale entries dropped", "stale heads with switch off", "errors" },
+            return Ep4Check("junglegymexitqueue", 3262, new[] { "stale entries dropped", "stale heads with switch off", "errors" },
                 EpJoin(EpMiss("mExitQueue", sJgQueue, "kTimeToWaitForNextExit", sJgNext, "kTimeMaxToWait", sJgMax),
                     EpLive(typeof(BEp4JgHook), 2, "mExitQueue", sJgQueue, typeof(Queue<Sim>), "kTimeToWaitForNextExit", sJgNext, typeof(float), "kTimeMaxToWait", sJgMax, typeof(float))), what,
-                "gone / off-tower entries dropped, empty-queue reset skipped", !JgKeep(on, false, false, false) && !JgKeep(on, true, false, false) && JgSafeSkips(on, 0),
+                "gone / off-tower entries dropped, empty-queue reset skipped", !JgKeep(on, false, false, false) && !JgKeep(on, true, false, false) && JgSafeSkips(on, 0) && JgGone(null),
                 "on tower / alarm pending kept, queued reset as EA", JgKeep(on, true, true, false) && JgKeep(on, true, false, true) && !JgSafeSkips(on, 1));
         }
 
@@ -99,7 +99,7 @@ namespace Ts3Fixes
         {
             bool on = ShortcutOn("wildhorselot");
             float[] w = { 2f, 2f, 16f, 24f };
-            return Ep4Check("wildhorselot", 1539, new[] { "picks with corrected weights", "big parks under-weighted with switch off", "errors" }, EpLive(typeof(BEp4WhHook), 1), what,
+            return Ep4Check("wildhorselot", 3265, new[] { "picks with corrected weights", "big parks under-weighted with switch off", "errors" }, EpLive(typeof(BEp4WhHook), 1), what,
                 "big park x2", WhMult(on, 0, w, 1f) == 2f, "beach x16, other x1", WhMult(on, 2, w, 1f) == 16f && WhMult(on, -1, w, 1f) == 1f);
         }
 
@@ -107,7 +107,7 @@ namespace Ts3Fixes
         public static object HarvesterUnripeCheck(string what)
         {
             bool on = ShortcutOn("harvesterunripe");
-            return Ep4Check("harvesterunripe", 1542, new[] { "unripe suctions skipped", "harvested unripe with switch off", "errors" }, EpLive(typeof(BEp4HuHook), 1), what,
+            return Ep4Check("harvesterunripe", 3268, new[] { "unripe suctions skipped", "harvested unripe with switch off", "errors" }, EpLive(typeof(BEp4HuHook), 1), what,
                 "unripe skipped", !HuHarvests(on, false), "ripe harvested", HuHarvests(on, true));
         }
 
@@ -115,7 +115,7 @@ namespace Ts3Fixes
         public static object HotTubSeatPostureCheck(string what)
         {
             bool on = ShortcutOn("hottubseatposture");
-            return Ep4Check("hottubseatposture", 1545, new[] { "duplicate inits skipped", "duplicate alarms with switch off", "errors" },
+            return Ep4Check("hottubseatposture", 3271, new[] { "duplicate inits skipped", "duplicate alarms with switch off", "errors" },
                 EpJoin(EpMiss("HotTubPosture.mFirstIdle", sHtFirst, "HotTubPosture.mSoreBuffTimer", sHtTimer),
                     EpLive(typeof(BEp4HtHook), 1, "HotTubPosture.mFirstIdle", sHtFirst, typeof(bool), "HotTubPosture.mSoreBuffTimer", sHtTimer, typeof(AlarmHandle))), what,
                 "pending alarm, no re-init", !HtInits(on, true), "no alarm inits", HtInits(on, false));
@@ -125,7 +125,7 @@ namespace Ts3Fixes
         public static object TeenPartyBreakUpCheck(string what)
         {
             bool on = ShortcutOn("teenpartybreakup");
-            return Ep4Check("teenpartybreakup", 1548, new[] { "runs past a missing party", "(not counted with switch off: EA routes first)", "errors" }, EpLive(typeof(BEp4TpHook), 1), what,
+            return Ep4Check("teenpartybreakup", 3274, new[] { "runs past a missing party", "(not counted with switch off: EA routes first)", "errors" }, EpLive(typeof(BEp4TpHook), 1), what,
                 "gone party, no throw", !TpThrows(on, true), "running party", !TpThrows(on, false));
         }
 
@@ -133,7 +133,7 @@ namespace Ts3Fixes
         public static object DogSwimAroundListCheck(string what)
         {
             bool on = ShortcutOn("dogswimaroundlist");
-            return Ep4Check("dogswimaroundlist", 1551, new[] { "dogs put back", "left off with switch off", "errors" },
+            return Ep4Check("dogswimaroundlist", 3277, new[] { "dogs put back", "left off with switch off", "errors" },
                 EpJoin(EpMiss("Sims3.Gameplay.Pools.DoggySwimAround", sDaType), EpLive(typeof(BEp4DaHook), 1, "DoggySwimAround", sDaType, typeof(InteractionInstance))), what,
                 "dog back on the use list", DaRestore(on, true, false), "on list / out of pool untouched", !DaRestore(on, true, true) && !DaRestore(on, false, false));
         }
@@ -144,7 +144,7 @@ namespace Ts3Fixes
             bool on = ShortcutOn("tutorballoonalarm");
             string miss = EpJoin(EpMiss("TutorSkillInteraction.ShowBalloon", sTuShow, "kTimeToFirstBalloon", sTuFirst, "kTimeBetweenThoughtBalloons", sTuEvery),
                 EpLive(typeof(BEp4TuHook), 2, "TutorSkillInteraction.ShowBalloon", sTuShow, 0, "kTimeToFirstBalloon", sTuFirst, typeof(float), "kTimeBetweenThoughtBalloons", sTuEvery, typeof(float)));
-            return Ep4Check("tutorballoonalarm", 1554, new[] { "alarms moved to tutoring start", "started at creation with switch off", "errors" }, miss, what,
+            return Ep4Check("tutorballoonalarm", 3280, new[] { "alarms moved to tutoring start", "started at creation with switch off", "errors" }, miss, what,
                 "no alarm at creation", !TuAlarmAtCreate(on), "members and live path found", miss.Length == 0);
         }
     }

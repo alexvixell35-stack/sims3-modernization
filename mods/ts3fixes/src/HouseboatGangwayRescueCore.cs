@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
-    // Game-independent rule of houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/642 §7). Self-check:
+    // Game-independent rule of houseboatgangwayrescue (HouseboatGangwayRescue.cs, docs/853 §3). Self-check:
     // tools/selftest/houseboatgangwayrescue. A Sim (object id) is marked with its houseboat (object id) when its gangway leg
     // found no path; the mark sums the ms and count of those legs. A rescue takes the mark; at most one rescue per Sim inside
     // kHourTicks-long windows (the caller passes one sim-hour in ticks). Exempt Sims are never marked and never rescued.

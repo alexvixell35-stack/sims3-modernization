@@ -35,8 +35,8 @@ namespace Ts3Fixes
         // Run still posts an eat in Cleanup. EA's Cleanup call is the safety net for an eat that began (PreEat) and was cut
         // off (reset, exception) before Run's own PostEat. Fix: Food.PreEat marks the Sim's eat pending, Food.PostEat clears
         // it; Cleanup lets its PostEat through only while that eat is still pending. The other PreEat / PostEat pairs
-        // (picnic basket, restaurants, eating contest) only clear the mark. Counters: [1351] Cleanup posts skipped,
-        // [1352] doubled posts (switch off), [1353] cut-off eats posted by Cleanup.
+        // (picnic basket, restaurants, eating contest) only clear the mark. Counters: [2986] Cleanup posts skipped,
+        // [2987] doubled posts (switch off), [2988] cut-off eats posted by Cleanup.
         static readonly Dictionary<Sim, GameObject> sEpPending = new Dictionary<Sim, GameObject>();
         static readonly Dictionary<Sim, bool> sEpSkip = new Dictionary<Sim, bool>();
 
@@ -65,7 +65,7 @@ namespace Ts3Fixes
             {
                 if (actor != null)
                 {
-                    if (sEpSkip.Remove(actor)) { PatchCounters()[1351]++; return; }
+                    if (sEpSkip.Remove(actor)) { PatchCounters()[2986]++; return; }
                     sEpPending.Remove(actor);
                 }
                 PostOrig(actor, target, full, bite, fat);
@@ -88,8 +88,8 @@ namespace Ts3Fixes
                         bool pending = sEpPending.TryGetValue(a, out p) && p == t;
                         bool on = ShortcutOn("eatpostonce");
                         if (!EpCleanupPosts(on, pending)) sEpSkip[a] = true;
-                        else if (pending) PatchCounters()[1353]++;
-                        else PatchCounters()[1352]++;
+                        else if (pending) PatchCounters()[2988]++;
+                        else PatchCounters()[2987]++;
                     }
                 }
                 catch (Exception) { }
@@ -125,7 +125,7 @@ namespace Ts3Fixes
         // pre-loop sources and the deltas (EA's DecayToZero clamps kept) and applies each multiplier once to the total
         // (EA's sign tests); the riding benefit is added after, unmultiplied, as EA. With a matching delta EA never decays
         // the motive, so the rest of the method is only its clamp. Every other Sim, commodity and horses run EA's code.
-        // Counters: [1354] updates with the multiplier applied once, [1355] stacked updates (switch off), [1356] errors.
+        // Counters: [2989] updates with the multiplier applied once, [2990] stacked updates (switch off), [2991] errors.
         static readonly FieldInfo sMmRelax = typeof(Motive).GetField("kRelaxingDestressAmount", kB11All);
         static readonly FieldInfo sMmSwim = typeof(Motive).GetField("kSwimmingInPoolFunAmount", kB11All);
         static readonly FieldInfo sMmSoothe = typeof(Motive).GetField("kSoothingSceneryFunAmount", kB11All);
@@ -176,14 +176,14 @@ namespace Ts3Fixes
                 bool matched = false;
                 if (deltas != null) foreach (MotiveDelta d in deltas) if (d.Motive == c) { matched = true; break; }
                 if (!matched) return DecayOrig(hoursPassed, currentHours24, sim);
-                if (!ShortcutOn("motivemultonce")) { PatchCounters()[1355]++; return DecayOrig(hoursPassed, currentHours24, sim); }
+                if (!ShortcutOn("motivemultonce")) { PatchCounters()[2990]++; return DecayOrig(hoursPassed, currentHours24, sim); }
                 try
                 {
                     float v = MmOnce(m, c, hoursPassed, sim, deltas, carefree, lemon, chip);
-                    PatchCounters()[1354]++;
+                    PatchCounters()[2989]++;
                     return v;
                 }
-                catch (Exception) { PatchCounters()[1356]++; return DecayOrig(hoursPassed, currentHours24, sim); }
+                catch (Exception) { PatchCounters()[2991]++; return DecayOrig(hoursPassed, currentHours24, sim); }
             }
 
             public float DecayOrig(float hoursPassed, float currentHours24, Sim sim) { return 0f; }
@@ -249,8 +249,8 @@ namespace Ts3Fixes
         // only AfterFight disposes it. A fight that is cancelled, fails, loses its target or is reset never reaches
         // AfterFight: the broadcaster (no end time) keeps making nearby Sims react and wakes sleepers. Fix: after EA's
         // SocialInteractionA.Cleanup a broadcaster still set is disposed and cleared (the interaction is over; EA's own
-        // cleanup callbacks, such as the sketch's, run first). Counters: [1357] broadcasters ended at Cleanup,
-        // [1358] left running (switch off), [1359] errors.
+        // cleanup callbacks, such as the sketch's, run first). Counters: [2992] broadcasters ended at Cleanup,
+        // [2993] left running (switch off), [2994] errors.
         static void ApplyFightBroadcastEnd()
         {
             Patch(typeof(SocialInteractionA), "Cleanup", Type.EmptyTypes, typeof(BFbHook), "CleanupHook", "CleanupOrig");
@@ -265,13 +265,13 @@ namespace Ts3Fixes
                 {
                     SocialInteractionA s = (SocialInteractionA)(object)this;
                     if (s.SocialBroadcaster == null) return;
-                    if (!ShortcutOn("fightbroadcastend")) { PatchCounters()[1358]++; return; }
+                    if (!ShortcutOn("fightbroadcastend")) { PatchCounters()[2993]++; return; }
                     ReactionBroadcaster b = s.SocialBroadcaster;
                     s.SocialBroadcaster = null;
                     b.Dispose();
-                    PatchCounters()[1357]++;
+                    PatchCounters()[2992]++;
                 }
-                catch (Exception) { PatchCounters()[1359]++; }
+                catch (Exception) { PatchCounters()[2994]++; }
             }
 
             public void CleanupOrig() { }
@@ -282,8 +282,8 @@ namespace Ts3Fixes
         // for each nearby Sim, so the first Sim's trait reaction (Coward, Evil, PointLaugh, ...) replaces the caller's
         // reaction for every later Sim in the loop. Fix: our copy of the loop gives each Sim its own copy of the caller's
         // reaction; the rest is EA's. With the switch off the copy carries the reaction over exactly as EA. Counters:
-        // [1360] Sims given the caller's reaction back, [1361] Sims given an earlier Sim's trait reaction (switch off),
-        // [1362] errors.
+        // [2995] Sims given the caller's reaction back, [2996] Sims given an earlier Sim's trait reaction (switch off),
+        // [2997] errors.
         delegate void RcByTraitFn(Sim sim, Sim target, bool isNegative, ref ReactionTypes reaction);
         static RcByTraitFn sRcByTrait;
         static Sim.PlayReactionCallback sRcBefore;
@@ -316,8 +316,8 @@ namespace Ts3Fixes
                 {
                     if (ignoredSims.Contains(sim) || sim.RoomId != obj.RoomId) continue;
                     ReactionTypes r = RcStart(on, reaction, carried);
-                    if (r != reaction) PatchCounters()[1361]++;
-                    else if (on && carried != reaction) PatchCounters()[1360]++;
+                    if (r != reaction) PatchCounters()[2996]++;
+                    else if (on && carried != reaction) PatchCounters()[2995]++;
                     sRcByTrait(sim, targetSim, isNegative, ref r);
                     carried = r;
                     if (sim.InheritedPriority().Level < InteractionPriorityLevel.UserDirected)
@@ -344,8 +344,8 @@ namespace Ts3Fixes
         // with EA's own School.CreateWorkInteractionInstance (as Run does further down for a rider off the lot; not
         // twice), any other car's rider with the Occupation's ride only when it has one, and tests ActiveActor for
         // null. A skipping rider RiderDelegate did not list is sent too (EA left it with a GetIn it could not take).
-        // The rest is EA's Run. Counters: [1363] skipping riders sent on their own, [1364] Runs that threw on a
-        // skipping rider (switch off), [1365] errors.
+        // The rest is EA's Run. Counters: [2998] skipping riders sent on their own, [2999] Runs that threw on a
+        // skipping rider (switch off), [3000] errors.
         static Type sCsType;
         static FieldInfo sCsData, sCsRiders, sCsTimeToLeave, sCsStart, sCsHonkAlarm, sCsGetIn, sCsArrived;
         static MethodInfo sCsHonk, sCsLoop, sCsSkip;
@@ -390,7 +390,7 @@ namespace Ts3Fixes
                 if (!ShortcutOn("carpoolschoolskip"))
                 {
                     try { return RunOrig(); }
-                    catch (NullReferenceException) { PatchCounters()[1364]++; throw; }
+                    catch (NullReferenceException) { PatchCounters()[2999]++; throw; }
                 }
                 return CsRun(this);
             }
@@ -404,9 +404,9 @@ namespace Ts3Fixes
                 CarpoolWithDriver car = self.Target;
                 CarpoolManager.CarpoolData data = (CarpoolManager.CarpoolData)sCsData.GetValue(me);
                 List<Sim> riders = (List<Sim>)sCsRiders.GetValue(me);
-                CsVoidFn honk = (CsVoidFn)Delegate.CreateDelegate(typeof(CsVoidFn), me, sCsHonk);
-                CsSkipFn skip = (CsSkipFn)Delegate.CreateDelegate(typeof(CsSkipFn), me, sCsSkip);
-                InteractionInstance.InsideLoopFunction loop = (InteractionInstance.InsideLoopFunction)Delegate.CreateDelegate(typeof(InteractionInstance.InsideLoopFunction), me, sCsLoop);
+                CsVoidFn honk = (CsVoidFn)Fixes.Bind(typeof(CsVoidFn), me, sCsHonk);
+                CsSkipFn skip = (CsSkipFn)Fixes.Bind(typeof(CsSkipFn), me, sCsSkip);
+                InteractionInstance.InsideLoopFunction loop = (InteractionInstance.InsideLoopFunction)Fixes.Bind(typeof(InteractionInstance.InsideLoopFunction), me, sCsLoop);
                 bool schoolBus = data.CarType == CarNpcManager.NpcCars.CarBusSchool;
                 Lot lot = LotManager.GetLot(data.StartLotId);
                 Lot lot2 = LotManager.GetLot(data.DestLotId);
@@ -437,7 +437,7 @@ namespace Ts3Fixes
                             break;
                     }
                     if (ride != null) rider.InteractionQueue.AddNext(ride);
-                    PatchCounters()[1363]++;
+                    PatchCounters()[2998]++;
                 }
                 if (list.Count == 0)
                 {
@@ -494,7 +494,7 @@ namespace Ts3Fixes
                 }
                 float timeToLeave = SimClock.HoursUntil(data.DropoffTime) * 60f;
                 sCsTimeToLeave.SetValue(me, timeToLeave);
-                sCsHonkAlarm.SetValue(me, actor.AddAlarm(timeToLeave / 2f, TimeUnit.Minutes, (AlarmTimerCallback)Delegate.CreateDelegate(typeof(AlarmTimerCallback), me, sCsHonk), "Carpool honk reminder", AlarmType.DeleteOnReset));
+                sCsHonkAlarm.SetValue(me, actor.AddAlarm(timeToLeave / 2f, TimeUnit.Minutes, (AlarmTimerCallback)Fixes.Bind(typeof(AlarmTimerCallback), me, sCsHonk), "Carpool honk reminder", AlarmType.DeleteOnReset));
                 sCsStart.SetValue(me, SimClock.ElapsedTime(TimeUnit.Minutes));
                 self.DoLoop(ExitReason.Default, loop, null);
                 float start = SimClock.ElapsedTime(TimeUnit.Minutes);

@@ -20,14 +20,14 @@ namespace Ts3Fixes
     // a wrapper that only stores its result while a marker is open and the name is a site's. Wrappers, not copies: EA's
     // bodies run unchanged (StartEvent and ResetTheFuture reach a yield deep down; the swap audit keeps them, stub remap).
     // Not counted: FireworksBase.StartFX (stored in mFireworkFX and disposed by EA); SnackBowl (docs/587 8.5).
-    // Every switch off by default. Checks: EpBatch5Checks.cs. Slots 1557-1574 (block fixes-1500).
-    //   chemistryvfx      [1557-1559] BuffHorrified, BuffTurboSleep, BuffBrightenedDay, BuffChemistryLabPotion OnRemoval;
+    // Every switch off by default. Checks: EpBatch5Checks.cs. Slots 3283-3300 (block fixes-1500).
+    //   chemistryvfx      [3283-3285] BuffHorrified, BuffTurboSleep, BuffBrightenedDay, BuffChemistryLabPotion OnRemoval;
     //                                 BladderFlowPotion+MotiveHelper.RestoreBladderCallback; ChemistryLab+MakePotionBase.StartEvent
-    //   dartboardvfx      [1560-1562] Dartboard+TakeTurnThrowingDarts.PlayDartEffect (4 throw results)
-    //   wardrobewandvfx   [1563-1565] Wardrobe+UpgradeWardrobe.ShowSuccessVfx / ShowFailVfx
-    //   petdroolvfx       [1566-1568] ServingContainer+EatOffFloor.DroolEvent / SpitUpEvent
-    //   timeportalvfx     [1569-1571] TimePortal+ResetTimeContinuum.ResetTheFuture
-    //   haystackvfx       [1572-1574] HayStack.PlayTransitionEffect
+    //   dartboardvfx      [3286-3288] Dartboard+TakeTurnThrowingDarts.PlayDartEffect (4 throw results)
+    //   wardrobewandvfx   [3289-3291] Wardrobe+UpgradeWardrobe.ShowSuccessVfx / ShowFailVfx
+    //   petdroolvfx       [3292-3294] ServingContainer+EatOffFloor.DroolEvent / SpitUpEvent
+    //   timeportalvfx     [3295-3297] TimePortal+ResetTimeContinuum.ResetTheFuture
+    //   haystackvfx       [3298-3300] HayStack.PlayTransitionEffect
     // Dropped: Consignment ReputationTrackedStat (P4-1): the shipped tuning has 9 levels for 9 names, so the fallback is
     // already RockBottom; only the code defaults (8 levels) show the flaw (docs/587 §11.1).
     // All household-visible (effects on household Sims and objects). Counters per family: effects auto-destroyed,

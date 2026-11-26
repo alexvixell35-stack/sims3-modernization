@@ -6,7 +6,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/642 §10 failreplanboat (default off). A Sim seated in a boat plans every route with the boat as follower
+    // docs/851 §8 failreplanboat (default off). A Sim seated in a boat plans every route with the boat as follower
     // (SimRoutingComponent: Parent is IBoat). When such a plan fails, SimRoutingComponent.DoRoute runs
     // DoRouteFailureBehavior, whose GetRouteFailPath plans the same route again toward the blocker (a radial goal 1-3 m
     // around it, or the blocker's spot) so the Sim can go there and play the route-fail animation. From a boat on open water

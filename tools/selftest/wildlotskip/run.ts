@@ -1,4 +1,4 @@
-// Offline self-check of wildlotskip (mods/ts3fixes/src/WildLotSkipCore.cs, docs/646 §3).
+// Offline self-check of wildlotskip (mods/ts3fixes/src/WildLotSkipCore.cs, docs/656 §8.3).
 // Windows (.NET Framework csc), or Linux with TS3_CSC (csc-shim).
 //   node tools/selftest/wildlotskip/run.ts
 import { execFileSync, CSC } from '../csc-shim.ts';

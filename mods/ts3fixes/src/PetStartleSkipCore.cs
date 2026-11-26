@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Ts3Fixes
 {
-    // Game-independent rule of petstartleskip (PetStartleSkip.cs, docs/645 §3). Self-check: tools/selftest/petstartleskip.
+    // Game-independent rule of petstartleskip (PetStartleSkip.cs, docs/656 §8.1). Self-check: tools/selftest/petstartleskip.
     // A pet (object id) whose startle flee route failed with FailedBecauseDestinationPortalLocked (RoutePlanResultType 18)
     // is kept for a caller-given life in sim ticks. While it lives, further startles of that pet are skipped, except forced
     // ones (EA's ignoreCooldown, and the danger startles the caller names: electrocution, Grim Reaper, fire, meteor). Exempt

@@ -10,7 +10,7 @@ namespace Ts3Fixes
         public static object BoatStaleSwimmerCheck(string what)
         {
             string missing = sBsWater == null ? "BoatOwnable.mPassengersInTheWater" : "";
-            string counters = B582Counters("boatstaleswimmer", 1218, new[] { "stale keys removed", "would throw with switch off", "errors" }, missing);
+            string counters = B582Counters("boatstaleswimmer", 2905, new[] { "stale keys removed", "would throw with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "boatstaleswimmer <run|result>";
             bool on = ShortcutOn("boatstaleswimmer");
@@ -27,7 +27,7 @@ namespace Ts3Fixes
         public static object OppCategoryProtectCheck(string what)
         {
             string missing = sOaShared == null || sOaValues == null ? "GenericManager.sDictionary/mValues" : "";
-            string counters = B582Counters("oppcategoryprotect", 1221, new[] { "early returns kept unprotected", "seen with switch off", "errors" }, missing);
+            string counters = B582Counters("oppcategoryprotect", 2908, new[] { "early returns kept unprotected", "seen with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "oppcategoryprotect <run|result>";
             bool on = ShortcutOn("oppcategoryprotect");
@@ -40,7 +40,7 @@ namespace Ts3Fixes
         public static object NoCommercialCarCheck(string what)
         {
             string missing = sNcCar == null ? "CarNpcWithNoDriver+LiteDriver.mCar" : "";
-            string counters = B582Counters("nocommercialcar", 1224, new[] { "cars idled instead of throwing", "seen with switch off", "errors" }, missing);
+            string counters = B582Counters("nocommercialcar", 2911, new[] { "cars idled instead of throwing", "seen with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "nocommercialcar <run|result>";
             bool on = ShortcutOn("nocommercialcar");
@@ -51,7 +51,7 @@ namespace Ts3Fixes
         // ScavengerNoLotCheck run: 0 community lots -> base OnAdded only. Control: 1 lot -> EA's spawn.
         public static object ScavengerNoLotCheck(string what)
         {
-            string counters = B582Counters("scavengernolot", 1227, new[] { "accepts without community lots handled", "seen with switch off", "errors" }, "");
+            string counters = B582Counters("scavengernolot", 2914, new[] { "accepts without community lots handled", "seen with switch off", "errors" }, "");
             if (what == "result") return counters;
             if (what != "run") return "scavengernolot <run|result>";
             bool on = ShortcutOn("scavengernolot");
@@ -63,7 +63,7 @@ namespace Ts3Fixes
         public static object PartyLotListenerCheck(string what)
         {
             string missing = sPlWaitM == null || sPlHappenM == null ? "NpcParty child OnSimLotChanged" : "";
-            string counters = B582Counters("partylotlistener", 1230, new[] { "stale listeners removed", "would throw with switch off", "errors" }, missing);
+            string counters = B582Counters("partylotlistener", 2917, new[] { "stale listeners removed", "would throw with switch off", "errors" }, missing);
             if (what == "result") return counters;
             if (what != "run") return "partylotlistener <run|result>";
             bool on = ShortcutOn("partylotlistener");

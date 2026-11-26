@@ -1,0 +1,11 @@
+{
+ "_doc": "Set lc7-nraas-1123 (queue lc7-desc-correct-1124 job bp-lc7-nraas, docs/336 §11.5): NRaas StoryProgression core + Career module + Woohooer, the 2026-11-22 downloads (nraas.net asks for no automated downloads; Rodney saved the zips by hand). Not the Skill module, so chess stays a trusted kind and verify still has a kind to check. Build: node tools/mod-set.ts build docs/data/lc7-nraas-1123.json. Never re-hosted.",
+ "set": "lc7-nraas-1123",
+ "out": "game-copy/mod-sets/lc7-nraas-1123",
+ "sources": { "nraas": "game-copy/mod-sets/downloads/nraas-1122" },
+ "mods": [
+  { "name": "NRaas StoryProgression", "page": "https://www.nraas.net/community/StoryProgression", "version": "V269", "status": "include", "from": "nraas", "files": ["NRaas_StoryProgression_V269.zip"], "why": "SP core: Pregnancies.Start, AttachLostFathers (pregnancy), FindJob / UpdateCareer (coworkers)" },
+  { "name": "NRaas StoryProgression Career module", "page": "https://www.nraas.net/community/StoryProgression", "version": "V269", "status": "include", "from": "nraas", "files": ["NRaas_StoryProgression_Career_V269.zip"], "why": "NewBossScenario (FormerBoss), coworker scenarios" },
+  { "name": "NRaas Woohooer", "page": "https://www.nraas.net/community/Woohooer", "version": "V130", "status": "include", "from": "nraas", "files": ["NRaas_Woohooer_V130.zip"], "why": "Pregnancies.Start (the repro's mod pregnancy), MaleHaveBabyHomeEx, PregnancyProxy" }
+ ]
+}

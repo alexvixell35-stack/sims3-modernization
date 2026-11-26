@@ -112,7 +112,7 @@ namespace Ts3Fixes
                     object h = Activator.CreateInstance(sBpwType, true);   // no actor, no object: ParentToSlot is not called
                     MethodInfo w = sBpwType.GetMethod("Wait", kInstAll);
                     int[] c = PatchCounters(); int c0 = c[3461];
-                    ((BpwWaitFn)Delegate.CreateDelegate(typeof(BpwWaitFn), h, w))();
+                    ((BpwWaitFn)Fixes.Bind(typeof(BpwWaitFn), h, w))();
                     c[3461] = c0;
                     liveOk = (bool)sBpwDone.GetValue(h) && !(bool)sBpwSuccess.GetValue(h);
                     live = "live replay: Wait returned with the handler never fired, success=" + sBpwSuccess.GetValue(h);

@@ -56,7 +56,7 @@ namespace Ts3Fixes
                 if (l == null || l.EventId != EventTypeId.kDnPSubjectDestroyed) return;
                 if (!ShortcutOn("dnpdisposelistener")) return;
                 EventTracker.RemoveListener(l);
-                ProcessEventDelegate d = (ProcessEventDelegate)Delegate.CreateDelegate(typeof(ProcessEventDelegate), m, sLfObjDelegate);
+                ProcessEventDelegate d = (ProcessEventDelegate)Fixes.Bind(typeof(ProcessEventDelegate), m, sLfObjDelegate);
                 sLfObjListener.SetValue(m, EventTracker.AddListener(EventTypeId.kEventObjectDisposed, d));
                 c[2255]++;
             }

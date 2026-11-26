@@ -69,7 +69,7 @@ namespace Ts3Fixes
                         object st = this;
                         if (parent != null && parent.Worker != null && RfVendingFailPath(true, parent.VendingMachine != null))
                         {
-                            Callback post = (Callback)Delegate.CreateDelegate(typeof(Callback), st, sRfPostVending);
+                            Callback post = (Callback)Fixes.Bind(typeof(Callback), st, sRfPostVending);
                             // EA's own method as both callbacks (no closure: the callbacks are saved with the interaction)
                             ((Situation)st).ForceSituationSpecificInteraction(parent.VendingMachine, parent.Worker, parent.VendingMachine.GetReaperSodaDefinition(),
                                 null, post, post, new InteractionPriority(InteractionPriorityLevel.MaxDeath, 1f));

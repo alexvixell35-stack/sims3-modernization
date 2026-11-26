@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline self-check of HouseboatGangwayRescueCore (docs/642 §7).
+// Offline self-check of HouseboatGangwayRescueCore (docs/853 §3).
 static class HouseboatGangwayRescueTest
 {
     static int sFails;

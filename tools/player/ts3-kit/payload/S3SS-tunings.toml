@@ -1,0 +1,53 @@
+# Sims3SettingsSetter (S3SS, by sims3fiend) patch selection used by the sims-3-modernization project on its
+# Apex Radiance + S3SS test setup (S3SS 1.6.3). TS3Kit merges these keys into your S3SS.toml and keeps all others.
+# frameRateLimit = 60 caps the game at 60 fps; raise it afterwards in the S3SS menu if you want more.
+
+[patches.CPUOptimization]
+enabled = true
+
+[patches.StartupWarningDialogFix]
+enabled = true
+
+[patches.ExpandedCrashLogs]
+enabled = true
+
+[patches.Mimalloc]
+enabled = true
+
+[patches.OversizedThreadStackFix]
+enabled = true
+
+[patches.RefPackDecompressor]
+enabled = true
+
+[patches.SmoothPatchPrecise]
+enabled = true
+tickRateLimit = 480
+frameRateLimit = 60
+
+[patches.SmoothPatchClassic]
+enabled = false
+
+[patches.TimerOptimization]
+enabled = true
+
+[patches.CreateFileRandomAccess]
+enabled = true
+
+[patches.GCTryToCollect]
+enabled = false
+
+[patches.WorldCacheSizePatch]
+enabled = false
+
+[patches.GCFinalizeThrottle]
+enabled = true
+
+[patches.LotStreamingOptimizations]
+enabled = true
+
+[patches.AdaptiveWait]
+enabled = true
+
+[patches.StoreFeaturedItemsDisablePatch]
+enabled = true

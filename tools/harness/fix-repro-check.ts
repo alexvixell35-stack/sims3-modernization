@@ -25,6 +25,12 @@ const MONO ='Mono offload, parked: no Mono game runs allowed now (memory mono-pa
 const DEADSIM = 'opt-in, Dalexlol leak stress (#40, al342-al358)';
 // Switches with no repro on purpose. Dead ends: "dead end: <evidence>"; diagnostics; parked work.
 export const EXEMPT: Record<string, string> = {
+  unseenfbgohere: 'docs/328 §7.5 (2026-11-23): natural-play switch, no forced GoHere visit repro; judged by compat-switchon-1122g-1123 bp-gohere-ab (--ab unseenfbgohere, eligibility log line)',
+  clipwaitlog: 'log only (one clipwait: line per wait, docs/686 §9); clipwait is here as petrelax plumbing',
+  spiralshare: 'no forced repro yet: judged by the route storms of docs/686 §8.7 (spiral stair waits of 7-12 sim-min gone); its hooks are the ones sharelanes-check reads',
+  spiralsharehh: 'as spiralshare (household scope of the same hooks)',
+  lanewaitlog: 'log only (one lanewait: line per wait for a portal lane, docs/686 §8): on in both arms of the route storms of docs/686 §8.7 (storm runner, not a repro)',
+  makebedbothlog: 'log only (one makebedboth: line per case, docs/686 §13): its forced repro makebedboth-force needs the agent step bed_setup, not upstream yet (results in docs/686 §13.5)',
   linestale: 'storm proof (docs/686 §29): a stale line head needs another action to cut in front of the turn-taking one or end it without RemoveFromQueue; judged by storm replays with linestalelog, no forced repro yet',
   linestalehh: 'storm proof (docs/686 §29), as linestale: household heads of the same storms',
   standwaitsocial: 'storm proof (docs/686 §30): the Bridgeport computer-chair receiver of s543a / s545a (seed 152), judged by storm replays with standwaitlog; no forced repro yet',
@@ -34,7 +40,8 @@ export const EXEMPT: Record<string, string> = {
   fridgefflog: 'log only, on in fridge-line-full (post/facilityplan-1125)',
   linestalelog: 'log only (one linestale: line per stale head, docs/686 §29); on in the linestale storm replays',
   failreplanboat: 'no forced repro yet (docs/642 §10): needs an NPC stranded in a boat away from the camera whose Sim route fails through SimRoutingComponent.DoRoute; boat_nopath_repro seats its riders next to the selected Sim (seen, so kept) and plans without DoRoute. Judged by storm counters failreplanboat_* (would / off) and the route candidate split lines (docs/670 §28)',
-  unseenoutfitdefer: 'speed change with no bug to trigger (issue #451, docs/602): counters 1981-1999 per game, natural-play compositor and frame times on 4 worlds; the next test is the in-load --ab unseenoutfitdefer on BP',
+  unseenoutfitdefer: 'speed change with no bug to trigger (issue #451, docs/586): counters 2570-2588 per game, natural-play compositor and frame times on 4 worlds; the next test is the in-load --ab unseenoutfitdefer on BP',
+  cutonwait: 'no forced repro yet: the waits need many townies routing behind each other (DiscDrain, event-9 flush, +0x918); judged by the native selftest (11b, jobyield step 5) and the Isla Paradiso in-load --ab cutonwait pairs, both orders (docs/850 §4)',
   boundcall: 'exact speedup, no hitch to repro (docs/537 §22): the same EA String bodies run, judged by the native selftest, the monohost corpus + c3g replays (MONOHOST_JITBIND=1 MONOHOST_JITBOUNDCALL=3, 0 differ) and boundcall.json (BP/IP correctness, --ab boundcall timing)',
   equalsfast: 'exact speedup, no hitch to repro (docs/258 option C): judged by the native selftest and the monohost exactness corpus (MONOHOST_EQFAST=1, 0 mismatches) and the BP/IP --ab equalsfast timing pair (queues/equalsfast-1112.json)',
   buyiconleak: '2026-11-11 leak fixes (docs/545 §1): off/on in one session by ts3agent phase runs (switch on mid-session via patches, leak_census counters before/after); no harness queue repro yet',
@@ -72,7 +79,15 @@ export const EXEMPT: Record<string, string> = {
   unseentablecopy: 'ts3fixes UnseenTable.cs copy path (docs/227 §9), the A/B baseline of the zero-copy Bits(id) reads, default off: correctness by unseen-table.json bp-utb2-check (zero-copy default, repro unseen-snapback; the copy path is the §6 path bp-utb-check tested), cost by bp-utb2-copy-ab (--ab unseentablecopy)',
   unseenghost: 'native [UnseenGhost] ini section (UnseenGhost.Enabled=1), not an ab/fixesOn name: turned on in every unseen-route-relaxed.json / unseen-route-long-ab.json job (docs/202 §3.9.5); acts only for unseenroute holds, which have repros',
   autshadowverify: DIAG, autunseencmp: DIAG, ownjobwait: DIAG, gcgrowlog: DIAG, autledger: MONO,
+  hhsearchprobe: 'measurement probe (docs/276 §2.3 A, HhSearchProbe.cs): counts household autonomy searches by outcome per Sim, changes no result; run by hhsearch-sv-1116.json, not a fix',
   autt2l0: 'measurement probe (tier-2 L0, AutLocalProbe.cs): times the local phase per actor class, changes no result; run by tier2-local-l0.json, not a fix',
+  autt2lcov: 'measurement probe (docs/276 rank 5 piece 1, AutLocalProbe.cs, needs autt2l0): splits local-phase C2 time by the local allow-list, changes no result; run by hhtoo-local-cov-1117.json, not a fix',
+  envlistmemo: 'dry probe (docs/274 R1, EnvBcProbes.cs): compares a lot/room list memo with the game env lists, changes no result; run by env-bcast-dry-probe-1116.json, not a fix',
+  envlistmemoapply: 'Mono speed, not a hitch fix (docs/274 §9 R1 apply, EnvBcProbes.cs): reuses env lists for unseen NPCs only; correctness by envlistmemo-apply-correct-1118.json (sampled verify, envlistapply_verify_diff 0), timing by envlistmemo-apply-time-1118.json',
+  envlistmemoverify: DIAG,
+  envlistmemoexact: 'Mono speed, not a hitch fix (docs/274 §11 R1 exact, EnvListExact.cs): the env scan room lists from the memo for every Sim inside the game method, valid by native order print + managed generations; correctness by envlistexact-correct-1118.json (sampled verify, envlistexact_verify_diff 0), timing by envlistexact-time-1118.json',
+  envscancost: 'measurement probe (docs/274 §11, EnvListExact.cs): env scan calls and us by scope (household / seen / unseen), changes no result; run by envscancost-measure-1118.json, not a fix',
+  bcposdry: 'dry probe (docs/274 R2, EnvBcProbes.cs): compares a per-tick position-table bcast set with the game set, changes no result; run by env-bcast-dry-probe-1116.json, not a fix',
   autofftick: OFFLOAD,
   jit: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by jit-verify.json (Mode=2) and the selftest TestMonoJit, timing by jit-ab.json once jit-verify passed (docs/527 §5)',
   mintcall: 'Mono speed, not a hitch fix: no repro makes script calls more frequent than plain play; correctness by mintcall-verify.json (CallPath=2) and the monohost selftests, timing by the plain-play pairs in mintcall-ab.json (docs/139 §8)',
@@ -93,9 +108,11 @@ export const EXEMPT: Record<string, string> = {
   cachedreflection: 'dead end: never installs in game ("PersistedClass.Init: already compiled", save matrix 2026-10-20/22, PLAN.md v0.1.4 triage); off as shipped',
   typegrowth: DIAG,
   sqrtheap: 'experiment, not a fix yet: heap policy compared by separate loads (observe vs act, queues/mem-exp.json, docs/199); allocation in natural play drives it, a repro gets added if it becomes a fix',
+  gcmarkhelpers: 'GC offload experiment, not a hitch fix: helpers off vs on in one load (queues/gc-markhelpers-time-1118.json, docs/287 §7); natural allocation drives the mark, the GC decides nothing about Sims, correctness in gc-markhelpers-correct-1118.json',
+  gcidlegate: 'GC timing experiment, not a hitch fix: on vs off in one load (queues/gc-idle-gate-time-1117.json, docs/281 §8); natural allocation drives it, no Sim decision changes, correctness pairs in gc-idle-gate-correct-1117.json',
   doormirror: 'dead end as built: never run; door answers went through the P5 host-call proxy instead (docs/94 §19.1, docs/116); only comes back with docs/159 H4',
   errortrapsims: DEADSIM, errortraplookup: DEADSIM, errortrapctl: DEADSIM, celebritydeadsim: DEADSIM, seasonsdeadsim: DEADSIM,
-  ghostreactdeadsim: DEADSIM, dreamnodedeadsim: DEADSIM, overwatchdeadsim: DEADSIM, casuihandlers: DEADSIM, simrefsdeadsim: DEADSIM,
+  dreamnodedeadsim: DEADSIM, overwatchdeadsim: DEADSIM, casuihandlers: DEADSIM, simrefsdeadsim: DEADSIM,
   outfitwaitsaved: DEADSIM,
   tinyuieventreg: 'opt-in, Dalexlol CAS UI leak stress (#40: the CAS open/close stress runs read its sweep counters)',
   customctlsweep: 'opt-in, Dalexlol CAS UI leak stress (#40: the CAS open/close stress runs read its sweep counters)',
@@ -111,6 +128,8 @@ export const EXEMPT: Record<string, string> = {
   joyridecostume: 'hitch fix measured by ts3agent aut_census (docs/546 §4): longest GoForJoyride test 618/623 ms off (phase-20261113-2212/-2229), all under ~2 ms on (phase-20261113-2254, 45 tests answered, 0 errors); once per child per save, so no cheap repeatable repro (a fresh child with no ChildImagination outfit is needed each arm)',
   etderefdiag: 'log only, changes nothing (docs/552 §11): names who holds each destroyed object NRaas ErrorTrap cleans up at load; its etderef: lines are the result of any Bridgeport new-game load',
   alarmkilllog: 'log only, changes nothing (docs/546 §7): names a repeating alarm EA removed after its callback threw; nothing to repro but a throwing alarm, and its line is the result',
+  failreplanboat: 'no forced repro yet (docs/851 §8): needs an NPC stranded in a boat away from the camera whose Sim route fails through SimRoutingComponent.DoRoute; boat_nopath_repro seats its riders next to the selected Sim (seen, so kept) and plans without DoRoute. Judged by storm counters failreplanboat_* (would / off) and the route candidate split lines (docs/670 §28)',
+  unseenboatgenboat: 'no forced repro yet (docs/851 §7): natural Isla Paradiso boat traffic after NPCs got a generated boat; judged by slot 4640 against the unseenboat owned-boat refusals (844), as in phase-20261119-1837',
   barorderlog: 'log only, changes nothing (docs/578 §1, BarOrderLog.cs): times the bar customer side of a bartender conversation; its barorder: lines in a soak with a bartender are the result',
   socialreplanlog: 'log only, changes nothing (docs/577 §2, SocialReplanLog.cs): names the route builder, ignore list and positions when a social receiver replans against its own partner; its socialreplan: lines in a household social soak are the result',
   synctime: 'test switch, logging only, hooks only with kHitchCauseHooks (docs/546 §9, SyncWaitLog.cs): the measuring tool of socialfinish / socialreceivefail, not a fix',
@@ -119,7 +138,103 @@ export const EXEMPT: Record<string, string> = {
   simfestkeep: 'EA bug fix from the decompiled code (docs/546 §11), not yet run: no harness check exists yet (a SimFest needs a ShowStage, an emcee and a winner pulled from the audience); add a SimFestKeepCheck and a repro before turning it on',
   unigradkeep: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: needs a University world (Annex), a Sim with a completed degree whose rewards were not granted and the 12:00 ceremony; no check yet, verify in a University save before turning it on',
   bsrefund: 'EA bug fix from the decompiled code (docs/546 §12), not yet run: the pickup needs an enrolment (modal dialog), a night and an NPC car whose drive fails; no forced trigger yet, verify the refund (2351) in a play run before turning it on',
+  // 2026-11-17: these were missing from the agent's names list (so no repro could set them); exempt until a repro lands
+  asyncroute: 'async route plans, on since docs/18 (ts3native [RouteAsync]): judged by every timing/correctness job, which runs it on by default; no forced repro',
+  autt2local: 'docs/276 rank 5 piece 2: HouseholdToo local exact path (AutShadowLocalCore.cs), nothing reads it before piece 3; needs [Experimental] HouseholdToo=1',
+  eventcost: DIAG + ' (docs/545 §5, EventTracker.ProcessEvent timing; ts3agent event_cost turns it on)',
+  gm6trace: DIAG + ' (AutShadow.cs IL trace of bad methods)',
+  safespotdedupe: 'Dalexlol #511: ON 2026-11-20 on his 17-job soak counters (5,854 repeats stopped), a search shortcut for unseen townies, no forced repro',
+  rabbitholedirect: 'Dalexlol #507: ON 2026-11-20 on his 17-job soak counters (entered 7,667), unseen townies only, no forced repro',
+  rhoutside: 'Dalexlol #507: ON 2026-11-20 on his 17-job soak counters (placed 2,700), unseen townies only, no forced repro',
+  unseenlanesnap: 'Dalexlol #509: ON 2026-11-20 on his 17-job soak counters (snapped 3,974), unseen townies only, no forced repro',
+  unseenlegsnap: 'Dalexlol #509: ON 2026-11-20 on his 17-job soak counters (snapped 1,439), unseen townies only, no forced repro',
+  stagedarrival: 'Dalexlol #505: stays OFF, his 17-job soak asked 1,137 but placed 0 (every candidate refused), unproven: no forced repro',
+  icecreamdirect: 'Dalexlol #505: ON 2026-11-20 on his 17-job soak counters (skipped 1,074), unseen trucks only, no forced repro',
+  nearvenue: 'Dalexlol #505: ON 2026-11-20 on his 17-job soak counters (lowered 14,417, raised 7,202), townies only, no forced repro',
+  unseenoutfitnospin: 'Dalexlol #513: ON 2026-11-20 on his 17-job soak counters (taken 7,251, set ran at once 0), unseen townies only, no forced repro',
+  safespotpool: 'SafeSpot never answers a pool or below-ground outdoor cell (docs/74 §13), on by default: no forced repro yet',
+  savedstacks: 'on by default (docs/242): a swapped method keeps its saved Sims at load; judged by save/load correctness jobs, no forced repro',
+  spotcheck: 'GoHome / lot-trip teleport with an in-view landing spot walks instead (docs/560 §7), on by default: no forced repro yet',
+  tagunseen: 'all-unseen-townie Tag games skip the run routes (docs/60 §3), on by default: no forced repro yet',
+  tpdoorrights: 'F1 unseen-teleport lot test by the Sim\'s own door rights (docs/584 §7), on by default: judged by the unseen-fallback jobs, no own repro',
+  weddingcleanup: 'EA WeddingCeremony.CleanUp throw guard (counters 1058/1059), on by default: no forced repro yet',
+// 2026-11-18 merge of Dalexlol #540 / #559: switches his PRs ship without a forced repro (his checks or natural runs are the evidence)
+  fightstaycap: 'PR #559: natural runs (Bridgeport 25 released, Sunset Valley 18, 0 errors); no forced repro yet',
+  autlastsearch: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
+  callcensus: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
+  dormantprobe: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
+  buffbufcheck: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
+  motivebufcheck: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
+  stcsocialscheck: 'Dalexlol #540: log, check or measurement switch, changes no game state; no forced repro',
+  routableasync: 'Dalexlol #469: ON 2026-11-19 with [RouteAsync] Kinds=2 (soak only); judged by the in-load --ab asyncreplan queue routableasync-ab-1119, no forced repro',
+  stcsocials: 'Dalexlol #540: default off, not proven in game yet (routableasync held, #469); no forced repro',
+  motivebuf: 'Dalexlol #540: default off, not proven in game yet (routableasync held, #469); no forced repro',
+  visitcar: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
+  visitwalkfinish: 'Dalexlol docs/584 §1 unseen visit trips: judged by his harness evidence, no forced repro',
+  // 2026-11-20 merge of Dalexlol #564: switches without a forced repro (his in-game results or never fired yet)
+  boatroutenull: 'Dalexlol #564: default off, never fired yet (Boat.RouteBoatToLandOnWayToPosition false); no forced repro',
+  unseenfbnosync: 'Dalexlol (docs/202 §3.10): ON (import 2026-11-20); acts only when ts3native refuses the async START of a marked unseen plan (queue state), which no repro can force; natural-play counters only (unseenfbnosync_asked / _recovered)',
+  unseenhouseboatview: 'Dalexlol (docs/202 §3.10): default off; a scope-rule change for townies on foreign houseboats (Isla Paradiso), no bug to force; natural-play counters on 31 IP games (unseenhouseboatview_asked / _changed)',
+  safespotplanyield: 'Dalexlol (docs/202 §3.10): ON (import 2026-11-20); a one-tick yield after a SafeSpot verdict plan (sim-thread slice split, not an EA bug); natural-play counters only (safespotplanyield_yields / _given_up)',
+  overwatchresetgone: 'Dalexlol #564: default off, never fired yet (destroyed Sim with no proxy in SetObjectToReset); no forced repro',
+  motivesnohousehold: 'Dalexlol #564: default off, not testable on his PC (Sim with no household); no forced repro',
+  overwatchrelretry: 'Dalexlol #564: ON, one natural hit in his play, retry passed; load-time race, no forced repro',
+  // boat trips PR (2026-11-19): townie boat routing, judged by his natural-play counters; no forced repro
+  boattrip: 'Dalexlol boat trips PR: ON (import 2026-11-20), townie boat trips (BoatTrip.cs), natural Isla Paradiso play only; no forced repro',
+  boatplace: 'Dalexlol boat trips PR: ON (import 2026-11-20), townie boat placement off lot water (BoatPlace.cs), natural play only; no forced repro',
+  retryscope: 'Dalexlol boat trips PR: ON (import 2026-11-20), scope answer re-sent for boattrip sync plans (RetryScope.cs), natural play only; no forced repro',
+  boatlandstuck: 'Dalexlol boat trips PR: ON (import 2026-11-20), EA GetOutOfBoat.Run stuck-seated fix (BoatLandStuck.cs), natural play only; no forced repro',
+  jobyieldroad: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  jobyieldroadow: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  jobyieldspawn: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  jobyieldfp: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  jobyieldready: 'Dalexlol #473: ON, jobyieldroad family (docs/800), judged by his natural games and soaks; no forced repro',
+  // alexvixell35-stack autonomy quality PR (2026-11-18): soak counters, no forced trigger yet
+  poolnolane: 'EA bug fix (PoolNoLane.cs): needs a pool whose Inside lane slots are all disabled; no forced trigger yet, judged by soak counters 1348-1350',
+  autonomyfailcooldown: 'route-failure cooldown for NPC autonomy (AutonomyFailCooldown.cs): needs an NPC whose route to one object keeps failing; judged by soak counters 1360-1369 and its routefail lines, no forced repro',
+  venuepicktime: DIAG + ' (VenuePickTime.cs: venue arrival pick timing, logging only)',
+  venuepickfast: 'timing only (VenuePickTime.cs): one yield before each venue arrival motive search of an NPC; judged by venuepicktime in soaks, no forced repro',
+  // 2026-11-20 import of Dalexlol #503: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  visitarrive: 'Dalexlol PR #503: his 11-19 17-job soak, 14,274 arrivals without a route, 0 problems',
+  visitonlot: 'Dalexlol PR #503: soak: fired 3x, 0 problems',
+  gohomeshell: 'Dalexlol PR #503: soak: 6,286 asks, 2,157 placed; off until LotLevelPastEnd (PR #449) is on',
+  // 2026-11-20 import of Dalexlol #499: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  unseentraffic: 'Dalexlol PR #499: his 11-19 17-job soak, 43,118 teleport legs, 0 problems',
+  npccarexit: 'Dalexlol PR #499: soak: 1,691 exit asks, 0 problems',
+  // 2026-11-20 import of Dalexlol #490: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  spawnfix: 'Dalexlol PR #490: his 11-19 17-job soak, 8,357 fan-outs skipped, 0 problems',
+  spawnoffworld: 'Dalexlol PR #490: soak: 208 off-world spawns skipped; off (gameplay change)',
+  // 2026-11-20 import of Dalexlol #501: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  festivalhidden: 'Dalexlol PR #501: two Starlight Shores runs, 44 and 40 skips, 0 errors',
+  // 2026-11-20 import of Dalexlol #478: natural soak runs are the evidence (counters moved, 0 problems); no forced repro
+  bouncermemo: 'Dalexlol PR #478: 7 Bridgeport games 11-18, 71-430 loops skipped, all PASS',
+  // contributor PR post/ea-guards-skips-1120: natural-play evidence only, no forced repro
+  frontstageowner: 'contributor: ON (import 2026-11-20), fired in natural play (3 games, unowned stage kits); no forced repro',
+  careerskillnull: 'contributor: ON (import 2026-11-20), fired in natural play (11 games, skills the game could not add); no forced repro',
+  stuckhbskip: 'contributor: ON (import 2026-11-20), fired in natural play (Isla Paradiso houseboats, 28 games); no forced repro',
+  turnjigskip: 'Dalexlol: ON, performance skip for unseen townies, fired in natural play (91 games); no forced repro',
+  unseenrelax: 'Dalexlol unseen route cost PR: ON (import 2026-11-20), route-cost switch for unseen townies, judged by natural games (no off arm); no forced repro',
+  iafailmemo: 'Dalexlol unseen route cost PR: default off (his own advice: until a watchdog A/B), route-cost memo for townies, judged by natural games (no off arm); no forced repro',
+  // contributor PR post/fglinbound-1121 (docs/682 §9)
+  fglinboundhh: 'contributor: default off, household variant of fglinbound (same code path, the household gate lifted); its repro is fglinbound-check, whose live / live:big compares call the path directly; turned on only after fglinbound shadow runs (docs/682 §9.8 step 3)',
+  partnerpulllog: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
+  partnerpull: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
+  queuewake: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
+  queuewakelog: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
+  slotretrylog: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
+  slotretry: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
+  strandprobe: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
+  unseenloopskip_offscreen_dup_removed: 'combo branch switch (work/combo-1117), off by default: judged by the combo route storms with its log switch; no forced repro yet',
 };
+
+// Every ts3fixes switch (a ShortcutOn("x") call or a SwDefault case in mods/ts3fixes/src) must be in the agent's names list,
+// or `patches` / profile-world --fixes-on reject it (autt2lcov, 2026-11-17).
+export function modSwitches(srcs: string[]): string[] {
+  const calls = srcs.flatMap(s => [...s.matchAll(/ShortcutOn\("(\w+)"\)/g)].map(m => m[1]));
+  const def = srcs.map(s => s.match(/static bool SwDefault\([\s\S]*?\n {8}\}/)?.[0]).find(Boolean) ?? '';
+  if (!def) throw new Error('ts3fixes: no SwDefault(name) switch in Fixes.cs');
+  return [...new Set([...calls, ...[...def.matchAll(/case "(\w+)":/g)].map(m => m[1])])];
+}
 
 export const fixesNames = (cs: string) => {
   const m = cs.match(/string\[\]\s+names\s*=\s*\{([^}]*)\}/);
@@ -180,6 +295,9 @@ function repoCheck() {
   const native = [...new Set([...nativeNames, ...Object.keys(counterSwitches)])];
   const switches = [...new Set([...fixes, ...native])];
   const errs = check(switches, JSON.parse(read('tools/harness/repros.json')), JSON.parse(read('tools/harness/feature-repros.json')), readQueues());
+  const srcDir = 'mods/ts3fixes/src';
+  for (const n of modSwitches(readdirSync(join(ROOT, srcDir)).filter(f => f.endsWith('.cs')).map(f => read(`${srcDir}/${f}`))))
+    if (!fixes.includes(n)) errs.push(`${n}: ts3fixes switch missing from the agent's names list (PatchHandlers.cs)`);
   if (errs.length) { console.error(`fix-repro-check FAILED (${errs.length}):\n  ${errs.join('\n  ')}`); process.exit(1); }
   console.log(`fix-repro-check ok: ${switches.length} switches (${fixes.length} ts3fixes, ${native.length} native), ${Object.keys(EXEMPT).length} exempt`);
 }
@@ -187,6 +305,8 @@ function repoCheck() {
 if (import.meta.filename === resolve(process.argv[1] ?? '')) {
   if (process.argv.includes('--self-check')) {
     assert.deepEqual(fixesNames('x; string[] names = { "a", "b" }; y'), ['a', 'b']);
+    const swd = 'static bool SwDefault(string name)\n        {\n            switch (name) { case "d": return false; }\n        }\n        case "notsw": x';
+    assert.deepEqual(modSwitches(['if (ShortcutOn("a")) y; ShortcutOn(n);', swd]), ['a', 'd'], 'ShortcutOn literals + SwDefault cases only');
     const repros = [
       { id: 'r1', steps: [{ cmd: 'patches', args: { a: true, off: false } }], loop: { steps: [{ cmd: 'native_set', args: { n: '$on' } }] } },
       { id: 'r2', loop: { steps: [{ cmd: 'go_to_work', args: { sim: '<child 1>' } }] } },

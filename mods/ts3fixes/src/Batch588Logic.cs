@@ -48,8 +48,8 @@ namespace Ts3Fixes
         // Sim's own count (EA's own GetXFor helper), so the histogram is the true per-Sim count. Actions' predictions keep
         // EA's incremental Add. [latent] Collect skips special households with `h != null && h.IsSpecialHousehold`, so a null
         // entry is dereferenced; spcollectnull skips it. Collect is EA's otherwise, in EA's order.
-        // Counters: [1294] Collects with own-count histograms, [1295] Collects EA built incrementally (switch off), [1296]
-        // errors; [1297] null households skipped, [1298] null households seen with the switch off, [1299] errors.
+        // Counters: [2929] Collects with own-count histograms, [2930] Collects EA built incrementally (switch off), [2931]
+        // errors; [2932] null households skipped, [2933] null households seen with the switch off, [2934] errors.
         static readonly FieldInfo sCoLot = typeof(Demographics).GetField("mLotDemographics", kInstAll);
         static readonly FieldInfo sCoHh = typeof(Demographics).GetField("mHouseholdDemographics", kInstAll);
         static readonly FieldInfo sCoSim = typeof(Demographics).GetField("mSimDemographics", kInstAll);
@@ -110,8 +110,8 @@ namespace Ts3Fixes
                 {
                     if (sCoMissing.Length == 0)
                     {
-                        PatchCounters()[1295]++;
-                        foreach (Household h in Household.sHouseholdList) if (h == null) { PatchCounters()[1298]++; break; }
+                        PatchCounters()[2930]++;
+                        foreach (Household h in Household.sHouseholdList) if (h == null) { PatchCounters()[2933]++; break; }
                     }
                     CollectOrig();
                     return;
@@ -125,7 +125,7 @@ namespace Ts3Fixes
                     sims = (List<Demographics.Demographic>)sCoSim.GetValue(d);
                     all = (List<Demographics.Demographic>)sCoAll.GetValue(d);
                 }
-                catch (Exception) { PatchCounters()[1296]++; CollectOrig(); return; }
+                catch (Exception) { PatchCounters()[2931]++; CollectOrig(); return; }
                 // EA's Collect, in EA's order
                 foreach (Demographics.Demographic dm in all) dm.Clear();  // EA's private Demographics.Clear
                 foreach (Lot lot in LotManager.AllLots)
@@ -135,7 +135,7 @@ namespace Ts3Fixes
                     if (h == null)
                     {
                         if (!SpCollectSkips(nul, true, false)) throw new NullReferenceException("Demographics.Collect: null household");  // EA's dereference
-                        PatchCounters()[1297]++;
+                        PatchCounters()[2932]++;
                         continue;
                     }
                     if (SpCollectSkips(nul, false, h.IsSpecialHousehold)) continue;
@@ -158,7 +158,7 @@ namespace Ts3Fixes
                     dm.Complete();
                     d.TotalError += dm.Error;
                 }
-                if (rel) PatchCounters()[1294]++;
+                if (rel) PatchCounters()[2929]++;
             }
 
             public void CollectOrig() { }
@@ -175,7 +175,7 @@ namespace Ts3Fixes
                 sSpAddItem.Invoke(dm, new object[] { (float)n });
                 return true;
             }
-            catch (Exception) { PatchCounters()[1296]++; return false; }
+            catch (Exception) { PatchCounters()[2931]++; return false; }
         }
 
         // ---- B10 §3 spclonedict (tuning kSpCloneDict) --------------------------------------------------------------------
@@ -183,7 +183,7 @@ namespace Ts3Fixes
         // `mLotsOverfull = other.mLotsOverfull` (resp. Underfull): every clone made to score an action shares the live
         // dictionary, so a scored-but-not-run action's Add/Remove changes the real demographic, and later scores in the
         // round depend on the scoring order. Fix: Clone gives the copy its own dictionary (the int counters were already
-        // copied by value). Counters: [1300] clones given their own dictionary, [1301] clones sharing it (switch off), [1302]
+        // copied by value). Counters: [2935] clones given their own dictionary, [2936] clones sharing it (switch off), [2937]
         // errors.
         static readonly Type sCdBig = SpType("HouseholdTooBigDemographic"), sCdSmall = SpType("HouseholdTooSmallDemographic");
         static readonly FieldInfo sCdBigDict = sCdBig == null ? null : sCdBig.GetField("mLotsOverfull", kInstAll);
@@ -210,11 +210,11 @@ namespace Ts3Fixes
             {
                 Dictionary<ulong, int> live = f.GetValue(clone) as Dictionary<ulong, int>;
                 bool on = ShortcutOn("spclonedict");
-                if (!on) { PatchCounters()[1301]++; return; }
+                if (!on) { PatchCounters()[2936]++; return; }
                 f.SetValue(clone, SpCloneDict(true, live));
-                PatchCounters()[1300]++;
+                PatchCounters()[2935]++;
             }
-            catch (Exception) { PatchCounters()[1302]++; }
+            catch (Exception) { PatchCounters()[2937]++; }
         }
 
         // ---- B10 §4 splotlookup (tuning kSpLotLookup) --------------------------------------------------------------------
@@ -223,8 +223,8 @@ namespace Ts3Fixes
         // predicted move (MoveToLarger/Smaller, MoveIn, CreateAndMoveIn) never counts toward too-big, too-small or box
         // stalls and those actions get no credit for what they fix. TooSmall also reads LotHome before its null test. Fix:
         // the lot is LotManager.GetLot(spec.HomeLotId) (the id every caller stores there), with one null-safe dorm /
-        // apartment test; the rest of each Add is EA's. Counters: [1303] specs counted on their lot, [1304] specs EA dropped
-        // that the lot would have counted (switch off), [1305] errors.
+        // apartment test; the rest of each Add is EA's. Counters: [2938] specs counted on their lot, [2939] specs EA dropped
+        // that the lot would have counted (switch off), [2940] errors.
         static readonly Type sLlHorse = SpType("HorsePopulationDemographic");
         static readonly FieldInfo sLlBigSims = sCdBig == null ? null : sCdBig.GetField("mSimsOver", kInstAll);
         static readonly FieldInfo sLlSmallSims = sCdSmall == null ? null : sCdSmall.GetField("mSimsUnder", kInstAll);
@@ -271,16 +271,16 @@ namespace Ts3Fixes
                 Dictionary<ulong, int> dict = (Dictionary<ulong, int>)dictF.GetValue(demo);
                 if (spec == null || dict.ContainsKey(spec.HomeLotId)) return on;
                 int n = SpSpecExcess(spec, tooBig);
-                if (!on) { if (n > 0) PatchCounters()[1304]++; return false; }
+                if (!on) { if (n > 0) PatchCounters()[2939]++; return false; }
                 if (n > 0)
                 {
                     dict.Add(spec.HomeLotId, n);
                     sumF.SetValue(demo, (int)sumF.GetValue(demo) + n);
-                    PatchCounters()[1303]++;
+                    PatchCounters()[2938]++;
                 }
                 return true;
             }
-            catch (Exception) { PatchCounters()[1305]++; return false; }
+            catch (Exception) { PatchCounters()[2940]++; return false; }
         }
 
         public class BSpBigHook
@@ -329,12 +329,12 @@ namespace Ts3Fixes
                     Lot lot = SpSpecLot(household);
                     stall = lot != null && lot.CountObjects<IBoxStall>() != 0;
                 }
-                catch (Exception) { PatchCounters()[1305]++; }
+                catch (Exception) { PatchCounters()[2940]++; }
                 if (sLlMissing.Length > 0 || !stall) { SpecOrig(household); return; }
-                if (!ShortcutOn("splotlookup")) { PatchCounters()[1304]++; SpecOrig(household); return; }
+                if (!ShortcutOn("splotlookup")) { PatchCounters()[2939]++; SpecOrig(household); return; }
                 SpecOrig(household);  // EA's: the horse count, and its stall lookup (finds no household, adds nothing)
                 sLlStalls.SetValue(this, (uint)sLlStalls.GetValue(this) + 1u);
-                PatchCounters()[1303]++;
+                PatchCounters()[2938]++;
             }
             public void SpecOrig(SimUtils.HouseholdCreationSpec household) { }
         }
@@ -346,8 +346,8 @@ namespace Ts3Fixes
         // the wrong bucket (or none). The increase/decrease choice also reads `mErrorCurve.Points[list2[num +- 1]].y`,
         // bucket numbers used as curve point indices. Fix: ForcedBucketNumber = list2[num]; the neighbour test compares the
         // error EA recorded for those two buckets (the first point of each, as EA's loop meets them). Everything else,
-        // including the draw order of the random calls, is EA's. Counters: [1306] targeted actions with the bucket
-        // index, [1307] targeted draws EA made (switch off), [1308] errors.
+        // including the draw order of the random calls, is EA's. Counters: [2941] targeted actions with the bucket
+        // index, [2942] targeted draws EA made (switch off), [2943] errors.
         static readonly FieldInfo sBiForced = typeof(StoryProgressionService.StoryActionCreationParams).GetField("ForcedBucketNumber");
         static string sBiMissing = "";
 
@@ -381,9 +381,9 @@ namespace Ts3Fixes
                     err = sSpErrCurve.GetValue(this) as DesireCurve;
                     tun = sSpTuning.GetValue(this) as DemographicTuning;
                 }
-                catch (Exception) { PatchCounters()[1308]++; return ActionOrig(); }
+                catch (Exception) { PatchCounters()[2943]++; return ActionOrig(); }
                 if (err == null || tun == null) return ActionOrig();  // EA's untargeted coin flip, nothing to fix
-                if (!ShortcutOn("spbucketindex")) { PatchCounters()[1307]++; return ActionOrig(); }
+                if (!ShortcutOn("spbucketindex")) { PatchCounters()[2942]++; return ActionOrig(); }
                 // EA's GetActionItem with the bucket index stored
                 List<string> list = null;
                 int num = -1;
@@ -416,7 +416,7 @@ namespace Ts3Fixes
                 {
                     p.ForcedBucketNumber = SpForced(true, num, buckets);
                     p.TriggeringDemographic = (Demographics.Demographic)(object)this;
-                    PatchCounters()[1306]++;
+                    PatchCounters()[2941]++;
                 }
                 return StoryProgressionService.CreateAction(p);
             }
@@ -429,7 +429,7 @@ namespace Ts3Fixes
         // adds the new family's spec (HomeLotId 0), then MoveInHousehold adds the same spec again. The prediction counts the
         // family twice and no lot becoming occupied. Fix: for CreateAndMoveIn only, the spec is added once with HomeLotId set
         // to the lot MoveIn picked (restored right after: MoveIn's IsValid needs it 0), then its Sims as CreateHousehold
-        // does. Counters: [1309] predictions made once on the lot, [1310] double predictions (switch off), [1311] errors.
+        // does. Counters: [2944] predictions made once on the lot, [2945] double predictions (switch off), [2946] errors.
         static readonly Type sCmType = typeof(StoryAction).Assembly.GetType("Sims3.Gameplay.StoryProgression.CreateAndMoveIn");
         static readonly Type sCmCreate = typeof(StoryAction).Assembly.GetType("Sims3.Gameplay.StoryProgression.CreateHousehold");
         static readonly FieldInfo sCmSpec = sCmCreate == null ? null : sCmCreate.GetField("NewHousehold", kInstAll);
@@ -460,9 +460,9 @@ namespace Ts3Fixes
                     MoveInHousehold mi = ca.ActionB as MoveInHousehold;
                     lotId = mi == null ? 0 : (ulong)sCmLot.GetValue(mi);
                 }
-                catch (Exception) { PatchCounters()[1311]++; spec = null; }
+                catch (Exception) { PatchCounters()[2946]++; spec = null; }
                 if (spec == null || lotId == 0) { UpdateOrig(demographics); return; }
-                if (SpSpecAdds(ShortcutOn("spcreatemovein")) != 1) { PatchCounters()[1310]++; UpdateOrig(demographics); return; }
+                if (SpSpecAdds(ShortcutOn("spcreatemovein")) != 1) { PatchCounters()[2945]++; UpdateOrig(demographics); return; }
                 ulong was = spec.HomeLotId;
                 spec.HomeLotId = lotId;
                 try
@@ -470,7 +470,7 @@ namespace Ts3Fixes
                     foreach (Demographics.Demographic d in demographics) d.Add(spec);
                     foreach (SimUtils.SimCreationSpec sim in spec.Sims)
                         foreach (Demographics.Demographic d in demographics) d.Add(sim);
-                    PatchCounters()[1309]++;
+                    PatchCounters()[2944]++;
                 }
                 finally { spec.HomeLotId = was; }
             }
@@ -484,8 +484,8 @@ namespace Ts3Fixes
         // density (fewer move-ins, more move-outs in worlds with such lots). Fix: one predicate (EA's own lot test) for
         // the lots and for the households' (and predicted specs') home lots. AllowMoreStoryProgressionMoveIns is left as
         // EA's: its uint difference is cast to int, so the doc's underflow already reads as a negative and refuses.
-        // Counters: [1312] households / specs counted by the lot test, [1313] off-lot households EA counted (switch off),
-        // [1314] errors.
+        // Counters: [2947] households / specs counted by the lot test, [2948] off-lot households EA counted (switch off),
+        // [2949] errors.
         static readonly Type sLdType = SpType("LotDensity");
         static readonly FieldInfo sLdOcc = sLdType == null ? null : sLdType.GetField("mNumOccupiedLots", kInstAll);
         static string sLdMissing = "";
@@ -515,9 +515,9 @@ namespace Ts3Fixes
             if (lot == null || sLdMissing.Length > 0) return 0;
             bool story;
             try { story = SpStoryLot(lot); }
-            catch (Exception) { PatchCounters()[1314]++; return 0; }
-            if (SpDensityCounts(ShortcutOn("splotdensity"), true, story)) { if (!story) PatchCounters()[1313]++; return 0; }
-            PatchCounters()[1312]++;
+            catch (Exception) { PatchCounters()[2949]++; return 0; }
+            if (SpDensityCounts(ShortcutOn("splotdensity"), true, story)) { if (!story) PatchCounters()[2948]++; return 0; }
+            PatchCounters()[2947]++;
             return -1;
         }
 
@@ -549,8 +549,8 @@ namespace Ts3Fixes
         // [verified, decompiled] AddRoommate.Execute, outside University worlds, picks a random rabbit-hole career and
         // location, builds AcquireOccupationParameters and drops them: the roommate never gets the job. Fix (after EA's
         // Execute, roommate with no occupation, not University): the same pick, then SimDescription.AcquireOccupation with
-        // those parameters (no UI, no lessons, as EA built them). Counters: [1315] roommates given the job, [1316]
-        // roommates EA left jobless (switch off), [1317] errors.
+        // those parameters (no UI, no lessons, as EA built them). Counters: [2950] roommates given the job, [2951]
+        // roommates EA left jobless (switch off), [2952] errors.
         static readonly Type sRjType = typeof(StoryAction).Assembly.GetType("Sims3.Gameplay.StoryProgression.AddRoommate");
         static readonly FieldInfo sRjSd = sRjType == null ? null : sRjType.GetField("mSimDescription", kInstAll);
         static string sRjMissing = "";
@@ -575,15 +575,15 @@ namespace Ts3Fixes
                 {
                     SimDescription sd = sRjSd.GetValue(this) as SimDescription;
                     if (!SpRoommateNeedsJob(GameUtils.IsUniversityWorld(), sd != null, sd != null && sd.Occupation != null)) return;
-                    if (!ShortcutOn("sproommatejob")) { PatchCounters()[1316]++; return; }
+                    if (!ShortcutOn("sproommatejob")) { PatchCounters()[2951]++; return; }
                     List<Career> careers = Career.ValidRabbitHoleCareers(true);
                     if (careers.Count == 0) return;
                     Career c = RandomUtil.GetRandomObjectFromList(careers);
                     if (c.Locations == null || c.Locations.Count == 0) return;
                     sd.AcquireOccupation(new AcquireOccupationParameters(c.Guid, RandomUtil.GetRandomObjectFromList(c.Locations), false, false));
-                    PatchCounters()[1315]++;
+                    PatchCounters()[2950]++;
                 }
-                catch (Exception) { PatchCounters()[1317]++; }
+                catch (Exception) { PatchCounters()[2952]++; }
             }
 
             public void ExecOrig() { }
@@ -593,8 +593,8 @@ namespace Ts3Fixes
         // [verified, decompiled] StoryAction.FindOccultSimDescription builds the whole candidate list, then returns the
         // first occult in household-list order: every Remove* action strips the same household's occult. Fix: the same
         // candidates (EA's household and protection filters, via EA's SelectRandomSimDescription) restricted to the occult
-        // type, picked at random as the other selectors do. Counters: [1318] random occult picks, [1319] first-in-list
-        // picks (switch off), [1320] errors.
+        // type, picked at random as the other selectors do. Counters: [2953] random occult picks, [2954] first-in-list
+        // picks (switch off), [2955] errors.
         static void ApplySpOccultPick()
         {
             Patch(typeof(StoryAction), "FindOccultSimDescription", null, typeof(BSpOccultHook), "OccultHook", "OccultOrig");
@@ -612,17 +612,17 @@ namespace Ts3Fixes
 
             protected SimDescription OccultHook(SimDescriptionPredicate predicate, StoryProgressionService.StoryActionCreationParams actionParams, OccultTypes occultType)
             {
-                if (!ShortcutOn("spoccultpick")) { PatchCounters()[1319]++; return OccultOrig(predicate, actionParams, occultType); }
+                if (!ShortcutOn("spoccultpick")) { PatchCounters()[2954]++; return OccultOrig(predicate, actionParams, occultType); }
                 try
                 {
                     SimDescription sd = SelectRandomSimDescription(delegate (SimDescription s)
                     {
                         return SpOccultCandidate(predicate == null || predicate(s), s.OccultManager != null && s.OccultManager.HasOccultType(occultType));
                     }, actionParams);
-                    PatchCounters()[1318]++;
+                    PatchCounters()[2953]++;
                     return sd;
                 }
-                catch (Exception) { PatchCounters()[1320]++; return OccultOrig(predicate, actionParams, occultType); }
+                catch (Exception) { PatchCounters()[2955]++; return OccultOrig(predicate, actionParams, occultType); }
             }
 
             protected SimDescription OccultOrig(SimDescriptionPredicate predicate, StoryProgressionService.StoryActionCreationParams actionParams, OccultTypes occultType) { return null; }
@@ -637,7 +637,7 @@ namespace Ts3Fixes
         // household Sims. Fix: Occupation.AssignOccupation(null) from an occupation that is no longer the Sim's current
         // one leaves the current one alone; the old career's own cleanup (location, coworkers, alarms, events) is EA's.
         // Household-visible: yes (a household Sim who takes a job while at work keeps it).
-        // Counters: [1321] new jobs kept, [1322] new jobs EA dropped (switch off), [1323] errors.
+        // Counters: [2956] new jobs kept, [2957] new jobs EA dropped (switch off), [2958] errors.
         static void ApplySpJobAtWork()
         {
             Patch(typeof(Occupation), "AssignOccupation", null, typeof(BSpAssignHook), "AssignHook", "AssignOrig");
@@ -660,11 +660,11 @@ namespace Ts3Fixes
                         Occupation cur = cm == null ? null : cm.Occupation;
                         stale = SpStaleClear(true, cur != null, cur == me);
                     }
-                    catch (Exception) { PatchCounters()[1323]++; }
+                    catch (Exception) { PatchCounters()[2958]++; }
                     if (stale)
                     {
-                        if (ShortcutOn("spjobatwork")) { PatchCounters()[1321]++; return true; }
-                        PatchCounters()[1322]++;
+                        if (ShortcutOn("spjobatwork")) { PatchCounters()[2956]++; return true; }
+                        PatchCounters()[2957]++;
                     }
                 }
                 return AssignOrig(occupation);
@@ -683,8 +683,8 @@ namespace Ts3Fixes
         // Household / SimDescription / Lot fields, or household, Sim or lot ids (also inside combination actions), reach the
         // active household, the travel household or the selected Sim's household is not executed, as an invalid pick.
         // A Sim id that resolves to nothing cannot be in the active household (its members always resolve), so it does
-        // not block. Household-visible: yes (protects it). Counters: [1324] actions not executed on a played household,
-        // [1325] rounds run with the switch off, [1326] errors.
+        // not block. Household-visible: yes (protects it). Counters: [2959] actions not executed on a played household,
+        // [2960] rounds run with the switch off, [2961] errors.
         static readonly FieldInfo sRcDemo = typeof(StoryProgressionService).GetField("mDemographics", kInstAll);
         static readonly FieldInfo sRcMult = typeof(StoryProgressionService).GetField("mCategoryMultiplier", kInstAll);
         static readonly FieldInfo sRcLast = typeof(StoryProgressionService).GetField("mCategoryLastUpdateTime", kInstAll);
@@ -784,7 +784,7 @@ namespace Ts3Fixes
         {
             public float TryHook(bool ignoreAllCooldownsAndAttenuation)
             {
-                if (sRcMissing.Length > 0 || !ShortcutOn("sprecheck")) { if (sRcMissing.Length == 0) PatchCounters()[1325]++; return TryOrig(ignoreAllCooldownsAndAttenuation); }
+                if (sRcMissing.Length > 0 || !ShortcutOn("sprecheck")) { if (sRcMissing.Length == 0) PatchCounters()[2960]++; return TryOrig(ignoreAllCooldownsAndAttenuation); }
                 bool ignore = ignoreAllCooldownsAndAttenuation;
                 StoryProgressionService svc = (StoryProgressionService)(object)this;
                 // EA's TryOneAction
@@ -827,8 +827,8 @@ namespace Ts3Fixes
                 {
                     bool played = false;
                     try { played = SpTouchesPlayed(action, 0); }
-                    catch (Exception) { PatchCounters()[1326]++; played = true; }  // unknown scope counts as household
-                    if (played) { PatchCounters()[1324]++; return demo.TotalError; }
+                    catch (Exception) { PatchCounters()[2961]++; played = true; }  // unknown scope counts as household
+                    if (played) { PatchCounters()[2959]++; return demo.TotalError; }
                     if (sRcNotify != null) sRcNotify.Invoke(null, new object[] { action });
                     action.Execute();
                     int category2 = action.Tuning.Category;
@@ -854,8 +854,8 @@ namespace Ts3Fixes
         // career, EA's prompt conditions, EA's request and transfer tests passing) the pension prompt is asked first; no
         // returns false with nothing changed, yes runs EA's method, whose own identical pension prompt is then answered yes
         // for the player. The pension is still ended where EA ends it, after the job change went through.
-        // Household-visible: yes (a player dialog). Counters: [1327] pension prompts asked first, [1328] prompts EA asked
-        // after the leave (switch off), [1329] errors.
+        // Household-visible: yes (a player dialog). Counters: [2962] pension prompts asked first, [2963] prompts EA asked
+        // after the leave (switch off), [2964] errors.
         static readonly FieldInfo sPpSd = typeof(CareerManager).GetField("mSimDescription", kInstAll);
         static readonly MethodInfo sPpValid = typeof(CareerManager).GetMethod("ValidateOccupationRequest", kInstAll, null, new Type[] { typeof(AcquireOccupationParameters) }, null);
         static readonly MethodInfo sPpTransfer = typeof(CareerManager).GetMethod("IsLocationTransfer", kInstAll, null, new Type[] { typeof(AcquireOccupationParameters) }, null);
@@ -896,11 +896,11 @@ namespace Ts3Fixes
                 if (sPpMissing.Length == 0)
                 {
                     try { text = SpPensionText((CareerManager)(object)this, occupationParameters); }
-                    catch (Exception) { PatchCounters()[1329]++; text = null; }
+                    catch (Exception) { PatchCounters()[2964]++; text = null; }
                 }
                 if (text == null) return AcquireOrig(occupationParameters);
-                if (!ShortcutOn("sppensionprompt")) { PatchCounters()[1328]++; return AcquireOrig(occupationParameters); }
-                PatchCounters()[1327]++;
+                if (!ShortcutOn("sppensionprompt")) { PatchCounters()[2963]++; return AcquireOrig(occupationParameters); }
+                PatchCounters()[2962]++;
                 if (!Occupation.ShowYesNoCareerOptionDialog(text)) return false;  // nothing changed yet
                 sPpAuto = text;
                 try { return AcquireOrig(occupationParameters); }
@@ -927,8 +927,8 @@ namespace Ts3Fixes
         // on sHousehold4 (and the stop-after-merge EA's re-test gave, kept as a break), the unshared members moved into the
         // larger household (EA's Household.Add, as its own re-home pass does), dictionaries for the membership tests, and
         // null list entries skipped. No household exemption (user: as EA intended, even for ours). Household-visible:
-        // possibly (a load where a household Sim is in two households). Counters: [1330] cleanups run fixed, [1331] loads
-        // with a member in two households seen with the switch off, [1332] errors.
+        // possibly (a load where a household Sim is in two households). Counters: [2965] cleanups run fixed, [2966] loads
+        // with a member in two households seen with the switch off, [2967] errors.
         static readonly FieldInfo sHdLotHome = typeof(Household).GetField("mLotHome", kInstAll);
         static readonly FieldInfo sHdNpc = typeof(Household).GetField("sNpcHousehold", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sHdTourist = typeof(Household).GetField("sTouristHousehold", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
@@ -968,7 +968,7 @@ namespace Ts3Fixes
                 if (sHdMissing.Length > 0) { CleanupOrig(); return; }
                 if (!ShortcutOn("hhcleanupdup"))
                 {
-                    try { if (HdSharedMember()) PatchCounters()[1331]++; } catch (Exception) { PatchCounters()[1332]++; }
+                    try { if (HdSharedMember()) PatchCounters()[2966]++; } catch (Exception) { PatchCounters()[2967]++; }
                     CleanupOrig();
                     return;
                 }
@@ -1063,7 +1063,7 @@ namespace Ts3Fixes
                     all.Remove(h);
                 }
                 if (dropTourist) sHdTourist.SetValue(null, null);
-                PatchCounters()[1330]++;
+                PatchCounters()[2965]++;
             }
 
             public static void CleanupOrig() { }
@@ -1080,8 +1080,8 @@ namespace Ts3Fixes
         // [verified, decompiled] SimDescription.FindSuitableVirtualHome draws from the first
         // Math.Max(Count * kShellsLivableByServiceSims, Count - 1) + 1 lots, always every lot, so the 0.5 tuning ("lower end
         // percentage of buildable shells habitable by service sims"; AllHabitableShellLots is sorted by cost) does nothing,
-        // and a value above 1 indexes past the list. Fix: Min, at least one lot. The rest is EA's. Counters: [1333] homes
-        // drawn from the tuned share, [1334] draws over every lot (switch off), [1335] errors.
+        // and a value above 1 indexes past the list. Fix: Min, at least one lot. The rest is EA's. Counters: [2968] homes
+        // drawn from the tuned share, [2969] draws over every lot (switch off), [2970] errors.
         static readonly FieldInfo sVhShare = typeof(SimDescription).GetField("kShellsLivableByServiceSims", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static string sVhMissing = "";
 
@@ -1110,9 +1110,9 @@ namespace Ts3Fixes
                 List<Lot> use = lots ?? LotManager.AllHabitableShellLots;
                 float share;
                 try { share = (float)sVhShare.GetValue(null); }
-                catch (Exception) { PatchCounters()[1335]++; HomeOrig(lots); return; }
+                catch (Exception) { PatchCounters()[2970]++; HomeOrig(lots); return; }
                 if (use.Count == 0 || VhLast(true, use.Count, share) == VhLast(false, use.Count, share)) { HomeOrig(lots); return; }
-                if (!ShortcutOn("virtualhomeshare")) { PatchCounters()[1334]++; HomeOrig(lots); return; }
+                if (!ShortcutOn("virtualhomeshare")) { PatchCounters()[2969]++; HomeOrig(lots); return; }
                 // EA's draw over the tuned share
                 int last = VhLast(true, use.Count, share);
                 float max = 0f;
@@ -1129,7 +1129,7 @@ namespace Ts3Fixes
                     use[pick].VirtualMoveIn(sd);
                     if (place) use[pick].PlaceInNPCDoor(sd);
                 }
-                PatchCounters()[1333]++;
+                PatchCounters()[2968]++;
             }
 
             public void HomeOrig(List<Lot> lots) { }
@@ -1141,8 +1141,8 @@ namespace Ts3Fixes
         // CelebrityLevelModification, or a level change off-lot) they throw and the level change stops half done. Fix:
         // owner not instantiated, valid handle: AlarmManager.Global.RemoveAlarm(handle), which is what Sim.RemoveAlarm does,
         // then EA's handle reset. OnLevelModified's `<=` (equal levels run OnLevelUp) is left: with equal levels it only
-        // re-checks the skill and journal, no notice. Counters: [1336] alarms removed with no Sim, [1337] would have thrown
-        // (switch off), [1338] errors.
+        // re-checks the skill and journal, no notice. Counters: [2971] alarms removed with no Sim, [2972] would have thrown
+        // (switch off), [2973] errors.
         static readonly FieldInfo sCaFree = typeof(CelebrityManager).GetField("mFreeStuffAlarmHandle", kInstAll);
         static readonly FieldInfo sCaDeflect = typeof(CelebrityManager).GetField("mDeflectScandalCoolDownAlarmHandle", kInstAll);
         static string sCaMissing = "";
@@ -1166,13 +1166,13 @@ namespace Ts3Fixes
             {
                 AlarmHandle h = (AlarmHandle)f.GetValue(cm);
                 if (!CaThrows(h != AlarmHandle.kInvalidHandle, (cm.Owner != null && cm.Owner.CreatedSim != null))) return false;
-                if (!ShortcutOn("celebalarmnull")) { PatchCounters()[1337]++; return false; }
+                if (!ShortcutOn("celebalarmnull")) { PatchCounters()[2972]++; return false; }
                 AlarmManager.Global.RemoveAlarm(h);
                 f.SetValue(cm, AlarmHandle.kInvalidHandle);
-                PatchCounters()[1336]++;
+                PatchCounters()[2971]++;
                 return true;
             }
-            catch (Exception) { PatchCounters()[1338]++; return false; }
+            catch (Exception) { PatchCounters()[2973]++; return false; }
         }
 
         public class BCaHook

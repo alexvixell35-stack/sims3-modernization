@@ -9,7 +9,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // petlonghome (tuning kPetLongHome, default off; docs/645 §4). NPC pets and horses walk home (GoHome) or to a lot
+    // petlonghome (tuning kPetLongHome, default off; docs/656 §8.2). NPC pets and horses walk home (GoHome) or to a lot
     // (GoToLot) on foot at pet speed for 10-35 sim-hours (OFF runs, health.jsonl "Go Home" interaction_min: Tigger Cat 2110
     // min in Bridgeport, Majora Cat 1777 in Sunset Valley, Lucky Coyle 816 in Isla Paradiso; 113 cat, 52 dog, 13 horse samples
     // over 300 min, plus 33 wild horses on "Go to Lot"). Our trip shortcuts never take pets: GoHomeHook.Unseen and
@@ -22,11 +22,11 @@ namespace Ts3Fixes
     // pet that is its owner household's lot, never the active household's), UfGoalUnseen for the spot, then PlaceSim. EA's
     // Run then runs as usual and walks the last metres. Houseboats, apartment shells, resorts and the active household's lot
     // keep the game's walk. Household, selected and unknown-scope pets (HouseholdExempt or IsPlayerSim) are never touched.
-    // Rule: PetLongHomeCore. Counters [4076] placed, [4077] refused (seen, lot seen, no safe spot, lot kind), [4078] exempt
-    // (shared), [4079] errors (shared). Log "petlonghome: placed|refused <pet> ...", capped at 10 a minute.
+    // Rule: PetLongHomeCore. Counters [4622] placed, [4623] refused (seen, lot seen, no safe spot, lot kind), [4624] exempt
+    // (pets block), [4625] errors (pets block). Log "petlonghome: placed|refused <pet> ...", capped at 10 a minute.
     // docs/656 §4.3 additions, both default off: kPetLongHomeNoSpotMinutes > 0 remembers a (lot, species class) whose safe spot
     // search failed and refuses it without a new search for that long ([4178] searches saved; the refusal still counts in
-    // 4077 / 4180); switch petlongvisit (kPetLongVisit) gives the same placement to an owned NPC pet's own VisitCommunityLot
+    // 4623 / 4180); switch petlongvisit (kPetLongVisit) gives the same placement to an owned NPC pet's own VisitCommunityLot
     // walk to a community lot (VisitCommunityLotHook; health.jsonl: Minnie Cat "Visit Eugi's" 2203 sim-min, Snowshoe Cat
     // "Visit Buena Vista Resort" 1793, Cookie Horse "Visit Bridgeport Sports Zone" 1106), counted in [4179] placed and
     // [4180] refused. Strays, wild horses, unicorns and pet-pool animals keep EA's visit walk.
@@ -70,7 +70,7 @@ namespace Ts3Fixes
                 if (wildHorse && via != "gotolot") return;
             }
             int[] c = PatchCounters();
-            int placedSlot = visit ? 4179 : 4076, refusedSlot = visit ? 4180 : 4077;
+            int placedSlot = visit ? 4179 : 4622, refusedSlot = visit ? 4180 : 4623;
             try
             {
                 if (lot.IsWorldLot) return;
@@ -82,7 +82,7 @@ namespace Ts3Fixes
                 int pre = PetLongHomeCore.Pre(true, exempt, UfHeld(sim) || sim.Parent != null, followers != null && followers.Count > 0,
                     sim.LotCurrent == lot, dist, tripMin, Instantiator.kPetLongHomeMeters, Instantiator.kPetLongHomeHours * 60f);
                 if (pre == PetLongHomeCore.kOnLot) { sPlh.Done(id); return; }
-                if (pre == PetLongHomeCore.kExempt) { c[4078]++; return; }
+                if (pre == PetLongHomeCore.kExempt) { c[4624]++; return; }
                 if (pre != PetLongHomeCore.kOk) return;  // held, followers or a short trip: EA's walk, not counted
                 string kind = null;
                 if (lot == Household.ActiveHouseholdLot) kind = "active household's lot";
@@ -150,7 +150,7 @@ namespace Ts3Fixes
                 PlhLog("placed " + sim.FullName + " (" + d.Species + ") at " + lot.Name + " via " + via + ", " + (int)dist + " m away, trip "
                     + (int)tripMin + " sim-min" + (shared ? ", herd spot shared" : ""));
             }
-            catch (Exception ex) { c[4079]++; PlhLog("error " + ex.GetType().Name); }
+            catch (Exception ex) { c[4625]++; PlhLog("error " + ex.GetType().Name); }
         }
     }
 }

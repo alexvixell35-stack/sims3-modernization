@@ -7,7 +7,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/642 §6 houseboatlegmemo (default off). EA's SimRoutingComponent.PostPlanRouteCallback runs CheckAndUpdateForHouseboats
+    // docs/853 §2 houseboatlegmemo (default ON). EA's SimRoutingComponent.PostPlanRouteCallback runs CheckAndUpdateForHouseboats
     // after every Plan / Replan / ReplanFromPoint of a Sim or boat whose start or goal is a houseboat lot. Its boat entry
     // (EnterHouseboatThroughBoat) plans a new route from the router's start with PlanFromPoint: EnablePlanningAsBoat, EndAsBoat,
     // DestinationMustBeInDeepWater, a 5-15 m radial goal off the houseboat's RoutingSlot_0. Isla Paradiso phase-20261119-0746:
@@ -20,8 +20,8 @@ namespace Ts3Fixes
     // with that failure without searching. EnterHouseboatThroughBoat reads only Succeeded(), so the outer route ends as before.
     // Household, selected or unknown-scope routers (Fixes.HouseholdExempt; a boat by every occupant, none aboard = unknown):
     // never recorded, never answered. Successes are never memoed; an answer does not extend its entry.
-    // Counters [3870] recorded, [3871] answered, [3872] ms of the recorded plans those answers stand for, [3873] exempt or errors.
-    // §7 houseboatgangwayrescue (HouseboatGangwayRescue.cs) shares HlmPre / HlmPost: a gangway leg recorded or answered here marks
+    // Counters [1378] recorded, [1379] answered, [1380] ms of the recorded plans those answers stand for, [1381] exempt or errors.
+    // §3 houseboatgangwayrescue (HouseboatGangwayRescue.cs) shares HlmPre / HlmPost: a gangway leg recorded or answered here marks
     // the NPC for a rescue after GoHome fails; with the memo off and the rescue on, legs are only seen, never recorded or answered.
     public static partial class Fixes
     {
@@ -96,21 +96,21 @@ namespace Ts3Fixes
                     if (!HlmLegRoute()) return false;
                     string name;
                     ulong id = HlmRouter(out name);
-                    if (id == 0) { if (memo) c[3873]++; return false; }  // exempt routers are never marked for the rescue either
+                    if (id == 0) { if (memo) c[1381]++; return false; }  // exempt routers are never marked for the rescue either
                     leg = id;
                     if (!memo) return false;
                     Vector3 g = HlmGoal();
                     HouseboatLegMemoCore.Entry e;
                     if (!sHlm.Hit(id, start.x, start.y, start.z, g.x, g.y, g.z, SimClock.CurrentTicks, out e)) return false;
-                    c[3871]++;
-                    c[3872] += e.Ms;
+                    c[1379]++;
+                    c[1380] += e.Ms;
                     HlmLog("answered, " + name + ", stands for " + e.Ms + " ms, goal " + (int)g.x + "," + (int)g.z);
                     r = FailFast(RoutePlanResultType.FailedBecauseNoPathToDestination);
                     leg = 0;  // answered: nothing to record after
                     if (rescue) { Sim gs = HgrLegSim(); if (gs != null) HgrNote(gs, 0); }
                     return true;
                 }
-                catch (Exception) { if (memo) c[3873]++; leg = 0; return false; }
+                catch (Exception) { if (memo) c[1381]++; leg = 0; return false; }
             }
 
             // a slow kind-2 no-path plan HlmPre did not take: log why (options, follower, scope), so a silent skip shows in the log
@@ -170,12 +170,12 @@ namespace Ts3Fixes
                     Vector3 g = HlmGoal();
                     long life = SimClock.ConvertToTicks(Instantiator.kHouseboatLegMemoHours, TimeUnit.Hours);
                     sHlm.Record(leg, start.x, start.y, start.z, g.x, g.y, g.z, SimClock.CurrentTicks, life, ms);
-                    c[3870]++;
+                    c[1378]++;
                     Sim ls = HgrLegSim();
                     HlmLog("recorded, router " + leg.ToString("X") + ", " + (ls != null ? "gangway" : "boat") + " leg " + ms + " ms no path, goal " + (int)g.x + "," + (int)g.z
                         + ", " + Instantiator.kHouseboatLegMemoHours + " sim-h" + (ls != null ? ", start " + HgrXz(start) + HgrWhere(ls) : ""));
                 }
-                catch (Exception ex) { c[3873]++; HlmLog("error " + ex.GetType().Name); }
+                catch (Exception ex) { c[1381]++; HlmLog("error " + ex.GetType().Name); }
             }
         }
     }

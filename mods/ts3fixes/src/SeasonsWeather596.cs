@@ -26,16 +26,16 @@ namespace Ts3Fixes
     // "Change Clothes", which marks the change user-directed) the Sim (or the parent) keeps re-running it. Fix: after EA's
     // Test passes (EA's own RNG use kept), an autonomous Test answers false when Run's guards certainly refuse. Guards that
     // depend on the interaction running at Run time (IDisallowClothingChange) are not used, so the answer is "no" only
-    // where Run is a no-op. Counters: [1943] into answered no, [1944] out answered no, [1945] toddler answered no,
-    // [1946] would loop with the switch off, [1947] errors.
+    // where Run is a no-op. Counters: [2149] into answered no, [2150] out answered no, [2151] toddler answered no,
+    // [2152] would loop with the switch off, [2153] errors.
     //
     // outerwearrestore (kOuterwearRestore; docs/596 §2). [verified, decompiled] Every path into outerwear (GoingOutside,
     // GoingToOutsideRoom, GoingOffLot, GoingToWork, GoingToSchool) stores the outfit to go back to in
     // Sim.OutfitCategoryToUseWhenSpinOutOfOuterwear; TemperatureTooCold (ChangeIntoOuterwear) does not, and RemovingOuterwear
     // reads and clears it. So after ChangeIntoOuterwear the Sim returns to Everyday or to a stale category left by an earlier
     // trip whose outerwear came off another way (swim, bed, bath). Fix: when ChangeIntoOuterwear's Run actually put the Sim
-    // into outerwear from another category, that category is stored, as GoingOutside does. Counters: [1948] stored,
-    // [1949] not stored (switch off), [1950] errors.
+    // into outerwear from another category, that category is stored, as GoingOutside does. Counters: [2154] stored,
+    // [2155] not stored (switch off), [2156] errors.
     public static partial class Fixes
     {
         static readonly Type sOwIntoRun = typeof(Sim).GetNestedType("ChangeIntoOuterwear", BindingFlags.Public | BindingFlags.NonPublic);
@@ -120,9 +120,9 @@ namespace Ts3Fixes
                 bool on = OwTestHook.On();
                 if (!OwRefuses(subject)) return true;
                 if (OwAnswerNo(on, true, true, true)) { PatchCounters()[slot]++; return false; }
-                PatchCounters()[1946]++;
+                PatchCounters()[2152]++;
             }
-            catch (Exception) { PatchCounters()[1947]++; }
+            catch (Exception) { PatchCounters()[2153]++; }
             return true;
         }
 
@@ -166,11 +166,11 @@ namespace Ts3Fixes
                     {
                         OutfitCategories after = a.CurrentOutfitCategory;
                         bool on = ShortcutOn("outerwearrestore");
-                        if (OwRecord(on, before, after)) { a.OutfitCategoryToUseWhenSpinOutOfOuterwear = before; PatchCounters()[1948]++; }
-                        else if (OwRecord(true, before, after)) PatchCounters()[1949]++;
+                        if (OwRecord(on, before, after)) { a.OutfitCategoryToUseWhenSpinOutOfOuterwear = before; PatchCounters()[2154]++; }
+                        else if (OwRecord(true, before, after)) PatchCounters()[2155]++;
                     }
                 }
-                catch (Exception) { PatchCounters()[1950]++; }
+                catch (Exception) { PatchCounters()[2156]++; }
                 return r;
             }
             public bool RunOrig() { return false; } // Sim+ChangeIntoOuterwear.Run
@@ -181,7 +181,7 @@ namespace Ts3Fixes
         // (TemperatureTooCold, pure) answers no change. 'result': counters + the cost of one weather-outfit decision.
         public static object OuterwearAutoLoopCheck(string what)
         {
-            string counters = B582Counters("outerwearautoloop", 1943, new[] { "into answered no", "out answered no", "toddler answered no", "would loop (switch off)", "errors" }, OwMissing());
+            string counters = B582Counters("outerwearautoloop", 2149, new[] { "into answered no", "out answered no", "toddler answered no", "would loop (switch off)", "errors" }, OwMissing());
             if (what == "result") return counters + "; " + OwTiming();
             if (what != "run") return "outerwearautoloop <run|result>";
             bool on = ShortcutOn("outerwearautoloop");
@@ -241,7 +241,7 @@ namespace Ts3Fixes
         public static object OuterwearRestoreCheck(string what)
         {
             string miss = sOwIntoRun == null ? "Sim+ChangeIntoOuterwear" : "";
-            string counters = B582Counters("outerwearrestore", 1948, new[] { "stored", "not stored (switch off)", "errors" }, miss);
+            string counters = B582Counters("outerwearrestore", 2154, new[] { "stored", "not stored (switch off)", "errors" }, miss);
             if (what == "result") return counters;
             if (what != "run") return "outerwearrestore <run|result>";
             bool on = ShortcutOn("outerwearrestore");

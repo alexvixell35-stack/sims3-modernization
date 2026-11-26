@@ -15,7 +15,7 @@ namespace Ts3Fixes
                 + (typeof(Sim).GetNestedType("AutonomousSplashInPuddle", System.Reflection.BindingFlags.NonPublic) == null ? "Sim+AutonomousSplashInPuddle" : "");
             missing = missing.Trim();
             int[] c = PatchCounters();
-            string counters = "puddlereach: tests withheld 2706=" + c[2706] + ", seen with switch off 2707=" + c[2707] + ", errors 2708=" + c[2708]
+            string counters = "puddlereach: tests withheld 2706=" + c[3979] + ", seen with switch off 2707=" + c[3980] + ", errors 2708=" + c[3981]
                 + ", memos " + sPrMemo.Count + "; " + GlMembers(missing);
             if (what == "result") return counters;
             if (what != "run") return "puddlereach <run|result>";

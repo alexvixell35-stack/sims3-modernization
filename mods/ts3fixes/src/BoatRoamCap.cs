@@ -11,7 +11,7 @@ using Sims3.SimIFace;
 
 namespace Ts3Fixes
 {
-    // docs/642 §9 boatroamcap (default off). An NPC driving a boat on a world lot stays in EA's Boat.BoatAround loop for many sim
+    // docs/853 §4 boatroamcap (default ON). An NPC driving a boat on a world lot stays in EA's Boat.BoatAround loop for many sim
     // hours, overnight too (Isla Paradiso 2026-11-19: one Sim roamed every ~2 sim-hours from 10 PM to the next afternoon, another
     // made 50 roam plans in one session [verified, log]). Each run is a CreateRoamingBoatPath plan (~150-275 ms on the route
     // worker) plus a plan back to the start. BoatAround.Definition.Test only asks that the Sim drives the boat, the boat is not
@@ -29,9 +29,9 @@ namespace Ts3Fixes
     // cut, docs/271); unknown scope and the selected Sim count as household (IsPlayerSim), and so does a boat with any
     // household passenger. Diagnostics: a service or role NPC (Service, CreatedByService, AssignedRole) or a run from an
     // AlarmOneShot task is logged once per Sim per sim-hour, capped or not.
-    // Counters [4062] runs capped (no roam), [4063] returns pushed, [4064] returns failed (precheck, push, run, never ran),
-    // [4065] exempt runs, [4066] errors, [4067] returns that reached the shore, [4068] service / role / alarm-task boating
-    // logged, [4069] caps by the night window or a low motive (of 4062).
+    // Counters [1392] runs capped (no roam), [1393] returns pushed, [1394] returns failed (precheck, push, run, never ran),
+    // [1395] exempt runs, [1396] errors, [1397] returns that reached the shore, [1398] service / role / alarm-task boating
+    // logged, [1399] caps by the night window or a low motive (of 1392).
     public static partial class Fixes
     {
         static readonly BoatRoamCapCore sBrc = new BoatRoamCapCore();
@@ -104,7 +104,7 @@ namespace Ts3Fixes
             if (sBrcSvcSeen.TryGetValue(id, out last) && now >= last && now - last < BrcTicks(1f)) return;
             if (sBrcSvcSeen.Count >= BoatRoamCapCore.kMax) sBrcSvcSeen.Clear();
             sBrcSvcSeen[id] = now;
-            PatchCounters()[4068]++;
+            PatchCounters()[1398]++;
             BrcLog("service/role NPC " + sim.FullName + " (" + (what ?? "no role") + ") boating in " + boat.GetType().Name + ", in " + task + ", " + SimClock.CurrentTime().ToString());
         }
 
@@ -124,13 +124,15 @@ namespace Ts3Fixes
         }
 
         // true = this run must not roam (ReturnToShore was pushed as its continuation)
+        static readonly List<object> sBrcModRuns = new List<object>();  // mod BoatAround runs already checked (CompatResolve CrBr0)
         static bool BrcBefore(Boat.BoatAround ba)
         {
+            if (sBrcModRuns.Count > 0 && sBrcModRuns.Contains(ba)) return false;
             Sim sim = ba != null ? ba.Actor : null;
             Boat boat = ba != null ? ba.Target : null;
             if (sim == null || boat == null || sim.SimDescription == null) return false;
             int[] c = PatchCounters();
-            if (BrcExempt(sim, boat)) { c[4065]++; return false; }
+            if (BrcExempt(sim, boat)) { c[1395]++; return false; }
             long now = SimClock.CurrentTicks;
             BrcServiceNote(sim, boat, now);
             ulong id = sim.ObjectId.Value;
@@ -139,7 +141,7 @@ namespace Ts3Fixes
             int v = sBrc.Check(id, boat.ObjectId.Value, now, (int)SimClock.CurrentTime().Hour, BrcMotive(sim, CommodityKind.Energy), BrcMotive(sim, CommodityKind.Bladder), t, out e);
             if (v == BoatRoamCapCore.kReturnLost)
             {
-                c[4064]++;
+                c[1394]++;
                 BrcLog(sim.FullName + " still boating after the pushed return; EA roams, next try in " + Instantiator.kBoatRoamCapBackoffHours + " sim-h");
                 return false;
             }
@@ -150,15 +152,15 @@ namespace Ts3Fixes
             if (why == null && !sim.InteractionQueue.TryPushAsContinuation(ba, inst)) why = "continuation push refused";
             if (why != null)
             {
-                c[4064]++;
+                c[1394]++;
                 sBrc.Failed(id, now, t.BackoffTicks);
                 BrcLog(sim.FullName + " not sent to shore (" + why + ") after " + e.Roams + " roams / " + hours.ToString("0.0") + " sim-h; EA roams");
                 return false;
             }
             sBrc.Pushed(id, now);
-            c[4062]++;
-            c[4063]++;
-            if (e.Reason != BoatRoamCapCore.kStreak) c[4069]++;
+            c[1392]++;
+            c[1393]++;
+            if (e.Reason != BoatRoamCapCore.kStreak) c[1399]++;
             BrcLog(sim.FullName + " back to shore after " + e.Roams + " roams / " + hours.ToString("0.0") + " sim-h ("
                 + BoatRoamCapCore.Why(e.Reason) + ", " + boat.GetType().Name + ", " + SimClock.CurrentTime().ToString() + ")");
             return true;
@@ -170,10 +172,10 @@ namespace Ts3Fixes
             if (sim == null) return;
             if (!sBrc.Returned(sim.ObjectId.Value, ok, SimClock.CurrentTicks, BrcTicks(Instantiator.kBoatRoamCapBackoffHours))) return;
             int[] c = PatchCounters();
-            if (ok) c[4067]++;
+            if (ok) c[1397]++;
             else
             {
-                c[4064]++;
+                c[1394]++;
                 BrcLog(sim.FullName + " ReturnToShore failed; EA roams, next try in " + Instantiator.kBoatRoamCapBackoffHours + " sim-h");
             }
         }
@@ -186,7 +188,7 @@ namespace Ts3Fixes
                 {
                     bool capped = false;
                     try { capped = BrcBefore((object)this as Boat.BoatAround); }
-                    catch (Exception ex) { PatchCounters()[4066]++; BrcLog("error " + ex.GetType().Name); }
+                    catch (Exception ex) { PatchCounters()[1396]++; BrcLog("error " + ex.GetType().Name); }
                     if (capped) return true;  // no roam; the pushed ReturnToShore runs next
                 }
                 return RunOrig();
@@ -201,7 +203,7 @@ namespace Ts3Fixes
                 bool r = RunOrig();
                 if (!ShortcutOn("boatroamcap")) return r;
                 try { BrcAfterShore((object)this as Boat.ReturnToShore, r); }
-                catch (Exception ex) { PatchCounters()[4066]++; BrcLog("error after ReturnToShore " + ex.GetType().Name); }
+                catch (Exception ex) { PatchCounters()[1396]++; BrcLog("error after ReturnToShore " + ex.GetType().Name); }
                 return r;
             }
             public bool RunOrig() { return false; } // receives Boat+ReturnToShore.Run's original body

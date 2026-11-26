@@ -1,0 +1,203 @@
+{
+ "note": "anim-split-envreorder-1118 (Rodney 11-18: R1 envlistmemo reorder diag joined into the anim split profile, one load per world instead of two): = anim-split-profile-1118 (BP + IP + SV 10 min, asi animsplit-1118, [AnimPhase] Split + [UnseenProbe], releaseDefaults, measurement only, see its note) with BP and IP on ts3fixes.package.envlistmemo-reorder-1118 (envlistmemo-reorder-diag-1118, docs/274 §8.6: fixesOn envlistmemo dry, counters calls/scans >= 1, exc 0; wrong hits logged with the reorder diag, they do NOT fail the job) + HitchAttr.Enabled=1. SV keeps ts3fixes master-1117c (envlistmemo-reorder-diag had no SV job). Compat: envlistmemo-reorder-1118 is built at b91045ff1, which contains feature/animsplit-1118 (f50855027) with no ts3fixes difference, so the package matches the animsplit asi (counters v208-v209 anx*); envlistmemo is managed only, no native ini key. Version line 0.36.271-mc1117 of the old queue replaced by the animsplit one; sim loop line kept. ~42 min. Read: node tools/harness/run-verdict.ts anim-split-envreorder-1118; anx* as in anim-split-profile-1118, envlistmemo_* in the fixes report and the reorder lines in ts3native/script log.",
+ "rewind": "auto",
+ "stopQueueOnFail": false,
+ "regexCases": {
+  "^ts3native 0\\.36\\.275-animsplit1 ": {
+   "match": [
+    "ts3native 0.36.275-animsplit1 2026-11-18 20:40:00"
+   ],
+   "noMatch": [
+    "ts3native 0.36.274-yalias2 2026-11-17 13:50:00"
+   ]
+  },
+  "^OK   anim phase timers in rig pose 0x940430 .*: 4 call sites": {
+   "match": [
+    "OK   anim phase timers in rig pose 0x940430 (advance, notify, evaluate, publish): 4 call sites"
+   ],
+   "noMatch": [
+    "SKIP anim phase timers in rig pose 0x940430 (advance, notify, evaluate, publish): call at 0x0094059E is not a call to 0x00947590, nothing written"
+   ]
+  },
+  "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on, clip sites on, .*locomotion split, .*time step on, drains on, event push on, locomotion pass (own|behind loco window)\\)": {
+   "match": [
+    "OK   anim split (docs/22 §6.1): anxReady 1007 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
+   ],
+   "noMatch": [
+    "FAIL anim split (docs/22 §6.1): anxReady 1006 (pose sites off, clip sites on, 0x571C3C own, locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)",
+    "OK   anim split (docs/22 §6.1): anxReady 879 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push off, locomotion pass behind loco window)"
+   ]
+  },
+  "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": {
+   "match": [
+    "compat: Apex Radiance found at start (ApexRadiance.asi mutex), ApexRadiance.toml read, owned switches on: ObjectLookupIndex FastCacheCompression MemoryGuard ResourceLookupCache FileListCache; ApexStandDown=1"
+   ],
+   "noMatch": [
+    "compat: Apex Radiance not loaded at start"
+   ]
+  },
+  "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": {
+   "match": [
+    "diag: Bin add-ons: ApexRadiance.asi 13680 KB v3.2.3.0, d3d9.dll 1013 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1507 KB"
+   ],
+   "noMatch": [
+    "diag: Bin add-ons: d3d9.dll 7672 KB v10.0.17763.1 (DXVK), MonoPatcher.asi 38 KB, ts3native.asi 1537 KB"
+   ]
+  },
+  "^(SKIP|FAIL) anim (phase|split)": {
+   "match": [
+    "SKIP anim phase ([AnimPhase]): no EA 1.69 address, docs/232 §8",
+    "FAIL anim split (docs/22 §6.1): anxReady 10 (pose sites off, clip sites on, 0x571C3C own, locomotion split, root-motion sites own)"
+   ],
+   "noMatch": [
+    "OK   anim split (docs/22 §6.1): anxReady 1007 (pose sites on, clip sites on, 0x571C3C behind [UnseenAnim], locomotion split, root-motion sites own, time step on, drains on, event push on, locomotion pass behind loco window)"
+   ]
+  },
+  "OK   sim loop: .* runs at the end of every Simulate iteration": {
+   "match": [
+    "OK   sim loop: hook 0x00C3B2F0 runs at the end of every Simulate iteration"
+   ],
+   "noMatch": [
+    "FAIL sim loop: hook not installed"
+   ]
+  }
+ },
+ "jobs": [
+  {
+   "id": "bp-anim-envreorder",
+   "note": "[est 14 min] BP 10 min, correctness + profile (counts, not timing): shipped defaults (releaseDefaults, [UnseenAnim] Mode=1 stays on) + [AnimPhase] Enabled=1 Split=1 + [UnseenProbe] Enabled=1. Read: anxPoseUs[kind][class] / 600 s = ms/s per pose kind and class; anxPhUs[phase][class]; anxPoseN / aaPasses = actors per pass; anxPhN[2] / anxPhN[0] = share reaching Evaluate; anxClipN / 600 = clip events/s; anxLocoUs[3] and unAgentUs = locomotion by class; anxTsUs[class] = time step 0x942C00; anxDrainUs = pass-end drains; anxEvUs = SACS event push; aaPassUs - (pose + time step + drains) = the pass's own walk; anxLocoPassUs - unAgentUs = locomotion outside the agent updates. Heavy tool (QPC per pose call): no timing verdict. Joined: BP 10 min, envlistmemo dry only: counters read back > 0, exc 0, 0 script errors; wrong hits logged with the reorder diag (no FAIL on them).",
+   "asi": "game-copy/ts3native.asi.animsplit-1118",
+   "iniBase": "game-copy/ts3native.ini.animsplit-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-reorder-1118",
+   "pinReason": "feature/animsplit-1118 (builds.json ts3native.asi.animsplit-1118 sha256 49606f9cb9ab + ini 137d53ac9af7: master 0.36.274-yalias2 + [AnimPhase] Split, counters v208-v209 anx*) on ts3fixes.package.envlistmemo-reorder-1118 (feature/envlistmemo-reorder-diag-1118: R1 dying bump + reorder diag log; managed only; built at b91045ff1, which contains feature/animsplit-1118)",
+   "releaseDefaults": true,
+   "save": "Baseline-BP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 90,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 40,
+   "stopQueueOnFail": false,
+   "ini": {
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "UnseenProbe.Enabled": 1,
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "envlistmemo",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1",
+     "fixesReport": "envlistmemo_"
+    }
+   },
+   "nativeRequire": "@anReady>=1,@anxReady>=495,anxTsN_3>=1,anxLocoPassN>=1,anAdvN>=1,anxPoseN_0_0>=1,anxClipN_0>=1,anxLocoN_0>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.275-animsplit1 ": 1,
+    "^OK   anim phase timers in rig pose 0x940430 .*: 4 call sites": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on, clip sites on, .*locomotion split, .*time step on, drains on, event push on, locomotion pass (own|behind loco window)\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) anim (phase|split)": 0
+   }
+  },
+  {
+   "id": "ip-anim-envreorder",
+   "note": "[est 14 min] IP 10 min, correctness + profile (counts, not timing): shipped defaults (releaseDefaults, [UnseenAnim] Mode=1 stays on) + [AnimPhase] Enabled=1 Split=1 + [UnseenProbe] Enabled=1. Read: anxPoseUs[kind][class] / 600 s = ms/s per pose kind and class; anxPhUs[phase][class]; anxPoseN / aaPasses = actors per pass; anxPhN[2] / anxPhN[0] = share reaching Evaluate; anxClipN / 600 = clip events/s; anxLocoUs[3] and unAgentUs = locomotion by class; anxTsUs[class] = time step 0x942C00; anxDrainUs = pass-end drains; anxEvUs = SACS event push; aaPassUs - (pose + time step + drains) = the pass's own walk; anxLocoPassUs - unAgentUs = locomotion outside the agent updates. Heavy tool (QPC per pose call): no timing verdict. Joined: IP 10 min, envlistmemo dry only: counters read back > 0, exc 0, 0 script errors; wrong hits logged with the reorder diag (no FAIL on them).",
+   "asi": "game-copy/ts3native.asi.animsplit-1118",
+   "iniBase": "game-copy/ts3native.ini.animsplit-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.envlistmemo-reorder-1118",
+   "pinReason": "feature/animsplit-1118 (builds.json ts3native.asi.animsplit-1118 sha256 49606f9cb9ab + ini 137d53ac9af7: master 0.36.274-yalias2 + [AnimPhase] Split, counters v208-v209 anx*) on ts3fixes.package.envlistmemo-reorder-1118 (feature/envlistmemo-reorder-diag-1118: R1 dying bump + reorder diag log; managed only; built at b91045ff1, which contains feature/animsplit-1118)",
+   "releaseDefaults": true,
+   "save": "Baseline-IP-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 90,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 40,
+   "stopQueueOnFail": false,
+   "ini": {
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "UnseenProbe.Enabled": 1,
+    "HitchAttr.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true,
+     "fixesOn": "envlistmemo",
+     "fixesRequire": "envlistmemo_calls>=1,envlistmemo_scans>=1,envlistmemo_exc<1",
+     "fixesReport": "envlistmemo_"
+    }
+   },
+   "nativeRequire": "@anReady>=1,@anxReady>=495,anxTsN_3>=1,anxLocoPassN>=1,anAdvN>=1,anxPoseN_0_0>=1,anxClipN_0>=1,anxLocoN_0>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.275-animsplit1 ": 1,
+    "^OK   anim phase timers in rig pose 0x940430 .*: 4 call sites": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on, clip sites on, .*locomotion split, .*time step on, drains on, event push on, locomotion pass (own|behind loco window)\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1,
+    "OK   sim loop: .* runs at the end of every Simulate iteration": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) anim (phase|split)": 0
+   }
+  },
+  {
+   "id": "sv-anim-split",
+   "note": "[est 14 min] SV 10 min, correctness + profile (counts, not timing): shipped defaults (releaseDefaults, [UnseenAnim] Mode=1 stays on) + [AnimPhase] Enabled=1 Split=1 + [UnseenProbe] Enabled=1. Read: anxPoseUs[kind][class] / 600 s = ms/s per pose kind and class; anxPhUs[phase][class]; anxPoseN / aaPasses = actors per pass; anxPhN[2] / anxPhN[0] = share reaching Evaluate; anxClipN / 600 = clip events/s; anxLocoUs[3] and unAgentUs = locomotion by class; anxTsUs[class] = time step 0x942C00; anxDrainUs = pass-end drains; anxEvUs = SACS event push; aaPassUs - (pose + time step + drains) = the pass's own walk; anxLocoPassUs - unAgentUs = locomotion outside the agent updates. Heavy tool (QPC per pose call): no timing verdict.",
+   "asi": "game-copy/ts3native.asi.animsplit-1118",
+   "iniBase": "game-copy/ts3native.ini.animsplit-1118",
+   "fixesPackage": "game-copy/ts3fixes.package.master-1117c",
+   "pinReason": "feature/animsplit-1118 (builds.json ts3native.asi.animsplit-1118 sha256 49606f9cb9ab + ini 137d53ac9af7: master 0.36.274-yalias2 + [AnimPhase] Split, counters v208-v209 anx*) on ts3fixes master-1117c (the shipped set the 11-18 audit read)",
+   "releaseDefaults": true,
+   "save": "Baseline-SV-Spring",
+   "gameArgs": [
+    "-disablestoryprogression"
+   ],
+   "minCounters": 1,
+   "noiseCheck": false,
+   "shadowCheck": false,
+   "scriptErrorsMax": 0,
+   "timeoutMin": 30,
+   "stopQueueOnFail": false,
+   "ini": {
+    "AnimPhase.Enabled": 1,
+    "AnimPhase.Split": 1,
+    "UnseenProbe.Enabled": 1
+   },
+   "run": {
+    "profile": {
+     "seed": 12345,
+     "minutes": 10,
+     "noSamplers": true
+    }
+   },
+   "nativeRequire": "@anReady>=1,@anxReady>=495,anxTsN_3>=1,anxLocoPassN>=1,anAdvN>=1,anxPoseN_0_0>=1,anxClipN_0>=1,anxLocoN_0>=1",
+   "logRequire": {
+    "^ts3native 0\\.36\\.275-animsplit1 ": 1,
+    "^OK   anim phase timers in rig pose 0x940430 .*: 4 call sites": 1,
+    "^OK   anim split \\(docs/22 §6\\.1\\): anxReady \\d+ \\(pose sites on, clip sites on, .*locomotion split, .*time step on, drains on, event push on, locomotion pass (own|behind loco window)\\)": 1,
+    "^compat: Apex Radiance found at start \\(.*ApexStandDown=1": 1,
+    "^diag: Bin add-ons: ApexRadiance\\.asi \\d+ KB v\\d+\\.\\d+\\.\\d+\\.\\d+, d3d9\\.dll 1\\d{3} KB ": 1
+   },
+   "logForbid": {
+    "^(SKIP|FAIL) anim (phase|split)": 0
+   }
+  }
+ ]
+}

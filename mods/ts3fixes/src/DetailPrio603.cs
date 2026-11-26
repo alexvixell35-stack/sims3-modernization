@@ -8,7 +8,7 @@ using Sims3.SimIFace.CAS;
 
 namespace Ts3Fixes
 {
-    // detailprioexact (kDetailPriorityExact, default off; docs/603 §3). [verified, decompiled] Lot.Simulate calls
+    // detailprioexact (kDetailPriorityExact, default off; docs/605 §3). [verified, decompiled] Lot.Simulate calls
     // UpdateDetailPriority -> CalculateDetailPriority on every pass of every lot (each tick on simulating lots, every 30
     // ticks on the others). EA's body: no active household -> None; its home lot -> Home; else
     // `foreach (Sim s in Household.ActiveHousehold.AllActors) if (s.LotCurrent == this && s.RabbitHoleCurrent == null)
@@ -21,8 +21,8 @@ namespace Ts3Fixes
     // so calling them in another interleaving cannot change anything. Throws: EA's list build throws on a null member list
     // (AddRange) or a null description (HasSameCASAGSFlags) before any test, so the whole scan runs first and either case
     // returns -1 = "EA's own body" (which throws as before). Household Sims: the answer is EA's for everyone.
-    // Counters: [2756] exact answers, [2757] EA's body (a null list or description, or an error), [2758] check mismatches,
-    // [2759] errors.
+    // Counters: [2793] exact answers, [2794] EA's body (a null list or description, or an error), [2795] check mismatches,
+    // [2796] errors.
     public static partial class Fixes
     {
         const CASAGSAvailabilityFlags kDpMask = CASAGSAvailabilityFlags.AllAnimalsMask | CASAGSAvailabilityFlags.HumanAgeMask;
@@ -76,7 +76,7 @@ namespace Ts3Fixes
         static LotDetailPriority DpHooked(Lot lot)
         {
             if (sDpCalc == null) sDpCalc = typeof(Lot).GetMethod("CalculateDetailPriority", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-            return ((DpCalcFn)Delegate.CreateDelegate(typeof(DpCalcFn), lot, sDpCalc))();
+            return ((DpCalcFn)Fixes.Bind(typeof(DpCalcFn), lot, sDpCalc))();
         }
 
         // Controls on the household itself: its home lot is Home; the lot of each member outside a rabbit hole (not the
@@ -109,10 +109,10 @@ namespace Ts3Fixes
         }
 
         // DetailPrioExactCheck run: every lot, our scan vs EA's body (reference) vs the hooked method as the game calls it;
-        // a difference counts [2758]. fixed = switch on, every lot the same and the hook answered from the exact path.
+        // a difference counts [2795]. fixed = switch on, every lot the same and the hook answered from the exact path.
         public static object DetailPrioExactCheck(string what)
         {
-            string counters = B582Counters("detailprioexact", 2756, new[] { "exact answers", "EA's body", "check mismatches", "errors" }, EpJoin(sDetailPrioReady ? "" : "Lot.CalculateDetailPriority hook", EpLive(typeof(DetailPriorityHook), 1)));
+            string counters = B582Counters("detailprioexact", 2793, new[] { "exact answers", "EA's body", "check mismatches", "errors" }, EpJoin(sDetailPrioReady ? "" : "Lot.CalculateDetailPriority hook", EpLive(typeof(DetailPriorityHook), 1)));
             if (what == "result") return counters + "; " + DpTiming();
             if (what != "run") return "detailprioexact <run|result>";
             bool on = ShortcutOn("detailprioexact");
@@ -122,21 +122,21 @@ namespace Ts3Fixes
             {
                 controls = DpControls(out ctlText);
                 int[] c = PatchCounters();
-                int lots = 0, diff = 0, home = 0, player = 0, exact0 = c[2756];
+                int lots = 0, diff = 0, home = 0, player = 0, exact0 = c[2793];
                 foreach (Lot lot in LotManager.AllLots)
                 {
                     if (lot == null) continue;
                     lots++;
                     LotDetailPriority ea = DpEaReference(lot), hooked = DpHooked(lot);
                     int ours = DpExact(lot);
-                    if (ours != (int)ea || hooked != ea) { diff++; c[2758]++; }
+                    if (ours != (int)ea || hooked != ea) { diff++; c[2795]++; }
                     if (ea == LotDetailPriority.Home) home++;
                     if (ea == LotDetailPriority.PlayerSim) player++;
                 }
-                bool viaExact = c[2756] - exact0 >= lots;
+                bool viaExact = c[2793] - exact0 >= lots;
                 controls &= diff == 0;
                 fixedNow = on && diff == 0 && viaExact && lots > 0 && !ShortcutOn("detailprio");
-                live = "live: lots " + lots + " (home " + home + ", player Sim " + player + "), differ " + diff + ", hook answered exact " + (c[2756] - exact0)
+                live = "live: lots " + lots + " (home " + home + ", player Sim " + player + "), differ " + diff + ", hook answered exact " + (c[2793] - exact0)
                     + ", detailprio (tick set) " + (ShortcutOn("detailprio") ? "on: the exact path is not used" : "off");
             }
             catch (Exception e) { missing = "threw " + e.GetType().Name; live = "live: threw"; ctlText = "threw"; controls = false; }

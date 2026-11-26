@@ -12,13 +12,13 @@ namespace Ts3Fixes
         //   Controls (printed): a job a Sim holds -> kept (decision, plus a real held FireFightingJob when the world has one);
         //   no value -> nothing dropped.
         //   off BROKEN = the stale value is kept; on FIXED = dropped.
-        //   result  counters 2570-2572, the current value and whether it is live
+        //   result  counters 3953-3955, the current value and whether it is live
         public static object FireActiveJobCheck(string what)
         {
             int[] c = PatchCounters();
             FireFightingJob cur = ActiveFireFighter.sActiveJob;
             bool curLive = cur != null && FajLiveJobs().Contains(cur);
-            string counters = "fireactivejob: cleared at quit 2570=" + c[2570] + ", dropped at load 2571=" + c[2571] + ", errors 2572=" + c[2572]
+            string counters = "fireactivejob: cleared at quit 2570=" + c[3953] + ", dropped at load 2571=" + c[3954] + ", errors 2572=" + c[3955]
                 + "; sActiveJob " + (cur == null ? "null" : curLive ? "a live job" : "STALE") + "; members found=" + (sFajMapTag != null && sFajMinute != null);
             if (what == "result") return counters;
             if (what != "run") return "fireactivejob <run|result>";

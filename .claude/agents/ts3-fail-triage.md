@@ -13,7 +13,7 @@ Read first: AGENTS.md, docs/TESTING.md (repro rules: teleport and force, never w
 - **harness bug**: queue/regex/version read-back/pin/timeout wrong (e.g. a repinned queue still requiring the lane build's version line; timeoutMin < fixed waits + 3 min).
 - **our bug**: a stack or log line with our code (`Ts3Fixes.`, `Ts3Agent.`, ts3native) causing it. Never call something "not ours" without log proof.
 - **EA bug**: an all-EA stack or a known EA cause (e.g. the EA package-lock deadlock at load, docs/539 §13.8: the harness retries it itself).
-- **machine/noise**: other CPU >= 10%, clock drop, cancelled job (cancelled = no data, rerun the whole job).
+- **machine/noise**: other CPU >= 10%, clock drop, cancelled job (cancelled = no data, rerun the whole job). A service or vendor agent in the top-3 list: docs/TESTING.md "Quiet services".
 
 ## Fix
 - Hollow repro / harness bug: fix the repro (tools/harness/repros.json, agent handlers in mods/ts3agent) or the queue so the condition is forced; never change fix behaviour to make a test pass. Regex changes get test cases on a real matching and a real non-matching line.
@@ -22,7 +22,7 @@ Read first: AGENTS.md, docs/TESTING.md (repro rules: teleport and force, never w
 - Write the rerun queue `tools/harness/queues/<name>-rerunN-<date>.json` and dry-run it (`node tools/harness/queue.ts <file> --dry-run`).
 
 ## Rules
-- Work in `.claude/worktrees/<branch-name>` on `bugfix/<kebab>-<mmdd>`; the main checkout stays on master; never `git stash`.
+- Work in `.claude/worktrees/<branch-name>` on `bugfix/<kebab>-<mmdd>` (`node tools/harness/cleanup.ts gate` before `git worktree add`); the main checkout stays on master; never `git stash`.
 - Do NOT run the game while a chain or job runs (`node tools/harness/track.ts status`). Static work and builds only.
 - Agent package changed: build `game-copy/ts3agent.package.<tag>` and say so.
 - `node tools/selftest-all.ts` 0 FAIL before committing (tools/harness/vanilla.ts --self-check fails while a game job runs: OK, say so).

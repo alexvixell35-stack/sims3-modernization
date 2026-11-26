@@ -10,13 +10,13 @@ using Sims3.SimIFace;
 
 namespace Ts3Agent
 {
-    // Repro for ts3fixes boatroamcap (docs/642 §9, BoatRoamCap.cs): EA's Boat.BoatAround loop of an NPC driver on a world lot,
+    // Repro for ts3fixes boatroamcap (docs/853 §4, BoatRoamCap.cs): EA's Boat.BoatAround loop of an NPC driver on a world lot,
     // with no exit of its own. Picks NPCs as setup_sims (known non-active household, not selectable or selected, teen or older
     // human, home lot), gives each its own speed boat on the sea off the nearest shore (as boat_getout_stress: owned by its home
     // lot, BoatOwnable, so EA's ReturnToShore can run), sets it on the shore (AGENTS.md "Repro Sim setup", autonomy off), then
     // EA's Board Boat (player-directed, as driver). While aboard and idle, BoatAround is pushed at autonomous priority, as
     // autonomy picks it in play (EA's GoBoating needs a map-view click, so it cannot be pushed from script). It watches `seconds`
-    // (300): per Sim the BoatAround runs seen, ReturnToShore runs seen, whether it got out of the boat, and the 4062-4069 deltas.
+    // (300): per Sim the BoatAround runs seen, ReturnToShore runs seen, whether it got out of the boat, and the 1392-1399 deltas.
     // OFF: BoatAround runs on and on, never ashore. ON: after kBoatRoamCapRoams (3) roams (or at night) a ReturnToShore follows
     // and the Sim gets out; 'boatroamcap: <name> back to shore after N roams / H sim-h' in ts3native.log.
     public static partial class Handlers
@@ -35,7 +35,7 @@ namespace Ts3Agent
         static readonly string[] kBrrCtr = { "capped", "returns_pushed", "returns_failed", "exempt", "errors", "shore_reached", "service_logged", "night_or_motive" };
         static readonly int[] sBrrBase = new int[8];
 
-        static int BrrCtr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 4069 ? c[4062 + k] : -1; }
+        static int BrrCtr(int k) { int[] c = BgsCounters(); return c != null && c.Length > 1399 ? c[1392 + k] : -1; }
 
         // boat_roam_repro {start: true, sims?: 1, seconds?: 300} | {result: true} | {stop: true}
         static object BoatRoamRepro(Args a)
@@ -79,7 +79,7 @@ namespace Ts3Agent
             }
             if (a.Has("stop")) { sBrrGen++; r["stopped"] = true; return r; }
             Dictionary<string, object> ctr = Util.Obj();
-            for (int k = 0; k < 8; k++) { int v = BrrCtr(k); ctr[kBrrCtr[k] + "_" + (4062 + k)] = v < 0 ? -1 : v - sBrrBase[k]; }
+            for (int k = 0; k < 8; k++) { int v = BrrCtr(k); ctr[kBrrCtr[k] + "_" + (1392 + k)] = v < 0 ? -1 : v - sBrrBase[k]; }
             r["done"] = sBrrDone; r["error"] = sBrrError; r["counters"] = ctr; r["boatroamcap"] = ModOn("boatroamcap");
             List<object> rows = new List<object>();
             foreach (BrrSim s in sBrrSims)

@@ -18,7 +18,8 @@ namespace Ts3Fixes
     // room on the search's level or one either side, which is when IsInside refuses every spot of the tile. Same tiles
     // accepted in the same order: EA's answer.
     //
-    // This file is the managed half. In RrNearbyHook, when the indoors stage would run: EA's own body runs the early
+    // This file is the managed half. In FibNearbyHook (its own swap of GlobalFunctions.FindGoodLocationNearby), when the
+    // indoors stage would run: EA's own body runs the early
     // stages; then the stage's search is made here, word for word EA's (same object, ignore list, start, constraints,
     // IsInside as the check), between two messages to ts3native (op 48: "the next search of this thread is the indoors
     // stage" / "over"). EA's body runs the later stages. Without ts3native or with [FglInside] off the first message is
@@ -26,12 +27,61 @@ namespace Ts3Fixes
     //
     // Household and selected Sims (and an unknown task Sim) keep EA's body unless fglinboundhh is on as well.
     // kFglInBoundShadow: EA's stage runs too (not armed), its answer is returned and a difference is counted and logged.
-    // Counters 4250-4259. fglnonescan / fglnnearspot, when on, take the call first.
+    // Counters 1508-1517.
     public static partial class Fixes
     {
-        const int kFibStages = 4250, kFibNoNative = 4251, kFibFound = 4252, kFibNone = 4253, kFibExempt = 4254, kFibShadow = 4255, kFibShadowDiff = 4256,
-            kFibErrors = 4257, kFibMs = 4258, kFibEaMs = 4259;
+        const int kFibStages = 1496, kFibNoNative = 1497, kFibFound = 1498, kFibNone = 1499, kFibExempt = 1500, kFibShadow = 1501, kFibShadowDiff = 1502,
+            kFibErrors = 1503, kFibMs = 1504, kFibEaMs = 1505;
         const int kFglInsideOp = 48;
+        // GlobalFunctions.FindGoodLocationStrategies bits [verified, ilspycmd]: same position, same room, adjoining rooms (the
+        // early stages), indoors (the lot-wide stage with IsInside)
+        const int kFibEarly = 1 | 2 | 4, kFibIndoors = 8;
+        static bool sFibNearbyReady;
+        static readonly Type[] sFibNearbyArgs = new Type[] { typeof(IGameObject), typeof(ObjectGuid[]), typeof(Vector3).MakeByRefType(), typeof(Vector3).MakeByRefType(),
+            typeof(float), typeof(GlobalFunctions.FindGoodLocationStrategies), typeof(FindGoodLocationBooleans) };
+
+        static void ApplyFglInBound()
+        {
+            sFibNearbyReady = Patch(typeof(GlobalFunctions), "FindGoodLocationNearby", sFibNearbyArgs, typeof(FibNearbyHook), "NearbyHook", "NearbyOrig");
+        }
+
+        // the Sim whose task is running (an interaction's placement search runs on its Sim's task); null = unknown
+        static Sim FibTaskSim()
+        {
+            try
+            {
+                IScriptProxy p = Simulator.GetProxy(Simulator.CurrentTask);
+                return p != null ? p.Target as Sim : null;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception) { return null; }
+        }
+
+        public class FibNearbyHook
+        {
+            public static bool NearbyHook(IGameObject obj, ObjectGuid[] objIdsToIgnore, ref Vector3 position, ref Vector3 forward, float offset,
+                GlobalFunctions.FindGoodLocationStrategies searches, FindGoodLocationBooleans fglBools)
+            {
+                if (obj != null && ShortcutOn("fglinbound"))
+                {
+                    Vector3 bp = position, bf = forward;
+                    int r = -1;
+                    try { r = FibNearby(obj, objIdsToIgnore, ref position, ref forward, offset, (int)searches, fglBools); }
+                    catch (ResetException) { throw; }
+                    catch (Exception) { PatchCounters()[kFibErrors]++; }
+                    if (r >= 0) return r == 1;
+                    position = bp; forward = bf;
+                    return NearbyOrig(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
+                }
+                uint ft0 = SrcNowUs();
+                bool eaFound = NearbyOrig(obj, objIdsToIgnore, ref position, ref forward, offset, searches, fglBools);
+                uint fus = unchecked(SrcNowUs() - ft0);
+                if (fus >= 100000) FibEaSlow(obj, fus, eaFound);
+                return eaFound;
+            }
+            public static bool NearbyOrig(IGameObject obj, ObjectGuid[] objIdsToIgnore, ref Vector3 position, ref Vector3 forward, float offset,
+                GlobalFunctions.FindGoodLocationStrategies searches, FindGoodLocationBooleans fglBools) { return false; } // receives GlobalFunctions.FindGoodLocationNearby (7 arguments)
+        }
         static uint sFibUsRest, sFibEaUsRest;   // sub-millisecond remainders of the two ms counters
         static int sFibEaSlow;                  // switch off: FindGoodLocationNearby calls of 100 ms or more
         static string sFibLast = "";
@@ -125,7 +175,7 @@ namespace Ts3Fixes
             {
                 Vector3 ep = p0, ef = f0;
                 uint t3 = SrcNowUs();
-                bool ea = RrNearbyHook.NearbyOrig(obj, ids, ref ep, ref ef, offset, (GlobalFunctions.FindGoodLocationStrategies)RouteRelaxCore.kIndoors, bools);
+                bool ea = FibNearbyHook.NearbyOrig(obj, ids, ref ep, ref ef, offset, (GlobalFunctions.FindGoodLocationStrategies)kFibIndoors, bools);
                 uint eaUs = unchecked(SrcNowUs() - t3);
                 FibAddMs(kFibEaMs, ref sFibEaUsRest, eaUs);
                 c[kFibShadow]++;
@@ -141,28 +191,28 @@ namespace Ts3Fixes
 
         static string FibPos(Vector3 p) { return p.x.ToString("0.00") + "," + p.y.ToString("0.00") + "," + p.z.ToString("0.00"); }
 
-        // RrNearbyHook's branch. Returns 1 / 0 = the call's answer, -1 = not ours (the caller runs EA's body unchanged).
+        // FibNearbyHook's branch. Returns 1 / 0 = the call's answer, -1 = not ours (the caller runs EA's body unchanged).
         static int FibNearby(IGameObject obj, ObjectGuid[] ids, ref Vector3 position, ref Vector3 forward, float offset, int s, FindGoodLocationBooleans bools)
         {
-            if ((s & RouteRelaxCore.kIndoors) == 0) return -1;
+            if ((s & kFibIndoors) == 0) return -1;
             Vector3 p0 = position, f0 = forward;
             LotLocation loc = LotLocation.Invalid;
             ulong lot = World.GetLotLocation(p0, ref loc);
             if (lot == 0 || World.GetRoomId(lot, loc, eRoomDefinition.LightBlocking) <= 0) return -1;   // EA runs no indoors stage
-            if (HouseholdExempt(RrTaskSim()) && !ShortcutOn("fglinboundhh")) { PatchCounters()[kFibExempt]++; return -1; }
+            if (HouseholdExempt(FibTaskSim()) && !ShortcutOn("fglinboundhh")) { PatchCounters()[kFibExempt]++; return -1; }
             // the probes at the position, the same room and the adjoining rooms: EA's own body, those stages only
-            int early = s & RouteRelaxCore.kEarly;
-            if (early != 0 && RrNearbyHook.NearbyOrig(obj, ids, ref position, ref forward, offset, (GlobalFunctions.FindGoodLocationStrategies)early, bools)) return 1;
-            int rest = s & ~RouteRelaxCore.kEarly;
+            int early = s & kFibEarly;
+            if (early != 0 && FibNearbyHook.NearbyOrig(obj, ids, ref position, ref forward, offset, (GlobalFunctions.FindGoodLocationStrategies)early, bools)) return 1;
+            int rest = s & ~kFibEarly;
             int res;
             try { res = FibStage(obj, ids, p0, f0, offset, bools, out position, out forward); }
             catch (ResetException) { throw; }
             catch (Exception) { PatchCounters()[kFibErrors]++; res = -1; }
             if (res == 1) return 1;
-            if (res == 0) rest &= ~RouteRelaxCore.kIndoors;   // our stage ran and found nothing: the later stages are EA's
+            if (res == 0) rest &= ~kFibIndoors;   // our stage ran and found nothing: the later stages are EA's
             if (rest == 0) return 0;
             position = p0; forward = f0;
-            return RrNearbyHook.NearbyOrig(obj, ids, ref position, ref forward, offset, (GlobalFunctions.FindGoodLocationStrategies)rest, bools) ? 1 : 0;
+            return FibNearbyHook.NearbyOrig(obj, ids, ref position, ref forward, offset, (GlobalFunctions.FindGoodLocationStrategies)rest, bools) ? 1 : 0;
         }
 
         // switch off: one line for a slow call, so a storm names the caller's object without [FglProf]
@@ -185,13 +235,13 @@ namespace Ts3Fixes
 
         // FglInBoundCheck live / live:big: the real searches, no Sim needed. A GuitarJig (the logged object) is created on
         // up to three indoor tiles of a lot, our armed stage search and EA's stage run from there, the answers are
-        // compared (slots 4255 / 4256 as in shadow), the jig is destroyed. Nothing is placed or moved: both paths only
+        // compared (slots 1501 / 1502 as in shadow), the jig is destroyed. Nothing is placed or moved: both paths only
         // answer with a position. Ours runs first, so what [FglMemo] carries over can only help EA's time.
         // live: from the selected Sim's tile. live:big: from the centre of the largest lot with indoor tiles (the logged
         // 64 x 64 shape), so the slow case is checked without a Sim there; one tile pass per lot, read-only.
         static string FibLive(bool big)
         {
-            if (!sRrNearbyReady) return "live: FindGoodLocationNearby swap missing";
+            if (!sFibNearbyReady) return "live: FindGoodLocationNearby swap missing";
             Vector3 at0;
             if (!big)
             {
@@ -263,7 +313,7 @@ namespace Ts3Fixes
                     uint us;
                     int res = FibArmed(jig, null, p0, Vector3.UnitZ, bools, out mp, out mf, out us);
                     uint t1 = SrcNowUs();
-                    bool ea = RrNearbyHook.NearbyOrig(jig, null, ref ep, ref ef, 0f, (GlobalFunctions.FindGoodLocationStrategies)RouteRelaxCore.kIndoors, bools);
+                    bool ea = FibNearbyHook.NearbyOrig(jig, null, ref ep, ref ef, 0f, (GlobalFunctions.FindGoodLocationStrategies)kFibIndoors, bools);
                     uint eaUs = unchecked(SrcNowUs() - t1);
                     b.Append("; tile " + sl.mX + "," + sl.mZ + " level " + sl.mLevel + ": EA " + (eaUs / 1000) + " ms " + (ea ? "found at " + FibPos(ep) : "no indoor spot"));
                     if (res < 0) { b.Append(", ours: ts3native [FglInside] did not answer"); continue; }
@@ -291,10 +341,10 @@ namespace Ts3Fixes
             bool on = ShortcutOn("fglinbound");
             bool arm = false, end = false;
             try { arm = DiagSend(kFglInsideOp, 1); } finally { end = DiagSend(kFglInsideOp, 0); }
-            bool fixedNow = on && arm && end && sRrNearbyReady;
+            bool fixedNow = on && arm && end && sFibNearbyReady;
             return B582Line("fglinbound", on, "indoors stage searched with ts3native [FglInside] (op 48 answered: arm " + arm + ", end " + end + ")", fixedNow,
                 "the two messages are answered alike (no arm left behind), the stage's search is EA's own call", arm == end,
-                sRrNearbyReady ? "" : "FindGoodLocationNearby swap", FibCounters());
+                sFibNearbyReady ? "" : "FindGoodLocationNearby swap", FibCounters());
         }
     }
 }

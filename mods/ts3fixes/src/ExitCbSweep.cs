@@ -7,7 +7,7 @@ using Sims3.Gameplay.Routing;
 
 namespace Ts3Fixes
 {
-    // exitcbsweep (default off; townie Sims only, household Sims are skipped; runs in errortrapsims' hourly alarm under its own switch; not save data): every route action
+    // exitcbsweep (default on; household, selected and unknown-scope Sims only lose the callbacks of killed route actions, docs/289; runs in errortrapsims' hourly alarm under its own switch; not save data): every route action
     // that gets a ScriptAdaptor (ScriptAdaptor.Init, from FollowRouteAction.CreateAdaptors, e.g. in
     // VehicleFollowSubPathRouteAction.PerformAction) adds adaptor.RouteExitReasonsAddedCallback to Sim.OnExitReasonsAdded
     // of the adaptor's associated Sim. The only removal is ScriptAdaptor.Kill, reached through FollowRouteAction.Kill, which
@@ -46,8 +46,8 @@ namespace Ts3Fixes
                 int removed = 0, longest = 0;
                 foreach (Sim s in new List<Sim>(Sims3.Gameplay.Queries.GetObjects<Sim>()))
                 {
-                    if (IsPlayerSim(s)) continue;  // townie Sims only (PlayerSims.cs: household, selected, unknown skipped)
-                    try { removed += ExitCbSweepSim(s, ref longest); }
+                    if (s == null || s.HasBeenDestroyed) continue;
+                    try { removed += ExitCbSweepSim(s, IsPlayerSim(s), ref longest); }  // player (PlayerSims.cs): killed actions only
                     catch (Exception e) { PassThrewOnce(ref sXcbThrew, "exitcbsweep", e); }  // one bad Sim skips only itself
                 }
                 c[2120] += removed;
@@ -59,8 +59,9 @@ namespace Ts3Fixes
             }
         }
 
-        // One townie's OnExitReasonsAdded: removes the callbacks of route adaptors that no longer belong to a live route.
-        static int ExitCbSweepSim(Sim s, ref int longest)
+        // One Sim's OnExitReasonsAdded: removes the callbacks of route adaptors that no longer belong to a live route
+        // (HhAuditCore.XcbRemove: a household-scope Sim keeps a replaced adaptor's callback on a live action).
+        static int ExitCbSweepSim(Sim s, bool player, ref int longest)
         {
             Delegate head = sXcbEvent.GetValue(s) as Delegate;
             if (head == null) return 0;
@@ -72,7 +73,7 @@ namespace Ts3Fixes
                 ScriptAdaptor a = list[i].Target as ScriptAdaptor;
                 FollowRouteAction ra = a == null ? null : sXcbRoute.GetValue(a) as FollowRouteAction;
                 if (ra == null) continue;
-                if (object.ReferenceEquals(ra.ScriptAdaptor, a) && (int)ra.RouteKillType == 0) continue;  // a live route's own
+                if (!HhAuditCore.XcbRemove(object.ReferenceEquals(ra.ScriptAdaptor, a), (int)ra.RouteKillType, player)) continue;  // a live route's own
                 s.OnExitReasonsAdded -= (Sim.ExitReasonsAddedCallback)list[i];
                 removed++;
             }

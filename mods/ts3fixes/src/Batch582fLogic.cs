@@ -24,7 +24,7 @@ namespace Ts3Fixes
         // swimmers are not waited for. Fix: just before EA's body, the stale keys (no created Sim) are removed, which is
         // what EA's loop meant to do; EA's loop then only meets live passengers. Household-visible: a household boat now
         // waits for its swimmers as EA intended.
-        // Counters: [1218] stale keys removed, [1219] routes that would have thrown with the switch off, [1220] errors.
+        // Counters: [2905] stale keys removed, [2906] routes that would have thrown with the switch off, [2907] errors.
         static readonly FieldInfo sBsWater = typeof(BoatOwnable).GetField("mPassengersInTheWater", kInstAll);
 
         // Pure: the keys EA's loop removes (no created Sim), in key order.
@@ -58,11 +58,11 @@ namespace Ts3Fixes
                     {
                         List<ulong> keys = new List<ulong>(water.Keys);
                         Predicate<ulong> created = delegate (ulong id) { return SimDescription.GetCreatedSim(id) != null; };
-                        if (!ShortcutOn("boatstaleswimmer")) { if (BsThrows(keys, created)) PatchCounters()[1219]++; }
-                        else foreach (ulong k in BsStale(keys, created)) { water.Remove(k); PatchCounters()[1218]++; }
+                        if (!ShortcutOn("boatstaleswimmer")) { if (BsThrows(keys, created)) PatchCounters()[2906]++; }
+                        else foreach (ulong k in BsStale(keys, created)) { water.Remove(k); PatchCounters()[2905]++; }
                     }
                 }
-                catch (Exception) { PatchCounters()[1220]++; }
+                catch (Exception) { PatchCounters()[2907]++; }
                 StartOrig();
             }
             public void StartOrig() { } // receives BoatMultipleOccupancy.OnRouteStarted
@@ -76,7 +76,7 @@ namespace Ts3Fixes
         // duplicates, so the NPC is never culled. Fix at the source: on that early-return path the method is not run at
         // all (all it would do is the protection), i.e. the protection comes after EA's check. Not household-visible
         // (NPC culling only; the opportunity outcome is EA's either way).
-        // Counters: [1221] early returns kept unprotected, [1222] seen with the switch off, [1223] errors.
+        // Counters: [2908] early returns kept unprotected, [2909] seen with the switch off, [2910] errors.
         static readonly FieldInfo sOaShared = typeof(GenericManager<OpportunityNames, Opportunity, Opportunity>).GetField("sDictionary", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
         static readonly FieldInfo sOaValues = typeof(GenericManager<OpportunityNames, Opportunity, Opportunity>).GetField("mValues", kInstAll);
 
@@ -104,12 +104,12 @@ namespace Ts3Fixes
                         if (shared != null) shared.TryGetValue((ulong)toAdd.Guid, out v);
                         if (shared != null && values != null && OaEarly(v != null, v != null && values.ContainsKey((ulong)v.OpportunityCategory)))
                         {
-                            if (ShortcutOn("oppcategoryprotect")) { PatchCounters()[1221]++; return; }
-                            PatchCounters()[1222]++;
+                            if (ShortcutOn("oppcategoryprotect")) { PatchCounters()[2908]++; return; }
+                            PatchCounters()[2909]++;
                         }
                     }
                 }
-                catch (Exception) { PatchCounters()[1223]++; }
+                catch (Exception) { PatchCounters()[2910]++; }
                 AcceptOrig(toAdd, prevSource, prevTarget);
             }
             public void AcceptOrig(Opportunity toAdd, object prevSource, object prevTarget) { } // receives OpportunityManager.AcceptOpportunity(toAdd, info, info)
@@ -122,7 +122,7 @@ namespace Ts3Fixes
         // destroyed in finally. Fix: with no other commercial lot, our copy of EA's loop without the drive step runs: the
         // car waits EA's random interval until it should drive off, then EA's DriveOffscreenAndRelease; reset and
         // destroy as EA. With a lot to drive to, EA's code. Not household-visible (ambient traffic).
-        // Counters: [1224] cars idled instead of throwing, [1225] seen with the switch off, [1226] errors.
+        // Counters: [2911] cars idled instead of throwing, [2912] seen with the switch off, [2913] errors.
         static Type sNcType;
         static FieldInfo sNcCar;
 
@@ -153,11 +153,15 @@ namespace Ts3Fixes
                 {
                     car = sNcCar.GetValue(this) as CarNpcWithNoDriver;
                     if (car == null || !NcNoTarget(NcTargets(car))) car = null;
-                    else if (!ShortcutOn("nocommercialcar")) { PatchCounters()[1225]++; car = null; }
+                    else if (!ShortcutOn("nocommercialcar")) { PatchCounters()[2912]++; car = null; }
                 }
-                catch (Exception) { PatchCounters()[1226]++; car = null; }
+                catch (Exception) { PatchCounters()[2913]++; car = null; }
+                // re-entry with no car (af4 2026-11-17, 6 NREs): ErrorTrap's ScriptProxy runs Simulate again after a handled script
+                // error (EA's own DisplayScriptError returns false, so EA never re-runs) and EA's finally already set mCar null; EA's
+                // first line then throws on every re-run. A driver with no car has nothing left to do: end the task.
+                if (car == null && ShortcutOn("nocommercialcar") && sNcCar.GetValue(this) == null) return;
                 if (car == null) { SimOrig(); return; }
-                PatchCounters()[1224]++;
+                PatchCounters()[2911]++;
                 try
                 {
                     car.CarRoutingComponent.OnReset();
@@ -187,7 +191,7 @@ namespace Ts3Fixes
         // the rest of the accept (map tag, HUD refresh) are skipped. With no community lot EA can spawn nothing anyway, so
         // the fix runs only Opportunity.OnAdded there; with community lots, EA's code. Household-visible: a scavenger
         // opportunity accepted in such a world is accepted fully (no script error); no items appear, as in EA.
-        // Counters: [1227] accepts without community lots handled, [1228] seen with the switch off, [1229] errors.
+        // Counters: [2914] accepts without community lots handled, [2915] seen with the switch off, [2916] errors.
         internal static bool ScNoLots(int communityLots) { return communityLots == 0; }
 
         static void ApplyScavengerNoLot()
@@ -205,11 +209,11 @@ namespace Ts3Fixes
                 {
                     List<Lot> lots = LotManager.GetAllCommunityLots();
                     none = ScNoLots(lots == null ? 0 : lots.Count);
-                    if (none && !ShortcutOn("scavengernolot")) { PatchCounters()[1228]++; none = false; }
+                    if (none && !ShortcutOn("scavengernolot")) { PatchCounters()[2915]++; none = false; }
                 }
-                catch (Exception) { PatchCounters()[1229]++; none = false; }
+                catch (Exception) { PatchCounters()[2916]++; none = false; }
                 if (!none) { AddedOrig(); return; }
-                PatchCounters()[1227]++;
+                PatchCounters()[2914]++;
                 base.OnAdded();
             }
             public void AddedOrig() { } // receives ScavengerOpportunity.OnAdded
@@ -224,7 +228,7 @@ namespace Ts3Fixes
         // and the throw stops Sim.OnLotChangedEvent's other subscribers (jukebox, DJ booth, ...). Fix at the stale
         // listener: called for a party with no parent or no host, it unsubscribes itself and returns. Household-visible:
         // only for the selected Sim's lot changes, which reach every other subscriber again.
-        // Counters: [1230] stale listeners removed, [1231] would have thrown with the switch off, [1232] errors.
+        // Counters: [2917] stale listeners removed, [2918] would have thrown with the switch off, [2919] errors.
         static Type sPlWait, sPlHappen;
         static MethodInfo sPlWaitM, sPlHappenM;
         static FieldInfo sPlWaitParent, sPlHappenParent;
@@ -254,12 +258,12 @@ namespace Ts3Fixes
                 if (s == null || !s.IsSelectable) return false;  // EA returns before the throw for these
                 NpcParty p = parentF.GetValue(self) as NpcParty;
                 if (!PlStale(p != null, p != null && p.Host != null)) return false;
-                if (!ShortcutOn("partylotlistener")) { PatchCounters()[1231]++; return false; }
-                Sim.OnLotChangedEvent -= (Sim.OnLotChanged)Delegate.CreateDelegate(typeof(Sim.OnLotChanged), self, m);
-                PatchCounters()[1230]++;
+                if (!ShortcutOn("partylotlistener")) { PatchCounters()[2918]++; return false; }
+                Sim.OnLotChangedEvent -= (Sim.OnLotChanged)Fixes.Bind(typeof(Sim.OnLotChanged), self, m);
+                PatchCounters()[2917]++;
                 return true;
             }
-            catch (Exception) { PatchCounters()[1232]++; return false; }
+            catch (Exception) { PatchCounters()[2919]++; return false; }
         }
 
         public class BPlWaitHook

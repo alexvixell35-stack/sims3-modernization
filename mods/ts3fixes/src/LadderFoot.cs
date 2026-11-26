@@ -37,8 +37,8 @@ namespace Ts3Fixes
     //
     // Scope: ladderfootshoo covers Sims the player does not control, as planner and as the Sim asked to step away;
     // household and selected Sims in either role need ladderfootshoohh as well (or [Experimental] HouseholdToo).
-    // Off = compare mode for the plans the strand lines watch (household, routefaillog): counted, nothing asked.
-    // Counters 4352-4363. Check: LadderFootCheck. Shares the level-link scan with the strand lines (LevelLink.cs).
+    // Off = compare mode for household plans while routefaillog is on: counted, nothing asked.
+    // Counters 4352-4363. Check: LadderFootCheck. The level-link scan is in LevelLink.cs.
     public static partial class Fixes
     {
         const int kLfsScans = 4352, kLfsDetected = 4353, kLfsWould = 4354, kLfsExempt = 4355, kLfsShooed = 4356, kLfsRefused = 4357,
@@ -141,7 +141,7 @@ namespace Ts3Fixes
             {
                 if (!LfsKind(res.mType)) return null;
                 bool on = ShortcutOn("ladderfootshoo");
-                // off: only the plans the strand lines watch are counted (a scan of the lot per look)
+                // off: only household plans are counted while routefaillog is on (a scan of the lot per look)
                 if (!on && !(sim.IsInActiveHousehold && ShortcutOn("routefaillog"))) return null;
                 Lot lot = sim.LotCurrent;
                 if (lot == null || lot.IsWorldLot || sim.SimDescription == null) return null;

@@ -1,7 +1,7 @@
 using System;
 using Ts3Fixes;
 
-// Offline self-check of PetLongHomeCore (docs/645 §4).
+// Offline self-check of PetLongHomeCore (docs/656 §8.2).
 static class PetLongHomeTest
 {
     static int sFails;

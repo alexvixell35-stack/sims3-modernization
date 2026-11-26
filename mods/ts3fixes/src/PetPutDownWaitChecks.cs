@@ -16,7 +16,7 @@ namespace Ts3Fixes
                 + (typeof(InteractionQueue).GetMethod("IsRunning", new Type[] { typeof(Sims3.Gameplay.Interactions.InteractionInstance), typeof(bool) }) == null ? "InteractionQueue.IsRunning " : "")
                 + (sSwCorePatched ? "" : "WaitForSynchronizationLevelWithSim hook")).Trim();
             int[] c = PatchCounters();
-            string counters = "petputdownwait: waits ended 2703=" + c[2703] + ", seen with switch off 2704=" + c[2704] + ", errors 2705=" + c[2705] + "; " + GlMembers(missing);
+            string counters = "petputdownwait: waits ended 2703=" + c[3976] + ", seen with switch off 2704=" + c[3977] + ", errors 2705=" + c[3978] + "; " + GlMembers(missing);
             if (what == "result") return counters;
             if (what != "run") return "petputdownwait <run|result>";
             bool on = ShortcutOn("petputdownwait");
