@@ -473,6 +473,11 @@ namespace Ts3Fixes
         [Tunable] public static bool kLineSwitchHh = false;  // lineswitchhh: household and selected Sims too (actions they picked themselves only)
         [Tunable] public static bool kLineSwitchLog = false;  // lineswitchlog: one ts3native.log line per case
         [Tunable] public static float kLineSwitchMinutes = 2f;  // lineswitch: sim-minutes in the line before a free twin is looked for (0.5-15)
+        [Tunable] public static bool kNextPlan = false;  // nextplan (docs/686 §38): a Sim whose queue ran empty runs EA's own autonomy pass on its own task at once, not after the manager's one-a-frame queue (NPCs: high LOD, kNextPlanNpcPerTick)
+        [Tunable] public static bool kNextPlanHh = false;  // nextplanhh: household and selected Sims too; a non-active household Sim also skips EA's 5 sim-min delay after a player's action (the active Sim keeps it)
+        [Tunable] public static bool kNextPlanLog = false;  // nextplanlog: one ts3native.log line per pass (capped)
+        [Tunable] public static int kNextPlanNpcPerTick = 1;  // nextplan: NPC passes per sim tick at most (household Sims are not counted)
+        [Tunable] public static float kNextPlanClaimMinutes = 5f;  // nextplan: a claimed single-use target expires after this many sim-min (or when its entry leaves the queue)
         [Tunable] public static bool kFacilityPlan = false;  // facilityplan (docs/686 §36): NPCs pick the toilet, shower, bath or sink that frees soonest including the walk, move from a slow line to a sooner object or do something else first when not urgent
         [Tunable] public static bool kFacilityPlanHh = false;  // facilityplanhh: household and selected Sims too (a visible change; a player's order keeps its object)
         [Tunable] public static bool kFacilityPlanLog = false;  // facilityplanlog: one ts3native.log line per case (picks, waits, uses, quick ends, chains)

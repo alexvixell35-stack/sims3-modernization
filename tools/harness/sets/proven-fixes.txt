@@ -95,3 +95,4 @@
 # docs/183 §9 (ladder foot 2026-11-21): ladderfootshoo is ON by default since the 2026-11-22 import (forced case in game, retry ok, errors 0). Household and selected Sims as planner / asked Sim stay opt-in, no household run:
 #   ladderfootshoohh
 # EA bug fixes firenre (docs/867) and firecount (docs/868) are ON by default since the 2026-11-23 Dalexlol 645-653 import, so no longer listed
+#   nextplan nextplanhh nextplanlog

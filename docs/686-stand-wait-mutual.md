@@ -2040,3 +2040,71 @@ fast grabs: the target stayed on the house, so every start was "seen" (the camer
   needed (one 3.1 sim-min wait). Storm: 372 pick factors, 4 chains, no switch, no defer, 4 bathroom line waits, 61 sim-min.
 - Proof status: runs clean, decisions logged; no measured wait gain yet. The Bunch house (three toilets, two
   bath/shower rooms) rarely makes a line; a house with one shared bathroom per floor is the next repro.
+
+## 38. The next action is picked at once when the queue runs empty (`nextplan`, `nextplanhh`, `nextplanlog`; 2026-11-26, `post/nextplan-1126`, built, default off, storm A/B s660)
+
+User (2026-11-26): "we shouldn't notice the sims stopped waiting"; the next plan should be one "that would make more sense
+combining with others".
+
+### 38.1 The gap, from earlier runs [measured: actdelay `ActDelayCheck("result")` of s538-s558, 25 storm arms]
+actdelay's `pick` bucket is the time a Sim stood with an empty queue until an autonomous pick was in it; its other buckets
+run from the queue to the first step. Household Sims (n = 109-829 picks per arm; bins are x2 wide, so values are upper
+edges):
+
+| part | p50 ms | p90 ms | notes |
+|---|---|---|---|
+| queue empty -> autonomous pick queued (`pick`) | 288-480 (one arm 704) | 704-1408 | max 1.2-24 s |
+| pick -> loop wakes (`wake`) | 26-36 | 44-72 | queuewake already on |
+| posture transitions before Run (`preroute`) | 0-1 | 36-416 | stand up, put a child down |
+| route plan (`plan-job`) | 18-44 | 44-120 | worker job; `plan-cpu` 0-1 |
+
+Selected Sim: `pick` p50 208-704, p90 576-3840 ms. Storms run at ~296 sim ticks per real second (37.5 ticks a sim-minute):
+288 ms is ~2.3 sim-min, 832 ms ~6.6 sim-min. At game speed 1 (one sim-minute a second) the sim-time parts of the gap last
+that many seconds. So the gap is not tiny, and the pick step is 80-90 % of it; route plan and start-up are small.
+
+### 38.2 Why the pick waits [verified, decompiled `Sim.DoInteraction`, `Sim.CanRunAutonomyImmediately`, `AutonomyManager.Simulate`, `Autonomy.RunAutonomy`, `InteractionQueue.InsertInteraction` / `RemoveLowerPriorityInteractions`]
+1. Empty queue: `DistressIdle` / `PlayNonDistressIdleIfNecessary` (only queued idles), then `LoopIdle` (posture idle; can yield).
+2. The Sim adds itself to `AutonomyManager` at once only if `CanRunAutonomyImmediately` (last action autonomous and
+   succeeded; a non-selectable NPC also after a failure), its Service or an active role; else only after
+   `kAutonomyDelayNormal` = 5 sim-min since the queue ran empty (2 after a player's cancel, 7 while talking with the active
+   Sim, mounted its own). Every household Sim is selectable, so after any player-given action it stands 5 sim-min.
+3. `AutonomyManager.Simulate` runs **one** `TryFindBestAction` per frame, alternating the high-LOD and low-LOD queues: a
+   household Sim waits behind every high-LOD Sim queued before it, and every other frame goes to a low-LOD NPC.
+4. The search (`ScoreInteractionsOnObjects`) can yield; the pick is added (`ConsiderPerformingAutonomousAction` adds only to
+   an empty queue) and the Sim's 10-tick loop sleep ends (queuewake, §23).
+5. A user-directed add cancels lower-priority autonomous entries in front (`RemoveLowerPriorityInteractions`,
+   `HigherPriorityNext`): EA's own rule for "the player's order wins".
+EA exposes no "about to end" point for interactions in general (exit animations are inside `Run`), and `RunAutonomy`
+returns at once while a head exists unless `OverrideCurrentInteraction` (which means: replace the running one). So the pass
+cannot run inside the old action's exit without replacing it; it runs right after it, before any idle.
+
+### 38.3 What is built (NextPlan.cs, NextPlanCore.cs; counters 4940-4959, `kCounterSlots` 4960)
+- Once per "queue ran empty" (head removed, `OnRemovedFromQueue` hook), at the start of `LoopIdle` (hook, stacked over
+  queuewake's): a Sim that `NextPlanCore.Decide` lets go runs EA's own pass, `Autonomy.TryFindBestAction`, on its own task.
+  Same scoring, same probabilities, same `InteractionQueue.Add`; only the moment changes. With a pick in the queue the
+  posture idle is skipped (EA's loop never idles with a head). Nothing picked: EA's path (idle, manager queue). No retry.
+- Decide: household Sims always (switch `nextplanhh`); NPCs (switch `nextplan`) only in high LOD and at most
+  `kNextPlanNpcPerTick` (1) passes per sim tick, so the manager's one-a-frame throttle still bounds NPC search cost. EA's
+  delay is kept for the active Sim (the player's window), a Sim talking with it, after a player's cancel, while mounted,
+  and for every NPC; a non-active household Sim whose last action was the player's starts its next action at once.
+- Household-aware pick: every autonomous add of a Sim claims its target when that is a single-use object (its type keeps
+  `GameObject.GetInUseAutonomyMultiplier`: no seat, viewer or group logic of its own). While the claim lives (until the
+  entry leaves the queue, or `kNextPlanClaimMinutes` = 5 sim-min), another Sim's search scores the object with EA's own
+  route-pending factor (`GetRoutePendingAutonomyMultiplier`, what EA gives an object someone walks to). This closes the
+  window between one Sim's pick and its first step, in which EA sees the object free. The facility planner (§36,
+  `facilityplan`) scores inside the same search (its own hook on the same method), so busy-until, lines and booked
+  hand-offs count there too. Claims: one per Sim, two dictionaries, O(1) per call, a sweep of at most 256 entries at most
+  every 40 ticks, cleared at world load.
+- No weights change: EA's candidates and scores, plus EA's route-pending factor for a claimed object.
+- Player's orders: never overridden (EA's add rules, 38.2 point 5); a pick cancelled that way is counted ("dropped by a
+  higher-priority add"). Walks stay walks: the route is the picked interaction's own plan in `Run`. No route pre-plan:
+  EA plans from the Sim's position after its exit, and a plan made earlier would start from the wrong spot.
+- Probe (both arms): gap "queue empty -> autonomous pick queued" per scope in ms and sim-min, split into the wait before the
+  search (EA "at once" class / EA delay class) and the search (`Autonomy.RunAutonomy(bool)` hook); same-target picks
+  (claimed by / in use by another Sim); household autonomous actions done per sim-hour and household motive mean/min.
+  `NextPlanCheck("run" | "result" | "reset")`, repro `nextplan-check`, selftest `tools/selftest/nextplan`.
+- Off = compare mode (`would`; claims tracked, never applied). Swaps (all stacked, with a stub, swap-stack table rows):
+  `Sim.LoopIdle`, `GameObject.GetInUseAutonomyMultiplier`, `InteractionInstance.OnAddedToQueue` / `OnRemovedFromQueue`,
+  `Autonomy.RunAutonomy(bool)`.
+
+### 38.4 Storm A/B (s660) [pending]

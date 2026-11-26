@@ -178,6 +178,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kLineSwitchHh value="False" />
     <kLineSwitchLog value="False" />
     <kLineSwitchMinutes value="2" />
+    <kNextPlan value="False" />
+    <kNextPlanHh value="False" />
+    <kNextPlanLog value="False" />
+    <kNextPlanNpcPerTick value="1" />
+    <kNextPlanClaimMinutes value="5" />
     <kFacilityPlan value="False" />
     <kFacilityPlanHh value="False" />
     <kFacilityPlanLog value="False" />

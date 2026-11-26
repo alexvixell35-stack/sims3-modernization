@@ -574,6 +574,7 @@ namespace Ts3Fixes
             ApplySocialReach();        // docs/686 §17 (SocialReach.cs): socialreach / socialreachhh, off by default (counts either way); its DoRoute step is in ApplyBlockedUse's hook, as unstuck's (§18, Unstuck.cs)
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
             ApplyFacilityPlan();       // docs/686 §36 (FacilityPlan.cs): facilityplan / facilityquick / facilitychain and their household switches, off by default (counts either way); swaps GameObject.GetInUseAutonomyMultiplier, InteractionInstance.Begin/EndCommodityUpdates; its wait step is in ApplyLineSwitch's hook
+            ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
             ApplyFridgeFf();           // docs/686 §36.11 (FridgeFf.cs): fridgeff / fridgeffunseen, off; swaps Fridge_Have.Run, Fridge_EatLeftovers.Run
             ApplyLineSwitch();         // docs/686 §25 (LineSwitch.cs): lineswitch / lineswitchhh, off by default (counts either way); swaps SimQueue.WaitForExitReasonOnSim, the line hook is ApplyShareLanes's
             ApplyReachUse();           // docs/686 §12 (ReachUse.cs): reachuse / reachusehh, off by default (counts either way); the DoRoute hook is ApplyBlockedUse's
@@ -1743,7 +1744,10 @@ namespace Ts3Fixes
         // failures seen / line wait sim-min x10 / facility waits / toilet line to a shower (showerpeeplan) / showerdirty shared /
         // showerdirty would; [4770-4776] fridgeff (FridgeFf.cs, §36.11): food taken at once / leftovers taken at once / would, off /
         // seen, EA's line / selected Sim exempt / errors / busy starts; 4777-4779 spare.
-        const int kCounterSlots = 4780;
+        // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
+        // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
+        // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
+        const int kCounterSlots = 4960;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2688,6 +2692,9 @@ namespace Ts3Fixes
                 case "lineswitch": return Instantiator.kLineSwitch;  // LineSwitch.cs (docs/686 §25): a Sim waiting in a toilet, sink, shower or bath line takes a free twin object of the lot after 2 sim-min, NPCs, off
                 case "lineswitchhh": return Instantiator.kLineSwitchHh;  // LineSwitch.cs (docs/686 §25): household and selected Sims too (their own autonomous actions only), off
                 case "lineswitchlog": return Instantiator.kLineSwitchLog;  // LineSwitch.cs (docs/686 §25): one line per case, off
+                case "nextplan": return Instantiator.kNextPlan;  // NextPlan.cs (docs/686 §38): a Sim whose queue ran empty runs EA's autonomy pass at once (NPCs, high LOD, per-tick budget), off
+                case "nextplanhh": return Instantiator.kNextPlanHh;  // NextPlan.cs: household and selected Sims too (the active Sim keeps EA's delay), off
+                case "nextplanlog": return Instantiator.kNextPlanLog;  // NextPlan.cs: one line per pass (capped), off
                 case "facilityplan": return Instantiator.kFacilityPlan;  // FacilityPlan.cs (docs/686 §36): NPCs pick and wait for the toilet, shower, bath or sink that frees soonest, or do something else first, off
                 case "facilityplanhh": return Instantiator.kFacilityPlanHh;  // FacilityPlan.cs (docs/686 §36): household and selected Sims too, off
                 case "facilityplanlog": return Instantiator.kFacilityPlanLog;  // FacilityPlan.cs (docs/686 §36): one line per case, off
