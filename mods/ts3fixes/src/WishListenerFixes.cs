@@ -61,7 +61,9 @@ namespace Ts3Fixes
         {
             public ActiveNodeBase.CheckResult TestHook()
             {
-                ActiveNodeBase.CheckResult r = TestOrig();
+                ActiveNodeBase.CheckResult r;
+                if (!DcProbeOn()) r = TestOrig();
+                else { uint t0 = SrcNowUs(); r = TestOrig(); DcTest((ActiveDreamNode)(object)this, t0); }  // dnpcostlog (DnpCost.cs)
                 if (r != ActiveNodeBase.CheckResult.kThrowAway && r != ActiveNodeBase.CheckResult.kNotSupported) return r;
                 try
                 {
@@ -103,16 +105,23 @@ namespace Ts3Fixes
                 try
                 {
                     List<object> woke = DcBeforeUpdate(this);  // dreamcleanup (DreamCleanup.cs): shared hook, one patch per method
-                    if (!ShortcutOn("dnpupdateguard")) UpdateOrig();
-                    else
+                    bool probe = DcProbeOn();  // dnpcostlog (DnpCost.cs): times the Update, diagnostics only
+                    bool full = probe && DcFullField(this);
+                    uint pt0 = probe ? DcUpdateBegin(this) : 0u;
+                    try
                     {
-                        try { UpdateOrig(); }
-                        catch (Exception)
+                        if (!ShortcutOn("dnpupdateguard")) UpdateOrig();
+                        else
                         {
-                            int[] c = PatchCounters();
-                            c[2266]++; c[2267]++;
+                            try { UpdateOrig(); }
+                            catch (Exception)
+                            {
+                                int[] c = PatchCounters();
+                                c[2266]++; c[2267]++;
+                            }
                         }
                     }
+                    finally { if (probe) DcUpdateEnd(this, pt0, full); }
                     DcAfterUpdate(this, woke);
                     ok = true;
                 }

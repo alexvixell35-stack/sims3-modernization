@@ -67,7 +67,7 @@ namespace Ts3Fixes
         {
             public static void ExportHook(Sim actor, DnPExportData data) { ExportOrig(actor, data); LfFixManager(actor); }
             public static void ExportOrig(Sim actor, DnPExportData data) { }
-            public static void InitHook(Sim actor) { InitOrig(actor); LfFixManager(actor); }
+            public static void InitHook(Sim actor) { bool probe = DcProbeOn(); uint t0 = probe ? SrcNowUs() : 0u; InitOrig(actor); if (probe) DcNewSim(t0); LfFixManager(actor); }  // dnpcostlog (DnpCost.cs)
             public static void InitOrig(Sim actor) { }
         }
 
