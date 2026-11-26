@@ -885,6 +885,16 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kElevSkipHousehold value="False" />
     <kElevSkipHhWait value="1" />
     <kElevSkipHhUnseen value="False" />
+    <kCamSafe value="False" />
+    <kCamSafeLog value="False" />
+    <kCamSafeMarginPct value="25" />
+    <kCamSafeLeadS value="2" />
+    <kCamSafeSpeedMax value="150" />
+    <kCamSafeSpeedTauMs value="1000" />
+    <kCamSafeHoldS value="5" />
+    <kCamSafeJumpM value="25" />
+    <kCamSafeJumpHoldS value="3" />
+    <kCamSafeAuditS value="3" />
     <kElevSkipRepeatMin value="5" />
     <kElevTripLog value="False" />
     <kElevParked value="False" />

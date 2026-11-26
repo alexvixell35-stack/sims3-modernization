@@ -184,7 +184,9 @@ namespace Ts3Fixes
                 // itself, with the far doors off screen and away from viewers, then goes at once with no fade. TownieUnseen
                 // rejects household Sims by design, so its off-screen test is done here directly.
                 bool selected = a == PlumbBob.SelectedActor;
-                bool unseen = npc ? TownieUnseen(a, null) && !UcOnScreen(exit) && FarFromViewers(want)
+                // camsafe (CamSafe.cs, docs/690): the same test through the shared CsDecide (camera-safe reach, holds, jump pause)
+                bool unseen = sCsOn ? CsDecide(a, hhUnseenOn, exit, want)
+                    : npc ? TownieUnseen(a, null) && !UcOnScreen(exit) && FarFromViewers(want)
                     : hhUnseenOn && !selected && !UcOnScreen(a) && FarFromCamera(a.Position) && !UcOnScreen(exit) && FarFromCamera(want);
                 int d = ElevSkipCore.Decide(on, hhOn, hhUnseenOn, true, npc, selected, unseen, waited, Instantiator.kElevSkipHhWait, recent);
                 if (d != ElevSkipCore.kGo)
@@ -242,6 +244,9 @@ namespace Ts3Fixes
                     CpElev e;
                     if (doors != null && sCpElev.TryGetValue(s.ObjectId.Value, out e)) waited = OjsMinutes(e.First);
                     sCpElev.Remove(s.ObjectId.Value);
+                    // camsafe: armed unseen, but the Sim or its exit spot came into view since: set through behind a fade (the
+                    // end state elevskiphh uses for Sims in view) instead of a visible jump
+                    if (!arm.Fade && CsSnap(s, arm.Pos)) arm.Fade = true;
                     if (arm.Fade) s.FadeOut(true, false);
                     s.SetPosition(arm.Pos);
                     s.SetForward(arm.Fwd);
