@@ -53,6 +53,7 @@ static class NextPlanTest
         Check(NextPlanCore.Level(NextPlanCore.Ratio(4, two)) == NextPlanCore.kMid && NextPlanCore.Level(NextPlanCore.Ratio(4, new int[] { 4, 4, 4, 3, 2 })) == NextPlanCore.kLow, "4 Sims: mid with two bathrooms, low with four");
         Check(NextPlanCore.Level(NextPlanCore.Ratio(8, one)) == NextPlanCore.kHigh, "8 Sims, one bathroom: high");
         Check(NextPlanCore.Level(NextPlanCore.Ratio(8, two)) == NextPlanCore.kHigh && Math.Abs(NextPlanCore.Ratio(8, two) - 4f) < 0.01f, "8 Sims, two bathrooms: high (4 per toilet)");
+        Check(NextPlanCore.Level(NextPlanCore.Ratio(6, new int[] { 4, 4, 5, 1, 5 })) == NextPlanCore.kMid, "6 Sims, 4 bathrooms, one fridge: mid (fridge 6 / 3 = 2)");
         Check(NextPlanCore.Ratio(3, new int[] { 0, 0, 0, 0, 0 }) == 3f && NextPlanCore.Ratio(0, one) == 0f, "no objects of a kind count as one; no Sims: 0");
         Check(NextPlanCore.ClaimMinutes(NextPlanCore.kLow, 5f) == 2f && NextPlanCore.ClaimMinutes(NextPlanCore.kMid, 5f) == 5f && NextPlanCore.ClaimMinutes(NextPlanCore.kHigh, 5f) == 10f, "claim life 2 / 5 / 10 sim-min");
         Check(NextPlanCore.ClaimFactor(NextPlanCore.kLow, 1f, 0.5f, 0.2f) == 0.5f && NextPlanCore.ClaimFactor(NextPlanCore.kMid, 1f, 0.5f, 0.2f) == 0.5f, "low / mid: EA's route-pending factor");

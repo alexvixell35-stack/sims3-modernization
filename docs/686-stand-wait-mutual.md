@@ -2099,7 +2099,7 @@ cannot run inside the old action's exit without replacing it; it runs right afte
 - Scaled by how crowded the house is (user 2026-11-26: "different based on how many sims, utilities etc, so like a more
   relaxed routing on a 8 sim household"; `NextPlanCore.Ratio` / `Level` / `ClaimMinutes` / `ClaimFactor`): per lot, Sims
   (residents, or more when guests are there) per object of the scarcest kind (toilets, showers + baths, sinks, fridges,
-  beds at two a bed; a kind with none counts as one), recounted once a sim-hour or when the residents change. Below 2 =
+  beds at two a bed, fridges at three a fridge (a 2 sim-min grab; with one a fridge every family home read high in s660-s662); a kind with none counts as one), recounted once a sim-hour or when the residents change. Below 2 =
   low (1-2 Sims, or plenty of facilities): claims live 2 sim-min (the pick -> first step window only). Below 4 = mid:
   `kNextPlanClaimMinutes` (5). From 4 = high (8 Sims and 1-2 bathrooms): claims live 10 sim-min and a claimed object gets
   EA's in-use factor (0.2) instead of the route-pending one, so the search takes a second-choice object or one in another

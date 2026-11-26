@@ -44,8 +44,9 @@ namespace Ts3Fixes
             for (int k = 0; k < counts.Length && k < kKinds; k++)
             {
                 int n = counts[k] < 1 ? 1 : counts[k];
-                // a double bed sleeps two
-                float per = k == kBed ? sims / (2f * n) : sims / (float)n;
+                // a double bed sleeps two; a fridge use is a 2 sim-min grab (a toilet 30): one fridge serves three Sims
+                // (storms s660-s662: with one fridge per house every family home read "high")
+                float per = k == kBed ? sims / (2f * n) : k == kFridge ? sims / (3f * n) : sims / (float)n;
                 if (per > r) r = per;
             }
             return r;
