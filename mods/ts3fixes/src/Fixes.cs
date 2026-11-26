@@ -1744,7 +1744,9 @@ namespace Ts3Fixes
         // but camsafe seen, of which jump / hold / margin; spot vetoes; object holds; jumps; snaps; CsDecide calls / unseen;
         // watched verdicts / on screen soon after unseen / after a camsafe veto; speed max m/s; reach max m; samples; errors.
         // 4722-4879 left to other branches.
-        const int kCounterSlots = 4900;
+        // [4920-4939] alibiwalk / alibiwalklog (AlibiWalk.cs, docs/691): NPC routes followed / long / refused by path kind, scope,
+        // seen, portal end, little to cut, active lot; would cut / cut / undone / undo failed; metres skipped / tails / long; errors.
+        const int kCounterSlots = 4940;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2259,6 +2261,8 @@ namespace Ts3Fixes
                 case "elevskiphh": return Instantiator.kElevSkipHousehold;  // ElevSkip.cs (docs/686 §33): household and selected Sims and NPCs in view too, after kElevSkipHhWait sim-minutes, with EA's fade, off
                 case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
                 case "camsafelog": return Instantiator.kCamSafeLog;  // CamSafe.cs: sample the camera and count what camsafe would say with camsafe off (the A/B off arm), off
+                case "alibiwalk": return Instantiator.kAlibiWalk;  // AlibiWalk.cs (docs/691): an unseen NPC's long walk off the active lot cut to its tail, off
+                case "alibiwalklog": return Instantiator.kAlibiWalkLog;  // AlibiWalk.cs: count what alibiwalk would cut, off
                 case "elevskiphhunseen": return Instantiator.kElevSkipHhUnseen;  // ElevSkip.cs (docs/686 §33): with elevskip + elevskiphh, unseen household Sims (not the selected Sim) go at once with no fade; explicit opt-in lifting the household-never-unseen rule for elevator skips only, off
                 case "elevtriplog": return Instantiator.kElevTripLog;  // ElevSkip.cs (docs/686 §33): one line per car launch (riders, wait in the car), per Sim set through and per parked-car boarding, off
                 case "elevparked": return Instantiator.kElevParked;  // ElevParked.cs (docs/686 §34): an NPC boarding at closed doors where the column's car stands gets the doors opened at once instead of EA's 7 sim-minute call, off

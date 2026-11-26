@@ -386,7 +386,7 @@ namespace Ts3Fixes
                 if (r.PlanResult.mType != RoutePlanResultType.Succeeded) PrxPlanFailed(OwnerSim, r);  // petrelax (PetRelax.cs) may plan again
                 int s;
                 if (r.PlanResult.mType != RoutePlanResultType.Succeeded) s = RouteBlocked(r, false);
-                else if (RouteOrig(r)) return true;
+                else if (AlwRoute(r)) return true;  // alibiwalk (AlibiWalk.cs, docs/691): an unseen NPC's long walk cut to its tail first, off by default
                 else s = RouteEnded(r);
                 if (s == kStOrig) return RouteOrig(r);
                 if (s != kStQuiet) return s == kStYes;
@@ -397,6 +397,8 @@ namespace Ts3Fixes
             }
 
             public bool RouteOrig(Route r) { return false; }  // receives DoRoute's original body
+
+            bool AlwRoute(Route r) { AlwBefore(OwnerSim, r); return RouteOrig(r); }
 
             // The walk answered false. A plan that failed on the way (a replan) with no exit reason on the Sim gets the
             // rules of a failed first plan; a walk that was cancelled or interrupted keeps its answer.

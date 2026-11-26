@@ -96,4 +96,4 @@
 #   ladderfootshoohh
 # EA bug fixes firenre (docs/867) and firecount (docs/868) are ON by default since the 2026-11-23 Dalexlol 645-653 import, so no longer listed
 # camsafe (docs/690, default off, not proven yet):
-#   camsafe camsafelog
+#   camsafe camsafelog alibiwalk alibiwalklog

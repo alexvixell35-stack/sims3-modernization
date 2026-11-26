@@ -484,6 +484,10 @@ namespace Ts3Fixes
         [Tunable] public static bool kElevSkipHhUnseen = false;  // elevskiphhunseen: with elevskip + elevskiphh, a household Sim (not the selected Sim) off screen, with the far doors off screen and away from viewers, goes at once with no fade; explicit opt-in that lifts the household-never-unseen rule for elevator skips only
         [Tunable] public static bool kCamSafe = false;  // camsafe (docs/690): every off-screen shortcut asks one camera-safe rule: predictive reach margin, recently-seen hold, camera-jump pause (CamSafe.cs); off = each fix's old test, unchanged
         [Tunable] public static bool kCamSafeLog = false;  // camsafelog: with camsafe off, sample the camera and count what camsafe would say (counters 4880-4899), behaviour unchanged
+        [Tunable] public static bool kAlibiWalk = false;  // alibiwalk (docs/691, AlibiWalk.cs): a walk >= kAlibiWalkMinM of an NPC nobody sees, off the active lot, is cut to its tail (set at the start of the last kAlibiWalkTailM m of EA's plan, EA walks the rest); never household Sims
+        [Tunable] public static bool kAlibiWalkLog = false;  // alibiwalklog: count what alibiwalk would cut (and long NPC walks by interaction), behaviour unchanged
+        [Tunable] public static float kAlibiWalkMinM = 60f;  // alibiwalk: shortest planned route (m) that is cut
+        [Tunable] public static float kAlibiWalkTailM = 10f;  // alibiwalk: metres of the route's last walking path the Sim still walks
         [Tunable] public static float kCamSafeMarginPct = 25f;  // camsafe: the camera reach (largest of the last kCamSafeHoldS s) grown by this many percent (screen-border margin)
         [Tunable] public static float kCamSafeLeadS = 2f;  // camsafe: plus how far the camera travels in this many seconds at its smoothed speed (prediction)
         [Tunable] public static float kCamSafeSpeedMax = 150f;  // camsafe: speed cap, m/s (a jump is handled by the jump pause, not the speed)

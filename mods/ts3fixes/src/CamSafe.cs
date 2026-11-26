@@ -159,7 +159,8 @@ namespace Ts3Fixes
 
         // ---- late-seen audit: unseen verdicts whose Sim is on screen within kCamSafeAuditS real seconds ----
         // kind 1: judged unseen by the rule in force (on screen soon = a shortcut may have acted in view: [4893]);
-        // kind 2: unseen by the old test, seen by camsafe (on screen soon = camsafe's veto was right: [4895]).
+        // kind 2: unseen by the old test, seen by camsafe (on screen soon = camsafe's veto was right: [4895]);
+        // kind 3: a Sim alibiwalk cut to its tail (on screen soon after the cut: [4933], AlibiWalk.cs).
         static readonly Dictionary<ulong, long> sCsWatch = new Dictionary<ulong, long>();
         static readonly List<ulong> sCsDone = new List<ulong>();
         static int sCsAuditAt;
@@ -183,7 +184,7 @@ namespace Ts3Fixes
                 int at = (int)(kv.Value >> 2), kind = (int)(kv.Value & 3);
                 if (unchecked(now - at) > auditMs) { sCsDone.Add(kv.Key); continue; }
                 if (!World.IsObjectOnScreen(new ObjectGuid(kv.Key))) continue;
-                c[kind == 1 ? kCsLate : kCsLateVetoed]++;
+                c[kind == 1 ? kCsLate : kind == 3 ? kAlwLateSeen : kCsLateVetoed]++;  // kind 3: a Sim alibiwalk set at its tail (AlibiWalk.cs)
                 sCsDone.Add(kv.Key);
             }
             foreach (ulong id in sCsDone) sCsWatch.Remove(id);
