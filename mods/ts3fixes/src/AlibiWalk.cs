@@ -26,7 +26,7 @@ namespace Ts3Fixes
     {
         const int kAlwRoutes = 4920, kAlwLong = 4921, kAlwKind = 4922, kAlwScope = 4923, kAlwSeen = 4924, kAlwWould = 4925,
             kAlwCut = 4926, kAlwUndo = 4927, kAlwUndoFail = 4928, kAlwSkippedM = 4929, kAlwErrors = 4930, kAlwTailM = 4931,
-            kAlwLastNotWalk = 4932, kAlwLateSeen = 4933, kAlwActiveLot = 4934, kAlwLongM = 4935, kAlwKindCar = 4936, kAlwKindWater = 4937, kAlwKindOther = 4938, kAlwUndoLong = 4939;
+            kAlwLastNotWalk = 4932, kAlwLateSeen = 4933, kAlwActiveLot = 4934, kAlwLongM = 4935, kAlwKindWater = 4937, kAlwKindOther = 4938, kAlwUndoLong = 4939, kAlwEndSpot = 4936;
         const int kAlwMaxNames = 48;
         static readonly Dictionary<string, int[]> sAlwBy = new Dictionary<string, int[]>();  // interaction -> long, metres, would/cut, seen
         static string sAlwLast = "", sAlwLastError = "";
@@ -79,9 +79,10 @@ namespace Ts3Fixes
                 if (v == AlibiWalkCore.kKind)
                 {
                     c[kAlwKind]++;
-                    int k = kAlwKindOther;
-                    foreach (uint t in types) { if (t == 4027457938u) { k = kAlwKindCar; break; } if (t == 2370016522u || t == 2583738316u || t == 3919275477u) k = kAlwKindWater; }
-                    c[k]++; AlwNote(name, 0, (int)len); return;
+                    int k = -1;  // car = path kind minus the two below
+                    foreach (uint t in types) { if (t == 4027457938u) { k = -1; break; } if (t == 2370016522u || t == 2583738316u || t == 3919275477u) k = kAlwKindWater; else if (!AlibiWalkCore.KindOk(t) && k < 0) k = kAlwKindOther; }
+                    if (k >= 0) c[k]++;
+                    AlwNote(name, 0, (int)len); return;
                 }
                 if (v == AlibiWalkCore.kLastNotWalk) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
                 if (v == AlibiWalkCore.kTailTooLong) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
@@ -106,8 +107,17 @@ namespace Ts3Fixes
                     for (uint i = ns; i > 0 && ns <= 4096; i--) if (r.GetSegmentIdAtIndex(i - 1) == seg) { idx = i - 1; break; }
                     if (idx == uint.MaxValue || !r.GetSegmentStartPoint(idx, out p) || !r.GetSegmentStartDirection(idx, out dir)) p = Vector3.Invalid;
                 }
-                // the tail start must be within the tail of the end (a straight line is never longer than the walk along it)
-                if (!BuValid(p) || !BuValid(end) || (p - end).Length() > tail + 2f) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
+                // the tail start must be within the tail of the end (a straight line is never longer than the walk along it).
+                // A long last path is often one segment (s642b: 123 of 132), so no point of it lies near the end: the Sim is then
+                // set on the route's end itself, EA's own goal spot, facing the way it was heading, and the replan is 0 m
+                // (EA's arrival runs as for any finished walk).
+                if (!BuValid(end)) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
+                if (!BuValid(p) || (p - end).Length() > tail + 2f)
+                {
+                    c[kAlwEndSpot]++;
+                    p = end; tail = 0f;
+                    dir = end - sim.Position;
+                }
                 if (AlwActiveLot(sim.LotCurrent) || AlwActiveLot(LotManager.GetLotAtPoint(p)) || AlwActiveLot(LotManager.GetLotAtPoint(end)))
                 { c[kAlwActiveLot]++; AlwNote(name, 0, (int)len); return; }
                 if (!CsDecide(sim, false, r.DestObj as IHasScriptProxy, p, end)) { c[kAlwSeen]++; AlwNote(name, 3, (int)len); return; }
@@ -157,10 +167,10 @@ namespace Ts3Fixes
                 int[] c = PatchCounters();
                 string sw = "alibiwalk " + (ShortcutOn("alibiwalk") ? "on" : "off") + ", alibiwalklog " + (ShortcutOn("alibiwalklog") ? "on" : "off")
                     + ", camsafe " + (ShortcutOn("camsafe") ? "on" : "off") + ", min " + Instantiator.kAlibiWalkMinM + " m, tail " + Instantiator.kAlibiWalkTailM + " m";
-                string counts = "NPC routes followed " + c[kAlwRoutes] + ", long " + c[kAlwLong] + " (" + c[kAlwLongM] + " m), refused: path kind " + c[kAlwKind] + " (car " + c[kAlwKindCar] + ", boat / water " + c[kAlwKindWater] + ", other " + c[kAlwKindOther] + ")"
+                string counts = "NPC routes followed " + c[kAlwRoutes] + ", long " + c[kAlwLong] + " (" + c[kAlwLongM] + " m), refused: path kind " + c[kAlwKind] + " (car " + (c[kAlwKind] - c[kAlwKindWater] - c[kAlwKindOther]) + ", boat / water " + c[kAlwKindWater] + ", other " + c[kAlwKindOther] + ")"
                     + ", ends in a portal, little to cut or no tail point " + c[kAlwLastNotWalk] + ", scope " + c[kAlwScope] + ", active lot " + c[kAlwActiveLot]
                     + ", seen " + c[kAlwSeen] + "; would cut " + c[kAlwWould] + ", cut " + c[kAlwCut] + " (skipped " + c[kAlwSkippedM] + " m, tails walked " + c[kAlwTailM]
-                    + " m, on screen within the audit window after a cut " + c[kAlwLateSeen] + "), undone " + c[kAlwUndo] + " (undo replan failed " + c[kAlwUndoFail] + "), errors " + c[kAlwErrors];
+                    + " m, set on the route end " + c[kAlwEndSpot] + ", on screen within the audit window after a cut " + c[kAlwLateSeen] + "), undone " + c[kAlwUndo] + " (undo replan failed " + c[kAlwUndoFail] + "), errors " + c[kAlwErrors];
                 if (what == "result")
                 {
                     List<KeyValuePair<string, int[]>> l = new List<KeyValuePair<string, int[]>>(sAlwBy);
