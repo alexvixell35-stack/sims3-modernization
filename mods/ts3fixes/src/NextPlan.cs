@@ -66,6 +66,7 @@ namespace Ts3Fixes
         static MethodInfo sNpCanRun;
         static long sNpTick, sNpStart, sNpTicksPerMin = 1;
         static int sNpBudgetLeft;
+        static IntPtr sNpBaseUse;
         static string sNpLast = "", sNpLastError = "", sNpMissing = "";
 
         static NextPlanCore.Hist[] NpHists() { NextPlanCore.Hist[] h = new NextPlanCore.Hist[6]; for (int i = 0; i < h.Length; i++) h[i] = new NextPlanCore.Hist(); return h; }
@@ -161,7 +162,9 @@ namespace Ts3Fixes
             bool s;
             if (sNpSingle.TryGetValue(t, out s)) return s;
             MethodInfo m = t.GetMethod("GetInUseAutonomyMultiplier", BindingFlags.Instance | BindingFlags.Public, null, new Type[] { typeof(Sim) }, null);
-            s = m != null && m.DeclaringType == typeof(GameObject);
+            // by handle: a swap moves the class word, so a swapped method's DeclaringType names the hook class (docs/576 §1)
+            if (sNpBaseUse == IntPtr.Zero) sNpBaseUse = typeof(GameObject).GetMethod("GetInUseAutonomyMultiplier", BindingFlags.Instance | BindingFlags.Public, null, new Type[] { typeof(Sim) }, null).MethodHandle.Value;
+            s = m != null && m.MethodHandle.Value == sNpBaseUse;
             if (sNpSingle.Count < 2048) sNpSingle[t] = s;
             return s;
         }
