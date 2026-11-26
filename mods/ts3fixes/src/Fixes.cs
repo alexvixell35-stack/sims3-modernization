@@ -1847,7 +1847,9 @@ namespace Ts3Fixes
         // [4880-4899] camsafe / camsafelog (CamSafe.cs, docs/690): TownieUnseen asks / old unseen / camsafe unseen / old unseen
         // but camsafe seen, of which jump / hold / margin; spot vetoes; object holds; jumps; snaps; CsDecide calls / unseen;
         // watched verdicts / on screen soon after unseen / after a camsafe veto; speed max m/s; reach max m; samples; errors.
-        const int kCounterSlots = 4900;
+        // [4920-4939] alibiwalk / alibiwalklog (AlibiWalk.cs, docs/691): NPC routes followed / long / refused by path kind, scope,
+        // seen, portal end, little to cut, active lot; would cut / cut / undone / undo failed; metres skipped / tails / long; errors.
+        const int kCounterSlots = 4940;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2247,6 +2249,8 @@ namespace Ts3Fixes
                 case "showerdirty": return Instantiator.kShowerDirty;  // ShowerShare.cs (docs/686 §36.6): shower-pee and shared showers leave Hygiene at 88 % / 90 %, off  // LineSwitch.cs (docs/686 §25): one line per case, off
                 case "fridgeff": return Instantiator.kFridgeFf;  // FridgeFf.cs (docs/686 §36.11): an unseen NPC at a busy fridge takes its food at once, off
                 case "fridgeffunseen": return Instantiator.kFridgeFfUnseen;  // FridgeFf.cs: the same for unseen household Sims (not the selected Sim), the player's opt-in, off
+                case "alibiwalk": return Instantiator.kAlibiWalk;  // AlibiWalk.cs (docs/691): an unseen NPC's long walk off the active lot cut to its tail, off
+                case "alibiwalklog": return Instantiator.kAlibiWalkLog;  // AlibiWalk.cs: count what alibiwalk would cut, off
                 case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
                 case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
                 case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off

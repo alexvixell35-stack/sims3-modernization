@@ -1,0 +1,172 @@
+using System;
+using System.Collections.Generic;
+using Sims3.Gameplay.Actors;
+using Sims3.Gameplay.CAS;
+using Sims3.Gameplay.Core;
+using Sims3.Gameplay.Interactions;
+using Sims3.SimIFace;
+
+namespace Ts3Fixes
+{
+    // docs/691 alibiwalk / alibiwalklog: a long planned walk of an NPC that nobody can see, off the active lot, is cut to its
+    // tail ("alibi generation": the Sim is already where a watcher would expect it). At SimRoutingComponent.DoRoute with a
+    // successful plan (the route is about to be followed, so a plan made only to test reachability never moves anyone): a
+    // human NPC whose route is >= kAlibiWalkMinM long and made only of walking paths and portals is set at the start of
+    // the route's last kAlibiWalkTailM metres (a point of EA's own plan, on its last walking path), the route is replanned
+    // from there (EA's push pattern: move, then Route.Replan) and EA walks the tail: doors, slots, arrival callbacks and
+    // the interaction after the walk are the game's own. A failed or odd tail replan puts the Sim back where it stood and
+    // replans the original walk.
+    // Scope: never a household or selected Sim (IsPlayerSim, also with [Experimental] HouseholdToo: a teleport), never a
+    // pet, a held / carrying / riding Sim, a Sim with followers or in a GoHereWith group, a route touching the active lot or
+    // the active household's lot. Camera: decided once, at the cut, through camsafe's CsDecide (the Sim, its target and
+    // both the tail start and the route end unseen; with camsafe off TownieUnseen + FarFromViewers). The cut is one tick, so
+    // there is no half state to snap: after it EA's own walk runs. Counters 4920-4939; alibiwalklog alone = compare mode
+    // (counts what it would cut). AlibiWalkCheck result | run.
+    public static partial class Fixes
+    {
+        const int kAlwRoutes = 4920, kAlwLong = 4921, kAlwKind = 4922, kAlwScope = 4923, kAlwSeen = 4924, kAlwWould = 4925,
+            kAlwCut = 4926, kAlwUndo = 4927, kAlwUndoFail = 4928, kAlwSkippedM = 4929, kAlwErrors = 4930, kAlwTailM = 4931,
+            kAlwLastNotWalk = 4932, kAlwTooShortCut = 4933, kAlwActiveLot = 4934, kAlwLongM = 4935;
+        const int kAlwMaxNames = 48;
+        static readonly Dictionary<string, int[]> sAlwBy = new Dictionary<string, int[]>();  // interaction -> long, metres, would/cut, seen
+        static string sAlwLast = "", sAlwLastError = "";
+
+        static void AlwError(Exception e)
+        {
+            sAlwLastError = e.GetType().Name + ": " + e.Message;
+            if (PatchCounters()[kAlwErrors]++ < 5) DiagLine("alibiwalk: error " + sAlwLastError + " " + e.StackTrace);
+        }
+
+        static void AlwNote(string name, int slot, int metres)
+        {
+            int[] v;
+            if (!sAlwBy.TryGetValue(name, out v))
+            {
+                if (sAlwBy.Count >= kAlwMaxNames) name = "(other)";
+                if (!sAlwBy.TryGetValue(name, out v)) { v = new int[4]; sAlwBy[name] = v; }
+            }
+            v[0]++; v[1] += metres;
+            if (slot >= 2) v[slot]++;
+        }
+
+        static bool AlwActiveLot(Lot l) { return l != null && !l.IsWorldLot && (l == LotManager.ActiveLot || l == Household.ActiveHouseholdLot); }
+
+        // Called by BuRouteHook.RouteHook (BlockedUse.cs) before the game follows a successful plan. No catch round the walk:
+        // nothing here walks; a reset unwinds through.
+        internal static void AlwBefore(Sim sim, Route r)
+        {
+            bool act = ShortcutOn("alibiwalk");
+            if (!act && !ShortcutOn("alibiwalklog")) return;
+            int[] c = PatchCounters();
+            Vector3 from = Vector3.Invalid, fwd = Vector3.Invalid;
+            bool moved = false;
+            try
+            {
+                if (sim == null || sim.HasBeenDestroyed || r == null || !sim.IsHuman || IsPlayerSim(sim) || sim == PlumbBob.SelectedActor) return;
+                c[kAlwRoutes]++;
+                float len = r.GetRouteLength();
+                if (len < Instantiator.kAlibiWalkMinM) return;
+                c[kAlwLong]++;
+                c[kAlwLongM] += (int)len;
+                uint n = r.GetNumPaths();
+                if (n == 0 || n > 64) return;
+                uint[] types = new uint[n];
+                for (uint i = 0; i < n; i++) types[i] = (uint)r.GetPathData(i).PathType;
+                float lastLen = r.GetPathLength(n - 1);
+                InteractionInstance inst = sim.CurrentInteraction;
+                string name = inst != null && inst.InteractionDefinition != null ? inst.InteractionDefinition.GetType().Name : "(none)";
+                int v = AlibiWalkCore.Verdict(len, types, lastLen, Instantiator.kAlibiWalkMinM, Instantiator.kAlibiWalkTailM);
+                if (v == AlibiWalkCore.kKind) { c[kAlwKind]++; AlwNote(name, 0, (int)len); return; }
+                if (v == AlibiWalkCore.kLastNotWalk) { c[kAlwLastNotWalk]++; AlwNote(name, 0, (int)len); return; }
+                if (v == AlibiWalkCore.kTailTooLong) { c[kAlwTooShortCut]++; AlwNote(name, 0, (int)len); return; }
+                if (v != AlibiWalkCore.kAct) return;
+                // scope: on foot and alone (UfHeld: riding, ridden, in a vehicle, carried, carrying), no followers, no group walk
+                List<Sim> fol = inst is Sims3.Gameplay.Abstracts.RabbitHole.IRabbitHoleFollowers ? ((Sims3.Gameplay.Abstracts.RabbitHole.IRabbitHoleFollowers)inst).SimFollowers
+                    : inst is GoHome ? ((GoHome)inst).SimFollowers : inst is GoToLot ? ((GoToLot)inst).Followers : null;
+                if (UfHeld(sim) || (fol != null && fol.Count > 0) || (inst != null && inst.PartOfGoHereSituation)
+                    || sim.Autonomy == null || sim.Autonomy.SituationComponent == null || sim.Autonomy.SituationComponent.InSituationOfType(typeof(Sims3.Gameplay.Objects.Vehicles.GoHereWithSituation)))
+                { c[kAlwScope]++; AlwNote(name, 0, (int)len); return; }
+                // the tail start: tailM before the end of the last walking path, or that path's start when it is shorter
+                Vector3 end = Vector3.Invalid, p = Vector3.Invalid, dir = Vector3.Invalid;
+                r.GetPathEndPoint(n - 1, ref end);
+                float tail = AlibiWalkCore.TailFrom(lastLen, Instantiator.kAlibiWalkTailM);
+                if (tail >= lastLen) { r.GetPathStartPoint(n - 1, ref p); r.GetPathStartDirection(n - 1, ref dir); }
+                else
+                {
+                    uint seg = r.GetSegmentAtDistanceBeforeEnd(tail, act);  // the log arm leaves the route as EA planned it
+                    if (!r.GetSegmentStartPoint(seg, out p) || !r.GetSegmentStartDirection(seg, out dir)) p = Vector3.Invalid;
+                }
+                if (!BuValid(p) || !BuValid(end)) { c[kAlwScope]++; AlwNote(name, 0, (int)len); return; }
+                if (AlwActiveLot(sim.LotCurrent) || AlwActiveLot(LotManager.GetLotAtPoint(p)) || AlwActiveLot(LotManager.GetLotAtPoint(end)))
+                { c[kAlwActiveLot]++; AlwNote(name, 0, (int)len); return; }
+                if (!CsDecide(sim, false, r.DestObj as IHasScriptProxy, p, end)) { c[kAlwSeen]++; AlwNote(name, 3, (int)len); return; }
+                int skipped = (int)(len - tail);
+                if (!act) { c[kAlwWould]++; c[kAlwSkippedM] += skipped; AlwNote(name, 2, (int)len); return; }
+                // the cut: EA's push pattern (place, Replan from where the Sim now stands)
+                from = sim.Position; fwd = sim.ForwardVector;
+                dir.y = 0f;
+                if (dir.LengthSqr() < 1e-4f) dir = fwd;
+                PlaceSim(sim, p, dir, "alibiwalk " + name);
+                moved = true;
+                RoutePlanResult res = r.Replan();
+                float tl = res.Succeeded() ? r.GetRouteLength() : -1f;
+                if (res.Succeeded() && tl <= AlibiWalkCore.TailMax(Instantiator.kAlibiWalkTailM))
+                {
+                    c[kAlwCut]++; c[kAlwSkippedM] += skipped; c[kAlwTailM] += (int)tl;
+                    AlwNote(name, 2, (int)len);
+                    sAlwLast = sim.FullName + " " + name + ": " + (int)len + " m walk cut to " + (int)tl + " m at " + BuAt(p);
+                    return;
+                }
+                // undo: back where it stood, the original walk planned again
+                c[kAlwUndo]++;
+                PlaceSim(sim, from, fwd, "alibiwalk undo " + name);
+                moved = false;
+                if (!r.Replan().Succeeded()) c[kAlwUndoFail]++;  // the game's DoRoute answers the failed plan as for any replan
+                sAlwLast = sim.FullName + " " + name + ": tail replan " + res.mType + " (" + (int)tl + " m), undone";
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e)
+            {
+                AlwError(e);
+                if (moved && from != Vector3.Invalid)
+                {
+                    try { PlaceSim(sim, from, fwd, "alibiwalk undo"); r.Replan(); } catch (ResetException) { throw; } catch (Exception) { }
+                }
+            }
+        }
+
+        // AlibiWalkCheck: "result" prints the counters and the walks by interaction; "run" evaluates AlibiWalkCore (no game state).
+        public static object AlibiWalkCheck(string what)
+        {
+            try
+            {
+                int[] c = PatchCounters();
+                string sw = "alibiwalk " + (ShortcutOn("alibiwalk") ? "on" : "off") + ", alibiwalklog " + (ShortcutOn("alibiwalklog") ? "on" : "off")
+                    + ", camsafe " + (ShortcutOn("camsafe") ? "on" : "off") + ", min " + Instantiator.kAlibiWalkMinM + " m, tail " + Instantiator.kAlibiWalkTailM + " m";
+                string counts = "NPC routes followed " + c[kAlwRoutes] + ", long " + c[kAlwLong] + " (" + c[kAlwLongM] + " m), refused: path kind " + c[kAlwKind]
+                    + ", ends in a portal " + c[kAlwLastNotWalk] + ", little to cut " + c[kAlwTooShortCut] + ", scope " + c[kAlwScope] + ", active lot " + c[kAlwActiveLot]
+                    + ", seen " + c[kAlwSeen] + "; would cut " + c[kAlwWould] + ", cut " + c[kAlwCut] + " (skipped " + c[kAlwSkippedM] + " m, tails walked " + c[kAlwTailM]
+                    + " m), undone " + c[kAlwUndo] + " (undo replan failed " + c[kAlwUndoFail] + "), errors " + c[kAlwErrors];
+                if (what == "result")
+                {
+                    List<KeyValuePair<string, int[]>> l = new List<KeyValuePair<string, int[]>>(sAlwBy);
+                    l.Sort(delegate (KeyValuePair<string, int[]> a, KeyValuePair<string, int[]> b) { return b.Value[1].CompareTo(a.Value[1]); });
+                    System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                    for (int i = 0; i < l.Count && i < 16; i++)
+                        sb.Append((i > 0 ? "; " : "") + l[i].Key + " " + l[i].Value[0] + "/" + l[i].Value[1] + "m cut " + l[i].Value[2] + " seen " + l[i].Value[3]);
+                    return "alibiwalk result (" + sw + "): " + counts + "; long walks by interaction (n/m, cut or would, seen): " + sb
+                        + (sAlwLast.Length > 0 ? "; last " + sAlwLast : "") + (sAlwLastError.Length > 0 ? "; error " + sAlwLastError : "");
+                }
+                uint[] walk = { AlibiWalkCore.kSimPath, AlibiWalkCore.kPortalPath, AlibiWalkCore.kSimPath };
+                uint[] car = { AlibiWalkCore.kSimPath, 4027457938u, AlibiWalkCore.kSimPath };
+                bool ok = AlibiWalkCore.Verdict(200f, walk, 30f, 60f, 10f) == AlibiWalkCore.kAct
+                    && AlibiWalkCore.Verdict(50f, walk, 30f, 60f, 10f) == AlibiWalkCore.kShort
+                    && AlibiWalkCore.Verdict(200f, car, 30f, 60f, 10f) == AlibiWalkCore.kKind
+                    && AlibiWalkCore.Verdict(200f, new uint[] { AlibiWalkCore.kSimPath, AlibiWalkCore.kPortalPath }, 2f, 60f, 10f) == AlibiWalkCore.kLastNotWalk
+                    && AlibiWalkCore.TailFrom(4f, 10f) == 4f && AlibiWalkCore.TailFrom(40f, 10f) == 10f;
+                return "alibiwalk check (" + sw + "): rules " + (ok ? "ok" : "BAD") + "; " + counts;
+            }
+            catch (Exception e) { return "AlibiWalkCheck: " + e.GetType().Name + ": " + e.Message; }
+        }
+    }
+}
