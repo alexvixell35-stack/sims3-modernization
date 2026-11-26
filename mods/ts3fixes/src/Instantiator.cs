@@ -536,6 +536,16 @@ namespace Ts3Fixes
         [Tunable] public static bool kFridgeFf = false;  // fridgeff (docs/686 §36.11): an NPC whose Fridge_Have / Fridge_EatLeftovers starts at a busy fridge and that nobody sees takes its food at once (EA's own steps, no walk, line or animation)
         [Tunable] public static bool kFridgeFfUnseen = false;  // fridgeffunseen: the same for household Sims other than the selected Sim, off screen and away from viewers (the player's opt-in)
         [Tunable] public static bool kFridgeFfLog = false;  // fridgefflog: one ts3native.log line per fast grab
+        [Tunable] public static bool kCamSafe = false;  // camsafe (docs/690): every off-screen shortcut asks one camera-safe rule: predictive reach margin, recently-seen hold, camera-jump pause (CamSafe.cs); off = each fix's old test, unchanged
+        [Tunable] public static bool kCamSafeLog = false;  // camsafelog: with camsafe off, sample the camera and count what camsafe would say (counters 4880-4899), behaviour unchanged
+        [Tunable] public static float kCamSafeMarginPct = 25f;  // camsafe: the camera reach (largest of the last kCamSafeHoldS s) grown by this many percent (screen-border margin)
+        [Tunable] public static float kCamSafeLeadS = 2f;  // camsafe: plus how far the camera travels in this many seconds at its smoothed speed (prediction)
+        [Tunable] public static float kCamSafeSpeedMax = 150f;  // camsafe: speed cap, m/s (a jump is handled by the jump pause, not the speed)
+        [Tunable] public static float kCamSafeSpeedTauMs = 1000f;  // camsafe: smoothed speed decay time constant, real ms (rises at once, falls with this)
+        [Tunable] public static float kCamSafeHoldS = 5f;  // camsafe: recently-seen hold, real seconds: an object seen on screen, or a spot near the camera path, within this still counts as seen
+        [Tunable] public static float kCamSafeJumpM = 25f;  // camsafe: a camera target, eye or reach change above this between two samples is a jump (portrait click, lot jump, map view)
+        [Tunable] public static float kCamSafeJumpHoldS = 3f;  // camsafe: after a jump, everything counts as seen for this many real seconds
+        [Tunable] public static float kCamSafeAuditS = 3f;  // camsafe / camsafelog: an unseen verdict's Sim on screen within this many real seconds counts as seen soon (late-seen audit)
         [Tunable] public static bool kReachCache = false;  // reachcache (docs/688): an NPC's route plan whose every destination room is behind portals the planner answers locked fails at once (no balloon); autonomy skips that pair until the lot's portals change
         [Tunable] public static bool kReachCacheHh = false;  // reachcachehh: household and selected Sims too (a player's order is never refused)
         [Tunable] public static bool kReachCacheLog = false;  // reachcachelog: run the real plan for every refusal verdict and count EA's answer (WRONG = it succeeded)

@@ -72,7 +72,9 @@ namespace Ts3Fixes
             Vector3 slot = f.GetPositionOfSlot(Slot.RoutingSlot_0);
             bool selected = a == PlumbBob.SelectedActor;
             if (!npc && selected) { c[kFfExempt]++; return false; }  // the selected Sim never counts as unseen
-            bool unseen = npc ? TownieUnseen(a, null) && !UcOnScreen(f) && FarFromViewers(slot)
+            // camsafe (CamSafe.cs, docs/690): the same test through the shared CsDecide (camera-safe reach, holds, jump pause)
+            bool unseen = sCsOn ? CsDecide(a, true, f, slot)
+                : npc ? TownieUnseen(a, null) && !UcOnScreen(f) && FarFromViewers(slot)
                 : !selected && !UcOnScreen(a) && FarFromCamera(a.Position) && !UcOnScreen(f) && FarFromCamera(slot);
             if (!unseen) { c[kFfSeen]++; return false; }
             FfLine("fridgeff: " + (npc ? "npc " : "household ") + a.FullName + " takes its " + what + " at once, " + f.GetType().Name + " busy (users " + f.ActorsUsingMe.Count

@@ -1844,7 +1844,10 @@ namespace Ts3Fixes
         // [1270-1291] jobyieldroad / jobyieldroadow (JobYieldRoad.cs, docs/800 port, docs/689; upstream 1270-1274 / 1285-1291): road asks
         // for a taken car / slept / ms slept / car gone after the sleep / left out, occupant not a townie / roadow (1) taken / (3) taken /
         // cars gone that were out of the world / pre-create asks / slept / ms slept / pre-create calls; 4872-4879 spare.
-        const int kCounterSlots = 4880;
+        // [4880-4899] camsafe / camsafelog (CamSafe.cs, docs/690): TownieUnseen asks / old unseen / camsafe unseen / old unseen
+        // but camsafe seen, of which jump / hold / margin; spot vetoes; object holds; jumps; snaps; CsDecide calls / unseen;
+        // watched verdicts / on screen soon after unseen / after a camsafe veto; speed max m/s; reach max m; samples; errors.
+        const int kCounterSlots = 4900;
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2247,6 +2250,8 @@ namespace Ts3Fixes
                 case "fridgefflog": return Instantiator.kFridgeFfLog;  // FridgeFf.cs: one line per fast grab
                 case "reachcache": return Instantiator.kReachCache;  // ReachCache.cs (docs/688): an NPC's plan to rooms behind portals locked for it fails at once, autonomy skips the pair, off
                 case "reachcachehh": return Instantiator.kReachCacheHh;  // ReachCache.cs: household and selected Sims, off
+                case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
+                case "camsafelog": return Instantiator.kCamSafeLog;  // CamSafe.cs: sample the camera and count what camsafe would say with camsafe off (the A/B off arm), off
                 case "reachcachelog": return Instantiator.kReachCacheLog;  // ReachCache.cs: verify every refusal verdict against the real plan (WRONG count), off
                 case "linestale": return Instantiator.kLineStale;  // LineStale.cs (docs/686 §29): a line head whose action ended or sits queued behind another action leaves the line after 5 sim-min, NPC heads, off
                 case "linestalehh": return Instantiator.kLineStaleHh;  // LineStale.cs (docs/686 §29): household and selected heads too, off
@@ -3310,16 +3315,18 @@ namespace Ts3Fixes
         static bool FarCompute(float x, float y, float z)
         {
             float dx = x - sCamTarget.x, dy = y - sCamTarget.y, dz = z - sCamTarget.z;
-            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
+            float m2 = dx * dx + dy * dy + dz * dz;
+            if (m2 < sOldReach2) return false;
             dx = x - sCamPos.x; dy = y - sCamPos.y; dz = z - sCamPos.z;
-            if (dx * dx + dy * dy + dz * dz < sReach2) return false;
+            float p2 = dx * dx + dy * dy + dz * dz;
+            if (p2 < sOldReach2) return false;
             const float kMin2 = kShortcutMinDistance * kShortcutMinDistance;
             for (int i = 0; i < sViewerCount; i++)
             {
                 dx = x - sViewers[i].x; dy = y - sViewers[i].y; dz = z - sViewers[i].z;
                 if (dx * dx + dy * dy + dz * dz < kMin2) return false;
             }
-            return true;
+            return CsFarSpot(Math.Min(m2, p2));  // camsafe (CamSafe.cs): the camera-safe reach, or only counted (camsafelog)
         }
         static readonly UcPosCache sFarCache = new UcPosCache();
 
@@ -3345,6 +3352,7 @@ namespace Ts3Fixes
             sCamPos = CameraController.GetPosition();
             sReach = Math.Max(kShortcutMinDistance, 2f * Math.Abs(sCamPos.y - sCamTarget.y));
             sReach2 = sReach * sReach;
+            CsRefresh();  // camsafe (CamSafe.cs, docs/690): the camera sample; with camsafe on, sReach2 grows to its safe reach
             sViewerCount = 0;
             if (Household.ActiveHousehold == null) return;
             foreach (Sims3.Gameplay.Actors.Sim s in Household.ActiveHousehold.AllActors)
@@ -3876,10 +3884,9 @@ namespace Ts3Fixes
             // docs/267 F2: Late Night hidden rooms too (allowHidden), same EA lookup as the tomb-only one
             if (Sims3.Gameplay.Controllers.TombRoomManager.IsObjectInATombOrHiddenRoom(sim, !hiddenOk)) return false;
             if (ShortcutOn("unseenhouseboatview")) { int hv = UfHbvTownie(sim); if (hv >= 0) return hv == 1; }  // docs/202 §3.10: a Sim on a foreign houseboat is judged where its boat shows
-            int b = UtbBits(sim);  // docs/227 §6 central table
-            if (b >= 0) return sUtbCheck ? UtbCompare(UtbUnseen(b), !UcOnScreen(sim) && FarFromViewers(sim.Position)) : UtbUnseen(b);
-            if (UcOnScreen(sim)) return false;
-            return FarFromViewers(sim.Position);
+            // docs/227 §6 central table (b >= 0), else on screen / FarFromViewers; camsafe (CamSafe.cs, docs/690) judges both
+            // rules there and returns the one in force (camsafe off: the old test, unchanged)
+            return CsTownieCamera(sim, UtbBits(sim));
         }
 
         static void ShortcutLog(string line)
