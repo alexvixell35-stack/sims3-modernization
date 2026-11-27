@@ -503,6 +503,9 @@ namespace Ts3Fixes
         [Tunable] public static bool kNextPlan = false;  // nextplan (docs/686 §38): a Sim whose queue ran empty runs EA's own autonomy pass on its own task at once, not after the manager's one-a-frame queue (NPCs: high LOD, kNextPlanNpcPerTick)
         [Tunable] public static bool kNextPlanHh = false;  // nextplanhh: household and selected Sims too; a non-active household Sim also skips EA's 5 sim-min delay after a player's action (the active Sim keeps it)
         [Tunable] public static bool kNextPlanLog = false;  // nextplanlog: one ts3native.log line per pass (capped)
+        [Tunable] public static bool kSinkFree = false;  // sinkfree (docs/686 §40): an NPC's dish cleanup whose EA sink is in use or has a line washes at the nearest free sink of the lot
+        [Tunable] public static bool kSinkFreeHh = false;  // sinkfreehh: the same for household and selected Sims (with sinkfree)
+        [Tunable] public static bool kSinkFreeLog = false;  // sinkfreelog: one ts3native.log line per busy pick (switched / would / none free)
         [Tunable] public static int kNextPlanNpcPerTick = 1;  // nextplan: NPC passes per sim tick at most (household Sims are not counted)
         [Tunable] public static float kNextPlanClaimMinutes = 5f;  // nextplan: a claimed single-use target expires after this many sim-min (or when its entry leaves the queue)
         [Tunable] public static bool kFacilityPlan = false;  // facilityplan (docs/686 §36): NPCs pick the toilet, shower, bath or sink that frees soonest including the walk, move from a slow line to a sooner object or do something else first when not urgent

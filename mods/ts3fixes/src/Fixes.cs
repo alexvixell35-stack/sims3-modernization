@@ -581,6 +581,7 @@ namespace Ts3Fixes
             ApplyWooHooSnap();         // docs/686 §20 (WooHooSnap.cs): woohoosnap / woohoosnaphh, pairsnap / pairsnaphh, off by default; their steps are in ApplyBlockedUse's, ApplySocialReach's and ApplyShowerShare's hooks
             ApplyFacilityPlan();       // docs/686 §36 (FacilityPlan.cs): facilityplan / facilityquick / facilitychain and their household switches, off by default (counts either way); swaps GameObject.GetInUseAutonomyMultiplier, InteractionInstance.Begin/EndCommodityUpdates; its wait step is in ApplyLineSwitch's hook
             ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
+            ApplySinkFree();           // docs/686 §40 (SinkFree.cs): sinkfree / sinkfreehh / sinkfreelog, off by default (counts either way); swaps ServingContainer.ServingContainer_CleanUp.GetBestObjectToWashDishes
             ApplyFridgeFf();           // docs/686 §36.11 (FridgeFf.cs): fridgeff / fridgeffunseen, off; swaps Fridge_Have.Run, Fridge_EatLeftovers.Run
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
             ApplyPartnerPull();        // docs/686 §21 (PartnerPull.cs): partnerpull, off by default (counts either way); a 0.5 sim-minute alarm started at world load, no swap
@@ -1787,7 +1788,9 @@ namespace Ts3Fixes
         // [4940-4959] nextplan (NextPlan.cs, docs/686 §38; reserved by hand 2026-11-26): passes / would / queued / nothing / delay
         // skipped / kept delay / NPC budget / claims / claimed scored down / would / same target claimed / in use / expired / errors /
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
-        const int kCounterSlots = 4960;  // 4960 from #752 (nextplan 4940-4959)
+        // [5000-5009] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
+        // would / no free sink / exempt / errors / EA's sink free / not a sink / lines; 5010-5019 spare.
+        const int kCounterSlots = 5020;  // 5020 from sinkfree (5000-5019)
         static int[] sCountersCache;
         static int[] PatchCounters()
         {
@@ -2762,6 +2765,9 @@ namespace Ts3Fixes
                 case "nextplan": return Instantiator.kNextPlan;  // NextPlan.cs (docs/686 §38): a Sim whose queue ran empty runs EA's autonomy pass at once (NPCs, high LOD, per-tick budget), off
                 case "nextplanhh": return Instantiator.kNextPlanHh;  // NextPlan.cs: household and selected Sims too (the active Sim keeps EA's delay), off
                 case "nextplanlog": return Instantiator.kNextPlanLog;  // NextPlan.cs: one line per pass (capped), off
+                case "sinkfree": return Instantiator.kSinkFree;  // SinkFree.cs (docs/686 §40): dish cleanup washes at the nearest free sink when EA's pick is busy (NPCs), off
+                case "sinkfreehh": return Instantiator.kSinkFreeHh;  // SinkFree.cs: the same for household and selected Sims, off
+                case "sinkfreelog": return Instantiator.kSinkFreeLog;  // SinkFree.cs: one line per busy pick
                 case "facilityplan": return Instantiator.kFacilityPlan;  // FacilityPlan.cs (docs/686 §36): NPCs pick and wait for the toilet, shower, bath or sink that frees soonest, or do something else first, off
                 case "facilityplanhh": return Instantiator.kFacilityPlanHh;  // FacilityPlan.cs (docs/686 §36): household and selected Sims too, off
                 case "facilityplanlog": return Instantiator.kFacilityPlanLog;  // FacilityPlan.cs (docs/686 §36): one line per case, off
