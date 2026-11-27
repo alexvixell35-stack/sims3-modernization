@@ -23,25 +23,25 @@ namespace Ts3Fixes
     //    then SinkFreeCore.Pick moves the dishes to the nearest free kitchen sink (with EA's own tests: not broken, not
     //    charred, CanRouteToSink, and EA's level factor). A bathroom sink (pedestal, or in a room with a toilet, shower or
     //    bath) gets dishes only on a lot without a kitchen sink. s691b: 17 of 23 household bathroom-sink waits were dishes.
-    // 2. Drop it in the sink: Sink.WashDishes.Run of the Sim with the dishes, at a kitchen sink where another Sim runs
-    //    WashDishes and no other kitchen sink is free: a real walk (RouteToObjectRadialRange) to the sink, EA's put-down on
-    //    the floor (CarrySystem.PutDownOnFloor), the washer's TimedStage a little longer (1/16 of EA's wash length per
-    //    dish, the wash +20 % at most: SinkFreeCore.ExtraMinutes), and at the end of that wash (its own Run returning true, i.e. EA's stage done) the dishes get EA's washed events
-    //    and are destroyed as EA destroys a washed stack. At most SinkFreeCore.kHandCap dishes per wash, else EA's line. The
-    //    handed-in dish is hidden right after the put-down (EA's FadeOut, footprint hidden, all interactions off), so it looks
-    //    washed along with the washer's and nobody can take or clean it. A wash that ends early (cancel, reset, need) shows
-    //    the dishes again where they lie (FadeIn, interactions on), dirty, for EA's cleanup; so does a world load for any dish
-    //    still hidden. Nothing is created, so nothing is lost or duplicated.
+    // 2./3. Join a wash instead of waiting in EA's line: Sink.WashDishes.Run of the Sim with the dishes, at a kitchen sink with
+    //    no other kitchen sink free, where EA's Sink.RouteToSink would make it wait in Line.WaitForTurn (SinkFreeCore.Join:
+    //    the washer's TimedStage still runs when it arrives, Sims in EA's line, another carrier ahead whose wash ends after
+    //    it arrives, or facilityplan's FpBusy past its arrival). Rule 2 (hand-in): another Sim washes there now; rule 3
+    //    (merge): another Sim with dishes waits in the line or walks there, within EA's kMaxDishStackSize. The dishes go down
+    //    by the sink (put-down below), hidden right away (EA's FadeOut, footprint hidden, all interactions off), and the wash
+    //    they joined runs a little longer (1/16 of EA's wash length per dish, +20 % at most: SinkFreeCore.ExtraMinutes; EA's
+    //    in-game wash is 1 sim-min). At the end of that wash (its Run true, EA's stage done) they get EA's washed events
+    //    (credited to the washer, who did the work) and are destroyed as EA destroys a washed stack. At most
+    //    SinkFreeCore.kHandCap hand-in dishes per wash. A wash that stops before the dishes are down: the Sim takes them back
+    //    with EA's ServingContainer_CleanUp and washes them itself (no second join on that trip). A wash that ends early
+    //    later (cancel, reset, need) shows the dishes again where they lie, dirty, for EA's cleanup; so does a world load
+    //    for any dish still hidden. Nothing is created, so nothing is lost or duplicated.
     // The only other nearest-sink pick for dishes (BarTray.CleanUp) already skips sinks in use; hand washing has no such pick.
-    // 3. Merge dish trips: when nobody washes at the kitchen sink yet but another Sim (the carrier) is on its way there with
-    //    dishes, a Sim starting its own trip to the same sink sets its dishes by the sink and they join the carrier's wash,
-    //    hidden and settled exactly as a hand-in (extra time and the 20 % cap shared with the hand-ins), within EA's
-    //    kMaxDishStackSize. EA has no hand-over animation, so the dishes go where the carrier will wash, not mid-room.
     // Put-down (hand-in and merge): EA's PutDownOnNearestSurface on a counter or table beside the sink (the Sim walks to the
     //    slot), then EA's fade. No surface there: the floor by the sink only when camsafe's CsDecide says nobody sees it;
     //    else EA's own line and wash. No snaps, no clips.
     // 1b. A sink in a room locked for privacy (SnfLocked) is skipped while another usable sink exists (SinkFreeCore.PickOpen).
-    // Counters 5000-5019 and 5080-5084 (merge, locked). Off = compare mode (would counters).
+    // Counters 5000-5019 and 5080-5087 (merge, locked, put-down). Off = compare mode (would counters).
     public static partial class Fixes
     {
         const int kSnfCalls = 5000, kSnfEaBusy = 5001, kSnfSwitched = 5002, kSnfWould = 5003, kSnfNoneFree = 5004, kSnfExempt = 5005,
@@ -261,29 +261,73 @@ namespace Ts3Fixes
             return false;
         }
 
-        // Rule 2 for the Sim a at the start of its WashDishes at s: true = handed in (its Run ends here).
-        static bool SnfTryHand(Sink.WashDishes self)
+        static TimedStage SnfStage(Sink.WashDishes wi)
+        {
+            List<Sims3.UI.Hud.IStage> st = wi == null ? null : wi.IStages;
+            return st != null && st.Count > 0 ? st[0] as TimedStage : null;
+        }
+
+        // Sims whose dishes went back to them (the wash they joined stopped first): their next WashDishes is EA's own.
+        static readonly Dictionary<ulong, bool> sSnfRetry = new Dictionary<ulong, bool>();
+
+        // Rules 2 and 3 for the Sim a at the start of its WashDishes at s, i.e. where EA's Sink.RouteToSink would put it into
+        // Line.WaitForTurn: when it would wait there (SinkFreeCore.Join: the washer still at it when a arrives, Sims in EA's
+        // line, a carrier ahead whose wash ends after a arrives, or facilityplan's FpBusy past a's arrival) its dishes go
+        // down by the sink and join the current wash (hand-in) or the next one (merge). true = joined (a's Run ends here).
+        static bool SnfTryJoin(Sink.WashDishes self)
         {
             Sim a = self.Actor; Sink s = self.Target;
             if (a == null || s == null) return false;
             ServingContainer held = a.GetObjectInRightHand() as ServingContainer;
             if (held == null || held.StackList == null) return false;
-            Sim washer;
-            Sink.WashDishes wi = SnfWasher(s, a, out washer);
-            if (wi == null) return false;
+            if (sSnfRetry.Remove(a.ObjectId.Value)) return false;  // its dishes came back from a stopped wash: EA's own wash
             SnfPrune();
+            Sim washer, carrier;
+            Sink.WashDishes cur = SnfWasher(s, a, out washer);
+            Sink.WashDishes next = SnfCarrier(s, a, out carrier);
+            float washLen = s.TuningSink.WashDishesLengthInMinutes;
+            TimedStage curSt = SnfStage(cur);
+            float left = cur == null ? 0f : (curSt != null ? curSt.TimeRemaining(cur) : washLen);
+            float mine = FpTravel(a, s);
+            List<Sim> line = s.Line == null ? null : s.Line.SimsInQueue;
+            int ahead = 0;
+            if (line != null) foreach (Sim m in line) if (m != null && m != a && m != washer) ahead++;
+            bool fpJoin; Sim fpUser;
+            float busy = FpBusy(s, a, FacilityPlanCore.kSink, out fpJoin, out fpUser);
+            float nextEnd = carrier == null ? 0f : Math.Max(FpTravel(carrier, s), left) + washLen;
+            int j = SinkFreeCore.Join(mine, cur != null, left, next != null, nextEnd, ahead, busy);
+            if (j == SinkFreeCore.kJoinNone) return false;
+            bool merge = j == SinkFreeCore.kJoinNext;
+            Sink.WashDishes wi = merge ? next : cur;
+            Sim to = merge ? carrier : washer;
+            ServingContainer cs = merge ? to.GetObjectInRightHand() as ServingContainer : null;
+            if (merge && (cs == null || cs.StackList == null)) return false;
             SnfPend p;
-            int handed = sSnfPend.TryGetValue(wi, out p) ? p.Dishes : 0;
-            int dishes = held.StackList.Count;
+            int joined = sSnfPend.TryGetValue(wi, out p) ? p.Dishes : 0;
+            int dishes = held.StackList.Count, max = SnfMaxStack();
             int[] c = PatchCounters();
-            int d = SinkFreeCore.Handoff(ShortcutOn("sinkfree"), ShlScope(a, ShortcutOn("sinkfreehh")), SnfKitchen(s), true, SnfFreeKitchen(a, s), dishes, handed);
             string who = ShlWho(a);
+            bool on = ShortcutOn("sinkfree"), scope = ShlScope(a, ShortcutOn("sinkfreehh")), kit = SnfKitchen(s), free = SnfFreeKitchen(a, s);
+            int d = merge ? SinkFreeCore.Merge(on, scope, kit, true, free, dishes, cs.StackList.Count, joined, max)
+                          : SinkFreeCore.Handoff(on, scope, kit, true, free, dishes, joined);
+            string what = merge ? to.FullName + " (next wash, " + to.GetDistanceToObject(a).ToString("0.0") + " m away, stack " + cs.StackList.Count + "+" + joined + ")"
+                                : to.FullName + " (washing, " + left.ToString("0.0") + " sim-min left)";
+            string why = "walk " + mine.ToString("0.0") + " sim-min, line " + ahead + ", busy " + busy.ToString("0.0") + " sim-min";
             if (d == SinkFreeCore.kNone) return false;
-            if (d == SinkFreeCore.kCapped) { c[kSnfCapped]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": " + dishes + " dishes, " + handed + " handed in already: EA's line"); return false; }
+            if (d == SinkFreeCore.kCapped)
+            {
+                c[merge ? kSnfMergeFull : kSnfCapped]++;
+                SnfLine("sinkfree: " + a.FullName + " " + who + ": " + dishes + " dishes, " + joined + " joined " + what + " already: EA's line");
+                return false;
+            }
             if (d == SinkFreeCore.kExempt) { c[kSnfExempt]++; return false; }
-            if (d == SinkFreeCore.kWould) { c[kSnfHandWould]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": would hand " + dishes + " dishes to " + washer.FullName + " at " + s.GetType().Name); return false; }
-            if (washer.CurrentInteraction != wi) { c[kSnfHandBack]++; return false; }
-            int count = held.StackList.Count;
+            if (d == SinkFreeCore.kWould)
+            {
+                c[merge ? kSnfMergeWould : kSnfHandWould]++;
+                SnfLine("sinkfree: " + a.FullName + " " + who + ": would wait (" + why + "), would add " + dishes + " dishes to " + what + " at " + s.GetType().Name);
+                return false;
+            }
+            int count = dishes;
             bool floor = false;
             bool seen = UcOnScreen(a);
             if (!SnfPutDown(a, s, held, ref floor))
@@ -294,77 +338,29 @@ namespace Ts3Fixes
             if (floor) c[kSnfFloor]++;
             if (seen) c[kSnfSeen]++;
             SnfHide(held);
-            if (washer.CurrentInteraction != wi)
-            {   // the washer stopped during the walk: the dishes stay where they were set down, dirty, for EA's cleanup
-                c[kSnfHandBack]++; SnfShow(held);
-                SnfLine("sinkfree: " + a.FullName + " " + who + ": " + washer.FullName + " stopped before the hand-in: dishes left by the sink");
-                return true;
-            }
-            if (p == null) { p = new SnfPend(); p.Washer = washer; sSnfPend[wi] = p; }
-            p.Tops.Add(held); p.Counts.Add(count); p.Dishes += count;
-            List<Sims3.UI.Hud.IStage> st = wi.IStages; TimedStage ts = st != null && st.Count > 0 ? st[0] as TimedStage : null;
-            float washLen = s.TuningSink.WashDishesLengthInMinutes;
-            float extra = SinkFreeCore.ExtraMinutes(washLen, p.Dishes - count, count);
-            if (ts != null && sSnfTotal != null) ts.ResetCompletionTime((float)sSnfTotal.GetValue(ts) + extra);
-            c[kSnfHanded] += count;
-            SnfLine("sinkfree: " + a.FullName + " " + who + ": hands " + count + " dishes to " + washer.FullName + " at " + s.GetType().Name + (floor ? " (floor, unseen)" : " (counter)") + ", wash " + washLen.ToString("0.0") + " sim-min +" + extra.ToString("0.00") + " sim-min");
-            return true;
-        }
-
-        // Rule 3 for the Sim a at the start of its WashDishes at s, when nobody washes there yet: true = its dishes joined the
-        // wash of the carrier on its way to the same sink (its Run ends here). SnfPutDown by the sink, hidden as a hand-in,
-        // settled at the end of the carrier's wash (SnfWashEnd).
-        static bool SnfTryMerge(Sink.WashDishes self)
-        {
-            Sim a = self.Actor; Sink s = self.Target;
-            if (a == null || s == null) return false;
-            ServingContainer held = a.GetObjectInRightHand() as ServingContainer;
-            if (held == null || held.StackList == null) return false;
-            Sim carrier;
-            Sink.WashDishes wi = SnfCarrier(s, a, out carrier);
-            if (wi == null) return false;
-            ServingContainer cs = carrier.GetObjectInRightHand() as ServingContainer;
-            if (cs == null || cs.StackList == null) return false;
-            SnfPrune();
-            SnfPend p;
-            int joined = sSnfPend.TryGetValue(wi, out p) ? p.Dishes : 0;
-            int dishes = held.StackList.Count, max = SnfMaxStack();
-            int[] c = PatchCounters();
-            string who = ShlWho(a);
-            int d = SinkFreeCore.Merge(ShortcutOn("sinkfree"), ShlScope(a, ShortcutOn("sinkfreehh")), SnfKitchen(s), true, SnfFreeKitchen(a, s),
-                dishes, cs.StackList.Count, joined, max);
-            string what = carrier.FullName + " (" + carrier.GetDistanceToObject(a).ToString("0.0") + " m away, stack " + cs.StackList.Count + "+" + joined + ")";
-            if (d == SinkFreeCore.kNone) return false;
-            if (d == SinkFreeCore.kCapped) { c[kSnfMergeFull]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": " + dishes + " dishes do not fit on " + what + ": own trip"); return false; }
-            if (d == SinkFreeCore.kExempt) { c[kSnfExempt]++; return false; }
-            if (d == SinkFreeCore.kWould) { c[kSnfMergeWould]++; SnfLine("sinkfree: " + a.FullName + " " + who + ": would add " + dishes + " dishes to " + what); return false; }
-            int count = held.StackList.Count;
-            bool floor = false;
-            bool seen = UcOnScreen(a);
-            if (!SnfPutDown(a, s, held, ref floor))
-            {
-                if (a.GetObjectInRightHand() == held) c[kSnfNoSurface]++;
-                return false;  // still held: EA's own trip
-            }
-            if (floor) c[kSnfFloor]++;
-            if (seen) c[kSnfSeen]++;
-            SnfHide(held);
             int joinedNow = sSnfPend.TryGetValue(wi, out p) ? p.Dishes : 0;
-            if (carrier.CurrentInteraction != wi || cs.StackList == null || cs.StackList.Count + joinedNow + count > max)
-            {   // the carrier stopped or filled up during the walk: the dishes stay by the sink, dirty, for EA's cleanup
-                c[kSnfMergeLost]++; SnfShow(held);
-                SnfLine("sinkfree: " + a.FullName + " " + who + ": " + carrier.FullName + " stopped or full before the merge: dishes left by the sink");
+            bool gone = to.CurrentInteraction != wi;
+            if (gone || (merge && (cs.StackList == null || cs.StackList.Count + joinedNow + count > max)))
+            {   // the wash a joined stopped (or the next one filled up) during the walk: a takes its dishes back with EA's
+                // cleanup (it picks them up, with any others in the room, and washes them itself; never joins again on that trip)
+                c[merge ? kSnfMergeLost : kSnfHandBack]++;
+                SnfShow(held);
+                bool back = !held.HasBeenDestroyed && a.InteractionQueue != null
+                    && a.InteractionQueue.TryPushAsContinuation(self, ServingContainer.ServingContainer_CleanUp.Singleton, held);
+                if (back) sSnfRetry[a.ObjectId.Value] = true;
+                SnfLine("sinkfree: " + a.FullName + " " + who + ": " + to.FullName + (gone ? " stopped" : " full") + " before the "
+                    + (merge ? "merge" : "hand-in") + ": " + (back ? "picks the dishes up again (EA's cleanup)" : "dishes left by the sink"));
                 return true;
             }
-            if (p == null) { p = new SnfPend(); p.Washer = carrier; sSnfPend[wi] = p; }
+            if (p == null) { p = new SnfPend(); p.Washer = to; sSnfPend[wi] = p; }
             p.Tops.Add(held); p.Counts.Add(count); p.Dishes += count;
-            // the carrier's TimedStage exists from ConfigureInteraction on; ResetCompletionTime before its Start moves the start's end
-            List<Sims3.UI.Hud.IStage> st = wi.IStages; TimedStage ts = st != null && st.Count > 0 ? st[0] as TimedStage : null;
-            float washLen = s.TuningSink.WashDishesLengthInMinutes;
+            // the TimedStage exists from ConfigureInteraction on; ResetCompletionTime before its Start moves the start's end
+            TimedStage ts = SnfStage(wi);
             float extra = SinkFreeCore.ExtraMinutes(washLen, p.Dishes - count, count);
             if (ts != null && sSnfTotal != null) ts.ResetCompletionTime((float)sSnfTotal.GetValue(ts) + extra);
-            c[kSnfMerged] += count;
-            SnfLine("sinkfree: " + a.FullName + " " + who + ": sets " + count + " dishes by " + s.GetType().Name + (floor ? " (floor, unseen)" : " (counter)") + " for " + what + ", wash " + washLen.ToString("0.0") + " sim-min +" + extra.ToString("0.00") + " sim-min");
+            c[merge ? kSnfMerged : kSnfHanded] += count;
+            SnfLine("sinkfree: " + a.FullName + " " + who + ": would wait (" + why + "), sets " + count + " dishes by " + s.GetType().Name
+                + (floor ? " (floor, unseen)" : " (counter)") + " for " + what + ", wash " + washLen.ToString("0.0") + " sim-min +" + extra.ToString("0.00") + " sim-min");
             return true;
         }
 
@@ -432,18 +428,17 @@ namespace Ts3Fixes
             public bool RunHook()
             {
                 DateAndTime t0 = SimClock.CurrentTime();
-                bool handed = false, merged = false;
+                bool handed = false;
                 try
                 {
                     if (ShortcutOn("sinkfree") || ShortcutOn("sinkfreelog"))
                     {
-                        handed = SnfTryHand(this);
-                        if (!handed) merged = SnfTryMerge(this);
+                        handed = SnfTryJoin(this);
                     }
                 }
                 catch (ResetException) { throw; }
                 catch (Exception e) { SnfError(e); }
-                if (handed || merged) { SnfTrip(this, t0, handed ? "handed in" : "merged"); return true; }
+                if (handed) { SnfTrip(this, t0, "joined a wash"); return true; }
                 bool ok = RunOrig();
                 try { if (sSnfPend.Count > 0) SnfWashEnd(this, ok); }
                 catch (ResetException) { throw; }

@@ -96,6 +96,22 @@ namespace Ts3Fixes
             return r >= 0 && open[r] ? r : ea2;
         }
 
+        // Rules 2 and 3 fire only where EA's line would make the Sim with the dishes wait (Sink.RouteToSink's Line.WaitForTurn,
+        // or facilityplan's ETA): which wash it joins. myTravel: its walk to the sink; washing: another Sim washes there now,
+        // washerLeft its stage's sim-minutes left; nextCarrier: another Sim with dishes runs WashDishes at the sink and does not
+        // wash yet (in EA's line, or on its way), nextEnd when that Sim's wash would end (its walk plus EA's wash length);
+        // lineAhead: Sims in EA's line ahead of it; busy: facilityplan's sim-minutes until the sink is free.
+        // kJoinWasher = hand in to the current wash; kJoinNext = set down for the next wash; kJoinNone = no wait, or no wash to
+        // join (a Sim washing hands or brushing teeth): EA's line and its own wash.
+        public const int kJoinNone = 0, kJoinWasher = 1, kJoinNext = 2;
+        public static int Join(float myTravel, bool washing, float washerLeft, bool nextCarrier, float nextEnd, int lineAhead, float busy)
+        {
+            if (!(myTravel >= 0f)) myTravel = 0f;
+            if (washing && washerLeft > myTravel) return kJoinWasher;
+            if (nextCarrier && (lineAhead > 0 || nextEnd > myTravel || busy > myTravel)) return kJoinNext;
+            return kJoinNone;
+        }
+
         // Rule 2: hand the dishes in? washerWashing: another Sim runs WashDishes at this sink now; freeKitchen: another
         // kitchen sink is free; dishes: in the carrier's stack; handed: dishes already handed in to this wash.
         public static int Handoff(bool on, bool inScope, bool kitchenSink, bool washerWashing, bool freeKitchen, int dishes, int handed)
