@@ -74,6 +74,13 @@ namespace Ts3Fixes
             return locked;
         }
 
+        // the active household's home lot (the repro helpers' lot: the selected Sim may stand on the street)
+        static Sims3.Gameplay.Core.Lot HhHomeLot()
+        {
+            Sims3.Gameplay.CAS.Household h = Sims3.Gameplay.CAS.Household.ActiveHousehold;
+            return h == null ? null : h.LotHome;
+        }
+
         static bool HhSnapSeen(Sim sim, Vector3 to)
         {
             try { return HhSharedCore.SnapFade(UcOnScreen(sim), !FarFromCamera(sim.Position), !FarFromCamera(to)); }

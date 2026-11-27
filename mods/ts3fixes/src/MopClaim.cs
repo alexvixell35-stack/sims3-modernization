@@ -167,12 +167,12 @@ namespace Ts3Fixes
         // game queues it when several Sims decide to clean up at once.
         static string McMopAll()
         {
-            Sim sel = Sims3.Gameplay.Core.PlumbBob.SelectedActor;
-            if (sel == null || sel.LotCurrent == null || sel.Household == null) return "mopclaim mop: no selected Sim on a lot";
+            Sims3.Gameplay.Core.Lot home = HhHomeLot();
+            if (home == null) return "mopclaim mop: no active household with a home lot";
             int n = 0;
-            foreach (Sim s in sel.Household.Sims)
+            foreach (Sim s in home.Household.Sims)
             {
-                if (s == null || s.HasBeenDestroyed || s.LotCurrent != sel.LotCurrent || s.InteractionQueue == null) continue;
+                if (s == null || s.HasBeenDestroyed || s.LotCurrent != home || s.InteractionQueue == null) continue;
                 InteractionInstance ii = Sim.MopPuddles.Singleton.CreateInstance(s, s, new InteractionPriority(InteractionPriorityLevel.Autonomous), true, true);
                 if (ii != null && s.InteractionQueue.Add(ii)) n++;
             }

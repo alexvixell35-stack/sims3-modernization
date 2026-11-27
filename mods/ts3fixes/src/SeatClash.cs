@@ -448,17 +448,17 @@ namespace Ts3Fixes
         // chairs and who sits or holds.
         static string ScClear()
         {
-            Sim sel = Sims3.Gameplay.Core.PlumbBob.SelectedActor;
-            if (sel == null || sel.LotCurrent == null) return "seatclash clear: no selected Sim on a lot";
+            Sims3.Gameplay.Core.Lot home = HhHomeLot();
+            if (home == null) return "seatclash clear: no active household with a home lot";
             int gone = 0, kept = 0;
-            foreach (IEdible e in sel.LotCurrent.GetObjects<IEdible>())
+            foreach (IEdible e in home.GetObjects<IEdible>())
             {
                 GameObject o = e as GameObject;
                 if (o == null || o.HasBeenDestroyed) continue;
                 if (o.InUse || o.Parent is Sim) { kept++; continue; }
                 o.Destroy(); gone++;
             }
-            foreach (ServingContainer sc in sel.LotCurrent.GetObjects<ServingContainer>())
+            foreach (ServingContainer sc in home.GetObjects<ServingContainer>())
             {
                 if (sc == null || sc.HasBeenDestroyed) continue;
                 if (sc.InUse || sc.Parent is Sim) { kept++; continue; }
@@ -467,13 +467,43 @@ namespace Ts3Fixes
             return "seatclash clear: destroyed " + gone + " plates / platters, kept " + kept + " held or in use";
         }
 
+        // furnish: every free chair slot of the home lot's dining tables gets a copy of the lot's first dining chair, slotted
+        // the way the buy tool slots one (ParentToSlot and the hand tool's placement callbacks).
+        static string ScFurnish()
+        {
+            Sims3.Gameplay.Core.Lot home = HhHomeLot();
+            if (home == null) return "seatclash furnish: no active household with a home lot";
+            ChairDining first = null;
+            foreach (ChairDining c in home.GetObjects<ChairDining>()) if (c.InWorld) { first = c; break; }
+            if (first == null) return "seatclash furnish: no dining chair on the home lot to copy";
+            ResourceKey key = first.GetResourceKey();
+            int slotted = 0, tables = 0;
+            foreach (Sims3.Gameplay.Objects.TableDining t in home.GetObjects<Sims3.Gameplay.Objects.TableDining>())
+            {
+                tables++;
+                foreach (SlotPair sp in t.FoodSlotPairs)
+                {
+                    if (t.IsSlotOccupied(sp.ChairSlot)) continue;
+                    ChairDining ch = first.Parent == null && slotted == 0 ? first : Sims3.Gameplay.GlobalFunctions.CreateObjectOutOfWorld(key) as ChairDining;
+                    if (ch == null) continue;
+                    bool fresh = ch != first;
+                    if (!ch.ParentToSlot(t, sp.ChairSlot)) { if (fresh) ch.Destroy(); continue; }
+                    if (fresh) ch.AddToWorld();
+                    ch.OnHandToolPlacementInSlot(t, sp.ChairSlot);
+                    ch.OnHandToolPlacement();
+                    slotted++;
+                }
+            }
+            return "seatclash furnish: tables " + tables + ", slotted " + slotted;
+        }
+
         static string ScSeats()
         {
-            Sim sel = Sims3.Gameplay.Core.PlumbBob.SelectedActor;
-            if (sel == null || sel.LotCurrent == null) return "seatclash seats: no selected Sim on a lot";
+            Sims3.Gameplay.Core.Lot home = HhHomeLot();
+            if (home == null) return "seatclash seats: no active household with a home lot";
             System.Text.StringBuilder b = new System.Text.StringBuilder("seatclash seats:");
             int seated = 0;
-            foreach (Sims3.Gameplay.Objects.TableDining t in sel.LotCurrent.GetObjects<Sims3.Gameplay.Objects.TableDining>())
+            foreach (Sims3.Gameplay.Objects.TableDining t in home.GetObjects<Sims3.Gameplay.Objects.TableDining>())
             {
                 int chairs = 0, used = 0, held = 0;
                 foreach (SlotPair sp in t.FoodSlotPairs)
@@ -505,6 +535,7 @@ namespace Ts3Fixes
                     return "seatclash: reset";
                 }
                 if (what == "clear") return ScClear();
+                if (what == "furnish") return ScFurnish();
                 if (what == "seats") return ScSeats();
                 if (what == "run")
                 {

@@ -152401,7 +152401,7 @@
     "bug": "Sims clash at the dining table: two Sims pick the same chair (the pick is not held during the walk), and a Sim standing behind a chair makes the game's push fail or the pull-out test refuse; the walk ends in the route-fail shrug (docs/686 §42)",
     "fix": "ts3fixes SeatClash.cs: seatclash (NPCs) / seatclashhh (household and selected Sims), default off, docs/686 §42",
     "save": "Sunset Valley new game (the household and the room are made by the repro)",
-    "note": "8 household Sims, one 4-seat table (TableDiningBistro), a group meal on the floor by the counters; all 8 are ordered to grab a serving at once, three rounds per arm. Both arms run the planned-on household set; arm on adds seatclash + seatclashhh. 'SeatClashCheck result' gives the approaches by exit (seated / taken on arrival / push failed / pull-out refused / other), shrugs, push waits and pick-to-seated times; 'seats' the chairs in use. The furnish step is DoorSeat.cs's (docs/686 §39).",
+    "note": "8 household Sims, one 4-seat table (TableDiningBistro), a group meal on the floor by the counters; all 8 are ordered to grab a serving at once, three rounds per arm. Both arms run the planned-on household set; arm on adds seatclash + seatclashhh. 'SeatClashCheck result' gives the approaches by exit (seated / taken on arrival / push failed / pull-out refused / other), shrugs, push waits and pick-to-seated times; 'seats' the chairs in use.",
     "expect": "off: shrugs > 0 (taken on arrival or push failed), 'would' counts > 0. on: shrugs lower, 'picked again' or 'no chair left' > 0 where the off arm had 'taken on arrival', push grace ends where the off arm had 'push failed', snaps 0, errors 0, the same number of Sims seated.",
     "cleanup": [
       {
@@ -152615,7 +152615,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -152635,7 +152636,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -152646,7 +152648,7 @@
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
           "args": [
             "furnish"
           ]
@@ -152654,7 +152656,7 @@
         "max": 4000,
         "waitS": 3,
         "mustMatch": "slotted 4",
-        "note": "every chair slot of the table gets a chair (DoorSeat.cs helper)"
+        "note": "every chair slot of the table gets a chair"
       },
       {
         "cmd": "reflect_call",
@@ -152852,7 +152854,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -153105,7 +153108,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -153358,7 +153362,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -153682,7 +153687,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -153935,7 +153941,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -154188,7 +154195,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -154354,7 +154362,7 @@
     "bug": "Sims clash at the dining table: two Sims pick the same chair (the pick is not held during the walk), and a Sim standing behind a chair makes the game's push fail or the pull-out test refuse; the walk ends in the route-fail shrug (docs/686 §42)",
     "fix": "ts3fixes SeatClash.cs: seatclash (NPCs) / seatclashhh (household and selected Sims), default off, docs/686 §42",
     "save": "Sunset Valley new game (the household and the room are made by the repro)",
-    "note": "8 household Sims, one 6-seat table (TableDiningMission), a group meal on the floor by the counters; all 8 are ordered to grab a serving at once, three rounds per arm. Both arms run the planned-on household set; arm on adds seatclash + seatclashhh. 'SeatClashCheck result' gives the approaches by exit (seated / taken on arrival / push failed / pull-out refused / other), shrugs, push waits and pick-to-seated times; 'seats' the chairs in use. The furnish step is DoorSeat.cs's (docs/686 §39).",
+    "note": "8 household Sims, one 6-seat table (TableDiningMission), a group meal on the floor by the counters; all 8 are ordered to grab a serving at once, three rounds per arm. Both arms run the planned-on household set; arm on adds seatclash + seatclashhh. 'SeatClashCheck result' gives the approaches by exit (seated / taken on arrival / push failed / pull-out refused / other), shrugs, push waits and pick-to-seated times; 'seats' the chairs in use.",
     "expect": "off: shrugs > 0 (taken on arrival or push failed), 'would' counts > 0. on: shrugs lower, 'picked again' or 'no chair left' > 0 where the off arm had 'taken on arrival', push grace ends where the off arm had 'push failed', snaps 0, errors 0, the same number of Sims seated.",
     "cleanup": [
       {
@@ -154568,7 +154576,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -154588,7 +154597,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -154599,7 +154609,7 @@
       {
         "cmd": "reflect_call",
         "args": {
-          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "path": "Ts3Fixes.Fixes.SeatClashCheck",
           "args": [
             "furnish"
           ]
@@ -154607,7 +154617,7 @@
         "max": 4000,
         "waitS": 3,
         "mustMatch": "slotted 6",
-        "note": "every chair slot of the table gets a chair (DoorSeat.cs helper)"
+        "note": "every chair slot of the table gets a chair"
       },
       {
         "cmd": "reflect_call",
@@ -154805,7 +154815,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -155058,7 +155069,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -155311,7 +155323,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -155635,7 +155648,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -155888,7 +155902,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -156141,7 +156156,8 @@
             "Gia Seatclash",
             "Hal Seatclash"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -156461,7 +156477,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -156477,7 +156494,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -156583,7 +156601,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -156673,7 +156692,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -156763,7 +156783,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -156873,7 +156894,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -157035,7 +157057,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -157125,7 +157148,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -157215,7 +157239,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
@@ -157325,7 +157350,8 @@
             "Cia Mopclaim",
             "Dov Mopclaim"
           ],
-          "near": "@type:Counter",
+          "lot": "18 Maywood Lane",
+          "near": "Counter",
           "autonomy": false,
           "motives": true
         },
