@@ -13,6 +13,7 @@ namespace Ts3Fixes
     //   HhDirected / HhPlayerOrder the one "not the Sim's own pick" test: facilityplan, lineswitch, clipwait, seatclash, mopclaim
     //   HhHold / HhHolder / HhDrop reservations in nextplan's claim table (NextPlanCore.Hold): a chair walked to, a puddle
     //                              being mopped; every search (nextplan's pick factor) and every fix reads the same table
+    //   HhDoorLockedAgainst        the player's door lock: a room whose doors the player locked against a Sim stays closed to it
     //   HhSnapSeen / HhSnap        a Sim put somewhere without a walk fades out and in when it can be seen (camsafe's
     //                              on-screen answer through UcOnScreen)
     public static partial class Fixes
@@ -53,6 +54,24 @@ namespace Ts3Fixes
             if (id == 0) return null;
             Sim s = GameObject.GetObject(new ObjectGuid(id)) as Sim;
             return s == null || s.HasBeenDestroyed ? null : s;
+        }
+
+        // A door the player locked (CommonDoor lock type other than Anybody) refuses this Sim, and the room has no door
+        // that lets it through: the room is closed to the Sim by the player's choice. No fix may put a Sim in there or
+        // tell it the room is open. (EA's automatic privacy is not a door lock and is not asked here.)
+        static bool HhDoorLockedAgainst(Sim sim, Sims3.Gameplay.Core.Lot lot, int roomId)
+        {
+            if (sim == null || lot == null) return false;
+            bool locked = false;
+            foreach (CommonDoor d in lot.GetObjects<CommonDoor>())
+            {
+                if (d == null || d.HasBeenDestroyed) continue;
+                int[] rc = d.GetRoomConnections();
+                if (rc == null || rc.Length < 2 || (rc[0] != roomId && rc[1] != roomId)) continue;
+                if (d.LockType == CommonDoor.tLock.Anybody || d.IsAllowedThrough(sim)) return false;  // a way in the player left open
+                locked = true;
+            }
+            return locked;
         }
 
         static bool HhSnapSeen(Sim sim, Vector3 to)

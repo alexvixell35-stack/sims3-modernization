@@ -346,6 +346,8 @@ namespace Ts3Fixes
             }
             BuRestoreOptions(r, k);
             if (step == BlockedUseCore.kSnap && k.Seat && !ShortcutOn("seatsnap")) step = BlockedUseCore.kKeep;  // seatreach without seatsnap: clip only
+            // the player's door lock wins: never a snap into a room whose doors the player locked against this Sim (HhShared.cs, docs/686 §41)
+            if (step == BlockedUseCore.kSnap && s.Obj[pick].RoomId != sim.RoomId && HhDoorLockedAgainst(sim, s.Obj[pick].LotCurrent, s.Obj[pick].RoomId)) step = BlockedUseCore.kKeep;
             if (step == BlockedUseCore.kSnap)
             {
                 GameObject target = s.Obj[pick];

@@ -3208,3 +3208,25 @@ keep their own claim, grace or fade machinery, could move an action the player o
 tunables count as 0, as `ClipWaitCore.Due` already did); the order helpers return the same booleans; `Hold` adds
 entries only when a fix that is on calls it; the snap helper runs only inside blockeduse's snap, which needs
 blockeduse / seatsnap on. Selftests: `tools/selftest/hhshared` (11 checks), nextplan's hold cases (49 checks).
+
+### 41.3 The player's door locks (2026-11-27)
+
+The player's rule: "If its locked its manually locked, i think we shouldnt mess with that". EA has two separate
+mechanisms [verified, decompiled `CommonDoor`, `PrivacySituation`]: the door's own lock (`CommonDoor.tLock`: nobody,
+selected Sim, household, pets, owner list, VIP room; asked by the door through `CommonDoor.IsAllowedThrough`), set by
+the player, and the automatic privacy situation a Sim gets while it showers, bathes or uses the toilet (a room
+restriction plus a portal check for autonomous routes). Audit of the household fixes against the first:
+
+- clipwait / simpass / petrelax switch off `BlockedByPeople` only: Sims and pets, never a door. No bypass.
+- blockeduse / seatreach / reachuse / unstuck plan with `PassThroughObjects`: object footprints only; a locked door is
+  a portal restriction, the plan still fails there, and `BlockedUseCore.Kind` leaves "portal locked" plans to the game.
+  No bypass in the walk. The **snap** picked its slot by distance alone: a slot within 4 m behind a locked door could
+  be chosen when the plan failed for furniture. **Fixed:** `HhDoorLockedAgainst` (a room all of whose doors the
+  player locked against the Sim) keeps the game's result for a snap into another room.
+- doorseat changes the chair's placement test only (the door's keep-clear area), not who may pass the door.
+- nextplan, facilityplan, lineswitch, sinkfree, servingshare, fridgeline queue EA's own interactions; their routes ask
+  the door as always. sinkfree skips sinks in a privacy-locked room; it should ask `HhDoorLockedAgainst` as well so a
+  Sim is not sent to a sink it cannot reach (it would only fail at the door, as in EA's game).
+- standwaitlocked ends a wait at a privacy-locked room earlier; it opens nothing.
+- reachcache sets doors to `Nobody` for a moment and restores them in the same call (its own measurement; docs/688).
+- familybath (§44) changes the privacy situation's rule only and refuses any room the player locked.
