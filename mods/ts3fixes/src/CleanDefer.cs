@@ -29,7 +29,7 @@ namespace Ts3Fixes
     public static partial class Fixes
     {
         const int kCdRuns = 5100, kCdDeferred = 5101, kCdWould = 5102, kCdOrdered = 5103, kCdCap = 5104, kCdErrors = 5105, kCdLines = 5106, kCdNoWaiters = 5107;
-        const float kCdBladder = -20f;  // bathroomwait's kBwNeed
+        const float kCdBladder = -60f;  // EA's urgent bladder level
 
         static readonly Dictionary<ulong, long> sCdFirst = new Dictionary<ulong, long>();  // by toilet: tick of the first deferral in a row
         static readonly LineCapCore sCdCap = new LineCapCore(20, 60000, 300);
