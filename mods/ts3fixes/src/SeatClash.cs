@@ -35,6 +35,9 @@ namespace Ts3Fixes
     //      that lands on a chair another Sim holds or claims is made again without those chairs (EA's own rule over the
     //      rest); when every free chair is held the table counts as full for this Sim (EA's "no chair" answer: no walk,
     //      no shrug). The table picks the chair in this path, so a chair the player clicked is never changed.
+    //      A Sim that reaches a chair another way (a posture change picks the seat) holds it from the start of its
+    //      approach; an approach to a seat another Sim is already walking to, or sits on, ends before its walk (EA's
+    //      "taken on arrival" without the walk and the shrug; the Sim stands a sim-minute and its action picks again).
     //   b. The push wait: EA's pushes are started as before, then the Sim waits until the area behind the chair is clear,
     //      at most the shared grace (HhGraceMin, 2.5 sim-min; none when nobody sees it, camsafe). After the grace the
     //      chair pulls out past the neighbour (a brief partial overlap; nobody walks through a standing Sim).
@@ -96,6 +99,7 @@ namespace Ts3Fixes
         {
             public bool RouteHook(Sim s, Slot preferredSlot, bool bCheckScootBack, out SitData partToSitDownIn, out Slot routingSlot, out object context)
             {
+                if (bCheckScootBack && s != null && ScTakenEarly(this, s)) { partToSitDownIn = null; routingSlot = Slot.None; context = null; return false; }
                 ScRun run = ScEnter(this, s, false);
                 bool r = RouteOrig(s, preferredSlot, bCheckScootBack, out partToSitDownIn, out routingSlot, out context);
                 if (run != null) ScExit(this, s, run, r);
@@ -119,6 +123,7 @@ namespace Ts3Fixes
         {
             public bool RouteHook(Sim s, Slot preferredSlot, bool bCheckScootBack, out SitData partToSitDownIn, out Slot routingSlot, out object sitContext)
             {
+                if (bCheckScootBack && s != null && ScTakenEarly(this, s)) { partToSitDownIn = null; routingSlot = Slot.None; sitContext = null; return false; }
                 ScRun run = ScEnter(this, s, true);
                 bool r = RouteOrig(s, preferredSlot, bCheckScootBack, out partToSitDownIn, out routingSlot, out sitContext);
                 if (run != null) ScExit(this, s, run, r);
@@ -225,10 +230,42 @@ namespace Ts3Fixes
                 run.Approach = true; run.Stool = stool; run.PushFailed = run.PushGrace = run.ScootRefused = false;
                 run.EnterTick = now; run.EnterMs = System.Environment.TickCount;
                 PatchCounters()[kScApproach]++;
+                if (HhHolder(id) == 0 && ScScope(s) == HhSharedCore.kGo && HhHold(id, s, Instantiator.kNextPlanClaimMinutes)) PatchCounters()[kScHolds]++;
                 return run;
             }
             catch (ResetException) { throw; }
             catch (Exception e) { ScError(e); return null; }
+        }
+
+        // Before the walk: another Sim is already on its way to this seat (its approach runs, or it holds the seat), or
+        // sits on it. For a Sim the fix covers the approach ends here: no walk to a seat that will be taken, no shrug. The
+        // Sim stands a sim-minute (so a retry is not instant) and its action picks again, as after EA's own failure.
+        static bool ScTakenEarly(GameObject seat, Sim s)
+        {
+            try
+            {
+                ulong id = seat.ObjectId.Value;
+                Sim other = null;
+                ulong h = HhHolder(id);
+                if (h != 0 && h != s.ObjectId.Value)
+                {
+                    ScRun o;
+                    Sim hs = HhSim(h);
+                    if (hs != null && sScRuns.TryGetValue(h, out o) && o.Chair == id && (o.Approach || o.PickTick != 0)) other = hs;
+                }
+                if (other == null && seat.InUse && !seat.IsActorUsingMe(s)) foreach (Sim u in seat.ActorsUsingMe) if (u != null && u != s) { other = u; break; }
+                if (other == null) return false;
+                int[] c = PatchCounters();
+                c[kScPickHeld]++;
+                int scope = ScScope(s);
+                if (scope != HhSharedCore.kGo) { if (scope == HhSharedCore.kWould) c[kScRepickWould]++; return false; }
+                c[kScFull]++;
+                ScLine(ScHead(s, seat) + ": " + other.FullName + " is on its way to it or sits there: no walk, picks again");
+                s.WaitForExitReason(1f, ExitReason.Canceled);
+                return true;
+            }
+            catch (ResetException) { throw; }
+            catch (Exception e) { ScError(e); return false; }
         }
 
         static void ScExit(GameObject seat, Sim s, ScRun run, bool ok)
@@ -303,7 +340,7 @@ namespace Ts3Fixes
             ScRun run = ScRunOf(sim, true);
             if (run.Chair != 0 && run.Chair != chair.ObjectId.Value) HhDrop(run.Chair, sim);
             run.Chair = chair.ObjectId.Value; run.PickTick = SimClock.CurrentTicks; run.PickMs = System.Environment.TickCount; run.Approach = false;
-            if (HhHold(run.Chair, sim, Instantiator.kNextPlanClaimMinutes)) c[kScHolds]++;
+            if (ScScope(sim) == HhSharedCore.kGo && HhHold(run.Chair, sim, Instantiator.kNextPlanClaimMinutes)) c[kScHolds]++;
             return r;
         }
 
@@ -556,7 +593,7 @@ namespace Ts3Fixes
                     + "; household exits seated/taken/push/pull-out/other " + sScHh[0] + "/" + sScHh[1] + "/" + sScHh[2] + "/" + sScHh[3] + "/" + sScHh[4]
                     + "; push waits " + c[kScPushWaits] + ", " + (c[kScPushTenths] / 10f).ToString("0.0") + " sim-min (tenths: " + sScPushHist.Text() + ")"
                     + "; pick to seated ms: " + sScSeatMs.Text() + "; sim-min tenths: " + sScSeatTenths.Text()
-                    + "; picks of a chair another Sim walks to " + c[kScPickHeld] + " (picked again " + c[kScRepick] + ", would " + c[kScRepickWould] + ", no chair left " + c[kScFull]
+                    + "; picks of a chair another Sim walks to " + c[kScPickHeld] + " (picked again " + c[kScRepick] + ", would " + c[kScRepickWould] + ", no chair left or ended before the walk " + c[kScFull]
                     + "), holds " + c[kScHolds] + "; push grace ended " + c[kScPushGrace] + " (would " + c[kScPushWould] + "), pull-outs allowed past a Sim " + c[kScScootAllowed]
                     + ", of the grace ends on screen " + c[kScClipSeen] + ", snaps 0; errors " + c[kScErrors] + (sScLastError.Length > 0 ? " (" + sScLastError + ")" : "")
                     + (sScMiss.Length > 0 ? "; not found: " + sScMiss : "") + (sScLast.Length > 0 ? "; last: " + sScLast : "");
