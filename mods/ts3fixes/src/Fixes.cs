@@ -561,6 +561,7 @@ namespace Ts3Fixes
             ApplyFridgeFf();           // docs/686 §36.11 (FridgeFf.cs): fridgeff / fridgeffunseen, off; swaps Fridge_Have.Run, Fridge_EatLeftovers.Run
             ApplyStairFlow();          // docs/686 §32 (StairFlow.cs): stairflow / stairflowhh, stairtimelog, off by default (counts either way); swaps FollowRouteAction.PerformRoute and PortalAnimateThroughAction.UseStartAnimWhenExitingPortal
             ApplyQueueWake();          // docs/686 §23 (QueueWake.cs): queuewake, off by default (counts either way); swaps Sim.LoopIdle and InteractionInstance.OnAddedToQueue (stacked)
+            ApplyDoorSeat();           // docs/686 §39 (DoorSeat.cs): doorseat / doorseathh / seatreach / seatreachhh / seatsnap, off by default (counts either way); swaps ChairDining.CanScootBack / CanEnableFeetFootprint, ChairBarStool.CanScootBack
             ApplyNextPlan();           // docs/686 §38 (NextPlan.cs): nextplan / nextplanhh / nextplanlog, off by default (counts either way); swaps Sim.LoopIdle (after queuewake), GameObject.GetInUseAutonomyMultiplier, InteractionInstance.OnAddedToQueue / OnRemovedFromQueue, Autonomy.RunAutonomy(bool) (stacked)
             ApplySinkFree();           // docs/686 §40 (SinkFree.cs): sinkfree / sinkfreehh / sinkfreelog, off by default (counts either way); swaps ServingContainer.ServingContainer_CleanUp.GetBestObjectToWashDishes
             ApplyUnseenSkip();         // docs/686 §37 (UnseenSkip.cs): rhskipunseen, bookskipunseen, gymtwin, lineswitchpc, slidehang and their household opt-ins, off by default (counts either way); swaps Bookshelf_ReadSomething.Run; the rest rides ObjShare's, ShareLanes' and LineSwitch's hooks
@@ -1859,6 +1860,10 @@ namespace Ts3Fixes
         // picks measured / dropped by a higher-priority add / lines / searches timed / other skips / household autonomous acts done.
         // [5000-5009] sinkfree (SinkFree.cs, docs/686 §40; 5000-5019 reserved by hand 2026-11-27): dish trips / EA's sink busy / switched /
         // would / no free sink / exempt / errors / EA's sink free / not a sink / lines; 5010-5019 spare.
+        // [4980-4999] doorseat (DoorSeat.cs, docs/686 §39; reserved by hand 2026-11-27): seat tests refused with a door near / would /
+        // allowed scoot / feet / kept: no door near / door allowed still refused / exempt / errors / scoot refused / feet refused /
+        // snaps faded / lines / check sit orders / seated / not seated / seatreach: seat cases / walked after the grace / clip /
+        // snap / seat test allowed.
         const int kCounterSlots = 5020;
         static int[] sCountersCache;
         static int[] PatchCounters()
@@ -2270,6 +2275,11 @@ namespace Ts3Fixes
                 case "camsafe": return Instantiator.kCamSafe;  // CamSafe.cs (docs/690): every off-screen shortcut asks the camera-safe rule (predictive margin, recently-seen hold, camera-jump pause), off
                 case "nextplan": return Instantiator.kNextPlan;  // NextPlan.cs (docs/686 §38): a Sim whose queue ran empty runs EA's autonomy pass at once (NPCs, high LOD, per-tick budget), off
                 case "nextplanhh": return Instantiator.kNextPlanHh;  // NextPlan.cs: household and selected Sims too (the active Sim keeps EA's delay), off
+                case "doorseat": return Instantiator.kDoorSeat;  // DoorSeat.cs (docs/686 §39): a chair's pull-out / feet test refused only by a door's keep-clear area is allowed for NPCs, off
+                case "doorseathh": return Instantiator.kDoorSeatHh;  // DoorSeat.cs: the same for household and selected Sims (stands alone), off
+                case "seatreach": return Instantiator.kSeatReach;  // DoorSeat.cs (docs/686 §39.3): a seat out of reach: pull-out allowed, grace, clip walk to its slot, NPCs, off
+                case "seatreachhh": return Instantiator.kSeatReachHh;  // DoorSeat.cs: the same for household and selected Sims, off
+                case "seatsnap": return Instantiator.kSeatSnap;  // DoorSeat.cs: seatreach's snap onto the slot when no clip walk exists (fade on screen), off
                 case "nextplanlog": return Instantiator.kNextPlanLog;  // NextPlan.cs: one line per pass (capped), off
                 case "camsafelog": return Instantiator.kCamSafeLog;  // CamSafe.cs: sample the camera and count what camsafe would say with camsafe off (the A/B off arm), off
                 case "termlenguard": return Instantiator.kTermLenGuard;  // TermLenGuard.cs (docs/692 §2): academic multipliers with an out-of-range term length / course load count as 1 instead of throwing (Sim reset), every Sim, off

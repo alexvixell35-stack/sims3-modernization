@@ -149995,5 +149995,2405 @@
         }
       }
     ]
+  },
+  {
+    "id": "doorseat-force",
+    "bug": "Dining chairs next to a door or arch cannot be used: before the Sim sits, ChairDining.CanEnableFeetFootprint / CanScootBack ask the build-mode placement test, which counts the door's keep-clear area (docs/686 §39)",
+    "fix": "ts3fixes DoorSeat.cs: doorseat (NPCs) / doorseathh (household and selected Sims), default off, docs/686 §39",
+    "save": "any world, new game (the household is made by the repro)",
+    "note": "Three table groups along an inner wall (in front of a door, at an arch, diagonal to a door), a control group away from doors, a sofa beside the front door. 'DoorSeatCheck lot' lists every seat: the game's seat test, which object alone lets a refused test pass, every routing slot's plan. Per arm each seat is ordered (user-directed), then as an autonomous pick; 'seated' says SEATED / NOT SEATED.",
+    "expect": "arms off / door (doorseat+hh) / full (doorseat, seatreach, seatsnap, all +hh). off: some seats near doors NOT SEATED with the seat test REFUSED and a door as the only blocker; door: those seats SEATED, doorseat allowed > 0; full: also the furniture-blocked chair SEATED by clip or snap (seatreach counters); errors 0.",
+    "steps": [
+      {
+        "cmd": "make_household",
+        "args": {
+          "name": "Doorseat",
+          "empty_lot": true,
+          "sims": [
+            {
+              "key": "a",
+              "first": "Dora",
+              "last": "Doorseat",
+              "age": "YoungAdult",
+              "gender": "Female",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            },
+            {
+              "key": "b",
+              "first": "Dan",
+              "last": "Doorseat",
+              "age": "YoungAdult",
+              "gender": "Male",
+              "traits": [
+                "Artistic",
+                "Virtuoso"
+              ]
+            }
+          ]
+        },
+        "waitS": 5,
+        "note": "two-Sim household on a vacant lot"
+      },
+      {
+        "cmd": "switch_household",
+        "args": {
+          "household": "Doorseat"
+        },
+        "waitS": 30
+      },
+      {
+        "cmd": "clock_hour",
+        "setup": true,
+        "args": {
+          "hour": 11
+        },
+        "waitS": 1
+      },
+      {
+        "cmd": "autonomy",
+        "setup": true,
+        "args": {
+          "sim": "household",
+          "enabled": false
+        },
+        "waitS": 1,
+        "note": "only the orders move the Sims"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "build_layout",
+        "args": {
+          "map": [
+            "E E E E E E E E E E E",
+            "E t E E E t E E E t E",
+            "E E E E E E E E E E E",
+            "w w w E w w w w w w w",
+            "E E E E E E E E t E E",
+            "E X E E E E E b E b E",
+            "E E E f E E E E E a E"
+          ],
+          "house": true,
+          "margin": 0,
+          "origin": [
+            6,
+            6
+          ],
+          "roof": false,
+          "lights": 0,
+          "sim_timeout_s": 120,
+          "legend": {
+            "t": {
+              "name": "",
+              "class": "TableDiningBistro",
+              "first": true
+            },
+            "a": {
+              "name": "",
+              "class": "ChairDiningMission",
+              "facing": "E",
+              "loose": true,
+              "nudge": [
+                0.3,
+                0
+              ]
+            },
+            "d": {
+              "name": "",
+              "class": "ChairDiningMission",
+              "facing": "W",
+              "loose": true,
+              "nudge": [
+                -0.3,
+                0
+              ]
+            },
+            "n": {
+              "name": "",
+              "class": "ChairDiningMission",
+              "facing": "N",
+              "loose": true,
+              "nudge": [
+                0,
+                -0.3
+              ]
+            },
+            "f": {
+              "name": "",
+              "class": "SofaMission",
+              "facing": "N",
+              "loose": true
+            }
+          },
+          "doors": [
+            {
+              "tile": [
+                1,
+                2
+              ],
+              "side": "S",
+              "kind": "door"
+            },
+            {
+              "tile": [
+                5,
+                2
+              ],
+              "side": "S",
+              "kind": "arch"
+            },
+            {
+              "tile": [
+                10,
+                2
+              ],
+              "side": "S",
+              "kind": "door"
+            }
+          ]
+        },
+        "waitS": 3,
+        "until": {
+          "cmd": "build_layout",
+          "args": {
+            "result": true
+          },
+          "all": [
+            {
+              "path": "passed",
+              "equals": true
+            }
+          ],
+          "failOn": "error",
+          "everyS": 3,
+          "maxS": 420
+        },
+        "note": "room 11x7, front door on the +z house wall near the sofa; inner wall z=3 (one open tile at x3 so the floor tool fills both rooms; the door tool cuts the rest) with a door at x1 (table group 1 in front), an arch at x5 (group 2), a door at x10 (group 3 diagonal); group 4 (x7-9, z3-4) away from doors, trash cans on both sides of its south chair (blocked by furniture: grace, clip or snap)"
+      },
+      {
+        "cmd": "set_speed",
+        "args": {
+          "speed": "normal"
+        },
+        "waitS": 2
+      },
+      {
+        "cmd": "doors",
+        "args": {},
+        "max": 2000,
+        "waitS": 1,
+        "optional": true
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "furnish all"
+          ]
+        },
+        "max": 3000,
+        "waitS": 3,
+        "note": "every free chair slot of the four tables gets a chair; slots the buy-mode test refuses are filled too (forced: the end state of a door built after the chairs or a table set moved next to a door)"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "run"
+          ]
+        },
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "max": 6000,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorseat": false,
+          "doorseathh": false,
+          "seatreach": false,
+          "seatreachhh": false,
+          "seatsnap": false
+        },
+        "waitS": 1,
+        "note": "arm off"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "doorseat-off"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 0"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 1"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 2"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 2"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 3"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 3"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 4"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 4"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 5"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 5"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 6"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 6"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 7"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 7"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 8"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 8"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 9"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 9"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 10"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 10"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 11"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 11"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 12"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 12"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 13"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 13"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 14"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 14"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 15"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 15"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 16"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 16"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 17"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off ordered seat 17"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 0 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 1 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 2 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 2"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 3 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 3"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 4 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 4"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 5 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 5"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 6 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 6"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 7 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 7"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 8 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 8"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 9 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 9"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 10 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 10"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 11 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 11"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 12 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 12"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 13 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 13"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 14 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 14"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 15 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 15"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 16 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 16"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 17 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "off autonomous seat 17"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorseat": true,
+          "doorseathh": true,
+          "seatreach": false,
+          "seatreachhh": false,
+          "seatsnap": false
+        },
+        "waitS": 1,
+        "note": "arm door"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "doorseat-door"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 0"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 1"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 2"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 2"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 3"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 3"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 4"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 4"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 5"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 5"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 6"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 6"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 7"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 7"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 8"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 8"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 9"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 9"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 10"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 10"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 11"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 11"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 12"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 12"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 13"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 13"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 14"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 14"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 15"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 15"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 16"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 16"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 17"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "door ordered seat 17"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "patches",
+        "args": {
+          "doorseat": true,
+          "doorseathh": true,
+          "seatreach": true,
+          "seatreachhh": true,
+          "seatsnap": true
+        },
+        "waitS": 1,
+        "note": "arm full"
+      },
+      {
+        "cmd": "mem_mark",
+        "args": {
+          "tag": "doorseat-full"
+        }
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 0"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 1"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 2"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 2"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 3"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 3"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 4"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 4"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 5"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 5"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 6"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 6"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 7"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 7"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 8"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 8"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 9"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 9"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 10"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 10"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 11"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 11"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 12"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 12"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 13"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 13"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 14"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 14"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 15"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 15"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 16"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 16"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 17"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full ordered seat 17"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 0 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 0"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 1 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 1"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 2 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 2"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 3 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 3"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 4 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 4"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 5 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 5"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 6 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 6"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 7 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 7"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 8 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 8"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 9 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 9"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 10 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 10"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 11 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 11"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 12 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 12"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 13 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 13"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 14 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 14"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 15 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 15"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 16 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 16"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "sit 17 auto"
+          ]
+        },
+        "max": 400,
+        "waitS": 20,
+        "note": "full autonomous seat 17"
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "seated"
+          ]
+        },
+        "max": 600,
+        "waitS": 1
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "result"
+          ]
+        },
+        "max": 1500,
+        "waitS": 2
+      },
+      {
+        "cmd": "reflect_call",
+        "args": {
+          "path": "Ts3Fixes.Fixes.DoorSeatCheck",
+          "args": [
+            "lot"
+          ]
+        },
+        "max": 6000,
+        "waitS": 2
+      }
+    ]
   }
 ]

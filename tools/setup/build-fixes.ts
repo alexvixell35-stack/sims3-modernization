@@ -315,6 +315,11 @@ const TUNING_XML = `<?xml version="1.0" encoding="utf-8"?>
     <kCamSafeAuditS value="3" />
     <kNextPlan value="False" />
     <kNextPlanHh value="False" />
+    <kDoorSeat value="False" />
+    <kDoorSeatHh value="False" />
+    <kSeatReach value="False" />
+    <kSeatReachHh value="False" />
+    <kSeatSnap value="False" />
     <kNextPlanLog value="False" />
     <kNextPlanNpcPerTick value="1" />
     <kNextPlanClaimMinutes value="5" />

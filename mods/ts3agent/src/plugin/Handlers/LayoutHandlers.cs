@@ -18,8 +18,8 @@ using Sims3.UI;
 namespace Ts3Agent
 {
     // build_layout: a text map (LayoutMap.cs: how tiles turn into edge walls) built on the home lot with the player's tools.
-    // {map: [rows] | "rows\n...", legend?: {"f": {name | product, facing?: N|E|S|W, class?: object class name, loose?: true (several tiles: the landing tile is not tested), nudge?: [dx, dz] tiles off the tile centre for the cursor}}, origin?: [lx, lz], rotation?: 0|90|180|270,
-    //  level?: 0, house?: false, margin?: 1, lights?: 2, clear?: true, sim_timeout_s?: 60} | {result: true}
+    // {map: [rows] | "rows\n...", legend?: {"f": {name | product, facing?: N|E|S|W, class?: object class name, loose?: true (several tiles: the landing tile is not tested), first?: true (placed before the other items), nudge?: [dx, dz] tiles off the tile centre for the cursor}}, origin?: [lx, lz], rotation?: 0|90|180|270,
+    //  level?: 0, house?: false, margin?: 1, lights?: 2, clear?: true, sim_timeout_s?: 60, doors?: [{tile, side, kind?: door|arch, name?}] (LayDoors)} | {result: true}
     //   s = stove, b = trash can built in; facing default: back to the wall (LayoutPlan.AutoDir).
     //   origin omitted: the first free area nearest the lot centre (FindFootprint). house: a real house round the map, margin
     //   tiles wider on each side: room tool, floor tool, door on the lot +z wall, ceiling lights, auto roof. Smallest real set:
@@ -50,9 +50,12 @@ namespace Ts3Agent
             public int ox, oz, rot, level, margin, lights, simTimeoutS;
             public int hx0, hz0, hx1, hz1;   // footprint in lot vertices, with the margin
             public bool house, clear, roof;
+            public List<object[]> doors = new List<object[]>();
+            public Dictionary<char, string[]> lazy = new Dictionary<char, string[]>();   // products found in the async run: {prefer, class}   // doors: {x, z, map dir, arch?, name part}
             public Dictionary<char, BuildBuyProduct> prods = new Dictionary<char, BuildBuyProduct>();
             public Dictionary<char, double[]> nudge = new Dictionary<char, double[]>();   // cursor off the tile centre, in tiles (map x, z): which grid line an even-sized object snaps to
-            public Dictionary<char, bool> loose = new Dictionary<char, bool>();   // an object of several tiles: where it lands is reported, not tested
+            public Dictionary<char, bool> loose = new Dictionary<char, bool>();
+            public Dictionary<char, bool> first = new Dictionary<char, bool>();   // an object of several tiles: where it lands is reported, not tested
             public Vector3 c00, ex, ez, camPos, camTarget;
             public double plane;
             public uint dwell = 10;
@@ -101,6 +104,7 @@ namespace Ts3Agent
                     if (e.TryGetValue("prefer", out prod) && prod != null) prefer[ch] = prod.ToString().ToLowerInvariant();
                     if (e.TryGetValue("class", out prod) && prod != null) classes[ch] = prod.ToString();
                     if (e.TryGetValue("loose", out prod) && prod is bool && (bool)prod) l.loose[ch] = true;
+                    if (e.TryGetValue("first", out prod) && prod is bool && (bool)prod) l.first[ch] = true;  // placed before the other items (a table before its chairs)
                     IList nudge = e.TryGetValue("nudge", out prod) ? prod as IList : null;
                     if (nudge != null && nudge.Count == 2) l.nudge[ch] = new double[] { Convert.ToDouble(nudge[0], CultureInfo.InvariantCulture), Convert.ToDouble(nudge[1], CultureInfo.InvariantCulture) };
                 }
@@ -118,6 +122,20 @@ namespace Ts3Agent
             l.lights = l.house ? (int)a.Long("lights", 2) : 0;
             l.clear = a.Bool("clear", true);
             l.simTimeoutS = (int)a.Long("sim_timeout_s", 60);
+            List<object> dl = a.List("doors");
+            if (dl != null)
+                foreach (object o in dl)
+                {
+                    IDictionary<string, object> e = o as IDictionary<string, object>;
+                    IList t = e != null && e.ContainsKey("tile") ? e["tile"] as IList : null;
+                    string side = e != null && e.ContainsKey("side") ? Convert.ToString(e["side"]).ToUpperInvariant() : "";
+                    int dir = side == "N" ? 0 : side == "E" ? 1 : side == "S" ? 2 : side == "W" ? 3 : -1;
+                    if (t == null || t.Count != 2 || dir < 0) throw new McpException("doors: {tile: [x, z], side: N|E|S|W, kind?: door|arch, name?}");
+                    if (l.rot != 0) throw new McpException("doors: rotation 0 only");
+                    string kind = e.ContainsKey("kind") ? Convert.ToString(e["kind"]).ToLowerInvariant() : "door";
+                    l.doors.Add(new object[] { Convert.ToInt32(t[0], CultureInfo.InvariantCulture), Convert.ToInt32(t[1], CultureInfo.InvariantCulture), dir,
+                        kind == "arch", e.ContainsKey("name") ? Convert.ToString(e["name"]).ToLowerInvariant() : "" });
+                }
             int[] b;
             try { b = LayoutMap.Bounds(l.plan.W, l.plan.D, l.rot); }
             catch (ArgumentException e) { throw new McpException(e.Message); }
@@ -149,6 +167,13 @@ namespace Ts3Agent
             int cost = 0;
             foreach (LayoutItem it in l.plan.Items)
             {
+                // name "" + class: the whole catalog may be created one by one before the class matches, longer than a reply
+                // may wait (doorseat-force 2026-11-27): resolved in the async run instead, its cost not checked up front
+                if (!l.prods.ContainsKey(it.Ch) && names[it.Ch].Length == 0 && classes.ContainsKey(it.Ch))
+                {
+                    if (!l.lazy.ContainsKey(it.Ch)) l.lazy[it.Ch] = new string[] { prefer.ContainsKey(it.Ch) ? prefer[it.Ch] : null, classes[it.Ch] };
+                    continue;
+                }
                 if (!l.prods.ContainsKey(it.Ch))
                     l.prods[it.Ch] = LayProduct(names[it.Ch], it.Ch == 's' && (!IsLegend(legend, 's') || names[it.Ch] == "stove") ? typeof(Stove) : it.Ch == 'b' && names[it.Ch] == "trash" ? typeof(Trashcan) : typeof(GameObject), prefer.ContainsKey(it.Ch) ? prefer[it.Ch] : null, classes.ContainsKey(it.Ch) ? classes[it.Ch] : null);
                 cost += (int)l.prods[it.Ch].Price;
@@ -218,7 +243,9 @@ namespace Ts3Agent
                 {
                     string n = (p.CatalogName ?? "").ToLowerInvariant();
                     if (n.IndexOf(name) < 0 || (pass == 0 && n.IndexOf(prefer) < 0)) continue;
-                    GameObject g = GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as GameObject;
+                    GameObject g = null;
+                    try { g = GlobalFunctions.CreateObjectOutOfWorld(p.ProductResourceKey) as GameObject; }
+                    catch (Exception) { continue; }  // a catalog entry without a script ("unable to get proxy", doorseat-force 2026-11-27)
                     if (g == null) continue;
                     bool ok = want.IsInstanceOfType(g) && (cls == null || IsOfTypeName(g.GetType(), cls));
                     g.Destroy();
@@ -472,6 +499,68 @@ namespace Ts3Agent
             return null;
         }
 
+        // doors: [{tile: [x, z] (game tile of the map), side: N|E|S|W (its edge with the wall), kind?: door|arch, name?: catalog
+        // name part}] on map walls (doorslot repro, docs/686 §39): the door tool on that edge, clicked on both faces of the wall
+        // at two heights, as LayDoorTry. Rotation 0. A miss is r["doors_missing"] (an error after the rest ran).
+        static void LayDoors(Lay l, Dictionary<string, object> r)
+        {
+            LayPhase(r, "doors");
+            uint view = LotManager.GetWallsViewMode();
+            LotManager.SetWallsViewMode(300u);
+            Ticks(15);
+            Rect area = UIManager.GetMainWindow().Area;
+            List<object> got = new List<object>(), miss = new List<object>();
+            r["doors_extra"] = got;
+            foreach (object[] d in l.doors)
+            {
+                bool arch = (bool)d[3];
+                string want = (string)d[4];
+                uint cat = arch ? (uint)BuildBuyProduct.eBuildCategory.kBuildCategoryArch : (uint)BuildBuyProduct.eBuildCategory.kBuildCategoryDoor;
+                BuildBuyProduct prod = null;
+                foreach (BuildBuyProduct p in NamedProducts(UserToolUtils.BuildBuyProductType.Object, "", true))
+                {
+                    if ((p.BuildCategoryFlags & cat) == 0) continue;
+                    if (prod == null) prod = p;
+                    if (want.Length > 0 && (p.CatalogName ?? "").ToLowerInvariant().IndexOf(want) >= 0) { prod = p; break; }
+                }
+                int[] t = LayTile(l, (int)d[0], (int)d[1]), dv = LayoutMap.DirOnLot((int)d[2], l.rot);
+                string tag = (arch ? "arch" : "door") + " tile " + d[0] + "," + d[1] + " side " + "NESW"[(int)d[2]];
+                if (prod == null) { miss.Add(tag + ": no product"); continue; }
+                double cx = t[0] + 0.5 + 0.5 * dv[0], cz = t[1] + 0.5 + 0.5 * dv[1];
+                GameObject placed = null;
+                List<string> tries = new List<string>();
+                foreach (double off in new double[] { -0.05, 0.05 })
+                {
+                    foreach (float up in new float[] { 1.3f, 0.4f })
+                    {
+                        Vector3 p = LayAt(l, cx + off * dv[0], cz + off * dv[1]);
+                        p.y += up;
+                        double[] px = LayPx(p);
+                        if (px[0] < 4 || px[1] < 4 || px[0] > area.Width - 4 || px[1] > area.Height - 4) { tries.Add("off screen"); continue; }
+                        List<ulong> before = LayIds(l);
+                        Tool(4u, prod.ProductResourceKey, -1);
+                        Ticks(l.dwell);
+                        LayHover(px);
+                        Click(px, l.dwell);
+                        Tool(4u, new ResourceKey(0uL, 0u, 0u), -1);
+                        Ticks(l.dwell);
+                        placed = LayNew(l, before);
+                        tries.Add(placed != null ? "placed" : "missed");
+                        if (placed != null) break;
+                    }
+                    if (placed != null) break;
+                }
+                SwLine("stove-wall: layout " + tag + " (" + prod.CatalogName + "): " + string.Join(" ", tries.ToArray()));
+                if (placed == null) { miss.Add(tag + " (" + prod.CatalogName + "): " + string.Join(" ", tries.ToArray())); continue; }
+                Dictionary<string, object> o = Placed(placed);
+                o["spec"] = tag;
+                got.Add(o);
+            }
+            LotManager.SetWallsViewMode(view);
+            Ticks(10);
+            if (miss.Count > 0) r["doors_missing"] = string.Join("; ", miss.ConvertAll<string>(delegate(object x) { return x.ToString(); }).ToArray());
+        }
+
         static void LayDoor(Lay l, ResourceKey wall, Dictionary<string, object> r)
         {
             LayPhase(r, "door");
@@ -569,7 +658,10 @@ namespace Ts3Agent
             List<object> objs = new List<object>(), miss = new List<object>();
             r["objects"] = objs;
             r["objects_missing"] = miss;
-            foreach (LayoutItem it in l.plan.Items)
+            List<LayoutItem> order = new List<LayoutItem>();
+            foreach (LayoutItem it in l.plan.Items) if (l.first.ContainsKey(it.Ch)) order.Add(it);
+            foreach (LayoutItem it in l.plan.Items) if (!l.first.ContainsKey(it.Ch)) order.Add(it);
+            foreach (LayoutItem it in order)
             {
                 int[] tile = LayTile(l, it.X, it.Z), d = LayoutMap.DirOnLot(it.Dir, l.rot);
                 Vector3 fwd = Plus(Plus(Vector3.Zero, l.ex, d[0]), l.ez, d[1]);
@@ -684,6 +776,11 @@ namespace Ts3Agent
 
         static void LayRun(Lay l, Dictionary<string, object> r)
         {
+            if (l.lazy.Count > 0)
+            {
+                LayPhase(r, "products");
+                foreach (KeyValuePair<char, string[]> kv in l.lazy) l.prods[kv.Key] = LayProduct("", typeof(GameObject), kv.Value[0], kv.Value[1]);
+            }
             if (l.clear) { LayPhase(r, "clear"); LayClear(l, r); }
             LayPhase(r, "camera");
             double size = Math.Max(l.hx1 - l.hx0, l.hz1 - l.hz0);
@@ -731,6 +828,7 @@ namespace Ts3Agent
             r["funds_after_walls"] = Household.ActiveHousehold.FamilyFunds;
 
             if (l.house) LayDoor(l, wall.ProductResourceKey, r);
+            if (l.doors.Count > 0) LayDoors(l, r);
             if (l.roof) LayRoof(l, r);
             Tool(4u, new ResourceKey(0uL, 0u, 0u), -1);
 
@@ -761,6 +859,7 @@ namespace Ts3Agent
             LaySim(l, r);
             LaySlots(l, r);
             if (r.ContainsKey("door_missing")) throw new McpException("door tool placed nothing in " + ((List<object>)r["door_tries"]).Count + " tries (" + r["door_missing"] + "), wall gap " + r["wall_gap"] + "; the rest ran");
+            if (r.ContainsKey("doors_missing")) throw new McpException("doors: " + r["doors_missing"] + "; the rest ran");
             if (r.ContainsKey("roof_missing")) throw new McpException("roof: " + r["roof_missing"] + "; the rest ran");
             LayPhase(r, "done");
         }
