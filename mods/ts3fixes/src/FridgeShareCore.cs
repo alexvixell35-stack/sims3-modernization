@@ -17,13 +17,15 @@ namespace Ts3Fixes
     //   3. Line head away: a head that walks over (its fridge action runs, it is routing) and is still farther than
     //      kAtFridgeM from the slot after the shared grace (clipwait's kClipGraceMinutes) gives the turn to the Sim next in line
     //      when that Sim already stands at the fridge (within kThereM, not walking). The head keeps the place behind it. A head
-    //      the player ordered keeps its turn (the player's order wins); a head gives way once per turn.
+    //      the player ordered keeps its turn (the player's order wins); a head gives way once per turn. A clean-out of bad
+    //      food (a long use) at the head gives way the same way, and one waiting in the line lets a quick grab behind it go
+    //      first (ordering only: EA's autonomy picks are untouched).
     public static class FridgeShareCore
     {
         public const int kNone = 0, kWould = 1, kExempt = 2, kCapped = 3, kAtOnce = 4, kBeside = 5, kGo = 6, kKept = 7;
         public const int kReady = 10, kStepIn = 11, kWait = 12;
         public const int kMaxUsers = 2;
-        public const float kAtFridgeM = 1.5f, kThereM = 3.5f, kSideM = 0.75f, kSlotClearM = 0.5f, kSideArriveM = 0.4f;
+        public const float kAtFridgeM = 1.5f, kThereM = 3.5f, kSideM = 0.85f, kSlotClearM = 0.5f, kSideArriveM = 0.4f;
 
         // Rule 1: may this Sim use the fridge next to the others? shortOthers / longOthers: other Sims using it (and Sims
         // let in that have not begun yet) by kind of use.
@@ -62,6 +64,15 @@ namespace Ts3Fixes
             if (headGaveWay) return kNone;
             if (headDistM <= waiterDistM) return kNone;  // the head is not farther than the waiter: nothing to gain
             if (headPlayerOrder) return kKept;
+            if (!inScope) return kExempt;
+            return on ? kGo : kWould;
+        }
+
+        // Rule 3 for a clean-out waiting in the line: a short use right behind it goes first (once per pair).
+        public static int CleanOrder(bool on, bool inScope, bool cleanerPlayerOrder, bool waiterShort, bool waiterPlayerOrder)
+        {
+            if (!waiterShort) return kNone;
+            if (cleanerPlayerOrder && !waiterPlayerOrder) return kKept;
             if (!inScope) return kExempt;
             return on ? kGo : kWould;
         }

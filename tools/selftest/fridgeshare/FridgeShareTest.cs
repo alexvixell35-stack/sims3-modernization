@@ -53,6 +53,14 @@ namespace Ts3Fixes
             Check("yield player order kept", FridgeShareCore.Yield(true, true, true, true, false, 6f, 3f, true, 2f, false, g) == FridgeShareCore.kKept);
             Check("yield exempt", FridgeShareCore.Yield(true, false, true, false, false, 6f, 3f, true, 2f, false, g) == FridgeShareCore.kExempt);
 
+            // clean-out ordering
+            Check("clean order go", FridgeShareCore.CleanOrder(true, true, false, true, false) == FridgeShareCore.kGo);
+            Check("clean order would", FridgeShareCore.CleanOrder(false, true, false, true, false) == FridgeShareCore.kWould);
+            Check("clean order long waiter", FridgeShareCore.CleanOrder(true, true, false, false, false) == FridgeShareCore.kNone);
+            Check("clean order player cleaner kept", FridgeShareCore.CleanOrder(true, true, true, true, false) == FridgeShareCore.kKept);
+            Check("clean order player both", FridgeShareCore.CleanOrder(true, true, true, true, true) == FridgeShareCore.kGo);
+            Check("clean order exempt", FridgeShareCore.CleanOrder(true, false, false, true, false) == FridgeShareCore.kExempt);
+
             // spots and room
             Check("side right", FridgeShareCore.FirstSide(1f, 2f) == 1);
             Check("side left", FridgeShareCore.FirstSide(2f, 1f) == -1);
