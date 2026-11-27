@@ -72,7 +72,7 @@ namespace Ts3Fixes
                     if (sim.SimDescription.ToddlerOrBelow) return true;
                     if ((++sFbPoll & 255) == 1) sFbLive = ShortcutOn("familybath") || ShortcutOn("familybathhh") || ShortcutOn("familybathlog");
                     if (!sFbLive) return false;
-                    return FbAsk((GenericPrivacySituation)(object)this, sim, null);
+                    return FbAsk((GenericPrivacySituation)(object)this, sim, null, false);
                 }
                 catch (ResetException) { throw; }
                 catch (Exception e) { FbError(e); }
@@ -112,7 +112,9 @@ namespace Ts3Fixes
         static bool FbModest(Sim s) { return s.HasTrait(TraitNames.NeverNude) || s.HasTrait(TraitNames.Shy); }
 
         // The rule for sim entering user's room (situation g) for `target` (null: read from its queue). True = let in.
-        static bool FbAsk(GenericPrivacySituation g, Sim sim, GameObject target)
+        // A given target is a planner's question: answered without a pass, unless `commit` (the planner sends the Sim now:
+        // the pass covers the game's own tests until the action is in the Sim's queue).
+        static bool FbAsk(GenericPrivacySituation g, Sim sim, GameObject target, bool commit)
         {
             Sim user = g.SyncTarget;
             if (user == null || user == sim || user.HasBeenDestroyed) return false;
@@ -133,9 +135,10 @@ namespace Ts3Fixes
             int scope = HhSharedCore.Scope(true, true, IsPlayerSim(sim) || IsPlayerSim(user), ShortcutOn("familybath"), ShortcutOn("familybathhh"));
             // the door scan and the traits are asked again at most once a sim-minute per pair (route planning asks often)
             bool fresh = had && !probe && now - p.Asked < HhTicks(1f);
+            if (probe) had = false;  // a committed planner answer is counted as a new pass
             int d = fresh ? p.Verdict : FamilyBathCore.Decide(kind, FbTargetKind(target), target.IsActorUsingMe(user),
                 family && human && HhDoorLockedAgainst(sim, user.LotCurrent, user.RoomId), family, human, human && (FbModest(sim) || FbModest(user)), scope);
-            if (probe) return d == FamilyBathCore.kGrant;  // FbOpenFor: an answer only, no pass
+            if (probe && !(commit && d == FamilyBathCore.kGrant)) return d == FamilyBathCore.kGrant;  // a planner's estimate: an answer only, no pass
             if (!fresh) p.Asked = now;
             if (!had || p.Verdict != d)
             {
@@ -156,7 +159,8 @@ namespace Ts3Fixes
 
         // For the planners (bathroomwait, facilityplan): would `sim` be let into `target`'s room now although a privacy
         // situation holds it? True only when every privacy situation of that room is one familybath opens for this Sim.
-        static bool FbOpenFor(Sim sim, GameObject target)
+        // commit: the planner sends the Sim there now (bathroomwait's push); false for an estimate (facilityplan's busy time).
+        static bool FbOpenFor(Sim sim, GameObject target, bool commit)
         {
             try
             {
@@ -170,7 +174,7 @@ namespace Ts3Fixes
                     {
                         GenericPrivacySituation g = s as GenericPrivacySituation;
                         if (g == null || g.SyncTarget != o) continue;
-                        if (!FbAsk(g, sim, target)) return false;
+                        if (!FbAsk(g, sim, target, commit)) return false;
                         any = true;
                     }
                 }

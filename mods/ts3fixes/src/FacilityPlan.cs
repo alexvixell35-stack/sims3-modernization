@@ -188,7 +188,7 @@ namespace Ts3Fixes
             Lot lot = o.LotCurrent;
             // a room another Sim holds with privacy (a toilet, shower or bath use; a sink use starts none): its door stays
             // locked for forSim until that use ends, so a free sink or toilet in there is not free for it
-            if (lot != null && !lot.IsWorldLot && sFpUses.Count > 0 && lot.RoomLockedByPrivacy(forSim, o.RoomId))
+            if (lot != null && !lot.IsWorldLot && sFpUses.Count > 0 && lot.RoomLockedByPrivacy(forSim, o.RoomId) && !FbOpenFor(forSim, o, false))  // familybath (docs/686 §44): open for a household member that comes for another fixture
                 foreach (FpUse pu in sFpUses.Values)
                     if (pu.Obj != o && pu.Obj.RoomId == o.RoomId && pu.Obj.LotCurrent == lot && pu.Kind != FacilityPlanCore.kSink && pu.User != forSim)
                         b = Math.Max(b, FpRemaining(pu));
